@@ -3,3 +3,5 @@ share
 lib
 lib64
 pyvenv.cfg
+
+.idea
