@@ -2,6 +2,8 @@
 from __future__ import print_function
 import pickle
 import os.path
+import base64
+import email
 from apiclient import errors
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -45,6 +47,7 @@ def main():
         response = service.users().messages().list(userId=user_id, q=query).execute()
         # Get Messages (labels):
         #response = service.users().messages().list(userId=user_id, labelIds=label_ids).execute()
+        # Some known labelIds = ['UNREAD', 'IMPORTANT', 'CATEGORY_UPDATES', 'INBOX']
         if not response:
             print('No messages found!')
         else:
@@ -56,8 +59,19 @@ def main():
                 print("ResultSizeEstimate: " + str(response['resultSizeEstimate']))
 
                 for msg in response['messages']:
-                    message = service.users().messages().get(userId=user_id, id=msg['id']).execute()
+                    # Note: must use format='raw' to get body; using 'full' does not populate payload.body as in the spec
+                    message = service.users().messages().get(userId=user_id, id=msg['id'], format='raw').execute()
                     print('Message snippet: %s' % message['snippet'])
+                    msg_bytes = base64.urlsafe_b64decode(message['raw'].encode('ASCII'))
+                    mime_msg = email.message_from_string(msg_bytes.decode('ASCII'))
+                #    payload = message['payload']
+                #    body = payload['body']
+
+                    print(" XXX BEGIN MIME MSG XXX")
+                    print(mime_msg)
+                #    for field in message:
+                #        print(f'{field} = {message[field]}')
+                    print(" XXX END MIME MSG XXX")
 
             while 'nextPageToken' in response:
                 print('Getting next token')
