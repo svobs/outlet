@@ -2,6 +2,7 @@
 from __future__ import print_function
 import pickle
 import os.path
+from apiclient import errors
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -35,6 +36,41 @@ def main():
     service = build('gmail', 'v1', credentials=creds)
     ####
 
+    try:
+        user_id = 'me'
+        query='from:USAA.Customer.Service@mailcenter.usaa.com (Subscribed Alert)'
+        label_ids=[]
+
+        # Get Messages (query):
+        response = service.users().messages().list(userId=user_id, q=query).execute()
+        # Get Messages (labels):
+        #response = service.users().messages().list(userId=user_id, labelIds=label_ids).execute()
+        if not response:
+            print('No messages found!')
+        else:
+            messages = []
+
+            # Note: returned list contains Message IDs, you must use get with the appropriate id to get the details of a Message.
+            if 'messages' in response:
+                messages.extend(response['messages'])
+                print("ResultSizeEstimate: " + str(response['resultSizeEstimate']))
+
+                for msg in response['messages']:
+                    message = service.users().messages().get(userId=user_id, id=msg['id']).execute()
+                    print('Message snippet: %s' % message['snippet'])
+
+            while 'nextPageToken' in response:
+                print('Getting next token')
+                page_token = response['nextPageToken']
+                response = service.users().messages().list(userId=user_id, q=query, pageToken=page_token).execute()
+
+                messages.extend(response['messages'])
+                print("ResultSizeEstimate:: " + str(response['resultSizeEstimate']))
+
+    except errors.HttpError as error:
+        print('An error occurred: %s', error)
+
+"""
     # Get Profile
     response = service.users().getProfile(userId='me').execute()
     if not response:
@@ -43,7 +79,7 @@ def main():
         print('Profile:')
         for field in response:
             print(f'{field} = {response[field]}')
-
+"""
 
 """
 
