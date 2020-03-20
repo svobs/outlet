@@ -6,7 +6,7 @@ python3 -m venv matt-project
 source matt-project/bin/activate
 
 # Save required packages
-pip freeze > pip-dependencies.txt
+pip freeze > requirements.txt
 
 # Install required packages:
-pip install -r pip-dependencies.txt
+pip install -r requirements.txt

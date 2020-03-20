@@ -13,10 +13,22 @@ from google.auth.transport.requests import Request
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
-def main():
-    """Shows basic usage of the Gmail API.
-    Lists the user's Gmail labels.
-    """
+def process_msg(user_id, msg_id, service):
+    # Note: must use format='raw' to get body; using 'full' does not populate payload.body as in the spec
+    message = service.users().messages().get(userId=user_id, id=msg_id, format='raw').execute()
+    print('Message snippet: %s' % message['snippet'].encode('ASCII'))
+    payload = message['raw']
+    msg_str = base64.urlsafe_b64decode(message['raw'].encode('ASCII'))
+    mime_msg = email.message_from_string(msg_str.decode('ASCII'))
+
+    for part in mime_msg.walk():
+        if part.get_content_type() == 'text/plain':
+            print(" ------ START ------")
+            body_str = part.get_payload(decode=True)
+            print(body_str)
+            print(" ------ END ------")
+
+def load_gmail_service():
     creds = None
     # The file token.pickle stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -37,51 +49,41 @@ def main():
             pickle.dump(creds, token)
 
     service = build('gmail', 'v1', credentials=creds)
+    return service
+
+def main():
+
+    service = load_gmail_service()
     ####
 
     try:
         user_id = 'me'
         query='from:USAA.Customer.Service@mailcenter.usaa.com (Subscribed Alert)'
-        label_ids=[]
-
-        # Get Messages (query):
-        response = service.users().messages().list(userId=user_id, q=query).execute()
-        # Get Messages (labels):
-        #response = service.users().messages().list(userId=user_id, labelIds=label_ids).execute()
         # Some known labelIds = ['UNREAD', 'IMPORTANT', 'CATEGORY_UPDATES', 'INBOX']
-        if not response:
-            print('No messages found!')
-        else:
-            messages = []
+        label_ids=['UNREAD']
+        iteration_count = 0
+        page_token = None
+        while True:
+            # Get Messages (query):
+            # Note: returned list contains Message IDs, you must use 'get' with the appropriate id to get the details of a Message.
+            response = service.users().messages().list(pageToken=page_token, userId=user_id, q=query, labelIds=label_ids).execute()
+            if not response or 'messages' not in response:
+                print('No messages found!')
+            else:
+                messages = []
 
-            # Note: returned list contains Message IDs, you must use get with the appropriate id to get the details of a Message.
-            if 'messages' in response:
-                messages.extend(response['messages'])
-                print("ResultSizeEstimate: " + str(response['resultSizeEstimate']))
+            print("ResultSizeEstimate: " + str(response['resultSizeEstimate']))
 
-                for msg in response['messages']:
-                    # Note: must use format='raw' to get body; using 'full' does not populate payload.body as in the spec
-                    message = service.users().messages().get(userId=user_id, id=msg['id'], format='raw').execute()
-                    print('Message snippet: %s' % message['snippet'].encode('ASCII'))
-                    payload = message['raw']
-                #    body = payload['body']
-                    msg_str = base64.urlsafe_b64decode(message['raw'].encode('ASCII'))
-                    mime_msg = email.message_from_string(msg_str.decode('ASCII'))
+            for msg in response['messages']:
+                process_msg(user_id, msg['id'], service)
+                iteration_count = iteration_count + 1
 
-                    for part in mime_msg.walk():
-                        if part.get_content_type() == 'text/plain':
-                            print(" ------ START ------")
-                            body_str = part.get_payload(decode=True)
-                            print(body_str)
-                            print(" ------ END ------")
-
-            while 'nextPageToken' in response:
-                print('Getting next token')
+            if 'nextPageToken' in response:
                 page_token = response['nextPageToken']
-                response = service.users().messages().list(userId=user_id, q=query, pageToken=page_token).execute()
+            else:
+                break
 
-                messages.extend(response['messages'])
-                print("ResultSizeEstimate:: " + str(response['resultSizeEstimate']))
+        print("Total messages: " + str(iteration_count))
 
     except errors.HttpError as error:
         print('An error occurred: %s', error)
