@@ -4,6 +4,7 @@ import pickle
 import os.path
 import base64
 import email
+import mimetypes
 from apiclient import errors
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -61,17 +62,18 @@ def main():
                 for msg in response['messages']:
                     # Note: must use format='raw' to get body; using 'full' does not populate payload.body as in the spec
                     message = service.users().messages().get(userId=user_id, id=msg['id'], format='raw').execute()
-                    print('Message snippet: %s' % message['snippet'])
-                    msg_bytes = base64.urlsafe_b64decode(message['raw'].encode('ASCII'))
-                    mime_msg = email.message_from_string(msg_bytes.decode('ASCII'))
-                #    payload = message['payload']
+                    print('Message snippet: %s' % message['snippet'].encode('ASCII'))
+                    payload = message['raw']
                 #    body = payload['body']
+                    msg_str = base64.urlsafe_b64decode(message['raw'].encode('ASCII'))
+                    mime_msg = email.message_from_string(msg_str.decode('ASCII'))
 
-                    print(" XXX BEGIN MIME MSG XXX")
-                    print(mime_msg)
-                #    for field in message:
-                #        print(f'{field} = {message[field]}')
-                    print(" XXX END MIME MSG XXX")
+                    for part in mime_msg.walk():
+                        if part.get_content_type() == 'text/plain':
+                            print(" ------ START ------")
+                            body_str = part.get_payload(decode=True)
+                            print(body_str)
+                            print(" ------ END ------")
 
             while 'nextPageToken' in response:
                 print('Getting next token')
