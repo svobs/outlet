@@ -13,7 +13,8 @@ from google.auth.transport.requests import Request
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
-def process_msg(user_id, msg_id, service):
+
+def process_single_msg(user_id, msg_id, service):
     # Note: must use format='raw' to get body; using 'full' does not populate payload.body as in the spec
     message = service.users().messages().get(userId=user_id, id=msg_id, format='raw').execute()
     print('Message snippet: %s' % message['snippet'].encode('ASCII'))
@@ -28,8 +29,10 @@ def process_msg(user_id, msg_id, service):
             print(body_str)
             print(" ------ END ------")
 
+
 def load_gmail_service():
     token_file_path = 'token.pickle'
+    credentials_file_path = 'credentials.json'
     creds = None
     # The file token.pickle stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -43,7 +46,7 @@ def load_gmail_service():
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
+                credentials_file_path, SCOPES)
             creds = flow.run_local_server(port=0)
         # Save the credentials for the next run
         with open(token_file_path, 'wb') as token:
@@ -51,6 +54,7 @@ def load_gmail_service():
 
     service = build('gmail', 'v1', credentials=creds)
     return service
+
 
 def main():
 
@@ -76,7 +80,7 @@ def main():
             print("ResultSizeEstimate: " + str(response['resultSizeEstimate']))
 
             for msg in response['messages']:
-                process_msg(user_id, msg['id'], service)
+                process_single_msg(user_id, msg['id'], service)
                 processed_msg_count = processed_msg_count + 1
 
             if 'nextPageToken' in response:
