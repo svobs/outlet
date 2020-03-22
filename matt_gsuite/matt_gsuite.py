@@ -4,6 +4,7 @@ import pickle
 import os.path
 import base64
 import email
+import re
 import mimetypes
 from apiclient import errors
 from googleapiclient.discovery import build
@@ -17,7 +18,7 @@ SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 def process_single_msg(user_id, msg_id, service):
     # Note: must use format='raw' to get body; using 'full' does not populate payload.body as in the spec
     message = service.users().messages().get(userId=user_id, id=msg_id, format='raw').execute()
-    print('Message snippet: %s' % message['snippet'].encode('ASCII'))
+    #print('Message snippet: %s' % message['snippet'].encode('ASCII'))
     payload = message['raw']
     msg_str = base64.urlsafe_b64decode(message['raw'].encode('ASCII'))
     mime_msg = email.message_from_string(msg_str.decode('ASCII'))
@@ -25,8 +26,23 @@ def process_single_msg(user_id, msg_id, service):
     for part in mime_msg.walk():
         if part.get_content_type() == 'text/plain':
             print(" ------ START ------")
-            body_str = part.get_payload(decode=True)
-            print(body_str)
+            body = part.get_payload(decode=True)
+            # Convert newlines and tabs
+            body_str = str(body).replace(r'\n', '\n').replace(r'\t', '\t')
+            #print(body_str)
+            #print("---")
+
+            # TODO: externalize account #s
+            account_p = re.compile(r'Account ending in:\s*5101', re.MULTILINE | re.DOTALL)
+            m1 = account_p.search(body_str)
+            if m1:
+                print(m1.group(0))
+                balance_p = re.compile(r'Available balance:\s*\$[\d,.]*', re.MULTILINE | re.DOTALL)
+                m2 = balance_p.search(body_str)
+                if m2:
+                    print(m2.group(0))
+            else:
+                print('No match')
             print(" ------ END ------")
 
 
