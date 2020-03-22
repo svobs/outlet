@@ -6,6 +6,7 @@ import base64
 import email
 import re
 import mimetypes
+from datetime import datetime
 from apiclient import errors
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -14,37 +15,73 @@ from google.auth.transport.requests import Request
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
-
-def process_single_msg(user_id, msg_id, service):
-    # Note: must use format='raw' to get body; using 'full' does not populate payload.body as in the spec
-    message = service.users().messages().get(userId=user_id, id=msg_id, format='raw').execute()
-    #print('Message snippet: %s' % message['snippet'].encode('ASCII'))
-    payload = message['raw']
-    msg_str = base64.urlsafe_b64decode(message['raw'].encode('ASCII'))
-    mime_msg = email.message_from_string(msg_str.decode('ASCII'))
-
+def find_in_email_msg(mime_msg, regex_a, regex_b):
     for part in mime_msg.walk():
         if part.get_content_type() == 'text/plain':
-            print(" ------ START ------")
+            #print(" ------ START ------")
             body = part.get_payload(decode=True)
             # Convert newlines and tabs
             body_str = str(body).replace(r'\n', '\n').replace(r'\t', '\t')
             #print(body_str)
             #print("---")
 
-            # TODO: externalize account #s
-            account_p = re.compile(r'Account ending in:\s*5101', re.MULTILINE | re.DOTALL)
+            account_p = re.compile(regex_a, re.MULTILINE | re.DOTALL)
             m1 = account_p.search(body_str)
             if m1:
-                print(m1.group(0))
-                balance_p = re.compile(r'Available balance:\s*\$[\d,.]*', re.MULTILINE | re.DOTALL)
+                group_a = m1.group(1)
+                #print(group_a)
+                balance_p = re.compile(regex_b, re.MULTILINE | re.DOTALL)
                 m2 = balance_p.search(body_str)
                 if m2:
-                    print(m2.group(0))
-            else:
-                print('No match')
-            print(" ------ END ------")
+                    group_b = m2.group(1)
+                    #print(group_b)
+                    return group_a, group_b
+            #else:
+            #print('No match')
+            #print(" ------ END ------")
+    return None, None
 
+
+def process_usaa_checking_balance(mime_msg, msg_timestamp):
+    regex_a = r'Account ending in:\s*(5101)'
+    regex_b = r'Available balance:\s*(\$[\d,.]*)'
+    result_a, result_b = find_in_email_msg(mime_msg, regex_a, regex_b)
+    if result_a is not None:
+        print(str(msg_timestamp) + " USAA Checking: " + result_b)
+        return True
+    return False
+
+
+def process_usaa_cc_balance(mime_msg, msg_timestamp):
+    regex_a = r'Account ending in:\s*(8104)'
+    regex_b = r'Balance:\s*(\$[\d,.]*)'
+    result_a, result_b = find_in_email_msg(mime_msg, regex_a, regex_b)
+    if result_a is not None:
+        print(str(msg_timestamp) + " USAA Credit Card: " + result_b)
+        return True
+    return False
+
+
+def process_single_msg(user_id, msg_id, service):
+    # Note: must use format='raw' to get body; using 'full' does not populate payload.body as in the spec
+    message = service.users().messages().get(userId=user_id, id=msg_id, format='raw').execute()
+    #print('Message snippet: %s' % message['snippet'].encode('ASCII'))
+    msg_unix_timestamp_secs = int(message['internalDate']) / 1000
+    msg_timestamp = datetime.fromtimestamp(msg_unix_timestamp_secs)
+
+    msg_str = base64.urlsafe_b64decode(message['raw'].encode('ASCII'))
+    mime_msg = email.message_from_string(msg_str.decode('ASCII'))
+
+    # USAA Checking
+    if process_usaa_checking_balance(mime_msg, msg_timestamp):
+        return True
+
+    # USAA Credit card
+    if process_usaa_cc_balance(mime_msg, msg_timestamp):
+        return True
+
+    # No matches!
+    return False
 
 def load_gmail_service():
     token_file_path = 'token.pickle'
@@ -90,6 +127,7 @@ def main():
             response = service.users().messages().list(pageToken=page_token, userId=user_id, q=query, labelIds=label_ids).execute()
             if not response or 'messages' not in response:
                 print('No messages found!')
+                break
             else:
                 messages = []
 
