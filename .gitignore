@@ -4,5 +4,7 @@ lib
 lib64
 pyvenv.cfg
 token.pickle
+*.db
+__pycache__
 
 .idea

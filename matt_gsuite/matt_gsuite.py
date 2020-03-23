@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 from __future__ import print_function
+from matt_database import MattDatabase
 import pickle
 import os.path
 import base64
@@ -42,42 +43,49 @@ def find_in_email_msg(mime_msg, regex_a, regex_b):
     return None, None
 
 
-def process_usaa_checking_balance(mime_msg, msg_timestamp):
+def process_usaa_checking_balance(mime_msg, msg_unix_timestamp_secs, db):
     regex_a = r'Account ending in:\s*(5101)'
-    regex_b = r'Available balance:\s*(\$[\d,.]*)'
+    regex_b = r'Available balance:\s*\$([\d,.]*)'
     result_a, result_b = find_in_email_msg(mime_msg, regex_a, regex_b)
     if result_a is not None:
-        print(str(msg_timestamp) + " USAA Checking: " + result_b)
+        msg_timestamp = datetime.fromtimestamp(msg_unix_timestamp_secs)
+        print(str(msg_timestamp) + " USAA Checking: $" + result_b)
+        db.insert_balance(msg_unix_timestamp_secs, result_a, result_b.replace(r',', ''))
+        print("Latest balance: " + str(db.get_latest_balance(result_a)))
+        print('')
         return True
     return False
 
 
-def process_usaa_cc_balance(mime_msg, msg_timestamp):
+def process_usaa_cc_balance(mime_msg, msg_unix_timestamp_secs, db):
     regex_a = r'Account ending in:\s*(8104)'
-    regex_b = r'Balance:\s*(\$[\d,.]*)'
+    regex_b = r'Balance:\s*\$([\d,.]*)'
     result_a, result_b = find_in_email_msg(mime_msg, regex_a, regex_b)
     if result_a is not None:
-        print(str(msg_timestamp) + " USAA Credit Card: " + result_b)
+        msg_timestamp = datetime.fromtimestamp(msg_unix_timestamp_secs)
+        print(str(msg_timestamp) + " USAA Credit Card: $" + result_b)
+        db.insert_balance(msg_unix_timestamp_secs, result_a, result_b.replace(r',', ''))
+        print("Latest balance: " + str(db.get_latest_balance(result_a)))
+        print('')
         return True
     return False
 
 
-def process_single_msg(user_id, msg_id, service):
+def process_single_msg(user_id, msg_id, service, db):
     # Note: must use format='raw' to get body; using 'full' does not populate payload.body as in the spec
     message = service.users().messages().get(userId=user_id, id=msg_id, format='raw').execute()
     #print('Message snippet: %s' % message['snippet'].encode('ASCII'))
     msg_unix_timestamp_secs = int(message['internalDate']) / 1000
-    msg_timestamp = datetime.fromtimestamp(msg_unix_timestamp_secs)
 
     msg_str = base64.urlsafe_b64decode(message['raw'].encode('ASCII'))
     mime_msg = email.message_from_string(msg_str.decode('ASCII'))
 
     # USAA Checking
-    if process_usaa_checking_balance(mime_msg, msg_timestamp):
+    if process_usaa_checking_balance(mime_msg, msg_unix_timestamp_secs, db):
         return True
 
     # USAA Credit card
-    if process_usaa_cc_balance(mime_msg, msg_timestamp):
+    if process_usaa_cc_balance(mime_msg, msg_unix_timestamp_secs, db):
         return True
 
     # No matches!
@@ -110,9 +118,11 @@ def load_gmail_service():
 
 
 def main():
+    # Load database
+    db = MattDatabase('MattGSuite.db')
 
+    # Load GMail API
     service = load_gmail_service()
-    ####
 
     try:
         user_id = 'me'
@@ -134,7 +144,7 @@ def main():
             print("ResultSizeEstimate: " + str(response['resultSizeEstimate']))
 
             for msg in response['messages']:
-                process_single_msg(user_id, msg['id'], service)
+                process_single_msg(user_id, msg['id'], service, db)
                 processed_msg_count = processed_msg_count + 1
 
             if 'nextPageToken' in response:
