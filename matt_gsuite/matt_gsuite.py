@@ -88,8 +88,12 @@ def process_single_msg(user_id, msg_id, service, db):
     if process_usaa_cc_balance(mime_msg, msg_unix_timestamp_secs, db):
         return True
 
+    # Photos
+
+
     # No matches!
     return False
+
 
 def load_gmail_service():
     token_file_path = 'token.pickle'
