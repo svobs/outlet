@@ -4,7 +4,7 @@ import sqlite3
 class MattDatabase:
     def __init__(self, db_path):
         self.conn = sqlite3.connect(db_path)
-        if not self.is_table('balances'):
+        if not self.is_table('balance'):
             self.create_tables()
 
     def is_table(self, table_name):
@@ -23,21 +23,35 @@ class MattDatabase:
         self.conn.close()
 
     def create_tables(self):
-        self.conn.execute('''CREATE TABLE balances
-                     (ts INTEGER, account_id TEXT, balance REAL)''')
+        self.conn.execute('''CREATE TABLE balance(
+                    ts INTEGER,
+                    account_id TEXT,
+                    balance INTEGER
+                    )''')
 
-        self.conn.execute('''CREATE TABLE photos
-                     (md5 TEXT, sync_ts INTEGER, length INTEGER, file_path TEXT)''')
+        # deleted=1 if deleted
+        self.conn.execute('''CREATE TABLE file(
+                    sig TEXT,
+                    length INTEGER,
+                    sync_ts INTEGER,
+                    path TEXT,
+                    deleted INTEGER
+                    )''')
 
     def insert_balance(self, timestamp, account_id, balance):
         print("Inserting: " + str(timestamp) + ", " + account_id + ", " + balance)
         balances = [(timestamp, account_id, balance)]
-        self.conn.executemany('INSERT INTO balances (ts, account_id, balance) VALUES (?,?,?)', balances)
+        self.conn.executemany('INSERT INTO balance (ts, account_id, balance) VALUES (?,?,?)', balances)
 
         # Save (commit) the changes
         self.conn.commit()
 
     def get_latest_balance(self, account_id):
         cursor = self.conn.cursor()
-        cursor.execute("SELECT MAX(ts), account_id, balance FROM balances WHERE account_id = ?", (account_id,))
+        cursor.execute("SELECT MAX(ts), account_id, balance FROM balance WHERE account_id = ?", (account_id,))
         return cursor.fetchone()
+
+    def get_files_meta(self):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT sig, length, sync_ts, path, deleted FROM file")
+        return cursor.fetchall()

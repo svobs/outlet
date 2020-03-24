@@ -11,21 +11,17 @@ import fnmatch
 import re
 import os
 import shutil
+from file_meta import FilesMeta
+from file_meta import FileEntry
+from matt_database import MattDatabase
 from pathlib import Path
 import hashlib
-
-
-class FileEntry:
-    def __init__(self, md5, length, file_path):
-        self.md5 = md5
-        self.length = length
-        self.file_path = file_path
 
 
 if sys.version_info[0] < 3:
     raise Exception("Python 3 or a more recent version is required.")
 
-
+# TODO: switch to SHA-2
 # From: https://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file
 def md5(filename):
     hash_md5 = hashlib.md5()
@@ -44,8 +40,7 @@ def is_target_type(file_path, suffixes):
     return False
 
 
-by_md5 = {}
-by_path = {}
+local_files_meta = FilesMeta()
 
 # Algorithm:
 # 1. Iterate over directory tree and build metadata for ENTIRE tree: first do file paths, then loop around and do MD5s & file length
@@ -79,16 +74,16 @@ def strip_root(file_path, root_path):
 def build_meta_for_file(file_path, root_path):
 
     # Open,close, read file and calculate MD5 on its contents
-    md5_str = md5(file_path)
+    signature_str = md5(file_path)
     relative_path = strip_root(file_path, str(root_path))
 
-    line = md5_str + ' ' + relative_path
+    line = signature_str + ' ' + relative_path
     print(line)
 
     length = os.stat(file_path).st_size
-    entry = FileEntry(md5, length, relative_path)
-    by_md5[md5_str] = entry
-    by_path[relative_path] = entry
+    entry = FileEntry(signature_str, length, relative_path)
+    local_files_meta.sig_dict[signature_str] = entry
+    local_files_meta.path_dict[relative_path] = entry
 
 
 def handle_unexpected_file(file_path, root_path):
@@ -102,12 +97,15 @@ def main():
 
     # First, build meta structures:
     collect_files(path, build_meta_for_file, handle_unexpected_file)
-    print("By_MD5 count: " + str(len(by_md5)))
-    print("By_Path count: " + str(len(by_path)))
+    print("By_MD5 count: " + str(len(local_files_meta.md5_dict)))
+    print("By_Path count: " + str(len(local_files_meta.path_dict)))
 
     # Anything in the DB? If not, store in DB.
+    db = MattDatabase('MattGSuite.db')
+    db_files_meta = db.get_files_meta()
 
     # Else compare with what is in the DB
+
 
 # this means that if this script is executed, then main() will be executed
 if __name__ == '__main__':

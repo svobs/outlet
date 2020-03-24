@@ -16,6 +16,7 @@ from google.auth.transport.requests import Request
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
+
 def find_in_email_msg(mime_msg, regex_a, regex_b):
     for part in mime_msg.walk():
         if part.get_content_type() == 'text/plain':
