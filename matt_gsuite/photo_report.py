@@ -14,6 +14,7 @@ import shutil
 from pathlib import Path
 import hashlib
 
+
 class FileEntry:
     def __init__(self, md5, length, file_path):
         self.md5 = md5
@@ -53,49 +54,60 @@ by_path = {}
 # 3. Look up MD5 in DB. Look up filepath in DB
 # 3a. Found MD5 in different location? -> update entry with new path in DB,
 # 3b. Nothing found with that MD5? -> create new entry in DB, add to list of "new" items
-def collect_files(path):
-    pictures_db = open(r"/home/msvoboda/Downloads/pictures.db","w")
+def collect_files(root_path, target_file_handler_func, non_target_handler_func):
     suffixes = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp4', 'mpeg', 'mpg', 'm4v', 'avi', 'pdf']
     dest_dir = '/media/msvoboda/SS-USB-200G/GooglePhotos'
 
-    for root, dirs, files in os.walk(path, topdown=True):
+    for root, dirs, files in os.walk(root_path, topdown=True):
         for name in files:
-            filepath = os.path.join(root, name)
-            if is_target_type(filepath, suffixes):
-                # Open,close, read file and calculate MD5 on its contents
-                md5_str = md5(filepath)
-                # TODO: figure out directory_in_str
-                #filepath = re.sub('./', '', filepath, count=1)
-
-                line = md5_str + ' ' + filepath
-                print(line)
-                pictures_db.write(line + '\n')
-
-                length = os.stat(filepath).st_size
-                entry = FileEntry(md5, length, filepath)
-                by_md5[md5_str] = entry
-                by_path[filepath] = entry
-#                dest_path = os.path.join(dest_dir, name)
-#                shutil.copyfile(filepath, dest_path)
+            file_path = os.path.join(root, name)
+            if is_target_type(file_path, suffixes):
+                target_file_handler_func(file_path, root_path)
             else:
-                line = '### ' + filepath
-                print(line)
-                pictures_db.write(line + '\n')
+                non_target_handler_func(file_path, root_path)
 
         #for name in dirs:
             #print('DIR:' + os.path.join(root, name))
 
-    pictures_db.close()
+
+# Strip the root_path out of the file path:
+def strip_root(file_path, root_path):
+    root_path_with_slash = root_path if root_path.endswith('/') else root_path + '/'
+    return re.sub(root_path_with_slash, '', file_path, count=1)
+
+
+def build_meta_for_file(file_path, root_path):
+
+    # Open,close, read file and calculate MD5 on its contents
+    md5_str = md5(file_path)
+    relative_path = strip_root(file_path, str(root_path))
+
+    line = md5_str + ' ' + relative_path
+    print(line)
+
+    length = os.stat(file_path).st_size
+    entry = FileEntry(md5, length, relative_path)
+    by_md5[md5_str] = entry
+    by_path[relative_path] = entry
+
+
+def handle_unexpected_file(file_path, root_path):
+    line = '### UNEXPECTED FILE: ' + file_path
+    print(line)
 
 
 def main():
     directory_in_str = r"/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos"
     path = Path(directory_in_str)
 
-    collect_files(path)
+    # First, build meta structures:
+    collect_files(path, build_meta_for_file, handle_unexpected_file)
     print("By_MD5 count: " + str(len(by_md5)))
     print("By_Path count: " + str(len(by_path)))
 
+    # Anything in the DB? If not, store in DB.
+
+    # Else compare with what is in the DB
 
 # this means that if this script is executed, then main() will be executed
 if __name__ == '__main__':
