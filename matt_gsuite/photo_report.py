@@ -11,6 +11,8 @@ import fnmatch
 import re
 import os
 import shutil
+from datetime import datetime
+import time
 from file_meta import FilesMeta
 from file_meta import FileEntry
 from matt_database import MattDatabase
@@ -80,8 +82,13 @@ def build_meta_for_file(file_path, root_path):
     line = signature_str + ' ' + relative_path
     print(line)
 
+    # Get "now" in UNIX time:
+    date_time_now = datetime.now()
+    sync_ts = int(time.mktime(date_time_now.timetuple()))
+    print(sync_ts)
+
     length = os.stat(file_path).st_size
-    entry = FileEntry(signature_str, length, relative_path)
+    entry = FileEntry(signature_str, length, sync_ts, relative_path)
     local_files_meta.sig_dict[signature_str] = entry
     local_files_meta.path_dict[relative_path] = entry
 
@@ -100,9 +107,15 @@ def main():
     print("By_MD5 count: " + str(len(local_files_meta.md5_dict)))
     print("By_Path count: " + str(len(local_files_meta.path_dict)))
 
+    db_files_meta = FilesMeta()
+
     # Anything in the DB? If not, store in DB.
     db = MattDatabase('MattGSuite.db')
-    db_files_meta = db.get_files_meta()
+    file_changes = db.get_file_changes()
+    #for file_change in file_changes:
+        # TODO build path struct
+        # TODO only keep latest change for each path
+
 
     # Else compare with what is in the DB
 

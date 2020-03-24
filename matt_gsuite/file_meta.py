@@ -1,9 +1,11 @@
+
 class FileEntry:
-    def __init__(self, signature, length, file_path):
+    def __init__(self, signature, length, sync_ts, file_path, deleted = False):
         self.signature = signature
         self.length = length
+        self.sync_ts = sync_ts
         self.file_path = file_path
-        self.deleted = False
+        self.deleted = deleted
 
 
 class FilesMeta:

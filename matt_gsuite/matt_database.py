@@ -1,5 +1,5 @@
 import sqlite3
-
+from file_meta import FileEntry
 
 class MattDatabase:
     def __init__(self, db_path):
@@ -30,7 +30,7 @@ class MattDatabase:
                     )''')
 
         # deleted=1 if deleted
-        self.conn.execute('''CREATE TABLE file(
+        self.conn.execute('''CREATE TABLE file_log(
                     sig TEXT,
                     length INTEGER,
                     sync_ts INTEGER,
@@ -51,7 +51,11 @@ class MattDatabase:
         cursor.execute("SELECT MAX(ts), account_id, balance FROM balance WHERE account_id = ?", (account_id,))
         return cursor.fetchone()
 
-    def get_files_meta(self):
+    def get_file_changes(self):
         cursor = self.conn.cursor()
-        cursor.execute("SELECT sig, length, sync_ts, path, deleted FROM file")
-        return cursor.fetchall()
+        cursor.execute("SELECT sig, length, sync_ts, path, deleted FROM file_log")
+        changes = cursor.fetchall()
+        entries = []
+        for change in changes:
+            entries.append(FileEntry(change[0], change[1], change[2], change[3], change[4]))
+        return entries
