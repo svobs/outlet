@@ -42,11 +42,7 @@ class MattDatabase:
         query = "SELECT name FROM sqlite_master WHERE type='table' AND name='" + table['name'] + "';"
         cursor = self.conn.execute(query)
         result = cursor.fetchone()
-        if result is None:
-            print('Table does not exist')
-            return False
-        print('Table exists!')
-        return True
+        return result is not None
 
     def close(self):
         # We can also close the connection if we are done with it.
