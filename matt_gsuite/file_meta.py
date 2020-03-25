@@ -16,6 +16,8 @@ item_status = Valid, Deleted
 sync_ts
 
 '''
+
+
 class FileEntry:
     def __init__(self, signature, length, sync_ts, file_path, deleted = 1):
         self.signature = signature

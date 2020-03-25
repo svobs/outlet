@@ -86,6 +86,7 @@ def count_files(file_path, root_path, local_files_meta):
     global files_to_scan
     files_to_scan += 1
 
+
 def build_meta_for_file(file_path, root_path, local_files_meta):
 
     # Open,close, read file and calculate MD5 on its contents
@@ -123,7 +124,7 @@ def build_files_meta_from_db(db_file_changes):
             db_files_meta.path_dict[change.file_path] = change
             counter = counter + 1
 
-    print('Reduced ' + str(len(db_file_changes)) + ' changes into ' + str(counter) + ' entries')
+    print(f'Reduced {str(len(db_file_changes))} changes into {str(counter)} entries')
     return db_files_meta
 
 
@@ -134,7 +135,7 @@ def compare(set_meta_master, set_meta_local):
     for meta_local in set_meta_local.path_dict.values():
         matching_path_master = set_meta_master.path_dict.get(meta_local.file_path, None)
         if matching_path_master is None:
-            print('Local has new file: "' + meta_local.file_path)
+            print(f'Local has new file: "{meta_local.file_path}"')
             # File is added, moved, or copied here.
             # TODO: in the future, be smarter about this
             sync_set.local_adds.append(meta_local)
@@ -152,10 +153,10 @@ def compare(set_meta_master, set_meta_local):
                 print("DANGER! UNHANDLED 1!")
                 continue
 
-            print("DANGER! UNHANDLED 2: " + meta_local.file_path)
+            print(f'DANGER! UNHANDLED 2:{meta_local.file_path}')
             continue
         else:
-            print('In path "' + meta_local.file_path + '": expected signature "' + matching_path_master.signature + '"; actual is "' + meta_local.signature + '"')
+            print(f'In path {meta_local.file_path}: expected signature "{matching_path_master.signature}"; actual is "{meta_local.signature}"')
             # Conflict! Need to determine which is most recent
             matching_sig_master = set_meta_master.sig_dict[meta_local.signature]
             if matching_sig_master is None:
@@ -168,13 +169,14 @@ def compare(set_meta_master, set_meta_local):
     for meta_master in set_meta_master.path_dict.values():
         matching_path_local = set_meta_local.path_dict.get(meta_master.file_path, None)
         if matching_path_local is None:
-            print('Local is missing file: "' + meta_master.file_path)
+            print(f'Local is missing file: "{meta_master.file_path}"')
             # File is added, moved, or copied here.
             # TODO: in the future, be smarter about this
             sync_set.remote_adds.append(meta_master)
             continue
 
     return sync_set
+
 
 def main():
     db = MattDatabase(DATABASE_FILE_PATH)
@@ -194,7 +196,7 @@ def main():
     if len(db_file_changes) == 0:
         to_insert = local_files_meta.path_dict.values()
         db.insert_file_changes(to_insert)
-        print('Inserted ' + str(len(to_insert)) + ' file paths into previously empty DB table.')
+        print(f'Inserted {str(len(to_insert))} file paths into previously empty DB table.')
         return
 
     # Else compare with what is in the DB
