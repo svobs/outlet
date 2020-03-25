@@ -19,6 +19,8 @@ from matt_database import MattDatabase
 from pathlib import Path
 import hashlib
 
+DATABASE_FILE_PATH = 'MattGSuite.db'
+PHOTOS_DIR_PATH = r"/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos"
 
 if sys.version_info[0] < 3:
     raise Exception("Python 3 or a more recent version is required.")
@@ -98,26 +100,30 @@ def handle_unexpected_file(file_path, root_path):
     print(line)
 
 
+def build_files_meta_from_db(file_changes):
+    files_meta = FilesMeta()
+    print('BUILDING! TODO!')
+    return files_meta
+
+
 def main():
-    directory_in_str = r"/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos"
-    path = Path(directory_in_str)
+    photos_dir_path = Path(PHOTOS_DIR_PATH)
 
     # First, build meta structures:
-    collect_files(path, build_meta_for_file, handle_unexpected_file)
-    print("By_MD5 count: " + str(len(local_files_meta.md5_dict)))
-    print("By_Path count: " + str(len(local_files_meta.path_dict)))
-
-    db_files_meta = FilesMeta()
+    collect_files(photos_dir_path, build_meta_for_file, handle_unexpected_file)
+    print("Sig count: " + str(len(local_files_meta.sig_dict)))
+    print("Path count: " + str(len(local_files_meta.path_dict)))
 
     # Anything in the DB? If not, store in DB.
-    db = MattDatabase('MattGSuite.db')
+    db = MattDatabase(DATABASE_FILE_PATH)
     file_changes = db.get_file_changes()
-    #for file_change in file_changes:
-        # TODO build path struct
-        # TODO only keep latest change for each path
-
+    if len(file_changes) == 0:
+        db.insert_file_changes(file_changes)
+        print('Inserted ' + str(len(file_changes)) + ' into previously empty DB.')
+        return
 
     # Else compare with what is in the DB
+    db_files_meta = build_files_meta_from_db(file_changes)
 
 
 # this means that if this script is executed, then main() will be executed

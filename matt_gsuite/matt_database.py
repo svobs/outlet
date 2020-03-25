@@ -1,11 +1,25 @@
 import sqlite3
 from file_meta import FileEntry
 
+
 class MattDatabase:
+    TABLE_NAME_BALANCE = 'balance'
+    COLS_BALANCE = ('ts', 'account_id', 'bal')
+    TABLE_FILE_LOG = 'file_log'
+    COLS_FILE_LOG = ('sig', 'len', 'ts', 'path', 'deleted')
+
     def __init__(self, db_path):
         self.conn = sqlite3.connect(db_path)
-        if not self.is_table('balance'):
+        if not self.is_table(self.TABLE_NAME_BALANCE):
             self.create_tables()
+
+    @staticmethod
+    def build_insert(table_name, field_names):
+        return 'INSERT INTO ' + table_name + '(' + ','.join(field_names) + ') VALUES (' + ','.join('?' for name in field_names) + ')'
+
+    @staticmethod
+    def build_select(table_name, field_names):
+        return 'SELECT ' + ','.join(field_names) + ' FROM ' + table_name
 
     def is_table(self, table_name):
         query = "SELECT name FROM sqlite_master WHERE type='table' AND name='" + table_name + "';"
@@ -26,7 +40,7 @@ class MattDatabase:
         self.conn.execute('''CREATE TABLE balance(
                     ts INTEGER,
                     account_id TEXT,
-                    balance INTEGER
+                    bal INTEGER
                     )''')
 
         # deleted=1 if deleted
@@ -34,14 +48,15 @@ class MattDatabase:
                     sig TEXT,
                     length INTEGER,
                     sync_ts INTEGER,
-                    path TEXT,
+                    file_path TEXT,
                     deleted INTEGER
                     )''')
 
     def insert_balance(self, timestamp, account_id, balance):
         print("Inserting: " + str(timestamp) + ", " + account_id + ", " + balance)
         balances = [(timestamp, account_id, balance)]
-        self.conn.executemany('INSERT INTO balance (ts, account_id, balance) VALUES (?,?,?)', balances)
+        sql = self.build_insert(self.TABLE_NAME_BALANCE, self.COLS_BALANCE)
+        self.conn.executemany(sql, balances)
 
         # Save (commit) the changes
         self.conn.commit()
@@ -53,9 +68,18 @@ class MattDatabase:
 
     def get_file_changes(self):
         cursor = self.conn.cursor()
-        cursor.execute("SELECT sig, length, sync_ts, path, deleted FROM file_log")
+        sql = self.build_select(self.TABLE_FILE_LOG, self.COLS_FILE_LOG)
+        cursor.execute(sql)
         changes = cursor.fetchall()
         entries = []
         for change in changes:
             entries.append(FileEntry(change[0], change[1], change[2], change[3], change[4]))
         return entries
+
+    # Takes a list of FileEntry objects:
+    def insert_file_changes(self, entries):
+        to_insert = []
+        for entry in entries:
+            to_insert.append(tuple(entry))
+        sql = self.build_insert(self.TABLE_FILE_LOG, self.COLS_FILE_LOG)
+        self.conn.executemany(sql, to_insert)

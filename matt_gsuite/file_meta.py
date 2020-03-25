@@ -7,6 +7,13 @@ class FileEntry:
         self.file_path = file_path
         self.deleted = deleted
 
+    def __iter__(self):
+        yield self.signature
+        yield self.length
+        yield self.sync_ts
+        yield self.file_path
+        yield self.deleted
+
 
 class FilesMeta:
     def __init__(self):
