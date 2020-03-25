@@ -97,3 +97,4 @@ class MattDatabase:
             to_insert.append(tuple(entry))
         sql = self.build_insert(self.TABLE_FILE_LOG)
         self.conn.executemany(sql, to_insert)
+        self.conn.commit()

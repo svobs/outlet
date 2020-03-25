@@ -100,9 +100,19 @@ def handle_unexpected_file(file_path, root_path, local_files_meta):
     print(line)
 
 
+# Param 'db_file_changes' is a list of FileEntry objects
 def build_files_meta_from_db(db_file_changes):
     db_files_meta = FilesMeta()
-    print('BUILDING! TODO!')
+
+    counter = 0
+    for change in db_file_changes:
+        meta = db_files_meta.path_dict.get(change.file_path)
+        if meta is None or meta.sync_ts < change.sync_ts:
+            db_files_meta.sig_dict[change.signature] = change
+            db_files_meta.path_dict[change.file_path] = change
+            counter = counter + 1
+
+    print('Reduced ' + str(len(db_file_changes)) + ' changes into ' + str(counter) + ' entries')
     return db_files_meta
 
 
@@ -120,7 +130,7 @@ def main():
     if len(db_file_changes) == 0:
         to_insert = local_files_meta.path_dict.values()
         db.insert_file_changes(to_insert)
-        print('Inserted ' + str(len(to_insert)) + ' into previously empty DB.')
+        print('Inserted ' + str(len(to_insert)) + ' file paths into previously empty DB table.')
         return
 
     # Else compare with what is in the DB
