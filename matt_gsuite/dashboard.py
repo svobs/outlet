@@ -13,18 +13,34 @@ logger = logging.getLogger(__name__)
 class MyWindow(Gtk.Window):
     def __init__(self, tree):
         Gtk.Window.__init__(self, title="Hello World")
+        self.set_default_size(300, 500)
         self.set_border_width(10)
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
         self.add(self.content_box)
 
-        self.button1 = Gtk.Button(label="Filter1")
-        self.button2 = Gtk.Button(label="Filter2")
+        # Content:
+
+        # Info bar (self.info_bar)
+        info_bar_container = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        self.content_box.add(info_bar_container)
+        self.info_bar = Gtk.Label(label="Testing Matt x y z A B C")
+        self.info_bar.set_justify(Gtk.Justification.LEFT)
+        self.info_bar.set_line_wrap(True)
+        info_bar_container.add(self.info_bar)
+
+        self.button1 = Gtk.CheckButton(label="Filter1")
+        self.button2 = Gtk.CheckButton(label="Filter2")
         self.checkbox_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.checkbox_panel.pack_start(self.button1, True, True, 0)
         self.checkbox_panel.pack_start(self.button2, True, True, 0)
+        self.button1.set_sensitive(False)
+        self.button2.set_sensitive(False) # disable
+
+        #self.button1.connect("toggled", self.on_button_toggled, "3")
         self.content_box.add(self.checkbox_panel)
 
-        #self.tree.set_vexpand(True)
+        # Tree will take up all the excess space
+        tree.set_vexpand(True)
         self.content_box.add(tree)
 
         self.button = Gtk.Button(label="Click Here")
