@@ -1,8 +1,14 @@
 import logging.handlers
 import gi
+import threading
+import time
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+from gi.repository import GLib, Gtk
+from photo_report import DirDiffer
+from progress_meter import ProgressMeter
 
+DATABASE_FILE_PATH = './MattGSuite.db'
+PHOTOS_DIR_PATH = r"/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos"
 
 #class Dashboard:
 
@@ -10,10 +16,21 @@ from gi.repository import Gtk
 logger = logging.getLogger(__name__)
 
 
-class MyWindow(Gtk.Window):
+def diff_task(main_window):
+    logging.info("Scanning local file structure")
+    main_window.info_bar.set_label('Scanning local file structure...')
+    dir_differ = DirDiffer(DATABASE_FILE_PATH)
+    sync_set = dir_differ.diff_full(PHOTOS_DIR_PATH, main_window.progress_meter)
+    main_window.info_bar.set_label('Done with scan.')
+    logging.info("Done with scan")
+
+
+class MainWindow(Gtk.Window):
     def __init__(self, tree):
         Gtk.Window.__init__(self, title="Hello World")
-        self.set_default_size(300, 500)
+        # Set minimum width and height
+        self.set_size_request(600, 500)
+        #self.set_default_size(500, 500)
         self.set_border_width(10)
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
         self.add(self.content_box)
@@ -43,21 +60,28 @@ class MyWindow(Gtk.Window):
         tree.set_vexpand(True)
         self.content_box.add(tree)
 
-        self.button = Gtk.Button(label="Click Here")
+        self.progress_meter = ProgressMeter(self.on_progress_made)
+
+        self.button = Gtk.Button(label="Do Diff")
         self.button.connect("clicked", self.on_button_clicked)
         self.content_box.add(self.button)
 
+    # Callback from DirDiffer:
+    def on_progress_made(self, progress, total):
+        def update_progress(progress, total):
+            self.info_bar.set_label(f'Scanning file {progress} of {total}')
+        GLib.idle_add(update_progress, progress, total)
+
     def on_button_clicked(self, widget):
-        print("Hello World")
+        action = threading.Thread(target=diff_task, args=(self,))
+        action.start()
 
 
 def main():
-
     # Docs: https://python-gtk-3-tutorial.readthedocs.io/en/latest/treeview.html
     # Path, Length, status
     store = Gtk.ListStore(str, int, int)
-    treeiter = store.append(["The Art of Computer Programming",
-                            123456, 1])
+    #treeiter = store.append(["The Art of Computer Programming", 123456, 1])
     #print(store[treeiter][2]) # Prints value of third column
 
     tree = Gtk.TreeView(model=store)
@@ -82,7 +106,7 @@ def main():
     select.set_mode(Gtk.SelectionMode.MULTIPLE)
     select.connect("changed", on_tree_selection_changed)
 
-    window = MyWindow(tree)
+    window = MainWindow(tree)
     window.connect("destroy", Gtk.main_quit)
     window.show_all()
     Gtk.main()

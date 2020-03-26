@@ -17,19 +17,77 @@ from file_meta import FilesMeta
 from file_meta import FileEntry
 from file_meta import SyncSet
 from matt_database import MattDatabase
+from progress_meter import ProgressMeter
 from pathlib import Path
 import hashlib
 
-DATABASE_FILE_PATH = './MattGSuite.db'
-PHOTOS_DIR_PATH = r"/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos"
-
 VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp4', 'mpeg', 'mpg', 'm4v', 'avi', 'pdf', 'nef')
-
-# TODO
-files_to_scan = 0
 
 if sys.version_info[0] < 3:
     raise Exception("Python 3 or a more recent version is required.")
+
+
+class DirDiffer:
+    def __init__(self, db_file_path):
+        self.db = MattDatabase(db_file_path)
+        self.files_to_scan = 0
+        self.progress_meter = None
+
+    def diff_full(self, local_path_string, progress_meter):
+        local_path = Path(local_path_string)
+        # First survey our local files:
+        print(f'Scanning path: {local_path}')
+        self.files_to_scan = 0
+        self.progress_meter = progress_meter
+        scan_directory_tree(Path(local_path), self.count_files, None)
+        print('Found ' + str(self.files_to_scan) + ' files to scan.')
+        if self.progress_meter is not None:
+            self.progress_meter.set_total(self.files_to_scan)
+        local_files_meta = scan_directory_tree(local_path, self.build_meta_for_file, self.handle_unexpected_file)
+        print("Sig count: " + str(len(local_files_meta.sig_dict)))
+        print("Path count: " + str(len(local_files_meta.path_dict)))
+
+        # Anything in the DB? If not, store in DB.
+        db_file_changes = self.db.get_file_changes()
+        if len(db_file_changes) == 0:
+            to_insert = local_files_meta.path_dict.values()
+            self.db.insert_file_changes(to_insert)
+            print(f'Inserted {str(len(to_insert))} file paths into previously empty DB table.')
+            return
+
+        # Else compare with what is in the DB
+        db_files_meta = build_files_meta_from_db(db_file_changes)
+        sync_set = compare(db_files_meta, local_files_meta)
+        return sync_set
+
+    def count_files(self, file_path, root_path, local_files_meta):
+        self.files_to_scan += 1
+
+    def build_meta_for_file(self, file_path, root_path, local_files_meta):
+
+        # Open,close, read file and calculate MD5 on its contents
+        signature_str = md5(file_path)
+        relative_path = strip_root(file_path, str(root_path))
+
+        # Get "now" in UNIX time:
+        date_time_now = datetime.now()
+        sync_ts = int(time.mktime(date_time_now.timetuple()))
+
+        #print(' '.join((str(sync_ts), signature_str, relative_path)))
+
+        length = os.stat(file_path).st_size
+        entry = FileEntry(signature_str, length, sync_ts, relative_path)
+        local_files_meta.sig_dict[signature_str] = entry
+        local_files_meta.path_dict[relative_path] = entry
+
+        self.progress_meter.add_progress(1)
+
+    # TODO: add unexpected file to list
+    def handle_unexpected_file(self, file_path, root_path, local_files_meta):
+        line = '### UNEXPECTED FILE: ' + file_path
+        print(line)
+
+
 
 # TODO: switch to SHA-2
 # From: https://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file
@@ -80,35 +138,6 @@ def scan_directory_tree(root_path, target_file_handler_func, non_target_handler_
 def strip_root(file_path, root_path):
     root_path_with_slash = root_path if root_path.endswith('/') else root_path + '/'
     return re.sub(root_path_with_slash, '', file_path, count=1)
-
-
-def count_files(file_path, root_path, local_files_meta):
-    global files_to_scan
-    files_to_scan += 1
-
-
-def build_meta_for_file(file_path, root_path, local_files_meta):
-
-    # Open,close, read file and calculate MD5 on its contents
-    signature_str = md5(file_path)
-    relative_path = strip_root(file_path, str(root_path))
-
-    # Get "now" in UNIX time:
-    date_time_now = datetime.now()
-    sync_ts = int(time.mktime(date_time_now.timetuple()))
-
-    line = ' '.join((str(sync_ts), signature_str, relative_path))
-    #print(line)
-
-    length = os.stat(file_path).st_size
-    entry = FileEntry(signature_str, length, sync_ts, relative_path)
-    local_files_meta.sig_dict[signature_str] = entry
-    local_files_meta.path_dict[relative_path] = entry
-
-
-def handle_unexpected_file(file_path, root_path, local_files_meta):
-    line = '### UNEXPECTED FILE: ' + file_path
-    print(line)
 
 
 # Param 'db_file_changes' is a list of FileEntry objects
@@ -176,34 +205,3 @@ def compare(set_meta_master, set_meta_local):
             continue
 
     return sync_set
-
-
-def main():
-    db = MattDatabase(DATABASE_FILE_PATH)
-
-    # First survey our local files:
-    photos_dir_path = Path(PHOTOS_DIR_PATH)
-    print('Scanning local file structure...')
-    # TODO: figure out how to send member function
-    scan_directory_tree(photos_dir_path, count_files, None)
-    print('Found ' + str(files_to_scan) + ' files to scan.')
-    local_files_meta = scan_directory_tree(photos_dir_path, build_meta_for_file, handle_unexpected_file)
-    print("Sig count: " + str(len(local_files_meta.sig_dict)))
-    print("Path count: " + str(len(local_files_meta.path_dict)))
-
-    # Anything in the DB? If not, store in DB.
-    db_file_changes = db.get_file_changes()
-    if len(db_file_changes) == 0:
-        to_insert = local_files_meta.path_dict.values()
-        db.insert_file_changes(to_insert)
-        print(f'Inserted {str(len(to_insert))} file paths into previously empty DB table.')
-        return
-
-    # Else compare with what is in the DB
-    db_files_meta = build_files_meta_from_db(db_file_changes)
-    compare(db_files_meta, local_files_meta)
-
-
-# this means that if this script is executed, then main() will be executed
-if __name__ == '__main__':
-    main()
