@@ -13,11 +13,23 @@ logger = logging.getLogger(__name__)
 class MyWindow(Gtk.Window):
     def __init__(self, tree):
         Gtk.Window.__init__(self, title="Hello World")
+        self.set_border_width(10)
+        self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
+        self.add(self.content_box)
+
+        self.button1 = Gtk.Button(label="Filter1")
+        self.button2 = Gtk.Button(label="Filter2")
+        self.checkbox_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        self.checkbox_panel.pack_start(self.button1, True, True, 0)
+        self.checkbox_panel.pack_start(self.button2, True, True, 0)
+        self.content_box.add(self.checkbox_panel)
+
+        #self.tree.set_vexpand(True)
+        self.content_box.add(tree)
 
         self.button = Gtk.Button(label="Click Here")
         self.button.connect("clicked", self.on_button_clicked)
-        #self.add(self.button)
-        self.add(tree)
+        self.content_box.add(self.button)
 
     def on_button_clicked(self, widget):
         print("Hello World")
@@ -30,7 +42,7 @@ def main():
     store = Gtk.ListStore(str, int, int)
     treeiter = store.append(["The Art of Computer Programming",
                             123456, 1])
-    print(store[treeiter][2]) # Prints value of third column
+    #print(store[treeiter][2]) # Prints value of third column
 
     tree = Gtk.TreeView(model=store)
     renderer = Gtk.CellRendererText()
