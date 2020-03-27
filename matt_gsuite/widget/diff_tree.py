@@ -1,32 +1,37 @@
+import os
 from gi.repository import GLib, Gtk
-
+from sync_item import SyncItem
 
 class DiffTree:
     def __init__(self):
-        store = Gtk.ListStore(str, int, int)
-        #treeiter = store.append(["The Art of Computer Programming", 123456, 1])
+        self.store = Gtk.ListStore(str, int, int)
         #print(store[treeiter][2]) # Prints value of third column
 
-        self.tree = Gtk.TreeView(model=store)
+        self.tree = Gtk.TreeView(model=self.store)
 
+        col_num = 0
         renderer = Gtk.CellRendererText()
         column = Gtk.TreeViewColumn("Name", renderer, text=0)
         self.tree.append_column(column)
 
         renderer = Gtk.CellRendererText()
-        column = Gtk.TreeViewColumn("Directory", renderer, text=0)
+        col_num += 1
+        column = Gtk.TreeViewColumn("Directory", renderer, text=1)
         self.tree.append_column(column)
 
         renderer = Gtk.CellRendererText()
-        column = Gtk.TreeViewColumn("Size", renderer, text=1)
+        col_num += 1
+        column = Gtk.TreeViewColumn("Size", renderer, text=2)
         self.tree.append_column(column)
 
         renderer = Gtk.CellRendererText()
-        column = Gtk.TreeViewColumn("Mod Date", renderer, text=1)
+        col_num += 1
+        column = Gtk.TreeViewColumn("Mod Date", renderer, text=3)
         self.tree.append_column(column)
 
         renderer = Gtk.CellRendererText()
-        column = Gtk.TreeViewColumn("Change Type", renderer, text=2)
+        col_num += 1
+        column = Gtk.TreeViewColumn("Change Type", renderer, text=4)
         self.tree.append_column(column)
 
         def on_tree_selection_changed(selection):
@@ -39,4 +44,10 @@ class DiffTree:
         select.connect("changed", on_tree_selection_changed)
 
    # def add_item(self, sync_item):
+
+    def add_unexpected_item(self, sync_item):
+        directory, name = os.path.split(sync_item.file_path)
+        print('DIR: ' + directory)
+        print('NAME: ' + name)
+        self.store.append([name, directory, sync_item.length, sync_item.modify_ts, 3])
 

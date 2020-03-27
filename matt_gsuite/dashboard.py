@@ -19,12 +19,18 @@ logger = logging.getLogger(__name__)
 
 
 def diff_task(main_window):
-    logging.info("Scanning local file structure")
-    main_window.info_bar.set_label('Scanning local file structure...')
-    dir_differ = DirDiffer(DATABASE_FILE_PATH)
-    diff_result = dir_differ.diff_full(PHOTOS_DIR_PATH, main_window.progress_meter, main_window.diff_tree_left, main_window.diff_tree_right)
-    main_window.info_bar.set_label('Done with scan.')
-    logging.info("Done with scan")
+    try:
+        logging.info("Scanning local file structure")
+        main_window.info_bar.set_label('Scanning local file structure...')
+
+        sync_set = DirDiffer.scan_local_tree(PHOTOS_DIR_PATH, main_window.progress_meter, main_window.diff_tree_left)
+
+        diff_result = DirDiffer.diff(PHOTOS_DIR_PATH, main_window.diff_tree_left, main_window.diff_tree_right)
+        main_window.info_bar.set_label('Done with scan.')
+        logging.info("Done with scan")
+    except Exception as err:
+        print('Diff task failed with exception')
+        raise err
 
 
 # Get absolute path from the given relative path (relative to this file's location)
