@@ -105,14 +105,6 @@ class FMetaScanner:
         print("Path count: " + str(len(sync_set_builder.sync_set.path_dict)))
         return sync_set_builder.sync_set
 
-    # Algorithm:
-    # 1. Iterate over directory tree and build metadata for ENTIRE tree: first do file paths, then loop around and do MD5s & file length
-    # 1a. Need to look up by file path, and also by MD5 (2 structures)
-    # 3. Is file 0 bytes? -> add to list of "bad" items
-    # 3. Look up MD5 in DB. Look up filepath in DB
-    # 3a. Found MD5 in different location? -> update entry with new path in DB,
-    # 3b. Nothing found with that MD5? -> create new entry in DB, add to list of "new" items
-
 
 #####################################################
 # FMetaScanner: build FMetaSet from previously built set in database

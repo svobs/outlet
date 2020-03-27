@@ -12,51 +12,73 @@ class FMetaSetDiff:
 
     @staticmethod
     def diff(set_left, set_right, diff_tree_left, diff_tree_right):
-        print('Comparing local file set against most recent sync...')
+        print('Comparing file sets by signature...')
         diff_result = DiffResult()
-        # meta_local represents a unique path
-        for meta_local in set_left.path_dict.values():
-            matching_path_master = set_right.path_dict.get(meta_local.file_path, None)
-            if matching_path_master is None:
-                print(f'Local has new file: "{meta_local.file_path}"')
+        for left in set_left.sig_dict.values():
+            right_samesig = set_right.sig_dict.get(left.signature, None)
+            if right_samesig is None:
+                print(f'Left has new file: "{left.file_path}"')
+                diff_tree_left.add_item(left, 'New')
+                continue
+
+        for right in set_right.sig_dict.values():
+            left_samesig = set_left.sig_dict.get(right.signature, None)
+            if left_samesig is None:
+                print(f'Right has new file: "{right.file_path}"')
+                diff_tree_right.add_item(left, 'New')
+                continue
+
+        print('Done with diff')
+        return diff_result
+
+    @staticmethod
+    def diff_by_path(set_left, set_right, diff_tree_left, diff_tree_right):
+        print('Comparing file sets by path...')
+        diff_result = DiffResult()
+        # left represents a unique path
+        for left in set_left.path_dict.values():
+            right_samepath = set_right.path_dict.get(left.file_path, None)
+            if right_samepath is None:
+                print(f'Left has new file: "{left.file_path}"')
                 # File is added, moved, or copied here.
                 # TODO: in the future, be smarter about this
-                diff_result.local_adds.append(meta_local)
+                diff_result.local_adds.append(left)
                 continue
             # Do we know this item?
-            if matching_path_master.signature == meta_local.signature:
-                if meta_local.is_valid() and matching_path_master.is_valid():
+            if right_samepath.signature == left.signature:
+                if left.is_valid() and right_samepath.is_valid():
                     # Exact match! Nothing to do.
                     continue
-                if meta_local.is_deleted() and matching_path_master.is_deleted():
+                if left.is_deleted() and right_samepath.is_deleted():
                     # Exact match! Nothing to do.
                     continue
-                if meta_local.is_moved() and matching_path_master.is_moved():
+                if left.is_moved() and right_samepath.is_moved():
                     # TODO: figure out where to move to
                     print("DANGER! UNHANDLED 1!")
                     continue
 
-                print(f'DANGER! UNHANDLED 2:{meta_local.file_path}')
+                print(f'DANGER! UNHANDLED 2:{left.file_path}')
                 continue
             else:
-                print(f'In path {meta_local.file_path}: expected signature "{matching_path_master.signature}"; actual is "{meta_local.signature}"')
+                print(f'In Left path {left.file_path}: expected signature "{right_samepath.signature}"; actual is "{left.signature}"')
                 # Conflict! Need to determine which is most recent
-                matching_sig_master = set_right.sig_dict[meta_local.signature]
+                matching_sig_master = set_right.sig_dict[left.signature]
                 if matching_sig_master is None:
                     # This is a new file, from the standpoint of the remote
                     # TODO: in the future, be smarter about this
-                    diff_result.local_updates.append(meta_local)
+                    diff_result.local_updates.append(left)
                 # print("CONFLICT! UNHANDLED 3!")
                 continue
 
-        for meta_master in set_right.path_dict.values():
-            matching_path_local = set_left.path_dict.get(meta_master.file_path, None)
-            if matching_path_local is None:
-                print(f'Local is missing file: "{meta_master.file_path}"')
+        for right in set_right.path_dict.values():
+            left_samepath = set_left.path_dict.get(right.file_path, None)
+            if left_samepath is None:
+                print(f'Left is missing file: "{right.file_path}"')
                 # File is added, moved, or copied here.
                 # TODO: in the future, be smarter about this
-                diff_result.remote_adds.append(meta_master)
+                diff_result.remote_adds.append(right)
                 continue
 
+        print('Done with diff')
         return diff_result
 

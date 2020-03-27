@@ -10,15 +10,11 @@ from fmeta.fmeta_builder import FMetaLoader
 from widget.progress_meter import ProgressMeter
 from widget.diff_tree import DiffTree
 from fmeta.fmeta_diff import FMetaSetDiff
-from fmeta.fmeta_diff import DiffResult
 
-LEFT_DB_PATH = './MattLeft.db'
-RIGHT_DB_PATH = './MattRight.db'
+LEFT_DB_PATH = '../test/NewFilesOnRight/MattLeft.db'
+RIGHT_DB_PATH = '../test/NewFilesOnRight/MattRight.db'
 LEFT_DIR_PATH = r"/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos"
 RIGHT_DIR_PATH = r"TODO"
-
-#class Dashboard:
-
 
 logger = logging.getLogger(__name__)
 
