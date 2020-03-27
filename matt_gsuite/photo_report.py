@@ -10,14 +10,12 @@ import sys
 import fnmatch
 import re
 import os
-import shutil
 from datetime import datetime
 import time
 from file_meta import FilesMeta
 from file_meta import FileEntry
 from file_meta import SyncSet
 from matt_database import MattDatabase
-from progress_meter import ProgressMeter
 from pathlib import Path
 import hashlib
 
