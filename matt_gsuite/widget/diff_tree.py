@@ -1,10 +1,11 @@
 import os
+import humanfriendly
 from gi.repository import GLib, Gtk
 
 
 class DiffTree:
     def __init__(self):
-        self.store = Gtk.ListStore(str, str, int, str, str)
+        self.store = Gtk.ListStore(str, str, str, str, str)
 
         self.tree = Gtk.TreeView(model=self.store)
 
@@ -44,7 +45,8 @@ class DiffTree:
 
     def add_item(self, fmeta, item_type):
         directory, name = os.path.split(fmeta.file_path)
-        self.store.append([name, directory, fmeta.length, fmeta.modify_ts, item_type])
+        num_bytes_str = humanfriendly.format_size(fmeta.length)
+        self.store.append([name, directory, num_bytes_str, fmeta.modify_ts, item_type])
 
     def add_unexpected_item(self, fmeta):
         self.add_item(fmeta, 'Unexpected')
