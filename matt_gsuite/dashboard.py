@@ -22,7 +22,7 @@ def diff_task(main_window):
     logging.info("Scanning local file structure")
     main_window.info_bar.set_label('Scanning local file structure...')
     dir_differ = DirDiffer(DATABASE_FILE_PATH)
-    sync_set = dir_differ.diff_full(PHOTOS_DIR_PATH, main_window.progress_meter)
+    diff_result = dir_differ.diff_full(PHOTOS_DIR_PATH, main_window.progress_meter, main_window.diff_tree_left, main_window.diff_tree_right)
     main_window.info_bar.set_label('Done with scan.')
     logging.info("Done with scan")
 
@@ -57,13 +57,23 @@ class DiffWindow(Gtk.Window):
         info_bar_container.add(self.info_bar)
 
         # Checkboxes:
-        self.button1 = Gtk.CheckButton(label="Filter1")
-        self.button2 = Gtk.CheckButton(label="Filter2")
         self.checkbox_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        # check for the following...
+        self.button1 = Gtk.CheckButton(label="Empty dirs")
         self.checkbox_panel.pack_start(self.button1, True, True, 0)
-        self.checkbox_panel.pack_start(self.button2, True, True, 0)
         self.button1.set_sensitive(False)
-        self.button2.set_sensitive(False) # disable
+        self.button2 = Gtk.CheckButton(label="Zero-length files")
+        self.checkbox_panel.pack_start(self.button2, True, True, 0)
+        self.button2.set_sensitive(False)
+        self.button3= Gtk.CheckButton(label="Duplicate files")
+        self.checkbox_panel.pack_start(self.button3, True, True, 0)
+        self.button3.set_sensitive(False) # disable
+        self.button4= Gtk.CheckButton(label="Unrecognized suffixes")
+        self.checkbox_panel.pack_start(self.button4, True, True, 0)
+        self.button4.set_sensitive(False) # disable
+        self.button5= Gtk.CheckButton(label="Relative paths or file names differ")
+        self.checkbox_panel.pack_start(self.button5, True, True, 0)
+        self.button5.set_sensitive(False) # disable
         #self.button1.connect("toggled", self.on_button_toggled, "3")
         self.content_box.add(self.checkbox_panel)
 
@@ -85,6 +95,10 @@ class DiffWindow(Gtk.Window):
         self.button = Gtk.Button(label="Do Diff")
         self.button.connect("clicked", self.on_button_clicked)
         self.content_box.add(self.button)
+
+        # TODO: create a 'Scan' button for each input source
+
+        # TODO: allow merge for single file, or Merge All from left to right or right to left, or both
 
     # Callback from DirDiffer:
     def on_progress_made(self, progress, total):

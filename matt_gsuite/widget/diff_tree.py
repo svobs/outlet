@@ -38,4 +38,5 @@ class DiffTree:
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
         select.connect("changed", on_tree_selection_changed)
 
+   # def add_item(self, sync_item):
 

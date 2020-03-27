@@ -1,5 +1,5 @@
 import sqlite3
-from file_meta import FileEntry
+from sync_item import SyncItem
 
 
 class MattDatabase:
@@ -83,10 +83,10 @@ class MattDatabase:
         changes = cursor.fetchall()
         entries = []
         for change in changes:
-            entries.append(FileEntry(change[0], change[1], change[2], change[3], change[4]))
+            entries.append(SyncItem(change[0], change[1], change[2], change[3], change[4]))
         return entries
 
-    # Takes a list of FileEntry objects:
+    # Takes a list of SyncItem objects:
     def insert_file_changes(self, entries):
         to_insert = []
         for entry in entries:

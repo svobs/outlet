@@ -12,9 +12,9 @@ import re
 import os
 from datetime import datetime
 import time
-from file_meta import FilesMeta
-from file_meta import FileEntry
-from file_meta import SyncSet
+from sync_item import SyncSet
+from sync_item import SyncItem
+from sync_item import DiffResult
 from matt_database import MattDatabase
 from pathlib import Path
 import hashlib
@@ -31,7 +31,7 @@ class DirDiffer:
         self.files_to_scan = 0
         self.progress_meter = None
 
-    def diff_full(self, local_path_string, progress_meter):
+    def diff_full(self, local_path_string, progress_meter, diff_tree_left, diff_tree_right):
         local_path = Path(local_path_string)
         # First survey our local files:
         print(f'Scanning path: {local_path}')
@@ -55,8 +55,8 @@ class DirDiffer:
 
         # Else compare with what is in the DB
         db_files_meta = build_files_meta_from_db(db_file_changes)
-        sync_set = compare(db_files_meta, local_files_meta)
-        return sync_set
+        diff_result = compare(db_files_meta, local_files_meta)
+        return diff_result
 
     def count_files(self, file_path, root_path, local_files_meta):
         self.files_to_scan += 1
@@ -74,7 +74,7 @@ class DirDiffer:
         #print(' '.join((str(sync_ts), signature_str, relative_path)))
 
         length = os.stat(file_path).st_size
-        entry = FileEntry(signature_str, length, sync_ts, relative_path)
+        entry = SyncItem(signature_str, length, sync_ts, relative_path)
         local_files_meta.sig_dict[signature_str] = entry
         local_files_meta.path_dict[relative_path] = entry
 
@@ -114,7 +114,7 @@ def is_target_type(file_path, suffixes):
 # 3a. Found MD5 in different location? -> update entry with new path in DB,
 # 3b. Nothing found with that MD5? -> create new entry in DB, add to list of "new" items
 def scan_directory_tree(root_path, target_file_handler_func, non_target_handler_func):
-    local_files_meta = FilesMeta()
+    local_files_meta = SyncSet()
 
     for root, dirs, files in os.walk(root_path, topdown=True):
         for name in files:
@@ -138,13 +138,13 @@ def strip_root(file_path, root_path):
     return re.sub(root_path_with_slash, '', file_path, count=1)
 
 
-# Param 'db_file_changes' is a list of FileEntry objects
+# Param 'db_file_changes' is a list of SyncItem objects
 def build_files_meta_from_db(db_file_changes):
-    db_files_meta = FilesMeta()
+    db_files_meta = SyncSet()
 
     counter = 0
     for change in db_file_changes:
-        change.deleted = 1 # VALID. TODO
+        change.status = 1 # VALID. TODO
         meta = db_files_meta.path_dict.get(change.file_path)
         if meta is None or meta.sync_ts < change.sync_ts:
             db_files_meta.sig_dict[change.signature] = change
@@ -157,7 +157,7 @@ def build_files_meta_from_db(db_file_changes):
 
 def compare(set_meta_master, set_meta_local):
     print('Comparing local file set against most recent sync...')
-    sync_set = SyncSet()
+    diff_result = DiffResult()
     # meta_local represents a unique path
     for meta_local in set_meta_local.path_dict.values():
         matching_path_master = set_meta_master.path_dict.get(meta_local.file_path, None)
@@ -165,7 +165,7 @@ def compare(set_meta_master, set_meta_local):
             print(f'Local has new file: "{meta_local.file_path}"')
             # File is added, moved, or copied here.
             # TODO: in the future, be smarter about this
-            sync_set.local_adds.append(meta_local)
+            diff_result.local_adds.append(meta_local)
             continue
         # Do we know this item?
         if matching_path_master.signature == meta_local.signature:
@@ -189,7 +189,7 @@ def compare(set_meta_master, set_meta_local):
             if matching_sig_master is None:
                 # This is a new file, from the standpoint of the remote
                 # TODO: in the future, be smarter about this
-                sync_set.local_updates.append(meta_local)
+                diff_result.local_updates.append(meta_local)
                # print("CONFLICT! UNHANDLED 3!")
             continue
 
@@ -199,7 +199,7 @@ def compare(set_meta_master, set_meta_local):
             print(f'Local is missing file: "{meta_master.file_path}"')
             # File is added, moved, or copied here.
             # TODO: in the future, be smarter about this
-            sync_set.remote_adds.append(meta_master)
+            diff_result.remote_adds.append(meta_master)
             continue
 
-    return sync_set
+    return diff_result
