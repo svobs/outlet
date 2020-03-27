@@ -1,11 +1,10 @@
 import os
 from gi.repository import GLib, Gtk
-from sync_item import SyncItem
+
 
 class DiffTree:
     def __init__(self):
-        self.store = Gtk.ListStore(str, int, int)
-        #print(store[treeiter][2]) # Prints value of third column
+        self.store = Gtk.ListStore(str, str, int, str, int)
 
         self.tree = Gtk.TreeView(model=self.store)
 
@@ -43,11 +42,10 @@ class DiffTree:
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
         select.connect("changed", on_tree_selection_changed)
 
-   # def add_item(self, sync_item):
+    def add_item(self, sync_item, item_type):
+        directory, name = os.path.split(sync_item.file_path)
+        self.store.append([name, directory, sync_item.length, sync_item.modify_ts, item_type])
 
     def add_unexpected_item(self, sync_item):
-        directory, name = os.path.split(sync_item.file_path)
-        print('DIR: ' + directory)
-        print('NAME: ' + name)
-        self.store.append([name, directory, sync_item.length, sync_item.modify_ts, 3])
+        self.add_item(sync_item, 3)
 
