@@ -104,17 +104,25 @@ class DiffWindow(Gtk.Window):
         self.content_box.add(self.checkbox_panel)
 
         # Diff trees:
+
         self.diff_tree_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.content_box.add(self.diff_tree_panel)
 
         self.diff_tree_left = DiffTree()
-        self.diff_tree_panel.pack_start(self.diff_tree_left.tree, True, True, 0)
         # Tree will take up all the excess space
         self.diff_tree_left.tree.set_vexpand(True)
+        left_tree_scroller = Gtk.ScrolledWindow()
+        # No horizontal scrolling - only vertical
+        left_tree_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        left_tree_scroller.add(self.diff_tree_left.tree)
+        self.diff_tree_panel.pack_start(left_tree_scroller, True, True, 0)
 
         self.diff_tree_right = DiffTree()
-        self.diff_tree_panel.pack_start(self.diff_tree_right.tree, True, True, 0)
         self.diff_tree_right.tree.set_vexpand(True)
+        right_tree_scroller = Gtk.ScrolledWindow()
+        right_tree_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        right_tree_scroller.add(self.diff_tree_right.tree)
+        self.diff_tree_panel.pack_start(right_tree_scroller, True, True, 0)
 
         self.progress_meter = ProgressMeter(self.on_progress_made)
 
