@@ -1,5 +1,4 @@
 '''
-TODO: rename to 'SyncItem'
 TABLE
 UniqueItem
 item_id
@@ -18,7 +17,7 @@ sync_ts
 '''
 
 
-class SyncItem:
+class FMeta:
     def __init__(self, signature, length, sync_ts, file_path, deleted = 1):
         self.signature = signature
         self.length = length
@@ -35,10 +34,10 @@ class SyncItem:
         yield self.status
 
     def is_content_equal(self, other_entry):
-        return isinstance(other_entry, SyncItem) and self.signature == other_entry.signature and self.length == other_entry.length
+        return isinstance(other_entry, FMeta) and self.signature == other_entry.signature and self.length == other_entry.length
 
     def is_meta_equal(self, other_entry):
-        return isinstance(other_entry, SyncItem) and self.file_path == other_entry.file_path and self.status == other_entry.status
+        return isinstance(other_entry, FMeta) and self.file_path == other_entry.file_path and self.status == other_entry.status
 
     def matches(self, other_entry):
         return self.is_content_equal(other_entry) and self.is_meta_equal(other_entry)
@@ -53,18 +52,9 @@ class SyncItem:
         return self.status == 3
 
 
-class SyncSet:
+class FMetaSet:
     def __init__(self):
         # Each item contains a list of entries
         self.sig_dict = {}
         # Each item is an entry
         self.path_dict = {}
-
-
-class DiffResult:
-    def __init__(self):
-        self.local_adds = []
-        self.local_updates = []
-        self.local_dels = []
-        self.remote_adds = []
-        self.remote_dels = []

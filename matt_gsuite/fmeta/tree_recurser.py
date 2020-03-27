@@ -1,13 +1,13 @@
 import os
 import fnmatch
-from sync_item import SyncSet
+from fmeta.fmeta import FMetaSet
 
 
 class TreeRecurser:
     def __init__(self, root_path, valid_suffixes):
         self.root_path = root_path
         self.valid_suffixes = valid_suffixes
-        self.sync_set = SyncSet()
+        self.sync_set = FMetaSet()
 
     def is_target_type(self, file_path):
         file_path_lower = file_path.lower()

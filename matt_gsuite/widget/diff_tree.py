@@ -25,7 +25,7 @@ class DiffTree:
 
         renderer = Gtk.CellRendererText()
         col_num += 1
-        column = Gtk.TreeViewColumn("Mod Date", renderer, text=3)
+        column = Gtk.TreeViewColumn("Modification Date", renderer, text=3)
         self.tree.append_column(column)
 
         renderer = Gtk.CellRendererText()
@@ -42,10 +42,10 @@ class DiffTree:
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
         select.connect("changed", on_tree_selection_changed)
 
-    def add_item(self, sync_item, item_type):
-        directory, name = os.path.split(sync_item.file_path)
-        self.store.append([name, directory, sync_item.length, sync_item.modify_ts, item_type])
+    def add_item(self, fmeta, item_type):
+        directory, name = os.path.split(fmeta.file_path)
+        self.store.append([name, directory, fmeta.length, fmeta.modify_ts, item_type])
 
-    def add_unexpected_item(self, sync_item):
-        self.add_item(sync_item, 3)
+    def add_unexpected_item(self, fmeta):
+        self.add_item(fmeta, 3)
 

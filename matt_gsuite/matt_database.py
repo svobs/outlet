@@ -1,5 +1,5 @@
 import sqlite3
-from sync_item import SyncItem
+from fmeta.fmeta import FMeta
 
 
 class MattDatabase:
@@ -76,6 +76,15 @@ class MattDatabase:
 
     # FILE_LOG operations ---------------------
 
+    # Hella janky way to see if our database contains real data. Needs improvement!
+    def has_file_changes(self):
+        cursor = self.conn.cursor()
+        sql = self.build_select(self.TABLE_FILE_LOG) + ' LIMIT 1'
+        cursor.execute(sql)
+        changes = cursor.fetchall()
+        return len(changes) > 0
+
+    # Gets all changes in the table
     def get_file_changes(self):
         cursor = self.conn.cursor()
         sql = self.build_select(self.TABLE_FILE_LOG)
@@ -83,10 +92,10 @@ class MattDatabase:
         changes = cursor.fetchall()
         entries = []
         for change in changes:
-            entries.append(SyncItem(change[0], change[1], change[2], change[3], change[4]))
+            entries.append(FMeta(change[0], change[1], change[2], change[3], change[4]))
         return entries
 
-    # Takes a list of SyncItem objects:
+    # Takes a list of FMeta objects:
     def insert_file_changes(self, entries):
         to_insert = []
         for entry in entries:

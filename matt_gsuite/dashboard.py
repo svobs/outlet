@@ -5,12 +5,17 @@ import os
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
-from photo_report import DirDiffer
+from fmeta.fmeta_builder import FMetaScanner
+from fmeta.fmeta_builder import FMetaLoader
 from widget.progress_meter import ProgressMeter
 from widget.diff_tree import DiffTree
+from fmeta.fmeta_diff import FMetaSetDiff
+from fmeta.fmeta_diff import DiffResult
 
-DATABASE_FILE_PATH = './MattGSuite.db'
-PHOTOS_DIR_PATH = r"/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos"
+LEFT_DB_PATH = './MattLeft.db'
+RIGHT_DB_PATH = './MattRight.db'
+LEFT_DIR_PATH = r"/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos"
+RIGHT_DIR_PATH = r"TODO"
 
 #class Dashboard:
 
@@ -20,14 +25,33 @@ logger = logging.getLogger(__name__)
 
 def diff_task(main_window):
     try:
-        logging.info("Scanning local file structure")
-        main_window.info_bar.set_label('Scanning local file structure...')
+        left_db_loader = FMetaLoader(LEFT_DB_PATH)
+        if left_db_loader.has_data():
+            print(f'Loading Left data from DB: {LEFT_DB_PATH}')
+            left_set = left_db_loader.build_fmeta_from_db()
+        else:
+            logging.info(f"Scanning files in tree: {LEFT_DIR_PATH}")
+            main_window.info_bar.set_label(f'Scanning files in tree: {LEFT_DIR_PATH}')
+            left_set = FMetaScanner.scan_local_tree(LEFT_DIR_PATH, main_window.progress_meter, main_window.diff_tree_left)
+            left_db_loader.store_fmeta_to_db(left_set)
 
-        sync_set = DirDiffer.scan_local_tree(PHOTOS_DIR_PATH, main_window.progress_meter, main_window.diff_tree_left)
+        right_db_loader = FMetaLoader(RIGHT_DB_PATH)
+        if right_db_loader.has_data():
+            print(f'Loading Right data from DB: {RIGHT_DB_PATH}')
+            right_set = right_db_loader.build_fmeta_from_db()
+        else:
+            logging.info(f"Scanning files in tree: {RIGHT_DIR_PATH}")
+            main_window.info_bar.set_label(f'Scanning files in tree: {RIGHT_DIR_PATH}')
+            right_set = FMetaScanner.scan_local_tree(RIGHT_DIR_PATH, main_window.progress_meter, main_window.diff_tree_right)
+            left_db_loader.store_fmeta_to_db(right_set)
 
-        diff_result = DirDiffer.diff(PHOTOS_DIR_PATH, main_window.diff_tree_left, main_window.diff_tree_right)
-        main_window.info_bar.set_label('Done with scan.')
-        logging.info("Done with scan")
+        main_window.info_bar.set_label('Diffing...')
+        logging.info("Diffing...")
+
+        diff_result = FMetaSetDiff.diff(left_set, right_set, main_window.diff_tree_left, main_window.diff_tree_right)
+
+        main_window.info_bar.set_label('Done.')
+        logging.info('Done.')
     except Exception as err:
         print('Diff task failed with exception')
         raise err
@@ -106,7 +130,7 @@ class DiffWindow(Gtk.Window):
 
         # TODO: allow merge for single file, or Merge All from left to right or right to left, or both
 
-    # Callback from DirDiffer:
+    # Callback from FMetaScanner:
     def on_progress_made(self, progress, total):
         def update_progress(progress, total):
             self.info_bar.set_label(f'Scanning file {progress} of {total}')
