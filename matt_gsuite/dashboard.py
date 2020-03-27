@@ -11,10 +11,10 @@ from widget.progress_meter import ProgressMeter
 from widget.diff_tree import DiffTree
 from fmeta.fmeta_diff import FMetaSetDiff
 
-LEFT_DB_PATH = '../test/NewFilesOnRight/MattLeft.db'
-RIGHT_DB_PATH = '../test/NewFilesOnRight/MattRight.db'
+LEFT_DB_PATH = '../test/Bigger/MattLeft.db'
+RIGHT_DB_PATH = '../test/Bigger/MattRight.db'
 LEFT_DIR_PATH = r"/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos"
-RIGHT_DIR_PATH = r"TODO"
+RIGHT_DIR_PATH = r"/media/msvoboda/Thumb128G/Takeout/Google Photos"
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,7 @@ def diff_task(main_window):
             left_set = left_db_loader.build_fmeta_from_db()
         else:
             logging.info(f"Scanning files in tree: {LEFT_DIR_PATH}")
+            main_window.progress_meter = ProgressMeter(main_window.on_progress_made)
             main_window.info_bar.set_label(f'Scanning files in tree: {LEFT_DIR_PATH}')
             left_set = FMetaScanner.scan_local_tree(LEFT_DIR_PATH, main_window.progress_meter, main_window.diff_tree_left)
             left_db_loader.store_fmeta_to_db(left_set)
@@ -37,9 +38,10 @@ def diff_task(main_window):
             right_set = right_db_loader.build_fmeta_from_db()
         else:
             logging.info(f"Scanning files in tree: {RIGHT_DIR_PATH}")
+            main_window.progress_meter = ProgressMeter(main_window.on_progress_made)
             main_window.info_bar.set_label(f'Scanning files in tree: {RIGHT_DIR_PATH}')
             right_set = FMetaScanner.scan_local_tree(RIGHT_DIR_PATH, main_window.progress_meter, main_window.diff_tree_right)
-            left_db_loader.store_fmeta_to_db(right_set)
+            right_db_loader.store_fmeta_to_db(right_set)
 
         main_window.info_bar.set_label('Diffing...')
         logging.info("Diffing...")
@@ -123,8 +125,6 @@ class DiffWindow(Gtk.Window):
         right_tree_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         right_tree_scroller.add(self.diff_tree_right.tree)
         self.diff_tree_panel.pack_start(right_tree_scroller, True, True, 0)
-
-        self.progress_meter = ProgressMeter(self.on_progress_made)
 
         self.button = Gtk.Button(label="Do Diff")
         self.button.connect("clicked", self.on_button_clicked)

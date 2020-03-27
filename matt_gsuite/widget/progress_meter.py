@@ -9,6 +9,8 @@ class ProgressMeter:
         self.progress_made_callback = on_progress_made
 
     def set_total(self, total):
+        if self.progress > total:
+            raise RuntimeError(f'While setting total: progress ({self.progress} is already greater than total {total}!')
         self.total = total
 
     def add_progress(self, amount):
