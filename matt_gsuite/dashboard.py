@@ -68,7 +68,8 @@ class DiffWindow(Gtk.Window):
         Gtk.Window.__init__(self, title='UltrarSync')
         self.set_icon_from_file(get_resource_path("../resources/fslint_icon.png"))
         # Set minimum width and height
-        self.set_size_request(900, 500)
+        self.set_size_request(1400, 800)
+      #  self.set_maximum_size(1800, 1200)
         #self.set_default_size(500, 500)
         self.set_border_width(10)
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
@@ -108,23 +109,28 @@ class DiffWindow(Gtk.Window):
         # Diff trees:
 
         self.diff_tree_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        # Each side is given 50% space
+        self.diff_tree_panel.set_homogeneous(True)
         self.content_box.add(self.diff_tree_panel)
 
         self.diff_tree_left = DiffTree()
         # Tree will take up all the excess space
         self.diff_tree_left.tree.set_vexpand(True)
+        self.diff_tree_left.tree.set_hexpand(False)
         left_tree_scroller = Gtk.ScrolledWindow()
         # No horizontal scrolling - only vertical
         left_tree_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         left_tree_scroller.add(self.diff_tree_left.tree)
-        self.diff_tree_panel.pack_start(left_tree_scroller, True, True, 0)
+        # child, expand, fill, padding
+        self.diff_tree_panel.pack_start(left_tree_scroller, False, True, 5)
 
         self.diff_tree_right = DiffTree()
         self.diff_tree_right.tree.set_vexpand(True)
+        self.diff_tree_right.tree.set_hexpand(False)
         right_tree_scroller = Gtk.ScrolledWindow()
         right_tree_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         right_tree_scroller.add(self.diff_tree_right.tree)
-        self.diff_tree_panel.pack_start(right_tree_scroller, True, True, 0)
+        self.diff_tree_panel.pack_start(right_tree_scroller, False, True, 0)
 
         self.button = Gtk.Button(label="Do Diff")
         self.button.connect("clicked", self.on_button_clicked)

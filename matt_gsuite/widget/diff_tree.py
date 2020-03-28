@@ -11,31 +11,50 @@ class DiffTree:
 
         self.tree = Gtk.TreeView(model=self.store)
 
+        # 1 NAME
         renderer = Gtk.CellRendererText()
+        # Set desired number of chars width
+        renderer.set_property('width-chars', 15)
         column = Gtk.TreeViewColumn("Name", renderer, text=1)
         column.set_sort_column_id(1)
-        #column.set_expand(True)
-        column.set_max_width(300)
-        self.tree.append_column(column)
 
-        renderer = Gtk.CellRendererText()
-        column = Gtk.TreeViewColumn("Directory", renderer, text=2)
-        column.set_sort_column_id(2)
+        column.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
+      #  column.set_fixed_width(50)
+        column.set_min_width(50)
+       # column.set_max_width(300)
         column.set_expand(True)
         column.set_resizable(True)
-        column.set_min_width(50)
-        #column.set_max_width(400)
-        column.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
+        column.set_reorderable(True)
         self.tree.append_column(column)
 
+        # 2 DIRECTORY
         renderer = Gtk.CellRendererText()
+        renderer.set_property('width-chars', 20)
+        column = Gtk.TreeViewColumn("Directory", renderer, text=2)
+        column.set_sort_column_id(2)
+
+        column.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
+      #  column.set_fixed_width(50)
+        column.set_min_width(50)
+        # column.set_max_width(300)
+        column.set_expand(True)
+        column.set_resizable(True)
+        column.set_reorderable(True)
+        self.tree.append_column(column)
+
+        # 3 SIZE
+        renderer = Gtk.CellRendererText()
+        renderer.set_property('width-chars', 10)
         column = Gtk.TreeViewColumn("Size", renderer, text=3)
         column.set_sort_column_id(3)
+
+        column.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
+      #  column.set_fixed_width(50)
+        column.set_min_width(50)
+        # column.set_max_width(300)
         column.set_expand(False)
         column.set_resizable(True)
-        column.set_min_width(50)
-        #column.set_max_width(100)
-        column.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
+        column.set_reorderable(True)
         self.tree.append_column(column)
 
         def compare_file_size(model, row1, row2, user_data):
@@ -53,24 +72,34 @@ class DiffTree:
 
         self.store.set_sort_func(3, compare_file_size, None)
 
+        # 4 MODIFICATION DATE
         renderer = Gtk.CellRendererText()
+        renderer.set_property('width-chars', 8)
         column = Gtk.TreeViewColumn("Modification Date", renderer, text=4)
         column.set_sort_column_id(4)
+
+        column.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
+        #column.set_fixed_width(50)
+        column.set_min_width(50)
+        # column.set_max_width(300)
         column.set_expand(False)
         column.set_resizable(True)
-        column.set_min_width(50)
-        #column.set_max_width(150)
-        column.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
+        column.set_reorderable(True)
         self.tree.append_column(column)
 
+        # 5 CHANGE TYPE
         renderer = Gtk.CellRendererText()
+        renderer.set_property('width-chars', 8)
         column = Gtk.TreeViewColumn("Change Type", renderer, text=5)
         column.set_sort_column_id(5)
+
+        column.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
+        #column.set_fixed_width(50)
+        column.set_min_width(50)
+        # column.set_max_width(300)
         column.set_expand(False)
         column.set_resizable(True)
-        column.set_min_width(50)
-        #column.set_max_width(50)
-        column.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
+        column.set_reorderable(True)
         self.tree.append_column(column)
 
         def on_tree_selection_changed(selection):
