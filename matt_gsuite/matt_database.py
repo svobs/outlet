@@ -13,10 +13,10 @@ class MattDatabase:
         'name': 'file_log',
         'cols': (('sig', 'TEXT'),
                 ('len', 'INTEGER'),
-                ('ts', 'INTEGER'),
+                ('sync_ts', 'INTEGER'),
+                ('modify_ts', 'INTEGER'),
                 ('path', 'TEXT'),
-                 # deleted=1 if deleted
-                ('deleted', 'TEXT'))
+                ('status', 'TEXT'))
     }
 
     def __init__(self, db_path):
@@ -92,7 +92,7 @@ class MattDatabase:
         changes = cursor.fetchall()
         entries = []
         for change in changes:
-            entries.append(FMeta(change[0], change[1], change[2], change[3], change[4]))
+            entries.append(FMeta(change[0], change[1], change[2], change[3], change[4]), change[5])
         return entries
 
     # Takes a list of FMeta objects:

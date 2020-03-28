@@ -18,18 +18,19 @@ sync_ts
 
 
 class FMeta:
-    def __init__(self, signature, length, sync_ts, file_path, deleted = 1):
+    def __init__(self, signature, length, sync_ts, modify_ts, file_path, status = 1):
         self.signature = signature
         self.length = length
         self.sync_ts = sync_ts
-        self.modify_ts = None # TODO
+        self.modify_ts = modify_ts
         self.file_path = file_path
-        self.status = deleted
+        self.status = status
 
     def __iter__(self):
         yield self.signature
         yield self.length
         yield self.sync_ts
+        yield self.modify_ts
         yield self.file_path
         yield self.status
 

@@ -7,7 +7,7 @@ class TreeRecurser:
     def __init__(self, root_path, valid_suffixes):
         self.root_path = root_path
         self.valid_suffixes = valid_suffixes
-        self.sync_set = FMetaSet()
+        self.fmeta_set = FMetaSet()
 
     def is_target_type(self, file_path):
         file_path_lower = file_path.lower()
@@ -26,7 +26,7 @@ class TreeRecurser:
                 else:
                     self.handle_non_target_file(file_path)
 
-        return self.sync_set
+        return self.fmeta_set
 
     def handle_target_file_type(self, file_path):
         # do nothing by default

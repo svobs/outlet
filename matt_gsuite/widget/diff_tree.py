@@ -105,7 +105,8 @@ class DiffTree:
     def _add(self, category, fmeta):
         directory, name = os.path.split(fmeta.file_path)
         num_bytes_str = humanfriendly.format_size(fmeta.length)
-        self.model.append(category, [fmeta.signature, name, directory, num_bytes_str, fmeta.modify_ts])
+        modify_time = str(fmeta.modify_ts) # TODO
+        self.model.append(category, [fmeta.signature, name, directory, num_bytes_str, modify_time])
         self.fmeta_set.add(fmeta)
 
     def _add_category(self, name):

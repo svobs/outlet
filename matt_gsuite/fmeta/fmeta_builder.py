@@ -14,6 +14,7 @@ import time
 from fmeta.fmeta import FMetaSet
 from fmeta.fmeta import FMeta
 from fmeta.tree_recurser import TreeRecurser
+from fmeta.content_hasher import DropboxContentHasher
 from matt_database import MattDatabase
 from pathlib import Path
 import hashlib
@@ -35,7 +36,6 @@ class FileCounter(TreeRecurser):
         self.files_to_scan += 1
 
 
-# TODO: switch to SHA-2
 # From: https://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file
 def md5(filename):
     hash_md5 = hashlib.md5()
@@ -43,6 +43,17 @@ def md5(filename):
         for chunk in iter(lambda: f.read(4096), b""):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
+
+
+def dropbox_hash(filename):
+    hasher = DropboxContentHasher()
+    with open(filename, 'rb') as f:
+        while True:
+            chunk = f.read(1024)  # or whatever chunk size you want
+            if len(chunk) == 0:
+                break
+            hasher.update(chunk)
+    return hasher.hexdigest()
 
 
 # Strip the root_path out of the file path:
@@ -59,7 +70,8 @@ class FMetaFromFilesBuilder(TreeRecurser):
 
     def build_sync_item(self, file_path):
         # Open,close, read file and calculate MD5 on its contents
-        signature_str = md5(file_path)
+
+        signature_str = dropbox_hash(file_path)
         relative_path = strip_root(file_path, str(self.root_path))
 
         # Get "now" in UNIX time:
@@ -67,12 +79,13 @@ class FMetaFromFilesBuilder(TreeRecurser):
         sync_ts = int(time.mktime(date_time_now.timetuple()))
         #print(' '.join((str(sync_ts), signature_str, relative_path)))
         length = os.stat(file_path).st_size
-        return FMeta(signature_str, length, sync_ts, relative_path)
+        modify_ts = int(os.path.getmtime(file_path))
+        return FMeta(signature_str, length, sync_ts, modify_ts, relative_path)
 
     def handle_target_file_type(self, file_path):
         item = self.build_sync_item(file_path)
 
-        self.sync_set.add(item)
+        self.fmeta_set.add(item)
 
         self.progress_meter.add_progress(1)
 
@@ -100,9 +113,9 @@ class FMetaScanner:
             progress_meter.set_total(file_counter.files_to_scan)
         sync_set_builder = FMetaFromFilesBuilder(local_path, progress_meter, diff_tree)
         sync_set_builder.recurse_through_dir_tree()
-        print("Sig count: " + str(len(sync_set_builder.sync_set.sig_dict)))
-        print("Path count: " + str(len(sync_set_builder.sync_set.path_dict)))
-        return sync_set_builder.sync_set
+        print("Sig count: " + str(len(sync_set_builder.fmeta_set.sig_dict)))
+        print("Path count: " + str(len(sync_set_builder.fmeta_set.path_dict)))
+        return sync_set_builder.fmeta_set
 
 
 #####################################################
