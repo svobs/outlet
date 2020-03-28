@@ -1,11 +1,12 @@
 
 class DiffResult:
     def __init__(self):
-        self.local_adds = []
-        self.local_updates = []
-        self.local_dels = []
-        self.remote_adds = []
-        self.remote_dels = []
+        self.left_adds = []
+        self.left_updates = []
+        self.left_dels = []
+        self.right_adds = []
+        self.right_dels = []
+        self.right_updates = []
 
 
 class FMetaSetDiff:
@@ -19,6 +20,7 @@ class FMetaSetDiff:
             if right_samesig is None:
                 print(f'Left has new file: "{left.file_path}"')
                 diff_tree_left.add_item(left, 'New')
+                diff_result.left_adds.append(left)
                 continue
 
         for right in set_right.sig_dict.values():
@@ -26,9 +28,10 @@ class FMetaSetDiff:
             if left_samesig is None:
                 print(f'Right has new file: "{right.file_path}"')
                 diff_tree_right.add_item(right, 'New')
+                diff_result.right_adds.append(right)
                 continue
 
-        print('Done with diff')
+        print(f'Done with diff. LeftAdds={len(diff_result.left_adds)} RightAdds={len(diff_result.right_adds)}')
         return diff_result
 
     @staticmethod
@@ -42,7 +45,7 @@ class FMetaSetDiff:
                 print(f'Left has new file: "{left.file_path}"')
                 # File is added, moved, or copied here.
                 # TODO: in the future, be smarter about this
-                diff_result.local_adds.append(left)
+                diff_result.left_adds.append(left)
                 continue
             # Do we know this item?
             if right_samepath.signature == left.signature:
@@ -66,7 +69,7 @@ class FMetaSetDiff:
                 if matching_sig_master is None:
                     # This is a new file, from the standpoint of the remote
                     # TODO: in the future, be smarter about this
-                    diff_result.local_updates.append(left)
+                    diff_result.left_updates.append(left)
                 # print("CONFLICT! UNHANDLED 3!")
                 continue
 
@@ -76,7 +79,7 @@ class FMetaSetDiff:
                 print(f'Left is missing file: "{right.file_path}"')
                 # File is added, moved, or copied here.
                 # TODO: in the future, be smarter about this
-                diff_result.remote_adds.append(right)
+                diff_result.right_adds.append(right)
                 continue
 
         print('Done with diff')
