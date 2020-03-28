@@ -48,6 +48,10 @@ def diff_task(main_window):
 
         diff_result = FMetaSetDiff.diff(left_set, right_set, main_window.diff_tree_left, main_window.diff_tree_right)
 
+        def do_on_ui_thread():
+            main_window.diff_tree_left.tree.expand_all()
+            main_window.diff_tree_right.tree.expand_all()
+        GLib.idle_add(do_on_ui_thread)
         main_window.info_bar.set_label('Done.')
         logging.info('Done.')
     except Exception as err:

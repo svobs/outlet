@@ -19,7 +19,7 @@ class FMetaSetDiff:
             right_samesig = set_right.sig_dict.get(left.signature, None)
             if right_samesig is None:
                 print(f'Left has new file: "{left.file_path}"')
-                diff_tree_left.add_item(left, 'New')
+                diff_tree_left.add_item(left)
                 diff_result.left_adds.append(left)
                 continue
 
@@ -27,7 +27,7 @@ class FMetaSetDiff:
             left_samesig = set_left.sig_dict.get(right.signature, None)
             if left_samesig is None:
                 print(f'Right has new file: "{right.file_path}"')
-                diff_tree_right.add_item(right, 'New')
+                diff_tree_right.add_item(right)
                 diff_result.right_adds.append(right)
                 continue
 
