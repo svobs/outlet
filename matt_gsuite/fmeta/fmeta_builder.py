@@ -72,8 +72,7 @@ class FMetaFromFilesBuilder(TreeRecurser):
     def handle_target_file_type(self, file_path):
         item = self.build_sync_item(file_path)
 
-        self.sync_set.sig_dict[item.signature] = item
-        self.sync_set.path_dict[item.signature] = item
+        self.sync_set.add(item)
 
         self.progress_meter.add_progress(1)
 
@@ -127,8 +126,7 @@ class FMetaLoader:
             change.status = 1 # VALID. TODO
             meta = fmeta_set.path_dict.get(change.file_path)
             if meta is None or meta.sync_ts < change.sync_ts:
-                fmeta_set.sig_dict[change.signature] = change
-                fmeta_set.path_dict[change.file_path] = change
+                fmeta_set.add(change)
                 counter = counter + 1
 
         print(f'Reduced {str(len(db_file_changes))} changes into {str(counter)} entries')

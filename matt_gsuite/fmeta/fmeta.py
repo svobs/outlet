@@ -58,3 +58,7 @@ class FMetaSet:
         self.sig_dict = {}
         # Each item is an entry
         self.path_dict = {}
+
+    def add(self, item):
+        self.sig_dict[item.signature] = item
+        self.path_dict[item.signature] = item
