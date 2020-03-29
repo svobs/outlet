@@ -92,7 +92,7 @@ class FMetaFromFilesBuilder(TreeRecurser):
     def handle_non_target_file(self, file_path):
         print('### UNEXPECTED FILE: ' + file_path)
         item = self.build_sync_item(file_path)
-        self.diff_tree.add_unexpected_item(item)
+        self.diff_tree.change_set.adds.append(item)
 
 
 ########################################################

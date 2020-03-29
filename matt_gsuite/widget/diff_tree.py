@@ -147,12 +147,14 @@ class DiffTree:
         select.connect("changed", on_tree_selection_changed)
 
     # Builds a tree out of the flat change set.
-    def build_category_change_tree(self, change_set, cat_name):
+    @staticmethod
+    def build_category_change_tree(change_set, cat_name):
         # The change set in tree form
         change_tree = Tree() # from treelib
 
-        if len(change_set) > 0:
-            print(f'Building change trees for category {cat_name}...')
+        set_len = len(change_set)
+        if set_len > 0:
+            print(f'Building change trees for category {cat_name} with {set_len} items...')
 
             root = change_tree.create_node(tag=cat_name, identifier='')   # root
             for fmeta in change_set:
@@ -193,9 +195,8 @@ class DiffTree:
             directory, name = os.path.split(fmeta.file_path)
             return self.model.append(tree_iter, [fmeta.signature, file_name, directory, num_bytes_str, modify_time])
 
-    def rebuild_ui_tree(self):
-        cat_name = cat_names[Category.ADDED]
-        change_tree = self.build_category_change_tree(self.change_set.adds, cat_name)
+    def _populate_category(self, cat_name, change_set):
+        change_tree = DiffTree.build_category_change_tree(change_set, cat_name)
 
         def append_recursively(tree_iter, node):
             # Do a DFS of the change tree and populate the UI tree along the way
@@ -209,7 +210,7 @@ class DiffTree:
 
         def do_on_ui_thread():
             if change_tree.size(1) > 0:
-                print(f'Appending category: {cat_name}')
+                #print(f'Appending category: {cat_name}')
                 root = change_tree.get_node('')
                 append_recursively(None, root)
 
@@ -217,6 +218,10 @@ class DiffTree:
             self.tree.expand_all()
 
         GLib.idle_add(do_on_ui_thread)
+
+    def rebuild_ui_tree(self):
+        self._populate_category(cat_names[Category.ADDED], self.change_set.adds)
+        self._populate_category(cat_names[Category.UNEXPECTED], self.change_set.unexpected)
 
     @staticmethod
     def split_path(path):
@@ -233,59 +238,3 @@ class DiffTree:
                 path = parts[0]
                 all_parts.insert(0, parts[1])
         return all_parts
-
-    def _add_parent_dirs(self, dir_tree_node, path):
-        tree_path_array = [dir_tree_node.index_in_parent, ]
-        if path != '':
-            print(f'Need to add parent dirs for "{path}"')
-
-            directories = DiffTree.split_path(path)
-            for dir_name in directories:
-                child = dir_tree_node.children.get(dir_name, None)
-                if child is None:
-                    # Create
-                    parent_tree_path = Gtk.TreePath(tree_path_array)
-                    parent_tree_iter = self.model.get_iter(parent_tree_path)
-                    self.model.append(parent_tree_iter, [dir_name, None, None, None])
-                    print(f'AddedTree: {dir_name} at {str(parent_tree_path)}')
-                    child = DirTreeNode(dir_name, len(dir_tree_node.children))
-                    dir_tree_node.children[child.name] = child
-                tree_path_array.append(child.index_in_parent)
-        parent_tree_path = Gtk.TreePath(tree_path_array)
-        return self.model.get_iter(parent_tree_path)
-
-    def _add(self, category, fmeta):
-        # create cat if not exist:
-        cat_name = cat_names[category]
-        category_node = self.dir_tree_dict.get(cat_name, None)
-        if category_node is None:
-            category_node = DirTreeNode(cat_name, len(self.dir_tree_dict))
-            if self.use_dir_tree:
-                print(f'Appending category: {cat_name}')
-                self.model.append(None, [cat_name, None, None, None])
-            else:
-                self.model.append(None, [cat_name, None, None, None, None])
-            self.dir_tree_dict[cat_name] = category_node
-            print(f'AddedTree: {cat_name} at {category_node.index_in_parent}')
-
-        directory, name = os.path.split(fmeta.file_path)
-        num_bytes_str = humanfriendly.format_size(fmeta.length)
-        modify_time = str(fmeta.modify_ts) # TODO
-        if self.use_dir_tree:
-            parent_dir_tree_iter = self._add_parent_dirs(category_node, directory)
-            self.model.append(parent_dir_tree_iter, [fmeta.signature, name, num_bytes_str, modify_time])
-        else:
-            tree_path = Gtk.TreePath(category_node.index_in_parent)
-            tree_iter = self.model.get_iter(tree_path)
-            self.model.append(tree_iter, [fmeta.signature, name, directory, num_bytes_str, modify_time])
-        self.fmeta_set.add(fmeta)
-
-    def _add_category(self, name):
-        return self.model.append(None, [None, name, None, None, None])
-
-    def add_item(self, fmeta):
-        self.change_set.added.append(fmeta)
-
-    def add_unexpected_item(self, fmeta):
-        self.change_set.unexpected.append(fmeta)
-
