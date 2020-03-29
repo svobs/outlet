@@ -24,33 +24,33 @@ def diff_task(main_window):
         left_db_loader = FMetaLoader(LEFT_DB_PATH)
         if left_db_loader.has_data():
             print(f'Loading Left data from DB: {LEFT_DB_PATH}')
-            left_set = left_db_loader.build_fmeta_from_db()
+            main_window.diff_tree_left.fmeta_set = left_db_loader.build_fmeta_from_db()
         else:
             logging.info(f"Scanning files in tree: {LEFT_DIR_PATH}")
             main_window.progress_meter = ProgressMeter(main_window.on_progress_made)
             main_window.info_bar.set_label(f'Scanning files in tree: {LEFT_DIR_PATH}')
-            left_set = FMetaScanner.scan_local_tree(LEFT_DIR_PATH, main_window.progress_meter, main_window.diff_tree_left)
-            left_db_loader.store_fmeta_to_db(left_set)
+            FMetaScanner.scan_local_tree(LEFT_DIR_PATH, main_window.progress_meter, main_window.diff_tree_left)
+            left_db_loader.store_fmeta_to_db(main_window.diff_tree_left)
 
         right_db_loader = FMetaLoader(RIGHT_DB_PATH)
         if right_db_loader.has_data():
             print(f'Loading Right data from DB: {RIGHT_DB_PATH}')
-            right_set = right_db_loader.build_fmeta_from_db()
+            main_window.diff_tree_right.fmeta_set = right_db_loader.build_fmeta_from_db()
         else:
             logging.info(f"Scanning files in tree: {RIGHT_DIR_PATH}")
             main_window.progress_meter = ProgressMeter(main_window.on_progress_made)
             main_window.info_bar.set_label(f'Scanning files in tree: {RIGHT_DIR_PATH}')
-            right_set = FMetaScanner.scan_local_tree(RIGHT_DIR_PATH, main_window.progress_meter, main_window.diff_tree_right)
-            right_db_loader.store_fmeta_to_db(right_set)
+            FMetaScanner.scan_local_tree(RIGHT_DIR_PATH, main_window.progress_meter, main_window.diff_tree_right)
+            right_db_loader.store_fmeta_to_db(main_window.diff_tree_right)
 
         main_window.info_bar.set_label('Diffing...')
         logging.info("Diffing...")
 
-        diff_result = FMetaSetDiff.diff(left_set, right_set, main_window.diff_tree_left, main_window.diff_tree_right)
+        FMetaSetDiff.diff(main_window.diff_tree_left, main_window.diff_tree_right)
 
         def do_on_ui_thread():
-            main_window.diff_tree_left.tree.expand_all()
-            main_window.diff_tree_right.tree.expand_all()
+            main_window.diff_tree_left.rebuild_ui_tree()
+            main_window.diff_tree_right.rebuild_ui_tree()
         GLib.idle_add(do_on_ui_thread)
         main_window.info_bar.set_label('Done.')
         logging.info('Done.')

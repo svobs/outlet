@@ -1,51 +1,36 @@
 
-class DiffResult:
-    def __init__(self):
-        self.left_adds = []
-        self.left_updates = []
-        self.left_dels = []
-        self.right_adds = []
-        self.right_dels = []
-        self.right_updates = []
-
-
 class FMetaSetDiff:
 
     @staticmethod
-    def diff(set_left, set_right, diff_tree_left, diff_tree_right):
+    def diff(left_tree, right_tree):
         print('Comparing file sets by signature...')
-        diff_result = DiffResult()
-        for left in set_left.sig_dict.values():
-            right_samesig = set_right.sig_dict.get(left.signature, None)
+        for left in left_tree.fmeta_set.sig_dict.values():
+            right_samesig = right_tree.fmeta_set.sig_dict.get(left.signature, None)
             if right_samesig is None:
-                print(f'Left has new file: "{left.file_path}"')
-                diff_tree_left.add_item(left)
-                diff_result.left_adds.append(left)
+                #print(f'Left has new file: "{left.file_path}"')
+                left_tree.change_set.adds.append(left)
                 continue
 
-        for right in set_right.sig_dict.values():
-            left_samesig = set_left.sig_dict.get(right.signature, None)
+        for right in right_tree.fmeta_set.sig_dict.values():
+            left_samesig = left_tree.fmeta_set.sig_dict.get(right.signature, None)
             if left_samesig is None:
-                print(f'Right has new file: "{right.file_path}"')
-                diff_tree_right.add_item(right)
-                diff_result.right_adds.append(right)
+                #print(f'Right has new file: "{right.file_path}"')
+                right_tree.change_set.adds.append(right)
                 continue
 
-        print(f'Done with diff. LeftAdds={len(diff_result.left_adds)} RightAdds={len(diff_result.right_adds)}')
-        return diff_result
+        print(f'Done with diff. LeftAdds={len(left_tree.change_set.adds)} RightAdds={len(right_tree.change_set.adds)}')
 
     @staticmethod
-    def diff_by_path(set_left, set_right, diff_tree_left, diff_tree_right):
+    def diff_by_path(left_tree, right_tree):
         print('Comparing file sets by path...')
-        diff_result = DiffResult()
         # left represents a unique path
-        for left in set_left.path_dict.values():
-            right_samepath = set_right.path_dict.get(left.file_path, None)
+        for left in left_tree.fmeta_set.path_dict.values():
+            right_samepath = right_tree.fmeta_set.path_dict.get(left.file_path, None)
             if right_samepath is None:
                 print(f'Left has new file: "{left.file_path}"')
                 # File is added, moved, or copied here.
                 # TODO: in the future, be smarter about this
-                diff_result.left_adds.append(left)
+                left.change_set.adds.append(left)
                 continue
             # Do we know this item?
             if right_samepath.signature == left.signature:
@@ -65,23 +50,22 @@ class FMetaSetDiff:
             else:
                 print(f'In Left path {left.file_path}: expected signature "{right_samepath.signature}"; actual is "{left.signature}"')
                 # Conflict! Need to determine which is most recent
-                matching_sig_master = set_right.sig_dict[left.signature]
+                matching_sig_master = right_tree.fmeta_set.sig_dict[left.signature]
                 if matching_sig_master is None:
                     # This is a new file, from the standpoint of the remote
                     # TODO: in the future, be smarter about this
-                    diff_result.left_updates.append(left)
+                    left_tree.change_set.updates.append(left)
                 # print("CONFLICT! UNHANDLED 3!")
                 continue
 
-        for right in set_right.path_dict.values():
-            left_samepath = set_left.path_dict.get(right.file_path, None)
+        for right in right_tree.fmeta_set.path_dict.values():
+            left_samepath = left_tree.fmeta_set.path_dict.get(right.file_path, None)
             if left_samepath is None:
                 print(f'Left is missing file: "{right.file_path}"')
                 # File is added, moved, or copied here.
                 # TODO: in the future, be smarter about this
-                diff_result.right_adds.append(right)
+                right_tree.change_set.adds.append(right)
                 continue
 
         print('Done with diff')
-        return diff_result
 

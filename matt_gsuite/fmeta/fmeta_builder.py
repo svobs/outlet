@@ -85,7 +85,7 @@ class FMetaFromFilesBuilder(TreeRecurser):
     def handle_target_file_type(self, file_path):
         item = self.build_sync_item(file_path)
 
-        self.fmeta_set.add(item)
+        self.diff_tree.fmeta_set.add(item)
 
         self.progress_meter.add_progress(1)
 
@@ -113,9 +113,8 @@ class FMetaScanner:
             progress_meter.set_total(file_counter.files_to_scan)
         sync_set_builder = FMetaFromFilesBuilder(local_path, progress_meter, diff_tree)
         sync_set_builder.recurse_through_dir_tree()
-        print("Sig count: " + str(len(sync_set_builder.fmeta_set.sig_dict)))
-        print("Path count: " + str(len(sync_set_builder.fmeta_set.path_dict)))
-        return sync_set_builder.fmeta_set
+        print("Sig count: " + str(len(diff_tree.fmeta_set.sig_dict)))
+        print("Path count: " + str(len(diff_tree.fmeta_set.path_dict)))
 
 
 #####################################################
@@ -145,10 +144,10 @@ class FMetaLoader:
         print(f'Reduced {str(len(db_file_changes))} changes into {str(counter)} entries')
         return fmeta_set
 
-    def store_fmeta_to_db(self, fmeta_set):
+    def store_fmeta_to_db(self, diff_tree):
         if self.has_data():
             raise RuntimeError('Will not insert FMeta into DB! It is not empty')
 
-        to_insert = fmeta_set.path_dict.values()
+        to_insert = diff_tree.fmeta_set.path_dict.values()
         self.db.insert_file_changes(to_insert)
         print(f'Inserted {str(len(to_insert))} FMetas into previously empty DB table.')
