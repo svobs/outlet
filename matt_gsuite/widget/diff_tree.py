@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 import humanfriendly
 from fmeta.fmeta import FMetaSet
 from gi.repository import GLib, Gtk
@@ -22,13 +23,6 @@ class Category(Enum):
 
 
 cat_names = {Category.ADDED: 'Added', Category.UNEXPECTED: 'Unexpected'}
-
-
-class DirTreeNode:
-    def __init__(self, name, index_in_parent):
-        self.name = name
-        self.index_in_parent = index_in_parent
-        self.children = {}
 
 
 class DiffTree:
@@ -62,11 +56,12 @@ class DiffTree:
         self.tree.set_property('enable_tree_lines', True)
 
         # 1 NAME
+        col_num = 1
         renderer = Gtk.CellRendererText()
         # Set desired number of chars width
         renderer.set_property('width-chars', 15)
-        column = Gtk.TreeViewColumn("Name", renderer, text=1)
-        column.set_sort_column_id(1)
+        column = Gtk.TreeViewColumn("Name", renderer, text=col_num)
+        column.set_sort_column_id(col_num)
 
         column.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
         #  column.set_fixed_width(50)
@@ -79,10 +74,11 @@ class DiffTree:
 
         if not self.use_dir_tree:
             # 2 DIRECTORY
+            col_num += 1
             renderer = Gtk.CellRendererText()
             renderer.set_property('width-chars', 20)
-            column = Gtk.TreeViewColumn("Directory", renderer, text=2)
-            column.set_sort_column_id(2)
+            column = Gtk.TreeViewColumn("Directory", renderer, text=col_num)
+            column.set_sort_column_id(col_num)
 
             column.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
             column.set_min_width(50)
@@ -93,10 +89,11 @@ class DiffTree:
             self.tree.append_column(column)
 
         # 3 SIZE
+        col_num += 1
         renderer = Gtk.CellRendererText()
         renderer.set_property('width-chars', 10)
-        column = Gtk.TreeViewColumn("Size", renderer, text=2)
-        column.set_sort_column_id(2)
+        column = Gtk.TreeViewColumn("Size", renderer, text=col_num)
+        column.set_sort_column_id(col_num)
 
         column.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
         #  column.set_fixed_width(50)
@@ -120,13 +117,14 @@ class DiffTree:
             else:
                 return 1
 
-        self.model.set_sort_func(2, compare_file_size, None)
+        self.model.set_sort_func(col_num, compare_file_size, None)
 
         # 4 MODIFICATION DATE
         renderer = Gtk.CellRendererText()
         renderer.set_property('width-chars', 8)
-        column = Gtk.TreeViewColumn("Modification Date", renderer, text=3)
-        column.set_sort_column_id(3)
+        col_num += 1
+        column = Gtk.TreeViewColumn("Modification Date", renderer, text=col_num)
+        column.set_sort_column_id(col_num)
 
         column.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
         #column.set_fixed_width(50)
@@ -188,7 +186,8 @@ class DiffTree:
 
     def append_fmeta(self, tree_iter, file_name, fmeta):
         num_bytes_str = humanfriendly.format_size(fmeta.length)
-        modify_time = str(fmeta.modify_ts) # TODO
+        modify_datetime = datetime.fromtimestamp(fmeta.modify_ts)
+        modify_time = modify_datetime.strftime("%Y-%m-%d %H:%M:%S")
         if self.use_dir_tree:
             return self.model.append(tree_iter, [fmeta.signature, file_name, num_bytes_str, modify_time])
         else:
