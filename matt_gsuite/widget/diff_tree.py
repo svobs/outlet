@@ -40,19 +40,17 @@ class DiffTree:
         # This is a dict of categories, each of which stores a directory tree
         self.dir_tree_dict = {}
 
-
         if self.use_dir_tree:
             self.model = Gtk.TreeStore(str, str, str, str, str)
         else:
             self.model = Gtk.TreeStore(str, str, str, str, str, str)
-        self.category_unexpected = None
-        self.category_added = None
-        self.category_removed = None
 
     #def build_gtk_tree(self):
 
         #self.icon = Gtk.IconTheme.get_default().load_icon("folder", 22, 0)
-        self.icon = GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path("../../resources/fslint_icon.png"))
+        icon_size = 24
+        self.icons = {'folder': GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Folder-icon-{icon_size}px.png')),
+                      'added': GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-Add-icon-{icon_size}px.png'))}
 
         # The UI tree widget
         self.tree = Gtk.TreeView(model=self.model) #TODO: detach from model while populating
@@ -65,36 +63,23 @@ class DiffTree:
         # May want to disable if using drag+drop
         self.tree.set_rubber_banding(True)
 
-        # 0 ICON
+        # 1 ICON + Name
         col_num = 1
         px_renderer = Gtk.CellRendererPixbuf()
-        px_column = Gtk.TreeViewColumn('')
+        px_column = Gtk.TreeViewColumn('Name')
         px_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         px_column.pack_start(px_renderer, False)
         str_renderer = Gtk.CellRendererText()
+        str_renderer.set_property('width-chars', 15)
         px_column.pack_start(str_renderer, False)
         # set data connector function/method
         px_column.set_cell_data_func(px_renderer, self.get_tree_cell_pixbuf)
         px_column.set_cell_data_func(str_renderer, self.get_tree_cell_text)
+        px_column.set_min_width(50)
+        px_column.set_expand(True)
+        px_column.set_resizable(True)
+        px_column.set_reorderable(True)
         self.tree.append_column(px_column)
-
-        # 1 NAME
-        col_num += 1
-        renderer = Gtk.CellRendererText()
-        # Set desired number of chars width
-        renderer.set_property('width-chars', 15)
-        column = Gtk.TreeViewColumn(title="Name", cell_renderer=renderer, text=col_num)
-       # column.add_attribute(pixbuf_renderer, "pixbuf", 0)
-        column.set_sort_column_id(col_num)
-
-        column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
-        #  column.set_fixed_width(50)
-        column.set_min_width(50)
-        # column.set_max_width(300)
-        column.set_expand(True)
-        column.set_resizable(True)
-        column.set_reorderable(True)
-        self.tree.append_column(column)
 
         if not self.use_dir_tree:
             # 2 DIRECTORY
@@ -162,24 +147,31 @@ class DiffTree:
         def on_tree_selection_changed(selection):
             model, treeiter = selection.get_selected_rows()
             if treeiter is not None and len(treeiter) == 1:
-                print("You selected", model[treeiter][0])
+                print("You selected", model[treeiter][4])
 
         select = self.tree.get_selection()
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
         select.connect("changed", on_tree_selection_changed)
 
+    # For displaying icons
     def get_tree_cell_text(self, col, cell, model, iter, user_data):
         cell.set_property('text', model.get_value(iter, 1))
 
+    # For displaying icons
     def get_tree_cell_pixbuf(self, col, cell, model, iter, user_data):
-       # cell.set_property('pixbuf', GdkPixbuf.Pixbuf.new_from_file(model.get_value(iter, 0)))
-        cell.set_property('pixbuf', self.icon)
+        cell.set_property('pixbuf', self.icons[model.get_value(iter, 0)])
 
-
-
-# Builds a tree out of the flat change set.
     @staticmethod
     def build_category_change_tree(change_set, cat_name):
+        """
+        Builds a tree out of the flat change set.
+        Args:
+            change_set: source tree for category
+            cat_name: the category name
+
+        Returns:
+            change tree
+        """
         # The change set in tree form
         change_tree = Tree() # from treelib
 
@@ -213,9 +205,9 @@ class DiffTree:
 
     def append_dir(self, tree_iter, dir_name):
         if self.use_dir_tree:
-            return self.model.append(tree_iter, ['icon.png', None, dir_name, None, None])
+            return self.model.append(tree_iter, ['folder', dir_name, None, None, None])
         else:
-            return self.model.append(tree_iter, ['icon.png', None, dir_name, None, None, None])
+            return self.model.append(tree_iter, ['folder', dir_name, None, None, None, None])
 
     @staticmethod
     def get_resource_path(rel_path):
@@ -231,10 +223,10 @@ class DiffTree:
         modify_time = modify_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
         if self.use_dir_tree:
-            return self.model.append(tree_iter, ['icon.png', fmeta.signature, file_name, num_bytes_str, modify_time])
+            return self.model.append(tree_iter, ['added', file_name, num_bytes_str, modify_time, fmeta.signature])
         else:
             directory, name = os.path.split(fmeta.file_path)
-            return self.model.append(tree_iter, ['icon.png', fmeta.signature, file_name, directory, num_bytes_str, modify_time])
+            return self.model.append(tree_iter, ['added', file_name, directory, num_bytes_str, modify_time, fmeta.signature])
 
     def _populate_category(self, cat_name, change_set):
         change_tree = DiffTree.build_category_change_tree(change_set, cat_name)
