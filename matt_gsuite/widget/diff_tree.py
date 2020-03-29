@@ -139,7 +139,7 @@ class DiffTree:
 
         def on_tree_selection_changed(selection):
             model, treeiter = selection.get_selected_rows()
-            if treeiter is not None and len(treeiter) > 0:
+            if treeiter is not None and len(treeiter) == 1:
                 print("You selected", model[treeiter][0])
 
         select = self.tree.get_selection()
