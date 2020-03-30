@@ -51,6 +51,25 @@ def diff_task(main_window):
         def do_on_ui_thread():
             main_window.diff_tree_left.rebuild_ui_tree()
             main_window.diff_tree_right.rebuild_ui_tree()
+
+            # Replace diff btn with merge buttons
+            main_window.merge_left_btn = Gtk.Button(label="<- Merge Left")
+            main_window.merge_left_btn.connect("clicked", main_window.on_merge_left_btn_clicked)
+
+            main_window.merge_both_btn = Gtk.Button(label="< Merge Both >")
+            main_window.merge_both_btn.connect("clicked", main_window.on_merge_both_btn_clicked)
+
+            main_window.merge_right_btn = Gtk.Button(label="Merge Right ->")
+            main_window.merge_right_btn.connect("clicked", main_window.on_merge_right_btn_clicked)
+
+            main_window.bottom_button_panel.remove(main_window.diff_action_btn)
+            main_window.bottom_button_panel.pack_start(main_window.merge_left_btn, True, True, 0)
+            main_window.bottom_button_panel.pack_start(main_window.merge_both_btn, True, True, 0)
+            main_window.bottom_button_panel.pack_start(main_window.merge_right_btn, True, True, 0)
+            main_window.merge_left_btn.show()
+            main_window.merge_both_btn.show()
+            main_window.merge_right_btn.show()
+
         GLib.idle_add(do_on_ui_thread)
         main_window.info_bar.set_label('Done.')
         logging.info('Done.')
@@ -136,13 +155,14 @@ class DiffWindow(Gtk.Window):
         right_tree_scroller.add(self.diff_tree_right.tree)
         self.diff_tree_panel.pack_start(right_tree_scroller, False, True, 0)
 
-        self.button = Gtk.Button(label="Do Diff")
-        self.button.connect("clicked", self.on_button_clicked)
-        self.content_box.add(self.button)
+        self.bottom_button_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        self.content_box.add(self.bottom_button_panel)
+
+        self.diff_action_btn = Gtk.Button(label="Do Diff")
+        self.diff_action_btn.connect("clicked", self.on_diff_button_clicked)
+        self.bottom_button_panel.pack_start(self.diff_action_btn, True, True, 0)
 
         # TODO: create a 'Scan' button for each input source
-
-        # TODO: allow merge for single file, or Merge All from left to right or right to left, or both
 
     # Callback from FMetaScanner:
     def on_progress_made(self, progress, total):
@@ -150,11 +170,22 @@ class DiffWindow(Gtk.Window):
             self.info_bar.set_label(f'Scanning file {progress} of {total}')
         GLib.idle_add(update_progress, progress, total)
 
-    def on_button_clicked(self, widget):
+    def on_diff_button_clicked(self, widget):
         action_thread = threading.Thread(target=diff_task, args=(self,))
         action_thread.daemon = True
         action_thread.start()
 
+    def on_merge_left_btn_clicked(self, widget):
+        print('MergeLeft btn clicked')
+        pass
+
+    def on_merge_both_btn_clicked(self, widget):
+        print('MergeBoth btn clicked')
+        pass
+
+    def on_merge_right_btn_clicked(self, widget):
+        print('MergeRight btn clicked')
+        pass
 
 def main():
     # Docs: https://python-gtk-3-tutorial.readthedocs.io/en/latest/treeview.html

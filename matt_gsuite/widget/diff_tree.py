@@ -180,7 +180,7 @@ class DiffTree:
         if set_len > 0:
             print(f'Building change trees for category {cat_name} with {set_len} items...')
 
-            root = change_tree.create_node(tag=cat_name, identifier='')   # root
+            root = change_tree.create_node(tag=f'{cat_name} ({set_len} items)', identifier='')   # root
             for fmeta in change_set:
                 dirs_str, file_name = os.path.split(fmeta.file_path)
                 nid = ''
