@@ -59,7 +59,20 @@ class FMetaSet:
         self.sig_dict = {}
         # Each item is an entry
         self.path_dict = {}
+        self._dup_count = 0
 
     def add(self, item):
-        self.sig_dict[item.signature] = item
+        set_matching_sig = self.sig_dict.get(item.signature, None)
+        if set_matching_sig is None:
+            set_matching_sig = [item]
+            self.sig_dict[item.signature] = set_matching_sig
+        else:
+            set_matching_sig.append(item)
+            self._dup_count += 1
+        item_matching_path = self.path_dict.get(item.file_path, None)
+        if item_matching_path is not None:
+            print(f'WARNING: overwriting metadata for path: {item.file_path}')
         self.path_dict[item.signature] = item
+
+    def print_stats(self):
+        print(f'FMetaSet=[sigs:{len(self.sig_dict)} paths:{len(self.path_dict)} duplicates:{self._dup_count}]')

@@ -64,6 +64,7 @@ class DiffTree:
         self.tree.set_rubber_banding(True)
 
         # 1 ICON + Name
+        # See: https://stackoverflow.com/questions/27745585/show-icon-or-color-in-gtk-treeview-tree
         col_num = 1
         px_renderer = Gtk.CellRendererPixbuf()
         px_column = Gtk.TreeViewColumn('Name')

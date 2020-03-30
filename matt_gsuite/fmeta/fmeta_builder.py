@@ -113,8 +113,7 @@ class FMetaScanner:
             progress_meter.set_total(file_counter.files_to_scan)
         sync_set_builder = FMetaFromFilesBuilder(local_path, progress_meter, diff_tree)
         sync_set_builder.recurse_through_dir_tree()
-        print("Sig count: " + str(len(diff_tree.fmeta_set.sig_dict)))
-        print("Path count: " + str(len(diff_tree.fmeta_set.path_dict)))
+        diff_tree.fmeta_set.print_stats()
 
 
 #####################################################
@@ -139,9 +138,10 @@ class FMetaLoader:
             meta = fmeta_set.path_dict.get(change.file_path)
             if meta is None or meta.sync_ts < change.sync_ts:
                 fmeta_set.add(change)
-                counter = counter + 1
+                counter += 1
 
-        print(f'Reduced {str(len(db_file_changes))} changes into {str(counter)} entries')
+        print(f'Reduced {str(len(db_file_changes))} DB changes into {str(counter)} entries')
+        fmeta_set.print_stats()
         return fmeta_set
 
     def store_fmeta_to_db(self, diff_tree):
