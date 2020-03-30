@@ -1,20 +1,4 @@
-'''
-TABLE
-UniqueItem
-item_id
-signature
-len_bytes
-
-
-TABLE
-ItemChange
-item_id
-file_path
-modify_ts
-item_status = Valid, Deleted
-sync_ts
-
-'''
+import humanfriendly
 
 
 class FMeta:
@@ -60,6 +44,7 @@ class FMetaSet:
         # Each item is an entry
         self.path_dict = {}
         self._dup_count = 0
+        self._total_size_bytes = 0
 
     def add(self, item):
         set_matching_sig = self.sig_dict.get(item.signature, None)
@@ -72,7 +57,14 @@ class FMetaSet:
         item_matching_path = self.path_dict.get(item.file_path, None)
         if item_matching_path is not None:
             print(f'WARNING: overwriting metadata for path: {item.file_path}')
+            self._total_size_bytes -= item_matching_path.length
+        self._total_size_bytes += item.length
         self.path_dict[item.signature] = item
 
     def print_stats(self):
         print(f'FMetaSet=[sigs:{len(self.sig_dict)} paths:{len(self.path_dict)} duplicates:{self._dup_count}]')
+
+    def get_summary(self):
+        size = humanfriendly.format_size(self._total_size_bytes)
+        return f'{size} in {len(self.path_dict)} files'
+

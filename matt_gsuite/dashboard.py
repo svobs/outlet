@@ -49,8 +49,11 @@ def diff_task(main_window):
         FMetaSetDiff.diff(main_window.diff_tree_left, main_window.diff_tree_right)
 
         def do_on_ui_thread():
+            # TODO: put tree + statusbar into their own module
             main_window.diff_tree_left.rebuild_ui_tree()
+            main_window.left_tree_statusbar.set_label(main_window.diff_tree_left.fmeta_set.get_summary())
             main_window.diff_tree_right.rebuild_ui_tree()
+            main_window.right_tree_statusbar.set_label(main_window.diff_tree_right.fmeta_set.get_summary())
 
             # Replace diff btn with merge buttons
             main_window.merge_left_btn = Gtk.Button(label="<- Merge Left")
@@ -89,6 +92,7 @@ def get_resource_path(rel_path):
 class DiffWindow(Gtk.Window):
     def __init__(self):
         Gtk.Window.__init__(self, title='UltrarSync')
+        # program icon:
         self.set_icon_from_file(get_resource_path("../resources/fslint_icon.png"))
         # Set minimum width and height
         self.set_size_request(1400, 800)
@@ -100,13 +104,8 @@ class DiffWindow(Gtk.Window):
 
         # Content:
 
-        # Info bar (self.info_bar)
-        info_bar_container = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        self.info_bar, info_bar_container = DiffWindow.build_info_bar()
         self.content_box.add(info_bar_container)
-        self.info_bar = Gtk.Label(label="Testing Matt x y z A B C")
-        self.info_bar.set_justify(Gtk.Justification.LEFT)
-        self.info_bar.set_line_wrap(True)
-        info_bar_container.add(self.info_bar)
 
         # Checkboxes:
         self.checkbox_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
@@ -130,31 +129,12 @@ class DiffWindow(Gtk.Window):
         self.content_box.add(self.checkbox_panel)
 
         # Diff trees:
-
-        self.diff_tree_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
-        # Each side is given 50% space
-        self.diff_tree_panel.set_homogeneous(True)
+        self.diff_tree_left = DiffTree()
+        self.diff_tree_right = DiffTree()
+        self.diff_tree_panel, self.left_tree_statusbar, self.right_tree_statusbar = DiffWindow.build_two_tree_panel(self.diff_tree_left.tree, self.diff_tree_right.tree)
         self.content_box.add(self.diff_tree_panel)
 
-        self.diff_tree_left = DiffTree()
-        # Tree will take up all the excess space
-        self.diff_tree_left.tree.set_vexpand(True)
-        self.diff_tree_left.tree.set_hexpand(False)
-        left_tree_scroller = Gtk.ScrolledWindow()
-        # No horizontal scrolling - only vertical
-        left_tree_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        left_tree_scroller.add(self.diff_tree_left.tree)
-        # child, expand, fill, padding
-        self.diff_tree_panel.pack_start(left_tree_scroller, False, True, 5)
-
-        self.diff_tree_right = DiffTree()
-        self.diff_tree_right.tree.set_vexpand(True)
-        self.diff_tree_right.tree.set_hexpand(False)
-        right_tree_scroller = Gtk.ScrolledWindow()
-        right_tree_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        right_tree_scroller.add(self.diff_tree_right.tree)
-        self.diff_tree_panel.pack_start(right_tree_scroller, False, True, 0)
-
+        # Bottom button panel:
         self.bottom_button_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.content_box.add(self.bottom_button_panel)
 
@@ -163,6 +143,48 @@ class DiffWindow(Gtk.Window):
         self.bottom_button_panel.pack_start(self.diff_action_btn, True, True, 0)
 
         # TODO: create a 'Scan' button for each input source
+
+    @staticmethod
+    def build_two_tree_panel(tree_view_left, tree_view_right):
+        diff_tree_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        # Each side is given 50% space
+        diff_tree_panel.set_homogeneous(True)
+
+        left_panel, left_tree_statusbar = DiffWindow.build_tree_view_side_panel(tree_view_left)
+        diff_tree_panel.add(left_panel)
+
+        right_panel, right_tree_statusbar = DiffWindow.build_tree_view_side_panel(tree_view_right)
+        diff_tree_panel.add(right_panel)
+
+        return diff_tree_panel, left_tree_statusbar, right_tree_statusbar
+
+    @staticmethod
+    def build_tree_view_side_panel(tree_view):
+        side_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
+
+        # Tree will take up all the excess space
+        tree_view.set_vexpand(True)
+        tree_view.set_hexpand(False)
+        tree_scroller = Gtk.ScrolledWindow()
+        # No horizontal scrolling - only vertical
+        tree_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        tree_scroller.add(tree_view)
+        # child, expand, fill, padding
+        side_panel.pack_start(tree_scroller, False, True, 5)
+
+        status_bar, status_bar_container = DiffWindow.build_info_bar()
+        side_panel.pack_start(status_bar_container, False, True, 5)
+
+        return side_panel, status_bar
+
+    @staticmethod
+    def build_info_bar():
+        info_bar_container = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        info_bar = Gtk.Label(label='')
+        info_bar.set_justify(Gtk.Justification.LEFT)
+        info_bar.set_line_wrap(True)
+        info_bar_container.add(info_bar)
+        return info_bar, info_bar_container
 
     # Callback from FMetaScanner:
     def on_progress_made(self, progress, total):
