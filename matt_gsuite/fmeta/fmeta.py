@@ -37,6 +37,21 @@ class FMeta:
         return self.status == 3
 
 
+class DMeta:
+    """For directories"""
+    def __init__(self):
+        self.items = 0
+        self.total_size_bytes = 0
+
+    def add_meta(self, fmeta):
+        self.items += 1
+        self.total_size_bytes += fmeta.length
+
+    def get_summary(self):
+        size = humanfriendly.format_size(self.total_size_bytes)
+        return f'{size} in {self.items} files'
+
+
 class FMetaSet:
     def __init__(self):
         # Each item contains a list of entries

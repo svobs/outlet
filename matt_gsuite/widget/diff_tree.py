@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 import humanfriendly
-from fmeta.fmeta import FMetaSet
+from fmeta.fmeta import DMeta, FMetaSet
 from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
 from enum import Enum, auto
 from treelib import Node, Tree
@@ -11,6 +11,8 @@ count = 0
 
 class ChangeSet:
     def __init__(self):
+        # TODO: refactor each of these into FMetaSet.
+        # TODO: then include them in each status bar
         self.adds = []
         self.updates = []
         self.dels = []
@@ -180,11 +182,12 @@ class DiffTree:
         if set_len > 0:
             print(f'Building change trees for category {cat_name} with {set_len} items...')
 
-            root = change_tree.create_node(tag=f'{cat_name} ({set_len} items)', identifier='')   # root
+            root = change_tree.create_node(tag=f'{cat_name} ({set_len} items)', identifier='', data=DMeta())   # root
             for fmeta in change_set:
                 dirs_str, file_name = os.path.split(fmeta.file_path)
                 nid = ''
                 parent = root
+                parent.data.add_meta(fmeta)
                 if dirs_str != '':
                     directories = DiffTree.split_path(dirs_str)
                     for dir_name in directories:
@@ -194,8 +197,9 @@ class DiffTree:
                         child = change_tree.get_node(nid=nid)
                         if child is None:
                             #print(f'Creating dir: {nid}')
-                            child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent)
+                            child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=DMeta())
                         parent = child
+                        parent.data.add_meta(fmeta)
                 if nid != '':
                     nid += '/'
                 nid += file_name
@@ -204,11 +208,12 @@ class DiffTree:
 
         return change_tree
 
-    def append_dir(self, tree_iter, dir_name):
+    def append_dir(self, tree_iter, dir_name, dmeta):
+        num_bytes_str = humanfriendly.format_size(dmeta.total_size_bytes)
         if self.use_dir_tree:
-            return self.model.append(tree_iter, ['folder', dir_name, None, None, None])
+            return self.model.append(tree_iter, ['folder', dir_name, num_bytes_str, None, None])
         else:
-            return self.model.append(tree_iter, ['folder', dir_name, None, None, None, None])
+            return self.model.append(tree_iter, ['folder', dir_name, num_bytes_str, None, None, None])
 
     @staticmethod
     def get_resource_path(rel_path):
@@ -234,9 +239,9 @@ class DiffTree:
 
         def append_recursively(tree_iter, node):
             # Do a DFS of the change tree and populate the UI tree along the way
-            if node.data is None:
+            if isinstance(node.data, DMeta):
                 # Is dir
-                tree_iter = self.append_dir(tree_iter, node.tag)
+                tree_iter = self.append_dir(tree_iter, node.tag, node.data)
                 for child in change_tree.children(node.identifier):
                     append_recursively(tree_iter, child)
             else:
