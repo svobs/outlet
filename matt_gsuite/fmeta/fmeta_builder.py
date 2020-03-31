@@ -14,10 +14,9 @@ import time
 from fmeta.fmeta import FMetaSet
 from fmeta.fmeta import FMeta
 from fmeta.tree_recurser import TreeRecurser
-from fmeta.content_hasher import DropboxContentHasher
+import fmeta.content_hasher
 from matt_database import MattDatabase
 from pathlib import Path
-import hashlib
 
 VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp4', 'mpeg', 'mpg', 'm4v', 'avi', 'pdf', 'nef')
 
@@ -35,27 +34,6 @@ class FileCounter(TreeRecurser):
     def handle_target_file_type(self, file_path):
         self.files_to_scan += 1
 
-
-# From: https://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file
-def md5(filename):
-    hash_md5 = hashlib.md5()
-    with open(filename, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-    return hash_md5.hexdigest()
-
-
-def dropbox_hash(filename):
-    hasher = DropboxContentHasher()
-    with open(filename, 'rb') as f:
-        while True:
-            chunk = f.read(1024)  # or whatever chunk size you want
-            if len(chunk) == 0:
-                break
-            hasher.update(chunk)
-    return hasher.hexdigest()
-
-
 # Strip the root_path out of the file path:
 def strip_root(file_path, root_path):
     root_path_with_slash = root_path if root_path.endswith('/') else root_path + '/'
@@ -71,7 +49,7 @@ class FMetaFromFilesBuilder(TreeRecurser):
     def build_sync_item(self, file_path):
         # Open,close, read file and calculate MD5 on its contents
 
-        signature_str = dropbox_hash(file_path)
+        signature_str = fmeta.dropbox_hash(file_path)
         relative_path = strip_root(file_path, str(self.root_path))
 
         # Get "now" in UNIX time:
@@ -102,8 +80,8 @@ class FMetaScanner:
         pass
 
     @staticmethod
-    def scan_local_tree(local_path_string, progress_meter, diff_tree):
-        local_path = Path(local_path_string)
+    def scan_local_tree(diff_tree, progress_meter):
+        local_path = Path(diff_tree.root_path)
         # First survey our local files:
         print(f'Scanning path: {local_path}')
         file_counter = FileCounter(local_path)

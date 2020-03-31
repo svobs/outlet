@@ -2,9 +2,11 @@ import os
 from datetime import datetime
 import humanfriendly
 from fmeta.fmeta import DMeta, FMetaSet
-from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
 from enum import Enum, auto
 from treelib import Node, Tree
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
 
 count = 0
 
@@ -31,7 +33,8 @@ cat_names = {Category.ADDED: 'Added', Category.DELETED: 'Deleted', Category.UPDA
 
 class DiffTree:
 
-    def __init__(self):
+    def __init__(self, root_path):
+        self.root_path = root_path
         # The source files
         self.fmeta_set = FMetaSet()
         # The set of changes based on those files
@@ -152,9 +155,14 @@ class DiffTree:
             if treeiter is not None and len(treeiter) == 1:
                 print("You selected", model[treeiter][4])
 
+        def on_tree_selection_doubleclick(self, tree_path, column):
+            # TODO
+            print('You double clicked on something')
+
         select = self.tree.get_selection()
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
         select.connect("changed", on_tree_selection_changed)
+        self.tree.connect("row-activated", on_tree_selection_doubleclick)
 
     # For displaying icons
     def get_tree_cell_text(self, col, cell, model, iter, user_data):

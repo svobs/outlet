@@ -11,8 +11,31 @@ Note: this file was copied from the excellent Maestral Dropbox project
 
 import hashlib
 
+CHUNK_SIZE = 1024 * 1024
+
+
+# From: https://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file
+def md5(filename):
+    hash_md5 = hashlib.md5()
+    with open(filename, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
+
+
+def dropbox_hash(filename):
+    hasher = DropboxContentHasher()
+    with open(filename, 'rb') as f:
+        while True:
+            chunk = f.read(CHUNK_SIZE)  # or whatever chunk size you want
+            if len(chunk) == 0:
+                break
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
 
 class DropboxContentHasher(object):
+
     """
     Computes a hash using the same algorithm that the Dropbox API uses for the
     the "content_hash" metadata field.

@@ -2,14 +2,16 @@ import logging.handlers
 import gi
 import threading
 import os
+import file_util
 
-gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk
 from fmeta.fmeta_builder import FMetaScanner
 from fmeta.fmeta_builder import FMetaLoader
 from widget.progress_meter import ProgressMeter
 from widget.diff_tree import DiffTree
 from fmeta.fmeta_diff import FMetaSetDiff
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import GLib, Gtk
 
 LEFT_DB_PATH = '../test/Bigger/MattLeft.db'
 RIGHT_DB_PATH = '../test/Bigger/MattRight.db'
@@ -26,10 +28,10 @@ def diff_task(main_window):
             print(f'Loading Left data from DB: {LEFT_DB_PATH}')
             main_window.diff_tree_left.fmeta_set = left_db_loader.build_fmeta_from_db()
         else:
-            logging.info(f"Scanning files in tree: {LEFT_DIR_PATH}")
+            logging.info(f"Scanning files in left tree: {main_window.diff_tree_left.root_path}")
             main_window.progress_meter = ProgressMeter(main_window.on_progress_made)
-            main_window.info_bar.set_label(f'Scanning files in tree: {LEFT_DIR_PATH}')
-            FMetaScanner.scan_local_tree(LEFT_DIR_PATH, main_window.progress_meter, main_window.diff_tree_left)
+            main_window.info_bar.set_label(f'Scanning files in tree: {main_window.diff_tree_left.root_path}')
+            FMetaScanner.scan_local_tree(main_window.diff_tree_left, main_window.progress_meter)
             left_db_loader.store_fmeta_to_db(main_window.diff_tree_left)
 
         right_db_loader = FMetaLoader(RIGHT_DB_PATH)
@@ -37,10 +39,10 @@ def diff_task(main_window):
             print(f'Loading Right data from DB: {RIGHT_DB_PATH}')
             main_window.diff_tree_right.fmeta_set = right_db_loader.build_fmeta_from_db()
         else:
-            logging.info(f"Scanning files in tree: {RIGHT_DIR_PATH}")
+            logging.info(f"Scanning files in right tree: {main_window.diff_tree_right.root_path}")
             main_window.progress_meter = ProgressMeter(main_window.on_progress_made)
-            main_window.info_bar.set_label(f'Scanning files in tree: {RIGHT_DIR_PATH}')
-            FMetaScanner.scan_local_tree(RIGHT_DIR_PATH, main_window.progress_meter, main_window.diff_tree_right)
+            main_window.info_bar.set_label(f'Scanning files in tree: {main_window.diff_tree_right.root_path}')
+            FMetaScanner.scan_local_tree(main_window.diff_tree_right, main_window.progress_meter)
             right_db_loader.store_fmeta_to_db(main_window.diff_tree_right)
 
         main_window.info_bar.set_label('Diffing...')
@@ -72,10 +74,11 @@ def diff_task(main_window):
             main_window.merge_left_btn.show()
             main_window.merge_both_btn.show()
             main_window.merge_right_btn.show()
+            main_window.info_bar.set_label('Done.')
+            print('Done')
+            logging.info('Done.')
 
         GLib.idle_add(do_on_ui_thread)
-        main_window.info_bar.set_label('Done.')
-        logging.info('Done.')
     except Exception as err:
         print('Diff task failed with exception')
         raise err
@@ -129,8 +132,8 @@ class DiffWindow(Gtk.Window):
         self.content_box.add(self.checkbox_panel)
 
         # Diff trees:
-        self.diff_tree_left = DiffTree()
-        self.diff_tree_right = DiffTree()
+        self.diff_tree_left = DiffTree(LEFT_DIR_PATH)
+        self.diff_tree_right = DiffTree(RIGHT_DIR_PATH)
         self.diff_tree_panel, self.left_tree_statusbar, self.right_tree_statusbar = DiffWindow.build_two_tree_panel(self.diff_tree_left.tree, self.diff_tree_right.tree)
         self.content_box.add(self.diff_tree_panel)
 
@@ -199,7 +202,8 @@ class DiffWindow(Gtk.Window):
 
     def on_merge_left_btn_clicked(self, widget):
         print('MergeLeft btn clicked')
-        pass
+        # TODO: preview changes in UI pop-up
+        file_util.apply_change_set(self.diff_tree_right.change_set, self.diff_tree_left.root_path)
 
     def on_merge_both_btn_clicked(self, widget):
         print('MergeBoth btn clicked')
@@ -208,6 +212,7 @@ class DiffWindow(Gtk.Window):
     def on_merge_right_btn_clicked(self, widget):
         print('MergeRight btn clicked')
         pass
+
 
 def main():
     # Docs: https://python-gtk-3-tutorial.readthedocs.io/en/latest/treeview.html
