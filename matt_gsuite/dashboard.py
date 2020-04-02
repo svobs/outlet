@@ -203,7 +203,7 @@ class DiffWindow(Gtk.Window):
     def on_merge_left_btn_clicked(self, widget):
         print('MergeLeft btn clicked')
         # TODO: preview changes in UI pop-up
-        file_util.apply_change_set(self.diff_tree_right.change_set, self.diff_tree_left.root_path)
+        file_util.apply_change_set(self.diff_tree_right.change_set, self.diff_tree_left.root_path, self.diff_tree_right.root_path)
 
     def on_merge_both_btn_clicked(self, widget):
         print('MergeBoth btn clicked')
