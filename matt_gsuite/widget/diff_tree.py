@@ -18,6 +18,7 @@ class ChangeSet:
         self.adds = []
         self.updates = []
         self.dels = []
+        self.moves = []
         self.unexpected = []
 
 
@@ -25,10 +26,15 @@ class Category(Enum):
     ADDED = auto()
     UPDATED = auto()
     DELETED = auto()
+    MOVED = auto()
     UNEXPECTED = auto()
 
 
-cat_names = {Category.ADDED: 'Added', Category.DELETED: 'Deleted', Category.UPDATED: 'Updated', Category.UNEXPECTED: 'Unexpected'}
+cat_names = {Category.ADDED: 'Added',
+             Category.DELETED: 'Deleted',
+             Category.UPDATED: 'Updated',
+             Category.MOVED: "Moved",
+             Category.UNEXPECTED: 'Unexpected'}
 
 
 class DiffTree:
@@ -153,7 +159,7 @@ class DiffTree:
         def on_tree_selection_changed(selection):
             model, treeiter = selection.get_selected_rows()
             if treeiter is not None and len(treeiter) == 1:
-                print("You selected", model[treeiter][4])
+                print("You selected signature ", model[treeiter][4])
 
         def on_tree_selection_doubleclick(self, tree_path, column):
             # TODO
@@ -267,6 +273,7 @@ class DiffTree:
 
     def rebuild_ui_tree(self):
         self._populate_category(cat_names[Category.ADDED], self.change_set.adds)
+        self._populate_category(cat_names[Category.DELETED], self.change_set.dels)
         self._populate_category(cat_names[Category.UNEXPECTED], self.change_set.unexpected)
 
     @staticmethod

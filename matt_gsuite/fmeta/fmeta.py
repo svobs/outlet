@@ -37,6 +37,13 @@ class FMeta:
         return self.status == 3
 
 
+class FMetaMoved(FMeta):
+    def __init__(self, fmeta, prev_path):
+        """ FMeta contains new file path; prev_path specifies old file path"""
+        super().__init__(fmeta.signature, fmeta.length, fmeta.sync_ts, fmeta.modify_ts, fmeta.file_path, fmeta.status)
+        self.prev_path = prev_path
+
+
 class DMeta:
     """For directories"""
     def __init__(self):

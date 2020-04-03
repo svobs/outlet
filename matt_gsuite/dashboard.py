@@ -48,7 +48,7 @@ def diff_task(main_window):
         main_window.info_bar.set_label('Diffing...')
         logging.info("Diffing...")
 
-        FMetaSetDiff.diff(main_window.diff_tree_left, main_window.diff_tree_right)
+        FMetaSetDiff.diff(main_window.diff_tree_left, main_window.diff_tree_right, compare_paths_also=True, use_modify_times=False)
 
         def do_on_ui_thread():
             # TODO: put tree + statusbar into their own module
