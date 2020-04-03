@@ -52,9 +52,9 @@ class DiffTree:
         self.dir_tree_dict = {}
 
         if self.use_dir_tree:
-            self.model = Gtk.TreeStore(str, str, str, str, str)
+            self.model = Gtk.TreeStore(bool, str, str, str, str, str)
         else:
-            self.model = Gtk.TreeStore(str, str, str, str, str, str)
+            self.model = Gtk.TreeStore(bool, str, str, str, str, str, str)
 
     #def build_gtk_tree(self):
 
@@ -77,9 +77,23 @@ class DiffTree:
         # May want to disable if using drag+drop
         self.tree.set_rubber_banding(True)
 
+        # 0 Checkbox column
+        col_num = 1
+        # TODO: set inconsistent state
+        renderer_checkbox = Gtk.CellRendererToggle()
+        renderer_checkbox.connect("toggled", self.on_cell_toggled)
+        column_checkbox = Gtk.TreeViewColumn(" ", renderer_checkbox, active=0)
+        column_checkbox.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
+        column_checkbox.set_min_width(10)
+        column_checkbox.set_expand(False)
+        column_checkbox.set_resizable(False)
+        column_checkbox.set_reorderable(False)
+        # and it is appended to the treeview
+        self.tree.append_column(column_checkbox)
+
         # 1 ICON + Name
         # See: https://stackoverflow.com/questions/27745585/show-icon-or-color-in-gtk-treeview-tree
-        col_num = 1
+        col_num += 1
         px_renderer = Gtk.CellRendererPixbuf()
         px_column = Gtk.TreeViewColumn('Name')
         px_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
@@ -162,7 +176,7 @@ class DiffTree:
         def on_tree_selection_changed(selection):
             model, treeiter = selection.get_selected_rows()
             if treeiter is not None and len(treeiter) == 1:
-                print(f'You selected signature {model[treeiter][4]}')
+                print(f'You selected signature {model[treeiter][5]}')
 
         def on_tree_selection_doubleclick(self, tree_path, column):
             # TODO
@@ -173,13 +187,17 @@ class DiffTree:
         select.connect("changed", on_tree_selection_changed)
         self.tree.connect("row-activated", on_tree_selection_doubleclick)
 
-    # For displaying icons
-    def get_tree_cell_text(self, col, cell, model, iter, user_data):
-        cell.set_property('text', model.get_value(iter, 1))
+    def on_cell_toggled(self, widget, path):
+        # DOC: model[path][column] = not model[path][column]
+        self.model[path][0] = not self.model[path][0]
 
     # For displaying icons
     def get_tree_cell_pixbuf(self, col, cell, model, iter, user_data):
-        cell.set_property('pixbuf', self.icons[model.get_value(iter, 0)])
+        cell.set_property('pixbuf', self.icons[model.get_value(iter, 1)])
+
+    # For displaying text next to icon
+    def get_tree_cell_text(self, col, cell, model, iter, user_data):
+        cell.set_property('text', model.get_value(iter, 2))
 
     @staticmethod
     def build_category_change_tree(change_set, cat_name):
@@ -228,9 +246,9 @@ class DiffTree:
     def append_dir(self, tree_iter, dir_name, dmeta):
         num_bytes_str = humanfriendly.format_size(dmeta.total_size_bytes)
         if self.use_dir_tree:
-            return self.model.append(tree_iter, ['folder', dir_name, num_bytes_str, None, None])
+            return self.model.append(tree_iter, [False, 'folder', dir_name, num_bytes_str, None, None])
         else:
-            return self.model.append(tree_iter, ['folder', dir_name, num_bytes_str, None, None, None])
+            return self.model.append(tree_iter, [False, 'folder', dir_name, num_bytes_str, None, None, None])
 
     @staticmethod
     def get_resource_path(rel_path):
@@ -246,10 +264,10 @@ class DiffTree:
         modify_time = modify_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
         if self.use_dir_tree:
-            return self.model.append(tree_iter, [cat_name, file_name, num_bytes_str, modify_time, fmeta.signature])
+            return self.model.append(tree_iter, [False, cat_name, file_name, num_bytes_str, modify_time, fmeta.signature])
         else:
             directory, name = os.path.split(fmeta.file_path)
-            return self.model.append(tree_iter, [cat_name, file_name, directory, num_bytes_str, modify_time, fmeta.signature])
+            return self.model.append(tree_iter, [False, cat_name, file_name, directory, num_bytes_str, modify_time, fmeta.signature])
 
     def _populate_category(self, cat_name, change_set):
         change_tree = DiffTree.build_category_change_tree(change_set, cat_name)
