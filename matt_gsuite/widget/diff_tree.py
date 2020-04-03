@@ -61,7 +61,10 @@ class DiffTree:
         #self.icon = Gtk.IconTheme.get_default().load_icon("folder", 22, 0)
         icon_size = 24
         self.icons = {'folder': GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Folder-icon-{icon_size}px.png')),
-                      'added': GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-Add-icon-{icon_size}px.png'))}
+                      cat_names[Category.ADDED]: GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-Add-icon-{icon_size}px.png')),
+                      cat_names[Category.DELETED]: GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-Delete-icon-{icon_size}px.png')),
+                      cat_names[Category.MOVED]: GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-icon-{icon_size}px.png')),
+                      cat_names[Category.UPDATED]: GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-icon-{icon_size}px.png'))}
 
         # The UI tree widget
         self.tree = Gtk.TreeView(model=self.model) #TODO: detach from model while populating
@@ -159,7 +162,7 @@ class DiffTree:
         def on_tree_selection_changed(selection):
             model, treeiter = selection.get_selected_rows()
             if treeiter is not None and len(treeiter) == 1:
-                print("You selected signature ", model[treeiter][4])
+                print(f'You selected signature {model[treeiter][4]}')
 
         def on_tree_selection_doubleclick(self, tree_path, column):
             # TODO
@@ -237,16 +240,16 @@ class DiffTree:
         abs_path_to_resource = os.path.abspath(rel_path_to_resource)
         return abs_path_to_resource
 
-    def append_fmeta(self, tree_iter, file_name, fmeta):
+    def append_fmeta(self, tree_iter, file_name, fmeta, cat_name):
         num_bytes_str = humanfriendly.format_size(fmeta.length)
         modify_datetime = datetime.fromtimestamp(fmeta.modify_ts)
         modify_time = modify_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
         if self.use_dir_tree:
-            return self.model.append(tree_iter, ['added', file_name, num_bytes_str, modify_time, fmeta.signature])
+            return self.model.append(tree_iter, [cat_name, file_name, num_bytes_str, modify_time, fmeta.signature])
         else:
             directory, name = os.path.split(fmeta.file_path)
-            return self.model.append(tree_iter, ['added', file_name, directory, num_bytes_str, modify_time, fmeta.signature])
+            return self.model.append(tree_iter, [cat_name, file_name, directory, num_bytes_str, modify_time, fmeta.signature])
 
     def _populate_category(self, cat_name, change_set):
         change_tree = DiffTree.build_category_change_tree(change_set, cat_name)
@@ -259,7 +262,7 @@ class DiffTree:
                 for child in change_tree.children(node.identifier):
                     append_recursively(tree_iter, child)
             else:
-                self.append_fmeta(tree_iter, node.tag, node.data)
+                self.append_fmeta(tree_iter, node.tag, node.data, cat_name)
 
         def do_on_ui_thread():
             if change_tree.size(1) > 0:
@@ -274,6 +277,8 @@ class DiffTree:
     def rebuild_ui_tree(self):
         self._populate_category(cat_names[Category.ADDED], self.change_set.adds)
         self._populate_category(cat_names[Category.DELETED], self.change_set.dels)
+        self._populate_category(cat_names[Category.MOVED], self.change_set.moves)
+        self._populate_category(cat_names[Category.UPDATED], self.change_set.updates)
         self._populate_category(cat_names[Category.UNEXPECTED], self.change_set.unexpected)
 
     @staticmethod

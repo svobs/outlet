@@ -120,7 +120,7 @@ class FMetaSetDiff:
 
         FMetaSetDiff._determine_right_tree_changeset(right_tree, left_tree, covered_set, compare_paths_also, use_modify_times)
 
-        print(f'Done with diff. LeftAdds={len(left_tree.change_set.adds)} RightAdds={len(right_tree.change_set.adds)}')
+        print(f'Done with diff. Left:[adds={len(left_tree.change_set.adds)} dels={len(left_tree.change_set.dels)} moves={len(left_tree.change_set.moves)} updates={len(left_tree.change_set.updates)}] Right:[adds={len(right_tree.change_set.adds)} dels={len(right_tree.change_set.dels)} moves={len(right_tree.change_set.moves)} updates={len(right_tree.change_set.updates)}]')
 
     @staticmethod
     def diff_by_path(left_tree, right_tree):
