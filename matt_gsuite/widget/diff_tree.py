@@ -101,27 +101,25 @@ class DiffTree:
         # May want to disable if using drag+drop
         treeview.set_rubber_banding(True)
 
-        # 0 Checkbox column
-        renderer = Gtk.CellRendererToggle()
-        renderer.connect("toggled", self.on_cell_toggled)
-        column = Gtk.TreeViewColumn(' ', renderer, active=self.col_num_checked, inconsistent=self.col_num_inconsistent)
-        column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
-        column.set_min_width(15)
-        column.set_expand(False)
-        column.set_resizable(True)
-        column.set_reorderable(False)
-        treeview.append_column(column)
-
-        # 1 ICON + Name
+        # 0 Checkbox + Icon + Name
         # See: https://stackoverflow.com/questions/27745585/show-icon-or-color-in-gtk-treeview-tree
-        px_renderer = Gtk.CellRendererPixbuf()
         px_column = Gtk.TreeViewColumn(self.col_names[self.col_num_name])
         px_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
+
+        renderer = Gtk.CellRendererToggle()
+        renderer.connect("toggled", self.on_cell_toggled)
+        px_column.pack_start(renderer, False)
+        px_column.add_attribute(renderer, 'active', self.col_num_checked)
+        px_column.add_attribute(renderer, 'inconsistent', self.col_num_inconsistent)
+
+        px_renderer = Gtk.CellRendererPixbuf()
         px_column.pack_start(px_renderer, False)
+
         str_renderer = Gtk.CellRendererText()
         str_renderer.set_fixed_height_from_font(1)
         str_renderer.set_property('width-chars', 15)
         px_column.pack_start(str_renderer, False)
+
         # set data connector function/method
         px_column.set_cell_data_func(px_renderer, self.get_tree_cell_pixbuf)
         px_column.set_cell_data_func(str_renderer, self.get_tree_cell_text)
@@ -216,6 +214,7 @@ class DiffTree:
     def on_cell_toggled(self, widget, path):
         # DOC: model[path][column] = not model[path][column]
         checked_value = not self.model[path][self.col_num_checked]
+        #print(f'Toggled -> {checked_value}')
         self.model[path][self.col_num_checked] = checked_value
         self.model[path][self.col_num_inconsistent] = False
 
