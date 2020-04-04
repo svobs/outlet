@@ -41,6 +41,7 @@ class DiffTree:
 
     fmeta_set: FMetaSet
     change_set: ChangeSet
+    model: Gtk.TreeStore
 
     def __init__(self, root_path):
         self.root_path = root_path
@@ -204,9 +205,24 @@ class DiffTree:
 
         return treeview
 
+    # Checkbox toggled
     def on_cell_toggled(self, widget, path):
         # DOC: model[path][column] = not model[path][column]
-        self.model[path][0] = not self.model[path][0]
+        new_value = not self.model[path][0]
+        self.model[path][0] = new_value
+
+        tree_iter = self.model.get_iter(path)
+        child_iter = self.model.iter_children(tree_iter)
+        if child_iter:
+            self.change_value_recursively(tree_iter, new_value)
+
+    def change_value_recursively(self, tree_iter, value):
+        while tree_iter is not None:
+            self.model[tree_iter][0] = value
+            if self.model.iter_has_child(tree_iter):
+                child_iter = self.model.iter_children(tree_iter)
+                self.change_value_recursively(child_iter, value)
+            tree_iter = self.model.iter_next(tree_iter)
 
     # For displaying icons
     def get_tree_cell_pixbuf(self, col, cell, model, iter, user_data):
