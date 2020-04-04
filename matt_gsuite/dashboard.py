@@ -134,7 +134,7 @@ class DiffWindow(Gtk.Window):
         # Diff trees:
         self.diff_tree_left = DiffTree(LEFT_DIR_PATH)
         self.diff_tree_right = DiffTree(RIGHT_DIR_PATH)
-        self.diff_tree_panel, self.left_tree_statusbar, self.right_tree_statusbar = DiffWindow.build_two_tree_panel(self.diff_tree_left.tree, self.diff_tree_right.tree)
+        self.diff_tree_panel, self.left_tree_statusbar, self.right_tree_statusbar = DiffWindow.build_two_tree_panel(self.diff_tree_left.treeview, self.diff_tree_right.treeview)
         self.content_box.add(self.diff_tree_panel)
 
         # Bottom button panel:

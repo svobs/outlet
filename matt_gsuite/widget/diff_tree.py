@@ -39,66 +39,77 @@ cat_names = {Category.ADDED: 'Added',
 
 class DiffTree:
 
+    fmeta_set: FMetaSet
+    change_set: ChangeSet
+
     def __init__(self, root_path):
         self.root_path = root_path
         # The source files
         self.fmeta_set = FMetaSet()
         # The set of changes based on those files
         self.change_set = ChangeSet()
-
+        """If true, create a node for each ancestor directory for the files.
+           If false, create a second column which shows the parent path. """
         self.use_dir_tree = True
-        # only used if self.use_dir_tree==True.
-        # This is a dict of categories, each of which stores a directory tree
-        self.dir_tree_dict = {}
 
         if self.use_dir_tree:
+            self.col_names = ['Checked', 'Icon', 'Name', 'Size', 'Modification Date', 'Signature']
             self.model = Gtk.TreeStore(bool, str, str, str, str, str)
         else:
+            self.col_names = ['Checked', 'Icon', 'Name', 'Directory', 'Size', 'Modification Date', 'Signature']
             self.model = Gtk.TreeStore(bool, str, str, str, str, str, str)
 
-    #def build_gtk_tree(self):
-
-        #self.icon = Gtk.IconTheme.get_default().load_icon("folder", 22, 0)
         icon_size = 24
-        self.icons = {'folder': GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Folder-icon-{icon_size}px.png')),
-                      cat_names[Category.ADDED]: GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-Add-icon-{icon_size}px.png')),
-                      cat_names[Category.DELETED]: GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-Delete-icon-{icon_size}px.png')),
-                      cat_names[Category.MOVED]: GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-icon-{icon_size}px.png')),
-                      cat_names[Category.UPDATED]: GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-icon-{icon_size}px.png'))}
+        self.icons = DiffTree._build_icons(icon_size)
 
-        # The UI tree widget
-        self.tree = Gtk.TreeView(model=self.model) #TODO: detach from model while populating
-        #self.tree.set_level_indentation(20)
-        self.tree.set_show_expanders(True)
-        self.tree.set_property('enable_grid_lines', True)
-        self.tree.set_property('enable_tree_lines', True)
-        self.tree.set_fixed_height_mode(True)
+        self.treeview = self._build_treeview(self.model)
+
+    @classmethod
+    def _build_icons(cls, icon_size):
+        icons = dict()
+        icons['folder'] = GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Folder-icon-{icon_size}px.png'))
+        icons[cat_names[Category.ADDED]] = GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-Add-icon-{icon_size}px.png'))
+        icons[cat_names[Category.DELETED]] = GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-Delete-icon-{icon_size}px.png'))
+        icons[cat_names[Category.MOVED]] = GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-icon-{icon_size}px.png'))
+        icons[cat_names[Category.UPDATED]] = GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-icon-{icon_size}px.png'))
+        return icons
+
+    def _build_treeview(self, model):
+        """ Builds the GTK3 treeview widget"""
+
+        # TODO: detach from model while populating
+        treeview = Gtk.TreeView(model=model)
+        #treeview.set_level_indentation(20)
+        treeview.set_show_expanders(True)
+        treeview.set_property('enable_grid_lines', True)
+        treeview.set_property('enable_tree_lines', True)
+        treeview.set_fixed_height_mode(True)
+        treeview.set_vscroll_policy(Gtk.ScrollablePolicy.NATURAL)
         # Allow click+drag to select multiple items.
         # May want to disable if using drag+drop
-        self.tree.set_rubber_banding(True)
+        treeview.set_rubber_banding(True)
 
         # 0 Checkbox column
-        col_num = 1
         # TODO: set inconsistent state
-        renderer_checkbox = Gtk.CellRendererToggle()
-        renderer_checkbox.connect("toggled", self.on_cell_toggled)
-        column_checkbox = Gtk.TreeViewColumn(" ", renderer_checkbox, active=0)
-        column_checkbox.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
-        column_checkbox.set_min_width(10)
-        column_checkbox.set_expand(False)
-        column_checkbox.set_resizable(False)
-        column_checkbox.set_reorderable(False)
-        # and it is appended to the treeview
-        self.tree.append_column(column_checkbox)
+        renderer = Gtk.CellRendererToggle()
+        renderer.connect("toggled", self.on_cell_toggled)
+        column = Gtk.TreeViewColumn(' ', renderer, active=0)
+        column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
+        column.set_min_width(10)
+        column.set_expand(False)
+        column.set_resizable(False)
+        column.set_reorderable(False)
+        treeview.append_column(column)
 
         # 1 ICON + Name
         # See: https://stackoverflow.com/questions/27745585/show-icon-or-color-in-gtk-treeview-tree
-        col_num += 1
+        col_num = 2
         px_renderer = Gtk.CellRendererPixbuf()
-        px_column = Gtk.TreeViewColumn('Name')
+        px_column = Gtk.TreeViewColumn(self.col_names[col_num])
         px_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         px_column.pack_start(px_renderer, False)
         str_renderer = Gtk.CellRendererText()
+        str_renderer.set_fixed_height_from_font(1)
         str_renderer.set_property('width-chars', 15)
         px_column.pack_start(str_renderer, False)
         # set data connector function/method
@@ -108,14 +119,15 @@ class DiffTree:
         px_column.set_expand(True)
         px_column.set_resizable(True)
         px_column.set_reorderable(True)
-        self.tree.append_column(px_column)
+        treeview.append_column(px_column)
 
         if not self.use_dir_tree:
             # 2 DIRECTORY
             col_num += 1
             renderer = Gtk.CellRendererText()
+            renderer.set_fixed_height_from_font(1)
             renderer.set_property('width-chars', 20)
-            column = Gtk.TreeViewColumn("Directory", renderer, text=col_num)
+            column = Gtk.TreeViewColumn(self.col_names[col_num], renderer, text=col_num)
             column.set_sort_column_id(col_num)
 
             column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
@@ -124,13 +136,15 @@ class DiffTree:
             column.set_expand(True)
             column.set_resizable(True)
             column.set_reorderable(True)
-            self.tree.append_column(column)
+            column.set_fixed_height_from_font(1)
+            treeview.append_column(column)
 
         # 3 SIZE
         col_num += 1
         renderer = Gtk.CellRendererText()
+        renderer.set_fixed_height_from_font(1)
         renderer.set_property('width-chars', 10)
-        column = Gtk.TreeViewColumn("Size", renderer, text=col_num)
+        column = Gtk.TreeViewColumn(self.col_names[col_num], renderer, text=col_num)
         column.set_sort_column_id(col_num)
 
         column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
@@ -140,7 +154,7 @@ class DiffTree:
         column.set_expand(False)
         column.set_resizable(True)
         column.set_reorderable(True)
-        self.tree.append_column(column)
+        treeview.append_column(column)
 
         def compare_file_size(model, row1, row2, user_data):
             sort_column, _ = model.get_sort_column_id()
@@ -155,13 +169,14 @@ class DiffTree:
             else:
                 return 1
 
-        self.model.set_sort_func(col_num, compare_file_size, None)
+        model.set_sort_func(col_num, compare_file_size, None)
 
         # 4 MODIFICATION DATE
         renderer = Gtk.CellRendererText()
         renderer.set_property('width-chars', 8)
+        renderer.set_fixed_height_from_font(1)
         col_num += 1
-        column = Gtk.TreeViewColumn("Modification Date", renderer, text=col_num)
+        column = Gtk.TreeViewColumn(self.col_names[col_num], renderer, text=col_num)
         column.set_sort_column_id(col_num)
 
         column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
@@ -171,7 +186,7 @@ class DiffTree:
         column.set_expand(False)
         column.set_resizable(True)
         column.set_reorderable(True)
-        self.tree.append_column(column)
+        treeview.append_column(column)
 
         def on_tree_selection_changed(selection):
             model, treeiter = selection.get_selected_rows()
@@ -182,10 +197,12 @@ class DiffTree:
             # TODO
             print('You double clicked on something')
 
-        select = self.tree.get_selection()
+        select = treeview.get_selection()
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
         select.connect("changed", on_tree_selection_changed)
-        self.tree.connect("row-activated", on_tree_selection_doubleclick)
+        treeview.connect("row-activated", on_tree_selection_doubleclick)
+
+        return treeview
 
     def on_cell_toggled(self, widget, path):
         # DOC: model[path][column] = not model[path][column]
@@ -288,7 +305,7 @@ class DiffTree:
                 root = change_tree.get_node('')
                 append_recursively(None, root)
 
-            self.tree.expand_all()
+            self.treeview.expand_all()
 
         GLib.idle_add(do_on_ui_thread)
 
