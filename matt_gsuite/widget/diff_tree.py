@@ -53,12 +53,23 @@ class DiffTree:
            If false, create a second column which shows the parent path. """
         self.use_dir_tree = True
 
+        self.col_num_checked = 0
+        self.col_num_inconsistent = 1
+        self.col_num_icon = 2
+        self.col_num_name = 3
         if self.use_dir_tree:
-            self.col_names = ['Checked', 'Icon', 'Name', 'Size', 'Modification Date', 'Signature']
-            self.model = Gtk.TreeStore(bool, str, str, str, str, str)
+            self.col_names = ['Checked', 'Inconsistent', 'Icon', 'Name', 'Size', 'Modification Date', 'Signature']
+            self.col_num_size = 4
+            self.col_num_modification_date = 5
+            self.col_num_modification_signature = 6
+            self.model = Gtk.TreeStore(bool, bool, str, str, str, str, str)
         else:
-            self.col_names = ['Checked', 'Icon', 'Name', 'Directory', 'Size', 'Modification Date', 'Signature']
-            self.model = Gtk.TreeStore(bool, str, str, str, str, str, str)
+            self.col_names = ['Checked', 'Inconsistent', 'Icon', 'Name', 'Directory', 'Size', 'Modification Date', 'Signature']
+            self.col_num_dir = 4
+            self.col_num_size = 5
+            self.col_num_modification_date = 6
+            self.col_num_modification_signature = 7
+            self.model = Gtk.TreeStore(bool, bool, str, str, str, str, str, str)
 
         icon_size = 24
         self.icons = DiffTree._build_icons(icon_size)
@@ -94,7 +105,7 @@ class DiffTree:
         # TODO: set inconsistent state
         renderer = Gtk.CellRendererToggle()
         renderer.connect("toggled", self.on_cell_toggled)
-        column = Gtk.TreeViewColumn(' ', renderer, active=0)
+        column = Gtk.TreeViewColumn(' ', renderer, active=0, inconsistent=1)
         column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         column.set_min_width(10)
         column.set_expand(False)
@@ -104,9 +115,8 @@ class DiffTree:
 
         # 1 ICON + Name
         # See: https://stackoverflow.com/questions/27745585/show-icon-or-color-in-gtk-treeview-tree
-        col_num = 2
         px_renderer = Gtk.CellRendererPixbuf()
-        px_column = Gtk.TreeViewColumn(self.col_names[col_num])
+        px_column = Gtk.TreeViewColumn(self.col_names[self.col_num_name])
         px_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         px_column.pack_start(px_renderer, False)
         str_renderer = Gtk.CellRendererText()
@@ -120,16 +130,16 @@ class DiffTree:
         px_column.set_expand(True)
         px_column.set_resizable(True)
         px_column.set_reorderable(True)
+        px_column.set_sort_column_id(self.col_num_name)
         treeview.append_column(px_column)
 
         if not self.use_dir_tree:
             # 2 DIRECTORY
-            col_num += 1
             renderer = Gtk.CellRendererText()
             renderer.set_fixed_height_from_font(1)
             renderer.set_property('width-chars', 20)
-            column = Gtk.TreeViewColumn(self.col_names[col_num], renderer, text=col_num)
-            column.set_sort_column_id(col_num)
+            column = Gtk.TreeViewColumn(self.col_names[self.col_num_dir], renderer, text=self.col_num_dir)
+            column.set_sort_column_id(self.col_num_dir)
 
             column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
             column.set_min_width(50)
@@ -141,12 +151,11 @@ class DiffTree:
             treeview.append_column(column)
 
         # 3 SIZE
-        col_num += 1
         renderer = Gtk.CellRendererText()
         renderer.set_fixed_height_from_font(1)
         renderer.set_property('width-chars', 10)
-        column = Gtk.TreeViewColumn(self.col_names[col_num], renderer, text=col_num)
-        column.set_sort_column_id(col_num)
+        column = Gtk.TreeViewColumn(self.col_names[self.col_num_size], renderer, text=self.col_num_size)
+        column.set_sort_column_id(self.col_num_size)
 
         column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         #  column.set_fixed_width(50)
@@ -170,15 +179,14 @@ class DiffTree:
             else:
                 return 1
 
-        model.set_sort_func(col_num, compare_file_size, None)
+        model.set_sort_func(self.col_num_size, compare_file_size, None)
 
         # 4 MODIFICATION DATE
         renderer = Gtk.CellRendererText()
         renderer.set_property('width-chars', 8)
         renderer.set_fixed_height_from_font(1)
-        col_num += 1
-        column = Gtk.TreeViewColumn(self.col_names[col_num], renderer, text=col_num)
-        column.set_sort_column_id(col_num)
+        column = Gtk.TreeViewColumn(self.col_names[self.col_num_modification_date], renderer, text=self.col_num_modification_date)
+        column.set_sort_column_id(self.col_num_modification_date)
 
         column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         #column.set_fixed_width(50)
@@ -208,29 +216,33 @@ class DiffTree:
     # Checkbox toggled
     def on_cell_toggled(self, widget, path):
         # DOC: model[path][column] = not model[path][column]
-        new_value = not self.model[path][0]
-        self.model[path][0] = new_value
+        checked_value = not self.model[path][self.col_num_checked]
+        self.model[path][self.col_num_checked] = checked_value
 
         tree_iter = self.model.get_iter(path)
         child_iter = self.model.iter_children(tree_iter)
         if child_iter:
-            self.change_value_recursively(tree_iter, new_value)
+            def action_func(iter):
+                self.model[iter][self.col_num_checked] = checked_value
+                self.model[iter][self.col_num_inconsistent] = False
 
-    def change_value_recursively(self, tree_iter, value):
+            self.change_value_recursively(child_iter, action_func)
+
+    def change_value_recursively(self, tree_iter, action_func):
         while tree_iter is not None:
-            self.model[tree_iter][0] = value
+            action_func(tree_iter)
             if self.model.iter_has_child(tree_iter):
                 child_iter = self.model.iter_children(tree_iter)
-                self.change_value_recursively(child_iter, value)
+                self.change_value_recursively(child_iter, action_func)
             tree_iter = self.model.iter_next(tree_iter)
 
     # For displaying icons
     def get_tree_cell_pixbuf(self, col, cell, model, iter, user_data):
-        cell.set_property('pixbuf', self.icons[model.get_value(iter, 1)])
+        cell.set_property('pixbuf', self.icons[model.get_value(iter, self.col_num_icon)])
 
     # For displaying text next to icon
     def get_tree_cell_text(self, col, cell, model, iter, user_data):
-        cell.set_property('text', model.get_value(iter, 2))
+        cell.set_property('text', model.get_value(iter, self.col_num_name))
 
     @staticmethod
     def build_category_change_tree(change_set, cat_name):
@@ -279,9 +291,9 @@ class DiffTree:
     def append_dir(self, tree_iter, dir_name, dmeta):
         num_bytes_str = humanfriendly.format_size(dmeta.total_size_bytes)
         if self.use_dir_tree:
-            return self.model.append(tree_iter, [False, 'folder', dir_name, num_bytes_str, None, None])
+            return self.model.append(tree_iter, [False, False, 'folder', dir_name, num_bytes_str, None, None])
         else:
-            return self.model.append(tree_iter, [False, 'folder', dir_name, num_bytes_str, None, None, None])
+            return self.model.append(tree_iter, [False, False, 'folder', dir_name, num_bytes_str, None, None, None])
 
     @staticmethod
     def get_resource_path(rel_path):
@@ -297,10 +309,10 @@ class DiffTree:
         modify_time = modify_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
         if self.use_dir_tree:
-            return self.model.append(tree_iter, [False, cat_name, file_name, num_bytes_str, modify_time, fmeta.signature])
+            return self.model.append(tree_iter, [False, False, cat_name, file_name, num_bytes_str, modify_time, fmeta.signature])
         else:
             directory, name = os.path.split(fmeta.file_path)
-            return self.model.append(tree_iter, [False, cat_name, file_name, directory, num_bytes_str, modify_time, fmeta.signature])
+            return self.model.append(tree_iter, [False, False, cat_name, file_name, directory, num_bytes_str, modify_time, fmeta.signature])
 
     def _populate_category(self, cat_name, change_set):
         change_tree = DiffTree.build_category_change_tree(change_set, cat_name)
