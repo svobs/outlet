@@ -218,6 +218,7 @@ class DiffTree:
         # DOC: model[path][column] = not model[path][column]
         checked_value = not self.model[path][self.col_num_checked]
         self.model[path][self.col_num_checked] = checked_value
+        self.model[path][self.col_num_inconsistent] = False
 
         tree_iter = self.model.get_iter(path)
         child_iter = self.model.iter_children(tree_iter)
@@ -228,7 +229,27 @@ class DiffTree:
 
             self.change_value_recursively(child_iter, action_func)
 
+        tree_path = Gtk.TreePath.new_from_string(path)
+        while True:
+            tree_path.up()
+            if tree_path.get_depth() < 1:
+                break
+            else:
+                tree_iter = self.model.get_iter(tree_path)
+                parent_checked = self.model[tree_iter][self.col_num_checked]
+                inconsistent = False
+                child_iter = self.model.iter_children(tree_iter)
+                while child_iter is not None:
+                    # Parent is inconsistent if any of its children do not match it...
+                    inconsistent |= (parent_checked != self.model[child_iter][self.col_num_checked])
+                    # ...or if any of its children are inconsistent
+                    inconsistent |= self.model[child_iter][self.col_num_inconsistent]
+                    child_iter = self.model.iter_next(child_iter)
+                self.model[tree_iter][self.col_num_inconsistent] = inconsistent
+
     def change_value_recursively(self, tree_iter, action_func):
+        """Performs the action_func on the node at this tree_iter AND all of its following
+        siblings, and all of their descendants"""
         while tree_iter is not None:
             action_func(tree_iter)
             if self.model.iter_has_child(tree_iter):
