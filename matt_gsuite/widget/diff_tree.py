@@ -38,7 +38,7 @@ cat_names = {Category.ADDED: 'Added',
 
 
 class DiffTree:
-
+    EXTRA_INDENTATION_LEVEL = 0
     fmeta_set: FMetaSet
     change_set: ChangeSet
     model: Gtk.TreeStore
@@ -91,7 +91,7 @@ class DiffTree:
 
         # TODO: detach from model while populating
         treeview = Gtk.TreeView(model=model)
-        #treeview.set_level_indentation(20)
+        treeview.set_level_indentation(DiffTree.EXTRA_INDENTATION_LEVEL)
         treeview.set_show_expanders(True)
         treeview.set_property('enable_grid_lines', True)
         treeview.set_property('enable_tree_lines', True)
@@ -102,14 +102,13 @@ class DiffTree:
         treeview.set_rubber_banding(True)
 
         # 0 Checkbox column
-        # TODO: set inconsistent state
         renderer = Gtk.CellRendererToggle()
         renderer.connect("toggled", self.on_cell_toggled)
-        column = Gtk.TreeViewColumn(' ', renderer, active=0, inconsistent=1)
+        column = Gtk.TreeViewColumn(' ', renderer, active=self.col_num_checked, inconsistent=self.col_num_inconsistent)
         column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
-        column.set_min_width(10)
+        column.set_min_width(15)
         column.set_expand(False)
-        column.set_resizable(False)
+        column.set_resizable(True)
         column.set_reorderable(False)
         treeview.append_column(column)
 
