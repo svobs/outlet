@@ -8,6 +8,7 @@ from treelib import Node, Tree
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
+import subprocess
 
 count = 0
 
@@ -47,14 +48,14 @@ class DiffTree:
             self.col_names = ['Checked', 'Inconsistent', 'Icon', 'Name', 'Size', 'Modification Date', 'Signature']
             self.col_num_size = 4
             self.col_num_modification_date = 5
-            self.col_num_modification_signature = 6
+            self.col_num_signature = 6
             self.model = Gtk.TreeStore(bool, bool, str, str, str, str, str)
         else:
             self.col_names = ['Checked', 'Inconsistent', 'Icon', 'Name', 'Directory', 'Size', 'Modification Date', 'Signature']
             self.col_num_dir = 4
             self.col_num_size = 5
             self.col_num_modification_date = 6
-            self.col_num_modification_signature = 7
+            self.col_num_signature = 7
             self.model = Gtk.TreeStore(bool, bool, str, str, str, str, str, str)
 
         icon_size = 24
@@ -184,20 +185,36 @@ class DiffTree:
         def on_tree_selection_changed(selection):
             model, treeiter = selection.get_selected_rows()
             if treeiter is not None and len(treeiter) == 1:
-                print(f'You selected signature {model[treeiter][5]}')
-
-        def on_tree_selection_doubleclick(self, tree_path, column):
-            # TODO
-            print('You double clicked on something')
+                print(f'You selected signature {model[treeiter][self.col_num_signature]}')
 
         select = treeview.get_selection()
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
         select.connect("changed", on_tree_selection_changed)
-        treeview.connect("row-activated", on_tree_selection_doubleclick)
+        treeview.connect("row-activated", self.on_tree_selection_doubleclick)
 
         return treeview
 
-    # Checkbox toggled
+    def on_tree_selection_doubleclick(self, tree_view, path, col):
+        if self.use_dir_tree:
+            file_path = self.model[path][self.col_num_name]
+            # walk up the tree and piece together the path:
+            while True:
+                path.up()
+                # skip the top level (category)
+                if path.get_depth() < 2:
+                    break
+                parent = self.model[path][self.col_num_name]
+                file_path = os.path.join(parent, file_path)
+
+            file_path = os.path.join(self.fmeta_set.root_path, file_path)
+        else:
+            dir_path = self.model[path][self.col_num_dir]
+            file_name = self.model[path][self.col_num_name]
+            file_path = os.path.join(self.fmeta_set.root_path, dir_path, file_name)
+        print(f'User double clicked on: {file_path}')
+        subprocess.call(["xdg-open", file_path])
+
+# Checkbox toggled
     def on_cell_toggled(self, widget, path):
         # DOC: model[path][column] = not model[path][column]
         checked_value = not self.model[path][self.col_num_checked]
