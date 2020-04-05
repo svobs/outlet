@@ -8,7 +8,7 @@ from fmeta.fmeta_builder import FMetaScanner
 from fmeta.fmeta_builder import FMetaLoader
 from widget.progress_meter import ProgressMeter
 from widget.diff_tree import DiffTree
-from fmeta.fmeta_diff import FMetaSetDiff
+import fmeta.fmeta_diff as fmeta_diff
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
@@ -48,7 +48,7 @@ def diff_task(main_window):
         main_window.info_bar.set_label('Diffing...')
         logging.info("Diffing...")
 
-        FMetaSetDiff.diff(main_window.diff_tree_left, main_window.diff_tree_right, compare_paths_also=True, use_modify_times=False)
+        fmeta_diff.diff(main_window.diff_tree_left, main_window.diff_tree_right, compare_paths_also=True, use_modify_times=False)
 
         def do_on_ui_thread():
             # TODO: put tree + statusbar into their own module
@@ -84,19 +84,11 @@ def diff_task(main_window):
         raise err
 
 
-# Get absolute path from the given relative path (relative to this file's location)
-def get_resource_path(rel_path):
-    dir_of_py_file = os.path.dirname(__file__)
-    rel_path_to_resource = os.path.join(dir_of_py_file, rel_path)
-    abs_path_to_resource = os.path.abspath(rel_path_to_resource)
-    return abs_path_to_resource
-
-
 class DiffWindow(Gtk.Window):
     def __init__(self):
         Gtk.Window.__init__(self, title='UltrarSync')
         # program icon:
-        self.set_icon_from_file(get_resource_path("../resources/fslint_icon.png"))
+        self.set_icon_from_file(file_util.get_resource_path("../resources/fslint_icon.png"))
         # Set minimum width and height
         self.set_size_request(1400, 800)
       #  self.set_maximum_size(1800, 1200)

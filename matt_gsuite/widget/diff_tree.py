@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 import humanfriendly
+import file_util
 from fmeta.fmeta import DMeta, FMetaSet
 from enum import Enum, auto
 from treelib import Node, Tree
@@ -79,11 +80,11 @@ class DiffTree:
     @classmethod
     def _build_icons(cls, icon_size):
         icons = dict()
-        icons['folder'] = GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Folder-icon-{icon_size}px.png'))
-        icons[cat_names[Category.ADDED]] = GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-Add-icon-{icon_size}px.png'))
-        icons[cat_names[Category.DELETED]] = GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-Delete-icon-{icon_size}px.png'))
-        icons[cat_names[Category.MOVED]] = GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-icon-{icon_size}px.png'))
-        icons[cat_names[Category.UPDATED]] = GdkPixbuf.Pixbuf.new_from_file(DiffTree.get_resource_path(f'../../resources/Document-icon-{icon_size}px.png'))
+        icons['folder'] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Folder-icon-{icon_size}px.png'))
+        icons[cat_names[Category.ADDED]] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-Add-icon-{icon_size}px.png'))
+        icons[cat_names[Category.DELETED]] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-Delete-icon-{icon_size}px.png'))
+        icons[cat_names[Category.MOVED]] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-icon-{icon_size}px.png'))
+        icons[cat_names[Category.UPDATED]] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-icon-{icon_size}px.png'))
         return icons
 
     def _build_treeview(self, model):
@@ -263,8 +264,8 @@ class DiffTree:
     def get_tree_cell_text(self, col, cell, model, iter, user_data):
         cell.set_property('text', model.get_value(iter, self.col_num_name))
 
-    @staticmethod
-    def build_category_change_tree(change_set, cat_name):
+    @classmethod
+    def __build_category_change_tree(cls, change_set, cat_name):
         """
         Builds a tree out of the flat change set.
         Args:
@@ -307,22 +308,14 @@ class DiffTree:
 
         return change_tree
 
-    def append_dir(self, tree_iter, dir_name, dmeta):
+    def __append_dir(self, tree_iter, dir_name, dmeta):
         num_bytes_str = humanfriendly.format_size(dmeta.total_size_bytes)
         if self.use_dir_tree:
             return self.model.append(tree_iter, [False, False, 'folder', dir_name, num_bytes_str, None, None])
         else:
             return self.model.append(tree_iter, [False, False, 'folder', dir_name, num_bytes_str, None, None, None])
 
-    @staticmethod
-    def get_resource_path(rel_path):
-        # Get absolute path from the given relative path (relative to this file's location)
-        dir_of_py_file = os.path.dirname(__file__)
-        rel_path_to_resource = os.path.join(dir_of_py_file, rel_path)
-        abs_path_to_resource = os.path.abspath(rel_path_to_resource)
-        return abs_path_to_resource
-
-    def append_fmeta(self, tree_iter, file_name, fmeta, cat_name):
+    def _append_fmeta(self, tree_iter, file_name, fmeta, cat_name):
         num_bytes_str = humanfriendly.format_size(fmeta.length)
         modify_datetime = datetime.fromtimestamp(fmeta.modify_ts)
         modify_time = modify_datetime.strftime("%Y-%m-%d %H:%M:%S")
@@ -334,17 +327,17 @@ class DiffTree:
             return self.model.append(tree_iter, [False, False, cat_name, file_name, directory, num_bytes_str, modify_time, fmeta.signature])
 
     def _populate_category(self, cat_name, change_set):
-        change_tree = DiffTree.build_category_change_tree(change_set, cat_name)
+        change_tree = DiffTree.__build_category_change_tree(change_set, cat_name)
 
         def append_recursively(tree_iter, node):
             # Do a DFS of the change tree and populate the UI tree along the way
             if isinstance(node.data, DMeta):
                 # Is dir
-                tree_iter = self.append_dir(tree_iter, node.tag, node.data)
+                tree_iter = self.__append_dir(tree_iter, node.tag, node.data)
                 for child in change_tree.children(node.identifier):
                     append_recursively(tree_iter, child)
             else:
-                self.append_fmeta(tree_iter, node.tag, node.data, cat_name)
+                self._append_fmeta(tree_iter, node.tag, node.data, cat_name)
 
         def do_on_ui_thread():
             if change_tree.size(1) > 0:
@@ -363,8 +356,8 @@ class DiffTree:
         self._populate_category(cat_names[Category.UPDATED], self.change_set.updates)
         self._populate_category(cat_names[Category.UNEXPECTED], self.change_set.unexpected)
 
-    @staticmethod
-    def split_path(path):
+    @classmethod
+    def split_path(cls, path):
         all_parts = []
         while 1:
             parts = os.path.split(path)
