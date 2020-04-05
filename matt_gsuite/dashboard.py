@@ -1,11 +1,10 @@
 import logging.handlers
 import gi
 import threading
-import os
 import file_util
 
-from fmeta.fmeta_builder import FMetaScanner
-from fmeta.fmeta_builder import FMetaLoader
+from fmeta.fmeta import FMetaSet
+from fmeta.fmeta_builder import FMetaScanner, FMetaLoader
 from widget.progress_meter import ProgressMeter
 from widget.diff_tree import DiffTree
 import fmeta.diff_content_first as diff_content_first
@@ -24,38 +23,41 @@ logger = logging.getLogger(__name__)
 def diff_task(main_window):
     try:
         left_db_loader = FMetaLoader(LEFT_DB_PATH)
+        left_fmeta_set : FMetaSet
         if left_db_loader.has_data():
             print(f'Loading Left data from DB: {LEFT_DB_PATH}')
-            main_window.diff_tree_left.fmeta_set = left_db_loader.build_fmeta_from_db()
+            left_fmeta_set = left_db_loader.build_fmeta_set_from_db(LEFT_DIR_PATH)
         else:
             logging.info(f"Scanning files in left tree: {main_window.diff_tree_left.root_path}")
             main_window.progress_meter = ProgressMeter(main_window.on_progress_made)
             main_window.info_bar.set_label(f'Scanning files in tree: {main_window.diff_tree_left.root_path}')
-            FMetaScanner.scan_local_tree(main_window.diff_tree_left, main_window.progress_meter)
-            left_db_loader.store_fmeta_to_db(main_window.diff_tree_left)
+            left_fmeta_set = FMetaScanner.scan_local_tree(LEFT_DIR_PATH, main_window.progress_meter)
+            left_db_loader.store_fmeta_to_db(left_fmeta_set)
 
         right_db_loader = FMetaLoader(RIGHT_DB_PATH)
         if right_db_loader.has_data():
             print(f'Loading Right data from DB: {RIGHT_DB_PATH}')
-            main_window.diff_tree_right.fmeta_set = right_db_loader.build_fmeta_from_db()
+            right_fmeta_set = right_db_loader.build_fmeta_set_from_db(RIGHT_DIR_PATH)
         else:
             logging.info(f"Scanning files in right tree: {main_window.diff_tree_right.root_path}")
             main_window.progress_meter = ProgressMeter(main_window.on_progress_made)
             main_window.info_bar.set_label(f'Scanning files in tree: {main_window.diff_tree_right.root_path}')
-            FMetaScanner.scan_local_tree(main_window.diff_tree_right, main_window.progress_meter)
-            right_db_loader.store_fmeta_to_db(main_window.diff_tree_right)
+            right_fmeta_set = FMetaScanner.scan_local_tree(RIGHT_DIR_PATH, main_window.progress_meter)
+            right_db_loader.store_fmeta_to_db(right_fmeta_set)
+        main_window.diff_tree_left.fmeta_set = left_fmeta_set
+        main_window.diff_tree_right.fmeta_set = right_fmeta_set
 
         main_window.info_bar.set_label('Diffing...')
         logging.info("Diffing...")
 
-        diff_content_first.diff(main_window.diff_tree_left, main_window.diff_tree_right, compare_paths_also=True, use_modify_times=False)
+        left_change_set, right_change_set = diff_content_first.diff(left_fmeta_set, right_fmeta_set, compare_paths_also=True, use_modify_times=False)
 
         def do_on_ui_thread():
             # TODO: put tree + statusbar into their own module
-            main_window.diff_tree_left.rebuild_ui_tree()
-            main_window.left_tree_statusbar.set_label(main_window.diff_tree_left.fmeta_set.get_summary())
-            main_window.diff_tree_right.rebuild_ui_tree()
-            main_window.right_tree_statusbar.set_label(main_window.diff_tree_right.fmeta_set.get_summary())
+            main_window.diff_tree_left.rebuild_ui_tree(left_change_set)
+            main_window.left_tree_statusbar.set_label(left_fmeta_set.get_summary())
+            main_window.diff_tree_right.rebuild_ui_tree(right_change_set)
+            main_window.right_tree_statusbar.set_label(right_fmeta_set.get_summary())
 
             # Replace diff btn with merge buttons
             main_window.merge_left_btn = Gtk.Button(label="<- Merge Left")
@@ -81,7 +83,7 @@ def diff_task(main_window):
         GLib.idle_add(do_on_ui_thread)
     except Exception as err:
         print('Diff task failed with exception')
-        raise err
+        raise
 
 
 class DiffWindow(Gtk.Window):
@@ -124,8 +126,8 @@ class DiffWindow(Gtk.Window):
         self.content_box.add(self.checkbox_panel)
 
         # Diff trees:
-        self.diff_tree_left = DiffTree(LEFT_DIR_PATH)
-        self.diff_tree_right = DiffTree(RIGHT_DIR_PATH)
+        self.diff_tree_left = DiffTree()
+        self.diff_tree_right = DiffTree()
         self.diff_tree_panel, self.left_tree_statusbar, self.right_tree_statusbar = DiffWindow.build_two_tree_panel(self.diff_tree_left.treeview, self.diff_tree_right.treeview)
         self.content_box.add(self.diff_tree_panel)
 

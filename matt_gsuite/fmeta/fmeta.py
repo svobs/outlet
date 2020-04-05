@@ -60,11 +60,14 @@ class DMeta:
 
 
 class FMetaSet:
-    def __init__(self):
+    def __init__(self, root_path):
+        self.root_path = root_path
         # Each item contains a list of entries
         self.sig_dict = {}
         # Each item is an entry
         self.path_dict = {}
+        # These are not included in the previous two structures
+        self.ignored_files = []
         self._dup_count = 0
         self._total_size_bytes = 0
 
@@ -83,6 +86,9 @@ class FMetaSet:
         self._total_size_bytes += item.length
         self.path_dict[item.signature] = item
 
+    def add_ignored_file(self, item):
+        self.ignored_files.append(item)
+
     def print_stats(self):
         print(f'FMetaSet=[sigs:{len(self.sig_dict)} paths:{len(self.path_dict)} duplicates:{self._dup_count}]')
 
@@ -90,3 +96,12 @@ class FMetaSet:
         size = humanfriendly.format_size(self._total_size_bytes)
         return f'{size} in {len(self.path_dict)} files'
 
+
+class ChangeSet:
+    def __init__(self):
+        # TODO: refactor each of these into FMetaSet.
+        # TODO: then include them in each status bar
+        self.adds = []
+        self.updates = []
+        self.dels = []
+        self.moves = []

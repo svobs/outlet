@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 import humanfriendly
 import file_util
-from fmeta.fmeta import DMeta, FMetaSet
+from fmeta.fmeta import DMeta, FMetaSet, ChangeSet
 from enum import Enum, auto
 from treelib import Node, Tree
 import gi
@@ -12,44 +12,29 @@ from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
 count = 0
 
 
-class ChangeSet:
-    def __init__(self):
-        # TODO: refactor each of these into FMetaSet.
-        # TODO: then include them in each status bar
-        self.adds = []
-        self.updates = []
-        self.dels = []
-        self.moves = []
-        self.unexpected = []
-
-
 class Category(Enum):
     ADDED = auto()
     UPDATED = auto()
     DELETED = auto()
     MOVED = auto()
-    UNEXPECTED = auto()
+    IGNORED = auto()
 
 
 cat_names = {Category.ADDED: 'Added',
              Category.DELETED: 'Deleted',
              Category.UPDATED: 'Updated',
              Category.MOVED: "Moved",
-             Category.UNEXPECTED: 'Unexpected'}
+             Category.IGNORED: 'Ignored'}
 
 
 class DiffTree:
     EXTRA_INDENTATION_LEVEL = 0
     fmeta_set: FMetaSet
-    change_set: ChangeSet
     model: Gtk.TreeStore
 
-    def __init__(self, root_path):
-        self.root_path = root_path
+    def __init__(self):
         # The source files
-        self.fmeta_set = FMetaSet()
-        # The set of changes based on those files
-        self.change_set = ChangeSet()
+        self.fmeta_set = None
         """If true, create a node for each ancestor directory for the files.
            If false, create a second column which shows the parent path. """
         self.use_dir_tree = True
@@ -166,6 +151,7 @@ class DiffTree:
 
         def compare_file_size(model, row1, row2, user_data):
             sort_column, _ = model.get_sort_column_id()
+            # Need the original file sizes (in bytes) here, not the formatted one
             fmeta1 = self.fmeta_set.sig_dict[model.get_value(row1, 0)]
             fmeta2 = self.fmeta_set.sig_dict[model.get_value(row2, 0)]
             value1 = fmeta1.length
@@ -349,12 +335,12 @@ class DiffTree:
 
         GLib.idle_add(do_on_ui_thread)
 
-    def rebuild_ui_tree(self):
-        self._populate_category(cat_names[Category.ADDED], self.change_set.adds)
-        self._populate_category(cat_names[Category.DELETED], self.change_set.dels)
-        self._populate_category(cat_names[Category.MOVED], self.change_set.moves)
-        self._populate_category(cat_names[Category.UPDATED], self.change_set.updates)
-        self._populate_category(cat_names[Category.UNEXPECTED], self.change_set.unexpected)
+    def rebuild_ui_tree(self, change_set: ChangeSet):
+        self._populate_category(cat_names[Category.ADDED], change_set.adds)
+        self._populate_category(cat_names[Category.DELETED], change_set.dels)
+        self._populate_category(cat_names[Category.MOVED], change_set.moves)
+        self._populate_category(cat_names[Category.UPDATED], change_set.updates)
+        self._populate_category(cat_names[Category.IGNORED], self.fmeta_set.ignored_files)
 
     @classmethod
     def split_path(cls, path):
