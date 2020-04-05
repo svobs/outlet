@@ -8,7 +8,7 @@ from fmeta.fmeta_builder import FMetaScanner
 from fmeta.fmeta_builder import FMetaLoader
 from widget.progress_meter import ProgressMeter
 from widget.diff_tree import DiffTree
-import fmeta.fmeta_diff as fmeta_diff
+import fmeta.diff_content_first as diff_content_first
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
@@ -48,7 +48,7 @@ def diff_task(main_window):
         main_window.info_bar.set_label('Diffing...')
         logging.info("Diffing...")
 
-        fmeta_diff.diff(main_window.diff_tree_left, main_window.diff_tree_right, compare_paths_also=True, use_modify_times=False)
+        diff_content_first.diff(main_window.diff_tree_left, main_window.diff_tree_right, compare_paths_also=True, use_modify_times=False)
 
         def do_on_ui_thread():
             # TODO: put tree + statusbar into their own module
@@ -133,7 +133,7 @@ class DiffWindow(Gtk.Window):
         self.bottom_button_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.content_box.add(self.bottom_button_panel)
 
-        self.diff_action_btn = Gtk.Button(label="Do Diff")
+        self.diff_action_btn = Gtk.Button(label="Diff (content-first)")
         self.diff_action_btn.connect("clicked", self.on_diff_button_clicked)
         self.bottom_button_panel.pack_start(self.diff_action_btn, True, True, 0)
 
