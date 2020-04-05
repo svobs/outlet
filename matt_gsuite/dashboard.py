@@ -44,8 +44,6 @@ def diff_task(main_window):
             main_window.info_bar.set_label(f'Scanning files in tree: {main_window.diff_tree_right.root_path}')
             right_fmeta_set = FMetaScanner.scan_local_tree(RIGHT_DIR_PATH, main_window.progress_meter)
             right_db_loader.store_fmeta_to_db(right_fmeta_set)
-        main_window.diff_tree_left.fmeta_set = left_fmeta_set
-        main_window.diff_tree_right.fmeta_set = right_fmeta_set
 
         main_window.info_bar.set_label('Diffing...')
         logging.info("Diffing...")
@@ -54,9 +52,9 @@ def diff_task(main_window):
 
         def do_on_ui_thread():
             # TODO: put tree + statusbar into their own module
-            main_window.diff_tree_left.rebuild_ui_tree(left_change_set)
+            main_window.diff_tree_left.rebuild_ui_tree(left_change_set, left_fmeta_set)
             main_window.left_tree_statusbar.set_label(left_fmeta_set.get_summary())
-            main_window.diff_tree_right.rebuild_ui_tree(right_change_set)
+            main_window.diff_tree_right.rebuild_ui_tree(right_change_set, right_fmeta_set)
             main_window.right_tree_statusbar.set_label(right_fmeta_set.get_summary())
 
             # Replace diff btn with merge buttons
@@ -196,8 +194,12 @@ class DiffWindow(Gtk.Window):
 
     def on_merge_left_btn_clicked(self, widget):
         print('MergeLeft btn clicked')
+        left_change_set = self.diff_tree_left.get_selected_change_set()
+        right_change_set = self.diff_tree_right.get_selected_change_set()
+        minimized_change_set_left, minimized_change_set_right = diff_content_first.simplify_change_sets(left_change_set, right_change_set)
         # TODO: preview changes in UI pop-up
-        file_util.apply_change_set(self.diff_tree_right.change_set, self.diff_tree_left.root_path, self.diff_tree_right.root_path)
+        file_util.apply_change_set(minimized_change_set_left)
+        file_util.apply_change_set(minimized_change_set_right)
 
     def on_merge_both_btn_clicked(self, widget):
         print('MergeBoth btn clicked')

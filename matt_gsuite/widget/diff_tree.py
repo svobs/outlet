@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 import humanfriendly
 import file_util
-from fmeta.fmeta import DMeta, FMetaSet, ChangeSet
+from fmeta.fmeta import FMeta, DMeta, FMetaSet, ChangeSet
 from enum import Enum, auto
 from treelib import Node, Tree
 import gi
@@ -30,33 +30,32 @@ cat_names = {Category.ADDED: 'Added',
 
 class DiffTree:
     EXTRA_INDENTATION_LEVEL = 0
-    fmeta_set: FMetaSet
     model: Gtk.TreeStore
 
     def __init__(self):
         # The source files
-        self.fmeta_set = None
         """If true, create a node for each ancestor directory for the files.
            If false, create a second column which shows the parent path. """
         self.use_dir_tree = True
+        self.root_path = None
 
         self.col_num_checked = 0
         self.col_num_inconsistent = 1
         self.col_num_icon = 2
         self.col_num_name = 3
         if self.use_dir_tree:
-            self.col_names = ['Checked', 'Inconsistent', 'Icon', 'Name', 'Size', 'Modification Date', 'Signature']
+            self.col_names = ['Checked', 'Inconsistent', 'Icon', 'Name', 'Size', 'Modification Date', 'Data']
             self.col_num_size = 4
             self.col_num_modification_date = 5
-            self.col_num_signature = 6
-            self.model = Gtk.TreeStore(bool, bool, str, str, str, str, str)
+            self.col_num_data = 6
+            self.model = Gtk.TreeStore(bool, bool, str, str, str, str, object)
         else:
-            self.col_names = ['Checked', 'Inconsistent', 'Icon', 'Name', 'Directory', 'Size', 'Modification Date', 'Signature']
+            self.col_names = ['Checked', 'Inconsistent', 'Icon', 'Name', 'Directory', 'Size', 'Modification Date', 'Data']
             self.col_num_dir = 4
             self.col_num_size = 5
             self.col_num_modification_date = 6
-            self.col_num_signature = 7
-            self.model = Gtk.TreeStore(bool, bool, str, str, str, str, str, str)
+            self.col_num_data = 7
+            self.model = Gtk.TreeStore(bool, bool, str, str, str, str, str, object)
 
         icon_size = 24
         self.icons = DiffTree._build_icons(icon_size)
@@ -185,7 +184,11 @@ class DiffTree:
         def on_tree_selection_changed(selection):
             model, treeiter = selection.get_selected_rows()
             if treeiter is not None and len(treeiter) == 1:
-                print(f'You selected signature {model[treeiter][self.col_num_signature]}')
+                meta = model[treeiter][self.col_num_data]
+                if isinstance(meta, FMeta):
+                    print(f'User selected signature {meta.signature}')
+                else:
+                    print(f'User selected {model[treeiter][self.col_num_name]}')
 
         select = treeview.get_selection()
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
@@ -195,6 +198,8 @@ class DiffTree:
         return treeview
 
     def on_tree_selection_doubleclick(self, tree_view, path, col):
+        # TODO: replace with FMeta access - simpler
+        # TODO: if click on non-fmeta, open dir if exists. Otherwise toggle collapse state
         if self.use_dir_tree:
             file_path = self.model[path][self.col_num_name]
             # walk up the tree and piece together the path:
@@ -206,12 +211,13 @@ class DiffTree:
                 parent = self.model[path][self.col_num_name]
                 file_path = os.path.join(parent, file_path)
 
-            file_path = os.path.join(self.fmeta_set.root_path, file_path)
+            file_path = os.path.join(self.root_path, file_path)
         else:
             dir_path = self.model[path][self.col_num_dir]
             file_name = self.model[path][self.col_num_name]
-            file_path = os.path.join(self.fmeta_set.root_path, dir_path, file_name)
+            file_path = os.path.join(self.root_path, dir_path, file_name)
         print(f'User double clicked on: {file_path}')
+        # TODO: if not exist, display error popup
         subprocess.call(["xdg-open", file_path])
 
 # Checkbox toggled
@@ -314,22 +320,22 @@ class DiffTree:
     def __append_dir(self, tree_iter, dir_name, dmeta):
         num_bytes_str = humanfriendly.format_size(dmeta.total_size_bytes)
         if self.use_dir_tree:
-            return self.model.append(tree_iter, [False, False, 'folder', dir_name, num_bytes_str, None, None])
+            return self.model.append(tree_iter, [False, False, 'folder', dir_name, num_bytes_str, None, dmeta])
         else:
-            return self.model.append(tree_iter, [False, False, 'folder', dir_name, num_bytes_str, None, None, None])
+            return self.model.append(tree_iter, [False, False, 'folder', dir_name, num_bytes_str, None, None, dmeta])
 
-    def _append_fmeta(self, tree_iter, file_name, fmeta, cat_name):
+    def _append_fmeta(self, tree_iter, file_name, fmeta: FMeta, cat_name):
         num_bytes_str = humanfriendly.format_size(fmeta.length)
         modify_datetime = datetime.fromtimestamp(fmeta.modify_ts)
         modify_time = modify_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
         if self.use_dir_tree:
-            return self.model.append(tree_iter, [False, False, cat_name, file_name, num_bytes_str, modify_time, fmeta.signature])
+            return self.model.append(tree_iter, [False, False, cat_name, file_name, num_bytes_str, modify_time, fmeta])
         else:
             directory, name = os.path.split(fmeta.file_path)
-            return self.model.append(tree_iter, [False, False, cat_name, file_name, directory, num_bytes_str, modify_time, fmeta.signature])
+            return self.model.append(tree_iter, [False, False, cat_name, file_name, directory, num_bytes_str, modify_time, fmeta])
 
-    def _populate_category(self, cat_name, change_set):
+    def _populate_category(self, cat_name, change_set: ChangeSet):
         change_tree = DiffTree.__build_category_change_tree(change_set, cat_name)
 
         def append_recursively(tree_iter, node):
@@ -352,12 +358,26 @@ class DiffTree:
 
         GLib.idle_add(do_on_ui_thread)
 
-    def rebuild_ui_tree(self, change_set: ChangeSet):
+    def rebuild_ui_tree(self, change_set: ChangeSet, fmeta_set: FMetaSet):
+        """FMetaSet is needed for list of ignored files"""
+        # TODO: clear tree
+        assert change_set.src_root_path == fmeta_set.root_path
+        self.root_path = fmeta_set.root_path
         self._populate_category(cat_names[Category.ADDED], change_set.adds)
         self._populate_category(cat_names[Category.DELETED], change_set.dels)
         self._populate_category(cat_names[Category.MOVED], change_set.moves)
         self._populate_category(cat_names[Category.UPDATED], change_set.updates)
-        self._populate_category(cat_names[Category.IGNORED], self.fmeta_set.ignored_files)
+        self._populate_category(cat_names[Category.IGNORED], fmeta_set.ignored_files)
+
+    def get_selected_change_set(self):
+        """Returns a ChangeSet which contains the FMetas of the rows which are currently
+        checked by the user. This will be a subset of the ChangeSet which was used to populate
+        this tree."""
+        selected_changes = ChangeSet()
+
+        # TODO
+
+        return selected_changes
 
     @classmethod
     def split_path(cls, path):

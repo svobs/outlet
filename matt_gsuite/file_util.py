@@ -14,12 +14,12 @@ def get_resource_path(rel_path):
     return abs_path_to_resource
 
 
-def apply_change_set(change_set, src_root_path, dst_root_path):
-    staging_base_dir = os.path.join(dst_root_path, '.sync-tmp')
+def apply_change_set(change_set):
+    staging_base_dir = os.path.join(change_set.dst_root_path, '.sync-tmp')
 
     for fmeta in change_set.adds:
-        src_path = os.path.join(src_root_path, fmeta.file_path)
-        dst_path = os.path.join(dst_root_path, fmeta.file_path)
+        src_path = os.path.join(change_set.src_root_path, fmeta.file_path)
+        dst_path = os.path.join(change_set.dst_root_path, fmeta.file_path)
         staging_path = os.path.join(staging_base_dir, fmeta.signature)
         print(f'CP: src={src_path}')
         print(f'    stg={staging_path}')

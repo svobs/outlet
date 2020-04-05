@@ -51,8 +51,8 @@ def diff(left_fmeta_set : FMetaSet, right_fmeta_set : FMetaSet, compare_paths_al
        file is placed). If a file is found with the same signature on both sides but with
        different paths, it is assumed to be renamed/moved."""
     print('Computing naive diff of file sets by signature...')
-    left_change_set = ChangeSet()
-    right_change_set = ChangeSet()
+    left_change_set = ChangeSet(src_root_path=left_fmeta_set.root_path, dst_root_path=right_fmeta_set.root_path)
+    right_change_set = ChangeSet(src_root_path=right_fmeta_set.root_path, dst_root_path=left_fmeta_set.root_path)
 
     # the set of signatures already processed
     signature_set = left_fmeta_set.sig_dict.keys() | right_fmeta_set.sig_dict.keys()
@@ -124,3 +124,9 @@ def diff(left_fmeta_set : FMetaSet, right_fmeta_set : FMetaSet, compare_paths_al
     print(f'Done with diff. Left:[adds={len(left_change_set.adds)} dels={len(left_change_set.dels)} moves={len(left_change_set.moves)} updates={len(left_change_set.updates)}] Right:[adds={len(right_change_set.adds)} dels={len(right_change_set.dels)} moves={len(right_change_set.moves)} updates={len(right_change_set.updates)}]')
 
     return left_change_set, right_change_set
+
+
+def simplify_change_sets(left_change_set: ChangeSet, right_change_set: ChangeSet):
+    simplified_left = ChangeSet(left_change_set.src_root_path, left_change_set.dst_root_path)
+    simplified_right = ChangeSet(right_change_set.src_root_path, right_change_set.dst_root_path)
+    return simplified_left, simplified_right

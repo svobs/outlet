@@ -98,10 +98,12 @@ class FMetaSet:
 
 
 class ChangeSet:
-    def __init__(self):
+    def __init__(self, src_root_path, dst_root_path):
         # TODO: refactor each of these into FMetaSet.
         # TODO: then include them in each status bar
         self.adds = []
         self.updates = []
         self.dels = []
         self.moves = []
+        self.src_root_path = src_root_path
+        self.dst_root_path = dst_root_path
