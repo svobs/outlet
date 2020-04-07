@@ -195,23 +195,54 @@ class DiffTree:
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
         select.connect("changed", on_tree_selection_changed)
         treeview.connect("row-activated", self.on_tree_selection_doubleclick)
+        treeview.connect('button-press-event', self.on_tree_button_press)
 
         return treeview
 
+    def on_tree_button_press(self, tree_view, event):
+        """Used for displaying context menu on right click"""
+        if event.button == 3: # right click
+            path, col, cell_x, cell_y = tree_view.get_path_at_pos(int(event.x), int(event.y))
+            # do something with the selected path
+            fmeta = self.model[path][self.col_num_data]
+            if fmeta.file_path == '':
+                # This is the category node
+                print(f'User right-clicked on {self.model[path][self.col_num_name]}')
+            else:
+                print(f'User right-clicked on {fmeta.file_path}')
+            # TODO: display context menu
+            # Suppress selection event:
+            return True
+
     def on_tree_selection_doubleclick(self, tree_view, path, col):
-        # TODO: if click on non-fmeta, open dir if exists. Otherwise toggle collapse state
-
         fmeta = self.model[path][self.col_num_data]
+        xdg_open = False
         if isinstance(fmeta, DMeta):
-            file_path = os.path.join(self.root_path, fmeta.dir_path)
-        else:
+            if fmeta.file_path == '':
+                # Special handling for categories: toggle collapse state
+                if tree_view.row_expanded(path):
+                    tree_view.collapse_row(path)
+                else:
+                    tree_view.expand_row(path=path, open_all=False)
+            else:
+                file_path = os.path.join(self.root_path, fmeta.file_path)
+                xdg_open = True
+        elif isinstance(fmeta, FMeta):
             file_path = os.path.join(self.root_path, fmeta.file_path)
-        print(f'User double clicked on: {file_path}')
-        # TODO: if not exist, display error popup
-        subprocess.call(["xdg-open", file_path])
+            xdg_open = True
+        else:
+            raise RuntimeError('Unexpected data element')
 
-# Checkbox toggled
+        if xdg_open:
+            if os.path.exists(file_path):
+                print(f'Calling xdg-open for: {file_path}')
+                subprocess.call(["xdg-open", file_path])
+            else:
+                print(f'Cannot open file because it does not exist: {file_path}')
+                # TODO: error popup
+
     def on_cell_toggled(self, widget, path):
+        """Called when checkbox in treeview is toggled"""
         # DOC: model[path][column] = not model[path][column]
         checked_value = not self.model[path][self.col_num_checked]
         #print(f'Toggled -> {checked_value}')
@@ -281,7 +312,7 @@ class DiffTree:
         if set_len > 0:
             print(f'Building change trees for category {cat_name} with {set_len} items...')
 
-            root = change_tree.create_node(tag=f'{cat_name} ({set_len} items)', identifier='', data=DMeta(dir_path=''))   # root
+            root = change_tree.create_node(tag=f'{cat_name} ({set_len} items)', identifier='', data=DMeta(file_path=''))   # root
             for fmeta in change_set:
                 dirs_str, file_name = os.path.split(fmeta.file_path)
                 # nid == Node ID == directory name

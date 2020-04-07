@@ -46,8 +46,8 @@ class FMetaMoved(FMeta):
 
 class DMeta:
     """For directories"""
-    def __init__(self, dir_path):
-        self.dir_path = dir_path
+    def __init__(self, file_path):
+        self.file_path = file_path
         self.items = 0
         self.total_size_bytes = 0
 
