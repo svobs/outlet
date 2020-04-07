@@ -203,14 +203,10 @@ class DiffTree:
         menu = Gtk.Menu()
 
         def callback(source, directory):
-            self.call_xdg_open(directory)
+            self.open_in_nautilus(directory)
 
-        if fmeta.is_dir():
-            rel_dir = fmeta.file_path
-        else:
-            rel_dir, name = os.path.split(fmeta.file_path)
-        directory = os.path.join(self.root_path, rel_dir)
-        i1 = Gtk.MenuItem(label='Show in Files')
+        directory = os.path.join(self.root_path, fmeta.file_path)
+        i1 = Gtk.MenuItem(label='Show in Nautilus')
         i1.connect('activate', callback, directory)
         menu.append(i1)
 
@@ -235,10 +231,20 @@ class DiffTree:
             # Suppress selection event:
             return True
 
+
+    def open_in_nautilus(self, file_path):
+        if os.path.exists(file_path):
+            print(f'Opening in Nautilus: {file_path}')
+            subprocess.check_call(["nautilus", "--browser", file_path])
+        else:
+            print(f'Cannot open file in Nautilus because it does not exist: {file_path}')
+            # TODO: error popup
+
+
     def call_xdg_open(self, file_path):
         if os.path.exists(file_path):
             print(f'Calling xdg-open for: {file_path}')
-            subprocess.call(["xdg-open", file_path])
+            subprocess.check_call(["xdg-open", file_path])
         else:
             print(f'Cannot open file because it does not exist: {file_path}')
             # TODO: error popup
