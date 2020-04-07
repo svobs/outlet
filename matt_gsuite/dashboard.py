@@ -194,6 +194,7 @@ class DiffWindow(Gtk.Window):
 
     def on_merge_left_btn_clicked(self, widget):
         print('MergeLeft btn clicked')
+
         left_change_set = self.diff_tree_left.get_selected_change_set()
         right_change_set = self.diff_tree_right.get_selected_change_set()
         minimized_change_set_left, minimized_change_set_right = diff_content_first.simplify_change_sets(left_change_set, right_change_set)

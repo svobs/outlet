@@ -60,6 +60,7 @@ class DiffTree:
         icon_size = 24
         self.icons = DiffTree._build_icons(icon_size)
 
+        self.treeview: Gtk.Treeview
         self.treeview = self._build_treeview(self.model)
 
     @classmethod
@@ -198,24 +199,13 @@ class DiffTree:
         return treeview
 
     def on_tree_selection_doubleclick(self, tree_view, path, col):
-        # TODO: replace with FMeta access - simpler
         # TODO: if click on non-fmeta, open dir if exists. Otherwise toggle collapse state
-        if self.use_dir_tree:
-            file_path = self.model[path][self.col_num_name]
-            # walk up the tree and piece together the path:
-            while True:
-                path.up()
-                # skip the top level (category)
-                if path.get_depth() < 2:
-                    break
-                parent = self.model[path][self.col_num_name]
-                file_path = os.path.join(parent, file_path)
 
-            file_path = os.path.join(self.root_path, file_path)
+        fmeta = self.model[path][self.col_num_data]
+        if isinstance(fmeta, DMeta):
+            file_path = os.path.join(self.root_path, fmeta.dir_path)
         else:
-            dir_path = self.model[path][self.col_num_dir]
-            file_name = self.model[path][self.col_num_name]
-            file_path = os.path.join(self.root_path, dir_path, file_name)
+            file_path = os.path.join(self.root_path, fmeta.file_path)
         print(f'User double clicked on: {file_path}')
         # TODO: if not exist, display error popup
         subprocess.call(["xdg-open", file_path])
@@ -291,22 +281,21 @@ class DiffTree:
         if set_len > 0:
             print(f'Building change trees for category {cat_name} with {set_len} items...')
 
-            root = change_tree.create_node(tag=f'{cat_name} ({set_len} items)', identifier='', data=DMeta())   # root
+            root = change_tree.create_node(tag=f'{cat_name} ({set_len} items)', identifier='', data=DMeta(dir_path=''))   # root
             for fmeta in change_set:
                 dirs_str, file_name = os.path.split(fmeta.file_path)
+                # nid == Node ID == directory name
                 nid = ''
                 parent = root
                 parent.data.add_meta(fmeta)
                 if dirs_str != '':
                     directories = DiffTree.split_path(dirs_str)
                     for dir_name in directories:
-                        if nid != '':
-                            nid += '/'
-                        nid += dir_name
+                        nid += os.path.join(nid, dir_name)
                         child = change_tree.get_node(nid=nid)
                         if child is None:
                             #print(f'Creating dir: {nid}')
-                            child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=DMeta())
+                            child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=DMeta(nid))
                         parent = child
                         parent.data.add_meta(fmeta)
                 if nid != '':
@@ -360,14 +349,19 @@ class DiffTree:
 
     def rebuild_ui_tree(self, change_set: ChangeSet, fmeta_set: FMetaSet):
         """FMetaSet is needed for list of ignored files"""
-        # TODO: clear tree
+
+        # Wipe out existing items:
+        self.model.clear()
+
         assert change_set.src_root_path == fmeta_set.root_path
         self.root_path = fmeta_set.root_path
         self._populate_category(cat_names[Category.ADDED], change_set.adds)
         self._populate_category(cat_names[Category.DELETED], change_set.dels)
-        self._populate_category(cat_names[Category.MOVED], change_set.moves)
-        self._populate_category(cat_names[Category.UPDATED], change_set.updates)
+        # TODO
+       # self._populate_category(cat_names[Category.MOVED], change_set.moves)
+      #  self._populate_category(cat_names[Category.UPDATED], change_set.updates)
         self._populate_category(cat_names[Category.IGNORED], fmeta_set.ignored_files)
+        self.model.clear()
 
     def get_selected_change_set(self):
         """Returns a ChangeSet which contains the FMetas of the rows which are currently
