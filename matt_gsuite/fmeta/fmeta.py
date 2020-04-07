@@ -18,6 +18,10 @@ class FMeta:
         yield self.file_path
         yield self.status
 
+    @classmethod
+    def is_dir(cls):
+        return False
+
     def is_content_equal(self, other_entry):
         return isinstance(other_entry, FMeta) and self.signature == other_entry.signature and self.length == other_entry.length
 
@@ -54,6 +58,10 @@ class DMeta:
     def add_meta(self, fmeta):
         self.items += 1
         self.total_size_bytes += fmeta.length
+
+    @classmethod
+    def is_dir(cls):
+        return True
 
     def get_summary(self):
         size = humanfriendly.format_size(self.total_size_bytes)

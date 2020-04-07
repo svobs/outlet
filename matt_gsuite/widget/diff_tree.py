@@ -199,6 +199,24 @@ class DiffTree:
 
         return treeview
 
+    def build_context_menu(self, fmeta):
+        menu = Gtk.Menu()
+
+        def callback(source, directory):
+            self.call_xdg_open(directory)
+
+        if fmeta.is_dir():
+            rel_dir = fmeta.file_path
+        else:
+            rel_dir, name = os.path.split(fmeta.file_path)
+        directory = os.path.join(self.root_path, rel_dir)
+        i1 = Gtk.MenuItem(label='Show in Files')
+        i1.connect('activate', callback, directory)
+        menu.append(i1)
+
+        menu.show_all()
+        return menu
+
     def on_tree_button_press(self, tree_view, event):
         """Used for displaying context menu on right click"""
         if event.button == 3: # right click
@@ -210,9 +228,20 @@ class DiffTree:
                 print(f'User right-clicked on {self.model[path][self.col_num_name]}')
             else:
                 print(f'User right-clicked on {fmeta.file_path}')
-            # TODO: display context menu
+
+            # Display context menu:
+            context_menu = self.build_context_menu(fmeta)
+            context_menu.popup_at_pointer(event)
             # Suppress selection event:
             return True
+
+    def call_xdg_open(self, file_path):
+        if os.path.exists(file_path):
+            print(f'Calling xdg-open for: {file_path}')
+            subprocess.call(["xdg-open", file_path])
+        else:
+            print(f'Cannot open file because it does not exist: {file_path}')
+            # TODO: error popup
 
     def on_tree_selection_doubleclick(self, tree_view, path, col):
         fmeta = self.model[path][self.col_num_data]
@@ -234,12 +263,7 @@ class DiffTree:
             raise RuntimeError('Unexpected data element')
 
         if xdg_open:
-            if os.path.exists(file_path):
-                print(f'Calling xdg-open for: {file_path}')
-                subprocess.call(["xdg-open", file_path])
-            else:
-                print(f'Cannot open file because it does not exist: {file_path}')
-                # TODO: error popup
+            self.call_xdg_open(file_path)
 
     def on_cell_toggled(self, widget, path):
         """Called when checkbox in treeview is toggled"""
@@ -322,16 +346,14 @@ class DiffTree:
                 if dirs_str != '':
                     directories = DiffTree.split_path(dirs_str)
                     for dir_name in directories:
-                        nid += os.path.join(nid, dir_name)
+                        nid = os.path.join(nid, dir_name)
                         child = change_tree.get_node(nid=nid)
                         if child is None:
                             #print(f'Creating dir: {nid}')
                             child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=DMeta(nid))
                         parent = child
                         parent.data.add_meta(fmeta)
-                if nid != '':
-                    nid += '/'
-                nid += file_name
+                nid = os.path.join(nid, file_name)
                 #print(f'Creating file: {nid}')
                 change_tree.create_node(identifier=nid, tag=file_name, parent=parent, data=fmeta)
 
