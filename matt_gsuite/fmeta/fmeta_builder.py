@@ -119,6 +119,7 @@ class FMetaLoader:
         for change in db_file_changes:
             change.status = 1 # VALID. TODO
             meta = fmeta_set.path_dict.get(change.file_path)
+            # Overwrite older changes for the same path:
             if meta is None or meta.sync_ts < change.sync_ts:
                 fmeta_set.add(change)
                 counter += 1
