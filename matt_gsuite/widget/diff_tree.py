@@ -2,8 +2,7 @@ import os
 from datetime import datetime
 import humanfriendly
 import file_util
-from fmeta.fmeta import FMeta, DMeta, FMetaSet, ChangeSet
-from enum import Enum, auto
+from fmeta.fmeta import FMeta, DMeta, FMetaTree, Category
 from treelib import Node, Tree
 import gi
 gi.require_version("Gtk", "3.0")
@@ -11,21 +10,6 @@ from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
 import subprocess
 
 count = 0
-
-
-class Category(Enum):
-    ADDED = auto()
-    UPDATED = auto()
-    DELETED = auto()
-    MOVED = auto()
-    IGNORED = auto()
-
-
-cat_names = {Category.ADDED: 'Added',
-             Category.DELETED: 'Deleted',
-             Category.UPDATED: 'Updated',
-             Category.MOVED: "Moved",
-             Category.IGNORED: 'Ignored'}
 
 
 class DiffTree:
@@ -67,10 +51,10 @@ class DiffTree:
     def _build_icons(cls, icon_size):
         icons = dict()
         icons['folder'] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Folder-icon-{icon_size}px.png'))
-        icons[cat_names[Category.ADDED]] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-Add-icon-{icon_size}px.png'))
-        icons[cat_names[Category.DELETED]] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-Delete-icon-{icon_size}px.png'))
-        icons[cat_names[Category.MOVED]] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-icon-{icon_size}px.png'))
-        icons[cat_names[Category.UPDATED]] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-icon-{icon_size}px.png'))
+        icons[Category.ADDED.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-Add-icon-{icon_size}px.png'))
+        icons[Category.DELETED.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-Delete-icon-{icon_size}px.png'))
+        icons[Category.MOVED.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-icon-{icon_size}px.png'))
+        icons[Category.UPDATED.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-icon-{icon_size}px.png'))
         return icons
 
     def _build_treeview(self, model):
@@ -153,8 +137,8 @@ class DiffTree:
         def compare_file_size(model, row1, row2, user_data):
             sort_column, _ = model.get_sort_column_id()
             # Need the original file sizes (in bytes) here, not the formatted one
-            fmeta1 = self.fmeta_set.sig_dict[model.get_value(row1, 0)]
-            fmeta2 = self.fmeta_set.sig_dict[model.get_value(row2, 0)]
+            fmeta1 = self.fmeta_tree.sig_dict[model.get_value(row1, 0)]
+            fmeta2 = self.fmeta_tree.sig_dict[model.get_value(row2, 0)]
             value1 = fmeta1.length
             value2 = fmeta2.length
             if value1 < value2:
@@ -351,7 +335,7 @@ class DiffTree:
         cell.set_property('text', model.get_value(iter, self.col_num_name))
 
     @classmethod
-    def __build_category_change_tree(cls, change_set, cat_name):
+    def _build_category_change_tree(cls, change_set, cat_name):
         """
         Builds a tree out of the flat change set.
         Args:
@@ -409,8 +393,8 @@ class DiffTree:
             directory, name = os.path.split(fmeta.file_path)
             return self.model.append(tree_iter, [False, False, cat_name, file_name, directory, num_bytes_str, modify_time, fmeta])
 
-    def _populate_category(self, cat_name, change_set: ChangeSet):
-        change_tree = DiffTree.__build_category_change_tree(change_set, cat_name)
+    def _populate_category(self, cat_name, fmeta_list):
+        change_tree = DiffTree._build_category_change_tree(fmeta_list, cat_name)
 
         def append_recursively(tree_iter, node):
             # Do a DFS of the change tree and populate the UI tree along the way
@@ -432,27 +416,22 @@ class DiffTree:
 
         GLib.idle_add(do_on_ui_thread)
 
-    def rebuild_ui_tree(self, change_set: ChangeSet, fmeta_set: FMetaSet):
-        """FMetaSet is needed for list of ignored files"""
+    def rebuild_ui_tree(self, fmeta_tree: FMetaTree):
+        """FMetaTree is needed for list of ignored files"""
 
         # Wipe out existing items:
         self.model.clear()
 
-        assert change_set.src_root_path == fmeta_set.root_path
-        self.root_path = fmeta_set.root_path
-        self._populate_category(cat_names[Category.ADDED], change_set.adds)
-        self._populate_category(cat_names[Category.DELETED], change_set.dels)
-        # TODO
-       # self._populate_category(cat_names[Category.MOVED], change_set.moves)
-      #  self._populate_category(cat_names[Category.UPDATED], change_set.updates)
-        self._populate_category(cat_names[Category.IGNORED], fmeta_set.ignored_files)
+        self.root_path = fmeta_tree.root_path
+        for category in [Category.ADDED, Category.DELETED, Category.MOVED, Category.UPDATED, Category.IGNORED]:
+            self._populate_category(category.name, fmeta_tree.get_for_cat(category))
         self.model.clear()
 
     def get_selected_change_set(self):
         """Returns a ChangeSet which contains the FMetas of the rows which are currently
         checked by the user. This will be a subset of the ChangeSet which was used to populate
         this tree."""
-        selected_changes = ChangeSet()
+        selected_changes = FMetaTree()
 
         # TODO
 

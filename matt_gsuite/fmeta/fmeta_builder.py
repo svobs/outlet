@@ -11,7 +11,7 @@ import re
 import os
 from datetime import datetime
 import time
-from fmeta.fmeta import FMetaSet
+from fmeta.fmeta import FMetaTree
 from fmeta.fmeta import FMeta
 from fmeta.tree_recurser import TreeRecurser
 import fmeta.content_hasher
@@ -44,10 +44,10 @@ def strip_root(file_path, root_path):
 
 
 class FMetaFromFilesBuilder(TreeRecurser):
-    def __init__(self, root_path, progress_meter: ProgressMeter, fmeta_set: FMetaSet):
+    def __init__(self, root_path, progress_meter: ProgressMeter, fmeta_tree: FMetaTree):
         TreeRecurser.__init__(self, root_path, valid_suffixes=VALID_SUFFIXES)
         self.progress_meter = progress_meter
-        self.fmeta_set = fmeta_set
+        self.fmeta_tree = fmeta_tree
 
     def build_sync_item(self, file_path):
         # Open,close, read file and calculate MD5 on its contents
@@ -66,25 +66,25 @@ class FMetaFromFilesBuilder(TreeRecurser):
     def handle_target_file_type(self, file_path):
         item = self.build_sync_item(file_path)
 
-        self.fmeta_set.add(item)
+        self.fmeta_tree.add(item)
 
         self.progress_meter.add_progress(1)
 
     def handle_non_target_file(self, file_path):
         print(f'Ignored file: {file_path}')
         item = self.build_sync_item(file_path)
-        self.fmeta_set.add_ignored_file(item)
+        self.fmeta_tree.add_ignored_file(item)
 
 
 ########################################################
-# FMetaScanner: build FMetaSet from local tree
+# FMetaScanner: build FMetaTree from local tree
 class FMetaScanner:
     def __init__(self):
         pass
 
     @staticmethod
     def scan_local_tree(root_path, progress_meter):
-        fmeta_set = FMetaSet(root_path)
+        fmeta_tree = FMetaTree(root_path)
         local_path = Path(root_path)
         # First survey our local files:
         print(f'Scanning path: {local_path}')
@@ -93,14 +93,14 @@ class FMetaScanner:
         print('Found ' + str(file_counter.files_to_scan) + ' files to scan.')
         if progress_meter is not None:
             progress_meter.set_total(file_counter.files_to_scan)
-        sync_set_builder = FMetaFromFilesBuilder(local_path, progress_meter, fmeta_set)
+        sync_set_builder = FMetaFromFilesBuilder(local_path, progress_meter, fmeta_tree)
         sync_set_builder.recurse_through_dir_tree()
-        fmeta_set.print_stats()
-        return fmeta_set
+        fmeta_tree.print_stats()
+        return fmeta_tree
 
 
 #####################################################
-# FMetaScanner: build FMetaSet from previously built set in database
+# FMetaScanner: build FMetaTree from previously built set in database
 class FMetaLoader:
     def __init__(self, db_file_path):
         self.db = MattDatabase(db_file_path)
@@ -109,7 +109,7 @@ class FMetaLoader:
         return self.db.has_file_changes()
 
     def build_fmeta_set_from_db(self, root_path):
-        fmeta_set = FMetaSet(root_path)
+        fmeta_tree = FMetaTree(root_path)
 
         db_file_changes = self.db.get_file_changes()
         if len(db_file_changes) == 0:
@@ -117,21 +117,21 @@ class FMetaLoader:
 
         counter = 0
         for change in db_file_changes:
-            change.status = 1 # VALID. TODO
-            meta = fmeta_set.path_dict.get(change.file_path)
+            change.category = change.category
+            meta = fmeta_tree.path_dict.get(change.file_path)
             # Overwrite older changes for the same path:
             if meta is None or meta.sync_ts < change.sync_ts:
-                fmeta_set.add(change)
+                fmeta_tree.add(change)
                 counter += 1
 
         print(f'Reduced {str(len(db_file_changes))} DB changes into {str(counter)} entries')
-        fmeta_set.print_stats()
-        return fmeta_set
+        fmeta_tree.print_stats()
+        return fmeta_tree
 
     def store_fmeta_to_db(self, diff_tree):
         if self.has_data():
             raise RuntimeError('Will not insert FMeta into DB! It is not empty')
 
-        to_insert = diff_tree.fmeta_set.path_dict.values()
+        to_insert = diff_tree.fmeta_tree.path_dict.values()
         self.db.insert_file_changes(to_insert)
         print(f'Inserted {str(len(to_insert))} FMetas into previously empty DB table.')

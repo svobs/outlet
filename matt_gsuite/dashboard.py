@@ -4,7 +4,7 @@ import sys
 import threading
 import file_util
 
-from fmeta.fmeta import FMetaSet
+from fmeta.fmeta import FMetaTree
 from fmeta.fmeta_builder import FMetaScanner, FMetaLoader
 from widget.progress_meter import ProgressMeter
 from widget.diff_tree import DiffTree
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 def diff_task(main_window):
     try:
         left_db_loader = FMetaLoader(LEFT_DB_PATH)
-        left_fmeta_set : FMetaSet
+        left_fmeta_set : FMetaTree
         if left_db_loader.has_data():
             print(f'Loading Left data from DB: {LEFT_DB_PATH}')
             left_fmeta_set = left_db_loader.build_fmeta_set_from_db(LEFT_DIR_PATH)
@@ -49,13 +49,13 @@ def diff_task(main_window):
         main_window.info_bar.set_label('Diffing...')
         logging.info("Diffing...")
 
-        left_change_set, right_change_set = diff_content_first.diff(left_fmeta_set, right_fmeta_set, compare_paths_also=True, use_modify_times=False)
+        diff_content_first.diff(left_fmeta_set, right_fmeta_set, compare_paths_also=True, use_modify_times=False)
 
         def do_on_ui_thread():
             # TODO: put tree + statusbar into their own module
-            main_window.diff_tree_left.rebuild_ui_tree(left_change_set, left_fmeta_set)
+            main_window.diff_tree_left.rebuild_ui_tree(left_fmeta_set)
             main_window.left_tree_statusbar.set_label(left_fmeta_set.get_summary())
-            main_window.diff_tree_right.rebuild_ui_tree(right_change_set, right_fmeta_set)
+            main_window.diff_tree_right.rebuild_ui_tree(right_fmeta_set)
             main_window.right_tree_statusbar.set_label(right_fmeta_set.get_summary())
 
             # Replace diff btn with merge buttons

@@ -1,6 +1,5 @@
 import os
 import shutil
-from widget.diff_tree import ChangeSet
 from fmeta.fmeta import FMeta
 import fmeta.content_hasher
 

@@ -6,8 +6,8 @@ def diff_by_path(left_tree, right_tree):
     (similar to Dropbox or Google Drive)."""
     print('Comparing file sets by path...')
     # left represents a unique path
-    for left in left_tree.fmeta_set.path_dict.values():
-        right_samepath = right_tree.fmeta_set.path_dict.get(left.file_path, None)
+    for left in left_tree.fmeta_tree.path_dict.values():
+        right_samepath = right_tree.fmeta_tree.path_dict.get(left.file_path, None)
         if right_samepath is None:
             print(f'Left has new file: "{left.file_path}"')
             # File is added, moved, or copied here.
@@ -32,7 +32,7 @@ def diff_by_path(left_tree, right_tree):
         else:
             print(f'In Left path {left.file_path}: expected signature "{right_samepath.signature}"; actual is "{left.signature}"')
             # Conflict! Need to determine which is most recent
-            matching_sig_master = right_tree.fmeta_set.sig_dict[left.signature]
+            matching_sig_master = right_tree.fmeta_tree.sig_dict[left.signature]
             if matching_sig_master is None:
                 # This is a new file, from the standpoint of the remote
                 # TODO: in the future, be smarter about this
@@ -40,8 +40,8 @@ def diff_by_path(left_tree, right_tree):
             # print("CONFLICT! UNHANDLED 3!")
             continue
 
-    for right in right_tree.fmeta_set.path_dict.values():
-        left_samepath = left_tree.fmeta_set.path_dict.get(right.file_path, None)
+    for right in right_tree.fmeta_tree.path_dict.values():
+        left_samepath = left_tree.fmeta_tree.path_dict.get(right.file_path, None)
         if left_samepath is None:
             print(f'Left is missing file: "{right.file_path}"')
             # File is added, moved, or copied here.
