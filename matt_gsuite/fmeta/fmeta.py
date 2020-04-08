@@ -43,7 +43,7 @@ class Category(IntEnum):
 
 
 class FMeta:
-    def __init__(self, signature, length, sync_ts, modify_ts, file_path, category=0):
+    def __init__(self, signature, length, sync_ts, modify_ts, file_path, category=Category.NA):
         self.signature = signature
         self.length = length
         self.sync_ts = sync_ts
@@ -69,6 +69,7 @@ class FMeta:
         if type(category) == int:
             self._category = Category(category)
         else:
+            assert type(category) == Category
             self._category = category
 
     @classmethod
@@ -175,7 +176,7 @@ class FMetaTree:
 
     def get_for_path(self, file_path, include_ignored=False):
         matching_list = self._path_dict.get(file_path, None)
-        if include_ignored:
+        if matching_list is None or include_ignored:
             return matching_list
         else:
             return [fmeta for fmeta in matching_list if fmeta.category != Category.Ignored]
@@ -220,5 +221,5 @@ class FMetaTree:
         summary_string = f'{size_hf} in {count} files'
         if ignored_count > 0:
             ignored_size_hf = humanfriendly.format_size(ignored_size)
-            summary_string += f' (+ {ignored_size_hf} in {ignored_count} ignored files)'
+            summary_string += f' (+{ignored_size_hf} in {ignored_count} ignored files)'
         return summary_string

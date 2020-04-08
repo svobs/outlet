@@ -351,9 +351,9 @@ class DiffTree:
 
         set_len = len(change_set)
         if set_len > 0:
-            print(f'Building change trees for category {cat_name} with {set_len} items...')
+            print(f'Building change trees for category {cat_name} with {set_len} files...')
 
-            root = change_tree.create_node(tag=f'{cat_name} ({set_len} items)', identifier='', data=DMeta(file_path=''))   # root
+            root = change_tree.create_node(tag=f'{cat_name} ({set_len} files)', identifier='', data=DMeta(file_path=''))   # root
             for fmeta in change_set:
                 dirs_str, file_name = os.path.split(fmeta.file_path)
                 # nid == Node ID == directory name
