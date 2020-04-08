@@ -73,7 +73,6 @@ class FMetaFromFilesBuilder(TreeRecurser):
         item = self.build_sync_item(file_path)
         item.category = Category.Ignored
         self.fmeta_tree.add(item)
-        self.progress_meter.add_progress(1)
 
 
 ########################################################
