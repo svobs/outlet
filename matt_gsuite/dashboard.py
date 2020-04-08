@@ -131,8 +131,8 @@ class DiffWindow(Gtk.ApplicationWindow):
         self.content_box.add(self.checkbox_panel)
 
         # Diff trees:
-        self.diff_tree_left = DiffTree()
-        self.diff_tree_right = DiffTree()
+        self.diff_tree_left = DiffTree(LEFT_DIR_PATH)
+        self.diff_tree_right = DiffTree(RIGHT_DIR_PATH)
         self.diff_tree_panel, self.left_tree_statusbar, self.right_tree_statusbar = DiffWindow.build_two_tree_panel(self.diff_tree_left.treeview, self.diff_tree_right.treeview)
         self.content_box.add(self.diff_tree_panel)
 
@@ -146,13 +146,13 @@ class DiffWindow(Gtk.ApplicationWindow):
 
         # Open file action
         choose_left_root_action = Gio.SimpleAction.new("choose_root_left", None)
-        choose_left_root_action.connect("activate", self.choose_left_root_callback)
+        choose_left_root_action.connect("activate", self.choose_tree_root_btn_clicked, self.diff_tree_left)
         # TODO: how to pass args to action?
         self.add_action(choose_left_root_action)
         self.left_open_btn.set_action_name('win.choose_root_left')
 
         choose_right_root_action = Gio.SimpleAction.new("choose_root_right", None)
-        choose_right_root_action.connect("activate", self.choose_right_root_callback)
+        choose_right_root_action.connect("activate", self.choose_tree_root_btn_clicked, self.diff_tree_right)
         self.add_action(choose_right_root_action)
         self.right_open_btn.set_action_name('win.choose_root_right')
 
@@ -167,70 +167,40 @@ class DiffWindow(Gtk.ApplicationWindow):
 
         # TODO: create a 'Scan' button for each input source
 
-    def choose_left_root_callback(self, action, parameter):
+    def choose_tree_root_btn_clicked(self, widget, parameter, diff_tree):
         # create a filechooserdialog to open:
         # the arguments are: title of the window, parent_window, action,
         # (buttons, response)
-        open_dialog = Gtk.FileChooserDialog("Pick a file", self,
-                                            Gtk.FileChooserAction.OPEN,
-                                            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                                             Gtk.STOCK_OPEN, Gtk.ResponseType.ACCEPT))
+        open_dialog = RootDirPicker(title="Pick a directory", parent=self, current_dir=diff_tree.root_path)
 
         # not only local files can be selected in the file selector
         open_dialog.set_local_only(False)
         # dialog always on top of the textview window
         open_dialog.set_modal(True)
         # connect the dialog with the callback function open_response_cb()
-        open_dialog.connect("response", self.open_response_cb)
-        # show the dialog
-        open_dialog.show()
-
-    # callback for open
-    def choose_right_root_callback(self, action, parameter):
-        # create a filechooserdialog to open:
-        # the arguments are: title of the window, parent_window, action,
-        # (buttons, response)
-        open_dialog = Gtk.FileChooserDialog("Pick a file", self,
-                                            Gtk.FileChooserAction.OPEN,
-                                            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                                             Gtk.STOCK_OPEN, Gtk.ResponseType.ACCEPT))
-
-        # not only local files can be selected in the file selector
-        open_dialog.set_local_only(False)
-        # dialog always on top of the textview window
-        open_dialog.set_modal(True)
-        # connect the dialog with the callback function open_response_cb()
-        open_dialog.connect("response", self.open_response_cb)
+        open_dialog.connect("response", self.on_root_dir_selected, diff_tree)
         # show the dialog
         open_dialog.show()
 
     # callback function for the dialog open_dialog
-    def open_response_cb(self, dialog, response_id):
+    def on_root_dir_selected(self, dialog, response_id, diff_tree: DiffTree):
         open_dialog = dialog
         # if response is "ACCEPT" (the button "Open" has been clicked)
-        if response_id == Gtk.ResponseType.ACCEPT:
-            # self.file is the file that we get from the FileChooserDialog
-            self.file = open_dialog.get_file()
-            # an empty string (provisionally)
-            content = ""
-            try:
-                # load the content of the file into memory:
-                # success is a boolean depending on the success of the operation
-                # content is self-explanatory
-                # etags is an entity tag (can be used to quickly determine if the
-                # file has been modified from the version on the file system)
-                [success, content, etags] = self.file.load_contents(None)
-            except GObject.GError as e:
-                print("Error: " + e.message)
-            # set the content as the text into the buffer
-            self.buffer.set_text(content, len(content))
-            print("opened: " + open_dialog.get_filename())
+        if response_id == Gtk.ResponseType.OK:
+            filename = open_dialog.get_filename()
+            print(f'User selected dir: {filename}')
+            diff_tree.root_path = filename
         # if response is "CANCEL" (the button "Cancel" has been clicked)
         elif response_id == Gtk.ResponseType.CANCEL:
-            print("cancelled: FileChooserAction.OPEN")
+            print("Cancelled: RootDirPicker")
+        elif response_id == Gtk.ResponseType.CLOSE:
+            print("Closed: RootDirPicker")
+        elif response_id == Gtk.ResponseType.DELETE_EVENT:
+            print("Deleted: RootDirPicker")
+        else:
+            print(f'Unrecognized response: {response_id}')
         # destroy the FileChooserDialog
         dialog.destroy()
-
 
     @staticmethod
     def build_two_tree_panel(tree_view_left, tree_view_right):
@@ -304,14 +274,62 @@ class DiffWindow(Gtk.ApplicationWindow):
         pass
 
 
+class RootDirPicker(Gtk.FileChooserDialog):
+    def __init__(self, title, parent, current_dir):
+        Gtk.FileChooserDialog.__init__(self, title=title, parent=parent, action=Gtk.FileChooserAction.SELECT_FOLDER)
+        self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
+        self.add_button(Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
+
+        if current_dir is not None:
+            self.set_current_folder(current_dir)
+
+    def __call__(self):
+        resp = self.run()
+        self.hide()
+
+        fname = self.get_filename()
+
+        d = self.get_current_folder()
+        if d:
+            self.set_current_folder(d)
+
+        if resp == Gtk.ResponseType.OK:
+            return fname
+        else:
+            return None
+
+
 class MattApplication(Gtk.Application):
-    """See: https://athenajc.gitbooks.io/python-gtk-3-api/content/gtk-group/gtkapplication.html"""
+    """Main application.
+    See: https://athenajc.gitbooks.io/python-gtk-3-api/content/gtk-group/gtkapplication.html"""
     def __init__(self):
         Gtk.Application.__init__(self)
+        self.window = None
+
+        self.add_main_option("test", ord("t"), GLib.OptionFlags.NONE,
+                             GLib.OptionArg.NONE, "Command line test", None)
 
     def do_activate(self):
-        window = DiffWindow(self)
-        window.show_all()
+        # We only allow a single window and raise any existing ones
+        if not self.window:
+            # Windows are associated with the application
+            # when the last one is closed the application shuts down
+            self.window = DiffWindow(application=self)
+            self.window.show_all()
+
+        self.window.present()
+
+    def do_command_line(self, command_line):
+        options = command_line.get_options_dict()
+        # convert GVariantDict -> GVariant -> dict
+        options = options.end().unpack()
+
+        if "test" in options:
+            # This is printed on the main instance
+            print("Test argument received: %s" % options["test"])
+
+        self.activate()
+        return 0
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
