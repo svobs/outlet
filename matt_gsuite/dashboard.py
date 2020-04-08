@@ -96,7 +96,7 @@ class MergePreviewDialog(Gtk.Dialog):
 class DiffWindow(Gtk.ApplicationWindow):
     def __init__(self, application):
         Gtk.Window.__init__(self, application=application)
-        self.set_title('UltrarSync')
+        self.set_title('UltraSync')
         # program icon:
         self.set_icon_from_file(file_util.get_resource_path("../resources/fslint_icon.png"))
         # Set minimum width and height

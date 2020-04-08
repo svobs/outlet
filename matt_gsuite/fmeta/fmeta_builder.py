@@ -11,8 +11,7 @@ import re
 import os
 from datetime import datetime
 import time
-from fmeta.fmeta import FMetaTree
-from fmeta.fmeta import FMeta
+from fmeta.fmeta import FMeta, FMetaTree, Category
 from fmeta.tree_recurser import TreeRecurser
 import fmeta.content_hasher
 from matt_database import MattDatabase
@@ -52,7 +51,7 @@ class FMetaFromFilesBuilder(TreeRecurser):
     def build_sync_item(self, file_path):
         # Open,close, read file and calculate MD5 on its contents
 
-        signature_str = fmeta.dropbox_hash(file_path)
+        signature_str = fmeta.content_hasher.dropbox_hash(file_path)
         relative_path = strip_root(file_path, str(self.root_path))
 
         # Get "now" in UNIX time:
@@ -65,15 +64,16 @@ class FMetaFromFilesBuilder(TreeRecurser):
 
     def handle_target_file_type(self, file_path):
         item = self.build_sync_item(file_path)
-
         self.fmeta_tree.add(item)
-
         self.progress_meter.add_progress(1)
 
     def handle_non_target_file(self, file_path):
-        print(f'Ignored file: {file_path}')
+        # TODO [optimization]: do not scan ignored files for content
+        print(f'Found ignored file: {file_path}')
         item = self.build_sync_item(file_path)
-        self.fmeta_tree.add_ignored_file(item)
+        item.category = Category.Ignored
+        self.fmeta_tree.add(item)
+        self.progress_meter.add_progress(1)
 
 
 ########################################################
@@ -117,10 +117,9 @@ class FMetaLoader:
 
         counter = 0
         for change in db_file_changes:
-            meta = fmeta_tree.path_dict.get(change.file_path)
+            meta = fmeta_tree.get_for_path(change.file_path)
             # Overwrite older changes for the same path:
             if meta is None or meta.sync_ts < change.sync_ts:
-                change.category = 0 # TODO
                 fmeta_tree.add(change)
                 counter += 1
 
@@ -128,10 +127,10 @@ class FMetaLoader:
         fmeta_tree.print_stats()
         return fmeta_tree
 
-    def store_fmeta_to_db(self, diff_tree):
+    def store_fmeta_to_db(self, fmeta_tree):
         if self.has_data():
             raise RuntimeError('Will not insert FMeta into DB! It is not empty')
 
-        to_insert = diff_tree.fmeta_tree.path_dict.values()
+        to_insert = fmeta_tree.get_all()
         self.db.insert_file_changes(to_insert)
         print(f'Inserted {str(len(to_insert))} FMetas into previously empty DB table.')

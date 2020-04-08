@@ -56,7 +56,10 @@ class FMeta:
         yield self.sync_ts
         yield self.modify_ts
         yield self.file_path
-        yield self.category
+        if type(self.category) == int:
+            yield self.category
+        else:
+            yield int(self.category)
 
     @classmethod
     def is_dir(cls):
@@ -71,15 +74,8 @@ class FMeta:
     def matches(self, other_entry):
         return self.is_content_equal(other_entry) and self.is_meta_equal(other_entry)
 
-    # TODO
-    def is_valid(self):
-        return self.category == 1
-
-    def is_moved(self):
-        return self.category == 2
-
-    def is_deleted(self):
-        return self.category == 3
+    def is_ignored(self):
+        return self.category == Category.Ignored
 
 
 class FMetaMoved(FMeta):
@@ -120,14 +116,22 @@ class FMetaList:
         self._total_size_bytes += item.length
         self._total_count += 1
 
+    @property
+    def total_size_bytes(self):
+        return self._total_size_bytes
+
+    @property
+    def file_count(self):
+        return self._total_count
+
 
 class FMetaTree:
     def __init__(self, root_path):
         self.root_path = root_path
+        # Each item is an entry
+        self._path_dict = {}
         # Each item contains a list of entries
         self.sig_dict = {}
-        # Each item is an entry
-        self.path_dict = {}
         self.cat_dict = {Category.Ignored: FMetaList(),
                          Category.Moved: FMetaList(),
                          Category.Deleted: FMetaList(),
@@ -153,38 +157,59 @@ class FMetaTree:
             summary.append(f'{cat.name}={length}')
         return ' '.join(summary)
 
+    def get_all(self):
+        return self._path_dict.values()
+
     def get_for_cat(self, category: Category):
         return self.cat_dict[category].list
+
+    def get_for_path(self, file_path, include_ignored=False):
+        matching_list = self._path_dict.get(file_path, None)
+        if include_ignored:
+            return matching_list
+        else:
+            return [fmeta for fmeta in matching_list if fmeta.category != Category.Ignored]
 
     def get_for_sig(self, signature):
         return self.sig_dict.get(signature, None)
 
     def add(self, item: FMeta):
-        set_matching_sig = self.sig_dict.get(item.signature, None)
-        if set_matching_sig is None:
-            set_matching_sig = [item]
-            self.sig_dict[item.signature] = set_matching_sig
-        else:
-            set_matching_sig.append(item)
-            self._dup_count += 1
+        # ignored files may not have signatures
+        if item.category != Category.Ignored:
+            set_matching_sig = self.sig_dict.get(item.signature, None)
+            if set_matching_sig is None:
+                set_matching_sig = [item]
+                self.sig_dict[item.signature] = set_matching_sig
+            else:
+                set_matching_sig.append(item)
+                self._dup_count += 1
 
-        item_matching_path = self.path_dict.get(item.file_path, None)
+        item_matching_path = self._path_dict.get(item.file_path, None)
         if item_matching_path is not None:
             print(f'WARNING: overwriting metadata for path: {item.file_path}')
             self._total_size_bytes -= item_matching_path.length
         self._total_size_bytes += item.length
-        self.path_dict[item.signature] = item
+        self._path_dict[item.signature] = item
 
-        cat = Category(int(item.category))
+        assert type(item.category) == int
+        cat = Category(item.category)
         if cat != Category.NA:
             self.cat_dict[cat].add(item)
 
-    def add_ignored_file(self, item):
-        self.cat_dict[Category.Ignored].add(item)
-
     def print_stats(self):
-        print(f'FMetaTree=[sigs:{len(self.sig_dict)} paths:{len(self.path_dict)} duplicates:{self._dup_count}]')
+        print(f'FMetaTree=[sigs:{len(self.sig_dict)} paths:{len(self._path_dict)} duplicates:{self._dup_count}]')
 
     def get_summary(self):
-        size = humanfriendly.format_size(self._total_size_bytes)
-        return f'{size} in {len(self.path_dict)} files'
+        ignored_count = self.cat_dict[Category.Ignored].file_count
+        ignored_size = self.cat_dict[Category.Ignored].total_size_bytes
+
+        total_size = self._total_size_bytes - ignored_size
+        size_hf = humanfriendly.format_size(total_size)
+
+        count = len(self._path_dict) - ignored_count
+
+        summary_string = f'{size_hf} in {count} files'
+        if ignored_count > 0:
+            ignored_size_hf = humanfriendly.format_size(ignored_size)
+            summary_string += f' (+ {ignored_size_hf} in {ignored_count} ignored files)'
+        return summary_string

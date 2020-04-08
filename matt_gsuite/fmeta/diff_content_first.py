@@ -13,12 +13,12 @@ def _compare_paths_for_same_sig(left_metas, left_meta_set, right_metas, right_me
     orphaned_right = []
 
     for left_meta in left_metas:
-        match = right_meta_set.path_dict.get(left_meta.file_path, None)
+        match = right_meta_set.get_for_path(left_meta.file_path)
         if match is None:
             orphaned_left.append(left_meta)
 
     for right_meta in right_metas:
-        match = left_meta_set.path_dict.get(right_meta.file_path, None)
+        match = left_meta_set.get_for_path(right_meta.file_path)
         if match is None:
             orphaned_right.append(right_meta)
 

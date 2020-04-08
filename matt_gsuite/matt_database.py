@@ -16,7 +16,7 @@ class MattDatabase:
                 ('sync_ts', 'INTEGER'),
                 ('modify_ts', 'INTEGER'),
                 ('path', 'TEXT'),
-                ('status', 'TEXT'))#TODO: change to 'category'
+                ('category', 'TEXT'))
     }
 
     def __init__(self, db_path):
