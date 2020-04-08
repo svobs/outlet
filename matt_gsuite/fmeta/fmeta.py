@@ -41,6 +41,7 @@ class Category(IntEnum):
         return self._pretty_name
 """
 
+
 class FMeta:
     def __init__(self, signature, length, sync_ts, modify_ts, file_path, category=0):
         self.signature = signature
@@ -56,10 +57,19 @@ class FMeta:
         yield self.sync_ts
         yield self.modify_ts
         yield self.file_path
-        if type(self.category) == int:
-            yield self.category
+        yield self.category.value
+
+    @property
+    def category(self):
+        assert type(self._category) == Category
+        return self._category
+
+    @category.setter
+    def category(self, category):
+        if type(category) == int:
+            self._category = Category(category)
         else:
-            yield int(self.category)
+            self._category = category
 
     @classmethod
     def is_dir(cls):
@@ -191,7 +201,6 @@ class FMetaTree:
         self._total_size_bytes += item.length
         self._path_dict[item.signature] = item
 
-        assert type(item.category) == int
         cat = Category(item.category)
         if cat != Category.NA:
             self.cat_dict[cat].add(item)
