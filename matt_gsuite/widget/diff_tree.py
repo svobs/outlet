@@ -231,23 +231,33 @@ class DiffTree:
             # Suppress selection event:
             return True
 
+    def show_error_msg(self, msg, secondary_msg=None):
+        dialog = Gtk.MessageDialog(None, 0, Gtk.MessageType.ERROR, Gtk.ButtonsType.CANCEL, msg)
+        if secondary_msg is None:
+            print(f'ERROR: {msg}')
+        else:
+            print(f'ERROR: {msg}: {secondary_msg}')
+            dialog.format_secondary_text(secondary_msg)
+
+        def run_on_ui_thread():
+            dialog.run()
+            dialog.destroy()
+
+        run_on_ui_thread()
 
     def open_in_nautilus(self, file_path):
         if os.path.exists(file_path):
             print(f'Opening in Nautilus: {file_path}')
             subprocess.check_call(["nautilus", "--browser", file_path])
         else:
-            print(f'Cannot open file in Nautilus because it does not exist: {file_path}')
-            # TODO: error popup
-
+            self.show_error_msg('Cannot open file in Nautilus', f'File not found: {file_path}')
 
     def call_xdg_open(self, file_path):
         if os.path.exists(file_path):
             print(f'Calling xdg-open for: {file_path}')
             subprocess.check_call(["xdg-open", file_path])
         else:
-            print(f'Cannot open file because it does not exist: {file_path}')
-            # TODO: error popup
+            self.show_error_msg(f'Cannot open file', f'File not found: {file_path}')
 
     def on_tree_selection_doubleclick(self, tree_view, path, col):
         fmeta = self.model[path][self.col_num_data]

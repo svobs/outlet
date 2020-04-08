@@ -171,7 +171,7 @@ class DiffWindow(Gtk.ApplicationWindow):
         # create a filechooserdialog to open:
         # the arguments are: title of the window, parent_window, action,
         # (buttons, response)
-        open_dialog = RootDirPicker(title="Pick a directory", parent=self, current_dir=diff_tree.root_path)
+        open_dialog = RootDirChooserDialog(title="Pick a directory", parent=self, current_dir=diff_tree.root_path)
 
         # not only local files can be selected in the file selector
         open_dialog.set_local_only(False)
@@ -192,11 +192,11 @@ class DiffWindow(Gtk.ApplicationWindow):
             diff_tree.root_path = filename
         # if response is "CANCEL" (the button "Cancel" has been clicked)
         elif response_id == Gtk.ResponseType.CANCEL:
-            print("Cancelled: RootDirPicker")
+            print("Cancelled: RootDirChooserDialog")
         elif response_id == Gtk.ResponseType.CLOSE:
-            print("Closed: RootDirPicker")
+            print("Closed: RootDirChooserDialog")
         elif response_id == Gtk.ResponseType.DELETE_EVENT:
-            print("Deleted: RootDirPicker")
+            print("Deleted: RootDirChooserDialog")
         else:
             print(f'Unrecognized response: {response_id}')
         # destroy the FileChooserDialog
@@ -274,7 +274,7 @@ class DiffWindow(Gtk.ApplicationWindow):
         pass
 
 
-class RootDirPicker(Gtk.FileChooserDialog):
+class RootDirChooserDialog(Gtk.FileChooserDialog):
     def __init__(self, title, parent, current_dir):
         Gtk.FileChooserDialog.__init__(self, title=title, parent=parent, action=Gtk.FileChooserAction.SELECT_FOLDER)
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
