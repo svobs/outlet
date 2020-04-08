@@ -68,15 +68,15 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
         if left_metas is None:
             right_meta = right_metas[0]
             #print(f'Right has new file: "{right_meta.file_path}"')
-            right_tree.categorize(right_meta, Category.ADDED)
-            left_tree.categorize(right_meta, Category.DELETED)
+            right_tree.categorize(right_meta, Category.Added)
+            left_tree.categorize(right_meta, Category.Deleted)
             continue
         # (else):
         if right_metas is None:
             left_meta = left_metas[0]
             #print(f'Right has new file: "{left_meta.file_path}"')
-            left_tree.categorize(left_meta, Category.ADDED)
-            right_tree.categorize(left_meta, Category.DELETED)
+            left_tree.categorize(left_meta, Category.Added)
+            right_tree.categorize(left_meta, Category.Deleted)
             continue
         # (else):
         if compare_paths_also:
@@ -98,27 +98,27 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
                         else:
                             # renamed from left to right (i.e. right is newer)
                             change = FMetaMoved(changed_right, changed_left.file_path)
-                        right_tree.categorize(change, Category.MOVED)
-                        left_tree.categorize(change, Category.MOVED)
+                        right_tree.categorize(change, Category.Moved)
+                        left_tree.categorize(change, Category.Moved)
                     else:
                         # if not using modify times, each side will assume it is newer always:
                         change = FMetaMoved(changed_right, changed_left.file_path)
-                        right_tree.categorize(change, Category.MOVED)
+                        right_tree.categorize(change, Category.Moved)
 
                         change = FMetaMoved(changed_left, changed_right.file_path)
-                        left_tree.categorize(change, Category.MOVED)
+                        left_tree.categorize(change, Category.Moved)
                 else:
                     """Looks like one side has additional file(s) with same signature 
                        - essentially a duplicate.. Remember, we know each side already contains
                        at least one copy with the given signature"""
                     if changed_left is None:
-                        right_tree.categorize(changed_right, Category.ADDED)
-                        left_tree.categorize(changed_right, Category.DELETED)
+                        right_tree.categorize(changed_right, Category.Added)
+                        left_tree.categorize(changed_right, Category.Deleted)
                         continue
 
                     if changed_right is None:
-                        left_tree.categorize(changed_left, Category.ADDED)
-                        right_tree.categorize(changed_left, Category.DELETED)
+                        left_tree.categorize(changed_left, Category.Added)
+                        right_tree.categorize(changed_left, Category.Deleted)
                         continue
 
     print(f'Done with diff. Left:[{left_tree.get_category_summary_string()}] Right:[{right_tree.get_category_summary_string()}]')

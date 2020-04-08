@@ -117,10 +117,10 @@ class FMetaLoader:
 
         counter = 0
         for change in db_file_changes:
-            change.category = change.category
             meta = fmeta_tree.path_dict.get(change.file_path)
             # Overwrite older changes for the same path:
             if meta is None or meta.sync_ts < change.sync_ts:
+                change.category = 0 # TODO
                 fmeta_tree.add(change)
                 counter += 1
 

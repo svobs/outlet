@@ -51,10 +51,11 @@ class DiffTree:
     def _build_icons(cls, icon_size):
         icons = dict()
         icons['folder'] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Folder-icon-{icon_size}px.png'))
-        icons[Category.ADDED.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-Add-icon-{icon_size}px.png'))
-        icons[Category.DELETED.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-Delete-icon-{icon_size}px.png'))
-        icons[Category.MOVED.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-icon-{icon_size}px.png'))
-        icons[Category.UPDATED.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-icon-{icon_size}px.png'))
+        icons[Category.Added.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-Add-icon-{icon_size}px.png'))
+        icons[Category.Deleted.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-Delete-icon-{icon_size}px.png'))
+        icons[Category.Moved.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-icon-{icon_size}px.png'))
+        icons[Category.Updated.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-icon-{icon_size}px.png'))
+        icons[Category.Ignored.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-icon-{icon_size}px.png'))
         return icons
 
     def _build_treeview(self, model):
@@ -296,7 +297,7 @@ class DiffTree:
                 self.model[iter][self.col_num_checked] = checked_value
                 self.model[iter][self.col_num_inconsistent] = False
 
-            self.change_value_recursively(child_iter, action_func)
+            self.recurse_over_tree(child_iter, action_func)
 
         tree_path = Gtk.TreePath.new_from_string(path)
         while True:
@@ -316,14 +317,14 @@ class DiffTree:
                     child_iter = self.model.iter_next(child_iter)
                 self.model[tree_iter][self.col_num_inconsistent] = inconsistent
 
-    def change_value_recursively(self, tree_iter, action_func):
+    def recurse_over_tree(self, tree_iter, action_func):
         """Performs the action_func on the node at this tree_iter AND all of its following
         siblings, and all of their descendants"""
         while tree_iter is not None:
             action_func(tree_iter)
             if self.model.iter_has_child(tree_iter):
                 child_iter = self.model.iter_children(tree_iter)
-                self.change_value_recursively(child_iter, action_func)
+                self.recurse_over_tree(child_iter, action_func)
             tree_iter = self.model.iter_next(tree_iter)
 
     # For displaying icons
@@ -423,17 +424,23 @@ class DiffTree:
         self.model.clear()
 
         self.root_path = fmeta_tree.root_path
-        for category in [Category.ADDED, Category.DELETED, Category.MOVED, Category.UPDATED, Category.IGNORED]:
+        for category in [Category.Added, Category.Deleted, Category.Moved, Category.Updated, Category.Ignored]:
             self._populate_category(category.name, fmeta_tree.get_for_cat(category))
         self.model.clear()
 
     def get_selected_change_set(self):
-        """Returns a ChangeSet which contains the FMetas of the rows which are currently
-        checked by the user. This will be a subset of the ChangeSet which was used to populate
+        """Returns a FMetaTree which contains the FMetas of the rows which are currently
+        checked by the user. This will be a subset of the FMetaTree which was used to populate
         this tree."""
-        selected_changes = FMetaTree()
+        selected_changes = FMetaTree(self.root_path)
 
-        # TODO
+        tree_iter = self.model.get_iter()
+
+        def action_func(iter):
+            if self.model[iter][self.col_num_checked]:
+                selected_changes.add(self.model[iter][self.col_num_data])
+
+        self.recurse_over_tree(tree_iter, action_func)
 
         return selected_changes
 

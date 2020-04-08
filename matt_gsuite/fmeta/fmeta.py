@@ -1,8 +1,29 @@
 import humanfriendly
 from enum import Enum, auto
-
+"""
+Category = IntEnum(
+    value='Category',
+    names=[
+        ('NA', 0),
+        ('Ignored', 1),
+        ('Added', 2),
+        ('Updated', 3),
+        ('Moved', 4),
+        ('Deleted', 5)
+    ]
+)"""
 
 class Category(Enum):
+    NA = 0
+    Ignored = 1
+    Added = 2
+    Updated = 3
+    Moved = 4
+    Deleted = 5
+
+
+"""
+class Category(IntEnum):
     NONE = (0, 'None')
     IGNORED = (1, 'Ignored')
     ADDED = (2, 'Added')
@@ -11,13 +32,14 @@ class Category(Enum):
     MOVED = (5, 'Moved')
 
     def __init__(self, ordinal, pretty_name):
+        super().__init__(ordinal)
         self._value_ = ordinal
         self._pretty_name = pretty_name
 
     @property
     def name(self):
         return self._pretty_name
-
+"""
 
 class FMeta:
     def __init__(self, signature, length, sync_ts, modify_ts, file_path, category=0):
@@ -106,32 +128,30 @@ class FMetaTree:
         self.sig_dict = {}
         # Each item is an entry
         self.path_dict = {}
-        self.cat_dict = {Category.IGNORED: FMetaList(),
-                         Category.MOVED: FMetaList(),
-                         Category.DELETED: FMetaList(),
-                         Category.UPDATED: FMetaList(),
-                         Category.ADDED: FMetaList()}
+        self.cat_dict = {Category.Ignored: FMetaList(),
+                         Category.Moved: FMetaList(),
+                         Category.Deleted: FMetaList(),
+                         Category.Updated: FMetaList(),
+                         Category.Added: FMetaList()}
         self._dup_count = 0
         self._total_size_bytes = 0
 
     def categorize(self, fmeta, category: Category):
-        assert category != Category.NONE
+        assert category != Category.NA
         fmeta.category = category
         return self.cat_dict[category].add(fmeta)
 
     def clear_categories(self):
         for cat, list in self.cat_dict.items():
-            if cat != Category.IGNORED:
+            if cat != Category.Ignored:
                 list.list.clear()
 
     def get_category_summary_string(self):
         summary = []
         for cat in self.cat_dict.keys():
             length = len(self.cat_dict[cat].list)
-            if len(summary) > 0:
-                summary.append(' ')
             summary.append(f'{cat.name}={length}')
-        return summary
+        return ' '.join(summary)
 
     def get_for_cat(self, category: Category):
         return self.cat_dict[category].list
@@ -139,7 +159,7 @@ class FMetaTree:
     def get_for_sig(self, signature):
         return self.sig_dict.get(signature, None)
 
-    def add(self, item):
+    def add(self, item: FMeta):
         set_matching_sig = self.sig_dict.get(item.signature, None)
         if set_matching_sig is None:
             set_matching_sig = [item]
@@ -147,6 +167,7 @@ class FMetaTree:
         else:
             set_matching_sig.append(item)
             self._dup_count += 1
+
         item_matching_path = self.path_dict.get(item.file_path, None)
         if item_matching_path is not None:
             print(f'WARNING: overwriting metadata for path: {item.file_path}')
@@ -154,8 +175,12 @@ class FMetaTree:
         self._total_size_bytes += item.length
         self.path_dict[item.signature] = item
 
+        cat = Category(int(item.category))
+        if cat != Category.NA:
+            self.cat_dict[cat].add(item)
+
     def add_ignored_file(self, item):
-        self.cat_dict[Category.IGNORED].add(item)
+        self.cat_dict[Category.Ignored].add(item)
 
     def print_stats(self):
         print(f'FMetaTree=[sigs:{len(self.sig_dict)} paths:{len(self.path_dict)} duplicates:{self._dup_count}]')
@@ -163,15 +188,3 @@ class FMetaTree:
     def get_summary(self):
         size = humanfriendly.format_size(self._total_size_bytes)
         return f'{size} in {len(self.path_dict)} files'
-
-
-class ChangeSet:
-    def __init__(self, src_root_path, dst_root_path):
-        # TODO: refactor each of these into FMetaTree.
-        # TODO: then include them in each category bar
-        self.adds = []
-        self.updates = []
-        self.dels = []
-        self.moves = []
-        self.src_root_path = src_root_path
-        self.dst_root_path = dst_root_path
