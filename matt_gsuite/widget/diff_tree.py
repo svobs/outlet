@@ -245,6 +245,22 @@ class DiffTree:
 
         run_on_ui_thread()
 
+    def on_question_clicked(self, msg, secondary_msg=None):
+        dialog = Gtk.MessageDialog(self, 0, Gtk.MessageType.QUESTION,
+                                   Gtk.ButtonsType.YES_NO, msg)
+        if secondary_msg is None:
+            print(f'Q: {msg}')
+        else:
+            print(f'Q: {msg}: {secondary_msg}')
+            dialog.format_secondary_text(secondary_msg)
+        response = dialog.run()
+        if response == Gtk.ResponseType.YES:
+            print("QUESTION dialog closed by clicking YES button")
+        elif response == Gtk.ResponseType.NO:
+            print("QUESTION dialog closed by clicking NO button")
+
+        dialog.destroy()
+
     def open_in_nautilus(self, file_path):
         if os.path.exists(file_path):
             print(f'Opening in Nautilus: {file_path}')

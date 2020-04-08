@@ -59,22 +59,12 @@ def diff_task(main_window):
             main_window.right_tree_statusbar.set_label(right_fmeta_set.get_summary())
 
             # Replace diff btn with merge buttons
-            main_window.merge_left_btn = Gtk.Button(label="<- Merge Left")
-            main_window.merge_left_btn.connect("clicked", main_window.on_merge_left_btn_clicked)
-
-            main_window.merge_both_btn = Gtk.Button(label="< Merge Both >")
-            main_window.merge_both_btn.connect("clicked", main_window.on_merge_both_btn_clicked)
-
-            main_window.merge_right_btn = Gtk.Button(label="Merge Right ->")
-            main_window.merge_right_btn.connect("clicked", main_window.on_merge_right_btn_clicked)
+            main_window.merge_btn = Gtk.Button(label="Merge Selected...")
+            main_window.merge_btn.connect("clicked", main_window.on_merge_btn_clicked)
 
             main_window.bottom_button_panel.remove(main_window.diff_action_btn)
-            main_window.bottom_button_panel.pack_start(main_window.merge_left_btn, True, True, 0)
-            main_window.bottom_button_panel.pack_start(main_window.merge_both_btn, True, True, 0)
-            main_window.bottom_button_panel.pack_start(main_window.merge_right_btn, True, True, 0)
-            main_window.merge_left_btn.show()
-            main_window.merge_both_btn.show()
-            main_window.merge_right_btn.show()
+            main_window.bottom_button_panel.pack_start(main_window.merge_btn, True, True, 0)
+            main_window.merge_btn.show()
             main_window.info_bar.set_label('Done.')
             print('Done')
             logging.info('Done.')
@@ -83,6 +73,24 @@ def diff_task(main_window):
     except Exception as err:
         print('Diff task failed with exception')
         raise
+
+
+class MergePreviewDialog(Gtk.Dialog):
+
+    def __init__(self, parent):
+        Gtk.Dialog.__init__(self, "Confirm Merge", parent, 0,
+                            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                             Gtk.STOCK_OK, Gtk.ResponseType.OK))
+
+        self.set_default_size(700, 700)
+
+        label = Gtk.Label("The following changes will be made:")
+
+        # TODO: include DiffTree
+
+        box = self.get_content_area()
+        box.add(label)
+        self.show_all()
 
 
 class DiffWindow(Gtk.ApplicationWindow):
@@ -255,23 +263,25 @@ class DiffWindow(Gtk.ApplicationWindow):
         action_thread.daemon = True
         action_thread.start()
 
-    def on_merge_left_btn_clicked(self, widget):
-        print('MergeLeft btn clicked')
+    def on_merge_btn_clicked(self, widget):
+        print('Merge btn clicked')
 
         left_change_set = self.diff_tree_left.get_selected_change_set()
         right_change_set = self.diff_tree_right.get_selected_change_set()
         minimized_change_set_left, minimized_change_set_right = diff_content_first.simplify_change_sets(left_change_set, right_change_set)
+
         # TODO: preview changes in UI pop-up
-        file_util.apply_change_set(minimized_change_set_left)
-        file_util.apply_change_set(minimized_change_set_right)
+        dialog = MergePreviewDialog(self)
+        response = dialog.run()
 
-    def on_merge_both_btn_clicked(self, widget):
-        print('MergeBoth btn clicked')
-        pass
+        if response == Gtk.ResponseType.OK:
+            print("The OK button was clicked")
+            file_util.apply_change_set(minimized_change_set_left)
+            file_util.apply_change_set(minimized_change_set_right)
+        elif response == Gtk.ResponseType.CANCEL:
+            print("The Cancel button was clicked")
 
-    def on_merge_right_btn_clicked(self, widget):
-        print('MergeRight btn clicked')
-        pass
+        dialog.destroy()
 
 
 class RootDirChooserDialog(Gtk.FileChooserDialog):
