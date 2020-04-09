@@ -72,15 +72,16 @@ def diff_task(win):
 
 class MergePreviewDialog(Gtk.Dialog):
 
-    def __init__(self, parent):
-        Gtk.Dialog.__init__(self, "Confirm Merge", parent, 0,
-                            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                             Gtk.STOCK_OK, Gtk.ResponseType.OK))
+    def __init__(self, parent, fmeta_tree):
+        Gtk.Dialog.__init__(self, "Confirm Merge", parent, 0)
+        self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
+        self.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
         self.set_default_size(700, 700)
 
-        label = Gtk.Label("The following changes will be made:")
+        label = Gtk.Label(label="The following changes will be made:")
 
+        self.fmeta_tree = fmeta_tree
         # TODO: include DiffTree
 
         box = self.get_content_area()
@@ -171,18 +172,17 @@ class DiffWindow(Gtk.ApplicationWindow):
     def on_merge_btn_clicked(self, widget):
         print('Merge btn clicked')
 
-        left_change_set = self.diff_tree_left.get_selected_change_set()
-        right_change_set = self.diff_tree_right.get_selected_change_set()
-        minimized_change_set_left, minimized_change_set_right = diff_content_first.simplify_change_sets(left_change_set, right_change_set)
+        left_selected_changes = self.diff_tree_left.get_selected_changes()
+        right_selected_changes = self.diff_tree_right.get_selected_changes()
+        merged_changes_tree = diff_content_first.merge_change_trees(left_selected_changes, right_selected_changes)
 
         # TODO: preview changes in UI pop-up
-        dialog = MergePreviewDialog(self)
+        dialog = MergePreviewDialog(self, merged_changes_tree)
         response = dialog.run()
 
         if response == Gtk.ResponseType.OK:
             print("The OK button was clicked")
-            file_util.apply_change_set(minimized_change_set_left)
-            file_util.apply_change_set(minimized_change_set_right)
+            file_util.apply_change_set(merged_changes_tree)
         elif response == Gtk.ResponseType.CANCEL:
             print("The Cancel button was clicked")
 

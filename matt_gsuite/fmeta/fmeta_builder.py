@@ -94,7 +94,7 @@ class FMetaScanner:
             progress_meter.set_total(file_counter.files_to_scan)
         sync_set_builder = FMetaFromFilesBuilder(local_path, progress_meter, fmeta_tree)
         sync_set_builder.recurse_through_dir_tree()
-        fmeta_tree.print_stats()
+        print(fmeta_tree.get_stats_string())
         return fmeta_tree
 
 
@@ -123,7 +123,7 @@ class FMetaLoader:
                 counter += 1
 
         print(f'Reduced {str(len(db_file_changes))} DB changes into {str(counter)} entries')
-        fmeta_tree.print_stats()
+        print(fmeta_tree.get_stats_string())
         return fmeta_tree
 
     def store_fmeta_to_db(self, fmeta_tree):

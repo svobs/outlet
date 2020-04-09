@@ -212,8 +212,8 @@ class FMetaTree:
         if cat != Category.NA:
             self.cat_dict[cat].add(item)
 
-    def print_stats(self):
-        print(f'FMetaTree=[sigs:{len(self.sig_dict)} paths:{len(self._path_dict)} duplicates:{self._dup_count}]')
+    def get_stats_string(self):
+        return f'FMetaTree=[sigs:{len(self.sig_dict)} paths:{len(self._path_dict)} duplicates:{self._dup_count}]'
 
     def get_summary(self):
         ignored_count = self.cat_dict[Category.Ignored].file_count

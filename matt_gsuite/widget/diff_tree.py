@@ -310,7 +310,7 @@ class DiffTree:
             return True
 
     def show_error_msg(self, msg, secondary_msg=None):
-        dialog = Gtk.MessageDialog(None, 0, Gtk.MessageType.ERROR, Gtk.ButtonsType.CANCEL, msg)
+        dialog = Gtk.MessageDialog(self.parent_win, 0, Gtk.MessageType.ERROR, Gtk.ButtonsType.CANCEL, msg)
         if secondary_msg is None:
             print(f'ERROR: {msg}')
         else:
@@ -324,7 +324,7 @@ class DiffTree:
         run_on_ui_thread()
 
     def on_question_clicked(self, msg, secondary_msg=None):
-        dialog = Gtk.MessageDialog(self, 0, Gtk.MessageType.QUESTION,
+        dialog = Gtk.MessageDialog(self.parent_win, 0, Gtk.MessageType.QUESTION,
                                    Gtk.ButtonsType.YES_NO, msg)
         if secondary_msg is None:
             print(f'Q: {msg}')
@@ -434,7 +434,7 @@ class DiffTree:
         """Called when checkbox in treeview is toggled"""
         # DOC: model[path][column] = not model[path][column]
         checked_value = not self.model[path][self.col_num_checked]
-        #print(f'Toggled -> {checked_value}')
+        print(f'Toggled {checked_value}: {self.model[path][self.col_num_name]}')
         self.model[path][self.col_num_checked] = checked_value
         self.model[path][self.col_num_inconsistent] = False
 
@@ -584,20 +584,24 @@ class DiffTree:
 
         self.set_status(fmeta_tree.get_summary())
 
-    def get_selected_change_set(self):
+    def get_selected_changes(self):
         """Returns a FMetaTree which contains the FMetas of the rows which are currently
         checked by the user. This will be a subset of the FMetaTree which was used to populate
         this tree."""
         selected_changes = FMetaTree(self.root_path)
 
-        tree_iter = self.model.get_iter()
+        tree_iter = self.model.get_iter_first()
 
         def action_func(t_iter):
             if self.model[t_iter][self.col_num_checked]:
-                selected_changes.add(self.model[t_iter][self.col_num_data])
+                data_node = self.model[t_iter][self.col_num_data]
+                #print(f'Node: {self.model[t_iter][self.col_num_name]} = {type(data_node)}')
+                if isinstance(data_node, FMeta):
+                    selected_changes.add(data_node)
 
         self.recurse_over_tree(tree_iter, action_func)
 
+        print(selected_changes.get_summary())
         return selected_changes
 
     @classmethod

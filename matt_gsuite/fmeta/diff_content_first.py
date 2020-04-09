@@ -125,6 +125,6 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
     return left_tree, right_tree
 
 
-def simplify_change_sets(left_tree: FMetaTree, right_tree: FMetaTree):
+def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree):
     simplified_tree = FMetaTree(root_path='dunno')
     return simplified_tree
