@@ -1,4 +1,5 @@
 import os
+import shutil
 from datetime import datetime
 import humanfriendly
 import file_util
@@ -179,39 +180,87 @@ class DiffTree:
         select = treeview.get_selection()
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
         select.connect("changed", on_tree_selection_changed)
-        treeview.connect("row-activated", self.on_tree_selection_doubleclick)
+        treeview.connect("row-activated", self.on_tree_selection_activated)
         treeview.connect('button-press-event', self.on_tree_button_press)
+        treeview.connect('key-press-event', self.on_key_press)
 
         return treeview
 
-    def build_context_menu(self, fmeta):
+    def build_context_menu(self, tree_path: Gtk.TreePath, fmeta: FMeta):
+        abs_path = os.path.join(self.root_path, fmeta.file_path)
+        parent_rel_path, file_name = os.path.split(fmeta.file_path)
+
         menu = Gtk.Menu()
 
-        def callback(source, directory):
-            self.open_in_nautilus(directory)
+        if not os.path.exists(abs_path):
+            # TODO
+            i1 = Gtk.MenuItem(label=f'File "{file_name}" not found')
+            menu.append(i1)
+        else:
+            i1 = Gtk.MenuItem(label='Show in Nautilus')
+            i1.connect('activate', lambda menu_item, f: self.show_in_nautilus(f), abs_path)
+            menu.append(i1)
 
-        directory = os.path.join(self.root_path, fmeta.file_path)
-        i1 = Gtk.MenuItem(label='Show in Nautilus')
-        i1.connect('activate', callback, directory)
-        menu.append(i1)
+            if os.path.isdir(file_name):
+                i2 = Gtk.MenuItem(label=f'Delete tree "{file_name}"')
+                i2.connect('activate', lambda menu_item, f: self.delete_dir_tree(f, tree_path), abs_path)
+                menu.append(i2)
+            else:
+                i2 = Gtk.MenuItem(label=f'Delete "{file_name}"')
+                i2.connect('activate', lambda menu_item, f: self.delete_single_file(f, tree_path), abs_path)
+                menu.append(i2)
 
         menu.show_all()
         return menu
 
+    def on_key_press(self, widget, event, user_data=None):
+        """Fired when a key is pressed"""
+        print("Key press on widget: ", widget)
+        print("          Modifiers: ", event.state)
+        print("      Key val, name: ", event.keyval, Gdk.keyval_name(event.keyval))
+
+        # check the event modifiers (can also use SHIFTMASK, etc)
+       # ctrl = (event.state & Gdk.ModifierType.CONTROL_MASK)
+
+        if event.keyval == Gdk.KEY_Delete:
+            print('DELETE key detected!')
+
+            # Get the TreeView selected row(s)
+            selection = self.treeview.get_selection()
+            # get_selected_rows() returns a tuple
+            # The first element is a ListStore
+            # The second element is a list of tree paths
+            # of all selected rows
+            model, paths = selection.get_selected_rows()
+
+            # Get the TreeIter instance for each path
+            for tree_path in paths:
+                # Delete the actual file:
+                fmeta = self.model[tree_path][self.col_num_data]
+                if fmeta is not None and fmeta != '':
+                    file_path = os.path.join(self.root_path, fmeta.file_path)
+                    if not self.delete_dir_tree(file_path=file_path, tree_path=tree_path):
+                        # something went wrong if we got False. Stop.
+                        break
+            return False
+        else:
+            return True
+
+
     def on_tree_button_press(self, tree_view, event):
         """Used for displaying context menu on right click"""
         if event.button == 3: # right click
-            path, col, cell_x, cell_y = tree_view.get_path_at_pos(int(event.x), int(event.y))
+            tree_path, col, cell_x, cell_y = tree_view.get_path_at_pos(int(event.x), int(event.y))
             # do something with the selected path
-            fmeta = self.model[path][self.col_num_data]
+            fmeta = self.model[tree_path][self.col_num_data]
             if fmeta.file_path == '':
                 # This is the category node
-                print(f'User right-clicked on {self.model[path][self.col_num_name]}')
+                print(f'User right-clicked on {self.model[tree_path][self.col_num_name]}')
             else:
                 print(f'User right-clicked on {fmeta.file_path}')
 
             # Display context menu:
-            context_menu = self.build_context_menu(fmeta)
+            context_menu = self.build_context_menu(tree_path, fmeta)
             context_menu.popup_at_pointer(event)
             # Suppress selection event:
             return True
@@ -246,12 +295,47 @@ class DiffTree:
 
         dialog.destroy()
 
-    def open_in_nautilus(self, file_path):
+    def update_subtree(self, tree_path):
+        # TODO: not just delete!
+        tree_iter = self.model.get_iter(tree_path)
+        self.model.remove(tree_iter)
+        # TODO
+        pass
+
+    def show_in_nautilus(self, file_path):
         if os.path.exists(file_path):
             print(f'Opening in Nautilus: {file_path}')
             subprocess.check_call(["nautilus", "--browser", file_path])
         else:
             self.show_error_msg('Cannot open file in Nautilus', f'File not found: {file_path}')
+
+    def delete_single_file(self, file_path):
+        if os.path.exists(file_path):
+            try:
+                print(f'Deleting file: {file_path}')
+                os.remove(file_path)
+            except Exception as err:
+                self.show_error_msg(f'Error deleting file "{file_path}"', err)
+                raise
+            finally:
+                self.update_subtree(file_path)
+        else:
+            self.show_error_msg('Cannot delete file', f'File not found: {file_path}')
+
+    def delete_dir_tree(self, file_path: str, tree_path: Gtk.TreePath):
+        if os.path.exists(file_path):
+            try:
+                print(f'Deleting dir tree: {file_path}')
+           #     shutil.rmtree(file_path)
+                return True
+            except Exception as err:
+                self.show_error_msg(f'Error deleting directory tree "{file_path}"', err)
+                raise
+            finally:
+                self.update_subtree(tree_path)
+        else:
+            self.show_error_msg('Cannot delete file', f'File not found: {file_path}')
+            return False
 
     def call_xdg_open(self, file_path):
         if os.path.exists(file_path):
@@ -260,7 +344,8 @@ class DiffTree:
         else:
             self.show_error_msg(f'Cannot open file', f'File not found: {file_path}')
 
-    def on_tree_selection_doubleclick(self, tree_view, path, col):
+    def on_tree_selection_activated(self, tree_view, path, col):
+        """Fired when an item is double-clicked or when an item is selected and Enter is pressed"""
         fmeta = self.model[path][self.col_num_data]
         xdg_open = False
         if isinstance(fmeta, DMeta):
@@ -424,7 +509,8 @@ class DiffTree:
         self.model.clear()
 
         self.root_path = fmeta_tree.root_path
-        for category in [Category.Added, Category.Deleted, Category.Moved, Category.Updated, Category.Ignored]:
+        # TODO: excluded MOVED and UPDATED for quicker testing
+        for category in [Category.Added, Category.Deleted, Category.Ignored]:
             self._populate_category(category.name, fmeta_tree.get_for_cat(category))
         self.model.clear()
 
