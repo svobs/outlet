@@ -43,9 +43,9 @@ class Category(IntEnum):
 
 
 class FMeta:
-    def __init__(self, signature, length, sync_ts, modify_ts, file_path, category=Category.NA):
+    def __init__(self, signature, size_bytes, sync_ts, modify_ts, file_path, category=Category.NA):
         self.signature = signature
-        self.length = length
+        self.size_bytes = size_bytes
         self.sync_ts = sync_ts
         self.modify_ts = modify_ts
         self.file_path = file_path
@@ -53,7 +53,7 @@ class FMeta:
 
     def __iter__(self):
         yield self.signature
-        yield self.length
+        yield self.size_bytes
         yield self.sync_ts
         yield self.modify_ts
         yield self.file_path
@@ -77,7 +77,7 @@ class FMeta:
         return False
 
     def is_content_equal(self, other_entry):
-        return isinstance(other_entry, FMeta) and self.signature == other_entry.signature and self.length == other_entry.length
+        return isinstance(other_entry, FMeta) and self.signature == other_entry.signature and self.size_bytes == other_entry.size_bytes
 
     def is_meta_equal(self, other_entry):
         return isinstance(other_entry, FMeta) and self.file_path == other_entry.file_path and self.category == other_entry.category
@@ -92,28 +92,34 @@ class FMeta:
 class FMetaMoved(FMeta):
     def __init__(self, fmeta, prev_path):
         """ FMeta contains new file path; prev_path specifies old file path"""
-        super().__init__(fmeta.signature, fmeta.length, fmeta.sync_ts, fmeta.modify_ts, fmeta.file_path, fmeta.category)
+        super().__init__(fmeta.signature, fmeta.size_bytes, fmeta.sync_ts, fmeta.modify_ts, fmeta.file_path, fmeta.category)
         self.prev_path = prev_path
 
 
-class DMeta:
+class DirNode:
     """For directories"""
     def __init__(self, file_path):
         self.file_path = file_path
         self.items = 0
-        self.total_size_bytes = 0
+        self.size_bytes = 0
 
     def add_meta(self, fmeta):
         self.items += 1
-        self.total_size_bytes += fmeta.length
+        self.size_bytes += fmeta.size_bytes
 
     @classmethod
     def is_dir(cls):
         return True
 
     def get_summary(self):
-        size = humanfriendly.format_size(self.total_size_bytes)
+        size = humanfriendly.format_size(self.size_bytes)
         return f'{size} in {self.items} files'
+
+
+class CategoryNode(DirNode):
+    def __init__(self, category):
+        super().__init__('')
+        self.category = category
 
 
 class FMetaList:
@@ -124,11 +130,11 @@ class FMetaList:
 
     def add(self, item):
         self.list.append(item)
-        self._total_size_bytes += item.length
+        self._total_size_bytes += item.size_bytes
         self._total_count += 1
 
     @property
-    def total_size_bytes(self):
+    def size_bytes(self):
         return self._total_size_bytes
 
     @property
@@ -198,8 +204,8 @@ class FMetaTree:
         item_matching_path = self._path_dict.get(item.file_path, None)
         if item_matching_path is not None:
             print(f'WARNING: overwriting metadata for path: {item.file_path}')
-            self._total_size_bytes -= item_matching_path.length
-        self._total_size_bytes += item.length
+            self._total_size_bytes -= item_matching_path.size_bytes
+        self._total_size_bytes += item.size_bytes
         self._path_dict[item.signature] = item
 
         cat = Category(item.category)
@@ -211,7 +217,7 @@ class FMetaTree:
 
     def get_summary(self):
         ignored_count = self.cat_dict[Category.Ignored].file_count
-        ignored_size = self.cat_dict[Category.Ignored].total_size_bytes
+        ignored_size = self.cat_dict[Category.Ignored].size_bytes
 
         total_size = self._total_size_bytes - ignored_size
         size_hf = humanfriendly.format_size(total_size)

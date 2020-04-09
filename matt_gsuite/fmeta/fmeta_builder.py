@@ -58,9 +58,9 @@ class FMetaFromFilesBuilder(TreeRecurser):
         date_time_now = datetime.now()
         sync_ts = int(time.mktime(date_time_now.timetuple()))
         #print(' '.join((str(sync_ts), signature_str, relative_path)))
-        length = os.stat(file_path).st_size
+        size_bytes = os.stat(file_path).st_size
         modify_ts = int(os.path.getmtime(file_path))
-        return FMeta(signature_str, length, sync_ts, modify_ts, relative_path)
+        return FMeta(signature_str, size_bytes, sync_ts, modify_ts, relative_path)
 
     def handle_target_file_type(self, file_path):
         item = self.build_sync_item(file_path)

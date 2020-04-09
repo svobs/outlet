@@ -3,7 +3,7 @@ import shutil
 from datetime import datetime
 import humanfriendly
 import file_util
-from fmeta.fmeta import FMeta, DMeta, FMetaTree, Category
+from fmeta.fmeta import FMeta, DirNode, CategoryNode, FMetaTree, Category
 from treelib import Node, Tree
 import gi
 gi.require_version("Gtk", "3.0")
@@ -141,8 +141,8 @@ class DiffTree:
             # Need the original file sizes (in bytes) here, not the formatted one
             fmeta1 = self.fmeta_tree.sig_dict[model.get_value(row1, 0)]
             fmeta2 = self.fmeta_tree.sig_dict[model.get_value(row2, 0)]
-            value1 = fmeta1.length
-            value2 = fmeta2.length
+            value1 = fmeta1.size_bytes
+            value2 = fmeta2.size_bytes
             if value1 < value2:
                 return -1
             elif value1 == value2:
@@ -349,20 +349,19 @@ class DiffTree:
 
     def on_tree_selection_activated(self, tree_view, path, col):
         """Fired when an item is double-clicked or when an item is selected and Enter is pressed"""
-        fmeta = self.model[path][self.col_num_data]
+        node_data = self.model[path][self.col_num_data]
         xdg_open = False
-        if isinstance(fmeta, DMeta):
-            if fmeta.file_path == '':
-                # Special handling for categories: toggle collapse state
-                if tree_view.row_expanded(path):
-                    tree_view.collapse_row(path)
-                else:
-                    tree_view.expand_row(path=path, open_all=False)
+        if type(node_data) == CategoryNode:
+            # Special handling for categories: toggle collapse state
+            if tree_view.row_expanded(path):
+                tree_view.collapse_row(path)
             else:
-                file_path = os.path.join(self.root_path, fmeta.file_path)
-                xdg_open = True
-        elif isinstance(fmeta, FMeta):
-            file_path = os.path.join(self.root_path, fmeta.file_path)
+                tree_view.expand_row(path=path, open_all=False)
+        elif type(node_data) == DirNode:
+            file_path = os.path.join(self.root_path, node_data.file_path)
+            xdg_open = True
+        elif type(node_data) == FMeta:
+            file_path = os.path.join(self.root_path, node_data.file_path)
             xdg_open = True
         else:
             raise RuntimeError('Unexpected data element')
@@ -424,7 +423,7 @@ class DiffTree:
         cell.set_property('text', model.get_value(iter, self.col_num_name))
 
     @classmethod
-    def _build_category_change_tree(cls, change_set, cat_name):
+    def _build_category_change_tree(cls, change_set, category):
         """
         Builds a tree out of the flat change set.
         Args:
@@ -439,9 +438,9 @@ class DiffTree:
 
         set_len = len(change_set)
         if set_len > 0:
-            print(f'Building change trees for category {cat_name} with {set_len} files...')
+            print(f'Building change trees for category {category.name} with {set_len} files...')
 
-            root = change_tree.create_node(tag=f'{cat_name} ({set_len} files)', identifier='', data=DMeta(file_path=''))   # root
+            root = change_tree.create_node(tag=f'{category.name} ({set_len} files)', identifier='', data=CategoryNode(category))   # root
             for fmeta in change_set:
                 dirs_str, file_name = os.path.split(fmeta.file_path)
                 # nid == Node ID == directory name
@@ -455,7 +454,7 @@ class DiffTree:
                         child = change_tree.get_node(nid=nid)
                         if child is None:
                             #print(f'Creating dir: {nid}')
-                            child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=DMeta(nid))
+                            child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=DirNode(nid))
                         parent = child
                         parent.data.add_meta(fmeta)
                 nid = os.path.join(nid, file_name)
@@ -464,36 +463,36 @@ class DiffTree:
 
         return change_tree
 
-    def __append_dir(self, tree_iter, dir_name, dmeta):
-        num_bytes_str = humanfriendly.format_size(dmeta.total_size_bytes)
+    def _append_dir(self, tree_iter, dir_name, dmeta):
+        num_bytes_str = humanfriendly.format_size(dmeta.size_bytes)
         if self.use_dir_tree:
             return self.model.append(tree_iter, [False, False, 'folder', dir_name, num_bytes_str, None, dmeta])
         else:
             return self.model.append(tree_iter, [False, False, 'folder', dir_name, num_bytes_str, None, None, dmeta])
 
-    def _append_fmeta(self, tree_iter, file_name, fmeta: FMeta, cat_name):
-        num_bytes_str = humanfriendly.format_size(fmeta.length)
+    def _append_fmeta(self, tree_iter, file_name, fmeta: FMeta, category):
+        num_bytes_str = humanfriendly.format_size(fmeta.size_bytes)
         modify_datetime = datetime.fromtimestamp(fmeta.modify_ts)
         modify_time = modify_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
         if self.use_dir_tree:
-            return self.model.append(tree_iter, [False, False, cat_name, file_name, num_bytes_str, modify_time, fmeta])
+            return self.model.append(tree_iter, [False, False, category.name, file_name, num_bytes_str, modify_time, fmeta])
         else:
             directory, name = os.path.split(fmeta.file_path)
-            return self.model.append(tree_iter, [False, False, cat_name, file_name, directory, num_bytes_str, modify_time, fmeta])
+            return self.model.append(tree_iter, [False, False, category.name, file_name, directory, num_bytes_str, modify_time, fmeta])
 
-    def _populate_category(self, cat_name, fmeta_list):
-        change_tree = DiffTree._build_category_change_tree(fmeta_list, cat_name)
+    def _populate_category(self, category: Category, fmeta_list):
+        change_tree = DiffTree._build_category_change_tree(fmeta_list, category)
 
         def append_recursively(tree_iter, node):
             # Do a DFS of the change tree and populate the UI tree along the way
-            if isinstance(node.data, DMeta):
+            if isinstance(node.data, DirNode):
                 # Is dir
-                tree_iter = self.__append_dir(tree_iter, node.tag, node.data)
+                tree_iter = self._append_dir(tree_iter, node.tag, node.data)
                 for child in change_tree.children(node.identifier):
                     append_recursively(tree_iter, child)
             else:
-                self._append_fmeta(tree_iter, node.tag, node.data, cat_name)
+                self._append_fmeta(tree_iter, node.tag, node.data, category)
 
         def do_on_ui_thread():
             if change_tree.size(1) > 0:
@@ -501,7 +500,13 @@ class DiffTree:
                 root = change_tree.get_node('')
                 append_recursively(None, root)
 
-            self.treeview.expand_all()
+                tree_iter = self.model.get_iter_first()
+                while tree_iter is not None:
+                    node_data = self.model[tree_iter][self.col_num_data]
+                    if type(node_data) == CategoryNode and node_data.category != Category.Ignored:
+                        tree_path = self.model.get_path(tree_iter)
+                        self.treeview.expand_row(path=tree_path, open_all=True)
+                    tree_iter = self.model.iter_next(tree_iter)
 
         GLib.idle_add(do_on_ui_thread)
 
@@ -514,7 +519,7 @@ class DiffTree:
         self.root_path = fmeta_tree.root_path
         # TODO: excluded MOVED and UPDATED for quicker testing
         for category in [Category.Added, Category.Deleted, Category.Ignored]:
-            self._populate_category(category.name, fmeta_tree.get_for_cat(category))
+            self._populate_category(category, fmeta_tree.get_for_cat(category))
         self.model.clear()
 
     def get_selected_change_set(self):
