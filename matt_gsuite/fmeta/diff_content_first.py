@@ -125,6 +125,16 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
     return left_tree, right_tree
 
 
+def find_nearest_common_ancestor(path1, path2):
+    # TODO
+    return path1
+
+
 def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree):
-    simplified_tree = FMetaTree(root_path='dunno')
-    return simplified_tree
+    new_root_path = find_nearest_common_ancestor(left_tree.root_path, right_tree.root_path)
+    merged_tree = FMetaTree(root_path=new_root_path)
+    # TODO
+
+
+
+    return merged_tree

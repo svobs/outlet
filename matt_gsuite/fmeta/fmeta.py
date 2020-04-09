@@ -149,28 +149,28 @@ class FMetaTree:
         self._path_dict = {}
         # Each item contains a list of entries
         self.sig_dict = {}
-        self.cat_dict = {Category.Ignored: FMetaList(),
-                         Category.Moved: FMetaList(),
-                         Category.Deleted: FMetaList(),
-                         Category.Updated: FMetaList(),
-                         Category.Added: FMetaList()}
+        self._cat_dict = {Category.Ignored: FMetaList(),
+                          Category.Moved: FMetaList(),
+                          Category.Deleted: FMetaList(),
+                          Category.Updated: FMetaList(),
+                          Category.Added: FMetaList()}
         self._dup_count = 0
         self._total_size_bytes = 0
 
     def categorize(self, fmeta, category: Category):
         assert category != Category.NA
         fmeta.category = category
-        return self.cat_dict[category].add(fmeta)
+        return self._cat_dict[category].add(fmeta)
 
     def clear_categories(self):
-        for cat, list in self.cat_dict.items():
+        for cat, list in self._cat_dict.items():
             if cat != Category.Ignored:
                 list.list.clear()
 
     def get_category_summary_string(self):
         summary = []
-        for cat in self.cat_dict.keys():
-            length = len(self.cat_dict[cat].list)
+        for cat in self._cat_dict.keys():
+            length = len(self._cat_dict[cat].list)
             summary.append(f'{cat.name}={length}')
         return ' '.join(summary)
 
@@ -178,7 +178,7 @@ class FMetaTree:
         return self._path_dict.values()
 
     def get_for_cat(self, category: Category):
-        return self.cat_dict[category].list
+        return self._cat_dict[category].list
 
     def get_for_path(self, file_path, include_ignored=False):
         matching_list = self._path_dict.get(file_path, None)
@@ -210,14 +210,14 @@ class FMetaTree:
 
         cat = Category(item.category)
         if cat != Category.NA:
-            self.cat_dict[cat].add(item)
+            self._cat_dict[cat].add(item)
 
     def get_stats_string(self):
         return f'FMetaTree=[sigs:{len(self.sig_dict)} paths:{len(self._path_dict)} duplicates:{self._dup_count}]'
 
     def get_summary(self):
-        ignored_count = self.cat_dict[Category.Ignored].file_count
-        ignored_size = self.cat_dict[Category.Ignored].size_bytes
+        ignored_count = self._cat_dict[Category.Ignored].file_count
+        ignored_size = self._cat_dict[Category.Ignored].size_bytes
 
         total_size = self._total_size_bytes - ignored_size
         size_hf = humanfriendly.format_size(total_size)
