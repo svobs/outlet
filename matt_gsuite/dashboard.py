@@ -21,51 +21,46 @@ RIGHT_DIR_PATH = r"/media/msvoboda/Thumb128G/Takeout/Google Photos"
 logger = logging.getLogger(__name__)
 
 
-def diff_task(main_window):
+def diff_task(win):
     try:
         left_db_loader = FMetaLoader(LEFT_DB_PATH)
-        left_fmeta_set : FMetaTree
+        left_fmeta_set: FMetaTree
+        win.diff_tree_right.set_status('Waiting...')
         if left_db_loader.has_data():
-            print(f'Loading Left data from DB: {LEFT_DB_PATH}')
+            win.diff_tree_left.set_status(f'Loading Left data from DB: {LEFT_DB_PATH}')
             left_fmeta_set = left_db_loader.build_fmeta_set_from_db(LEFT_DIR_PATH)
         else:
-            logging.info(f"Scanning files in left tree: {main_window.diff_tree_left.root_path}")
-            main_window.progress_meter = ProgressMeter(main_window.on_progress_made)
-            main_window.info_bar.set_label(f'Scanning files in tree: {main_window.diff_tree_left.root_path}')
-            left_fmeta_set = FMetaScanner.scan_local_tree(LEFT_DIR_PATH, main_window.progress_meter)
+            win.progress_meter = ProgressMeter(win.on_progress_made)
+            win.diff_tree_left.set_status(f'Scanning files in tree: {win.diff_tree_left.root_path}')
+            left_fmeta_set = FMetaScanner.scan_local_tree(LEFT_DIR_PATH, win.progress_meter)
             left_db_loader.store_fmeta_to_db(left_fmeta_set)
 
         right_db_loader = FMetaLoader(RIGHT_DB_PATH)
         if right_db_loader.has_data():
-            print(f'Loading Right data from DB: {RIGHT_DB_PATH}')
+            win.diff_tree_left.set_status(f'Loading Right data from DB: {RIGHT_DB_PATH}')
             right_fmeta_set = right_db_loader.build_fmeta_set_from_db(RIGHT_DIR_PATH)
         else:
-            logging.info(f"Scanning files in right tree: {main_window.diff_tree_right.root_path}")
-            main_window.progress_meter = ProgressMeter(main_window.on_progress_made)
-            main_window.info_bar.set_label(f'Scanning files in tree: {main_window.diff_tree_right.root_path}')
-            right_fmeta_set = FMetaScanner.scan_local_tree(RIGHT_DIR_PATH, main_window.progress_meter)
+            logging.info(f"Scanning files in right tree: {win.diff_tree_right.root_path}")
+            win.progress_meter = ProgressMeter(win.on_progress_made)
+            win.diff_tree_left.set_status(f'Scanning files in tree: {win.diff_tree_right.root_path}')
+            right_fmeta_set = FMetaScanner.scan_local_tree(RIGHT_DIR_PATH, win.progress_meter)
             right_db_loader.store_fmeta_to_db(right_fmeta_set)
 
-        main_window.info_bar.set_label('Diffing...')
         logging.info("Diffing...")
 
         diff_content_first.diff(left_fmeta_set, right_fmeta_set, compare_paths_also=True, use_modify_times=False)
 
         def do_on_ui_thread():
-            # TODO: put tree + statusbar into their own module
-            main_window.diff_tree_left.rebuild_ui_tree(left_fmeta_set)
-            main_window.left_tree_statusbar.set_label(left_fmeta_set.get_summary())
-            main_window.diff_tree_right.rebuild_ui_tree(right_fmeta_set)
-            main_window.right_tree_statusbar.set_label(right_fmeta_set.get_summary())
+            win.diff_tree_left.rebuild_ui_tree(left_fmeta_set)
+            win.diff_tree_right.rebuild_ui_tree(right_fmeta_set)
 
             # Replace diff btn with merge buttons
-            main_window.merge_btn = Gtk.Button(label="Merge Selected...")
-            main_window.merge_btn.connect("clicked", main_window.on_merge_btn_clicked)
+            win.merge_btn = Gtk.Button(label="Merge Selected...")
+            win.merge_btn.connect("clicked", win.on_merge_btn_clicked)
 
-            main_window.bottom_button_panel.remove(main_window.diff_action_btn)
-            main_window.bottom_button_panel.pack_start(main_window.merge_btn, True, True, 0)
-            main_window.merge_btn.show()
-            main_window.info_bar.set_label('Done.')
+            win.bottom_button_panel.remove(win.diff_action_btn)
+            win.bottom_button_panel.pack_start(win.merge_btn, True, True, 0)
+            win.merge_btn.show()
             print('Done')
             logging.info('Done.')
 
@@ -109,8 +104,9 @@ class DiffWindow(Gtk.ApplicationWindow):
 
         # Content:
 
-        self.info_bar, info_bar_container = DiffWindow.build_info_bar()
-        self.content_box.add(info_bar_container)
+# TODO
+       # self.info_bar, info_bar_container = DiffWindow.build_info_bar()
+    #    self.content_box.add(info_bar_container)
 
         # Checkboxes:
         self.checkbox_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
@@ -139,10 +135,15 @@ class DiffWindow(Gtk.ApplicationWindow):
         self.content_box.add(self.checkbox_panel)
 
         # Diff trees:
+        diff_tree_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        # Each side is given 50% space
+        diff_tree_panel.set_homogeneous(True)
+        self.content_box.add(diff_tree_panel)
+
         self.diff_tree_left = DiffTree(LEFT_DIR_PATH)
+        diff_tree_panel.pack_start(self.diff_tree_left.content_box, True, True, 0)
         self.diff_tree_right = DiffTree(RIGHT_DIR_PATH)
-        self.diff_tree_panel, self.left_tree_statusbar, self.right_tree_statusbar = DiffWindow.build_two_tree_panel(self.diff_tree_left.treeview, self.diff_tree_right.treeview)
-        self.content_box.add(self.diff_tree_panel)
+        diff_tree_panel.pack_start(self.diff_tree_right.content_box, True, True, 0)
 
         # Bottom button panel:
         self.bottom_button_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
@@ -209,48 +210,6 @@ class DiffWindow(Gtk.ApplicationWindow):
             print(f'Unrecognized response: {response_id}')
         # destroy the FileChooserDialog
         dialog.destroy()
-
-    @staticmethod
-    def build_two_tree_panel(tree_view_left, tree_view_right):
-        diff_tree_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
-        # Each side is given 50% space
-        diff_tree_panel.set_homogeneous(True)
-
-        left_panel, left_tree_statusbar = DiffWindow.build_tree_view_side_panel(tree_view_left)
-        diff_tree_panel.add(left_panel)
-
-        right_panel, right_tree_statusbar = DiffWindow.build_tree_view_side_panel(tree_view_right)
-        diff_tree_panel.add(right_panel)
-
-        return diff_tree_panel, left_tree_statusbar, right_tree_statusbar
-
-    @staticmethod
-    def build_tree_view_side_panel(tree_view):
-        side_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
-
-        # Tree will take up all the excess space
-        tree_view.set_vexpand(True)
-        tree_view.set_hexpand(False)
-        tree_scroller = Gtk.ScrolledWindow()
-        # No horizontal scrolling - only vertical
-        tree_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        tree_scroller.add(tree_view)
-        # child, expand, fill, padding
-        side_panel.pack_start(tree_scroller, False, True, 5)
-
-        status_bar, status_bar_container = DiffWindow.build_info_bar()
-        side_panel.pack_start(status_bar_container, False, True, 5)
-
-        return side_panel, status_bar
-
-    @staticmethod
-    def build_info_bar():
-        info_bar_container = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
-        info_bar = Gtk.Label(label='')
-        info_bar.set_justify(Gtk.Justification.LEFT)
-        info_bar.set_line_wrap(True)
-        info_bar_container.add(info_bar)
-        return info_bar, info_bar_container
 
     # Callback from FMetaScanner:
     def on_progress_made(self, progress, total):

@@ -48,6 +48,11 @@ class DiffTree:
         self.treeview: Gtk.Treeview
         self.treeview = self._build_treeview(self.model)
 
+        self.content_box = DiffTree._build_content_box(self.treeview)
+
+        self.status_bar, status_bar_container = DiffTree._build_info_bar()
+        self.content_box.pack_start(status_bar_container, False, True, 5)
+
     @classmethod
     def _build_icons(cls, icon_size):
         icons = dict()
@@ -58,6 +63,22 @@ class DiffTree:
         icons[Category.Updated.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-icon-{icon_size}px.png'))
         icons[Category.Ignored.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-icon-{icon_size}px.png'))
         return icons
+
+    @classmethod
+    def _build_content_box(cls, tree_view):
+        side_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
+
+        # Tree will take up all the excess space
+        tree_view.set_vexpand(True)
+        tree_view.set_hexpand(False)
+        tree_scroller = Gtk.ScrolledWindow()
+        # No horizontal scrolling - only vertical
+        tree_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        tree_scroller.add(tree_view)
+        # child, expand, fill, padding
+        side_panel.pack_start(tree_scroller, False, True, 5)
+
+        return side_panel
 
     def _build_treeview(self, model):
         """ Builds the GTK3 treeview widget"""
@@ -186,7 +207,22 @@ class DiffTree:
 
         return treeview
 
+    def set_status(self, status_msg):
+        print(status_msg)
+        self.status_bar.set_label(status_msg)
+
+    @classmethod
+    def _build_info_bar(cls):
+        info_bar_container = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        info_bar = Gtk.Label(label='')
+        info_bar.set_justify(Gtk.Justification.LEFT)
+        info_bar.set_line_wrap(True)
+        info_bar_container.add(info_bar)
+        return info_bar, info_bar_container
+
     def build_context_menu(self, tree_path: Gtk.TreePath, fmeta: FMeta):
+        """Dynamic context menu (right-click on tree item)"""
+
         abs_path = self.get_abs_path(fmeta)
         # Important: use abs_path here, otherwise file names for category nodes are not displayed properly
         parent_path, file_name = os.path.split(abs_path)
@@ -540,7 +576,8 @@ class DiffTree:
         # TODO: excluded MOVED and UPDATED for quicker testing
         for category in [Category.Added, Category.Deleted, Category.Ignored]:
             self._populate_category(category, fmeta_tree.get_for_cat(category))
-        self.model.clear()
+
+        self.set_status(fmeta_tree.get_summary())
 
     def get_selected_change_set(self):
         """Returns a FMetaTree which contains the FMetas of the rows which are currently
