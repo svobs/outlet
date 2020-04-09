@@ -42,28 +42,28 @@ def strip_root(file_path, root_path):
     return re.sub(root_path_with_slash, '', file_path, count=1)
 
 
+def build_sync_item(root_path, file_path):
+    # Open,close, read file and calculate hash of its contents
+    signature_str = fmeta.content_hasher.dropbox_hash(file_path)
+    relative_path = strip_root(file_path, root_path)
+
+    # Get "now" in UNIX time:
+    date_time_now = datetime.now()
+    sync_ts = int(time.mktime(date_time_now.timetuple()))
+    #print(' '.join((str(sync_ts), signature_str, relative_path)))
+    size_bytes = os.stat(file_path).st_size
+    modify_ts = int(os.path.getmtime(file_path))
+    return FMeta(signature_str, size_bytes, sync_ts, modify_ts, relative_path)
+
+
 class FMetaFromFilesBuilder(TreeRecurser):
     def __init__(self, root_path, progress_meter: ProgressMeter, fmeta_tree: FMetaTree):
         TreeRecurser.__init__(self, root_path, valid_suffixes=VALID_SUFFIXES)
         self.progress_meter = progress_meter
         self.fmeta_tree = fmeta_tree
 
-    def build_sync_item(self, file_path):
-        # Open,close, read file and calculate MD5 on its contents
-
-        signature_str = fmeta.content_hasher.dropbox_hash(file_path)
-        relative_path = strip_root(file_path, str(self.root_path))
-
-        # Get "now" in UNIX time:
-        date_time_now = datetime.now()
-        sync_ts = int(time.mktime(date_time_now.timetuple()))
-        #print(' '.join((str(sync_ts), signature_str, relative_path)))
-        size_bytes = os.stat(file_path).st_size
-        modify_ts = int(os.path.getmtime(file_path))
-        return FMeta(signature_str, size_bytes, sync_ts, modify_ts, relative_path)
-
     def handle_target_file_type(self, file_path):
-        item = self.build_sync_item(file_path)
+        item = build_sync_item(str(self.root_path), file_path)
         self.fmeta_tree.add(item)
         self.progress_meter.add_progress(1)
 

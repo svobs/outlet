@@ -187,7 +187,7 @@ class DiffTree:
         return treeview
 
     def build_context_menu(self, tree_path: Gtk.TreePath, fmeta: FMeta):
-        abs_path = self.root_path if fmeta.file_path == '' else os.path.join(self.root_path, fmeta.file_path)
+        abs_path = self.get_abs_path(fmeta)
         # Important: use abs_path here, otherwise file names for category nodes are not displayed properly
         parent_path, file_name = os.path.split(abs_path)
 
@@ -206,11 +206,11 @@ class DiffTree:
 
             if os.path.isdir(file_name):
                 i2 = Gtk.MenuItem(label=f'Delete tree "{file_name}"')
-                i2.connect('activate', lambda menu_item, f: self.delete_dir_tree(f, tree_path), abs_path)
+                i2.connect('activate', lambda menu_item, abs_p: self.delete_dir_tree(abs_p, tree_path), abs_path)
                 menu.append(i2)
             else:
                 i2 = Gtk.MenuItem(label=f'Delete "{file_name}"')
-                i2.connect('activate', lambda menu_item, f: self.delete_single_file(f, tree_path), abs_path)
+                i2.connect('activate', lambda menu_item, abs_p: self.delete_single_file(abs_p, tree_path), abs_path)
                 menu.append(i2)
 
         menu.show_all()
@@ -240,7 +240,7 @@ class DiffTree:
             for tree_path in paths:
                 # Delete the actual file:
                 fmeta = self.model[tree_path][self.col_num_data]
-                if fmeta is not None and fmeta != '':
+                if fmeta is not None:
                     file_path = os.path.join(self.root_path, fmeta.file_path)
                     if not self.delete_dir_tree(file_path=file_path, tree_path=tree_path):
                         # something went wrong if we got False. Stop.
@@ -298,12 +298,30 @@ class DiffTree:
 
         dialog.destroy()
 
+    def get_abs_path(self, node_data):
+        """ Utility function """
+        return self.root_path if node_data.file_path == '' else os.path.join(self.root_path, node_data.file_path)
+
+    def get_abs_file_path(self, tree_path: Gtk.TreePath):
+        """ Utility function: get absolute file path from a TreePath """
+        node_data = self.model[tree_path][self.col_num_data]
+        assert node_data is not None
+        return self.get_abs_path(node_data)
+
     def update_subtree(self, tree_path):
+        # TODO: need to possibly add new FMeta if we find new files,
+        # TODO: and also update the other tree if we discover it.
+        # TODO: Need to introduce a callback mechanism for the other tree,
+        # TODO: as well as a way to find a Node from a file path by walking the tree
+
+        # Other
+        file_path_subtree_root = self.get_abs_file_path(tree_path)
+        #for root, dirs, files in os.walk(file_path_subtree_root, topdown=True):
+
+
         # TODO: not just delete!
         tree_iter = self.model.get_iter(tree_path)
         self.model.remove(tree_iter)
-        # TODO
-        pass
 
     def show_in_nautilus(self, file_path):
         if os.path.exists(file_path):
@@ -312,7 +330,8 @@ class DiffTree:
         else:
             self.show_error_msg('Cannot open file in Nautilus', f'File not found: {file_path}')
 
-    def delete_single_file(self, file_path):
+    def delete_single_file(self, file_path: str, tree_path: Gtk.TreePath):
+        """ Param file_path must be an absolute path"""
         if os.path.exists(file_path):
             try:
                 print(f'Deleting file: {file_path}')
@@ -321,15 +340,16 @@ class DiffTree:
                 self.show_error_msg(f'Error deleting file "{file_path}"', err)
                 raise
             finally:
-                self.update_subtree(file_path)
+                self.update_subtree(tree_path)
         else:
-            self.show_error_msg('Cannot delete file', f'File not found: {file_path}')
+            self.show_error_msg('Could not delete file', f'Not found: {file_path}')
 
     def delete_dir_tree(self, file_path: str, tree_path: Gtk.TreePath):
+        """ Param file_path must be an absolute path"""
         if os.path.exists(file_path):
             try:
                 print(f'Deleting dir tree: {file_path}')
-           #     shutil.rmtree(file_path)
+                shutil.rmtree(file_path)
                 return True
             except Exception as err:
                 self.show_error_msg(f'Error deleting directory tree "{file_path}"', err)
@@ -337,7 +357,7 @@ class DiffTree:
             finally:
                 self.update_subtree(tree_path)
         else:
-            self.show_error_msg('Cannot delete file', f'File not found: {file_path}')
+            self.show_error_msg('Could not delete directory tree', f'Not found: {file_path}')
             return False
 
     def call_xdg_open(self, file_path):
@@ -380,9 +400,9 @@ class DiffTree:
         tree_iter = self.model.get_iter(path)
         child_iter = self.model.iter_children(tree_iter)
         if child_iter:
-            def action_func(iter):
-                self.model[iter][self.col_num_checked] = checked_value
-                self.model[iter][self.col_num_inconsistent] = False
+            def action_func(t_iter):
+                self.model[t_iter][self.col_num_checked] = checked_value
+                self.model[t_iter][self.col_num_inconsistent] = False
 
             self.recurse_over_tree(child_iter, action_func)
 
@@ -434,7 +454,7 @@ class DiffTree:
             change tree
         """
         # The change set in tree form
-        change_tree = Tree() # from treelib
+        change_tree = Tree()  # from treelib
 
         set_len = len(change_set)
         if set_len > 0:
@@ -496,7 +516,7 @@ class DiffTree:
 
         def do_on_ui_thread():
             if change_tree.size(1) > 0:
-                #print(f'Appending category: {cat_name}')
+                #print(f'Appending category: {category.name}')
                 root = change_tree.get_node('')
                 append_recursively(None, root)
 
@@ -530,9 +550,9 @@ class DiffTree:
 
         tree_iter = self.model.get_iter()
 
-        def action_func(iter):
-            if self.model[iter][self.col_num_checked]:
-                selected_changes.add(self.model[iter][self.col_num_data])
+        def action_func(t_iter):
+            if self.model[t_iter][self.col_num_checked]:
+                selected_changes.add(self.model[t_iter][self.col_num_data])
 
         self.recurse_over_tree(tree_iter, action_func)
 
@@ -546,7 +566,7 @@ class DiffTree:
             if parts[0] == path:  # sentinel for absolute paths
                 all_parts.insert(0, parts[0])
                 break
-            elif parts[1] == path: # sentinel for relative paths
+            elif parts[1] == path:  # sentinel for relative paths
                 all_parts.insert(0, parts[1])
                 break
             else:
