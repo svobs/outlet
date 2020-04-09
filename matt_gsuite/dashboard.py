@@ -110,10 +110,6 @@ class DiffWindow(Gtk.ApplicationWindow):
 
         # Checkboxes:
         self.checkbox_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
-        self.left_open_btn = Gtk.Button(label='Open left...')
-        self.checkbox_panel.pack_start(self.left_open_btn, True, True, 0)
-        self.right_open_btn = Gtk.Button(label='Open right...')
-        self.checkbox_panel.pack_start(self.right_open_btn, True, True, 0)
 
         # check for the following...
         self.button1 = Gtk.CheckButton(label="Empty dirs")
@@ -135,15 +131,20 @@ class DiffWindow(Gtk.ApplicationWindow):
         self.content_box.add(self.checkbox_panel)
 
         # Diff trees:
-        diff_tree_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+      #  diff_tree_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         # Each side is given 50% space
-        diff_tree_panel.set_homogeneous(True)
-        self.content_box.add(diff_tree_panel)
+      #  diff_tree_panel.set_homogeneous(True)
+      #  self.content_box.add(diff_tree_panel)
+
+        diff_tree_panes = Gtk.HPaned()
+        self.content_box.add(diff_tree_panes)
 
         self.diff_tree_left = DiffTree(LEFT_DIR_PATH)
-        diff_tree_panel.pack_start(self.diff_tree_left.content_box, True, True, 0)
+        diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
+       # diff_tree_panel.pack_start(self.diff_tree_left.content_box, True, True, 0)
         self.diff_tree_right = DiffTree(RIGHT_DIR_PATH)
-        diff_tree_panel.pack_start(self.diff_tree_right.content_box, True, True, 0)
+        diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
+   #     diff_tree_panel.pack_start(self.diff_tree_right.content_box, True, True, 0)
 
         # Bottom button panel:
         self.bottom_button_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
@@ -152,19 +153,6 @@ class DiffWindow(Gtk.ApplicationWindow):
         self.diff_action_btn = Gtk.Button(label="Diff (content-first)")
         self.diff_action_btn.connect("clicked", self.on_diff_button_clicked)
         self.bottom_button_panel.pack_start(self.diff_action_btn, True, True, 0)
-
-        # Open file action
-        choose_left_root_action = Gio.SimpleAction.new("choose_root_left", None)
-        choose_left_root_action.connect("activate", self.choose_tree_root_btn_clicked, self.diff_tree_left)
-        # TODO: how to pass args to action?
-        self.add_action(choose_left_root_action)
-        self.left_open_btn.set_action_name('win.choose_root_left')
-
-        choose_right_root_action = Gio.SimpleAction.new("choose_root_right", None)
-        choose_right_root_action.connect("activate", self.choose_tree_root_btn_clicked, self.diff_tree_right)
-        self.add_action(choose_right_root_action)
-        self.right_open_btn.set_action_name('win.choose_root_right')
-
 
         menubutton = Gtk.MenuButton()
         self.content_box.add(menubutton)
@@ -175,41 +163,6 @@ class DiffWindow(Gtk.ApplicationWindow):
         menumodel.append("Quit", "app.quit")
 
         # TODO: create a 'Scan' button for each input source
-
-    def choose_tree_root_btn_clicked(self, widget, parameter, diff_tree):
-        # create a filechooserdialog to open:
-        # the arguments are: title of the window, parent_window, action,
-        # (buttons, response)
-        open_dialog = RootDirChooserDialog(title="Pick a directory", parent=self, current_dir=diff_tree.root_path)
-
-        # not only local files can be selected in the file selector
-        open_dialog.set_local_only(False)
-        # dialog always on top of the textview window
-        open_dialog.set_modal(True)
-        # connect the dialog with the callback function open_response_cb()
-        open_dialog.connect("response", self.on_root_dir_selected, diff_tree)
-        # show the dialog
-        open_dialog.show()
-
-    # callback function for the dialog open_dialog
-    def on_root_dir_selected(self, dialog, response_id, diff_tree: DiffTree):
-        open_dialog = dialog
-        # if response is "ACCEPT" (the button "Open" has been clicked)
-        if response_id == Gtk.ResponseType.OK:
-            filename = open_dialog.get_filename()
-            print(f'User selected dir: {filename}')
-            diff_tree.root_path = filename
-        # if response is "CANCEL" (the button "Cancel" has been clicked)
-        elif response_id == Gtk.ResponseType.CANCEL:
-            print("Cancelled: RootDirChooserDialog")
-        elif response_id == Gtk.ResponseType.CLOSE:
-            print("Closed: RootDirChooserDialog")
-        elif response_id == Gtk.ResponseType.DELETE_EVENT:
-            print("Deleted: RootDirChooserDialog")
-        else:
-            print(f'Unrecognized response: {response_id}')
-        # destroy the FileChooserDialog
-        dialog.destroy()
 
     # Callback from FMetaScanner:
     def on_progress_made(self, progress, total):
@@ -242,30 +195,6 @@ class DiffWindow(Gtk.ApplicationWindow):
 
         dialog.destroy()
 
-
-class RootDirChooserDialog(Gtk.FileChooserDialog):
-    def __init__(self, title, parent, current_dir):
-        Gtk.FileChooserDialog.__init__(self, title=title, parent=parent, action=Gtk.FileChooserAction.SELECT_FOLDER)
-        self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
-        self.add_button(Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
-
-        if current_dir is not None:
-            self.set_current_folder(current_dir)
-
-    def __call__(self):
-        resp = self.run()
-        self.hide()
-
-        fname = self.get_filename()
-
-        d = self.get_current_folder()
-        if d:
-            self.set_current_folder(d)
-
-        if resp == Gtk.ResponseType.OK:
-            return fname
-        else:
-            return None
 
 
 class MattApplication(Gtk.Application):

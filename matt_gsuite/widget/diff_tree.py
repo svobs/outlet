@@ -5,6 +5,7 @@ import humanfriendly
 import file_util
 from fmeta.fmeta import FMeta, DirNode, CategoryNode, FMetaTree, Category
 from treelib import Node, Tree
+from widget.root_dir_panel import RootDirPanel
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
@@ -45,13 +46,13 @@ class DiffTree:
         icon_size = 24
         self.icons = DiffTree._build_icons(icon_size)
 
+        self.root_dir_panel = RootDirPanel(self)
+
         self.treeview: Gtk.Treeview
         self.treeview = self._build_treeview(self.model)
 
-        self.content_box = DiffTree._build_content_box(self.treeview)
-
         self.status_bar, status_bar_container = DiffTree._build_info_bar()
-        self.content_box.pack_start(status_bar_container, False, True, 5)
+        self.content_box = DiffTree._build_content_box(self.root_dir_panel.content_box, self.treeview, status_bar_container)
 
     @classmethod
     def _build_icons(cls, icon_size):
@@ -65,8 +66,10 @@ class DiffTree:
         return icons
 
     @classmethod
-    def _build_content_box(cls, tree_view):
-        side_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
+    def _build_content_box(cls, root_dir_panel, tree_view, status_bar_container):
+        content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
+
+        content_box.pack_start(root_dir_panel, False, False, 5)
 
         # Tree will take up all the excess space
         tree_view.set_vexpand(True)
@@ -76,9 +79,11 @@ class DiffTree:
         tree_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         tree_scroller.add(tree_view)
         # child, expand, fill, padding
-        side_panel.pack_start(tree_scroller, False, True, 5)
+        content_box.pack_start(tree_scroller, False, True, 5)
 
-        return side_panel
+        content_box.pack_start(status_bar_container, False, True, 5)
+
+        return content_box
 
     def _build_treeview(self, model):
         """ Builds the GTK3 treeview widget"""
@@ -284,7 +289,6 @@ class DiffTree:
             return False
         else:
             return True
-
 
     def on_tree_button_press(self, tree_view, event):
         """Used for displaying context menu on right click"""
