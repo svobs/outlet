@@ -26,6 +26,7 @@ rsa==4.0
 ruamel.yaml==0.16.10
 ruamel.yaml.clib==0.2.0
 six==1.14.0
+stopwatch.py==1.0.1
 treelib==1.6.1
 uritemplate==3.0.1
 urllib3==1.25.8

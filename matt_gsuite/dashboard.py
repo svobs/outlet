@@ -3,6 +3,7 @@ import gi
 import sys
 import threading
 import file_util
+from stopwatch import Stopwatch
 
 from fmeta.fmeta import FMetaTree
 from fmeta.fmeta_builder import FMetaScanner, FMetaLoader
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 def diff_task(win):
     try:
+        stopwatch = Stopwatch()
         left_db_loader = FMetaLoader(LEFT_DB_PATH)
         left_fmeta_set: FMetaTree
         win.diff_tree_right.set_status('Waiting...')
@@ -34,7 +36,10 @@ def diff_task(win):
             win.diff_tree_left.set_status(f'Scanning files in tree: {win.diff_tree_left.root_path}')
             left_fmeta_set = FMetaScanner.scan_local_tree(LEFT_DIR_PATH, win.progress_meter)
             left_db_loader.store_fmeta_to_db(left_fmeta_set)
+        stopwatch.stop()
+        print(f'Left loaded in: {stopwatch}')
 
+        stopwatch = Stopwatch()
         right_db_loader = FMetaLoader(RIGHT_DB_PATH)
         if right_db_loader.has_data():
             win.diff_tree_left.set_status(f'Loading Right data from DB: {RIGHT_DB_PATH}')
@@ -45,10 +50,15 @@ def diff_task(win):
             win.diff_tree_left.set_status(f'Scanning files in tree: {win.diff_tree_right.root_path}')
             right_fmeta_set = FMetaScanner.scan_local_tree(RIGHT_DIR_PATH, win.progress_meter)
             right_db_loader.store_fmeta_to_db(right_fmeta_set)
+        stopwatch.stop()
+        print(f'Right loaded in: {stopwatch}')
 
         logging.info("Diffing...")
 
+        stopwatch = Stopwatch()
         diff_content_first.diff(left_fmeta_set, right_fmeta_set, compare_paths_also=True, use_modify_times=False)
+        stopwatch.stop()
+        print(f'Diff completed in: {stopwatch}')
 
         def do_on_ui_thread():
             win.diff_tree_left.rebuild_ui_tree(left_fmeta_set)
@@ -148,13 +158,12 @@ class DiffWindow(Gtk.ApplicationWindow):
         self.diff_action_btn.connect("clicked", self.on_diff_button_clicked)
         self.bottom_button_panel.pack_start(self.diff_action_btn, True, True, 0)
 
-        menubutton = Gtk.MenuButton()
-        self.content_box.add(menubutton)
-
-        menumodel = Gio.Menu()
-        menubutton.set_menu_model(menumodel)
-        menumodel.append("New", "app.new")
-        menumodel.append("Quit", "app.quit")
+      #  menubutton = Gtk.MenuButton()
+      #  self.content_box.add(menubutton)
+       # menumodel = Gio.Menu()
+        #menubutton.set_menu_model(menumodel)
+       # menumodel.append("New", "app.new")
+      #  menumodel.append("Quit", "app.quit")
 
         # TODO: create a 'Scan' button for each input source
 
@@ -173,7 +182,10 @@ class DiffWindow(Gtk.ApplicationWindow):
         print('Merge btn clicked')
 
         left_selected_changes = self.diff_tree_left.get_selected_changes()
+        print(f'Left changes: {left_selected_changes.get_summary()}')
         right_selected_changes = self.diff_tree_right.get_selected_changes()
+        print(f'Right changes: {right_selected_changes.get_summary()}')
+
         merged_changes_tree = diff_content_first.merge_change_trees(left_selected_changes, right_selected_changes)
 
         # TODO: preview changes in UI pop-up
@@ -187,7 +199,6 @@ class DiffWindow(Gtk.ApplicationWindow):
             print("The Cancel button was clicked")
 
         dialog.destroy()
-
 
 
 class MattApplication(Gtk.Application):

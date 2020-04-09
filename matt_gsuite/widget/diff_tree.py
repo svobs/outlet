@@ -601,7 +601,6 @@ class DiffTree:
 
         self.recurse_over_tree(tree_iter, action_func)
 
-        print(selected_changes.get_summary())
         return selected_changes
 
     @classmethod
