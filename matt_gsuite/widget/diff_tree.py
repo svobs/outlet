@@ -187,14 +187,17 @@ class DiffTree:
         return treeview
 
     def build_context_menu(self, tree_path: Gtk.TreePath, fmeta: FMeta):
-        abs_path = os.path.join(self.root_path, fmeta.file_path)
-        parent_rel_path, file_name = os.path.split(fmeta.file_path)
+        abs_path = self.root_path if fmeta.file_path == '' else os.path.join(self.root_path, fmeta.file_path)
+        # Important: use abs_path here, otherwise file names for category nodes are not displayed properly
+        parent_path, file_name = os.path.split(abs_path)
 
         menu = Gtk.Menu()
 
         if not os.path.exists(abs_path):
-            # TODO
-            i1 = Gtk.MenuItem(label=f'File "{file_name}" not found')
+            i1 = Gtk.MenuItem(label='')
+            label = i1.get_child()
+            label.set_markup(f'<i>File "{file_name}" not found</i>')
+            i1.set_sensitive(False)
             menu.append(i1)
         else:
             i1 = Gtk.MenuItem(label='Show in Nautilus')
