@@ -63,15 +63,15 @@ class RootDirPanel:
 
         change_btn = Gtk.Button(label='Change...')
         self.content_box.pack_start(change_btn, expand=False, fill=False, padding=0)
-        change_btn.connect("clicked", self.on_change_btn_clicked)
+        change_btn.connect("clicked", self.on_change_btn_clicked, self.parent_diff_tree)
 
         # TODO: signals for changing root path display?
 
-    def on_change_btn_clicked(self, widget, parameter):
+    def on_change_btn_clicked(self, widget, diff_tree):
         # create a RootDirChooserDialog to open:
         # the arguments are: title of the window, parent_window, action,
         # (buttons, response)
-        open_dialog = RootDirChooserDialog(title="Pick a directory", parent=self, current_dir=self.parent_diff_tree.root_path)
+        open_dialog = RootDirChooserDialog(title="Pick a directory", parent=diff_tree.parent_win, current_dir=diff_tree.root_path)
 
         # not only local files can be selected in the file selector
         open_dialog.set_local_only(False)

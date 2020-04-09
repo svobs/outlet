@@ -130,21 +130,14 @@ class DiffWindow(Gtk.ApplicationWindow):
         #self.button1.connect("toggled", self.on_button_toggled, "3")
         self.content_box.add(self.checkbox_panel)
 
-        # Diff trees:
-      #  diff_tree_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
-        # Each side is given 50% space
-      #  diff_tree_panel.set_homogeneous(True)
-      #  self.content_box.add(diff_tree_panel)
-
         diff_tree_panes = Gtk.HPaned()
         self.content_box.add(diff_tree_panes)
 
-        self.diff_tree_left = DiffTree(LEFT_DIR_PATH)
+        # Diff Trees:
+        self.diff_tree_left = DiffTree(parent_win=self, root_path=LEFT_DIR_PATH)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
-       # diff_tree_panel.pack_start(self.diff_tree_left.content_box, True, True, 0)
-        self.diff_tree_right = DiffTree(RIGHT_DIR_PATH)
+        self.diff_tree_right = DiffTree(parent_win=self, root_path=RIGHT_DIR_PATH)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
-   #     diff_tree_panel.pack_start(self.diff_tree_right.content_box, True, True, 0)
 
         # Bottom button panel:
         self.bottom_button_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)

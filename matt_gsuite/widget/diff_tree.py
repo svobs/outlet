@@ -18,11 +18,12 @@ class DiffTree:
     EXTRA_INDENTATION_LEVEL = 0
     model: Gtk.TreeStore
 
-    def __init__(self, root_path):
+    def __init__(self, parent_win, root_path):
         # The source files
         """If true, create a node for each ancestor directory for the files.
            If false, create a second column which shows the parent path. """
         self.use_dir_tree = True
+        self.parent_win = parent_win
         self.root_path = root_path
 
         self.col_num_checked = 0
