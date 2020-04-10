@@ -42,9 +42,14 @@ def strip_root(file_path, root_path):
     return re.sub(root_path_with_slash, '', file_path, count=1)
 
 
-def build_sync_item(root_path, file_path):
-    # Open,close, read file and calculate hash of its contents
-    signature_str = fmeta.content_hasher.dropbox_hash(file_path)
+def build_sync_item(root_path, file_path, category=Category.NA):
+    if category == Category.Ignored:
+        # Do not scan ignored files for content (optimization)
+        signature_str = None
+    else:
+        # Open,close, read file and calculate hash of its contents
+        signature_str = fmeta.content_hasher.dropbox_hash(file_path)
+
     relative_path = strip_root(file_path, root_path)
 
     # Get "now" in UNIX time:
@@ -53,7 +58,7 @@ def build_sync_item(root_path, file_path):
     #print(' '.join((str(sync_ts), signature_str, relative_path)))
     size_bytes = os.stat(file_path).st_size
     modify_ts = int(os.path.getmtime(file_path))
-    return FMeta(signature_str, size_bytes, sync_ts, modify_ts, relative_path)
+    return FMeta(signature_str, size_bytes, sync_ts, modify_ts, relative_path, category)
 
 
 class FMetaFromFilesBuilder(TreeRecurser):
@@ -63,15 +68,13 @@ class FMetaFromFilesBuilder(TreeRecurser):
         self.fmeta_tree = fmeta_tree
 
     def handle_target_file_type(self, file_path):
-        item = build_sync_item(str(self.root_path), file_path)
+        item = build_sync_item(root_path=str(self.root_path), file_path=file_path)
         self.fmeta_tree.add(item)
         self.progress_meter.add_progress(1)
 
     def handle_non_target_file(self, file_path):
-        # TODO [optimization]: do not scan ignored files for content
         print(f'Found ignored file: {file_path}')
-        item = self.build_sync_item(file_path)
-        item.category = Category.Ignored
+        item = build_sync_item(root_path=str(self.root_path), file_path=file_path, category=Category.Ignored)
         self.fmeta_tree.add(item)
 
 

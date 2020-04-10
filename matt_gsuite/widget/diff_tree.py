@@ -214,7 +214,7 @@ class DiffTree:
         return treeview
 
     def set_status(self, status_msg):
-        print(status_msg)
+        #print(status_msg)
         self.status_bar.set_label(status_msg)
 
     @classmethod
@@ -432,6 +432,10 @@ class DiffTree:
 
     def on_cell_toggled(self, widget, path):
         """Called when checkbox in treeview is toggled"""
+        data_node = self.model[path][self.col_num_data]
+        if data_node.category == Category.Ignored:
+            print('Disallowing checkbox toggle because node is in IGNORED category')
+            return
         # DOC: model[path][column] = not model[path][column]
         checked_value = not self.model[path][self.col_num_checked]
         print(f'Toggled {checked_value}: {self.model[path][self.col_num_name]}')
@@ -515,7 +519,7 @@ class DiffTree:
                         child = change_tree.get_node(nid=nid)
                         if child is None:
                             #print(f'Creating dir: {nid}')
-                            child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=DirNode(nid))
+                            child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=DirNode(nid, category))
                         parent = child
                         parent.data.add_meta(fmeta)
                 nid = os.path.join(nid, file_name)
@@ -536,11 +540,15 @@ class DiffTree:
         modify_datetime = datetime.fromtimestamp(fmeta.modify_ts)
         modify_time = modify_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
+        if category == Category.Moved:
+            node_name = f'{file_name} <- "{fmeta.prev_path}"'
+        else:
+            node_name = file_name
         if self.use_dir_tree:
-            return self.model.append(tree_iter, [False, False, category.name, file_name, num_bytes_str, modify_time, fmeta])
+            return self.model.append(tree_iter, [False, False, category.name, node_name, num_bytes_str, modify_time, fmeta])
         else:
             directory, name = os.path.split(fmeta.file_path)
-            return self.model.append(tree_iter, [False, False, category.name, file_name, directory, num_bytes_str, modify_time, fmeta])
+            return self.model.append(tree_iter, [False, False, category.name, node_name, directory, num_bytes_str, modify_time, fmeta])
 
     def _populate_category(self, category: Category, fmeta_list):
         change_tree = DiffTree._build_category_change_tree(fmeta_list, category)
@@ -578,8 +586,8 @@ class DiffTree:
         self.model.clear()
 
         self.root_path = fmeta_tree.root_path
-        # TODO: excluded MOVED and UPDATED for quicker testing
-        for category in [Category.Added, Category.Deleted, Category.Ignored]:
+        # TODO: excluded MOVED for quicker testing
+        for category in [Category.Added, Category.Deleted, Category.Updated, Category.Ignored]:
             self._populate_category(category, fmeta_tree.get_for_cat(category))
 
         self.set_status(fmeta_tree.get_summary())

@@ -71,16 +71,12 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
             #print(f'Right has new file: "{right_meta.file_path}"')
             right_tree.categorize(right_meta, Category.Added)
             left_tree.categorize(right_meta, Category.Deleted)
-            continue
-        # (else):
-        if right_metas is None:
+        elif right_metas is None:
             left_meta = left_metas[0]
-            #print(f'Right has new file: "{left_meta.file_path}"')
+            #print(f'Left has new file: "{left_meta.file_path}"')
             left_tree.categorize(left_meta, Category.Added)
             right_tree.categorize(left_meta, Category.Deleted)
-            continue
-        # (else):
-        if compare_paths_also:
+        elif compare_paths_also:
             """If we do this, we care about what the files are named, where they are located, and how many
             duplicates exist. When it comes to determining the direction of renamed files, we simply don't
             have enough info to be conclusive, but as this is a secondary concern (our first is ensuring

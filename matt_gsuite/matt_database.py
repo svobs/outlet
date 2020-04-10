@@ -12,11 +12,12 @@ class MattDatabase:
     TABLE_FILE_LOG = {
         'name': 'file_log',
         'cols': (('sig', 'TEXT'),
-                ('len', 'INTEGER'),
-                ('sync_ts', 'INTEGER'),
-                ('modify_ts', 'INTEGER'),
-                ('path', 'TEXT'),
-                ('category', 'TEXT'))
+                 ('size_bytes', 'INTEGER'),
+                 ('sync_ts', 'INTEGER'),
+                 ('modify_ts', 'INTEGER'),
+                 ('rel_path', 'TEXT'),
+                 ('category', 'TEXT'),
+                 ('prev_rel_path', 'TEXT'))
     }
 
     def __init__(self, db_path):

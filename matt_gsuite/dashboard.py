@@ -24,6 +24,14 @@ logger = logging.getLogger(__name__)
 
 def diff_task(win):
     try:
+        status_widget = win.diff_tree_left
+
+        # Callback from FMetaScanner:
+        def on_progress_made(progress, total):
+            def update_progress(progress, total):
+                status_widget.set_status(f'Scanning file {progress} of {total}')
+            GLib.idle_add(update_progress, progress, total)
+
         stopwatch = Stopwatch()
         left_db_loader = FMetaLoader(LEFT_DB_PATH)
         left_fmeta_set: FMetaTree
@@ -32,9 +40,9 @@ def diff_task(win):
             win.diff_tree_left.set_status(f'Loading Left data from DB: {LEFT_DB_PATH}')
             left_fmeta_set = left_db_loader.build_fmeta_set_from_db(LEFT_DIR_PATH)
         else:
-            win.progress_meter = ProgressMeter(win.on_progress_made)
+            progress_meter = ProgressMeter(on_progress_made)
             win.diff_tree_left.set_status(f'Scanning files in tree: {win.diff_tree_left.root_path}')
-            left_fmeta_set = FMetaScanner.scan_local_tree(LEFT_DIR_PATH, win.progress_meter)
+            left_fmeta_set = FMetaScanner.scan_local_tree(LEFT_DIR_PATH, progress_meter)
             left_db_loader.store_fmeta_to_db(left_fmeta_set)
         stopwatch.stop()
         print(f'Left loaded in: {stopwatch}')
@@ -46,9 +54,11 @@ def diff_task(win):
             right_fmeta_set = right_db_loader.build_fmeta_set_from_db(RIGHT_DIR_PATH)
         else:
             logging.info(f"Scanning files in right tree: {win.diff_tree_right.root_path}")
-            win.progress_meter = ProgressMeter(win.on_progress_made)
+
+            status_widget = win.diff_tree_left
+            progress_meter = ProgressMeter(on_progress_made)
             win.diff_tree_left.set_status(f'Scanning files in tree: {win.diff_tree_right.root_path}')
-            right_fmeta_set = FMetaScanner.scan_local_tree(RIGHT_DIR_PATH, win.progress_meter)
+            right_fmeta_set = FMetaScanner.scan_local_tree(RIGHT_DIR_PATH, progress_meter)
             right_db_loader.store_fmeta_to_db(right_fmeta_set)
         stopwatch.stop()
         print(f'Right loaded in: {stopwatch}')
@@ -166,12 +176,6 @@ class DiffWindow(Gtk.ApplicationWindow):
       #  menumodel.append("Quit", "app.quit")
 
         # TODO: create a 'Scan' button for each input source
-
-    # Callback from FMetaScanner:
-    def on_progress_made(self, progress, total):
-        def update_progress(progress, total):
-            self.info_bar.set_label(f'Scanning file {progress} of {total}')
-        GLib.idle_add(update_progress, progress, total)
 
     def on_diff_button_clicked(self, widget):
         action_thread = threading.Thread(target=diff_task, args=(self,))

@@ -7,9 +7,9 @@ _CATEGORIES = {
     0: ['None', 'NA'],
     1: ['Ignored', 'IGNORED'],
     2: ['Added', 'ADDED'],
-    3: ['Updated', 'UPDATED'],
-    4: ['Moved', 'MOVED'],
-    5: ['Deleted', 'DELETED'],
+    3: ['Deleted', 'DELETED'],
+    4: ['Updated', 'UPDATED'],
+    5: ['Moved', 'MOVED'],
 }
 Category = Enum(
     value='Category',
@@ -71,12 +71,16 @@ class FMeta:
 
 class DirNode:
     """For directories"""
-    def __init__(self, file_path):
+    def __init__(self, file_path, category):
         self.file_path = file_path
         self.items = 0
         self.size_bytes = 0
+        self.category = category
 
     def add_meta(self, fmeta):
+        if fmeta.category != self.category:
+            print(f'BAD CATEGORY: expected={self.category} found={fmeta.category} path={fmeta.file_path}')
+        assert fmeta.category == self.category
         self.items += 1
         self.size_bytes += fmeta.size_bytes
 
@@ -91,8 +95,7 @@ class DirNode:
 
 class CategoryNode(DirNode):
     def __init__(self, category):
-        super().__init__('')
-        self.category = category
+        super().__init__('', category)
 
 
 class FMetaList:
@@ -123,10 +126,11 @@ class FMetaTree:
         # Each item contains a list of entries
         self.sig_dict = {}
         self._cat_dict = {Category.Ignored: FMetaList(),
-                          Category.Moved: FMetaList(),
+                          Category.Added: FMetaList(),
                           Category.Deleted: FMetaList(),
+                          Category.Moved: FMetaList(),
                           Category.Updated: FMetaList(),
-                          Category.Added: FMetaList()}
+                          }
         self._dup_sig_count = 0
         self._total_size_bytes = 0
 
