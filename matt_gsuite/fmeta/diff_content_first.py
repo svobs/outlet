@@ -5,42 +5,42 @@ import copy
 from fmeta.fmeta import FMeta, FMetaTree, Category
 
 
-def _compare_paths_for_same_sig(left_metas, left_meta_set, right_metas, right_meta_set):
-    if left_metas is None:
-        left_metas = []
-    if right_metas is None:
-        right_metas = []
+def _compare_paths_for_same_sig(lefts, left_tree, rights, right_tree):
+    if lefts is None:
+        lefts = []
+    if rights is None:
+        rights = []
 
     orphaned_left = []
     orphaned_right = []
 
-    for left_meta in left_metas:
-        match = right_meta_set.get_for_path(left_meta.file_path)
+    for left in lefts:
+        match = right_tree.get_for_path(left.file_path)
         if match is None:
-            orphaned_left.append(left_meta)
+            orphaned_left.append(left)
 
-    for right_meta in right_metas:
-        match = left_meta_set.get_for_path(right_meta.file_path)
+    for right in rights:
+        match = left_tree.get_for_path(right.file_path)
         if match is None:
-            orphaned_right.append(right_meta)
+            orphaned_right.append(right)
 
-    num_lefts = len(left_metas)
-    num_rights = len(right_metas)
+    num_lefts = len(lefts)
+    num_rights = len(rights)
 
     compare_result = []
     i = 0
     while i < num_lefts and i < num_rights:
-        compare_result.append((left_metas[i], right_metas[i]))
+        compare_result.append((lefts[i], rights[i]))
         i += 1
 
     j = i
     while j < num_lefts:
-        compare_result.append((left_metas[j], None))
+        compare_result.append((lefts[j], None))
         j += 1
 
     j = i
     while j < num_rights:
-        compare_result.append((None, right_metas[j]))
+        compare_result.append((None, rights[j]))
         j += 1
 
     return compare_result
@@ -148,16 +148,19 @@ def find_nearest_common_ancestor(path1, path2):
             ancestor_path = os.path.join(ancestor_path, path_segs1[i])
             i += 1
         else:
-            print(f'Ancestor path: {ancestor_path}')
+            print(f'Common ancestor path: {ancestor_path}')
             return ancestor_path
 
 
-def _add_adjusted_metas(src_metas, src_tree, dst_tree):
-    pass
+def _add_adjusted_metas(src_metas, prefix, dst_tree):
+    """Note: new_root is expected to be src_tree's root or a direct ancestor"""
+    if src_metas is None:
+        return
 
-
-def find_conflicts(left_metas, right_metas):
-    pass
+    for fmeta in src_metas:
+        new_fmeta = copy.deepcopy(fmeta)
+        new_fmeta.file_path = os.path.join(prefix, fmeta.file_path)
+        dst_tree.add(new_fmeta)
 
 
 def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_conflicts=True):
@@ -166,16 +169,27 @@ def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_co
 
     signature_set = left_tree.sig_dict.keys() | right_tree.sig_dict.keys()
 
+    left_old_root_remainder = left_tree.root_path.replace(new_root_path, '', 1)
+    right_old_root_remainder = right_tree.root_path.replace(new_root_path, '', 1)
+
+    conflict_pairs = []
     for sig in signature_set:
         right_metas = right_tree.get_for_sig(sig)
         left_metas = left_tree.get_for_sig(sig)
 
         if check_for_conflicts and left_metas is not None and right_metas is not None:
-            find_conflicts(left_metas, right_metas)
+            compare_result = _compare_paths_for_same_sig(left_metas, left_tree, right_metas, right_tree)
+            for (left, right) in compare_result:
+                # Finding a pair here indicates a conflict
+                if left is not None and right is not None:
+                    conflict_pairs.append((left, right))
+                    print(f'CONFLICT: left={left.category.name} right={right.category.name}')
+        else:
+            _add_adjusted_metas(src_metas=left_metas, prefix=left_old_root_remainder, dst_tree=merged_tree)
+            _add_adjusted_metas(src_metas=right_metas, prefix=right_old_root_remainder, dst_tree=merged_tree)
 
-        _add_adjusted_metas(src_metas=left_metas, src_tree=left_tree, dst_tree=merged_tree)
-        _add_adjusted_metas(src_metas=right_metas, src_tree=right_tree, dst_tree=merged_tree)
-
-
-
-    return merged_tree
+    if len(conflict_pairs) > 0:
+        print(f'Number of conflicts found: {len(conflict_pairs)}')
+        return None, conflict_pairs
+    else:
+        return merged_tree, None

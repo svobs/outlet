@@ -192,7 +192,12 @@ class DiffWindow(Gtk.ApplicationWindow):
         right_selected_changes = self.diff_tree_right.get_selected_changes()
         print(f'Right changes: {right_selected_changes.get_summary()}')
 
-        merged_changes_tree = diff_content_first.merge_change_trees(left_selected_changes, right_selected_changes)
+        merged_changes_tree, conflict_pairs = diff_content_first.merge_change_trees(left_selected_changes, right_selected_changes)
+        if conflict_pairs is not None:
+            # TODO: raise exception
+            pass
+
+        print(f'Merged changes: {merged_changes_tree.get_summary()}')
 
         # Preview changes in UI pop-up
         dialog = MergePreviewDialog(self, merged_changes_tree)
