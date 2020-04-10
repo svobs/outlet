@@ -88,7 +88,7 @@ def diff_task(win):
         GLib.idle_add(do_on_ui_thread)
     except Exception as err:
         print('Diff task failed with exception')
-        # TODO: open error dialog
+        win.show_error_msg('Diff task failed', 'Unexpected error:' + err)
         raise
 
 
@@ -119,17 +119,9 @@ class DiffWindow(Gtk.ApplicationWindow):
         self.set_icon_from_file(file_util.get_resource_path("../resources/fslint_icon.png"))
         # Set minimum width and height
         self.set_size_request(1400, 800)
-      #  self.set_maximum_size(1800, 1200)
-        #self.set_default_size(500, 500)
         self.set_border_width(10)
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
         self.add(self.content_box)
-
-        # Content:
-
-# TODO
-       # self.info_bar, info_bar_container = DiffWindow.build_info_bar()
-    #    self.content_box.add(info_bar_container)
 
         # Checkboxes:
         self.checkbox_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
@@ -194,8 +186,9 @@ class DiffWindow(Gtk.ApplicationWindow):
 
         merged_changes_tree, conflict_pairs = diff_content_first.merge_change_trees(left_selected_changes, right_selected_changes)
         if conflict_pairs is not None:
-            # TODO: raise exception
-            pass
+            # TODO: raise exception dialog
+            self.show_error_msg('Cannot merge', f'{len(conflict_pairs)} conflicts found')
+            return
 
         print(f'Merged changes: {merged_changes_tree.get_summary()}')
 
@@ -210,6 +203,37 @@ class DiffWindow(Gtk.ApplicationWindow):
             print("The Cancel button was clicked")
 
         dialog.destroy()
+
+    def show_error_msg(self, msg, secondary_msg=None):
+        dialog = Gtk.MessageDialog(parent=self, flags=Gtk.DialogFlags.MODAL, type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CANCEL, message_format=msg)
+        if secondary_msg is None:
+            print(f'ERROR: {msg}')
+        else:
+            print(f'ERROR: {msg}: {secondary_msg}')
+            dialog.format_secondary_text(secondary_msg)
+
+        def run_on_ui_thread():
+            dialog.run()
+            dialog.destroy()
+
+        run_on_ui_thread()
+
+    def on_question_clicked(self, msg, secondary_msg=None):
+        dialog = Gtk.MessageDialog(parent=self, flags=0, type=Gtk.MessageType.QUESTION,
+                                   buttons=Gtk.ButtonsType.YES_NO, message_format=msg)
+        if secondary_msg is None:
+            print(f'Q: {msg}')
+        else:
+            print(f'Q: {msg}: {secondary_msg}')
+            dialog.format_secondary_text(secondary_msg)
+        response = dialog.run()
+        if response == Gtk.ResponseType.YES:
+            print("QUESTION dialog closed by clicking YES button")
+        elif response == Gtk.ResponseType.NO:
+            print("QUESTION dialog closed by clicking NO button")
+
+        dialog.destroy()
+
 
 
 class MattApplication(Gtk.Application):

@@ -309,36 +309,6 @@ class DiffTree:
             # Suppress selection event:
             return True
 
-    def show_error_msg(self, msg, secondary_msg=None):
-        dialog = Gtk.MessageDialog(self.parent_win, 0, Gtk.MessageType.ERROR, Gtk.ButtonsType.CANCEL, msg)
-        if secondary_msg is None:
-            print(f'ERROR: {msg}')
-        else:
-            print(f'ERROR: {msg}: {secondary_msg}')
-            dialog.format_secondary_text(secondary_msg)
-
-        def run_on_ui_thread():
-            dialog.run()
-            dialog.destroy()
-
-        run_on_ui_thread()
-
-    def on_question_clicked(self, msg, secondary_msg=None):
-        dialog = Gtk.MessageDialog(self.parent_win, 0, Gtk.MessageType.QUESTION,
-                                   Gtk.ButtonsType.YES_NO, msg)
-        if secondary_msg is None:
-            print(f'Q: {msg}')
-        else:
-            print(f'Q: {msg}: {secondary_msg}')
-            dialog.format_secondary_text(secondary_msg)
-        response = dialog.run()
-        if response == Gtk.ResponseType.YES:
-            print("QUESTION dialog closed by clicking YES button")
-        elif response == Gtk.ResponseType.NO:
-            print("QUESTION dialog closed by clicking NO button")
-
-        dialog.destroy()
-
     def get_abs_path(self, node_data):
         """ Utility function """
         return self.root_path if node_data.file_path == '' else os.path.join(self.root_path, node_data.file_path)
@@ -369,7 +339,7 @@ class DiffTree:
             print(f'Opening in Nautilus: {file_path}')
             subprocess.check_call(["nautilus", "--browser", file_path])
         else:
-            self.show_error_msg('Cannot open file in Nautilus', f'File not found: {file_path}')
+            self.parent_win.show_error_msg('Cannot open file in Nautilus', f'File not found: {file_path}')
 
     def delete_single_file(self, file_path: str, tree_path: Gtk.TreePath):
         """ Param file_path must be an absolute path"""
@@ -378,12 +348,12 @@ class DiffTree:
                 print(f'Deleting file: {file_path}')
                 os.remove(file_path)
             except Exception as err:
-                self.show_error_msg(f'Error deleting file "{file_path}"', err)
+                self.parent_win.show_error_msg(f'Error deleting file "{file_path}"', err)
                 raise
             finally:
                 self.update_subtree(tree_path)
         else:
-            self.show_error_msg('Could not delete file', f'Not found: {file_path}')
+            self.parent_win.show_error_msg('Could not delete file', f'Not found: {file_path}')
 
     def delete_dir_tree(self, file_path: str, tree_path: Gtk.TreePath):
         """ Param file_path must be an absolute path"""
@@ -393,12 +363,12 @@ class DiffTree:
                 shutil.rmtree(file_path)
                 return True
             except Exception as err:
-                self.show_error_msg(f'Error deleting directory tree "{file_path}"', err)
+                self.parent_win.show_error_msg(f'Error deleting directory tree "{file_path}"', err)
                 raise
             finally:
                 self.update_subtree(tree_path)
         else:
-            self.show_error_msg('Could not delete directory tree', f'Not found: {file_path}')
+            self.parent_win.show_error_msg('Could not delete directory tree', f'Not found: {file_path}')
             return False
 
     def call_xdg_open(self, file_path):
@@ -406,7 +376,7 @@ class DiffTree:
             print(f'Calling xdg-open for: {file_path}')
             subprocess.check_call(["xdg-open", file_path])
         else:
-            self.show_error_msg(f'Cannot open file', f'File not found: {file_path}')
+            self.parent_win.show_error_msg(f'Cannot open file', f'File not found: {file_path}')
 
     def on_tree_selection_activated(self, tree_view, path, col):
         """Fired when an item is double-clicked or when an item is selected and Enter is pressed"""
