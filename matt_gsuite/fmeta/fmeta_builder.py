@@ -87,6 +87,8 @@ class FMetaScanner:
     @staticmethod
     def scan_local_tree(root_path, progress_meter):
         fmeta_tree = FMetaTree(root_path)
+        if not os.path.exists(root_path):
+            raise FileNotFoundError('File not found: ' + root_path)
         local_path = Path(root_path)
         # First survey our local files:
         print(f'Scanning path: {local_path}')

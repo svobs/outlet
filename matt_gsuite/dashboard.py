@@ -27,9 +27,9 @@ def diff_task(win):
         status_widget = win.diff_tree_left
 
         # Callback from FMetaScanner:
-        def on_progress_made(progress, total):
+        def on_progress_made(progress, total, diff_tree):
             def update_progress(progress, total):
-                status_widget.set_status(f'Scanning file {progress} of {total}')
+                diff_tree.set_status(f'Scanning file {progress} of {total}')
             GLib.idle_add(update_progress, progress, total)
 
         stopwatch = Stopwatch()
@@ -40,28 +40,29 @@ def diff_task(win):
             win.diff_tree_left.set_status(f'Loading Left data from DB: {LEFT_DB_PATH}')
             left_fmeta_set = left_db_loader.build_fmeta_set_from_db(LEFT_DIR_PATH)
         else:
-            progress_meter = ProgressMeter(on_progress_made)
+            progress_meter = ProgressMeter(lambda p, t: on_progress_made(p, t, win.diff_tree_left))
             win.diff_tree_left.set_status(f'Scanning files in tree: {win.diff_tree_left.root_path}')
             left_fmeta_set = FMetaScanner.scan_local_tree(LEFT_DIR_PATH, progress_meter)
             left_db_loader.store_fmeta_to_db(left_fmeta_set)
         stopwatch.stop()
         print(f'Left loaded in: {stopwatch}')
+        win.diff_tree_left.set_status(left_fmeta_set.get_summary())
 
         stopwatch = Stopwatch()
         right_db_loader = FMetaLoader(RIGHT_DB_PATH)
         if right_db_loader.has_data():
-            win.diff_tree_left.set_status(f'Loading Right data from DB: {RIGHT_DB_PATH}')
+            win.diff_tree_right.set_status(f'Loading Right data from DB: {RIGHT_DB_PATH}')
             right_fmeta_set = right_db_loader.build_fmeta_set_from_db(RIGHT_DIR_PATH)
         else:
             logging.info(f"Scanning files in right tree: {win.diff_tree_right.root_path}")
 
-            status_widget = win.diff_tree_left
-            progress_meter = ProgressMeter(on_progress_made)
-            win.diff_tree_left.set_status(f'Scanning files in tree: {win.diff_tree_right.root_path}')
+            progress_meter = ProgressMeter(lambda p, t: on_progress_made(p, t, win.diff_tree_right))
+            win.diff_tree_right.set_status(f'Scanning files in tree: {win.diff_tree_right.root_path}')
             right_fmeta_set = FMetaScanner.scan_local_tree(RIGHT_DIR_PATH, progress_meter)
             right_db_loader.store_fmeta_to_db(right_fmeta_set)
         stopwatch.stop()
         print(f'Right loaded in: {stopwatch}')
+        win.diff_tree_right.set_status(right_fmeta_set.get_summary())
 
         logging.info("Diffing...")
 
