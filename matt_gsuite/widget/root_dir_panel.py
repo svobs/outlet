@@ -62,9 +62,10 @@ class RootDirPanel:
         self.label.set_line_wrap(True)
         self.content_box.pack_start(self.label, expand=True, fill=True, padding=0)
 
-        change_btn = Gtk.Button(label='Change...')
-        self.content_box.pack_start(change_btn, expand=False, fill=False, padding=0)
-        change_btn.connect("clicked", self.on_change_btn_clicked, self.parent_diff_tree)
+        if self.parent_diff_tree.editable:
+            change_btn = Gtk.Button(label='Change...')
+            self.content_box.pack_start(change_btn, expand=False, fill=False, padding=0)
+            change_btn.connect("clicked", self.on_change_btn_clicked, self.parent_diff_tree)
 
         # TODO: signals for changing root path display?
 

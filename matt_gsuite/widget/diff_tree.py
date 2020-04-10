@@ -18,31 +18,62 @@ class DiffTree:
     EXTRA_INDENTATION_LEVEL = 0
     model: Gtk.TreeStore
 
-    def __init__(self, parent_win, root_path):
+    def __init__(self, parent_win, root_path, editable):
         # The source files
         """If true, create a node for each ancestor directory for the files.
            If false, create a second column which shows the parent path. """
         self.use_dir_tree = True
         self.parent_win = parent_win
         self.root_path = root_path
+        """If false, hide checkboxes and tree root change button"""
+        self.editable = editable
 
-        self.col_num_checked = 0
-        self.col_num_inconsistent = 1
-        self.col_num_icon = 2
-        self.col_num_name = 3
-        if self.use_dir_tree:
-            self.col_names = ['Checked', 'Inconsistent', 'Icon', 'Name', 'Size', 'Modification Date', 'Data']
-            self.col_num_size = 4
-            self.col_num_modification_date = 5
-            self.col_num_data = 6
-            self.model = Gtk.TreeStore(bool, bool, str, str, str, str, object)
-        else:
-            self.col_names = ['Checked', 'Inconsistent', 'Icon', 'Name', 'Directory', 'Size', 'Modification Date', 'Data']
-            self.col_num_dir = 4
-            self.col_num_size = 5
-            self.col_num_modification_date = 6
-            self.col_num_data = 7
-            self.model = Gtk.TreeStore(bool, bool, str, str, str, str, str, object)
+        col_count = 0
+        col_types = []
+        self.col_names = []
+        if self.editable:
+            self.col_num_checked = col_count
+            self.col_names.append('Checked')
+            col_types.append(bool)
+            col_count += 1
+
+            self.col_num_inconsistent = col_count
+            self.col_names.append('Inconsistent')
+            col_types.append(bool)
+            col_count += 1
+        self.col_num_icon = col_count
+        self.col_names.append('Icon')
+        col_types.append(str)
+        col_count += 1
+
+        self.col_num_name = col_count
+        self.col_names.append('Name')
+        col_types.append(str)
+        col_count += 1
+
+        if not self.use_dir_tree:
+            self.col_num_directory = col_count
+            self.col_names.append('Directory')
+            col_types.append(str)
+            col_count += 1
+
+        self.col_num_size = col_count
+        self.col_names.append('Size')
+        col_types.append(str)
+        col_count += 1
+
+        self.col_num_modification_date = col_count
+        self.col_names.append('Modification Date')
+        col_types.append(str)
+        col_count += 1
+
+        self.col_num_data = col_count
+        self.col_names.append('Data')
+        col_types.append(object)
+        col_count += 1
+
+        self.model = Gtk.TreeStore()
+        self.model.set_column_types(col_types)
 
         icon_size = 24
         self.icons = DiffTree._build_icons(icon_size)
@@ -106,11 +137,12 @@ class DiffTree:
         px_column = Gtk.TreeViewColumn(self.col_names[self.col_num_name])
         px_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
 
-        renderer = Gtk.CellRendererToggle()
-        renderer.connect("toggled", self.on_cell_toggled)
-        px_column.pack_start(renderer, False)
-        px_column.add_attribute(renderer, 'active', self.col_num_checked)
-        px_column.add_attribute(renderer, 'inconsistent', self.col_num_inconsistent)
+        if self.editable:
+            renderer = Gtk.CellRendererToggle()
+            renderer.connect("toggled", self.on_cell_toggled)
+            px_column.pack_start(renderer, False)
+            px_column.add_attribute(renderer, 'active', self.col_num_checked)
+            px_column.add_attribute(renderer, 'inconsistent', self.col_num_inconsistent)
 
         px_renderer = Gtk.CellRendererPixbuf()
         px_column.pack_start(px_renderer, False)
@@ -287,7 +319,7 @@ class DiffTree:
                 # Delete the actual file:
                 fmeta = self.model[tree_path][self.col_num_data]
                 if fmeta is not None:
-                    file_path = os.path.join(self.root_path, fmeta.file_path)
+                    file_path = self.get_abs_path(fmeta)
                     if not self.delete_dir_tree(file_path=file_path, tree_path=tree_path):
                         # something went wrong if we got False. Stop.
                         break
@@ -505,26 +537,47 @@ class DiffTree:
         return change_tree
 
     def _append_dir(self, tree_iter, dir_name, dmeta):
+        row_values = []
+        if self.editable:
+            row_values.append(False)  # Checked
+            row_values.append(False)  # Inconsistent
+        row_values.append('folder')  # Icon
+        row_values.append(dir_name)  # Name
+        if not self.use_dir_tree:
+            row_values.append(None)  # Directory
         num_bytes_str = humanfriendly.format_size(dmeta.size_bytes)
-        if self.use_dir_tree:
-            return self.model.append(tree_iter, [False, False, 'folder', dir_name, num_bytes_str, None, dmeta])
-        else:
-            return self.model.append(tree_iter, [False, False, 'folder', dir_name, num_bytes_str, None, None, dmeta])
+        row_values.append(num_bytes_str)  # Size
+        row_values.append(None)  # Modify Date
+        row_values.append(dmeta)  # Data
+        return self.model.append(tree_iter, row_values)
 
     def _append_fmeta(self, tree_iter, file_name, fmeta: FMeta, category):
-        num_bytes_str = humanfriendly.format_size(fmeta.size_bytes)
-        modify_datetime = datetime.fromtimestamp(fmeta.modify_ts)
-        modify_time = modify_datetime.strftime("%Y-%m-%d %H:%M:%S")
+        row_values = []
+
+        if self.editable:
+            row_values.append(False)  # Checked
+            row_values.append(False)  # Inconsistent
+        row_values.append(category.name)  # Icon
 
         if category == Category.Moved:
             node_name = f'{file_name} <- "{fmeta.prev_path}"'
         else:
             node_name = file_name
-        if self.use_dir_tree:
-            return self.model.append(tree_iter, [False, False, category.name, node_name, num_bytes_str, modify_time, fmeta])
-        else:
+        row_values.append(node_name)  # Name
+
+        if not self.use_dir_tree:
             directory, name = os.path.split(fmeta.file_path)
-            return self.model.append(tree_iter, [False, False, category.name, node_name, directory, num_bytes_str, modify_time, fmeta])
+            row_values.append(directory)  # Directory
+
+        num_bytes_str = humanfriendly.format_size(fmeta.size_bytes)
+        row_values.append(num_bytes_str)  # Size
+
+        modify_datetime = datetime.fromtimestamp(fmeta.modify_ts)
+        modify_time = modify_datetime.strftime("%Y-%m-%d %H:%M:%S")
+        row_values.append(modify_time)  # Modify Date
+
+        row_values.append(fmeta)  # Data
+        return self.model.append(tree_iter, row_values)
 
     def _populate_category(self, category: Category, fmeta_list):
         change_tree = DiffTree._build_category_change_tree(fmeta_list, category)
@@ -570,6 +623,7 @@ class DiffTree:
         """Returns a FMetaTree which contains the FMetas of the rows which are currently
         checked by the user. This will be a subset of the FMetaTree which was used to populate
         this tree."""
+        assert self.editable
         selected_changes = FMetaTree(self.root_path)
 
         tree_iter = self.model.get_iter_first()

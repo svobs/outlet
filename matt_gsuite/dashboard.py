@@ -102,7 +102,6 @@ class MergePreviewDialog(Gtk.Dialog):
         self.set_default_size(700, 700)
 
         self.fmeta_tree = fmeta_tree
-        # TODO: include DiffTree
 
         box = self.get_content_area()
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
@@ -111,7 +110,7 @@ class MergePreviewDialog(Gtk.Dialog):
         label = Gtk.Label(label="The following changes will be made:")
         self.content_box.add(label)
 
-        self.diff_tree = DiffTree(parent_win=self, root_path=self.fmeta_tree.root_path)
+        self.diff_tree = DiffTree(parent_win=self, root_path=self.fmeta_tree.root_path, editable=False)
         self.content_box.pack_start(self.diff_tree.content_box, True, True, 0)
 
         self.diff_tree.rebuild_ui_tree(self.fmeta_tree)
@@ -157,9 +156,9 @@ class DiffWindow(Gtk.ApplicationWindow):
         self.content_box.add(diff_tree_panes)
 
         # Diff Trees:
-        self.diff_tree_left = DiffTree(parent_win=self, root_path=LEFT_DIR_PATH)
+        self.diff_tree_left = DiffTree(parent_win=self, root_path=LEFT_DIR_PATH, editable=True)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
-        self.diff_tree_right = DiffTree(parent_win=self, root_path=RIGHT_DIR_PATH)
+        self.diff_tree_right = DiffTree(parent_win=self, root_path=RIGHT_DIR_PATH, editable=True)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
 
         # Bottom button panel:
@@ -191,6 +190,9 @@ class DiffWindow(Gtk.ApplicationWindow):
         print(f'Left changes: {left_selected_changes.get_summary()}')
         right_selected_changes = self.diff_tree_right.get_selected_changes()
         print(f'Right changes: {right_selected_changes.get_summary()}')
+        if len(left_selected_changes.get_all()) == 0 and len(right_selected_changes.get_all()) == 0:
+            self.show_error_msg('You must select change(s) first.')
+            return
 
         merged_changes_tree, conflict_pairs = diff_content_first.merge_change_trees(left_selected_changes, right_selected_changes)
         if conflict_pairs is not None:
@@ -213,7 +215,7 @@ class DiffWindow(Gtk.ApplicationWindow):
         dialog.destroy()
 
     def show_error_msg(self, msg, secondary_msg=None):
-        dialog = Gtk.MessageDialog(parent=self, flags=Gtk.DialogFlags.MODAL, type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CANCEL, message_format=msg)
+        dialog = Gtk.MessageDialog(parent=self, modal=True, message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CANCEL, text=msg)
         if secondary_msg is None:
             print(f'ERROR: {msg}')
         else:
@@ -227,8 +229,7 @@ class DiffWindow(Gtk.ApplicationWindow):
         run_on_ui_thread()
 
     def on_question_clicked(self, msg, secondary_msg=None):
-        dialog = Gtk.MessageDialog(parent=self, flags=0, type=Gtk.MessageType.QUESTION,
-                                   buttons=Gtk.ButtonsType.YES_NO, message_format=msg)
+        dialog = Gtk.MessageDialog(parent=self, modal=True, message_type=Gtk.MessageType.QUESTION, buttons=Gtk.ButtonsType.YES_NO, text=msg)
         if secondary_msg is None:
             print(f'Q: {msg}')
         else:
