@@ -20,13 +20,15 @@ Category = Enum(
 
 
 class FMeta:
-    def __init__(self, signature, size_bytes, sync_ts, modify_ts, file_path, category=Category.NA):
+    def __init__(self, signature, size_bytes, sync_ts, modify_ts, file_path, category=Category.NA, prev_path=None):
         self.signature = signature
         self.size_bytes = size_bytes
         self.sync_ts = sync_ts
         self.modify_ts = modify_ts
         self.file_path = file_path
         self.category = category
+        # Only used if category == MOVED
+        self.prev_path = prev_path
 
     def __iter__(self):
         yield self.signature
@@ -35,6 +37,7 @@ class FMeta:
         yield self.modify_ts
         yield self.file_path
         yield self.category.value
+        yield self.prev_path
 
     @property
     def category(self):
@@ -64,13 +67,6 @@ class FMeta:
 
     def is_ignored(self):
         return self.category == Category.Ignored
-
-
-class FMetaMoved(FMeta):
-    def __init__(self, fmeta, prev_path):
-        """ FMeta contains new file path; prev_path specifies old file path"""
-        super().__init__(fmeta.signature, fmeta.size_bytes, fmeta.sync_ts, fmeta.modify_ts, fmeta.file_path, fmeta.category)
-        self.prev_path = prev_path
 
 
 class DirNode:
@@ -131,7 +127,7 @@ class FMetaTree:
                           Category.Deleted: FMetaList(),
                           Category.Updated: FMetaList(),
                           Category.Added: FMetaList()}
-        self._dup_count = 0
+        self._dup_sig_count = 0
         self._total_size_bytes = 0
 
     def categorize(self, fmeta, category: Category):
@@ -176,7 +172,7 @@ class FMetaTree:
                 self.sig_dict[item.signature] = set_matching_sig
             else:
                 set_matching_sig.append(item)
-                self._dup_count += 1
+                self._dup_sig_count += 1
 
         item_matching_path = self._path_dict.get(item.file_path, None)
         if item_matching_path is not None:
@@ -190,7 +186,7 @@ class FMetaTree:
             self._cat_dict[cat].add(item)
 
     def get_stats_string(self):
-        return f'FMetaTree=[sigs:{len(self.sig_dict)} paths:{len(self._path_dict)} duplicates:{self._dup_count}]'
+        return f'FMetaTree=[sigs:{len(self.sig_dict)} paths:{len(self._path_dict)} duplicate sigs:{self._dup_sig_count}]'
 
     def get_summary(self):
         ignored_count = self._cat_dict[Category.Ignored].file_count

@@ -1,7 +1,7 @@
 """Content-first diff. See diff function below."""
 import file_util
 import os
-from fmeta.fmeta import FMeta, FMetaTree, FMetaMoved, Category
+from fmeta.fmeta import FMeta, FMetaTree, Category
 
 
 def _compare_paths_for_same_sig(left_metas, left_meta_set, right_metas, right_meta_set):
@@ -92,22 +92,25 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
             for (changed_left, changed_right) in compare_result:
                 # Did we at least find a pair?
                 if changed_left is not None and changed_right is not None:
+                    # TODO: it never makes sense currently to use modify times, since
+                    # TODO: we're always using a symmetric diff. Re-examine this issue with
+                    # TODO: one-sided diff
                     if use_modify_times:
                         if changed_left.modify_ts > changed_right.modify_ts:
                             # renamed from right to left (i.e. left is newer)
-                            change = FMetaMoved(changed_left, changed_right.file_path)
+                            changed_left.prev_path = changed_right.file_path
+                            left_tree.categorize(changed_left, Category.Moved)
                         else:
                             # renamed from left to right (i.e. right is newer)
-                            change = FMetaMoved(changed_right, changed_left.file_path)
-                        right_tree.categorize(change, Category.Moved)
-                        left_tree.categorize(change, Category.Moved)
+                            changed_right.prev_path = changed_left.file_path
+                            right_tree.categorize(changed_right, Category.Moved)
                     else:
                         # if not using modify times, each side will assume it is newer always:
-                        change = FMetaMoved(changed_right, changed_left.file_path)
-                        right_tree.categorize(change, Category.Moved)
+                        changed_right.prev_path = changed_left.file_path
+                        right_tree.categorize(changed_right, Category.Moved)
 
-                        change = FMetaMoved(changed_left, changed_right.file_path)
-                        left_tree.categorize(change, Category.Moved)
+                        changed_left.prev_path = changed_right.file_path
+                        left_tree.categorize(changed_left, Category.Moved)
                 else:
                     """Looks like one side has additional file(s) with same signature 
                        - essentially a duplicate.. Remember, we know each side already contains
