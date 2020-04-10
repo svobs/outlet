@@ -166,16 +166,20 @@ class DiffTree:
         def compare_file_size(model, row1, row2, user_data):
             sort_column, _ = model.get_sort_column_id()
             # Need the original file sizes (in bytes) here, not the formatted one
-            fmeta1 = self.fmeta_tree.sig_dict[model.get_value(row1, 0)]
-            fmeta2 = self.fmeta_tree.sig_dict[model.get_value(row2, 0)]
-            value1 = fmeta1.size_bytes
-            value2 = fmeta2.size_bytes
-            if value1 < value2:
-                return -1
-            elif value1 == value2:
-                return 0
+            fmeta1 = model[row1][self.col_num_data]
+            fmeta2 = model[row2][self.col_num_data]
+            if type(fmeta1) == FMeta and type(fmeta2) == FMeta:
+                value1 = fmeta1.size_bytes
+                value2 = fmeta2.size_bytes
+                if value1 < value2:
+                    return -1
+                elif value1 == value2:
+                    return 0
+                else:
+                    return 1
             else:
-                return 1
+                # This appears to achieve satisfactory behavior, comparing file name
+                return 0
 
         model.set_sort_func(self.col_num_size, compare_file_size, None)
 

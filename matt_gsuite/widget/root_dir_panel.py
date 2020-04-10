@@ -54,7 +54,8 @@ class RootDirPanel:
         self.parent_diff_tree = parent_diff_tree
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         # TODO: make Label editable (maybe switch it to an Entry) on click
-        self.label = Gtk.Label(label=self.parent_diff_tree.root_path)
+        self.label = Gtk.Label(label='')
+        self.refresh_root_label()
         # TODO: find a way to make label minimum height of 2 lines
         self.label.set_justify(Gtk.Justification.LEFT)
         self.label.set_xalign(0)
@@ -82,6 +83,10 @@ class RootDirPanel:
         # show the dialog
         open_dialog.show()
 
+    def refresh_root_label(self):
+        self.label.set_markup(f'<b>Tree Root:</b> <i>{self.parent_diff_tree.root_path}</i>')
+
     def update_root(self, new_root_path):
         self.parent_diff_tree.root_path = new_root_path
-        self.label.set_label(new_root_path)
+        self.refresh_root_label()
+        self.label.set_label(self.get_root_label())

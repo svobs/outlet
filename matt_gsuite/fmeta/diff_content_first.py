@@ -163,7 +163,7 @@ def _add_adjusted_metas(src_metas, prefix, dst_tree):
         dst_tree.add(new_fmeta)
 
 
-def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_conflicts=True):
+def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, invert_changes=True, check_for_conflicts=True):
     new_root_path = find_nearest_common_ancestor(left_tree.root_path, right_tree.root_path)
     merged_tree = FMetaTree(root_path=new_root_path)
 
@@ -171,6 +171,12 @@ def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_co
 
     left_old_root_remainder = left_tree.root_path.replace(new_root_path, '', 1)
     right_old_root_remainder = right_tree.root_path.replace(new_root_path, '', 1)
+
+    if invert_changes:
+        # E.g., Right adds are added to Left's tree; Left adds are added to Right's tree
+        tmp = left_old_root_remainder
+        left_old_root_remainder = right_old_root_remainder
+        right_old_root_remainder = tmp
 
     conflict_pairs = []
     for sig in signature_set:

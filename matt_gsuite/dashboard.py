@@ -101,13 +101,21 @@ class MergePreviewDialog(Gtk.Dialog):
 
         self.set_default_size(700, 700)
 
-        label = Gtk.Label(label="The following changes will be made:")
-
         self.fmeta_tree = fmeta_tree
         # TODO: include DiffTree
 
         box = self.get_content_area()
-        box.add(label)
+        self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
+        box.add(self.content_box)
+
+        label = Gtk.Label(label="The following changes will be made:")
+        self.content_box.add(label)
+
+        self.diff_tree = DiffTree(parent_win=self, root_path=self.fmeta_tree.root_path)
+        self.content_box.pack_start(self.diff_tree.content_box, True, True, 0)
+
+        self.diff_tree.rebuild_ui_tree(self.fmeta_tree)
+
         self.show_all()
 
 
@@ -186,7 +194,7 @@ class DiffWindow(Gtk.ApplicationWindow):
 
         merged_changes_tree, conflict_pairs = diff_content_first.merge_change_trees(left_selected_changes, right_selected_changes)
         if conflict_pairs is not None:
-            # TODO: raise exception dialog
+            # TODO: more informative error
             self.show_error_msg('Cannot merge', f'{len(conflict_pairs)} conflicts found')
             return
 
