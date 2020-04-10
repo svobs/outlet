@@ -92,15 +92,16 @@ class MattDatabase:
         cursor.execute(sql)
         changes = cursor.fetchall()
         entries = []
-        for change in changes:
-            entries.append(FMeta(change[0], change[1], change[2], change[3], change[4], int(change[5])))
+        for c in changes:
+            entries.append(FMeta(c[0], c[1], c[2], c[3], c[4], int(c[5])))
         return entries
 
     # Takes a list of FMeta objects:
     def insert_file_changes(self, entries):
         to_insert = []
-        for entry in entries:
-            to_insert.append(tuple(entry))
+        for e in entries:
+            e_tuple = (e.signature, e.size_bytes, e.sync_ts, e.modify_ts, e.file_path, e.category.value, e.prev_path)
+            to_insert.append(e_tuple)
         sql = self.build_insert(self.TABLE_FILE_LOG)
         self.conn.executemany(sql, to_insert)
         self.conn.commit()

@@ -73,7 +73,6 @@ class FMetaFromFilesBuilder(TreeRecurser):
         self.progress_meter.add_progress(1)
 
     def handle_non_target_file(self, file_path):
-        print(f'Found ignored file: {file_path}')
         item = build_sync_item(root_path=str(self.root_path), file_path=file_path, category=Category.Ignored)
         self.fmeta_tree.add(item)
 

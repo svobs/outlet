@@ -511,7 +511,7 @@ class DiffTree:
                 # nid == Node ID == directory name
                 nid = ''
                 parent = root
-                print(f'Adding root file "{fmeta.file_path}" to dir "{parent.data.file_path}"')
+                #print(f'Adding root file "{fmeta.file_path}" to dir "{parent.data.file_path}"')
                 parent.data.add_meta(fmeta)
                 if dirs_str != '':
                     directories = file_util.split_path(dirs_str)
@@ -522,7 +522,7 @@ class DiffTree:
                             #print(f'Creating dir: {nid}')
                             child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=DirNode(nid, category))
                         parent = child
-                        print(f'Adding file "{fmeta.file_path}" to dir {parent.data.file_path}"')
+                        #print(f'Adding file "{fmeta.file_path}" to dir {parent.data.file_path}"')
                         parent.data.add_meta(fmeta)
                 nid = os.path.join(nid, file_name)
                 #print(f'Creating file: {nid}')

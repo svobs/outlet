@@ -30,15 +30,6 @@ class FMeta:
         # Only used if category == MOVED
         self.prev_path = prev_path
 
-    def __iter__(self):
-        yield self.signature
-        yield self.size_bytes
-        yield self.sync_ts
-        yield self.modify_ts
-        yield self.file_path
-        yield self.category.value
-        yield self.prev_path
-
     @property
     def category(self):
         assert type(self._category) == Category
@@ -144,7 +135,7 @@ class FMetaTree:
             if cat != Category.Ignored:
                 cat_list.list.clear()
 
-    def validate_categories(self, print_debug=False):
+    def validate_categories(self, print_debug=True):
         errors = 0
         for cat, cat_list in self._cat_dict.items():
             if print_debug:
@@ -155,44 +146,56 @@ class FMetaTree:
                     print(f'Examining FMeta path: {fmeta.file_path}')
                 if fmeta.category != cat:
                     if print_debug:
-                        print(f'BAD CATEGORY: found: {fmeta.category}')
+                        print(f'ERROR: BAD CATEGORY: found: {fmeta.category}')
                     errors += 1
                 existing = by_path.get(fmeta.file_path, None)
                 if existing is None:
                     by_path[fmeta.file_path] = fmeta
                 else:
                     if print_debug:
-                        print(f'DUP IN CATEGORY')
+                        print(f'ERROR: DUP IN CATEGORY: {fmeta.category.name}')
                     errors += 1
         if errors > 0:
-            raise RuntimeError(f'Category valication found {errors} errors')
-
-    def get_category_summary_string(self):
-        summary = []
-        for cat in self._cat_dict.keys():
-            length = len(self._cat_dict[cat].list)
-            summary.append(f'{cat.name}={length}')
-        return ' '.join(summary)
+            raise RuntimeError(f'Category validation found {errors} errors')
 
     def get_all(self):
-        return self._path_dict.values()
+        """
+        Gets the complete set of all unique FMetas from this FMetaTree.
+        Returns: List of FMetas from (1) list of unique paths, (2) ignored,
+        and (3) deleted
+        """
+        all_fmeta = []
+        for fmeta in self._path_dict.values():
+            assert isinstance(fmeta, FMeta)
+            all_fmeta.append(fmeta)
+        ignored = self._cat_dict[Category.Ignored].list
+        for fmeta in ignored:
+            assert isinstance(fmeta, FMeta)
+            all_fmeta.append(fmeta)
+        deleted = self._cat_dict[Category.Deleted].list
+        for fmeta in deleted:
+            assert isinstance(fmeta, FMeta)
+            all_fmeta.append(fmeta)
+        return all_fmeta
 
     def get_for_cat(self, category: Category):
         return self._cat_dict[category].list
 
     def get_for_path(self, file_path, include_ignored=False):
-        matching_list = self._path_dict.get(file_path, None)
-        if matching_list is None or include_ignored:
-            return matching_list
-        else:
-            return [fmeta for fmeta in matching_list if fmeta.category != Category.Ignored]
+        fmeta = self._path_dict.get(file_path, None)
+        if fmeta is None or include_ignored:
+            return fmeta
+        elif fmeta.category != Category.Ignored:
+            return fmeta
 
     def get_for_sig(self, signature):
         return self.sig_dict.get(signature, None)
 
     def add(self, item: FMeta):
-        # ignored files may not have signatures
-        if item.category != Category.Ignored:
+        if item.category == Category.Ignored:
+            print(f'Found ignored file: {item.file_path}')
+        else:
+            # ignored files may not have signatures
             set_matching_sig = self.sig_dict.get(item.signature, None)
             if set_matching_sig is None:
                 set_matching_sig = [item]
@@ -206,14 +209,24 @@ class FMetaTree:
             print(f'WARNING: overwriting metadata for path: {item.file_path}')
             self._total_size_bytes -= item_matching_path.size_bytes
         self._total_size_bytes += item.size_bytes
-        self._path_dict[item.signature] = item
+        self._path_dict[item.file_path] = item
 
-        cat = Category(item.category)
-        if cat != Category.NA:
-            self._cat_dict[cat].add(item)
+        if item.category != Category.NA:
+            self._cat_dict[item.category].add(item)
+
+    def get_category_summary_string(self):
+        summary = []
+        for cat in self._cat_dict.keys():
+            length = len(self._cat_dict[cat].list)
+            summary.append(f'{cat.name}={length}')
+        return ' '.join(summary)
 
     def get_stats_string(self):
-        return f'FMetaTree=[sigs:{len(self.sig_dict)} paths:{len(self._path_dict)} duplicate sigs:{self._dup_sig_count}]'
+        """
+        For internal use only
+        """
+        cats_string = self.get_category_summary_string()
+        return f'FMetaTree=[sigs:{len(self.sig_dict)} paths:{len(self._path_dict)} duplicate sigs:{self._dup_sig_count} categories=[{cats_string}]'
 
     def get_summary(self):
         ignored_count = self._cat_dict[Category.Ignored].file_count

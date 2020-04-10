@@ -152,10 +152,29 @@ def find_nearest_common_ancestor(path1, path2):
             return ancestor_path
 
 
-def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree):
+def _add_adjusted_metas(src_metas, src_tree, dst_tree):
+    pass
+
+
+def find_conflicts(left_metas, right_metas):
+    pass
+
+
+def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_conflicts=True):
     new_root_path = find_nearest_common_ancestor(left_tree.root_path, right_tree.root_path)
     merged_tree = FMetaTree(root_path=new_root_path)
-    # TODO
+
+    signature_set = left_tree.sig_dict.keys() | right_tree.sig_dict.keys()
+
+    for sig in signature_set:
+        right_metas = right_tree.get_for_sig(sig)
+        left_metas = left_tree.get_for_sig(sig)
+
+        if check_for_conflicts and left_metas is not None and right_metas is not None:
+            find_conflicts(left_metas, right_metas)
+
+        _add_adjusted_metas(src_metas=left_metas, src_tree=left_tree, dst_tree=merged_tree)
+        _add_adjusted_metas(src_metas=right_metas, src_tree=right_tree, dst_tree=merged_tree)
 
 
 
