@@ -140,9 +140,32 @@ class FMetaTree:
         return self._cat_dict[category].add(fmeta)
 
     def clear_categories(self):
-        for cat, list in self._cat_dict.items():
+        for cat, cat_list in self._cat_dict.items():
             if cat != Category.Ignored:
-                list.list.clear()
+                cat_list.list.clear()
+
+    def validate_categories(self, print_debug=False):
+        errors = 0
+        for cat, cat_list in self._cat_dict.items():
+            if print_debug:
+                print(f'Examining Category {cat.name}')
+            by_path = {}
+            for fmeta in cat_list.list:
+                if print_debug:
+                    print(f'Examining FMeta path: {fmeta.file_path}')
+                if fmeta.category != cat:
+                    if print_debug:
+                        print(f'BAD CATEGORY: found: {fmeta.category}')
+                    errors += 1
+                existing = by_path.get(fmeta.file_path, None)
+                if existing is None:
+                    by_path[fmeta.file_path] = fmeta
+                else:
+                    if print_debug:
+                        print(f'DUP IN CATEGORY')
+                    errors += 1
+        if errors > 0:
+            raise RuntimeError(f'Category valication found {errors} errors')
 
     def get_category_summary_string(self):
         summary = []

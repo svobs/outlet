@@ -6,7 +6,7 @@ import file_util
 from stopwatch import Stopwatch
 
 from fmeta.fmeta import FMetaTree
-from fmeta.fmeta_builder import FMetaScanner, FMetaLoader
+from fmeta.fmeta_builder import FMetaScanner, FMetaDatabase
 from widget.progress_meter import ProgressMeter
 from widget.diff_tree import DiffTree
 import fmeta.diff_content_first as diff_content_first
@@ -33,47 +33,47 @@ def diff_task(win):
             GLib.idle_add(update_progress, progress, total)
 
         stopwatch = Stopwatch()
-        left_db_loader = FMetaLoader(LEFT_DB_PATH)
-        left_fmeta_set: FMetaTree
+        left_db = FMetaDatabase(LEFT_DB_PATH)
+        left_fmeta_tree: FMetaTree
         win.diff_tree_right.set_status('Waiting...')
-        if left_db_loader.has_data():
+        if left_db.has_data():
             win.diff_tree_left.set_status(f'Loading Left data from DB: {LEFT_DB_PATH}')
-            left_fmeta_set = left_db_loader.build_fmeta_set_from_db(LEFT_DIR_PATH)
+            left_fmeta_tree = left_db.load_fmeta_tree(LEFT_DIR_PATH)
         else:
             progress_meter = ProgressMeter(lambda p, t: on_progress_made(p, t, win.diff_tree_left))
             win.diff_tree_left.set_status(f'Scanning files in tree: {win.diff_tree_left.root_path}')
-            left_fmeta_set = FMetaScanner.scan_local_tree(LEFT_DIR_PATH, progress_meter)
-            left_db_loader.store_fmeta_to_db(left_fmeta_set)
+            left_fmeta_tree = FMetaScanner.scan_local_tree(LEFT_DIR_PATH, progress_meter)
+            left_db.save_fmeta_tree(left_fmeta_tree)
         stopwatch.stop()
         print(f'Left loaded in: {stopwatch}')
-        win.diff_tree_left.set_status(left_fmeta_set.get_summary())
+        win.diff_tree_left.set_status(left_fmeta_tree.get_summary())
 
         stopwatch = Stopwatch()
-        right_db_loader = FMetaLoader(RIGHT_DB_PATH)
-        if right_db_loader.has_data():
+        right_db = FMetaDatabase(RIGHT_DB_PATH)
+        if right_db.has_data():
             win.diff_tree_right.set_status(f'Loading Right data from DB: {RIGHT_DB_PATH}')
-            right_fmeta_set = right_db_loader.build_fmeta_set_from_db(RIGHT_DIR_PATH)
+            right_fmeta_tree = right_db.load_fmeta_tree(RIGHT_DIR_PATH)
         else:
             logging.info(f"Scanning files in right tree: {win.diff_tree_right.root_path}")
 
             progress_meter = ProgressMeter(lambda p, t: on_progress_made(p, t, win.diff_tree_right))
             win.diff_tree_right.set_status(f'Scanning files in tree: {win.diff_tree_right.root_path}')
-            right_fmeta_set = FMetaScanner.scan_local_tree(RIGHT_DIR_PATH, progress_meter)
-            right_db_loader.store_fmeta_to_db(right_fmeta_set)
+            right_fmeta_tree = FMetaScanner.scan_local_tree(RIGHT_DIR_PATH, progress_meter)
+            right_db.save_fmeta_tree(right_fmeta_tree)
         stopwatch.stop()
         print(f'Right loaded in: {stopwatch}')
-        win.diff_tree_right.set_status(right_fmeta_set.get_summary())
+        win.diff_tree_right.set_status(right_fmeta_tree.get_summary())
 
         logging.info("Diffing...")
 
         stopwatch = Stopwatch()
-        diff_content_first.diff(left_fmeta_set, right_fmeta_set, compare_paths_also=True, use_modify_times=False)
+        diff_content_first.diff(left_fmeta_tree, right_fmeta_tree, compare_paths_also=True, use_modify_times=False)
         stopwatch.stop()
         print(f'Diff completed in: {stopwatch}')
 
         def do_on_ui_thread():
-            win.diff_tree_left.rebuild_ui_tree(left_fmeta_set)
-            win.diff_tree_right.rebuild_ui_tree(right_fmeta_set)
+            win.diff_tree_left.rebuild_ui_tree(left_fmeta_tree)
+            win.diff_tree_right.rebuild_ui_tree(right_fmeta_tree)
 
             # Replace diff btn with merge buttons
             win.merge_btn = Gtk.Button(label="Merge Selected...")
@@ -88,6 +88,7 @@ def diff_task(win):
         GLib.idle_add(do_on_ui_thread)
     except Exception as err:
         print('Diff task failed with exception')
+        # TODO: open error dialog
         raise
 
 

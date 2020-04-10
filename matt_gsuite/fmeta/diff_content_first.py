@@ -1,6 +1,7 @@
 """Content-first diff. See diff function below."""
 import file_util
 import os
+import copy
 from fmeta.fmeta import FMeta, FMetaTree, Category
 
 
@@ -70,12 +71,15 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
             right_meta = right_metas[0]
             #print(f'Right has new file: "{right_meta.file_path}"')
             right_tree.categorize(right_meta, Category.Added)
-            left_tree.categorize(right_meta, Category.Deleted)
+            # Note: deleted nodes should not be thought of like 'real' nodes
+            right_meta_copy = copy.deepcopy(right_meta)
+            left_tree.categorize(right_meta_copy, Category.Deleted)
         elif right_metas is None:
             left_meta = left_metas[0]
             #print(f'Left has new file: "{left_meta.file_path}"')
             left_tree.categorize(left_meta, Category.Added)
-            right_tree.categorize(left_meta, Category.Deleted)
+            left_meta_copy = copy.deepcopy(left_meta)
+            right_tree.categorize(left_meta_copy, Category.Deleted)
         elif compare_paths_also:
             """If we do this, we care about what the files are named, where they are located, and how many
             duplicates exist. When it comes to determining the direction of renamed files, we simply don't
@@ -113,15 +117,23 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
                        at least one copy with the given signature"""
                     if changed_left is None:
                         right_tree.categorize(changed_right, Category.Added)
-                        left_tree.categorize(changed_right, Category.Deleted)
+                        changed_right_copy = copy.deepcopy(changed_right)
+                        left_tree.categorize(changed_right_copy, Category.Deleted)
                         continue
 
                     if changed_right is None:
                         left_tree.categorize(changed_left, Category.Added)
-                        right_tree.categorize(changed_left, Category.Deleted)
+                        changed_left_copy = copy.deepcopy(changed_left)
+                        right_tree.categorize(changed_left_copy, Category.Deleted)
                         continue
 
     print(f'Done with diff. Left:[{left_tree.get_category_summary_string()}] Right:[{right_tree.get_category_summary_string()}]')
+
+    print('Validating categories on Left...')
+    left_tree.validate_categories()
+    print('Validating categories on Right...')
+    right_tree.validate_categories()
+
     return left_tree, right_tree
 
 

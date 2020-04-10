@@ -105,14 +105,14 @@ class FMetaScanner:
 
 #####################################################
 # FMetaScanner: build FMetaTree from previously built set in database
-class FMetaLoader:
+class FMetaDatabase:
     def __init__(self, db_file_path):
         self.db = MattDatabase(db_file_path)
 
     def has_data(self):
         return self.db.has_file_changes()
 
-    def build_fmeta_set_from_db(self, root_path):
+    def load_fmeta_tree(self, root_path):
         fmeta_tree = FMetaTree(root_path)
 
         db_file_changes = self.db.get_file_changes()
@@ -131,7 +131,7 @@ class FMetaLoader:
         print(fmeta_tree.get_stats_string())
         return fmeta_tree
 
-    def store_fmeta_to_db(self, fmeta_tree):
+    def save_fmeta_tree(self, fmeta_tree):
         if self.has_data():
             raise RuntimeError('Will not insert FMeta into DB! It is not empty')
 
