@@ -1,45 +1,22 @@
 import humanfriendly
+import itertools
 from enum import Enum, auto
-"""
-Category = IntEnum(
+
+# See: https://www.notinventedhere.org/articles/python/how-to-use-strings-as-name-aliases-in-python-enums.html
+_CATEGORIES = {
+    0: ['None', 'NA'],
+    1: ['Ignored', 'IGNORED'],
+    2: ['Added', 'ADDED'],
+    3: ['Updated', 'UPDATED'],
+    4: ['Moved', 'MOVED'],
+    5: ['Deleted', 'DELETED'],
+}
+Category = Enum(
     value='Category',
-    names=[
-        ('NA', 0),
-        ('Ignored', 1),
-        ('Added', 2),
-        ('Updated', 3),
-        ('Moved', 4),
-        ('Deleted', 5)
-    ]
-)"""
-
-class Category(Enum):
-    NA = 0
-    Ignored = 1
-    Added = 2
-    Updated = 3
-    Moved = 4
-    Deleted = 5
-
-
-"""
-class Category(IntEnum):
-    NONE = (0, 'None')
-    IGNORED = (1, 'Ignored')
-    ADDED = (2, 'Added')
-    UPDATED = (3, 'Updated')
-    DELETED = (4, 'Deleted')
-    MOVED = (5, 'Moved')
-
-    def __init__(self, ordinal, pretty_name):
-        super().__init__(ordinal)
-        self._value_ = ordinal
-        self._pretty_name = pretty_name
-
-    @property
-    def name(self):
-        return self._pretty_name
-"""
+    names=itertools.chain.from_iterable(
+        itertools.product(v, [k]) for k, v in _CATEGORIES.items()
+    )
+)
 
 
 class FMeta:

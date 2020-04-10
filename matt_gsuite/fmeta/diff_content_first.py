@@ -1,5 +1,6 @@
 """Content-first diff. See diff function below."""
-
+import file_util
+import os
 from fmeta.fmeta import FMeta, FMetaTree, FMetaMoved, Category
 
 
@@ -126,8 +127,18 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
 
 
 def find_nearest_common_ancestor(path1, path2):
-    # TODO
-    return path1
+    path_segs1 = file_util.split_path(path1)
+    path_segs2 = file_util.split_path(path2)
+
+    i = 0
+    ancestor_path = ''
+    while True:
+        if i < len(path_segs1) and i < len(path_segs2) and path_segs1[i] == path_segs2[i]:
+            ancestor_path = os.path.join(ancestor_path, path_segs1[i])
+            i += 1
+        else:
+            print(f'Ancestor path: {ancestor_path}')
+            return ancestor_path
 
 
 def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree):

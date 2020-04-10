@@ -509,7 +509,7 @@ class DiffTree:
                 parent = root
                 parent.data.add_meta(fmeta)
                 if dirs_str != '':
-                    directories = DiffTree.split_path(dirs_str)
+                    directories = file_util.split_path(dirs_str)
                     for dir_name in directories:
                         nid = os.path.join(nid, dir_name)
                         child = change_tree.get_node(nid=nid)
@@ -602,19 +602,3 @@ class DiffTree:
         self.recurse_over_tree(tree_iter, action_func)
 
         return selected_changes
-
-    @classmethod
-    def split_path(cls, path):
-        all_parts = []
-        while 1:
-            parts = os.path.split(path)
-            if parts[0] == path:  # sentinel for absolute paths
-                all_parts.insert(0, parts[0])
-                break
-            elif parts[1] == path:  # sentinel for relative paths
-                all_parts.insert(0, parts[1])
-                break
-            else:
-                path = parts[0]
-                all_parts.insert(0, parts[1])
-        return all_parts

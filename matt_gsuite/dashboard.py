@@ -188,7 +188,7 @@ class DiffWindow(Gtk.ApplicationWindow):
 
         merged_changes_tree = diff_content_first.merge_change_trees(left_selected_changes, right_selected_changes)
 
-        # TODO: preview changes in UI pop-up
+        # Preview changes in UI pop-up
         dialog = MergePreviewDialog(self, merged_changes_tree)
         response = dialog.run()
 
@@ -236,21 +236,14 @@ class MattApplication(Gtk.Application):
     def do_startup(self):
         Gtk.Application.do_startup(self)
 
-        new_action = Gio.SimpleAction.new("new", None)
-        new_action.connect("activate", self.new_callback)
-        self.add_action(new_action)
-
         quit_action = Gio.SimpleAction.new("quit", None)
         quit_action.connect("activate", self.quit_callback)
         self.add_action(quit_action)
         # See: https://developer.gnome.org/gtk3/stable/gtk3-Keyboard-Accelerators.html#gtk-accelerator-parse
         self.set_accels_for_action('app.quit', 'q')
 
-    def new_callback(self, action, parameter):
-        print("You clicked New")
-
     def quit_callback(self, action, parameter):
-        print("You clicked Quit")
+        print("You chose Quit")
         self.quit()
 
 
