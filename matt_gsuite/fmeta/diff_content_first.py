@@ -129,10 +129,11 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
 
     print(f'Done with diff. Left:[{left_tree.get_category_summary_string()}] Right:[{right_tree.get_category_summary_string()}]')
 
+    debug = False
     print('Validating categories on Left...')
-    left_tree.validate_categories()
+    left_tree.validate_categories(print_debug=debug)
     print('Validating categories on Right...')
-    right_tree.validate_categories()
+    right_tree.validate_categories(print_debug=debug)
 
     return left_tree, right_tree
 

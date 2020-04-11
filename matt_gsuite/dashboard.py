@@ -88,7 +88,10 @@ def diff_task(win):
         GLib.idle_add(do_on_ui_thread)
     except Exception as err:
         print('Diff task failed with exception')
-        win.show_error_msg('Diff task failed', 'Unexpected error:' + err)
+
+        def do_on_ui_thread(err_msg):
+            GLib.idle_add(lambda: win.show_error_msg('Diff task failed due to unexpected error', err_msg))
+        do_on_ui_thread(repr(err))
         raise
 
 

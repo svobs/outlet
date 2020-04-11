@@ -24,23 +24,6 @@ VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp
 if sys.version_info[0] < 3:
     raise Exception("Python 3 or a more recent version is required.")
 
-# SUPPORT CLASSES ####################
-
-
-class FileCounter(TreeRecurser):
-    def __init__(self, root_path):
-        TreeRecurser.__init__(self, root_path, valid_suffixes=VALID_SUFFIXES)
-        self.files_to_scan = 0
-
-    def handle_target_file_type(self, file_path):
-        self.files_to_scan += 1
-
-
-# Strip the root_path out of the file path:
-def strip_root(file_path, root_path):
-    root_path_with_slash = root_path if root_path.endswith('/') else root_path + '/'
-    return re.sub(root_path_with_slash, '', file_path, count=1)
-
 
 def build_sync_item(root_path, file_path, category=Category.NA):
     if category == Category.Ignored:
@@ -57,8 +40,30 @@ def build_sync_item(root_path, file_path, category=Category.NA):
     sync_ts = int(time.mktime(date_time_now.timetuple()))
     #print(' '.join((str(sync_ts), signature_str, relative_path)))
     size_bytes = os.stat(file_path).st_size
-    modify_ts = int(os.path.getmtime(file_path))
-    return FMeta(signature_str, size_bytes, sync_ts, modify_ts, relative_path, category)
+
+    stat = os.stat(file_path)
+    modify_ts = int(stat.st_mtime)
+    metachange_ts = int(stat.st_ctime)
+
+    return FMeta(signature_str, size_bytes, sync_ts, modify_ts, metachange_ts, relative_path, category)
+
+
+# SUPPORT CLASSES ####################
+
+
+class FileCounter(TreeRecurser):
+    def __init__(self, root_path):
+        TreeRecurser.__init__(self, root_path, valid_suffixes=VALID_SUFFIXES)
+        self.files_to_scan = 0
+
+    def handle_target_file_type(self, file_path):
+        self.files_to_scan += 1
+
+
+# Strip the root_path out of the file path:
+def strip_root(file_path, root_path):
+    root_path_with_slash = root_path if root_path.endswith('/') else root_path + '/'
+    return re.sub(root_path_with_slash, '', file_path, count=1)
 
 
 ########################################################

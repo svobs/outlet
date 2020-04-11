@@ -1,6 +1,7 @@
 import os
 import shutil
-from fmeta.fmeta import FMeta
+import platform
+from fmeta.fmeta import FMeta, FMetaTree
 import fmeta.content_hasher
 
 
@@ -36,20 +37,39 @@ def split_path(path):
     return all_parts
 
 
-def apply_change_set(change_set):
-    staging_base_dir = os.path.join(change_set.dst_root_path, '.sync-tmp')
+def creation_date(path_to_file):
+    """
+    From: https://stackoverflow.com/questions/237079/how-to-get-file-creation-modification-date-times-in-python
+    Try to get the date that a file was created, falling back to when it was
+    last modified if that isn't possible.
+    See http://stackoverflow.com/a/39501288/1709587 for explanation.
+    """
+    if platform.system() == 'Windows':
+        return os.path.getctime(path_to_file)
+    else:
+        stat = os.stat(path_to_file)
+        try:
+            return stat.st_birthtime
+        except AttributeError:
+            # We're probably on Linux. No easy way to get creation dates here,
+            # so we'll settle for when its content was last modified.
+            return stat.st_mtime
 
-    for fmeta in change_set.adds:
-        src_path = os.path.join(change_set.src_root_path, fmeta.file_path)
-        dst_path = os.path.join(change_set.dst_root_path, fmeta.file_path)
-        staging_path = os.path.join(staging_base_dir, fmeta.signature)
+
+def apply_changes_atomically(changes: FMetaTree, staging_dir):
+  #  staging_base_dir = os.path.join(changes.dst_root_path, '.sync-tmp')
+
+    for fmeta in changes.adds:
+        src_path = os.path.join(changes.src_root_path, fmeta.file_path)
+        dst_path = os.path.join(changes.dst_root_path, fmeta.file_path)
+        staging_path = os.path.join(staging_dir, fmeta.signature)
         print(f'CP: src={src_path}')
         print(f'    stg={staging_path}')
         print(f'    dst={dst_path}')
         #copy_file_linux_with_attrs(src_path, staging_path, dst_path, fmeta.signature)
 
 
-def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_signature):
+def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_signature, verify):
     """Copies the src (src_path) to the destination path (dst_path), by first doing the copy to an
     intermediary location (staging_path) and then moving it to the destination once its signature
     has been verified."""
@@ -58,19 +78,32 @@ def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_signature):
     staging_parent, staging_file = os.path.split(staging_path)
     os.mkdirs(name=staging_parent, exist_ok=True)
 
-    os.mkdirs(name=staging_parent, exist_ok=True)
-    shutil.copyfile(src_path, dst=staging_path, follow_symlinks=False)
-    # Copy the permission bits, last access time, last modification time, and flags:
-    shutil.copystat(src_path, dst=staging_path, follow_symlinks=False)
-    dst_signature = fmeta.content_hasher.dropbox_hash(staging_path)
-    if src_signature != dst_signature:
-        raise RuntimeError(f'Signature of copied file does not match: src_path="{src_path}", '
-                           f'src_sig={src_signature}, dst_path="{dst_path}", dst_sig={dst_signature}')
+    try:
+        shutil.copyfile(src_path, dst=staging_path, follow_symlinks=False)
+    except Exception as err:
+        print(f'Exception while copying file to staging: {src_path}')
+        raise
+    try:
+        # Copy the permission bits, last access time, last modification time, and flags:
+        shutil.copystat(src_path, dst=staging_path, follow_symlinks=False)
+    except Exception as err:
+        print(f'Exception while copying file meta to staging: {src_path}')
+        raise
 
-    # (Destination) make parent directories if not exist
-    dst_parent, dst_file_name = os.path.split(dst_path)
-    os.mkdirs(name=dst_parent, exist_ok=True)
+    if verify:
+        dst_signature = fmeta.content_hasher.dropbox_hash(staging_path)
+        if src_signature != dst_signature:
+            raise RuntimeError(f'Signature of copied file does not match: src_path="{src_path}", '
+                               f'src_sig={src_signature}, dst_path="{dst_path}", dst_sig={dst_signature}')
 
-    # Finally, move the file into its final destination
-    shutil.move(staging_path, dst_path)
+    try:
+        # (Destination) make parent directories if not exist
+        dst_parent, dst_file_name = os.path.split(dst_path)
+        os.mkdirs(name=dst_parent, exist_ok=True)
+
+        # Finally, move the file into its final destination
+        shutil.move(staging_path, dst_path)
+    except Exception as err:
+        print(f'Exception while moving file to dst: {dst_path}')
+        raise
 

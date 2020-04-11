@@ -20,11 +20,12 @@ Category = Enum(
 
 
 class FMeta:
-    def __init__(self, signature, size_bytes, sync_ts, modify_ts, file_path, category=Category.NA, prev_path=None):
+    def __init__(self, signature, size_bytes, sync_ts, modify_ts, metachange_ts, file_path, category=Category.NA, prev_path=None):
         self.signature = signature
         self.size_bytes = size_bytes
         self.sync_ts = sync_ts
         self.modify_ts = modify_ts
+        self.metachange_ts = metachange_ts
         self.file_path = file_path
         self.category = category
         # Only used if category == MOVED
@@ -135,7 +136,7 @@ class FMetaTree:
             if cat != Category.Ignored:
                 cat_list.list.clear()
 
-    def validate_categories(self, print_debug=True):
+    def validate_categories(self, print_debug=False):
         errors = 0
         for cat, cat_list in self._cat_dict.items():
             if print_debug:
@@ -161,15 +162,10 @@ class FMetaTree:
     def get_all(self):
         """
         Gets the complete set of all unique FMetas from this FMetaTree.
-        Returns: List of FMetas from (1) list of unique paths, (2) ignored,
-        and (3) deleted
+        Returns: List of FMetas from (1) list of unique paths, and (2) deleted
         """
         all_fmeta = []
         for fmeta in self._path_dict.values():
-            assert isinstance(fmeta, FMeta)
-            all_fmeta.append(fmeta)
-        ignored = self._cat_dict[Category.Ignored].list
-        for fmeta in ignored:
             assert isinstance(fmeta, FMeta)
             all_fmeta.append(fmeta)
         deleted = self._cat_dict[Category.Deleted].list
