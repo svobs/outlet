@@ -155,7 +155,7 @@ def find_nearest_common_ancestor(path1, path2):
             return ancestor_path
 
 
-def _add_adjusted_metas(src_metas, prefix, dst_tree):
+def _add_adjusted_metas(src_metas, prefix, prev_prefix, dst_tree):
     """Note: new_root is expected to be src_tree's root or a direct ancestor"""
     if src_metas is None:
         return
@@ -163,10 +163,16 @@ def _add_adjusted_metas(src_metas, prefix, dst_tree):
     for fmeta in src_metas:
         new_fmeta = copy.deepcopy(fmeta)
         new_fmeta.file_path = os.path.join(prefix, fmeta.file_path)
+        if fmeta.category == Category.Added:
+            # copy the same file path from prev tree:
+            new_fmeta.prev_path = os.path.join(prev_prefix, fmeta.file_path)
+        elif fmeta.category == Category.Moved:
+            # just adjust the prefix here:
+            new_fmeta.prev_path = os.path.join(prev_prefix, fmeta.prev_path)
         dst_tree.add(new_fmeta)
 
 
-def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, invert_changes=True, check_for_conflicts=True):
+def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_conflicts=True):
     new_root_path = find_nearest_common_ancestor(left_tree.root_path, right_tree.root_path)
     merged_tree = FMetaTree(root_path=new_root_path)
 
@@ -174,12 +180,6 @@ def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, invert_chang
 
     left_old_root_remainder = file_util.strip_root(left_tree.root_path, new_root_path)
     right_old_root_remainder = file_util.strip_root(right_tree.root_path, new_root_path)
-
-    if invert_changes:
-        # E.g., Right adds are added to Left's tree; Left adds are added to Right's tree
-        tmp = left_old_root_remainder
-        left_old_root_remainder = right_old_root_remainder
-        right_old_root_remainder = tmp
 
     conflict_pairs = []
     for sig in signature_set:
@@ -194,8 +194,8 @@ def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, invert_chang
                     conflict_pairs.append((left, right))
                     print(f'CONFLICT: left={left.category.name}:{left.file_path} right={right.category.name}:{right.file_path}')
         else:
-            _add_adjusted_metas(src_metas=left_metas, prefix=left_old_root_remainder, dst_tree=merged_tree)
-            _add_adjusted_metas(src_metas=right_metas, prefix=right_old_root_remainder, dst_tree=merged_tree)
+            _add_adjusted_metas(src_metas=left_metas, prefix=left_old_root_remainder, prev_prefix=right_old_root_remainder,dst_tree=merged_tree)
+            _add_adjusted_metas(src_metas=right_metas, prefix=right_old_root_remainder, prev_prefix=left_old_root_remainder,dst_tree=merged_tree)
 
     if len(conflict_pairs) > 0:
         print(f'Number of conflicts found: {len(conflict_pairs)}')

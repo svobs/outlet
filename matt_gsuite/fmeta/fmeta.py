@@ -28,7 +28,7 @@ class FMeta:
         self.metachange_ts = metachange_ts
         self.file_path = file_path
         self.category = category
-        # Only used if category == MOVED
+        # Only used if category == ADDED or MOVED
         self.prev_path = prev_path
 
     @property

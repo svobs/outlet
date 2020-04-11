@@ -220,13 +220,23 @@ class DiffWindow(Gtk.ApplicationWindow):
         dialog = MergePreviewDialog(self, merged_changes_tree)
         response = dialog.run()
 
-        if response == Gtk.ResponseType.OK:
-            print("The OK button was clicked")
-            file_util.apply_change_set(merged_changes_tree)
-        elif response == Gtk.ResponseType.CANCEL:
-            print("The Cancel button was clicked")
+        try:
+            if response == Gtk.ResponseType.OK:
+                print("The OK button was clicked")
+                staging_dir = file_util.get_resource_path('../temp')
+                # TODO: clear dir after use
+                file_util.apply_changes_atomically(changes=merged_changes_tree, staging_dir=staging_dir)
+            elif response == Gtk.ResponseType.CANCEL:
+                print("The Cancel button was clicked")
+        except Exception as err:
+            print('Diff task failed with exception')
 
-        dialog.destroy()
+            def do_on_ui_thread(err_msg):
+                GLib.idle_add(lambda: self.show_error_msg('Diff task failed due to unexpected error', err_msg))
+            do_on_ui_thread(repr(err))
+            raise
+        finally:
+            dialog.destroy()
 
     def show_error_msg(self, msg, secondary_msg=None):
         dialog = Gtk.MessageDialog(parent=self, modal=True, message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CANCEL, text=msg)

@@ -2,7 +2,7 @@ import os
 import shutil
 import re
 import platform
-from fmeta.fmeta import FMeta, FMetaTree
+from fmeta.fmeta import FMeta, FMetaTree, Category
 import fmeta.content_hasher
 
 
@@ -72,16 +72,19 @@ def creation_date(path_to_file):
 
 
 def apply_changes_atomically(changes: FMetaTree, staging_dir):
-  #  staging_base_dir = os.path.join(changes.dst_root_path, '.sync-tmp')
 
-    for fmeta in changes.adds:
-        src_path = os.path.join(changes.src_root_path, fmeta.file_path)
-        dst_path = os.path.join(changes.dst_root_path, fmeta.file_path)
+    for fmeta in changes.get_for_cat(Category.Added):
+        src_path = os.path.join(changes.root_path, fmeta.file_path)
+        dst_path = os.path.join(changes.root_path, fmeta.prev_path)
         staging_path = os.path.join(staging_dir, fmeta.signature)
         print(f'CP: src={src_path}')
         print(f'    stg={staging_path}')
         print(f'    dst={dst_path}')
-        #copy_file_linux_with_attrs(src_path, staging_path, dst_path, fmeta.signature)
+        copy_file_linux_with_attrs(src_path, staging_path, dst_path, fmeta.signature, True)
+
+    # TODO: deleted
+
+    # TODO: moved
 
 
 def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_signature, verify):
@@ -91,7 +94,7 @@ def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_signature, 
 
     # (Staging) make parent directories if not exist
     staging_parent, staging_file = os.path.split(staging_path)
-    os.mkdirs(name=staging_parent, exist_ok=True)
+    os.makedirs(name=staging_parent, exist_ok=True)
 
     try:
         shutil.copyfile(src_path, dst=staging_path, follow_symlinks=False)
@@ -114,7 +117,7 @@ def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_signature, 
     try:
         # (Destination) make parent directories if not exist
         dst_parent, dst_file_name = os.path.split(dst_path)
-        os.mkdirs(name=dst_parent, exist_ok=True)
+        os.makedirs(name=dst_parent, exist_ok=True)
 
         # Finally, move the file into its final destination
         shutil.move(staging_path, dst_path)
