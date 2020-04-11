@@ -586,7 +586,7 @@ class DiffTree:
         num_bytes_str = humanfriendly.format_size(dmeta.size_bytes)
         row_values.append(num_bytes_str)  # Size
         row_values.append(None)  # Modify Date
-        if not self.show_metachange_ts:
+        if self.show_metachange_ts:
             row_values.append(None)  # Modify Date
         row_values.append(dmeta)  # Data
         return self.model.append(tree_iter, row_values)
@@ -616,7 +616,7 @@ class DiffTree:
         modify_time = modify_datetime.strftime(DATETIME_FORMAT)
         row_values.append(modify_time)  # Modify Date
 
-        if not self.show_metachange_ts:
+        if self.show_metachange_ts:
             metachange_datetime = datetime.fromtimestamp(fmeta.metachange_ts)
             metachange_time = metachange_datetime.strftime(DATETIME_FORMAT)
             row_values.append(metachange_time)  # Meta Change Date
