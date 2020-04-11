@@ -7,10 +7,10 @@
 
 # Compare the output of this script with `tree -a .`
 import sys
-import re
 import os
 from datetime import datetime
 import time
+import file_util
 from fmeta.fmeta import FMeta, FMetaTree, Category
 from fmeta.tree_recurser import TreeRecurser
 import fmeta.content_hasher
@@ -33,7 +33,7 @@ def build_sync_item(root_path, file_path, category=Category.NA):
         # Open,close, read file and calculate hash of its contents
         signature_str = fmeta.content_hasher.dropbox_hash(file_path)
 
-    relative_path = strip_root(file_path, root_path)
+    relative_path = file_util.strip_root(file_path, root_path)
 
     # Get "now" in UNIX time:
     date_time_now = datetime.now()
@@ -58,12 +58,6 @@ class FileCounter(TreeRecurser):
 
     def handle_target_file_type(self, file_path):
         self.files_to_scan += 1
-
-
-# Strip the root_path out of the file path:
-def strip_root(file_path, root_path):
-    root_path_with_slash = root_path if root_path.endswith('/') else root_path + '/'
-    return re.sub(root_path_with_slash, '', file_path, count=1)
 
 
 ########################################################

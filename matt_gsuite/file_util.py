@@ -1,5 +1,6 @@
 import os
 import shutil
+import re
 import platform
 from fmeta.fmeta import FMeta, FMetaTree
 import fmeta.content_hasher
@@ -12,6 +13,20 @@ def get_resource_path(rel_path):
     rel_path_to_resource = os.path.join(dir_of_py_file, rel_path)
     abs_path_to_resource = os.path.abspath(rel_path_to_resource)
     return abs_path_to_resource
+
+
+def strip_root(file_path, root_path):
+    """
+    Strips the root_path out of the file path.
+    Args:
+        file_path: absolute path (starts with '/'; may or may not end with a '/'
+        root_path: Root path (must be present in file_path)
+
+    Returns:
+        a relative path
+    """
+    root_path_with_slash = root_path if root_path.endswith('/') else root_path + '/'
+    return re.sub(root_path_with_slash, '', file_path, count=1)
 
 
 def split_path(path):

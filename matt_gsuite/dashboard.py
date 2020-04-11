@@ -14,10 +14,10 @@ import fmeta.diff_content_first as diff_content_first
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gio, GObject
 
-LEFT_DB_PATH = '../test/Bigger/MattLeft.db'
-RIGHT_DB_PATH = '../test/Bigger/MattRight.db'
-LEFT_DIR_PATH = r"/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos"
-RIGHT_DIR_PATH = r"/media/msvoboda/Thumb128G/Takeout/Google Photos"
+LEFT_DB_PATH = '../test/BiDirMerge/Left.db'
+RIGHT_DB_PATH = '../test/BiDirMerge/Right.db'
+LEFT_DIR_PATH = r"/home/msvoboda/LocalDevel/matt-google/test/BiDirMerge/Sen Mitsuji Left"
+RIGHT_DIR_PATH = r"/home/msvoboda/LocalDevel/matt-google/test/BiDirMerge/Sen Mitsuji Right"
 
 logger = logging.getLogger(__name__)
 

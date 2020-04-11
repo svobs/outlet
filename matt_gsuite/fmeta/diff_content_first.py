@@ -149,7 +149,7 @@ def find_nearest_common_ancestor(path1, path2):
             ancestor_path = os.path.join(ancestor_path, path_segs1[i])
             i += 1
         else:
-            print(f'Common ancestor path: {ancestor_path}')
+            print(f'Common ancestor: {ancestor_path}')
             return ancestor_path
 
 
@@ -170,8 +170,8 @@ def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, invert_chang
 
     signature_set = left_tree.sig_dict.keys() | right_tree.sig_dict.keys()
 
-    left_old_root_remainder = left_tree.root_path.replace(new_root_path, '', 1)
-    right_old_root_remainder = right_tree.root_path.replace(new_root_path, '', 1)
+    left_old_root_remainder = file_util.strip_root(left_tree.root_path, new_root_path)
+    right_old_root_remainder = file_util.strip_root(right_tree.root_path, new_root_path)
 
     if invert_changes:
         # E.g., Right adds are added to Left's tree; Left adds are added to Right's tree

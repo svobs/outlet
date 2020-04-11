@@ -660,8 +660,7 @@ class DiffTree:
         self.model.clear()
 
         self.root_path = fmeta_tree.root_path
-        # TODO: excluded MOVED for quicker testing
-        for category in [Category.Added, Category.Deleted, Category.Updated, Category.Ignored]:
+        for category in [Category.Added, Category.Deleted, Category.Moved, Category.Updated, Category.Ignored]:
             self._populate_category(category, fmeta_tree.get_for_cat(category))
 
     def get_selected_changes(self):
