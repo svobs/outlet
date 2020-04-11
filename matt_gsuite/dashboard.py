@@ -6,7 +6,7 @@ import file_util
 from stopwatch import Stopwatch
 
 from fmeta.fmeta import FMetaTree
-from fmeta.fmeta_builder import FMetaScanner, FMetaDatabase
+from fmeta.fmeta_builder import FMetaDirScanner, FMetaDatabase
 from widget.progress_meter import ProgressMeter
 from widget.diff_tree import DiffTree
 import fmeta.diff_content_first as diff_content_first
@@ -24,9 +24,7 @@ logger = logging.getLogger(__name__)
 
 def diff_task(win):
     try:
-        status_widget = win.diff_tree_left
-
-        # Callback from FMetaScanner:
+        # Callback from FMetaDirScanner:
         def on_progress_made(progress, total, diff_tree):
             def update_progress(progress, total):
                 diff_tree.set_status(f'Scanning file {progress} of {total}')
@@ -42,7 +40,8 @@ def diff_task(win):
         else:
             progress_meter = ProgressMeter(lambda p, t: on_progress_made(p, t, win.diff_tree_left))
             win.diff_tree_left.set_status(f'Scanning files in tree: {win.diff_tree_left.root_path}')
-            left_fmeta_tree = FMetaScanner.scan_local_tree(LEFT_DIR_PATH, progress_meter)
+            dir_scanner = FMetaDirScanner(LEFT_DIR_PATH, progress_meter)
+            left_fmeta_tree = dir_scanner.scan_local_tree()
             left_db.save_fmeta_tree(left_fmeta_tree)
         stopwatch.stop()
         print(f'Left loaded in: {stopwatch}')
@@ -58,7 +57,8 @@ def diff_task(win):
 
             progress_meter = ProgressMeter(lambda p, t: on_progress_made(p, t, win.diff_tree_right))
             win.diff_tree_right.set_status(f'Scanning files in tree: {win.diff_tree_right.root_path}')
-            right_fmeta_tree = FMetaScanner.scan_local_tree(RIGHT_DIR_PATH, progress_meter)
+            dir_scanner = FMetaDirScanner(RIGHT_DIR_PATH, progress_meter)
+            right_fmeta_tree = dir_scanner.scan_local_tree()
             right_db.save_fmeta_tree(right_fmeta_tree)
         stopwatch.stop()
         print(f'Right loaded in: {stopwatch}')
@@ -155,10 +155,13 @@ class DiffWindow(Gtk.ApplicationWindow):
         diff_tree_panes = Gtk.HPaned()
         self.content_box.add(diff_tree_panes)
 
+        self.sizegroups = {'root_paths': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL),
+                           'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
+
         # Diff Trees:
-        self.diff_tree_left = DiffTree(parent_win=self, root_path=LEFT_DIR_PATH, editable=True)
+        self.diff_tree_left = DiffTree(parent_win=self, root_path=LEFT_DIR_PATH, editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
-        self.diff_tree_right = DiffTree(parent_win=self, root_path=RIGHT_DIR_PATH, editable=True)
+        self.diff_tree_right = DiffTree(parent_win=self, root_path=RIGHT_DIR_PATH, editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
 
         # Bottom button panel:

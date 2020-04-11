@@ -53,6 +53,8 @@ class RootDirPanel:
     def __init__(self, parent_diff_tree):
         self.parent_diff_tree = parent_diff_tree
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        if parent_diff_tree.sizegroups is not None and parent_diff_tree.sizegroups.get('root_paths') is not None:
+            parent_diff_tree.sizegroups['root_paths'].add_widget(self.content_box)
         # TODO: make Label editable (maybe switch it to an Entry) on click
         self.label = Gtk.Label(label='')
         self.refresh_root_label()

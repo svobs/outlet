@@ -61,11 +61,13 @@ def build_sync_item(root_path, file_path, category=Category.NA):
     return FMeta(signature_str, size_bytes, sync_ts, modify_ts, relative_path, category)
 
 
-class FMetaFromFilesBuilder(TreeRecurser):
-    def __init__(self, root_path, progress_meter: ProgressMeter, fmeta_tree: FMetaTree):
-        TreeRecurser.__init__(self, root_path, valid_suffixes=VALID_SUFFIXES)
+########################################################
+# FMetaDirScanner: build FMetaTree from local tree
+class FMetaDirScanner(TreeRecurser):
+    def __init__(self, root_path, progress_meter: ProgressMeter):
+        TreeRecurser.__init__(self, Path(root_path), valid_suffixes=VALID_SUFFIXES)
         self.progress_meter = progress_meter
-        self.fmeta_tree = fmeta_tree
+        self.fmeta_tree = FMetaTree(root_path)
 
     def handle_target_file_type(self, file_path):
         item = build_sync_item(root_path=str(self.root_path), file_path=file_path)
@@ -76,16 +78,8 @@ class FMetaFromFilesBuilder(TreeRecurser):
         item = build_sync_item(root_path=str(self.root_path), file_path=file_path, category=Category.Ignored)
         self.fmeta_tree.add(item)
 
-
-########################################################
-# FMetaScanner: build FMetaTree from local tree
-class FMetaScanner:
-    def __init__(self):
-        pass
-
-    @staticmethod
-    def scan_local_tree(root_path, progress_meter):
-        fmeta_tree = FMetaTree(root_path)
+    def scan_local_tree(self):
+        root_path = str(self.root_path)
         if not os.path.exists(root_path):
             raise FileNotFoundError('File not found: ' + root_path)
         local_path = Path(root_path)
@@ -94,16 +88,15 @@ class FMetaScanner:
         file_counter = FileCounter(local_path)
         file_counter.recurse_through_dir_tree()
         print('Found ' + str(file_counter.files_to_scan) + ' files to scan.')
-        if progress_meter is not None:
-            progress_meter.set_total(file_counter.files_to_scan)
-        sync_set_builder = FMetaFromFilesBuilder(local_path, progress_meter, fmeta_tree)
-        sync_set_builder.recurse_through_dir_tree()
-        print(fmeta_tree.get_stats_string())
-        return fmeta_tree
+        if self.progress_meter is not None:
+            self.progress_meter.set_total(file_counter.files_to_scan)
+        self.recurse_through_dir_tree()
+        print(self.fmeta_tree.get_stats_string())
+        return self.fmeta_tree
 
 
 #####################################################
-# FMetaScanner: build FMetaTree from previously built set in database
+# FMetaDirScanner: build FMetaTree from previously built set in database
 class FMetaDatabase:
     def __init__(self, db_file_path):
         self.db = MattDatabase(db_file_path)

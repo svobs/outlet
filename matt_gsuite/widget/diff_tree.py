@@ -11,6 +11,8 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
 import subprocess
 
+
+ROW_HEIGHT = 30
 count = 0
 
 
@@ -18,7 +20,7 @@ class DiffTree:
     EXTRA_INDENTATION_LEVEL = 0
     model: Gtk.TreeStore
 
-    def __init__(self, parent_win, root_path, editable):
+    def __init__(self, parent_win, root_path, editable, sizegroups=None):
         # The source files
         """If true, create a node for each ancestor directory for the files.
            If false, create a second column which shows the parent path. """
@@ -27,6 +29,7 @@ class DiffTree:
         self.root_path = root_path
         """If false, hide checkboxes and tree root change button"""
         self.editable = editable
+        self.sizegroups = sizegroups
 
         col_count = 0
         col_types = []
@@ -85,6 +88,8 @@ class DiffTree:
 
         self.status_bar, status_bar_container = DiffTree._build_info_bar()
         self.content_box = DiffTree._build_content_box(self.root_dir_panel.content_box, self.treeview, status_bar_container)
+        if self.sizegroups is not None and self.sizegroups.get('tree_status') is not None:
+            self.sizegroups['tree_status'].add_widget(status_bar_container)
 
     @classmethod
     def _build_icons(cls, icon_size):
@@ -140,15 +145,18 @@ class DiffTree:
         if self.editable:
             renderer = Gtk.CellRendererToggle()
             renderer.connect("toggled", self.on_cell_toggled)
+            renderer.set_fixed_size(width=-1, height=ROW_HEIGHT)
             px_column.pack_start(renderer, False)
             px_column.add_attribute(renderer, 'active', self.col_num_checked)
             px_column.add_attribute(renderer, 'inconsistent', self.col_num_inconsistent)
 
         px_renderer = Gtk.CellRendererPixbuf()
+        px_renderer.set_fixed_size(width=-1, height=ROW_HEIGHT)
         px_column.pack_start(px_renderer, False)
 
         str_renderer = Gtk.CellRendererText()
         str_renderer.set_fixed_height_from_font(1)
+        str_renderer.set_fixed_size(width=-1, height=ROW_HEIGHT)
         str_renderer.set_property('width-chars', 15)
         px_column.pack_start(str_renderer, False)
 
@@ -166,6 +174,7 @@ class DiffTree:
             # 2 DIRECTORY
             renderer = Gtk.CellRendererText()
             renderer.set_fixed_height_from_font(1)
+            renderer.set_fixed_size(width=-1, height=ROW_HEIGHT)
             renderer.set_property('width-chars', 20)
             column = Gtk.TreeViewColumn(self.col_names[self.col_num_dir], renderer, text=self.col_num_dir)
             column.set_sort_column_id(self.col_num_dir)
@@ -181,6 +190,7 @@ class DiffTree:
 
         # 3 SIZE
         renderer = Gtk.CellRendererText()
+        renderer.set_fixed_size(width=-1, height=ROW_HEIGHT)
         renderer.set_fixed_height_from_font(1)
         renderer.set_property('width-chars', 10)
         column = Gtk.TreeViewColumn(self.col_names[self.col_num_size], renderer, text=self.col_num_size)
@@ -218,6 +228,7 @@ class DiffTree:
         # 4 MODIFICATION DATE
         renderer = Gtk.CellRendererText()
         renderer.set_property('width-chars', 8)
+        renderer.set_fixed_size(width=-1, height=ROW_HEIGHT)
         renderer.set_fixed_height_from_font(1)
         column = Gtk.TreeViewColumn(self.col_names[self.col_num_modification_date], renderer, text=self.col_num_modification_date)
         column.set_sort_column_id(self.col_num_modification_date)
