@@ -22,44 +22,50 @@ RIGHT_DIR_PATH = r"/home/msvoboda/LocalDevel/matt-google/test/BiDirMerge/Sen Mit
 logger = logging.getLogger(__name__)
 
 
-def diff_task(win):
+def scan_disk(diff_tree, root_path):
+    # Callback from FMetaDirScanner:
+    def on_progress_made(progress, total, tree):
+        def update_progress(progress, total):
+            tree.set_status(f'Scanning file {progress} of {total}')
+        GLib.idle_add(update_progress, progress, total)
+
+    progress_meter = ProgressMeter(lambda p, t: on_progress_made(p, t, diff_tree))
+    diff_tree.set_status(f'Scanning files in tree: {diff_tree.root_path}')
+    dir_scanner = FMetaDirScanner(root_path=root_path, progress_meter=progress_meter)
+    return dir_scanner.scan_local_tree()
+
+
+def diff_task(win, enable_db_cache):
     try:
-        # Callback from FMetaDirScanner:
-        def on_progress_made(progress, total, diff_tree):
-            def update_progress(progress, total):
-                diff_tree.set_status(f'Scanning file {progress} of {total}')
-            GLib.idle_add(update_progress, progress, total)
 
         stopwatch = Stopwatch()
-        left_db = FMetaDatabase(LEFT_DB_PATH)
-        left_fmeta_tree: FMetaTree
-        win.diff_tree_right.set_status('Waiting...')
-        if left_db.has_data():
-            win.diff_tree_left.set_status(f'Loading Left data from DB: {LEFT_DB_PATH}')
-            left_fmeta_tree = left_db.load_fmeta_tree(LEFT_DIR_PATH)
+        if enable_db_cache:
+            left_db = FMetaDatabase(LEFT_DB_PATH)
+            left_fmeta_tree: FMetaTree
+            win.diff_tree_right.set_status('Waiting...')
+            if left_db.has_data():
+                win.diff_tree_left.set_status(f'Loading Left data from DB: {LEFT_DB_PATH}')
+                left_fmeta_tree = left_db.load_fmeta_tree(LEFT_DIR_PATH)
+            else:
+                left_fmeta_tree = scan_disk(win.diff_tree_left, LEFT_DIR_PATH)
+                left_db.save_fmeta_tree(left_fmeta_tree)
         else:
-            progress_meter = ProgressMeter(lambda p, t: on_progress_made(p, t, win.diff_tree_left))
-            win.diff_tree_left.set_status(f'Scanning files in tree: {win.diff_tree_left.root_path}')
-            dir_scanner = FMetaDirScanner(LEFT_DIR_PATH, progress_meter)
-            left_fmeta_tree = dir_scanner.scan_local_tree()
-            left_db.save_fmeta_tree(left_fmeta_tree)
+            left_fmeta_tree = scan_disk(win.diff_tree_left, LEFT_DIR_PATH)
         stopwatch.stop()
         print(f'Left loaded in: {stopwatch}')
         win.diff_tree_left.set_status(left_fmeta_tree.get_summary())
 
         stopwatch = Stopwatch()
-        right_db = FMetaDatabase(RIGHT_DB_PATH)
-        if right_db.has_data():
-            win.diff_tree_right.set_status(f'Loading Right data from DB: {RIGHT_DB_PATH}')
-            right_fmeta_tree = right_db.load_fmeta_tree(RIGHT_DIR_PATH)
+        if enable_db_cache:
+            right_db = FMetaDatabase(RIGHT_DB_PATH)
+            if right_db.has_data():
+                win.diff_tree_right.set_status(f'Loading Right data from DB: {RIGHT_DB_PATH}')
+                right_fmeta_tree = right_db.load_fmeta_tree(RIGHT_DIR_PATH)
+            else:
+                right_fmeta_tree = scan_disk(win.diff_tree_right, RIGHT_DIR_PATH)
+                right_db.save_fmeta_tree(right_fmeta_tree)
         else:
-            logging.info(f"Scanning files in right tree: {win.diff_tree_right.root_path}")
-
-            progress_meter = ProgressMeter(lambda p, t: on_progress_made(p, t, win.diff_tree_right))
-            win.diff_tree_right.set_status(f'Scanning files in tree: {win.diff_tree_right.root_path}')
-            dir_scanner = FMetaDirScanner(RIGHT_DIR_PATH, progress_meter)
-            right_fmeta_tree = dir_scanner.scan_local_tree()
-            right_db.save_fmeta_tree(right_fmeta_tree)
+            right_fmeta_tree = scan_disk(win.diff_tree_right, RIGHT_DIR_PATH)
         stopwatch.stop()
         print(f'Right loaded in: {stopwatch}')
         win.diff_tree_right.set_status(right_fmeta_tree.get_summary())
@@ -124,6 +130,8 @@ class MergePreviewDialog(Gtk.Dialog):
 class DiffWindow(Gtk.ApplicationWindow):
     def __init__(self, application):
         Gtk.Window.__init__(self, application=application)
+        enable_db_cache = False
+
         self.set_title('UltraSync')
         # program icon:
         self.set_icon_from_file(file_util.get_resource_path("../resources/fslint_icon.png"))
@@ -172,7 +180,7 @@ class DiffWindow(Gtk.ApplicationWindow):
         self.content_box.add(self.bottom_button_panel)
 
         self.diff_action_btn = Gtk.Button(label="Diff (content-first)")
-        self.diff_action_btn.connect("clicked", self.on_diff_button_clicked)
+        self.diff_action_btn.connect("clicked", self.on_diff_button_clicked, enable_db_cache)
         self.bottom_button_panel.pack_start(self.diff_action_btn, True, True, 0)
 
       #  menubutton = Gtk.MenuButton()
@@ -184,8 +192,8 @@ class DiffWindow(Gtk.ApplicationWindow):
 
         # TODO: create a 'Scan' button for each input source
 
-    def on_diff_button_clicked(self, widget):
-        action_thread = threading.Thread(target=diff_task, args=(self,))
+    def on_diff_button_clicked(self, widget, enable_db_cache):
+        action_thread = threading.Thread(target=diff_task, args=(self, enable_db_cache))
         action_thread.daemon = True
         action_thread.start()
 

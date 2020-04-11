@@ -30,7 +30,7 @@ class DiffTree:
         """If false, hide checkboxes and tree root change button"""
         self.editable = editable
         self.sizegroups = sizegroups
-        self.show_metachange_ts = True
+        self.show_change_ts = True
 
         col_count = 0
         col_types = []
@@ -66,13 +66,13 @@ class DiffTree:
         col_types.append(str)
         col_count += 1
 
-        self.col_num_modification_date = col_count
+        self.col_num_modification_ts = col_count
         self.col_names.append('Modification Time')
         col_types.append(str)
         col_count += 1
 
-        if self.show_metachange_ts:
-            self.col_num_metachange_ts = col_count
+        if self.show_change_ts:
+            self.col_num_change_ts = col_count
             self.col_names.append('Meta Change Time')
             col_types.append(str)
             col_count += 1
@@ -237,8 +237,8 @@ class DiffTree:
         renderer.set_property('width-chars', 8)
         renderer.set_fixed_size(width=-1, height=ROW_HEIGHT)
         renderer.set_fixed_height_from_font(1)
-        column = Gtk.TreeViewColumn(self.col_names[self.col_num_modification_date], renderer, text=self.col_num_modification_date)
-        column.set_sort_column_id(self.col_num_modification_date)
+        column = Gtk.TreeViewColumn(self.col_names[self.col_num_modification_ts], renderer, text=self.col_num_modification_ts)
+        column.set_sort_column_id(self.col_num_modification_ts)
 
         column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         #column.set_fixed_width(50)
@@ -249,14 +249,14 @@ class DiffTree:
         column.set_reorderable(True)
         treeview.append_column(column)
 
-        if self.show_metachange_ts:
+        if self.show_change_ts:
             # METADATA CHANGE TS
             renderer = Gtk.CellRendererText()
             renderer.set_property('width-chars', 8)
             renderer.set_fixed_size(width=-1, height=ROW_HEIGHT)
             renderer.set_fixed_height_from_font(1)
-            column = Gtk.TreeViewColumn(self.col_names[self.col_num_metachange_ts], renderer, text=self.col_num_modification_date)
-            column.set_sort_column_id(self.col_num_metachange_ts)
+            column = Gtk.TreeViewColumn(self.col_names[self.col_num_change_ts], renderer, text=self.col_num_change_ts)
+            column.set_sort_column_id(self.col_num_change_ts)
 
             column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
             #column.set_fixed_width(50)
@@ -586,7 +586,7 @@ class DiffTree:
         num_bytes_str = humanfriendly.format_size(dmeta.size_bytes)
         row_values.append(num_bytes_str)  # Size
         row_values.append(None)  # Modify Date
-        if self.show_metachange_ts:
+        if self.show_change_ts:
             row_values.append(None)  # Modify Date
         row_values.append(dmeta)  # Data
         return self.model.append(tree_iter, row_values)
@@ -614,12 +614,12 @@ class DiffTree:
 
         modify_datetime = datetime.fromtimestamp(fmeta.modify_ts)
         modify_time = modify_datetime.strftime(DATETIME_FORMAT)
-        row_values.append(modify_time)  # Modify Date
+        row_values.append(modify_time)  # Modify TS
 
-        if self.show_metachange_ts:
-            metachange_datetime = datetime.fromtimestamp(fmeta.metachange_ts)
-            metachange_time = metachange_datetime.strftime(DATETIME_FORMAT)
-            row_values.append(metachange_time)  # Meta Change Date
+        if self.show_change_ts:
+            change_datetime = datetime.fromtimestamp(fmeta.metachange_ts)
+            change_time = change_datetime.strftime(DATETIME_FORMAT)
+            row_values.append(change_time)  # Change TS
 
         row_values.append(fmeta)  # Data
         return self.model.append(tree_iter, row_values)

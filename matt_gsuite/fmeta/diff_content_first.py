@@ -18,29 +18,31 @@ def _compare_paths_for_same_sig(lefts, left_tree, rights, right_tree):
         match = right_tree.get_for_path(left.file_path)
         if match is None:
             orphaned_left.append(left)
+        # Else we matched path exactly: we can discard this entry
 
     for right in rights:
         match = left_tree.get_for_path(right.file_path)
         if match is None:
             orphaned_right.append(right)
+        # Else we matched path exactly: we can discard this entry
 
-    num_lefts = len(lefts)
-    num_rights = len(rights)
+    num_lefts = len(orphaned_left)
+    num_rights = len(orphaned_right)
 
     compare_result = []
     i = 0
     while i < num_lefts and i < num_rights:
-        compare_result.append((lefts[i], rights[i]))
+        compare_result.append((orphaned_left[i], orphaned_right[i]))
         i += 1
 
     j = i
     while j < num_lefts:
-        compare_result.append((lefts[j], None))
+        compare_result.append((orphaned_left[j], None))
         j += 1
 
     j = i
     while j < num_rights:
-        compare_result.append((None, rights[j]))
+        compare_result.append((None, orphaned_right[j]))
         j += 1
 
     return compare_result
@@ -190,7 +192,7 @@ def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, invert_chang
                 # Finding a pair here indicates a conflict
                 if left is not None and right is not None:
                     conflict_pairs.append((left, right))
-                    print(f'CONFLICT: left={left.category.name} right={right.category.name}')
+                    print(f'CONFLICT: left={left.category.name}:{left.file_path} right={right.category.name}:{right.file_path}')
         else:
             _add_adjusted_metas(src_metas=left_metas, prefix=left_old_root_remainder, dst_tree=merged_tree)
             _add_adjusted_metas(src_metas=right_metas, prefix=right_old_root_remainder, dst_tree=merged_tree)
