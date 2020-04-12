@@ -1,6 +1,7 @@
 import os
 import shutil
 import re
+import errno
 import platform
 from fmeta.fmeta import FMeta, FMetaTree, Category
 import fmeta.content_hasher
@@ -123,13 +124,13 @@ def move_file(src_path, dst_path):
         raise
 
     if not os.path.exists(src_path):
-        raise FileNotFoundError(src_path)
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), src_path)
 
     if os.path.exists(dst_path):
         if os.path.isdir(src_path):
-            raise IsADirectoryError(dst_path)
+            raise IsADirectoryError(errno.EISDIR, os.strerror(errno.EISDIR), dst_path)
         else:
-            raise FileExistsError(dst_path)
+            raise FileNotFoundError(errno.EEXIST, os.strerror(errno.EEXIST), dst_path)
 
     os.rename(src_path, dst_path)
 

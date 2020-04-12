@@ -29,81 +29,14 @@ logger = logging.getLogger(__name__)
 def scan_disk(diff_tree, root_path):
     # Callback from FMetaDirScanner:
     def on_progress_made(progress, total, tree):
-        def update_progress(progress, total):
-            tree.set_status(f'Scanning file {progress} of {total}')
-        GLib.idle_add(update_progress, progress, total)
+        tree.set_status(f'Scanning file {progress} of {total}')
 
     progress_meter = ProgressMeter(lambda p, t: on_progress_made(p, t, diff_tree))
     status_msg = f'Scanning files in tree: {diff_tree.root_path}'
-    print(status_msg)
+   # print(status_msg)
     diff_tree.set_status(status_msg)
     dir_scanner = FMetaDirScanner(root_path=root_path, progress_meter=progress_meter)
     return dir_scanner.scan_local_tree()
-
-
-def diff_task(win, enable_db_cache):
-    try:
-        stopwatch = Stopwatch()
-        if enable_db_cache:
-            left_db = FMetaDatabase(LEFT_DB_PATH)
-            left_fmeta_tree: FMetaTree
-            win.diff_tree_right.set_status('Waiting...')
-            if left_db.has_data():
-                win.diff_tree_left.set_status(f'Loading Left data from DB: {LEFT_DB_PATH}')
-                left_fmeta_tree = left_db.load_fmeta_tree(LEFT_DIR_PATH)
-            else:
-                left_fmeta_tree = scan_disk(win.diff_tree_left, LEFT_DIR_PATH)
-                left_db.save_fmeta_tree(left_fmeta_tree)
-        else:
-            left_fmeta_tree = scan_disk(win.diff_tree_left, LEFT_DIR_PATH)
-        stopwatch.stop()
-        print(f'Left loaded in: {stopwatch}')
-        win.diff_tree_left.set_status(left_fmeta_tree.get_summary())
-
-        stopwatch = Stopwatch()
-        if enable_db_cache:
-            right_db = FMetaDatabase(RIGHT_DB_PATH)
-            if right_db.has_data():
-                win.diff_tree_right.set_status(f'Loading Right data from DB: {RIGHT_DB_PATH}')
-                right_fmeta_tree = right_db.load_fmeta_tree(RIGHT_DIR_PATH)
-            else:
-                right_fmeta_tree = scan_disk(win.diff_tree_right, RIGHT_DIR_PATH)
-                right_db.save_fmeta_tree(right_fmeta_tree)
-        else:
-            right_fmeta_tree = scan_disk(win.diff_tree_right, RIGHT_DIR_PATH)
-        stopwatch.stop()
-        print(f'Right loaded in: {stopwatch}')
-        win.diff_tree_right.set_status(right_fmeta_tree.get_summary())
-
-        logging.info("Diffing...")
-
-        stopwatch = Stopwatch()
-        diff_content_first.diff(left_fmeta_tree, right_fmeta_tree, compare_paths_also=True, use_modify_times=False)
-        stopwatch.stop()
-        print(f'Diff completed in: {stopwatch}')
-
-        def do_on_ui_thread():
-            win.diff_tree_left.rebuild_ui_tree(left_fmeta_tree)
-            win.diff_tree_right.rebuild_ui_tree(right_fmeta_tree)
-
-            # Replace diff btn with merge buttons
-            win.merge_btn = Gtk.Button(label="Merge Selected...")
-            win.merge_btn.connect("clicked", win.on_merge_btn_clicked)
-
-            win.bottom_button_panel.remove(win.diff_action_btn)
-            win.bottom_button_panel.pack_start(win.merge_btn, True, True, 0)
-            win.merge_btn.show()
-            print('Done')
-            logging.info('Done.')
-
-        GLib.idle_add(do_on_ui_thread)
-    except Exception as err:
-        print('Diff task failed with exception')
-
-        def do_on_ui_thread(err_msg):
-            GLib.idle_add(lambda: win.show_error_msg('Diff task failed due to unexpected error', err_msg))
-        do_on_ui_thread(repr(err))
-        raise
 
 
 class MergePreviewDialog(Gtk.Dialog):
@@ -135,7 +68,7 @@ class MergePreviewDialog(Gtk.Dialog):
 class DiffWindow(Gtk.ApplicationWindow):
     def __init__(self, application):
         Gtk.Window.__init__(self, application=application)
-        enable_db_cache = False
+        self.enable_db_cache = False
 
         self.set_title('UltraSync')
         # program icon:
@@ -184,9 +117,9 @@ class DiffWindow(Gtk.ApplicationWindow):
         self.bottom_button_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.content_box.add(self.bottom_button_panel)
 
-        self.diff_action_btn = Gtk.Button(label="Diff (content-first)")
-        self.diff_action_btn.connect("clicked", self.on_diff_button_clicked, enable_db_cache)
-        self.bottom_button_panel.pack_start(self.diff_action_btn, True, True, 0)
+        diff_action_btn = Gtk.Button(label="Diff (content-first)")
+        diff_action_btn.connect("clicked", self.execute_diff_task)
+        self.replace_bottom_button_panel(diff_action_btn)
 
       #  menubutton = Gtk.MenuButton()
       #  self.content_box.add(menubutton)
@@ -197,10 +130,13 @@ class DiffWindow(Gtk.ApplicationWindow):
 
         # TODO: create a 'Scan' button for each input source
 
-    def on_diff_button_clicked(self, widget, enable_db_cache):
-        action_thread = threading.Thread(target=diff_task, args=(self, enable_db_cache))
-        action_thread.daemon = True
-        action_thread.start()
+    def replace_bottom_button_panel(self, *buttons):
+        for child in self.bottom_button_panel.get_children():
+            self.bottom_button_panel.remove(child)
+
+        for button in buttons:
+            self.bottom_button_panel.pack_start(button, True, True, 0)
+            button.show()
 
     def on_merge_btn_clicked(self, widget):
         print('Merge btn clicked')
@@ -232,19 +168,84 @@ class DiffWindow(Gtk.ApplicationWindow):
                 # TODO: clear dir after use
                 file_util.apply_changes_atomically(tree=merged_changes_tree, staging_dir=staging_dir)
 
-                action_thread = threading.Thread(target=diff_task, args=(self, False))
-                action_thread.daemon = True
-                action_thread.start()
+                self.execute_diff_task()
             elif response == Gtk.ResponseType.CANCEL:
                 print("The Cancel button was clicked")
         except FileNotFoundError as err:
-            self.show_error_ui('File not found: ' + err.args[0])
+            self.show_error_ui('File not found: ' + err.filename)
             raise
         except Exception as err:
             self.show_error_ui('Diff task failed due to unexpected error', repr(err))
             raise
         finally:
             dialog.destroy()
+
+    def execute_diff_task(self, widget=None):
+        action_thread = threading.Thread(target=self.diff_task)
+        action_thread.daemon = True
+        action_thread.start()
+
+    def diff_task(self):
+        try:
+            stopwatch = Stopwatch()
+            if self.enable_db_cache:
+                left_db = FMetaDatabase(LEFT_DB_PATH)
+                left_fmeta_tree: FMetaTree
+                self.diff_tree_right.set_status('Waiting...')
+                if left_db.has_data():
+                    self.diff_tree_left.set_status(f'Loading Left data from DB: {LEFT_DB_PATH}')
+                    left_fmeta_tree = left_db.load_fmeta_tree(LEFT_DIR_PATH)
+                else:
+                    left_fmeta_tree = scan_disk(self.diff_tree_left, LEFT_DIR_PATH)
+                    left_db.save_fmeta_tree(left_fmeta_tree)
+            else:
+                left_fmeta_tree = scan_disk(self.diff_tree_left, LEFT_DIR_PATH)
+            stopwatch.stop()
+            print(f'Left loaded in: {stopwatch}')
+            self.diff_tree_left.set_status(left_fmeta_tree.get_summary())
+
+            stopwatch = Stopwatch()
+            if self.enable_db_cache:
+                right_db = FMetaDatabase(RIGHT_DB_PATH)
+                if right_db.has_data():
+                    self.diff_tree_right.set_status(f'Loading Right data from DB: {RIGHT_DB_PATH}')
+                    right_fmeta_tree = right_db.load_fmeta_tree(RIGHT_DIR_PATH)
+                else:
+                    right_fmeta_tree = scan_disk(self.diff_tree_right, RIGHT_DIR_PATH)
+                    right_db.save_fmeta_tree(right_fmeta_tree)
+            else:
+                right_fmeta_tree = scan_disk(self.diff_tree_right, RIGHT_DIR_PATH)
+            stopwatch.stop()
+            print(f'Right loaded in: {stopwatch}')
+            self.diff_tree_right.set_status(right_fmeta_tree.get_summary())
+
+            logging.info("Diffing...")
+
+            stopwatch = Stopwatch()
+            diff_content_first.diff(left_fmeta_tree, right_fmeta_tree, compare_paths_also=True, use_modify_times=False)
+            stopwatch.stop()
+            print(f'Diff completed in: {stopwatch}')
+
+            def do_on_ui_thread():
+                self.diff_tree_left.rebuild_ui_tree(left_fmeta_tree)
+                self.diff_tree_right.rebuild_ui_tree(right_fmeta_tree)
+
+                # Replace diff btn with merge buttons
+                merge_btn = Gtk.Button(label="Merge Selected...")
+                merge_btn.connect("clicked", self.on_merge_btn_clicked)
+
+                self.replace_bottom_button_panel(merge_btn)
+                print('Done')
+                logging.info('Done.')
+
+            GLib.idle_add(do_on_ui_thread)
+        except Exception as err:
+            print('Diff task failed with exception')
+
+            def do_on_ui_thread(err_msg):
+                GLib.idle_add(lambda: self.show_error_msg('Diff task failed due to unexpected error', err_msg))
+            do_on_ui_thread(repr(err))
+            raise
 
     def show_error_ui(self, msg, secondary_msg=None):
         def do_on_ui_thread(m, sm):
@@ -281,8 +282,7 @@ class DiffWindow(Gtk.ApplicationWindow):
         dialog.destroy()
 
 
-
-class MattApplication(Gtk.Application):
+class UltrasyncApplication(Gtk.Application):
     """Main application.
     See: https://athenajc.gitbooks.io/python-gtk-3-api/content/gtk-group/gtkapplication.html"""
     def __init__(self):
@@ -329,7 +329,7 @@ class MattApplication(Gtk.Application):
 
 
 def main():
-    application = MattApplication()
+    application = UltrasyncApplication()
     exit_status = application.run(sys.argv)
     sys.exit(exit_status)
 

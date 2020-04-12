@@ -289,7 +289,7 @@ class DiffTree:
 
     def set_status(self, status_msg):
         #print(status_msg)
-        self.status_bar.set_label(status_msg)
+        GLib.idle_add(lambda: self.status_bar.set_label(status_msg))
 
     @classmethod
     def _build_info_bar(cls):
