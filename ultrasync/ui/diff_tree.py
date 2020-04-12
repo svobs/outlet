@@ -350,8 +350,7 @@ class DiffTree:
             mods.append('Super')
         if (event.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK:
             mods.append('Alt')
-        logger.debug(f'Key pressed: "{Gdk.keyval_name(event.keyval)}" ({event.keyval})')
-        logger.debug(f'  Modifiers: {" ".join(mods)}')
+        logger.debug(f'Key pressed, mods: {Gdk.keyval_name(event.keyval)} ({event.keyval}), {" ".join(mods)}')
 
         if event.keyval == Gdk.KEY_Delete:
             logger.debug('DELETE key detected!')
