@@ -8,6 +8,7 @@
 # Compare the output of this script with `tree -a .`
 import sys
 import os
+import errno
 from datetime import datetime
 import time
 import logging
@@ -82,10 +83,10 @@ class FMetaDirScanner(TreeRecurser):
     def scan_local_tree(self):
         root_path = str(self.root_path)
         if not os.path.exists(root_path):
-            raise FileNotFoundError('File not found: ' + root_path)
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), root_path)
         local_path = Path(root_path)
         # First survey our local files:
-        logger.debug(f'Scanning path: {local_path}')
+        logger.info(f'Scanning path: {local_path}')
         file_counter = FileCounter(local_path)
         file_counter.recurse_through_dir_tree()
         logger.debug(f'Found {file_counter.files_to_scan} files to scan.')

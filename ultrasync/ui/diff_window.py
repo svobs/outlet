@@ -10,15 +10,20 @@ from fmeta.fmeta_builder import FMetaDirScanner, FMetaDatabase
 from fmeta import diff_content_first
 from ui.progress_meter import ProgressMeter
 from ui.diff_tree import DiffTree
+from ui.base_dialog import BaseDialog
 
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gio, GObject
 
-LEFT_DB_PATH = get_resource_path('test/BiDirMerge/Left.db')
-RIGHT_DB_PATH = get_resource_path('test/BiDirMerge/Right.db')
-LEFT_DIR_PATH = get_resource_path('test/BiDirMerge/Sen Mitsuji Left')
-RIGHT_DIR_PATH = get_resource_path('test/BiDirMerge/Sen Mitsuji Right')
+# LEFT_DB_PATH = get_resource_path('test/BiDirMerge/Left.db')
+# RIGHT_DB_PATH = get_resource_path('test/BiDirMerge/Right.db')
+# LEFT_DIR_PATH = get_resource_path('test/BiDirMerge/Sen Mitsuji Left')
+# RIGHT_DIR_PATH = get_resource_path('test/BiDirMerge/Sen Mitsuji Right')
+LEFT_DB_PATH = get_resource_path('test/SvobodaLeft.db')
+RIGHT_DB_PATH = get_resource_path('test/SvobodaRight.db')
+LEFT_DIR_PATH = get_resource_path('/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos')
+RIGHT_DIR_PATH = get_resource_path('/media/msvoboda/Thumb128G/Takeout/Google Photos')
 
 WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
 STAGING_DIR_PATH = get_resource_path("temp")
@@ -38,10 +43,11 @@ def scan_disk(diff_tree):
     return dir_scanner.scan_local_tree()
 
 
-class MergePreviewDialog(Gtk.Dialog):
+class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
     def __init__(self, parent, fmeta_tree):
         Gtk.Dialog.__init__(self, "Confirm Merge", parent, 0)
+        BaseDialog.__init__(self)
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
@@ -64,10 +70,11 @@ class MergePreviewDialog(Gtk.Dialog):
         self.show_all()
 
 
-class DiffWindow(Gtk.ApplicationWindow):
+class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
     def __init__(self, application):
         Gtk.Window.__init__(self, application=application)
-        self.enable_db_cache = False
+        BaseDialog.__init__(self)
+        self.enable_db_cache = True
 
         self.set_title('UltraSync')
         # program icon:
@@ -175,7 +182,8 @@ class DiffWindow(Gtk.ApplicationWindow):
             raise
         except Exception as err:
             logger.exception(err)
-            self.show_error_ui('Diff task failed due to unexpected error', repr(err))
+            detail = f'{repr(err)}]'
+            self.show_error_ui('Diff task failed due to unexpected error', detail)
             raise
         finally:
             dialog.destroy()
@@ -245,38 +253,4 @@ class DiffWindow(Gtk.ApplicationWindow):
                 GLib.idle_add(lambda: self.show_error_msg('Diff task failed due to unexpected error', err_msg))
             do_on_ui_thread(repr(err))
             raise
-
-    def show_error_ui(self, msg, secondary_msg=None):
-        def do_on_ui_thread(m, sm):
-            GLib.idle_add(lambda: self.show_error_msg(m, sm))
-        do_on_ui_thread(msg, secondary_msg)
-
-    def show_error_msg(self, msg, secondary_msg=None):
-        dialog = Gtk.MessageDialog(parent=self, modal=True, message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CANCEL, text=msg)
-        if secondary_msg is None:
-            logger.info(f'ERROR: {msg}')
-        else:
-            logger.info(f'ERROR: {msg}: {secondary_msg}')
-            dialog.format_secondary_text(secondary_msg)
-
-        def run_on_ui_thread():
-            dialog.run()
-            dialog.destroy()
-
-        run_on_ui_thread()
-
-    def on_question_clicked(self, msg, secondary_msg=None):
-        dialog = Gtk.MessageDialog(parent=self, modal=True, message_type=Gtk.MessageType.QUESTION, buttons=Gtk.ButtonsType.YES_NO, text=msg)
-        if secondary_msg is None:
-            logger.debug(f'Q: {msg}')
-        else:
-            logger.debug(f'Q: {msg}: {secondary_msg}')
-            dialog.format_secondary_text(secondary_msg)
-        response = dialog.run()
-        if response == Gtk.ResponseType.YES:
-            logger.debug("QUESTION dialog closed by clicking YES button")
-        elif response == Gtk.ResponseType.NO:
-            logger.debug("QUESTION dialog closed by clicking NO button")
-
-        dialog.destroy()
 

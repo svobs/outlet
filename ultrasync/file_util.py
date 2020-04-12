@@ -13,7 +13,9 @@ logger = logging.getLogger(__name__)
 def get_resource_path(rel_path: str, resolve_symlinks=False):
     """Returns the absolute path from the given relative path (relative to the project dir)"""
 
-    assert not rel_path.startswith('/')
+    if rel_path.startswith('/'):
+        logger.debug(f'get_resource_path(): Already an absolute path: {rel_path}')
+        return rel_path
     dir_of_py_file = os.path.dirname(__file__)
     project_dir = os.path.join(dir_of_py_file, os.pardir)
     rel_path_to_resource = os.path.join(project_dir, rel_path)
@@ -83,26 +85,39 @@ def creation_date(path_to_file):
 
 def apply_changes_atomically(tree: FMetaTree, staging_dir):
     for fmeta in tree.get_for_cat(Category.Added):
-        src_path = os.path.join(tree.root_path, fmeta.file_path)
-        dst_path = os.path.join(tree.root_path, fmeta.prev_path)
-        # TODO: what if staging dir is not on same file system?
-        staging_path = os.path.join(staging_dir, fmeta.signature)
-        logger.debug(f'CP: src={src_path}')
-        logger.debug(f'    stg={staging_path}')
-        logger.debug(f'    dst={dst_path}')
-        copy_file_linux_with_attrs(src_path, staging_path, dst_path, fmeta.signature, True)
+        try:
+            src_path = os.path.join(tree.root_path, fmeta.prev_path)
+            dst_path = os.path.join(tree.root_path, fmeta.file_path)
+            # TODO: what if staging dir is not on same file system?
+            staging_path = os.path.join(staging_dir, fmeta.signature)
+            logger.debug(f'CP: src={src_path}')
+            logger.debug(f'    stg={staging_path}')
+            logger.debug(f'    dst={dst_path}')
+            copy_file_linux_with_attrs(src_path, staging_path, dst_path, fmeta.signature, True)
+        except Exception:
+            # Try to log helpful info
+            logger.error(f'Exception occurred while processing Added file: root="{tree.root_path}", file_path="{fmeta.file_path}", prev_path="{fmeta.prev_path}"')
+            raise
 
     for fmeta in tree.get_for_cat(Category.Deleted):
-        tgt_path = os.path.join(tree.root_path, fmeta.file_path)
-        logger.debug(f'RM: tgt={tgt_path}')
-        delete_file(tgt_path)
+        try:
+            tgt_path = os.path.join(tree.root_path, fmeta.file_path)
+            logger.debug(f'RM: tgt={tgt_path}')
+            delete_file(tgt_path)
+        except Exception:
+            logger.error(f'Exception occurred while processing Deleted file: root="{tree.root_path}", file_path={fmeta.file_path}')
+            raise
 
     for fmeta in tree.get_for_cat(Category.Moved):
-        src_path = os.path.join(tree.root_path, fmeta.prev_path)
-        dst_path = os.path.join(tree.root_path, fmeta.file_path)
-        logger.debug(f'MV: src={src_path}')
-        logger.debug(f'    dst={dst_path}')
-        move_file(src_path, dst_path)
+        try:
+            src_path = os.path.join(tree.root_path, fmeta.prev_path)
+            dst_path = os.path.join(tree.root_path, fmeta.file_path)
+            logger.debug(f'MV: src={src_path}')
+            logger.debug(f'    dst={dst_path}')
+            move_file(src_path, dst_path)
+        except Exception:
+            logger.error(f'Exception occurred while processing Moved file: root="{tree.root_path}", file_path="{fmeta.file_path}", prev_path="{fmeta.prev_path}"')
+            raise
 
 
 def delete_file(tgt_path, to_trash=False):

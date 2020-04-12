@@ -7,6 +7,7 @@ from fmeta.fmeta import FMeta, FMetaTree, Category
 
 logger = logging.getLogger(__name__)
 
+
 def _compare_paths_for_same_sig(lefts, left_tree, rights, right_tree):
     if lefts is None:
         lefts = []

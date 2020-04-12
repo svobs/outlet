@@ -322,7 +322,7 @@ class DiffTree:
             i1.connect('activate', lambda menu_item, f: self.show_in_nautilus(f), abs_path)
             menu.append(i1)
 
-            if os.path.isdir(file_name):
+            if os.path.isdir(abs_path):
                 i2 = Gtk.MenuItem(label=f'Delete tree "{file_name}"')
                 i2.connect('activate', lambda menu_item, abs_p: self.delete_dir_tree(abs_p, tree_path), abs_path)
                 menu.append(i2)
@@ -424,7 +424,7 @@ class DiffTree:
                 logger.info(f'Deleting file: {file_path}')
                 os.remove(file_path)
             except Exception as err:
-                self.parent_win.show_error_msg(f'Error deleting file "{file_path}"', err)
+                self.parent_win.show_error_msg(f'Error deleting file "{file_path}"', str(err))
                 raise
             finally:
                 self.update_subtree(tree_path)
@@ -464,11 +464,12 @@ class DiffTree:
                 tree_view.collapse_row(path)
             else:
                 tree_view.expand_row(path=path, open_all=False)
-        elif type(node_data) == DirNode:
+        elif type(node_data) == DirNode or type(node_data) == FMeta and node_data.category != Category.Deleted:
+            # TODO: ensure prev_path is filled out for all nodes!
             file_path = os.path.join(self.root_path, node_data.file_path)
-            xdg_open = True
-        elif type(node_data) == FMeta:
-            file_path = os.path.join(self.root_path, node_data.file_path)
+            if not os.path.exists(file_path):
+                # File is an 'added' node or some such. Open the old one:
+                file_path = os.path.join(self.root_path, node_data.prev_path)
             xdg_open = True
         else:
             raise RuntimeError('Unexpected data element')
