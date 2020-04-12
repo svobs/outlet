@@ -2,8 +2,10 @@
 import file_util
 import os
 import copy
+import logging
 from fmeta.fmeta import FMeta, FMetaTree, Category
 
+logger = logging.getLogger(__name__)
 
 def _compare_paths_for_same_sig(lefts, left_tree, rights, right_tree):
     if lefts is None:
@@ -53,7 +55,7 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
        each tree (in other words, we care about file contents, and care less about where each
        file is placed). If a file is found with the same signature on both sides but with
        different paths, it is assumed to be renamed/moved."""
-    print('Computing naive diff of file sets by signature...')
+    logger.debug('Computing naive diff of file sets by signature...')
 
     left_tree.clear_categories()
     right_tree.clear_categories()
@@ -73,14 +75,14 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
             for right_meta in right_metas:
                 # TODO: allow ignoring of duplicates (-> use only first file
                 # TODO: or use file with oldest meta)
-                #print(f'Right has new file: "{right_meta.file_path}"')
+                logger.debug(f'Right has new file: "{right_meta.file_path}"')
                 right_tree.categorize(right_meta, Category.Added)
                 # Note: deleted nodes should not be thought of like 'real' nodes
                 right_meta_copy = copy.deepcopy(right_meta)
                 left_tree.categorize(right_meta_copy, Category.Deleted)
         elif right_metas is None:
             for left_meta in left_metas:
-                #print(f'Left has new file: "{left_meta.file_path}"')
+                logger.debug(f'Left has new file: "{left_meta.file_path}"')
                 left_tree.categorize(left_meta, Category.Added)
                 left_meta_copy = copy.deepcopy(left_meta)
                 right_tree.categorize(left_meta_copy, Category.Deleted)
@@ -131,13 +133,13 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
                         right_tree.categorize(changed_left_copy, Category.Deleted)
                         continue
 
-    print(f'Done with diff. Left:[{left_tree.get_category_summary_string()}] Right:[{right_tree.get_category_summary_string()}]')
+    logger.debug(f'Done with diff. Left:[{left_tree.get_category_summary_string()}] Right:[{right_tree.get_category_summary_string()}]')
 
     debug = False
-    print('Validating categories on Left...')
-    left_tree.validate_categories(print_debug=debug)
-    print('Validating categories on Right...')
-    right_tree.validate_categories(print_debug=debug)
+    logger.debug('Validating categories on Left...')
+    left_tree.validate_categories()
+    logger.debug('Validating categories on Right...')
+    right_tree.validate_categories()
 
     return left_tree, right_tree
 
@@ -153,7 +155,7 @@ def find_nearest_common_ancestor(path1, path2):
             ancestor_path = os.path.join(ancestor_path, path_segs1[i])
             i += 1
         else:
-            print(f'Common ancestor: {ancestor_path}')
+            logger.info(f'Common ancestor: {ancestor_path}')
             return ancestor_path
 
 
@@ -192,13 +194,13 @@ def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_co
                 # Finding a pair here indicates a conflict
                 if left is not None and right is not None:
                     conflict_pairs.append((left, right))
-                    print(f'CONFLICT: left={left.category.name}:{left.file_path} right={right.category.name}:{right.file_path}')
+                    logger.debug(f'CONFLICT: left={left.category.name}:{left.file_path} right={right.category.name}:{right.file_path}')
         else:
             _add_adjusted_metas(src_metas=left_metas, prefix=left_old_root_remainder, prev_prefix=right_old_root_remainder,dst_tree=merged_tree)
             _add_adjusted_metas(src_metas=right_metas, prefix=right_old_root_remainder, prev_prefix=left_old_root_remainder,dst_tree=merged_tree)
 
     if len(conflict_pairs) > 0:
-        print(f'Number of conflicts found: {len(conflict_pairs)}')
+        logger.info(f'Number of conflicts found: {len(conflict_pairs)}')
         return None, conflict_pairs
     else:
         return merged_tree, None

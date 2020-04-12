@@ -1,6 +1,9 @@
 import humanfriendly
 import itertools
+import logging
 from enum import Enum, auto
+
+logger = logging.getLogger(__name__)
 
 # See: https://www.notinventedhere.org/articles/python/how-to-use-strings-as-name-aliases-in-python-enums.html
 _CATEGORIES = {
@@ -71,7 +74,7 @@ class DirNode:
 
     def add_meta(self, fmeta):
         if fmeta.category != self.category:
-            print(f'BAD CATEGORY: expected={self.category} found={fmeta.category} path={fmeta.file_path}')
+            logger.error(f'BAD CATEGORY: expected={self.category} found={fmeta.category} path={fmeta.file_path}')
         assert fmeta.category == self.category
         self.items += 1
         self.size_bytes += fmeta.size_bytes
@@ -136,25 +139,25 @@ class FMetaTree:
             if cat != Category.Ignored:
                 cat_list.list.clear()
 
-    def validate_categories(self, print_debug=False):
+    def validate_categories(self):
         errors = 0
         for cat, cat_list in self._cat_dict.items():
-            if print_debug:
-                print(f'Examining Category {cat.name}')
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f'Examining Category {cat.name}')
             by_path = {}
             for fmeta in cat_list.list:
-                if print_debug:
-                    print(f'Examining FMeta path: {fmeta.file_path}')
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f'Examining FMeta path: {fmeta.file_path}')
                 if fmeta.category != cat:
-                    if print_debug:
-                        print(f'ERROR: BAD CATEGORY: found: {fmeta.category}')
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(f'ERROR: BAD CATEGORY: found: {fmeta.category}')
                     errors += 1
                 existing = by_path.get(fmeta.file_path, None)
                 if existing is None:
                     by_path[fmeta.file_path] = fmeta
                 else:
-                    if print_debug:
-                        print(f'ERROR: DUP IN CATEGORY: {fmeta.category.name}')
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(f'ERROR: DUP IN CATEGORY: {fmeta.category.name}')
                     errors += 1
         if errors > 0:
             raise RuntimeError(f'Category validation found {errors} errors')
@@ -189,7 +192,7 @@ class FMetaTree:
 
     def add(self, item: FMeta):
         if item.category == Category.Ignored:
-            print(f'Found ignored file: {item.file_path}')
+            logger.debug(f'Found ignored file: {item.file_path}')
         else:
             # ignored files may not have signatures
             set_matching_sig = self.sig_dict.get(item.signature, None)
@@ -202,7 +205,7 @@ class FMetaTree:
 
         item_matching_path = self._path_dict.get(item.file_path, None)
         if item_matching_path is not None:
-            print(f'WARNING: overwriting metadata for path: {item.file_path}')
+            logger.warning(f'Overwriting metadata for path: {item.file_path}')
             self._total_size_bytes -= item_matching_path.size_bytes
         self._total_size_bytes += item.size_bytes
         self._path_dict[item.file_path] = item

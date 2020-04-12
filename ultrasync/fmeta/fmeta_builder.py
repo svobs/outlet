@@ -10,6 +10,7 @@ import sys
 import os
 from datetime import datetime
 import time
+import logging
 import file_util
 from fmeta.fmeta import FMeta, FMetaTree, Category
 from fmeta.tree_recurser import TreeRecurser
@@ -23,6 +24,8 @@ VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp
 
 if sys.version_info[0] < 3:
     raise Exception("Python 3 or a more recent version is required.")
+
+logger = logging.getLogger(__name__)
 
 
 def build_sync_item(root_path, file_path, category=Category.NA):
@@ -38,14 +41,13 @@ def build_sync_item(root_path, file_path, category=Category.NA):
     # Get "now" in UNIX time:
     date_time_now = datetime.now()
     sync_ts = int(time.mktime(date_time_now.timetuple()))
-    #print(' '.join((str(sync_ts), signature_str, relative_path)))
     size_bytes = os.stat(file_path).st_size
 
     stat = os.stat(file_path)
     modify_ts = int(stat.st_mtime)
-    metachange_ts = int(stat.st_ctime)
+    change_ts = int(stat.st_ctime)
 
-    return FMeta(signature_str, size_bytes, sync_ts, modify_ts, metachange_ts, relative_path, category)
+    return FMeta(signature_str, size_bytes, sync_ts, modify_ts, change_ts, relative_path, category)
 
 
 # SUPPORT CLASSES ####################
@@ -83,14 +85,14 @@ class FMetaDirScanner(TreeRecurser):
             raise FileNotFoundError('File not found: ' + root_path)
         local_path = Path(root_path)
         # First survey our local files:
-        print(f'Scanning path: {local_path}')
+        logger.debug(f'Scanning path: {local_path}')
         file_counter = FileCounter(local_path)
         file_counter.recurse_through_dir_tree()
-        print('Found ' + str(file_counter.files_to_scan) + ' files to scan.')
+        logger.debug(f'Found {file_counter.files_to_scan} files to scan.')
         if self.progress_meter is not None:
             self.progress_meter.set_total(file_counter.files_to_scan)
         self.recurse_through_dir_tree()
-        print(self.fmeta_tree.get_stats_string())
+        logger.info(self.fmeta_tree.get_stats_string())
         return self.fmeta_tree
 
 
@@ -118,8 +120,8 @@ class FMetaDatabase:
                 fmeta_tree.add(change)
                 counter += 1
 
-        print(f'Reduced {str(len(db_file_changes))} DB changes into {str(counter)} entries')
-        print(fmeta_tree.get_stats_string())
+        logger.debug(f'Reduced {str(len(db_file_changes))} DB changes into {str(counter)} entries')
+        logger.info(fmeta_tree.get_stats_string())
         return fmeta_tree
 
     def save_fmeta_tree(self, fmeta_tree):
@@ -128,4 +130,4 @@ class FMetaDatabase:
 
         to_insert = fmeta_tree.get_all()
         self.db.insert_file_changes(to_insert)
-        print(f'Inserted {str(len(to_insert))} FMetas into previously empty DB table.')
+        logger.info(f'Inserted {str(len(to_insert))} FMetas into previously empty DB table.')

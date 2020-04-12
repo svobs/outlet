@@ -3,6 +3,7 @@ import shutil
 from datetime import datetime
 import humanfriendly
 import file_util
+import logging
 from fmeta.fmeta import FMeta, DirNode, CategoryNode, FMetaTree, Category
 from treelib import Node, Tree
 from ui.root_dir_panel import RootDirPanel
@@ -14,6 +15,8 @@ import subprocess
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 ROW_HEIGHT = 30
 count = 0
+
+logger = logging.getLogger(__name__)
 
 
 def _build_icons(icon_size):
@@ -274,9 +277,9 @@ class DiffTree:
             if treeiter is not None and len(treeiter) == 1:
                 meta = model[treeiter][self.col_num_data]
                 if isinstance(meta, FMeta):
-                    print(f'User selected signature {meta.signature}')
+                    logger.debug(f'User selected signature {meta.signature}')
                 else:
-                    print(f'User selected {model[treeiter][self.col_num_name]}')
+                    logger.debug(f'User selected {model[treeiter][self.col_num_name]}')
 
         select = treeview.get_selection()
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
@@ -288,7 +291,6 @@ class DiffTree:
         return treeview
 
     def set_status(self, status_msg):
-        #print(status_msg)
         GLib.idle_add(lambda: self.status_bar.set_label(status_msg))
 
     @classmethod
@@ -334,15 +336,15 @@ class DiffTree:
 
     def on_key_press(self, widget, event, user_data=None):
         """Fired when a key is pressed"""
-        print("Key press on widget: ", widget)
-        print("          Modifiers: ", event.state)
-        print("      Key val, name: ", event.keyval, Gdk.keyval_name(event.keyval))
+        logger.debug("Key press on widget: ", widget)
+        logger.debug("          Modifiers: ", event.state)
+        logger.debug("      Key val, name: ", event.keyval, Gdk.keyval_name(event.keyval))
 
         # check the event modifiers (can also use SHIFTMASK, etc)
        # ctrl = (event.state & Gdk.ModifierType.CONTROL_MASK)
 
         if event.keyval == Gdk.KEY_Delete:
-            print('DELETE key detected!')
+            logger.debug('DELETE key detected!')
 
             # Get the TreeView selected row(s)
             selection = self.treeview.get_selection()
@@ -373,9 +375,9 @@ class DiffTree:
             fmeta = self.model[tree_path][self.col_num_data]
             if fmeta.file_path == '':
                 # This is the category node
-                print(f'User right-clicked on {self.model[tree_path][self.col_num_name]}')
+                logger.debug(f'User right-clicked on {self.model[tree_path][self.col_num_name]}')
             else:
-                print(f'User right-clicked on {fmeta.file_path}')
+                logger.debug(f'User right-clicked on {fmeta.file_path}')
 
             # Display context menu:
             context_menu = self.build_context_menu(tree_path, fmeta)
@@ -410,7 +412,7 @@ class DiffTree:
 
     def show_in_nautilus(self, file_path):
         if os.path.exists(file_path):
-            print(f'Opening in Nautilus: {file_path}')
+            logger.info(f'Opening in Nautilus: {file_path}')
             subprocess.check_call(["nautilus", "--browser", file_path])
         else:
             self.parent_win.show_error_msg('Cannot open file in Nautilus', f'File not found: {file_path}')
@@ -419,7 +421,7 @@ class DiffTree:
         """ Param file_path must be an absolute path"""
         if os.path.exists(file_path):
             try:
-                print(f'Deleting file: {file_path}')
+                logger.info(f'Deleting file: {file_path}')
                 os.remove(file_path)
             except Exception as err:
                 self.parent_win.show_error_msg(f'Error deleting file "{file_path}"', err)
@@ -433,7 +435,7 @@ class DiffTree:
         """ Param file_path must be an absolute path"""
         if os.path.exists(file_path):
             try:
-                print(f'Deleting dir tree: {file_path}')
+                logger.info(f'Deleting dir tree: {file_path}')
                 shutil.rmtree(file_path)
                 return True
             except Exception as err:
@@ -447,7 +449,7 @@ class DiffTree:
 
     def call_xdg_open(self, file_path):
         if os.path.exists(file_path):
-            print(f'Calling xdg-open for: {file_path}')
+            logger.info(f'Calling xdg-open for: {file_path}')
             subprocess.check_call(["xdg-open", file_path])
         else:
             self.parent_win.show_error_msg(f'Cannot open file', f'File not found: {file_path}')
@@ -478,11 +480,11 @@ class DiffTree:
         """Called when checkbox in treeview is toggled"""
         data_node = self.model[path][self.col_num_data]
         if data_node.category == Category.Ignored:
-            print('Disallowing checkbox toggle because node is in IGNORED category')
+            logger.debug('Disallowing checkbox toggle because node is in IGNORED category')
             return
         # DOC: model[path][column] = not model[path][column]
         checked_value = not self.model[path][self.col_num_checked]
-        print(f'Toggled {checked_value}: {self.model[path][self.col_num_name]}')
+        logger.debug(f'Toggled {checked_value}: {self.model[path][self.col_num_name]}')
         self.model[path][self.col_num_checked] = checked_value
         self.model[path][self.col_num_inconsistent] = False
 
@@ -557,7 +559,7 @@ class DiffTree:
 
         set_len = len(change_set)
         if set_len > 0:
-            print(f'Building change trees for category {category.name} with {set_len} files...')
+            logger.info(f'Building change trees for category {category.name} with {set_len} files...')
 
             root = change_tree.create_node(tag=f'{category.name} ({set_len} files)', identifier='', data=CategoryNode(category))   # root
             for fmeta in change_set:
@@ -565,7 +567,7 @@ class DiffTree:
                 # nid == Node ID == directory name
                 nid = ''
                 parent = root
-                #print(f'Adding root file "{fmeta.file_path}" to dir "{parent.data.file_path}"')
+                #logger.debug(f'Adding root file "{fmeta.file_path}" to dir "{parent.data.file_path}"')
                 parent.data.add_meta(fmeta)
                 if dirs_str != '':
                     directories = file_util.split_path(dirs_str)
@@ -573,13 +575,13 @@ class DiffTree:
                         nid = os.path.join(nid, dir_name)
                         child = change_tree.get_node(nid=nid)
                         if child is None:
-                            #print(f'Creating dir: {nid}')
+                            #logger.debug(f'Creating dir: {nid}')
                             child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=DirNode(nid, category))
                         parent = child
-                        #print(f'Adding file "{fmeta.file_path}" to dir {parent.data.file_path}"')
+                        #logger.debug(f'Adding file "{fmeta.file_path}" to dir {parent.data.file_path}"')
                         parent.data.add_meta(fmeta)
                 nid = os.path.join(nid, file_name)
-                #print(f'Creating file: {nid}')
+                #logger.debug(f'Creating file: {nid}')
                 change_tree.create_node(identifier=nid, tag=file_name, parent=parent, data=fmeta)
 
         return change_tree
@@ -649,7 +651,7 @@ class DiffTree:
 
         def do_on_ui_thread():
             if change_tree.size(1) > 0:
-                #print(f'Appending category: {category.name}')
+                #logger.debug(f'Appending category: {category.name}')
                 root = change_tree.get_node('')
                 append_recursively(None, root)
 
@@ -689,7 +691,7 @@ class DiffTree:
         def action_func(t_iter):
             if self.model[t_iter][self.col_num_checked]:
                 data_node = self.model[t_iter][self.col_num_data]
-                #print(f'Node: {self.model[t_iter][self.col_num_name]} = {type(data_node)}')
+                #logger.debug(f'Node: {self.model[t_iter][self.col_num_name]} = {type(data_node)}')
                 if isinstance(data_node, FMeta):
                     selected_changes.add(data_node)
 

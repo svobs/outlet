@@ -33,7 +33,6 @@ def scan_disk(diff_tree, root_path):
 
     progress_meter = ProgressMeter(lambda p, t: on_progress_made(p, t, diff_tree))
     status_msg = f'Scanning files in tree: {diff_tree.root_path}'
-   # print(status_msg)
     diff_tree.set_status(status_msg)
     dir_scanner = FMetaDirScanner(root_path=root_path, progress_meter=progress_meter)
     return dir_scanner.scan_local_tree()
@@ -139,12 +138,12 @@ class DiffWindow(Gtk.ApplicationWindow):
             button.show()
 
     def on_merge_btn_clicked(self, widget):
-        print('Merge btn clicked')
+        logger.debug('Merge btn clicked')
 
         left_selected_changes = self.diff_tree_left.get_selected_changes()
-        print(f'Left changes: {left_selected_changes.get_summary()}')
+        logger.info(f'Left changes: {left_selected_changes.get_summary()}')
         right_selected_changes = self.diff_tree_right.get_selected_changes()
-        print(f'Right changes: {right_selected_changes.get_summary()}')
+        logger.info(f'Right changes: {right_selected_changes.get_summary()}')
         if len(left_selected_changes.get_all()) == 0 and len(right_selected_changes.get_all()) == 0:
             self.show_error_msg('You must select change(s) first.')
             return
@@ -155,7 +154,7 @@ class DiffWindow(Gtk.ApplicationWindow):
             self.show_error_msg('Cannot merge', f'{len(conflict_pairs)} conflicts found')
             return
 
-        print(f'Merged changes: {merged_changes_tree.get_summary()}')
+        logger.info(f'Merged changes: {merged_changes_tree.get_summary()}')
 
         # Preview changes in UI pop-up
         dialog = MergePreviewDialog(self, merged_changes_tree)
@@ -163,18 +162,19 @@ class DiffWindow(Gtk.ApplicationWindow):
 
         try:
             if response == Gtk.ResponseType.OK:
-                print("The OK button was clicked")
+                logger.debug("The OK button was clicked")
                 staging_dir = STAGING_DIR_PATH
                 # TODO: clear dir after use
                 file_util.apply_changes_atomically(tree=merged_changes_tree, staging_dir=staging_dir)
 
                 self.execute_diff_task()
             elif response == Gtk.ResponseType.CANCEL:
-                print("The Cancel button was clicked")
+                logger.debug("The Cancel button was clicked")
         except FileNotFoundError as err:
             self.show_error_ui('File not found: ' + err.filename)
             raise
         except Exception as err:
+            logger.exception(err)
             self.show_error_ui('Diff task failed due to unexpected error', repr(err))
             raise
         finally:
@@ -201,7 +201,7 @@ class DiffWindow(Gtk.ApplicationWindow):
             else:
                 left_fmeta_tree = scan_disk(self.diff_tree_left, LEFT_DIR_PATH)
             stopwatch.stop()
-            print(f'Left loaded in: {stopwatch}')
+            logger.info(f'Left loaded in: {stopwatch}')
             self.diff_tree_left.set_status(left_fmeta_tree.get_summary())
 
             stopwatch = Stopwatch()
@@ -216,15 +216,15 @@ class DiffWindow(Gtk.ApplicationWindow):
             else:
                 right_fmeta_tree = scan_disk(self.diff_tree_right, RIGHT_DIR_PATH)
             stopwatch.stop()
-            print(f'Right loaded in: {stopwatch}')
+            logger.info(f'Right loaded in: {stopwatch}')
             self.diff_tree_right.set_status(right_fmeta_tree.get_summary())
 
-            logging.info("Diffing...")
+            logger.info("Diffing...")
 
             stopwatch = Stopwatch()
             diff_content_first.diff(left_fmeta_tree, right_fmeta_tree, compare_paths_also=True, use_modify_times=False)
             stopwatch.stop()
-            print(f'Diff completed in: {stopwatch}')
+            logger.info(f'Diff completed in: {stopwatch}')
 
             def do_on_ui_thread():
                 self.diff_tree_left.rebuild_ui_tree(left_fmeta_tree)
@@ -235,12 +235,11 @@ class DiffWindow(Gtk.ApplicationWindow):
                 merge_btn.connect("clicked", self.on_merge_btn_clicked)
 
                 self.replace_bottom_button_panel(merge_btn)
-                print('Done')
-                logging.info('Done.')
+                logger.info('Done.')
 
             GLib.idle_add(do_on_ui_thread)
         except Exception as err:
-            print('Diff task failed with exception')
+            logger.exception('Diff task failed with exception')
 
             def do_on_ui_thread(err_msg):
                 GLib.idle_add(lambda: self.show_error_msg('Diff task failed due to unexpected error', err_msg))
@@ -255,9 +254,9 @@ class DiffWindow(Gtk.ApplicationWindow):
     def show_error_msg(self, msg, secondary_msg=None):
         dialog = Gtk.MessageDialog(parent=self, modal=True, message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CANCEL, text=msg)
         if secondary_msg is None:
-            print(f'ERROR: {msg}')
+            logger.info(f'ERROR: {msg}')
         else:
-            print(f'ERROR: {msg}: {secondary_msg}')
+            logger.info(f'ERROR: {msg}: {secondary_msg}')
             dialog.format_secondary_text(secondary_msg)
 
         def run_on_ui_thread():
@@ -269,15 +268,15 @@ class DiffWindow(Gtk.ApplicationWindow):
     def on_question_clicked(self, msg, secondary_msg=None):
         dialog = Gtk.MessageDialog(parent=self, modal=True, message_type=Gtk.MessageType.QUESTION, buttons=Gtk.ButtonsType.YES_NO, text=msg)
         if secondary_msg is None:
-            print(f'Q: {msg}')
+            logger.debug(f'Q: {msg}')
         else:
-            print(f'Q: {msg}: {secondary_msg}')
+            logger.debug(f'Q: {msg}: {secondary_msg}')
             dialog.format_secondary_text(secondary_msg)
         response = dialog.run()
         if response == Gtk.ResponseType.YES:
-            print("QUESTION dialog closed by clicking YES button")
+            logger.debug("QUESTION dialog closed by clicking YES button")
         elif response == Gtk.ResponseType.NO:
-            print("QUESTION dialog closed by clicking NO button")
+            logger.debug("QUESTION dialog closed by clicking NO button")
 
         dialog.destroy()
 

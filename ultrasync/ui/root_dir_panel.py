@@ -1,6 +1,9 @@
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def _on_root_dir_selected(dialog, response_id, root_dir_panel):
@@ -9,17 +12,17 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
     # if response is "ACCEPT" (the button "Open" has been clicked)
     if response_id == Gtk.ResponseType.OK:
         filename = open_dialog.get_filename()
-        print(f'User selected dir: {filename}')
+        logger.info(f'User selected dir: {filename}')
         root_dir_panel.update_root(filename)
     # if response is "CANCEL" (the button "Cancel" has been clicked)
     elif response_id == Gtk.ResponseType.CANCEL:
-        print("Cancelled: RootDirChooserDialog")
+        logger.debug("Cancelled: RootDirChooserDialog")
     elif response_id == Gtk.ResponseType.CLOSE:
-        print("Closed: RootDirChooserDialog")
+        logger.debug("Closed: RootDirChooserDialog")
     elif response_id == Gtk.ResponseType.DELETE_EVENT:
-        print("Deleted: RootDirChooserDialog")
+        logger.debug("Deleted: RootDirChooserDialog")
     else:
-        print(f'Unrecognized response: {response_id}')
+        logger.error(f'Unrecognized response: {response_id}')
     # destroy the FileChooserDialog
     dialog.destroy()
 

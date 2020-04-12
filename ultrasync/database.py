@@ -1,5 +1,8 @@
 import sqlite3
+import logging
 from fmeta.fmeta import FMeta
+
+logger = logging.getLogger(__name__)
 
 
 class MetaDatabase:
@@ -47,7 +50,7 @@ class MetaDatabase:
 
     def create_tables(self):
         sql = self.build_create_table(self.TABLE_FILE_LOG)
-        print('Executing SQL: ' + sql)
+        logger.debug('Executing SQL: ' + sql)
         self.conn.execute(sql)
 
     # FILE_LOG operations ---------------------

@@ -3,8 +3,11 @@ import shutil
 import re
 import errno
 import platform
+import logging
 from fmeta.fmeta import FMeta, FMetaTree, Category
 import fmeta.content_hasher
+
+logger = logging.getLogger(__name__)
 
 
 def get_resource_path(rel_path: str, resolve_symlinks=False):
@@ -18,7 +21,7 @@ def get_resource_path(rel_path: str, resolve_symlinks=False):
         abs_path_to_resource = os.path.realpath(rel_path_to_resource)
     else:
         abs_path_to_resource = os.path.abspath(rel_path_to_resource)
-    print('Resource path: ' + abs_path_to_resource)
+    logger.debug('Resource path: ' + abs_path_to_resource)
     return abs_path_to_resource
 
 
@@ -84,21 +87,21 @@ def apply_changes_atomically(tree: FMetaTree, staging_dir):
         dst_path = os.path.join(tree.root_path, fmeta.prev_path)
         # TODO: what if staging dir is not on same file system?
         staging_path = os.path.join(staging_dir, fmeta.signature)
-        print(f'CP: src={src_path}')
-        print(f'    stg={staging_path}')
-        print(f'    dst={dst_path}')
+        logger.debug(f'CP: src={src_path}')
+        logger.debug(f'    stg={staging_path}')
+        logger.debug(f'    dst={dst_path}')
         copy_file_linux_with_attrs(src_path, staging_path, dst_path, fmeta.signature, True)
 
     for fmeta in tree.get_for_cat(Category.Deleted):
         tgt_path = os.path.join(tree.root_path, fmeta.file_path)
-        print(f'RM: tgt={tgt_path}')
+        logger.debug(f'RM: tgt={tgt_path}')
         delete_file(tgt_path)
 
     for fmeta in tree.get_for_cat(Category.Moved):
         src_path = os.path.join(tree.root_path, fmeta.prev_path)
         dst_path = os.path.join(tree.root_path, fmeta.file_path)
-        print(f'MV: src={src_path}')
-        print(f'    dst={dst_path}')
+        logger.debug(f'MV: src={src_path}')
+        logger.debug(f'    dst={dst_path}')
         move_file(src_path, dst_path)
 
 
@@ -120,7 +123,7 @@ def move_file(src_path, dst_path):
     try:
         os.makedirs(name=dst_parent, exist_ok=True)
     except Exception as err:
-        print(f'Exception while making dest parent dir: {dst_parent}')
+        logger.error(f'Exception while making dest parent dir: {dst_parent}')
         raise
 
     if not os.path.exists(src_path):
@@ -145,19 +148,19 @@ def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_signature, 
     try:
         os.makedirs(name=staging_parent, exist_ok=True)
     except Exception as err:
-        print(f'Exception while making staging dir: {staging_parent}')
+        logger.error(f'Exception while making staging dir: {staging_parent}')
         raise
 
     try:
         shutil.copyfile(src_path, dst=staging_path, follow_symlinks=False)
     except Exception as err:
-        print(f'Exception while copying file to staging: {src_path}')
+        logger.error(f'Exception while copying file to staging: {src_path}')
         raise
     try:
         # Copy the permission bits, last access time, last modification time, and flags:
         shutil.copystat(src_path, dst=staging_path, follow_symlinks=False)
     except Exception as err:
-        print(f'Exception while copying file meta to staging: {src_path}')
+        logger.error(f'Exception while copying file meta to staging: {src_path}')
         raise
 
     if verify:
@@ -174,6 +177,6 @@ def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_signature, 
         # Finally, move the file into its final destination
         shutil.move(staging_path, dst_path)
     except Exception as err:
-        print(f'Exception while moving file to dst: {dst_path}')
+        logger.error(f'Exception while moving file to dst: {dst_path}')
         raise
 

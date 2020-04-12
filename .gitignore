@@ -8,6 +8,7 @@ token.pickle
 __pycache__
 
 *.db
+*.log
 .idea
 
 test/BiDirMerge
