@@ -6,14 +6,17 @@ from fmeta.fmeta import FMeta, FMetaTree, Category
 import fmeta.content_hasher
 
 
-def get_resource_path(rel_path: str):
+def get_resource_path(rel_path: str, resolve_symlinks=False):
     """Returns the absolute path from the given relative path (relative to the project dir)"""
 
     assert not rel_path.startswith('/')
     dir_of_py_file = os.path.dirname(__file__)
     project_dir = os.path.join(dir_of_py_file, os.pardir)
     rel_path_to_resource = os.path.join(project_dir, rel_path)
-    abs_path_to_resource = os.path.abspath(rel_path_to_resource)
+    if resolve_symlinks:
+        abs_path_to_resource = os.path.realpath(rel_path_to_resource)
+    else:
+        abs_path_to_resource = os.path.abspath(rel_path_to_resource)
     print('Resource path: ' + abs_path_to_resource)
     return abs_path_to_resource
 
@@ -74,20 +77,61 @@ def creation_date(path_to_file):
             return stat.st_mtime
 
 
-def apply_changes_atomically(changes: FMetaTree, staging_dir):
-
-    for fmeta in changes.get_for_cat(Category.Added):
-        src_path = os.path.join(changes.root_path, fmeta.file_path)
-        dst_path = os.path.join(changes.root_path, fmeta.prev_path)
+def apply_changes_atomically(tree: FMetaTree, staging_dir):
+    for fmeta in tree.get_for_cat(Category.Added):
+        src_path = os.path.join(tree.root_path, fmeta.file_path)
+        dst_path = os.path.join(tree.root_path, fmeta.prev_path)
+        # TODO: what if staging dir is not on same file system?
         staging_path = os.path.join(staging_dir, fmeta.signature)
         print(f'CP: src={src_path}')
         print(f'    stg={staging_path}')
         print(f'    dst={dst_path}')
         copy_file_linux_with_attrs(src_path, staging_path, dst_path, fmeta.signature, True)
 
-    # TODO: deleted
+    for fmeta in tree.get_for_cat(Category.Deleted):
+        tgt_path = os.path.join(tree.root_path, fmeta.file_path)
+        print(f'RM: tgt={tgt_path}')
+        delete_file(tgt_path)
 
-    # TODO: moved
+    for fmeta in tree.get_for_cat(Category.Moved):
+        src_path = os.path.join(tree.root_path, fmeta.prev_path)
+        dst_path = os.path.join(tree.root_path, fmeta.file_path)
+        print(f'MV: src={src_path}')
+        print(f'    dst={dst_path}')
+        move_file(src_path, dst_path)
+
+
+def delete_file(tgt_path, to_trash=False):
+    if to_trash:
+        # TODO
+        pass
+    else:
+        os.remove(tgt_path)
+
+
+def move_file(src_path, dst_path):
+    """This should be used to copy a single file. NOT a directory!"""
+    # TODO: handle move across file systems
+    assert not os.path.isdir(src_path)
+
+    # Make parent directories for dst if not exist
+    dst_parent, staging_file = os.path.split(dst_path)
+    try:
+        os.makedirs(name=dst_parent, exist_ok=True)
+    except Exception as err:
+        print(f'Exception while making dest parent dir: {dst_parent}')
+        raise
+
+    if not os.path.exists(src_path):
+        raise FileNotFoundError(src_path)
+
+    if os.path.exists(dst_path):
+        if os.path.isdir(src_path):
+            raise IsADirectoryError(dst_path)
+        else:
+            raise FileExistsError(dst_path)
+
+    os.rename(src_path, dst_path)
 
 
 def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_signature, verify):
@@ -97,7 +141,11 @@ def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_signature, 
 
     # (Staging) make parent directories if not exist
     staging_parent, staging_file = os.path.split(staging_path)
-    os.makedirs(name=staging_parent, exist_ok=True)
+    try:
+        os.makedirs(name=staging_parent, exist_ok=True)
+    except Exception as err:
+        print(f'Exception while making staging dir: {staging_parent}')
+        raise
 
     try:
         shutil.copyfile(src_path, dst=staging_path, follow_symlinks=False)

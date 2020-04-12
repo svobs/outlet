@@ -231,9 +231,14 @@ class DiffWindow(Gtk.ApplicationWindow):
                 print("The OK button was clicked")
                 staging_dir = STAGING_DIR_PATH
                 # TODO: clear dir after use
-                file_util.apply_changes_atomically(changes=merged_changes_tree, staging_dir=staging_dir)
+                file_util.apply_changes_atomically(tree=merged_changes_tree, staging_dir=staging_dir)
             elif response == Gtk.ResponseType.CANCEL:
                 print("The Cancel button was clicked")
+        except FileNotFoundError as err:
+            def do_on_ui_thread(err_msg):
+                GLib.idle_add(lambda: self.show_error_msg('Diff task failed due to unexpected error', err_msg))
+            do_on_ui_thread('File not found: ' + err.args[0])
+            raise
         except Exception as err:
             print('Diff task failed with exception')
 

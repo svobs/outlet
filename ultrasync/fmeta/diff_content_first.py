@@ -164,13 +164,12 @@ def _add_adjusted_metas(src_metas, prefix, prev_prefix, dst_tree):
 
     for fmeta in src_metas:
         new_fmeta = copy.deepcopy(fmeta)
-        new_fmeta.file_path = os.path.join(prefix, fmeta.file_path)
-        if fmeta.category == Category.Added:
-            # copy the same file path from prev tree:
-            new_fmeta.prev_path = os.path.join(prev_prefix, fmeta.file_path)
-        elif fmeta.category == Category.Moved:
-            # just adjust the prefix here:
-            new_fmeta.prev_path = os.path.join(prev_prefix, fmeta.prev_path)
+        if fmeta.category == Category.Moved:
+            # invert the change:
+            new_fmeta.prev_path = os.path.join(prefix, fmeta.file_path)
+            new_fmeta.file_path = os.path.join(prefix, fmeta.prev_path)
+        else:
+            new_fmeta.file_path = os.path.join(prev_prefix, fmeta.file_path)
         dst_tree.add(new_fmeta)
 
 
