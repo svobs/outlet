@@ -16,9 +16,23 @@ ROW_HEIGHT = 30
 count = 0
 
 
+def _build_icons(icon_size):
+    icons = dict()
+    icons['folder'] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'resources/Folder-icon-{icon_size}px.png'))
+    icons[Category.Added.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'resources/Document-Add-icon-{icon_size}px.png'))
+    icons[Category.Deleted.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'resources/Document-Delete-icon-{icon_size}px.png'))
+    icons[Category.Moved.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
+    icons[Category.Updated.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
+    icons[Category.Ignored.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
+    return icons
+
+
 class DiffTree:
     EXTRA_INDENTATION_LEVEL = 0
     model: Gtk.TreeStore
+
+    ICON_SIZE = 24
+    icons = _build_icons(icon_size=ICON_SIZE)
 
     def __init__(self, parent_win, root_path, editable, sizegroups=None):
         # The source files
@@ -85,9 +99,6 @@ class DiffTree:
         self.model = Gtk.TreeStore()
         self.model.set_column_types(col_types)
 
-        icon_size = 24
-        self.icons = DiffTree._build_icons(icon_size)
-
         self.root_dir_panel = RootDirPanel(self)
 
         self.treeview: Gtk.Treeview
@@ -97,17 +108,6 @@ class DiffTree:
         self.content_box = DiffTree._build_content_box(self.root_dir_panel.content_box, self.treeview, status_bar_container)
         if self.sizegroups is not None and self.sizegroups.get('tree_status') is not None:
             self.sizegroups['tree_status'].add_widget(status_bar_container)
-
-    @classmethod
-    def _build_icons(cls, icon_size):
-        icons = dict()
-        icons['folder'] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Folder-icon-{icon_size}px.png'))
-        icons[Category.Added.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-Add-icon-{icon_size}px.png'))
-        icons[Category.Deleted.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-Delete-icon-{icon_size}px.png'))
-        icons[Category.Moved.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-icon-{icon_size}px.png'))
-        icons[Category.Updated.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-icon-{icon_size}px.png'))
-        icons[Category.Ignored.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'../resources/Document-icon-{icon_size}px.png'))
-        return icons
 
     @classmethod
     def _build_content_box(cls, root_dir_panel, tree_view, status_bar_container):

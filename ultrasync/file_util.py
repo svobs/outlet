@@ -6,12 +6,15 @@ from fmeta.fmeta import FMeta, FMetaTree, Category
 import fmeta.content_hasher
 
 
-def get_resource_path(rel_path):
-    """Returns the absolute path from the given relative path (relative to this file's location)"""
+def get_resource_path(rel_path: str):
+    """Returns the absolute path from the given relative path (relative to the project dir)"""
 
+    assert not rel_path.startswith('/')
     dir_of_py_file = os.path.dirname(__file__)
-    rel_path_to_resource = os.path.join(dir_of_py_file, rel_path)
+    project_dir = os.path.join(dir_of_py_file, os.pardir)
+    rel_path_to_resource = os.path.join(project_dir, rel_path)
     abs_path_to_resource = os.path.abspath(rel_path_to_resource)
+    print('Resource path: ' + abs_path_to_resource)
     return abs_path_to_resource
 
 

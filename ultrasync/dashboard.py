@@ -3,6 +3,7 @@ import gi
 import sys
 import threading
 import file_util
+from file_util import get_resource_path
 from stopwatch import Stopwatch
 
 from fmeta.fmeta import FMetaTree
@@ -14,10 +15,13 @@ import fmeta.diff_content_first as diff_content_first
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gio, GObject
 
-LEFT_DB_PATH = '../test/BiDirMerge/Left.db'
-RIGHT_DB_PATH = '../test/BiDirMerge/Right.db'
-LEFT_DIR_PATH = r"//test/BiDirMerge/Sen Mitsuji Left"
-RIGHT_DIR_PATH = r"//test/BiDirMerge/Sen Mitsuji Right"
+LEFT_DB_PATH = get_resource_path('test/BiDirMerge/Left.db')
+RIGHT_DB_PATH = get_resource_path('test/BiDirMerge/Right.db')
+LEFT_DIR_PATH = get_resource_path('test/BiDirMerge/Sen Mitsuji Left')
+RIGHT_DIR_PATH = get_resource_path('test/BiDirMerge/Sen Mitsuji Right')
+
+WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
+STAGING_DIR_PATH = get_resource_path("temp")
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +34,9 @@ def scan_disk(diff_tree, root_path):
         GLib.idle_add(update_progress, progress, total)
 
     progress_meter = ProgressMeter(lambda p, t: on_progress_made(p, t, diff_tree))
-    diff_tree.set_status(f'Scanning files in tree: {diff_tree.root_path}')
+    status_msg = f'Scanning files in tree: {diff_tree.root_path}'
+    print(status_msg)
+    diff_tree.set_status(status_msg)
     dir_scanner = FMetaDirScanner(root_path=root_path, progress_meter=progress_meter)
     return dir_scanner.scan_local_tree()
 
@@ -134,7 +140,7 @@ class DiffWindow(Gtk.ApplicationWindow):
 
         self.set_title('UltraSync')
         # program icon:
-        self.set_icon_from_file(file_util.get_resource_path("../resources/fslint_icon.png"))
+        self.set_icon_from_file(WINDOW_ICON_PATH)
         # Set minimum width and height
         self.set_size_request(1400, 800)
         self.set_border_width(10)
@@ -223,7 +229,7 @@ class DiffWindow(Gtk.ApplicationWindow):
         try:
             if response == Gtk.ResponseType.OK:
                 print("The OK button was clicked")
-                staging_dir = file_util.get_resource_path('../temp')
+                staging_dir = STAGING_DIR_PATH
                 # TODO: clear dir after use
                 file_util.apply_changes_atomically(changes=merged_changes_tree, staging_dir=staging_dir)
             elif response == Gtk.ResponseType.CANCEL:
