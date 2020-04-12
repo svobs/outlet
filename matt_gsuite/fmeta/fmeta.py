@@ -222,7 +222,7 @@ class FMetaTree:
         For internal use only
         """
         cats_string = self.get_category_summary_string()
-        return f'FMetaTree=[sigs:{len(self.sig_dict)} paths:{len(self._path_dict)} duplicate sigs:{self._dup_sig_count} categories=[{cats_string}]'
+        return f'FMetaTree=[sigs:{len(self.sig_dict)} paths:{len(self._path_dict)} dup_sigs:{self._dup_sig_count} cats=[{cats_string}]'
 
     def get_summary(self):
         ignored_count = self._cat_dict[Category.Ignored].file_count

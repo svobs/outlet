@@ -5,7 +5,11 @@ lib
 lib64
 pyvenv.cfg
 token.pickle
-*.db
 __pycache__
 
+*.db
 .idea
+
+test/BiDirMerge
+test/BiDirMerge.7z
+
