@@ -1,8 +1,6 @@
-# Abstraction for a progress monitoring mechanism.
-# Provides hooks for possible GUI updates, but does not contain any GUI code
-
-
 class ProgressMeter:
+    """Abstraction for a progress monitoring mechanism.
+       Provides hooks for possible GUI updates, but does not contain any GUI code"""
     def __init__(self, on_progress_made):
         self.progress = 0
         self.total = 0

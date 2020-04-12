@@ -58,7 +58,6 @@ class RootDirPanel:
         # TODO: make Label editable (maybe switch it to an Entry) on click
         self.label = Gtk.Label(label='')
         self.refresh_root_label()
-        # TODO: find a way to make label minimum height of 2 lines
         self.label.set_justify(Gtk.Justification.LEFT)
         self.label.set_xalign(0)
         self.label.set_line_wrap(True)

@@ -5,7 +5,7 @@ import humanfriendly
 import file_util
 from fmeta.fmeta import FMeta, DirNode, CategoryNode, FMetaTree, Category
 from treelib import Node, Tree
-from widget.root_dir_panel import RootDirPanel
+from ui.root_dir_panel import RootDirPanel
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk, GdkPixbuf

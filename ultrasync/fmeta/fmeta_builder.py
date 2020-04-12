@@ -17,7 +17,7 @@ import fmeta.content_hasher
 from database import MetaDatabase
 from pathlib import Path
 
-from widget.progress_meter import ProgressMeter
+from ui.progress_meter import ProgressMeter
 
 VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp4', 'mpeg', 'mpg', 'm4v', 'avi', 'pdf', 'nef')
 
