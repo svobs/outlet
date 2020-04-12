@@ -7,6 +7,9 @@ from gi.repository import GLib, Gtk, Gio, GObject
 from ui.diff_window import DiffWindow
 
 DEBUG_LOG_FILE = file_util.get_resource_path('debug.log')
+# NOTE: load the following regex into PyCharm:
+# ^([\d-]+ [\d-:,.]+)\s+([\w.]+)\s*([\w]+)\s*(.*)$
+# Capture groups: datetime=1 severity=3 category=2
 LOG_FMT_DEBUG_FILE = '%(asctime)s %(name)20s %(levelname)-8s %(message)s'
 LOG_DATE_FMT_DEBUG_FILE = '%Y-%m-%d %H:%M:%S.%03d'
 

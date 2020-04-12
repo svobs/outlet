@@ -612,7 +612,7 @@ class DiffTree:
         row_values.append(category.name)  # Icon
 
         if category == Category.Moved:
-            node_name = f'{file_name} <- "{fmeta.prev_path}"'
+            node_name = f'{fmeta.prev_path} -> "{file_name}"'
         else:
             node_name = file_name
         row_values.append(node_name)  # Name
