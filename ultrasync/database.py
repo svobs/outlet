@@ -2,20 +2,14 @@ import sqlite3
 from fmeta.fmeta import FMeta
 
 
-class MattDatabase:
-    TABLE_BALANCE = {
-        'name': 'balance',
-        'cols': (('ts', 'INTEGER'),
-                  ('account_id', 'TEXT'),
-                  ('bal', 'INTEGER'))
-    }
+class MetaDatabase:
     TABLE_FILE_LOG = {
         'name': 'file_log',
         'cols': (('sig', 'TEXT'),
                  ('size_bytes', 'INTEGER'),
                  ('sync_ts', 'INTEGER'),
                  ('modify_ts', 'INTEGER'),
-                 ('metachange_ts', 'INTEGER'),
+                 ('change_ts', 'INTEGER'),
                  ('rel_path', 'TEXT'),
                  ('category', 'TEXT'),
                  ('prev_rel_path', 'TEXT'))
@@ -23,7 +17,7 @@ class MattDatabase:
 
     def __init__(self, db_path):
         self.conn = sqlite3.connect(db_path)
-        if not self.is_table(self.TABLE_BALANCE):
+        if not self.is_table(self.TABLE_FILE_LOG):
             self.create_tables()
 
     # Utility Functions ---------------------
@@ -52,29 +46,9 @@ class MattDatabase:
         self.conn.close()
 
     def create_tables(self):
-        sql = self.build_create_table(self.TABLE_BALANCE)
-        print('Executing SQL: ' + sql)
-        self.conn.execute(sql)
-
         sql = self.build_create_table(self.TABLE_FILE_LOG)
         print('Executing SQL: ' + sql)
         self.conn.execute(sql)
-
-    # BALANCE operations ---------------------
-
-    def insert_balance(self, timestamp, account_id, balance):
-        print("Inserting: " + str(timestamp) + ", " + account_id + ", " + balance)
-        balances = [(timestamp, account_id, balance)]
-        sql = self.build_insert(self.TABLE_BALANCE)
-        self.conn.executemany(sql, balances)
-
-        # Save (commit) the changes
-        self.conn.commit()
-
-    def get_latest_balance(self, account_id):
-        cursor = self.conn.cursor()
-        cursor.execute("SELECT MAX(ts), account_id, bal FROM balance WHERE account_id = ?", (account_id,))
-        return cursor.fetchone()
 
     # FILE_LOG operations ---------------------
 

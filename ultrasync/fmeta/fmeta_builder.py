@@ -14,7 +14,7 @@ import file_util
 from fmeta.fmeta import FMeta, FMetaTree, Category
 from fmeta.tree_recurser import TreeRecurser
 import fmeta.content_hasher
-from matt_database import MattDatabase
+from database import MetaDatabase
 from pathlib import Path
 
 from widget.progress_meter import ProgressMeter
@@ -98,7 +98,7 @@ class FMetaDirScanner(TreeRecurser):
 # FMetaDirScanner: build FMetaTree from previously built set in database
 class FMetaDatabase:
     def __init__(self, db_file_path):
-        self.db = MattDatabase(db_file_path)
+        self.db = MetaDatabase(db_file_path)
 
     def has_data(self):
         return self.db.has_file_changes()
