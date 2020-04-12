@@ -486,6 +486,7 @@ class DiffTree:
         self.model[path][self.col_num_checked] = checked_value
         self.model[path][self.col_num_inconsistent] = False
 
+        # Update all of the node's children change to match its check state:
         tree_iter = self.model.get_iter(path)
         child_iter = self.model.iter_children(tree_iter)
         if child_iter:
@@ -495,23 +496,32 @@ class DiffTree:
 
             self.recurse_over_tree(child_iter, action_func)
 
+        # Now update its ancestors' states:
         tree_path = Gtk.TreePath.new_from_string(path)
         while True:
+            # Go up the tree, one level per loop,
+            # with each node updating itself based on its immediate children
             tree_path.up()
             if tree_path.get_depth() < 1:
+                # Stop at root
                 break
             else:
                 tree_iter = self.model.get_iter(tree_path)
-                parent_checked = self.model[tree_iter][self.col_num_checked]
-                inconsistent = False
+                has_checked = False
+                has_unchecked = False
+                has_inconsistent = False
                 child_iter = self.model.iter_children(tree_iter)
                 while child_iter is not None:
                     # Parent is inconsistent if any of its children do not match it...
-                    inconsistent |= (parent_checked != self.model[child_iter][self.col_num_checked])
+                    if self.model[child_iter][self.col_num_checked]:
+                        has_checked = True
+                    else:
+                        has_unchecked = True
                     # ...or if any of its children are inconsistent
-                    inconsistent |= self.model[child_iter][self.col_num_inconsistent]
+                    has_inconsistent |= self.model[child_iter][self.col_num_inconsistent]
                     child_iter = self.model.iter_next(child_iter)
-                self.model[tree_iter][self.col_num_inconsistent] = inconsistent
+                self.model[tree_iter][self.col_num_inconsistent] = has_inconsistent or (has_checked and has_unchecked)
+                self.model[tree_iter][self.col_num_checked] = has_checked and not has_unchecked and not has_inconsistent
 
     def recurse_over_tree(self, tree_iter, action_func):
         """Performs the action_func on the node at this tree_iter AND all of its following
