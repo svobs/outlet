@@ -165,9 +165,8 @@ def _add_adjusted_metas(src_metas, prefix, prev_prefix, dst_tree):
     for fmeta in src_metas:
         new_fmeta = copy.deepcopy(fmeta)
         if fmeta.category == Category.Moved:
-            # invert the change:
-            new_fmeta.prev_path = os.path.join(prefix, fmeta.file_path)
-            new_fmeta.file_path = os.path.join(prefix, fmeta.prev_path)
+            new_fmeta.prev_path = os.path.join(prev_prefix, fmeta.prev_path)
+            new_fmeta.file_path = os.path.join(prev_prefix, fmeta.file_path)
         else:
             new_fmeta.file_path = os.path.join(prev_prefix, fmeta.file_path)
         dst_tree.add(new_fmeta)

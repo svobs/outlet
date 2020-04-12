@@ -43,7 +43,6 @@ def scan_disk(diff_tree, root_path):
 
 def diff_task(win, enable_db_cache):
     try:
-
         stopwatch = Stopwatch()
         if enable_db_cache:
             left_db = FMetaDatabase(LEFT_DB_PATH)
@@ -232,22 +231,25 @@ class DiffWindow(Gtk.ApplicationWindow):
                 staging_dir = STAGING_DIR_PATH
                 # TODO: clear dir after use
                 file_util.apply_changes_atomically(tree=merged_changes_tree, staging_dir=staging_dir)
+
+                action_thread = threading.Thread(target=diff_task, args=(self, False))
+                action_thread.daemon = True
+                action_thread.start()
             elif response == Gtk.ResponseType.CANCEL:
                 print("The Cancel button was clicked")
         except FileNotFoundError as err:
-            def do_on_ui_thread(err_msg):
-                GLib.idle_add(lambda: self.show_error_msg('Diff task failed due to unexpected error', err_msg))
-            do_on_ui_thread('File not found: ' + err.args[0])
+            self.show_error_ui('File not found: ' + err.args[0])
             raise
         except Exception as err:
-            print('Diff task failed with exception')
-
-            def do_on_ui_thread(err_msg):
-                GLib.idle_add(lambda: self.show_error_msg('Diff task failed due to unexpected error', err_msg))
-            do_on_ui_thread(repr(err))
+            self.show_error_ui('Diff task failed due to unexpected error', repr(err))
             raise
         finally:
             dialog.destroy()
+
+    def show_error_ui(self, msg, secondary_msg=None):
+        def do_on_ui_thread(m, sm):
+            GLib.idle_add(lambda: self.show_error_msg(m, sm))
+        do_on_ui_thread(msg, secondary_msg)
 
     def show_error_msg(self, msg, secondary_msg=None):
         dialog = Gtk.MessageDialog(parent=self, modal=True, message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CANCEL, text=msg)
