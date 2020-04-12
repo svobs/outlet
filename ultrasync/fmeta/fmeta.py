@@ -23,12 +23,12 @@ Category = Enum(
 
 
 class FMeta:
-    def __init__(self, signature, size_bytes, sync_ts, modify_ts, metachange_ts, file_path, category=Category.NA, prev_path=None):
+    def __init__(self, signature, size_bytes, sync_ts, modify_ts, change_ts, file_path, category=Category.NA, prev_path=None):
         self.signature = signature
         self.size_bytes = size_bytes
         self.sync_ts = sync_ts
         self.modify_ts = modify_ts
-        self.metachange_ts = metachange_ts
+        self.change_ts = change_ts
         self.file_path = file_path
         self.category = category
         # Only used if category == ADDED or MOVED

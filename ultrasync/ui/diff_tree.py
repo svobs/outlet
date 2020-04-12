@@ -629,7 +629,7 @@ class DiffTree:
         row_values.append(modify_time)  # Modify TS
 
         if self.show_change_ts:
-            change_datetime = datetime.fromtimestamp(fmeta.metachange_ts)
+            change_datetime = datetime.fromtimestamp(fmeta.change_ts)
             change_time = change_datetime.strftime(DATETIME_FORMAT)
             row_values.append(change_time)  # Change TS
 

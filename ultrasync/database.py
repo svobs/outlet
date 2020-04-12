@@ -78,7 +78,7 @@ class MetaDatabase:
     def insert_file_changes(self, entries):
         to_insert = []
         for e in entries:
-            e_tuple = (e.signature, e.size_bytes, e.sync_ts, e.modify_ts, e.metachange_ts, e.file_path, e.category.value, e.prev_path)
+            e_tuple = (e.signature, e.size_bytes, e.sync_ts, e.modify_ts, e.change_ts, e.file_path, e.category.value, e.prev_path)
             to_insert.append(e_tuple)
         sql = self.build_insert(self.TABLE_FILE_LOG)
         self.conn.executemany(sql, to_insert)

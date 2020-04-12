@@ -26,7 +26,7 @@ STAGING_DIR_PATH = get_resource_path("temp")
 logger = logging.getLogger(__name__)
 
 
-def scan_disk(diff_tree, root_path):
+def scan_disk(diff_tree):
     # Callback from FMetaDirScanner:
     def on_progress_made(progress, total, tree):
         tree.set_status(f'Scanning file {progress} of {total}')
@@ -34,7 +34,7 @@ def scan_disk(diff_tree, root_path):
     progress_meter = ProgressMeter(lambda p, t: on_progress_made(p, t, diff_tree))
     status_msg = f'Scanning files in tree: {diff_tree.root_path}'
     diff_tree.set_status(status_msg)
-    dir_scanner = FMetaDirScanner(root_path=root_path, progress_meter=progress_meter)
+    dir_scanner = FMetaDirScanner(root_path=diff_tree.root_path, progress_meter=progress_meter)
     return dir_scanner.scan_local_tree()
 
 
@@ -194,12 +194,12 @@ class DiffWindow(Gtk.ApplicationWindow):
                 self.diff_tree_right.set_status('Waiting...')
                 if left_db.has_data():
                     self.diff_tree_left.set_status(f'Loading Left data from DB: {LEFT_DB_PATH}')
-                    left_fmeta_tree = left_db.load_fmeta_tree(LEFT_DIR_PATH)
+                    left_fmeta_tree = left_db.load_fmeta_tree(self.diff_tree_left.root_path)
                 else:
-                    left_fmeta_tree = scan_disk(self.diff_tree_left, LEFT_DIR_PATH)
+                    left_fmeta_tree = scan_disk(self.diff_tree_left)
                     left_db.save_fmeta_tree(left_fmeta_tree)
             else:
-                left_fmeta_tree = scan_disk(self.diff_tree_left, LEFT_DIR_PATH)
+                left_fmeta_tree = scan_disk(self.diff_tree_left)
             stopwatch.stop()
             logger.info(f'Left loaded in: {stopwatch}')
             self.diff_tree_left.set_status(left_fmeta_tree.get_summary())
@@ -209,12 +209,12 @@ class DiffWindow(Gtk.ApplicationWindow):
                 right_db = FMetaDatabase(RIGHT_DB_PATH)
                 if right_db.has_data():
                     self.diff_tree_right.set_status(f'Loading Right data from DB: {RIGHT_DB_PATH}')
-                    right_fmeta_tree = right_db.load_fmeta_tree(RIGHT_DIR_PATH)
+                    right_fmeta_tree = right_db.load_fmeta_tree(self.diff_tree_right.root_path)
                 else:
-                    right_fmeta_tree = scan_disk(self.diff_tree_right, RIGHT_DIR_PATH)
+                    right_fmeta_tree = scan_disk(self.diff_tree_right)
                     right_db.save_fmeta_tree(right_fmeta_tree)
             else:
-                right_fmeta_tree = scan_disk(self.diff_tree_right, RIGHT_DIR_PATH)
+                right_fmeta_tree = scan_disk(self.diff_tree_right)
             stopwatch.stop()
             logger.info(f'Right loaded in: {stopwatch}')
             self.diff_tree_right.set_status(right_fmeta_tree.get_summary())

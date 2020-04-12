@@ -94,4 +94,3 @@ class RootDirPanel:
     def update_root(self, new_root_path):
         self.parent_diff_tree.root_path = new_root_path
         self.refresh_root_label()
-        self.label.set_label(self.get_root_label())
