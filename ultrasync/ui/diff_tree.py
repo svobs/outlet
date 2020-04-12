@@ -277,7 +277,7 @@ class DiffTree:
             if treeiter is not None and len(treeiter) == 1:
                 meta = model[treeiter][self.col_num_data]
                 if isinstance(meta, FMeta):
-                    logger.debug(f'User selected signature {meta.signature}')
+                    logger.debug(f'User selected sig="{meta.signature}" path="{meta.file_path}" prev_path="{meta.prev_path}"')
                 else:
                     logger.debug(f'User selected {model[treeiter][self.col_num_name]}')
 
@@ -336,12 +336,22 @@ class DiffTree:
 
     def on_key_press(self, widget, event, user_data=None):
         """Fired when a key is pressed"""
-        logger.debug("Key press on widget: ", widget)
-        logger.debug("          Modifiers: ", event.state)
-        logger.debug("      Key val, name: ", event.keyval, Gdk.keyval_name(event.keyval))
 
-        # check the event modifiers (can also use SHIFTMASK, etc)
-       # ctrl = (event.state & Gdk.ModifierType.CONTROL_MASK)
+        # Note: if the key sequence matches a Gnome keyboard shortcut, it will grab part
+        # of the sequence and we will never get notified
+        mods = []
+        if (event.state & Gdk.ModifierType.CONTROL_MASK) == Gdk.ModifierType.CONTROL_MASK:
+            mods.append('Ctrl')
+        if (event.state & Gdk.ModifierType.SHIFT_MASK) == Gdk.ModifierType.SHIFT_MASK:
+            mods.append('Shift')
+        if (event.state & Gdk.ModifierType.META_MASK) == Gdk.ModifierType.META_MASK:
+            mods.append('Meta')
+        if (event.state & Gdk.ModifierType.SUPER_MASK) == Gdk.ModifierType.SUPER_MASK:
+            mods.append('Super')
+        if (event.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK:
+            mods.append('Alt')
+        logger.debug(f'Key pressed: "{Gdk.keyval_name(event.keyval)}" ({event.keyval})')
+        logger.debug(f'  Modifiers: {" ".join(mods)}')
 
         if event.keyval == Gdk.KEY_Delete:
             logger.debug('DELETE key detected!')
@@ -464,13 +474,17 @@ class DiffTree:
                 tree_view.collapse_row(path)
             else:
                 tree_view.expand_row(path=path, open_all=False)
-        elif type(node_data) == DirNode or type(node_data) == FMeta and node_data.category != Category.Deleted:
-            # TODO: ensure prev_path is filled out for all nodes!
-            file_path = os.path.join(self.root_path, node_data.file_path)
-            if not os.path.exists(file_path):
-                # File is an 'added' node or some such. Open the old one:
-                file_path = os.path.join(self.root_path, node_data.prev_path)
-            xdg_open = True
+        elif type(node_data) == DirNode or type(node_data) == FMeta:
+            if node_data.category == Category.Deleted:
+                logger.debug(f'Cannot open a Deleted node: {node_data.file_path}')
+            else:
+                # TODO: ensure prev_path is filled out for all nodes!
+                file_path = os.path.join(self.root_path, node_data.file_path)
+                # if not os.path.exists(file_path):
+                #     logger.debug(f'File not found: {file_path}')
+                #     # File is an 'added' node or some such. Open the old one:
+                #     file_path = os.path.join(self.root_path, node_data.prev_path)
+                xdg_open = True
         else:
             raise RuntimeError('Unexpected data element')
 
