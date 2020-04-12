@@ -160,18 +160,24 @@ def find_nearest_common_ancestor(path1, path2):
             return ancestor_path
 
 
-def _add_adjusted_metas(src_metas, prefix, prev_prefix, dst_tree):
-    """Note: new_root is expected to be src_tree's root or a direct ancestor"""
-    if src_metas is None:
+def _add_adjusted_metas(side_a_metas, side_a_prefix, side_b_prefix, dst_tree):
+    """Note: Adjust all the metas in side_a_metas, with the assumption that the opposite
+    side ("Side B") is the target"""
+    if side_a_metas is None:
         return
 
-    for fmeta in src_metas:
-        new_fmeta = copy.deepcopy(fmeta)
-        if fmeta.category == Category.Moved:
-            new_fmeta.prev_path = os.path.join(prev_prefix, fmeta.prev_path)
-            new_fmeta.file_path = os.path.join(prev_prefix, fmeta.file_path)
+    for side_a_meta in side_a_metas:
+        new_fmeta = copy.deepcopy(side_a_meta)
+        if side_a_meta.category == Category.Moved:
+            # Moves are from Side B to Side B
+            new_fmeta.prev_path = os.path.join(side_b_prefix, side_a_meta.prev_path)
+            new_fmeta.file_path = os.path.join(side_b_prefix, side_a_meta.file_path)
+        if side_a_meta.category == Category.Added:
+            # Copies are from Side A to Side B
+            new_fmeta.prev_path = os.path.join(side_a_prefix, side_a_meta.file_path)
+            new_fmeta.file_path = os.path.join(side_b_prefix, side_a_meta.file_path)
         else:
-            new_fmeta.file_path = os.path.join(prev_prefix, fmeta.file_path)
+            new_fmeta.file_path = os.path.join(side_b_prefix, side_a_meta.file_path)
         dst_tree.add(new_fmeta)
 
 
@@ -197,8 +203,8 @@ def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_co
                     conflict_pairs.append((left, right))
                     logger.debug(f'CONFLICT: left={left.category.name}:{left.file_path} right={right.category.name}:{right.file_path}')
         else:
-            _add_adjusted_metas(src_metas=left_metas, prefix=left_old_root_remainder, prev_prefix=right_old_root_remainder,dst_tree=merged_tree)
-            _add_adjusted_metas(src_metas=right_metas, prefix=right_old_root_remainder, prev_prefix=left_old_root_remainder,dst_tree=merged_tree)
+            _add_adjusted_metas(side_a_metas=left_metas, side_a_prefix=left_old_root_remainder, side_b_prefix=right_old_root_remainder, dst_tree=merged_tree)
+            _add_adjusted_metas(side_a_metas=right_metas, side_a_prefix=right_old_root_remainder, side_b_prefix=left_old_root_remainder, dst_tree=merged_tree)
 
     if len(conflict_pairs) > 0:
         logger.info(f'Number of conflicts found: {len(conflict_pairs)}')

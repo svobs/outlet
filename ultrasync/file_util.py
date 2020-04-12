@@ -10,6 +10,17 @@ import fmeta.content_hasher
 logger = logging.getLogger(__name__)
 
 
+class FMetaNoOp:
+    def __init__(self, fm):
+        self.fm = fm
+
+
+class FMetaError(FMetaNoOp):
+    def __init__(self, fm, exception):
+        super().__init__(fm)
+        self.exception = exception
+
+
 def get_resource_path(rel_path: str, resolve_symlinks=False):
     """Returns the absolute path from the given relative path (relative to the project dir)"""
 
@@ -83,7 +94,8 @@ def creation_date(path_to_file):
             return stat.st_mtime
 
 
-def apply_changes_atomically(tree: FMetaTree, staging_dir):
+def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=False, error_collector=None):
+    # TODO: deal with file-not-found errors in a more robust way
     for fmeta in tree.get_for_cat(Category.Added):
         try:
             src_path = os.path.join(tree.root_path, fmeta.prev_path)
@@ -93,20 +105,28 @@ def apply_changes_atomically(tree: FMetaTree, staging_dir):
             logger.debug(f'CP: src={src_path}')
             logger.debug(f'    stg={staging_path}')
             logger.debug(f'    dst={dst_path}')
-            copy_file_linux_with_attrs(src_path, staging_path, dst_path, fmeta.signature, True)
-        except Exception:
+            copy_file_linux_with_attrs(src_path, staging_path, dst_path, fmeta, True, error_collector)
+        except Exception as err:
             # Try to log helpful info
-            logger.error(f'Exception occurred while processing Added file: root="{tree.root_path}", file_path="{fmeta.file_path}", prev_path="{fmeta.prev_path}"')
-            raise
+            logger.error(f'Exception occurred while processing Added file: root="{tree.root_path}", file_path="{fmeta.file_path}", prev_path="{fmeta.prev_path}": {repr(err)}')
+            if continue_on_error:
+                if error_collector is not None:
+                    error_collector.append(FMetaError(fm=fmeta, exception=err))
+            else:
+                raise
 
     for fmeta in tree.get_for_cat(Category.Deleted):
         try:
             tgt_path = os.path.join(tree.root_path, fmeta.file_path)
             logger.debug(f'RM: tgt={tgt_path}')
             delete_file(tgt_path)
-        except Exception:
-            logger.error(f'Exception occurred while processing Deleted file: root="{tree.root_path}", file_path={fmeta.file_path}')
-            raise
+        except Exception as err:
+            logger.error(f'Exception occurred while processing Deleted file: root="{tree.root_path}", file_path={fmeta.file_path}: {repr(err)}')
+            if continue_on_error:
+                if error_collector is not None:
+                    error_collector.append(FMetaError(fm=fmeta, exception=err))
+            else:
+                raise
 
     for fmeta in tree.get_for_cat(Category.Moved):
         try:
@@ -115,9 +135,13 @@ def apply_changes_atomically(tree: FMetaTree, staging_dir):
             logger.debug(f'MV: src={src_path}')
             logger.debug(f'    dst={dst_path}')
             move_file(src_path, dst_path)
-        except Exception:
-            logger.error(f'Exception occurred while processing Moved file: root="{tree.root_path}", file_path="{fmeta.file_path}", prev_path="{fmeta.prev_path}"')
-            raise
+        except Exception as err:
+            logger.error(f'Exception occurred while processing Moved file: root="{tree.root_path}", file_path="{fmeta.file_path}", prev_path="{fmeta.prev_path}": {repr(err)}')
+            if continue_on_error:
+                if error_collector is not None:
+                    error_collector.append(FMetaError(fm=fmeta, exception=err))
+            else:
+                raise
 
 
 def delete_file(tgt_path, to_trash=False):
@@ -153,10 +177,19 @@ def move_file(src_path, dst_path):
     os.rename(src_path, dst_path)
 
 
-def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_signature, verify):
+def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_fmeta, verify, error_collector):
     """Copies the src (src_path) to the destination path (dst_path), by first doing the copy to an
     intermediary location (staging_path) and then moving it to the destination once its signature
     has been verified."""
+
+    if os.path.exists(dst_path):
+        dst_signature = fmeta.content_hasher.dropbox_hash(dst_path)
+        if src_fmeta.signature == dst_signature:
+            # TODO: what about if stats are different?
+            logger.info(f'Identical file already exists at dst; skipping: {dst_path}')
+            if error_collector is not None:
+                error_collector.append(FMetaNoOp(fm=src_fmeta))
+            return
 
     # (Staging) make parent directories if not exist
     staging_parent, staging_file = os.path.split(staging_path)
@@ -180,9 +213,9 @@ def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_signature, 
 
     if verify:
         dst_signature = fmeta.content_hasher.dropbox_hash(staging_path)
-        if src_signature != dst_signature:
+        if src_fmeta.signature != dst_signature:
             raise RuntimeError(f'Signature of copied file does not match: src_path="{src_path}", '
-                               f'src_sig={src_signature}, dst_path="{dst_path}", dst_sig={dst_signature}')
+                               f'src_sig={src_fmeta.signature}, dst_path="{dst_path}", dst_sig={dst_signature}')
 
     try:
         # (Destination) make parent directories if not exist

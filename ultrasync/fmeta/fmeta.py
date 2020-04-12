@@ -68,7 +68,7 @@ class DirNode:
     """For directories"""
     def __init__(self, file_path, category):
         self.file_path = file_path
-        self.items = 0
+        self.file_count = 0
         self.size_bytes = 0
         self.category = category
 
@@ -76,7 +76,7 @@ class DirNode:
         if fmeta.category != self.category:
             logger.error(f'BAD CATEGORY: expected={self.category} found={fmeta.category} path={fmeta.file_path}')
         assert fmeta.category == self.category
-        self.items += 1
+        self.file_count += 1
         self.size_bytes += fmeta.size_bytes
 
     @classmethod
@@ -85,7 +85,7 @@ class DirNode:
 
     def get_summary(self):
         size = humanfriendly.format_size(self.size_bytes)
-        return f'{size} in {self.items} files'
+        return f'{size} in {self.file_count} files'
 
 
 class CategoryNode(DirNode):

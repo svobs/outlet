@@ -4,8 +4,8 @@ import threading
 from stopwatch import Stopwatch
 
 import file_util
-from file_util import get_resource_path
-from fmeta.fmeta import FMetaTree
+from file_util import get_resource_path, FMetaNoOp, FMetaError
+from fmeta.fmeta import FMetaTree, Category
 from fmeta.fmeta_builder import FMetaDirScanner, FMetaDatabase
 from fmeta import diff_content_first
 from ui.progress_meter import ProgressMeter
@@ -63,6 +63,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         self.content_box.add(label)
 
         self.diff_tree = DiffTree(parent_win=self, root_path=self.fmeta_tree.root_path, editable=False)
+        self.diff_tree.set_status(fmeta_tree.get_summary())
         self.content_box.pack_start(self.diff_tree.content_box, True, True, 0)
 
         self.diff_tree.rebuild_ui_tree(self.fmeta_tree)
@@ -172,8 +173,36 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                 logger.debug("The OK button was clicked")
                 staging_dir = STAGING_DIR_PATH
                 # TODO: clear dir after use
-                file_util.apply_changes_atomically(tree=merged_changes_tree, staging_dir=staging_dir)
-
+                error_collection = []
+                file_util.apply_changes_atomically(tree=merged_changes_tree, staging_dir=staging_dir,
+                                                   continue_on_error=True, error_collector=error_collection)
+                if len(error_collection) > 0:
+                    # TODO: create a much better UI here
+                    noop_adds = 0
+                    noop_dels = 0
+                    noop_movs = 0
+                    err_adds = 0
+                    err_dels = 0
+                    err_movs = 0
+                    for err in error_collection:
+                        if err.fm.category == Category.Added:
+                            if type(err) == FMetaError:
+                                err_adds += 1
+                            else:
+                                noop_adds += 1
+                        elif err.fm.category == Category.Deleted:
+                            if type(err) == FMetaError:
+                                err_dels += 1
+                            else:
+                                noop_dels += 1
+                        elif err.fm.category == Category.Moved:
+                            if type(err) == FMetaError:
+                                err_movs += 1
+                            else:
+                                noop_movs += 1
+                    self.show_error_ui(f'{len(error_collection)} Errors occurred',
+                                       f'Collected the following errors while applying changes: adds={err_adds} dels={err_dels} movs={err_movs} noops={noop_adds+noop_dels+noop_movs}')
+                # Refresh the diff trees:
                 self.execute_diff_task()
             elif response == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
