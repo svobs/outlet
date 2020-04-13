@@ -2,13 +2,14 @@ import logging
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gio, GObject
+from app_config import AppConfig
 
 logger = logging.getLogger(__name__)
 
 
 class BaseDialog:
-    def __init__(self):
-        pass
+    def __init__(self, config: AppConfig):
+        self.config = config
 
     def show_error_ui(self, msg, secondary_msg=None):
         def do_on_ui_thread(m, sm):

@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
     def __init__(self, application):
         Gtk.Window.__init__(self, application=application)
-        BaseDialog.__init__(self)
+        BaseDialog.__init__(self, application.config)
         self.enable_db_cache = True
 
         self.set_title('UltraSync')

@@ -5,16 +5,7 @@ import file_util
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gio, GObject
 from ui.diff_window import DiffWindow
-
-DEBUG_LOG_FILE = file_util.get_resource_path('debug.log')
-# NOTE: load the following regex into PyCharm:
-# ^([\d-]+ [\d-:,.]+)\s+([\w.]+)\s*([\w]+)\s*(.*)$
-# Capture groups: datetime=1 severity=3 category=2
-LOG_FMT_DEBUG_FILE = '%(asctime)s %(name)20s %(levelname)-8s %(message)s'
-LOG_DATE_FMT_DEBUG_FILE = '%Y-%m-%d %H:%M:%S.%03d'
-
-LOG_FMT_CONSOLE = '%(asctime)s %(name)20s %(levelname)-8s %(message)s'
-LOG_DATE_FMT_CONSOLE = '%H:%M:%S.%03d'
+from app_config import AppConfig
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +13,8 @@ logger = logging.getLogger(__name__)
 class UltrasyncApplication(Gtk.Application):
     """Main application.
     See: https://athenajc.gitbooks.io/python-gtk-3-api/content/gtk-group/gtkapplication.html"""
-    def __init__(self):
+    def __init__(self, config):
+        self.config = config
         Gtk.Application.__init__(self)
         self.window = None
 
@@ -65,19 +57,29 @@ class UltrasyncApplication(Gtk.Application):
         self.quit()
 
 
-def configure_logging():
-    # filemode='w' == wipe out the prev log on each run
-    logging.basicConfig(filename=DEBUG_LOG_FILE, filemode='w', format=LOG_FMT_DEBUG_FILE, level=logging.DEBUG)
+def configure_logging(config):
+    # DEBUG LOG FILE
+    debug_log_enabled = config.cfg['logging.debug_log.enable']
+    if debug_log_enabled:
+        debug_log_path = file_util.get_resource_path(config.cfg['logging.debug_log.file_path'])
+        debug_log_format = config.cfg['logging.debug_log.format']
+        debug_log_datetime_format = config.cfg['logging.debug_log.datetime_format']
+        # filemode='w' == wipe out the prev log on each run
+        logging.basicConfig(filename=debug_log_path, filemode='w', format=debug_log_format, datefmt=debug_log_datetime_format, level=logging.DEBUG)
+
     # create logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
 
-    # create console handler and set level to debug
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.DEBUG)
+    # CONSOLE
+    console_enabled = config.cfg['logging.console.enable']
+    if console_enabled:
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.DEBUG)
 
-    # create formatter
-    console_formatter = logging.Formatter(fmt=LOG_FMT_CONSOLE, datefmt=LOG_DATE_FMT_CONSOLE)
+        console_format = config.cfg['logging.debug_log.format']
+        console_datetime_format = config.cfg['logging.debug_log.datetime_format']
+        console_formatter = logging.Formatter(fmt=console_format, datefmt=console_datetime_format)
 
     # add formatter to ch
     console_handler.setFormatter(console_formatter)
@@ -91,8 +93,11 @@ def configure_logging():
 
 
 def main():
-    configure_logging()
-    application = UltrasyncApplication()
+    # TODO: pass location of config from command line
+    config = AppConfig()
+
+    configure_logging(config)
+    application = UltrasyncApplication(config)
     exit_status = application.run(sys.argv)
     sys.exit(exit_status)
 
