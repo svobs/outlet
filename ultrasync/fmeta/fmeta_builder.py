@@ -29,7 +29,7 @@ if sys.version_info[0] < 3:
 logger = logging.getLogger(__name__)
 
 
-def build_sync_item(root_path, file_path, category=Category.NA):
+def build_fmeta(root_path, file_path, category=Category.NA):
     if category == Category.Ignored:
         # Do not scan ignored files for content (optimization)
         signature_str = None
@@ -72,12 +72,12 @@ class FMetaDirScanner(TreeRecurser):
         self.fmeta_tree = FMetaTree(root_path)
 
     def handle_target_file_type(self, file_path):
-        item = build_sync_item(root_path=str(self.root_path), file_path=file_path)
+        item = build_fmeta(root_path=str(self.root_path), file_path=file_path)
         self.fmeta_tree.add(item)
         self.progress_meter.add_progress(1)
 
     def handle_non_target_file(self, file_path):
-        item = build_sync_item(root_path=str(self.root_path), file_path=file_path, category=Category.Ignored)
+        item = build_fmeta(root_path=str(self.root_path), file_path=file_path, category=Category.Ignored)
         self.fmeta_tree.add(item)
 
     def scan_local_tree(self):

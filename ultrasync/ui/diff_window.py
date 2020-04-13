@@ -8,11 +8,9 @@ from gi.repository import GLib, Gtk, Gio, GObject
 from stopwatch import Stopwatch
 
 from ui.merge_preview_dialog import MergePreviewDialog
+from fmeta.fmeta_tree_source import FMetaTreeSource
 from file_util import get_resource_path
-from fmeta.fmeta import FMetaTree, Category
-from fmeta.fmeta_builder import FMetaDirScanner, FMetaDatabase
 from fmeta import diff_content_first
-from ui.progress_meter import ProgressMeter
 from ui.diff_tree import DiffTree
 from ui.base_dialog import BaseDialog
 
@@ -28,18 +26,6 @@ RIGHT_DIR_PATH = get_resource_path('/media/msvoboda/Thumb128G/Takeout/Google Pho
 WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
 
 logger = logging.getLogger(__name__)
-
-
-def scan_disk(diff_tree):
-    # Callback from FMetaDirScanner:
-    def on_progress_made(progress, total, tree):
-        tree.set_status(f'Scanning file {progress} of {total}')
-
-    progress_meter = ProgressMeter(lambda p, t: on_progress_made(p, t, diff_tree))
-    status_msg = f'Scanning files in tree: {diff_tree.root_path}'
-    diff_tree.set_status(status_msg)
-    dir_scanner = FMetaDirScanner(root_path=diff_tree.root_path, progress_meter=progress_meter)
-    return dir_scanner.scan_local_tree()
 
 
 class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
@@ -150,37 +136,14 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def diff_task(self):
         try:
-            stopwatch = Stopwatch()
-            if self.enable_db_cache:
-                left_db = FMetaDatabase(LEFT_DB_PATH)
-                left_fmeta_tree: FMetaTree
-                self.diff_tree_right.set_status('Waiting...')
-                if left_db.has_data():
-                    self.diff_tree_left.set_status(f'Loading Left data from DB: {LEFT_DB_PATH}')
-                    left_fmeta_tree = left_db.load_fmeta_tree(self.diff_tree_left.root_path)
-                else:
-                    left_fmeta_tree = scan_disk(self.diff_tree_left)
-                    left_db.save_fmeta_tree(left_fmeta_tree)
-            else:
-                left_fmeta_tree = scan_disk(self.diff_tree_left)
-            stopwatch.stop()
-            logger.info(f'Left loaded in: {stopwatch}')
-            self.diff_tree_left.set_status(left_fmeta_tree.get_summary())
+            self.diff_tree_right.set_status('Waiting...')
 
-            stopwatch = Stopwatch()
-            if self.enable_db_cache:
-                right_db = FMetaDatabase(RIGHT_DB_PATH)
-                if right_db.has_data():
-                    self.diff_tree_right.set_status(f'Loading Right data from DB: {RIGHT_DB_PATH}')
-                    right_fmeta_tree = right_db.load_fmeta_tree(self.diff_tree_right.root_path)
-                else:
-                    right_fmeta_tree = scan_disk(self.diff_tree_right)
-                    right_db.save_fmeta_tree(right_fmeta_tree)
-            else:
-                right_fmeta_tree = scan_disk(self.diff_tree_right)
-            stopwatch.stop()
-            logger.info(f'Right loaded in: {stopwatch}')
-            self.diff_tree_right.set_status(right_fmeta_tree.get_summary())
+            # TODO: change DB path whenever root is changed
+            left_tree_source = FMetaTreeSource('Left', self.diff_tree_left.root_path, self.enable_db_cache, LEFT_DB_PATH)
+            left_fmeta_tree = left_tree_source.get_current_tree(status_receiver=self.diff_tree_left)
+
+            right_tree_source = FMetaTreeSource('Right', self.diff_tree_right.root_path, self.enable_db_cache, RIGHT_DB_PATH)
+            right_fmeta_tree = right_tree_source.get_current_tree(status_receiver=self.diff_tree_right)
 
             logger.info("Diffing...")
 
@@ -189,10 +152,10 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             stopwatch.stop()
             logger.info(f'Diff completed in: {stopwatch}')
 
-            def do_on_ui_thread():
-                self.diff_tree_left.rebuild_ui_tree(left_fmeta_tree)
-                self.diff_tree_right.rebuild_ui_tree(right_fmeta_tree)
+            self.diff_tree_left.rebuild_ui_tree(left_fmeta_tree)
+            self.diff_tree_right.rebuild_ui_tree(right_fmeta_tree)
 
+            def do_on_ui_thread():
                 # Replace diff btn with merge buttons
                 merge_btn = Gtk.Button(label="Merge Selected...")
                 merge_btn.connect("clicked", self.on_merge_btn_clicked)

@@ -85,6 +85,8 @@ class FMetaList:
 
 
 class FMetaTree:
+    """Note: each FMeta object should be unique within its tree. Each FMeta should not be shared
+    between trees, and should be cloned if needed"""
     def __init__(self, root_path):
         self.root_path = root_path
         # Each item is an entry
@@ -106,6 +108,8 @@ class FMetaTree:
         Important: this method assumes the fmeta has already been assigned to the sig_dict
         and path_dict"""
         assert category != Category.NA
+        # param fmeta should already be a member of this tree
+        assert self.get_for_path(file_path=fmeta.file_path, include_ignored=True) == fmeta
         fmeta.category = category
         return self._cat_dict[category].add(fmeta)
 
