@@ -64,35 +64,6 @@ class FMeta:
         return self.category == Category.Ignored
 
 
-class DirNode:
-    """For directories"""
-    def __init__(self, file_path, category):
-        self.file_path = file_path
-        self.file_count = 0
-        self.size_bytes = 0
-        self.category = category
-
-    def add_meta(self, fmeta):
-        if fmeta.category != self.category:
-            logger.error(f'BAD CATEGORY: expected={self.category} found={fmeta.category} path={fmeta.file_path}')
-        assert fmeta.category == self.category
-        self.file_count += 1
-        self.size_bytes += fmeta.size_bytes
-
-    @classmethod
-    def is_dir(cls):
-        return True
-
-    def get_summary(self):
-        size = humanfriendly.format_size(self.size_bytes)
-        return f'{size} in {self.file_count} files'
-
-
-class CategoryNode(DirNode):
-    def __init__(self, category):
-        super().__init__('', category)
-
-
 class FMetaList:
     def __init__(self):
         self.list = []
@@ -130,6 +101,10 @@ class FMetaTree:
         self._total_size_bytes = 0
 
     def categorize(self, fmeta, category: Category):
+        """Convenience method to use when building the tree.
+        Changes the category of the given fmeta, then adds it to the category dict.
+        Important: this method assumes the fmeta has already been assigned to the sig_dict
+        and path_dict"""
         assert category != Category.NA
         fmeta.category = category
         return self._cat_dict[category].add(fmeta)
@@ -165,17 +140,9 @@ class FMetaTree:
     def get_all(self):
         """
         Gets the complete set of all unique FMetas from this FMetaTree.
-        Returns: List of FMetas from (1) list of unique paths, and (2) deleted
+        Returns: List of FMetas from list of unique paths
         """
-        all_fmeta = []
-        for fmeta in self._path_dict.values():
-            assert isinstance(fmeta, FMeta)
-            all_fmeta.append(fmeta)
-        deleted = self._cat_dict[Category.Deleted].list
-        for fmeta in deleted:
-            assert isinstance(fmeta, FMeta)
-            all_fmeta.append(fmeta)
-        return all_fmeta
+        return self._path_dict.values()
 
     def get_for_cat(self, category: Category):
         return self._cat_dict[category].list
@@ -228,15 +195,25 @@ class FMetaTree:
         return f'FMetaTree=[sigs:{len(self.sig_dict)} paths:{len(self._path_dict)} dup_sigs:{self._dup_sig_count} cats=[{cats_string}]'
 
     def get_summary(self):
+        """
+        Returns: summary of the aggregate FMeta in this tree.
+
+        Remember: path dict contains ALL file meta, including faux-meta such as
+        'deleted' meta, as well as 'ignored' meta. We subtract that out here.
+
+        """
         ignored_count = self._cat_dict[Category.Ignored].file_count
         ignored_size = self._cat_dict[Category.Ignored].size_bytes
 
-        total_size = self._total_size_bytes - ignored_size
+        deleted_count = self._cat_dict[Category.Deleted].file_count
+        deleted_size = self._cat_dict[Category.Deleted].size_bytes
+
+        total_size = self._total_size_bytes - ignored_size - deleted_size
         size_hf = humanfriendly.format_size(total_size)
 
-        count = len(self._path_dict) - ignored_count
+        count = len(self._path_dict) - ignored_count - deleted_count
 
-        summary_string = f'{size_hf} in {count} files'
+        summary_string = f'{size_hf} total in {count} files'
         if ignored_count > 0:
             ignored_size_hf = humanfriendly.format_size(ignored_size)
             summary_string += f' (+{ignored_size_hf} in {ignored_count} ignored files)'

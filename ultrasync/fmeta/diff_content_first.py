@@ -80,13 +80,15 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
                 right_tree.categorize(right_meta, Category.Added)
                 # Note: deleted nodes should not be thought of like 'real' nodes
                 right_meta_copy = copy.deepcopy(right_meta)
-                left_tree.categorize(right_meta_copy, Category.Deleted)
+                right_meta_copy.category = Category.Deleted
+                left_tree.add(right_meta_copy)
         elif right_metas is None:
             for left_meta in left_metas:
                 logger.debug(f'Left has new file: "{left_meta.file_path}"')
                 left_tree.categorize(left_meta, Category.Added)
                 left_meta_copy = copy.deepcopy(left_meta)
-                right_tree.categorize(left_meta_copy, Category.Deleted)
+                left_meta_copy.category = Category.Deleted
+                right_tree.add(left_meta_copy)
         elif compare_paths_also:
             """If we do this, we care about what the files are named, where they are located, and how many
             duplicates exist. When it comes to determining the direction of renamed files, we simply don't
@@ -125,13 +127,15 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
                     if changed_left is None:
                         right_tree.categorize(changed_right, Category.Added)
                         changed_right_copy = copy.deepcopy(changed_right)
-                        left_tree.categorize(changed_right_copy, Category.Deleted)
+                        changed_right_copy.category = Category.Deleted
+                        left_tree.add(changed_right_copy)
                         continue
 
                     if changed_right is None:
                         left_tree.categorize(changed_left, Category.Added)
                         changed_left_copy = copy.deepcopy(changed_left)
-                        right_tree.categorize(changed_left_copy, Category.Deleted)
+                        changed_left_copy.category = Category.Deleted
+                        right_tree.add(changed_left_copy)
                         continue
 
     logger.debug(f'Done with diff. Left:[{left_tree.get_category_summary_string()}] Right:[{right_tree.get_category_summary_string()}]')

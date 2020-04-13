@@ -121,7 +121,7 @@ class FMetaDatabase:
                 fmeta_tree.add(change)
                 counter += 1
 
-        logger.debug(f'Reduced {str(len(db_file_changes))} DB changes into {str(counter)} entries')
+        logger.debug(f'Reduced {str(len(db_file_changes))} DB entries into {str(counter)} entries')
         logger.info(fmeta_tree.get_stats_string())
         return fmeta_tree
 
