@@ -14,15 +14,6 @@ from fmeta import diff_content_first
 from ui.diff_tree import DiffTree
 from ui.base_dialog import BaseDialog
 
-# LEFT_DB_PATH = get_resource_path('test/BiDirMerge/Left.db')
-# RIGHT_DB_PATH = get_resource_path('test/BiDirMerge/Right.db')
-# LEFT_DIR_PATH = get_resource_path('test/BiDirMerge/Sen Mitsuji Left')
-# RIGHT_DIR_PATH = get_resource_path('test/BiDirMerge/Sen Mitsuji Right')
-LEFT_DB_PATH = get_resource_path('test/SvobodaLeft.db')
-RIGHT_DB_PATH = get_resource_path('test/SvobodaRight.db')
-LEFT_DIR_PATH = get_resource_path('/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos')
-RIGHT_DIR_PATH = get_resource_path('/media/msvoboda/Thumb128G/Takeout/Google Photos')
-
 WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
 
 logger = logging.getLogger(__name__)
@@ -72,9 +63,11 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Trees:
-        self.diff_tree_left = DiffTree(parent_win=self, root_path=LEFT_DIR_PATH, editable=True, sizegroups=self.sizegroups)
+        left_dir_path = self.config.get('left_tree.root_path')
+        right_dir_path = self.config.get('right_tree.root_path')
+        self.diff_tree_left = DiffTree(parent_win=self, root_path=left_dir_path, editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
-        self.diff_tree_right = DiffTree(parent_win=self, root_path=RIGHT_DIR_PATH, editable=True, sizegroups=self.sizegroups)
+        self.diff_tree_right = DiffTree(parent_win=self, root_path=right_dir_path, editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
 
         # Bottom button panel:
@@ -138,11 +131,14 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         try:
             self.diff_tree_right.set_status('Waiting...')
 
+            left_cache_path = self.config.get('left_tree.cache_path')
+            right_cache_path = self.config.get('right_tree.cache_path')
+
             # TODO: change DB path whenever root is changed
-            left_tree_source = FMetaTreeSource('Left', self.diff_tree_left.root_path, self.enable_db_cache, LEFT_DB_PATH)
+            left_tree_source = FMetaTreeSource('Left', self.diff_tree_left.root_path, self.enable_db_cache, left_cache_path)
             left_fmeta_tree = left_tree_source.get_current_tree(status_receiver=self.diff_tree_left)
 
-            right_tree_source = FMetaTreeSource('Right', self.diff_tree_right.root_path, self.enable_db_cache, RIGHT_DB_PATH)
+            right_tree_source = FMetaTreeSource('Right', self.diff_tree_right.root_path, self.enable_db_cache, right_cache_path)
             right_fmeta_tree = right_tree_source.get_current_tree(status_receiver=self.diff_tree_right)
 
             logger.info("Diffing...")

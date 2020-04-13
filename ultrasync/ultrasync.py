@@ -1,7 +1,6 @@
 import sys
 import gi
 import logging
-import file_util
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gio, GObject
 from ui.diff_window import DiffWindow
@@ -59,11 +58,11 @@ class UltrasyncApplication(Gtk.Application):
 
 def configure_logging(config):
     # DEBUG LOG FILE
-    debug_log_enabled = config.cfg['logging.debug_log.enable']
+    debug_log_enabled = config.get('logging.debug_log.enable')
     if debug_log_enabled:
-        debug_log_path = file_util.get_resource_path(config.cfg['logging.debug_log.file_path'])
-        debug_log_format = config.cfg['logging.debug_log.format']
-        debug_log_datetime_format = config.cfg['logging.debug_log.datetime_format']
+        debug_log_path = config.get('logging.debug_log.file_path')
+        debug_log_format = config.get('logging.debug_log.format')
+        debug_log_datetime_format = config.get('logging.debug_log.datetime_format')
         # filemode='w' == wipe out the prev log on each run
         logging.basicConfig(filename=debug_log_path, filemode='w', format=debug_log_format, datefmt=debug_log_datetime_format, level=logging.DEBUG)
 
@@ -72,13 +71,13 @@ def configure_logging(config):
     root_logger.setLevel(logging.DEBUG)
 
     # CONSOLE
-    console_enabled = config.cfg['logging.console.enable']
+    console_enabled = config.get('logging.console.enable')
     if console_enabled:
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.DEBUG)
 
-        console_format = config.cfg['logging.debug_log.format']
-        console_datetime_format = config.cfg['logging.debug_log.datetime_format']
+        console_format = config.get('logging.debug_log.format')
+        console_datetime_format = config.get('logging.debug_log.datetime_format')
         console_formatter = logging.Formatter(fmt=console_format, datefmt=console_datetime_format)
 
     # add formatter to ch
