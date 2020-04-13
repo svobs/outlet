@@ -49,7 +49,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         Gtk.Dialog.__init__(self, "Confirm Merge", parent, 0)
         BaseDialog.__init__(self)
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
-        self.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
+        self.add_button(Gtk.STOCK_APPLY, Gtk.ResponseType.APPLY)
 
         self.set_default_size(700, 700)
 
@@ -77,9 +77,9 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         # (that is, when the button of the dialog has been clicked)
 
         try:
-            if response_id == Gtk.ResponseType.OK:
-                logger.debug("The OK button was clicked")
-                self.on_ok_clicked()
+            if response_id == Gtk.ResponseType.APPLY:
+                logger.debug("The APPLY button was clicked")
+                self.on_apply_clicked()
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
         except FileNotFoundError as err:
@@ -93,7 +93,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         finally:
             dialog.destroy()
 
-    def on_ok_clicked(self):
+    def on_apply_clicked(self):
         staging_dir = STAGING_DIR_PATH
         # TODO: clear dir after use
 
@@ -230,7 +230,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         # Preview changes in UI pop-up
         dialog = MergePreviewDialog(self, merged_changes_tree)
         response_id = dialog.run()
-        if response_id == Gtk.ResponseType.OK:
+        if response_id == Gtk.ResponseType.APPLY:
             # Refresh the diff trees:
             logger.debug('Refreshing the diff trees')
             self.execute_diff_task()
