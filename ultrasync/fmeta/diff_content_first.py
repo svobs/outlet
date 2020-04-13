@@ -62,7 +62,7 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
     right_tree.clear_categories()
 
     # the set of signatures already processed
-    signature_set = left_tree.sig_dict.keys() | right_tree.sig_dict.keys()
+    signature_set = left_tree.get_sig_set() | right_tree.get_sig_set()
 
     """Compares the two trees, and populates the change sets of both. The order of 'left' and which is 'right'
      is not important, because the changes are computed from each tree's perspective (e.g. a file which is in
@@ -189,7 +189,7 @@ def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_co
     new_root_path = find_nearest_common_ancestor(left_tree.root_path, right_tree.root_path)
     merged_tree = FMetaTree(root_path=new_root_path)
 
-    signature_set = left_tree.sig_dict.keys() | right_tree.sig_dict.keys()
+    signature_set = left_tree.get_sig_set() | right_tree.get_sig_set()
 
     left_old_root_remainder = file_util.strip_root(left_tree.root_path, new_root_path)
     right_old_root_remainder = file_util.strip_root(right_tree.root_path, new_root_path)

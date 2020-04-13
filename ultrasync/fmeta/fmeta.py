@@ -92,7 +92,7 @@ class FMetaTree:
         # Each item is an entry
         self._path_dict = {}
         # Each item contains a list of entries
-        self.sig_dict = {}
+        self._sig_dict = {}
         self._cat_dict = {Category.Ignored: FMetaList(),
                           Category.Added: FMetaList(),
                           Category.Deleted: FMetaList(),
@@ -158,18 +158,52 @@ class FMetaTree:
         elif fmeta.category != Category.Ignored:
             return fmeta
 
+    def get_sig_set(self):
+        return self._sig_dict.keys()
+
     def get_for_sig(self, signature):
-        return self.sig_dict.get(signature, None)
+        return self._sig_dict.get(signature, None)
+
+    def remove(self, file_path, sig, ok_if_missing=False):
+        """Removes from this FMetaTree the FMeta which matches the given file path and signature.
+        Does sanity checks and raises exceptions if internal state is found to have problems.
+        If match not found: returns None if ok_if_missing=True; raises exception otherwise.
+        If match found for both file path and sig, it is removed and the removed element is returned.
+        """
+        match = self._path_dict.pop(file_path, None)
+        if match is None:
+            if ok_if_missing:
+                return None
+            else:
+                raise RuntimeError(f'Could not find FMeta for path: {file_path}')
+
+        matching_sig_list = self.get_for_sig(sig)
+        if matching_sig_list is None:
+            # This indicates a serious data problem
+            raise RuntimeError(f'FMeta found for path: {file_path} but not sig: {sig}')
+
+        path_matches = list(filter(lambda f: f.file_path == file_path, matching_sig_list))
+        path_matches_count = len(path_matches)
+        if path_matches_count == 0:
+            raise RuntimeError(f'FMeta found for path: {file_path} but not signature: {sig}')
+        elif path_matches_count > 1:
+            raise RuntimeError(f'Multiple FMeta ({path_matches}) found for path: {file_path} and sig: {sig}')
+        else:
+            matching_sig_list.remove(path_matches[0])
+
+        # Don't worry about categories.
+
+        return match
 
     def add(self, item: FMeta):
         if item.category == Category.Ignored:
             logger.debug(f'Found ignored file: {item.file_path}')
         else:
             # ignored files may not have signatures
-            set_matching_sig = self.sig_dict.get(item.signature, None)
+            set_matching_sig = self._sig_dict.get(item.signature, None)
             if set_matching_sig is None:
                 set_matching_sig = [item]
-                self.sig_dict[item.signature] = set_matching_sig
+                self._sig_dict[item.signature] = set_matching_sig
             else:
                 set_matching_sig.append(item)
                 self._dup_sig_count += 1
@@ -196,7 +230,7 @@ class FMetaTree:
         For internal use only
         """
         cats_string = self.get_category_summary_string()
-        return f'FMetaTree=[sigs:{len(self.sig_dict)} paths:{len(self._path_dict)} dup_sigs:{self._dup_sig_count} cats=[{cats_string}]'
+        return f'FMetaTree=[sigs:{len(self._sig_dict)} paths:{len(self._path_dict)} dup_sigs:{self._dup_sig_count} cats=[{cats_string}]'
 
     def get_summary(self):
         """
