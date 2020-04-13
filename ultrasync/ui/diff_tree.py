@@ -12,10 +12,6 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
 import subprocess
 
-DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
-ROW_HEIGHT = 30
-count = 0
-
 logger = logging.getLogger(__name__)
 
 
@@ -61,11 +57,7 @@ def _build_icons(icon_size):
 
 
 class DiffTree:
-    EXTRA_INDENTATION_LEVEL = 0
     model: Gtk.TreeStore
-
-    ICON_SIZE = 24
-    icons = _build_icons(icon_size=ICON_SIZE)
 
     def __init__(self, parent_win, root_path, editable, sizegroups=None):
         # The source files
@@ -78,6 +70,10 @@ class DiffTree:
         self.editable = editable
         self.sizegroups = sizegroups
         self.show_change_ts = True
+
+        icon_size = parent_win.config.get('display.diff_tree.icon_size')
+        self.datetime_format = parent_win.config.get('display.diff_tree.datetime_format')
+        self.icons = _build_icons(icon_size=icon_size)
 
         col_count = 0
         col_types = []
@@ -165,9 +161,12 @@ class DiffTree:
     def _build_treeview(self, model):
         """ Builds the GTK3 treeview widget"""
 
+        extra_indent = self.parent_win.config.get('display.diff_tree.extra_indent')
+        row_height = self.parent_win.config.get('display.diff_tree.row_height')
+
         # TODO: detach from model while populating
         treeview = Gtk.TreeView(model=model)
-        treeview.set_level_indentation(DiffTree.EXTRA_INDENTATION_LEVEL)
+        treeview.set_level_indentation(extra_indent)
         treeview.set_show_expanders(True)
         treeview.set_property('enable_grid_lines', True)
         treeview.set_property('enable_tree_lines', True)
@@ -185,18 +184,18 @@ class DiffTree:
         if self.editable:
             renderer = Gtk.CellRendererToggle()
             renderer.connect("toggled", self.on_cell_toggled)
-            renderer.set_fixed_size(width=-1, height=ROW_HEIGHT)
+            renderer.set_fixed_size(width=-1, height=row_height)
             px_column.pack_start(renderer, False)
             px_column.add_attribute(renderer, 'active', self.col_num_checked)
             px_column.add_attribute(renderer, 'inconsistent', self.col_num_inconsistent)
 
         px_renderer = Gtk.CellRendererPixbuf()
-        px_renderer.set_fixed_size(width=-1, height=ROW_HEIGHT)
+        px_renderer.set_fixed_size(width=-1, height=row_height)
         px_column.pack_start(px_renderer, False)
 
         str_renderer = Gtk.CellRendererText()
         str_renderer.set_fixed_height_from_font(1)
-        str_renderer.set_fixed_size(width=-1, height=ROW_HEIGHT)
+        str_renderer.set_fixed_size(width=-1, height=row_height)
         str_renderer.set_property('width-chars', 15)
         px_column.pack_start(str_renderer, False)
 
@@ -214,7 +213,7 @@ class DiffTree:
             # 2 DIRECTORY
             renderer = Gtk.CellRendererText()
             renderer.set_fixed_height_from_font(1)
-            renderer.set_fixed_size(width=-1, height=ROW_HEIGHT)
+            renderer.set_fixed_size(width=-1, height=row_height)
             renderer.set_property('width-chars', 20)
             column = Gtk.TreeViewColumn(self.col_names[self.col_num_dir], renderer, text=self.col_num_dir)
             column.set_sort_column_id(self.col_num_dir)
@@ -230,7 +229,7 @@ class DiffTree:
 
         # 3 SIZE
         renderer = Gtk.CellRendererText()
-        renderer.set_fixed_size(width=-1, height=ROW_HEIGHT)
+        renderer.set_fixed_size(width=-1, height=row_height)
         renderer.set_fixed_height_from_font(1)
         renderer.set_property('width-chars', 10)
         column = Gtk.TreeViewColumn(self.col_names[self.col_num_size], renderer, text=self.col_num_size)
@@ -268,7 +267,7 @@ class DiffTree:
         # 4 MODIFICATION DATE
         renderer = Gtk.CellRendererText()
         renderer.set_property('width-chars', 8)
-        renderer.set_fixed_size(width=-1, height=ROW_HEIGHT)
+        renderer.set_fixed_size(width=-1, height=row_height)
         renderer.set_fixed_height_from_font(1)
         column = Gtk.TreeViewColumn(self.col_names[self.col_num_modification_ts], renderer, text=self.col_num_modification_ts)
         column.set_sort_column_id(self.col_num_modification_ts)
@@ -286,7 +285,7 @@ class DiffTree:
             # METADATA CHANGE TS
             renderer = Gtk.CellRendererText()
             renderer.set_property('width-chars', 8)
-            renderer.set_fixed_size(width=-1, height=ROW_HEIGHT)
+            renderer.set_fixed_size(width=-1, height=row_height)
             renderer.set_fixed_height_from_font(1)
             column = Gtk.TreeViewColumn(self.col_names[self.col_num_change_ts], renderer, text=self.col_num_change_ts)
             column.set_sort_column_id(self.col_num_change_ts)
@@ -669,12 +668,12 @@ class DiffTree:
         row_values.append(num_bytes_str)  # Size
 
         modify_datetime = datetime.fromtimestamp(fmeta.modify_ts)
-        modify_time = modify_datetime.strftime(DATETIME_FORMAT)
+        modify_time = modify_datetime.strftime(self.datetime_format)
         row_values.append(modify_time)  # Modify TS
 
         if self.show_change_ts:
             change_datetime = datetime.fromtimestamp(fmeta.change_ts)
-            change_time = change_datetime.strftime(DATETIME_FORMAT)
+            change_time = change_datetime.strftime(self.datetime_format)
             row_values.append(change_time)  # Change TS
 
         row_values.append(fmeta)  # Data
