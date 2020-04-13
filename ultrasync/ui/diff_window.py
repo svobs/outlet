@@ -68,7 +68,70 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
         self.diff_tree.rebuild_ui_tree(self.fmeta_tree)
 
+        self.connect("response", self.on_response)
         self.show_all()
+
+    def on_response(self, dialog, response_id):
+        print("response_id is", response_id)
+        # destroy the widget (the dialog) when the function on_response() is called
+        # (that is, when the button of the dialog has been clicked)
+
+        try:
+            if response_id == Gtk.ResponseType.OK:
+                logger.debug("The OK button was clicked")
+                self.on_ok_clicked()
+            elif response_id == Gtk.ResponseType.CANCEL:
+                logger.debug("The Cancel button was clicked")
+        except FileNotFoundError as err:
+            self.show_error_ui('File not found: ' + err.filename)
+            raise
+        except Exception as err:
+            logger.exception(err)
+            detail = f'{repr(err)}]'
+            self.show_error_ui('Diff task failed due to unexpected error', detail)
+            raise
+        finally:
+            dialog.destroy()
+
+    def on_ok_clicked(self):
+        staging_dir = STAGING_DIR_PATH
+        # TODO: clear dir after use
+
+        error_collection = []
+
+        def on_progress_made(progress, total):
+            self.diff_tree.set_status(f'Copied {progress} bytes of {total}')
+
+        progress_meter = ProgressMeter(on_progress_made)
+        file_util.apply_changes_atomically(tree=self.fmeta_tree, staging_dir=staging_dir,
+                                           continue_on_error=True, error_collector=error_collection,
+                                           progress_meter=progress_meter)
+        if len(error_collection) > 0:
+            # TODO: create a much better UI here
+            noop_adds = 0
+            noop_dels = 0
+            noop_movs = 0
+            err_adds = 0
+            err_dels = 0
+            err_movs = 0
+            for err in error_collection:
+                if err.fm.category == Category.Added:
+                    if type(err) == FMetaError:
+                        err_adds += 1
+                    else:
+                        noop_adds += 1
+                elif err.fm.category == Category.Deleted:
+                    if type(err) == FMetaError:
+                        err_dels += 1
+                    else:
+                        noop_dels += 1
+                elif err.fm.category == Category.Moved:
+                    if type(err) == FMetaError:
+                        err_movs += 1
+                    else:
+                        noop_movs += 1
+            self.show_error_ui(f'{len(error_collection)} Errors occurred',
+                               f'Collected the following errors while applying changes: adds={err_adds} dels={err_dels} movs={err_movs} noops={noop_adds+noop_dels+noop_movs}')
 
 
 class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
@@ -166,56 +229,11 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         # Preview changes in UI pop-up
         dialog = MergePreviewDialog(self, merged_changes_tree)
-        response = dialog.run()
-
-        try:
-            if response == Gtk.ResponseType.OK:
-                logger.debug("The OK button was clicked")
-                staging_dir = STAGING_DIR_PATH
-                # TODO: clear dir after use
-                error_collection = []
-                file_util.apply_changes_atomically(tree=merged_changes_tree, staging_dir=staging_dir,
-                                                   continue_on_error=True, error_collector=error_collection)
-                if len(error_collection) > 0:
-                    # TODO: create a much better UI here
-                    noop_adds = 0
-                    noop_dels = 0
-                    noop_movs = 0
-                    err_adds = 0
-                    err_dels = 0
-                    err_movs = 0
-                    for err in error_collection:
-                        if err.fm.category == Category.Added:
-                            if type(err) == FMetaError:
-                                err_adds += 1
-                            else:
-                                noop_adds += 1
-                        elif err.fm.category == Category.Deleted:
-                            if type(err) == FMetaError:
-                                err_dels += 1
-                            else:
-                                noop_dels += 1
-                        elif err.fm.category == Category.Moved:
-                            if type(err) == FMetaError:
-                                err_movs += 1
-                            else:
-                                noop_movs += 1
-                    self.show_error_ui(f'{len(error_collection)} Errors occurred',
-                                       f'Collected the following errors while applying changes: adds={err_adds} dels={err_dels} movs={err_movs} noops={noop_adds+noop_dels+noop_movs}')
-                # Refresh the diff trees:
-                self.execute_diff_task()
-            elif response == Gtk.ResponseType.CANCEL:
-                logger.debug("The Cancel button was clicked")
-        except FileNotFoundError as err:
-            self.show_error_ui('File not found: ' + err.filename)
-            raise
-        except Exception as err:
-            logger.exception(err)
-            detail = f'{repr(err)}]'
-            self.show_error_ui('Diff task failed due to unexpected error', detail)
-            raise
-        finally:
-            dialog.destroy()
+        response_id = dialog.run()
+        if response_id == Gtk.ResponseType.OK:
+            # Refresh the diff trees:
+            logger.debug('Refreshing the diff trees')
+            self.execute_diff_task()
 
     def execute_diff_task(self, widget=None):
         action_thread = threading.Thread(target=self.diff_task)

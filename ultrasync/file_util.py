@@ -9,6 +9,8 @@ import fmeta.content_hasher
 
 logger = logging.getLogger(__name__)
 
+FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT = 100
+
 
 class FMetaNoOp:
     def __init__(self, fm):
@@ -94,7 +96,18 @@ def creation_date(path_to_file):
             return stat.st_mtime
 
 
-def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=False, error_collector=None):
+def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=False, error_collector=None, progress_meter=None):
+
+    if progress_meter is not None:
+        # Get total byte count, for progress meter:
+        total_bytes = 0
+        for fmeta in tree.get_for_cat(Category.Added):
+            total_bytes += fmeta.size_bytes
+        total_bytes += FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT * len(tree.get_for_cat(Category.Deleted))
+        total_bytes += FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT * len(tree.get_for_cat(Category.Moved))
+        progress_meter.set_total(total_bytes)
+        logger.debug(f'Total progress to make: {total_bytes}')
+
     # TODO: deal with file-not-found errors in a more robust way
     for fmeta in tree.get_for_cat(Category.Added):
         try:
@@ -114,6 +127,7 @@ def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=Fal
                     error_collector.append(FMetaError(fm=fmeta, exception=err))
             else:
                 raise
+        progress_meter.add_progress(fmeta.size_bytes)
 
     for fmeta in tree.get_for_cat(Category.Deleted):
         try:
@@ -127,6 +141,7 @@ def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=Fal
                     error_collector.append(FMetaError(fm=fmeta, exception=err))
             else:
                 raise
+        progress_meter.add_progress(FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT)
 
     for fmeta in tree.get_for_cat(Category.Moved):
         try:
@@ -142,6 +157,7 @@ def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=Fal
                     error_collector.append(FMetaError(fm=fmeta, exception=err))
             else:
                 raise
+        progress_meter.add_progress(FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT)
 
 
 def delete_file(tgt_path, to_trash=False):
