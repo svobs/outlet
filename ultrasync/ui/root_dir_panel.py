@@ -1,7 +1,9 @@
+import logging
+import file_util
+
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +62,7 @@ class RootDirPanel:
             parent_diff_tree.sizegroups['root_paths'].add_widget(self.content_box)
         # TODO: make Label editable (maybe switch it to an Entry) on click
         self.label = Gtk.Label(label='')
-        self.refresh_root_label()
+        self.update_root()
         self.label.set_justify(Gtk.Justification.LEFT)
         self.label.set_xalign(0)
         self.label.set_line_wrap(True)
@@ -88,9 +90,17 @@ class RootDirPanel:
         # show the dialog
         open_dialog.show()
 
-    def refresh_root_label(self):
-        self.label.set_markup(f'<b>Tree Root:</b> <i>{self.parent_diff_tree.root_path}</i>')
+    def update_root(self, new_root_path=None):
+        if new_root_path is None:
+            # Use existing root path
+            new_root_path = self.parent_diff_tree.root_path
 
-    def update_root(self, new_root_path):
+        # If root is no longer valid for any reason, go back in the tree until it becomes valid
+        # TODO: maybe just display an error indicator instead
+        new_root_path = file_util.get_valid_or_ancestor(new_root_path)
+
+        # This setter will automatically detect whether the path has changed, and handle any UI updates
+        # and signal emissions appropriately:
         self.parent_diff_tree.root_path = new_root_path
-        self.refresh_root_label()
+        # Update root label:
+        self.label.set_markup(f'<b>Tree Root:</b> <i>{new_root_path}</i>')

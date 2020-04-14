@@ -63,9 +63,11 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Trees:
-        self.diff_tree_left = DiffTree(parent_win=self, root_path_cfg_entry='transient.left_tree.root_path', editable=True, sizegroups=self.sizegroups)
+        self.diff_tree_left = DiffTree(parent_win=self, root_path_cfg_entry='transient.left_tree.root_path',
+                                       editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
-        self.diff_tree_right = DiffTree(parent_win=self, root_path_cfg_entry='transient.right_tree.root_path', editable=True, sizegroups=self.sizegroups)
+        self.diff_tree_right = DiffTree(parent_win=self, root_path_cfg_entry='transient.right_tree.root_path',
+                                        editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
 
         # Bottom button panel:
@@ -125,6 +127,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         action_thread.daemon = True
         action_thread.start()
 
+    # TODO: Encapsulate each FMetaTreeSource in a listener. Need each to subscribe to a signal emitted by DiffTrees whenever a root changes. Fire a 'needs-diff-recalculate' event appriately which will update the diff and then the trees
+    # TODO: change DB path whenever root is changed
     def diff_task(self):
         try:
             self.diff_tree_right.set_status('Waiting...')
@@ -132,15 +136,15 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             left_cache_path = self.config.get('transient.left_tree.cache_path')
             right_cache_path = self.config.get('transient.right_tree.cache_path')
 
-            # TODO: change DB path whenever root is changed
+            # LEFT ---------------
             left_tree_source = FMetaTreeSource('Left', self.diff_tree_left.root_path, self.enable_db_cache, left_cache_path)
             left_fmeta_tree = left_tree_source.get_current_tree(status_receiver=self.diff_tree_left)
 
+            # RIGHT --------------
             right_tree_source = FMetaTreeSource('Right', self.diff_tree_right.root_path, self.enable_db_cache, right_cache_path)
             right_fmeta_tree = right_tree_source.get_current_tree(status_receiver=self.diff_tree_right)
 
             logger.info("Diffing...")
-
             stopwatch = Stopwatch()
             diff_content_first.diff(left_fmeta_tree, right_fmeta_tree, compare_paths_also=True, use_modify_times=False)
             stopwatch.stop()

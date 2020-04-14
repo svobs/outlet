@@ -244,3 +244,13 @@ def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_fmeta, veri
         logger.error(f'Exception while moving file to dst: {dst_path}')
         raise
 
+
+def get_valid_or_ancestor(dir_path):
+    new_path = dir_path
+    while not os.path.exists(new_path):
+        parent, last = os.path.split(new_path)
+        new_path = parent
+
+    if dir_path != new_path:
+        logger.info(f'Path ({dir_path}) is invalid; using closest valid ancestor: {new_path}')
+    return new_path

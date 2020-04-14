@@ -14,6 +14,8 @@ class AppConfig:
     def __init__(self, config_file_path=DEFAULT_CONFIG_PATH):
         try:
             self.cfg = config.Config(config_file_path)
+            # Cache JSON in memory rather than risk loading a corrupted JSON file later while we're about
+            # to write something
             with open(self._get_transient_filename()) as f:
                 self.transient_json = json.load(f)
         except Exception as err:
@@ -41,6 +43,9 @@ class AppConfig:
             if num == 0:
                 assert segment == 'transient'
             elif num == last:
+                if sub_dict[segment] == value:
+                    logger.debug(f'No change to config {segment}')
+                    return
                 sub_dict[segment] = value
             else:
                 sub_dict = sub_dict[segment]

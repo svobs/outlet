@@ -144,8 +144,13 @@ class DiffTree:
         return self.parent_win.config.get(self.root_path_cfg_entry)
 
     @root_path.setter
-    def root_path(self, root_path):
-        return self.parent_win.config.write(transient_path=self.root_path_cfg_entry, value=root_path)
+    def root_path(self, new_root):
+        if self.root_path != new_root:
+            # Root changed.
+            # TODO: wipe out UI and reload the whole damn thing
+            logger.error('TODO! Need to implement wiping out the tree on root path change!')
+            # TODO: fire signal to listeners
+        return self.parent_win.config.write(transient_path=self.root_path_cfg_entry, value=new_root)
 
     @classmethod
     def _build_content_box(cls, root_dir_panel, tree_view, status_bar_container):
