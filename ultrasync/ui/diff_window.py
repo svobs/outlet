@@ -49,7 +49,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.button3.set_sensitive(False) # disable
         self.button4= Gtk.CheckButton(label="Unrecognized suffixes")
         self.checkbox_panel.pack_start(self.button4, True, True, 0)
-        self.button4.set_sensitive(False) # disable
+        self.button4.set_sensitive(False)  # disable
         self.button5= Gtk.CheckButton(label="Relative paths or file names differ")
         self.checkbox_panel.pack_start(self.button5, True, True, 0)
         self.button5.set_sensitive(False) # disable
@@ -63,8 +63,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Trees:
-        left_dir_path = self.config.get('left_tree.root_path')
-        right_dir_path = self.config.get('right_tree.root_path')
+        left_dir_path = self.config.get('transient.left_tree.root_path')
+        right_dir_path = self.config.get('transient.right_tree.root_path')
         self.diff_tree_left = DiffTree(parent_win=self, root_path=left_dir_path, editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
         self.diff_tree_right = DiffTree(parent_win=self, root_path=right_dir_path, editable=True, sizegroups=self.sizegroups)
@@ -131,8 +131,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         try:
             self.diff_tree_right.set_status('Waiting...')
 
-            left_cache_path = self.config.get('left_tree.cache_path')
-            right_cache_path = self.config.get('right_tree.cache_path')
+            left_cache_path = self.config.get('transient.left_tree.cache_path')
+            right_cache_path = self.config.get('transient.right_tree.cache_path')
 
             # TODO: change DB path whenever root is changed
             left_tree_source = FMetaTreeSource('Left', self.diff_tree_left.root_path, self.enable_db_cache, left_cache_path)

@@ -63,8 +63,10 @@ def configure_logging(config):
         debug_log_path = config.get('logging.debug_log.file_path')
         debug_log_format = config.get('logging.debug_log.format')
         debug_log_datetime_format = config.get('logging.debug_log.datetime_format')
-        # filemode='w' == wipe out the prev log on each run
-        logging.basicConfig(filename=debug_log_path, filemode='w', format=debug_log_format, datefmt=debug_log_datetime_format, level=logging.DEBUG)
+        debug_log_mode = config.get('logging.debug_log.mode')
+        logging.basicConfig(filename=debug_log_path, filemode=debug_log_mode,
+                            format=debug_log_format, datefmt=debug_log_datetime_format,
+                            level=logging.DEBUG)
 
     # create logger
     root_logger = logging.getLogger()
