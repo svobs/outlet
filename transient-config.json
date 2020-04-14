@@ -1,0 +1,10 @@
+{
+    "left_tree": {
+        "cache_path": "$PROJECT_DIR/test/SvobodaLeft.db",
+        "root_path": "/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos"
+    },
+    "right_tree": {
+        "cache_path": "$PROJECT_DIR/test/SvobodaRight.db",
+        "root_path": "/media/msvoboda/Thumb128G/Takeout/Google Photos"
+    }
+}

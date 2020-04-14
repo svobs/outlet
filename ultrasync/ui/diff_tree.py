@@ -59,13 +59,14 @@ def _build_icons(icon_size):
 class DiffTree:
     model: Gtk.TreeStore
 
-    def __init__(self, parent_win, root_path, editable, sizegroups=None):
+    def __init__(self, parent_win, root_path_cfg_entry, editable, sizegroups=None):
         # The source files
         """If true, create a node for each ancestor directory for the files.
            If false, create a second column which shows the parent path. """
         self.use_dir_tree = True
         self.parent_win = parent_win
-        self.root_path = root_path
+
+        self.root_path_cfg_entry = root_path_cfg_entry
         """If false, hide checkboxes and tree root change button"""
         self.editable = editable
         self.sizegroups = sizegroups
@@ -137,6 +138,14 @@ class DiffTree:
         self.content_box = DiffTree._build_content_box(self.root_dir_panel.content_box, self.treeview, status_bar_container)
         if self.sizegroups is not None and self.sizegroups.get('tree_status') is not None:
             self.sizegroups['tree_status'].add_widget(status_bar_container)
+
+    @property
+    def root_path(self):
+        return self.parent_win.config.get(self.root_path_cfg_entry)
+
+    @root_path.setter
+    def root_path(self, root_path):
+        return self.parent_win.config.write(transient_path=self.root_path_cfg_entry, value=root_path)
 
     @classmethod
     def _build_content_box(cls, root_dir_panel, tree_view, status_bar_container):

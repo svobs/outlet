@@ -174,7 +174,7 @@ def move_file(src_path, dst_path):
     assert not os.path.isdir(src_path)
 
     # Make parent directories for dst if not exist
-    dst_parent, staging_file = os.path.split(dst_path)
+    dst_parent, dst_filename = os.path.split(dst_path)
     try:
         os.makedirs(name=dst_parent, exist_ok=True)
     except Exception as err:

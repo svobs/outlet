@@ -63,11 +63,9 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Trees:
-        left_dir_path = self.config.get('transient.left_tree.root_path')
-        right_dir_path = self.config.get('transient.right_tree.root_path')
-        self.diff_tree_left = DiffTree(parent_win=self, root_path=left_dir_path, editable=True, sizegroups=self.sizegroups)
+        self.diff_tree_left = DiffTree(parent_win=self, root_path_cfg_entry='transient.left_tree.root_path', editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
-        self.diff_tree_right = DiffTree(parent_win=self, root_path=right_dir_path, editable=True, sizegroups=self.sizegroups)
+        self.diff_tree_right = DiffTree(parent_win=self, root_path_cfg_entry='transient.right_tree.root_path', editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
 
         # Bottom button panel:
