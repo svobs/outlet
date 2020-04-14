@@ -23,6 +23,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
     def __init__(self, application):
         Gtk.Window.__init__(self, application=application)
         BaseDialog.__init__(self, application.config)
+        # TODO: put in config file
+        self.enable_file_scan = True
         self.enable_db_cache = True
 
         self.set_title('UltraSync')
@@ -137,11 +139,11 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             right_cache_path = self.config.get('transient.right_tree.cache_path')
 
             # LEFT ---------------
-            left_tree_source = FMetaTreeSource('Left', self.diff_tree_left.root_path, self.enable_db_cache, left_cache_path)
+            left_tree_source = FMetaTreeSource('Left', self.diff_tree_left.root_path, self.enable_file_scan, self.enable_db_cache, left_cache_path)
             left_fmeta_tree = left_tree_source.get_current_tree(status_receiver=self.diff_tree_left)
 
             # RIGHT --------------
-            right_tree_source = FMetaTreeSource('Right', self.diff_tree_right.root_path, self.enable_db_cache, right_cache_path)
+            right_tree_source = FMetaTreeSource('Right', self.diff_tree_right.root_path, self.enable_file_scan, self.enable_db_cache, right_cache_path)
             right_fmeta_tree = right_tree_source.get_current_tree(status_receiver=self.diff_tree_right)
 
             logger.info("Diffing...")

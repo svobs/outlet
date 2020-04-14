@@ -16,7 +16,8 @@ sudo apt install libgirepository1.0-dev gcc libcairo2-dev pkg-config python3-dev
 pip3 install pycairo
 pip install pygobject
 
+# exiftool -AllDates="2001:01:01 12:00:00" *
+# exiftool -Comment="Hawaii" ./2001\ Hawaii\ *
+# find . -name "*jpg_original" -exec rm -fv {} \;
 
-Svoboda Family Photos:
-27,768 items, totalling 80.7 GB
-+ 1410 files (1.35 GB)
+# Compare the output of this script with `tree -a .`

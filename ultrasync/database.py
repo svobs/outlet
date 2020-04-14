@@ -84,3 +84,8 @@ class MetaDatabase:
         sql = self.build_insert(self.TABLE_FILE_LOG)
         self.conn.executemany(sql, to_insert)
         self.conn.commit()
+
+    def truncate_file_changes(self):
+        sql = f"DELETE FROM {self.TABLE_FILE_LOG['name']}"
+        self.conn.execute(sql)
+        self.conn.commit()
