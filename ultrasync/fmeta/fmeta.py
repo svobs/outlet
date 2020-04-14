@@ -1,7 +1,9 @@
 import humanfriendly
 import itertools
 import logging
+import os
 from enum import Enum, auto
+import file_util
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +154,8 @@ class FMetaTree:
         return self._cat_dict[category].list
 
     def get_for_path(self, file_path, include_ignored=False):
+        if os.path.isabs(file_path):
+            file_path = file_util.strip_root(file_path, self.root_path)
         fmeta = self._path_dict.get(file_path, None)
         if fmeta is None or include_ignored:
             return fmeta
@@ -177,6 +181,10 @@ class FMetaTree:
             else:
                 raise RuntimeError(f'Could not find FMeta for path: {file_path}')
 
+        if match.category == Category.Ignored:
+            # Will not be present in sig_dict
+            return match
+
         matching_sig_list = self.get_for_sig(sig)
         if matching_sig_list is None:
             # This indicates a serious data problem
@@ -191,7 +199,7 @@ class FMetaTree:
         else:
             matching_sig_list.remove(path_matches[0])
 
-        # Don't worry about categories.
+        # (Don't worry about category list)
 
         return match
 

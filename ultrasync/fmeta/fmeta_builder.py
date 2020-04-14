@@ -42,14 +42,28 @@ def build_fmeta(root_path, file_path, category=Category.NA):
     # Get "now" in UNIX time:
     date_time_now = datetime.now()
     sync_ts = int(time.mktime(date_time_now.timetuple()))
-    size_bytes = os.stat(file_path).st_size
 
     stat = os.stat(file_path)
+    size_bytes = int(stat.st_size)
     modify_ts = int(stat.st_mtime)
     change_ts = int(stat.st_ctime)
 
     return FMeta(signature_str, size_bytes, sync_ts, modify_ts, change_ts, relative_path, category)
 
+
+def meta_matches(file_path, fmeta: FMeta):
+    stat = os.stat(file_path)
+    size_bytes = int(stat.st_size)
+    modify_ts = int(stat.st_mtime)
+    change_ts = int(stat.st_ctime)
+
+    is_equal = fmeta.size_bytes == size_bytes and fmeta.modify_ts == modify_ts and fmeta.change_ts == change_ts
+
+    if False and logger.isEnabledFor(logging.DEBUG):
+        logger.debug(f'Meta Exp=[{fmeta.size_bytes} {fmeta.modify_ts} {fmeta.change_ts}]' +
+                     f' Act=[{size_bytes} {modify_ts} {change_ts}] -> {is_equal}')
+
+    return is_equal
 
 # SUPPORT CLASSES ####################
 
@@ -62,36 +76,44 @@ class FileCounter(TreeRecurser):
     def handle_target_file_type(self, file_path):
         self.files_to_scan += 1
 
+    def handle_non_target_file(self, file_path):
+        self.files_to_scan += 1
+
 
 ########################################################
 # FMetaDirScanner: build FMetaTree from local tree
+# TODO: merge this with new scanner
 class FMetaDirScanner(TreeRecurser):
     def __init__(self, root_path, progress_meter: ProgressMeter):
         TreeRecurser.__init__(self, Path(root_path), valid_suffixes=VALID_SUFFIXES)
         self.progress_meter = progress_meter
         self.fmeta_tree = FMetaTree(root_path)
 
-    def handle_target_file_type(self, file_path):
-        item = build_fmeta(root_path=str(self.root_path), file_path=file_path)
+    def handle_file(self, file_path, category):
+        item = build_fmeta(root_path=self.fmeta_tree.root_path, file_path=file_path, category=category)
         self.fmeta_tree.add(item)
         self.progress_meter.add_progress(1)
 
+    def handle_target_file_type(self, file_path):
+        self.handle_file(file_path, Category.NA)
+
     def handle_non_target_file(self, file_path):
-        item = build_fmeta(root_path=str(self.root_path), file_path=file_path, category=Category.Ignored)
-        self.fmeta_tree.add(item)
+        self.handle_file(file_path, Category.Ignored)
+
+    def find_total_files_to_scan(self):
+        # First survey our local files:
+        logger.info(f'Scanning path: {self.root_path}')
+        file_counter = FileCounter(self.root_path)
+        file_counter.recurse_through_dir_tree()
+        logger.debug(f'Found {file_counter.files_to_scan} files to scan.')
+        if self.progress_meter is not None:
+            self.progress_meter.set_total(file_counter.files_to_scan)
 
     def scan_local_tree(self):
         root_path = str(self.root_path)
         if not os.path.exists(root_path):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), root_path)
-        local_path = Path(root_path)
-        # First survey our local files:
-        logger.info(f'Scanning path: {local_path}')
-        file_counter = FileCounter(local_path)
-        file_counter.recurse_through_dir_tree()
-        logger.debug(f'Found {file_counter.files_to_scan} files to scan.')
-        if self.progress_meter is not None:
-            self.progress_meter.set_total(file_counter.files_to_scan)
+        self.find_total_files_to_scan(root_path)
         self.recurse_through_dir_tree()
         logger.info(self.fmeta_tree.get_stats_string())
         return self.fmeta_tree
