@@ -30,17 +30,22 @@ class BaseDialog:
 
         run_on_ui_thread()
 
-    def on_question_clicked(self, msg, secondary_msg=None):
+    def show_question_dialog(self, msg, secondary_msg=None):
         dialog = Gtk.MessageDialog(parent=self, modal=True, message_type=Gtk.MessageType.QUESTION, buttons=Gtk.ButtonsType.YES_NO, text=msg)
         if secondary_msg is None:
             logger.debug(f'Q: {msg}')
         else:
             logger.debug(f'Q: {msg}: {secondary_msg}')
             dialog.format_secondary_text(secondary_msg)
-        response = dialog.run()
-        if response == Gtk.ResponseType.YES:
-            logger.debug("QUESTION dialog closed by clicking YES button")
-        elif response == Gtk.ResponseType.NO:
-            logger.debug("QUESTION dialog closed by clicking NO button")
+        try:
+            response = dialog.run()
+            if response == Gtk.ResponseType.YES:
+                logger.debug("QUESTION dialog closed by clicking YES button")
+                return True
 
-        dialog.destroy()
+            elif response == Gtk.ResponseType.NO:
+                logger.debug("QUESTION dialog closed by clicking NO button")
+                return False
+        finally:
+            dialog.destroy()
+            return False

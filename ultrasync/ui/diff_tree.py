@@ -425,7 +425,7 @@ class DiffTree:
             tree_path, col, cell_x, cell_y = tree_view.get_path_at_pos(int(event.x), int(event.y))
             # do something with the selected path
             fmeta = self.model[tree_path][self.col_num_data]
-            if fmeta.file_path == '':
+            if not fmeta.file_path:
                 # This is the category node
                 logger.debug(f'User right-clicked on {self.model[tree_path][self.col_num_name]}')
             else:
@@ -439,7 +439,7 @@ class DiffTree:
 
     def get_abs_path(self, node_data):
         """ Utility function """
-        return self.root_path if node_data.file_path == '' else os.path.join(self.root_path, node_data.file_path)
+        return self.root_path if not node_data.file_path else os.path.join(self.root_path, node_data.file_path)
 
     def get_abs_file_path(self, tree_path: Gtk.TreePath):
         """ Utility function: get absolute file path from a TreePath """
@@ -469,6 +469,18 @@ class DiffTree:
         else:
             self.parent_win.show_error_msg('Cannot open file in Nautilus', f'File not found: {file_path}')
 
+    def recurse_over_tree(self, tree_iter, action_func):
+        """
+        Performs the action_func on the node at this tree_iter AND all of its following
+        siblings, and all of their descendants
+        """
+        while tree_iter is not None:
+            action_func(tree_iter)
+            if self.model.iter_has_child(tree_iter):
+                child_iter = self.model.iter_children(tree_iter)
+                self.recurse_over_tree(child_iter, action_func)
+            tree_iter = self.model.iter_next(tree_iter)
+
     def delete_single_file(self, file_path: str, tree_path: Gtk.TreePath):
         """ Param file_path must be an absolute path"""
         if os.path.exists(file_path):
@@ -483,21 +495,72 @@ class DiffTree:
         else:
             self.parent_win.show_error_msg('Could not delete file', f'Not found: {file_path}')
 
-    def delete_dir_tree(self, file_path: str, tree_path: Gtk.TreePath):
-        """ Param file_path must be an absolute path"""
-        if os.path.exists(file_path):
-            try:
-                logger.info(f'Deleting dir tree: {file_path}')
-                shutil.rmtree(file_path)
-                return True
-            except Exception as err:
-                self.parent_win.show_error_msg(f'Error deleting directory tree "{file_path}"', err)
-                raise
-            finally:
-                self.update_subtree(tree_path)
-        else:
-            self.parent_win.show_error_msg('Could not delete directory tree', f'Not found: {file_path}')
+    def delete_dir_tree(self, subtree_root: str, tree_path: Gtk.TreePath):
+        """
+        Param subtree_root must be an absolute path.
+        This will delete the files corresponding to the UI tree -
+        which may NOT represent all the files in the corresponding filesystem tree!
+        If a directory is found to be empty after we are done deleting files in it,
+        we will delete the directory as well.
+        """
+        if not os.path.exists(subtree_root):
+            self.parent_win.show_error_msg('Could not delete tree', f'Not found: {subtree_root}')
             return False
+        logger.info(f'User chose to delete subtree: {subtree_root}')
+
+        dir_count = 0
+
+        try:
+            root_path = self.root_path
+            # We will populate this with files and directories we encounter
+            # doing a DFS of the subtree root:
+            path_list = []
+
+            def add_to_list_func(t_iter):
+                data_node = self.model[t_iter][self.col_num_data]
+                p = os.path.join(root_path, data_node.file_path)
+                path_list.append(p)
+                if os.path.isdir(p):
+                    add_to_list_func.dir_count += 1
+
+            add_to_list_func.dir_count = 0
+
+            tree_iter = self.model.get_iter(tree_path)
+            add_to_list_func(tree_iter)
+            child_iter = self.model.iter_children(tree_iter)
+            if child_iter:
+                self.recurse_over_tree(child_iter, add_to_list_func)
+
+            dir_count = add_to_list_func.dir_count
+        except Exception as err:
+            self.parent_win.show_error_msg(f'Error collecting file list for "{subtree_root}"', str(err))
+            raise
+
+        file_count = len(path_list) - dir_count
+        msg = f'Are you sure you want to delete the {file_count} files in {subtree_root}?'
+        is_confirmed = self.parent_win.show_question_dialog('Confirm subtree deletion',
+                                                            secondary_msg=msg)
+        if not is_confirmed:
+            logger.debug('User cancelled delete')
+            return
+
+        try:
+            logger.info(f'About to delete {file_count} files and up to {dir_count} dirs')
+            # By going backwards, we iterate from the bottom to top of tree.
+            # This guarantees that we examine the files before their parent dirs.
+            for path_to_delete in path_list[-1::-1]:
+                if os.path.isdir(path_to_delete) and not os.listdir(path_to_delete):
+                    logger.info(f'Deleting empty dir: {path_to_delete}')
+                    os.rmdir(path_to_delete)
+                else:
+                    logger.info(f'Deleting file: {path_to_delete}')
+                    os.remove(path_to_delete)
+
+        except Exception as err:
+            self.parent_win.show_error_msg(f'Error deleting tree "{subtree_root}"', str(err))
+            raise
+        finally:
+            self.update_subtree(tree_path)
 
     def call_xdg_open(self, file_path):
         if os.path.exists(file_path):
@@ -581,16 +644,6 @@ class DiffTree:
                     child_iter = self.model.iter_next(child_iter)
                 self.model[tree_iter][self.col_num_inconsistent] = has_inconsistent or (has_checked and has_unchecked)
                 self.model[tree_iter][self.col_num_checked] = has_checked and not has_unchecked and not has_inconsistent
-
-    def recurse_over_tree(self, tree_iter, action_func):
-        """Performs the action_func on the node at this tree_iter AND all of its following
-        siblings, and all of their descendants"""
-        while tree_iter is not None:
-            action_func(tree_iter)
-            if self.model.iter_has_child(tree_iter):
-                child_iter = self.model.iter_children(tree_iter)
-                self.recurse_over_tree(child_iter, action_func)
-            tree_iter = self.model.iter_next(tree_iter)
 
     # For displaying icons
     def get_tree_cell_pixbuf(self, col, cell, model, iter, user_data):
@@ -738,8 +791,8 @@ class DiffTree:
 
     def get_selected_changes(self):
         """Returns a FMetaTree which contains the FMetas of the rows which are currently
-        checked by the user. This will be a subset of the FMetaTree which was used to populate
-        this tree."""
+        checked by the user. This will be a subset of the FMetaTree which was used to
+        populate this tree."""
         assert self.editable
         selected_changes = FMetaTree(self.root_path)
 
