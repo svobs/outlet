@@ -74,8 +74,7 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
 
         if left_metas is None:
             for right_meta in right_metas:
-                # TODO: allow ignoring of duplicates (-> use only first file
-                # TODO: or use file with oldest meta)
+                # TODO: allow ignoring of duplicates (-> use only first file or use file with oldest meta)
                 logger.debug(f'Right has new file: "{right_meta.file_path}"')
                 right_tree.categorize(right_meta, Category.Added)
                 # Note: deleted nodes should not be thought of like 'real' nodes
@@ -102,8 +101,7 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
                 # Did we at least find a pair?
                 if changed_left is not None and changed_right is not None:
                     # TODO: it never makes sense currently to use modify times, since
-                    # TODO: we're always using a symmetric diff. Re-examine this issue with
-                    # TODO: one-sided diff
+                    # TODO: we're always using a symmetric diff. Re-examine this issue with one-sided diff
                     if use_modify_times:
                         if changed_left.modify_ts > changed_right.modify_ts:
                             # renamed from right to left (i.e. left is newer)

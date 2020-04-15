@@ -29,16 +29,16 @@ class DiffTree:
     model: Gtk.TreeStore
 
     def __init__(self, parent_win, data_source, editable, sizegroups=None):
-        # The source files
+        # Should be a subclass of BaseDialog:
+        self.parent_win = parent_win
         """If true, create a node for each ancestor directory for the files.
            If false, create a second column which shows the parent path. """
-        self.use_dir_tree = True  # TODO: put in config
-        self.parent_win = parent_win
+        self.use_dir_tree = parent_win.config.get('display.diff_tree.use_dir_tree')
 
         """If false, hide checkboxes and tree root change button"""
         self.editable = editable
         self.sizegroups = sizegroups
-        self.show_change_ts = True  # TODO: put in config
+        self.show_change_ts = parent_win.config.get('display.diff_tree.show_change_ts')
 
         icon_size = parent_win.config.get('display.diff_tree.icon_size')
         self.datetime_format = parent_win.config.get('display.diff_tree.datetime_format')
