@@ -178,6 +178,7 @@ class FMetaTree:
         match = self._path_dict.pop(file_path, None)
         if match is None:
             if ok_if_missing:
+                logger.debug(f'Did not remove because not found in path dict: {file_path}')
                 return None
             else:
                 raise RuntimeError(f'Could not find FMeta for path: {file_path}')

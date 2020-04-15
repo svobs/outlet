@@ -438,16 +438,34 @@ class DiffTree:
             scanner = TreeMetaScanner(root_path=stale_tree.root_path, stale_tree=stale_tree, status_receiver=self.progress_meter, track_changes=False)
             fresh_tree = scanner.scan()
 
-        for fmeta_deleted in stale_tree.get_all():
+        # TODO: files in different categories are showing up as 'added' in the scan
+        # TODO: should just be removed then added below, but brainstorm how to optimize this
+
+        for fmeta in stale_tree.get_all():
             # Anything left in the stale tree no longer exists. Delete it from master tree
-            master_tree.remove(file_path=fmeta_deleted.file_path, sig=fmeta_deleted.signature, ok_if_missing=False)
+            # NOTE: stale tree will contain old FMeta which is from the master tree, and
+            # thus does need to have its file path adjusted.
+            # This seems awfully fragile...
+            old = master_tree.remove(file_path=fmeta.file_path, sig=fmeta.signature, ok_if_missing=False)
+            if old:
+                logger.debug(f'Deleted from master tree: sig={old.signature} path={old.file_path}')
+            else:
+                logger.warning(f'Could not delete "stale" from master (not found): sig={fmeta.signature} path={fmeta.file_path}')
 
         if fresh_tree:
-            for fmeta_fresh in fresh_tree.get_all():
+            for fmeta in fresh_tree.get_all():
                 # Anything in the fresh tree needs to be either added or updated in the master tree.
-                # For the 'updated' case, remove the old FMeta from the file mapping and any old signatures:
-                master_tree.remove(file_path=fmeta_fresh.file_path, sig=fmeta_fresh.signature, remove_old_sig=True, ok_if_missing=True)
-                master_tree.add(fmeta_fresh)
+                # For the 'updated' case, remove the old FMeta from the file mapping and any old signatures.
+                # Note: Need to adjust file path here, because these FMetas were created with a different root
+                abs_path = os.path.join(fresh_tree.root_path, fmeta.file_path)
+                fmeta.file_path = file_util.strip_root(abs_path, master_tree.root_path)
+                old = master_tree.remove(file_path=fmeta.file_path, sig=fmeta.signature, remove_old_sig=True, ok_if_missing=True)
+                if old:
+                    logger.debug(f'Removed from master tree: sig={old.signature} path={old.file_path}')
+                else:
+                    logger.debug(f'Could not delete "fresh" from master (not found): sig={fmeta.signature} path={fmeta.file_path}')
+                master_tree.add(fmeta)
+                logger.debug(f'Added to master tree: sig={fmeta.signature} path={fmeta.file_path}')
 
         # 3. Then re-diff and re-populate
 
@@ -661,8 +679,6 @@ class DiffTree:
         subtree_root = self.get_abs_file_path(tree_path)
         subtree = FMetaTree(subtree_root)
 
-        tree_iter = self.model.get_iter(tree_path)
-
         def action_func(t_iter):
             if not action_func.checked_only or self.model[t_iter][self.col_num_checked]:
                 data_node = self.model[t_iter][self.col_num_data]
@@ -672,7 +688,13 @@ class DiffTree:
 
         action_func.checked_only = checked_only
 
-        self.recurse_over_tree(tree_iter, action_func)
+        # Need to do a special call just for the root element.
+        # Why did I write the code this way :(
+        tree_iter = self.model.get_iter(tree_path)
+        action_func(tree_iter)
+        child_iter = self.model.iter_children(tree_iter)
+
+        self.recurse_over_tree(child_iter, action_func)
 
         return subtree
 
