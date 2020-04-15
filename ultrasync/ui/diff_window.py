@@ -13,6 +13,7 @@ from file_util import get_resource_path
 from fmeta import diff_content_first
 from ui.diff_tree import DiffTree
 from ui.base_dialog import BaseDialog
+import ui.diff_tree_populator as diff_tree_populator
 
 WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
 
@@ -171,8 +172,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             stopwatch.stop()
             logger.info(f'Diff completed in: {stopwatch}')
 
-            self.diff_tree_left.rebuild_ui_tree(left_fmeta_tree)
-            self.diff_tree_right.rebuild_ui_tree(right_fmeta_tree)
+            diff_tree_populator.repopulate_diff_tree(self.diff_tree_left, left_fmeta_tree)
+            diff_tree_populator.repopulate_diff_tree(self.diff_tree_right, right_fmeta_tree)
 
             def do_on_ui_thread():
                 # Replace diff btn with merge buttons
