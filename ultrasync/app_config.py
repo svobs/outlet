@@ -25,6 +25,7 @@ class AppConfig:
         val = self.cfg[cfg_path]
         if val is not None and type(val) == str:
            val = val.replace('$PROJECT_DIR', PROJECT_DIR)
+        logger.debug(f'Read "{cfg_path}" = "{val}"')
         return val
 
     def _get_transient_filename(self):

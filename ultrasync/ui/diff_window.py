@@ -9,26 +9,31 @@ from stopwatch import Stopwatch
 
 from ui.merge_preview_dialog import MergePreviewDialog
 import fmeta.fmeta_tree_cache as fmeta_tree_cache
-from fmeta.fmeta_tree_source import FMetaTreeSource
+from fmeta.fmeta_tree_source import FMetaTreeLoader
 from file_util import get_resource_path
 from fmeta import diff_content_first
 from ui.diff_tree import DiffTree
 from ui.base_dialog import BaseDialog
 import ui.diff_tree_populator as diff_tree_populator
-from ui.progress_meter import ProgressMeter
 
 WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
 
 logger = logging.getLogger(__name__)
 
 
-class ConfigFileRootPathHandler:
-    def __init__(self, config, config_entry):
+class ConfigFileDataSource:
+    def __init__(self, config, tree_id, status_receiver=None):
         self.config = config
-        self.config_entry = config_entry
+        self.tree_id = tree_id
+        self.cache = fmeta_tree_cache.from_config(config=self.config, tree_id=self.tree_id)
+        self.config_entry = f'transient.{self.tree_id}.root_path'
+        self._root_path = self.config.get(self.config_entry)
+        # TODO: maybe this would be better done as an event receiver
+        self.status_receiver = status_receiver
+        self.tree = None
 
     def get_root_path(self):
-        return self.config.get(self.config_entry)
+        return self._root_path
 
     def set_root_path(self, new_root_path):
         if self.get_root_path() != new_root_path:
@@ -37,6 +42,13 @@ class ConfigFileRootPathHandler:
             logger.error('TODO! Need to implement wiping out the tree on root path change!')
             # TODO: fire signal to listeners
             self.config.write(transient_path=self.config_entry, value=new_root_path)
+            self._root_path = new_root_path
+
+    def get_fmeta_tree(self):
+        if self.tree is None:
+            tree_loader = FMetaTreeLoader(self._root_path, self.cache)
+            self.tree = tree_loader.get_current_tree(self.status_receiver)
+        return self.tree
 
 
 class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
@@ -85,13 +97,13 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Tree Left:
-        root_path_handler_left = ConfigFileRootPathHandler(self.config, 'transient.left_tree.root_path')
-        self.diff_tree_left = DiffTree(parent_win=self, root_path_handler=root_path_handler_left, editable=True, sizegroups=self.sizegroups)
+        source_left = ConfigFileDataSource(self.config, 'left_tree')
+        self.diff_tree_left = DiffTree(parent_win=self, data_source=source_left, editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
-        root_path_handler_right = ConfigFileRootPathHandler(self.config, 'transient.right_tree.root_path')
-        self.diff_tree_right = DiffTree(parent_win=self, root_path_handler=root_path_handler_right, editable=True, sizegroups=self.sizegroups)
+        source_right = ConfigFileDataSource(self.config, 'right_tree')
+        self.diff_tree_right = DiffTree(parent_win=self, data_source=source_right, editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
 
         # Bottom button panel:
@@ -151,26 +163,17 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         action_thread.daemon = True
         action_thread.start()
 
-    # TODO: Encapsulate each FMetaTreeSource in a listener. Need each to subscribe to a signal emitted by DiffTrees whenever a root changes. Fire a 'needs-diff-recalculate' event appriately which will update the diff and then the trees
+    # TODO: Encapsulate each FMetaTreeLoader in a listener. Need each to subscribe to a signal emitted by DiffTrees whenever a root changes. Fire a 'needs-diff-recalculate' event appriately which will update the diff and then the trees
     # TODO: change DB path whenever root is changed
     def diff_task(self):
         try:
             self.diff_tree_right.set_status('Waiting...')
 
-            def on_progress_made(this, progress, total):
-                this.status_delegate.set_status(f'Scanning file {progress} of {total}')
-
             # LEFT ---------------
-            tree_id = 'left_tree'
-            cache = fmeta_tree_cache.from_config(config=self.config, tree_id=tree_id)
-            left_tree_source = FMetaTreeSource(tree_id, self.diff_tree_left.root_path, cache)
-            left_fmeta_tree = left_tree_source.get_current_tree(status_receiver=ProgressMeter(on_progress_made, self.diff_tree_left))
+            left_fmeta_tree = self.diff_tree_left.data_source.get_fmeta_tree()
 
             # RIGHT --------------
-            tree_id = 'right_tree'
-            cache = fmeta_tree_cache.from_config(config=self.config, tree_id=tree_id)
-            right_tree_source = FMetaTreeSource(tree_id, self.diff_tree_right.root_path, cache)
-            right_fmeta_tree = right_tree_source.get_current_tree(status_receiver=ProgressMeter(on_progress_made, self.diff_tree_right))
+            right_fmeta_tree = self.diff_tree_right.data_source.get_fmeta_tree()
 
             logger.info("Diffing...")
             stopwatch = Stopwatch()
@@ -178,6 +181,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             stopwatch.stop()
             logger.info(f'Diff completed in: {stopwatch}')
 
+            # TODO: have each spawn thread on 'diff completed' signal
             diff_tree_populator.repopulate_diff_tree(self.diff_tree_left, left_fmeta_tree)
             diff_tree_populator.repopulate_diff_tree(self.diff_tree_right, right_fmeta_tree)
 

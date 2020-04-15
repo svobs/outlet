@@ -168,10 +168,11 @@ class FMetaTree:
     def get_for_sig(self, signature):
         return self._sig_dict.get(signature, None)
 
-    def remove(self, file_path, sig, ok_if_missing=False):
+    def remove(self, file_path, sig, remove_old_sig=False, ok_if_missing=False):
         """Removes from this FMetaTree the FMeta which matches the given file path and signature.
         Does sanity checks and raises exceptions if internal state is found to have problems.
         If match not found: returns None if ok_if_missing=True; raises exception otherwise.
+        If remove_old_sig=True: ignore the value of 'sig' and instead remove the one found from the path search
         If match found for both file path and sig, it is removed and the removed element is returned.
         """
         match = self._path_dict.pop(file_path, None)
@@ -185,17 +186,24 @@ class FMetaTree:
             # Will not be present in sig_dict
             return match
 
-        matching_sig_list = self.get_for_sig(sig)
+        if remove_old_sig:
+            sig_to_find = match.signature
+        else:
+            if logger.isEnabledFor(logging.DEBUG) and sig is not None and sig != match.signature:
+                logger.debug(f'Ignoring sig ({match.signature}) from path match; removing specified sig instead ({sig})')
+            sig_to_find = sig
+
+        matching_sig_list = self.get_for_sig(sig_to_find)
         if matching_sig_list is None:
             # This indicates a serious data problem
-            raise RuntimeError(f'FMeta found for path: {file_path} but not sig: {sig}')
+            raise RuntimeError(f'FMeta found for path: {file_path} but not sig: {sig_to_find}')
 
         path_matches = list(filter(lambda f: f.file_path == file_path, matching_sig_list))
         path_matches_count = len(path_matches)
         if path_matches_count == 0:
-            raise RuntimeError(f'FMeta found for path: {file_path} but not signature: {sig}')
+            raise RuntimeError(f'FMeta found for path: {file_path} but not signature: {sig_to_find}')
         elif path_matches_count > 1:
-            raise RuntimeError(f'Multiple FMeta ({path_matches}) found for path: {file_path} and sig: {sig}')
+            raise RuntimeError(f'Multiple FMeta ({path_matches}) found for path: {file_path} and sig: {sig_to_find}')
         else:
             matching_sig_list.remove(path_matches[0])
 

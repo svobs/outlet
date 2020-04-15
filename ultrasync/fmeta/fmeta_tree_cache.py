@@ -45,48 +45,46 @@ class SqliteCache(NullCache):
     def __init__(self, tree_id, db_file_path, enable_load, enable_update):
         super().__init__()
         self.tree_id = tree_id
-        self.db_file_Path = db_file_path
-        self.db = MetaDatabase(db_file_path)
+        self.db_file_path = db_file_path
         self.enable_load = enable_load
         self.enable_update = enable_update
 
-    def has_data(self):
-        return self.db.has_file_changes()
+    def _open_db(self):
+        return MetaDatabase(self.db_file_path)
 
     def load_fmeta_tree(self, root_path, status_receiver):
         fmeta_tree = FMetaTree(root_path)
 
-        if not self.enable_load or not self.has_data():
+        if not self.enable_load:
             return fmeta_tree
 
-        status = f'Loading {self.tree_id} meta from cache: {self.db_file_Path}'
-        logger.debug(status)
-        if status_receiver:
-            status_receiver.set_status(status)
+        db = self._open_db()
+        try:
+            if not db.has_file_changes():
+                return fmeta_tree
 
-        db_file_changes = self.db.get_file_changes()
-        if len(db_file_changes) == 0:
-            raise RuntimeError('No data in database!')
+            status = f'Loading {self.tree_id} meta from cache: {self.db_file_path}'
+            logger.debug(status)
+            if status_receiver:
+                status_receiver.set_status(status)
 
-        counter = 0
-        for change in db_file_changes:
-            meta = fmeta_tree.get_for_path(change.file_path)
-            # Overwrite older changes for the same path:
-            if meta is None or meta.sync_ts < change.sync_ts:
-                fmeta_tree.add(change)
-                counter += 1
+            db_file_changes = db.get_file_changes()
+            if len(db_file_changes) == 0:
+                raise RuntimeError('No data in database!')
 
-        logger.debug(f'Reduced {str(len(db_file_changes))} DB entries into {str(counter)} entries')
-        logger.info(fmeta_tree.get_stats_string())
-        return fmeta_tree
+            counter = 0
+            for change in db_file_changes:
+                meta = fmeta_tree.get_for_path(change.file_path)
+                # Overwrite older changes for the same path:
+                if meta is None or meta.sync_ts < change.sync_ts:
+                    fmeta_tree.add(change)
+                    counter += 1
 
-    def save_fmeta_tree(self, fmeta_tree):
-        if self.has_data():
-            raise RuntimeError('Will not insert FMeta into DB! It is not empty')
-
-        to_insert = fmeta_tree.get_all()
-        self.db.insert_file_changes(to_insert)
-        logger.info(f'Inserted {str(len(to_insert))} FMetas into previously empty DB table.')
+            logger.debug(f'Reduced {str(len(db_file_changes))} DB entries into {str(counter)} entries')
+            logger.info(fmeta_tree.get_stats_string())
+            return fmeta_tree
+        finally:
+            db.close()
 
     def overwrite_fmeta_tree(self, fmeta_tree):
         if not self.enable_update:
@@ -96,12 +94,20 @@ class SqliteCache(NullCache):
         stopwatch_write_cache = Stopwatch()
         # Just overwrite all data - it's pretty fast, and less error prone:
 
-        # Remove all rows
-        self.db.truncate_file_changes()
+        db = self._open_db()
+        try:
+            # Remove all rows
+            db.truncate_file_changes()
 
-        # Save all
-        self.save_fmeta_tree(fmeta_tree)
+            # Save all
+            if db.has_file_changes():
+                raise RuntimeError('Will not insert FMeta into DB! It is not empty')
 
-        stopwatch_write_cache.stop()
-        logger.info(f'{self.tree_id} updated cache in: {stopwatch_write_cache}')
+            to_insert = fmeta_tree.get_all()
+            db.insert_file_changes(to_insert)
+            logger.info(f'Inserted {str(len(to_insert))} FMetas into previously empty DB table.')
 
+            stopwatch_write_cache.stop()
+            logger.info(f'{self.tree_id} updated cache in: {stopwatch_write_cache}')
+        finally:
+            db.close()

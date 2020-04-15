@@ -1,6 +1,4 @@
 import os
-import shutil
-import humanfriendly
 import file_util
 import logging
 from fmeta.fmeta import FMeta, FMetaTree, Category
@@ -10,6 +8,8 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
 import subprocess
+from ui.progress_meter import ProgressMeter
+from fmeta.fmeta_tree_source import TreeMetaScanner
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +28,13 @@ def _build_icons(icon_size):
 class DiffTree:
     model: Gtk.TreeStore
 
-    def __init__(self, parent_win, root_path_handler, editable, sizegroups=None):
+    def __init__(self, parent_win, data_source, editable, sizegroups=None):
         # The source files
         """If true, create a node for each ancestor directory for the files.
            If false, create a second column which shows the parent path. """
         self.use_dir_tree = True  # TODO: put in config
         self.parent_win = parent_win
 
-        self.root_path_handler = root_path_handler
         """If false, hide checkboxes and tree root change button"""
         self.editable = editable
         self.sizegroups = sizegroups
@@ -44,6 +43,13 @@ class DiffTree:
         icon_size = parent_win.config.get('display.diff_tree.icon_size')
         self.datetime_format = parent_win.config.get('display.diff_tree.datetime_format')
         self.icons = _build_icons(icon_size=icon_size)
+
+        def on_progress_made(this, progress, total):
+            self.set_status(f'Scanning file {progress} of {total}')
+
+        self.progress_meter = ProgressMeter(on_progress_made, self)
+        self.data_source = data_source
+        self.data_source.status_receiver = self.progress_meter
 
         col_count = 0
         col_types = []
@@ -110,11 +116,11 @@ class DiffTree:
 
     @property
     def root_path(self):
-        return self.root_path_handler.get_root_path()
+        return self.data_source.get_root_path()
 
     @root_path.setter
     def root_path(self, new_root):
-        self.root_path_handler.set_root_path(new_root)
+        self.data_source.set_root_path(new_root)
 
     def _compare_fmeta(self, model, row1, row2, compare_field_func):
         """
@@ -418,28 +424,35 @@ class DiffTree:
         return self.get_abs_path(node_data)
 
     def resync_subtree(self, tree_path):
-        # TODO: need to possibly add new FMeta if we find new files,
-        # TODO: and also update the other tree if we discover it.
-        # TODO: Need to introduce a callback mechanism for the other tree,
-        # TODO: as well as a way to find a Node from a file path by walking the tree
-
-        # 1. Construct a FMetaTree from the 'stale' subtree.
+        # Construct a FMetaTree from the UI nodes: this is the 'stale' subtree.
         stale_tree = self.get_subtree_as_tree(tree_path)
+        fresh_tree = None
+        # Master tree contains all FMeta in this widget
+        master_tree = self.data_source.get_fmeta_tree()
 
-        # 2. Use FMetaTreeSource to scan tree and construct a FMetaTree from the
-        # 'fresh' data
+        # If the path no longer exists at all, then it's simple: the entire stale_tree should be deleted.
+        if os.path.exists(stale_tree.root_path):
+            # But if there are still files present: use FMetaTreeLoader to re-scan subtree
+            # and construct a FMetaTree from the 'fresh' data
+            logger.debug(f'Scanning: {stale_tree.root_path}')
+            scanner = TreeMetaScanner(root_path=stale_tree.root_path, stale_tree=stale_tree, status_receiver=self.progress_meter, track_changes=False)
+            fresh_tree = scanner.scan()
 
-        # 3. Use the change tracking to update our tree. Then re-diff.
+        for fmeta_deleted in stale_tree.get_all():
+            # Anything left in the stale tree no longer exists. Delete it from master tree
+            master_tree.remove(file_path=fmeta_deleted.file_path, sig=fmeta_deleted.signature, ok_if_missing=False)
 
-        # 3. [FUTURE] Use diff_tree_populator to construct a new Treelib tree
+        if fresh_tree:
+            for fmeta_fresh in fresh_tree.get_all():
+                # Anything in the fresh tree needs to be either added or updated in the master tree.
+                # For the 'updated' case, remove the old FMeta from the file mapping and any old signatures:
+                master_tree.remove(file_path=fmeta_fresh.file_path, sig=fmeta_fresh.signature, remove_old_sig=True, ok_if_missing=True)
+                master_tree.add(fmeta_fresh)
 
-        # 4. [FUTURE] Then write new code to do a diff of that tree and what's in our
-        # current subtree. Add,
+        # 3. Then re-diff and re-populate
 
-
-        # TODO: not just delete!
-        tree_iter = self.model.get_iter(tree_path)
-        self.model.remove(tree_iter)
+        # TODO: Need to introduce a signalling mechanism for the other tree
+        logger.info('TODO: re-diff and re-populate!')
 
     def show_in_nautilus(self, file_path):
         if os.path.exists(file_path):
@@ -528,9 +541,10 @@ class DiffTree:
             # By going backwards, we iterate from the bottom to top of tree.
             # This guarantees that we examine the files before their parent dirs.
             for path_to_delete in path_list[-1::-1]:
-                if os.path.isdir(path_to_delete) and not os.listdir(path_to_delete):
-                    logger.info(f'Deleting empty dir: {path_to_delete}')
-                    os.rmdir(path_to_delete)
+                if os.path.isdir(path_to_delete):
+                    if not os.listdir(path_to_delete):
+                        logger.info(f'Deleting empty dir: {path_to_delete}')
+                        os.rmdir(path_to_delete)
                 else:
                     logger.info(f'Deleting file: {path_to_delete}')
                     os.remove(path_to_delete)
