@@ -7,9 +7,9 @@ import time
 from pathlib import Path
 from stopwatch import Stopwatch
 from fmeta.fmeta import FMeta, FMetaTree, Category
+from fmeta.fmeta_tree_cache import NullCache
 from fmeta.tree_recurser import TreeRecurser
 import fmeta.content_hasher
-from database import MetaDatabase
 import file_util
 from ui.progress_meter import ProgressMeter
 
@@ -72,51 +72,6 @@ class FileCounter(TreeRecurser):
 
     def handle_non_target_file(self, file_path):
         self.files_to_scan += 1
-
-
-class FMetaTreeCache:
-    """
-    Acts as a cache for a single FMetaTree.
-    """
-    def __init__(self, db_file_path):
-        self.db = MetaDatabase(db_file_path)
-
-    def has_data(self):
-        return self.db.has_file_changes()
-
-    def load_fmeta_tree(self, root_path):
-        fmeta_tree = FMetaTree(root_path)
-
-        db_file_changes = self.db.get_file_changes()
-        if len(db_file_changes) == 0:
-            raise RuntimeError('No data in database!')
-
-        counter = 0
-        for change in db_file_changes:
-            meta = fmeta_tree.get_for_path(change.file_path)
-            # Overwrite older changes for the same path:
-            if meta is None or meta.sync_ts < change.sync_ts:
-                fmeta_tree.add(change)
-                counter += 1
-
-        logger.debug(f'Reduced {str(len(db_file_changes))} DB entries into {str(counter)} entries')
-        logger.info(fmeta_tree.get_stats_string())
-        return fmeta_tree
-
-    def save_fmeta_tree(self, fmeta_tree):
-        if self.has_data():
-            raise RuntimeError('Will not insert FMeta into DB! It is not empty')
-
-        to_insert = fmeta_tree.get_all()
-        self.db.insert_file_changes(to_insert)
-        logger.info(f'Inserted {str(len(to_insert))} FMetas into previously empty DB table.')
-
-    def overwrite_fmeta_tree(self, fmeta_tree):
-        self.db.truncate_file_changes()
-        # TODO: remove all rows!
-
-        self.save_fmeta_tree(fmeta_tree)
-
 
 class TreeMetaScanner(TreeRecurser):
     """
@@ -209,14 +164,10 @@ class FMetaTreeSource:
     """
     Encapsulates all logic needed to retrieve, update and cache a single FMetaTree.
     """
-    def __init__(self, nickname, tree_root_path, enable_file_scan, enable_db_cache, db_cache_path):
-        self.nickname = nickname
+    def __init__(self, tree_id, tree_root_path, cache=NullCache()):
+        self.tree_id = tree_id
         self.tree_root_path = tree_root_path
-        self.enable_file_scan = enable_file_scan
-        self.enable_cache_loads = enable_db_cache
-        self.enable_cache_updates = enable_db_cache
-        self.db_cache_path = db_cache_path
-        self.cache = FMetaTreeCache(db_cache_path)
+        self.cache = cache
 
     # TODO: refactor status_receiver to do progress_meter's job directly
     def get_current_tree(self, status_receiver=None):
@@ -229,29 +180,21 @@ class FMetaTreeSource:
             status_msg = f'Scanning tree: {self.tree_root_path}'
             status_receiver.set_status(status_msg)
 
+        # Load from cache:
         stopwatch_total = Stopwatch()
-        tree = None
-        if self.enable_cache_loads and self.cache.has_data():
-            if status_receiver:
-                status = f'Loading {self.nickname} meta from cache: {self.db_cache_path}'
-                logger.debug(status)
-                status_receiver.set_status(status)
-                tree = self.cache.load_fmeta_tree(self.tree_root_path)
+        tree = self.cache.load_fmeta_tree(self.tree_root_path, status_receiver)
 
-        if self.enable_file_scan:
-            logger.debug(f'Scanning: {self.tree_root_path}')
-            scanner = TreeMetaScanner(root_path=self.tree_root_path, stale_tree=tree, progress_meter=progress_meter, track_changes=False)
-            scanner.scan()
-            tree = scanner.fresh_tree
-            if self.enable_cache_updates:
-                stopwatch_write_cache = Stopwatch()
-                # Just overwrite all data - it's pretty fast, and less error prone:
-                self.cache.overwrite_fmeta_tree(tree)
-                stopwatch_write_cache.stop()
-                logger.info(f'{self.nickname} updated cache in: {stopwatch_write_cache}')
+        # Directory tree scan
+        logger.debug(f'Scanning: {self.tree_root_path}')
+        scanner = TreeMetaScanner(root_path=self.tree_root_path, stale_tree=tree, progress_meter=progress_meter, track_changes=False)
+        scanner.scan()
+        tree = scanner.fresh_tree
+
+        # Update cache:
+        self.cache.overwrite_fmeta_tree(tree)
 
         stopwatch_total.stop()
-        logger.info(f'{self.nickname} loaded in: {stopwatch_total}')
+        logger.info(f'{self.tree_id} loaded in: {stopwatch_total}')
         if status_receiver:
             status_receiver.set_status(tree.get_summary())
         return tree

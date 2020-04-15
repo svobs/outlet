@@ -8,6 +8,7 @@ from gi.repository import GLib, Gtk, Gio, GObject
 from stopwatch import Stopwatch
 
 from ui.merge_preview_dialog import MergePreviewDialog
+import fmeta.fmeta_tree_cache as fmeta_tree_cache
 from fmeta.fmeta_tree_source import FMetaTreeSource
 from file_util import get_resource_path
 from fmeta import diff_content_first
@@ -155,15 +156,16 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         try:
             self.diff_tree_right.set_status('Waiting...')
 
-            left_cache_path = self.config.get('transient.left_tree.cache_path')
-            right_cache_path = self.config.get('transient.right_tree.cache_path')
-
             # LEFT ---------------
-            left_tree_source = FMetaTreeSource('Left', self.diff_tree_left.root_path, self.enable_file_scan, self.enable_db_cache, left_cache_path)
+            tree_id = 'left_tree'
+            cache = fmeta_tree_cache.from_config(config=self.config, tree_id=tree_id)
+            left_tree_source = FMetaTreeSource(tree_id, self.diff_tree_left.root_path, cache)
             left_fmeta_tree = left_tree_source.get_current_tree(status_receiver=self.diff_tree_left)
 
             # RIGHT --------------
-            right_tree_source = FMetaTreeSource('Right', self.diff_tree_right.root_path, self.enable_file_scan, self.enable_db_cache, right_cache_path)
+            tree_id = 'right_tree'
+            cache = fmeta_tree_cache.from_config(config=self.config, tree_id=tree_id)
+            right_tree_source = FMetaTreeSource(tree_id, self.diff_tree_right.root_path, cache)
             right_fmeta_tree = right_tree_source.get_current_tree(status_receiver=self.diff_tree_right)
 
             logger.info("Diffing...")

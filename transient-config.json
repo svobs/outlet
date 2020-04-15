@@ -1,10 +1,20 @@
 {
     "left_tree": {
-        "cache_path": "$PROJECT_DIR/test/SvobodaLeft.db",
+        "cache": {
+            "enable": true,
+            "file_path": "$PROJECT_DIR/test/SvobodaLeft.db",
+            "enable_load": true,
+            "enable_update": true
+        },
         "root_path": "/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos"
     },
     "right_tree": {
-        "cache_path": "$PROJECT_DIR/test/SvobodaRight.db",
+        "cache": {
+            "enable": true,
+            "file_path": "$PROJECT_DIR/test/SvobodaRight.db",
+            "enable_load": true,
+            "enable_update": true
+        },
         "root_path": "/media/msvoboda/Thumb128G/Takeout/Google Photos"
     }
 }
