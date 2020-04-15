@@ -59,7 +59,7 @@ def _build_category_change_tree(change_set, category):
     return change_tree
 
 
-def _append_dir(diff_tree, tree_iter, dir_name, dmeta):
+def _append_dir_node(diff_tree, tree_iter, dir_name, dmeta):
     row_values = []
     if diff_tree.editable:
         row_values.append(False)  # Checked
@@ -77,7 +77,7 @@ def _append_dir(diff_tree, tree_iter, dir_name, dmeta):
     return diff_tree.model.append(tree_iter, row_values)
 
 
-def _append_fmeta(diff_tree, tree_iter, file_name, fmeta: FMeta, category):
+def _append_fmeta_node(diff_tree, tree_iter, file_name, fmeta: FMeta, category):
     row_values = []
 
     if diff_tree.editable:
@@ -118,11 +118,11 @@ def _populate_category(diff_tree, category: Category, fmeta_list):
         # Do a DFS of the change tree and populate the UI tree along the way
         if isinstance(node.data, DirNode):
             # Is dir
-            tree_iter = _append_dir(diff_tree, tree_iter, node.tag, node.data)
+            tree_iter = _append_dir_node(diff_tree, tree_iter, node.tag, node.data)
             for child in change_tree.children(node.identifier):
                 append_recursively(tree_iter, child)
         else:
-            _append_fmeta(diff_tree, tree_iter, node.tag, node.data, category)
+            _append_fmeta_node(diff_tree, tree_iter, node.tag, node.data, category)
 
     def do_on_ui_thread():
         if change_tree.size(1) > 0:
@@ -130,6 +130,8 @@ def _populate_category(diff_tree, category: Category, fmeta_list):
             root = change_tree.get_node('')
             append_recursively(None, root)
 
+            # Find the category nodes and expand them appropriately
+            # TODO: put expansion state in config
             tree_iter = diff_tree.model.get_iter_first()
             while tree_iter is not None:
                 node_data = diff_tree.model[tree_iter][diff_tree.col_num_data]

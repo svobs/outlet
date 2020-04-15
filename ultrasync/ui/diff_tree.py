@@ -429,7 +429,12 @@ class DiffTree:
         # 2. Use FMetaTreeSource to scan tree and construct a FMetaTree from the
         # 'fresh' data
 
-        # 3. Use FMetaTreeSource
+        # 3. Use the change tracking to update our tree. Then re-diff.
+
+        # 3. [FUTURE] Use diff_tree_populator to construct a new Treelib tree
+
+        # 4. [FUTURE] Then write new code to do a diff of that tree and what's in our
+        # current subtree. Add,
 
 
         # TODO: not just delete!
