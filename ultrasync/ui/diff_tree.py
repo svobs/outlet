@@ -59,14 +59,14 @@ def _build_icons(icon_size):
 class DiffTree:
     model: Gtk.TreeStore
 
-    def __init__(self, parent_win, root_path_cfg_entry, editable, sizegroups=None):
+    def __init__(self, parent_win, root_path_handler, editable, sizegroups=None):
         # The source files
         """If true, create a node for each ancestor directory for the files.
            If false, create a second column which shows the parent path. """
         self.use_dir_tree = True
         self.parent_win = parent_win
 
-        self.root_path_cfg_entry = root_path_cfg_entry
+        self.root_path_handler = root_path_handler
         """If false, hide checkboxes and tree root change button"""
         self.editable = editable
         self.sizegroups = sizegroups
@@ -141,16 +141,11 @@ class DiffTree:
 
     @property
     def root_path(self):
-        return self.parent_win.config.get(self.root_path_cfg_entry)
+        return self.root_path_handler.get_root_path()
 
     @root_path.setter
     def root_path(self, new_root):
-        if self.root_path != new_root:
-            # Root changed.
-            # TODO: wipe out UI and reload the whole damn thing
-            logger.error('TODO! Need to implement wiping out the tree on root path change!')
-            # TODO: fire signal to listeners
-        return self.parent_win.config.write(transient_path=self.root_path_cfg_entry, value=new_root)
+        self.root_path_handler.set_root_path(new_root)
 
     @classmethod
     def _build_content_box(cls, root_dir_panel, tree_view, status_bar_container):
@@ -447,15 +442,19 @@ class DiffTree:
         assert node_data is not None
         return self.get_abs_path(node_data)
 
-    def update_subtree(self, tree_path):
+    def resync_subtree(self, tree_path):
         # TODO: need to possibly add new FMeta if we find new files,
         # TODO: and also update the other tree if we discover it.
         # TODO: Need to introduce a callback mechanism for the other tree,
         # TODO: as well as a way to find a Node from a file path by walking the tree
 
-        # Other
-        file_path_subtree_root = self.get_abs_file_path(tree_path)
-        #for root, dirs, files in os.walk(file_path_subtree_root, topdown=True):
+        # 3. Use FMetaTreeSource
+
+        # 1. Construct a FMetaTree from the 'stale' subtree.
+        stale_tree = self.get_subtree_as_tree(tree_path)
+
+        # 2. Use FMetaTreeSource to scan tree and construct a FMetaTree from the
+        # 'fresh' data
 
 
         # TODO: not just delete!
@@ -491,7 +490,7 @@ class DiffTree:
                 self.parent_win.show_error_msg(f'Error deleting file "{file_path}"', str(err))
                 raise
             finally:
-                self.update_subtree(tree_path)
+                self.resync_subtree(tree_path)
         else:
             self.parent_win.show_error_msg('Could not delete file', f'Not found: {file_path}')
 
@@ -560,7 +559,7 @@ class DiffTree:
             self.parent_win.show_error_msg(f'Error deleting tree "{subtree_root}"', str(err))
             raise
         finally:
-            self.update_subtree(tree_path)
+            self.resync_subtree(tree_path)
 
     def call_xdg_open(self, file_path):
         if os.path.exists(file_path):
@@ -789,22 +788,42 @@ class DiffTree:
                          Category.Ignored]:
             self._populate_category(category, fmeta_tree.get_for_cat(category))
 
-    def get_selected_changes(self):
+    def get_subtree_as_tree(self, tree_path, checked_only=False):
+        """
+        Constructs a new FMetaTree out of the data nodes of the subtree referenced
+        by tree_path. NOTE: currently the FMeta objects are reused in the new tree,
+        for efficiency.
+        Args:
+            tree_path: root of the subtree, as a GTK3 TreePath
+            checked_only: if True, include only rows which are checked
+                          if False, include all rows in the subtree
+        Returns:
+            A new
+        """
+        subtree_root = self.get_abs_file_path(tree_path)
+        subtree = FMetaTree(subtree_root)
+
+        tree_iter = self.model.get_iter(tree_path)
+
+        def action_func(t_iter):
+            if not action_func.checked_only or self.model[t_iter][self.col_num_checked]:
+                data_node = self.model[t_iter][self.col_num_data]
+                #logger.debug(f'Node: {self.model[t_iter][self.col_num_name]} = {type(data_node)}')
+                if isinstance(data_node, FMeta):
+                    subtree.add(data_node)
+
+        action_func.checked_only = checked_only
+
+        self.recurse_over_tree(tree_iter, action_func)
+
+        return subtree
+
+    def get_checked_rows_as_tree(self):
         """Returns a FMetaTree which contains the FMetas of the rows which are currently
         checked by the user. This will be a subset of the FMetaTree which was used to
         populate this tree."""
         assert self.editable
-        selected_changes = FMetaTree(self.root_path)
 
         tree_iter = self.model.get_iter_first()
-
-        def action_func(t_iter):
-            if self.model[t_iter][self.col_num_checked]:
-                data_node = self.model[t_iter][self.col_num_data]
-                #logger.debug(f'Node: {self.model[t_iter][self.col_num_name]} = {type(data_node)}')
-                if isinstance(data_node, FMeta):
-                    selected_changes.add(data_node)
-
-        self.recurse_over_tree(tree_iter, action_func)
-
-        return selected_changes
+        tree_path = self.model.get_path(tree_iter)
+        return self.get_subtree_as_tree(tree_path, checked_only=True)

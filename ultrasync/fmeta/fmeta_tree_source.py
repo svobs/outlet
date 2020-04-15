@@ -218,6 +218,7 @@ class FMetaTreeSource:
         self.db_cache_path = db_cache_path
         self.cache = FMetaTreeCache(db_cache_path)
 
+    # TODO: refactor status_receiver to do progress_meter's job directly
     def get_current_tree(self, status_receiver=None):
         def on_progress_made(progress, total):
             if status_receiver:

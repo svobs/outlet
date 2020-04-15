@@ -48,4 +48,3 @@ class BaseDialog:
                 return False
         finally:
             dialog.destroy()
-            return False

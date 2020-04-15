@@ -19,6 +19,23 @@ WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
 logger = logging.getLogger(__name__)
 
 
+class ConfigFileRootPathHandler:
+    def __init__(self, config, config_entry):
+        self.config = config
+        self.config_entry = config_entry
+
+    def get_root_path(self):
+        return self.config.get(self.config_entry)
+
+    def set_root_path(self, new_root_path):
+        if self.get_root_path() != new_root_path:
+            # Root changed.
+            # TODO: wipe out UI and reload the whole damn thing
+            logger.error('TODO! Need to implement wiping out the tree on root path change!')
+            # TODO: fire signal to listeners
+            self.config.write(transient_path=self.config_entry, value=new_root_path)
+
+
 class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
     def __init__(self, application):
         Gtk.Window.__init__(self, application=application)
@@ -64,12 +81,14 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.sizegroups = {'root_paths': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL),
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
-        # Diff Trees:
-        self.diff_tree_left = DiffTree(parent_win=self, root_path_cfg_entry='transient.left_tree.root_path',
-                                       editable=True, sizegroups=self.sizegroups)
+        # Diff Tree Left:
+        root_path_handler_left = ConfigFileRootPathHandler(self.config, 'transient.left_tree.root_path')
+        self.diff_tree_left = DiffTree(parent_win=self, root_path_handler=root_path_handler_left, editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
-        self.diff_tree_right = DiffTree(parent_win=self, root_path_cfg_entry='transient.right_tree.root_path',
-                                        editable=True, sizegroups=self.sizegroups)
+
+        # Diff Tree Right:
+        root_path_handler_right = ConfigFileRootPathHandler(self.config, 'transient.right_tree.root_path')
+        self.diff_tree_right = DiffTree(parent_win=self, root_path_handler=root_path_handler_right, editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
 
         # Bottom button panel:
@@ -100,9 +119,9 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
     def on_merge_btn_clicked(self, widget):
         logger.debug('Merge btn clicked')
 
-        left_selected_changes = self.diff_tree_left.get_selected_changes()
+        left_selected_changes = self.diff_tree_left.get_checked_rows_as_tree()
         logger.info(f'Left changes: {left_selected_changes.get_summary()}')
-        right_selected_changes = self.diff_tree_right.get_selected_changes()
+        right_selected_changes = self.diff_tree_right.get_checked_rows_as_tree()
         logger.info(f'Right changes: {right_selected_changes.get_summary()}')
         if len(left_selected_changes.get_all()) == 0 and len(right_selected_changes.get_all()) == 0:
             self.show_error_msg('You must select change(s) first.')

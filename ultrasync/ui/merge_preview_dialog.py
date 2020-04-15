@@ -17,11 +17,23 @@ STAGING_DIR_PATH = get_resource_path("temp")
 logger = logging.getLogger(__name__)
 
 
+class SimpleRootPathHandler:
+    def __init__(self, path):
+        self._root_path = path
+
+    def get_root_path(self):
+        return self._root_path
+
+    def set_root_path(self, new_root_path):
+        if self._root_path != new_root_path:
+            raise RuntimeError('Root path cannot be changed for this tree!')
+
+
 class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
     def __init__(self, parent, fmeta_tree):
         Gtk.Dialog.__init__(self, "Confirm Merge", parent, 0)
-        BaseDialog.__init__(self)
+        BaseDialog.__init__(self, parent.config)
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_APPLY, Gtk.ResponseType.APPLY)
 
@@ -36,7 +48,8 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         label = Gtk.Label(label="The following changes will be made:")
         self.content_box.add(label)
 
-        self.diff_tree = DiffTree(parent_win=self, root_path=self.fmeta_tree.root_path, editable=False)
+        root_path_handler = SimpleRootPathHandler(self.fmeta_tree.root_path)
+        self.diff_tree = DiffTree(parent_win=self, root_path_handler=root_path_handler, editable=False)
         self.diff_tree.set_status(fmeta_tree.get_summary())
         self.content_box.pack_start(self.diff_tree.content_box, True, True, 0)
 
