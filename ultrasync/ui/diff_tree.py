@@ -147,6 +147,28 @@ class DiffTree:
     def root_path(self, new_root):
         self.root_path_handler.set_root_path(new_root)
 
+    def _compare_fmeta(self, model, row1, row2, compare_field_func):
+        """
+        Comparison function, for use in model sort by column.
+        """
+        sort_column, _ = model.get_sort_column_id()
+        fmeta1 = model[row1][self.col_num_data]
+        fmeta2 = model[row2][self.col_num_data]
+        if type(fmeta1) == FMeta and type(fmeta2) == FMeta:
+            value1 = compare_field_func(fmeta1)
+            value2 = compare_field_func(fmeta2)
+            if value1 < value2:
+                return -1
+            elif value1 == value2:
+                return 0
+            else:
+                return 1
+        else:
+            # This appears to achieve satisfactory behavior
+            # (preserving previous column sort order for directories)
+            return 0
+
+
     @classmethod
     def _build_content_box(cls, root_dir_panel, tree_view, status_bar_container):
         content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
@@ -253,25 +275,8 @@ class DiffTree:
         column.set_reorderable(True)
         treeview.append_column(column)
 
-        def compare_file_size(model, row1, row2, user_data):
-            sort_column, _ = model.get_sort_column_id()
-            # Need the original file sizes (in bytes) here, not the formatted one
-            fmeta1 = model[row1][self.col_num_data]
-            fmeta2 = model[row2][self.col_num_data]
-            if type(fmeta1) == FMeta and type(fmeta2) == FMeta:
-                value1 = fmeta1.size_bytes
-                value2 = fmeta2.size_bytes
-                if value1 < value2:
-                    return -1
-                elif value1 == value2:
-                    return 0
-                else:
-                    return 1
-            else:
-                # This appears to achieve satisfactory behavior, comparing file name
-                return 0
-
-        model.set_sort_func(self.col_num_size, compare_file_size, None)
+        # Need the original file sizes (in bytes) here, not the formatted one
+        model.set_sort_func(self.col_num_size, self._compare_fmeta, lambda f: f.size_bytes)
 
         # 4 MODIFICATION DATE
         renderer = Gtk.CellRendererText()
@@ -289,6 +294,8 @@ class DiffTree:
         column.set_resizable(True)
         column.set_reorderable(True)
         treeview.append_column(column)
+
+        model.set_sort_func(self.col_num_modification_ts, self._compare_fmeta, lambda f: f.modify_ts)
 
         if self.show_change_ts:
             # METADATA CHANGE TS
@@ -308,14 +315,14 @@ class DiffTree:
             column.set_reorderable(True)
             treeview.append_column(column)
 
-            # TODO: sort dates
+            model.set_sort_func(self.col_num_change_ts, self._compare_fmeta, lambda f: f.change_ts)
 
         def on_tree_selection_changed(selection):
             model, treeiter = selection.get_selected_rows()
             if treeiter is not None and len(treeiter) == 1:
                 meta = model[treeiter][self.col_num_data]
                 if isinstance(meta, FMeta):
-                    logger.debug(f'User selected sig="{meta.signature}" path="{meta.file_path}" prev_path="{meta.prev_path}"')
+                    logger.debug(f'User selected cat="{meta.category.name}" sig="{meta.signature}" path="{meta.file_path}" prev_path="{meta.prev_path}"')
                 else:
                     logger.debug(f'User selected {model[treeiter][self.col_num_name]}')
 
