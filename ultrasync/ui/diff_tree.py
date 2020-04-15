@@ -5,6 +5,7 @@ import file_util
 import logging
 from fmeta.fmeta import FMeta, FMetaTree, Category
 from ui.root_dir_panel import RootDirPanel
+from ui.diff_tree_nodes import DirNode, CategoryNode
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
@@ -422,13 +423,13 @@ class DiffTree:
         # TODO: Need to introduce a callback mechanism for the other tree,
         # TODO: as well as a way to find a Node from a file path by walking the tree
 
-        # 3. Use FMetaTreeSource
-
         # 1. Construct a FMetaTree from the 'stale' subtree.
         stale_tree = self.get_subtree_as_tree(tree_path)
 
         # 2. Use FMetaTreeSource to scan tree and construct a FMetaTree from the
         # 'fresh' data
+
+        # 3. Use FMetaTreeSource
 
 
         # TODO: not just delete!
@@ -636,7 +637,7 @@ class DiffTree:
             checked_only: if True, include only rows which are checked
                           if False, include all rows in the subtree
         Returns:
-            A new
+            A new FMetaTree which consists of a subset of the current UI tree
         """
         subtree_root = self.get_abs_file_path(tree_path)
         subtree = FMetaTree(subtree_root)
