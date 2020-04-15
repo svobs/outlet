@@ -15,6 +15,7 @@ from fmeta import diff_content_first
 from ui.diff_tree import DiffTree
 from ui.base_dialog import BaseDialog
 import ui.diff_tree_populator as diff_tree_populator
+from ui.progress_meter import ProgressMeter
 
 WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
 
@@ -156,17 +157,20 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         try:
             self.diff_tree_right.set_status('Waiting...')
 
+            def on_progress_made(this, progress, total):
+                this.status_delegate.set_status(f'Scanning file {progress} of {total}')
+
             # LEFT ---------------
             tree_id = 'left_tree'
             cache = fmeta_tree_cache.from_config(config=self.config, tree_id=tree_id)
             left_tree_source = FMetaTreeSource(tree_id, self.diff_tree_left.root_path, cache)
-            left_fmeta_tree = left_tree_source.get_current_tree(status_receiver=self.diff_tree_left)
+            left_fmeta_tree = left_tree_source.get_current_tree(status_receiver=ProgressMeter(on_progress_made, self.diff_tree_left))
 
             # RIGHT --------------
             tree_id = 'right_tree'
             cache = fmeta_tree_cache.from_config(config=self.config, tree_id=tree_id)
             right_tree_source = FMetaTreeSource(tree_id, self.diff_tree_right.root_path, cache)
-            right_fmeta_tree = right_tree_source.get_current_tree(status_receiver=self.diff_tree_right)
+            right_fmeta_tree = right_tree_source.get_current_tree(status_receiver=ProgressMeter(on_progress_made, self.diff_tree_right))
 
             logger.info("Diffing...")
             stopwatch = Stopwatch()

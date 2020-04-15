@@ -73,17 +73,18 @@ class FileCounter(TreeRecurser):
     def handle_non_target_file(self, file_path):
         self.files_to_scan += 1
 
+
 class TreeMetaScanner(TreeRecurser):
     """
     Walks the filesystem for a subtree (FMetaTree), using a cache if configured,
     to generate an up-to-date FMetaTree.
     """
-    def __init__(self, root_path, stale_tree=None, progress_meter=None, track_changes=False):
+    def __init__(self, root_path, stale_tree=None, status_receiver=None, track_changes=False):
         TreeRecurser.__init__(self, Path(stale_tree.root_path), valid_suffixes=VALID_SUFFIXES)
         # Note: this tree will be useless after we are done with it
         self.root_path = root_path
         self.stale_tree = stale_tree
-        self.progress_meter = progress_meter
+        self.status_receiver = status_receiver
         self.added_count = 0
         self.deleted_count = 0
         self.unchanged_count = 0
@@ -101,9 +102,12 @@ class TreeMetaScanner(TreeRecurser):
         logger.info(f'Scanning path: {self.root_path}')
         file_counter = FileCounter(self.root_path)
         file_counter.recurse_through_dir_tree()
+
         logger.debug(f'Found {file_counter.files_to_scan} files to scan.')
-        if self.progress_meter is not None:
-            self.progress_meter.set_total(file_counter.files_to_scan)
+        if self.status_receiver:
+            status_msg = f'Scanning tree: {self.root_path}'
+            self.status_receiver.set_status(status_msg)
+            self.status_receiver.set_total(file_counter.files_to_scan)
 
     def handle_file(self, file_path, category):
         meta = None
@@ -124,7 +128,7 @@ class TreeMetaScanner(TreeRecurser):
                 self._add_tracked_copy(meta, Category.Added)
         # TODO TODO TODO moved files!
         self.fresh_tree.add(meta)
-        self.progress_meter.add_progress(1)
+        self.status_receiver.add_progress(1)
 
     def handle_target_file_type(self, file_path):
         self.handle_file(file_path, Category.NA)
@@ -169,24 +173,14 @@ class FMetaTreeSource:
         self.tree_root_path = tree_root_path
         self.cache = cache
 
-    # TODO: refactor status_receiver to do progress_meter's job directly
     def get_current_tree(self, status_receiver=None):
-        def on_progress_made(progress, total):
-            if status_receiver:
-                status_receiver.set_status(f'Scanning file {progress} of {total}')
-
-        progress_meter = ProgressMeter(lambda p, t: on_progress_made(p, t))
-        if status_receiver:
-            status_msg = f'Scanning tree: {self.tree_root_path}'
-            status_receiver.set_status(status_msg)
-
         # Load from cache:
         stopwatch_total = Stopwatch()
         tree = self.cache.load_fmeta_tree(self.tree_root_path, status_receiver)
 
         # Directory tree scan
         logger.debug(f'Scanning: {self.tree_root_path}')
-        scanner = TreeMetaScanner(root_path=self.tree_root_path, stale_tree=tree, progress_meter=progress_meter, track_changes=False)
+        scanner = TreeMetaScanner(root_path=self.tree_root_path, stale_tree=tree, status_receiver=status_receiver, track_changes=False)
         scanner.scan()
         tree = scanner.fresh_tree
 
