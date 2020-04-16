@@ -189,7 +189,6 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
             stopwatch_redraw = Stopwatch()
 
-            # TODO: have each spawn thread on 'diff completed' signal
             diff_tree_populator.repopulate_diff_tree(self.diff_tree_left)
             diff_tree_populator.repopulate_diff_tree(self.diff_tree_right)
 
