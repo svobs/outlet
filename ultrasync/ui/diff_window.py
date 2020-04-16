@@ -114,7 +114,10 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         diff_action_btn.connect("clicked", self.execute_diff_task)
         self.replace_bottom_button_panel(diff_action_btn)
 
-      #  menubutton = Gtk.MenuButton()
+        self.set_focus_chain([self.content_box])
+        self.set_focus_chain([self.bottom_button_panel, self.diff_tree_left.content_box, self.diff_tree_right.content_box])
+
+#  menubutton = Gtk.MenuButton()
       #  self.content_box.add(menubutton)
        # menumodel = Gio.Menu()
         #menubutton.set_menu_model(menumodel)
@@ -134,29 +137,33 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
     def on_merge_btn_clicked(self, widget):
         logger.debug('Merge btn clicked')
 
-        left_selected_changes = self.diff_tree_left.get_checked_rows_as_tree()
-        logger.info(f'Left changes: {left_selected_changes.get_summary()}')
-        right_selected_changes = self.diff_tree_right.get_checked_rows_as_tree()
-        logger.info(f'Right changes: {right_selected_changes.get_summary()}')
-        if len(left_selected_changes.get_all()) == 0 and len(right_selected_changes.get_all()) == 0:
-            self.show_error_msg('You must select change(s) first.')
-            return
+        try:
+            left_selected_changes = self.diff_tree_left.get_checked_rows_as_tree()
+            logger.info(f'Left changes: {left_selected_changes.get_summary()}')
+            right_selected_changes = self.diff_tree_right.get_checked_rows_as_tree()
+            logger.info(f'Right changes: {right_selected_changes.get_summary()}')
+            if len(left_selected_changes.get_all()) == 0 and len(right_selected_changes.get_all()) == 0:
+                self.show_error_msg('You must select change(s) first.')
+                return
 
-        merged_changes_tree, conflict_pairs = diff_content_first.merge_change_trees(left_selected_changes, right_selected_changes)
-        if conflict_pairs is not None:
-            # TODO: more informative error
-            self.show_error_msg('Cannot merge', f'{len(conflict_pairs)} conflicts found')
-            return
+            merged_changes_tree, conflict_pairs = diff_content_first.merge_change_trees(left_selected_changes, right_selected_changes)
+            if conflict_pairs is not None:
+                # TODO: more informative error
+                self.show_error_msg('Cannot merge', f'{len(conflict_pairs)} conflicts found')
+                return
 
-        logger.info(f'Merged changes: {merged_changes_tree.get_summary()}')
+            logger.info(f'Merged changes: {merged_changes_tree.get_summary()}')
 
-        # Preview changes in UI pop-up
-        dialog = MergePreviewDialog(self, merged_changes_tree)
-        response_id = dialog.run()
-        if response_id == Gtk.ResponseType.APPLY:
-            # Refresh the diff trees:
-            logger.debug('Refreshing the diff trees')
-            self.execute_diff_task()
+            # Preview changes in UI pop-up
+            dialog = MergePreviewDialog(self, merged_changes_tree)
+            response_id = dialog.run()
+            if response_id == Gtk.ResponseType.APPLY:
+                # Refresh the diff trees:
+                logger.debug('Refreshing the diff trees')
+                self.execute_diff_task()
+        except Exception as err:
+            self.show_error_ui('Merge preview failed due to unexpected error', repr(err))
+            raise
 
     def execute_diff_task(self, widget=None):
         action_thread = threading.Thread(target=self.diff_task)
@@ -175,15 +182,14 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             # RIGHT --------------
             right_fmeta_tree = self.diff_tree_right.data_source.get_fmeta_tree()
 
-            logger.info("Diffing...")
             stopwatch = Stopwatch()
             diff_content_first.diff(left_fmeta_tree, right_fmeta_tree, compare_paths_also=True, use_modify_times=False)
             stopwatch.stop()
             logger.info(f'Diff completed in: {stopwatch}')
 
             # TODO: have each spawn thread on 'diff completed' signal
-            diff_tree_populator.repopulate_diff_tree(self.diff_tree_left, left_fmeta_tree)
-            diff_tree_populator.repopulate_diff_tree(self.diff_tree_right, right_fmeta_tree)
+            diff_tree_populator.repopulate_diff_tree(self.diff_tree_left)
+            diff_tree_populator.repopulate_diff_tree(self.diff_tree_right)
 
             def do_on_ui_thread():
                 # Replace diff btn with merge buttons
@@ -195,10 +201,6 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
             GLib.idle_add(do_on_ui_thread)
         except Exception as err:
-            logger.exception('Diff task failed with exception')
-
-            def do_on_ui_thread(err_msg):
-                GLib.idle_add(lambda: self.show_error_msg('Diff task failed due to unexpected error', err_msg))
-            do_on_ui_thread(repr(err))
+            self.show_error_ui('Diff task failed due to unexpected error', repr(err))
             raise
 

@@ -143,7 +143,7 @@ def _populate_category(diff_tree, category: Category, fmeta_list):
     GLib.idle_add(do_on_ui_thread)
 
 
-def repopulate_diff_tree(diff_tree, fmeta_tree: FMetaTree):
+def repopulate_diff_tree(diff_tree):
     """
     Populates the given DiffTree using categories as the topmost elements
     Args:
@@ -156,6 +156,7 @@ def repopulate_diff_tree(diff_tree, fmeta_tree: FMetaTree):
     # Wipe out existing items:
     diff_tree.model.clear()
 
+    fmeta_tree = diff_tree.data_source.get_fmeta_tree()
     diff_tree.root_path = fmeta_tree.root_path
     for category in [Category.Added,
                      Category.Deleted,

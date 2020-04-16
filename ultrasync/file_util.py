@@ -98,10 +98,12 @@ def creation_date(path_to_file):
 
 def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=False, error_collector=None, progress_meter=None):
 
-    if progress_meter is not None:
+    if progress_meter:
         # Get total byte count, for progress meter:
         total_bytes = 0
         for fmeta in tree.get_for_cat(Category.Added):
+            total_bytes += fmeta.size_bytes
+        for fmeta in tree.get_for_cat(Category.Updated):
             total_bytes += fmeta.size_bytes
         total_bytes += FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT * len(tree.get_for_cat(Category.Deleted))
         total_bytes += FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT * len(tree.get_for_cat(Category.Moved))
@@ -127,7 +129,8 @@ def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=Fal
                     error_collector.append(FMetaError(fm=fmeta, exception=err))
             else:
                 raise
-        progress_meter.add_progress(fmeta.size_bytes)
+        if progress_meter:
+            progress_meter.add_progress(fmeta.size_bytes)
 
     for fmeta in tree.get_for_cat(Category.Deleted):
         try:
@@ -141,7 +144,8 @@ def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=Fal
                     error_collector.append(FMetaError(fm=fmeta, exception=err))
             else:
                 raise
-        progress_meter.add_progress(FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT)
+        if progress_meter:
+            progress_meter.add_progress(FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT)
 
     for fmeta in tree.get_for_cat(Category.Moved):
         try:
@@ -157,7 +161,29 @@ def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=Fal
                     error_collector.append(FMetaError(fm=fmeta, exception=err))
             else:
                 raise
-        progress_meter.add_progress(FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT)
+        if progress_meter:
+            progress_meter.add_progress(FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT)
+
+    for fmeta in tree.get_for_cat(Category.Updated):
+        try:
+            src_path = os.path.join(tree.root_path, fmeta.prev_path)
+            dst_path = os.path.join(tree.root_path, fmeta.file_path)
+            # TODO: what if staging dir is not on same file system?
+            staging_path = os.path.join(staging_dir, fmeta.signature)
+            logger.debug(f'CP: src={src_path}')
+            logger.debug(f'    stg={staging_path}')
+            logger.debug(f'    dst={dst_path}')
+            copy_file_linux_with_attrs(src_path, staging_path, dst_path, fmeta, True, error_collector)
+        except Exception as err:
+            # Try to log helpful info
+            logger.error(f'Exception occurred while processing Updated file: root="{tree.root_path}", file_path="{fmeta.file_path}", prev_path="{fmeta.prev_path}": {repr(err)}')
+            if continue_on_error:
+                if error_collector is not None:
+                    error_collector.append(FMetaError(fm=fmeta, exception=err))
+            else:
+                raise
+        if progress_meter:
+            progress_meter.add_progress(fmeta.size_bytes)
 
 
 def delete_file(tgt_path, to_trash=False):

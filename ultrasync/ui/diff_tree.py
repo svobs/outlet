@@ -664,13 +664,15 @@ class DiffTree:
     def get_tree_cell_text(self, col, cell, model, iter, user_data):
         cell.set_property('text', model.get_value(iter, self.col_num_name))
 
-    def get_subtree_as_tree(self, tree_path, checked_only=False):
+    def get_subtree_as_tree(self, tree_path, include_following_siblings=False, checked_only=False):
         """
         Constructs a new FMetaTree out of the data nodes of the subtree referenced
         by tree_path. NOTE: currently the FMeta objects are reused in the new tree,
         for efficiency.
         Args:
             tree_path: root of the subtree, as a GTK3 TreePath
+            include_following_siblings: if False, include only the root node and its children
+            (filtered by checked state if checked_only is True)
             checked_only: if True, include only rows which are checked
                           if False, include all rows in the subtree
         Returns:
@@ -680,21 +682,21 @@ class DiffTree:
         subtree = FMetaTree(subtree_root)
 
         def action_func(t_iter):
+            # logger.debug(f'Node: {self.model[t_iter][self.col_num_name]} = {type(self.model[t_iter][self.col_num_data])} checked={self.model[t_iter][self.col_num_checked]}')
             if not action_func.checked_only or self.model[t_iter][self.col_num_checked]:
                 data_node = self.model[t_iter][self.col_num_data]
-                #logger.debug(f'Node: {self.model[t_iter][self.col_num_name]} = {type(data_node)}')
                 if isinstance(data_node, FMeta):
                     subtree.add(data_node)
 
         action_func.checked_only = checked_only
 
-        # Need to do a special call just for the root element.
-        # Why did I write the code this way :(
         tree_iter = self.model.get_iter(tree_path)
-        action_func(tree_iter)
-        child_iter = self.model.iter_children(tree_iter)
+        if not include_following_siblings:
+            # Execute on target node, then dive into its children:
+            action_func(tree_iter)
+            tree_iter = self.model.iter_children(tree_iter)
 
-        self.recurse_over_tree(child_iter, action_func)
+        self.recurse_over_tree(tree_iter, action_func)
 
         return subtree
 
@@ -706,4 +708,4 @@ class DiffTree:
 
         tree_iter = self.model.get_iter_first()
         tree_path = self.model.get_path(tree_iter)
-        return self.get_subtree_as_tree(tree_path, checked_only=True)
+        return self.get_subtree_as_tree(tree_path, include_following_siblings=True, checked_only=True)

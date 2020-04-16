@@ -55,14 +55,33 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
     """Use this method if we mostly care about having the same unique files *somewhere* in
        each tree (in other words, we care about file contents, and care less about where each
        file is placed). If a file is found with the same signature on both sides but with
-       different paths, it is assumed to be renamed/moved."""
-    logger.debug('Computing naive diff of file sets by signature...')
+       different paths, it is assumed to be renamed/moved.
+
+       Rough algorithm for categorization:
+       1. Is file an ignored type? -> IGNORED
+       2. For all unique signatures:
+       2a. File's signature and path exists on both sides? --> NONE
+       2b. File's signature is found on both sides but path is different? --> MOVED
+       2c. All files not matched in (2) are orphans.
+       3. For all orphans:
+       3a. File's path is same on both sides but signature is different? --> UPDATED
+       3b. File's signature and path are unique to target side --> DELETED
+       3c. File's signature and path are unique to opposite side --> ADDED
+       """
+    logger.info('Diffing files by signature...')
 
     left_tree.clear_categories()
     right_tree.clear_categories()
 
     # the set of signatures already processed
     signature_set = left_tree.get_sig_set() | right_tree.get_sig_set()
+
+    # List of lists of FMetas which do not have a matching sig on the other side.
+    # We will compare these by path.
+    # Note: each list within this list contains duplicates (FMetas with the same sig)
+    orphaned_sigs_left = []
+    orphaned_sigs_right = []
+
 
     """Compares the two trees, and populates the change sets of both. The order of 'left' and which is 'right'
      is not important, because the changes are computed from each tree's perspective (e.g. a file which is in
@@ -73,21 +92,9 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
         left_metas = left_tree.get_for_sig(sig)
 
         if left_metas is None:
-            for right_meta in right_metas:
-                # TODO: allow ignoring of duplicates (-> use only first file or use file with oldest meta)
-                logger.debug(f'Right has new file: "{right_meta.file_path}"')
-                right_tree.categorize(right_meta, Category.Added)
-                # Note: deleted nodes should not be thought of like 'real' nodes
-                right_meta_copy = copy.deepcopy(right_meta)
-                right_meta_copy.category = Category.Deleted
-                left_tree.add(right_meta_copy)
+            orphaned_sigs_right.append(right_metas)
         elif right_metas is None:
-            for left_meta in left_metas:
-                logger.debug(f'Left has new file: "{left_meta.file_path}"')
-                left_tree.categorize(left_meta, Category.Added)
-                left_meta_copy = copy.deepcopy(left_meta)
-                left_meta_copy.category = Category.Deleted
-                right_tree.add(left_meta_copy)
+            orphaned_sigs_left.append(left_metas)
         elif compare_paths_also:
             """If we do this, we care about what the files are named, where they are located, and how many
             duplicates exist. When it comes to determining the direction of renamed files, we simply don't
@@ -96,6 +103,10 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
             user make the final call via the UI. Here we can choose either to use the modification times
             (newer is assumed to be the rename destination), or for each side to assume it is the destination
             (similar to how we handle missing signatures above)"""
+
+            orphaned_for_sig_left = []
+            orphaned_for_sig_right = []
+
             compare_result = _compare_paths_for_same_sig(left_metas, left_tree, right_metas, right_tree)
             for (changed_left, changed_right) in compare_result:
                 # Did we at least find a pair?
@@ -123,18 +134,50 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
                        - essentially a duplicate.. Remember, we know each side already contains
                        at least one copy with the given signature"""
                     if changed_left is None:
-                        right_tree.categorize(changed_right, Category.Added)
-                        changed_right_copy = copy.deepcopy(changed_right)
-                        changed_right_copy.category = Category.Deleted
-                        left_tree.add(changed_right_copy)
-                        continue
+                        orphaned_for_sig_right.append(changed_right)
+                    elif changed_right is None:
+                        orphaned_for_sig_left.append(changed_left)
+            if orphaned_for_sig_left:
+                orphaned_sigs_left.append(orphaned_for_sig_left)
+            if orphaned_for_sig_right:
+                orphaned_sigs_right.append(orphaned_for_sig_right)
 
-                    if changed_right is None:
-                        left_tree.categorize(changed_left, Category.Added)
-                        changed_left_copy = copy.deepcopy(changed_left)
-                        changed_left_copy.category = Category.Deleted
-                        right_tree.add(changed_left_copy)
-                        continue
+    for fmeta_duplicate_sigs_left in orphaned_sigs_left:
+        # TODO: Duplicate content (options):
+        #  - No special handling of duplicates / treat like other files [default]
+        #  - Flag added/missing duplicates as Duplicates
+        #  - For each unique, compare only the best match on each side and ignore the rest
+        for left_meta in fmeta_duplicate_sigs_left:
+            p, n = os.path.split(left_meta.file_path)
+            if compare_paths_also:
+                matching_right = right_tree.get_for_path(left_meta.file_path)
+                if matching_right:
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(f'File updated: {left_meta.signature} <- "{left_meta.file_path}" -> {matching_right.signature}')
+                    # Same path, different sig -> Updated
+                    right_tree.categorize(matching_right, Category.Updated)
+                    left_tree.categorize(left_meta, Category.Updated)
+                    continue
+                # No match? fall through
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f'Left has new file: "{left_meta.file_path}"')
+            left_tree.categorize(left_meta, Category.Added)
+            left_meta_copy = copy.deepcopy(left_meta)
+            left_meta_copy.category = Category.Deleted
+            right_tree.add(left_meta_copy)
+
+    for fmeta_duplicate_sigs_right in orphaned_sigs_right:
+        for right_meta in fmeta_duplicate_sigs_right:
+            if compare_paths_also and left_tree.get_for_path(right_meta.file_path):
+                # logically this has already been covered since the handling is symmetrical:
+                continue
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f'Right has new file: "{right_meta.file_path}"')
+            right_tree.categorize(right_meta, Category.Added)
+            # Note: deleted nodes should not be thought of like 'real' nodes
+            right_meta_copy = copy.deepcopy(right_meta)
+            right_meta_copy.category = Category.Deleted
+            left_tree.add(right_meta_copy)
 
     logger.debug(f'Done with diff. Left:[{left_tree.get_category_summary_string()}] Right:[{right_tree.get_category_summary_string()}]')
 
@@ -174,8 +217,12 @@ def _add_adjusted_metas(side_a_metas, side_a_prefix, side_b_prefix, dst_tree):
             # Moves are from Side B to Side B
             new_fmeta.prev_path = os.path.join(side_b_prefix, side_a_meta.prev_path)
             new_fmeta.file_path = os.path.join(side_b_prefix, side_a_meta.file_path)
-        if side_a_meta.category == Category.Added:
+        elif side_a_meta.category == Category.Added:
             # Copies are from Side A to Side B
+            new_fmeta.prev_path = os.path.join(side_a_prefix, side_a_meta.file_path)
+            new_fmeta.file_path = os.path.join(side_b_prefix, side_a_meta.file_path)
+        elif side_a_meta.category == Category.Updated:
+            # Treated like a copy from Side A to overwrite Side B
             new_fmeta.prev_path = os.path.join(side_a_prefix, side_a_meta.file_path)
             new_fmeta.file_path = os.path.join(side_b_prefix, side_a_meta.file_path)
         else:

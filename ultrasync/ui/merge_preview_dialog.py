@@ -10,6 +10,7 @@ from fmeta.fmeta import FMetaTree, Category
 from ui.progress_meter import ProgressMeter
 from ui.diff_tree import DiffTree
 from ui.base_dialog import BaseDialog
+import ui.diff_tree_populator as diff_tree_populator
 
 
 STAGING_DIR_PATH = get_resource_path("temp")
@@ -55,13 +56,12 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         self.diff_tree.set_status(self.fmeta_tree.get_summary())
         self.content_box.pack_start(self.diff_tree.content_box, True, True, 0)
 
-        self.diff_tree.rebuild_ui_tree(self.fmeta_tree)
+        diff_tree_populator.repopulate_diff_tree(self.diff_tree)
 
         self.connect("response", self.on_response)
         self.show_all()
 
     def on_response(self, dialog, response_id):
-        print("response_id is", response_id)
         # destroy the widget (the dialog) when the function on_response() is called
         # (that is, when the button of the dialog has been clicked)
 
@@ -71,6 +71,8 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
                 self.on_apply_clicked()
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
+            else:
+                logger.debug("response_id: ", response_id)
         except FileNotFoundError as err:
             self.show_error_ui('File not found: ' + err.filename)
             raise
@@ -88,10 +90,10 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
         error_collection = []
 
-        def on_progress_made(progress, total):
+        def on_progress_made(this, progress, total):
             self.diff_tree.set_status(f'Copied {progress} bytes of {total}')
 
-        progress_meter = ProgressMeter(on_progress_made)
+        progress_meter = ProgressMeter(on_progress_made, self.diff_tree)
         file_util.apply_changes_atomically(tree=self.fmeta_tree, staging_dir=staging_dir,
                                            continue_on_error=True, error_collector=error_collection,
                                            progress_meter=progress_meter)

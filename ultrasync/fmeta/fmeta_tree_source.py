@@ -61,7 +61,7 @@ def _check_update_sanity(old_fmeta, new_fmeta):
     if new_fmeta.change_ts < old_fmeta.change_ts:
         logger.warning(f'File "{new_fmeta.file_path}": update has older change_ts ({new_fmeta.change_ts}) than prev version ({old_fmeta.change_ts})')
 
-    if new_fmeta.size_bytes != old_fmeta.size_bytes and new_fmeta.signature == new_fmeta.signature:
+    if new_fmeta.size_bytes != old_fmeta.size_bytes and new_fmeta.signature == old_fmeta.signature:
         logger.warning(f'File "{new_fmeta.file_path}": update has same sig ({new_fmeta.signature}) ' +
                        f'but different size: (old={old_fmeta.size_bytes}, new={new_fmeta.size_bytes})')
 
