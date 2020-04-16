@@ -91,9 +91,9 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         error_collection = []
 
         def on_progress_made(this, progress, total):
-            self.diff_tree.set_status(f'Copied {progress} bytes of {total}')
+            this.set_status(f'Copied {progress} bytes of {total}')
 
-        progress_meter = ProgressMeter(on_progress_made, self.diff_tree)
+        progress_meter = ProgressMeter(on_progress_made, self.config, self.diff_tree)
         file_util.apply_changes_atomically(tree=self.fmeta_tree, staging_dir=staging_dir,
                                            continue_on_error=True, error_collector=error_collection,
                                            progress_meter=progress_meter)

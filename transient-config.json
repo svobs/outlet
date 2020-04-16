@@ -3,32 +3,32 @@
         "cache": {
             "enable": true,
             "enable_load": true,
-            "enable_update": true,
+            "enable_update": false,
             "file_path": "$PROJECT_DIR/test/SvobodaLeft.db"
         },
-        "root_path": "/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos",
         "expanded_state": {
             "Added": true,
             "Deleted": true,
-            "Updated": true,
+            "Ignored": false,
             "Moved": true,
-            "Ignored": false
-        }
+            "Updated": true
+        },
+        "root_path": "/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos"
     },
     "right_tree": {
         "cache": {
             "enable": true,
             "enable_load": true,
-            "enable_update": true,
+            "enable_update": false,
             "file_path": "$PROJECT_DIR/test/SvobodaRight.db"
         },
-        "root_path": "/media/msvoboda/Thumb128G/Takeout/Google Photos",
         "expanded_state": {
             "Added": true,
             "Deleted": true,
-            "Updated": true,
+            "Ignored": false,
             "Moved": true,
-            "Ignored": false
-        }
+            "Updated": true
+        },
+        "root_path": "/media/msvoboda/Thumb128G/Takeout/Google Photos"
     }
 }

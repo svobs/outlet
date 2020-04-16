@@ -2,7 +2,6 @@ import logging
 import os
 import errno
 import copy
-from datetime import datetime
 import time
 from pathlib import Path
 from stopwatch import Stopwatch
@@ -28,8 +27,7 @@ def build_fmeta(root_path, file_path, category=Category.NA):
     relative_path = file_util.strip_root(file_path, root_path)
 
     # Get "now" in UNIX time:
-    date_time_now = datetime.now()
-    sync_ts = int(time.mktime(date_time_now.timetuple()))
+    sync_ts = int(time.time())
 
     stat = os.stat(file_path)
     size_bytes = int(stat.st_size)

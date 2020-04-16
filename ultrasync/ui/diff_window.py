@@ -18,17 +18,19 @@ import ui.diff_tree_populator as diff_tree_populator
 
 WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
 
+SIGNAL_DO_DIFF = 'do-diff'
+
 logger = logging.getLogger(__name__)
 
 
 class ConfigFileDataSource:
-    def __init__(self, tree_id, config, status_receiver=None):
-        self.config = config
+    def __init__(self, tree_id, parent_win, status_receiver=None):
         self.tree_id = tree_id
+        self.parent_win = parent_win
         self.tree = None
-        self.cache = fmeta_tree_cache.from_config(config=self.config, tree_id=self.tree_id)
+        self.cache = fmeta_tree_cache.from_config(config=self.parent_win.config, tree_id=self.tree_id)
         self.config_entry = f'transient.{self.tree_id}.root_path'
-        self._root_path = self.config.get(self.config_entry)
+        self._root_path = self.parent_win.config.get(self.config_entry)
         # TODO: maybe this would be better done as an event receiver
         self.status_receiver = status_receiver
 
@@ -37,12 +39,13 @@ class ConfigFileDataSource:
 
     def set_root_path(self, new_root_path):
         if self.get_root_path() != new_root_path:
-            # Root changed.
-            # TODO: wipe out UI and reload the whole damn thing
-            logger.error('TODO! Need to implement wiping out the tree on root path change!')
-            # TODO: fire signal to listeners
-            self.config.write(transient_path=self.config_entry, value=new_root_path)
+            # Root changed. Invalidate the current tree contents
+            self.tree = None
+            self.parent_win.config.write(transient_path=self.config_entry, value=new_root_path)
             self._root_path = new_root_path
+            # Kick off the diff task. This will reload the tree as a side effect
+            # since we set self.tree = None
+            self.parent_win.emit(SIGNAL_DO_DIFF, 'from root path')
 
     def get_fmeta_tree(self):
         if self.tree is None:
@@ -55,9 +58,6 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
     def __init__(self, application):
         Gtk.Window.__init__(self, application=application)
         BaseDialog.__init__(self, application.config)
-        # TODO: put in config file
-        self.enable_file_scan = True
-        self.enable_db_cache = True
 
         self.set_title('UltraSync')
         # program icon:
@@ -67,6 +67,10 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.set_border_width(10)
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
         self.add(self.content_box)
+
+        # See: http://www.thepythontree.in/gtk3-python-custom-signals/
+        GObject.signal_new(SIGNAL_DO_DIFF, self, GObject.SIGNAL_RUN_LAST, GObject.TYPE_PYOBJECT, (GObject.TYPE_PYOBJECT,))
+        self.connect(SIGNAL_DO_DIFF, self.start_new_diff_daemon)
 
         # Checkboxes:
         self.checkbox_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
@@ -97,12 +101,12 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Tree Left:
-        source_left = ConfigFileDataSource(tree_id='left_tree', config=self.config)
+        source_left = ConfigFileDataSource(tree_id='left_tree', parent_win=self)
         self.diff_tree_left = DiffTree(parent_win=self, tree_id=source_left.tree_id, data_source=source_left, editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
-        source_right = ConfigFileDataSource(tree_id='right_tree', config=self.config)
+        source_right = ConfigFileDataSource(tree_id='right_tree', parent_win=self)
         self.diff_tree_right = DiffTree(parent_win=self, tree_id=source_right.tree_id, data_source=source_right, editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
 
@@ -111,11 +115,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.content_box.add(self.bottom_button_panel)
 
         diff_action_btn = Gtk.Button(label="Diff (content-first)")
-        diff_action_btn.connect("clicked", self.execute_diff_task)
+        diff_action_btn.connect("clicked", lambda widget: self.emit(SIGNAL_DO_DIFF, 'blah'))
         self.replace_bottom_button_panel(diff_action_btn)
-
-        self.set_focus_chain([self.content_box])
-        self.set_focus_chain([self.bottom_button_panel, self.diff_tree_left.content_box, self.diff_tree_right.content_box])
 
 #  menubutton = Gtk.MenuButton()
       #  self.content_box.add(menubutton)
@@ -158,28 +159,27 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             dialog = MergePreviewDialog(self, merged_changes_tree)
             response_id = dialog.run()
             if response_id == Gtk.ResponseType.APPLY:
+                # Assume the dialog took care of applying the changes.
                 # Refresh the diff trees:
                 logger.debug('Refreshing the diff trees')
-                self.execute_diff_task()
+                self.emit(SIGNAL_DO_DIFF)
         except Exception as err:
             self.show_error_ui('Merge preview failed due to unexpected error', repr(err))
             raise
 
-    def execute_diff_task(self, widget=None):
+    def start_new_diff_daemon(self, window, arg):
         action_thread = threading.Thread(target=self.diff_task)
         action_thread.daemon = True
         action_thread.start()
 
-    # TODO: Encapsulate each FMetaTreeLoader in a listener. Need each to subscribe to a signal emitted by DiffTrees whenever a root changes. Fire a 'needs-diff-recalculate' event appriately which will update the diff and then the trees
     # TODO: change DB path whenever root is changed
     def diff_task(self):
         try:
+            # TODO: disable all UI while loading
             self.diff_tree_right.set_status('Waiting...')
 
-            # LEFT ---------------
+            # Load trees if not loaded - may be a long operation
             left_fmeta_tree = self.diff_tree_left.data_source.get_fmeta_tree()
-
-            # RIGHT --------------
             right_fmeta_tree = self.diff_tree_right.data_source.get_fmeta_tree()
 
             stopwatch = Stopwatch()

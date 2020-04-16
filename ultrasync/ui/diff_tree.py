@@ -46,9 +46,9 @@ class DiffTree:
         self.icons = _build_icons(icon_size=icon_size)
 
         def on_progress_made(this, progress, total):
-            self.set_status(f'Scanning file {progress} of {total}')
+            this.set_status(f'Scanning file {progress} of {total}')
 
-        self.progress_meter = ProgressMeter(on_progress_made, self)
+        self.progress_meter = ProgressMeter(on_progress_made, self.parent_win.config, self)
         self.data_source = data_source
         self.data_source.status_receiver = self.progress_meter
 
