@@ -7,10 +7,10 @@
             "file_path": "$PROJECT_DIR/test/SvobodaLeft.db"
         },
         "expanded_state": {
-            "Added": true,
+            "Added": false,
             "Deleted": true,
             "Ignored": false,
-            "Moved": true,
+            "Moved": false,
             "Updated": true
         },
         "root_path": "/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos"
@@ -24,9 +24,9 @@
         },
         "expanded_state": {
             "Added": true,
-            "Deleted": true,
+            "Deleted": false,
             "Ignored": false,
-            "Moved": true,
+            "Moved": false,
             "Updated": true
         },
         "root_path": "/media/msvoboda/Thumb128G/Takeout/Google Photos"

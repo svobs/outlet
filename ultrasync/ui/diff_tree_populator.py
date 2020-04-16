@@ -135,8 +135,7 @@ def _populate_category(diff_tree, category: Category, fmeta_list):
             while tree_iter is not None:
                 node_data = diff_tree.model[tree_iter][diff_tree.col_num_data]
                 if type(node_data) == CategoryNode:
-                    cat_name = node_data.category.name
-                    cfg_path = f'transient.{diff_tree.tree_id}.expanded_state.{cat_name}'
+                    cfg_path = diff_tree.get_cat_config_path(node_data.category)
                     is_expand = diff_tree.parent_win.config.get(cfg_path, True)
                     if is_expand:
                         tree_path = diff_tree.model.get_path(tree_iter)

@@ -82,7 +82,6 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
     orphaned_sigs_left = []
     orphaned_sigs_right = []
 
-
     """Compares the two trees, and populates the change sets of both. The order of 'left' and which is 'right'
      is not important, because the changes are computed from each tree's perspective (e.g. a file which is in
      Left but not Right will be determined to be an 'added' file from the perspective of Left but a 'deleted'
@@ -252,8 +251,10 @@ def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_co
                     conflict_pairs.append((left, right))
                     logger.debug(f'CONFLICT: left={left.category.name}:{left.file_path} right={right.category.name}:{right.file_path}')
         else:
-            _add_adjusted_metas(side_a_metas=left_metas, side_a_prefix=left_old_root_remainder, side_b_prefix=right_old_root_remainder, dst_tree=merged_tree)
-            _add_adjusted_metas(side_a_metas=right_metas, side_a_prefix=right_old_root_remainder, side_b_prefix=left_old_root_remainder, dst_tree=merged_tree)
+            _add_adjusted_metas(side_a_metas=left_metas, side_a_prefix=left_old_root_remainder,
+                                side_b_prefix=right_old_root_remainder, dst_tree=merged_tree)
+            _add_adjusted_metas(side_a_metas=right_metas, side_a_prefix=right_old_root_remainder,
+                                side_b_prefix=left_old_root_remainder, dst_tree=merged_tree)
 
     if len(conflict_pairs) > 0:
         logger.info(f'Number of conflicts found: {len(conflict_pairs)}')

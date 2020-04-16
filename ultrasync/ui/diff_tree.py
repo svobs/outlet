@@ -25,6 +25,35 @@ def _build_icons(icon_size):
     return icons
 
 
+def _build_info_bar():
+    info_bar_container = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+    info_bar = Gtk.Label(label='')
+    info_bar.set_justify(Gtk.Justification.LEFT)
+    info_bar.set_line_wrap(True)
+    info_bar_container.add(info_bar)
+    return info_bar, info_bar_container
+
+
+def _build_content_box(root_dir_panel, tree_view, status_bar_container):
+    content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
+
+    content_box.pack_start(root_dir_panel, False, False, 5)
+
+    # Tree will take up all the excess space
+    tree_view.set_vexpand(True)
+    tree_view.set_hexpand(False)
+    tree_scroller = Gtk.ScrolledWindow()
+    # No horizontal scrolling - only vertical
+    tree_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    tree_scroller.add(tree_view)
+    # child, expand, fill, padding
+    content_box.pack_start(tree_scroller, False, True, 5)
+
+    content_box.pack_start(status_bar_container, False, True, 5)
+
+    return content_box
+
+
 class DiffTree:
     model: Gtk.TreeStore
 
@@ -105,13 +134,12 @@ class DiffTree:
         self.model = Gtk.TreeStore()
         self.model.set_column_types(col_types)
 
-        self.root_dir_panel = RootDirPanel(self)
+        root_dir_panel = RootDirPanel(self)
 
-        self.treeview: Gtk.Treeview
         self.treeview = self._build_treeview(self.model)
 
-        self.status_bar, status_bar_container = DiffTree._build_info_bar()
-        self.content_box = DiffTree._build_content_box(self.root_dir_panel.content_box, self.treeview, status_bar_container)
+        self.status_bar, status_bar_container = _build_info_bar()
+        self.content_box = _build_content_box(root_dir_panel.content_box, self.treeview, status_bar_container)
         if self.sizegroups is not None and self.sizegroups.get('tree_status') is not None:
             self.sizegroups['tree_status'].add_widget(status_bar_container)
 
@@ -144,26 +172,6 @@ class DiffTree:
             # (preserving previous column sort order for directories)
             return 0
 
-    @classmethod
-    def _build_content_box(cls, root_dir_panel, tree_view, status_bar_container):
-        content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
-
-        content_box.pack_start(root_dir_panel, False, False, 5)
-
-        # Tree will take up all the excess space
-        tree_view.set_vexpand(True)
-        tree_view.set_hexpand(False)
-        tree_scroller = Gtk.ScrolledWindow()
-        # No horizontal scrolling - only vertical
-        tree_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        tree_scroller.add(tree_view)
-        # child, expand, fill, padding
-        content_box.pack_start(tree_scroller, False, True, 5)
-
-        content_box.pack_start(status_bar_container, False, True, 5)
-
-        return content_box
-
     def _build_treeview(self, model):
         """ Builds the GTK3 treeview widget"""
 
@@ -189,7 +197,7 @@ class DiffTree:
 
         if self.editable:
             renderer = Gtk.CellRendererToggle()
-            renderer.connect("toggled", self.on_cell_toggled)
+            renderer.connect("toggled", self.on_cell_checkbox_toggled)
             renderer.set_fixed_size(width=-1, height=row_height)
             px_column.pack_start(renderer, False)
             px_column.add_attribute(renderer, 'active', self.col_num_checked)
@@ -304,23 +312,20 @@ class DiffTree:
         select = treeview.get_selection()
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
         select.connect("changed", on_tree_selection_changed)
-        treeview.connect("row-activated", self.on_tree_selection_activated)
+        treeview.connect("row-activated", self.on_row_activated)
         treeview.connect('button-press-event', self.on_tree_button_press)
         treeview.connect('key-press-event', self.on_key_press)
+        treeview.connect('row-expanded', self.on_toggle_row_expanded_state, True)
+        treeview.connect('row-collapsed', self.on_toggle_row_expanded_state, False)
 
         return treeview
 
+    # TODO: clean this up
+    def get_cat_config_path(self, category):
+        return f'transient.{self.tree_id}.expanded_state.{category.name}'
+
     def set_status(self, status_msg):
         GLib.idle_add(lambda: self.status_bar.set_label(status_msg))
-
-    @classmethod
-    def _build_info_bar(cls):
-        info_bar_container = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
-        info_bar = Gtk.Label(label='')
-        info_bar.set_justify(Gtk.Justification.LEFT)
-        info_bar.set_line_wrap(True)
-        info_bar_container.add(info_bar)
-        return info_bar, info_bar_container
 
     def build_context_menu(self, tree_path: Gtk.TreePath, fmeta: FMeta):
         """Dynamic context menu (right-click on tree item)"""
@@ -492,6 +497,20 @@ class DiffTree:
                 self.recurse_over_tree(child_iter, action_func)
             tree_iter = self.model.iter_next(tree_iter)
 
+    def do_for_descendants(self, tree_path, action_func):
+        tree_iter = self.model.get_iter(tree_path)
+        child_iter = self.model.iter_children(tree_iter)
+        if child_iter:
+            self.recurse_over_tree(child_iter, action_func)
+
+    def do_for_self_and_descendants(self, tree_path, action_func):
+        tree_iter = self.model.get_iter(tree_path)
+        action_func(tree_iter)
+
+        child_iter = self.model.iter_children(tree_iter)
+        if child_iter:
+            self.recurse_over_tree(child_iter, action_func)
+
     def delete_single_file(self, file_path: str, tree_path: Gtk.TreePath):
         """ Param file_path must be an absolute path"""
         if os.path.exists(file_path):
@@ -536,11 +555,7 @@ class DiffTree:
 
             add_to_list_func.dir_count = 0
 
-            tree_iter = self.model.get_iter(tree_path)
-            add_to_list_func(tree_iter)
-            child_iter = self.model.iter_children(tree_iter)
-            if child_iter:
-                self.recurse_over_tree(child_iter, add_to_list_func)
+            self.do_for_self_and_descendants(tree_path, add_to_list_func)
 
             dir_count = add_to_list_func.dir_count
         except Exception as err:
@@ -581,7 +596,7 @@ class DiffTree:
         else:
             self.parent_win.show_error_msg(f'Cannot open file', f'File not found: {file_path}')
 
-    def on_tree_selection_activated(self, tree_view, path, col):
+    def on_row_activated(self, tree_view, path, col):
         """Fired when an item is double-clicked or when an item is selected and Enter is pressed"""
         node_data = self.model[path][self.col_num_data]
         xdg_open = False
@@ -608,7 +623,7 @@ class DiffTree:
         if xdg_open:
             self.call_xdg_open(file_path)
 
-    def on_cell_toggled(self, widget, path):
+    def on_cell_checkbox_toggled(self, widget, path):
         """Called when checkbox in treeview is toggled"""
         data_node = self.model[path][self.col_num_data]
         if data_node.category == Category.Ignored:
@@ -621,14 +636,11 @@ class DiffTree:
         self.model[path][self.col_num_inconsistent] = False
 
         # Update all of the node's children change to match its check state:
-        tree_iter = self.model.get_iter(path)
-        child_iter = self.model.iter_children(tree_iter)
-        if child_iter:
-            def action_func(t_iter):
-                self.model[t_iter][self.col_num_checked] = checked_value
-                self.model[t_iter][self.col_num_inconsistent] = False
+        def update_checked_state(t_iter):
+            self.model[t_iter][self.col_num_checked] = checked_value
+            self.model[t_iter][self.col_num_inconsistent] = False
 
-            self.recurse_over_tree(child_iter, action_func)
+        self.do_for_descendants(path, update_checked_state)
 
         # Now update its ancestors' states:
         tree_path = Gtk.TreePath.new_from_string(path)
@@ -656,6 +668,12 @@ class DiffTree:
                     child_iter = self.model.iter_next(child_iter)
                 self.model[tree_iter][self.col_num_inconsistent] = has_inconsistent or (has_checked and has_unchecked)
                 self.model[tree_iter][self.col_num_checked] = has_checked and not has_unchecked and not has_inconsistent
+
+    def on_toggle_row_expanded_state(self, tree_view, tree_path, col, is_expanded):
+        node_data = self.model[tree_path][self.col_num_data]
+        if type(node_data) == CategoryNode:
+            cfg_path = self.get_cat_config_path(node_data.category)
+            self.parent_win.config.write(cfg_path, is_expanded)
 
     # For displaying icons
     def get_tree_cell_pixbuf(self, col, cell, model, iter, user_data):
