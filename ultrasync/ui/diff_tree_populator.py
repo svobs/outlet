@@ -5,6 +5,7 @@ from datetime import datetime
 import os
 import humanfriendly
 import logging
+from stopwatch import Stopwatch
 from treelib import Node, Tree
 import file_util
 from fmeta.fmeta import FMeta, FMetaTree, Category
@@ -132,9 +133,15 @@ def _append_to_model(diff_tree, category, change_tree):
 
 def _populate_category(diff_tree, category: Category, fmeta_list):
     # Build fake tree for category:
+    stopwatch = Stopwatch()
     change_tree = _build_category_change_tree(fmeta_list, category)
+    stopwatch.stop()
+    logger.debug(f'Faux tree built for "{category.name}" in: {stopwatch}')
 
-    GLib.idle_add(_append_to_model, diff_tree, category, change_tree)
+    stopwatch = Stopwatch()
+    _append_to_model(diff_tree, category, change_tree)
+    stopwatch.stop()
+    logger.debug(f'TreeStore populated for "{category.name}" in: {stopwatch}')
 
 
 def _set_expand_states_from_config(diff_tree):
@@ -161,10 +168,17 @@ def repopulate_diff_tree(diff_tree):
     Returns:
 
     """
+    logger.debug(f'Repopulating diff tree "{diff_tree.tree_id}"')
+
     # Wipe out existing items:
     diff_tree.model.clear()
 
+    # Detach model before insert.
+    # The docs say to do this for speed, but it doesn't seem to change things:
+    diff_tree.treeview.set_model(None)
+
     fmeta_tree = diff_tree.data_source.get_fmeta_tree()
+
     for category in [Category.Added,
                      Category.Deleted,
                      Category.Moved,
@@ -172,4 +186,10 @@ def repopulate_diff_tree(diff_tree):
                      Category.Ignored]:
         _populate_category(diff_tree, category, fmeta_tree.get_for_cat(category))
 
+    # Re-attach model:
+    GLib.idle_add(lambda: diff_tree.treeview.set_model(diff_tree.model))
+
+    # Restore user prefs for expanded nodes:
     GLib.idle_add(_set_expand_states_from_config, diff_tree)
+
+    logger.debug(f'Done repopulating diff tree "{diff_tree.tree_id}"')

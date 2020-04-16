@@ -188,11 +188,12 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             logger.info(f'Diff completed in: {stopwatch_diff}')
 
             stopwatch_redraw = Stopwatch()
+
             # TODO: have each spawn thread on 'diff completed' signal
             diff_tree_populator.repopulate_diff_tree(self.diff_tree_left)
             diff_tree_populator.repopulate_diff_tree(self.diff_tree_right)
 
-            def do_on_ui_thread():
+            def change_button_bar():
                 # Replace diff btn with merge buttons
                 merge_btn = Gtk.Button(label="Merge Selected...")
                 merge_btn.connect("clicked", self.on_merge_btn_clicked)
@@ -201,7 +202,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                 stopwatch_redraw.stop()
                 logger.debug(f'Redraw completed in: {stopwatch_redraw}')
 
-            GLib.idle_add(do_on_ui_thread)
+            GLib.idle_add(change_button_bar)
         except Exception as err:
             self.show_error_ui('Diff task failed due to unexpected error', repr(err))
             raise
