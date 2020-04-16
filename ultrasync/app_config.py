@@ -21,12 +21,16 @@ class AppConfig:
         except Exception as err:
             raise RuntimeError(f'Could not read config file ({config_file_path})') from err
 
-    def get(self, cfg_path):
-        val = self.cfg[cfg_path]
-        if val is not None and type(val) == str:
-           val = val.replace('$PROJECT_DIR', PROJECT_DIR)
-        logger.debug(f'Read "{cfg_path}" = "{val}"')
-        return val
+    def get(self, cfg_path, default_val=None):
+        try:
+            val = self.cfg[cfg_path]
+            if val is not None and type(val) == str:
+               val = val.replace('$PROJECT_DIR', PROJECT_DIR)
+            logger.debug(f'Read "{cfg_path}" = "{val}"')
+            return val
+        except config.KeyNotFoundError:
+            logger.debug(f'Path not found: {cfg_path}')
+            return default_val
 
     def _get_transient_filename(self):
         filename = self.get('transient_filename')

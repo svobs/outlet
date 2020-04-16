@@ -22,15 +22,15 @@ logger = logging.getLogger(__name__)
 
 
 class ConfigFileDataSource:
-    def __init__(self, config, tree_id, status_receiver=None):
+    def __init__(self, tree_id, config, status_receiver=None):
         self.config = config
         self.tree_id = tree_id
+        self.tree = None
         self.cache = fmeta_tree_cache.from_config(config=self.config, tree_id=self.tree_id)
         self.config_entry = f'transient.{self.tree_id}.root_path'
         self._root_path = self.config.get(self.config_entry)
         # TODO: maybe this would be better done as an event receiver
         self.status_receiver = status_receiver
-        self.tree = None
 
     def get_root_path(self):
         return self._root_path
@@ -97,13 +97,13 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Tree Left:
-        source_left = ConfigFileDataSource(self.config, 'left_tree')
-        self.diff_tree_left = DiffTree(parent_win=self, data_source=source_left, editable=True, sizegroups=self.sizegroups)
+        source_left = ConfigFileDataSource(tree_id='left_tree', config=self.config)
+        self.diff_tree_left = DiffTree(parent_win=self, tree_id=source_left.tree_id, data_source=source_left, editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
-        source_right = ConfigFileDataSource(self.config, 'right_tree')
-        self.diff_tree_right = DiffTree(parent_win=self, data_source=source_right, editable=True, sizegroups=self.sizegroups)
+        source_right = ConfigFileDataSource(tree_id='right_tree', config=self.config)
+        self.diff_tree_right = DiffTree(parent_win=self, tree_id=source_right.tree_id, data_source=source_right, editable=True, sizegroups=self.sizegroups)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
 
         # Bottom button panel:

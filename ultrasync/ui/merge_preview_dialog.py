@@ -52,7 +52,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         label = Gtk.Label(label="The following changes will be made:")
         self.content_box.add(label)
 
-        self.diff_tree = DiffTree(parent_win=self, data_source=SimpleDataSource(self.fmeta_tree), editable=False)
+        self.diff_tree = DiffTree(parent_win=self, tree_id='merge_tree', data_source=SimpleDataSource(self.fmeta_tree), editable=False)
         self.diff_tree.set_status(self.fmeta_tree.get_summary())
         self.content_box.pack_start(self.diff_tree.content_box, True, True, 0)
 

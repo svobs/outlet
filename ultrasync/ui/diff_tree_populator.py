@@ -131,13 +131,17 @@ def _populate_category(diff_tree, category: Category, fmeta_list):
             append_recursively(None, root)
 
             # Find the category nodes and expand them appropriately
-            # TODO: put expansion state in config
             tree_iter = diff_tree.model.get_iter_first()
             while tree_iter is not None:
                 node_data = diff_tree.model[tree_iter][diff_tree.col_num_data]
-                if type(node_data) == CategoryNode and node_data.category != Category.Ignored:
-                    tree_path = diff_tree.model.get_path(tree_iter)
-                    diff_tree.treeview.expand_row(path=tree_path, open_all=True)
+                if type(node_data) == CategoryNode:
+                    cat_name = node_data.category.name
+                    cfg_path = f'transient.{diff_tree.tree_id}.expanded_state.{cat_name}'
+                    is_expand = diff_tree.parent_win.config.get(cfg_path, True)
+                    if is_expand:
+                        tree_path = diff_tree.model.get_path(tree_iter)
+                        diff_tree.treeview.expand_row(path=tree_path, open_all=True)
+
                 tree_iter = diff_tree.model.iter_next(tree_iter)
 
     GLib.idle_add(do_on_ui_thread)

@@ -28,9 +28,10 @@ def _build_icons(icon_size):
 class DiffTree:
     model: Gtk.TreeStore
 
-    def __init__(self, parent_win, data_source, editable, sizegroups=None):
+    def __init__(self, tree_id, parent_win, data_source, editable, sizegroups=None):
         # Should be a subclass of BaseDialog:
         self.parent_win = parent_win
+        self.tree_id = tree_id
         """If true, create a node for each ancestor directory for the files.
            If false, create a second column which shows the parent path. """
         self.use_dir_tree = parent_win.config.get('display.diff_tree.use_dir_tree')
