@@ -5,6 +5,7 @@ lib
 lib64
 pyvenv.cfg
 token.pickle
+credentials.json
 __pycache__
 
 *.db

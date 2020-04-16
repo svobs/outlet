@@ -13,6 +13,9 @@ from fmeta.fmeta_tree_source import TreeMetaScanner
 
 logger = logging.getLogger(__name__)
 
+# TODO: constants file
+TOGGLE_UI_ENABLEMENT = 'toggle-ui-enable'
+
 
 def _build_icons(icon_size):
     icons = dict()
@@ -74,6 +77,8 @@ class DiffTree:
         self.datetime_format = parent_win.config.get('display.diff_tree.datetime_format')
         self.icons = _build_icons(icon_size=icon_size)
 
+        self.parent_win.connect(TOGGLE_UI_ENABLEMENT, self.set_enable_user_input)
+
         def on_progress_made(this, progress, total):
             this.set_status(f'Scanning file {progress} of {total}')
 
@@ -134,12 +139,12 @@ class DiffTree:
         self.model = Gtk.TreeStore()
         self.model.set_column_types(col_types)
 
-        root_dir_panel = RootDirPanel(self)
+        self.root_dir_panel = RootDirPanel(self)
 
         self.treeview = self._build_treeview(self.model)
 
         self.status_bar, status_bar_container = _build_info_bar()
-        self.content_box = _build_content_box(root_dir_panel.content_box, self.treeview, status_bar_container)
+        self.content_box = _build_content_box(self.root_dir_panel.content_box, self.treeview, status_bar_container)
         if self.sizegroups is not None and self.sizegroups.get('tree_status') is not None:
             self.sizegroups['tree_status'].add_widget(status_bar_container)
 
@@ -150,6 +155,10 @@ class DiffTree:
     @root_path.setter
     def root_path(self, new_root):
         self.data_source.set_root_path(new_root)
+
+    def set_enable_user_input(self, window, enable):
+        # TODO!
+        pass
 
     def _compare_fmeta(self, model, row1, row2, compare_field_func):
         """

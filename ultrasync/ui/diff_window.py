@@ -19,6 +19,7 @@ import ui.diff_tree_populator as diff_tree_populator
 WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
 
 SIGNAL_DO_DIFF = 'do-diff'
+TOGGLE_UI_ENABLEMENT = 'toggle-ui-enable'
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +69,15 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
         self.add(self.content_box)
 
+        # Create signals.
         # See: http://www.thepythontree.in/gtk3-python-custom-signals/
         GObject.signal_new(SIGNAL_DO_DIFF, self, GObject.SIGNAL_RUN_LAST, GObject.TYPE_PYOBJECT, (GObject.TYPE_PYOBJECT,))
+
+        GObject.signal_new(TOGGLE_UI_ENABLEMENT, self, GObject.SIGNAL_RUN_LAST, GObject.TYPE_PYOBJECT, (GObject.TYPE_PYOBJECT,))
+
+        # Subscribe:
         self.connect(SIGNAL_DO_DIFF, self.start_new_diff_daemon)
+        self.connect(TOGGLE_UI_ENABLEMENT, self.set_enable_user_input)
 
         # Checkboxes:
         self.checkbox_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
@@ -118,13 +125,6 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         diff_action_btn.connect("clicked", lambda widget: self.emit(SIGNAL_DO_DIFF, 'blah'))
         self.replace_bottom_button_panel(diff_action_btn)
 
-#  menubutton = Gtk.MenuButton()
-      #  self.content_box.add(menubutton)
-       # menumodel = Gio.Menu()
-        #menubutton.set_menu_model(menumodel)
-       # menumodel.append("New", "app.new")
-      #  menumodel.append("Quit", "app.quit")
-
         # TODO: create a 'Scan' button for each input source
 
     def replace_bottom_button_panel(self, *buttons):
@@ -162,12 +162,18 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                 # Assume the dialog took care of applying the changes.
                 # Refresh the diff trees:
                 logger.debug('Refreshing the diff trees')
-                self.emit(SIGNAL_DO_DIFF)
+                self.emit(SIGNAL_DO_DIFF, 'meh')
         except Exception as err:
             self.show_error_ui('Merge preview failed due to unexpected error', repr(err))
             raise
 
+    def set_enable_user_input(self, window, enable):
+        """Fired by TOGGLE_UI_ENABLEMENT"""
+        for button in self.bottom_button_panel.get_children():
+            button.set_sensitive(enable)
+
     def start_new_diff_daemon(self, window, arg):
+        self.emit(TOGGLE_UI_ENABLEMENT, False)
         action_thread = threading.Thread(target=self.diff_task)
         action_thread.daemon = True
         action_thread.start()
@@ -198,6 +204,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                 merge_btn.connect("clicked", self.on_merge_btn_clicked)
 
                 self.replace_bottom_button_panel(merge_btn)
+                self.emit(TOGGLE_UI_ENABLEMENT, True)
                 stopwatch_redraw.stop()
                 logger.debug(f'Redraw completed in: {stopwatch_redraw}')
 

@@ -2,8 +2,13 @@ import logging
 import file_util
 
 import gi
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
+
+# TODO: constants file
+TOGGLE_UI_ENABLEMENT = 'toggle-ui-enable'
+
 
 logger = logging.getLogger(__name__)
 
@@ -69,11 +74,11 @@ class RootDirPanel:
         self.content_box.pack_start(self.label, expand=True, fill=True, padding=0)
 
         if self.parent_diff_tree.editable:
-            change_btn = Gtk.Button(label='Change...')
-            self.content_box.pack_start(change_btn, expand=False, fill=False, padding=0)
-            change_btn.connect("clicked", self.on_change_btn_clicked, self.parent_diff_tree)
+            self.change_btn = Gtk.Button(label='Change...')
+            self.content_box.pack_start(self.change_btn, expand=False, fill=False, padding=0)
+            self.change_btn.connect("clicked", self.on_change_btn_clicked, self.parent_diff_tree)
 
-        # TODO: signals for changing root path display?
+        self.parent_diff_tree.parent_win.connect(TOGGLE_UI_ENABLEMENT, self.set_enable_user_input)
 
     def on_change_btn_clicked(self, widget, diff_tree):
         # create a RootDirChooserDialog to open:
@@ -89,6 +94,9 @@ class RootDirPanel:
         open_dialog.connect("response", _on_root_dir_selected, self)
         # show the dialog
         open_dialog.show()
+
+    def set_enable_user_input(self, window, enable):
+        self.change_btn.set_sensitive(enable)
 
     def update_root(self, new_root_path=None):
         if new_root_path is None:
