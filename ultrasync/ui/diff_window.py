@@ -182,11 +182,12 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             left_fmeta_tree = self.diff_tree_left.data_source.get_fmeta_tree()
             right_fmeta_tree = self.diff_tree_right.data_source.get_fmeta_tree()
 
-            stopwatch = Stopwatch()
+            stopwatch_diff = Stopwatch()
             diff_content_first.diff(left_fmeta_tree, right_fmeta_tree, compare_paths_also=True, use_modify_times=False)
-            stopwatch.stop()
-            logger.info(f'Diff completed in: {stopwatch}')
+            stopwatch_diff.stop()
+            logger.info(f'Diff completed in: {stopwatch_diff}')
 
+            stopwatch_redraw = Stopwatch()
             # TODO: have each spawn thread on 'diff completed' signal
             diff_tree_populator.repopulate_diff_tree(self.diff_tree_left)
             diff_tree_populator.repopulate_diff_tree(self.diff_tree_right)
@@ -197,7 +198,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                 merge_btn.connect("clicked", self.on_merge_btn_clicked)
 
                 self.replace_bottom_button_panel(merge_btn)
-                logger.info('Done.')
+                stopwatch_redraw.stop()
+                logger.debug(f'Redraw completed in: {stopwatch_redraw}')
 
             GLib.idle_add(do_on_ui_thread)
         except Exception as err:
