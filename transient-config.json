@@ -7,7 +7,7 @@
             "file_path": "$PROJECT_DIR/test/SvobodaLeft.db"
         },
         "expanded_state": {
-            "Added": false,
+            "Added": true,
             "Deleted": true,
             "Ignored": false,
             "Moved": false,
@@ -24,7 +24,7 @@
         },
         "expanded_state": {
             "Added": true,
-            "Deleted": false,
+            "Deleted": true,
             "Ignored": false,
             "Moved": false,
             "Updated": true

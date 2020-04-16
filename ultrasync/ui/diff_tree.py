@@ -327,34 +327,51 @@ class DiffTree:
     def set_status(self, status_msg):
         GLib.idle_add(lambda: self.status_bar.set_label(status_msg))
 
-    def build_context_menu(self, tree_path: Gtk.TreePath, fmeta: FMeta):
+    def build_context_menu(self, tree_path: Gtk.TreePath, node_data):
         """Dynamic context menu (right-click on tree item)"""
-
-        abs_path = self.get_abs_path(fmeta)
-        # Important: use abs_path here, otherwise file names for category nodes are not displayed properly
-        parent_path, file_name = os.path.split(abs_path)
 
         menu = Gtk.Menu()
 
-        if not os.path.exists(abs_path):
-            i1 = Gtk.MenuItem(label='')
-            label = i1.get_child()
-            label.set_markup(f'<i>File "{file_name}" not found</i>')
-            i1.set_sensitive(False)
-            menu.append(i1)
-        else:
-            i1 = Gtk.MenuItem(label='Show in Nautilus')
-            i1.connect('activate', lambda menu_item, f: self.show_in_nautilus(f), abs_path)
-            menu.append(i1)
+        abs_path = self.get_abs_path(node_data)
+        # Important: use abs_path here, otherwise file names for category nodes are not displayed properly
+        parent_path, file_name = os.path.split(abs_path)
 
-            if os.path.isdir(abs_path):
-                i2 = Gtk.MenuItem(label=f'Delete tree "{file_name}"')
-                i2.connect('activate', lambda menu_item, abs_p: self.delete_dir_tree(abs_p, tree_path), abs_path)
-                menu.append(i2)
-            else:
-                i2 = Gtk.MenuItem(label=f'Delete "{file_name}"')
-                i2.connect('activate', lambda menu_item, abs_p: self.delete_single_file(abs_p, tree_path), abs_path)
-                menu.append(i2)
+        is_category_node = type(node_data) == CategoryNode
+        file_exists = os.path.exists(abs_path)
+
+        item = Gtk.MenuItem(label='')
+        label = item.get_child()
+        label.set_markup(f'<i>{abs_path}</i>')
+        item.set_sensitive(False)
+        menu.append(item)
+
+        item = Gtk.SeparatorMenuItem()
+        menu.append(item)
+
+        if file_exists:
+            item = Gtk.MenuItem(label='Show in Nautilus')
+            item.connect('activate', lambda menu_item, f: self.show_in_nautilus(f), abs_path)
+            menu.append(item)
+        else:
+            item = Gtk.MenuItem(label='')
+            label = item.get_child()
+            label.set_markup(f'<i>Path not found</i>')
+            item.set_sensitive(False)
+            menu.append(item)
+
+        if os.path.isdir(abs_path):
+            item = Gtk.MenuItem(label=f'Expand all')
+            item.connect('activate', lambda menu_item: self.expand_all(tree_path))
+            menu.append(item)
+
+            if not is_category_node and file_exists:
+                item = Gtk.MenuItem(label=f'Delete tree "{file_name}"')
+                item.connect('activate', lambda menu_item, abs_p: self.delete_dir_tree(abs_p, tree_path), abs_path)
+                menu.append(item)
+        elif file_exists:
+            item = Gtk.MenuItem(label=f'Delete "{file_name}"')
+            item.connect('activate', lambda menu_item, abs_p: self.delete_single_file(abs_p, tree_path), abs_path)
+            menu.append(item)
 
         menu.show_all()
         return menu
@@ -406,15 +423,14 @@ class DiffTree:
         if event.button == 3: # right click
             tree_path, col, cell_x, cell_y = tree_view.get_path_at_pos(int(event.x), int(event.y))
             # do something with the selected path
-            fmeta = self.model[tree_path][self.col_num_data]
-            if not fmeta.file_path:
-                # This is the category node
+            node_data = self.model[tree_path][self.col_num_data]
+            if type(node_data) == CategoryNode:
                 logger.debug(f'User right-clicked on {self.model[tree_path][self.col_num_name]}')
             else:
-                logger.debug(f'User right-clicked on {fmeta.file_path}')
+                logger.debug(f'User right-clicked on {node_data.file_path}')
 
             # Display context menu:
-            context_menu = self.build_context_menu(tree_path, fmeta)
+            context_menu = self.build_context_menu(tree_path, node_data)
             context_menu.popup_at_pointer(event)
             # Suppress selection event:
             return True
@@ -524,6 +540,10 @@ class DiffTree:
                 self.resync_subtree(tree_path)
         else:
             self.parent_win.show_error_msg('Could not delete file', f'Not found: {file_path}')
+
+    def expand_all(self, tree_path):
+        # TODO
+        pass
 
     def delete_dir_tree(self, subtree_root: str, tree_path: Gtk.TreePath):
         """
