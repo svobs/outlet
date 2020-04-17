@@ -57,36 +57,40 @@ class UltrasyncApplication(Gtk.Application):
 
 
 def configure_logging(config):
-    # DEBUG LOG FILE
-    debug_log_enabled = config.get('logging.debug_log.enable')
-    if debug_log_enabled:
-        debug_log_path = config.get('logging.debug_log.file_path')
-        debug_log_format = config.get('logging.debug_log.format')
-        debug_log_datetime_format = config.get('logging.debug_log.datetime_format')
-        debug_log_mode = config.get('logging.debug_log.mode')
-        logging.basicConfig(filename=debug_log_path, filemode=debug_log_mode,
-                            format=debug_log_format, datefmt=debug_log_datetime_format,
-                            level=logging.DEBUG)
-
     # create logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
 
+    # DEBUG LOG FILE
+    debug_log_enabled = config.get('logging.debug_log.enable')
+    if debug_log_enabled:
+        debug_log_path = config.get('logging.debug_log.file_path')
+        debug_log_mode = config.get('logging.debug_log.mode')
+        debug_log_fmt = config.get('logging.debug_log.format')
+        debug_log_datetime_fmt = config.get('logging.debug_log.datetime_format')
+
+        debug_file_handler = logging.FileHandler(filename=debug_log_path, mode=debug_log_mode)
+        debug_file_handler.setLevel(logging.DEBUG)
+
+        debug_file_formatter = logging.Formatter(fmt=debug_log_fmt, datefmt=debug_log_datetime_fmt)
+        debug_file_handler.setFormatter(debug_file_formatter)
+
+        root_logger.addHandler(debug_file_handler)
+
     # CONSOLE
     console_enabled = config.get('logging.console.enable')
     if console_enabled:
+        console_fmt = config.get('logging.debug_log.format')
+        console_datetime_fmt = config.get('logging.debug_log.datetime_format')
+
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.DEBUG)
 
-        console_format = config.get('logging.debug_log.format')
-        console_datetime_format = config.get('logging.debug_log.datetime_format')
-        console_formatter = logging.Formatter(fmt=console_format, datefmt=console_datetime_format)
+        console_formatter = logging.Formatter(fmt=console_fmt, datefmt=console_datetime_fmt)
+        console_handler.setFormatter(console_formatter)
 
-    # add formatter to ch
-    console_handler.setFormatter(console_formatter)
-
-    # add ch to logger
-    root_logger.addHandler(console_handler)
+        # add console output to all loggers
+        root_logger.addHandler(console_handler)
 
     # TODO: figure out how to externalize this
     logging.getLogger('fmeta.fmeta').setLevel(logging.INFO)

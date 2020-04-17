@@ -20,7 +20,7 @@ class MetaDatabase:
 
     TABLE_GRDIVE_DIRS = {
         'name': 'gdrive_dirs',
-        'cols': (('id', 'TEXT'),
+        'cols': (('gid', 'TEXT'),
                  ('name', 'TEXT'),
                  ('path', 'TEXT'))
     }

@@ -133,7 +133,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.content_box.add(self.bottom_button_panel)
 
         diff_action_btn = Gtk.Button(label="Diff (content-first)")
-        diff_action_btn.connect("clicked", lambda widget: self.emit(SIGNAL_DO_DIFF, 'blah'))
+        diff_action_btn.connect("clicked", lambda widget: self.emit(SIGNAL_DO_DIFF, None))
 
         gdrive_btn = Gtk.Button(label="Download Google Drive Meta")
         gdrive_btn.connect("clicked", lambda widget: self.emit(SIGNAL_DOWNLOAD_GDRIVE_META, None))
