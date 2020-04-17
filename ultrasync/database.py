@@ -19,10 +19,16 @@ class MetaDatabase:
     }
 
     TABLE_GRDIVE_DIRS = {
-        'name': 'gdrive_dirs',
-        'cols': (('gid', 'TEXT'),
+        'name': 'gdrive_directory',
+        'cols': (('gd_id', 'TEXT'),
                  ('name', 'TEXT'),
-                 ('path', 'TEXT'))
+                 ('par_id', 'TEXT'))
+    }
+
+    TABLE_GRDIVE_MORE_PARENTS = {
+        'name': 'gdrive_more_parents',
+        'cols': (('par_id', 'TEXT'),
+                 ('gd_id', 'TEXT'))
     }
 
     def __init__(self, db_path):
@@ -113,9 +119,12 @@ class MetaDatabase:
 
     def truncate_gdrive_dirs(self):
         self.truncate_table(self.TABLE_GRDIVE_DIRS)
+        self.truncate_table(self.TABLE_GRDIVE_MORE_PARENTS)
 
-    def insert_gdrive_dirs(self, gdrive_dirs_list):
+    def insert_gdrive_dirs(self, gdrive_dirs_list, more_parent_mappings):
         self.create_table_if_not_exist(self.TABLE_GRDIVE_DIRS)
+        self.create_table_if_not_exist(self.TABLE_GRDIVE_MORE_PARENTS)
         self.truncate_gdrive_dirs()
 
         self.insert_many(self.TABLE_GRDIVE_DIRS, gdrive_dirs_list)
+        self.insert_many(self.TABLE_GRDIVE_MORE_PARENTS, more_parent_mappings)

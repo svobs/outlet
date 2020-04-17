@@ -188,7 +188,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def download_gdrive_meta(self):
         try:
-            google_api.gdrive.do_test()
+            google_api.gdrive.download_directory_structure()
         finally:
             self.emit(TOGGLE_UI_ENABLEMENT, True)
 
