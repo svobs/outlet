@@ -176,7 +176,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                 # Assume the dialog took care of applying the changes.
                 # Refresh the diff trees:
                 logger.debug('Refreshing the diff trees')
-                self.emit(SIGNAL_DO_DIFF, 'meh')
+                self.emit(SIGNAL_DO_DIFF, None)
         except Exception as err:
             self.show_error_ui('Merge preview failed due to unexpected error', repr(err))
             raise
@@ -188,7 +188,11 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def download_gdrive_meta(self):
         try:
-            google_api.gdrive.download_directory_structure()
+            cache_path = get_resource_path('gdrive.db')
+            meta = google_api.gdrive.download_directory_structure()
+            google_api.gdrive.save_in_cache(cache_path)
+           # meta = google_api.gdrive.load_dirs_from_cache(cache_path)
+            google_api.gdrive.build_dir_trees(meta)
         finally:
             self.emit(TOGGLE_UI_ENABLEMENT, True)
 

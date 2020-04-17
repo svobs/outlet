@@ -25,8 +25,14 @@ class MetaDatabase:
                  ('par_id', 'TEXT'))
     }
 
+    TABLE_GRDIVE_ROOTS = {
+        'name': 'gdrive_root',
+        'cols': (('gd_id', 'TEXT'),
+                 ('name', 'TEXT'))
+    }
+
     TABLE_GRDIVE_MORE_PARENTS = {
-        'name': 'gdrive_more_parents',
+        'name': 'gdrive_extra_parent',
         'cols': (('par_id', 'TEXT'),
                  ('gd_id', 'TEXT'))
     }
@@ -83,15 +89,19 @@ class MetaDatabase:
         self.conn.execute(sql)
         self.conn.commit()
 
+    def has_rows(self, table):
+        cursor = self.conn.cursor()
+        sql = self.build_select(table) + ' LIMIT 1'
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        has_rows = len(rows) > 0
+        logger.debug(f'Table {table["name"]} has rows = {has_rows}')
+        return has_rows
+
     # FILE_LOG operations ---------------------
 
-    # Hella janky way to see if our database contains real data. Needs improvement!
     def has_file_changes(self):
-        cursor = self.conn.cursor()
-        sql = self.build_select(self.TABLE_FILE_LOG) + ' LIMIT 1'
-        cursor.execute(sql)
-        changes = cursor.fetchall()
-        return len(changes) > 0
+        return self.has_rows(self.TABLE_FILE_LOG)
 
     # Gets all changes in the table
     def get_file_changes(self):
@@ -118,13 +128,40 @@ class MetaDatabase:
     # GDRIVE_DIRS operations ---------------------
 
     def truncate_gdrive_dirs(self):
-        self.truncate_table(self.TABLE_GRDIVE_DIRS)
         self.truncate_table(self.TABLE_GRDIVE_MORE_PARENTS)
+        self.truncate_table(self.TABLE_GRDIVE_DIRS)
+        self.truncate_table(self.TABLE_GRDIVE_ROOTS)
 
-    def insert_gdrive_dirs(self, gdrive_dirs_list, more_parent_mappings):
+    def has_gdrive_dirs(self):
+        return self.has_rows(self.TABLE_GRDIVE_DIRS) or self.has_rows(self.TABLE_GRDIVE_MORE_PARENTS) or self.has_rows(self.TABLE_GRDIVE_ROOTS)
+
+    def insert_gdrive_dirs(self, root_list, dir_list, more_parent_mappings):
+        # if self.has_gdrive_dirs():
+        #     raise RuntimeError('Will not insert GDrive meta into a non-empty table!')
+
+        self.create_table_if_not_exist(self.TABLE_GRDIVE_ROOTS)
         self.create_table_if_not_exist(self.TABLE_GRDIVE_DIRS)
         self.create_table_if_not_exist(self.TABLE_GRDIVE_MORE_PARENTS)
         self.truncate_gdrive_dirs()
 
-        self.insert_many(self.TABLE_GRDIVE_DIRS, gdrive_dirs_list)
+        self.insert_many(self.TABLE_GRDIVE_ROOTS, root_list)
+        self.insert_many(self.TABLE_GRDIVE_DIRS, dir_list)
         self.insert_many(self.TABLE_GRDIVE_MORE_PARENTS, more_parent_mappings)
+
+    def get_gdrive_dirs(self):
+        cursor = self.conn.cursor()
+        sql = self.build_select(self.TABLE_GRDIVE_ROOTS)
+        cursor.execute(sql)
+        root_rows = cursor.fetchall()
+
+        cursor = self.conn.cursor()
+        sql = self.build_select(self.TABLE_GRDIVE_DIRS)
+        cursor.execute(sql)
+        dir_rows = cursor.fetchall()
+
+        cursor = self.conn.cursor()
+        sql = self.build_select(self.TABLE_GRDIVE_MORE_PARENTS)
+        cursor.execute(sql)
+        parent_mappings = cursor.fetchall()
+        logger.debug(f'Retrieved {len(root_rows)} roots, {len(dir_rows)} dirs, and {len(parent_mappings)} additional mappings')
+        return root_rows, dir_rows, parent_mappings
