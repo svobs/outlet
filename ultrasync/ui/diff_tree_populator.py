@@ -6,7 +6,7 @@ import os
 import humanfriendly
 import logging
 from stopwatch import Stopwatch
-from treelib import Node, Tree
+from treelib import Tree
 import file_util
 from fmeta.fmeta import FMeta, FMetaTree, Category
 from ui.diff_tree_nodes import DirNode, CategoryNode

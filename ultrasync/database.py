@@ -18,11 +18,17 @@ class MetaDatabase:
                  ('prev_rel_path', 'TEXT'))
     }
 
+    TABLE_GRDIVE_DIRS = {
+        'name': 'gdrive_dirs',
+        'cols': (('id', 'TEXT'),
+                 ('name', 'TEXT'),
+                 ('path', 'TEXT'))
+    }
+
     def __init__(self, db_path):
         logger.info(f'Connecting to database: {db_path}')
         self.conn = sqlite3.connect(db_path)
-        if not self.is_table(self.TABLE_FILE_LOG):
-            self.create_tables()
+        self.create_table_if_not_exist(self.TABLE_FILE_LOG)
 
     # Utility Functions ---------------------
 
@@ -44,15 +50,32 @@ class MetaDatabase:
         result = cursor.fetchone()
         return result is not None
 
+    def create_table_if_not_exist(self, table):
+        if not self.is_table(table):
+            self.create_table(table)
+
+    def insert_many(self, table, tuples):
+        sql = self.build_insert(table)
+        logger.debug(f"Inserting {len(tuples)} tuples into table {table['name']}")
+        self.conn.executemany(sql, tuples)
+        self.conn.commit()
+
     def close(self):
         # We can also close the connection if we are done with it.
         # Just be sure any changes have been committed or they will be lost.
         self.conn.close()
 
-    def create_tables(self):
-        sql = self.build_create_table(self.TABLE_FILE_LOG)
+    def create_table(self, table):
+        sql = self.build_create_table(table)
         logger.debug('Executing SQL: ' + sql)
         self.conn.execute(sql)
+        self.conn.commit()
+
+    def truncate_table(self, table):
+        sql = f"DELETE FROM {table['name']}"
+        logger.debug('Executing SQL: ' + sql)
+        self.conn.execute(sql)
+        self.conn.commit()
 
     # FILE_LOG operations ---------------------
 
@@ -81,11 +104,18 @@ class MetaDatabase:
         for e in entries:
             e_tuple = (e.signature, e.size_bytes, e.sync_ts, e.modify_ts, e.change_ts, e.file_path, e.category.value, e.prev_path)
             to_insert.append(e_tuple)
-        sql = self.build_insert(self.TABLE_FILE_LOG)
-        self.conn.executemany(sql, to_insert)
-        self.conn.commit()
+        self.insert_many(self.TABLE_FILE_LOG, to_insert)
 
     def truncate_file_changes(self):
-        sql = f"DELETE FROM {self.TABLE_FILE_LOG['name']}"
-        self.conn.execute(sql)
-        self.conn.commit()
+        self.truncate_table(self.TABLE_FILE_LOG)
+
+    # GDRIVE_DIRS operations ---------------------
+
+    def truncate_gdrive_dirs(self):
+        self.truncate_table(self.TABLE_GRDIVE_DIRS)
+
+    def insert_gdrive_dirs(self, gdrive_dirs_list):
+        self.create_table_if_not_exist(self.TABLE_GRDIVE_DIRS)
+        self.truncate_gdrive_dirs()
+
+        self.insert_many(self.TABLE_GRDIVE_DIRS, gdrive_dirs_list)

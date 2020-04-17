@@ -16,10 +16,13 @@ from ui.diff_tree import DiffTree
 from ui.base_dialog import BaseDialog
 import ui.diff_tree_populator as diff_tree_populator
 
+import google_api.gdrive
+
 WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
 
 SIGNAL_DO_DIFF = 'do-diff'
 TOGGLE_UI_ENABLEMENT = 'toggle-ui-enable'
+SIGNAL_DOWNLOAD_GDRIVE_META = 'download-gdrive-meta'
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +35,6 @@ class ConfigFileDataSource:
         self.cache = fmeta_tree_cache.from_config(config=self.parent_win.config, tree_id=self.tree_id)
         self.config_entry = f'transient.{self.tree_id}.root_path'
         self._root_path = self.parent_win.config.get(self.config_entry)
-        # TODO: maybe this would be better done as an event receiver
         self.status_receiver = status_receiver
 
     def get_root_path(self):
@@ -75,8 +77,17 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         GObject.signal_new(TOGGLE_UI_ENABLEMENT, self, GObject.SIGNAL_RUN_LAST, GObject.TYPE_PYOBJECT, (GObject.TYPE_PYOBJECT,))
 
+        GObject.signal_new(SIGNAL_DOWNLOAD_GDRIVE_META, self, GObject.SIGNAL_RUN_LAST, GObject.TYPE_PYOBJECT, (GObject.TYPE_PYOBJECT,))
+
+        def start_async(window, arg, task_function):
+            self.emit(TOGGLE_UI_ENABLEMENT, False)
+            action_thread = threading.Thread(target=task_function)
+            action_thread.daemon = True
+            action_thread.start()
+
         # Subscribe:
-        self.connect(SIGNAL_DO_DIFF, self.start_new_diff_daemon)
+        self.connect(SIGNAL_DO_DIFF, lambda win, arg: start_async(win, arg, self.do_tree_diff))
+        self.connect(SIGNAL_DOWNLOAD_GDRIVE_META, lambda win, arg: start_async(win, arg, self.download_gdrive_meta))
         self.connect(TOGGLE_UI_ENABLEMENT, self.set_enable_user_input)
 
         # Checkboxes:
@@ -123,7 +134,10 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         diff_action_btn = Gtk.Button(label="Diff (content-first)")
         diff_action_btn.connect("clicked", lambda widget: self.emit(SIGNAL_DO_DIFF, 'blah'))
-        self.replace_bottom_button_panel(diff_action_btn)
+
+        gdrive_btn = Gtk.Button(label="Download Google Drive Meta")
+        gdrive_btn.connect("clicked", lambda widget: self.emit(SIGNAL_DOWNLOAD_GDRIVE_META, None))
+        self.replace_bottom_button_panel(diff_action_btn, gdrive_btn)
 
         # TODO: create a 'Scan' button for each input source
 
@@ -172,14 +186,14 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         for button in self.bottom_button_panel.get_children():
             button.set_sensitive(enable)
 
-    def start_new_diff_daemon(self, window, arg):
-        self.emit(TOGGLE_UI_ENABLEMENT, False)
-        action_thread = threading.Thread(target=self.diff_task)
-        action_thread.daemon = True
-        action_thread.start()
+    def download_gdrive_meta(self):
+        try:
+            google_api.gdrive.do_test()
+        finally:
+            self.emit(TOGGLE_UI_ENABLEMENT, True)
 
     # TODO: change DB path whenever root is changed
-    def diff_task(self):
+    def do_tree_diff(self):
         try:
             # TODO: disable all UI while loading
             self.diff_tree_right.set_status('Waiting...')
@@ -211,5 +225,6 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             GLib.idle_add(change_button_bar)
         except Exception as err:
             self.show_error_ui('Diff task failed due to unexpected error', repr(err))
+            self.emit(TOGGLE_UI_ENABLEMENT, True)
             raise
 
