@@ -62,6 +62,7 @@ def configure_logging(config):
     root_logger.setLevel(logging.DEBUG)
 
     # DEBUG LOG FILE
+    debug_file_handler = None
     debug_log_enabled = config.get('logging.debug_log.enable')
     if debug_log_enabled:
         debug_log_path = config.get('logging.debug_log.file_path')
@@ -78,6 +79,7 @@ def configure_logging(config):
         root_logger.addHandler(debug_file_handler)
 
     # CONSOLE
+    console_handler = None
     console_enabled = config.get('logging.console.enable')
     if console_enabled:
         console_fmt = config.get('logging.debug_log.format')
@@ -96,6 +98,14 @@ def configure_logging(config):
     logging.getLogger('fmeta.fmeta').setLevel(logging.INFO)
     logging.getLogger('fmeta.diff_content_first').setLevel(logging.INFO)
 
+    # --- Google API ---
+    # Set to INFO or loggier to go back to logging Google API request URLs
+    # logging.getLogger('googleapiclient.discovery').setLevel(logging.WARNING)
+
+    # Log to debug file only:
+    if console_handler:
+        logging.getLogger('googleapiclient.discovery').removeHandler(console_handler)
+
 
 def main():
     if sys.version_info[0] < 3:
@@ -103,6 +113,8 @@ def main():
 
     # TODO: pass location of config from command line
     config = AppConfig()
+
+    logger.debug(f'Main args: {sys.argv}')
 
     configure_logging(config)
     application = UltrasyncApplication(config)

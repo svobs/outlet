@@ -35,7 +35,7 @@ class IntermediateMeta:
     def __init__(self):
         # Keep track of parentless nodes. These usually indicate shared folder roots,
         # but sometimes indicate something else screwy
-        self.parentless_nodes = []
+        self.roots = []
 
         # 'parent_id' -> list of its DirNode children
         self.first_parent_dict = {}
@@ -50,11 +50,11 @@ class IntermediateMeta:
             self.first_parent_dict[parent_id] = child_list
         child_list.append(DirNode(item_id, item_name))
 
-    def add_additional_parent(self, parent_id, item_id):
+    def add_additional_mapping(self, parent_id, item_id):
         self.additional_parent_mappings.append((parent_id, item_id))
 
-    def add_parentless(self, item_id, item_name):
-        self.parentless_nodes.append(DirNode(item_id, item_name))
+    def add_root(self, item_id, item_name):
+        self.roots.append(DirNode(item_id, item_name))
 
 
 class MemoryCache:
@@ -161,8 +161,9 @@ def download_directory_structure():
 
     meta = IntermediateMeta()
 
+    # Need to make a special call to get the root node 'My Drive':
     drive_root = get_my_drive_root(service)
-    meta.add_parentless(drive_root.id, drive_root.name)
+    meta.add_root(drive_root.id, drive_root.name)
 
     def request():
         logger.debug(f'Making request for page {request.page_count}...')
@@ -194,13 +195,13 @@ def download_directory_structure():
             parents = item.get('parents', [])
             #logger.debug(f'Item: {item_id} "{item_name}" par={parents}')
             if len(parents) == 0:
-                meta.add_parentless(item_id, item_name)
+                meta.add_root(item_id, item_name)
             else:
                 for parent_index, parent_id in enumerate(parents):
                     if parent_index == 0:
                         meta.add_to_parent_dict(parent_id, item_id, item_name)
                     else:
-                        meta.add_additional_parent(parent_id, item_id)
+                        meta.add_additional_mapping(parent_id, item_id)
 
             item_count += 1
 
@@ -213,13 +214,13 @@ def download_directory_structure():
     logger.info(f'Query returned {item_count} directories in {stopwatch_retrieval}')
 
     if logger.isEnabledFor(logging.DEBUG):
-        for node in meta.parentless_nodes:
+        for node in meta.roots:
             logger.debug(f'Found root:  [{node.id}] {node.name}')
 
     return meta
 
 
-def save_in_cache(cache_path, meta):
+def save_in_cache(cache_path, meta, overwrite):
     db = MetaDatabase(cache_path)
 
     # Convert to tuples for insert into DB:
@@ -230,9 +231,13 @@ def save_in_cache(cache_path, meta):
             if parent_id:
                 dir_rows.append((item.id, item.name, parent_id))
             else:
-                root_rows.append((item.id, item.name))
+                raise RuntimeError(f'Found root in first_parent_dict: {item}')
 
-    db.insert_gdrive_dirs(root_rows, dir_rows, meta.additional_parent_mappings)
+    for root in meta.roots:
+        root_rows.append((root.id, root.name))
+
+
+    db.insert_gdrive_dirs(root_rows, dir_rows, meta.additional_parent_mappings, overwrite)
 
     return meta
 
@@ -244,7 +249,7 @@ def load_dirs_from_cache(cache_path):
     meta = IntermediateMeta()
 
     for item_id, item_name in root_rows:
-        meta.add_parentless(item_id, item_name)
+        meta.add_root(item_id, item_name)
 
     for item_id, item_name, parent_id in dir_rows:
         meta.add_to_parent_dict(parent_id, item_id, item_name)
@@ -257,7 +262,7 @@ def load_dirs_from_cache(cache_path):
 def build_dir_trees(meta):
     root_node = get_my_drive_root()
 
-    root_nodes = meta.parentless_nodes + [root_node]
+    root_nodes = meta.roots + [root_node]
     rows = []
 
     total = 0
@@ -284,5 +289,7 @@ def build_dir_trees(meta):
             if child_list:
                 for child in child_list:
                     q.put((child.id, child.name, path))
+
+        logger.debug('Root {root_name
 
     logger.debug(f'Finished with {total} items!')
