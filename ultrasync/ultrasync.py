@@ -100,11 +100,8 @@ def configure_logging(config):
 
     # --- Google API ---
     # Set to INFO or loggier to go back to logging Google API request URLs
-    # logging.getLogger('googleapiclient.discovery').setLevel(logging.WARNING)
-
-    # Log to debug file only:
-    if console_handler:
-        logging.getLogger('googleapiclient.discovery').removeHandler(console_handler)
+    # TODO: how the hell do I log this to a separate file??
+    logging.getLogger('googleapiclient.discovery').setLevel(logging.WARNING)
 
 
 def main():

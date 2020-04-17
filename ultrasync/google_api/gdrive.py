@@ -140,7 +140,7 @@ def get_my_drive_root(service=None):
     result = try_repeatedly(request)
 
     root_node = DirNode(result['id'], result['name'])
-    logger.debug(f'Drive root: [{root_node.id}] {root_node.name}')
+    logger.debug(f'Drive root: [{root_node.id}] "{root_node.name}"')
     return root_node
 
 
@@ -154,7 +154,7 @@ def download_directory_structure():
     spaces = 'drive'
     page_size = 1000  # TODO
 
-    logger.info('Listing files...')
+    logger.info('Getting list of all directories in Google Drive...')
 
     # Assume 99.9% of items will have only one parent, and perhaps 0.001% will have no parent.
     # The below solution optimizes with these assumptions.
@@ -166,7 +166,7 @@ def download_directory_structure():
     meta.add_root(drive_root.id, drive_root.name)
 
     def request():
-        logger.debug(f'Making request for page {request.page_count}...')
+        logger.debug(f'Sending request for page {request.page_count}...')
         # Call the Drive v3 API
         response = service.files().list(q=FOLDERS_ONLY, fields=fields, spaces=spaces, pageSize=page_size, pageToken=request.next_token).execute()
         request.page_count += 1
@@ -236,7 +236,6 @@ def save_in_cache(cache_path, meta, overwrite):
     for root in meta.roots:
         root_rows.append((root.id, root.name))
 
-
     db.insert_gdrive_dirs(root_rows, dir_rows, meta.additional_parent_mappings, overwrite)
 
     return meta
@@ -274,6 +273,7 @@ def build_dir_trees(meta):
     logger.debug(f'Root nodes: {names}')
 
     for root_node in root_nodes:
+        tree_size = 0
         logger.debug(f'Building tree for GDrive root: [{root_node.id}] {root_node.name}')
         q = Queue()
         q.put((root_node.id, root_node.name, ''))
@@ -283,6 +283,7 @@ def build_dir_trees(meta):
             path = os.path.join(parent_path, item_name)
             rows.append((item_id, item_name, path))
         #    logger.debug(f'DIR:  [{item_id}] {path}')
+            tree_size += 1
             total += 1
 
             child_list = meta.first_parent_dict.get(item_id, None)
@@ -290,6 +291,6 @@ def build_dir_trees(meta):
                 for child in child_list:
                     q.put((child.id, child.name, path))
 
-        logger.debug('Root {root_name
+        logger.debug(f'Root "{root_node.name}" has {tree_size} nodes')
 
     logger.debug(f'Finished with {total} items!')
