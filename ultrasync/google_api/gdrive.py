@@ -144,6 +144,12 @@ def get_my_drive_root(service=None):
     return root_node
 
 
+def download_subtree_file_list(subtree_root_gd_id):
+    service = load_google_client_service()
+
+    query = f"and '{subtree_root_gd_id}' in parents"
+
+
 def download_directory_structure():
     service = load_google_client_service()
 
@@ -258,21 +264,18 @@ def load_dirs_from_cache(cache_path):
     return meta
 
 
-def build_dir_trees(meta):
-    root_node = get_my_drive_root()
-
-    root_nodes = meta.roots + [root_node]
+def build_dir_trees(meta: IntermediateMeta):
     rows = []
 
     total = 0
 
     names = []
-    for root in root_nodes:
+    for root in meta.roots:
         names.append(root.name)
 
     logger.debug(f'Root nodes: {names}')
 
-    for root_node in root_nodes:
+    for root_node in meta.roots:
         tree_size = 0
         logger.debug(f'Building tree for GDrive root: [{root_node.id}] {root_node.name}')
         q = Queue()
