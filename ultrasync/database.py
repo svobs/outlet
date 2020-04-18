@@ -22,13 +22,18 @@ class MetaDatabase:
         'name': 'gdrive_directory',
         'cols': (('gd_id', 'TEXT'),
                  ('name', 'TEXT'),
-                 ('par_id', 'TEXT'))
+                 ('par_id', 'TEXT'),
+                 ('trashed', 'INTEGER'),
+                 ('trashed_explicitly', 'INTEGER'),
+                 )
     }
 
     TABLE_GRDIVE_ROOTS = {
         'name': 'gdrive_root',
         'cols': (('gd_id', 'TEXT'),
-                 ('name', 'TEXT'))
+                 ('name', 'TEXT'),
+                 ('trashed', 'INTEGER'),
+                 ('trashed_explicitly', 'INTEGER'))
     }
 
     TABLE_GRDIVE_MORE_PARENTS = {
@@ -96,7 +101,7 @@ class MetaDatabase:
 
     def has_rows(self, table):
         cursor = self.conn.cursor()
-        sql = self.build_select(table) + ' LIMIT 1'
+        sql = f"SELECT * FROM {table['name']} LIMIT 1"
         cursor.execute(sql)
         rows = cursor.fetchall()
         has_rows = len(rows) > 0
@@ -138,6 +143,7 @@ class MetaDatabase:
         self.truncate_table(self.TABLE_GRDIVE_ROOTS)
 
     def has_gdrive_dirs(self):
+
         return self.has_rows(self.TABLE_GRDIVE_DIRS) or self.has_rows(self.TABLE_GRDIVE_MORE_PARENTS) or self.has_rows(self.TABLE_GRDIVE_ROOTS)
 
     def insert_gdrive_dirs(self, root_list, dir_list, ids_with_multiple_parents, overwrite=True):

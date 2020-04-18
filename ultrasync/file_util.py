@@ -4,23 +4,14 @@ import re
 import errno
 import platform
 import logging
-from fmeta.fmeta import FMeta, FMetaTree, Category
 import fmeta.content_hasher
 
 logger = logging.getLogger(__name__)
 
-FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT = 100
 
-
-class FMetaNoOp:
-    def __init__(self, fm):
-        self.fm = fm
-
-
-class FMetaError(FMetaNoOp):
-    def __init__(self, fm, exception):
-        super().__init__(fm)
-        self.exception = exception
+class IdenticalFileExistsError(Exception):
+    def __init__(self, *args, **kwargs):
+        pass
 
 
 def get_resource_path(rel_path: str, resolve_symlinks=False):
@@ -96,96 +87,6 @@ def creation_date(path_to_file):
             return stat.st_mtime
 
 
-def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=False, error_collector=None, progress_meter=None):
-
-    if progress_meter:
-        # Get total byte count, for progress meter:
-        total_bytes = 0
-        for fmeta in tree.get_for_cat(Category.Added):
-            total_bytes += fmeta.size_bytes
-        for fmeta in tree.get_for_cat(Category.Updated):
-            total_bytes += fmeta.size_bytes
-        total_bytes += FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT * len(tree.get_for_cat(Category.Deleted))
-        total_bytes += FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT * len(tree.get_for_cat(Category.Moved))
-        progress_meter.set_total(total_bytes)
-        logger.debug(f'Total progress to make: {total_bytes}')
-
-    # TODO: deal with file-not-found errors in a more robust way
-    for fmeta in tree.get_for_cat(Category.Added):
-        try:
-            src_path = os.path.join(tree.root_path, fmeta.prev_path)
-            dst_path = os.path.join(tree.root_path, fmeta.file_path)
-            # TODO: what if staging dir is not on same file system?
-            staging_path = os.path.join(staging_dir, fmeta.signature)
-            logger.debug(f'CP: src={src_path}')
-            logger.debug(f'    stg={staging_path}')
-            logger.debug(f'    dst={dst_path}')
-            copy_file_linux_with_attrs(src_path, staging_path, dst_path, fmeta, True, error_collector)
-        except Exception as err:
-            # Try to log helpful info
-            logger.error(f'Exception occurred while processing Added file: root="{tree.root_path}", file_path="{fmeta.file_path}", prev_path="{fmeta.prev_path}": {repr(err)}')
-            if continue_on_error:
-                if error_collector is not None:
-                    error_collector.append(FMetaError(fm=fmeta, exception=err))
-            else:
-                raise
-        if progress_meter:
-            progress_meter.add_progress(fmeta.size_bytes)
-
-    for fmeta in tree.get_for_cat(Category.Deleted):
-        try:
-            tgt_path = os.path.join(tree.root_path, fmeta.file_path)
-            logger.debug(f'RM: tgt={tgt_path}')
-            delete_file(tgt_path)
-        except Exception as err:
-            logger.error(f'Exception occurred while processing Deleted file: root="{tree.root_path}", file_path={fmeta.file_path}: {repr(err)}')
-            if continue_on_error:
-                if error_collector is not None:
-                    error_collector.append(FMetaError(fm=fmeta, exception=err))
-            else:
-                raise
-        if progress_meter:
-            progress_meter.add_progress(FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT)
-
-    for fmeta in tree.get_for_cat(Category.Moved):
-        try:
-            src_path = os.path.join(tree.root_path, fmeta.prev_path)
-            dst_path = os.path.join(tree.root_path, fmeta.file_path)
-            logger.debug(f'MV: src={src_path}')
-            logger.debug(f'    dst={dst_path}')
-            move_file(src_path, dst_path)
-        except Exception as err:
-            logger.error(f'Exception occurred while processing Moved file: root="{tree.root_path}", file_path="{fmeta.file_path}", prev_path="{fmeta.prev_path}": {repr(err)}')
-            if continue_on_error:
-                if error_collector is not None:
-                    error_collector.append(FMetaError(fm=fmeta, exception=err))
-            else:
-                raise
-        if progress_meter:
-            progress_meter.add_progress(FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT)
-
-    for fmeta in tree.get_for_cat(Category.Updated):
-        try:
-            src_path = os.path.join(tree.root_path, fmeta.prev_path)
-            dst_path = os.path.join(tree.root_path, fmeta.file_path)
-            # TODO: what if staging dir is not on same file system?
-            staging_path = os.path.join(staging_dir, fmeta.signature)
-            logger.debug(f'CP: src={src_path}')
-            logger.debug(f'    stg={staging_path}')
-            logger.debug(f'    dst={dst_path}')
-            copy_file_linux_with_attrs(src_path, staging_path, dst_path, fmeta, True, error_collector)
-        except Exception as err:
-            # Try to log helpful info
-            logger.error(f'Exception occurred while processing Updated file: root="{tree.root_path}", file_path="{fmeta.file_path}", prev_path="{fmeta.prev_path}": {repr(err)}')
-            if continue_on_error:
-                if error_collector is not None:
-                    error_collector.append(FMetaError(fm=fmeta, exception=err))
-            else:
-                raise
-        if progress_meter:
-            progress_meter.add_progress(fmeta.size_bytes)
-
-
 def delete_file(tgt_path, to_trash=False):
     if to_trash:
         # TODO
@@ -219,7 +120,7 @@ def move_file(src_path, dst_path):
     os.rename(src_path, dst_path)
 
 
-def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_fmeta, verify, error_collector):
+def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_fmeta, verify):
     """Copies the src (src_path) to the destination path (dst_path), by first doing the copy to an
     intermediary location (staging_path) and then moving it to the destination once its signature
     has been verified."""
@@ -228,10 +129,11 @@ def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_fmeta, veri
         dst_signature = fmeta.content_hasher.dropbox_hash(dst_path)
         if src_fmeta.signature == dst_signature:
             # TODO: what about if stats are different?
-            logger.info(f'Identical file already exists at dst; skipping: {dst_path}')
-            if error_collector is not None:
-                error_collector.append(FMetaNoOp(fm=src_fmeta))
-            return
+            msg = f'Identical file already exists at dst; skipping: {dst_path}'
+            logger.info(msg)
+            raise IdenticalFileExistsError(msg)
+        else:
+            raise FileExistsError(errno.EEXIST, os.strerror(errno.EEXIST), dst_path)
 
     # (Staging) make parent directories if not exist
     staging_parent, staging_file = os.path.split(staging_path)

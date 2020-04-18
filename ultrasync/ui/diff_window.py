@@ -7,6 +7,7 @@ from gi.repository import GLib, Gtk, Gio, GObject
 
 from stopwatch import Stopwatch
 
+from gdrive.tree_builder import GDriveTreeBuilder
 from ui.merge_preview_dialog import MergePreviewDialog
 import fmeta.fmeta_tree_cache as fmeta_tree_cache
 from fmeta.fmeta_tree_loader import FMetaTreeLoader
@@ -16,7 +17,7 @@ from ui.diff_tree import DiffTree
 from ui.base_dialog import BaseDialog
 import ui.diff_tree_populator as diff_tree_populator
 
-import gdrive.gdrive
+import gdrive.client
 
 WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
 
@@ -188,12 +189,9 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def download_gdrive_meta(self):
         try:
-            gdrive.gdrive.get_about()
             cache_path = get_resource_path('gdrive.db')
-            # meta = google.gdrive.download_directory_structure()
-            # google.gdrive.save_in_cache(cache_path=cache_path, meta=meta, overwrite=True)
-            meta = gdrive.gdrive.load_dirs_from_cache(cache_path)
-            gdrive.gdrive.build_dir_trees(meta)
+            tree_builder = GDriveTreeBuilder(config=self.config, cache_path=cache_path, invalidate_cache=True)
+            tree_builder.build()
         finally:
             self.emit(TOGGLE_UI_ENABLEMENT, True)
 

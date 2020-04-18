@@ -1,17 +1,18 @@
 import logging
 
 import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, Gio, GObject
 
-import file_util
-from file_util import get_resource_path, FMetaNoOp, FMetaError
+gi.require_version("Gtk", "3.0")
+from gi.repository import GLib, Gtk
+
+import fmeta.fmeta_file_util
+from file_util import get_resource_path
+from fmeta.fmeta_file_util import FMetaNoOp, FMetaError
 from fmeta.fmeta import FMetaTree, Category
 from ui.progress_meter import ProgressMeter
 from ui.diff_tree import DiffTree
 from ui.base_dialog import BaseDialog
 import ui.diff_tree_populator as diff_tree_populator
-
 
 STAGING_DIR_PATH = get_resource_path("temp")
 
@@ -94,9 +95,9 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
             this.set_status(f'Copied {progress} bytes of {total}')
 
         progress_meter = ProgressMeter(on_progress_made, self.config, self.diff_tree)
-        file_util.apply_changes_atomically(tree=self.fmeta_tree, staging_dir=staging_dir,
-                                           continue_on_error=True, error_collector=error_collection,
-                                           progress_meter=progress_meter)
+        fmeta.fmeta_file_util.apply_changes_atomically(tree=self.fmeta_tree, staging_dir=staging_dir,
+                                                       continue_on_error=True, error_collector=error_collection,
+                                                       progress_meter=progress_meter)
         if len(error_collection) > 0:
             # TODO: create a much better UI here
             noop_adds = 0
@@ -122,4 +123,4 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
                     else:
                         noop_movs += 1
             self.show_error_ui(f'{len(error_collection)} Errors occurred',
-                               f'Collected the following errors while applying changes: adds={err_adds} dels={err_dels} movs={err_movs} noops={noop_adds+noop_dels+noop_movs}')
+                               f'Collected the following errors while applying changes: adds={err_adds} dels={err_dels} movs={err_movs} noops={noop_adds + noop_dels + noop_movs}')
