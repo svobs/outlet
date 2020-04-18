@@ -17,27 +17,26 @@ def build_dir_trees(meta: IntermediateMeta):
     names = []
     for root in meta.roots:
         names.append(root.name)
-
     logger.debug(f'Root nodes: {names}')
 
     for root_node in meta.roots:
         tree_size = 0
         logger.debug(f'Building tree for GDrive root: [{root_node.id}] {root_node.name}')
         q = Queue()
-        q.put((root_node.id, root_node.name, None, None, ''))
+        q.put((root_node, ''))
 
         while not q.empty():
-            item_id, item_name, parent_path = q.get()
-            path = os.path.join(parent_path, item_name)
-            rows.append((item_id, item_name, path))
-            logger.debug(f'DIR:  [{item_id}] {path}')
+            item, parent_path = q.get()
+            path = os.path.join(parent_path, item.name)
+            rows.append((item, path))
+            logger.debug(f'[{item.id}] {item.trash_status_str} {path}/')
             tree_size += 1
             total += 1
 
-            child_list = meta.first_parent_dict.get(item_id, None)
+            child_list = meta.first_parent_dict.get(item.id, None)
             if child_list:
                 for child in child_list:
-                    q.put((child.id, child.name, path))
+                    q.put((child, path))
 
         logger.debug(f'Root "{root_node.name}" has {tree_size} nodes')
 
@@ -78,12 +77,12 @@ class GDriveTreeBuilder:
         for parent_id, item_list in meta.first_parent_dict.items():
             for item in item_list:
                 if parent_id:
-                    dir_rows.append((item.id, item.name, parent_id, item.trashed, item.explicitly_trashed))
+                    dir_rows.append((item.id, item.name, parent_id, item.trashed.value))
                 else:
                     raise RuntimeError(f'Found root in first_parent_dict: {item}')
 
         for root in meta.roots:
-            root_rows.append((root.id, root.name, root.trashed, root.explictly_trashed))
+            root_rows.append((root.id, root.name, root.trashed.value))
 
         self.cache.insert_gdrive_dirs(root_rows, dir_rows, meta.ids_with_multiple_parents, overwrite)
 

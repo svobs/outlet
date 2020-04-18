@@ -23,17 +23,14 @@ class MetaDatabase:
         'cols': (('gd_id', 'TEXT'),
                  ('name', 'TEXT'),
                  ('par_id', 'TEXT'),
-                 ('trashed', 'INTEGER'),
-                 ('trashed_explicitly', 'INTEGER'),
-                 )
+                 ('trashed', 'INTEGER'))
     }
 
     TABLE_GRDIVE_ROOTS = {
         'name': 'gdrive_root',
         'cols': (('gd_id', 'TEXT'),
                  ('name', 'TEXT'),
-                 ('trashed', 'INTEGER'),
-                 ('trashed_explicitly', 'INTEGER'))
+                 ('trashed', 'INTEGER'))
     }
 
     TABLE_GRDIVE_MORE_PARENTS = {
@@ -50,7 +47,8 @@ class MetaDatabase:
 
     @staticmethod
     def build_insert(table):
-        return 'INSERT INTO ' + table['name'] + '(' + ','.join(col[0] for col in table['cols']) + ') VALUES (' + ','.join('?' for col in table['cols']) + ')'
+        return 'INSERT INTO ' + table['name'] + '(' + ','.join(col[0] for col in table['cols']) +\
+               ') VALUES (' + ','.join('?' for col in table['cols']) + ')'
 
     @staticmethod
     def build_select(table):

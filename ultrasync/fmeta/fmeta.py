@@ -2,7 +2,7 @@ import humanfriendly
 import itertools
 import logging
 import os
-from enum import Enum, auto
+from enum import Enum
 import file_util
 
 logger = logging.getLogger(__name__)

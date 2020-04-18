@@ -119,13 +119,7 @@ class GDriveClient:
         result = try_repeatedly(request)
 
         root_node = DirNode(result['id'], result['name'], result['trashed'], result['explicitlyTrashed'])
-        trash_status = '[O]'
-        if root_node.trashed:
-            if root_node.explicitly_trashed:
-                trash_status = '[X]'
-            else:
-                trash_status = '[x]'
-        logger.debug(f'Drive root: {trash_status} [{root_node.id}] "{root_node.name}"')
+        logger.debug(f'Drive root: {root_node.trash_status_str} [{root_node.id}] "{root_node.name}"')
         return root_node
 
     def download_subtree_file_list(self, subtree_root_gd_id):
@@ -187,7 +181,7 @@ class GDriveClient:
                 explicitly_trashed = item['explicitlyTrashed']
                 dir_node = DirNode(item_id, item_name, trashed, explicitly_trashed)
                 parents = item.get('parents', [])
-                #logger.debug(f'Item: {item_id} "{item_name}" par={parents} trashed={trashed}')
+                #logger.debug(f'Item: {item_id} "{item_name}" par={parents} trashed={dir_node.trashed}')
                 if len(parents) == 0:
                     meta.add_root(dir_node)
                 else:

@@ -1,9 +1,40 @@
+from enum import Enum
+import itertools
+
+
+_TRASHED = {
+    0: ['[ ]', 'NOT_TRASHED'],
+    1: ['[X]', 'EXPLICITLY_TRASHED'],
+    2: ['[x]', 'TRASHED'],
+}
+Trashed = Enum(
+    value='Trashed',
+    names=itertools.chain.from_iterable(
+        itertools.product(v, [k]) for k, v in _TRASHED.items()
+    )
+)
+
+
 class DirNode:
-    def __init__(self, item_id, item_name, trashed=None, explicitly_trashed=None):
+    def __init__(self, item_id, item_name, trashed=False, explicitly_trashed=False, trashed_status=Trashed.NOT_TRASHED):
         self.id = item_id
         self.name = item_name
-        self.trashed = trashed
-        self.explicitly_trashed = explicitly_trashed
+        if explicitly_trashed:
+            self.trashed = Trashed.EXPLICITLY_TRASHED
+        elif trashed:
+            self.trashed = Trashed.TRASHED
+        else:
+            self.trashed = trashed_status
+
+
+    @property
+    def trash_status_str(self):
+        if self.trashed == Trashed.EXPLICITLY_TRASHED:
+            return '[X]'
+        elif self.trashed == Trashed.TRASHED:
+            return '[x]'
+        else:
+            return '[ ]'
 
 
 class IntermediateMeta:
@@ -25,9 +56,8 @@ class IntermediateMeta:
             self.first_parent_dict[parent_id] = child_list
         child_list.append(item)
 
-    def add_id_with_multiple_parents(self, item_id):
-        self.ids_with_multiple_parents.append((item_id,))
+    def add_id_with_multiple_parents(self, item):
+        self.ids_with_multiple_parents.append((item.id,))
 
     def add_root(self, item):
         self.roots.append(item)
-
