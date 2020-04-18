@@ -32,9 +32,8 @@ class MetaDatabase:
     }
 
     TABLE_GRDIVE_MORE_PARENTS = {
-        'name': 'gdrive_extra_parent',
-        'cols': (('par_id', 'TEXT'),
-                 ('gd_id', 'TEXT'))
+        'name': 'gdrive_multiple_parents',
+        'cols': (('gd_id', 'TEXT'),)
     }
 
     def __init__(self, db_path):
@@ -89,6 +88,12 @@ class MetaDatabase:
         self.conn.execute(sql)
         self.conn.commit()
 
+    def drop_table_if_exists(self, table):
+        sql = f"DROP TABLE IF EXISTS {table['name']}"
+        logger.debug('Executing SQL: ' + sql)
+        self.conn.execute(sql)
+        self.conn.commit()
+
     def has_rows(self, table):
         cursor = self.conn.cursor()
         sql = self.build_select(table) + ' LIMIT 1'
@@ -135,18 +140,20 @@ class MetaDatabase:
     def has_gdrive_dirs(self):
         return self.has_rows(self.TABLE_GRDIVE_DIRS) or self.has_rows(self.TABLE_GRDIVE_MORE_PARENTS) or self.has_rows(self.TABLE_GRDIVE_ROOTS)
 
-    def insert_gdrive_dirs(self, root_list, dir_list, more_parent_mappings, overwrite=True):
+    def insert_gdrive_dirs(self, root_list, dir_list, ids_with_multiple_parents, overwrite=True):
         if not overwrite and self.has_gdrive_dirs():
             raise RuntimeError('Will not insert GDrive meta into a non-empty table!')
 
+        self.drop_table_if_exists(self.TABLE_GRDIVE_ROOTS)
+        self.drop_table_if_exists(self.TABLE_GRDIVE_DIRS)
+        self.drop_table_if_exists(self.TABLE_GRDIVE_MORE_PARENTS)
         self.create_table_if_not_exist(self.TABLE_GRDIVE_ROOTS)
         self.create_table_if_not_exist(self.TABLE_GRDIVE_DIRS)
         self.create_table_if_not_exist(self.TABLE_GRDIVE_MORE_PARENTS)
-        self.truncate_gdrive_dirs()
 
         self.insert_many(self.TABLE_GRDIVE_ROOTS, root_list)
         self.insert_many(self.TABLE_GRDIVE_DIRS, dir_list)
-        self.insert_many(self.TABLE_GRDIVE_MORE_PARENTS, more_parent_mappings)
+        self.insert_many(self.TABLE_GRDIVE_MORE_PARENTS, ids_with_multiple_parents)
 
     def get_gdrive_dirs(self):
         cursor = self.conn.cursor()
@@ -163,5 +170,5 @@ class MetaDatabase:
         sql = self.build_select(self.TABLE_GRDIVE_MORE_PARENTS)
         cursor.execute(sql)
         parent_mappings = cursor.fetchall()
-        logger.debug(f'Retrieved {len(root_rows)} roots, {len(dir_rows)} dirs, and {len(parent_mappings)} additional mappings')
+        logger.debug(f'Retrieved {len(root_rows)} roots, {len(dir_rows)} dirs, and {len(parent_mappings)} items with multiple parents')
         return root_rows, dir_rows, parent_mappings

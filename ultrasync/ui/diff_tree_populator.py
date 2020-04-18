@@ -135,12 +135,10 @@ def _populate_category(diff_tree, category: Category, fmeta_list):
     # Build fake tree for category:
     stopwatch = Stopwatch()
     change_tree = _build_category_change_tree(fmeta_list, category)
-    stopwatch.stop()
     logger.debug(f'Faux tree built for "{category.name}" in: {stopwatch}')
 
     stopwatch = Stopwatch()
     _append_to_model(diff_tree, category, change_tree)
-    stopwatch.stop()
     logger.debug(f'TreeStore populated for "{category.name}" in: {stopwatch}')
 
 

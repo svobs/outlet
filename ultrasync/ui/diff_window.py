@@ -188,10 +188,11 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def download_gdrive_meta(self):
         try:
+            google_api.gdrive.get_about()
             cache_path = get_resource_path('gdrive.db')
-            # meta = google_api.gdrive.download_directory_structure()
-            # google_api.gdrive.save_in_cache(cache_path=cache_path, meta=meta, overwrite=True)
-            meta = google_api.gdrive.load_dirs_from_cache(cache_path)
+            meta = google_api.gdrive.download_directory_structure()
+            google_api.gdrive.save_in_cache(cache_path=cache_path, meta=meta, overwrite=True)
+            #meta = google_api.gdrive.load_dirs_from_cache(cache_path)
             google_api.gdrive.build_dir_trees(meta)
         finally:
             self.emit(TOGGLE_UI_ENABLEMENT, True)
@@ -208,7 +209,6 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
             stopwatch_diff = Stopwatch()
             diff_content_first.diff(left_fmeta_tree, right_fmeta_tree, compare_paths_also=True, use_modify_times=False)
-            stopwatch_diff.stop()
             logger.info(f'Diff completed in: {stopwatch_diff}')
 
             stopwatch_redraw = Stopwatch()
@@ -223,7 +223,6 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
                 self.replace_bottom_button_panel(merge_btn)
                 self.emit(TOGGLE_UI_ENABLEMENT, True)
-                stopwatch_redraw.stop()
                 logger.debug(f'Redraw completed in: {stopwatch_redraw}')
 
             GLib.idle_add(change_button_bar)

@@ -223,7 +223,6 @@ class FMetaTreeLoader:
         # Update cache:
         self.cache.overwrite_fmeta_tree(tree)
 
-        stopwatch_total.stop()
         logger.info(f'Tree loaded in: {stopwatch_total}')
         if status_receiver:
             status_receiver.set_status(tree.get_summary())

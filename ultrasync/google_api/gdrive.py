@@ -3,6 +3,7 @@ import os.path
 import pickle
 import logging
 import time
+import humanfriendly
 from queue import Queue
 from stopwatch import Stopwatch
 from googleapiclient.discovery import build
@@ -40,8 +41,8 @@ class IntermediateMeta:
         # 'parent_id' -> list of its DirNode children
         self.first_parent_dict = {}
 
-        # List of (parent_id, item_id) tuples (for database)
-        self.additional_parent_mappings = []
+        # List of item_ids which have more than 1 parent:
+        self.ids_with_multiple_parents = []
 
     def add_to_parent_dict(self, parent_id, item_id, item_name):
         child_list = self.first_parent_dict.get(parent_id)
@@ -50,8 +51,8 @@ class IntermediateMeta:
             self.first_parent_dict[parent_id] = child_list
         child_list.append(DirNode(item_id, item_name))
 
-    def add_additional_mapping(self, parent_id, item_id):
-        self.additional_parent_mappings.append((parent_id, item_id))
+    def add_id_with_multiple_parents(self, item_id):
+        self.ids_with_multiple_parents.append((item_id,))
 
     def add_root(self, item_id, item_name):
         self.roots.append(DirNode(item_id, item_name))
@@ -129,6 +130,26 @@ def get_about():
     about = service.about().get(fields=fields).execute()
     logger.debug(f'ABOUT: {about}')
 
+    user = about['user']
+    display_name = user['displayName']
+    photo_link = user['photoLink']
+    is_me = user['me']
+    email_address = user['emailAddress']
+    logger.info(f'Logged in as user {display_name} <{email_address}>')
+    logger.debug(f'User photo link: {photo_link}')
+
+    storage_quota = about['storageQuota']
+    storage_total = storage_quota['limit']
+    total = humanfriendly.format_size(int(storage_total))
+    storage_used = storage_quota['usage']
+    used = humanfriendly.format_size(int(storage_used))
+    storage_used_in_drive = storage_quota['usageInDrive']
+    drive_used = humanfriendly.format_size(int(storage_used_in_drive))
+    storage_used_in_drive_trash = storage_quota['usageInDriveTrash']
+    drive_trash_used = humanfriendly.format_size(int(storage_used_in_drive_trash))
+
+    logger.info(f'{used} of {total} used (including {drive_used} for Drive files; of which {drive_trash_used} is trash)')
+
 
 def get_my_drive_root(service=None):
     if not service:
@@ -203,11 +224,16 @@ def download_directory_structure():
             if len(parents) == 0:
                 meta.add_root(item_id, item_name)
             else:
-                for parent_index, parent_id in enumerate(parents):
-                    if parent_index == 0:
-                        meta.add_to_parent_dict(parent_id, item_id, item_name)
-                    else:
-                        meta.add_additional_mapping(parent_id, item_id)
+                has_multiple_parents = (len(parents) > 1)
+                parent_index = 0
+                if has_multiple_parents:
+                    logger.debug(f'Item has multiple parents:  [{item_id}] {item_name}')
+                    meta.add_id_with_multiple_parents(item_id)
+                for parent_id in parents:
+                    meta.add_to_parent_dict(parent_id, item_id, item_name)
+                    if has_multiple_parents:
+                        parent_index += 1
+                        logger.debug(f'\tParent {parent_index}: [{parent_id}]')
 
             item_count += 1
 
@@ -216,7 +242,6 @@ def download_directory_structure():
             logger.debug('Done!')
             break
 
-    stopwatch_retrieval.stop()
     logger.info(f'Query returned {item_count} directories in {stopwatch_retrieval}')
 
     if logger.isEnabledFor(logging.DEBUG):
@@ -242,14 +267,14 @@ def save_in_cache(cache_path, meta, overwrite):
     for root in meta.roots:
         root_rows.append((root.id, root.name))
 
-    db.insert_gdrive_dirs(root_rows, dir_rows, meta.additional_parent_mappings, overwrite)
+    db.insert_gdrive_dirs(root_rows, dir_rows, meta.ids_with_multiple_parents, overwrite)
 
     return meta
 
 
 def load_dirs_from_cache(cache_path):
     db = MetaDatabase(cache_path)
-    root_rows, dir_rows, additional_parent_mappings = db.get_gdrive_dirs()
+    root_rows, dir_rows, ids_with_multiple_parents = db.get_gdrive_dirs()
 
     meta = IntermediateMeta()
 
@@ -259,7 +284,7 @@ def load_dirs_from_cache(cache_path):
     for item_id, item_name, parent_id in dir_rows:
         meta.add_to_parent_dict(parent_id, item_id, item_name)
 
-    meta.additional_parent_mappings = additional_parent_mappings
+    meta.ids_with_multiple_parents = ids_with_multiple_parents
 
     return meta
 

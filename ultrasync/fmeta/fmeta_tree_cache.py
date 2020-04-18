@@ -107,7 +107,6 @@ class SqliteCache(NullCache):
             db.insert_file_changes(to_insert)
             logger.info(f'Inserted {str(len(to_insert))} FMetas into previously empty DB table.')
 
-            stopwatch_write_cache.stop()
             logger.info(f'{self.tree_id} updated cache in: {stopwatch_write_cache}')
         finally:
             db.close()
