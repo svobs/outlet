@@ -9,7 +9,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
 import subprocess
 from ui.progress_meter import ProgressMeter
-from fmeta.fmeta_tree_source import TreeMetaScanner
+from fmeta.fmeta_tree_loader import TreeMetaScanner
 
 logger = logging.getLogger(__name__)
 
