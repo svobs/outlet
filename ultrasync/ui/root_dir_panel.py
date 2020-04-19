@@ -1,13 +1,15 @@
 import logging
+import os
 import file_util
 
 import gi
-
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+from gi.repository import Gtk, GdkPixbuf
 
 # TODO: constants file
 TOGGLE_UI_ENABLEMENT = 'toggle-ui-enable'
+ALERT_ICON_PATH = file_util.get_resource_path("resources/Sign-Alert-icon-32px.png")
+CHOOSE_ROOT_ICON_PATH = file_util.get_resource_path("resources/Folder-tree-flat-40px.png")
 
 
 logger = logging.getLogger(__name__)
@@ -67,18 +69,27 @@ class RootDirPanel:
             parent_diff_tree.sizegroups['root_paths'].add_widget(self.content_box)
         # TODO: make Label editable (maybe switch it to an Entry) on click
         self.label = Gtk.Label(label='')
-        self.update_root()
         self.label.set_justify(Gtk.Justification.LEFT)
         self.label.set_xalign(0)
         self.label.set_line_wrap(True)
-        self.content_box.pack_start(self.label, expand=True, fill=True, padding=0)
 
         if self.parent_diff_tree.editable:
-            self.change_btn = Gtk.Button(label='Change...')
-            self.content_box.pack_start(self.change_btn, expand=False, fill=False, padding=0)
+            self.change_btn = Gtk.Button()
+            icon = Gtk.Image()
+            icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
+            self.change_btn.set_image(image=icon)
+            self.content_box.pack_start(self.change_btn, expand=False, fill=False, padding=5)
             self.change_btn.connect("clicked", self.on_change_btn_clicked, self.parent_diff_tree)
 
+        self.alert_image = Gtk.Image()
+        self.alert_image.set_from_file(ALERT_ICON_PATH)
+
+        self.alert_image_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        self.content_box.pack_start(self.alert_image_box, expand=False, fill=False, padding=0)
+        self.content_box.pack_start(self.label, expand=True, fill=True, padding=0)
+
         self.parent_diff_tree.parent_win.connect(TOGGLE_UI_ENABLEMENT, self.set_enable_user_input)
+        self.update_root()
 
     def on_change_btn_clicked(self, widget, diff_tree):
         # create a RootDirChooserDialog to open:
@@ -103,13 +114,19 @@ class RootDirPanel:
             # Use existing root path
             new_root_path = self.parent_diff_tree.root_path
 
-        # If root is no longer valid for any reason, go back in the tree until it becomes valid
-        # TODO: maybe just display an error indicator instead
-        # TODO: disabled for now because it causes a race condition at startup
-        #new_root_path = file_util.get_valid_or_ancestor(new_root_path)
+        # Update root label.
+        # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html
+
+        if os.path.exists(new_root_path):
+            self.alert_image_box.remove(self.alert_image)
+            color = ''
+            pre = ''
+        else:
+            self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
+            color = f"foreground='gray'"
+            pre = f"<span foreground='red' size='small'>Path does not exist:  </span>"
+        self.label.set_markup(f"{pre}<span font_family='monospace' size='medium' {color}><i>{new_root_path}</i></span>")
 
         # This setter will automatically detect whether the path has changed, and handle any UI updates
         # and signal emissions appropriately:
         self.parent_diff_tree.root_path = new_root_path
-        # Update root label:
-        self.label.set_markup(f'<b>Tree Root:</b> <i>{new_root_path}</i>')

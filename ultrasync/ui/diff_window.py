@@ -1,5 +1,6 @@
 import logging.handlers
 import threading
+import os
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -47,9 +48,11 @@ class ConfigFileDataSource:
             self.tree = None
             self.parent_win.config.write(transient_path=self.config_entry, value=new_root_path)
             self._root_path = new_root_path
-            # Kick off the diff task. This will reload the tree as a side effect
-            # since we set self.tree = None
-            self.parent_win.emit(SIGNAL_DO_DIFF, 'from root path')
+
+            if os.path.exists(new_root_path):
+                # Kick off the diff task. This will reload the tree as a side effect
+                # since we set self.tree = None
+                self.parent_win.emit(SIGNAL_DO_DIFF, 'from root path')
 
     def get_fmeta_tree(self):
         if self.tree is None:
@@ -198,6 +201,10 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
     # TODO: change DB path whenever root is changed
     def do_tree_diff(self):
         try:
+            if not os.path.exists(self.diff_tree_left.root_path) or not os.path.exists(self.diff_tree_right.root_path):
+                logger.info('Skipping diff because one of the paths does not exist')
+                return
+
             # TODO: disable all UI while loading
             self.diff_tree_right.set_status('Waiting...')
 
