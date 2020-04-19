@@ -8,7 +8,7 @@ from gi.repository import Gtk, GdkPixbuf
 
 # TODO: constants file
 TOGGLE_UI_ENABLEMENT = 'toggle-ui-enable'
-ALERT_ICON_PATH = file_util.get_resource_path("resources/Sign-Alert-icon-32px.png")
+ALERT_ICON_PATH = file_util.get_resource_path("resources/dialog-error-icon-24px.png")
 CHOOSE_ROOT_ICON_PATH = file_util.get_resource_path("resources/Folder-tree-flat-40px.png")
 
 
@@ -124,7 +124,7 @@ class RootDirPanel:
         else:
             self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
             color = f"foreground='gray'"
-            pre = f"<span foreground='red' size='small'>Path does not exist:  </span>"
+            pre = f"<span foreground='red' size='small'>Not found:  </span>"
         self.label.set_markup(f"{pre}<span font_family='monospace' size='medium' {color}><i>{new_root_path}</i></span>")
 
         # This setter will automatically detect whether the path has changed, and handle any UI updates
