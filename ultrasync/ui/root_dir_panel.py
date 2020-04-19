@@ -105,7 +105,8 @@ class RootDirPanel:
 
         # If root is no longer valid for any reason, go back in the tree until it becomes valid
         # TODO: maybe just display an error indicator instead
-        new_root_path = file_util.get_valid_or_ancestor(new_root_path)
+        # TODO: disabled for now because it causes a race condition at startup
+        #new_root_path = file_util.get_valid_or_ancestor(new_root_path)
 
         # This setter will automatically detect whether the path has changed, and handle any UI updates
         # and signal emissions appropriately:

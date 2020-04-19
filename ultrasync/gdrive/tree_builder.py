@@ -4,7 +4,7 @@ import os
 from queue import Queue
 from database import MetaDatabase
 from gdrive.client import GDriveClient
-from gdrive.model import DirNode, FileNode, IntermediateMeta
+from gdrive.model import DirNode, FileNode, IntermediateMeta, Trashed
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +18,16 @@ def build_dir_trees(meta: IntermediateMeta):
     #     names.append(root.name)
     # logger.debug(f'Root nodes: {names}')
 
-    total = 0
+    total_items = 0
+    count_shared = 0
+    count_explicit_trash = 0
+    count_implicit_trash = 0
+    count_no_md5 = 0
 
     for root_node in meta.roots:
-        tree_size = 0
-        file_count = 0
-        dir_count = 0
+        count_tree_items = 0
+        count_tree_files = 0
+        count_tree_dirs = 0
         logger.debug(f'Building tree for GDrive root: [{root_node.id}] {root_node.name}')
         q = Queue()
         q.put((root_node, ''))
@@ -33,14 +37,26 @@ def build_dir_trees(meta: IntermediateMeta):
             path = os.path.join(parent_path, item.name)
             rows.append((item, path))
             # logger.debug(f'[{item.id}] {item.trash_status_str()} {path}/')
-            tree_size += 1
-            total += 1
+            count_tree_items += 1
+            total_items += 1
+
+            # Collect stats
+            if not item.is_dir():
+                if item.shared:
+                    count_shared += 1
+                if not item.md5:
+                    count_no_md5 += 1
+
+            if item.trashed == Trashed.EXPLICITLY_TRASHED.value:
+                count_explicit_trash += 1
+            elif item.trashed == Trashed.TRASHED.value:
+                count_implicit_trash += 1
 
             child_list = meta.first_parent_dict.get(item.id, None)
             if item.is_dir():
-                dir_count += 1
+                count_tree_dirs += 1
             else:
-                file_count += 1
+                count_tree_files += 1
                 if child_list:
                     logger.error(f'Item is marked as a FILE but has children! [{root_node.id}] {root_node.name}')
 
@@ -48,9 +64,10 @@ def build_dir_trees(meta: IntermediateMeta):
                 for child in child_list:
                     q.put((child, path))
 
-        logger.debug(f'Root "{root_node.name}" has {tree_size} nodes ({file_count} files, {dir_count} dirs)')
+        logger.debug(f'Root "{root_node.name}" has {count_tree_items} nodes ({count_tree_files} files, {count_tree_dirs} dirs)')
 
-    logger.debug(f'Finished with {total} items!')
+    logger.debug(f'Finished with {total_items} items! Stats: shared={count_shared}, no_md5={count_no_md5}, '
+                 f'trashed={count_explicit_trash}, also_trashed={count_implicit_trash}')
 
 
 class GDriveTreeBuilder:

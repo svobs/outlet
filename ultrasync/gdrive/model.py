@@ -29,6 +29,7 @@ class DirNode:
             self.trashed = Trashed.TRASHED
         else:
             self.trashed = trashed_status
+        # TODO: shared?
 
     def is_dir(self):
         return True
