@@ -190,7 +190,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
     def download_gdrive_meta(self):
         try:
             cache_path = get_resource_path('gdrive.db')
-            tree_builder = GDriveTreeBuilder(config=self.config, cache_path=cache_path, invalidate_cache=True)
+            tree_builder = GDriveTreeBuilder(config=self.config, cache_path=cache_path, invalidate_cache=False)
             tree_builder.build()
         finally:
             self.emit(TOGGLE_UI_ENABLEMENT, True)

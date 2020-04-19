@@ -4,17 +4,21 @@ import pickle
 import logging
 import time
 import humanfriendly
+from datetime import datetime
 from stopwatch import Stopwatch
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-from gdrive.model import DirNode, IntermediateMeta
+from gdrive.model import DirNode, FileNode, IntermediateMeta
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
 
 FOLDERS_ONLY = "mimeType='application/vnd.google-apps.folder'"
+NON_FOLDERS_ONLY = f"not {FOLDERS_ONLY}"
 MAX_RETRIES = 10
+
+ISO_8601_FMT = '%Y-%m-%dT%H:%M:%S.%f%z'
 
 TOKEN_FILE_PATH = file_util.get_resource_path('token.pickle')
 CREDENTIALS_FILE_PATH = file_util.get_resource_path('credentials.json')
@@ -119,13 +123,100 @@ class GDriveClient:
         result = try_repeatedly(request)
 
         root_node = DirNode(result['id'], result['name'], result['trashed'], result['explicitlyTrashed'])
-        logger.debug(f'Drive root: {root_node.trash_status_str} [{root_node.id}] "{root_node.name}"')
+        logger.debug(f'Drive root: {root_node.trash_status_str()} [{root_node.id}] "{root_node.name}"')
         return root_node
 
-    def download_subtree_file_list(self, subtree_root_gd_id):
-        service = load_google_client_service()
+    def download_subtree_file_meta(self):
+        pass
+        # TODO
+        # query = f"and '{subtree_root_gd_id}' in parents"
 
-        query = f"and '{subtree_root_gd_id}' in parents"
+    def download_all_file_meta(self):
+        fields = 'nextPageToken, incompleteSearch, files(id, name, parents, trashed, explicitlyTrashed, version, createdTime, ' \
+                 'modifiedTime, shared, owners, originalFilename, md5Checksum, size, headRevisionId, shortcutDetails, mimeType)'
+        # Google Drive only; not app data or Google Photos:
+        spaces = 'drive'
+        page_size = 1000  # TODO
+
+        logger.info('Getting list of ALL NON DIRS in Google Drive...')
+
+        def request():
+            logger.debug(f'Sending request for files, page {request.page_count}...')
+            # Call the Drive v3 API
+            response = self.service.files().list(q=NON_FOLDERS_ONLY, fields=fields, spaces=spaces, pageSize=page_size,
+                                                 pageToken=request.next_token).execute()
+            request.page_count += 1
+            return response
+        request.page_count = 0
+        request.next_token = None
+        item_count = 0
+
+        meta = IntermediateMeta()
+        stopwatch_retrieval = Stopwatch()
+        owner_dict = {}
+        mime_types = {}
+
+        while True:
+            results = try_repeatedly(request)
+
+            if results.get('incompleteSearch', False):
+                raise RuntimeError(f'Results are incomplete! (page {request.page_count})')
+
+            items = results.get('files', [])
+            if not items:
+                raise RuntimeError(f'No files returned from Drive API! (page {request.page_count})')
+
+            logger.debug(f'Received {len(items)} items')
+
+            for item in items:
+                owners = item['owners']
+                owner = None if len(owners) == 0 else owners[0]
+                owner_id = None
+                if owner:
+                    owner_id = owner['permissionId']
+                    owner_name = owner['displayName']
+                    owner_email = owner['emailAddress']
+                    owner_is_me = owner['me']
+                    owner_dict[owner_id] = (owner_name, owner_email, owner_is_me)
+
+                created_ts_obj = datetime.strptime(item['createdTime'], ISO_8601_FMT)
+                created_ts = int(created_ts_obj.timestamp() * 1000)
+                modified_ts_obj = datetime.strptime(item['modifiedTime'], ISO_8601_FMT)
+                modified_ts = int(modified_ts_obj.timestamp() * 1000)
+                # TODO: find out if this is ever useful
+                original_filename = item.get('originalFilename', None)
+                # TODO: why is this sometimes absent?
+                head_revision_id = item.get('headRevisionId', None)
+                size_str = item.get('size', None)
+                size = None if size_str is None else int(size_str)
+
+                node = FileNode(item_id=item['id'], item_name=item["name"], original_filename=original_filename,
+                                version=int(item['version']), head_revision_id=head_revision_id,
+                                md5=item.get('md5Checksum', None), shared=item['shared'], created_ts=created_ts,
+                                modified_ts=modified_ts, size_bytes=size, owner_id=owner_id,
+                                trashed=item['trashed'], explicitly_trashed=item['explicitlyTrashed'])
+                parents = item.get('parents', [])
+                meta.add_item_with_parents(parents, node)
+                item_count += 1
+                mime_types[item['mimeType']] = node
+
+            request.next_token = results.get('nextPageToken')
+            if not request.next_token:
+                logger.debug('Done!')
+                break
+
+        logger.info(f'Query returned {item_count} files in {stopwatch_retrieval}')
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f'Found {len(owner_dict)} distinct owners')
+            for owner_id, owner in owner_dict.items():
+                logger.debug(f'Found owner: id={owner_id} name={owner[0]} email={owner[1]} is_me={owner[2]}')
+
+            logger.debug(f'Found {len(mime_types)} distinct MIME types')
+            for mime_type, item in mime_types.items():
+                logger.debug(f'MIME type: {mime_type} -> [{item.id}] {item.name} {item.size_bytes}')
+
+        return meta
 
     def download_directory_structure(self):
         """
@@ -147,10 +238,10 @@ class GDriveClient:
         spaces = 'drive'
         page_size = 1000  # TODO
 
-        logger.info('Getting list of all directories in Google Drive...')
+        logger.info('Getting list of ALL directories in Google Drive...')
 
         def request():
-            logger.debug(f'Sending request for page {request.page_count}...')
+            logger.debug(f'Sending request for dirs, page {request.page_count}...')
             # Call the Drive v3 API
             response = self.service.files().list(q=FOLDERS_ONLY, fields=fields, spaces=spaces, pageSize=page_size,
                                                  pageToken=request.next_token).execute()
@@ -175,27 +266,9 @@ class GDriveClient:
             logger.debug(f'Received {len(items)} items')
 
             for item in items:
-                item_id = item['id']
-                item_name = item["name"]
-                trashed = item['trashed']
-                explicitly_trashed = item['explicitlyTrashed']
-                dir_node = DirNode(item_id, item_name, trashed, explicitly_trashed)
+                dir_node = DirNode(item['id'], item["name"], item['trashed'], item['explicitlyTrashed'])
                 parents = item.get('parents', [])
-                #logger.debug(f'Item: {item_id} "{item_name}" par={parents} trashed={dir_node.trashed}')
-                if len(parents) == 0:
-                    meta.add_root(dir_node)
-                else:
-                    has_multiple_parents = (len(parents) > 1)
-                    parent_index = 0
-                    if has_multiple_parents:
-                        logger.debug(f'Item has multiple parents:  [{item_id}] {item_name}')
-                        meta.add_id_with_multiple_parents(dir_node)
-                    for parent_id in parents:
-                        meta.add_to_parent_dict(parent_id, dir_node)
-                        if has_multiple_parents:
-                            parent_index += 1
-                            logger.debug(f'\tParent {parent_index}: [{parent_id}]')
-
+                meta.add_item_with_parents(parents, dir_node)
                 item_count += 1
 
             request.next_token = results.get('nextPageToken')

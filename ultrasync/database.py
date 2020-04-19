@@ -33,9 +33,28 @@ class MetaDatabase:
                  ('trashed', 'INTEGER'))
     }
 
-    TABLE_GRDIVE_MORE_PARENTS = {
+    TABLE_GRDIVE_MULTIPLE_PARENTS = {
         'name': 'gdrive_multiple_parents',
         'cols': (('gd_id', 'TEXT'),)
+    }
+
+    TABLE_GRDIVE_FILES = {
+        'name': 'gdrive_files',
+        'cols': (('gd_id', 'TEXT'),
+                 ('name', 'TEXT'),
+                 ('par_id', 'TEXT'),
+                 ('trashed', 'INTEGER'),
+                 ('original_filename', 'TEXT'),
+                 ('version', 'INTEGER'),
+                 ('head_revision_id', 'TEXT'),
+                 ('md5', 'TEXT'),
+                 ('shared', 'INTEGER'),
+                 ('created_ts', 'INTEGER'),
+                 ('modified_ts', 'INTEGER'),
+                 ('size_bytes', 'INTEGER'),
+                 ('owner_id', 'TEXT'),
+                 )
+
     }
 
     def __init__(self, db_path):
@@ -98,6 +117,9 @@ class MetaDatabase:
         self.conn.commit()
 
     def has_rows(self, table):
+        if not self.is_table(table):
+            return False
+
         cursor = self.conn.cursor()
         sql = f"SELECT * FROM {table['name']} LIMIT 1"
         cursor.execute(sql)
@@ -136,28 +158,27 @@ class MetaDatabase:
     # GDRIVE_DIRS operations ---------------------
 
     def truncate_gdrive_dirs(self):
-        self.truncate_table(self.TABLE_GRDIVE_MORE_PARENTS)
+        self.truncate_table(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
         self.truncate_table(self.TABLE_GRDIVE_DIRS)
         self.truncate_table(self.TABLE_GRDIVE_ROOTS)
 
     def has_gdrive_dirs(self):
+        return self.has_rows(self.TABLE_GRDIVE_DIRS) or self.has_rows(self.TABLE_GRDIVE_MULTIPLE_PARENTS) or self.has_rows(self.TABLE_GRDIVE_ROOTS)
 
-        return self.has_rows(self.TABLE_GRDIVE_DIRS) or self.has_rows(self.TABLE_GRDIVE_MORE_PARENTS) or self.has_rows(self.TABLE_GRDIVE_ROOTS)
-
-    def insert_gdrive_dirs(self, root_list, dir_list, ids_with_multiple_parents, overwrite=True):
+    def insert_gdrive_dirs(self, root_list, dir_list, ids_with_multiple_parents, overwrite=False):
         if not overwrite and self.has_gdrive_dirs():
             raise RuntimeError('Will not insert GDrive meta into a non-empty table!')
 
         self.drop_table_if_exists(self.TABLE_GRDIVE_ROOTS)
         self.drop_table_if_exists(self.TABLE_GRDIVE_DIRS)
-        self.drop_table_if_exists(self.TABLE_GRDIVE_MORE_PARENTS)
+        self.drop_table_if_exists(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
         self.create_table_if_not_exist(self.TABLE_GRDIVE_ROOTS)
         self.create_table_if_not_exist(self.TABLE_GRDIVE_DIRS)
-        self.create_table_if_not_exist(self.TABLE_GRDIVE_MORE_PARENTS)
+        self.create_table_if_not_exist(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
 
         self.insert_many(self.TABLE_GRDIVE_ROOTS, root_list)
         self.insert_many(self.TABLE_GRDIVE_DIRS, dir_list)
-        self.insert_many(self.TABLE_GRDIVE_MORE_PARENTS, ids_with_multiple_parents)
+        self.insert_many(self.TABLE_GRDIVE_MULTIPLE_PARENTS, ids_with_multiple_parents)
 
     def get_gdrive_dirs(self):
         cursor = self.conn.cursor()
@@ -171,8 +192,38 @@ class MetaDatabase:
         dir_rows = cursor.fetchall()
 
         cursor = self.conn.cursor()
-        sql = self.build_select(self.TABLE_GRDIVE_MORE_PARENTS)
+        sql = self.build_select(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
         cursor.execute(sql)
         parent_mappings = cursor.fetchall()
         logger.debug(f'Retrieved {len(root_rows)} roots, {len(dir_rows)} dirs, and {len(parent_mappings)} items with multiple parents')
         return root_rows, dir_rows, parent_mappings
+
+    def has_gdrive_files(self):
+        return self.has_rows(self.TABLE_GRDIVE_FILES)
+
+    def insert_gdrive_files(self, file_list, ids_with_multiple_parents, overwrite=False):
+        if not overwrite and self.has_gdrive_files():
+            raise RuntimeError('Will not insert GDrive meta into a non-empty table!')
+
+        # Even if overwrite=True, we will not wipe the 'multiple parents' table because it is shared with directory meta.
+        # This means that in an erroneous situation, we may have 'ghost' rows in it wasting space, but we can live with that.
+        self.drop_table_if_exists(self.TABLE_GRDIVE_FILES)
+        self.create_table_if_not_exist(self.TABLE_GRDIVE_FILES)
+        self.create_table_if_not_exist(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
+
+        self.insert_many(self.TABLE_GRDIVE_FILES, file_list)
+        self.insert_many(self.TABLE_GRDIVE_MULTIPLE_PARENTS, ids_with_multiple_parents)
+
+    def get_gdrive_files(self):
+        cursor = self.conn.cursor()
+        sql = self.build_select(self.TABLE_GRDIVE_FILES)
+        cursor.execute(sql)
+        file_rows = cursor.fetchall()
+
+        # this will include extraneous stuff from parent meta
+        cursor = self.conn.cursor()
+        sql = self.build_select(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
+        cursor.execute(sql)
+        parent_mappings = cursor.fetchall()
+        logger.debug(f'Retrieved {len(file_rows)} file metas, and {len(parent_mappings)} items with multiple parents')
+        return file_rows, parent_mappings
