@@ -2,7 +2,7 @@ import logging
 import os
 from fmeta.fmeta import FMeta, FMetaTree, Category
 import file_util
-
+from ui import actions
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +20,9 @@ class FMetaError(FMetaNoOp):
         self.exception = exception
 
 
-def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=False, error_collector=None, progress_meter=None):
+def apply_changes_atomically(tree_id, tree: FMetaTree, staging_dir, continue_on_error=False, error_collector=None):
 
-    if progress_meter:
+    if tree_id:
         # Get total byte count, for progress meter:
         total_bytes = 0
         for fmeta in tree.get_for_cat(Category.Added):
@@ -31,7 +31,7 @@ def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=Fal
             total_bytes += fmeta.size_bytes
         total_bytes += FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT * len(tree.get_for_cat(Category.Deleted))
         total_bytes += FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT * len(tree.get_for_cat(Category.Moved))
-        progress_meter.set_total(total_bytes)
+        actions.get_dispatcher().send(actions.SET_TOTAL_PROGRESS, sender=tree_id, total=total_bytes)
         logger.debug(f'Total progress to make: {total_bytes}')
 
     # TODO: deal with file-not-found errors in a more robust way
@@ -57,8 +57,8 @@ def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=Fal
                     error_collector.append(FMetaError(fm=fmeta, exception=err))
             else:
                 raise
-        if progress_meter:
-            progress_meter.add_progress(fmeta.size_bytes)
+        if tree_id:
+            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=tree_id, amount=fmeta.size_bytes)
 
     for fmeta in tree.get_for_cat(Category.Deleted):
         try:
@@ -72,8 +72,8 @@ def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=Fal
                     error_collector.append(FMetaError(fm=fmeta, exception=err))
             else:
                 raise
-        if progress_meter:
-            progress_meter.add_progress(FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT)
+        if tree_id:
+            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=tree_id, amount=FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT)
 
     for fmeta in tree.get_for_cat(Category.Moved):
         try:
@@ -89,8 +89,8 @@ def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=Fal
                     error_collector.append(FMetaError(fm=fmeta, exception=err))
             else:
                 raise
-        if progress_meter:
-            progress_meter.add_progress(FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT)
+        if tree_id:
+            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=tree_id, amount=FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT)
 
     for fmeta in tree.get_for_cat(Category.Updated):
         try:
@@ -113,5 +113,6 @@ def apply_changes_atomically(tree: FMetaTree, staging_dir, continue_on_error=Fal
                     error_collector.append(FMetaError(fm=fmeta, exception=err))
             else:
                 raise
-        if progress_meter:
-            progress_meter.add_progress(fmeta.size_bytes)
+        if tree_id:
+            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=tree_id, amount=fmeta.size_bytes)
+

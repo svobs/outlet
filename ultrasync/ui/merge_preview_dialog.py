@@ -2,36 +2,23 @@ import logging
 
 import gi
 
+from ui import actions
+from ui.diff_tree.dt_data_store import SimpleDataStore
+
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk
+from gi.repository import Gtk
 
 import fmeta.fmeta_file_util
 from file_util import get_resource_path
-from fmeta.fmeta_file_util import FMetaNoOp, FMetaError
-from fmeta.fmeta import FMetaTree, Category
-from ui.progress_meter import ProgressMeter
-from ui.diff_tree import DiffTree
+from fmeta.fmeta_file_util import FMetaError
+from fmeta.fmeta import Category
+from ui.diff_tree.dt_widget import DiffTree
 from ui.base_dialog import BaseDialog
-import ui.diff_tree_populator as diff_tree_populator
+import ui.diff_tree.dt_populator as diff_tree_populator
 
 STAGING_DIR_PATH = get_resource_path("temp")
 
 logger = logging.getLogger(__name__)
-
-
-class SimpleDataSource:
-    def __init__(self, fmeta_tree):
-        self._fmeta_tree = fmeta_tree
-
-    def get_root_path(self):
-        return self._fmeta_tree.root_path
-
-    def set_root_path(self, new_root_path):
-        if self._fmeta_tree.root_path != new_root_path:
-            raise RuntimeError('Root path cannot be changed for this tree!')
-
-    def get_fmeta_tree(self):
-        return self._fmeta_tree
 
 
 class MergePreviewDialog(Gtk.Dialog, BaseDialog):
@@ -53,7 +40,8 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         label = Gtk.Label(label="The following changes will be made:")
         self.content_box.add(label)
 
-        self.diff_tree = DiffTree(parent_win=self, tree_id='merge_tree', data_source=SimpleDataSource(self.fmeta_tree), editable=False)
+        store = SimpleDataStore(tree_id='merge_tree', fmeta_tree=self.fmeta_tree)
+        self.diff_tree = DiffTree(store=store, parent_win=self)
         self.diff_tree.set_status(self.fmeta_tree.get_summary())
         self.content_box.pack_start(self.diff_tree.content_box, True, True, 0)
 
@@ -90,14 +78,9 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         # TODO: clear dir after use
 
         error_collection = []
+        fmeta.fmeta_file_util.apply_changes_atomically(tree_id=self.diff_tree.store.tree_id, tree=self.fmeta_tree, staging_dir=staging_dir,
+                                                       continue_on_error=True, error_collector=error_collection)
 
-        def on_progress_made(this, progress, total):
-            this.set_status(f'Copied {progress} bytes of {total}')
-
-        progress_meter = ProgressMeter(on_progress_made, self.config, self.diff_tree)
-        fmeta.fmeta_file_util.apply_changes_atomically(tree=self.fmeta_tree, staging_dir=staging_dir,
-                                                       continue_on_error=True, error_collector=error_collection,
-                                                       progress_meter=progress_meter)
         if len(error_collection) > 0:
             # TODO: create a much better UI here
             noop_adds = 0

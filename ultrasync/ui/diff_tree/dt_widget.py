@@ -1,20 +1,17 @@
 import os
 import file_util
 import logging
+import subprocess
+import ui.actions as actions
 from fmeta.fmeta import FMeta, FMetaTree, Category
 from ui.root_dir_panel import RootDirPanel
-from ui.diff_tree_nodes import DirNode, CategoryNode
+from ui.diff_tree.dt_model import DirNode, CategoryNode
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
-import subprocess
 from ui.progress_meter import ProgressMeter
-from fmeta.fmeta_tree_loader import TreeMetaScanner
 
 logger = logging.getLogger(__name__)
-
-# TODO: constants file
-TOGGLE_UI_ENABLEMENT = 'toggle-ui-enable'
 
 
 def _build_icons(icon_size):
@@ -60,36 +57,49 @@ def _build_content_box(root_dir_panel, tree_view, status_bar_container):
 class DiffTree:
     model: Gtk.TreeStore
 
-    def __init__(self, tree_id, parent_win, data_source, editable, sizegroups=None):
+    def __init__(self, store, parent_win, sizegroups=None):
         # Should be a subclass of BaseDialog:
         self.parent_win = parent_win
-        self.tree_id = tree_id
+        self.sizegroups = sizegroups
+        self.store = store
         """If true, create a node for each ancestor directory for the files.
            If false, create a second column which shows the parent path. """
         self.use_dir_tree = parent_win.config.get('display.diff_tree.use_dir_tree')
 
-        """If false, hide checkboxes and tree root change button"""
-        self.editable = editable
-        self.sizegroups = sizegroups
         self.show_change_ts = parent_win.config.get('display.diff_tree.show_change_ts')
 
         icon_size = parent_win.config.get('display.diff_tree.icon_size')
         self.datetime_format = parent_win.config.get('display.diff_tree.datetime_format')
         self.icons = _build_icons(icon_size=icon_size)
 
-        self.parent_win.connect(TOGGLE_UI_ENABLEMENT, self.set_enable_user_input)
+        actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
 
+        # TODO: Holy shit this is unnecessarily complicated
         def on_progress_made(this, progress, total):
             this.set_status(f'Scanning file {progress} of {total}')
 
-        self.progress_meter = ProgressMeter(on_progress_made, self.parent_win.config, self)
-        self.data_source = data_source
-        self.data_source.status_receiver = self.progress_meter
+        progress_meter = ProgressMeter(on_progress_made, self.parent_win.config, self)
+
+        def on_set_total_progress(sender, tree_id, total):
+            if self.store.tree_id == tree_id:
+                progress_meter.set_total(total)
+        actions.connect(actions.SET_TOTAL_PROGRESS, on_set_total_progress)
+
+        def on_progress_made(sender, tree_id, progress):
+            if self.store.tree_id == tree_id:
+                progress_meter.add_progress(progress)
+        actions.connect(actions.PROGRESS_MADE, on_progress_made)
+
+        def on_set_status(sender, tree_id, status_msg):
+            if self.store.tree_id == tree_id:
+                self.set_status(status_msg)
+
+        actions.connect(actions.SET_STATUS, on_set_status)
 
         col_count = 0
         col_types = []
         self.col_names = []
-        if self.editable:
+        if self.store.editable:
             self.col_num_checked = col_count
             self.col_names.append('Checked')
             col_types.append(bool)
@@ -139,7 +149,7 @@ class DiffTree:
         self.model = Gtk.TreeStore()
         self.model.set_column_types(col_types)
 
-        self.root_dir_panel = RootDirPanel(self)
+        self.root_dir_panel = RootDirPanel(self, self.store)
 
         self.treeview = self._build_treeview(self.model)
 
@@ -148,15 +158,14 @@ class DiffTree:
         if self.sizegroups is not None and self.sizegroups.get('tree_status') is not None:
             self.sizegroups['tree_status'].add_widget(status_bar_container)
 
+    def set_status(self, status_msg):
+        GLib.idle_add(lambda: self.status_bar.set_label(status_msg))
+
     @property
     def root_path(self):
-        return self.data_source.get_root_path()
+        return self.store.get_root_path()
 
-    @root_path.setter
-    def root_path(self, new_root):
-        self.data_source.set_root_path(new_root)
-
-    def set_enable_user_input(self, window, enable):
+    def _on_enable_ui_toggled(self, sender, enable):
         # TODO!
         pass
 
@@ -204,7 +213,7 @@ class DiffTree:
         px_column = Gtk.TreeViewColumn(self.col_names[self.col_num_name])
         px_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
 
-        if self.editable:
+        if self.store.editable:
             renderer = Gtk.CellRendererToggle()
             renderer.connect("toggled", self.on_cell_checkbox_toggled)
             renderer.set_fixed_size(width=-1, height=row_height)
@@ -320,8 +329,8 @@ class DiffTree:
 
         select = treeview.get_selection()
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
-        select.connect("changed", on_tree_selection_changed)
-        treeview.connect("row-activated", self.on_row_activated)
+        # select.connect("changed", on_tree_selection_changed)
+        treeview.connect("row-activated", self.on_row_activated) # TODO
         treeview.connect('button-press-event', self.on_tree_button_press)
         treeview.connect('key-press-event', self.on_key_press)
         treeview.connect('row-expanded', self.on_toggle_row_expanded_state, True)
@@ -329,12 +338,102 @@ class DiffTree:
 
         return treeview
 
-    # TODO: clean this up
-    def get_cat_config_path(self, category):
-        return f'transient.{self.tree_id}.expanded_state.{category.name}'
+    def call_xdg_open(self, file_path):
+        if os.path.exists(file_path):
+            logger.info(f'Calling xdg-open for: {file_path}')
+            subprocess.check_call(["xdg-open", file_path])
+        else:
+            self.parent_win.show_error_msg(f'Cannot open file', f'File not found: {file_path}')
 
-    def set_status(self, status_msg):
-        GLib.idle_add(lambda: self.status_bar.set_label(status_msg))
+    def on_row_activated(self, tree_view, path, col):
+        selection = self.treeview.get_selection()
+        model, treeiter = selection.get_selected_rows()
+        if not treeiter:
+            logger.error('No selection!')
+            return
+
+        # if len(treeiter) == 1:
+            # Single node
+
+            # for selected_node in treeiter:
+        # TODO: intelligent logic for multiple selected rows
+
+        """Fired when an item is double-clicked or when an item is selected and Enter is pressed"""
+        node_data = self.model[path][self.col_num_data]
+        xdg_open = False
+        if type(node_data) == CategoryNode:
+            # Special handling for categories: toggle collapse state
+            if tree_view.row_expanded(path):
+                tree_view.collapse_row(path)
+            else:
+                tree_view.expand_row(path=path, open_all=False)
+        elif type(node_data) == DirNode or type(node_data) == FMeta:
+            if node_data.category == Category.Deleted:
+                logger.debug(f'Cannot open a Deleted node: {node_data.file_path}')
+            else:
+                # TODO: ensure prev_path is filled out for all nodes!
+                file_path = os.path.join(self.root_path, node_data.file_path)
+                # if not os.path.exists(file_path):
+                #     logger.debug(f'File not found: {file_path}')
+                #     # File is an 'added' node or some such. Open the old one:
+                #     file_path = os.path.join(self.root_path, node_data.prev_path)
+                xdg_open = True
+        else:
+            raise RuntimeError('Unexpected data element')
+
+        if xdg_open:
+            self.call_xdg_open(file_path)
+
+    def on_cell_checkbox_toggled(self, widget, path):
+        """Called when checkbox in treeview is toggled"""
+        data_node = self.model[path][self.col_num_data]
+        if data_node.category == Category.Ignored:
+            logger.debug('Disallowing checkbox toggle because node is in IGNORED category')
+            return
+        # DOC: model[path][column] = not model[path][column]
+        checked_value = not self.model[path][self.col_num_checked]
+        logger.debug(f'Toggled {checked_value}: {self.model[path][self.col_num_name]}')
+        self.model[path][self.col_num_checked] = checked_value
+        self.model[path][self.col_num_inconsistent] = False
+
+        # Update all of the node's children change to match its check state:
+        def update_checked_state(t_iter):
+            self.model[t_iter][self.col_num_checked] = checked_value
+            self.model[t_iter][self.col_num_inconsistent] = False
+
+        self.do_for_descendants(path, update_checked_state)
+
+        # Now update its ancestors' states:
+        tree_path = Gtk.TreePath.new_from_string(path)
+        while True:
+            # Go up the tree, one level per loop,
+            # with each node updating itself based on its immediate children
+            tree_path.up()
+            if tree_path.get_depth() < 1:
+                # Stop at root
+                break
+            else:
+                tree_iter = self.model.get_iter(tree_path)
+                has_checked = False
+                has_unchecked = False
+                has_inconsistent = False
+                child_iter = self.model.iter_children(tree_iter)
+                while child_iter is not None:
+                    # Parent is inconsistent if any of its children do not match it...
+                    if self.model[child_iter][self.col_num_checked]:
+                        has_checked = True
+                    else:
+                        has_unchecked = True
+                    # ...or if any of its children are inconsistent
+                    has_inconsistent |= self.model[child_iter][self.col_num_inconsistent]
+                    child_iter = self.model.iter_next(child_iter)
+                self.model[tree_iter][self.col_num_inconsistent] = has_inconsistent or (has_checked and has_unchecked)
+                self.model[tree_iter][self.col_num_checked] = has_checked and not has_unchecked and not has_inconsistent
+
+    def on_toggle_row_expanded_state(self, tree_view, tree_path, col, is_expanded):
+        node_data = self.model[tree_path][self.col_num_data]
+        if type(node_data) == CategoryNode:
+            self.store.set_category_node_expanded_state(node_data.category, is_expanded)
 
     def build_context_menu(self, tree_path: Gtk.TreePath, node_data):
         """Dynamic context menu (right-click on tree item)"""
@@ -419,8 +518,8 @@ class DiffTree:
                 # Delete the actual file:
                 fmeta = self.model[tree_path][self.col_num_data]
                 if fmeta is not None:
-                    file_path = self.get_abs_path(fmeta)
-                    if not self.delete_dir_tree(file_path=file_path, tree_path=tree_path):
+                    abs_path = self.get_abs_path(fmeta)
+                    if not self.delete_dir_tree(subtree_root=abs_path, tree_path=tree_path):
                         # something went wrong if we got False. Stop.
                         break
             return False
@@ -445,7 +544,7 @@ class DiffTree:
             return True
 
     def get_abs_path(self, node_data):
-        """ Utility function """
+        """ Utility function: joins the two paths together into an absolute path and returns it"""
         return self.root_path if not node_data.file_path else os.path.join(self.root_path, node_data.file_path)
 
     def get_abs_file_path(self, tree_path: Gtk.TreePath):
@@ -453,62 +552,6 @@ class DiffTree:
         node_data = self.model[tree_path][self.col_num_data]
         assert node_data is not None
         return self.get_abs_path(node_data)
-
-    def resync_subtree(self, tree_path):
-        # Construct a FMetaTree from the UI nodes: this is the 'stale' subtree.
-        stale_tree = self.get_subtree_as_tree(tree_path)
-        fresh_tree = None
-        # Master tree contains all FMeta in this widget
-        master_tree = self.data_source.get_fmeta_tree()
-
-        # If the path no longer exists at all, then it's simple: the entire stale_tree should be deleted.
-        if os.path.exists(stale_tree.root_path):
-            # But if there are still files present: use FMetaTreeLoader to re-scan subtree
-            # and construct a FMetaTree from the 'fresh' data
-            logger.debug(f'Scanning: {stale_tree.root_path}')
-            scanner = TreeMetaScanner(root_path=stale_tree.root_path, stale_tree=stale_tree, status_receiver=self.progress_meter, track_changes=False)
-            fresh_tree = scanner.scan()
-
-        # TODO: files in different categories are showing up as 'added' in the scan
-        # TODO: should just be removed then added below, but brainstorm how to optimize this
-
-        for fmeta in stale_tree.get_all():
-            # Anything left in the stale tree no longer exists. Delete it from master tree
-            # NOTE: stale tree will contain old FMeta which is from the master tree, and
-            # thus does need to have its file path adjusted.
-            # This seems awfully fragile...
-            old = master_tree.remove(file_path=fmeta.file_path, sig=fmeta.signature, ok_if_missing=False)
-            if old:
-                logger.debug(f'Deleted from master tree: sig={old.signature} path={old.file_path}')
-            else:
-                logger.warning(f'Could not delete "stale" from master (not found): sig={fmeta.signature} path={fmeta.file_path}')
-
-        if fresh_tree:
-            for fmeta in fresh_tree.get_all():
-                # Anything in the fresh tree needs to be either added or updated in the master tree.
-                # For the 'updated' case, remove the old FMeta from the file mapping and any old signatures.
-                # Note: Need to adjust file path here, because these FMetas were created with a different root
-                abs_path = os.path.join(fresh_tree.root_path, fmeta.file_path)
-                fmeta.file_path = file_util.strip_root(abs_path, master_tree.root_path)
-                old = master_tree.remove(file_path=fmeta.file_path, sig=fmeta.signature, remove_old_sig=True, ok_if_missing=True)
-                if old:
-                    logger.debug(f'Removed from master tree: sig={old.signature} path={old.file_path}')
-                else:
-                    logger.debug(f'Could not delete "fresh" from master (not found): sig={fmeta.signature} path={fmeta.file_path}')
-                master_tree.add(fmeta)
-                logger.debug(f'Added to master tree: sig={fmeta.signature} path={fmeta.file_path}')
-
-        # 3. Then re-diff and re-populate
-
-        # TODO: Need to introduce a signalling mechanism for the other tree
-        logger.info('TODO: re-diff and re-populate!')
-
-    def show_in_nautilus(self, file_path):
-        if os.path.exists(file_path):
-            logger.info(f'Opening in Nautilus: {file_path}')
-            subprocess.check_call(["nautilus", "--browser", file_path])
-        else:
-            self.parent_win.show_error_msg('Cannot open file in Nautilus', f'File not found: {file_path}')
 
     def recurse_over_tree(self, tree_iter, action_func):
         """
@@ -618,92 +661,6 @@ class DiffTree:
         finally:
             self.resync_subtree(tree_path)
 
-    def call_xdg_open(self, file_path):
-        if os.path.exists(file_path):
-            logger.info(f'Calling xdg-open for: {file_path}')
-            subprocess.check_call(["xdg-open", file_path])
-        else:
-            self.parent_win.show_error_msg(f'Cannot open file', f'File not found: {file_path}')
-
-    def on_row_activated(self, tree_view, path, col):
-        """Fired when an item is double-clicked or when an item is selected and Enter is pressed"""
-        node_data = self.model[path][self.col_num_data]
-        xdg_open = False
-        if type(node_data) == CategoryNode:
-            # Special handling for categories: toggle collapse state
-            if tree_view.row_expanded(path):
-                tree_view.collapse_row(path)
-            else:
-                tree_view.expand_row(path=path, open_all=False)
-        elif type(node_data) == DirNode or type(node_data) == FMeta:
-            if node_data.category == Category.Deleted:
-                logger.debug(f'Cannot open a Deleted node: {node_data.file_path}')
-            else:
-                # TODO: ensure prev_path is filled out for all nodes!
-                file_path = os.path.join(self.root_path, node_data.file_path)
-                # if not os.path.exists(file_path):
-                #     logger.debug(f'File not found: {file_path}')
-                #     # File is an 'added' node or some such. Open the old one:
-                #     file_path = os.path.join(self.root_path, node_data.prev_path)
-                xdg_open = True
-        else:
-            raise RuntimeError('Unexpected data element')
-
-        if xdg_open:
-            self.call_xdg_open(file_path)
-
-    def on_cell_checkbox_toggled(self, widget, path):
-        """Called when checkbox in treeview is toggled"""
-        data_node = self.model[path][self.col_num_data]
-        if data_node.category == Category.Ignored:
-            logger.debug('Disallowing checkbox toggle because node is in IGNORED category')
-            return
-        # DOC: model[path][column] = not model[path][column]
-        checked_value = not self.model[path][self.col_num_checked]
-        logger.debug(f'Toggled {checked_value}: {self.model[path][self.col_num_name]}')
-        self.model[path][self.col_num_checked] = checked_value
-        self.model[path][self.col_num_inconsistent] = False
-
-        # Update all of the node's children change to match its check state:
-        def update_checked_state(t_iter):
-            self.model[t_iter][self.col_num_checked] = checked_value
-            self.model[t_iter][self.col_num_inconsistent] = False
-
-        self.do_for_descendants(path, update_checked_state)
-
-        # Now update its ancestors' states:
-        tree_path = Gtk.TreePath.new_from_string(path)
-        while True:
-            # Go up the tree, one level per loop,
-            # with each node updating itself based on its immediate children
-            tree_path.up()
-            if tree_path.get_depth() < 1:
-                # Stop at root
-                break
-            else:
-                tree_iter = self.model.get_iter(tree_path)
-                has_checked = False
-                has_unchecked = False
-                has_inconsistent = False
-                child_iter = self.model.iter_children(tree_iter)
-                while child_iter is not None:
-                    # Parent is inconsistent if any of its children do not match it...
-                    if self.model[child_iter][self.col_num_checked]:
-                        has_checked = True
-                    else:
-                        has_unchecked = True
-                    # ...or if any of its children are inconsistent
-                    has_inconsistent |= self.model[child_iter][self.col_num_inconsistent]
-                    child_iter = self.model.iter_next(child_iter)
-                self.model[tree_iter][self.col_num_inconsistent] = has_inconsistent or (has_checked and has_unchecked)
-                self.model[tree_iter][self.col_num_checked] = has_checked and not has_unchecked and not has_inconsistent
-
-    def on_toggle_row_expanded_state(self, tree_view, tree_path, col, is_expanded):
-        node_data = self.model[tree_path][self.col_num_data]
-        if type(node_data) == CategoryNode:
-            cfg_path = self.get_cat_config_path(node_data.category)
-            self.parent_win.config.write(cfg_path, is_expanded)
-
     # For displaying icons
     def get_tree_cell_pixbuf(self, col, cell, model, iter, user_data):
         cell.set_property('pixbuf', self.icons[model.get_value(iter, self.col_num_icon)])
@@ -752,7 +709,7 @@ class DiffTree:
         """Returns a FMetaTree which contains the FMetas of the rows which are currently
         checked by the user. This will be a subset of the FMetaTree which was used to
         populate this tree."""
-        assert self.editable
+        assert self.store.editable
 
         tree_iter = self.model.get_iter_first()
         tree_path = self.model.get_path(tree_iter)

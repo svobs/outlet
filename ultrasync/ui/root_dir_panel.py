@@ -1,13 +1,13 @@
 import logging
 import os
 import file_util
+import ui.actions as actions
 
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GdkPixbuf
 
 # TODO: constants file
-TOGGLE_UI_ENABLEMENT = 'toggle-ui-enable'
 ALERT_ICON_PATH = file_util.get_resource_path("resources/dialog-error-icon-24px.png")
 CHOOSE_ROOT_ICON_PATH = file_util.get_resource_path("resources/Folder-tree-flat-40px.png")
 
@@ -22,7 +22,7 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
     if response_id == Gtk.ResponseType.OK:
         filename = open_dialog.get_filename()
         logger.info(f'User selected dir: {filename}')
-        root_dir_panel.update_root(filename)
+        actions.get_dispatcher().send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.store.tree_id, new_root=filename)
     # if response is "CANCEL" (the button "Cancel" has been clicked)
     elif response_id == Gtk.ResponseType.CANCEL:
         logger.debug("Cancelled: RootDirChooserDialog")
@@ -62,24 +62,26 @@ class RootDirChooserDialog(Gtk.FileChooserDialog):
 
 
 class RootDirPanel:
-    def __init__(self, parent_diff_tree):
-        self.parent_diff_tree = parent_diff_tree
+    def __init__(self, parent_diff_tree, store):
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         if parent_diff_tree.sizegroups is not None and parent_diff_tree.sizegroups.get('root_paths') is not None:
             parent_diff_tree.sizegroups['root_paths'].add_widget(self.content_box)
+
+        self.store = store
+
         # TODO: make Label editable (maybe switch it to an Entry) on click
         self.label = Gtk.Label(label='')
         self.label.set_justify(Gtk.Justification.LEFT)
         self.label.set_xalign(0)
         self.label.set_line_wrap(True)
 
-        if self.parent_diff_tree.editable:
+        if self.store.editable:
             self.change_btn = Gtk.Button()
             icon = Gtk.Image()
             icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
             self.change_btn.set_image(image=icon)
             self.content_box.pack_start(self.change_btn, expand=False, fill=False, padding=5)
-            self.change_btn.connect("clicked", self.on_change_btn_clicked, self.parent_diff_tree)
+            self.change_btn.connect("clicked", self._on_change_btn_clicked, parent_diff_tree.parent_win)
 
         self.alert_image = Gtk.Image()
         self.alert_image.set_from_file(ALERT_ICON_PATH)
@@ -88,14 +90,17 @@ class RootDirPanel:
         self.content_box.pack_start(self.alert_image_box, expand=False, fill=False, padding=0)
         self.content_box.pack_start(self.label, expand=True, fill=True, padding=0)
 
-        self.parent_diff_tree.parent_win.connect(TOGGLE_UI_ENABLEMENT, self.set_enable_user_input)
-        self.update_root()
+        actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
+        actions.connect(actions.ROOT_PATH_UPDATED, self._on_root_path_updated, self.store.tree_id)
 
-    def on_change_btn_clicked(self, widget, diff_tree):
+        # Need to call this to do the initial UI draw:
+        self._on_root_path_updated(None, self.store.get_root_path())
+
+    def _on_change_btn_clicked(self, widget, parent_win):
         # create a RootDirChooserDialog to open:
         # the arguments are: title of the window, parent_window, action,
         # (buttons, response)
-        open_dialog = RootDirChooserDialog(title="Pick a directory", parent=diff_tree.parent_win, current_dir=diff_tree.root_path)
+        open_dialog = RootDirChooserDialog(title="Pick a directory", parent=parent_win, current_dir=self.store.get_root_path())
 
         # not only local files can be selected in the file selector
         open_dialog.set_local_only(False)
@@ -106,18 +111,17 @@ class RootDirPanel:
         # show the dialog
         open_dialog.show()
 
-    def set_enable_user_input(self, window, enable):
+    def _on_enable_ui_toggled(self, sender, enable):
         self.change_btn.set_sensitive(enable)
 
-    def update_root(self, new_root_path=None):
-        if new_root_path is None:
-            # Use existing root path
-            new_root_path = self.parent_diff_tree.root_path
+    def _on_root_path_updated(self, sender, new_root):
+        if new_root is None:
+            raise RuntimeError(f'Root path cannot be None! (tree_id={self.store.tree_id})')
 
         # Update root label.
         # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html
 
-        if os.path.exists(new_root_path):
+        if os.path.exists(new_root):
             self.alert_image_box.remove(self.alert_image)
             color = ''
             pre = ''
@@ -125,8 +129,7 @@ class RootDirPanel:
             self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
             color = f"foreground='gray'"
             pre = f"<span foreground='red' size='small'>Not found:  </span>"
-        self.label.set_markup(f"{pre}<span font_family='monospace' size='medium' {color}><i>{new_root_path}</i></span>")
+        self.label.set_markup(f"{pre}<span font_family='monospace' size='medium' {color}><i>{new_root}</i></span>")
 
-        # This setter will automatically detect whether the path has changed, and handle any UI updates
-        # and signal emissions appropriately:
-        self.parent_diff_tree.root_path = new_root_path
+        return False
+

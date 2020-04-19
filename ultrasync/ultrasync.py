@@ -2,8 +2,8 @@ import sys
 import gi
 import logging
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, Gio, GObject
-from ui.diff_window import DiffWindow
+from gi.repository import GLib, Gtk, Gio
+from ui.diff_tree.diff_window import DiffWindow
 from app_config import AppConfig
 
 logger = logging.getLogger(__name__)

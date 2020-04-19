@@ -1,64 +1,28 @@
 import logging.handlers
 import threading
 import os
+import ui.actions as actions
 
 import gi
+
+from ui.diff_tree.dt_data_store import DtConfigFileStore
+
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, Gio, GObject
+from gi.repository import GLib, Gtk, GObject
 
 from stopwatch import Stopwatch
 
 from gdrive.tree_builder import GDriveTreeBuilder
 from ui.merge_preview_dialog import MergePreviewDialog
-import fmeta.fmeta_tree_cache as fmeta_tree_cache
-from fmeta.fmeta_tree_loader import FMetaTreeLoader
 from file_util import get_resource_path
 from fmeta import diff_content_first
-from ui.diff_tree import DiffTree
+from ui.diff_tree.dt_widget import DiffTree
 from ui.base_dialog import BaseDialog
-import ui.diff_tree_populator as diff_tree_populator
-
-import gdrive.client
+import ui.diff_tree.dt_populator as diff_tree_populator
 
 WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
 
-SIGNAL_DO_DIFF = 'do-diff'
-TOGGLE_UI_ENABLEMENT = 'toggle-ui-enable'
-SIGNAL_DOWNLOAD_GDRIVE_META = 'download-gdrive-meta'
-
 logger = logging.getLogger(__name__)
-
-
-class ConfigFileDataSource:
-    def __init__(self, tree_id, parent_win, status_receiver=None):
-        self.tree_id = tree_id
-        self.parent_win = parent_win
-        self.tree = None
-        self.cache = fmeta_tree_cache.from_config(config=self.parent_win.config, tree_id=self.tree_id)
-        self.config_entry = f'transient.{self.tree_id}.root_path'
-        self._root_path = self.parent_win.config.get(self.config_entry)
-        self.status_receiver = status_receiver
-
-    def get_root_path(self):
-        return self._root_path
-
-    def set_root_path(self, new_root_path):
-        if self.get_root_path() != new_root_path:
-            # Root changed. Invalidate the current tree contents
-            self.tree = None
-            self.parent_win.config.write(transient_path=self.config_entry, value=new_root_path)
-            self._root_path = new_root_path
-
-            if os.path.exists(new_root_path):
-                # Kick off the diff task. This will reload the tree as a side effect
-                # since we set self.tree = None
-                self.parent_win.emit(SIGNAL_DO_DIFF, 'from root path')
-
-    def get_fmeta_tree(self):
-        if self.tree is None:
-            tree_loader = FMetaTreeLoader(self._root_path, self.cache)
-            self.tree = tree_loader.get_current_tree(self.status_receiver)
-        return self.tree
 
 
 class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
@@ -75,24 +39,10 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
         self.add(self.content_box)
 
-        # Create signals.
-        # See: http://www.thepythontree.in/gtk3-python-custom-signals/
-        GObject.signal_new(SIGNAL_DO_DIFF, self, GObject.SIGNAL_RUN_LAST, GObject.TYPE_PYOBJECT, (GObject.TYPE_PYOBJECT,))
-
-        GObject.signal_new(TOGGLE_UI_ENABLEMENT, self, GObject.SIGNAL_RUN_LAST, GObject.TYPE_PYOBJECT, (GObject.TYPE_PYOBJECT,))
-
-        GObject.signal_new(SIGNAL_DOWNLOAD_GDRIVE_META, self, GObject.SIGNAL_RUN_LAST, GObject.TYPE_PYOBJECT, (GObject.TYPE_PYOBJECT,))
-
-        def start_async(window, arg, task_function):
-            self.emit(TOGGLE_UI_ENABLEMENT, False)
-            action_thread = threading.Thread(target=task_function)
-            action_thread.daemon = True
-            action_thread.start()
-
-        # Subscribe:
-        self.connect(SIGNAL_DO_DIFF, lambda win, arg: start_async(win, arg, self.do_tree_diff))
-        self.connect(SIGNAL_DOWNLOAD_GDRIVE_META, lambda win, arg: start_async(win, arg, self.download_gdrive_meta))
-        self.connect(TOGGLE_UI_ENABLEMENT, self.set_enable_user_input)
+        # Subscribe to signals:
+        actions.connect(signal=actions.DO_DIFF, handler=self.on_diff_requested)
+        actions.connect(signal=actions.DOWNLOAD_GDRIVE_META, handler=self.on_google_requested)
+        actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
 
         # Checkboxes:
         self.checkbox_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
@@ -123,13 +73,13 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Tree Left:
-        source_left = ConfigFileDataSource(tree_id='left_tree', parent_win=self)
-        self.diff_tree_left = DiffTree(parent_win=self, tree_id=source_left.tree_id, data_source=source_left, editable=True, sizegroups=self.sizegroups)
+        store_left = DtConfigFileStore(config=self.config, tree_id='left_tree', editable=True)
+        self.diff_tree_left = DiffTree(store=store_left, parent_win=self, sizegroups=self.sizegroups)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
-        source_right = ConfigFileDataSource(tree_id='right_tree', parent_win=self)
-        self.diff_tree_right = DiffTree(parent_win=self, tree_id=source_right.tree_id, data_source=source_right, editable=True, sizegroups=self.sizegroups)
+        store_right = DtConfigFileStore(config=self.config, tree_id='right_tree', editable=True)
+        self.diff_tree_right = DiffTree(store=store_right, parent_win=self, sizegroups=self.sizegroups)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
 
         # Bottom button panel:
@@ -137,13 +87,22 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.content_box.add(self.bottom_button_panel)
 
         diff_action_btn = Gtk.Button(label="Diff (content-first)")
-        diff_action_btn.connect("clicked", lambda widget: self.emit(SIGNAL_DO_DIFF, None))
+        diff_action_btn.connect("clicked", self.on_diff_btn_clicked)
 
         gdrive_btn = Gtk.Button(label="Download Google Drive Meta")
-        gdrive_btn.connect("clicked", lambda widget: self.emit(SIGNAL_DOWNLOAD_GDRIVE_META, None))
+        gdrive_btn.connect("clicked", self.on_goog_btn_clicked)
+
         self.replace_bottom_button_panel(diff_action_btn, gdrive_btn)
 
         # TODO: create a 'Scan' button for each input source
+
+    def on_diff_btn_clicked(self, widget):
+        logger.info('Diff btn clicked!')
+        actions.send_signal(signal=actions.DO_DIFF, sender=self)
+
+    def on_goog_btn_clicked(self, widget):
+        logger.info('Goog btn clicked!')
+        actions.send_signal(signal=actions.DOWNLOAD_GDRIVE_META, sender=self)
 
     def replace_bottom_button_panel(self, *buttons):
         for child in self.bottom_button_panel.get_children():
@@ -180,15 +139,28 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                 # Assume the dialog took care of applying the changes.
                 # Refresh the diff trees:
                 logger.debug('Refreshing the diff trees')
-                self.emit(SIGNAL_DO_DIFF, None)
+                actions.send_signal(actions.DO_DIFF, self)
         except Exception as err:
             self.show_error_ui('Merge preview failed due to unexpected error', repr(err))
             raise
 
-    def set_enable_user_input(self, window, enable):
+    def _on_enable_ui_toggled(self, sender, enable):
         """Fired by TOGGLE_UI_ENABLEMENT"""
         for button in self.bottom_button_panel.get_children():
             button.set_sensitive(enable)
+
+    def on_diff_requested(self, sender):
+        actions.disable_ui(sender=sender)
+        action_thread = threading.Thread(target=self.do_tree_diff)
+        action_thread.daemon = True
+        action_thread.start()
+
+    def on_google_requested(self, sender):
+        logger.info('Hello GOOOGLE WORLD!')
+        actions.disable_ui(sender=sender)
+        action_thread = threading.Thread(target=self.download_gdrive_meta)
+        action_thread.daemon = True
+        action_thread.start()
 
     def download_gdrive_meta(self):
         try:
@@ -196,7 +168,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             tree_builder = GDriveTreeBuilder(config=self.config, cache_path=cache_path)
             tree_builder.build(invalidate_cache=False)
         finally:
-            self.emit(TOGGLE_UI_ENABLEMENT, True)
+            actions.enable_ui(sender=self)
 
     # TODO: change DB path whenever root is changed
     def do_tree_diff(self):
@@ -209,8 +181,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             self.diff_tree_right.set_status('Waiting...')
 
             # Load trees if not loaded - may be a long operation
-            left_fmeta_tree = self.diff_tree_left.data_source.get_fmeta_tree()
-            right_fmeta_tree = self.diff_tree_right.data_source.get_fmeta_tree()
+            left_fmeta_tree = self.diff_tree_left.store.get_fmeta_tree()
+            right_fmeta_tree = self.diff_tree_right.store.get_fmeta_tree()
 
             stopwatch_diff = Stopwatch()
             diff_content_first.diff(left_fmeta_tree, right_fmeta_tree, compare_paths_also=True, use_modify_times=False)
@@ -227,12 +199,12 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                 merge_btn.connect("clicked", self.on_merge_btn_clicked)
 
                 self.replace_bottom_button_panel(merge_btn)
-                self.emit(TOGGLE_UI_ENABLEMENT, True)
+                actions.enable_ui(sender=self)
                 logger.debug(f'Redraw completed in: {stopwatch_redraw}')
 
             GLib.idle_add(change_button_bar)
         except Exception as err:
             self.show_error_ui('Diff task failed due to unexpected error', repr(err))
-            self.emit(TOGGLE_UI_ENABLEMENT, True)
+            actions.enable_ui(sender=self)
             raise
 

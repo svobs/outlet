@@ -2,7 +2,7 @@ import logging
 from stopwatch import Stopwatch
 from fmeta.fmeta import FMetaTree
 from database import MetaDatabase
-
+from ui import actions
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class NullCache:
     def has_data(self):
         return False
 
-    def load_fmeta_tree(self, root_path, status_receiver):
+    def load_fmeta_tree(self, root_path):
         return None
 
     def save_fmeta_tree(self, fmeta_tree):
@@ -52,7 +52,7 @@ class SqliteCache(NullCache):
     def _open_db(self):
         return MetaDatabase(self.db_file_path)
 
-    def load_fmeta_tree(self, root_path, status_receiver):
+    def load_fmeta_tree(self, root_path):
         fmeta_tree = FMetaTree(root_path)
 
         if not self.enable_load:
@@ -65,8 +65,8 @@ class SqliteCache(NullCache):
 
             status = f'Loading {self.tree_id} meta from cache: {self.db_file_path}'
             logger.debug(status)
-            if status_receiver:
-                status_receiver.set_status(status)
+            if self.tree_id:
+                actions.set_status(sender=self.tree_id, status_msg=status)
 
             db_file_changes = db.get_file_changes()
             if len(db_file_changes) == 0:

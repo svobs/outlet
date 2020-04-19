@@ -10,6 +10,7 @@ from fmeta.fmeta_tree_cache import NullCache
 from fmeta.tree_recurser import TreeRecurser
 import fmeta.content_hasher
 import file_util
+import ui.actions as actions
 
 logger = logging.getLogger(__name__)
 
@@ -89,12 +90,12 @@ class TreeMetaScanner(TreeRecurser):
     to generate an up-to-date FMetaTree.
     """
 
-    def __init__(self, root_path, stale_tree=None, status_receiver=None, track_changes=False):
+    def __init__(self, root_path, stale_tree=None, tree_id=None, track_changes=False):
         TreeRecurser.__init__(self, Path(stale_tree.root_path), valid_suffixes=VALID_SUFFIXES)
         # Note: this tree will be useless after we are done with it
         self.root_path = root_path
         self.stale_tree = stale_tree
-        self.status_receiver = status_receiver
+        self.tree_id = tree_id  # For sending progress updates
         self.added_count = 0
         self.updated_count = 0
         self.deleted_count = 0
@@ -115,10 +116,11 @@ class TreeMetaScanner(TreeRecurser):
         file_counter.recurse_through_dir_tree()
 
         logger.debug(f'Found {file_counter.files_to_scan} files to scan.')
-        if self.status_receiver:
+        if self.tree_id:
             status_msg = f'Scanning tree: {self.root_path}'
-            self.status_receiver.set_status(status_msg)
-            self.status_receiver.set_total(file_counter.files_to_scan)
+
+            actions.set_status(sender=self.tree_id, status_msg=status_msg)
+            actions.get_dispatcher().send(actions.SET_TOTAL_PROGRESS, sender=self.tree_id, total=file_counter.files_to_scan)
 
     def handle_file(self, file_path, category):
         """
@@ -128,7 +130,7 @@ class TreeMetaScanner(TreeRecurser):
         cache_diff_status = None
         stale_meta = None
         rebuild_fmeta = True
-        if self.stale_tree is not None:
+        if self.stale_tree:
             stale_meta = self.stale_tree.get_for_path(file_path, include_ignored=True)
 
         if stale_meta is not None:
@@ -162,7 +164,8 @@ class TreeMetaScanner(TreeRecurser):
             self._add_tracked_copy(meta, cache_diff_status)
 
         self.fresh_tree.add(meta)
-        self.status_receiver.add_progress(1)
+        if self.tree_id:
+            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=self.tree_id, amount=1)
 
     def handle_target_file_type(self, file_path):
         self.handle_file(file_path, Category.NA)
@@ -205,18 +208,20 @@ class FMetaTreeLoader:
     Encapsulates all logic needed to retrieve, update and cache a single FMetaTree.
     """
 
-    def __init__(self, tree_root_path, cache=NullCache()):
+    # TODO: decorate instead
+    def __init__(self, tree_root_path, cache=NullCache(), tree_id=None):
+        self.tree_id = tree_id
         self.tree_root_path = tree_root_path
         self.cache = cache
 
-    def get_current_tree(self, status_receiver=None):
+    def get_current_tree(self):
         # Load from cache:
         stopwatch_total = Stopwatch()
-        tree = self.cache.load_fmeta_tree(self.tree_root_path, status_receiver)
+        tree = self.cache.load_fmeta_tree(self.tree_root_path)
 
         # Directory tree scan
         logger.debug(f'Scanning: {self.tree_root_path}')
-        scanner = TreeMetaScanner(root_path=self.tree_root_path, stale_tree=tree, status_receiver=status_receiver, track_changes=False)
+        scanner = TreeMetaScanner(root_path=self.tree_root_path, stale_tree=tree, tree_id=self.tree_id, track_changes=False)
         scanner.scan()
         tree = scanner.fresh_tree
 
@@ -224,6 +229,6 @@ class FMetaTreeLoader:
         self.cache.overwrite_fmeta_tree(tree)
 
         logger.info(f'Tree loaded in: {stopwatch_total}')
-        if status_receiver:
-            status_receiver.set_status(tree.get_summary())
+        if self.tree_id:
+            actions.set_status(sender=self.tree_id, status_msg=tree.get_summary())
         return tree

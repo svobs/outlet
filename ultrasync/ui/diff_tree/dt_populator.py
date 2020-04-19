@@ -8,11 +8,11 @@ import logging
 from stopwatch import Stopwatch
 from treelib import Tree
 import file_util
-from fmeta.fmeta import FMeta, FMetaTree, Category
-from ui.diff_tree_nodes import DirNode, CategoryNode
+from fmeta.fmeta import FMeta, Category
+from ui.diff_tree.dt_model import DirNode, CategoryNode
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
+from gi.repository import GLib
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ def _build_category_change_tree(fmeta_list, category):
 def _append_dir_node(diff_tree, tree_iter, dir_name, node_data):
     """Appends a dir or cat node to the model"""
     row_values = []
-    if diff_tree.editable:
+    if diff_tree.store.editable:
         row_values.append(False)  # Checked
         row_values.append(False)  # Inconsistent
     row_values.append('folder')  # Icon
@@ -83,7 +83,7 @@ def _append_dir_node(diff_tree, tree_iter, dir_name, node_data):
 def _append_fmeta_node(diff_tree, tree_iter, file_name, fmeta: FMeta, category):
     row_values = []
 
-    if diff_tree.editable:
+    if diff_tree.store.editable:
         row_values.append(False)  # Checked
         row_values.append(False)  # Inconsistent
     row_values.append(category.name)  # Icon
@@ -148,8 +148,7 @@ def _set_expand_states_from_config(diff_tree):
     while tree_iter is not None:
         node_data = diff_tree.model[tree_iter][diff_tree.col_num_data]
         if type(node_data) == CategoryNode:
-            cfg_path = diff_tree.get_cat_config_path(node_data.category)
-            is_expand = diff_tree.parent_win.config.get(cfg_path, True)
+            is_expand = diff_tree.store.is_category_node_expanded(node_data.category)
             if is_expand:
                 tree_path = diff_tree.model.get_path(tree_iter)
                 diff_tree.treeview.expand_row(path=tree_path, open_all=True)
@@ -165,7 +164,7 @@ def repopulate_diff_tree(diff_tree):
         diff_tree: the DiffTree widget
 
     """
-    logger.debug(f'Repopulating diff tree "{diff_tree.tree_id}"')
+    logger.debug(f'Repopulating diff tree "{diff_tree.store.tree_id}"')
 
     # Wipe out existing items:
     diff_tree.model.clear()
@@ -174,7 +173,7 @@ def repopulate_diff_tree(diff_tree):
     # The docs say to do this for speed, but it doesn't seem to change things:
     diff_tree.treeview.set_model(None)
 
-    fmeta_tree = diff_tree.data_source.get_fmeta_tree()
+    fmeta_tree = diff_tree.store.get_fmeta_tree()
 
     for category in [Category.Added,
                      Category.Deleted,
@@ -189,4 +188,4 @@ def repopulate_diff_tree(diff_tree):
     # Restore user prefs for expanded nodes:
     GLib.idle_add(_set_expand_states_from_config, diff_tree)
 
-    logger.debug(f'Done repopulating diff tree "{diff_tree.tree_id}"')
+    logger.debug(f'Done repopulating diff tree "{diff_tree.store.tree_id}"')
