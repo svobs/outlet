@@ -163,22 +163,20 @@ class MetaDatabase:
         self.truncate_table(self.TABLE_GRDIVE_ROOTS)
 
     def has_gdrive_dirs(self):
-        return self.has_rows(self.TABLE_GRDIVE_DIRS) or self.has_rows(self.TABLE_GRDIVE_MULTIPLE_PARENTS) or self.has_rows(self.TABLE_GRDIVE_ROOTS)
+        return self.has_rows(self.TABLE_GRDIVE_DIRS) or self.has_rows(self.TABLE_GRDIVE_MULTIPLE_PARENTS) or\
+               self.has_rows(self.TABLE_GRDIVE_ROOTS)
 
-    def insert_gdrive_dirs(self, root_list, dir_list, ids_with_multiple_parents, overwrite=False):
+    def insert_gdrive_dirs(self, root_list, dir_list, overwrite=False):
         if not overwrite and self.has_gdrive_dirs():
             raise RuntimeError('Will not insert GDrive meta into a non-empty table!')
 
         self.drop_table_if_exists(self.TABLE_GRDIVE_ROOTS)
         self.drop_table_if_exists(self.TABLE_GRDIVE_DIRS)
-        self.drop_table_if_exists(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
         self.create_table_if_not_exist(self.TABLE_GRDIVE_ROOTS)
         self.create_table_if_not_exist(self.TABLE_GRDIVE_DIRS)
-        self.create_table_if_not_exist(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
 
         self.insert_many(self.TABLE_GRDIVE_ROOTS, root_list)
         self.insert_many(self.TABLE_GRDIVE_DIRS, dir_list)
-        self.insert_many(self.TABLE_GRDIVE_MULTIPLE_PARENTS, ids_with_multiple_parents)
 
     def get_gdrive_dirs(self):
         cursor = self.conn.cursor()
@@ -191,28 +189,22 @@ class MetaDatabase:
         cursor.execute(sql)
         dir_rows = cursor.fetchall()
 
-        cursor = self.conn.cursor()
-        sql = self.build_select(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
-        cursor.execute(sql)
-        parent_mappings = cursor.fetchall()
-        logger.debug(f'Retrieved {len(root_rows)} roots, {len(dir_rows)} dirs, and {len(parent_mappings)} items with multiple parents')
-        return root_rows, dir_rows, parent_mappings
+        logger.debug(f'Retrieved {len(root_rows)} roots and {len(dir_rows)} dirs')
+        return root_rows, dir_rows
+
+    # GDRIVE_FILES operations ---------------------
 
     def has_gdrive_files(self):
         return self.has_rows(self.TABLE_GRDIVE_FILES)
 
-    def insert_gdrive_files(self, file_list, ids_with_multiple_parents, overwrite=False):
+    def insert_gdrive_files(self, file_list, overwrite=False):
         if not overwrite and self.has_gdrive_files():
             raise RuntimeError('Will not insert GDrive meta into a non-empty table!')
 
-        # Even if overwrite=True, we will not wipe the 'multiple parents' table because it is shared with directory meta.
-        # This means that in an erroneous situation, we may have 'ghost' rows in it wasting space, but we can live with that.
         self.drop_table_if_exists(self.TABLE_GRDIVE_FILES)
         self.create_table_if_not_exist(self.TABLE_GRDIVE_FILES)
-        self.create_table_if_not_exist(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
 
         self.insert_many(self.TABLE_GRDIVE_FILES, file_list)
-        self.insert_many(self.TABLE_GRDIVE_MULTIPLE_PARENTS, ids_with_multiple_parents)
 
     def get_gdrive_files(self):
         cursor = self.conn.cursor()
@@ -220,10 +212,22 @@ class MetaDatabase:
         cursor.execute(sql)
         file_rows = cursor.fetchall()
 
+        logger.debug(f'Retrieved {len(file_rows)} file metas')
+        return file_rows
+
+    def insert_multiple_parent_mappings(self, ids_with_multiple_parents, overwrite=False):
+        if not overwrite and self.is_table(self.TABLE_GRDIVE_MULTIPLE_PARENTS):
+            raise RuntimeError('Will not insert GDrive meta into a non-empty table!')
+
+        self.drop_table_if_exists(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
+        self.create_table_if_not_exist(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
+        self.insert_many(self.TABLE_GRDIVE_MULTIPLE_PARENTS, ids_with_multiple_parents)
+
+    def get_multiple_parent_ids(self):
         # this will include extraneous stuff from parent meta
         cursor = self.conn.cursor()
         sql = self.build_select(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
         cursor.execute(sql)
-        parent_mappings = cursor.fetchall()
-        logger.debug(f'Retrieved {len(file_rows)} file metas, and {len(parent_mappings)} items with multiple parents')
-        return file_rows, parent_mappings
+        parent_ids = cursor.fetchall()
+        logger.debug(f'Retrieved {len(parent_ids)} items with multiple parents')
+        return parent_ids

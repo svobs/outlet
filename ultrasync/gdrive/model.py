@@ -30,6 +30,9 @@ class DirNode:
         else:
             self.trashed = trashed_status
 
+    def is_dir(self):
+        return True
+
     def trash_status_str(self):
         if self.trashed == Trashed.EXPLICITLY_TRASHED:
             return '[X]'
@@ -54,6 +57,9 @@ class FileNode(DirNode):
         self.size_bytes = size_bytes
         self.owner_id = owner_id
 
+    def is_dir(self):
+        return False
+
     def make_tuple(self, parent_id):
         return (self.id, self.name, parent_id, self.trashed.value, self.original_filename, self.version, self.head_revision_id,
                 self.md5, self.shared, self.created_ts, self.modified_ts, self.size_bytes, self.owner_id)
@@ -65,7 +71,7 @@ class IntermediateMeta:
         # but sometimes indicate something else screwy
         self.roots = []
 
-        # 'parent_id' -> list of its DirNode children
+        # 'parent_id' -> list of child nodes
         self.first_parent_dict = {}
 
         # List of item_ids which have more than 1 parent:

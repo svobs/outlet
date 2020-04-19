@@ -82,12 +82,14 @@ class GDriveClient:
         self.service = load_google_client_service()
         self.config = config
 
+        self.page_size = config.get('gdrive.page_size')
+
     def get_about(self):
         """
         self.service.about().get()
         Returns: info about the current user and its storage usage
         """
-        fields = 'user, storageQuota, maxUploadSize'
+        fields = 'user, storageQuota'
         about = self.service.about().get(fields=fields).execute()
         logger.debug(f'ABOUT: {about}')
 
@@ -95,8 +97,9 @@ class GDriveClient:
         display_name = user['displayName']
         photo_link = user['photoLink']
         is_me = user['me']
+        owner_id = user['permissionId']
         email_address = user['emailAddress']
-        logger.info(f'Logged in as user {display_name} <{email_address}>')
+        logger.info(f'Logged in as user {display_name} <{email_address}> (owner_id={owner_id})')
         logger.debug(f'User photo link: {photo_link}')
 
         storage_quota = about['storageQuota']
@@ -131,19 +134,18 @@ class GDriveClient:
         # TODO
         # query = f"and '{subtree_root_gd_id}' in parents"
 
-    def download_all_file_meta(self):
+    def download_all_file_meta(self, meta):
         fields = 'nextPageToken, incompleteSearch, files(id, name, parents, trashed, explicitlyTrashed, version, createdTime, ' \
                  'modifiedTime, shared, owners, originalFilename, md5Checksum, size, headRevisionId, shortcutDetails, mimeType)'
         # Google Drive only; not app data or Google Photos:
         spaces = 'drive'
-        page_size = 1000  # TODO
 
         logger.info('Getting list of ALL NON DIRS in Google Drive...')
 
         def request():
             logger.debug(f'Sending request for files, page {request.page_count}...')
             # Call the Drive v3 API
-            response = self.service.files().list(q=NON_FOLDERS_ONLY, fields=fields, spaces=spaces, pageSize=page_size,
+            response = self.service.files().list(q=NON_FOLDERS_ONLY, fields=fields, spaces=spaces, pageSize=self.page_size,
                                                  pageToken=request.next_token).execute()
             request.page_count += 1
             return response
@@ -151,7 +153,6 @@ class GDriveClient:
         request.next_token = None
         item_count = 0
 
-        meta = IntermediateMeta()
         stopwatch_retrieval = Stopwatch()
         owner_dict = {}
         mime_types = {}
@@ -218,7 +219,7 @@ class GDriveClient:
 
         return meta
 
-    def download_directory_structure(self):
+    def download_directory_structure(self, meta):
         """
         Downloads all of the directory nodes from the user's GDrive and puts them into a
         IntermediateMeta object.
@@ -226,7 +227,6 @@ class GDriveClient:
         Assume 99.9% of items will have only one parent, and perhaps 0.001% will have no parent.
         he below solution optimizes with these assumptions.
         """
-        meta = IntermediateMeta()
 
         # Need to make a special call to get the root node 'My Drive'. This node will not be included
         # in the "list files" call:
@@ -236,14 +236,13 @@ class GDriveClient:
         fields = 'nextPageToken, incompleteSearch, files(id, name, parents, trashed, explicitlyTrashed)'
         # Google Drive only; not app data or Google Photos:
         spaces = 'drive'
-        page_size = 1000  # TODO
 
         logger.info('Getting list of ALL directories in Google Drive...')
 
         def request():
             logger.debug(f'Sending request for dirs, page {request.page_count}...')
             # Call the Drive v3 API
-            response = self.service.files().list(q=FOLDERS_ONLY, fields=fields, spaces=spaces, pageSize=page_size,
+            response = self.service.files().list(q=FOLDERS_ONLY, fields=fields, spaces=spaces, pageSize=self.page_size,
                                                  pageToken=request.next_token).execute()
             request.page_count += 1
             return response

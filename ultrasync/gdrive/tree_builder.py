@@ -10,17 +10,20 @@ logger = logging.getLogger(__name__)
 
 
 def build_dir_trees(meta: IntermediateMeta):
-    rows = []
+    rows = []  # TODO: tree struct
+
+
+    # names = []
+    # for root in meta.roots:
+    #     names.append(root.name)
+    # logger.debug(f'Root nodes: {names}')
 
     total = 0
 
-    names = []
-    for root in meta.roots:
-        names.append(root.name)
-    logger.debug(f'Root nodes: {names}')
-
     for root_node in meta.roots:
         tree_size = 0
+        file_count = 0
+        dir_count = 0
         logger.debug(f'Building tree for GDrive root: [{root_node.id}] {root_node.name}')
         q = Queue()
         q.put((root_node, ''))
@@ -34,71 +37,93 @@ def build_dir_trees(meta: IntermediateMeta):
             total += 1
 
             child_list = meta.first_parent_dict.get(item.id, None)
+            if item.is_dir():
+                dir_count += 1
+            else:
+                file_count += 1
+                if child_list:
+                    logger.error(f'Item is marked as a FILE but has children! [{root_node.id}] {root_node.name}')
+
             if child_list:
                 for child in child_list:
                     q.put((child, path))
 
-        logger.debug(f'Root "{root_node.name}" has {tree_size} nodes')
+        logger.debug(f'Root "{root_node.name}" has {tree_size} nodes ({file_count} files, {dir_count} dirs)')
 
     logger.debug(f'Finished with {total} items!')
 
 
 class GDriveTreeBuilder:
-    def __init__(self, config, cache_path, invalidate_cache=False):
+    def __init__(self, config, cache_path):
         self.config = config
         self.gdrive_client = GDriveClient(self.config)
-        self.invalidate_cache = invalidate_cache
         if cache_path:
             self.cache = MetaDatabase(cache_path)
         else:
             self.cache = None
 
-    def build(self):
-        # self.gdrive_client.get_about()
-        # cache_has_data = self.cache.has_gdrive_dirs()
-        #
-        # # Load data from either cache or Google:
-        # if self.cache and cache_has_data and not self.invalidate_cache:
-        #     meta = self.load_dirs_from_cache()
-        # else:
-        #     meta = self.gdrive_client.download_directory_structure()
-        #
-        # # Save to cache if configured:
-        # if self.cache and (not cache_has_data or self.invalidate_cache):
-        #     self.save_dirs_to_cache(meta=meta, overwrite=True)
-        #
-        # # Finally, build the dir tree:
-        # build_dir_trees(meta)
-
-        meta = self.gdrive_client.download_all_file_meta()
-        self.save_files_to_cache(meta=meta, overwrite=self.invalidate_cache)
-
-    def save_files_to_cache(self, meta, overwrite):
-        # Convert to tuples for insert into DB:
-        file_rows = []
-        for parent_id, item_list in meta.first_parent_dict.items():
-            for item in item_list:
-                if parent_id:
-                    file_rows.append(item.make_tuple(parent_id))
-                else:
-                    raise RuntimeError(f'Found root in first_parent_dict: {item}')
-
-        for item in meta.roots:
-            logger.error(f'Found root in files: [{item.id}] name="{item.name}" version={item.version} {item.trashed.name}')
-            # Insert anyway. Figure out later
-            file_rows.append(item.make_tuple(None))
-
-        self.cache.insert_gdrive_files(file_rows, meta.ids_with_multiple_parents, overwrite)
-
-        return meta
-
-    def load_files_from_cache(self):
-        file_rows, ids_with_multiple_parents = self.cache.get_gdrive_files()
+    def build(self, invalidate_cache=False):
+        self.gdrive_client.get_about()
+        cache_has_data = self.cache.has_gdrive_dirs() or self.cache.has_gdrive_files()
 
         meta = IntermediateMeta()
 
-        for item_id, item_name, parent_id, item_trashed, original_filename, version, head_revision_id, md5, shared, created_ts, \
-                modified_ts, size_bytes_str, owner_id in file_rows:
+        # Load data from either cache or Google:
+        if self.cache and cache_has_data and not invalidate_cache:
+            self.load_from_cache(meta)
+        else:
+            self.gdrive_client.download_directory_structure(meta)
+            self.gdrive_client.download_all_file_meta(meta)
+
+        # Save to cache if configured:
+        if self.cache and (not cache_has_data or invalidate_cache):
+            self.save_to_cache(meta=meta, overwrite=True)
+
+        # Finally, build the dir tree:
+        build_dir_trees(meta)
+
+    # TODO: filter by trashed status
+    # TODO: filter by shared status
+    # TODO: filter by different owner
+
+    def save_to_cache(self, meta, overwrite):
+        # Convert to tuples for insert into DB:
+        dir_rows = []
+        file_rows = []
+        root_rows = []
+        for parent_id, item_list in meta.first_parent_dict.items():
+            for item in item_list:
+                if item.is_dir():
+                    dir_rows.append((item.id, item.name, parent_id, item.trashed.value))
+                else:
+                    file_rows.append(item.make_tuple(parent_id))
+
+        for item in meta.roots:
+            # Currently only parentless dirs are stored in this table. Parentless files are stored
+            # with the other files
+            root_rows.append((item.id, item.name, item.trashed.value))
+
+        self.cache.insert_gdrive_dirs(root_rows, dir_rows, overwrite)
+
+        self.cache.insert_gdrive_files(file_rows, overwrite)
+
+        self.cache.insert_multiple_parent_mappings(meta.ids_with_multiple_parents, overwrite)
+
+    def load_from_cache(self, meta):
+
+        # DIRs:
+        root_rows, dir_rows = self.cache.get_gdrive_dirs()
+
+        for item_id, item_name, item_trashed in root_rows:
+            meta.add_root(DirNode(item_id, item_name, trashed_status=int(item_trashed)))
+
+        for item_id, item_name, parent_id, item_trashed in dir_rows:
+            meta.add_to_parent_dict(parent_id, DirNode(item_id, item_name, trashed_status=int(item_trashed)))
+
+        # FILES:
+        file_rows = self.cache.get_gdrive_files()
+        for item_id, item_name, parent_id, item_trashed, original_filename, version, head_revision_id, md5, shared, \
+                created_ts, modified_ts, size_bytes_str, owner_id in file_rows:
             size_bytes = None if size_bytes_str is None else int(size_bytes_str)
             file_node = FileNode(item_id=item_id, item_name=item_name, original_filename=original_filename,
                                  trashed_status=int(item_trashed), version=int(version),
@@ -107,39 +132,5 @@ class GDriveTreeBuilder:
                                  owner_id=owner_id)
             meta.add_to_parent_dict(parent_id, file_node)
 
-        meta.ids_with_multiple_parents = ids_with_multiple_parents
-
-        return meta
-
-    def save_dirs_to_cache(self, meta, overwrite):
-        # Convert to tuples for insert into DB:
-        root_rows = []
-        dir_rows = []
-        for parent_id, item_list in meta.first_parent_dict.items():
-            for item in item_list:
-                if parent_id:
-                    dir_rows.append((item.id, item.name, parent_id, item.trashed.value))
-                else:
-                    raise RuntimeError(f'Found root in first_parent_dict: {item}')
-
-        for root in meta.roots:
-            root_rows.append((root.id, root.name, root.trashed.value))
-
-        self.cache.insert_gdrive_dirs(root_rows, dir_rows, meta.ids_with_multiple_parents, overwrite)
-
-        return meta
-
-    def load_dirs_from_cache(self):
-        root_rows, dir_rows, ids_with_multiple_parents = self.cache.get_gdrive_dirs()
-
-        meta = IntermediateMeta()
-
-        for item_id, item_name, item_trashed in root_rows:
-            meta.add_root(DirNode(item_id, item_name, trashed_status=int(item_trashed)))
-
-        for item_id, item_name, parent_id, item_trashed in dir_rows:
-            meta.add_to_parent_dict(parent_id, DirNode(item_id, item_name, trashed_status=int(item_trashed)))
-
-        meta.ids_with_multiple_parents = ids_with_multiple_parents
-
-        return meta
+        # MISC:
+        meta.ids_with_multiple_parents = self.cache.get_multiple_parent_ids()
