@@ -42,7 +42,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
         store = SimpleDataStore(tree_id='merge_tree', fmeta_tree=self.fmeta_tree)
         self.diff_tree = DiffTree(store=store, parent_win=self)
-        self.diff_tree.set_status(self.fmeta_tree.get_summary())
+        actions.set_status(sender=store.tree_id, status_msg=self.fmeta_tree.get_summary())
         self.content_box.pack_start(self.diff_tree.content_box, True, True, 0)
 
         diff_tree_populator.repopulate_diff_tree(self.diff_tree)
