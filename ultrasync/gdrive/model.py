@@ -48,7 +48,7 @@ class FileNode(DirNode):
                  modified_ts, size_bytes, owner_id, trashed=False, explicitly_trashed=False,
                  trashed_status=Trashed.NOT_TRASHED):
         super().__init__(item_id, item_name, trashed, explicitly_trashed, trashed_status)
-        self.original_filename = original_filename
+        self.original_filename = original_filename # TODO: remove
         self.version = version
         self.head_revision_id = head_revision_id
         self.md5 = md5

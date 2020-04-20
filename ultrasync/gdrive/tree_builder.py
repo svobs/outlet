@@ -5,18 +5,13 @@ from queue import Queue
 from database import MetaDatabase
 from gdrive.client import GDriveClient
 from gdrive.model import DirNode, FileNode, IntermediateMeta, Trashed
+from fmeta.fmeta import FMetaTree, FMeta
 
 logger = logging.getLogger(__name__)
 
 
-def build_dir_trees(meta: IntermediateMeta):
-    rows = []  # TODO: tree struct
-
-
-    # names = []
-    # for root in meta.roots:
-    #     names.append(root.name)
-    # logger.debug(f'Root nodes: {names}')
+def build_trees(meta: IntermediateMeta):
+    trees = {}
 
     total_items = 0
     count_shared = 0
@@ -25,6 +20,10 @@ def build_dir_trees(meta: IntermediateMeta):
     count_no_md5 = 0
 
     for root_node in meta.roots:
+        fmeta_tree = FMetaTree('/')
+        assert trees.get(root_node.name, None) is None
+        trees[root_node.name] = fmeta_tree
+
         count_tree_items = 0
         count_tree_files = 0
         count_tree_dirs = 0
@@ -35,7 +34,9 @@ def build_dir_trees(meta: IntermediateMeta):
         while not q.empty():
             item, parent_path = q.get()
             path = os.path.join(parent_path, item.name)
-            rows.append((item, path))
+            # if not item.is_dir():
+            #     gmeta = GMeta(item) # TODO
+            #     fmeta_tree.add(gmeta)
             # logger.debug(f'[{item.id}] {item.trash_status_str()} {path}/')
             count_tree_items += 1
             total_items += 1
@@ -97,7 +98,7 @@ class GDriveTreeBuilder:
             self.save_to_cache(meta=meta, overwrite=True)
 
         # Finally, build the dir tree:
-        build_dir_trees(meta)
+        build_trees(meta)
 
     # TODO: filter by trashed status
     # TODO: filter by shared status

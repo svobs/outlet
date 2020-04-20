@@ -3,27 +3,18 @@ import file_util
 import logging
 import subprocess
 import ui.actions as actions
+import ui.assets
 from fmeta.fmeta import FMeta, FMetaTree, Category
 from fmeta.fmeta_tree_loader import TreeMetaScanner
 from ui.root_dir_panel import RootDirPanel
 from ui.diff_tree.dt_model import DirNode, CategoryNode
 import gi
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
 from ui.progress_meter import ProgressMeter
 
 logger = logging.getLogger(__name__)
-
-
-def _build_icons(icon_size):
-    icons = dict()
-    icons['folder'] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'resources/Folder-icon-{icon_size}px.png'))
-    icons[Category.Added.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'resources/Document-Add-icon-{icon_size}px.png'))
-    icons[Category.Deleted.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'resources/Document-Delete-icon-{icon_size}px.png'))
-    icons[Category.Moved.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
-    icons[Category.Updated.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
-    icons[Category.Ignored.name] = GdkPixbuf.Pixbuf.new_from_file(file_util.get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
-    return icons
 
 
 def _build_info_bar():
@@ -69,9 +60,7 @@ class DiffTree:
 
         self.show_change_ts = parent_win.config.get('display.diff_tree.show_change_ts')
 
-        icon_size = parent_win.config.get('display.diff_tree.icon_size')
         self.datetime_format = parent_win.config.get('display.diff_tree.datetime_format')
-        self.icons = _build_icons(icon_size=icon_size)
 
         col_count = 0
         col_types = []
@@ -292,7 +281,7 @@ class DiffTree:
 
     # For displaying icons
     def get_tree_cell_pixbuf(self, col, cell, model, iter, user_data):
-        cell.set_property('pixbuf', self.icons[model.get_value(iter, self.col_num_icon)])
+        cell.set_property('pixbuf', ui.assets.get_icon(model.get_value(iter, self.col_num_icon)))
 
     # For displaying text next to icon
     def get_tree_cell_text(self, col, cell, model, iter, user_data):
@@ -367,7 +356,6 @@ class DiffTree:
 
         """Fired when an item is double-clicked or when an item is selected and Enter is pressed"""
         node_data = self.model[path][self.col_num_data]
-        xdg_open = False
         if type(node_data) == CategoryNode:
             # Special handling for categories: toggle collapse state
             if tree_view.row_expanded(path):
@@ -384,12 +372,9 @@ class DiffTree:
                 #     logger.debug(f'File not found: {file_path}')
                 #     # File is an 'added' node or some such. Open the old one:
                 #     file_path = os.path.join(self.root_path, node_data.prev_path)
-                xdg_open = True
+                self.call_xdg_open(file_path)
         else:
             raise RuntimeError('Unexpected data element')
-
-        if xdg_open:
-            self.call_xdg_open(file_path)
 
     def _on_cell_checkbox_toggled(self, widget, path):
         """Called when checkbox in treeview is toggled"""

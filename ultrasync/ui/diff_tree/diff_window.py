@@ -16,7 +16,7 @@ from gdrive.tree_builder import GDriveTreeBuilder
 from ui.merge_preview_dialog import MergePreviewDialog
 from file_util import get_resource_path
 from fmeta import diff_content_first
-from ui.diff_tree.dt_widget import DiffTree
+from ui.diff_tree.dt import DiffTree
 from ui.base_dialog import BaseDialog
 import ui.diff_tree.dt_populator as diff_tree_populator
 

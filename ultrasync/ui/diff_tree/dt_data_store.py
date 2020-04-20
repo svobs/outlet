@@ -1,4 +1,3 @@
-import os
 from fmeta import fmeta_tree_cache
 from fmeta.fmeta import Category
 from fmeta.fmeta_tree_loader import FMetaTreeLoader, TreeMetaScanner

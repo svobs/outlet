@@ -5,11 +5,13 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gio
 from ui.diff_tree.diff_window import DiffWindow
 from app_config import AppConfig
+import ui.assets
 
 logger = logging.getLogger(__name__)
 
 
 class UltrasyncApplication(Gtk.Application):
+
     """Main application.
     See: https://athenajc.gitbooks.io/python-gtk-3-api/content/gtk-group/gtkapplication.html"""
     def __init__(self, config):
@@ -114,6 +116,9 @@ def main():
     logger.debug(f'Main args: {sys.argv}')
 
     configure_logging(config)
+
+    ui.assets.init(config)
+
     application = UltrasyncApplication(config)
     exit_status = application.run(sys.argv)
     sys.exit(exit_status)
