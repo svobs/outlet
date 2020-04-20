@@ -73,19 +73,6 @@ class DiffTree:
         self.datetime_format = parent_win.config.get('display.diff_tree.datetime_format')
         self.icons = _build_icons(icon_size=icon_size)
 
-        actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
-
-        # TODO: Holy shit this is unnecessarily complicated
-        def on_progress_made(this, progress, total):
-            logger.info(f'Hello! Progress made: {progress}')
-            self.set_status(f'Scanning file {progress} of {total}')
-
-        self.progress_meter = ProgressMeter(on_progress_made, self.parent_win.config, self)
-
-        actions.connect(actions.SET_TOTAL_PROGRESS, self.on_set_total_progress, self.store.tree_id)
-        actions.connect(actions.PROGRESS_MADE, self.on_progress_made, self.store.tree_id)
-        actions.connect(actions.SET_STATUS, self.on_set_status, self.store.tree_id)
-
         col_count = 0
         col_types = []
         self.col_names = []
@@ -148,27 +135,7 @@ class DiffTree:
         if self.sizegroups is not None and self.sizegroups.get('tree_status') is not None:
             self.sizegroups['tree_status'].add_widget(status_bar_container)
 
-    # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
-    def on_set_status(self, sender, status_msg):
-        self.set_status(status_msg)
-
-    def on_set_total_progress(self, sender, total):
-        self.progress_meter.set_total(total)
-
-    def on_progress_made(self, sender, progress):
-        self.progress_meter.add_progress(progress)
-
-
-    def set_status(self, status_msg):
-        GLib.idle_add(lambda: self.status_bar.set_label(status_msg))
-
-    @property
-    def root_path(self):
-        return self.store.get_root_path()
-
-    def _on_enable_ui_toggled(self, sender, enable):
-        # TODO!
-        pass
+        self.add_listeners()
 
     def _compare_fmeta(self, model, row1, row2, compare_field_func):
         """
@@ -216,7 +183,7 @@ class DiffTree:
 
         if self.store.editable:
             renderer = Gtk.CellRendererToggle()
-            renderer.connect("toggled", self.on_cell_checkbox_toggled)
+            renderer.connect("toggled", self._on_cell_checkbox_toggled)
             renderer.set_fixed_size(width=-1, height=row_height)
             px_column.pack_start(renderer, False)
             px_column.add_attribute(renderer, 'active', self.col_num_checked)
@@ -289,7 +256,7 @@ class DiffTree:
         column.set_sort_column_id(self.col_num_modification_ts)
 
         column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
-        #column.set_fixed_width(50)
+        # column.set_fixed_width(50)
         column.set_min_width(50)
         # column.set_max_width(300)
         column.set_expand(False)
@@ -309,7 +276,7 @@ class DiffTree:
             column.set_sort_column_id(self.col_num_change_ts)
 
             column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
-            #column.set_fixed_width(50)
+            # column.set_fixed_width(50)
             column.set_min_width(50)
             # column.set_max_width(300)
             column.set_expand(False)
@@ -319,34 +286,73 @@ class DiffTree:
 
             model.set_sort_func(self.col_num_change_ts, self._compare_fmeta, lambda f: f.change_ts)
 
-        def on_tree_selection_changed(selection):
-            model, treeiter = selection.get_selected_rows()
-            if treeiter is not None and len(treeiter) == 1:
-                meta = model[treeiter][self.col_num_data]
-                if isinstance(meta, FMeta):
-                    logger.debug(f'User selected cat="{meta.category.name}" sig="{meta.signature}" path="{meta.file_path}" prev_path="{meta.prev_path}"')
-                else:
-                    logger.debug(f'User selected {model[treeiter][self.col_num_name]}')
-
         select = treeview.get_selection()
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
-        # select.connect("changed", on_tree_selection_changed)
-        treeview.connect("row-activated", self.on_row_activated) # TODO
-        treeview.connect('button-press-event', self.on_tree_button_press)
-        treeview.connect('key-press-event', self.on_key_press)
-        treeview.connect('row-expanded', self.on_toggle_row_expanded_state, True)
-        treeview.connect('row-collapsed', self.on_toggle_row_expanded_state, False)
-
         return treeview
 
-    def call_xdg_open(self, file_path):
-        if os.path.exists(file_path):
-            logger.info(f'Calling xdg-open for: {file_path}')
-            subprocess.check_call(["xdg-open", file_path])
-        else:
-            self.parent_win.show_error_msg(f'Cannot open file', f'File not found: {file_path}')
+    # For displaying icons
+    def get_tree_cell_pixbuf(self, col, cell, model, iter, user_data):
+        cell.set_property('pixbuf', self.icons[model.get_value(iter, self.col_num_icon)])
 
-    def on_row_activated(self, tree_view, path, col):
+    # For displaying text next to icon
+    def get_tree_cell_text(self, col, cell, model, iter, user_data):
+        cell.set_property('text', model.get_value(iter, self.col_num_name))
+
+    @property
+    def root_path(self):
+        return self.store.get_root_path()
+
+    def _set_status(self, status_msg):
+        GLib.idle_add(lambda: self.status_bar.set_label(status_msg))
+
+    # --- LISTENERS ---
+
+    def add_listeners(self):
+        actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
+
+        # TODO: Holy shit this is unnecessarily complicated. Clean this up
+        def on_progress_made(this, progress, total):
+            logger.info(f'Hello! Progress made: {progress}')
+            self._set_status(f'Scanning file {progress} of {total}')
+
+        self.progress_meter = ProgressMeter(on_progress_made, self.parent_win.config, self)
+
+        actions.connect(actions.SET_TOTAL_PROGRESS, self._on_set_total_progress, self.store.tree_id)
+        actions.connect(actions.PROGRESS_MADE, self._on_progress_made, self.store.tree_id)
+        actions.connect(actions.SET_STATUS, self._on_set_status, self.store.tree_id)
+
+        self.treeview.connect("row-activated", self._on_row_activated)
+        self.treeview.connect('button-press-event', self._on_tree_button_press)
+        self.treeview.connect('key-press-event', self._on_key_press)
+        self.treeview.connect('row-expanded', self._on_toggle_row_expanded_state, True)
+        self.treeview.connect('row-collapsed', self._on_toggle_row_expanded_state, False)
+
+        # select.connect("changed", self._on_tree_selection_changed)
+
+    # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
+    def _on_set_status(self, sender, status_msg):
+        self._set_status(status_msg)
+
+    def _on_set_total_progress(self, sender, total):
+        self.progress_meter.set_total(total)
+
+    def _on_progress_made(self, sender, progress):
+        self.progress_meter.add_progress(progress)
+
+    def _on_enable_ui_toggled(self, sender, enable):
+        # TODO!
+        pass
+
+    def _on_tree_selection_changed(self, selection):
+        model, treeiter = selection.get_selected_rows()
+        if treeiter is not None and len(treeiter) == 1:
+            meta = model[treeiter][self.col_num_data]
+            if isinstance(meta, FMeta):
+                logger.debug(f'User selected cat="{meta.category.name}" sig="{meta.signature}" path="{meta.file_path}" prev_path="{meta.prev_path}"')
+            else:
+                logger.debug(f'User selected {model[treeiter][self.col_num_name]}')
+
+    def _on_row_activated(self, tree_view, path, col):
         selection = self.treeview.get_selection()
         model, treeiter = selection.get_selected_rows()
         if not treeiter:
@@ -385,7 +391,7 @@ class DiffTree:
         if xdg_open:
             self.call_xdg_open(file_path)
 
-    def on_cell_checkbox_toggled(self, widget, path):
+    def _on_cell_checkbox_toggled(self, widget, path):
         """Called when checkbox in treeview is toggled"""
         data_node = self.model[path][self.col_num_data]
         if data_node.category == Category.Ignored:
@@ -431,7 +437,7 @@ class DiffTree:
                 self.model[tree_iter][self.col_num_inconsistent] = has_inconsistent or (has_checked and has_unchecked)
                 self.model[tree_iter][self.col_num_checked] = has_checked and not has_unchecked and not has_inconsistent
 
-    def on_toggle_row_expanded_state(self, tree_view, tree_path, col, is_expanded):
+    def _on_toggle_row_expanded_state(self, tree_view, tree_path, col, is_expanded):
         node_data = self.model[tree_path][self.col_num_data]
         if type(node_data) == CategoryNode:
             self.store.set_category_node_expanded_state(node_data.category, is_expanded)
@@ -485,7 +491,7 @@ class DiffTree:
         menu.show_all()
         return menu
 
-    def on_key_press(self, widget, event, user_data=None):
+    def _on_key_press(self, widget, event, user_data=None):
         """Fired when a key is pressed"""
 
         # Note: if the key sequence matches a Gnome keyboard shortcut, it will grab part
@@ -527,7 +533,7 @@ class DiffTree:
         else:
             return True
 
-    def on_tree_button_press(self, tree_view, event):
+    def _on_tree_button_press(self, tree_view, event):
         """Used for displaying context menu on right click"""
         if event.button == 3: # right click
             tree_path, col, cell_x, cell_y = tree_view.get_path_at_pos(int(event.x), int(event.y))
@@ -544,97 +550,9 @@ class DiffTree:
             # Suppress selection event:
             return True
 
-    def get_abs_path(self, node_data):
-        """ Utility function: joins the two paths together into an absolute path and returns it"""
-        return self.root_path if not node_data.file_path else os.path.join(self.root_path, node_data.file_path)
+    # --- END of LISTENERS ---
 
-    def get_abs_file_path(self, tree_path: Gtk.TreePath):
-        """ Utility function: get absolute file path from a TreePath """
-        node_data = self.model[tree_path][self.col_num_data]
-        assert node_data is not None
-        return self.get_abs_path(node_data)
-
-    def resync_subtree(self, tree_path):
-        # Construct a FMetaTree from the UI nodes: this is the 'stale' subtree.
-        stale_tree = self.get_subtree_as_tree(tree_path)
-        fresh_tree = None
-        # Master tree contains all FMeta in this widget
-        master_tree = self.data_source.get_fmeta_tree()
-
-        # If the path no longer exists at all, then it's simple: the entire stale_tree should be deleted.
-        if os.path.exists(stale_tree.root_path):
-            # But if there are still files present: use FMetaTreeLoader to re-scan subtree
-            # and construct a FMetaTree from the 'fresh' data
-            logger.debug(f'Scanning: {stale_tree.root_path}')
-            scanner = TreeMetaScanner(root_path=stale_tree.root_path, stale_tree=stale_tree, tree_id=self.tree_id, track_changes=False)
-            fresh_tree = scanner.scan()
-
-        # TODO: files in different categories are showing up as 'added' in the scan
-        # TODO: should just be removed then added below, but brainstorm how to optimize this
-
-        for fmeta in stale_tree.get_all():
-            # Anything left in the stale tree no longer exists. Delete it from master tree
-            # NOTE: stale tree will contain old FMeta which is from the master tree, and
-            # thus does need to have its file path adjusted.
-            # This seems awfully fragile...
-            old = master_tree.remove(file_path=fmeta.file_path, sig=fmeta.signature, ok_if_missing=False)
-            if old:
-                logger.debug(f'Deleted from master tree: sig={old.signature} path={old.file_path}')
-            else:
-                logger.warning(f'Could not delete "stale" from master (not found): sig={fmeta.signature} path={fmeta.file_path}')
-
-        if fresh_tree:
-            for fmeta in fresh_tree.get_all():
-                # Anything in the fresh tree needs to be either added or updated in the master tree.
-                # For the 'updated' case, remove the old FMeta from the file mapping and any old signatures.
-                # Note: Need to adjust file path here, because these FMetas were created with a different root
-                abs_path = os.path.join(fresh_tree.root_path, fmeta.file_path)
-                fmeta.file_path = file_util.strip_root(abs_path, master_tree.root_path)
-                old = master_tree.remove(file_path=fmeta.file_path, sig=fmeta.signature, remove_old_sig=True, ok_if_missing=True)
-                if old:
-                    logger.debug(f'Removed from master tree: sig={old.signature} path={old.file_path}')
-                else:
-                    logger.debug(f'Could not delete "fresh" from master (not found): sig={fmeta.signature} path={fmeta.file_path}')
-                master_tree.add(fmeta)
-                logger.debug(f'Added to master tree: sig={fmeta.signature} path={fmeta.file_path}')
-
-        # 3. Then re-diff and re-populate
-
-        # TODO: Need to introduce a signalling mechanism for the other tree
-        logger.info('TODO: re-diff and re-populate!')
-
-    def show_in_nautilus(self, file_path):
-        if os.path.exists(file_path):
-            logger.info(f'Opening in Nautilus: {file_path}')
-            subprocess.check_call(["nautilus", "--browser", file_path])
-        else:
-            self.parent_win.show_error_msg('Cannot open file in Nautilus', f'File not found: {file_path}')
-
-    def recurse_over_tree(self, tree_iter, action_func):
-        """
-        Performs the action_func on the node at this tree_iter AND all of its following
-        siblings, and all of their descendants
-        """
-        while tree_iter is not None:
-            action_func(tree_iter)
-            if self.model.iter_has_child(tree_iter):
-                child_iter = self.model.iter_children(tree_iter)
-                self.recurse_over_tree(child_iter, action_func)
-            tree_iter = self.model.iter_next(tree_iter)
-
-    def do_for_descendants(self, tree_path, action_func):
-        tree_iter = self.model.get_iter(tree_path)
-        child_iter = self.model.iter_children(tree_iter)
-        if child_iter:
-            self.recurse_over_tree(child_iter, action_func)
-
-    def do_for_self_and_descendants(self, tree_path, action_func):
-        tree_iter = self.model.get_iter(tree_path)
-        action_func(tree_iter)
-
-        child_iter = self.model.iter_children(tree_iter)
-        if child_iter:
-            self.recurse_over_tree(child_iter, action_func)
+    # --- ACTIONS ---
 
     def delete_single_file(self, file_path: str, tree_path: Gtk.TreePath):
         """ Param file_path must be an absolute path"""
@@ -718,13 +636,108 @@ class DiffTree:
         finally:
             self.resync_subtree(tree_path)
 
-    # For displaying icons
-    def get_tree_cell_pixbuf(self, col, cell, model, iter, user_data):
-        cell.set_property('pixbuf', self.icons[model.get_value(iter, self.col_num_icon)])
+    def call_xdg_open(self, file_path):
+        if os.path.exists(file_path):
+            logger.info(f'Calling xdg-open for: {file_path}')
+            subprocess.check_call(["xdg-open", file_path])
+        else:
+            self.parent_win.show_error_msg(f'Cannot open file', f'File not found: {file_path}')
 
-    # For displaying text next to icon
-    def get_tree_cell_text(self, col, cell, model, iter, user_data):
-        cell.set_property('text', model.get_value(iter, self.col_num_name))
+    def show_in_nautilus(self, file_path):
+        if os.path.exists(file_path):
+            logger.info(f'Opening in Nautilus: {file_path}')
+            subprocess.check_call(["nautilus", "--browser", file_path])
+        else:
+            self.parent_win.show_error_msg('Cannot open file in Nautilus', f'File not found: {file_path}')
+
+    # --- END ACTIONS ---
+
+    # --- MODEL UTIL FUNCTIONS --
+
+    def get_abs_path(self, node_data):
+        """ Utility function: joins the two paths together into an absolute path and returns it"""
+        return self.store.get_root_path() if not node_data.file_path else os.path.join(self.store.get_root_path(), node_data.file_path)
+
+    def get_abs_file_path(self, tree_path: Gtk.TreePath):
+        """ Utility function: get absolute file path from a TreePath """
+        node_data = self.model[tree_path][self.col_num_data]
+        assert node_data is not None
+        return self.get_abs_path(node_data)
+
+    def resync_subtree(self, tree_path):
+        # Construct a FMetaTree from the UI nodes: this is the 'stale' subtree.
+        stale_tree = self.get_subtree_as_tree(tree_path)
+        fresh_tree = None
+        # Master tree contains all FMeta in this widget
+        master_tree = self.store.get_fmeta_tree()
+
+        # If the path no longer exists at all, then it's simple: the entire stale_tree should be deleted.
+        if os.path.exists(stale_tree.root_path):
+            # But if there are still files present: use FMetaTreeLoader to re-scan subtree
+            # and construct a FMetaTree from the 'fresh' data
+            logger.debug(f'Scanning: {stale_tree.root_path}')
+            scanner = TreeMetaScanner(root_path=stale_tree.root_path, stale_tree=stale_tree, tree_id=self.store.tree_id, track_changes=False)
+            fresh_tree = scanner.scan()
+
+        # TODO: files in different categories are showing up as 'added' in the scan
+        # TODO: should just be removed then added below, but brainstorm how to optimize this
+
+        for fmeta in stale_tree.get_all():
+            # Anything left in the stale tree no longer exists. Delete it from master tree
+            # NOTE: stale tree will contain old FMeta which is from the master tree, and
+            # thus does need to have its file path adjusted.
+            # This seems awfully fragile...
+            old = master_tree.remove(file_path=fmeta.file_path, sig=fmeta.signature, ok_if_missing=False)
+            if old:
+                logger.debug(f'Deleted from master tree: sig={old.signature} path={old.file_path}')
+            else:
+                logger.warning(f'Could not delete "stale" from master (not found): sig={fmeta.signature} path={fmeta.file_path}')
+
+        if fresh_tree:
+            for fmeta in fresh_tree.get_all():
+                # Anything in the fresh tree needs to be either added or updated in the master tree.
+                # For the 'updated' case, remove the old FMeta from the file mapping and any old signatures.
+                # Note: Need to adjust file path here, because these FMetas were created with a different root
+                abs_path = os.path.join(fresh_tree.root_path, fmeta.file_path)
+                fmeta.file_path = file_util.strip_root(abs_path, master_tree.root_path)
+                old = master_tree.remove(file_path=fmeta.file_path, sig=fmeta.signature, remove_old_sig=True, ok_if_missing=True)
+                if old:
+                    logger.debug(f'Removed from master tree: sig={old.signature} path={old.file_path}')
+                else:
+                    logger.debug(f'Could not delete "fresh" from master (not found): sig={fmeta.signature} path={fmeta.file_path}')
+                master_tree.add(fmeta)
+                logger.debug(f'Added to master tree: sig={fmeta.signature} path={fmeta.file_path}')
+
+        # 3. Then re-diff and re-populate
+
+        # TODO: Need to introduce a signalling mechanism for the other tree
+        logger.info('TODO: re-diff and re-populate!')
+
+    def recurse_over_tree(self, tree_iter, action_func):
+        """
+        Performs the action_func on the node at this tree_iter AND all of its following
+        siblings, and all of their descendants
+        """
+        while tree_iter is not None:
+            action_func(tree_iter)
+            if self.model.iter_has_child(tree_iter):
+                child_iter = self.model.iter_children(tree_iter)
+                self.recurse_over_tree(child_iter, action_func)
+            tree_iter = self.model.iter_next(tree_iter)
+
+    def do_for_descendants(self, tree_path, action_func):
+        tree_iter = self.model.get_iter(tree_path)
+        child_iter = self.model.iter_children(tree_iter)
+        if child_iter:
+            self.recurse_over_tree(child_iter, action_func)
+
+    def do_for_self_and_descendants(self, tree_path, action_func):
+        tree_iter = self.model.get_iter(tree_path)
+        action_func(tree_iter)
+
+        child_iter = self.model.iter_children(tree_iter)
+        if child_iter:
+            self.recurse_over_tree(child_iter, action_func)
 
     def get_subtree_as_tree(self, tree_path, include_following_siblings=False, checked_only=False):
         """

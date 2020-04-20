@@ -126,7 +126,7 @@ def _append_to_model(diff_tree, category, change_tree):
             _append_fmeta_node(diff_tree, tree_iter, node.tag, node.data, category)
 
     if change_tree.size(1) > 0:
-        #logger.debug(f'Appending category: {category.name}')
+        # logger.debug(f'Appending category: {category.name}')
         root = change_tree.get_node('')
         append_recursively(None, root)
 
