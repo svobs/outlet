@@ -97,11 +97,11 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         # TODO: create a 'Scan' button for each input source
 
     def on_diff_btn_clicked(self, widget):
-        logger.info('Diff btn clicked!')
+        logger.debug('Diff btn clicked!')
         actions.send_signal(signal=actions.DO_DIFF, sender=self)
 
     def on_goog_btn_clicked(self, widget):
-        logger.info('Goog btn clicked!')
+        logger.debug('DownloadGDrive btn clicked!')
         actions.send_signal(signal=actions.DOWNLOAD_GDRIVE_META, sender=self)
 
     def replace_bottom_button_panel(self, *buttons):
@@ -156,7 +156,6 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         action_thread.start()
 
     def on_google_requested(self, sender):
-        logger.info('Hello GOOOGLE WORLD!')
         actions.disable_ui(sender=sender)
         action_thread = threading.Thread(target=self.download_gdrive_meta)
         action_thread.daemon = True

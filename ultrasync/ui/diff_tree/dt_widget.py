@@ -4,6 +4,7 @@ import logging
 import subprocess
 import ui.actions as actions
 from fmeta.fmeta import FMeta, FMetaTree, Category
+from fmeta.fmeta_tree_loader import TreeMetaScanner
 from ui.root_dir_panel import RootDirPanel
 from ui.diff_tree.dt_model import DirNode, CategoryNode
 import gi
@@ -552,6 +553,62 @@ class DiffTree:
         node_data = self.model[tree_path][self.col_num_data]
         assert node_data is not None
         return self.get_abs_path(node_data)
+
+    def resync_subtree(self, tree_path):
+        # Construct a FMetaTree from the UI nodes: this is the 'stale' subtree.
+        stale_tree = self.get_subtree_as_tree(tree_path)
+        fresh_tree = None
+        # Master tree contains all FMeta in this widget
+        master_tree = self.data_source.get_fmeta_tree()
+
+        # If the path no longer exists at all, then it's simple: the entire stale_tree should be deleted.
+        if os.path.exists(stale_tree.root_path):
+            # But if there are still files present: use FMetaTreeLoader to re-scan subtree
+            # and construct a FMetaTree from the 'fresh' data
+            logger.debug(f'Scanning: {stale_tree.root_path}')
+            scanner = TreeMetaScanner(root_path=stale_tree.root_path, stale_tree=stale_tree, tree_id=self.tree_id, track_changes=False)
+            fresh_tree = scanner.scan()
+
+        # TODO: files in different categories are showing up as 'added' in the scan
+        # TODO: should just be removed then added below, but brainstorm how to optimize this
+
+        for fmeta in stale_tree.get_all():
+            # Anything left in the stale tree no longer exists. Delete it from master tree
+            # NOTE: stale tree will contain old FMeta which is from the master tree, and
+            # thus does need to have its file path adjusted.
+            # This seems awfully fragile...
+            old = master_tree.remove(file_path=fmeta.file_path, sig=fmeta.signature, ok_if_missing=False)
+            if old:
+                logger.debug(f'Deleted from master tree: sig={old.signature} path={old.file_path}')
+            else:
+                logger.warning(f'Could not delete "stale" from master (not found): sig={fmeta.signature} path={fmeta.file_path}')
+
+        if fresh_tree:
+            for fmeta in fresh_tree.get_all():
+                # Anything in the fresh tree needs to be either added or updated in the master tree.
+                # For the 'updated' case, remove the old FMeta from the file mapping and any old signatures.
+                # Note: Need to adjust file path here, because these FMetas were created with a different root
+                abs_path = os.path.join(fresh_tree.root_path, fmeta.file_path)
+                fmeta.file_path = file_util.strip_root(abs_path, master_tree.root_path)
+                old = master_tree.remove(file_path=fmeta.file_path, sig=fmeta.signature, remove_old_sig=True, ok_if_missing=True)
+                if old:
+                    logger.debug(f'Removed from master tree: sig={old.signature} path={old.file_path}')
+                else:
+                    logger.debug(f'Could not delete "fresh" from master (not found): sig={fmeta.signature} path={fmeta.file_path}')
+                master_tree.add(fmeta)
+                logger.debug(f'Added to master tree: sig={fmeta.signature} path={fmeta.file_path}')
+
+        # 3. Then re-diff and re-populate
+
+        # TODO: Need to introduce a signalling mechanism for the other tree
+        logger.info('TODO: re-diff and re-populate!')
+
+    def show_in_nautilus(self, file_path):
+        if os.path.exists(file_path):
+            logger.info(f'Opening in Nautilus: {file_path}')
+            subprocess.check_call(["nautilus", "--browser", file_path])
+        else:
+            self.parent_win.show_error_msg('Cannot open file in Nautilus', f'File not found: {file_path}')
 
     def recurse_over_tree(self, tree_iter, action_func):
         """

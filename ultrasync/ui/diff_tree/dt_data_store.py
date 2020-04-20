@@ -45,9 +45,9 @@ class DtConfigFileStore(SimpleDataStore):
         self.cache = fmeta_tree_cache.from_config(config=self.config, tree_id=self.tree_id)
         self._root_path = self.config.get(self._root_path_config_entry())
 
-        dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self.on_root_path_updated, sender=tree_id)
+        dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=tree_id)
 
-    def on_root_path_updated(self, sender, new_root):
+    def _on_root_path_updated(self, sender, new_root):
         self.set_root_path(new_root)
 
     def _root_path_config_entry(self):
