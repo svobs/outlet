@@ -170,13 +170,14 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             actions.enable_ui(sender=self)
 
     # TODO: change DB path whenever root is changed
+    # TODO: disable all UI while loading
     def do_tree_diff(self):
         try:
             if not os.path.exists(self.diff_tree_left.root_path) or not os.path.exists(self.diff_tree_right.root_path):
                 logger.info('Skipping diff because one of the paths does not exist')
+                actions.enable_ui(sender=self)
                 return
 
-            # TODO: disable all UI while loading
             self.diff_tree_right.set_status('Waiting...')
 
             # Load trees if not loaded - may be a long operation

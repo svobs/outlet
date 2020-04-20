@@ -77,25 +77,14 @@ class DiffTree:
 
         # TODO: Holy shit this is unnecessarily complicated
         def on_progress_made(this, progress, total):
-            this.set_status(f'Scanning file {progress} of {total}')
+            logger.info(f'Hello! Progress made: {progress}')
+            self.set_status(f'Scanning file {progress} of {total}')
 
-        progress_meter = ProgressMeter(on_progress_made, self.parent_win.config, self)
+        self.progress_meter = ProgressMeter(on_progress_made, self.parent_win.config, self)
 
-        def on_set_total_progress(sender, tree_id, total):
-            if self.store.tree_id == tree_id:
-                progress_meter.set_total(total)
-        actions.connect(actions.SET_TOTAL_PROGRESS, on_set_total_progress)
-
-        def on_progress_made(sender, tree_id, progress):
-            if self.store.tree_id == tree_id:
-                progress_meter.add_progress(progress)
-        actions.connect(actions.PROGRESS_MADE, on_progress_made)
-
-        def on_set_status(sender, tree_id, status_msg):
-            if self.store.tree_id == tree_id:
-                self.set_status(status_msg)
-
-        actions.connect(actions.SET_STATUS, on_set_status)
+        actions.connect(actions.SET_TOTAL_PROGRESS, self.on_set_total_progress, self.store.tree_id)
+        actions.connect(actions.PROGRESS_MADE, self.on_progress_made, self.store.tree_id)
+        actions.connect(actions.SET_STATUS, self.on_set_status, self.store.tree_id)
 
         col_count = 0
         col_types = []
@@ -158,6 +147,17 @@ class DiffTree:
         self.content_box = _build_content_box(self.root_dir_panel.content_box, self.treeview, status_bar_container)
         if self.sizegroups is not None and self.sizegroups.get('tree_status') is not None:
             self.sizegroups['tree_status'].add_widget(status_bar_container)
+
+    # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
+    def on_set_status(self, sender, status_msg):
+        self.set_status(status_msg)
+
+    def on_set_total_progress(self, sender, total):
+        self.progress_meter.set_total(total)
+
+    def on_progress_made(self, sender, progress):
+        self.progress_meter.add_progress(progress)
+
 
     def set_status(self, status_msg):
         GLib.idle_add(lambda: self.status_bar.set_label(status_msg))

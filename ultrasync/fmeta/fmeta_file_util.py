@@ -58,7 +58,7 @@ def apply_changes_atomically(tree_id, tree: FMetaTree, staging_dir, continue_on_
             else:
                 raise
         if tree_id:
-            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=tree_id, amount=fmeta.size_bytes)
+            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=tree_id, progress=fmeta.size_bytes)
 
     for fmeta in tree.get_for_cat(Category.Deleted):
         try:
@@ -73,7 +73,7 @@ def apply_changes_atomically(tree_id, tree: FMetaTree, staging_dir, continue_on_
             else:
                 raise
         if tree_id:
-            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=tree_id, amount=FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT)
+            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=tree_id, progress=FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT)
 
     for fmeta in tree.get_for_cat(Category.Moved):
         try:
@@ -90,7 +90,7 @@ def apply_changes_atomically(tree_id, tree: FMetaTree, staging_dir, continue_on_
             else:
                 raise
         if tree_id:
-            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=tree_id, amount=FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT)
+            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=tree_id, progress=FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT)
 
     for fmeta in tree.get_for_cat(Category.Updated):
         try:
@@ -114,5 +114,5 @@ def apply_changes_atomically(tree_id, tree: FMetaTree, staging_dir, continue_on_
             else:
                 raise
         if tree_id:
-            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=tree_id, amount=fmeta.size_bytes)
+            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=tree_id, progress=fmeta.size_bytes)
 

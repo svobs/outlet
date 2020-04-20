@@ -165,7 +165,7 @@ class TreeMetaScanner(TreeRecurser):
 
         self.fresh_tree.add(meta)
         if self.tree_id:
-            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=self.tree_id, amount=1)
+            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=self.tree_id, progress=1)
 
     def handle_target_file_type(self, file_path):
         self.handle_file(file_path, Category.NA)
