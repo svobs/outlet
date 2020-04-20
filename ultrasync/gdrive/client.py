@@ -9,7 +9,7 @@ from stopwatch import Stopwatch
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-from gdrive.model import DirNode, FileNode, IntermediateMeta
+from gdrive.model import GoogFolder, GoogFile, IntermediateMeta
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
@@ -116,7 +116,7 @@ class GDriveClient:
 
     def get_my_drive_root(self):
         """
-        Returns: a DirNode representing the user's GDrive root node.
+        Returns: a GoogFolder representing the user's GDrive root node.
         """
         fields = 'id, name, trashed, explicitlyTrashed'
 
@@ -125,7 +125,7 @@ class GDriveClient:
 
         result = try_repeatedly(request)
 
-        root_node = DirNode(result['id'], result['name'], result['trashed'], result['explicitlyTrashed'])
+        root_node = GoogFolder(result['id'], result['name'], result['trashed'], result['explicitlyTrashed'])
         logger.debug(f'Drive root: {root_node.trash_status_str()} [{root_node.id}] "{root_node.name}"')
         return root_node
 
@@ -191,7 +191,7 @@ class GDriveClient:
                 size_str = item.get('size', None)
                 size = None if size_str is None else int(size_str)
 
-                node = FileNode(item_id=item['id'], item_name=item["name"], original_filename=original_filename,
+                node = GoogFile(item_id=item['id'], item_name=item["name"], original_filename=original_filename,
                                 version=int(item['version']), head_revision_id=head_revision_id,
                                 md5=item.get('md5Checksum', None), shared=item['shared'], created_ts=created_ts,
                                 modified_ts=modified_ts, size_bytes=size, owner_id=owner_id,
@@ -265,7 +265,7 @@ class GDriveClient:
             logger.debug(f'Received {len(items)} items')
 
             for item in items:
-                dir_node = DirNode(item['id'], item["name"], item['trashed'], item['explicitlyTrashed'])
+                dir_node = GoogFolder(item['id'], item["name"], item['trashed'], item['explicitlyTrashed'])
                 parents = item.get('parents', [])
                 meta.add_item_with_parents(parents, dir_node)
                 item_count += 1

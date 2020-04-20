@@ -4,7 +4,7 @@ import os
 from queue import Queue
 from database import MetaDatabase
 from gdrive.client import GDriveClient
-from gdrive.model import DirNode, FileNode, IntermediateMeta, Trashed
+from gdrive.model import GoogFolder, GoogFile, IntermediateMeta, Trashed
 from fmeta.fmeta import FMetaTree, FMeta
 
 logger = logging.getLogger(__name__)
@@ -133,17 +133,17 @@ class GDriveTreeBuilder:
         root_rows, dir_rows = self.cache.get_gdrive_dirs()
 
         for item_id, item_name, item_trashed in root_rows:
-            meta.add_root(DirNode(item_id, item_name, trashed_status=int(item_trashed)))
+            meta.add_root(GoogFolder(item_id, item_name, trashed_status=int(item_trashed)))
 
         for item_id, item_name, parent_id, item_trashed in dir_rows:
-            meta.add_to_parent_dict(parent_id, DirNode(item_id, item_name, trashed_status=int(item_trashed)))
+            meta.add_to_parent_dict(parent_id, GoogFolder(item_id, item_name, trashed_status=int(item_trashed)))
 
         # FILES:
         file_rows = self.cache.get_gdrive_files()
         for item_id, item_name, parent_id, item_trashed, original_filename, version, head_revision_id, md5, shared, \
                 created_ts, modified_ts, size_bytes_str, owner_id in file_rows:
             size_bytes = None if size_bytes_str is None else int(size_bytes_str)
-            file_node = FileNode(item_id=item_id, item_name=item_name, original_filename=original_filename,
+            file_node = GoogFile(item_id=item_id, item_name=item_name, original_filename=original_filename,
                                  trashed_status=int(item_trashed), version=int(version),
                                  head_revision_id=head_revision_id, md5=md5, shared=shared,
                                  created_ts=int(created_ts), modified_ts=modified_ts, size_bytes=size_bytes,

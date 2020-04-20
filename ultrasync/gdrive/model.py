@@ -19,7 +19,7 @@ Trashed = Enum(
 )
 
 
-class DirNode:
+class GoogFolder:
     def __init__(self, item_id, item_name, trashed=False, explicitly_trashed=False, trashed_status=Trashed.NOT_TRASHED):
         self.id = item_id
         self.name = item_name
@@ -43,7 +43,7 @@ class DirNode:
             return '[ ]'
 
 
-class FileNode(DirNode):
+class GoogFile(GoogFolder):
     def __init__(self, item_id, item_name, original_filename, version, head_revision_id, md5, shared, created_ts,
                  modified_ts, size_bytes, owner_id, trashed=False, explicitly_trashed=False,
                  trashed_status=Trashed.NOT_TRASHED):
@@ -93,7 +93,7 @@ class IntermediateMeta:
                     parent_index += 1
                     logger.debug(f'\tParent {parent_index}: [{parent_id}]')
 
-    def add_to_parent_dict(self, parent_id, item: DirNode):
+    def add_to_parent_dict(self, parent_id, item: GoogFolder):
         child_list = self.first_parent_dict.get(parent_id)
         if not child_list:
             child_list = []

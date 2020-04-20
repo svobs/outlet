@@ -2,11 +2,10 @@ import logging.handlers
 import threading
 import os
 import ui.actions as actions
-
-import gi
-
+import ui.assets
 from ui.diff_tree.dt_data_store import DtConfigFileStore
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, GObject
 
@@ -20,8 +19,6 @@ from ui.diff_tree.dt import DiffTree
 from ui.base_dialog import BaseDialog
 import ui.diff_tree.dt_populator as diff_tree_populator
 
-WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
-
 logger = logging.getLogger(__name__)
 
 
@@ -32,7 +29,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         self.set_title('UltraSync')
         # program icon:
-        self.set_icon_from_file(WINDOW_ICON_PATH)
+        self.set_icon_from_file(ui.assets.WINDOW_ICON_PATH)
         # Set minimum width and height
         self.set_size_request(1400, 800)
         self.set_border_width(10)
@@ -73,9 +70,11 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Tree Left:
+
         store_left = DtConfigFileStore(config=self.config, tree_id='left_tree', editable=True)
         self.diff_tree_left = DiffTree(store=store_left, parent_win=self, sizegroups=self.sizegroups)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
+
 
         # Diff Tree Right:
         store_right = DtConfigFileStore(config=self.config, tree_id='right_tree', editable=True)
