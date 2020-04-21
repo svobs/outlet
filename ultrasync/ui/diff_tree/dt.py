@@ -3,294 +3,50 @@ import file_util
 import logging
 import subprocess
 import ui.actions as actions
+from ui.tree import tree_factory
+from ui.tree.display_meta import TreeDisplayMeta
 import ui.assets
 from fmeta.fmeta import FMeta, FMetaTree, Category
 from fmeta.fmeta_tree_loader import TreeMetaScanner
 from ui.root_dir_panel import RootDirPanel
 from ui.diff_tree.dt_model import DirNode, CategoryNode
-import gi
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
+from ui.tree.display_store import DisplayStore
 from ui.progress_meter import ProgressMeter
 
 logger = logging.getLogger(__name__)
 
 
-def _build_info_bar():
-    info_bar_container = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
-    info_bar = Gtk.Label(label='')
-    info_bar.set_justify(Gtk.Justification.LEFT)
-    info_bar.set_line_wrap(True)
-    info_bar_container.add(info_bar)
-    return info_bar, info_bar_container
-
-
-def _build_content_box(root_dir_panel, tree_view, status_bar_container):
-    content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
-
-    content_box.pack_start(root_dir_panel, False, False, 5)
-
-    # Tree will take up all the excess space
-    tree_view.set_vexpand(True)
-    tree_view.set_hexpand(False)
-    tree_scroller = Gtk.ScrolledWindow()
-    # No horizontal scrolling - only vertical
-    tree_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-    tree_scroller.add(tree_view)
-    # child, expand, fill, padding
-    content_box.pack_start(tree_scroller, False, True, 5)
-
-    content_box.pack_start(status_bar_container, False, True, 5)
-
-    return content_box
-
-
 class DiffTree:
-    model: Gtk.TreeStore
-
-    def __init__(self, store, parent_win, sizegroups=None):
+    def __init__(self, store, parent_win):
         # Should be a subclass of BaseDialog:
         self.parent_win = parent_win
-        self.sizegroups = sizegroups
+
+        def is_ignored_func(data_node):
+            return data_node.category == Category.Ignored
+        display_meta = TreeDisplayMeta(self.parent_win.config, is_ignored_func)
+
+        self.display_store = DisplayStore(display_meta)
         self.store = store
-        """If true, create a node for each ancestor directory for the files.
-           If false, create a second column which shows the parent path. """
-        self.use_dir_tree = parent_win.config.get('display.diff_tree.use_dir_tree')
 
-        self.show_change_ts = parent_win.config.get('display.diff_tree.show_change_ts')
-
-        self.datetime_format = parent_win.config.get('display.diff_tree.datetime_format')
-
-        col_count = 0
-        col_types = []
-        self.col_names = []
-        if self.store.editable:
-            self.col_num_checked = col_count
-            self.col_names.append('Checked')
-            col_types.append(bool)
-            col_count += 1
-
-            self.col_num_inconsistent = col_count
-            self.col_names.append('Inconsistent')
-            col_types.append(bool)
-            col_count += 1
-        self.col_num_icon = col_count
-        self.col_names.append('Icon')
-        col_types.append(str)
-        col_count += 1
-
-        self.col_num_name = col_count
-        self.col_names.append('Name')
-        col_types.append(str)
-        col_count += 1
-
-        if not self.use_dir_tree:
-            self.col_num_directory = col_count
-            self.col_names.append('Directory')
-            col_types.append(str)
-            col_count += 1
-
-        self.col_num_size = col_count
-        self.col_names.append('Size')
-        col_types.append(str)
-        col_count += 1
-
-        self.col_num_modification_ts = col_count
-        self.col_names.append('Modification Time')
-        col_types.append(str)
-        col_count += 1
-
-        if self.show_change_ts:
-            self.col_num_change_ts = col_count
-            self.col_names.append('Meta Change Time')
-            col_types.append(str)
-            col_count += 1
-
-        self.col_num_data = col_count
-        self.col_names.append('Data')
-        col_types.append(object)
-        col_count += 1
-
-        self.model = Gtk.TreeStore()
-        self.model.set_column_types(col_types)
-
-        self.root_dir_panel = RootDirPanel(self, self.store)
-
-        self.treeview = self._build_treeview(self.model)
+        self.treeview, self.status_bar, self.content_box = tree_factory.build_all(
+            parent_win=parent_win, store=self.store, display_store=self.display_store)
 
         select = self.treeview.get_selection()
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
 
-        self.status_bar, status_bar_container = _build_info_bar()
-        self.content_box = _build_content_box(self.root_dir_panel.content_box, self.treeview, status_bar_container)
-        if self.sizegroups is not None and self.sizegroups.get('tree_status') is not None:
-            self.sizegroups['tree_status'].add_widget(status_bar_container)
-
         self.add_listeners()
-
-    def _compare_fmeta(self, model, row1, row2, compare_field_func):
-        """
-        Comparison function, for use in model sort by column.
-        """
-        sort_column, _ = model.get_sort_column_id()
-        fmeta1 = model[row1][self.col_num_data]
-        fmeta2 = model[row2][self.col_num_data]
-        if type(fmeta1) == FMeta and type(fmeta2) == FMeta:
-            value1 = compare_field_func(fmeta1)
-            value2 = compare_field_func(fmeta2)
-            if value1 < value2:
-                return -1
-            elif value1 == value2:
-                return 0
-            else:
-                return 1
-        else:
-            # This appears to achieve satisfactory behavior
-            # (preserving previous column sort order for directories)
-            return 0
-
-    def _build_treeview(self, model):
-        """ Builds the GTK3 treeview widget"""
-
-        extra_indent = self.parent_win.config.get('display.diff_tree.extra_indent')
-        row_height = self.parent_win.config.get('display.diff_tree.row_height')
-
-        # TODO: detach from model while populating
-        treeview = Gtk.TreeView(model=model)
-        treeview.set_level_indentation(extra_indent)
-        treeview.set_show_expanders(True)
-        treeview.set_property('enable_grid_lines', True)
-        treeview.set_property('enable_tree_lines', True)
-        treeview.set_fixed_height_mode(True)
-        treeview.set_vscroll_policy(Gtk.ScrollablePolicy.NATURAL)
-        # Allow click+drag to select multiple items.
-        # May want to disable if using drag+drop
-        treeview.set_rubber_banding(True)
-
-        # 0 Checkbox + Icon + Name
-        # See: https://stackoverflow.com/questions/27745585/show-icon-or-color-in-gtk-treeview-tree
-        px_column = Gtk.TreeViewColumn(self.col_names[self.col_num_name])
-        px_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
-
-        if self.store.editable:
-            renderer = Gtk.CellRendererToggle()
-            renderer.connect("toggled", self._on_cell_checkbox_toggled)
-            renderer.set_fixed_size(width=-1, height=row_height)
-            px_column.pack_start(renderer, False)
-            px_column.add_attribute(renderer, 'active', self.col_num_checked)
-            px_column.add_attribute(renderer, 'inconsistent', self.col_num_inconsistent)
-
-        px_renderer = Gtk.CellRendererPixbuf()
-        px_renderer.set_fixed_size(width=-1, height=row_height)
-        px_column.pack_start(px_renderer, False)
-
-        str_renderer = Gtk.CellRendererText()
-        str_renderer.set_fixed_height_from_font(1)
-        str_renderer.set_fixed_size(width=-1, height=row_height)
-        str_renderer.set_property('width-chars', 15)
-        px_column.pack_start(str_renderer, False)
-
-        # set data connector function/method
-        px_column.set_cell_data_func(px_renderer, self.get_tree_cell_pixbuf)
-        px_column.set_cell_data_func(str_renderer, self.get_tree_cell_text)
-        px_column.set_min_width(50)
-        px_column.set_expand(True)
-        px_column.set_resizable(True)
-        px_column.set_reorderable(True)
-        px_column.set_sort_column_id(self.col_num_name)
-        treeview.append_column(px_column)
-
-        if not self.use_dir_tree:
-            # DIRECTORY COLUMN
-            renderer = Gtk.CellRendererText()
-            renderer.set_fixed_height_from_font(1)
-            renderer.set_fixed_size(width=-1, height=row_height)
-            renderer.set_property('width-chars', 20)
-            column = Gtk.TreeViewColumn(self.col_names[self.col_num_dir], renderer, text=self.col_num_dir)
-            column.set_sort_column_id(self.col_num_dir)
-
-            column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
-            column.set_min_width(50)
-            # column.set_max_width(300)
-            column.set_expand(True)
-            column.set_resizable(True)
-            column.set_reorderable(True)
-            column.set_fixed_height_from_font(1)
-            treeview.append_column(column)
-
-        # SIZE COLUMN
-        renderer = Gtk.CellRendererText()
-        renderer.set_fixed_size(width=-1, height=row_height)
-        renderer.set_fixed_height_from_font(1)
-        renderer.set_property('width-chars', 10)
-        column = Gtk.TreeViewColumn(self.col_names[self.col_num_size], renderer, text=self.col_num_size)
-        column.set_sort_column_id(self.col_num_size)
-
-        column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
-        #  column.set_fixed_width(50)
-        column.set_min_width(50)
-        # column.set_max_width(300)
-        column.set_expand(False)
-        column.set_resizable(True)
-        column.set_reorderable(True)
-        treeview.append_column(column)
-
-        # Need the original file sizes (in bytes) here, not the formatted one
-        model.set_sort_func(self.col_num_size, self._compare_fmeta, lambda f: f.size_bytes)
-
-        # MODIFICATION TS COLUMN
-        renderer = Gtk.CellRendererText()
-        renderer.set_property('width-chars', 8)
-        renderer.set_fixed_size(width=-1, height=row_height)
-        renderer.set_fixed_height_from_font(1)
-        column = Gtk.TreeViewColumn(self.col_names[self.col_num_modification_ts], renderer, text=self.col_num_modification_ts)
-        column.set_sort_column_id(self.col_num_modification_ts)
-
-        column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
-        # column.set_fixed_width(50)
-        column.set_min_width(50)
-        # column.set_max_width(300)
-        column.set_expand(False)
-        column.set_resizable(True)
-        column.set_reorderable(True)
-        treeview.append_column(column)
-
-        model.set_sort_func(self.col_num_modification_ts, self._compare_fmeta, lambda f: f.modify_ts)
-
-        if self.show_change_ts:
-            # METADATA CHANGE TS COLUMN
-            renderer = Gtk.CellRendererText()
-            renderer.set_property('width-chars', 8)
-            renderer.set_fixed_size(width=-1, height=row_height)
-            renderer.set_fixed_height_from_font(1)
-            column = Gtk.TreeViewColumn(self.col_names[self.col_num_change_ts], renderer, text=self.col_num_change_ts)
-            column.set_sort_column_id(self.col_num_change_ts)
-
-            column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
-            # column.set_fixed_width(50)
-            column.set_min_width(50)
-            # column.set_max_width(300)
-            column.set_expand(False)
-            column.set_resizable(True)
-            column.set_reorderable(True)
-            treeview.append_column(column)
-
-            model.set_sort_func(self.col_num_change_ts, self._compare_fmeta, lambda f: f.change_ts)
-
-        return treeview
-
-    # For displaying icons
-    def get_tree_cell_pixbuf(self, col, cell, model, iter, user_data):
-        cell.set_property('pixbuf', ui.assets.get_icon(model.get_value(iter, self.col_num_icon)))
-
-    # For displaying text next to icon
-    def get_tree_cell_text(self, col, cell, model, iter, user_data):
-        cell.set_property('text', model.get_value(iter, self.col_num_name))
 
     @property
     def tree_id(self):
         return self.store.tree_id
+
+    @property
+    def editable(self):
+        return self.display_store.display_meta.editable
 
     @property
     def root_path(self):
@@ -339,11 +95,11 @@ class DiffTree:
     def _on_tree_selection_changed(self, selection):
         model, treeiter = selection.get_selected_rows()
         if treeiter is not None and len(treeiter) == 1:
-            meta = model[treeiter][self.col_num_data]
+            meta = self.display_store.get_node_data(treeiter)
             if isinstance(meta, FMeta):
                 logger.debug(f'User selected cat="{meta.category.name}" sig="{meta.signature}" path="{meta.file_path}" prev_path="{meta.prev_path}"')
             else:
-                logger.debug(f'User selected {model[treeiter][self.col_num_name]}')
+                logger.debug(f'User selected {self.display_store.get_node_name(treeiter)}')
 
     def _on_row_activated(self, tree_view, path, col):
         selection = self.treeview.get_selection()
@@ -359,7 +115,7 @@ class DiffTree:
         # TODO: intelligent logic for multiple selected rows
 
         """Fired when an item is double-clicked or when an item is selected and Enter is pressed"""
-        node_data = self.model[path][self.col_num_data]
+        node_data = self.display_store.get_node_data(treeiter)
         if type(node_data) == CategoryNode:
             # Special handling for categories: toggle collapse state
             if tree_view.row_expanded(path):
@@ -380,54 +136,8 @@ class DiffTree:
         else:
             raise RuntimeError('Unexpected data element')
 
-    def _on_cell_checkbox_toggled(self, widget, path):
-        """Called when checkbox in treeview is toggled"""
-        data_node = self.model[path][self.col_num_data]
-        if data_node.category == Category.Ignored:
-            logger.debug('Disallowing checkbox toggle because node is in IGNORED category')
-            return
-        # DOC: model[path][column] = not model[path][column]
-        checked_value = not self.model[path][self.col_num_checked]
-        logger.debug(f'Toggled {checked_value}: {self.model[path][self.col_num_name]}')
-        self.model[path][self.col_num_checked] = checked_value
-        self.model[path][self.col_num_inconsistent] = False
-
-        # Update all of the node's children change to match its check state:
-        def update_checked_state(t_iter):
-            self.model[t_iter][self.col_num_checked] = checked_value
-            self.model[t_iter][self.col_num_inconsistent] = False
-
-        self.do_for_descendants(path, update_checked_state)
-
-        # Now update its ancestors' states:
-        tree_path = Gtk.TreePath.new_from_string(path)
-        while True:
-            # Go up the tree, one level per loop,
-            # with each node updating itself based on its immediate children
-            tree_path.up()
-            if tree_path.get_depth() < 1:
-                # Stop at root
-                break
-            else:
-                tree_iter = self.model.get_iter(tree_path)
-                has_checked = False
-                has_unchecked = False
-                has_inconsistent = False
-                child_iter = self.model.iter_children(tree_iter)
-                while child_iter is not None:
-                    # Parent is inconsistent if any of its children do not match it...
-                    if self.model[child_iter][self.col_num_checked]:
-                        has_checked = True
-                    else:
-                        has_unchecked = True
-                    # ...or if any of its children are inconsistent
-                    has_inconsistent |= self.model[child_iter][self.col_num_inconsistent]
-                    child_iter = self.model.iter_next(child_iter)
-                self.model[tree_iter][self.col_num_inconsistent] = has_inconsistent or (has_checked and has_unchecked)
-                self.model[tree_iter][self.col_num_checked] = has_checked and not has_unchecked and not has_inconsistent
-
     def _on_toggle_row_expanded_state(self, tree_view, tree_path, col, is_expanded):
-        node_data = self.model[tree_path][self.col_num_data]
+        node_data = self.display_store.get_node_data(tree_path)
         if type(node_data) == CategoryNode:
             self.store.set_category_node_expanded_state(node_data.category, is_expanded)
 
@@ -512,9 +222,9 @@ class DiffTree:
             # Get the TreeIter instance for each path
             for tree_path in paths:
                 # Delete the actual file:
-                fmeta = self.model[tree_path][self.col_num_data]
-                if fmeta is not None:
-                    abs_path = self.get_abs_path(fmeta)
+                node_data = self.display_store.get_node_data(tree_path)
+                if node_data is not None:
+                    abs_path = self.get_abs_path(node_data)
                     if not self.delete_dir_tree(subtree_root=abs_path, tree_path=tree_path):
                         # something went wrong if we got False. Stop.
                         break
@@ -524,12 +234,12 @@ class DiffTree:
 
     def _on_tree_button_press(self, tree_view, event):
         """Used for displaying context menu on right click"""
-        if event.button == 3: # right click
+        if event.button == 3:  # right click
             tree_path, col, cell_x, cell_y = tree_view.get_path_at_pos(int(event.x), int(event.y))
             # do something with the selected path
-            node_data = self.model[tree_path][self.col_num_data]
+            node_data = self.display_store.get_node_data(tree_path)
             if type(node_data) == CategoryNode:
-                logger.debug(f'User right-clicked on {self.model[tree_path][self.col_num_name]}')
+                logger.debug(f'User right-clicked on {self.display_store.get_node_name(tree_path)}')
             else:
                 logger.debug(f'User right-clicked on {node_data.file_path}')
 
@@ -583,7 +293,7 @@ class DiffTree:
             path_list = []
 
             def add_to_list_func(t_iter):
-                data_node = self.model[t_iter][self.col_num_data]
+                data_node = self.display_store.get_node_data(t_iter)
                 p = os.path.join(root_path, data_node.file_path)
                 path_list.append(p)
                 if os.path.isdir(p):
@@ -591,7 +301,7 @@ class DiffTree:
 
             add_to_list_func.dir_count = 0
 
-            self.do_for_self_and_descendants(tree_path, add_to_list_func)
+            self.display_store.do_for_self_and_descendants(tree_path, add_to_list_func)
 
             dir_count = add_to_list_func.dir_count
         except Exception as err:
@@ -649,7 +359,7 @@ class DiffTree:
 
     def get_abs_file_path(self, tree_path: Gtk.TreePath):
         """ Utility function: get absolute file path from a TreePath """
-        node_data = self.model[tree_path][self.col_num_data]
+        node_data = self.display_store.get_node_data(tree_path)
         assert node_data is not None
         return self.get_abs_path(node_data)
 
@@ -702,31 +412,15 @@ class DiffTree:
         # TODO: Need to introduce a signalling mechanism for the other tree
         logger.info('TODO: re-diff and re-populate!')
 
-    def recurse_over_tree(self, tree_iter, action_func):
-        """
-        Performs the action_func on the node at this tree_iter AND all of its following
-        siblings, and all of their descendants
-        """
-        while tree_iter is not None:
-            action_func(tree_iter)
-            if self.model.iter_has_child(tree_iter):
-                child_iter = self.model.iter_children(tree_iter)
-                self.recurse_over_tree(child_iter, action_func)
-            tree_iter = self.model.iter_next(tree_iter)
+    def get_checked_rows_as_tree(self):
+        """Returns a FMetaTree which contains the FMetas of the rows which are currently
+        checked by the user. This will be a subset of the FMetaTree which was used to
+        populate this tree."""
+        assert self.editable
 
-    def do_for_descendants(self, tree_path, action_func):
-        tree_iter = self.model.get_iter(tree_path)
-        child_iter = self.model.iter_children(tree_iter)
-        if child_iter:
-            self.recurse_over_tree(child_iter, action_func)
-
-    def do_for_self_and_descendants(self, tree_path, action_func):
-        tree_iter = self.model.get_iter(tree_path)
-        action_func(tree_iter)
-
-        child_iter = self.model.iter_children(tree_iter)
-        if child_iter:
-            self.recurse_over_tree(child_iter, action_func)
+        tree_iter = self.display_store.model.get_iter_first()
+        tree_path = self.display_store.model.get_path(tree_iter)
+        return self.get_subtree_as_tree(tree_path, include_following_siblings=True, checked_only=True)
 
     def get_subtree_as_tree(self, tree_path, include_following_siblings=False, checked_only=False):
         """
@@ -746,30 +440,16 @@ class DiffTree:
         subtree = FMetaTree(subtree_root)
 
         def action_func(t_iter):
-            # logger.debug(f'Node: {self.model[t_iter][self.col_num_name]} = {type(self.model[t_iter][self.col_num_data])} checked={self.model[t_iter][self.col_num_checked]}')
-            if not action_func.checked_only or self.model[t_iter][self.col_num_checked]:
-                data_node = self.model[t_iter][self.col_num_data]
+            if not action_func.checked_only or self.display_store.is_node_checked(t_iter):
+                data_node = self.display_store.get_node_data(t_iter)
                 if isinstance(data_node, FMeta):
                     subtree.add(data_node)
 
         action_func.checked_only = checked_only
 
-        tree_iter = self.model.get_iter(tree_path)
-        if not include_following_siblings:
-            # Execute on target node, then dive into its children:
-            action_func(tree_iter)
-            tree_iter = self.model.iter_children(tree_iter)
-
-        self.recurse_over_tree(tree_iter, action_func)
+        if include_following_siblings:
+            self.display_store.do_for_subtree_and_following_sibling_subtrees(tree_path, action_func)
+        else:
+            self.display_store.do_for_self_and_descendants(tree_path, action_func)
 
         return subtree
-
-    def get_checked_rows_as_tree(self):
-        """Returns a FMetaTree which contains the FMetas of the rows which are currently
-        checked by the user. This will be a subset of the FMetaTree which was used to
-        populate this tree."""
-        assert self.store.editable
-
-        tree_iter = self.model.get_iter_first()
-        tree_path = self.model.get_path(tree_iter)
-        return self.get_subtree_as_tree(tree_path, include_following_siblings=True, checked_only=True)

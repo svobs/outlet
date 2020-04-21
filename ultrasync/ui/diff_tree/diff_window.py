@@ -73,12 +73,12 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         # Diff Tree Left:
 
         store_left = DtConfigFileStore(config=self.config, tree_id=ID_LEFT_TREE, editable=True)
-        self.diff_tree_left = DiffTree(store=store_left, parent_win=self, sizegroups=self.sizegroups)
+        self.diff_tree_left = DiffTree(store=store_left, parent_win=self)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
         store_right = DtConfigFileStore(config=self.config, tree_id=ID_RIGHT_TREE, editable=True)
-        self.diff_tree_right = DiffTree(store=store_right, parent_win=self, sizegroups=self.sizegroups)
+        self.diff_tree_right = DiffTree(store=store_right, parent_win=self)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
 
         # Bottom button panel:

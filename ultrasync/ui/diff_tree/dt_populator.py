@@ -60,30 +60,30 @@ def _build_category_change_tree(fmeta_list, category):
     return change_tree
 
 
-def _append_dir_node(diff_tree, tree_iter, dir_name, node_data):
+def _append_dir_node(display_store, tree_iter, dir_name, node_data):
     """Appends a dir or cat node to the model"""
     row_values = []
-    if diff_tree.store.editable:
+    if display_store.display_meta.editable:
         row_values.append(False)  # Checked
         row_values.append(False)  # Inconsistent
     row_values.append('folder')  # Icon
     row_values.append(dir_name)  # Name
-    if not diff_tree.use_dir_tree:
+    if not display_store.display_meta.use_dir_tree:
         row_values.append(None)  # Directory
     num_bytes_str = humanfriendly.format_size(node_data.size_bytes)
     row_values.append(num_bytes_str)  # Size
     row_values.append(None)  # Modify Date
-    if diff_tree.show_change_ts:
+    if display_store.display_meta.show_change_ts:
         row_values.append(None)  # Modify Date
     row_values.append(node_data)  # Data
 
-    return diff_tree.model.append(tree_iter, row_values)
+    return display_store.model.append(tree_iter, row_values)
 
 
-def _append_fmeta_node(diff_tree, tree_iter, file_name, fmeta: FMeta, category):
+def _append_fmeta_node(display_store, tree_iter, file_name, fmeta: FMeta, category):
     row_values = []
 
-    if diff_tree.store.editable:
+    if display_store.display_meta.editable:
         row_values.append(False)  # Checked
         row_values.append(False)  # Inconsistent
     row_values.append(category.name)  # Icon
@@ -94,7 +94,7 @@ def _append_fmeta_node(diff_tree, tree_iter, file_name, fmeta: FMeta, category):
         node_name = file_name
     row_values.append(node_name)  # Name
 
-    if not diff_tree.use_dir_tree:
+    if not display_store.display_meta.use_dir_tree:
         directory, name = os.path.split(fmeta.file_path)
         row_values.append(directory)  # Directory
 
@@ -102,28 +102,28 @@ def _append_fmeta_node(diff_tree, tree_iter, file_name, fmeta: FMeta, category):
     row_values.append(num_bytes_str)  # Size
 
     modify_datetime = datetime.fromtimestamp(fmeta.modify_ts)
-    modify_time = modify_datetime.strftime(diff_tree.datetime_format)
+    modify_time = modify_datetime.strftime(display_store.display_meta.datetime_format)
     row_values.append(modify_time)  # Modify TS
 
-    if diff_tree.show_change_ts:
+    if display_store.display_meta.show_change_ts:
         change_datetime = datetime.fromtimestamp(fmeta.change_ts)
-        change_time = change_datetime.strftime(diff_tree.datetime_format)
+        change_time = change_datetime.strftime(display_store.display_meta.datetime_format)
         row_values.append(change_time)  # Change TS
 
     row_values.append(fmeta)  # Data
-    return diff_tree.model.append(tree_iter, row_values)
+    return display_store.model.append(tree_iter, row_values)
 
 
-def _append_to_model(diff_tree, category, change_tree):
+def _append_to_model(display_store, category, change_tree):
     def append_recursively(tree_iter, node):
         # Do a DFS of the change tree and populate the UI tree along the way
         if isinstance(node.data, DirNode):
             # Is dir
-            tree_iter = _append_dir_node(diff_tree, tree_iter, node.tag, node.data)
+            tree_iter = _append_dir_node(display_store, tree_iter, node.tag, node.data)
             for child in change_tree.children(node.identifier):
                 append_recursively(tree_iter, child)
         else:
-            _append_fmeta_node(diff_tree, tree_iter, node.tag, node.data, category)
+            _append_fmeta_node(display_store, tree_iter, node.tag, node.data, category)
 
     if change_tree.size(1) > 0:
         # logger.debug(f'Appending category: {category.name}')
@@ -131,29 +131,29 @@ def _append_to_model(diff_tree, category, change_tree):
         append_recursively(None, root)
 
 
-def _populate_category(diff_tree, category: Category, fmeta_list):
+def _populate_category(display_store, category: Category, fmeta_list):
     # Build fake tree for category:
     stopwatch = Stopwatch()
     change_tree = _build_category_change_tree(fmeta_list, category)
     logger.debug(f'Faux tree built for "{category.name}" in: {stopwatch}')
 
     stopwatch = Stopwatch()
-    _append_to_model(diff_tree, category, change_tree)
+    _append_to_model(display_store, category, change_tree)
     logger.debug(f'TreeStore populated for "{category.name}" in: {stopwatch}')
 
 
 def _set_expand_states_from_config(diff_tree):
-    # Find the category nodes and expand them appropriately
-    tree_iter = diff_tree.model.get_iter_first()
+    # Loop over top level. Find the category nodes and expand them appropriately
+    tree_iter = diff_tree.display_store.model.get_iter_first()
     while tree_iter is not None:
-        node_data = diff_tree.model[tree_iter][diff_tree.col_num_data]
+        node_data = diff_tree.display_store.get_node_data(tree_iter)
         if type(node_data) == CategoryNode:
             is_expand = diff_tree.store.is_category_node_expanded(node_data.category)
             if is_expand:
-                tree_path = diff_tree.model.get_path(tree_iter)
+                tree_path = diff_tree.display_store.model.get_path(tree_iter)
                 diff_tree.treeview.expand_row(path=tree_path, open_all=True)
 
-        tree_iter = diff_tree.model.iter_next(tree_iter)
+        tree_iter = diff_tree.display_store.model.iter_next(tree_iter)
 
 
 def repopulate_diff_tree(diff_tree):
@@ -164,10 +164,10 @@ def repopulate_diff_tree(diff_tree):
         diff_tree: the DiffTree widget
 
     """
-    logger.debug(f'Repopulating diff tree "{diff_tree.store.tree_id}"')
+    logger.debug(f'Repopulating diff tree "{diff_tree.tree_id}"')
 
     # Wipe out existing items:
-    diff_tree.model.clear()
+    diff_tree.display_store.model.clear()
 
     # Detach model before insert.
     # The docs say to do this for speed, but it doesn't seem to change things:
@@ -180,10 +180,10 @@ def repopulate_diff_tree(diff_tree):
                      Category.Moved,
                      Category.Updated,
                      Category.Ignored]:
-        _populate_category(diff_tree, category, fmeta_tree.get_for_cat(category))
+        _populate_category(diff_tree.display_store, category, fmeta_tree.get_for_cat(category))
 
     # Re-attach model:
-    GLib.idle_add(lambda: diff_tree.treeview.set_model(diff_tree.model))
+    GLib.idle_add(lambda: diff_tree.treeview.set_model(diff_tree.display_store.model))
 
     # Restore user prefs for expanded nodes:
     GLib.idle_add(_set_expand_states_from_config, diff_tree)

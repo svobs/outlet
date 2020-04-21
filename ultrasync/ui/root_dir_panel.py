@@ -63,10 +63,8 @@ class RootDirChooserDialog(Gtk.FileChooserDialog):
 
 
 class RootDirPanel:
-    def __init__(self, parent_diff_tree, store):
+    def __init__(self, parent_win, store):
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
-        if parent_diff_tree.sizegroups is not None and parent_diff_tree.sizegroups.get('root_paths') is not None:
-            parent_diff_tree.sizegroups['root_paths'].add_widget(self.content_box)
 
         self.store = store
 
@@ -82,7 +80,7 @@ class RootDirPanel:
             icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
             self.change_btn.set_image(image=icon)
             self.content_box.pack_start(self.change_btn, expand=False, fill=False, padding=5)
-            self.change_btn.connect("clicked", self._on_change_btn_clicked, parent_diff_tree.parent_win)
+            self.change_btn.connect("clicked", self._on_change_btn_clicked, parent_win)
 
         self.alert_image = Gtk.Image()
         self.alert_image.set_from_file(ALERT_ICON_PATH)
