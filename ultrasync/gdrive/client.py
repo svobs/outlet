@@ -9,7 +9,7 @@ from stopwatch import Stopwatch
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-from gdrive.model import GoogFolder, GoogFile, IntermediateMeta
+from gdrive.model import GoogFolder, GoogFile, GDriveMeta
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
@@ -181,9 +181,9 @@ class GDriveClient:
                     owner_dict[owner_id] = (owner_name, owner_email, owner_is_me)
 
                 created_ts_obj = datetime.strptime(item['createdTime'], ISO_8601_FMT)
-                created_ts = int(created_ts_obj.timestamp() * 1000)
+                create_ts = int(created_ts_obj.timestamp() * 1000)
                 modified_ts_obj = datetime.strptime(item['modifiedTime'], ISO_8601_FMT)
-                modified_ts = int(modified_ts_obj.timestamp() * 1000)
+                modify_ts = int(modified_ts_obj.timestamp() * 1000)
                 # TODO: find out if this is ever useful
                 original_filename = item.get('originalFilename', None)
                 # TODO: why is this sometimes absent?
@@ -193,8 +193,8 @@ class GDriveClient:
 
                 node = GoogFile(item_id=item['id'], item_name=item["name"], original_filename=original_filename,
                                 version=int(item['version']), head_revision_id=head_revision_id,
-                                md5=item.get('md5Checksum', None), shared=item['shared'], created_ts=created_ts,
-                                modified_ts=modified_ts, size_bytes=size, owner_id=owner_id,
+                                md5=item.get('md5Checksum', None), shared=item['shared'], create_ts=create_ts,
+                                modify_ts=modify_ts, size_bytes=size, owner_id=owner_id,
                                 trashed=item['trashed'], explicitly_trashed=item['explicitlyTrashed'])
                 parents = item.get('parents', [])
                 meta.add_item_with_parents(parents, node)
@@ -222,7 +222,7 @@ class GDriveClient:
     def download_directory_structure(self, meta):
         """
         Downloads all of the directory nodes from the user's GDrive and puts them into a
-        IntermediateMeta object.
+        GDriveMeta object.
 
         Assume 99.9% of items will have only one parent, and perhaps 0.001% will have no parent.
         he below solution optimizes with these assumptions.

@@ -5,15 +5,13 @@ import subprocess
 import ui.actions as actions
 from ui.tree import tree_factory
 from ui.tree.display_meta import TreeDisplayMeta
-import ui.assets
 from fmeta.fmeta import FMeta, FMetaTree, Category
 from fmeta.fmeta_tree_loader import TreeMetaScanner
-from ui.root_dir_panel import RootDirPanel
 from ui.diff_tree.dt_model import DirNode, CategoryNode
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
+from gi.repository import GLib, Gtk, Gdk
 from ui.tree.display_store import DisplayStore
 from ui.progress_meter import ProgressMeter
 

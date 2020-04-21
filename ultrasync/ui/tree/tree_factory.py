@@ -39,10 +39,13 @@ def _build_content_box(root_dir_panel, tree_view, status_bar_container):
     return content_box
 
 
-def _compare_data(model, row1, row2, display_meta, compare_field_func):
+def _compare_data(model, row1, row2, args):
     """
     Comparison function, for use in model sort by column.
     """
+    display_meta = args[0]
+    compare_field_func = args[1]
+
     sort_column, _ = model.get_sort_column_id()
 
     value1 = compare_field_func(model[row1][display_meta.col_num_data])

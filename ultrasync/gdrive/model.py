@@ -34,6 +34,9 @@ class GoogFolder:
     def is_dir(self):
         return True
 
+    def make_tuple(self, parent_id):
+        return self.id, self.name, parent_id, self.trashed.value
+
     def trash_status_str(self):
         if self.trashed == Trashed.EXPLICITLY_TRASHED:
             return '[X]'
@@ -44,8 +47,8 @@ class GoogFolder:
 
 
 class GoogFile(GoogFolder):
-    def __init__(self, item_id, item_name, original_filename, version, head_revision_id, md5, shared, created_ts,
-                 modified_ts, size_bytes, owner_id, trashed=False, explicitly_trashed=False,
+    def __init__(self, item_id, item_name, original_filename, version, head_revision_id, md5, shared, create_ts,
+                 modify_ts, size_bytes, owner_id, trashed=False, explicitly_trashed=False,
                  trashed_status=Trashed.NOT_TRASHED):
         super().__init__(item_id, item_name, trashed, explicitly_trashed, trashed_status)
         self.original_filename = original_filename # TODO: remove
@@ -53,8 +56,8 @@ class GoogFile(GoogFolder):
         self.head_revision_id = head_revision_id
         self.md5 = md5
         self.shared = shared
-        self.created_ts = created_ts
-        self.modified_ts = modified_ts
+        self.create_ts = create_ts
+        self.modify_ts = modify_ts
         self.size_bytes = size_bytes
         self.owner_id = owner_id
 
@@ -63,13 +66,12 @@ class GoogFile(GoogFolder):
 
     def make_tuple(self, parent_id):
         return (self.id, self.name, parent_id, self.trashed.value, self.original_filename, self.version, self.head_revision_id,
-                self.md5, self.shared, self.created_ts, self.modified_ts, self.size_bytes, self.owner_id)
+                self.md5, self.shared, self.create_ts, self.modify_ts, self.size_bytes, self.owner_id)
 
 
-class IntermediateMeta:
+class GDriveMeta:
     def __init__(self):
-        # Keep track of parentless nodes. These usually indicate shared folder roots,
-        # but sometimes indicate something else screwy
+        # Keep track of parentless nodes. These include the 'My Drive' item, as well as shared items.
         self.roots = []
 
         # 'parent_id' -> list of child nodes
@@ -77,6 +79,11 @@ class IntermediateMeta:
 
         # List of item_ids which have more than 1 parent:
         self.ids_with_multiple_parents = []
+
+        self.path_dict = None
+
+    def get_children(self, parent_id):
+        return self.first_parent_dict.get(parent_id, None)
 
     def add_item_with_parents(self, parents, item):
         if len(parents) == 0:
@@ -93,7 +100,11 @@ class IntermediateMeta:
                     parent_index += 1
                     logger.debug(f'\tParent {parent_index}: [{parent_id}]')
 
-    def add_to_parent_dict(self, parent_id, item: GoogFolder):
+    def add_to_parent_dict(self, parent_id, item):
+        if not parent_id:
+            self.add_root(item)
+            return
+
         child_list = self.first_parent_dict.get(parent_id)
         if not child_list:
             child_list = []

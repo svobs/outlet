@@ -4,14 +4,14 @@ import os
 from queue import Queue
 from database import MetaDatabase
 from gdrive.client import GDriveClient
-from gdrive.model import GoogFolder, GoogFile, IntermediateMeta, Trashed
+from gdrive.model import GoogFolder, GoogFile, GDriveMeta, Trashed
 from fmeta.fmeta import FMetaTree, FMeta
 
 logger = logging.getLogger(__name__)
 
 
-def build_trees(meta: IntermediateMeta):
-    trees = {}
+def build_trees(meta: GDriveMeta):
+    path_dict = {}
 
     total_items = 0
     count_shared = 0
@@ -20,23 +20,21 @@ def build_trees(meta: IntermediateMeta):
     count_no_md5 = 0
 
     for root_node in meta.roots:
-        fmeta_tree = FMetaTree('/')
-        assert trees.get(root_node.name, None) is None
-        trees[root_node.name] = fmeta_tree
 
         count_tree_items = 0
         count_tree_files = 0
         count_tree_dirs = 0
         logger.debug(f'Building tree for GDrive root: [{root_node.id}] {root_node.name}')
         q = Queue()
-        q.put((root_node, ''))
+        q.put((root_node, '/'))
 
         while not q.empty():
             item, parent_path = q.get()
             path = os.path.join(parent_path, item.name)
-            # if not item.is_dir():
-            #     gmeta = GMeta(item) # TODO
-            #     fmeta_tree.add(gmeta)
+            existing = path_dict.get(path, None)
+            if existing:
+                logger.error(f'Overwriting existing node at path "{path}": old_id={existing.id}, new_id={item.id}')
+            path_dict[path] = item
             # logger.debug(f'[{item.id}] {item.trash_status_str()} {path}/')
             count_tree_items += 1
             total_items += 1
@@ -53,7 +51,7 @@ def build_trees(meta: IntermediateMeta):
             elif item.trashed == Trashed.TRASHED.value:
                 count_implicit_trash += 1
 
-            child_list = meta.first_parent_dict.get(item.id, None)
+            child_list = meta.get_children(item.id)
             if item.is_dir():
                 count_tree_dirs += 1
             else:
@@ -65,10 +63,13 @@ def build_trees(meta: IntermediateMeta):
                 for child in child_list:
                     q.put((child, path))
 
+            # TODO: include multiple parent mappings!
+
         logger.debug(f'Root "{root_node.name}" has {count_tree_items} nodes ({count_tree_files} files, {count_tree_dirs} dirs)')
 
     logger.debug(f'Finished with {total_items} items! Stats: shared={count_shared}, no_md5={count_no_md5}, '
                  f'trashed={count_explicit_trash}, also_trashed={count_implicit_trash}')
+    return path_dict
 
 
 class GDriveTreeBuilder:
@@ -84,7 +85,7 @@ class GDriveTreeBuilder:
         self.gdrive_client.get_about()
         cache_has_data = self.cache.has_gdrive_dirs() or self.cache.has_gdrive_files()
 
-        meta = IntermediateMeta()
+        meta = GDriveMeta()
 
         # Load data from either cache or Google:
         if self.cache and cache_has_data and not invalidate_cache:
@@ -97,9 +98,9 @@ class GDriveTreeBuilder:
         if self.cache and (not cache_has_data or invalidate_cache):
             self.save_to_cache(meta=meta, overwrite=True)
 
-        return meta
         # Finally, build the dir tree:
-       # build_trees(meta)
+        meta.path_dict = build_trees(meta)
+        return meta
 
     # TODO: filter by trashed status
     # TODO: filter by shared status
@@ -109,20 +110,21 @@ class GDriveTreeBuilder:
         # Convert to tuples for insert into DB:
         dir_rows = []
         file_rows = []
-        root_rows = []
         for parent_id, item_list in meta.first_parent_dict.items():
             for item in item_list:
                 if item.is_dir():
-                    dir_rows.append((item.id, item.name, parent_id, item.trashed.value))
+                    dir_rows.append(item.make_tuple(parent_id))
                 else:
                     file_rows.append(item.make_tuple(parent_id))
 
         for item in meta.roots:
-            # Currently only parentless dirs are stored in this table. Parentless files are stored
-            # with the other files
-            root_rows.append((item.id, item.name, item.trashed.value))
+            # Roots are stored with the other files and dirs:
+            if item.is_dir():
+                dir_rows.append(item.make_tuple(None))
+            else:
+                file_rows.append(item.make_tuple(None))
 
-        self.cache.insert_gdrive_dirs(root_rows, dir_rows, overwrite)
+        self.cache.insert_gdrive_dirs(dir_rows, overwrite)
 
         self.cache.insert_gdrive_files(file_rows, overwrite)
 
@@ -131,10 +133,7 @@ class GDriveTreeBuilder:
     def load_from_cache(self, meta):
 
         # DIRs:
-        root_rows, dir_rows = self.cache.get_gdrive_dirs()
-
-        for item_id, item_name, item_trashed in root_rows:
-            meta.add_root(GoogFolder(item_id, item_name, trashed_status=int(item_trashed)))
+        dir_rows = self.cache.get_gdrive_dirs()
 
         for item_id, item_name, parent_id, item_trashed in dir_rows:
             meta.add_to_parent_dict(parent_id, GoogFolder(item_id, item_name, trashed_status=int(item_trashed)))
@@ -142,12 +141,12 @@ class GDriveTreeBuilder:
         # FILES:
         file_rows = self.cache.get_gdrive_files()
         for item_id, item_name, parent_id, item_trashed, original_filename, version, head_revision_id, md5, shared, \
-                created_ts, modified_ts, size_bytes_str, owner_id in file_rows:
+                create_ts, modify_ts, size_bytes_str, owner_id in file_rows:
             size_bytes = None if size_bytes_str is None else int(size_bytes_str)
             file_node = GoogFile(item_id=item_id, item_name=item_name, original_filename=original_filename,
                                  trashed_status=int(item_trashed), version=int(version),
                                  head_revision_id=head_revision_id, md5=md5, shared=shared,
-                                 created_ts=int(created_ts), modified_ts=modified_ts, size_bytes=size_bytes,
+                                 create_ts=int(create_ts), modify_ts=modify_ts, size_bytes=size_bytes,
                                  owner_id=owner_id)
             meta.add_to_parent_dict(parent_id, file_node)
 

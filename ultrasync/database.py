@@ -26,13 +26,6 @@ class MetaDatabase:
                  ('trashed', 'INTEGER'))
     }
 
-    TABLE_GRDIVE_ROOTS = {
-        'name': 'gdrive_root',
-        'cols': (('gd_id', 'TEXT'),
-                 ('name', 'TEXT'),
-                 ('trashed', 'INTEGER'))
-    }
-
     TABLE_GRDIVE_MULTIPLE_PARENTS = {
         'name': 'gdrive_multiple_parents',
         'cols': (('gd_id', 'TEXT'),)
@@ -49,8 +42,8 @@ class MetaDatabase:
                  ('head_revision_id', 'TEXT'),
                  ('md5', 'TEXT'),
                  ('shared', 'INTEGER'),
-                 ('created_ts', 'INTEGER'),
-                 ('modified_ts', 'INTEGER'),
+                 ('create_ts', 'INTEGER'),
+                 ('modify_ts', 'INTEGER'),
                  ('size_bytes', 'INTEGER'),
                  ('owner_id', 'TEXT'),
                  )
@@ -160,37 +153,27 @@ class MetaDatabase:
     def truncate_gdrive_dirs(self):
         self.truncate_table(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
         self.truncate_table(self.TABLE_GRDIVE_DIRS)
-        self.truncate_table(self.TABLE_GRDIVE_ROOTS)
 
     def has_gdrive_dirs(self):
-        return self.has_rows(self.TABLE_GRDIVE_DIRS) or self.has_rows(self.TABLE_GRDIVE_MULTIPLE_PARENTS) or\
-               self.has_rows(self.TABLE_GRDIVE_ROOTS)
+        return self.has_rows(self.TABLE_GRDIVE_DIRS) or self.has_rows(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
 
-    def insert_gdrive_dirs(self, root_list, dir_list, overwrite=False):
+    def insert_gdrive_dirs(self, dir_list, overwrite=False):
         if not overwrite and self.has_gdrive_dirs():
             raise RuntimeError('Will not insert GDrive meta into a non-empty table!')
 
-        self.drop_table_if_exists(self.TABLE_GRDIVE_ROOTS)
         self.drop_table_if_exists(self.TABLE_GRDIVE_DIRS)
-        self.create_table_if_not_exist(self.TABLE_GRDIVE_ROOTS)
         self.create_table_if_not_exist(self.TABLE_GRDIVE_DIRS)
 
-        self.insert_many(self.TABLE_GRDIVE_ROOTS, root_list)
         self.insert_many(self.TABLE_GRDIVE_DIRS, dir_list)
 
     def get_gdrive_dirs(self):
-        cursor = self.conn.cursor()
-        sql = self.build_select(self.TABLE_GRDIVE_ROOTS)
-        cursor.execute(sql)
-        root_rows = cursor.fetchall()
-
         cursor = self.conn.cursor()
         sql = self.build_select(self.TABLE_GRDIVE_DIRS)
         cursor.execute(sql)
         dir_rows = cursor.fetchall()
 
-        logger.debug(f'Retrieved {len(root_rows)} roots and {len(dir_rows)} dirs')
-        return root_rows, dir_rows
+        logger.debug(f'Retrieved {len(dir_rows)} dirs')
+        return dir_rows
 
     # GDRIVE_FILES operations ---------------------
 
