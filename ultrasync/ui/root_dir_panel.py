@@ -1,11 +1,12 @@
 import logging
 import os
+
 import file_util
 import ui.actions as actions
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GdkPixbuf
+from gi.repository import Gtk, GLib
 
 # TODO: constants file
 ALERT_ICON_PATH = file_util.get_resource_path("resources/dialog-error-icon-24px.png")
@@ -104,7 +105,7 @@ class RootDirPanel:
 
         # not only local files can be selected in the file selector
         open_dialog.set_local_only(False)
-        # dialog always on top of the textview window
+        # dialog always on top of the parent window
         open_dialog.set_modal(True)
         # connect the dialog with the callback function open_response_cb()
         open_dialog.connect("response", _on_root_dir_selected, self)
@@ -112,24 +113,24 @@ class RootDirPanel:
         open_dialog.show()
 
     def _on_enable_ui_toggled(self, sender, enable):
-        self.change_btn.set_sensitive(enable)
+        def change_button():
+            self.change_btn.set_sensitive(enable)
+        GLib.idle_add(change_button)
 
     def _on_root_path_updated(self, sender, new_root):
         if new_root is None:
             raise RuntimeError(f'Root path cannot be None! (tree_id={self.store.tree_id})')
 
-        # Update root label.
         # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html
-
-        if os.path.exists(new_root):
-            self.alert_image_box.remove(self.alert_image)
-            color = ''
-            pre = ''
-        else:
-            self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
-            color = f"foreground='gray'"
-            pre = f"<span foreground='red' size='small'>Not found:  </span>"
-        self.label.set_markup(f"{pre}<span font_family='monospace' size='medium' {color}><i>{new_root}</i></span>")
-
-        return False
+        def update_root_label():
+            if os.path.exists(new_root):
+                self.alert_image_box.remove(self.alert_image)
+                color = ''
+                pre = ''
+            else:
+                self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
+                color = f"foreground='gray'"
+                pre = f"<span foreground='red' size='small'>Not found:  </span>"
+            self.label.set_markup(f"{pre}<span font_family='monospace' size='medium' {color}><i>{new_root}</i></span>")
+        GLib.idle_add(update_root_label)
 

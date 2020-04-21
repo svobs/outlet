@@ -5,6 +5,7 @@ TOGGLE_UI_ENABLEMENT = 'toggle-ui-enablement'
 ROOT_PATH_UPDATED = 'root-path-updated'
 DO_DIFF = 'do-diff'
 DOWNLOAD_GDRIVE_META = 'download-gdrive-meta'
+GDRIVE_DOWNLOAD_COMPLETE = 'gdrive-download-complete'
 
 SET_STATUS = 'set-status'
 SET_TOTAL_PROGRESS = 'set-total-progress'

@@ -155,9 +155,9 @@ class LazyTree:
 
         self.add_listeners()
 
-    def _compare_fmeta(self, model, row1, row2, compare_field_func):
+    def _compare_data(self, model, row1, row2, compare_field_func):
         """
-        Comparison function, for use in model sort by column.
+        Comparison function, for use in model column sort.
         """
         sort_column, _ = model.get_sort_column_id()
         fmeta1 = model[row1][self.col_num_data]
@@ -263,7 +263,7 @@ class LazyTree:
         treeview.append_column(column)
 
         # Need the original file sizes (in bytes) here, not the formatted one
-        model.set_sort_func(self.col_num_size, self._compare_fmeta, lambda f: f.size_bytes)
+        model.set_sort_func(self.col_num_size, self._compare_data, lambda f: f.size_bytes)
 
         # MODIFICATION TS COLUMN
         renderer = Gtk.CellRendererText()
@@ -282,7 +282,7 @@ class LazyTree:
         column.set_reorderable(True)
         treeview.append_column(column)
 
-        model.set_sort_func(self.col_num_modification_ts, self._compare_fmeta, lambda f: f.modify_ts)
+        model.set_sort_func(self.col_num_modification_ts, self._compare_data, lambda f: f.modify_ts)
 
         if self.show_change_ts:
             # METADATA CHANGE TS COLUMN
@@ -302,7 +302,7 @@ class LazyTree:
             column.set_reorderable(True)
             treeview.append_column(column)
 
-            model.set_sort_func(self.col_num_change_ts, self._compare_fmeta, lambda f: f.change_ts)
+            model.set_sort_func(self.col_num_change_ts, self._compare_data, lambda f: f.change_ts)
 
         select = treeview.get_selection()
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
@@ -330,7 +330,6 @@ class LazyTree:
 
         # TODO: Holy shit this is unnecessarily complicated. Clean this up
         def on_progress_made(this, progress, total):
-            logger.info(f'Hello! Progress made: {progress}')
             self._set_status(f'Scanning file {progress} of {total}')
 
         self.progress_meter = ProgressMeter(on_progress_made, self.parent_win.config, self)

@@ -97,8 +97,9 @@ class GDriveTreeBuilder:
         if self.cache and (not cache_has_data or invalidate_cache):
             self.save_to_cache(meta=meta, overwrite=True)
 
+        return meta
         # Finally, build the dir tree:
-        build_trees(meta)
+       # build_trees(meta)
 
     # TODO: filter by trashed status
     # TODO: filter by shared status

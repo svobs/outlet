@@ -6,6 +6,9 @@ import ui.assets
 from ui.diff_tree.dt_data_store import DtConfigFileStore
 
 import gi
+
+from ui.gdrive_dir_selection_dialog import GDriveDirSelectionDialog
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, GObject
 
@@ -21,6 +24,9 @@ import ui.diff_tree.dt_populator as diff_tree_populator
 
 logger = logging.getLogger(__name__)
 
+ID_LEFT_TREE = 'left_tree'
+ID_RIGHT_TREE = 'right_tree'
+
 
 class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
     def __init__(self, application):
@@ -35,11 +41,6 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.set_border_width(10)
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
         self.add(self.content_box)
-
-        # Subscribe to signals:
-        actions.connect(signal=actions.DO_DIFF, handler=self.on_diff_requested)
-        actions.connect(signal=actions.DOWNLOAD_GDRIVE_META, handler=self.on_google_requested)
-        actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
 
         # Checkboxes:
         self.checkbox_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
@@ -71,13 +72,12 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         # Diff Tree Left:
 
-        store_left = DtConfigFileStore(config=self.config, tree_id='left_tree', editable=True)
+        store_left = DtConfigFileStore(config=self.config, tree_id=ID_LEFT_TREE, editable=True)
         self.diff_tree_left = DiffTree(store=store_left, parent_win=self, sizegroups=self.sizegroups)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
 
-
         # Diff Tree Right:
-        store_right = DtConfigFileStore(config=self.config, tree_id='right_tree', editable=True)
+        store_right = DtConfigFileStore(config=self.config, tree_id=ID_RIGHT_TREE, editable=True)
         self.diff_tree_right = DiffTree(store=store_right, parent_win=self, sizegroups=self.sizegroups)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
 
@@ -85,23 +85,27 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.bottom_button_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.content_box.add(self.bottom_button_panel)
 
+        def on_diff_btn_clicked(widget):
+            logger.debug('Diff btn clicked!')
+            actions.send_signal(signal=actions.DO_DIFF, sender=self.diff_tree_left.tree_id)
         diff_action_btn = Gtk.Button(label="Diff (content-first)")
-        diff_action_btn.connect("clicked", self.on_diff_btn_clicked)
+        diff_action_btn.connect("clicked", on_diff_btn_clicked)
 
+        def on_goog_btn_clicked(widget):
+            logger.debug('DownloadGDrive btn clicked!')
+            actions.send_signal(signal=actions.DOWNLOAD_GDRIVE_META, sender=self.diff_tree_left.tree_id)
         gdrive_btn = Gtk.Button(label="Download Google Drive Meta")
-        gdrive_btn.connect("clicked", self.on_goog_btn_clicked)
+        gdrive_btn.connect("clicked", on_goog_btn_clicked)
 
         self.replace_bottom_button_panel(diff_action_btn, gdrive_btn)
 
+        # Subscribe to signals:
+        actions.connect(signal=actions.DO_DIFF, handler=self.on_diff_requested)
+        actions.connect(signal=actions.DOWNLOAD_GDRIVE_META, handler=self.on_gdrive_requested)
+        actions.connect(signal=actions.TOGGLE_UI_ENABLEMENT, handler=self.on_enable_ui_toggled)
+        actions.connect(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, handler=self.on_gdrive_download_complete)
+
         # TODO: create a 'Scan' button for each input source
-
-    def on_diff_btn_clicked(self, widget):
-        logger.debug('Diff btn clicked!')
-        actions.send_signal(signal=actions.DO_DIFF, sender=self)
-
-    def on_goog_btn_clicked(self, widget):
-        logger.debug('DownloadGDrive btn clicked!')
-        actions.send_signal(signal=actions.DOWNLOAD_GDRIVE_META, sender=self)
 
     def replace_bottom_button_panel(self, *buttons):
         for child in self.bottom_button_panel.get_children():
@@ -111,7 +115,14 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             self.bottom_button_panel.pack_start(button, True, True, 0)
             button.show()
 
-    def on_merge_btn_clicked(self, widget):
+    # --- ACTIONS ---
+
+    def on_merge_preview_btn_clicked(self, widget):
+        """
+        1. Gets selected changes from both sides,
+        2. merges into one change tree and raises an error for conflicts,
+        3. or if successful displays the merge preview dialog with the summary.
+        """
         logger.debug('Merge btn clicked')
 
         try:
@@ -138,35 +149,57 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                 # Assume the dialog took care of applying the changes.
                 # Refresh the diff trees:
                 logger.debug('Refreshing the diff trees')
-                actions.send_signal(actions.DO_DIFF, self)
+                actions.send_signal(signal=actions.DO_DIFF, sender=self)
         except Exception as err:
             self.show_error_ui('Merge preview failed due to unexpected error', repr(err))
             raise
 
-    def _on_enable_ui_toggled(self, sender, enable):
-        """Fired by TOGGLE_UI_ENABLEMENT"""
-        for button in self.bottom_button_panel.get_children():
-            button.set_sensitive(enable)
+    def on_enable_ui_toggled(self, sender, enable):
+        """Callback for TOGGLE_UI_ENABLEMENT"""
+        def toggle_ui():
+            for button in self.bottom_button_panel.get_children():
+                button.set_sensitive(enable)
+        GLib.idle_add(toggle_ui)
+
+    def on_gdrive_requested(self, sender):
+        """Callback for signal DOWNLOAD_GDRIVE_META"""
+        actions.disable_ui(sender=sender)
+        action_thread = threading.Thread(target=self.download_gdrive_meta, args=(sender,))
+        action_thread.daemon = True
+        action_thread.start()
+
+    def download_gdrive_meta(self, tree_id):
+        try:
+            cache_path = get_resource_path('gdrive.db')
+            tree_builder = GDriveTreeBuilder(config=self.config, cache_path=cache_path)
+            meta = tree_builder.build(invalidate_cache=False)
+            actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, meta=meta)
+        finally:
+            actions.enable_ui(sender=self)
+
+    def on_gdrive_download_complete(self, sender, meta):
+        """Callback for signal GDRIVE_DOWNLOAD_COMPLETE"""
+
+        def open_dialog():
+            try:
+                # Preview changes in UI pop-up
+                dialog = GDriveDirSelectionDialog(self, meta)
+                response_id = dialog.run()
+                if response_id == Gtk.ResponseType.OK:
+                    logger.debug('User clicked OK!')
+
+            except Exception as err:
+                self.show_error_ui('GDriveDirSelectionDialog failed due to unexpected error', repr(err))
+                raise
+
+        GLib.idle_add(open_dialog)
 
     def on_diff_requested(self, sender):
+        """Callback for signal DO_DIFF"""
         actions.disable_ui(sender=sender)
         action_thread = threading.Thread(target=self.do_tree_diff)
         action_thread.daemon = True
         action_thread.start()
-
-    def on_google_requested(self, sender):
-        actions.disable_ui(sender=sender)
-        action_thread = threading.Thread(target=self.download_gdrive_meta)
-        action_thread.daemon = True
-        action_thread.start()
-
-    def download_gdrive_meta(self):
-        try:
-            cache_path = get_resource_path('gdrive.db')
-            tree_builder = GDriveTreeBuilder(config=self.config, cache_path=cache_path)
-            tree_builder.build(invalidate_cache=False)
-        finally:
-            actions.enable_ui(sender=self)
 
     # TODO: change DB path whenever root is changed
     # TODO: disable all UI while loading (including tree)
@@ -195,7 +228,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             def change_button_bar():
                 # Replace diff btn with merge buttons
                 merge_btn = Gtk.Button(label="Merge Selected...")
-                merge_btn.connect("clicked", self.on_merge_btn_clicked)
+                merge_btn.connect("clicked", self.on_merge_preview_btn_clicked)
 
                 self.replace_bottom_button_panel(merge_btn)
                 actions.enable_ui(sender=self)

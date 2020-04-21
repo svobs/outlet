@@ -119,6 +119,9 @@ class DiffTree:
 
         self.treeview = self._build_treeview(self.model)
 
+        select = self.treeview.get_selection()
+        select.set_mode(Gtk.SelectionMode.MULTIPLE)
+
         self.status_bar, status_bar_container = _build_info_bar()
         self.content_box = _build_content_box(self.root_dir_panel.content_box, self.treeview, status_bar_container)
         if self.sizegroups is not None and self.sizegroups.get('tree_status') is not None:
@@ -275,8 +278,6 @@ class DiffTree:
 
             model.set_sort_func(self.col_num_change_ts, self._compare_fmeta, lambda f: f.change_ts)
 
-        select = treeview.get_selection()
-        select.set_mode(Gtk.SelectionMode.MULTIPLE)
         return treeview
 
     # For displaying icons
@@ -286,6 +287,10 @@ class DiffTree:
     # For displaying text next to icon
     def get_tree_cell_text(self, col, cell, model, iter, user_data):
         cell.set_property('text', model.get_value(iter, self.col_num_name))
+
+    @property
+    def tree_id(self):
+        return self.store.tree_id
 
     @property
     def root_path(self):
@@ -301,7 +306,6 @@ class DiffTree:
 
         # TODO: Holy shit this is unnecessarily complicated. Clean this up
         def on_progress_made(this, progress, total):
-            logger.info(f'Hello! Progress made: {progress}')
             self._set_status(f'Scanning file {progress} of {total}')
 
         self.progress_meter = ProgressMeter(on_progress_made, self.parent_win.config, self)

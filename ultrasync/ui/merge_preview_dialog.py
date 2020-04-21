@@ -1,13 +1,11 @@
 import logging
 
 import gi
-
-from ui import actions
-from ui.diff_tree.dt_data_store import SimpleDataStore
-
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
+from ui import actions
+from ui.diff_tree.dt_data_store import SimpleDataStore
 import fmeta.fmeta_file_util
 from file_util import get_resource_path
 from fmeta.fmeta_file_util import FMetaError
