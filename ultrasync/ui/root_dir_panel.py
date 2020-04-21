@@ -63,7 +63,7 @@ class RootDirChooserDialog(Gtk.FileChooserDialog):
 
 
 class RootDirPanel:
-    def __init__(self, parent_win, store):
+    def __init__(self, parent_win, store, editable):
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
 
         self.store = store
@@ -74,7 +74,7 @@ class RootDirPanel:
         self.label.set_xalign(0)
         self.label.set_line_wrap(True)
 
-        if self.store.editable:
+        if editable:
             self.change_btn = Gtk.Button()
             icon = Gtk.Image()
             icon.set_from_file(CHOOSE_ROOT_ICON_PATH)

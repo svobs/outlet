@@ -4,6 +4,8 @@ from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
 
 
 class DisplayStore:
+    """(Mostly) encapsulates the nodes inside the TreeView object, which will be a subset of the nodes
+    which """
     def __init__(self, display_meta):
         self.display_meta = display_meta
         self.model = Gtk.TreeStore()

@@ -3,7 +3,7 @@ import threading
 import os
 import ui.actions as actions
 import ui.assets
-from ui.diff_tree.dt_data_store import DtConfigFileStore
+from ui.diff_tree.dt_data_store import PersistentFMetaStore
 
 import gi
 
@@ -72,13 +72,13 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         # Diff Tree Left:
 
-        store_left = DtConfigFileStore(config=self.config, tree_id=ID_LEFT_TREE, editable=True)
-        self.diff_tree_left = DiffTree(store=store_left, parent_win=self)
+        store_left = PersistentFMetaStore(tree_id=ID_LEFT_TREE, config=self.config)
+        self.diff_tree_left = DiffTree(store=store_left, parent_win=self, editable=True, is_display_persisted=True)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
-        store_right = DtConfigFileStore(config=self.config, tree_id=ID_RIGHT_TREE, editable=True)
-        self.diff_tree_right = DiffTree(store=store_right, parent_win=self)
+        store_right = PersistentFMetaStore(tree_id=ID_RIGHT_TREE, config=self.config)
+        self.diff_tree_right = DiffTree(store=store_right, parent_win=self, editable=True, is_display_persisted=True)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
 
         # Bottom button panel:
@@ -213,8 +213,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             actions.set_status(sender=self.diff_tree_right.store.tree_id, status_msg='Waiting...')
 
             # Load trees if not loaded - may be a long operation
-            left_fmeta_tree = self.diff_tree_left.store.get_fmeta_tree()
-            right_fmeta_tree = self.diff_tree_right.store.get_fmeta_tree()
+            left_fmeta_tree = self.diff_tree_left.store.get_whole_tree()
+            right_fmeta_tree = self.diff_tree_right.store.get_whole_tree()
 
             stopwatch_diff = Stopwatch()
             diff_content_first.diff(left_fmeta_tree, right_fmeta_tree, compare_paths_also=True, use_modify_times=False)

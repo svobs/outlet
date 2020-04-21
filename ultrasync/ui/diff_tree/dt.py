@@ -21,16 +21,16 @@ logger = logging.getLogger(__name__)
 
 
 class DiffTree:
-    def __init__(self, store, parent_win):
+    def __init__(self, store, parent_win, editable, is_display_persisted):
         # Should be a subclass of BaseDialog:
         self.parent_win = parent_win
+        self.store = store
 
         def is_ignored_func(data_node):
             return data_node.category == Category.Ignored
-        display_meta = TreeDisplayMeta(self.parent_win.config, is_ignored_func)
+        display_meta = TreeDisplayMeta(config=self.parent_win.config, tree_id=self.store.tree_id, editable=editable, is_display_persisted=is_display_persisted, is_ignored_func=is_ignored_func)
 
         self.display_store = DisplayStore(display_meta)
-        self.store = store
 
         self.treeview, self.status_bar, self.content_box = tree_factory.build_all(
             parent_win=parent_win, store=self.store, display_store=self.display_store)
@@ -139,7 +139,7 @@ class DiffTree:
     def _on_toggle_row_expanded_state(self, tree_view, tree_path, col, is_expanded):
         node_data = self.display_store.get_node_data(tree_path)
         if type(node_data) == CategoryNode:
-            self.store.set_category_node_expanded_state(node_data.category, is_expanded)
+            self.display_store.display_meta.set_category_node_expanded_state(node_data.category, is_expanded)
 
     def build_context_menu(self, tree_path: Gtk.TreePath, node_data):
         """Dynamic context menu (right-click on tree item)"""
@@ -368,7 +368,7 @@ class DiffTree:
         stale_tree = self.get_subtree_as_tree(tree_path)
         fresh_tree = None
         # Master tree contains all FMeta in this widget
-        master_tree = self.store.get_fmeta_tree()
+        master_tree = self.store.get_whole_tree()
 
         # If the path no longer exists at all, then it's simple: the entire stale_tree should be deleted.
         if os.path.exists(stale_tree.root_path):

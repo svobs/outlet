@@ -1,7 +1,12 @@
+# TODO: just roll this into DisplayStore
 class TreeDisplayMeta:
-    def __init__(self, config, editable, is_ignored_func=None):
+    def __init__(self, config, tree_id, editable, is_display_persisted, is_ignored_func=None):
         self.config = config
+        self.tree_id = tree_id
+        """If false, disable actions in UI"""
         self.editable = editable
+        """If true, load and save aesthetic things like expanded state of some nodes"""
+        self.is_display_persisted = is_display_persisted
         # This is a function pointer which accepts a data node arg and returns true if it is considered "ignored":
         self.is_ignored_func = is_ignored_func
 
@@ -63,3 +68,19 @@ class TreeDisplayMeta:
         self.col_types.append(object)
         col_count += 1
 
+    def is_category_node_expanded(self, node):
+        if self.is_ignored_func and self.is_ignored_func(node):
+            # Do not expand if ignored:
+            return False
+
+        if self.is_display_persisted:
+            cfg_path = f'transient.{self.tree_id}.expanded_state.{node.category.name}'
+            return self.config.get(cfg_path, True)
+
+        # Default if no config:
+        return True
+
+    def set_category_node_expanded_state(self, category, is_expanded):
+        if self.is_display_persisted:
+            cfg_path = f'transient.{self.tree_id}.expanded_state.{category.name}'
+            self.config.write(cfg_path, is_expanded)

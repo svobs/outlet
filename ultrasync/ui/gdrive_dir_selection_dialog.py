@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
 
     def __init__(self, parent, meta):
-        Gtk.Dialog.__init__(self, "Confirm Merge", parent, 0)
+        Gtk.Dialog.__init__(self, "Select GDrive Root", parent, 0)
         BaseDialog.__init__(self, parent.config)
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)

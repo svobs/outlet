@@ -148,7 +148,7 @@ def _set_expand_states_from_config(diff_tree):
     while tree_iter is not None:
         node_data = diff_tree.display_store.get_node_data(tree_iter)
         if type(node_data) == CategoryNode:
-            is_expand = diff_tree.store.is_category_node_expanded(node_data.category)
+            is_expand = diff_tree.display_store.display_meta.is_category_node_expanded(node_data)
             if is_expand:
                 tree_path = diff_tree.display_store.model.get_path(tree_iter)
                 diff_tree.treeview.expand_row(path=tree_path, open_all=True)
@@ -173,7 +173,7 @@ def repopulate_diff_tree(diff_tree):
     # The docs say to do this for speed, but it doesn't seem to change things:
     diff_tree.treeview.set_model(None)
 
-    fmeta_tree = diff_tree.store.get_fmeta_tree()
+    fmeta_tree = diff_tree.store.get_whole_tree()
 
     for category in [Category.Added,
                      Category.Deleted,
