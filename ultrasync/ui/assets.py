@@ -8,10 +8,18 @@ from gi.repository import GdkPixbuf
 
 WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
 
+ICON_GENERIC_FILE = 'file'
+ICON_TRASHED_DIR = 'trash-dir'
+ICON_TRASHED_FILE = 'trash-file'
+ICON_GENERIC_DIR = 'folder'
+
 
 def _build_icons(icon_size):
     icons = dict()
-    icons['folder'] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Folder-icon-{icon_size}px.png'))
+    icons[ICON_GENERIC_FILE] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
+    icons[ICON_GENERIC_DIR] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Folder-icon-{icon_size}px.png'))
+    icons[ICON_TRASHED_DIR] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/recycle-bag-{icon_size}px.png'))
+    icons[ICON_TRASHED_FILE] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/icons8-paper-waste-{icon_size}px.png'))
     icons[Category.Added.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-Add-icon-{icon_size}px.png'))
     icons[Category.Deleted.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-Delete-icon-{icon_size}px.png'))
     icons[Category.Moved.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-icon-{icon_size}px.png'))

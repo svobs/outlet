@@ -168,6 +168,7 @@ def repopulate_diff_tree(diff_tree):
 
     # Wipe out existing items:
     diff_tree.display_store.model.clear()
+    diff_tree.treeview.freeze_child_notify()
 
     # Detach model before insert.
     # The docs say to do this for speed, but it doesn't seem to change things:
@@ -183,7 +184,10 @@ def repopulate_diff_tree(diff_tree):
         _populate_category(diff_tree.display_store, category, fmeta_tree.get_for_cat(category))
 
     # Re-attach model:
-    GLib.idle_add(lambda: diff_tree.treeview.set_model(diff_tree.display_store.model))
+    def post_insert():
+        diff_tree.treeview.set_model(diff_tree.display_store.model)
+        diff_tree.treeview.thaw_child_notify()
+    GLib.idle_add(post_insert)
 
     # Restore user prefs for expanded nodes:
     GLib.idle_add(_set_expand_states_from_config, diff_tree)

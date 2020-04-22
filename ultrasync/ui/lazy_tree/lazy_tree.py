@@ -5,6 +5,8 @@ import humanfriendly
 
 import logging
 import ui.actions as actions
+from gdrive.gdrive_model import NOT_TRASHED
+from ui.assets import ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE
 from ui.tree import tree_factory
 from ui.tree.display_meta import TreeDisplayMeta
 from fmeta.fmeta import FMeta, Category
@@ -124,7 +126,13 @@ class LazyTree:
         if self.display_store.display_meta.editable:
             row_values.append(False)  # Checked
             row_values.append(False)  # Inconsistent
-        row_values.append('folder')  # Icon
+        icon_id = ICON_GENERIC_DIR
+        try:
+            if node_data.trashed != NOT_TRASHED:
+                icon_id = ICON_TRASHED_DIR
+        except AttributeError:
+            pass
+        row_values.append(icon_id)  # Icon
         row_values.append(node_data.name)  # Name
         if not self.display_store.display_meta.use_dir_tree:
             row_values.append(None)  # Directory
@@ -137,15 +145,21 @@ class LazyTree:
         self._append_loading_child(dir_node_iter)
         return dir_node_iter
 
-    def _append_file_node(self, tree_iter, node):
+    def _append_file_node(self, tree_iter, node_data):
         row_values = []
 
         if self.display_store.display_meta.editable:
             row_values.append(False)  # Checked
             row_values.append(False)  # Inconsistent
-        row_values.append(Category.Updated.name)  # Icon
+        icon_id = ICON_GENERIC_FILE
+        try:
+            if node_data.trashed != NOT_TRASHED:
+                icon_id = ICON_TRASHED_FILE
+        except AttributeError:
+            pass
+        row_values.append(icon_id)  # Icon
 
-        row_values.append(node.name)  # Name
+        row_values.append(node_data.name)  # Name
 
         # TODO: dir tree required for lazy load
         # if not display_store.display_meta.use_dir_tree:
@@ -153,30 +167,30 @@ class LazyTree:
         #     row_values.append(directory)  # Directory
 
         # Size
-        if node.size_bytes is None:
+        if node_data.size_bytes is None:
             row_values.append(None)
         else:
-            num_bytes_str = humanfriendly.format_size(node.size_bytes)
+            num_bytes_str = humanfriendly.format_size(node_data.size_bytes)
             row_values.append(num_bytes_str)
 
         # Modified TS
-        if node.modify_ts is None:
+        if node_data.modify_ts is None:
             row_values.append(None)
         else:
-            modify_datetime = datetime.fromtimestamp(node.modify_ts / 1000)
+            modify_datetime = datetime.fromtimestamp(node_data.modify_ts / 1000)
             modify_formatted = modify_datetime.strftime(self.display_store.display_meta.datetime_format)
             row_values.append(modify_formatted)
 
         # Change TS
         if self.display_store.display_meta.show_change_ts:
-            if node.create_ts is None:
+            if node_data.create_ts is None:
                 row_values.append(None)
             else:
-                change_datetime = datetime.fromtimestamp(node.create_ts / 1000)
+                change_datetime = datetime.fromtimestamp(node_data.create_ts / 1000)
                 change_time = change_datetime.strftime(self.display_store.display_meta.datetime_format)
                 row_values.append(change_time)
 
-        row_values.append(node)  # Data
+        row_values.append(node_data)  # Data
         return self.display_store.model.append(tree_iter, row_values)
 
     def populate_root(self):
