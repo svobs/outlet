@@ -9,7 +9,7 @@ from stopwatch import Stopwatch
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-from gdrive.gdrive_model import EXPLICITLY_TRASHED, GoogFolder, GoogFile, GDriveMeta, IMPLICITLY_TRASHED, NOT_TRASHED
+from gdrive.gdrive_model import EXPLICITLY_TRASHED, GoogFolder, GoogFile, GDriveMeta, IMPLICITLY_TRASHED, NOT_TRASHED, UserMeta
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
@@ -21,9 +21,15 @@ QUERY_FOLDERS_ONLY = f"mimeType='{MIME_TYPE_FOLDER}'"
 QUERY_NON_FOLDERS_ONLY = f"not {QUERY_FOLDERS_ONLY}"
 MAX_RETRIES = 10
 
+# Web view link takes the form:
+
+
+WEB_VIEW_LINK = 'https://drive.google.com/file/d/{id}/view?usp=drivesdk'
+WEB_CONTENT_LINK = 'https://drive.google.com/uc?id={id}&export=download'
+
 DIR_FIELDS = 'id, name, trashed, explicitlyTrashed, driveId, shared'
 FILE_FIELDS = 'id, name, trashed, explicitlyTrashed, driveId, shared, version, createdTime, ' \
-              'modifiedTime, owners, md5Checksum, size, headRevisionId, shortcutDetails, mimeType, webViewLink, webContentLink, sharingUser'
+              'modifiedTime, owners, md5Checksum, size, headRevisionId, shortcutDetails, mimeType, sharingUser'
 
 ISO_8601_FMT = '%Y-%m-%dT%H:%M:%S.%f%z'
 
@@ -133,6 +139,7 @@ class GDriveClient:
         email_address = user['emailAddress']
         logger.info(f'Logged in as user {display_name} <{email_address}> (owner_id={owner_id})')
         logger.debug(f'User photo link: {photo_link}')
+        user_meta = UserMeta(display_name=display_name, permission_id=owner_id, email_address=email_address, photo_link=photo_link)
 
         storage_quota = about['storageQuota']
         storage_total = storage_quota['limit']
@@ -145,6 +152,7 @@ class GDriveClient:
         drive_trash_used = humanfriendly.format_size(int(storage_used_in_drive_trash))
 
         logger.info(f'{used} of {total} used (including {drive_used} for Drive files; of which {drive_trash_used} is trash)')
+        return user_meta
 
     def get_my_drive_root(self):
         """
@@ -203,37 +211,47 @@ class GDriveClient:
                 mime_type = item['mimeType']
                 owners = item['owners']
                 owner = None if len(owners) == 0 else owners[0]
-                owner_id = None
                 if owner:
-                    owner_id = owner['permissionId']
-                    owner_name = owner['displayName']
-                    owner_email = owner['emailAddress']
-                    owner_is_me = owner['me']
+                    owner_id = owner.get('permissionId', None)
+                    owner_name = owner.get('displayName', None)
+                    owner_email = owner.get('emailAddress', None)
+                    owner_is_me = owner.get('me', None)
                     meta.owner_dict[owner_id] = (owner_name, owner_email, owner_is_me)
+                else:
+                    owner_id = None
 
-                created_ts_obj = datetime.strptime(item['createdTime'], ISO_8601_FMT)
-                create_ts = int(created_ts_obj.timestamp() * 1000)
-                modified_ts_obj = datetime.strptime(item['modifiedTime'], ISO_8601_FMT)
-                modify_ts = int(modified_ts_obj.timestamp() * 1000)
+                create_ts = item.get('createdTime', None)
+                if create_ts:
+                    create_ts = datetime.strptime(create_ts, ISO_8601_FMT)
+                    create_ts = int(create_ts.timestamp() * 1000)
+
+                modify_ts = item.get('modifiedTime', None)
+                if modify_ts:
+                    modify_ts = datetime.strptime(modify_ts, ISO_8601_FMT)
+                    modify_ts = int(modify_ts.timestamp() * 1000)
+
                 head_revision_id = item.get('headRevisionId', None)
                 size_str = item.get('size', None)
                 size = None if size_str is None else int(size_str)
+                version = item.get('version', None)
+                if version:
+                    version = int(version)
 
-                node = GoogFile(item_id=item['id'], item_name=item["name"], trashed=convert_trashed(item), drive_id=item['driveId'],
-                                version=int(item['version']), head_revision_id=head_revision_id,
-                                md5=item.get('md5Checksum', None), my_share=item['shared'], create_ts=create_ts,
+                node = GoogFile(item_id=item['id'], item_name=item["name"], trashed=convert_trashed(item), drive_id=item.get('driveId', None),
+                                version=version, head_revision_id=head_revision_id,
+                                md5=item.get('md5Checksum', None), my_share=item.get('shared', None), create_ts=create_ts,
                                 modify_ts=modify_ts, size_bytes=size, owner_id=owner_id)
                 parents = item.get('parents', [])
                 meta.add_item_with_parents(parents, node)
                 meta.mime_types[mime_type] = node
 
-                web_view_link = item.get('webViewLink', None)
-                if web_view_link:
-                    logger.debug(f'Found webViewLink: "{web_view_link}" for node: {node}')
-
-                web_content_link = item.get('webContentLink', None)
-                if web_content_link:
-                    logger.debug(f'Found webContentLink: "{web_content_link}" for node: {node}')
+                # web_view_link = item.get('webViewLink', None)
+                # if web_view_link:
+                #     logger.debug(f'Found webViewLink: "{web_view_link}" for node: {node}')
+                #
+                # web_content_link = item.get('webContentLink', None)
+                # if web_content_link:
+                #     logger.debug(f'Found webContentLink: "{web_content_link}" for node: {node}')
 
                 sharing_user = item.get('sharingUser', None)
                 if sharing_user:

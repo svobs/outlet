@@ -93,16 +93,16 @@ class GDriveTreeLoader:
             self.cache = None
 
     def load_all(self, invalidate_cache=False):
-        self.gdrive_client.get_about()
-        cache_has_data = self.cache.has_gdrive_dirs() or self.cache.has_gdrive_files()
-
         meta = GDriveMeta()
+
+        meta.me = self.gdrive_client.get_about()
+        cache_has_data = self.cache.has_gdrive_dirs() or self.cache.has_gdrive_files()
 
         # Load data from either cache or Google:
         if self.cache and cache_has_data and not invalidate_cache:
             self.load_from_cache(meta)
         else:
-        #    self.gdrive_client.download_directory_structure(meta)
+            self.gdrive_client.download_directory_structure(meta)
             self.gdrive_client.download_all_file_meta(meta)
 
         # Save to cache if configured:

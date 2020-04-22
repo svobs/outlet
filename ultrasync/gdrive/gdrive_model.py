@@ -10,6 +10,14 @@ IMPLICITLY_TRASHED = 2
 TRASHED_STATUS = ['No', 'UserTrashed', 'Trashed']
 
 
+class UserMeta:
+    def __init__(self, display_name, permission_id, email_address, photo_link):
+        self.display_name = display_name
+        self.permission_id = permission_id
+        self.email_address = email_address
+        self.photo_link = photo_link
+
+
 class GoogFolder:
     def __init__(self, item_id, item_name, trashed, drive_id, my_share):
         self.id = item_id
@@ -47,7 +55,7 @@ class GoogFolder:
 class GoogFile(GoogFolder):
     def __init__(self, item_id, item_name, trashed, drive_id, version, head_revision_id, md5,
                  my_share, create_ts, modify_ts, size_bytes, owner_id):
-        super().__init__(item_id=item_id, item_name=item_name, trashed=trashed, drive_id=drive_id)
+        super().__init__(item_id=item_id, item_name=item_name, trashed=trashed, drive_id=drive_id, my_share=my_share)
         self.version = version
         self.head_revision_id = head_revision_id
         self.md5 = md5
@@ -83,6 +91,7 @@ class GDriveMeta:
         # List of item_ids which have more than 1 parent:
         self.ids_with_multiple_parents = []
 
+        self.me = None
         self.path_dict = None
         self.owner_dict = {}
         self.mime_types = {}

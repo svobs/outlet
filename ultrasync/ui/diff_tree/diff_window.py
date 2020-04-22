@@ -176,6 +176,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, meta=meta)
         except Exception as err:
             self.show_error_ui('Downlaod from GDrive failed due to unexpected error', repr(err))
+            logger.exception(err)
         finally:
             actions.enable_ui(sender=self)
 
@@ -238,7 +239,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
             GLib.idle_add(change_button_bar)
         except Exception as err:
-            self.show_error_ui('Diff task failed due to unexpected error', repr(err))
             actions.enable_ui(sender=self)
-            raise
+            self.show_error_ui('Diff task failed due to unexpected error', repr(err))
+            logger.exception(err)
 
