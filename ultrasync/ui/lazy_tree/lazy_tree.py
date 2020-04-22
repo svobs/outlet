@@ -98,11 +98,9 @@ class LazyTree:
         row_values.append(node_data.name)  # Name
         if not self.display_store.display_meta.use_dir_tree:
             row_values.append(None)  # Directory
-        num_bytes_str = humanfriendly.format_size(node_data.size_bytes)
-        row_values.append(num_bytes_str)  # Size
+        row_values.append(None)  # Size
         row_values.append(None)  # Modify Date
-        if self.display_store.display_meta.show_change_ts:
-            row_values.append(None)  # Modify Date
+        row_values.append(None)  # Created Date
         row_values.append(node_data)  # Data
 
         return self.display_store.model.append(tree_iter, row_values)

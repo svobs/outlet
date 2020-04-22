@@ -1,56 +1,68 @@
-from enum import Enum
-import itertools
 import logging
 
 
 logger = logging.getLogger(__name__)
 
+NOT_TRASHED = 0
+EXPLICITLY_TRASHED = 1
+IMPLICITLY_TRASHED = 2
 
-_TRASHED = {
-    0: ['NOT_TRASHED', '[ ]'],
-    1: ['EXPLICITLY_TRASHED', '[X]'],
-    2: ['TRASHED', '[x]'],
-}
-Trashed = Enum(
-    value='Trashed',
-    names=itertools.chain.from_iterable(
-        itertools.product(v, [k]) for k, v in _TRASHED.items()
-    )
-)
+TRASHED_STATUS = ['No', 'UserTrashed', 'Trashed']
 
 
 class GoogFolder:
-    def __init__(self, item_id, item_name, trashed=False, explicitly_trashed=False, trashed_status=Trashed.NOT_TRASHED):
+    def __init__(self, item_id, item_name, trashed):
         self.id = item_id
         self.name = item_name
-        if explicitly_trashed:
-            self.trashed = Trashed.EXPLICITLY_TRASHED
-        elif trashed:
-            self.trashed = Trashed.TRASHED
-        else:
-            self.trashed = trashed_status
+        if trashed < 0 or trashed > 2:
+            raise RuntimeError(f'Invalid value for "trashed": {trashed}')
+        self.trashed = trashed
         # TODO: shared?
+
+    def to_str(self):
+        return f'Folder:[id="{self.id}" name="{self.name}" trashed={self.trashed_str}]'
+
+    @property
+    def trashed_str(self):
+        if self.trashed is None:
+            return ' '
+        return TRASHED_STATUS[self.trashed]
+
+    @property
+    def md5(self):
+        return None
+
+    @md5.setter
+    def md5(self, value):
+        pass
+
+    @property
+    def create_ts(self):
+        return None
+
+    @create_ts.setter
+    def create_ts(self, value):
+        pass
+
+    @property
+    def modify_ts(self):
+        return None
+
+    @modify_ts.setter
+    def modify_ts(self, value):
+        pass
 
     def is_dir(self):
         return True
 
     def make_tuple(self, parent_id):
-        return self.id, self.name, parent_id, self.trashed.value
-
-    def trash_status_str(self):
-        if self.trashed == Trashed.EXPLICITLY_TRASHED:
-            return '[X]'
-        elif self.trashed == Trashed.TRASHED:
-            return '[x]'
-        else:
-            return '[ ]'
+        return self.id, self.name, parent_id, self.trashed
 
 
 class GoogFile(GoogFolder):
-    def __init__(self, item_id, item_name, original_filename, version, head_revision_id, md5, shared, create_ts,
-                 modify_ts, size_bytes, owner_id, trashed=False, explicitly_trashed=False,
-                 trashed_status=Trashed.NOT_TRASHED):
-        super().__init__(item_id, item_name, trashed, explicitly_trashed, trashed_status)
+    def __init__(self, item_id, item_name, original_filename, version, head_revision_id, md5,
+                 shared, create_ts, modify_ts, size_bytes, owner_id, trashed):
+        super().__init__(item_id, item_name, trashed)
         self.original_filename = original_filename # TODO: remove
         self.version = version
         self.head_revision_id = head_revision_id
@@ -61,11 +73,15 @@ class GoogFile(GoogFolder):
         self.size_bytes = size_bytes
         self.owner_id = owner_id
 
+    def to_str(self):
+        return f'GoogFile[id="{self.id}" name="{self.name}" trashed={self.trashed_str} ' \
+               f'version={self.version} md5="{self.md5} modify_ts={self.modify_ts} create_ts={self.create_ts}"]'
+
     def is_dir(self):
         return False
 
     def make_tuple(self, parent_id):
-        return (self.id, self.name, parent_id, self.trashed.value, self.original_filename, self.version, self.head_revision_id,
+        return (self.id, self.name, parent_id, self.trashed, self.original_filename, self.version, self.head_revision_id,
                 self.md5, self.shared, self.create_ts, self.modify_ts, self.size_bytes, self.owner_id)
 
 

@@ -227,7 +227,7 @@ class FMetaTree:
 
         item_matching_path = self._path_dict.get(item.file_path, None)
         if item_matching_path is not None:
-            logger.warning(f'Overwriting metadata for path: {item.file_path}')
+            logger.warning(f'Overwriting path: {item.file_path}')
             self._total_size_bytes -= item_matching_path.size_bytes
         self._total_size_bytes += item.size_bytes
         self._path_dict[item.file_path] = item

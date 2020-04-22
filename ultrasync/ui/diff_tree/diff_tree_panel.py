@@ -18,7 +18,7 @@ from ui.progress_meter import ProgressMeter
 logger = logging.getLogger(__name__)
 
 
-class DiffTree:
+class DiffTreePanel:
     def __init__(self, store, parent_win, editable, is_display_persisted):
         # Should be a subclass of BaseDialog:
         self.parent_win = parent_win

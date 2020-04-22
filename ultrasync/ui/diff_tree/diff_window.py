@@ -18,7 +18,7 @@ from gdrive.tree_builder import GDriveTreeBuilder
 from ui.merge_preview_dialog import MergePreviewDialog
 from file_util import get_resource_path
 from fmeta import diff_content_first
-from ui.diff_tree.dt import DiffTree
+from ui.diff_tree.diff_tree_panel import DiffTreePanel
 from ui.base_dialog import BaseDialog
 import ui.diff_tree.dt_populator as diff_tree_populator
 
@@ -73,12 +73,12 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         # Diff Tree Left:
 
         store_left = PersistentFMetaStore(tree_id=ID_LEFT_TREE, config=self.config)
-        self.diff_tree_left = DiffTree(store=store_left, parent_win=self, editable=True, is_display_persisted=True)
+        self.diff_tree_left = DiffTreePanel(store=store_left, parent_win=self, editable=True, is_display_persisted=True)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
         store_right = PersistentFMetaStore(tree_id=ID_RIGHT_TREE, config=self.config)
-        self.diff_tree_right = DiffTree(store=store_right, parent_win=self, editable=True, is_display_persisted=True)
+        self.diff_tree_right = DiffTreePanel(store=store_right, parent_win=self, editable=True, is_display_persisted=True)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
 
         # Bottom button panel:

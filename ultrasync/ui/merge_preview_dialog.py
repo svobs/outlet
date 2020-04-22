@@ -10,7 +10,7 @@ import fmeta.fmeta_file_util
 from file_util import get_resource_path
 from fmeta.fmeta_file_util import FMetaError
 from fmeta.fmeta import Category
-from ui.diff_tree.dt import DiffTree
+from ui.diff_tree.diff_tree_panel import DiffTreePanel
 from ui.base_dialog import BaseDialog
 import ui.diff_tree.dt_populator as diff_tree_populator
 
@@ -39,7 +39,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         self.content_box.add(label)
 
         store = StaticWholeTreeStore(tree_id='merge_tree', config=self.config, fmeta_tree=self.fmeta_tree)
-        self.diff_tree = DiffTree(store=store, parent_win=self, editable=False, is_display_persisted=False)
+        self.diff_tree = DiffTreePanel(store=store, parent_win=self, editable=False, is_display_persisted=False)
         actions.set_status(sender=store.tree_id, status_msg=self.fmeta_tree.get_summary())
         self.content_box.pack_start(self.diff_tree.content_box, True, True, 0)
 

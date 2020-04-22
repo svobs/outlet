@@ -1,11 +1,9 @@
 import logging
-from treelib import Tree
 import os
 from queue import Queue
 from database import MetaDatabase
 from gdrive.client import GDriveClient
-from gdrive.model import GoogFolder, GoogFile, GDriveMeta, Trashed
-from fmeta.fmeta import FMetaTree, FMeta
+from gdrive.model import EXPLICITLY_TRASHED, GoogFolder, GoogFile, GDriveMeta, IMPLICITLY_TRASHED, NOT_TRASHED
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +16,8 @@ def build_trees(meta: GDriveMeta):
     count_explicit_trash = 0
     count_implicit_trash = 0
     count_no_md5 = 0
+    count_path_conflicts = 0
+    count_resolved_conflicts = 0
 
     for root_node in meta.roots:
 
@@ -33,9 +33,18 @@ def build_trees(meta: GDriveMeta):
             path = os.path.join(parent_path, item.name)
             existing = path_dict.get(path, None)
             if existing:
-                logger.error(f'Overwriting existing node at path "{path}": old_id={existing.id}, new_id={item.id}')
+                if existing.trashed == NOT_TRASHED and item.trashed != NOT_TRASHED:
+                    count_resolved_conflicts += 1
+                    continue
+                elif item.trashed == NOT_TRASHED and existing.trashed != NOT_TRASHED:
+                    count_resolved_conflicts += 1
+                else:
+                    logger.error(f'Overwriting path "{path}":\n'
+                                 f'OLD: {existing.to_str()}\n'
+                                 f'NEW: {item.to_str()}')
+                    count_path_conflicts += 1
             path_dict[path] = item
-            # logger.debug(f'[{item.id}] {item.trash_status_str()} {path}/')
+            # logger.debug(f'path="{path}" {item.to_str()}')
             count_tree_items += 1
             total_items += 1
 
@@ -46,9 +55,9 @@ def build_trees(meta: GDriveMeta):
                 if not item.md5:
                     count_no_md5 += 1
 
-            if item.trashed == Trashed.EXPLICITLY_TRASHED.value:
+            if item.trashed == EXPLICITLY_TRASHED:
                 count_explicit_trash += 1
-            elif item.trashed == Trashed.TRASHED.value:
+            elif item.trashed == IMPLICITLY_TRASHED:
                 count_implicit_trash += 1
 
             child_list = meta.get_children(item.id)
@@ -67,8 +76,9 @@ def build_trees(meta: GDriveMeta):
 
         logger.debug(f'Root "{root_node.name}" has {count_tree_items} nodes ({count_tree_files} files, {count_tree_dirs} dirs)')
 
-    logger.debug(f'Finished with {total_items} items! Stats: shared={count_shared}, no_md5={count_no_md5}, '
-                 f'trashed={count_explicit_trash}, also_trashed={count_implicit_trash}')
+    logger.info(f'Finished paths for {total_items} items under {len(meta.roots)} roots! Stats: shared={count_shared}, '
+                f'no_md5={count_no_md5}, user_trashed={count_explicit_trash}, also_trashed={count_implicit_trash}, '
+                f'path_conflicts={count_path_conflicts}, resolved={count_resolved_conflicts}')
     return path_dict
 
 
@@ -136,7 +146,7 @@ class GDriveTreeBuilder:
         dir_rows = self.cache.get_gdrive_dirs()
 
         for item_id, item_name, parent_id, item_trashed in dir_rows:
-            meta.add_to_parent_dict(parent_id, GoogFolder(item_id, item_name, trashed_status=int(item_trashed)))
+            meta.add_to_parent_dict(parent_id, GoogFolder(item_id=item_id, item_name=item_name, trashed=item_trashed))
 
         # FILES:
         file_rows = self.cache.get_gdrive_files()
@@ -144,7 +154,7 @@ class GDriveTreeBuilder:
                 create_ts, modify_ts, size_bytes_str, owner_id in file_rows:
             size_bytes = None if size_bytes_str is None else int(size_bytes_str)
             file_node = GoogFile(item_id=item_id, item_name=item_name, original_filename=original_filename,
-                                 trashed_status=int(item_trashed), version=int(version),
+                                 trashed=item_trashed, version=int(version),
                                  head_revision_id=head_revision_id, md5=md5, shared=shared,
                                  create_ts=int(create_ts), modify_ts=modify_ts, size_bytes=size_bytes,
                                  owner_id=owner_id)

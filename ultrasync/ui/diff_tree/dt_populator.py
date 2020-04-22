@@ -1,5 +1,5 @@
 """
-Populates the DiffTree's model from a given FMetaTree.
+Populates the DiffTreePanel's model from a given FMetaTree.
 """
 from datetime import datetime
 import os
@@ -158,10 +158,10 @@ def _set_expand_states_from_config(diff_tree):
 
 def repopulate_diff_tree(diff_tree):
     """
-    Populates the given DiffTree using categories as the topmost elements.
+    Populates the given DiffTreePanel using categories as the topmost elements.
     TODO: looks like we'll have to implement lazy loading to speed things up...
     Args:
-        diff_tree: the DiffTree widget
+        diff_tree: the DiffTreePanel widget
 
     """
     logger.debug(f'Repopulating diff tree "{diff_tree.tree_id}"')
