@@ -11,16 +11,25 @@ TRASHED_STATUS = ['No', 'UserTrashed', 'Trashed']
 
 
 class GoogFolder:
-    def __init__(self, item_id, item_name, trashed):
+    def __init__(self, item_id, item_name, trashed, drive_id, my_share):
         self.id = item_id
+        """Google ID"""
+
         self.name = item_name
+
         if trashed < 0 or trashed > 2:
             raise RuntimeError(f'Invalid value for "trashed": {trashed}')
         self.trashed = trashed
-        # TODO: shared?
+
+        self.drive_id = drive_id
+        """Verify this against my Drive ID."""
+
+        self.my_share = my_share
+        """If true, I own it but I have shared it with other users"""
 
     def __repr__(self):
-        return f'Folder:[id="{self.id}" name="{self.name}" trashed={self.trashed_str}]'
+        return f'Folder:(id="{self.id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
+                   f'my_share={self.my_share} ]'
 
     @property
     def trashed_str(self):
@@ -32,33 +41,35 @@ class GoogFolder:
         return True
 
     def make_tuple(self, parent_id):
-        return self.id, self.name, parent_id, self.trashed
+        return self.id, self.name, parent_id, self.trashed, self.drive_id, self.my_share
 
 
 class GoogFile(GoogFolder):
-    def __init__(self, item_id, item_name, original_filename, version, head_revision_id, md5,
-                 shared, create_ts, modify_ts, size_bytes, owner_id, trashed):
-        super().__init__(item_id, item_name, trashed)
-        self.original_filename = original_filename # TODO: remove
+    def __init__(self, item_id, item_name, trashed, drive_id, version, head_revision_id, md5,
+                 my_share, create_ts, modify_ts, size_bytes, owner_id):
+        super().__init__(item_id=item_id, item_name=item_name, trashed=trashed, drive_id=drive_id)
         self.version = version
         self.head_revision_id = head_revision_id
         self.md5 = md5
-        self.shared = shared
+        self.my_share = my_share
         self.create_ts = create_ts
         self.modify_ts = modify_ts
         self.size_bytes = size_bytes
         self.owner_id = owner_id
 
     def __repr__(self):
-        return f'GoogFile[id="{self.id}" name="{self.name}" trashed={self.trashed_str} ' \
-               f'version={self.version} md5="{self.md5} modify_ts={self.modify_ts} create_ts={self.create_ts}"]'
+        return f'GoogFile(id="{self.id}" name="{self.name}" size={self.size_bytes} trashed={self.trashed_str} ' \
+               f'drive_id={self.drive_id} owner_id={self.owner_id} my_share={self.my_share} ' \
+               f'version={self.version} head_rev_id="{self.head_revision_id}" md5="{self.md5} ' \
+               f'create_ts={self.create_ts} modify_ts={self.modify_ts}' \
+               f')'
 
     def is_dir(self):
         return False
 
     def make_tuple(self, parent_id):
-        return (self.id, self.name, parent_id, self.trashed, self.original_filename, self.version, self.head_revision_id,
-                self.md5, self.shared, self.create_ts, self.modify_ts, self.size_bytes, self.owner_id)
+        return (self.id, self.name, parent_id, self.trashed, self.size_bytes, self.md5, self.create_ts, self.modify_ts,
+                self.owner_id, self.drive_id, self.my_share, self.version, self.head_revision_id)
 
 
 class GDriveMeta:
@@ -73,6 +84,9 @@ class GDriveMeta:
         self.ids_with_multiple_parents = []
 
         self.path_dict = None
+        self.owner_dict = {}
+        self.mime_types = {}
+        self.shortcuts = {}
 
     def get_children(self, parent_id):
         return self.first_parent_dict.get(parent_id, None)

@@ -38,6 +38,7 @@ def build_trees(meta: GDriveMeta):
                     continue
                 elif item.trashed == NOT_TRASHED and existing.trashed != NOT_TRASHED:
                     count_resolved_conflicts += 1
+                    # pass through
                 else:
                     logger.error(f'Overwriting path "{path}":\n'
                                  f'OLD: {existing}\n'
@@ -76,7 +77,7 @@ def build_trees(meta: GDriveMeta):
 
         logger.debug(f'"{root_node.name}" contains {count_tree_items} nodes ({count_tree_files} files, {count_tree_dirs} dirs)')
 
-    logger.info(f'Finished paths for {total_items} items under {len(meta.roots)} roots! Stats: shared={count_shared}, '
+    logger.info(f'Finished paths for {total_items} items under {len(meta.roots)} roots! Stats: shared_by_me={count_shared}, '
                 f'no_md5={count_no_md5}, user_trashed={count_explicit_trash}, also_trashed={count_implicit_trash}, '
                 f'path_conflicts={count_path_conflicts}, resolved={count_resolved_conflicts}')
     return path_dict
@@ -101,7 +102,7 @@ class GDriveTreeLoader:
         if self.cache and cache_has_data and not invalidate_cache:
             self.load_from_cache(meta)
         else:
-            self.gdrive_client.download_directory_structure(meta)
+        #    self.gdrive_client.download_directory_structure(meta)
             self.gdrive_client.download_all_file_meta(meta)
 
         # Save to cache if configured:
@@ -111,10 +112,6 @@ class GDriveTreeLoader:
         # Finally, build the dir tree:
         #meta.path_dict = build_trees(meta)
         return meta
-
-    # TODO: filter by trashed status
-    # TODO: filter by shared status
-    # TODO: filter by different owner
 
     def save_to_cache(self, meta, overwrite):
         # Convert to tuples for insert into DB:
@@ -145,18 +142,19 @@ class GDriveTreeLoader:
         # DIRs:
         dir_rows = self.cache.get_gdrive_dirs()
 
-        for item_id, item_name, parent_id, item_trashed in dir_rows:
-            meta.add_to_parent_dict(parent_id, GoogFolder(item_id=item_id, item_name=item_name, trashed=item_trashed))
+        for item_id, item_name, parent_id, item_trashed, drive_id, my_share in dir_rows:
+            meta.add_to_parent_dict(parent_id, GoogFolder(item_id=item_id, item_name=item_name,
+                                                          trashed=item_trashed, drive_id=drive_id, my_share=my_share))
 
         # FILES:
         file_rows = self.cache.get_gdrive_files()
-        for item_id, item_name, parent_id, item_trashed, original_filename, version, head_revision_id, md5, shared, \
-                create_ts, modify_ts, size_bytes_str, owner_id in file_rows:
+        for item_id, item_name, parent_id, item_trashed, size_bytes_str, md5, create_ts, modify_ts, owner_id, drive_id, \
+                my_share, version, head_revision_id in file_rows:
             size_bytes = None if size_bytes_str is None else int(size_bytes_str)
-            file_node = GoogFile(item_id=item_id, item_name=item_name, original_filename=original_filename,
-                                 trashed=item_trashed, version=int(version),
-                                 head_revision_id=head_revision_id, md5=md5, shared=shared,
-                                 create_ts=int(create_ts), modify_ts=modify_ts, size_bytes=size_bytes,
+            file_node = GoogFile(item_id=item_id, item_name=item_name,
+                                 trashed=item_trashed, drive_id=drive_id, my_share=my_share, version=int(version),
+                                 head_revision_id=head_revision_id, md5=md5,
+                                 create_ts=int(create_ts), modify_ts=int(modify_ts), size_bytes=size_bytes,
                                  owner_id=owner_id)
             meta.add_to_parent_dict(parent_id, file_node)
 

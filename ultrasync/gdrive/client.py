@@ -9,14 +9,21 @@ from stopwatch import Stopwatch
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-from gdrive.gdrive_model import GoogFolder, GoogFile, GDriveMeta
+from gdrive.gdrive_model import EXPLICITLY_TRASHED, GoogFolder, GoogFile, GDriveMeta, IMPLICITLY_TRASHED, NOT_TRASHED
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
 
-FOLDERS_ONLY = "mimeType='application/vnd.google-apps.folder'"
-NON_FOLDERS_ONLY = f"not {FOLDERS_ONLY}"
+MIME_TYPE_SHORTCUT = 'application/vnd.google-apps.shortcut'
+MIME_TYPE_FOLDER = 'application/vnd.google-apps.folder'
+
+QUERY_FOLDERS_ONLY = f"mimeType='{MIME_TYPE_FOLDER}'"
+QUERY_NON_FOLDERS_ONLY = f"not {QUERY_FOLDERS_ONLY}"
 MAX_RETRIES = 10
+
+DIR_FIELDS = 'id, name, trashed, explicitlyTrashed, driveId, shared'
+FILE_FIELDS = 'id, name, trashed, explicitlyTrashed, driveId, shared, version, createdTime, ' \
+              'modifiedTime, owners, md5Checksum, size, headRevisionId, shortcutDetails, mimeType, webViewLink, webContentLink, sharingUser'
 
 ISO_8601_FMT = '%Y-%m-%dT%H:%M:%S.%f%z'
 
@@ -77,6 +84,27 @@ def try_repeatedly(request_func):
             retries_remaining -= 1
 
 
+def convert_trashed(result):
+    x_trashed = result.get('explicitlyTrashed', None)
+    trashed = result.get('trashed', None)
+    if x_trashed is None and trashed is None:
+        return None
+
+    if x_trashed:
+        return EXPLICITLY_TRASHED
+    elif trashed:
+        return IMPLICITLY_TRASHED
+    else:
+        return NOT_TRASHED
+
+
+def convert_goog_folder(result):
+    # 'driveId' only populated for items which someone has shared with me
+    # 'shared' only populated for items which are owned by me
+    return GoogFolder(item_id=result['id'], item_name=result['name'], trashed=convert_trashed(result),
+                      drive_id=result.get('driveId', None), my_share=result.get('shared', None))
+
+
 class GDriveClient:
     def __init__(self, config):
         self.service = load_google_client_service()
@@ -122,15 +150,15 @@ class GDriveClient:
         """
         Returns: a GoogFolder representing the user's GDrive root node.
         """
-        fields = 'id, name, trashed, explicitlyTrashed'
 
         def request():
             return self.service.files().get(fileId='root', fields=fields).execute()
 
+        fields = 'id, name, trashed, explicitlyTrashed, shared, driveId'
         result = try_repeatedly(request)
 
-        root_node = GoogFolder(result['id'], result['name'], result['trashed'], result['explicitlyTrashed'])
-        logger.debug(f'Drive root: {root_node.trash_status_str()} [{root_node.id}] "{root_node.name}"')
+        root_node = convert_goog_folder(result)
+        logger.debug(f'Drive root: {root_node}')
         return root_node
 
     def download_subtree_file_meta(self):
@@ -139,8 +167,7 @@ class GDriveClient:
         # query = f"and '{subtree_root_gd_id}' in parents"
 
     def download_all_file_meta(self, meta):
-        fields = 'nextPageToken, incompleteSearch, files(id, name, parents, trashed, explicitlyTrashed, version, createdTime, ' \
-                 'modifiedTime, shared, owners, originalFilename, md5Checksum, size, headRevisionId, shortcutDetails, mimeType)'
+        fields = f'nextPageToken, incompleteSearch, files({FILE_FIELDS}, parents)'
         # Google Drive only; not app data or Google Photos:
         spaces = 'drive'
 
@@ -149,7 +176,7 @@ class GDriveClient:
         def request():
             logger.debug(f'Sending request for files, page {request.page_count}...')
             # Call the Drive v3 API
-            response = self.service.files().list(q=NON_FOLDERS_ONLY, fields=fields, spaces=spaces, pageSize=self.page_size,
+            response = self.service.files().list(q=QUERY_NON_FOLDERS_ONLY, fields=fields, spaces=spaces, pageSize=self.page_size,
                                                  pageToken=request.next_token).execute()
             request.page_count += 1
             return response
@@ -158,13 +185,12 @@ class GDriveClient:
         item_count = 0
 
         stopwatch_retrieval = Stopwatch()
-        owner_dict = {}
-        mime_types = {}
 
         while True:
             results = try_repeatedly(request)
 
             if results.get('incompleteSearch', False):
+                # Not clear when this would happen, but fail fast if so
                 raise RuntimeError(f'Results are incomplete! (page {request.page_count})')
 
             items = results.get('files', [])
@@ -174,6 +200,7 @@ class GDriveClient:
             logger.debug(f'Received {len(items)} items')
 
             for item in items:
+                mime_type = item['mimeType']
                 owners = item['owners']
                 owner = None if len(owners) == 0 else owners[0]
                 owner_id = None
@@ -182,28 +209,50 @@ class GDriveClient:
                     owner_name = owner['displayName']
                     owner_email = owner['emailAddress']
                     owner_is_me = owner['me']
-                    owner_dict[owner_id] = (owner_name, owner_email, owner_is_me)
+                    meta.owner_dict[owner_id] = (owner_name, owner_email, owner_is_me)
 
                 created_ts_obj = datetime.strptime(item['createdTime'], ISO_8601_FMT)
                 create_ts = int(created_ts_obj.timestamp() * 1000)
                 modified_ts_obj = datetime.strptime(item['modifiedTime'], ISO_8601_FMT)
                 modify_ts = int(modified_ts_obj.timestamp() * 1000)
-                # TODO: find out if this is ever useful
-                original_filename = item.get('originalFilename', None)
-                # TODO: why is this sometimes absent?
                 head_revision_id = item.get('headRevisionId', None)
                 size_str = item.get('size', None)
                 size = None if size_str is None else int(size_str)
 
-                node = GoogFile(item_id=item['id'], item_name=item["name"], original_filename=original_filename,
+                node = GoogFile(item_id=item['id'], item_name=item["name"], trashed=convert_trashed(item), drive_id=item['driveId'],
                                 version=int(item['version']), head_revision_id=head_revision_id,
-                                md5=item.get('md5Checksum', None), shared=item['shared'], create_ts=create_ts,
-                                modify_ts=modify_ts, size_bytes=size, owner_id=owner_id,
-                                trashed=item['trashed'], explicitly_trashed=item['explicitlyTrashed'])
+                                md5=item.get('md5Checksum', None), my_share=item['shared'], create_ts=create_ts,
+                                modify_ts=modify_ts, size_bytes=size, owner_id=owner_id)
                 parents = item.get('parents', [])
                 meta.add_item_with_parents(parents, node)
+                meta.mime_types[mime_type] = node
+
+                web_view_link = item.get('webViewLink', None)
+                if web_view_link:
+                    logger.debug(f'Found webViewLink: "{web_view_link}" for node: {node}')
+
+                web_content_link = item.get('webContentLink', None)
+                if web_content_link:
+                    logger.debug(f'Found webContentLink: "{web_content_link}" for node: {node}')
+
+                sharing_user = item.get('sharingUser', None)
+                if sharing_user:
+                    logger.debug(f'Found sharingUser: "{sharing_user}" for node: {node}')
+
+                is_shortcut = mime_type == MIME_TYPE_SHORTCUT
+                if is_shortcut:
+                    shortcut_details = item.get('shortcutDetails', None)
+                    if not shortcut_details:
+                        logger.error(f'Shortcut is missing shortcutDetails: id="{node.id}" name="{node.name}"')
+                    else:
+                        target_id = shortcut_details.get('targetId')
+                        if not target_id:
+                            logger.error(f'Shortcut is missing targetId: id="{node.id}" name="{node.name}"')
+                        else:
+                            logger.debug(f'Found shortcut: id="{node.id}" name="{node.name}" -> target_id="{target_id}"')
+                            meta.shortcuts[node.id] = target_id
+
                 item_count += 1
-                mime_types[item['mimeType']] = node
 
             request.next_token = results.get('nextPageToken')
             if not request.next_token:
@@ -213,12 +262,12 @@ class GDriveClient:
         logger.info(f'Query returned {item_count} files in {stopwatch_retrieval}')
 
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f'Found {len(owner_dict)} distinct owners')
-            for owner_id, owner in owner_dict.items():
+            logger.debug(f'Found {len(meta.owner_dict)} distinct owners')
+            for owner_id, owner in meta.owner_dict.items():
                 logger.debug(f'Found owner: id={owner_id} name={owner[0]} email={owner[1]} is_me={owner[2]}')
 
-            logger.debug(f'Found {len(mime_types)} distinct MIME types')
-            for mime_type, item in mime_types.items():
+            logger.debug(f'Found {len(meta.mime_types)} distinct MIME types')
+            for mime_type, item in meta.mime_types.items():
                 logger.debug(f'MIME type: {mime_type} -> [{item.id}] {item.name} {item.size_bytes}')
 
         return meta
@@ -237,7 +286,7 @@ class GDriveClient:
         drive_root = self.get_my_drive_root()
         meta.add_root(drive_root)
 
-        fields = 'nextPageToken, incompleteSearch, files(id, name, parents, trashed, explicitlyTrashed)'
+        fields = f'nextPageToken, incompleteSearch, files({DIR_FIELDS}, parents)'
         # Google Drive only; not app data or Google Photos:
         spaces = 'drive'
 
@@ -246,7 +295,7 @@ class GDriveClient:
         def request():
             logger.debug(f'Sending request for dirs, page {request.page_count}...')
             # Call the Drive v3 API
-            response = self.service.files().list(q=FOLDERS_ONLY, fields=fields, spaces=spaces, pageSize=self.page_size,
+            response = self.service.files().list(q=QUERY_FOLDERS_ONLY, fields=fields, spaces=spaces, pageSize=self.page_size,
                                                  pageToken=request.next_token).execute()
             request.page_count += 1
             return response
@@ -269,7 +318,7 @@ class GDriveClient:
             logger.debug(f'Received {len(items)} items')
 
             for item in items:
-                dir_node = GoogFolder(item['id'], item["name"], item['trashed'], item['explicitlyTrashed'])
+                dir_node = convert_goog_folder(item)
                 parents = item.get('parents', [])
                 meta.add_item_with_parents(parents, dir_node)
                 item_count += 1

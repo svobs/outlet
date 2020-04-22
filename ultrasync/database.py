@@ -20,32 +20,34 @@ class MetaDatabase:
 
     TABLE_GRDIVE_DIRS = {
         'name': 'gdrive_directory',
-        'cols': (('gd_id', 'TEXT'),
+        'cols': (('id', 'TEXT'),
                  ('name', 'TEXT'),
-                 ('par_id', 'TEXT'),
-                 ('trashed', 'INTEGER'))
+                 ('parent_id', 'TEXT'),
+                 ('trashed', 'INTEGER'),
+                 ('drive_id', 'TEXT'),
+                 ('my_share', 'INTEGER'))
     }
 
     TABLE_GRDIVE_MULTIPLE_PARENTS = {
         'name': 'gdrive_multiple_parents',
-        'cols': (('gd_id', 'TEXT'),)
+        'cols': (('id', 'TEXT'),)
     }
 
     TABLE_GRDIVE_FILES = {
         'name': 'gdrive_files',
-        'cols': (('gd_id', 'TEXT'),
+        'cols': (('id', 'TEXT'),
                  ('name', 'TEXT'),
-                 ('par_id', 'TEXT'),
+                 ('parent_id', 'TEXT'),
                  ('trashed', 'INTEGER'),
-                 ('original_filename', 'TEXT'),
-                 ('version', 'INTEGER'),
-                 ('head_revision_id', 'TEXT'),
+                 ('size_bytes', 'INTEGER'),
                  ('md5', 'TEXT'),
-                 ('shared', 'INTEGER'),
                  ('create_ts', 'INTEGER'),
                  ('modify_ts', 'INTEGER'),
-                 ('size_bytes', 'INTEGER'),
                  ('owner_id', 'TEXT'),
+                 ('drive_id', 'TEXT'),
+                 ('my_share', 'INTEGER'),
+                 ('version', 'INTEGER'),
+                 ('head_revision_id', 'TEXT'),
                  )
 
     }

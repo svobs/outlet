@@ -174,6 +174,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             tree_builder = GDriveTreeLoader(config=self.config, cache_path=cache_path)
             meta = tree_builder.load_all(invalidate_cache=False)
             actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, meta=meta)
+        except Exception as err:
+            self.show_error_ui('Downlaod from GDrive failed due to unexpected error', repr(err))
         finally:
             actions.enable_ui(sender=self)
 
