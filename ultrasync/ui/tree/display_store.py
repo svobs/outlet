@@ -1,6 +1,10 @@
+import logging
+
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
+from gi.repository import GLib, Gtk
+
+logger = logging.getLogger(__name__)
 
 
 class DisplayStore:
@@ -40,6 +44,51 @@ class DisplayStore:
 
     def set_inconsistent(self, tree_path, inconsistent_value):
         self.model[tree_path][self.display_meta.col_num_inconsistent] = inconsistent_value
+
+    def on_cell_checkbox_toggled(self, widget, path):
+        """Called when checkbox in treeview is toggled"""
+        data_node = self.get_node_data(path)
+        if self.display_meta.is_ignored_func:
+            if self.display_meta.is_ignored_func(data_node):
+                logger.debug('Disallowing checkbox toggle because node is in IGNORED category')
+                return
+        # DOC: model[path][column] = not model[path][column]
+        checked_value = not self.is_node_checked(path)
+        logger.debug(f'Toggled {checked_value}: {self.get_node_name(path)}')
+
+        # Update all of the node's children change to match its check state:
+        def update_checked_state(t_iter):
+            self.set_checked(t_iter, checked_value)
+            self.set_inconsistent(t_iter, False)
+
+        self.do_for_self_and_descendants(path, update_checked_state)
+
+        # Now update its ancestors' states:
+        tree_path = Gtk.TreePath.new_from_string(path)
+        while True:
+            # Go up the tree, one level per loop,
+            # with each node updating itself based on its immediate children
+            tree_path.up()
+            if tree_path.get_depth() < 1:
+                # Stop at root
+                break
+            else:
+                tree_iter = self.model.get_iter(tree_path)
+                has_checked = False
+                has_unchecked = False
+                has_inconsistent = False
+                child_iter = self.model.iter_children(tree_iter)
+                while child_iter is not None:
+                    # Parent is inconsistent if any of its children do not match it...
+                    if self.is_node_checked(child_iter):
+                        has_checked = True
+                    else:
+                        has_unchecked = True
+                    # ...or if any of its children are inconsistent
+                    has_inconsistent |= self.is_inconsistent(child_iter)
+                    child_iter = self.model.iter_next(child_iter)
+                self.set_inconsistent(tree_iter, has_inconsistent or (has_checked and has_unchecked))
+                self.set_checked(tree_iter, has_checked and not has_unchecked and not has_inconsistent)
 
     def recurse_over_tree(self, tree_iter, action_func):
         """

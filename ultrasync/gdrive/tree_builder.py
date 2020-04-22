@@ -74,7 +74,7 @@ def build_trees(meta: GDriveMeta):
 
             # TODO: include multiple parent mappings!
 
-        logger.debug(f'Root "{root_node.name}" has {count_tree_items} nodes ({count_tree_files} files, {count_tree_dirs} dirs)')
+        logger.debug(f'"{root_node.name}" contains {count_tree_items} nodes ({count_tree_files} files, {count_tree_dirs} dirs)')
 
     logger.info(f'Finished paths for {total_items} items under {len(meta.roots)} roots! Stats: shared={count_shared}, '
                 f'no_md5={count_no_md5}, user_trashed={count_explicit_trash}, also_trashed={count_implicit_trash}, '

@@ -1,11 +1,11 @@
 import logging
-import gi
 
 import ui.assets
 from ui.root_dir_panel import RootDirPanel
 
+import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, Gdk, GdkPixbuf
+from gi.repository import GLib, Gtk
 
 logger = logging.getLogger(__name__)
 
@@ -62,52 +62,6 @@ def _compare_data(model, row1, row2, args):
         return 1
 
 
-def _on_cell_checkbox_toggled(widget, path, display_store):
-    """Called when checkbox in treeview is toggled"""
-    data_node = display_store.get_node_data(path)
-    if display_store.display_meta.is_ignored_func:
-        if display_store.display_meta.is_ignored_func(data_node):
-            logger.debug('Disallowing checkbox toggle because node is in IGNORED category')
-            return
-    # DOC: model[path][column] = not model[path][column]
-    checked_value = not display_store.is_node_checked(path)
-    logger.debug(f'Toggled {checked_value}: {display_store.get_node_name(path)}')
-
-    # Update all of the node's children change to match its check state:
-    def update_checked_state(t_iter):
-        display_store.set_checked(t_iter, checked_value)
-        display_store.set_inconsistent(t_iter, False)
-
-    display_store.do_for_self_and_descendants(path, update_checked_state)
-
-    # Now update its ancestors' states:
-    tree_path = Gtk.TreePath.new_from_string(path)
-    while True:
-        # Go up the tree, one level per loop,
-        # with each node updating itself based on its immediate children
-        tree_path.up()
-        if tree_path.get_depth() < 1:
-            # Stop at root
-            break
-        else:
-            tree_iter = display_store.model.get_iter(tree_path)
-            has_checked = False
-            has_unchecked = False
-            has_inconsistent = False
-            child_iter = display_store.model.iter_children(tree_iter)
-            while child_iter is not None:
-                # Parent is inconsistent if any of its children do not match it...
-                if display_store.is_node_checked(child_iter):
-                    has_checked = True
-                else:
-                    has_unchecked = True
-                # ...or if any of its children are inconsistent
-                has_inconsistent |= display_store.is_inconsistent(child_iter)
-                child_iter = display_store.model.iter_next(child_iter)
-            display_store.set_inconsistent(tree_iter, has_inconsistent or (has_checked and has_unchecked))
-            display_store.set_checked(tree_iter, has_checked and not has_unchecked and not has_inconsistent)
-
-
 def _build_treeview(display_store):
     """ Builds the GTK3 treeview widget"""
     model = display_store.model
@@ -131,7 +85,7 @@ def _build_treeview(display_store):
 
     if display_meta.editable:
         renderer = Gtk.CellRendererToggle()
-        renderer.connect("toggled", _on_cell_checkbox_toggled, display_store)
+        renderer.connect("toggled", display_store.on_cell_checkbox_toggled)
         renderer.set_fixed_size(width=-1, height=display_meta.row_height)
         px_column.pack_start(renderer, False)
         px_column.add_attribute(renderer, 'active', display_meta.col_num_checked)
