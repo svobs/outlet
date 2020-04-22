@@ -256,7 +256,7 @@ class LazyTree:
 
     def _on_toggle_row_expanded_state(self, tree_view, parent_iter, tree_path, is_expanded):
         node_data = self.display_store.get_node_data(parent_iter)
-        logger.debug(f'Toggling expanded state to {is_expanded} for node: {node_data.to_str()}')
+        logger.debug(f'Toggling expanded state to {is_expanded} for node: {node_data}')
         if not node_data.is_dir():
             raise RuntimeError(f'Node is not a directory: {type(node_data)}; node_data')
 

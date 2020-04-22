@@ -132,7 +132,7 @@ class DisplayStore:
 
         if logger.isEnabledFor(logging.DEBUG):
             child_data = self.get_node_data(first_child_iter)
-            logger.debug(f'Removing child: {child_data.to_str()}')
+            logger.debug(f'Removing child: {child_data}')
         # remove the first child
         self.model.remove(first_child_iter)
         return True

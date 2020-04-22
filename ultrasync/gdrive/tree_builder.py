@@ -40,11 +40,11 @@ def build_trees(meta: GDriveMeta):
                     count_resolved_conflicts += 1
                 else:
                     logger.error(f'Overwriting path "{path}":\n'
-                                 f'OLD: {existing.to_str()}\n'
-                                 f'NEW: {item.to_str()}')
+                                 f'OLD: {existing}\n'
+                                 f'NEW: {item}')
                     count_path_conflicts += 1
             path_dict[path] = item
-            # logger.debug(f'path="{path}" {item.to_str()}')
+            # logger.debug(f'path="{path}" {item}')
             count_tree_items += 1
             total_items += 1
 
