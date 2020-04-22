@@ -28,38 +28,6 @@ class GoogFolder:
             return ' '
         return TRASHED_STATUS[self.trashed]
 
-    @property
-    def md5(self):
-        return None
-
-    @md5.setter
-    def md5(self, value):
-        pass
-
-    @property
-    def create_ts(self):
-        return None
-
-    @create_ts.setter
-    def create_ts(self, value):
-        pass
-
-    @property
-    def modify_ts(self):
-        return None
-
-    @modify_ts.setter
-    def modify_ts(self, value):
-        pass
-
-    @property
-    def size_bytes(self):
-        return None
-
-    @size_bytes.setter
-    def size_bytes(self, value):
-        pass
-
     def is_dir(self):
         return True
 

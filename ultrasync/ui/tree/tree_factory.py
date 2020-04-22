@@ -48,18 +48,22 @@ def _compare_data(model, row1, row2, args):
 
     sort_column, _ = model.get_sort_column_id()
 
-    value1 = compare_field_func(model[row1][display_meta.col_num_data])
-    value2 = compare_field_func(model[row2][display_meta.col_num_data])
-    if not value1 or not value2:
-        # This appears to achieve satisfactory behavior
-        # (preserving previous column sort order for directories)
+    try:
+        value1 = compare_field_func(model[row1][display_meta.col_num_data])
+        value2 = compare_field_func(model[row2][display_meta.col_num_data])
+        if not value1 or not value2:
+            # This appears to achieve satisfactory behavior
+            # (preserving previous column sort order for directories)
+            return 0
+        if value1 < value2:
+            return -1
+        elif value1 == value2:
+            return 0
+        else:
+            return 1
+    except AttributeError:
+        # One of the objects is missing the attribute. No worry.
         return 0
-    if value1 < value2:
-        return -1
-    elif value1 == value2:
-        return 0
-    else:
-        return 1
 
 
 def _build_treeview(display_store):
