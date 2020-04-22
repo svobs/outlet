@@ -90,6 +90,8 @@ class DisplayStore:
                 self.set_inconsistent(tree_iter, has_inconsistent or (has_checked and has_unchecked))
                 self.set_checked(tree_iter, has_checked and not has_unchecked and not has_inconsistent)
 
+    # --- Tree searching & iteration (utility functions) --- #
+
     def recurse_over_tree(self, tree_iter, action_func):
         """
         Performs the action_func on the node at this tree_iter AND all of its following
@@ -123,3 +125,20 @@ class DisplayStore:
         tree_iter = self.model.get_iter(tree_path)
         self.recurse_over_tree(tree_iter, action_func)
 
+    def remove_first_child(self, parent_iter):
+        first_child_iter = self.model.iter_children(parent_iter)
+        if not first_child_iter:
+            return None
+
+        if logger.isEnabledFor(logging.DEBUG):
+            child_data = self.get_node_data(first_child_iter)
+            logger.debug(f'Removing child: {child_data.to_str()}')
+        # remove the first child
+        self.model.remove(first_child_iter)
+        return True
+
+    def remove_all_children(self, parent_iter):
+        removed_count = 0
+        while self.remove_first_child(parent_iter):
+            removed_count += 1
+        logger.debug(f'Removed {removed_count} children')

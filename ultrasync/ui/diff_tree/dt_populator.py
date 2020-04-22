@@ -9,7 +9,7 @@ from stopwatch import Stopwatch
 from treelib import Tree
 import file_util
 from fmeta.fmeta import FMeta, Category
-from ui.diff_tree.dt_model import DirNode, CategoryNode
+from ui.tree.display_model import DirNode, CategoryNode
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib

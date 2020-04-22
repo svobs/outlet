@@ -7,7 +7,7 @@ from ui.tree import tree_factory
 from ui.tree.display_meta import TreeDisplayMeta
 from fmeta.fmeta import FMeta, FMetaTree, Category
 from fmeta.fmeta_tree_loader import TreeMetaScanner
-from ui.diff_tree.dt_model import DirNode, CategoryNode
+from ui.tree.display_model import DirNode, CategoryNode
 
 import gi
 gi.require_version("Gtk", "3.0")

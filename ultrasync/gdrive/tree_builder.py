@@ -109,7 +109,7 @@ class GDriveTreeBuilder:
             self.save_to_cache(meta=meta, overwrite=True)
 
         # Finally, build the dir tree:
-        meta.path_dict = build_trees(meta)
+        #meta.path_dict = build_trees(meta)
         return meta
 
     # TODO: filter by trashed status

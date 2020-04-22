@@ -90,7 +90,11 @@ class GDriveClient:
         Returns: info about the current user and its storage usage
         """
         fields = 'user, storageQuota'
-        about = self.service.about().get(fields=fields).execute()
+
+        def request():
+            return self.service.about().get(fields=fields).execute()
+
+        about = try_repeatedly(request)
         logger.debug(f'ABOUT: {about}')
 
         user = about['user']

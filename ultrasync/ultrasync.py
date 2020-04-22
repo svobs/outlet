@@ -99,6 +99,7 @@ def configure_logging(config):
     # TODO: figure out how to externalize this
     logging.getLogger('fmeta.fmeta').setLevel(logging.INFO)
     logging.getLogger('fmeta.diff_content_first').setLevel(logging.INFO)
+    logging.getLogger('ui.tree.display_store').setLevel(logging.INFO)
 
     # --- Google API ---
     # Set to INFO or loggier to go back to logging Google API request URLs

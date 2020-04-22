@@ -21,7 +21,7 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
-        self.set_default_size(700, 700)
+        self.set_default_size(1000, 800)
 
         box = self.get_content_area()
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
@@ -51,7 +51,7 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
             else:
-                logger.debug("response_id: ", response_id)
+                logger.debug(f'Unexpected response_id: {response_id}')
         except FileNotFoundError as err:
             self.show_error_ui('File not found: ' + err.filename)
             raise

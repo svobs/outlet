@@ -3,15 +3,12 @@ from datetime import datetime
 
 import humanfriendly
 
-import file_util
 import logging
-import subprocess
 import ui.actions as actions
 from ui.tree import tree_factory
 from ui.tree.display_meta import TreeDisplayMeta
-from fmeta.fmeta import FMeta, FMetaTree, Category
-from fmeta.fmeta_tree_loader import TreeMetaScanner
-from ui.diff_tree.dt_model import DirNode, CategoryNode
+from fmeta.fmeta import FMeta, Category
+from ui.tree.display_model import DirNode, CategoryNode, LoadingNode
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -61,7 +58,8 @@ class LazyTree:
 
         def is_ignored_func(data_node):
             return data_node.category == Category.Ignored
-        display_meta = TreeDisplayMeta(config=self.parent_win.config, tree_id=self.store.tree_id, editable=editable, is_display_persisted=is_display_persisted, is_ignored_func=is_ignored_func)
+        display_meta = TreeDisplayMeta(config=self.parent_win.config, tree_id=self.store.tree_id, editable=editable,
+                                       is_display_persisted=is_display_persisted, is_ignored_func=is_ignored_func)
 
         self.display_store = DisplayStore(display_meta)
 
@@ -88,7 +86,23 @@ class LazyTree:
     def _set_status(self, status_msg):
         GLib.idle_add(lambda: self.status_bar.set_label(status_msg))
 
-    def _append_dir_node(self, tree_iter, node_data):
+    def _add_dummy_child(self, parent_node_iter):
+        row_values = []
+        if self.display_store.display_meta.editable:
+            row_values.append(False)  # Checked
+            row_values.append(False)  # Inconsistent
+        row_values.append('folder')  # Icon
+        row_values.append('Loading...')  # Name
+        if not self.display_store.display_meta.use_dir_tree:
+            row_values.append(None)  # Directory
+        row_values.append(None)  # Size
+        row_values.append(None)  # Modify Date
+        row_values.append(None)  # Created Date
+        row_values.append(LoadingNode())
+
+        return self.display_store.model.append(parent_node_iter, row_values)
+
+    def _append_dir_node_and_dummy_child(self, tree_iter, node_data):
         """Appends a dir or cat node to the model"""
         row_values = []
         if self.display_store.display_meta.editable:
@@ -103,7 +117,9 @@ class LazyTree:
         row_values.append(None)  # Created Date
         row_values.append(node_data)  # Data
 
-        return self.display_store.model.append(tree_iter, row_values)
+        dir_node_iter = self.display_store.model.append(tree_iter, row_values)
+        self._add_dummy_child(dir_node_iter)
+        return dir_node_iter
 
     def _append_file_node(self, tree_iter, node):
         row_values = []
@@ -132,8 +148,9 @@ class LazyTree:
             row_values.append(None)
         else:
             modify_datetime = datetime.fromtimestamp(node.modify_ts / 1000)
-            modify_time = modify_datetime.strftime(self.display_store.display_meta.datetime_format)
-            row_values.append(modify_time)
+            modify_formatted = modify_datetime.strftime(self.display_store.display_meta.datetime_format)
+            logger.debug(f'ModifyTS={node.modify_ts}, ModifyFormatted={modify_formatted}')
+            row_values.append(modify_formatted)
 
         # Change TS
         if self.display_store.display_meta.show_change_ts:
@@ -148,11 +165,12 @@ class LazyTree:
         return self.display_store.model.append(tree_iter, row_values)
 
     def populate_root(self):
-        children = self.store.get_children(self.store.get_root_path())
+        children = self.store.get_children(parent_id=None)
         tree_iter = self.display_store.model.get_iter_first()
+        # Append all underneath tree_iter
         for child in children:
             if child.is_dir():
-                tree_iter = self._append_dir_node(tree_iter, child)
+                self._append_dir_node_and_dummy_child(tree_iter, child)
             else:
                 self._append_file_node(tree_iter, child)
 
@@ -235,12 +253,39 @@ class LazyTree:
                 #     file_path = os.path.join(self.root_path, node_data.prev_path)
                 self.call_xdg_open(file_path)
         else:
-            raise RuntimeError('Unexpected data element')
+            logger.error('Unexpected data element')
 
-    def _on_toggle_row_expanded_state(self, tree_view, tree_path, col, is_expanded):
-        node_data = self.display_store.get_node_data(tree_path)
+    def _on_toggle_row_expanded_state(self, tree_view, parent_iter, tree_path, is_expanded):
+        node_data = self.display_store.get_node_data(parent_iter)
+        logger.debug(f'Toggling expanded state to {is_expanded} for node: {node_data.to_str()}')
+        if not node_data.is_dir():
+            raise RuntimeError(f'Node is not a directory: {type(node_data)}; node_data')
+
         if type(node_data) == CategoryNode:
             self.display_store.display_meta.set_category_node_expanded_state(node_data.category, is_expanded)
+
+        # Add children for node:
+        if is_expanded:
+            children = self.store.get_children(node_data.id)
+            if not children:
+                # Always have at least a dummy node:
+                self._add_dummy_child(parent_iter)
+            else:
+                logger.debug(f'Filling out display children: {len(children)}')
+                # Append all underneath tree_iter
+                for child in children:
+                    if child.is_dir():
+                        self._append_dir_node_and_dummy_child(parent_iter, child)
+                    else:
+                        self._append_file_node(parent_iter, child)
+                tree_view.expand_row(path=tree_path, open_all=False)
+                # Remove dummy node:
+                self.display_store.remove_first_child(parent_iter)
+        else:
+            self.display_store.remove_all_children(parent_iter)
+            self._add_dummy_child(parent_iter)
+
+        return True
 
     def _on_key_press(self, widget, event, user_data=None):
         """Fired when a key is pressed"""

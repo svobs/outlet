@@ -52,6 +52,14 @@ class GoogFolder:
     def modify_ts(self, value):
         pass
 
+    @property
+    def size_bytes(self):
+        return None
+
+    @size_bytes.setter
+    def size_bytes(self, value):
+        pass
+
     def is_dir(self):
         return True
 

@@ -1,11 +1,15 @@
 import humanfriendly
 import logging
 logger = logging.getLogger(__name__)
+"""
+Extra model objects for use in the hidden 'data' column in the TreeStore, for when a domain
+object doesn't quite make sense.
+"""
 
 
 class DirNode:
     """
-    Represents a directory (i.e. not an FMeta)
+    Represents a generic directory (i.e. not an FMeta or domain object)
     """
     def __init__(self, file_path, category):
         self.file_path = file_path
@@ -28,6 +32,9 @@ class DirNode:
         size = humanfriendly.format_size(self.size_bytes)
         return f'{size} in {self.file_count} files'
 
+    def to_str(self):
+        return f'DirNode[{self.get_summary()}]'
+
 
 class CategoryNode(DirNode):
     """
@@ -35,3 +42,18 @@ class CategoryNode(DirNode):
     """
     def __init__(self, category):
         super().__init__('', category)
+
+    def to_str(self):
+        return f'Category[cat={self.category}'
+
+
+class LoadingNode:
+    """
+    For use in lazy loading: Temporary node to put as the only child of a directory node,
+    which will be deleted and replaced with real data if the node is expanded
+    """
+    def __init__(self):
+        pass
+
+    def to_str(self):
+        return 'LoadingNode'
