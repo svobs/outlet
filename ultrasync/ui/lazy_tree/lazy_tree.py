@@ -149,7 +149,6 @@ class LazyTree:
         else:
             modify_datetime = datetime.fromtimestamp(node.modify_ts / 1000)
             modify_formatted = modify_datetime.strftime(self.display_store.display_meta.datetime_format)
-            logger.debug(f'ModifyTS={node.modify_ts}, ModifyFormatted={modify_formatted}')
             row_values.append(modify_formatted)
 
         # Change TS

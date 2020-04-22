@@ -14,7 +14,7 @@ from gi.repository import GLib, Gtk, GObject
 
 from stopwatch import Stopwatch
 
-from gdrive.tree_builder import GDriveTreeBuilder
+from gdrive.tree_builder import GDriveTreeLoader
 from ui.merge_preview_dialog import MergePreviewDialog
 from file_util import get_resource_path
 from fmeta import diff_content_first
@@ -171,8 +171,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
     def download_gdrive_meta(self, tree_id):
         try:
             cache_path = get_resource_path('gdrive.db')
-            tree_builder = GDriveTreeBuilder(config=self.config, cache_path=cache_path)
-            meta = tree_builder.build(invalidate_cache=False)
+            tree_builder = GDriveTreeLoader(config=self.config, cache_path=cache_path)
+            meta = tree_builder.load_all(invalidate_cache=False)
             actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, meta=meta)
         finally:
             actions.enable_ui(sender=self)

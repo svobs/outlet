@@ -3,7 +3,7 @@ import os
 from queue import Queue
 from database import MetaDatabase
 from gdrive.client import GDriveClient
-from gdrive.model import EXPLICITLY_TRASHED, GoogFolder, GoogFile, GDriveMeta, IMPLICITLY_TRASHED, NOT_TRASHED
+from gdrive.gdrive_model import EXPLICITLY_TRASHED, GoogFolder, GoogFile, GDriveMeta, IMPLICITLY_TRASHED, NOT_TRASHED
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ def build_trees(meta: GDriveMeta):
     return path_dict
 
 
-class GDriveTreeBuilder:
+class GDriveTreeLoader:
     def __init__(self, config, cache_path):
         self.config = config
         self.gdrive_client = GDriveClient(self.config)
@@ -91,7 +91,7 @@ class GDriveTreeBuilder:
         else:
             self.cache = None
 
-    def build(self, invalidate_cache=False):
+    def load_all(self, invalidate_cache=False):
         self.gdrive_client.get_about()
         cache_has_data = self.cache.has_gdrive_dirs() or self.cache.has_gdrive_files()
 

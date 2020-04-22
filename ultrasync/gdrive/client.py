@@ -9,7 +9,7 @@ from stopwatch import Stopwatch
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-from gdrive.model import GoogFolder, GoogFile, GDriveMeta
+from gdrive.gdrive_model import GoogFolder, GoogFile, GDriveMeta
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']

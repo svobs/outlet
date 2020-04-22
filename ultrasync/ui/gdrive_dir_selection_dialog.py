@@ -2,7 +2,7 @@ import logging
 
 import gi
 
-from gdrive.GDriveDataStore import GDriveDataStore
+from gdrive.gdrive_data_store import GDriveDataStore
 from ui.lazy_tree.lazy_tree import LazyTree
 
 gi.require_version("Gtk", "3.0")
