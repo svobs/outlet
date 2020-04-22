@@ -39,4 +39,6 @@ def init(config):
 
 
 def get_icon(icon_name):
+    if not icon_name:
+        return None
     return _assets.get_icon(icon_name)

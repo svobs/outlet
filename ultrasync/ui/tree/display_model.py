@@ -32,7 +32,7 @@ class DirNode:
         size = humanfriendly.format_size(self.size_bytes)
         return f'{size} in {self.file_count} files'
 
-    def __str__(self):
+    def __repr__(self):
         return f'DirNode[{self.get_summary()}]'
 
 
@@ -43,7 +43,7 @@ class CategoryNode(DirNode):
     def __init__(self, category):
         super().__init__('', category)
 
-    def __str__(self):
+    def __repr__(self):
         return f'Category[cat={self.category}'
 
 
@@ -55,5 +55,16 @@ class LoadingNode:
     def __init__(self):
         pass
 
-    def __str__(self):
+    def __repr__(self):
         return 'LoadingNode'
+
+
+class EmptyNode:
+    """
+    Represents an empty directory's contents
+    """
+    def __init__(self):
+        pass
+
+    def __repr__(self):
+        return 'EmptyNode'

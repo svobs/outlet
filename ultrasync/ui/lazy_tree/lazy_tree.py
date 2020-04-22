@@ -8,7 +8,7 @@ import ui.actions as actions
 from ui.tree import tree_factory
 from ui.tree.display_meta import TreeDisplayMeta
 from fmeta.fmeta import FMeta, Category
-from ui.tree.display_model import DirNode, CategoryNode, LoadingNode
+from ui.tree.display_model import DirNode, CategoryNode, EmptyNode, LoadingNode
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -86,7 +86,23 @@ class LazyTree:
     def _set_status(self, status_msg):
         GLib.idle_add(lambda: self.status_bar.set_label(status_msg))
 
-    def _add_dummy_child(self, parent_node_iter):
+    def _append_empty_child(self, parent_node_iter):
+        row_values = []
+        if self.display_store.display_meta.editable:
+            row_values.append(False)  # Checked
+            row_values.append(False)  # Inconsistent
+        row_values.append(None)  # Icon
+        row_values.append('(empty)')  # Name
+        if not self.display_store.display_meta.use_dir_tree:
+            row_values.append(None)  # Directory
+        row_values.append(None)  # Size
+        row_values.append(None)  # Modify Date
+        row_values.append(None)  # Created Date
+        row_values.append(EmptyNode())
+
+        return self.display_store.model.append(parent_node_iter, row_values)
+
+    def _append_loading_child(self, parent_node_iter):
         row_values = []
         if self.display_store.display_meta.editable:
             row_values.append(False)  # Checked
@@ -118,7 +134,7 @@ class LazyTree:
         row_values.append(node_data)  # Data
 
         dir_node_iter = self.display_store.model.append(tree_iter, row_values)
-        self._add_dummy_child(dir_node_iter)
+        self._append_loading_child(dir_node_iter)
         return dir_node_iter
 
     def _append_file_node(self, tree_iter, node):
@@ -266,10 +282,7 @@ class LazyTree:
         # Add children for node:
         if is_expanded:
             children = self.store.get_children(node_data.id)
-            if not children:
-                # Always have at least a dummy node:
-                self._add_dummy_child(parent_iter)
-            else:
+            if children:
                 logger.debug(f'Filling out display children: {len(children)}')
                 # Append all underneath tree_iter
                 for child in children:
@@ -277,12 +290,17 @@ class LazyTree:
                         self._append_dir_node_and_dummy_child(parent_iter, child)
                     else:
                         self._append_file_node(parent_iter, child)
-                tree_view.expand_row(path=tree_path, open_all=False)
                 # Remove dummy node:
                 self.display_store.remove_first_child(parent_iter)
+            else:
+                self._append_empty_child(parent_iter)
+            # Remove Loading node:
+            self.display_store.remove_first_child(parent_iter)
         else:
+            # Collapsed:
             self.display_store.remove_all_children(parent_iter)
-            self._add_dummy_child(parent_iter)
+            # Always have at least a dummy node:
+            self._append_loading_child(parent_iter)
 
         return True
 

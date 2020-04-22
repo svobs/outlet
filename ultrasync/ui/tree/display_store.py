@@ -128,7 +128,7 @@ class DisplayStore:
     def remove_first_child(self, parent_iter):
         first_child_iter = self.model.iter_children(parent_iter)
         if not first_child_iter:
-            return None
+            return False
 
         if logger.isEnabledFor(logging.DEBUG):
             child_data = self.get_node_data(first_child_iter)

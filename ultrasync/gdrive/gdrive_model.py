@@ -19,7 +19,7 @@ class GoogFolder:
         self.trashed = trashed
         # TODO: shared?
 
-    def __str__(self):
+    def __repr__(self):
         return f'Folder:[id="{self.id}" name="{self.name}" trashed={self.trashed_str}]'
 
     @property
@@ -49,7 +49,7 @@ class GoogFile(GoogFolder):
         self.size_bytes = size_bytes
         self.owner_id = owner_id
 
-    def __str__(self):
+    def __repr__(self):
         return f'GoogFile[id="{self.id}" name="{self.name}" trashed={self.trashed_str} ' \
                f'version={self.version} md5="{self.md5} modify_ts={self.modify_ts} create_ts={self.create_ts}"]'
 
