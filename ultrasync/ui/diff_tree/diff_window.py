@@ -4,7 +4,7 @@ import os
 from stopwatch import Stopwatch
 import ui.actions as actions
 import ui.assets
-from ui.diff_tree.fmeta_data_store import PersistentFMetaStore
+from ui.diff_tree.fmeta_data_store import BulkLoadFMetaStore
 from ui.gdrive_dir_selection_dialog import GDriveDirSelectionDialog
 from ui.progress_bar_component import ProgressBarComponent
 
@@ -70,13 +70,13 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Tree Left:
-        store_left = PersistentFMetaStore(tree_id=actions.ID_LEFT_TREE, config=self.config)
-        self.tree_con_left = tree_factory.build_one_shot_file_tree(parent_win=self, data_store=store_left)
+        store_left = BulkLoadFMetaStore(tree_id=actions.ID_LEFT_TREE, config=self.config)
+        self.tree_con_left = tree_factory.build_bulk_load_file_tree(parent_win=self, data_store=store_left)
         diff_tree_panes.pack1(self.tree_con_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
-        store_right = PersistentFMetaStore(tree_id=actions.ID_RIGHT_TREE, config=self.config)
-        self.tree_con_right = tree_factory.build_one_shot_file_tree(parent_win=self, data_store=store_right)
+        store_right = BulkLoadFMetaStore(tree_id=actions.ID_RIGHT_TREE, config=self.config)
+        self.tree_con_right = tree_factory.build_bulk_load_file_tree(parent_win=self, data_store=store_right)
         diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)
 
         self.bottom_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
@@ -85,8 +85,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.bottom_button_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.bottom_panel.add(self.bottom_button_panel)
 
-        # Remember to hold a reference to this, for signals!
         listen_for = [actions.ID_LEFT_TREE, actions.ID_RIGHT_TREE, actions.ID_DIFF_WINDOW]
+        # Remember to hold a reference to this, for signals!
         self.proress_bar_component = ProgressBarComponent(self.config, listen_for)
         self.bottom_panel.pack_start(self.proress_bar_component.progressbar, True, True, 0)
         # Give progress bar exactly half of the window width:
@@ -210,7 +210,6 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         action_thread.start()
 
     # TODO: change DB path whenever root is changed
-    # TODO: disable all UI while loading (including tree)
     def do_tree_diff(self):
         try:
             left_root = self.tree_con_left.data_store.get_root_path()

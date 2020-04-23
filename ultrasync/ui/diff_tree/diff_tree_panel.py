@@ -18,62 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class DiffTreePanel:
-    def __init__(self, data_store, parent_win, editable, is_display_persisted):
-        # Should be a subclass of BaseDialog:
-        self.parent_win = parent_win
-        self.data_store = data_store
-
-        def is_ignored_func(data_node):
-            return data_node.category == Category.Ignored
-        display_meta = TreeDisplayMeta(config=self.parent_win.config, tree_id=self.data_store.tree_id, editable=editable, is_display_persisted=is_display_persisted, is_ignored_func=is_ignored_func)
-
-        self.display_store = DisplayStore(display_meta)
-
-        self.treeview, self.status_bar, self.content_box = tree_factory.build_all(
-            parent_win=parent_win, data_store=self.data_store, display_store=self.display_store)
-
-        select = self.treeview.get_selection()
-        select.set_mode(Gtk.SelectionMode.MULTIPLE)
-
-        self.add_listeners()
-
-    @property
-    def tree_id(self):
-        return self.data_store.tree_id
-
-    @property
-    def editable(self):
-        return self.display_store.display_meta.editable
-
-    @property
-    def root_path(self):
-        return self.data_store.get_root_path()
-
-    def _set_status(self, status_msg):
-        GLib.idle_add(lambda: self.status_bar.set_label(status_msg))
 
     # --- LISTENERS ---
-
-    def add_listeners(self):
-        actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
-
-        actions.connect(actions.SET_STATUS, self._on_set_status, self.data_store.tree_id)
-
-        self.treeview.connect("row-activated", self._on_row_activated)
-        self.treeview.connect('button-press-event', self._on_tree_button_press)
-        self.treeview.connect('key-press-event', self._on_key_press)
-        self.treeview.connect('row-expanded', self._on_toggle_row_expanded_state, True)
-        self.treeview.connect('row-collapsed', self._on_toggle_row_expanded_state, False)
-
-        # select.connect("changed", self._on_tree_selection_changed)
-
-    # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
-    def _on_set_status(self, sender, status_msg):
-        self._set_status(status_msg)
-
-    def _on_enable_ui_toggled(self, sender, enable):
-        # TODO!
-        pass
 
     def _on_tree_selection_changed(self, selection):
         model, treeiter = selection.get_selected_rows()

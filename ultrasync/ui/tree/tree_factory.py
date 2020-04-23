@@ -3,7 +3,7 @@ import logging
 import ui.assets
 from fmeta.fmeta import Category
 from ui.diff_tree.fmeta_change_strategy import FMetaChangeTreeStrategy
-from ui.lazy_tree.lazy_tree import TreeViewListenerAdapter
+from ui.tree.action_bridge import TreeActionBridge
 from ui.root_dir_panel import RootDirPanel
 
 import gi
@@ -14,7 +14,7 @@ from ui.tree.display_store import DisplayStore
 from ui.tree.lazy_load_strategy import LazyLoadStrategy
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk
+from gi.repository import Gtk
 
 logger = logging.getLogger(__name__)
 
@@ -210,11 +210,19 @@ def _build_treeview(display_store):
 
         model.set_sort_func(display_meta.col_num_change_ts, _compare_data, (display_meta, lambda f: f.change_ts))
 
+    select = treeview.get_selection()
+    select.set_mode(display_meta.selection_mode)
     return treeview
 
 
-def build(parent_win, data_store, display_meta, display_store, display_strategy):
+def is_ignored_func(data_node):
+    return data_node.category == Category.Ignored
 
+
+def build(parent_win, data_store, display_meta, display_store, display_strategy):
+    """Builds a single instance of a tree panel, and configures all its components as specified."""
+    # The controller holds all the components in memory. Important for listeners especially,
+    # since they rely on weak references.
     controller = TreePanelController(data_store, display_store, display_meta)
     controller.tree_view = _build_treeview(display_store)
     controller.root_dir_panel = RootDirPanel(parent_win=parent_win, tree_id=data_store.tree_id,
@@ -231,20 +239,15 @@ def build(parent_win, data_store, display_meta, display_store, display_strategy)
         if parent_win.sizegroups.get('root_paths'):
             parent_win.sizegroups['root_paths'].add_widget(controller.root_dir_panel.content_box)
 
-    controller.listener_adapter = TreeViewListenerAdapter(data_store.tree_id, controller.tree_view, controller.status_bar, display_store,
-                                                          display_meta.selection_mode)
+    controller.action_bridge = TreeActionBridge(data_store.tree_id, controller.tree_view, controller.status_bar, display_store)
 
     return controller
 
 
-def is_ignored_func(data_node):
-    return data_node.category == Category.Ignored
-
-
 def build_gdrive(parent_win, data_store):
-
+    """Builds a tree panel for browsing a Google Drive tree, using lazy loading."""
     display_meta = TreeDisplayMeta(config=parent_win.config, tree_id=data_store.tree_id, editable=False,
-                                   selection_mode=Gtk.SelectionMode.MULTIPLE,
+                                   selection_mode=Gtk.SelectionMode.SINGLE,
                                    is_display_persisted=True, is_ignored_func=is_ignored_func)
 
     display_store = DisplayStore(display_meta)
@@ -254,7 +257,7 @@ def build_gdrive(parent_win, data_store):
                  display_strategy=display_strategy)
 
 
-def build_one_shot_file_tree(parent_win, data_store):
+def build_bulk_load_file_tree(parent_win, data_store):
     display_meta = TreeDisplayMeta(config=parent_win.config, tree_id=data_store.tree_id, editable=True,
                                    selection_mode=Gtk.SelectionMode.MULTIPLE,
                                    is_display_persisted=True, is_ignored_func=is_ignored_func)
@@ -262,7 +265,7 @@ def build_one_shot_file_tree(parent_win, data_store):
     display_store = DisplayStore(display_meta)
     display_strategy = FMetaChangeTreeStrategy(data_store, display_store)
 
-    con = build(parent_win=parent_win, data_store=data_store, display_meta=display_meta, display_store=display_store,
-                 display_strategy=display_strategy)
+    con = build(parent_win=parent_win, data_store=data_store, display_meta=display_meta,
+                display_store=display_store, display_strategy=display_strategy)
     display_strategy.treeview = con.tree_view # TODO: get rid of this line
     return con

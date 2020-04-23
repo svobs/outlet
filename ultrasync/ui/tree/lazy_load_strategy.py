@@ -17,7 +17,7 @@ class LazyLoadStrategy(DisplayStrategy):
     - Start by listing root nodes
     Phase 1: do not worry about scrolling
     - When a dir node is expanded, a call should be made to the data_store to retrieve its children, which may or may not be cached. But new display nodes will be created when it is expanded (i.e. lazily)
-    - Need to create a stor which can keep track of whether each parent has all children. If not we will have to make a request to retrieve all nodes with 'X' as parent and update the stor before returning
+    - Need to create a store which can keep track of whether each parent has all children. If not we will have to make a request to retrieve all nodes with 'X' as parent and update the store before returning
     was last synced (for stats if nothing else)
 
     - GoogRemote >= GoogDiskCache >= GoogInMemoryCache >= DisplayNode

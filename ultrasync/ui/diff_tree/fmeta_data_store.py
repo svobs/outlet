@@ -10,7 +10,7 @@ from ui.tree.data_store import BaseStore
 logger = logging.getLogger(__name__)
 
 
-class PersistentFMetaStore(BaseStore):
+class BulkLoadFMetaStore(BaseStore):
     def __init__(self, tree_id, config):
         super().__init__(tree_id=tree_id, config=config)
         self.cache = fmeta_tree_cache.from_config(config=self.config, tree_id=self.tree_id)
