@@ -23,7 +23,7 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
     if response_id == Gtk.ResponseType.OK:
         filename = open_dialog.get_filename()
         logger.info(f'User selected dir: {filename}')
-        actions.get_dispatcher().send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.store.tree_id, new_root=filename)
+        actions.get_dispatcher().send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.data_store.tree_id, new_root=filename)
     # if response is "CANCEL" (the button "Cancel" has been clicked)
     elif response_id == Gtk.ResponseType.CANCEL:
         logger.debug("Cancelled: RootDirChooserDialog")
@@ -63,10 +63,10 @@ class RootDirChooserDialog(Gtk.FileChooserDialog):
 
 
 class RootDirPanel:
-    def __init__(self, parent_win, store, editable):
+    def __init__(self, parent_win, data_store, editable):
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
 
-        self.store = store
+        self.data_store = data_store
 
         # TODO: make Label editable (maybe switch it to an Entry) on click
         self.label = Gtk.Label(label='')
@@ -90,16 +90,16 @@ class RootDirPanel:
         self.content_box.pack_start(self.label, expand=True, fill=True, padding=0)
 
         actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
-        actions.connect(actions.ROOT_PATH_UPDATED, self._on_root_path_updated, self.store.tree_id)
+        actions.connect(actions.ROOT_PATH_UPDATED, self._on_root_path_updated, self.data_store.tree_id)
 
         # Need to call this to do the initial UI draw:
-        self._on_root_path_updated(None, self.store.get_root_path())
+        self._on_root_path_updated(None, self.data_store.get_root_path())
 
     def _on_change_btn_clicked(self, widget, parent_win):
         # create a RootDirChooserDialog to open:
         # the arguments are: title of the window, parent_window, action,
         # (buttons, response)
-        open_dialog = RootDirChooserDialog(title="Pick a directory", parent=parent_win, current_dir=self.store.get_root_path())
+        open_dialog = RootDirChooserDialog(title="Pick a directory", parent=parent_win, current_dir=self.data_store.get_root_path())
 
         # not only local files can be selected in the file selector
         open_dialog.set_local_only(False)
@@ -117,7 +117,7 @@ class RootDirPanel:
 
     def _on_root_path_updated(self, sender, new_root):
         if new_root is None:
-            raise RuntimeError(f'Root path cannot be None! (tree_id={self.store.tree_id})')
+            raise RuntimeError(f'Root path cannot be None! (tree_id={self.data_store.tree_id})')
 
         # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html
         def update_root_label():

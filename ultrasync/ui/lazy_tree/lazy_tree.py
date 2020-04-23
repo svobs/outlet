@@ -24,10 +24,9 @@ class LazyTree:
     """
     - Start by listing root nodes
     Phase 1: do not worry about scrolling
-    - When a dir node is expanded, a call should be made to the store to retrieve its children, which may or may not be cached. But new display nodes will be created when it is expanded (i.e. lazily)
+    - When a dir node is expanded, a call should be made to the data_store to retrieve its children, which may or may not be cached. But new display nodes will be created when it is expanded (i.e. lazily)
     - Need to create a stor which can keep track of whether each parent has all children. If not we will have to make a request to retrieve all nodes with 'X' as parent and update the stor before returning
     was last synced (for stats if nothing else)
-    - When a node is collpased, keep any display nodes which are hidden (TODO: yeah?)
 
     - GoogRemote >= GoogDiskCache >= GoogInMemoryCache >= DisplayNode
 
@@ -45,36 +44,36 @@ class LazyTree:
     -
     - Every time you retrieve new data from G, you must perform sanity checks on it and proactively correct them.
     - - Modify TS, MD5, create date, version, revision - any of these changes should be aggressively logged
-    and their meta updated in the store,
+    and their meta updated in the data_store,
 
     Google Drive Stor <- superset of Display Stor
 
 
     """
 
-    def __init__(self, store, parent_win, editable, is_display_persisted):
+    def __init__(self, data_store, parent_win, editable, is_display_persisted, selection_mode):
         # Should be a subclass of BaseDialog:
         self.parent_win = parent_win
-        self.store = store
+        self.data_store = data_store
 
         def is_ignored_func(data_node):
             return data_node.category == Category.Ignored
-        display_meta = TreeDisplayMeta(config=self.parent_win.config, tree_id=self.store.tree_id, editable=editable,
-                                       is_display_persisted=is_display_persisted, is_ignored_func=is_ignored_func)
+        self.display_meta = TreeDisplayMeta(config=self.parent_win.config, tree_id=self.data_store.tree_id, editable=editable,
+                                            is_display_persisted=is_display_persisted, is_ignored_func=is_ignored_func)
 
-        self.display_store = DisplayStore(display_meta)
+        self.display_store = DisplayStore(self.display_meta)
 
         self.treeview, self.status_bar, self.content_box = tree_factory.build_all(
-            parent_win=parent_win, store=self.store, display_store=self.display_store)
+            parent_win=parent_win, data_store=self.data_store, display_store=self.display_store)
 
         select = self.treeview.get_selection()
-        select.set_mode(Gtk.SelectionMode.MULTIPLE)
+        select.set_mode(selection_mode)
 
         self.add_listeners()
 
     @property
     def tree_id(self):
-        return self.store.tree_id
+        return self.data_store.tree_id
 
     @property
     def editable(self):
@@ -82,7 +81,7 @@ class LazyTree:
 
     @property
     def root_path(self):
-        return self.store.get_root_path()
+        return self.data_store.get_root_path()
 
     def _set_status(self, status_msg):
         GLib.idle_add(lambda: self.status_bar.set_label(status_msg))
@@ -193,7 +192,7 @@ class LazyTree:
         return self.display_store.model.append(tree_iter, row_values)
 
     def populate_root(self):
-        children = self.store.get_children(parent_id=None)
+        children = self.data_store.get_children(parent_id=None)
         tree_iter = self.display_store.model.get_iter_first()
         # Append all underneath tree_iter
         for child in children:
@@ -211,7 +210,7 @@ class LazyTree:
         def on_progress_made(this, progress, total):
             self._set_status(f'Scanning file {progress} of {total}')
 
-        actions.connect(actions.SET_STATUS, self._on_set_status, self.store.tree_id)
+        actions.connect(actions.SET_STATUS, self._on_set_status, self.data_store.tree_id)
 
         self.treeview.connect("row-activated", self._on_row_activated)
         self.treeview.connect('button-press-event', self._on_tree_button_press)
@@ -284,7 +283,7 @@ class LazyTree:
 
         # Add children for node:
         if is_expanded:
-            children = self.store.get_children(node_data.id)
+            children = self.data_store.get_children(node_data.id)
             if children:
                 logger.debug(f'Filling out display children: {len(children)}')
                 # Append all underneath tree_iter

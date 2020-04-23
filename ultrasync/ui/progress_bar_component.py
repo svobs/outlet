@@ -76,7 +76,6 @@ class ProgressBarComponent:
             self.progressbar.pulse()
         else:
             new_value = self.progress / self.total
-            logger.debug(f'Progress: {new_value} (ind={indeterminate})')
             if new_value > 1:
                 new_value = 1
 

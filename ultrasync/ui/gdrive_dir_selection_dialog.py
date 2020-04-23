@@ -30,9 +30,9 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
         label = Gtk.Label(label="Select the Google Drive folder to use as the root for comparison:")
         self.content_box.add(label)
 
-        store = GDriveDataStore(tree_id='gdrive_dir_selection', config=parent.config, gdrive_meta=gdrive_meta)
-        self.lazy_tree = LazyTree(store=store, parent_win=self, editable=False, is_display_persisted=False)
-        # actions.set_status(sender=store.tree_id, status_msg=self.fmeta_tree.get_summary())
+        data_store = GDriveDataStore(tree_id='gdrive_dir_selection', config=parent.config, gdrive_meta=gdrive_meta)
+        self.lazy_tree = LazyTree(data_store=data_store, parent_win=self, editable=False, is_display_persisted=False, selection_mode=Gtk.SelectionMode.MULTIPLE)
+        # actions.set_status(sender=data_store.tree_id, status_msg=self.fmeta_tree.get_summary())
         self.content_box.pack_start(self.lazy_tree.content_box, True, True, 0)
 
         self.lazy_tree.populate_root()

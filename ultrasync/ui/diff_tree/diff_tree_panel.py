@@ -18,19 +18,19 @@ logger = logging.getLogger(__name__)
 
 
 class DiffTreePanel:
-    def __init__(self, store, parent_win, editable, is_display_persisted):
+    def __init__(self, data_store, parent_win, editable, is_display_persisted):
         # Should be a subclass of BaseDialog:
         self.parent_win = parent_win
-        self.store = store
+        self.data_store = data_store
 
         def is_ignored_func(data_node):
             return data_node.category == Category.Ignored
-        display_meta = TreeDisplayMeta(config=self.parent_win.config, tree_id=self.store.tree_id, editable=editable, is_display_persisted=is_display_persisted, is_ignored_func=is_ignored_func)
+        display_meta = TreeDisplayMeta(config=self.parent_win.config, tree_id=self.data_store.tree_id, editable=editable, is_display_persisted=is_display_persisted, is_ignored_func=is_ignored_func)
 
         self.display_store = DisplayStore(display_meta)
 
         self.treeview, self.status_bar, self.content_box = tree_factory.build_all(
-            parent_win=parent_win, store=self.store, display_store=self.display_store)
+            parent_win=parent_win, data_store=self.data_store, display_store=self.display_store)
 
         select = self.treeview.get_selection()
         select.set_mode(Gtk.SelectionMode.MULTIPLE)
@@ -39,7 +39,7 @@ class DiffTreePanel:
 
     @property
     def tree_id(self):
-        return self.store.tree_id
+        return self.data_store.tree_id
 
     @property
     def editable(self):
@@ -47,7 +47,7 @@ class DiffTreePanel:
 
     @property
     def root_path(self):
-        return self.store.get_root_path()
+        return self.data_store.get_root_path()
 
     def _set_status(self, status_msg):
         GLib.idle_add(lambda: self.status_bar.set_label(status_msg))
@@ -57,7 +57,7 @@ class DiffTreePanel:
     def add_listeners(self):
         actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
 
-        actions.connect(actions.SET_STATUS, self._on_set_status, self.store.tree_id)
+        actions.connect(actions.SET_STATUS, self._on_set_status, self.data_store.tree_id)
 
         self.treeview.connect("row-activated", self._on_row_activated)
         self.treeview.connect('button-press-event', self._on_tree_button_press)
@@ -338,7 +338,7 @@ class DiffTreePanel:
 
     def get_abs_path(self, node_data):
         """ Utility function: joins the two paths together into an absolute path and returns it"""
-        return self.store.get_root_path() if not node_data.file_path else os.path.join(self.store.get_root_path(), node_data.file_path)
+        return self.data_store.get_root_path() if not node_data.file_path else os.path.join(self.data_store.get_root_path(), node_data.file_path)
 
     def get_abs_file_path(self, tree_path: Gtk.TreePath):
         """ Utility function: get absolute file path from a TreePath """
@@ -351,14 +351,14 @@ class DiffTreePanel:
         stale_tree = self.get_subtree_as_tree(tree_path)
         fresh_tree = None
         # Master tree contains all FMeta in this widget
-        master_tree = self.store.get_whole_tree()
+        master_tree = self.data_store.get_whole_tree()
 
         # If the path no longer exists at all, then it's simple: the entire stale_tree should be deleted.
         if os.path.exists(stale_tree.root_path):
             # But if there are still files present: use FMetaTreeLoader to re-scan subtree
             # and construct a FMetaTree from the 'fresh' data
             logger.debug(f'Scanning: {stale_tree.root_path}')
-            scanner = TreeMetaScanner(root_path=stale_tree.root_path, stale_tree=stale_tree, tree_id=self.store.tree_id, track_changes=False)
+            scanner = TreeMetaScanner(root_path=stale_tree.root_path, stale_tree=stale_tree, tree_id=self.data_store.tree_id, track_changes=False)
             fresh_tree = scanner.scan()
 
         # TODO: files in different categories are showing up as 'added' in the scan

@@ -204,8 +204,8 @@ def _build_treeview(display_store):
     return treeview
 
 
-def build_all(parent_win, store, display_store):
-    root_dir_panel = RootDirPanel(parent_win, store, display_store.display_meta.editable)
+def build_all(parent_win, data_store, display_store):
+    root_dir_panel = RootDirPanel(parent_win, data_store, display_store.display_meta.editable)
 
     tree_view = _build_treeview(display_store)
 

@@ -41,9 +41,9 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         label = Gtk.Label(label="The following changes will be made:")
         self.content_box.add(label)
 
-        store = StaticWholeTreeStore(tree_id=ID_MERGE_TREE, config=self.config, tree=self.fmeta_tree)
-        self.diff_tree = DiffTreePanel(store=store, parent_win=self, editable=False, is_display_persisted=False)
-        actions.set_status(sender=store.tree_id, status_msg=self.fmeta_tree.get_summary())
+        data_store = StaticWholeTreeStore(tree_id=ID_MERGE_TREE, config=self.config, tree=self.fmeta_tree)
+        self.diff_tree = DiffTreePanel(data_store=data_store, parent_win=self, editable=False, is_display_persisted=False)
+        actions.set_status(sender=data_store.tree_id, status_msg=self.fmeta_tree.get_summary())
         self.content_box.pack_start(self.diff_tree.content_box, True, True, 0)
 
         diff_tree_populator.repopulate_diff_tree(self.diff_tree)
@@ -79,7 +79,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         # TODO: clear dir after use
 
         error_collection = []
-        fmeta.fmeta_file_util.apply_changes_atomically(tree_id=self.diff_tree.store.tree_id, tree=self.fmeta_tree, staging_dir=staging_dir,
+        fmeta.fmeta_file_util.apply_changes_atomically(tree_id=self.diff_tree.data_store.tree_id, tree=self.fmeta_tree, staging_dir=staging_dir,
                                                        continue_on_error=True, error_collector=error_collection)
 
         if len(error_collection) > 0:

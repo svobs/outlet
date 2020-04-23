@@ -174,7 +174,7 @@ def repopulate_diff_tree(diff_tree):
     # The docs say to do this for speed, but it doesn't seem to change things:
     diff_tree.treeview.set_model(None)
 
-    fmeta_tree = diff_tree.store.get_whole_tree()
+    fmeta_tree = diff_tree.data_store.get_whole_tree()
 
     for category in [Category.Added,
                      Category.Deleted,
@@ -192,4 +192,4 @@ def repopulate_diff_tree(diff_tree):
     # Restore user prefs for expanded nodes:
     GLib.idle_add(_set_expand_states_from_config, diff_tree)
 
-    logger.debug(f'Done repopulating diff tree "{diff_tree.store.tree_id}"')
+    logger.debug(f'Done repopulating diff tree "{diff_tree.data_store.tree_id}"')

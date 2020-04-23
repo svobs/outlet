@@ -6,11 +6,9 @@ import ui.actions as actions
 import ui.assets
 from ui.diff_tree.dt_data_store import PersistentFMetaStore
 from ui.gdrive_dir_selection_dialog import GDriveDirSelectionDialog
-
-import gi
-
 from ui.progress_bar_component import ProgressBarComponent
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 
@@ -71,12 +69,12 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         # Diff Tree Left:
 
         store_left = PersistentFMetaStore(tree_id=actions.ID_LEFT_TREE, config=self.config)
-        self.diff_tree_left = DiffTreePanel(store=store_left, parent_win=self, editable=True, is_display_persisted=True)
+        self.diff_tree_left = DiffTreePanel(data_store=store_left, parent_win=self, editable=True, is_display_persisted=True)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
         store_right = PersistentFMetaStore(tree_id=actions.ID_RIGHT_TREE, config=self.config)
-        self.diff_tree_right = DiffTreePanel(store=store_right, parent_win=self, editable=True, is_display_persisted=True)
+        self.diff_tree_right = DiffTreePanel(data_store=store_right, parent_win=self, editable=True, is_display_persisted=True)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
 
         self.bottom_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
@@ -86,7 +84,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.bottom_panel.add(self.bottom_button_panel)
 
         # Remember to hold a reference to this, for signals!
-        self.proress_bar_component = ProgressBarComponent(self.config, [actions.ID_LEFT_TREE, actions.ID_RIGHT_TREE])
+        listen_for = [actions.ID_LEFT_TREE, actions.ID_RIGHT_TREE, actions.ID_DIFF_WINDOW]
+        self.proress_bar_component = ProgressBarComponent(self.config, listen_for)
         self.bottom_panel.pack_start(self.proress_bar_component.progressbar, True, True, 0)
         # Give progress bar exactly half of the window width:
         self.bottom_panel.set_homogeneous(True)
@@ -99,7 +98,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         def on_goog_btn_clicked(widget):
             logger.debug('DownloadGDrive btn clicked!')
-            actions.send_signal(signal=actions.DOWNLOAD_GDRIVE_META, sender=actions.ID_LEFT_TREE)
+            actions.send_signal(signal=actions.DOWNLOAD_GDRIVE_META, sender=actions.ID_DIFF_WINDOW)
         gdrive_btn = Gtk.Button(label="Download Google Drive Meta")
         gdrive_btn.connect("clicked", on_goog_btn_clicked)
 
@@ -217,18 +216,23 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                 actions.enable_ui(sender=self)
                 return
 
-            actions.set_status(sender=self.diff_tree_right.store.tree_id, status_msg='Waiting...')
+            actions.set_status(sender=self.diff_tree_right.data_store.tree_id, status_msg='Waiting...')
 
             # Load trees if not loaded - may be a long operation
-            left_fmeta_tree = self.diff_tree_left.store.get_whole_tree()
-            right_fmeta_tree = self.diff_tree_right.store.get_whole_tree()
+            left_fmeta_tree = self.diff_tree_left.data_store.get_whole_tree()
+            right_fmeta_tree = self.diff_tree_right.data_store.get_whole_tree()
+
+            logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {actions.ID_DIFF_WINDOW}')
+            actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=actions.ID_DIFF_WINDOW)
+            msg = 'Computing bidrectional content-first diff...'
+            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, msg=msg)
 
             stopwatch_diff = Stopwatch()
             diff_content_first.diff(left_fmeta_tree, right_fmeta_tree, compare_paths_also=True, use_modify_times=False)
             logger.info(f'Diff completed in: {stopwatch_diff}')
 
+            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, msg='Populating UI trees...')
             stopwatch_redraw = Stopwatch()
-
             diff_tree_populator.repopulate_diff_tree(self.diff_tree_left)
             diff_tree_populator.repopulate_diff_tree(self.diff_tree_right)
 
@@ -238,6 +242,10 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                 merge_btn.connect("clicked", self.on_merge_preview_btn_clicked)
 
                 self.replace_bottom_button_panel(merge_btn)
+
+                logger.debug(f'Sending STOP_PROGRESS for ID: {actions.ID_DIFF_WINDOW}')
+                actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW)
+
                 actions.enable_ui(sender=self)
                 logger.debug(f'Redraw completed in: {stopwatch_redraw}')
 

@@ -14,7 +14,7 @@ SET_PROGRESS_TEXT = 'set-progress-text'
 PROGRESS_MADE = 'progress_made'
 STOP_PROGRESS = 'stop-progress'
 
-
+ID_DIFF_WINDOW = 'diff-win'
 ID_LEFT_TREE = 'left_tree'
 ID_RIGHT_TREE = 'right_tree'
 ID_MERGE_TREE = 'merge_tree'
