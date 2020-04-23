@@ -1,7 +1,7 @@
-# TODO: just roll this into DisplayStore
 class TreeDisplayMeta:
-    def __init__(self, config, tree_id, editable, is_display_persisted, is_ignored_func=None):
+    def __init__(self, config, tree_id, editable, selection_mode, is_display_persisted, is_ignored_func=None):
         self.config = config
+        self.selection_mode = selection_mode
         self.tree_id = tree_id
         """If false, disable actions in UI"""
         self.editable = editable

@@ -1,24 +1,36 @@
 from pydispatch import dispatcher
 import logging
 
-TOGGLE_UI_ENABLEMENT = 'toggle-ui-enablement'
 ROOT_PATH_UPDATED = 'root-path-updated'
 DO_DIFF = 'do-diff'
 DOWNLOAD_GDRIVE_META = 'download-gdrive-meta'
 GDRIVE_DOWNLOAD_COMPLETE = 'gdrive-download-complete'
 
+# All components should listen for this
+TOGGLE_UI_ENABLEMENT = 'toggle-ui-enablement'
+
+# --- Progress bar ---
 START_PROGRESS_INDETERMINATE = 'start-progress-indeterminate'
 START_PROGRESS = 'start-progress'
-SET_STATUS = 'set-status'
 SET_PROGRESS_TEXT = 'set-progress-text'
 PROGRESS_MADE = 'progress_made'
 STOP_PROGRESS = 'stop-progress'
 
+# --- Status bar ---
+SET_STATUS = 'set-status'
+
+# --- Sender identifiers ---
 ID_DIFF_WINDOW = 'diff-win'
 ID_LEFT_TREE = 'left_tree'
 ID_RIGHT_TREE = 'right_tree'
 ID_MERGE_TREE = 'merge_tree'
 
+# --- Tree actions ---
+SINGLE_ROW_ACTIVATED = 'single-row-activated'
+MULTIPLE_ROWS_ACTIVATED = 'multiple-rows-activated'
+ROW_RIGHT_CLICKED = 'row-right-clicked'
+DELETE_KEY_PRESSED = 'delete-key-pressed'
+NODE_EXPANSION_TOGGLED = 'node-expansion-toggled'
 
 logger = logging.getLogger(__name__)
 
@@ -49,3 +61,5 @@ def enable_ui(sender):
 
 def set_status(sender, status_msg):
     dispatcher.send(signal=SET_STATUS, sender=sender, status_msg=status_msg)
+
+# --- Tree actions ---

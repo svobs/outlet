@@ -316,6 +316,7 @@ class DiffTreePanel:
             self.parent_win.show_error_msg(f'Error deleting tree "{subtree_root}"', str(err))
             raise
         finally:
+            # TODO: make this into a signal
             self.resync_subtree(tree_path)
 
     def call_xdg_open(self, file_path):

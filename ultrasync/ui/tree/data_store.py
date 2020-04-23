@@ -28,3 +28,14 @@ class StaticWholeTreeStore(BaseStore):
 
     def get_whole_tree(self):
         return self._tree
+
+
+# TODO: ABC
+class DisplayStrategy:
+    def __init__(self, data_store, display_store):
+        self.data_store = data_store
+        self.display_store = display_store
+
+    def populate_root(self):
+        """Draws from the undelying data store as needed, to populate the display store."""
+        pass

@@ -15,7 +15,7 @@ from fmeta.fmeta_file_util import FMetaError
 from fmeta.fmeta import Category
 from ui.diff_tree.diff_tree_panel import DiffTreePanel
 from ui.base_dialog import BaseDialog
-import ui.diff_tree.dt_populator as diff_tree_populator
+import ui.diff_tree.fmeta_change_strategy as diff_tree_populator
 
 STAGING_DIR_PATH = get_resource_path("temp")
 

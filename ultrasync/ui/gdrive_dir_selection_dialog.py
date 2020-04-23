@@ -2,8 +2,10 @@ import logging
 
 import gi
 
+from fmeta.fmeta import Category
 from gdrive.gdrive_data_store import GDriveDataStore
-from ui.lazy_tree.lazy_tree import LazyTree
+from ui.tree import tree_factory
+from ui.tree.display_meta import TreeDisplayMeta
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -31,11 +33,12 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
         self.content_box.add(label)
 
         data_store = GDriveDataStore(tree_id='gdrive_dir_selection', config=parent.config, gdrive_meta=gdrive_meta)
-        self.lazy_tree = LazyTree(data_store=data_store, parent_win=self, editable=False, is_display_persisted=False, selection_mode=Gtk.SelectionMode.MULTIPLE)
-        # actions.set_status(sender=data_store.tree_id, status_msg=self.fmeta_tree.get_summary())
-        self.content_box.pack_start(self.lazy_tree.content_box, True, True, 0)
+        self.tree_controller = tree_factory.build_gdrive(parent_win=self, data_store=data_store)
 
-        self.lazy_tree.populate_root()
+        # actions.set_status(sender=data_store.tree_id, status_msg=self.fmeta_tree.get_summary())
+        self.content_box.pack_start(self.tree_controller.content_box, True, True, 0)
+
+        self.tree_controller.load()
 
         self.connect("response", self.on_response)
         self.show_all()

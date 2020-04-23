@@ -4,11 +4,14 @@ import os
 from stopwatch import Stopwatch
 import ui.actions as actions
 import ui.assets
-from ui.diff_tree.dt_data_store import PersistentFMetaStore
+from ui.diff_tree.fmeta_data_store import PersistentFMetaStore
 from ui.gdrive_dir_selection_dialog import GDriveDirSelectionDialog
 from ui.progress_bar_component import ProgressBarComponent
 
 import gi
+
+from ui.tree import tree_factory
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 
@@ -19,7 +22,7 @@ from file_util import get_resource_path
 from fmeta import diff_content_first
 from ui.diff_tree.diff_tree_panel import DiffTreePanel
 from ui.base_dialog import BaseDialog
-import ui.diff_tree.dt_populator as diff_tree_populator
+import ui.diff_tree.fmeta_change_strategy as diff_tree_populator
 
 logger = logging.getLogger(__name__)
 
@@ -67,15 +70,14 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Tree Left:
-
         store_left = PersistentFMetaStore(tree_id=actions.ID_LEFT_TREE, config=self.config)
-        self.diff_tree_left = DiffTreePanel(data_store=store_left, parent_win=self, editable=True, is_display_persisted=True)
-        diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
+        self.tree_con_left = tree_factory.build_one_shot_file_tree(parent_win=self, data_store=store_left)
+        diff_tree_panes.pack1(self.tree_con_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
         store_right = PersistentFMetaStore(tree_id=actions.ID_RIGHT_TREE, config=self.config)
-        self.diff_tree_right = DiffTreePanel(data_store=store_right, parent_win=self, editable=True, is_display_persisted=True)
-        diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
+        self.tree_con_right = tree_factory.build_one_shot_file_tree(parent_win=self, data_store=store_right)
+        diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)
 
         self.bottom_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.content_box.add(self.bottom_panel)
@@ -92,7 +94,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         def on_diff_btn_clicked(widget):
             logger.debug('Diff btn clicked!')
-            actions.send_signal(signal=actions.DO_DIFF, sender=self.diff_tree_left.tree_id)
+            actions.send_signal(signal=actions.DO_DIFF, sender=actions.ID_DIFF_WINDOW)
         diff_action_btn = Gtk.Button(label="Diff (content-first)")
         diff_action_btn.connect("clicked", on_diff_btn_clicked)
 
@@ -129,9 +131,9 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         logger.debug('Merge btn clicked')
 
         try:
-            left_selected_changes = self.diff_tree_left.get_checked_rows_as_tree()
+            left_selected_changes = self.tree_con_left.get_checked_rows_as_tree() # TODO: this is broken
             logger.info(f'Left changes: {left_selected_changes.get_summary()}')
-            right_selected_changes = self.diff_tree_right.get_checked_rows_as_tree()
+            right_selected_changes = self.tree_con_right.get_checked_rows_as_tree()
             logger.info(f'Right changes: {right_selected_changes.get_summary()}')
             if len(left_selected_changes.get_all()) == 0 and len(right_selected_changes.get_all()) == 0:
                 self.show_error_msg('You must select change(s) first.')
@@ -178,7 +180,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             meta = tree_builder.load_all(invalidate_cache=False)
             actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, meta=meta)
         except Exception as err:
-            self.show_error_ui('Downlaod from GDrive failed due to unexpected error', repr(err))
+            self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
             logger.exception(err)
         finally:
             actions.enable_ui(sender=self)
@@ -211,16 +213,19 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
     # TODO: disable all UI while loading (including tree)
     def do_tree_diff(self):
         try:
-            if not os.path.exists(self.diff_tree_left.root_path) or not os.path.exists(self.diff_tree_right.root_path):
+            left_root = self.tree_con_left.data_store.get_root_path()
+            right_root = self.tree_con_right.data_store.get_root_path()
+            if not os.path.exists(left_root) or not os.path.exists(right_root):
                 logger.info('Skipping diff because one of the paths does not exist')
                 actions.enable_ui(sender=self)
                 return
 
-            actions.set_status(sender=self.diff_tree_right.data_store.tree_id, status_msg='Waiting...')
+            actions.set_status(sender=actions.ID_RIGHT_TREE, status_msg='Waiting...')
 
             # Load trees if not loaded - may be a long operation
-            left_fmeta_tree = self.diff_tree_left.data_store.get_whole_tree()
-            right_fmeta_tree = self.diff_tree_right.data_store.get_whole_tree()
+
+            left_fmeta_tree = self.tree_con_left.data_store.get_whole_tree()
+            right_fmeta_tree = self.tree_con_right.data_store.get_whole_tree()
 
             logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {actions.ID_DIFF_WINDOW}')
             actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=actions.ID_DIFF_WINDOW)
@@ -233,14 +238,15 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
             actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, msg='Populating UI trees...')
             stopwatch_redraw = Stopwatch()
-            diff_tree_populator.repopulate_diff_tree(self.diff_tree_left)
-            diff_tree_populator.repopulate_diff_tree(self.diff_tree_right)
+            self.tree_con_left.load()
+            self.tree_con_right.load()
 
             def change_button_bar():
                 # Replace diff btn with merge buttons
                 merge_btn = Gtk.Button(label="Merge Selected...")
                 merge_btn.connect("clicked", self.on_merge_preview_btn_clicked)
 
+                # FIXME: this is causing the button bar to disappear
                 self.replace_bottom_button_panel(merge_btn)
 
                 logger.debug(f'Sending STOP_PROGRESS for ID: {actions.ID_DIFF_WINDOW}')

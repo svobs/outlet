@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class DisplayStore:
     """(Mostly) encapsulates the nodes inside the TreeView object, which will be a subset of the nodes
-    which """
+    which come from the data store """
     def __init__(self, display_meta):
         self.display_meta = display_meta
         self.model = Gtk.TreeStore()

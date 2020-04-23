@@ -1,9 +1,18 @@
 import logging
 
 import ui.assets
+from fmeta.fmeta import Category
+from ui.diff_tree.fmeta_change_strategy import FMetaChangeTreeStrategy
+from ui.lazy_tree.lazy_tree import TreeViewListenerAdapter
 from ui.root_dir_panel import RootDirPanel
 
 import gi
+
+from ui.tree.controller import TreePanelController
+from ui.tree.display_meta import TreeDisplayMeta
+from ui.tree.display_store import DisplayStore
+from ui.tree.lazy_load_strategy import LazyLoadStrategy
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 
@@ -204,19 +213,56 @@ def _build_treeview(display_store):
     return treeview
 
 
-def build_all(parent_win, data_store, display_store):
-    root_dir_panel = RootDirPanel(parent_win, data_store, display_store.display_meta.editable)
+def build(parent_win, data_store, display_meta, display_store, display_strategy):
 
-    tree_view = _build_treeview(display_store)
+    controller = TreePanelController(data_store, display_store, display_meta)
+    controller.tree_view = _build_treeview(display_store)
+    controller.root_dir_panel = RootDirPanel(parent_win=parent_win, tree_id=data_store.tree_id,
+                                             current_root=data_store.get_root_path(), editable=display_meta.editable)
+    controller.load_strategy = display_strategy
 
-    status_bar, status_bar_container = _build_status_bar()
-    content_box = _build_content_box(root_dir_panel.content_box, tree_view, status_bar_container)
+    controller.status_bar, status_bar_container = _build_status_bar()
+    controller.content_box = _build_content_box(controller.root_dir_panel.content_box, controller.tree_view, status_bar_container)
 
     # Line up the following between trees if we are displaying side-by-side trees:
     if hasattr('parent_win', 'sizegroups'):
         if parent_win.sizegroups.get('tree_status'):
             parent_win.sizegroups['tree_status'].add_widget(status_bar_container)
         if parent_win.sizegroups.get('root_paths'):
-            parent_win.sizegroups['root_paths'].add_widget(root_dir_panel.content_box)
+            parent_win.sizegroups['root_paths'].add_widget(controller.root_dir_panel.content_box)
 
-    return tree_view, status_bar, content_box
+    controller.listener_adapter = TreeViewListenerAdapter(data_store.tree_id, controller.tree_view, controller.status_bar, display_store,
+                                                          display_meta.selection_mode)
+
+    return controller
+
+
+def is_ignored_func(data_node):
+    return data_node.category == Category.Ignored
+
+
+def build_gdrive(parent_win, data_store):
+
+    display_meta = TreeDisplayMeta(config=parent_win.config, tree_id=data_store.tree_id, editable=False,
+                                   selection_mode=Gtk.SelectionMode.MULTIPLE,
+                                   is_display_persisted=True, is_ignored_func=is_ignored_func)
+
+    display_store = DisplayStore(display_meta)
+    display_strategy = LazyLoadStrategy(data_store, display_store)
+
+    return build(parent_win=parent_win, data_store=data_store, display_meta=display_meta, display_store=display_store,
+                 display_strategy=display_strategy)
+
+
+def build_one_shot_file_tree(parent_win, data_store):
+    display_meta = TreeDisplayMeta(config=parent_win.config, tree_id=data_store.tree_id, editable=True,
+                                   selection_mode=Gtk.SelectionMode.MULTIPLE,
+                                   is_display_persisted=True, is_ignored_func=is_ignored_func)
+
+    display_store = DisplayStore(display_meta)
+    display_strategy = FMetaChangeTreeStrategy(data_store, display_store)
+
+    con = build(parent_win=parent_win, data_store=data_store, display_meta=display_meta, display_store=display_store,
+                 display_strategy=display_strategy)
+    display_strategy.treeview = con.tree_view # TODO: get rid of this line
+    return con
