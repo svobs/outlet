@@ -12,6 +12,8 @@ from google.auth.transport.requests import Request
 from gdrive.gdrive_model import EXPLICITLY_TRASHED, GoogFolder, GoogFile, GDriveMeta, IMPLICITLY_TRASHED, NOT_TRASHED, UserMeta
 
 # If modifying these scopes, delete the file token.pickle.
+from ui import actions
+
 SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
 
 MIME_TYPE_SHORTCUT = 'application/vnd.google-apps.shortcut'
@@ -112,10 +114,10 @@ def convert_goog_folder(result):
 
 
 class GDriveClient:
-    def __init__(self, config):
+    def __init__(self, config, tree_id=None):
         self.service = load_google_client_service()
         self.config = config
-
+        self.tree_id = tree_id
         self.page_size = config.get('gdrive.page_size')
 
     def get_about(self):
@@ -123,6 +125,10 @@ class GDriveClient:
         self.service.about().get()
         Returns: info about the current user and its storage usage
         """
+        if self.tree_id:
+            msg = 'Getting info for user...'
+            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+
         fields = 'user, storageQuota'
 
         def request():
@@ -182,7 +188,11 @@ class GDriveClient:
         logger.info('Getting list of ALL NON DIRS in Google Drive...')
 
         def request():
-            logger.debug(f'Sending request for files, page {request.page_count}...')
+            msg = f'Sending request for files, page {request.page_count}...'
+            logger.debug(msg)
+            if self.tree_id:
+                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+
             # Call the Drive v3 API
             response = self.service.files().list(q=QUERY_NON_FOLDERS_ONLY, fields=fields, spaces=spaces, pageSize=self.page_size,
                                                  pageToken=request.next_token).execute()
@@ -205,7 +215,10 @@ class GDriveClient:
             if not items:
                 raise RuntimeError(f'No files returned from Drive API! (page {request.page_count})')
 
-            logger.debug(f'Received {len(items)} items')
+            msg = f'Received {len(items)} items'
+            logger.debug(msg)
+            if self.tree_id:
+                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             for item in items:
                 mime_type = item['mimeType']
@@ -311,7 +324,11 @@ class GDriveClient:
         logger.info('Getting list of ALL directories in Google Drive...')
 
         def request():
-            logger.debug(f'Sending request for dirs, page {request.page_count}...')
+            msg = f'Sending request for dirs, page {request.page_count}...'
+            logger.debug(msg)
+            if self.tree_id:
+                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+
             # Call the Drive v3 API
             response = self.service.files().list(q=QUERY_FOLDERS_ONLY, fields=fields, spaces=spaces, pageSize=self.page_size,
                                                  pageToken=request.next_token).execute()
@@ -333,7 +350,10 @@ class GDriveClient:
             if not items:
                 raise RuntimeError(f'No files returned from Drive API! (page {request.page_count})')
 
-            logger.debug(f'Received {len(items)} items')
+            msg = f'Received {len(items)} items'
+            logger.debug(msg)
+            if self.tree_id:
+                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             for item in items:
                 dir_node = convert_goog_folder(item)

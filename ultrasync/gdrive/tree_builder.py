@@ -4,6 +4,7 @@ from queue import Queue
 from database import MetaDatabase
 from gdrive.client import GDriveClient
 from gdrive.gdrive_model import EXPLICITLY_TRASHED, GoogFolder, GoogFile, GDriveMeta, IMPLICITLY_TRASHED, NOT_TRASHED
+from ui import actions
 
 logger = logging.getLogger(__name__)
 
@@ -84,15 +85,20 @@ def build_trees(meta: GDriveMeta):
 
 
 class GDriveTreeLoader:
-    def __init__(self, config, cache_path):
+    def __init__(self, config, cache_path, tree_id=None):
         self.config = config
-        self.gdrive_client = GDriveClient(self.config)
+        self.tree_id = tree_id
         if cache_path:
             self.cache = MetaDatabase(cache_path)
         else:
             self.cache = None
+        self.gdrive_client = GDriveClient(self.config, tree_id)
 
     def load_all(self, invalidate_cache=False):
+        if self.tree_id:
+            logger.debug(f'Sending START_PROGRESS_INDETERMINATE for tree_id: {self.tree_id}')
+            actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=self.tree_id)
+
         meta = GDriveMeta()
 
         meta.me = self.gdrive_client.get_about()
@@ -100,6 +106,10 @@ class GDriveTreeLoader:
 
         # Load data from either cache or Google:
         if self.cache and cache_has_data and not invalidate_cache:
+            if self.tree_id:
+                msg = 'Reading cache...'
+                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+
             self.load_from_cache(meta)
         else:
             self.gdrive_client.download_directory_structure(meta)
@@ -107,10 +117,16 @@ class GDriveTreeLoader:
 
         # Save to cache if configured:
         if self.cache and (not cache_has_data or invalidate_cache):
+            if self.tree_id:
+                msg = 'Saving to cache...'
+                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
             self.save_to_cache(meta=meta, overwrite=True)
 
         # Finally, build the dir tree:
         #meta.path_dict = build_trees(meta)
+
+        logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
+        actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id)
         return meta
 
     def save_to_cache(self, meta, overwrite):

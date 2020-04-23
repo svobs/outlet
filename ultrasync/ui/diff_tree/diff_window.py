@@ -99,7 +99,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         def on_goog_btn_clicked(widget):
             logger.debug('DownloadGDrive btn clicked!')
-            actions.send_signal(signal=actions.DOWNLOAD_GDRIVE_META, sender=self.diff_tree_left.tree_id)
+            actions.send_signal(signal=actions.DOWNLOAD_GDRIVE_META, sender=actions.ID_LEFT_TREE)
         gdrive_btn = Gtk.Button(label="Download Google Drive Meta")
         gdrive_btn.connect("clicked", on_goog_btn_clicked)
 
@@ -175,7 +175,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
     def download_gdrive_meta(self, tree_id):
         try:
             cache_path = get_resource_path('gdrive.db')
-            tree_builder = GDriveTreeLoader(config=self.config, cache_path=cache_path)
+            tree_builder = GDriveTreeLoader(config=self.config, cache_path=cache_path, tree_id=tree_id)
             meta = tree_builder.load_all(invalidate_cache=False)
             actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, meta=meta)
         except Exception as err:
