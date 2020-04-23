@@ -2,7 +2,8 @@ import logging
 
 import ui.assets
 from fmeta.fmeta import Category
-from ui.diff_tree.diff_tree_panel import FMetaTreeActionHandlers
+from ui.diff_tree.fmeta_action_handlers import FMetaTreeActionHandlers
+from ui.diff_tree.gdrive_action_handlers import GDriveActionHandlers
 from ui.tree.fmeta_change_strategy import FMetaChangeTreeStrategy
 from ui.tree.action_bridge import TreeActionBridge
 from ui.root_dir_panel import RootDirPanel
@@ -222,7 +223,7 @@ def is_ignored_func(data_node):
 
 def build(parent_win, data_store, display_meta, display_strategy, action_handlers):
     """Builds a single instance of a tree panel, and configures all its components as specified."""
-    logger.info(f'Building controller for tree: {data_store.tree_id}')
+    logger.debug(f'Building controller for tree: {data_store.tree_id}')
 
     display_store = DisplayStore(display_meta, data_store)
 
@@ -232,12 +233,10 @@ def build(parent_win, data_store, display_meta, display_strategy, action_handler
     controller.tree_view = _build_treeview(display_store)
     controller.root_dir_panel = RootDirPanel(parent_win=parent_win, tree_id=data_store.tree_id,
                                              current_root=data_store.get_root_path(), editable=display_meta.editable)
-    # FIXME: merge the two below:
     controller.display_strategy = display_strategy
     display_strategy.con = controller
     controller.action_handlers = action_handlers
-    if action_handlers:
-        action_handlers.con = controller
+    action_handlers.con = controller
 
     controller.status_bar, status_bar_container = _build_status_bar()
     controller.content_box = _build_content_box(controller.root_dir_panel.content_box, controller.tree_view, status_bar_container)
@@ -248,8 +247,6 @@ def build(parent_win, data_store, display_meta, display_strategy, action_handler
             parent_win.sizegroups['tree_status'].add_widget(status_bar_container)
         if parent_win.sizegroups.get('root_paths'):
             parent_win.sizegroups['root_paths'].add_widget(controller.root_dir_panel.content_box)
-
-    controller.action_bridge = TreeActionBridge(controller)
 
     controller.init()
     return controller
@@ -262,7 +259,7 @@ def build_gdrive(parent_win, data_store):
                                    is_display_persisted=True, is_ignored_func=is_ignored_func)
 
     display_strategy = LazyLoadStrategy()
-    action_handlers = None
+    action_handlers = GDriveActionHandlers()
 
     return build(parent_win=parent_win, data_store=data_store, display_meta=display_meta, display_strategy=display_strategy, action_handlers=action_handlers)
 

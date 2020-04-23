@@ -26,10 +26,6 @@ ID_RIGHT_TREE = 'right_tree'
 ID_MERGE_TREE = 'merge_tree'
 
 # --- Tree actions ---
-SINGLE_ROW_ACTIVATED = 'single-row-activated'
-MULTIPLE_ROWS_ACTIVATED = 'multiple-rows-activated'
-ROW_RIGHT_CLICKED = 'row-right-clicked'
-DELETE_KEY_PRESSED = 'delete-key-pressed'
 NODE_EXPANSION_TOGGLED = 'node-expansion-toggled'
 
 logger = logging.getLogger(__name__)

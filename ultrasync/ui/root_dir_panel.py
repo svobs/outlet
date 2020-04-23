@@ -80,6 +80,8 @@ class RootDirPanel:
             self.change_btn.set_image(image=icon)
             self.content_box.pack_start(self.change_btn, expand=False, fill=False, padding=5)
             self.change_btn.connect("clicked", self._on_change_btn_clicked, parent_win)
+        else:
+            self.change_btn = None
 
         self.alert_image = Gtk.Image()
         self.alert_image.set_from_file(ALERT_ICON_PATH)

@@ -13,7 +13,6 @@ class TreePanelController:
         self.display_strategy = None
         self.status_bar = None
         self.content_box = None
-        self.action_bridge = None
         self.action_handlers = None
 
     @property
@@ -22,12 +21,8 @@ class TreePanelController:
 
     def init(self):
         """Should be called after all controller components have been wired together"""
-        self.action_bridge.init()
         self.display_strategy.init()
-
-        # TODO: get rid of action handlers
-        if self.action_handlers:
-            self.action_handlers.init()
+        self.action_handlers.init()
 
     def load(self):
         self.display_strategy.populate_root()

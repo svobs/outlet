@@ -5,6 +5,7 @@ import subprocess
 import ui.actions as actions
 from fmeta.fmeta import FMeta, FMetaTree, Category
 from fmeta.fmeta_tree_loader import TreeMetaScanner
+from ui.tree.action_bridge import TreeActionBridge
 from ui.tree.display_model import DirNode, CategoryNode
 
 import gi
@@ -14,21 +15,17 @@ from gi.repository import GLib, Gtk, Gdk
 logger = logging.getLogger(__name__)
 
 
-class FMetaTreeActionHandlers:
-    # FIXME: looks like I over-engineered this solution. Get rid of extra listeners, and just inherit from
-    # FIXME: TreeActionBridge
+class FMetaTreeActionHandlers(TreeActionBridge):
     def __init__(self, controller=None):
-        self.con = controller
+        super().__init__(controller)
 
     def init(self):
-        actions.connect(actions.SINGLE_ROW_ACTIVATED, self._on_single_row_activated, sender=self.con.tree_id)
-        actions.connect(actions.MULTIPLE_ROWS_ACTIVATED, self._on_multiple_rows_activated, sender=self.con.tree_id)
+        super().init()
         actions.connect(actions.NODE_EXPANSION_TOGGLED, self._on_toggle_row_expanded_state, sender=self.con.tree_id)
-        actions.connect(actions.ROW_RIGHT_CLICKED, self._on_row_right_clicked, sender=self.con.tree_id)
 
     # --- LISTENERS ---
 
-    def _on_single_row_activated(self, sender, tree_view, tree_iter, tree_path):
+    def on_single_row_activated(self, tree_view, tree_iter, tree_path):
         """Fired when an item is double-clicked or when an item is selected and Enter is pressed"""
         node_data = self.con.display_store.get_node_data(tree_iter)
         if type(node_data) == CategoryNode:
@@ -51,7 +48,7 @@ class FMetaTreeActionHandlers:
         else:
             raise RuntimeError('Unexpected data element')
 
-    def _on_multiple_rows_activated(self, sender, tree_view, tree_iter):
+    def on_multiple_rows_activated(self, tree_view, tree_iter):
         # TODO: intelligent logic for multiple selected rows
         logger.error('Multiple rows activated, but no logic implemented yet!')
         pass
@@ -65,7 +62,7 @@ class FMetaTreeActionHandlers:
 
         menu = Gtk.Menu()
 
-        abs_path = self.get_abs_path(node_data)
+        abs_path = self.con.display_store.get_abs_path(node_data)
         # Important: use abs_path here, otherwise file names for category nodes are not displayed properly
         parent_path, file_name = os.path.split(abs_path)
 
@@ -109,9 +106,9 @@ class FMetaTreeActionHandlers:
         menu.show_all()
         return menu
 
-    def _on_delete_key_pressed(self, sender, tree_paths):
+    def on_delete_key_pressed(self, selected_tree_paths):
         # Get the TreeIter instance for each path
-        for tree_path in tree_paths:
+        for tree_path in selected_tree_paths:
             # Delete the actual file:
             node_data = self.con.display_store.get_node_data(tree_path)
             if node_data is not None:
@@ -120,7 +117,7 @@ class FMetaTreeActionHandlers:
                     # something went wrong if we got False. Stop.
                     break
 
-    def _on_row_right_clicked(self, sender, event, tree_path, node_data):
+    def on_row_right_clicked(self, event, tree_path, node_data):
         # Display context menu:
         context_menu = self.build_context_menu(tree_path, node_data)
         context_menu.popup_at_pointer(event)

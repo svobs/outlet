@@ -61,7 +61,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
             else:
-                logger.debug("response_id: ", response_id)
+                logger.debug(f'response_id: {response_id}')
         except FileNotFoundError as err:
             self.show_error_ui('File not found: ' + err.filename)
             raise
