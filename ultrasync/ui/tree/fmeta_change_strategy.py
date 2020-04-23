@@ -5,10 +5,13 @@ from datetime import datetime
 import os
 import humanfriendly
 import logging
+
+from gi.overrides import Gtk
 from stopwatch import Stopwatch
 from treelib import Tree
 import file_util
-from fmeta.fmeta import FMeta, Category
+from fmeta.fmeta import FMeta, Category, FMetaTree
+from fmeta.fmeta_tree_loader import TreeMetaScanner
 from ui.tree.data_store import DisplayStrategy
 from ui.tree.display_model import DirNode, CategoryNode
 import gi
@@ -62,33 +65,35 @@ def _build_category_change_tree(fmeta_list, category):
 
 
 class FMetaChangeTreeStrategy(DisplayStrategy):
-    def __init__(self, data_store, display_store):
-        super().__init__(data_store, display_store)
-        self.treeview = None # TODO: get rid of this
+    def __init__(self, controller=None):
+        super().__init__(controller)
+
+    def init(self):
+        pass
 
     def _append_dir_node(self, tree_iter, dir_name, node_data):
         """Appends a dir or cat node to the model"""
         row_values = []
-        if self.display_store.display_meta.editable:
+        if self.con.display_store.display_meta.editable:
             row_values.append(False)  # Checked
             row_values.append(False)  # Inconsistent
         row_values.append('folder')  # Icon
         row_values.append(dir_name)  # Name
-        if not self.display_store.display_meta.use_dir_tree:
+        if not self.con.display_store.display_meta.use_dir_tree:
             row_values.append(None)  # Directory
         num_bytes_str = humanfriendly.format_size(node_data.size_bytes)
         row_values.append(num_bytes_str)  # Size
         row_values.append(None)  # Modify Date
-        if self.display_store.display_meta.show_change_ts:
+        if self.con.display_store.display_meta.show_change_ts:
             row_values.append(None)  # Modify Date
         row_values.append(node_data)  # Data
 
-        return self.display_store.model.append(tree_iter, row_values)
+        return self.con.display_store.model.append(tree_iter, row_values)
 
     def _append_fmeta_node(self, tree_iter, file_name, fmeta: FMeta, category):
         row_values = []
 
-        if self.display_store.display_meta.editable:
+        if self.con.display_store.display_meta.editable:
             row_values.append(False)  # Checked
             row_values.append(False)  # Inconsistent
         row_values.append(category.name)  # Icon
@@ -99,7 +104,7 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
             node_name = file_name
         row_values.append(node_name)  # Name
 
-        if not self.display_store.display_meta.use_dir_tree:
+        if not self.con.display_store.display_meta.use_dir_tree:
             directory, name = os.path.split(fmeta.file_path)
             row_values.append(directory)  # Directory
 
@@ -107,16 +112,16 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
         row_values.append(num_bytes_str)  # Size
 
         modify_datetime = datetime.fromtimestamp(fmeta.modify_ts)
-        modify_time = modify_datetime.strftime(self.display_store.display_meta.datetime_format)
+        modify_time = modify_datetime.strftime(self.con.display_store.display_meta.datetime_format)
         row_values.append(modify_time)  # Modify TS
 
-        if self.display_store.display_meta.show_change_ts:
+        if self.con.display_store.display_meta.show_change_ts:
             change_datetime = datetime.fromtimestamp(fmeta.change_ts)
-            change_time = change_datetime.strftime(self.display_store.display_meta.datetime_format)
+            change_time = change_datetime.strftime(self.con.display_store.display_meta.datetime_format)
             row_values.append(change_time)  # Change TS
 
         row_values.append(fmeta)  # Data
-        return self.display_store.model.append(tree_iter, row_values)
+        return self.con.display_store.model.append(tree_iter, row_values)
 
     def _append_to_model(self, category, change_tree):
         def append_recursively(tree_iter, node):
@@ -146,16 +151,16 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
 
     def _set_expand_states_from_config(self):
         # Loop over top level. Find the category nodes and expand them appropriately
-        tree_iter = self.display_store.model.get_iter_first()
+        tree_iter = self.con.display_store.model.get_iter_first()
         while tree_iter is not None:
-            node_data = self.display_store.get_node_data(tree_iter)
+            node_data = self.con.display_store.get_node_data(tree_iter)
             if type(node_data) == CategoryNode:
-                is_expand = self.display_store.display_meta.is_category_node_expanded(node_data)
+                is_expand = self.con.display_store.display_meta.is_category_node_expanded(node_data)
                 if is_expand:
-                    tree_path = self.display_store.model.get_path(tree_iter)
-                    self.treeview.expand_row(path=tree_path, open_all=True)
+                    tree_path = self.con.display_store.model.get_path(tree_iter)
+                    self.con.tree_view.expand_row(path=tree_path, open_all=True)
 
-            tree_iter = self.display_store.model.iter_next(tree_iter)
+            tree_iter = self.con.display_store.model.iter_next(tree_iter)
 
     def populate_root(self):
         """
@@ -165,12 +170,12 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
             diff_tree: the DiffTreePanel widget
 
         """
-        logger.debug(f'Repopulating diff tree "{self.data_store.tree_id}"')
+        logger.debug(f'Repopulating diff tree "{self.con.data_store.tree_id}"')
 
         # Wipe out existing items:
-        self.display_store.model.clear()
+        self.con.display_store.model.clear()
 
-        fmeta_tree = self.data_store.get_whole_tree()
+        fmeta_tree = self.con.data_store.get_whole_tree()
 
         for category in [Category.Added,
                          Category.Deleted,
@@ -182,4 +187,53 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
         # Restore user prefs for expanded nodes:
         GLib.idle_add(self._set_expand_states_from_config)
 
-        logger.debug(f'Done repopulating diff tree "{self.data_store.tree_id}"')
+        logger.debug(f'Done repopulating diff tree "{self.con.data_store.tree_id}"')
+
+    def resync_subtree(self, tree_path):
+        # Construct a FMetaTree from the UI nodes: this is the 'stale' subtree.
+        stale_tree = self.con.display_store.get_subtree_as_tree(tree_path)
+        fresh_tree = None
+        # Master tree contains all FMeta in this widget
+        master_tree = self.con.data_store.get_whole_tree()
+
+        # If the path no longer exists at all, then it's simple: the entire stale_tree should be deleted.
+        if os.path.exists(stale_tree.root_path):
+            # But if there are still files present: use FMetaTreeLoader to re-scan subtree
+            # and construct a FMetaTree from the 'fresh' data
+            logger.debug(f'Scanning: {stale_tree.root_path}')
+            scanner = TreeMetaScanner(root_path=stale_tree.root_path, stale_tree=stale_tree, tree_id=self.con.data_store.tree_id, track_changes=False)
+            fresh_tree = scanner.scan()
+
+        # TODO: files in different categories are showing up as 'added' in the scan
+        # TODO: should just be removed then added below, but brainstorm how to optimize this
+
+        for fmeta in stale_tree.get_all():
+            # Anything left in the stale tree no longer exists. Delete it from master tree
+            # NOTE: stale tree will contain old FMeta which is from the master tree, and
+            # thus does need to have its file path adjusted.
+            # This seems awfully fragile...
+            old = master_tree.remove(file_path=fmeta.file_path, sig=fmeta.signature, ok_if_missing=False)
+            if old:
+                logger.debug(f'Deleted from master tree: sig={old.signature} path={old.file_path}')
+            else:
+                logger.warning(f'Could not delete "stale" from master (not found): sig={fmeta.signature} path={fmeta.file_path}')
+
+        if fresh_tree:
+            for fmeta in fresh_tree.get_all():
+                # Anything in the fresh tree needs to be either added or updated in the master tree.
+                # For the 'updated' case, remove the old FMeta from the file mapping and any old signatures.
+                # Note: Need to adjust file path here, because these FMetas were created with a different root
+                abs_path = os.path.join(fresh_tree.root_path, fmeta.file_path)
+                fmeta.file_path = file_util.strip_root(abs_path, master_tree.root_path)
+                old = master_tree.remove(file_path=fmeta.file_path, sig=fmeta.signature, remove_old_sig=True, ok_if_missing=True)
+                if old:
+                    logger.debug(f'Removed from master tree: sig={old.signature} path={old.file_path}')
+                else:
+                    logger.debug(f'Could not delete "fresh" from master (not found): sig={fmeta.signature} path={fmeta.file_path}')
+                master_tree.add(fmeta)
+                logger.debug(f'Added to master tree: sig={fmeta.signature} path={fmeta.file_path}')
+
+        # 3. Then re-diff and re-populate
+
+        # TODO: Need to introduce a signalling mechanism for the other tree
+        logger.info('TODO: re-diff and re-populate!')

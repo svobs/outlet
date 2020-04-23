@@ -20,9 +20,7 @@ from gdrive.tree_builder import GDriveTreeLoader
 from ui.merge_preview_dialog import MergePreviewDialog
 from file_util import get_resource_path
 from fmeta import diff_content_first
-from ui.diff_tree.diff_tree_panel import DiffTreePanel
 from ui.base_dialog import BaseDialog
-import ui.diff_tree.fmeta_change_strategy as diff_tree_populator
 
 logger = logging.getLogger(__name__)
 
@@ -131,9 +129,9 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         logger.debug('Merge btn clicked')
 
         try:
-            left_selected_changes = self.tree_con_left.get_checked_rows_as_tree() # TODO: this is broken
+            left_selected_changes = self.tree_con_left.display_store.get_checked_rows_as_tree()
             logger.info(f'Left changes: {left_selected_changes.get_summary()}')
-            right_selected_changes = self.tree_con_right.get_checked_rows_as_tree()
+            right_selected_changes = self.tree_con_right.display_store.get_checked_rows_as_tree()
             logger.info(f'Right changes: {right_selected_changes.get_summary()}')
             if len(left_selected_changes.get_all()) == 0 and len(right_selected_changes.get_all()) == 0:
                 self.show_error_msg('You must select change(s) first.')

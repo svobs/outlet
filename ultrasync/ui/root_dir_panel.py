@@ -110,6 +110,10 @@ class RootDirPanel:
         open_dialog.show()
 
     def _on_enable_ui_toggled(self, sender, enable):
+        if not self.change_btn:
+            # Not editable
+            return
+
         def change_button():
             self.change_btn.set_sensitive(enable)
         GLib.idle_add(change_button)

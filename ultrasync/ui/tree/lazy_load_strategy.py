@@ -38,21 +38,20 @@ class LazyLoadStrategy(DisplayStrategy):
     Google Drive Stor <- superset of Display Stor
     """
 
-    def __init__(self, data_store, display_store):
-        super().__init__(data_store, display_store)
-        self._add_listeners()
+    def __init__(self, controller=None):
+        super().__init__(controller)
 
-    def _add_listeners(self):
+    def init(self):
         actions.connect(actions.NODE_EXPANSION_TOGGLED, self._on_node_expansion_toggled)
 
     def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded):
         # TODO: put this elsewhere
         if type(node_data) == CategoryNode:
-            self.display_store.display_meta.set_category_node_expanded_state(node_data.category, is_expanded)
+            self.con.display_store.display_meta.set_category_node_expanded_state(node_data.category, is_expanded)
 
         # Add children for node:
         if is_expanded:
-            children = self.data_store.get_children(node_data.id)
+            children = self.con.data_store.get_children(node_data.id)
             if children:
                 logger.debug(f'Filling out display children: {len(children)}')
                 # Append all underneath tree_iter
@@ -62,53 +61,53 @@ class LazyLoadStrategy(DisplayStrategy):
                     else:
                         self._append_file_node(parent_iter, child)
                 # Remove dummy node:
-                self.display_store.remove_first_child(parent_iter)
+                self.con.display_store.remove_first_child(parent_iter)
             else:
                 self._append_empty_child(parent_iter)
             # Remove Loading node:
-            self.display_store.remove_first_child(parent_iter)
+            self.con.display_store.remove_first_child(parent_iter)
         else:
             # Collapsed:
-            self.display_store.remove_all_children(parent_iter)
+            self.con.display_store.remove_all_children(parent_iter)
             # Always have at least a dummy node:
             self._append_loading_child(parent_iter)
 
     def _append_empty_child(self, parent_node_iter):
         row_values = []
-        if self.display_store.display_meta.editable:
+        if self.con.display_store.display_meta.editable:
             row_values.append(False)  # Checked
             row_values.append(False)  # Inconsistent
         row_values.append(None)  # Icon
         row_values.append('(empty)')  # Name
-        if not self.display_store.display_meta.use_dir_tree:
+        if not self.con.display_store.display_meta.use_dir_tree:
             row_values.append(None)  # Directory
         row_values.append(None)  # Size
         row_values.append(None)  # Modify Date
         row_values.append(None)  # Created Date
         row_values.append(EmptyNode())
 
-        return self.display_store.model.append(parent_node_iter, row_values)
+        return self.con.display_store.model.append(parent_node_iter, row_values)
 
     def _append_loading_child(self, parent_node_iter):
         row_values = []
-        if self.display_store.display_meta.editable:
+        if self.con.display_store.display_meta.editable:
             row_values.append(False)  # Checked
             row_values.append(False)  # Inconsistent
         row_values.append('folder')  # Icon
         row_values.append('Loading...')  # Name
-        if not self.display_store.display_meta.use_dir_tree:
+        if not self.con.display_store.display_meta.use_dir_tree:
             row_values.append(None)  # Directory
         row_values.append(None)  # Size
         row_values.append(None)  # Modify Date
         row_values.append(None)  # Created Date
         row_values.append(LoadingNode())
 
-        return self.display_store.model.append(parent_node_iter, row_values)
+        return self.con.display_store.model.append(parent_node_iter, row_values)
 
     def _append_dir_node_and_dummy_child(self, tree_iter, node_data):
         """Appends a dir or cat node to the model"""
         row_values = []
-        if self.display_store.display_meta.editable:
+        if self.con.display_store.display_meta.editable:
             row_values.append(False)  # Checked
             row_values.append(False)  # Inconsistent
         icon_id = ICON_GENERIC_DIR
@@ -119,21 +118,21 @@ class LazyLoadStrategy(DisplayStrategy):
             pass
         row_values.append(icon_id)  # Icon
         row_values.append(node_data.name)  # Name
-        if not self.display_store.display_meta.use_dir_tree:
+        if not self.con.display_store.display_meta.use_dir_tree:
             row_values.append(None)  # Directory
         row_values.append(None)  # Size
         row_values.append(None)  # Modify Date
         row_values.append(None)  # Created Date
         row_values.append(node_data)  # Data
 
-        dir_node_iter = self.display_store.model.append(tree_iter, row_values)
+        dir_node_iter = self.con.display_store.model.append(tree_iter, row_values)
         self._append_loading_child(dir_node_iter)
         return dir_node_iter
 
     def _append_file_node(self, tree_iter, node_data):
         row_values = []
 
-        if self.display_store.display_meta.editable:
+        if self.con.display_store.display_meta.editable:
             row_values.append(False)  # Checked
             row_values.append(False)  # Inconsistent
         icon_id = ICON_GENERIC_FILE
@@ -163,24 +162,24 @@ class LazyLoadStrategy(DisplayStrategy):
             row_values.append(None)
         else:
             modify_datetime = datetime.fromtimestamp(node_data.modify_ts / 1000)
-            modify_formatted = modify_datetime.strftime(self.display_store.display_meta.datetime_format)
+            modify_formatted = modify_datetime.strftime(self.con.display_store.display_meta.datetime_format)
             row_values.append(modify_formatted)
 
         # Change TS
-        if self.display_store.display_meta.show_change_ts:
+        if self.con.display_store.display_meta.show_change_ts:
             if node_data.create_ts is None:
                 row_values.append(None)
             else:
                 change_datetime = datetime.fromtimestamp(node_data.create_ts / 1000)
-                change_time = change_datetime.strftime(self.display_store.display_meta.datetime_format)
+                change_time = change_datetime.strftime(self.con.display_store.display_meta.datetime_format)
                 row_values.append(change_time)
 
         row_values.append(node_data)  # Data
-        return self.display_store.model.append(tree_iter, row_values)
+        return self.con.display_store.model.append(tree_iter, row_values)
 
     def populate_root(self):
-        children = self.data_store.get_children(parent_id=None)
-        tree_iter = self.display_store.model.get_iter_first()
+        children = self.con.data_store.get_children(parent_id=None)
+        tree_iter = self.con.display_store.model.get_iter_first()
         # Append all underneath tree_iter
         for child in children:
             if child.is_dir():

@@ -3,6 +3,7 @@ import logging
 import gi
 
 from ui.actions import ID_MERGE_TREE
+from ui.tree import tree_factory
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -13,9 +14,7 @@ import fmeta.fmeta_file_util
 from file_util import get_resource_path
 from fmeta.fmeta_file_util import FMetaError
 from fmeta.fmeta import Category
-from ui.diff_tree.diff_tree_panel import DiffTreePanel
 from ui.base_dialog import BaseDialog
-import ui.diff_tree.fmeta_change_strategy as diff_tree_populator
 
 STAGING_DIR_PATH = get_resource_path("temp")
 
@@ -42,11 +41,11 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         self.content_box.add(label)
 
         data_store = StaticWholeTreeStore(tree_id=ID_MERGE_TREE, config=self.config, tree=self.fmeta_tree)
-        self.diff_tree = DiffTreePanel(data_store=data_store, parent_win=self, editable=False, is_display_persisted=False)
-        actions.set_status(sender=data_store.tree_id, status_msg=self.fmeta_tree.get_summary())
-        self.content_box.pack_start(self.diff_tree.content_box, True, True, 0)
 
-        diff_tree_populator.repopulate_diff_tree(self.diff_tree)
+        self.tree_con = tree_factory.build_static_file_tree(parent_win=self, data_store=data_store)
+        actions.set_status(sender=data_store.tree_id, status_msg=self.fmeta_tree.get_summary())
+        self.content_box.pack_start(self.tree_con.content_box, True, True, 0)
+        self.tree_con.load()
 
         self.connect("response", self.on_response)
         self.show_all()
@@ -79,8 +78,9 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         # TODO: clear dir after use
 
         error_collection = []
-        fmeta.fmeta_file_util.apply_changes_atomically(tree_id=self.diff_tree.data_store.tree_id, tree=self.fmeta_tree, staging_dir=staging_dir,
-                                                       continue_on_error=True, error_collector=error_collection)
+        fmeta.fmeta_file_util.apply_changes_atomically(tree_id=self.tree_con.tree_id, tree=self.fmeta_tree,
+                                                       staging_dir=staging_dir, continue_on_error=True,
+                                                       error_collector=error_collection)
 
         if len(error_collection) > 0:
             # TODO: create a much better UI here

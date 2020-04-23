@@ -15,32 +15,30 @@ logger = logging.getLogger(__name__)
 
 
 class TreeActionBridge:
-    def __init__(self, tree_id, tree_view, status_bar, display_store):
-        self.status_bar = status_bar
-        self.display_store = display_store
-        self._add_listeners(tree_view, tree_id)
+    def __init__(self, controller):
+        self.con = controller
         self.ui_enabled = True
 
-    # --- LISTENERS ---
-
-    def _add_listeners(self, tree_view, tree_id):
+    def init(self):
         actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
 
         # Status bar
-        actions.connect(signal=actions.SET_STATUS, handler=self._on_set_status, sender=tree_id)
+        logger.info(f'Status bar will listen for signals from sender: {self.con.tree_id}')
+        actions.connect(signal=actions.SET_STATUS, handler=self._on_set_status, sender=self.con.tree_id)
 
         # TreeView
-        tree_view.connect("row-activated", self._on_row_activated, tree_id)
-        tree_view.connect('button-press-event', self._on_tree_button_press, tree_id)
-        tree_view.connect('key-press-event', self._on_key_press, tree_id)
-        tree_view.connect('row-expanded', self._on_toggle_row_expanded_state, True, tree_id)
-        tree_view.connect('row-collapsed', self._on_toggle_row_expanded_state, False, tree_id)
-
+        self.con.tree_view.connect("row-activated", self._on_row_activated, self.con.tree_id)
+        self.con.tree_view.connect('button-press-event', self._on_tree_button_press, self.con.tree_id)
+        self.con.tree_view.connect('key-press-event', self._on_key_press, self.con.tree_id)
+        self.con.tree_view.connect('row-expanded', self._on_toggle_row_expanded_state, True, self.con.tree_id)
+        self.con.tree_view.connect('row-collapsed', self._on_toggle_row_expanded_state, False, self.con.tree_id)
         # select.connect("changed", self._on_tree_selection_changed)
+
+    # --- LISTENERS ---
 
     # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
     def _on_set_status(self, sender, status_msg):
-        GLib.idle_add(lambda: self.status_bar.set_label(status_msg))
+        GLib.idle_add(lambda: self.con.status_bar.set_label(status_msg))
 
     def _on_enable_ui_toggled(self, sender, enable):
         # Enable/disable listeners:
@@ -49,13 +47,13 @@ class TreeActionBridge:
     def _on_tree_selection_changed(self, selection):
         model, treeiter = selection.get_selected_rows()
         if treeiter is not None and len(treeiter) == 1:
-            meta = self.display_store.get_node_data(treeiter)
+            meta = self.con.display_store.get_node_data(treeiter)
             if isinstance(meta, FMeta):
                 logger.debug(f'User selected cat="{meta.category.name}" sig="{meta.signature}" path="{meta.file_path}" prev_path="{meta.prev_path}"')
             else:
-                logger.debug(f'User selected {self.display_store.get_node_name(treeiter)}')
+                logger.debug(f'User selected {self.con.display_store.get_node_name(treeiter)}')
 
-    def _on_row_activated(self, tree_view, path, col, tree_id):
+    def _on_row_activated(self, tree_view, tree_path, col, tree_id):
         if not self.ui_enabled:
             logger.debug('Ignoring row activation - UI is disabled')
             return True
@@ -68,15 +66,15 @@ class TreeActionBridge:
             logger.debug(f'User activated {len(treeiter)} rows')
 
         if len(treeiter) == 1:
-            dispatcher.send(signal=actions.SINGLE_ROW_ACTIVATED, sender=tree_id, tree_iter=treeiter)
+            dispatcher.send(signal=actions.SINGLE_ROW_ACTIVATED, sender=tree_id, tree_view=tree_view, tree_iter=treeiter, tree_path=tree_path)
         else:
-            dispatcher.send(signal=actions.MULTIPLE_ROWS_ACTIVATED, sender=tree_id, tree_iter=treeiter)
+            dispatcher.send(signal=actions.MULTIPLE_ROWS_ACTIVATED, sender=tree_id, tree_view=tree_view, tree_iter=treeiter)
 
     def _on_toggle_row_expanded_state(self, tree_view, parent_iter, tree_path, is_expanded, tree_id):
         if not self.ui_enabled:
-            logger.debug('Ignoring row expansion toggle - UI is disabled')
+            # logger.debug('Ignoring row expansion toggle - UI is disabled')
             return True
-        node_data = self.display_store.get_node_data(parent_iter)
+        node_data = self.con.display_store.get_node_data(parent_iter)
         logger.debug(f'Toggling expanded state to {is_expanded} for node: {node_data}')
         if not node_data.is_dir():
             raise RuntimeError(f'Node is not a directory: {type(node_data)}; node_data')
@@ -125,9 +123,9 @@ class TreeActionBridge:
 
         if event.button == 3:  # right click
             tree_path, col, cell_x, cell_y = tree_view.get_path_at_pos(int(event.x), int(event.y))
-            node_data = self.display_store.get_node_data(tree_path)
+            node_data = self.con.display_store.get_node_data(tree_path)
             logger.debug(f'User right-clicked on {node_data}')
-            dispatcher.send(signal=actions.ROW_RIGHT_CLICKED, sender=tree_id, tree_path=tree_path, node_data=node_data)
+            dispatcher.send(signal=actions.ROW_RIGHT_CLICKED, sender=tree_id, event=event, tree_path=tree_path, node_data=node_data)
             # Suppress selection event:
             return True
         return False

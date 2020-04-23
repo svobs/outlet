@@ -1,18 +1,19 @@
 import logging
-
+from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
 
 
-# TODO: make abstract base class
-class BaseStore:
+class BaseStore(ABC):
     def __init__(self, tree_id, config):
         self.tree_id = tree_id
         self.config = config
 
+    @abstractmethod
     def get_root_path(self):
         return None
 
+    @abstractmethod
     def get_whole_tree(self):
         return None
 
@@ -30,12 +31,16 @@ class StaticWholeTreeStore(BaseStore):
         return self._tree
 
 
-# TODO: ABC
-class DisplayStrategy:
-    def __init__(self, data_store, display_store):
-        self.data_store = data_store
-        self.display_store = display_store
+class DisplayStrategy(ABC):
+    def __init__(self, controller=None):
+        self.con = controller
 
+    @abstractmethod
     def populate_root(self):
         """Draws from the undelying data store as needed, to populate the display store."""
+        pass
+
+    @abstractmethod
+    def init(self):
+        """Do post-wiring stuff like connect listeners."""
         pass

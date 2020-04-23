@@ -1,6 +1,10 @@
 import logging
+import os
 
 import gi
+
+from fmeta.fmeta import FMeta, FMetaTree
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 
@@ -10,8 +14,9 @@ logger = logging.getLogger(__name__)
 class DisplayStore:
     """(Mostly) encapsulates the nodes inside the TreeView object, which will be a subset of the nodes
     which come from the data store """
-    def __init__(self, display_meta):
+    def __init__(self, display_meta, data_store):
         self.display_meta = display_meta
+        self.data_store = data_store
         self.model = Gtk.TreeStore()
         self.model.set_column_types(self.display_meta.col_types)
 
@@ -142,3 +147,59 @@ class DisplayStore:
         while self.remove_first_child(parent_iter):
             removed_count += 1
         logger.debug(f'Removed {removed_count} children')
+
+    def get_checked_rows_as_tree(self):
+        """Returns a FMetaTree which contains the FMetas of the rows which are currently
+        checked by the user. This will be a subset of the FMetaTree which was used to
+        populate this tree."""
+        assert self.display_meta.editable
+
+        tree_iter = self.model.get_iter_first()
+        tree_path = self.model.get_path(tree_iter)
+        return self.get_subtree_as_tree(tree_path, include_following_siblings=True, checked_only=True)
+
+    # FIXME: extend this to apply for GDrive, etc. Maybe use a URI scheme?
+    def get_abs_path(self, node_data):
+        """ Utility function: joins the two paths together into an absolute path and returns it"""
+        return self.data_store.get_root_path() if not node_data.file_path else \
+            os.path.join(self.data_store.get_root_path(), node_data.file_path)
+
+    def get_abs_file_path(self, tree_path: Gtk.TreePath):
+        """ Utility function: get absolute file path from a TreePath """
+        node_data = self.get_node_data(tree_path)
+        assert node_data is not None
+        return self.get_abs_path(node_data)
+
+    def get_subtree_as_tree(self, tree_path, include_following_siblings=False, checked_only=False):
+        """
+        FIXME: need to generalize this so it doesn't depend on FMeta!
+        Constructs a new FMetaTree out of the data nodes of the subtree referenced
+        by tree_path. NOTE: currently the FMeta objects are reused in the new tree,
+        for efficiency.
+        Args:
+            tree_path: root of the subtree, as a GTK3 TreePath
+            include_following_siblings: if False, include only the root node and its children
+            (filtered by checked state if checked_only is True)
+            checked_only: if True, include only rows which are checked
+                          if False, include all rows in the subtree
+        Returns:
+            A new FMetaTree which consists of a subset of the current UI tree
+        """
+        subtree_root = self.get_abs_file_path(tree_path)
+        subtree = FMetaTree(subtree_root)
+
+        def action_func(t_iter):
+            if not action_func.checked_only or self.is_node_checked(t_iter):
+                data_node = self.get_node_data(t_iter)
+                if isinstance(data_node, FMeta):
+                    subtree.add(data_node)
+
+        action_func.checked_only = checked_only
+
+        if include_following_siblings:
+            self.do_for_subtree_and_following_sibling_subtrees(tree_path, action_func)
+        else:
+            self.do_for_self_and_descendants(tree_path, action_func)
+
+        return subtree
+

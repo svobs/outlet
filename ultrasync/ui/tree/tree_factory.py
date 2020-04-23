@@ -2,7 +2,8 @@ import logging
 
 import ui.assets
 from fmeta.fmeta import Category
-from ui.diff_tree.fmeta_change_strategy import FMetaChangeTreeStrategy
+from ui.diff_tree.diff_tree_panel import FMetaTreeActionHandlers
+from ui.tree.fmeta_change_strategy import FMetaChangeTreeStrategy
 from ui.tree.action_bridge import TreeActionBridge
 from ui.root_dir_panel import RootDirPanel
 
@@ -219,15 +220,24 @@ def is_ignored_func(data_node):
     return data_node.category == Category.Ignored
 
 
-def build(parent_win, data_store, display_meta, display_store, display_strategy):
+def build(parent_win, data_store, display_meta, display_strategy, action_handlers):
     """Builds a single instance of a tree panel, and configures all its components as specified."""
+    logger.info(f'Building controller for tree: {data_store.tree_id}')
+
+    display_store = DisplayStore(display_meta, data_store)
+
     # The controller holds all the components in memory. Important for listeners especially,
     # since they rely on weak references.
     controller = TreePanelController(data_store, display_store, display_meta)
     controller.tree_view = _build_treeview(display_store)
     controller.root_dir_panel = RootDirPanel(parent_win=parent_win, tree_id=data_store.tree_id,
                                              current_root=data_store.get_root_path(), editable=display_meta.editable)
-    controller.load_strategy = display_strategy
+    # FIXME: merge the two below:
+    controller.display_strategy = display_strategy
+    display_strategy.con = controller
+    controller.action_handlers = action_handlers
+    if action_handlers:
+        action_handlers.con = controller
 
     controller.status_bar, status_bar_container = _build_status_bar()
     controller.content_box = _build_content_box(controller.root_dir_panel.content_box, controller.tree_view, status_bar_container)
@@ -239,8 +249,9 @@ def build(parent_win, data_store, display_meta, display_store, display_strategy)
         if parent_win.sizegroups.get('root_paths'):
             parent_win.sizegroups['root_paths'].add_widget(controller.root_dir_panel.content_box)
 
-    controller.action_bridge = TreeActionBridge(data_store.tree_id, controller.tree_view, controller.status_bar, display_store)
+    controller.action_bridge = TreeActionBridge(controller)
 
+    controller.init()
     return controller
 
 
@@ -250,11 +261,10 @@ def build_gdrive(parent_win, data_store):
                                    selection_mode=Gtk.SelectionMode.SINGLE,
                                    is_display_persisted=True, is_ignored_func=is_ignored_func)
 
-    display_store = DisplayStore(display_meta)
-    display_strategy = LazyLoadStrategy(data_store, display_store)
+    display_strategy = LazyLoadStrategy()
+    action_handlers = None
 
-    return build(parent_win=parent_win, data_store=data_store, display_meta=display_meta, display_store=display_store,
-                 display_strategy=display_strategy)
+    return build(parent_win=parent_win, data_store=data_store, display_meta=display_meta, display_strategy=display_strategy, action_handlers=action_handlers)
 
 
 def build_bulk_load_file_tree(parent_win, data_store):
@@ -262,10 +272,20 @@ def build_bulk_load_file_tree(parent_win, data_store):
                                    selection_mode=Gtk.SelectionMode.MULTIPLE,
                                    is_display_persisted=True, is_ignored_func=is_ignored_func)
 
-    display_store = DisplayStore(display_meta)
-    display_strategy = FMetaChangeTreeStrategy(data_store, display_store)
+    display_strategy = FMetaChangeTreeStrategy()
+    action_handlers = FMetaTreeActionHandlers()
 
-    con = build(parent_win=parent_win, data_store=data_store, display_meta=display_meta,
-                display_store=display_store, display_strategy=display_strategy)
-    display_strategy.treeview = con.tree_view # TODO: get rid of this line
+    con = build(parent_win=parent_win, data_store=data_store, display_meta=display_meta, display_strategy=display_strategy, action_handlers=action_handlers)
+    return con
+
+
+def build_static_file_tree(parent_win, data_store):
+    display_meta = TreeDisplayMeta(config=parent_win.config, tree_id=data_store.tree_id, editable=False,
+                                   selection_mode=Gtk.SelectionMode.SINGLE,
+                                   is_display_persisted=False, is_ignored_func=is_ignored_func)
+
+    display_strategy = FMetaChangeTreeStrategy()
+    action_handlers = FMetaTreeActionHandlers()
+
+    con = build(parent_win=parent_win, data_store=data_store, display_meta=display_meta, display_strategy=display_strategy, action_handlers=action_handlers)
     return con
