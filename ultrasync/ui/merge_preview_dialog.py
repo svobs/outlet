@@ -1,6 +1,9 @@
 import logging
 
 import gi
+
+from ui.actions import ID_MERGE_TREE
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -38,7 +41,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         label = Gtk.Label(label="The following changes will be made:")
         self.content_box.add(label)
 
-        store = StaticWholeTreeStore(tree_id='merge_tree', config=self.config, fmeta_tree=self.fmeta_tree)
+        store = StaticWholeTreeStore(tree_id=ID_MERGE_TREE, config=self.config, tree=self.fmeta_tree)
         self.diff_tree = DiffTreePanel(store=store, parent_win=self, editable=False, is_display_persisted=False)
         actions.set_status(sender=store.tree_id, status_msg=self.fmeta_tree.get_summary())
         self.content_box.pack_start(self.diff_tree.content_box, True, True, 0)

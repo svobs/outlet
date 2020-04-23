@@ -30,7 +30,7 @@ class GoogFolder:
         self.trashed = trashed
 
         self.drive_id = drive_id
-        """Verify this against my Drive ID."""
+        """This will only ever contain other users' drive_ids."""
 
         self.my_share = my_share
         """If true, I own it but I have shared it with other users"""
@@ -53,6 +53,9 @@ class GoogFolder:
 
 
 class GoogFile(GoogFolder):
+    # TODO: handling of shortcuts... maybe put target_id in MD5 field?
+    # TODO: handling of special chars in file systems
+
     def __init__(self, item_id, item_name, trashed, drive_id, version, head_revision_id, md5,
                  my_share, create_ts, modify_ts, size_bytes, owner_id):
         super().__init__(item_id=item_id, item_name=item_name, trashed=trashed, drive_id=drive_id, my_share=my_share)

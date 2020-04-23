@@ -7,9 +7,17 @@ DO_DIFF = 'do-diff'
 DOWNLOAD_GDRIVE_META = 'download-gdrive-meta'
 GDRIVE_DOWNLOAD_COMPLETE = 'gdrive-download-complete'
 
+START_PROGRESS_INDETERMINATE = 'start-progress-indeterminate'
+START_PROGRESS = 'start-progress'
 SET_STATUS = 'set-status'
-SET_TOTAL_PROGRESS = 'set-total-progress'
+SET_PROGRESS_TEXT = 'set-progress-text'
 PROGRESS_MADE = 'progress_made'
+STOP_PROGRESS = 'stop-progress'
+
+
+ID_LEFT_TREE = 'left_tree'
+ID_RIGHT_TREE = 'right_tree'
+ID_MERGE_TREE = 'merge_tree'
 
 
 logger = logging.getLogger(__name__)

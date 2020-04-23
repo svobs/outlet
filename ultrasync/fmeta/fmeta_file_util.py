@@ -31,7 +31,7 @@ def apply_changes_atomically(tree_id, tree: FMetaTree, staging_dir, continue_on_
             total_bytes += fmeta.size_bytes
         total_bytes += FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT * len(tree.get_for_cat(Category.Deleted))
         total_bytes += FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT * len(tree.get_for_cat(Category.Moved))
-        actions.get_dispatcher().send(actions.SET_TOTAL_PROGRESS, sender=tree_id, total=total_bytes)
+        actions.get_dispatcher().send(actions.START_PROGRESS, sender=tree_id, total=total_bytes)
         logger.debug(f'Total progress to make: {total_bytes}')
 
     # TODO: deal with file-not-found errors in a more robust way

@@ -1,18 +1,19 @@
-import logging.handlers
+import logging
 import threading
 import os
+from stopwatch import Stopwatch
 import ui.actions as actions
 import ui.assets
 from ui.diff_tree.dt_data_store import PersistentFMetaStore
+from ui.gdrive_dir_selection_dialog import GDriveDirSelectionDialog
 
 import gi
 
-from ui.gdrive_dir_selection_dialog import GDriveDirSelectionDialog
+from ui.progress_bar_component import ProgressBarComponent
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, GObject
+from gi.repository import GLib, Gtk
 
-from stopwatch import Stopwatch
 
 from gdrive.tree_builder import GDriveTreeLoader
 from ui.merge_preview_dialog import MergePreviewDialog
@@ -23,9 +24,6 @@ from ui.base_dialog import BaseDialog
 import ui.diff_tree.dt_populator as diff_tree_populator
 
 logger = logging.getLogger(__name__)
-
-ID_LEFT_TREE = 'left_tree'
-ID_RIGHT_TREE = 'right_tree'
 
 
 class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
@@ -72,18 +70,26 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         # Diff Tree Left:
 
-        store_left = PersistentFMetaStore(tree_id=ID_LEFT_TREE, config=self.config)
+        store_left = PersistentFMetaStore(tree_id=actions.ID_LEFT_TREE, config=self.config)
         self.diff_tree_left = DiffTreePanel(store=store_left, parent_win=self, editable=True, is_display_persisted=True)
         diff_tree_panes.pack1(self.diff_tree_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
-        store_right = PersistentFMetaStore(tree_id=ID_RIGHT_TREE, config=self.config)
+        store_right = PersistentFMetaStore(tree_id=actions.ID_RIGHT_TREE, config=self.config)
         self.diff_tree_right = DiffTreePanel(store=store_right, parent_win=self, editable=True, is_display_persisted=True)
         diff_tree_panes.pack2(self.diff_tree_right.content_box, resize=True, shrink=False)
 
+        self.bottom_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        self.content_box.add(self.bottom_panel)
         # Bottom button panel:
         self.bottom_button_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
-        self.content_box.add(self.bottom_button_panel)
+        self.bottom_panel.add(self.bottom_button_panel)
+
+        # Remember to hold a reference to this, for signals!
+        self.proress_bar_component = ProgressBarComponent(self.config, [actions.ID_LEFT_TREE, actions.ID_RIGHT_TREE])
+        self.bottom_panel.pack_start(self.proress_bar_component.progressbar, True, True, 0)
+        # Give progress bar exactly half of the window width:
+        self.bottom_panel.set_homogeneous(True)
 
         def on_diff_btn_clicked(widget):
             logger.debug('Diff btn clicked!')
@@ -105,14 +111,12 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         actions.connect(signal=actions.TOGGLE_UI_ENABLEMENT, handler=self.on_enable_ui_toggled)
         actions.connect(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, handler=self.on_gdrive_download_complete)
 
-        # TODO: create a 'Scan' button for each input source
-
     def replace_bottom_button_panel(self, *buttons):
         for child in self.bottom_button_panel.get_children():
             self.bottom_button_panel.remove(child)
 
         for button in buttons:
-            self.bottom_button_panel.pack_start(button, True, True, 0)
+            self.bottom_button_panel.pack_start(button, False, False, 0)
             button.show()
 
     # --- ACTIONS ---

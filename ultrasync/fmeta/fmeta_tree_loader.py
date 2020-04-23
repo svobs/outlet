@@ -95,6 +95,8 @@ class TreeMetaScanner(TreeRecurser):
         # Note: this tree will be useless after we are done with it
         self.root_path = root_path
         self.stale_tree = stale_tree
+        self.progress = 0
+        self.total = 0
         self.tree_id = tree_id  # For sending progress updates
         self.added_count = 0
         self.updated_count = 0
@@ -115,12 +117,14 @@ class TreeMetaScanner(TreeRecurser):
         file_counter = FileCounter(self.root_path)
         file_counter.recurse_through_dir_tree()
 
-        logger.debug(f'Found {file_counter.files_to_scan} files to scan.')
+        self.total = file_counter.files_to_scan
+        logger.debug(f'Found {self.total} files to scan.')
         if self.tree_id:
             status_msg = f'Scanning tree: {self.root_path}'
 
             actions.set_status(sender=self.tree_id, status_msg=status_msg)
-            actions.get_dispatcher().send(actions.SET_TOTAL_PROGRESS, sender=self.tree_id, total=file_counter.files_to_scan)
+            logger.debug(f'Sending START_PROGRESS for tree_id: {self.tree_id}')
+            actions.get_dispatcher().send(actions.START_PROGRESS, sender=self.tree_id, total=self.total)
 
     def handle_file(self, file_path, category):
         """
@@ -166,6 +170,9 @@ class TreeMetaScanner(TreeRecurser):
         self.fresh_tree.add(meta)
         if self.tree_id:
             actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=self.tree_id, progress=1)
+            self.progress += 1
+            msg = f'Scanning file {self.progress} of {self.total}'
+            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
     def handle_target_file_type(self, file_path):
         self.handle_file(file_path, Category.NA)
@@ -192,7 +199,10 @@ class TreeMetaScanner(TreeRecurser):
                 for stale_fmeta in self.stale_tree.get_all():
                     self._add_tracked_copy(stale_fmeta, Category.Deleted)
 
-        logger.info(f'Result: {self.added_count} new, {self.updated_count} updated, {self.deleted_count} deleted, and {self.unchanged_count} unchanged from cache')
+        logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
+        actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id)
+        logger.info(f'Result: {self.added_count} new, {self.updated_count} updated, {self.deleted_count} deleted, '
+                    f'and {self.unchanged_count} unchanged from cache')
 
         return self.fresh_tree
 

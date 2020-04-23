@@ -13,7 +13,6 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk
 from ui.tree.display_store import DisplayStore
-from ui.progress_meter import ProgressMeter
 
 logger = logging.getLogger(__name__)
 
@@ -58,14 +57,6 @@ class DiffTreePanel:
     def add_listeners(self):
         actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
 
-        # TODO: Holy shit this is unnecessarily complicated. Clean this up
-        def on_progress_made(this, progress, total):
-            self._set_status(f'Scanning file {progress} of {total}')
-
-        self.progress_meter = ProgressMeter(on_progress_made, self.parent_win.config, self)
-
-        actions.connect(actions.SET_TOTAL_PROGRESS, self._on_set_total_progress, self.store.tree_id)
-        actions.connect(actions.PROGRESS_MADE, self._on_progress_made, self.store.tree_id)
         actions.connect(actions.SET_STATUS, self._on_set_status, self.store.tree_id)
 
         self.treeview.connect("row-activated", self._on_row_activated)
@@ -79,12 +70,6 @@ class DiffTreePanel:
     # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
     def _on_set_status(self, sender, status_msg):
         self._set_status(status_msg)
-
-    def _on_set_total_progress(self, sender, total):
-        self.progress_meter.set_total(total)
-
-    def _on_progress_made(self, sender, progress):
-        self.progress_meter.add_progress(progress)
 
     def _on_enable_ui_toggled(self, sender, enable):
         # TODO!
