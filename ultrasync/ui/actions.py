@@ -48,6 +48,7 @@ def connect(signal, handler, sender=dispatcher.Any):
 
 
 def disable_ui(sender):
+    logger.debug(f'Sender "{sender}" requested to disable the UI')
     dispatcher.send(signal=TOGGLE_UI_ENABLEMENT, sender=sender, enable=False)
 
 
@@ -56,6 +57,7 @@ def enable_ui(sender):
 
 
 def set_status(sender, status_msg):
+    assert type(sender) == str
     dispatcher.send(signal=SET_STATUS, sender=sender, status_msg=status_msg)
 
 # --- Tree actions ---

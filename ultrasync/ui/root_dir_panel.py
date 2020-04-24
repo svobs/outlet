@@ -64,6 +64,7 @@ class RootDirChooserDialog(Gtk.FileChooserDialog):
 class RootDirPanel:
     def __init__(self, parent_win, tree_id, current_root, editable):
         self.parent_win = parent_win
+        assert type(tree_id) == str
         self.tree_id = tree_id
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.current_root = current_root

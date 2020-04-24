@@ -4,6 +4,7 @@ import os
 from stopwatch import Stopwatch
 import ui.actions as actions
 import ui.assets
+from task_runner import CentralTaskRunner
 from ui.diff_tree.fmeta_data_store import BulkLoadFMetaStore
 from ui.gdrive_dir_selection_dialog import GDriveDirSelectionDialog
 from ui.progress_bar_component import ProgressBarComponent
@@ -29,6 +30,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
     def __init__(self, application):
         Gtk.Window.__init__(self, application=application)
         BaseDialog.__init__(self, application.config)
+
+        self.task_runner = CentralTaskRunner()
 
         self.set_title('UltraSync')
         # program icon:
@@ -168,12 +171,10 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def on_gdrive_requested(self, sender):
         """Callback for signal DOWNLOAD_GDRIVE_META"""
-        actions.disable_ui(sender=sender)
-        action_thread = threading.Thread(target=self.download_gdrive_meta, args=(sender,))
-        action_thread.daemon = True
-        action_thread.start()
+        self.task_runner.enqueue(self.download_gdrive_meta, sender)
 
     def download_gdrive_meta(self, tree_id):
+        actions.disable_ui(sender=tree_id)
         try:
             cache_path = get_resource_path('gdrive.db')
             tree_builder = GDriveTreeLoader(config=self.config, cache_path=cache_path, tree_id=tree_id)
@@ -187,6 +188,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def on_gdrive_download_complete(self, sender, meta):
         """Callback for signal GDRIVE_DOWNLOAD_COMPLETE"""
+        assert type(sender) == str
 
         def open_dialog():
             try:
@@ -204,13 +206,11 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def on_diff_requested(self, sender):
         """Callback for signal DO_DIFF"""
-        actions.disable_ui(sender=sender)
-        action_thread = threading.Thread(target=self.do_tree_diff)
-        action_thread.daemon = True
-        action_thread.start()
+        self.task_runner.enqueue(self.do_tree_diff, sender)
 
     # TODO: change DB path whenever root is changed
-    def do_tree_diff(self):
+    def do_tree_diff(self, sender):
+        actions.disable_ui(sender=sender)
         try:
             left_root = self.tree_con_left.data_store.get_root_path()
             right_root = self.tree_con_right.data_store.get_root_path()
@@ -245,7 +245,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                 merge_btn = Gtk.Button(label="Merge Selected...")
                 merge_btn.connect("clicked", self.on_merge_preview_btn_clicked)
 
-                # FIXME: this is causing the button bar to disappear
+                # FIXME: this is causing the button bar to disappear. Fix layout!
                 self.replace_bottom_button_panel(merge_btn)
 
                 logger.debug(f'Sending STOP_PROGRESS for ID: {actions.ID_DIFF_WINDOW}')

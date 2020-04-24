@@ -2,6 +2,8 @@ import config
 import os
 import json
 import logging
+
+import logging_config
 from file_util import get_resource_path
 
 PROJECT_DIR = get_resource_path('.')
@@ -20,6 +22,8 @@ class AppConfig:
                 self.transient_json = json.load(f)
         except Exception as err:
             raise RuntimeError(f'Could not read config file ({config_file_path})') from err
+
+        logging_config.configure_logging(self)
 
     def get(self, cfg_path, default_val=None):
         try:
