@@ -60,7 +60,7 @@ class SqliteCache(NullCache):
 
         db = self._open_db()
         try:
-            if not db.has_file_changes():
+            if not db.has_local_files():
                 return fmeta_tree
 
             status = f'Loading {self.tree_id} meta from cache: {self.db_file_path}'
@@ -68,7 +68,7 @@ class SqliteCache(NullCache):
             if self.tree_id:
                 actions.set_status(sender=self.tree_id, status_msg=status)
 
-            db_file_changes = db.get_file_changes()
+            db_file_changes = db.get_local_files()
             if len(db_file_changes) == 0:
                 raise RuntimeError('No data in database!')
 
@@ -97,14 +97,14 @@ class SqliteCache(NullCache):
         db = self._open_db()
         try:
             # Remove all rows
-            db.truncate_file_changes()
+            db.truncate_local_files()
 
             # Save all
-            if db.has_file_changes():
+            if db.has_local_files():
                 raise RuntimeError('Will not insert FMeta into DB! It is not empty')
 
             to_insert = fmeta_tree.get_all()
-            db.insert_file_changes(to_insert)
+            db.insert_local_files(to_insert)
             logger.info(f'Inserted {str(len(to_insert))} FMetas into previously empty DB table.')
 
             logger.info(f'{self.tree_id} updated cache in: {stopwatch_write_cache}')

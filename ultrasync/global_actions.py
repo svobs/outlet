@@ -11,7 +11,7 @@ import ui.actions as actions
 from ui.gdrive_dir_selection_dialog import GDriveDirSelectionDialog
 
 
-from gdrive.tree_builder import GDriveTreeLoader
+from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from file_util import get_resource_path
 from fmeta import diff_content_first
 

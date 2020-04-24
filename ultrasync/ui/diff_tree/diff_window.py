@@ -8,7 +8,7 @@ from pydispatch import dispatcher
 
 import ui.actions as actions
 import ui.assets
-from ui.diff_tree.fmeta_data_store import BulkLoadFMetaStore
+from ui.diff_tree.bulk_fmeta_data_store import BulkLoadFMetaStore
 from ui.progress_bar_component import ProgressBarComponent
 from ui.tree import tree_factory
 

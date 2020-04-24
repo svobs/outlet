@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 class MetaDatabase:
-    TABLE_MAIN_REGISTRY = {
+    TABLE_CACHE_REGISTRY = {
         'name': 'cache_registry',
         'cols': (('cache_location', 'TEXT'),
                  ('cache_type', 'INTEGER'),
@@ -66,7 +66,6 @@ class MetaDatabase:
     def __init__(self, db_path):
         logger.info(f'Connecting to database: {db_path}')
         self.conn = sqlite3.connect(db_path)
-        self.create_table_if_not_exist(self.TABLE_LOCAL_FILE)
 
     # Utility Functions ---------------------
 
@@ -136,11 +135,11 @@ class MetaDatabase:
 
     # FILE_LOG operations ---------------------
 
-    def has_file_changes(self):
+    def has_local_files(self):
         return self.has_rows(self.TABLE_LOCAL_FILE)
 
     # Gets all changes in the table
-    def get_file_changes(self):
+    def get_local_files(self):
         cursor = self.conn.cursor()
         sql = self.build_select(self.TABLE_LOCAL_FILE)
         cursor.execute(sql)
@@ -151,14 +150,14 @@ class MetaDatabase:
         return entries
 
     # Takes a list of FMeta objects:
-    def insert_file_changes(self, entries):
+    def insert_local_files(self, entries):
         to_insert = []
         for e in entries:
             e_tuple = (e.signature, e.size_bytes, e.sync_ts, e.modify_ts, e.change_ts, e.file_path, e.category.value, e.prev_path)
             to_insert.append(e_tuple)
         self.insert_many(self.TABLE_LOCAL_FILE, to_insert)
 
-    def truncate_file_changes(self):
+    def truncate_local_files(self):
         self.truncate_table(self.TABLE_LOCAL_FILE)
 
     # GDRIVE_DIRS operations ---------------------
