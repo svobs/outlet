@@ -18,6 +18,7 @@ class MetaDatabase:
     TABLE_LOCAL_FILE = {
         'name': 'local_file',
         'cols': (('sig', 'TEXT'),
+                 # TODO: sig -> md5 and sha256
                  ('size_bytes', 'INTEGER'),
                  ('sync_ts', 'INTEGER'),
                  ('modify_ts', 'INTEGER'),
