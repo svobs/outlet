@@ -1,8 +1,9 @@
-import file_util
-from fmeta.fmeta import Category
 import gi
-from file_util import get_resource_path
+
+from fmeta.fmeta import Category
+
 gi.require_version("Gtk", "3.0")
+from file_util import get_resource_path
 from gi.repository import GdkPixbuf
 
 ALERT_ICON_PATH = get_resource_path("resources/dialog-error-icon-24px.png")

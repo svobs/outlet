@@ -19,7 +19,7 @@ class UserMeta:
 
 
 class GoogFolder:
-    def __init__(self, item_id, item_name, trashed, drive_id, my_share):
+    def __init__(self, item_id, item_name, trashed, drive_id, my_share, sync_ts):
         self.id = item_id
         """Google ID"""
 
@@ -35,9 +35,11 @@ class GoogFolder:
         self.my_share = my_share
         """If true, I own it but I have shared it with other users"""
 
+        self.sync_ts = sync_ts
+
     def __repr__(self):
         return f'Folder:(id="{self.id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
-                   f'my_share={self.my_share} ]'
+                   f'my_share={self.my_share} sync_ts={self.sync_ts} ]'
 
     @property
     def trashed_str(self):
@@ -49,7 +51,7 @@ class GoogFolder:
         return True
 
     def make_tuple(self, parent_id):
-        return self.id, self.name, parent_id, self.trashed, self.drive_id, self.my_share
+        return self.id, self.name, parent_id, self.trashed, self.drive_id, self.my_share, self.sync_ts
 
 
 class GoogFile(GoogFolder):
@@ -57,30 +59,35 @@ class GoogFile(GoogFolder):
     # TODO: handling of special chars in file systems
 
     def __init__(self, item_id, item_name, trashed, drive_id, version, head_revision_id, md5,
-                 my_share, create_ts, modify_ts, size_bytes, owner_id):
-        super().__init__(item_id=item_id, item_name=item_name, trashed=trashed, drive_id=drive_id, my_share=my_share)
+                 my_share, create_ts, modify_ts, size_bytes, owner_id, sync_ts):
+        super().__init__(item_id=item_id, item_name=item_name, trashed=trashed, drive_id=drive_id, my_share=my_share, sync_ts=sync_ts)
         self.version = version
         self.head_revision_id = head_revision_id
         self.md5 = md5
         self.my_share = my_share
         self.create_ts = create_ts
+        if type(create_ts) == str:
+            self.create_ts = int(create_ts)
         self.modify_ts = modify_ts
+        if type(modify_ts) == str:
+            self.modify_ts = int(modify_ts)
         self.size_bytes = size_bytes
+        if type(size_bytes) == str:
+            self.size_bytes = int(size_bytes)
         self.owner_id = owner_id
 
     def __repr__(self):
-        return f'GoogFile(id="{self.id}" name="{self.name}" size={self.size_bytes} trashed={self.trashed_str} ' \
-               f'drive_id={self.drive_id} owner_id={self.owner_id} my_share={self.my_share} ' \
-               f'version={self.version} head_rev_id="{self.head_revision_id}" md5="{self.md5} ' \
-               f'create_ts={self.create_ts} modify_ts={self.modify_ts}' \
-               f')'
+        return f'GoogFile(id="{self.id}" name="{self.name}" trashed={self.trashed_str}  size={self.size_bytes}' \
+               f'md5="{self.md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
+               f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
+               f'sync_ts={self.sync_ts})'
 
     def is_dir(self):
         return False
 
     def make_tuple(self, parent_id):
         return (self.id, self.name, parent_id, self.trashed, self.size_bytes, self.md5, self.create_ts, self.modify_ts,
-                self.owner_id, self.drive_id, self.my_share, self.version, self.head_revision_id)
+                self.owner_id, self.drive_id, self.my_share, self.version, self.head_revision_id, self.sync_ts)
 
 
 class GDriveMeta:

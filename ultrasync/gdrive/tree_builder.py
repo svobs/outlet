@@ -95,39 +95,42 @@ class GDriveTreeLoader:
         self.gdrive_client = GDriveClient(self.config, tree_id)
 
     def load_all(self, invalidate_cache=False):
-        if self.tree_id:
-            logger.debug(f'Sending START_PROGRESS_INDETERMINATE for tree_id: {self.tree_id}')
-            actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=self.tree_id)
-
-        meta = GDriveMeta()
-
-        meta.me = self.gdrive_client.get_about()
-        cache_has_data = self.cache.has_gdrive_dirs() or self.cache.has_gdrive_files()
-
-        # Load data from either cache or Google:
-        if self.cache and cache_has_data and not invalidate_cache:
+        try:
             if self.tree_id:
-                msg = 'Reading cache...'
-                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+                logger.debug(f'Sending START_PROGRESS_INDETERMINATE for tree_id: {self.tree_id}')
+                actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=self.tree_id)
 
-            self.load_from_cache(meta)
-        else:
-            self.gdrive_client.download_directory_structure(meta)
-            self.gdrive_client.download_all_file_meta(meta)
+            meta = GDriveMeta()
 
-        # Save to cache if configured:
-        if self.cache and (not cache_has_data or invalidate_cache):
+            meta.me = self.gdrive_client.get_about()
+            cache_has_data = self.cache.has_gdrive_dirs() or self.cache.has_gdrive_files()
+
+            # Load data from either cache or Google:
+            if self.cache and cache_has_data and not invalidate_cache:
+                if self.tree_id:
+                    msg = 'Reading cache...'
+                    actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+
+                self.load_from_cache(meta)
+            else:
+                self.gdrive_client.download_directory_structure(meta)
+                self.gdrive_client.download_all_file_meta(meta)
+
+            # Save to cache if configured:
+            if self.cache and (not cache_has_data or invalidate_cache):
+                if self.tree_id:
+                    msg = 'Saving to cache...'
+                    actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+                self.save_to_cache(meta=meta, overwrite=True)
+
+            # Finally, build the dir tree:
+            #meta.path_dict = build_trees(meta)
+
+            return meta
+        finally:
             if self.tree_id:
-                msg = 'Saving to cache...'
-                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
-            self.save_to_cache(meta=meta, overwrite=True)
-
-        # Finally, build the dir tree:
-        #meta.path_dict = build_trees(meta)
-
-        logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
-        actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id)
-        return meta
+                logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
+                actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id)
 
     def save_to_cache(self, meta, overwrite):
         # Convert to tuples for insert into DB:
@@ -158,20 +161,21 @@ class GDriveTreeLoader:
         # DIRs:
         dir_rows = self.cache.get_gdrive_dirs()
 
-        for item_id, item_name, parent_id, item_trashed, drive_id, my_share in dir_rows:
+        for item_id, item_name, parent_id, item_trashed, drive_id, my_share, sync_ts in dir_rows:
             meta.add_to_parent_dict(parent_id, GoogFolder(item_id=item_id, item_name=item_name,
-                                                          trashed=item_trashed, drive_id=drive_id, my_share=my_share))
+                                                          trashed=item_trashed, drive_id=drive_id, my_share=my_share,
+                                                          sync_ts=sync_ts))
 
         # FILES:
         file_rows = self.cache.get_gdrive_files()
         for item_id, item_name, parent_id, item_trashed, size_bytes_str, md5, create_ts, modify_ts, owner_id, drive_id, \
-                my_share, version, head_revision_id in file_rows:
+                my_share, version, head_revision_id, sync_ts in file_rows:
             size_bytes = None if size_bytes_str is None else int(size_bytes_str)
             file_node = GoogFile(item_id=item_id, item_name=item_name,
                                  trashed=item_trashed, drive_id=drive_id, my_share=my_share, version=int(version),
                                  head_revision_id=head_revision_id, md5=md5,
                                  create_ts=int(create_ts), modify_ts=int(modify_ts), size_bytes=size_bytes,
-                                 owner_id=owner_id)
+                                 owner_id=owner_id, sync_ts=sync_ts)
             meta.add_to_parent_dict(parent_id, file_node)
 
         # MISC:

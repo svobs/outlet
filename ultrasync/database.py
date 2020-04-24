@@ -25,7 +25,8 @@ class MetaDatabase:
                  ('parent_id', 'TEXT'),
                  ('trashed', 'INTEGER'),
                  ('drive_id', 'TEXT'),
-                 ('my_share', 'INTEGER'))
+                 ('my_share', 'INTEGER'),
+                 ('sync_ts', 'INTEGER'))
     }
 
     TABLE_GRDIVE_MULTIPLE_PARENTS = {
@@ -48,7 +49,7 @@ class MetaDatabase:
                  ('my_share', 'INTEGER'),
                  ('version', 'INTEGER'),
                  ('head_revision_id', 'TEXT'),
-                 )
+                 ('sync_ts', 'INTEGER'))
 
     }
 

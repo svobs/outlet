@@ -10,6 +10,7 @@ from ui.tree.data_store import BaseStore
 logger = logging.getLogger(__name__)
 
 
+# TODO: need more metadata about each dir: need to know if we have *all* the children
 class GDriveDataStore(BaseStore):
     def __init__(self, tree_id, config, gdrive_meta):
         super().__init__(tree_id=tree_id, config=config)

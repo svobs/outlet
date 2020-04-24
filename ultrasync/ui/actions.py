@@ -3,6 +3,7 @@ import logging
 
 ROOT_PATH_UPDATED = 'root-path-updated'
 DO_DIFF = 'do-diff'
+DIFF_DID_COMPLETE = 'diff-complete'
 DOWNLOAD_GDRIVE_META = 'download-gdrive-meta'
 GDRIVE_DOWNLOAD_COMPLETE = 'gdrive-download-complete'
 

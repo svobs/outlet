@@ -1,25 +1,18 @@
 import logging
-import threading
-import os
-from stopwatch import Stopwatch
-import ui.actions as actions
-import ui.assets
-from task_runner import CentralTaskRunner
-from ui.diff_tree.fmeta_data_store import BulkLoadFMetaStore
-from ui.gdrive_dir_selection_dialog import GDriveDirSelectionDialog
-from ui.progress_bar_component import ProgressBarComponent
 
 import gi
-
-from ui.tree import tree_factory
-
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 
+from pydispatch import dispatcher
 
-from gdrive.tree_builder import GDriveTreeLoader
+import ui.actions as actions
+import ui.assets
+from ui.diff_tree.fmeta_data_store import BulkLoadFMetaStore
+from ui.progress_bar_component import ProgressBarComponent
+from ui.tree import tree_factory
+
 from ui.merge_preview_dialog import MergePreviewDialog
-from file_util import get_resource_path
 from fmeta import diff_content_first
 from ui.base_dialog import BaseDialog
 
@@ -31,8 +24,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         Gtk.Window.__init__(self, application=application)
         BaseDialog.__init__(self, application.config)
 
-        self.task_runner = CentralTaskRunner()
-
+        self.application = application
         self.set_title('UltraSync')
         # program icon:
         self.set_icon_from_file(ui.assets.WINDOW_ICON_PATH)
@@ -95,7 +87,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         def on_diff_btn_clicked(widget):
             logger.debug('Diff btn clicked!')
-            actions.send_signal(signal=actions.DO_DIFF, sender=actions.ID_DIFF_WINDOW)
+            dispatcher.send(signal=actions.DO_DIFF, sender=actions.ID_DIFF_WINDOW,
+                            tree_con_left=self.tree_con_left, tree_con_right=self.tree_con_right)
         diff_action_btn = Gtk.Button(label="Diff (content-first)")
         diff_action_btn.connect("clicked", on_diff_btn_clicked)
 
@@ -108,10 +101,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.replace_bottom_button_panel(diff_action_btn, gdrive_btn)
 
         # Subscribe to signals:
-        actions.connect(signal=actions.DO_DIFF, handler=self.on_diff_requested)
-        actions.connect(signal=actions.DOWNLOAD_GDRIVE_META, handler=self.on_gdrive_requested)
         actions.connect(signal=actions.TOGGLE_UI_ENABLEMENT, handler=self.on_enable_ui_toggled)
-        actions.connect(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, handler=self.on_gdrive_download_complete)
+        actions.connect(signal=actions.DIFF_DID_COMPLETE, handler=self.after_diff_completed)
 
     def replace_bottom_button_panel(self, *buttons):
         for child in self.bottom_button_panel.get_children():
@@ -122,6 +113,25 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             button.show()
 
     # --- ACTIONS ---
+
+    def after_diff_completed(self, sender, stopwatch):
+        """
+        Callback for DIFF_DID_COMPLETE global action
+        """
+        def change_button_bar():
+            # Replace diff btn with merge buttons
+            merge_btn = Gtk.Button(label="Merge Selected...")
+            merge_btn.connect("clicked", self.on_merge_preview_btn_clicked)
+
+            # FIXME: this is causing the button bar to disappear. Fix layout!
+            self.replace_bottom_button_panel(merge_btn)
+
+            logger.debug(f'Sending STOP_PROGRESS for ID: {actions.ID_DIFF_WINDOW}')
+            actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW)
+
+            actions.enable_ui(sender=self)
+            logger.debug(f'Diff time + redraw: {stopwatch}')
+        GLib.idle_add(change_button_bar)
 
     def on_merge_preview_btn_clicked(self, widget):
         """
@@ -166,97 +176,4 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             for button in self.bottom_button_panel.get_children():
                 button.set_sensitive(enable)
         GLib.idle_add(toggle_ui)
-
-    # TODO: put the following in GlobalActions:
-
-    def on_gdrive_requested(self, sender):
-        """Callback for signal DOWNLOAD_GDRIVE_META"""
-        self.task_runner.enqueue(self.download_gdrive_meta, sender)
-
-    def download_gdrive_meta(self, tree_id):
-        actions.disable_ui(sender=tree_id)
-        try:
-            cache_path = get_resource_path('gdrive.db')
-            tree_builder = GDriveTreeLoader(config=self.config, cache_path=cache_path, tree_id=tree_id)
-            meta = tree_builder.load_all(invalidate_cache=False)
-            actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, meta=meta)
-        except Exception as err:
-            self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
-            logger.exception(err)
-        finally:
-            actions.enable_ui(sender=tree_id)
-
-    def on_gdrive_download_complete(self, sender, meta):
-        """Callback for signal GDRIVE_DOWNLOAD_COMPLETE"""
-        assert type(sender) == str
-
-        def open_dialog():
-            try:
-                # Preview changes in UI pop-up
-                dialog = GDriveDirSelectionDialog(self, meta, sender)
-                response_id = dialog.run()
-                if response_id == Gtk.ResponseType.OK:
-                    logger.debug('User clicked OK!')
-
-            except Exception as err:
-                self.show_error_ui('GDriveDirSelectionDialog failed due to unexpected error', repr(err))
-                raise
-
-        GLib.idle_add(open_dialog)
-
-    def on_diff_requested(self, sender):
-        """Callback for signal DO_DIFF"""
-        self.task_runner.enqueue(self.do_tree_diff, sender)
-
-    # TODO: change DB path whenever root is changed
-    def do_tree_diff(self, sender):
-        actions.disable_ui(sender=sender)
-        try:
-            left_root = self.tree_con_left.data_store.get_root_path()
-            right_root = self.tree_con_right.data_store.get_root_path()
-            if not os.path.exists(left_root) or not os.path.exists(right_root):
-                logger.info('Skipping diff because one of the paths does not exist')
-                actions.enable_ui(sender=self)
-                return
-
-            actions.set_status(sender=actions.ID_RIGHT_TREE, status_msg='Waiting...')
-
-            # Load trees if not loaded - may be a long operation
-
-            left_fmeta_tree = self.tree_con_left.data_store.get_whole_tree()
-            right_fmeta_tree = self.tree_con_right.data_store.get_whole_tree()
-
-            logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {actions.ID_DIFF_WINDOW}')
-            actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=actions.ID_DIFF_WINDOW)
-            msg = 'Computing bidrectional content-first diff...'
-            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, msg=msg)
-
-            stopwatch_diff = Stopwatch()
-            diff_content_first.diff(left_fmeta_tree, right_fmeta_tree, compare_paths_also=True, use_modify_times=False)
-            logger.info(f'Diff completed in: {stopwatch_diff}')
-
-            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, msg='Populating UI trees...')
-            stopwatch_redraw = Stopwatch()
-            self.tree_con_left.load()
-            self.tree_con_right.load()
-
-            def change_button_bar():
-                # Replace diff btn with merge buttons
-                merge_btn = Gtk.Button(label="Merge Selected...")
-                merge_btn.connect("clicked", self.on_merge_preview_btn_clicked)
-
-                # FIXME: this is causing the button bar to disappear. Fix layout!
-                self.replace_bottom_button_panel(merge_btn)
-
-                logger.debug(f'Sending STOP_PROGRESS for ID: {actions.ID_DIFF_WINDOW}')
-                actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW)
-
-                actions.enable_ui(sender=self)
-                logger.debug(f'Redraw completed in: {stopwatch_redraw}')
-
-            GLib.idle_add(change_button_bar)
-        except Exception as err:
-            actions.enable_ui(sender=self)
-            self.show_error_ui('Diff task failed due to unexpected error', repr(err))
-            logger.exception(err)
 

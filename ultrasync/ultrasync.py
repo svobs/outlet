@@ -1,11 +1,12 @@
 import sys
 import gi
-import logging
-
-from task_runner import CentralTaskRunner
-
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gio
+import logging
+
+from global_actions import GlobalActions
+from task_runner import CentralTaskRunner
+
 from ui.diff_tree.diff_window import DiffWindow
 from app_config import AppConfig
 import ui.assets
@@ -21,6 +22,10 @@ class UltrasyncApplication(Gtk.Application):
         self.config = config
         Gtk.Application.__init__(self)
         self.window = None
+
+        self.task_runner = CentralTaskRunner()
+        self.global_actions = GlobalActions(self)
+        self.global_actions.init()
 
         self.add_main_option("test", ord("t"), GLib.OptionFlags.NONE,
                              GLib.OptionArg.NONE, "Command line test", None)
