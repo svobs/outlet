@@ -20,6 +20,8 @@ class AppConfig:
             # to write something
             with open(self._get_transient_filename()) as f:
                 self.transient_json = json.load(f)
+
+            self.read_only = self.get('read_only_config', False)
         except Exception as err:
             raise RuntimeError(f'Could not read config file ({config_file_path})') from err
 
@@ -41,6 +43,10 @@ class AppConfig:
         return os.path.join(self.cfg.rootdir, filename)
 
     def write(self, transient_path, value):
+        if self.read_only:
+            logger.debug(f'No change to config "{transient_path}"; we are read-only')
+            return
+
         assert transient_path is not None
         assert value is not None
 

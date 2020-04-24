@@ -6,8 +6,17 @@ logger = logging.getLogger(__name__)
 
 
 class MetaDatabase:
-    TABLE_FILE_LOG = {
-        'name': 'file_log',
+    TABLE_MAIN_REGISTRY = {
+        'name': 'cache_registry',
+        'cols': (('cache_location', 'TEXT'),
+                 ('cache_type', 'INTEGER'),
+                 ('subtree_root', 'TEXT'),
+                 ('sync_ts', 'INTEGER'),
+                 ('complete', 'INTEGER'))
+    }
+
+    TABLE_LOCAL_FILE = {
+        'name': 'local_file',
         'cols': (('sig', 'TEXT'),
                  ('size_bytes', 'INTEGER'),
                  ('sync_ts', 'INTEGER'),
@@ -27,6 +36,7 @@ class MetaDatabase:
                  ('drive_id', 'TEXT'),
                  ('my_share', 'INTEGER'),
                  ('sync_ts', 'INTEGER'))
+        # TODO: children_fetched
     }
 
     TABLE_GRDIVE_MULTIPLE_PARENTS = {
@@ -56,7 +66,7 @@ class MetaDatabase:
     def __init__(self, db_path):
         logger.info(f'Connecting to database: {db_path}')
         self.conn = sqlite3.connect(db_path)
-        self.create_table_if_not_exist(self.TABLE_FILE_LOG)
+        self.create_table_if_not_exist(self.TABLE_LOCAL_FILE)
 
     # Utility Functions ---------------------
 
@@ -127,12 +137,12 @@ class MetaDatabase:
     # FILE_LOG operations ---------------------
 
     def has_file_changes(self):
-        return self.has_rows(self.TABLE_FILE_LOG)
+        return self.has_rows(self.TABLE_LOCAL_FILE)
 
     # Gets all changes in the table
     def get_file_changes(self):
         cursor = self.conn.cursor()
-        sql = self.build_select(self.TABLE_FILE_LOG)
+        sql = self.build_select(self.TABLE_LOCAL_FILE)
         cursor.execute(sql)
         changes = cursor.fetchall()
         entries = []
@@ -146,10 +156,10 @@ class MetaDatabase:
         for e in entries:
             e_tuple = (e.signature, e.size_bytes, e.sync_ts, e.modify_ts, e.change_ts, e.file_path, e.category.value, e.prev_path)
             to_insert.append(e_tuple)
-        self.insert_many(self.TABLE_FILE_LOG, to_insert)
+        self.insert_many(self.TABLE_LOCAL_FILE, to_insert)
 
     def truncate_file_changes(self):
-        self.truncate_table(self.TABLE_FILE_LOG)
+        self.truncate_table(self.TABLE_LOCAL_FILE)
 
     # GDRIVE_DIRS operations ---------------------
 

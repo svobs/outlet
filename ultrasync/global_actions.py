@@ -54,7 +54,7 @@ class GlobalActions:
         def open_dialog():
             try:
                 # Preview changes in UI pop-up
-                dialog = GDriveDirSelectionDialog(self, meta, sender)
+                dialog = GDriveDirSelectionDialog(self.application.window, meta, sender)
                 response_id = dialog.run()
                 if response_id == Gtk.ResponseType.OK:
                     logger.debug('User clicked OK!')

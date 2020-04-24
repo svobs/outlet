@@ -19,12 +19,12 @@ class BulkLoadFMetaStore(BaseStore):
 
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=tree_id)
 
-    def _on_root_path_updated(self, sender, new_root_path):
-        if self.get_root_path() != new_root_path:
+    def _on_root_path_updated(self, sender, new_root):
+        if self.get_root_path() != new_root:
             # Root changed. Invalidate the current tree contents
             self._fmeta_tree = None
-            self.config.write(transient_path=self._root_path_config_entry(), value=new_root_path)
-            self._root_path = new_root_path
+            self.config.write(transient_path=self._root_path_config_entry(), value=new_root)
+            self._root_path = new_root
 
     def _root_path_config_entry(self):
         return f'transient.{self.tree_id}.root_path'

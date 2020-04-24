@@ -124,13 +124,16 @@ class RootDirPanel:
             # self.icon.set_from_file(GDRIVE_ICON_PATH) TODO
             self.icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
             if os.path.exists(new_root):
-                self.alert_image_box.remove(self.alert_image)
+                if len(self.alert_image_box.get_children()) > 0:
+                    self.alert_image_box.remove(self.alert_image)
                 color = ''
                 pre = ''
             else:
-                self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
+                if len(self.alert_image_box.get_children()) == 0:
+                    self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
                 color = f"foreground='gray'"
                 pre = f"<span foreground='red' size='small'>Not found:  </span>"
+                self.alert_image.show()
             self.label.set_markup(f"{pre}<span font_family='monospace' size='medium' {color}><i>{new_root}</i></span>")
         GLib.idle_add(update_root_label)
 
@@ -138,7 +141,7 @@ class RootDirPanel:
         # create a RootDirChooserDialog to open:
         # the arguments are: title of the window, parent_window, action,
         # (buttons, response)
-        open_dialog = RootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, current_dir=self.current_root)
+        open_dialog = RootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, tree_id=self.tree_id, current_dir=self.current_root)
 
         # not only local files can be selected in the file selector
         open_dialog.set_local_only(False)
