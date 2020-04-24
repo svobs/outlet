@@ -3,7 +3,7 @@ import logging
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, GObject
+from gi.repository import GLib, Gtk
 
 logger = logging.getLogger(__name__)
 

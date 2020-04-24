@@ -1,17 +1,15 @@
 import logging
 import os
 
-import file_util
+
 import ui.actions as actions
 
 import gi
+
+from ui.assets import ALERT_ICON_PATH, CHOOSE_ROOT_ICON_PATH, GDRIVE_ICON_PATH
+
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GLib
-
-# TODO: constants file
-ALERT_ICON_PATH = file_util.get_resource_path("resources/dialog-error-icon-24px.png")
-CHOOSE_ROOT_ICON_PATH = file_util.get_resource_path("resources/Folder-tree-flat-40px.png")
-
+from gi.repository import Gtk, Gdk, GLib
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +21,7 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
     if response_id == Gtk.ResponseType.OK:
         filename = open_dialog.get_filename()
         logger.info(f'User selected dir: {filename}')
-        actions.get_dispatcher().send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.data_store.tree_id, new_root=filename)
+        actions.get_dispatcher().send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.tree_id, new_root=filename)
     # if response is "CANCEL" (the button "Cancel" has been clicked)
     elif response_id == Gtk.ResponseType.CANCEL:
         logger.debug("Cancelled: RootDirChooserDialog")
@@ -38,8 +36,9 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
 
 
 class RootDirChooserDialog(Gtk.FileChooserDialog):
-    def __init__(self, title, parent_win, current_dir):
+    def __init__(self, title, parent_win, tree_id, current_dir):
         Gtk.FileChooserDialog.__init__(self, title=title, parent=parent_win, action=Gtk.FileChooserAction.SELECT_FOLDER)
+        self.tree_id = tree_id
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
 
@@ -64,6 +63,8 @@ class RootDirChooserDialog(Gtk.FileChooserDialog):
 
 class RootDirPanel:
     def __init__(self, parent_win, tree_id, current_root, editable):
+        self.parent_win = parent_win
+        self.tree_id = tree_id
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.current_root = current_root
 
@@ -73,15 +74,18 @@ class RootDirPanel:
         self.label.set_xalign(0)
         self.label.set_line_wrap(True)
 
+        self.icon = Gtk.Image()
+
         if editable:
-            self.change_btn = Gtk.Button()
-            icon = Gtk.Image()
-            icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
-            self.change_btn.set_image(image=icon)
+            self.change_btn = Gtk.MenuButton()
+            self.change_btn.set_image(image=self.icon)
             self.content_box.pack_start(self.change_btn, expand=False, fill=False, padding=5)
             self.change_btn.connect("clicked", self._on_change_btn_clicked, parent_win)
+            self.source_menu = self.build_source_menu()
+            self.change_btn.set_popup(self.source_menu)
         else:
             self.change_btn = None
+            self.content_box.pack_start(self.icon, expand=False, fill=False, padding=0)
 
         self.alert_image = Gtk.Image()
         self.alert_image.set_from_file(ALERT_ICON_PATH)
@@ -91,25 +95,13 @@ class RootDirPanel:
         self.content_box.pack_start(self.label, expand=True, fill=True, padding=0)
 
         actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
-        actions.connect(actions.ROOT_PATH_UPDATED, self._on_root_path_updated, tree_id)
+        actions.connect(actions.ROOT_PATH_UPDATED, self._on_root_path_updated, self.tree_id)
 
         # Need to call this to do the initial UI draw:
-        self._on_root_path_updated(tree_id, current_root)
+        self._on_root_path_updated(self.tree_id, current_root)
 
     def _on_change_btn_clicked(self, widget, parent_win):
-        # create a RootDirChooserDialog to open:
-        # the arguments are: title of the window, parent_window, action,
-        # (buttons, response)
-        open_dialog = RootDirChooserDialog(title="Pick a directory", parent_win=parent_win, current_dir=self.current_root)
-
-        # not only local files can be selected in the file selector
-        open_dialog.set_local_only(False)
-        # dialog always on top of the parent window
-        open_dialog.set_modal(True)
-        # connect the dialog with the callback function open_response_cb()
-        open_dialog.connect("response", _on_root_dir_selected, self)
-        # show the dialog
-        open_dialog.show()
+        self.source_menu.popup_at_widget(widget, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, None)
 
     def _on_enable_ui_toggled(self, sender, enable):
         if not self.change_btn:
@@ -127,6 +119,9 @@ class RootDirPanel:
         # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html
         def update_root_label():
             self.current_root = new_root
+
+            # self.icon.set_from_file(GDRIVE_ICON_PATH) TODO
+            self.icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
             if os.path.exists(new_root):
                 self.alert_image_box.remove(self.alert_image)
                 color = ''
@@ -137,4 +132,34 @@ class RootDirPanel:
                 pre = f"<span foreground='red' size='small'>Not found:  </span>"
             self.label.set_markup(f"{pre}<span font_family='monospace' size='medium' {color}><i>{new_root}</i></span>")
         GLib.idle_add(update_root_label)
+
+    def select_local_path(self, menu_item):
+        # create a RootDirChooserDialog to open:
+        # the arguments are: title of the window, parent_window, action,
+        # (buttons, response)
+        open_dialog = RootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, current_dir=self.current_root)
+
+        # not only local files can be selected in the file selector
+        open_dialog.set_local_only(False)
+        # dialog always on top of the parent window
+        open_dialog.set_modal(True)
+        # connect the dialog with the callback function open_response_cb()
+        open_dialog.connect("response", _on_root_dir_selected, self)
+        # show the dialog
+        open_dialog.show()
+
+    def select_gdrive_path(self, menu_item):
+        actions.send_signal(signal=actions.DOWNLOAD_GDRIVE_META, sender=self.tree_id)
+        pass
+
+    def build_source_menu(self):
+        source_menu = Gtk.Menu()
+        item_select_local = Gtk.MenuItem(label="Local filesystem subtree...")
+        item_select_local.connect('activate', self.select_local_path)
+        source_menu.append(item_select_local)
+        item_gdrive = Gtk.MenuItem(label="Google Drive subtree...")
+        source_menu.append(item_gdrive)
+        item_gdrive.connect('activate', self.select_gdrive_path)
+        source_menu.show_all()
+        return source_menu
 

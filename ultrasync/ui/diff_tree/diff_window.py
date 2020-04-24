@@ -164,6 +164,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                 button.set_sensitive(enable)
         GLib.idle_add(toggle_ui)
 
+    # TODO: put the following in GlobalActions:
+
     def on_gdrive_requested(self, sender):
         """Callback for signal DOWNLOAD_GDRIVE_META"""
         actions.disable_ui(sender=sender)
@@ -181,7 +183,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
             logger.exception(err)
         finally:
-            actions.enable_ui(sender=self)
+            actions.enable_ui(sender=tree_id)
 
     def on_gdrive_download_complete(self, sender, meta):
         """Callback for signal GDRIVE_DOWNLOAD_COMPLETE"""
@@ -189,7 +191,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         def open_dialog():
             try:
                 # Preview changes in UI pop-up
-                dialog = GDriveDirSelectionDialog(self, meta)
+                dialog = GDriveDirSelectionDialog(self, meta, sender)
                 response_id = dialog.run()
                 if response_id == Gtk.ResponseType.OK:
                     logger.debug('User clicked OK!')

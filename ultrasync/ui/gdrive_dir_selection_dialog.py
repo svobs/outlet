@@ -4,6 +4,7 @@ import gi
 
 from fmeta.fmeta import Category
 from gdrive.gdrive_data_store import GDriveDataStore
+from ui import actions
 from ui.tree import tree_factory
 from ui.tree.display_meta import TreeDisplayMeta
 
@@ -17,9 +18,10 @@ logger = logging.getLogger(__name__)
 
 class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
 
-    def __init__(self, parent, gdrive_meta):
+    def __init__(self, parent, gdrive_meta, tree_id):
         Gtk.Dialog.__init__(self, "Select GDrive Root", parent, 0)
         BaseDialog.__init__(self, parent.config)
+        tree_id = tree_id
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
@@ -48,11 +50,20 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
         # (that is, when the button of the dialog has been clicked)
 
         try:
-            if response_id == Gtk.ResponseType.APPLY:
-                logger.debug("The APPLY button was clicked")
-                self.on_apply_clicked()
+            if response_id == Gtk.ResponseType.OK:
+                logger.debug("The OK button was clicked")
+                self.tree_controller.display_store.get_selection()
+                filename = dialog.get_filename() # FIXME
+                logger.info(f'User selected dir: {filename}')
+                # TODO: swap out data store if needed?
+            #    actions.get_dispatcher().send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root=filename)
+                self.on_ok_clicked()
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
+            elif response_id == Gtk.ResponseType.CLOSE:
+                logger.debug("GDrive dialog was closed")
+            elif response_id == Gtk.ResponseType.DELETE_EVENT:
+                logger.debug("GDrive dialog was deleted")
             else:
                 logger.debug(f'Unexpected response_id: {response_id}')
         except FileNotFoundError as err:
