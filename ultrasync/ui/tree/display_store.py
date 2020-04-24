@@ -2,11 +2,10 @@ import logging
 import os
 
 import gi
-
-from fmeta.fmeta import FMeta, FMetaTree
-
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
+
+from fmeta.fmeta import FMeta, FMetaTree
 
 logger = logging.getLogger(__name__)
 

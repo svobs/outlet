@@ -16,7 +16,7 @@ class ProgressBarComponent:
         self.progress = 0
         self.total = 0
         self.done = False
-        self.progressbar.set_pulse_step(0.01)  # TODO: figure out why pulse doesn't work properly
+        self.progressbar.set_pulse_step(0.001)  # TODO: figure out why pulse is all over the place
         self.progressbar.hide()
 
         for sender in sender_list:
