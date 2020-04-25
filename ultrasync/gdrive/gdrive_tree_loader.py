@@ -2,7 +2,7 @@ import logging
 import os
 from queue import Queue
 from gdrive.client import GDriveClient
-from gdrive.gdrive_cache import GDriveCache
+from cache.gdrive_db import GDriveDatabase
 from gdrive.gdrive_model import EXPLICITLY_TRASHED, GoogFolder, GoogFile, GDriveMeta, IMPLICITLY_TRASHED, NOT_TRASHED
 from ui import actions
 
@@ -89,7 +89,7 @@ class GDriveTreeLoader:
         self.config = config
         self.tree_id = tree_id
         if cache_path:
-            self.cache = GDriveCache(cache_path)
+            self.cache = GDriveDatabase(cache_path)
         else:
             self.cache = None
         self.gdrive_client = GDriveClient(self.config, tree_id)

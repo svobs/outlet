@@ -1,7 +1,10 @@
 import sys
 import gi
+
+from cache.cache_manager import CacheManager
+
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, Gio
+from gi.repository import Gtk, Gio
 import logging
 
 from global_actions import GlobalActions
@@ -24,11 +27,9 @@ class UltrasyncApplication(Gtk.Application):
         self.window = None
 
         self.task_runner = CentralTaskRunner()
+        self.cache_manager = CacheManager(self, config)
         self.global_actions = GlobalActions(self)
         self.global_actions.init()
-
-        self.add_main_option("test", ord("t"), GLib.OptionFlags.NONE,
-                             GLib.OptionArg.NONE, "Command line test", None)
 
     def do_activate(self):
         # We only allow a single window and raise any existing ones
@@ -70,10 +71,10 @@ def main():
     if sys.version_info[0] < 3:
         raise Exception("Python 3 or a more recent version is required.")
 
-    # TODO: pass location of config from command line
-    config = AppConfig()
-
-    logger.debug(f'Main args: {sys.argv}')
+    if len(sys.argv) >= 2:
+        config = AppConfig(sys.argv[1])
+    else:
+        config = AppConfig()
 
     ui.assets.init(config)
 

@@ -1,11 +1,11 @@
 import logging
 
-from database import MetaDatabase
+from cache.base_db import MetaDatabase
 
 logger = logging.getLogger(__name__)
 
 
-class GDriveCache(MetaDatabase):
+class GDriveDatabase(MetaDatabase):
     TABLE_GRDIVE_DIRS = {
         'name': 'gdrive_directory',
         'cols': (('id', 'TEXT'),
@@ -64,10 +64,7 @@ class GDriveCache(MetaDatabase):
         self.insert_many(self.TABLE_GRDIVE_DIRS, dir_list)
 
     def get_gdrive_dirs(self):
-        cursor = self.conn.cursor()
-        sql = self.build_select(self.TABLE_GRDIVE_DIRS)
-        cursor.execute(sql)
-        dir_rows = cursor.fetchall()
+        dir_rows = self.get_all_rows(self.TABLE_GRDIVE_DIRS)
 
         logger.debug(f'Retrieved {len(dir_rows)} dirs')
         return dir_rows
@@ -78,36 +75,33 @@ class GDriveCache(MetaDatabase):
         return self.has_rows(self.TABLE_GRDIVE_FILES)
 
     def insert_gdrive_files(self, file_list, overwrite=False):
-        if not overwrite and self.has_gdrive_files():
-            raise RuntimeError('Will not insert GDrive meta into a non-empty table!')
-
-        self.drop_table_if_exists(self.TABLE_GRDIVE_FILES)
-        self.create_table_if_not_exist(self.TABLE_GRDIVE_FILES)
+        if self.has_gdrive_files():
+            if overwrite:
+                self.drop_table_if_exists(self.TABLE_GRDIVE_FILES)
+                self.create_table_if_not_exist(self.TABLE_GRDIVE_FILES)
+            else:
+                raise RuntimeError('Cannot insert GDrive file meta into a non-empty table (Overwrite=False)')
 
         self.insert_many(self.TABLE_GRDIVE_FILES, file_list)
 
     def get_gdrive_files(self):
-        cursor = self.conn.cursor()
-        sql = self.build_select(self.TABLE_GRDIVE_FILES)
-        cursor.execute(sql)
-        file_rows = cursor.fetchall()
+        file_rows = self.get_all_rows(self.TABLE_GRDIVE_FILES)
 
         logger.debug(f'Retrieved {len(file_rows)} file metas')
         return file_rows
 
     def insert_multiple_parent_mappings(self, ids_with_multiple_parents, overwrite=False):
-        if not overwrite and self.is_table(self.TABLE_GRDIVE_MULTIPLE_PARENTS):
-            raise RuntimeError('Will not insert GDrive meta into a non-empty table!')
+        if self.is_table(self.TABLE_GRDIVE_MULTIPLE_PARENTS):
+            if overwrite:
+                self.drop_table_if_exists(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
+                self.create_table_if_not_exist(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
+            else:
+                raise RuntimeError('Cannot insert GDrive parent meta into a non-empty table (overwrite=False)')
 
-        self.drop_table_if_exists(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
-        self.create_table_if_not_exist(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
         self.insert_many(self.TABLE_GRDIVE_MULTIPLE_PARENTS, ids_with_multiple_parents)
 
     def get_multiple_parent_ids(self):
-        # this will include extraneous stuff from parent meta
-        cursor = self.conn.cursor()
-        sql = self.build_select(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
-        cursor.execute(sql)
-        parent_ids = cursor.fetchall()
+        """this will include extraneous stuff from parent meta"""
+        parent_ids = self.get_all_rows(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
         logger.debug(f'Retrieved {len(parent_ids)} items with multiple parents')
         return parent_ids

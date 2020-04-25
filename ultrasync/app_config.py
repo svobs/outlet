@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 class AppConfig:
     def __init__(self, config_file_path=DEFAULT_CONFIG_PATH):
         try:
+            print(f'Reading config file: "{config_file_path}"')
             self.cfg = config.Config(config_file_path)
             # Cache JSON in memory rather than risk loading a corrupted JSON file later while we're about
             # to write something

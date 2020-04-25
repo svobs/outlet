@@ -1,6 +1,5 @@
-from fmeta import fmeta_tree_cache
-from fmeta.fmeta import Category
-from fmeta.fmeta_tree_loader import FMetaTreeLoader, TreeMetaScanner
+from cache import fmeta_tree_cache
+from fmeta.fmeta_tree_loader import FMetaTreeLoader
 from ui import actions
 import logging
 from pydispatch import dispatcher

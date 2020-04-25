@@ -1,7 +1,7 @@
 import logging
 from stopwatch import Stopwatch
 from fmeta.fmeta import FMetaTree
-from fmeta.fmeta_cache import FMetaCache
+from cache.fmeta_db import FMetaDatabase
 from ui import actions
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ class SqliteCache(NullCache):
         self.enable_update = enable_update
 
     def _open_db(self):
-        return FMetaCache(self.db_file_path)
+        return FMetaDatabase(self.db_file_path)
 
     def load_fmeta_tree(self, root_path):
         fmeta_tree = FMetaTree(root_path)

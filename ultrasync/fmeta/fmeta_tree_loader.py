@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from stopwatch import Stopwatch
 from fmeta.fmeta import FMeta, FMetaTree, Category
-from fmeta.fmeta_tree_cache import NullCache
+from cache.fmeta_tree_cache import NullCache
 from fmeta.tree_recurser import TreeRecurser
 import fmeta.content_hasher
 import file_util
