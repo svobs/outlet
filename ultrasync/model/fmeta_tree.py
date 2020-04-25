@@ -1,73 +1,9 @@
-import humanfriendly
-import itertools
+from model.category import Category
 import logging
-import os
-from enum import Enum
-import file_util
+
+from model.fmeta import FMeta
 
 logger = logging.getLogger(__name__)
-
-# See: https://www.notinventedhere.org/articles/python/how-to-use-strings-as-name-aliases-in-python-enums.html
-_CATEGORIES = {
-    0: ['None', 'NA'],
-    1: ['Ignored', 'IGNORED'],
-    2: ['Added', 'ADDED'],
-    3: ['Deleted', 'DELETED'],
-    4: ['Updated', 'UPDATED'],
-    5: ['Moved', 'MOVED'],
-}
-Category = Enum(
-    value='Category',
-    names=itertools.chain.from_iterable(
-        itertools.product(v, [k]) for k, v in _CATEGORIES.items()
-    )
-)
-
-
-class FMeta:
-    def __init__(self, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, file_path, category=Category.NA, prev_path=None):
-        self.md5 = md5
-        self.sha256 = sha256
-        self.size_bytes = size_bytes
-        self.sync_ts = sync_ts
-        self.modify_ts = modify_ts
-        self.change_ts = change_ts
-        # TODO! Store full_path instead
-        self.full_path = file_path
-        self.category = category
-        # Only used if category == ADDED or MOVED
-        self.prev_path = prev_path
-
-    @property
-    def category(self):
-        assert type(self._category) == Category
-        return self._category
-
-    @category.setter
-    def category(self, category):
-        if type(category) == int:
-            self._category = Category(category)
-        else:
-            assert type(category) == Category
-            self._category = category
-
-    @classmethod
-    def is_dir(cls):
-        return False
-
-    def is_content_equal(self, other_entry):
-        return isinstance(other_entry, FMeta) and self.sha256 == other_entry.sha256 \
-               and self.md5 == other_entry.md5 and self.size_bytes == other_entry.size_bytes
-
-    def is_meta_equal(self, other_entry):
-        return isinstance(other_entry, FMeta) and self.full_path == other_entry.full_path and \
-               self.modify_ts == other_entry.modify_ts and self.change_ts == other_entry.change_ts
-
-    def matches(self, other_entry):
-        return self.is_content_equal(other_entry) and self.is_meta_equal(other_entry)
-
-    def is_ignored(self):
-        return self.category == Category.Ignored
 
 
 class FMetaList:

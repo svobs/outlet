@@ -9,7 +9,7 @@ import logging
 from stopwatch import Stopwatch
 from treelib import Tree
 import file_util
-from fmeta.fmeta import FMeta, Category, FMetaTree
+from model.fmeta import FMeta, Category
 from fmeta.fmeta_tree_loader import TreeMetaScanner
 from ui.tree.data_store import DisplayStrategy
 from ui.tree.display_model import DirNode, CategoryNode

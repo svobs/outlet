@@ -1,12 +1,12 @@
 import logging
 import os
 
-from cache import fmeta_tree_cache
 from cache.cache_registry_db import CACHE_TYPE_GDRIVE, CACHE_TYPE_LOCAL_DISK, CacheInfoEntry, CacheRegistry
 from cache.fmeta_tree_cache import SqliteCache
 from file_util import get_resource_path
-from fmeta.fmeta import FMeta, FMetaTree
+from model.fmeta import FMeta
 from fmeta.fmeta_tree_loader import FMetaTreeLoader
+from model.fmeta_tree import FMetaTree
 from ui.actions import ID_GLOBAL_CACHE
 from ui.tree.data_store import BaseStore
 

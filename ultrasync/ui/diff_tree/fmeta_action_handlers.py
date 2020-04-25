@@ -1,16 +1,14 @@
 import os
-import file_util
 import logging
 import subprocess
 import ui.actions as actions
-from fmeta.fmeta import FMeta, FMetaTree, Category
-from fmeta.fmeta_tree_loader import TreeMetaScanner
+from model.fmeta import FMeta, Category
 from ui.tree.action_bridge import TreeActionBridge
 from ui.tree.display_model import DirNode, CategoryNode
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, Gdk
+from gi.repository import Gtk
 
 logger = logging.getLogger(__name__)
 

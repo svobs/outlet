@@ -1,6 +1,6 @@
 import gi
 
-from fmeta.fmeta import Category
+from model.fmeta import Category
 
 gi.require_version("Gtk", "3.0")
 from file_util import get_resource_path

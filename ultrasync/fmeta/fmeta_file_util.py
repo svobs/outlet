@@ -1,7 +1,8 @@
 import logging
 import os
-from fmeta.fmeta import FMeta, FMetaTree, Category
+from model.fmeta import Category
 import file_util
+from model.fmeta_tree import FMetaTree
 from ui import actions
 
 logger = logging.getLogger(__name__)

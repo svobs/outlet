@@ -1,7 +1,7 @@
 import logging
 from stopwatch import Stopwatch
-from fmeta.fmeta import FMetaTree
 from cache.fmeta_db import FMetaDatabase
+from model.fmeta_tree import FMetaTree
 from ui import actions
 
 logger = logging.getLogger(__name__)
@@ -97,16 +97,9 @@ class SqliteCache(NullCache):
 
         db = self._open_db()
         try:
-            # Remove all rows
-            db.truncate_local_files()
-
-            # Save all
-            if db.has_local_files():
-                raise RuntimeError('Will not insert FMeta into DB! It is not empty')
-
             to_insert = fmeta_tree.get_all()
-            db.insert_local_files(to_insert)
-            logger.info(f'Inserted {str(len(to_insert))} FMetas into previously empty DB table.')
+            db.insert_local_files(to_insert, True)
+            logger.info(f'Wrote {str(len(to_insert))} FMetas to disk cache.')
 
             logger.info(f'{self.tree_id} updated cache in: {stopwatch_write_cache}')
         finally:

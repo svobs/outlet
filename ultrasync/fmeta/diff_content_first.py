@@ -3,7 +3,8 @@ import file_util
 import os
 import copy
 import logging
-from fmeta.fmeta import FMeta, FMetaTree, Category
+from model.fmeta import Category
+from model.fmeta_tree import FMetaTree
 
 logger = logging.getLogger(__name__)
 

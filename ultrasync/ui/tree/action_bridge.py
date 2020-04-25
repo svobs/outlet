@@ -5,11 +5,11 @@ import logging
 from pydispatch import dispatcher
 
 import ui.actions as actions
-from fmeta.fmeta import FMeta, Category
+from model.fmeta import FMeta
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, Gdk
+from gi.repository import GLib, Gdk
 
 logger = logging.getLogger(__name__)
 

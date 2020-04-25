@@ -5,11 +5,12 @@ import copy
 import time
 from pathlib import Path
 from stopwatch import Stopwatch
-from fmeta.fmeta import FMeta, FMetaTree, Category
+from model.fmeta import FMeta, Category
 from cache.fmeta_tree_cache import NullCache
 from fmeta.tree_recurser import TreeRecurser
 import fmeta.content_hasher
 import ui.actions as actions
+from model.fmeta_tree import FMetaTree
 
 logger = logging.getLogger(__name__)
 

@@ -2,11 +2,8 @@ import logging
 
 import gi
 
-from fmeta.fmeta import Category
 from gdrive.gdrive_data_store import GDriveDataStore
-from ui import actions
 from ui.tree import tree_factory
-from ui.tree.display_meta import TreeDisplayMeta
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
