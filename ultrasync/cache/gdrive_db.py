@@ -55,11 +55,12 @@ class GDriveDatabase(MetaDatabase):
         return self.has_rows(self.TABLE_GRDIVE_DIRS) or self.has_rows(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
 
     def insert_gdrive_dirs(self, dir_list, overwrite=False):
-        if not overwrite and self.has_gdrive_dirs():
-            raise RuntimeError('Will not insert GDrive meta into a non-empty table!')
-
-        self.drop_table_if_exists(self.TABLE_GRDIVE_DIRS)
-        self.create_table_if_not_exist(self.TABLE_GRDIVE_DIRS)
+        if self.has_gdrive_dirs():
+            if overwrite:
+                self.drop_table_if_exists(self.TABLE_GRDIVE_DIRS)
+                self.create_table_if_not_exist(self.TABLE_GRDIVE_DIRS)
+            else:
+                raise RuntimeError('Will not insert GDrive meta into a non-empty table!')
 
         self.insert_many(self.TABLE_GRDIVE_DIRS, dir_list)
 

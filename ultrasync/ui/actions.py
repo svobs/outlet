@@ -21,10 +21,11 @@ STOP_PROGRESS = 'stop-progress'
 SET_STATUS = 'set-status'
 
 # --- Sender identifiers ---
-ID_DIFF_WINDOW = 'diff-win'
+ID_DIFF_WINDOW = 'diff_win'
 ID_LEFT_TREE = 'left_tree'
 ID_RIGHT_TREE = 'right_tree'
 ID_MERGE_TREE = 'merge_tree'
+ID_GLOBAL_CACHE = 'global_cache'
 
 # --- Tree actions ---
 NODE_EXPANSION_TOGGLED = 'node-expansion-toggled'

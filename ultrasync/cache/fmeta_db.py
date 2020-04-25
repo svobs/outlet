@@ -15,6 +15,7 @@ class FMetaDatabase(MetaDatabase):
                  ('sync_ts', 'INTEGER'),
                  ('modify_ts', 'INTEGER'),
                  ('change_ts', 'INTEGER'),
+                 # TODO: rel_path -> full_path
                  ('rel_path', 'TEXT'),
                  ('category', 'TEXT'),
                  ('prev_rel_path', 'TEXT'))

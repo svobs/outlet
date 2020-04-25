@@ -218,7 +218,7 @@ class FMetaTreeLoader:
     Encapsulates all logic needed to retrieve, update and cache a single FMetaTree.
     """
 
-    # TODO: decorate instead
+    # TODO: dissolve this class; put into cache manager
     def __init__(self, tree_root_path, cache=NullCache(), tree_id=None):
         self.tree_id = tree_id
         self.tree_root_path = tree_root_path
