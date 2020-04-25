@@ -147,7 +147,7 @@ class LazyLoadStrategy(DisplayStrategy):
 
         # TODO: dir tree required for lazy load
         # if not display_store.display_meta.use_dir_tree:
-        #     directory, name = os.path.split(fmeta.file_path)
+        #     directory, name = os.path.split(fmeta.full_path)
         #     row_values.append(directory)  # Directory
 
         # Size

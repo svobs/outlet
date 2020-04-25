@@ -6,7 +6,6 @@ import os
 import humanfriendly
 import logging
 
-from gi.overrides import Gtk
 from stopwatch import Stopwatch
 from treelib import Tree
 import file_util
@@ -40,11 +39,11 @@ def _build_category_change_tree(fmeta_list, category):
 
         root = change_tree.create_node(tag=f'{category.name} ({set_len} files)', identifier='', data=CategoryNode(category))   # root
         for fmeta in fmeta_list:
-            dirs_str, file_name = os.path.split(fmeta.file_path)
+            dirs_str, file_name = os.path.split(fmeta.full_path)
             # nid == Node ID == directory name
             nid = ''
             parent = root
-            #logger.debug(f'Adding root file "{fmeta.file_path}" to dir "{parent.data.file_path}"')
+            #logger.debug(f'Adding root file "{fmeta.full_path}" to dir "{parent.data.full_path}"')
             parent.data.add_meta(fmeta)
             if dirs_str != '':
                 directories = file_util.split_path(dirs_str)
@@ -55,7 +54,7 @@ def _build_category_change_tree(fmeta_list, category):
                         #logger.debug(f'Creating dir: {nid}')
                         child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=DirNode(nid, category))
                     parent = child
-                    #logger.debug(f'Adding file "{fmeta.file_path}" to dir {parent.data.file_path}"')
+                    #logger.debug(f'Adding file "{fmeta.full_path}" to dir {parent.data.full_path}"')
                     parent.data.add_meta(fmeta)
             nid = os.path.join(nid, file_name)
             #logger.debug(f'Creating file: {nid}')
@@ -105,7 +104,7 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
         row_values.append(node_name)  # Name
 
         if not self.con.display_store.display_meta.use_dir_tree:
-            directory, name = os.path.split(fmeta.file_path)
+            directory, name = os.path.split(fmeta.full_path)
             row_values.append(directory)  # Directory
 
         num_bytes_str = humanfriendly.format_size(fmeta.size_bytes)
@@ -212,26 +211,23 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
             # NOTE: stale tree will contain old FMeta which is from the master tree, and
             # thus does need to have its file path adjusted.
             # This seems awfully fragile...
-            old = master_tree.remove(file_path=fmeta.file_path, sig=fmeta.signature, ok_if_missing=False)
+            old = master_tree.remove(file_path=fmeta.full_path, md5=fmeta.md5, ok_if_missing=False)
             if old:
-                logger.debug(f'Deleted from master tree: sig={old.signature} path={old.file_path}')
+                logger.debug(f'Deleted from master tree: md5={old.md5} path={old.full_path}')
             else:
-                logger.warning(f'Could not delete "stale" from master (not found): sig={fmeta.signature} path={fmeta.file_path}')
+                logger.warning(f'Could not delete "stale" from master (not found): md5={fmeta.md5} path={fmeta.full_path}')
 
         if fresh_tree:
             for fmeta in fresh_tree.get_all():
                 # Anything in the fresh tree needs to be either added or updated in the master tree.
                 # For the 'updated' case, remove the old FMeta from the file mapping and any old signatures.
-                # Note: Need to adjust file path here, because these FMetas were created with a different root
-                abs_path = os.path.join(fresh_tree.root_path, fmeta.file_path)
-                fmeta.file_path = file_util.strip_root(abs_path, master_tree.root_path)
-                old = master_tree.remove(file_path=fmeta.file_path, sig=fmeta.signature, remove_old_sig=True, ok_if_missing=True)
+                old = master_tree.remove(file_path=fmeta.full_path, md5=fmeta.md5, remove_old_md5=True, ok_if_missing=True)
                 if old:
-                    logger.debug(f'Removed from master tree: sig={old.signature} path={old.file_path}')
+                    logger.debug(f'Removed from master tree: md5={old.md5} path={old.full_path}')
                 else:
-                    logger.debug(f'Could not delete "fresh" from master (not found): sig={fmeta.signature} path={fmeta.file_path}')
+                    logger.debug(f'Could not delete "fresh" from master (not found): md5={fmeta.md5} path={fmeta.full_path}')
                 master_tree.add(fmeta)
-                logger.debug(f'Added to master tree: sig={fmeta.signature} path={fmeta.file_path}')
+                logger.debug(f'Added to master tree: md5={fmeta.md5} path={fmeta.full_path}')
 
         # 3. Then re-diff and re-populate
 

@@ -49,7 +49,7 @@ class TreeActionBridge:
         if treeiter is not None and len(treeiter) == 1:
             meta = self.con.display_store.get_node_data(treeiter)
             if isinstance(meta, FMeta):
-                logger.debug(f'User selected cat="{meta.category.name}" sig="{meta.signature}" path="{meta.file_path}" prev_path="{meta.prev_path}"')
+                logger.debug(f'User selected cat="{meta.category.name}" md5="{meta.md5}" path="{meta.full_path}" prev_path="{meta.prev_path}"')
             else:
                 logger.debug(f'User selected {self.con.display_store.get_node_name(treeiter)}')
         return self.on_selection_changed(treeiter)

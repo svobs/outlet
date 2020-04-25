@@ -36,10 +36,10 @@ class FMetaTreeActionHandlers(TreeActionBridge):
                 tree_view.expand_row(path=tree_path, open_all=False)
         elif type(node_data) == DirNode or type(node_data) == FMeta:
             if node_data.category == Category.Deleted:
-                logger.debug(f'Cannot open a Deleted node: {node_data.file_path}')
+                logger.debug(f'Cannot open a Deleted node: {node_data.full_path}')
             else:
                 # TODO: ensure prev_path is filled out for all nodes!
-                file_path = os.path.join(self.con.data_store.get_root_path(), node_data.file_path)
+                file_path = os.path.join(self.con.data_store.get_root_path(), node_data.full_path)
                 # if not os.path.exists(file_path):
                 #     logger.debug(f'File not found: {file_path}')
                 #     # File is an 'added' node or some such. Open the old one:
@@ -167,7 +167,7 @@ class FMetaTreeActionHandlers(TreeActionBridge):
 
             def add_to_list_func(t_iter):
                 data_node = self.con.display_store.get_node_data(t_iter)
-                p = os.path.join(root_path, data_node.file_path)
+                p = data_node.full_path
                 path_list.append(p)
                 if os.path.isdir(p):
                     add_to_list_func.dir_count += 1

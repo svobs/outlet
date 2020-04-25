@@ -9,7 +9,6 @@ from fmeta.fmeta import FMeta, FMetaTree, Category
 from cache.fmeta_tree_cache import NullCache
 from fmeta.tree_recurser import TreeRecurser
 import fmeta.content_hasher
-import file_util
 import ui.actions as actions
 
 logger = logging.getLogger(__name__)
@@ -17,25 +16,26 @@ logger = logging.getLogger(__name__)
 VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp4', 'mpeg', 'mpg', 'm4v', 'avi', 'pdf', 'nef')
 
 
-def build_fmeta(root_path, file_path, category=Category.NA):
+def build_fmeta(full_path, category=Category.NA):
     if category == Category.Ignored:
         # Do not scan ignored files for content (optimization)
-        signature_str = None
+        md5 = None
+        sha256 = None
     else:
         # Open,close, read file and calculate hash of its contents
-        signature_str = fmeta.content_hasher.dropbox_hash(file_path)
-
-    relative_path = file_util.strip_root(file_path, root_path)
+        md5 = fmeta.content_hasher.md5(full_path)
+        # sha256 = fmeta.content_hasher.dropbox_hash(full_path)
+        sha256 = None
 
     # Get "now" in UNIX time:
     sync_ts = int(time.time())
 
-    stat = os.stat(file_path)
+    stat = os.stat(full_path)
     size_bytes = int(stat.st_size)
     modify_ts = int(stat.st_mtime)
     change_ts = int(stat.st_ctime)
 
-    return FMeta(signature_str, size_bytes, sync_ts, modify_ts, change_ts, relative_path, category)
+    return FMeta(md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, category)
 
 
 def meta_matches(file_path, fmeta: FMeta):
@@ -55,13 +55,13 @@ def meta_matches(file_path, fmeta: FMeta):
 
 def _check_update_sanity(old_fmeta, new_fmeta):
     if new_fmeta.modify_ts < old_fmeta.modify_ts:
-        logger.warning(f'File "{new_fmeta.file_path}": update has older modify_ts ({new_fmeta.modify_ts}) than prev version ({old_fmeta.modify_ts})')
+        logger.warning(f'File "{new_fmeta.full_path}": update has older modify_ts ({new_fmeta.modify_ts}) than prev version ({old_fmeta.modify_ts})')
 
     if new_fmeta.change_ts < old_fmeta.change_ts:
-        logger.warning(f'File "{new_fmeta.file_path}": update has older change_ts ({new_fmeta.change_ts}) than prev version ({old_fmeta.change_ts})')
+        logger.warning(f'File "{new_fmeta.full_path}": update has older change_ts ({new_fmeta.change_ts}) than prev version ({old_fmeta.change_ts})')
 
-    if new_fmeta.size_bytes != old_fmeta.size_bytes and new_fmeta.signature == old_fmeta.signature:
-        logger.warning(f'File "{new_fmeta.file_path}": update has same sig ({new_fmeta.signature}) ' +
+    if new_fmeta.size_bytes != old_fmeta.size_bytes and new_fmeta.md5 == old_fmeta.md5:
+        logger.warning(f'File "{new_fmeta.full_path}": update has same md5 ({new_fmeta.md5}) ' +
                        f'but different size: (old={old_fmeta.size_bytes}, new={new_fmeta.size_bytes})')
 
 
@@ -139,8 +139,8 @@ class TreeMetaScanner(TreeRecurser):
 
         if stale_meta is not None:
             # Either unchanged, or updated. Either way, remove from stale tree.
-            # (note: set remove_old_sig=True because the sig will have changed if the file was updated)
-            stale_meta = self.stale_tree.remove(file_path=stale_meta.file_path, sig=stale_meta.signature, remove_old_sig=True, ok_if_missing=False)
+            # (note: set remove_old_md5=True because the md5 will have changed if the file was updated)
+            stale_meta = self.stale_tree.remove(file_path=stale_meta.full_path, md5=stale_meta.md5, remove_old_sig=True, ok_if_missing=False)
 
             if meta_matches(file_path, stale_meta):
                 # Found in cache.
@@ -157,7 +157,7 @@ class TreeMetaScanner(TreeRecurser):
             cache_diff_status = Category.Added
 
         if rebuild_fmeta:
-            meta = build_fmeta(root_path=self.root_path, file_path=file_path, category=category)
+            meta = build_fmeta(full_path=file_path, category=category)
         else:
             meta = stale_meta
 

@@ -9,14 +9,13 @@ logger = logging.getLogger(__name__)
 class FMetaDatabase(MetaDatabase):
     TABLE_LOCAL_FILE = {
         'name': 'local_file',
-        'cols': (('sig', 'TEXT'),
-                 # TODO: sig -> md5 and sha256
+        'cols': (('md5', 'TEXT'),
+                 ('sha256', 'TEXT'),
                  ('size_bytes', 'INTEGER'),
                  ('sync_ts', 'INTEGER'),
                  ('modify_ts', 'INTEGER'),
                  ('change_ts', 'INTEGER'),
-                 # TODO: rel_path -> full_path
-                 ('rel_path', 'TEXT'),
+                 ('full_path', 'TEXT'),
                  ('category', 'TEXT'),
                  ('prev_rel_path', 'TEXT'))
     }
@@ -34,17 +33,17 @@ class FMetaDatabase(MetaDatabase):
         cursor = self.conn.cursor()
         sql = self.build_select(self.TABLE_LOCAL_FILE)
         cursor.execute(sql)
-        changes = cursor.fetchall()
+        rows = cursor.fetchall()
         entries = []
-        for c in changes:
-            entries.append(FMeta(c[0], int(c[1]), int(c[2]), int(c[3]), int(c[4]), c[5], int(c[6]), c[7]))
+        for row in rows:
+            entries.append(FMeta(*row))
         return entries
 
     def insert_local_files(self, entries):
         """ Takes a list of FMeta objects: """
         to_insert = []
         for e in entries:
-            e_tuple = (e.signature, e.size_bytes, e.sync_ts, e.modify_ts, e.change_ts, e.file_path, e.category.value, e.prev_path)
+            e_tuple = (e.md5, e.sha256, e.size_bytes, e.sync_ts, e.modify_ts, e.change_ts, e.full_path, e.category.value, e.prev_path)
             to_insert.append(e_tuple)
         self.insert_many(self.TABLE_LOCAL_FILE, to_insert)
 

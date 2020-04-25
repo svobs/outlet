@@ -4,7 +4,7 @@
             "enable": true,
             "enable_load": true,
             "enable_update": false,
-            "file_path": "$PROJECT_DIR/test/SvobodaLeft.db"
+            "full_path": "$PROJECT_DIR/test/SvobodaLeft.db"
         },
         "expanded_state": {
             "Added": true,
@@ -20,7 +20,7 @@
             "enable": true,
             "enable_load": true,
             "enable_update": false,
-            "file_path": "$PROJECT_DIR/test/SvobodaRight.db"
+            "full_path": "$PROJECT_DIR/test/SvobodaRight.db"
         },
         "expanded_state": {
             "Added": true,

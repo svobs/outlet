@@ -25,15 +25,15 @@ Category = Enum(
 
 
 class FMeta:
-    def __init__(self, signature, size_bytes, sync_ts, modify_ts, change_ts, file_path, category=Category.NA, prev_path=None):
-        self.signature = signature
-        # TODO: md5 and sha256
+    def __init__(self, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, file_path, category=Category.NA, prev_path=None):
+        self.md5 = md5
+        self.sha256 = sha256
         self.size_bytes = size_bytes
         self.sync_ts = sync_ts
         self.modify_ts = modify_ts
         self.change_ts = change_ts
         # TODO! Store full_path instead
-        self.file_path = file_path
+        self.full_path = file_path
         self.category = category
         # Only used if category == ADDED or MOVED
         self.prev_path = prev_path
@@ -56,10 +56,12 @@ class FMeta:
         return False
 
     def is_content_equal(self, other_entry):
-        return isinstance(other_entry, FMeta) and self.signature == other_entry.signature and self.size_bytes == other_entry.size_bytes
+        return isinstance(other_entry, FMeta) and self.sha256 == other_entry.sha256 \
+               and self.md5 == other_entry.md5 and self.size_bytes == other_entry.size_bytes
 
     def is_meta_equal(self, other_entry):
-        return isinstance(other_entry, FMeta) and self.file_path == other_entry.file_path and self.category == other_entry.category
+        return isinstance(other_entry, FMeta) and self.full_path == other_entry.full_path and \
+               self.modify_ts == other_entry.modify_ts and self.change_ts == other_entry.change_ts
 
     def matches(self, other_entry):
         return self.is_content_equal(other_entry) and self.is_meta_equal(other_entry)
@@ -96,24 +98,24 @@ class FMetaTree:
         # Each item is an entry
         self._path_dict = {}
         # Each item contains a list of entries
-        self._sig_dict = {}
+        self._md5_dict = {}
         self._cat_dict = {Category.Ignored: FMetaList(),
                           Category.Added: FMetaList(),
                           Category.Deleted: FMetaList(),
                           Category.Moved: FMetaList(),
                           Category.Updated: FMetaList(),
                           }
-        self._dup_sig_count = 0
+        self._dup_md5_count = 0
         self._total_size_bytes = 0
 
     def categorize(self, fmeta, category: Category):
         """Convenience method to use when building the tree.
         Changes the category of the given fmeta, then adds it to the category dict.
-        Important: this method assumes the fmeta has already been assigned to the sig_dict
+        Important: this method assumes the fmeta has already been assigned to the md5_dict
         and path_dict"""
         assert category != Category.NA
         # param fmeta should already be a member of this tree
-        assert self.get_for_path(file_path=fmeta.file_path, include_ignored=True) == fmeta
+        assert self.get_for_path(file_path=fmeta.full_path, include_ignored=True) == fmeta
         fmeta.category = category
         return self._cat_dict[category].add(fmeta)
 
@@ -130,14 +132,14 @@ class FMetaTree:
             by_path = {}
             for fmeta in cat_list.list:
                 if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f'Examining FMeta path: {fmeta.file_path}')
+                    logger.debug(f'Examining FMeta path: {fmeta.full_path}')
                 if fmeta.category != cat:
                     if logger.isEnabledFor(logging.DEBUG):
                         logger.debug(f'ERROR: BAD CATEGORY: found: {fmeta.category}')
                     errors += 1
-                existing = by_path.get(fmeta.file_path, None)
+                existing = by_path.get(fmeta.full_path, None)
                 if existing is None:
-                    by_path[fmeta.file_path] = fmeta
+                    by_path[fmeta.full_path] = fmeta
                 else:
                     if logger.isEnabledFor(logging.DEBUG):
                         logger.debug(f'ERROR: DUP IN CATEGORY: {fmeta.category.name}')
@@ -156,59 +158,57 @@ class FMetaTree:
         return self._cat_dict[category].list
 
     def get_for_path(self, file_path, include_ignored=False):
-        if os.path.isabs(file_path):
-            file_path = file_util.strip_root(file_path, self.root_path)
         fmeta = self._path_dict.get(file_path, None)
         if fmeta is None or include_ignored:
             return fmeta
         elif fmeta.category != Category.Ignored:
             return fmeta
 
-    def get_sig_set(self):
-        return self._sig_dict.keys()
+    def get_md5_set(self):
+        return self._md5_dict.keys()
 
-    def get_for_sig(self, signature):
-        return self._sig_dict.get(signature, None)
+    def get_for_md5(self, md5):
+        return self._md5_dict.get(md5, None)
 
-    def remove(self, file_path, sig, remove_old_sig=False, ok_if_missing=False):
-        """Removes from this FMetaTree the FMeta which matches the given file path and signature.
+    def remove(self, full_path, md5, remove_old_md5=False, ok_if_missing=False):
+        """Removes from this FMetaTree the FMeta which matches the given file path and md5.
         Does sanity checks and raises exceptions if internal state is found to have problems.
         If match not found: returns None if ok_if_missing=True; raises exception otherwise.
-        If remove_old_sig=True: ignore the value of 'sig' and instead remove the one found from the path search
-        If match found for both file path and sig, it is removed and the removed element is returned.
+        If remove_old_md5=True: ignore the value of 'md5' and instead remove the one found from the path search
+        If match found for both file path and md5, it is removed and the removed element is returned.
         """
-        match = self._path_dict.pop(file_path, None)
+        match = self._path_dict.pop(full_path, None)
         if match is None:
             if ok_if_missing:
-                logger.debug(f'Did not remove because not found in path dict: {file_path}')
+                logger.debug(f'Did not remove because not found in path dict: {full_path}')
                 return None
             else:
-                raise RuntimeError(f'Could not find FMeta for path: {file_path}')
+                raise RuntimeError(f'Could not find FMeta for path: {full_path}')
 
         if match.category == Category.Ignored:
-            # Will not be present in sig_dict
+            # Will not be present in md5_dict
             return match
 
-        if remove_old_sig:
-            sig_to_find = match.signature
+        if remove_old_md5:
+            md5_to_find = match.md5
         else:
-            if logger.isEnabledFor(logging.DEBUG) and sig is not None and sig != match.signature:
-                logger.debug(f'Ignoring sig ({match.signature}) from path match; removing specified sig instead ({sig})')
-            sig_to_find = sig
+            if logger.isEnabledFor(logging.DEBUG) and md5 is not None and md5 != match.md5:
+                logger.debug(f'Ignoring md5 ({match.md5}) from path match; removing specified md5 instead ({md5})')
+            md5_to_find = md5
 
-        matching_sig_list = self.get_for_sig(sig_to_find)
-        if matching_sig_list is None:
+        matching_md5_list = self.get_for_md5(md5_to_find)
+        if matching_md5_list is None:
             # This indicates a serious data problem
-            raise RuntimeError(f'FMeta found for path: {file_path} but not sig: {sig_to_find}')
+            raise RuntimeError(f'FMeta found for path: {full_path} but not md5: {md5_to_find}')
 
-        path_matches = list(filter(lambda f: f.file_path == file_path, matching_sig_list))
+        path_matches = list(filter(lambda f: f.full_path == full_path, matching_md5_list))
         path_matches_count = len(path_matches)
         if path_matches_count == 0:
-            raise RuntimeError(f'FMeta found for path: {file_path} but not signature: {sig_to_find}')
+            raise RuntimeError(f'FMeta found for path: {full_path} but not md5: {md5_to_find}')
         elif path_matches_count > 1:
-            raise RuntimeError(f'Multiple FMeta ({path_matches}) found for path: {file_path} and sig: {sig_to_find}')
+            raise RuntimeError(f'Multiple FMeta ({path_matches}) found for path: {full_path} and md5: {md5_to_find}')
         else:
-            matching_sig_list.remove(path_matches[0])
+            matching_md5_list.remove(path_matches[0])
 
         # (Don't worry about category list)
 
@@ -216,23 +216,23 @@ class FMetaTree:
 
     def add(self, item: FMeta):
         if item.category == Category.Ignored:
-            logger.debug(f'Found ignored file: {item.file_path}')
+            logger.debug(f'Found ignored file: {item.full_path}')
         else:
-            # ignored files may not have signatures
-            set_matching_sig = self._sig_dict.get(item.signature, None)
-            if set_matching_sig is None:
-                set_matching_sig = [item]
-                self._sig_dict[item.signature] = set_matching_sig
+            # ignored files may not have md5s
+            set_matching_md5 = self._md5_dict.get(item.md5, None)
+            if set_matching_md5 is None:
+                set_matching_md5 = [item]
+                self._md5_dict[item.md5] = set_matching_md5
             else:
-                set_matching_sig.append(item)
-                self._dup_sig_count += 1
+                set_matching_md5.append(item)
+                self._dup_md5_count += 1
 
-        item_matching_path = self._path_dict.get(item.file_path, None)
+        item_matching_path = self._path_dict.get(item.full_path, None)
         if item_matching_path is not None:
-            logger.warning(f'Overwriting path: {item.file_path}')
+            logger.warning(f'Overwriting path: {item.full_path}')
             self._total_size_bytes -= item_matching_path.size_bytes
         self._total_size_bytes += item.size_bytes
-        self._path_dict[item.file_path] = item
+        self._path_dict[item.full_path] = item
 
         if item.category != Category.NA:
             self._cat_dict[item.category].add(item)
@@ -249,7 +249,7 @@ class FMetaTree:
         For internal use only
         """
         cats_string = self.get_category_summary_string()
-        return f'FMetaTree=[sigs:{len(self._sig_dict)} paths:{len(self._path_dict)} dup_sigs:{self._dup_sig_count} cats=[{cats_string}]'
+        return f'FMetaTree=[md5s:{len(self._md5_dict)} paths:{len(self._path_dict)} dup_md5s:{self._dup_md5_count} cats=[{cats_string}]'
 
     def get_summary(self):
         """

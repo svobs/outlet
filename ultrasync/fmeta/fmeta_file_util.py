@@ -37,10 +37,10 @@ def apply_changes_atomically(tree_id, tree: FMetaTree, staging_dir, continue_on_
     # TODO: deal with file-not-found errors in a more robust way
     for fmeta in tree.get_for_cat(Category.Added):
         try:
-            src_path = os.path.join(tree.root_path, fmeta.prev_path)
-            dst_path = os.path.join(tree.root_path, fmeta.file_path)
+            src_path = fmeta.prev_path
+            dst_path = fmeta.full_path
             # TODO: what if staging dir is not on same file system?
-            staging_path = os.path.join(staging_dir, fmeta.signature)
+            staging_path = os.path.join(staging_dir, fmeta.md5)
             logger.debug(f'CP: src={src_path}')
             logger.debug(f'    stg={staging_path}')
             logger.debug(f'    dst={dst_path}')
@@ -51,7 +51,7 @@ def apply_changes_atomically(tree_id, tree: FMetaTree, staging_dir, continue_on_
                 error_collector.append(FMetaNoOp(fm=fmeta))
         except Exception as err:
             # Try to log helpful info
-            logger.error(f'Exception occurred while processing Added file: root="{tree.root_path}", file_path="{fmeta.file_path}", prev_path="{fmeta.prev_path}": {repr(err)}')
+            logger.error(f'Exception occurred while processing Added file: root="{tree.root_path}", file_path="{fmeta.full_path}", prev_path="{fmeta.prev_path}": {repr(err)}')
             if continue_on_error:
                 if error_collector is not None:
                     error_collector.append(FMetaError(fm=fmeta, exception=err))
@@ -62,11 +62,10 @@ def apply_changes_atomically(tree_id, tree: FMetaTree, staging_dir, continue_on_
 
     for fmeta in tree.get_for_cat(Category.Deleted):
         try:
-            tgt_path = os.path.join(tree.root_path, fmeta.file_path)
-            logger.debug(f'RM: tgt={tgt_path}')
-            file_util.delete_file(tgt_path)
+            logger.debug(f'RM: tgt={fmeta.full_path}')
+            file_util.delete_file(fmeta.full_path)
         except Exception as err:
-            logger.error(f'Exception occurred while processing Deleted file: root="{tree.root_path}", file_path={fmeta.file_path}: {repr(err)}')
+            logger.error(f'Exception occurred while processing Deleted file: root="{tree.root_path}", file_path={fmeta.full_path}: {repr(err)}')
             if continue_on_error:
                 if error_collector is not None:
                     error_collector.append(FMetaError(fm=fmeta, exception=err))
@@ -77,13 +76,11 @@ def apply_changes_atomically(tree_id, tree: FMetaTree, staging_dir, continue_on_
 
     for fmeta in tree.get_for_cat(Category.Moved):
         try:
-            src_path = os.path.join(tree.root_path, fmeta.prev_path)
-            dst_path = os.path.join(tree.root_path, fmeta.file_path)
-            logger.debug(f'MV: src={src_path}')
-            logger.debug(f'    dst={dst_path}')
-            file_util.move_file(src_path, dst_path)
+            logger.debug(f'MV: src={fmeta.prev_path}')
+            logger.debug(f'    dst={fmeta.full_path}')
+            file_util.move_file(fmeta.prev_path, fmeta.full_path)
         except Exception as err:
-            logger.error(f'Exception occurred while processing Moved file: root="{tree.root_path}", file_path="{fmeta.file_path}", prev_path="{fmeta.prev_path}": {repr(err)}')
+            logger.error(f'Exception occurred while processing Moved file: root="{tree.root_path}", file_path="{fmeta.full_path}", prev_path="{fmeta.prev_path}": {repr(err)}')
             if continue_on_error:
                 if error_collector is not None:
                     error_collector.append(FMetaError(fm=fmeta, exception=err))
@@ -94,20 +91,18 @@ def apply_changes_atomically(tree_id, tree: FMetaTree, staging_dir, continue_on_
 
     for fmeta in tree.get_for_cat(Category.Updated):
         try:
-            src_path = os.path.join(tree.root_path, fmeta.prev_path)
-            dst_path = os.path.join(tree.root_path, fmeta.file_path)
             # TODO: what if staging dir is not on same file system?
-            staging_path = os.path.join(staging_dir, fmeta.signature)
-            logger.debug(f'CP: src={src_path}')
+            staging_path = os.path.join(staging_dir, fmeta.md5)
+            logger.debug(f'CP: src={fmeta.prev_path}')
             logger.debug(f'    stg={staging_path}')
-            logger.debug(f'    dst={dst_path}')
-            file_util.copy_file_linux_with_attrs(src_path, staging_path, dst_path, fmeta, True)
+            logger.debug(f'    dst={fmeta.full_path}')
+            file_util.copy_file_linux_with_attrs(fmeta.prev_path, staging_path, fmeta.full_path, fmeta, True)
         except file_util.IdenticalFileExistsError:
             if error_collector is not None:
                 error_collector.append(FMetaNoOp(fm=fmeta))
         except Exception as err:
             # Try to log helpful info
-            logger.error(f'Exception occurred while processing Updated file: root="{tree.root_path}", file_path="{fmeta.file_path}", prev_path="{fmeta.prev_path}": {repr(err)}')
+            logger.error(f'Exception occurred while processing Updated file: root="{tree.root_path}", file_path="{fmeta.full_path}", prev_path="{fmeta.prev_path}": {repr(err)}')
             if continue_on_error:
                 if error_collector is not None:
                     error_collector.append(FMetaError(fm=fmeta, exception=err))

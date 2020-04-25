@@ -12,14 +12,14 @@ class DirNode:
     Represents a generic directory (i.e. not an FMeta or domain object)
     """
     def __init__(self, file_path, category):
-        self.file_path = file_path
+        self.full_path = file_path
         self.file_count = 0
         self.size_bytes = 0
         self.category = category
 
     def add_meta(self, fmeta):
         if fmeta.category != self.category:
-            logger.error(f'BAD CATEGORY: expected={self.category} found={fmeta.category} path={fmeta.file_path}')
+            logger.error(f'BAD CATEGORY: expected={self.category} found={fmeta.category} path={fmeta.full_path}')
         assert fmeta.category == self.category
         self.file_count += 1
         self.size_bytes += fmeta.size_bytes

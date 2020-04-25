@@ -126,8 +126,9 @@ def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_fmeta, veri
     has been verified."""
 
     if os.path.exists(dst_path):
-        dst_signature = fmeta.content_hasher.dropbox_hash(dst_path)
-        if src_fmeta.signature == dst_signature:
+        # sha256 = fmeta.content_hasher.dropbox_hash(dst_path)
+        md5 = fmeta.content_hasher.md5(dst_path)
+        if src_fmeta.md5 == md5:
             # TODO: what about if stats are different?
             msg = f'Identical file already exists at dst; skipping: {dst_path}'
             logger.info(msg)
@@ -156,10 +157,11 @@ def copy_file_linux_with_attrs(src_path, staging_path, dst_path, src_fmeta, veri
         raise
 
     if verify:
-        dst_signature = fmeta.content_hasher.dropbox_hash(staging_path)
-        if src_fmeta.signature != dst_signature:
-            raise RuntimeError(f'Signature of copied file does not match: src_path="{src_path}", '
-                               f'src_sig={src_fmeta.signature}, dst_path="{dst_path}", dst_sig={dst_signature}')
+        # sha256 = fmeta.content_hasher.dropbox_hash(staging_path)
+        md5 = fmeta.content_hasher.md5(staging_path)
+        if src_fmeta.md5 != md5:
+            raise RuntimeError(f'MD5 of copied file does not match: src_path="{src_path}", '
+                               f'src_md5={src_fmeta.md5}, dst_path="{dst_path}", dst_md5={md5}')
 
     try:
         # (Destination) make parent directories if not exist

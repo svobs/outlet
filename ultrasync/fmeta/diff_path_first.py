@@ -11,15 +11,15 @@ def diff_by_path(left_tree, right_tree):
     logger.debug('Comparing file sets by path...')
     # left represents a unique path
     for left in left_tree.fmeta_tree._path_dict.values():
-        right_samepath = right_tree.fmeta_tree._path_dict.get(left.file_path, None)
+        right_samepath = right_tree.fmeta_tree._path_dict.get(left.full_path, None)
         if right_samepath is None:
-            logger.debug(f'Left has new file: "{left.file_path}"')
+            logger.debug(f'Left has new file: "{left.full_path}"')
             # File is added, moved, or copied here.
             # TODO: in the future, be smarter about this
             left.change_set.adds.append(left)
             continue
         # Do we know this item?
-        if right_samepath.signature == left.signature:
+        if right_samepath.md5 == left.md5:
             if left.is_valid() and right_samepath.is_valid():
                 # Exact match! Nothing to do.
                 continue
@@ -31,12 +31,12 @@ def diff_by_path(left_tree, right_tree):
                 logger.error("DANGER! UNHANDLED 1!")
                 continue
 
-            logger.error(f'DANGER! UNHANDLED 2:{left.file_path}')
+            logger.error(f'DANGER! UNHANDLED 2:{left.full_path}')
             continue
         else:
-            logger.debug(f'In Left path {left.file_path}: expected signature "{right_samepath.signature}"; actual is "{left.signature}"')
+            logger.debug(f'In Left path {left.full_path}: expected MD5 "{right_samepath.md5}"; actual is "{left.md5}"')
             # Conflict! Need to determine which is most recent
-            matching_sig_master = right_tree.fmeta_tree._sig_dict[left.signature]
+            matching_sig_master = right_tree.fmeta_tree._md5_dict[left.md5]
             if matching_sig_master is None:
                 # This is a new file, from the standpoint of the remote
                 # TODO: in the future, be smarter about this
@@ -45,9 +45,9 @@ def diff_by_path(left_tree, right_tree):
             continue
 
     for right in right_tree.fmeta_tree._path_dict.values():
-        left_samepath = left_tree.fmeta_tree._path_dict.get(right.file_path, None)
+        left_samepath = left_tree.fmeta_tree._path_dict.get(right.full_path, None)
         if left_samepath is None:
-            print(f'Left is missing file: "{right.file_path}"')
+            print(f'Left is missing file: "{right.full_path}"')
             # File is added, moved, or copied here.
             # TODO: in the future, be smarter about this
             right_tree.change_set.adds.append(right)

@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 def from_config(config, tree_id):
     enable_cache = config.get(f'transient.{tree_id}.cache.enable')
     if enable_cache:
-        cache_file_path = config.get(f'transient.{tree_id}.cache.file_path')
+        cache_file_path = config.get(f'transient.{tree_id}.cache.full_path')
         enable_load = config.get(f'transient.{tree_id}.cache.enable_load')
         enable_update = config.get(f'transient.{tree_id}.cache.enable_update')
         return SqliteCache(tree_id, cache_file_path, enable_load, enable_update)
@@ -61,6 +61,7 @@ class SqliteCache(NullCache):
         db = self._open_db()
         try:
             if not db.has_local_files():
+                logger.debug('No meta found in cache')
                 return fmeta_tree
 
             status = f'Loading {self.tree_id} meta from cache: {self.db_file_path}'
@@ -74,7 +75,7 @@ class SqliteCache(NullCache):
 
             counter = 0
             for change in db_file_changes:
-                meta = fmeta_tree.get_for_path(change.file_path)
+                meta = fmeta_tree.get_for_path(change.full_path)
                 # Overwrite older changes for the same path:
                 if meta is None or meta.sync_ts < change.sync_ts:
                     fmeta_tree.add(change)

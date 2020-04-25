@@ -11,7 +11,7 @@ def configure_logging(config):
     debug_file_handler = None
     debug_log_enabled = config.get('logging.debug_log.enable')
     if debug_log_enabled:
-        debug_log_path = config.get('logging.debug_log.file_path')
+        debug_log_path = config.get('logging.debug_log.full_path')
         debug_log_mode = config.get('logging.debug_log.mode')
         debug_log_fmt = config.get('logging.debug_log.format')
         debug_log_datetime_fmt = config.get('logging.debug_log.datetime_format')

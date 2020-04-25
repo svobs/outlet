@@ -157,17 +157,11 @@ class DisplayStore:
         tree_path = self.model.get_path(tree_iter)
         return self.get_subtree_as_tree(tree_path, include_following_siblings=True, checked_only=True)
 
-    # FIXME: extend this to apply for GDrive, etc. Maybe use a URI scheme?
-    def get_abs_path(self, node_data):
-        """ Utility function: joins the two paths together into an absolute path and returns it"""
-        return self.data_store.get_root_path() if not node_data.file_path else \
-            os.path.join(self.data_store.get_root_path(), node_data.file_path)
-
     def get_abs_file_path(self, tree_path: Gtk.TreePath):
         """ Utility function: get absolute file path from a TreePath """
         node_data = self.get_node_data(tree_path)
         assert node_data is not None
-        return self.get_abs_path(node_data)
+        return node_data.full_path
 
     def get_subtree_as_tree(self, tree_path, include_following_siblings=False, checked_only=False):
         """
