@@ -141,16 +141,6 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
             root = change_tree.get_node('')
             append_recursively(None, root)
 
-    def _populate_category(self, category: Category, fmeta_list, root_path: str):
-        # Build fake tree for category:
-        stopwatch = Stopwatch()
-        change_tree = _build_category_change_tree(fmeta_list, category, root_path)
-        logger.debug(f'Faux tree built for "{category.name}" in: {stopwatch}')
-
-        stopwatch = Stopwatch()
-        self._append_to_model(category, change_tree)
-        logger.debug(f'TreeStore populated for "{category.name}" in: {stopwatch}')
-
     def _set_expand_states_from_config(self):
         # Loop over top level. Find the category nodes and expand them appropriately
         tree_iter = self.con.display_store.model.get_iter_first()
@@ -174,23 +164,34 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
         """
         logger.debug(f'Repopulating diff tree "{self.con.data_store.tree_id}"')
 
+        fmeta_tree = self.con.data_store.get_whole_tree()
+
         # Wipe out existing items:
         self.con.display_store.model.clear()
 
-        fmeta_tree = self.con.data_store.get_whole_tree()
-
+        change_trees = {}
         for category in [Category.Added,
                          Category.Deleted,
                          Category.Moved,
                          Category.Updated,
                          Category.Ignored]:
-            self._populate_category(category, fmeta_tree.get_for_cat(category),
-                                    fmeta_tree.root_path)
+            # Build fake tree for category:
+            stopwatch = Stopwatch()
+            change_tree = _build_category_change_tree(fmeta_tree.get_for_cat(category), category, fmeta_tree.root_path)
+            logger.debug(f'Faux tree built for "{category.name}" in: {stopwatch}')
+            change_trees[category] = change_tree
 
-        # Restore user prefs for expanded nodes:
-        GLib.idle_add(self._set_expand_states_from_config)
+        def update_ui():
+            stopwatch = Stopwatch()
+            for cat, tree in change_trees.items():
+                self._append_to_model(cat, tree)
+            logger.debug(f'TreeStore populated in: {stopwatch}')
 
-        logger.debug(f'Done repopulating diff tree "{self.con.data_store.tree_id}"')
+            # Restore user prefs for expanded nodes:
+            self._set_expand_states_from_config()
+            logger.debug(f'Done repopulating diff tree "{self.con.data_store.tree_id}"')
+
+        GLib.idle_add(update_ui)
 
     def resync_subtree(self, tree_path):
         # Construct a FMetaTree from the UI nodes: this is the 'stale' subtree.
