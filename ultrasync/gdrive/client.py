@@ -9,7 +9,7 @@ from stopwatch import Stopwatch
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-from gdrive.gdrive_model import EXPLICITLY_TRASHED, GoogFolder, GoogFile, GDriveMeta, IMPLICITLY_TRASHED, NOT_TRASHED, UserMeta
+from model.gdrive import EXPLICITLY_TRASHED, GoogFolder, GoogFile, IMPLICITLY_TRASHED, NOT_TRASHED, UserMeta
 
 # If modifying these scopes, delete the file token.pickle.
 from ui import actions

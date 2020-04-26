@@ -22,11 +22,6 @@ class DisplayNode(ABC):
 
     @classmethod
     @abstractmethod
-    def is_leaf(cls):
-        return False
-
-    @classmethod
-    @abstractmethod
     def is_dir(cls):
         return False
 
@@ -71,10 +66,6 @@ class DirNode(DisplayNode):
     def is_dir(cls):
         return True
 
-    @classmethod
-    def is_leaf(cls):
-        return False
-
     def get_name(self):
         return os.path.split(self.full_path)[1]
 
@@ -110,10 +101,6 @@ class LoadingNode(DisplayNode):
         return 'LoadingNode'
 
     @classmethod
-    def is_leaf(cls):
-        return True
-
-    @classmethod
     def is_dir(cls):
         return False
 
@@ -136,10 +123,6 @@ class EmptyNode(DisplayNode):
     @classmethod
     def __repr__(cls):
         return 'EmptyNode'
-
-    @classmethod
-    def is_leaf(cls):
-        return True
 
     @classmethod
     def get_name(cls):

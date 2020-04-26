@@ -3,7 +3,7 @@ import os
 from queue import Queue
 from gdrive.client import GDriveClient
 from cache.gdrive_db import GDriveDatabase
-from gdrive.gdrive_model import EXPLICITLY_TRASHED, GoogFolder, GoogFile, GDriveMeta, IMPLICITLY_TRASHED, NOT_TRASHED
+from model.gdrive import EXPLICITLY_TRASHED, GoogFolder, GoogFile, GDriveMeta, IMPLICITLY_TRASHED, NOT_TRASHED
 from ui import actions
 
 logger = logging.getLogger(__name__)

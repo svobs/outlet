@@ -4,7 +4,7 @@ import subprocess
 import ui.actions as actions
 from model.fmeta import FMeta, Category
 from ui.tree.action_bridge import TreeActionBridge
-from model.display_model import DirNode, CategoryNode
+from model.display_node import DirNode, CategoryNode
 
 import gi
 gi.require_version("Gtk", "3.0")

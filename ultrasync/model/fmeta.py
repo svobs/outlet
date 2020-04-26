@@ -4,7 +4,7 @@ import logging
 
 import file_util
 from model.category import Category
-from model.display_model import DisplayNode, ensure_int
+from model.display_node import DisplayNode, ensure_int
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +31,6 @@ class FMeta(DisplayNode):
 
     @classmethod
     def has_path(cls):
-        return True
-
-    @classmethod
-    def is_leaf(cls):
         return True
 
     @classmethod

@@ -1,5 +1,7 @@
 import logging
 
+from model.category import Category
+from model.display_node import DisplayNode
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +20,9 @@ class UserMeta:
         self.photo_link = photo_link
 
 
-class GoogFolder:
-    def __init__(self, item_id, item_name, trashed, drive_id, my_share, sync_ts):
+class GoogFolder(DisplayNode):
+    def __init__(self, item_id, item_name, trashed, drive_id, my_share, sync_ts, category=Category.NA):
+        super().__init__(category)
         self.id = item_id
         """Google ID"""
 
@@ -41,14 +44,23 @@ class GoogFolder:
         return f'Folder:(id="{self.id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
                    f'my_share={self.my_share} sync_ts={self.sync_ts} ]'
 
+    @classmethod
+    def is_dir(cls):
+        return True
+
+    def get_name(self):
+        return self.name
+
+    @classmethod
+    def has_path(cls):
+        # TODO: make this return True in the future
+        return False
+
     @property
     def trashed_str(self):
         if self.trashed is None:
             return ' '
         return TRASHED_STATUS[self.trashed]
-
-    def is_dir(self):
-        return True
 
     def make_tuple(self, parent_id):
         return self.id, self.name, parent_id, self.trashed, self.drive_id, self.my_share, self.sync_ts
@@ -82,7 +94,8 @@ class GoogFile(GoogFolder):
                f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
                f'sync_ts={self.sync_ts})'
 
-    def is_dir(self):
+    @classmethod
+    def is_dir(cls):
         return False
 
     def make_tuple(self, parent_id):

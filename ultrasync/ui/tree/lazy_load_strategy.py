@@ -1,4 +1,4 @@
-from gdrive.gdrive_model import NOT_TRASHED
+from model.gdrive import NOT_TRASHED
 from ui import actions
 from ui.assets import ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE
 import logging
@@ -7,7 +7,7 @@ from datetime import datetime
 
 import humanfriendly
 
-from model.display_model import CategoryNode, EmptyNode, LoadingNode
+from model.display_node import CategoryNode, EmptyNode, LoadingNode
 
 logger = logging.getLogger(__name__)
 
