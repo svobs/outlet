@@ -159,12 +159,6 @@ class DisplayStore:
         tree_path = self.model.get_path(tree_iter)
         return self.get_subtree_as_tree(tree_path, include_following_siblings=True, checked_only=True)
 
-    def get_abs_file_path(self, tree_path: Gtk.TreePath):
-        """ Utility function: get absolute file path from a TreePath """
-        node_data = self.get_node_data(tree_path)
-        assert node_data is not None
-        return node_data.full_path
-
     def get_subtree_as_tree(self, tree_path, include_following_siblings=False, checked_only=False):
         """
         FIXME: need to generalize this so it doesn't depend on FMeta!
@@ -180,7 +174,7 @@ class DisplayStore:
         Returns:
             A new FMetaTree which consists of a subset of the current UI tree
         """
-        subtree_root = self.get_abs_file_path(tree_path)
+        subtree_root = self.get_node_data(tree_path).full_path
         subtree = FMetaTree(subtree_root)
 
         def action_func(t_iter):

@@ -3,17 +3,17 @@ from fmeta.fmeta_tree_loader import FMetaTreeLoader
 from ui import actions
 import logging
 from pydispatch import dispatcher
-from ui.tree.data_store import BaseStore
+from ui.tree.meta_store import BaseMetaStore
 
 
 logger = logging.getLogger(__name__)
 
 
-class BulkLoadFMetaStore(BaseStore):
-    def __init__(self, tree_id, config):
+class BulkLoadFMetaStore(BaseMetaStore):
+    def __init__(self, tree_id, config, root_path):
         super().__init__(tree_id=tree_id, config=config)
         self.cache = fmeta_tree_cache.from_config(config=self.config, tree_id=self.tree_id)
-        self._root_path = self.config.get(self._root_path_config_entry())
+        self._root_path = root_path
         self._fmeta_tree = None
 
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=tree_id)
@@ -22,11 +22,7 @@ class BulkLoadFMetaStore(BaseStore):
         if self.get_root_path() != new_root:
             # Root changed. Invalidate the current tree contents
             self._fmeta_tree = None
-            self.config.write(transient_path=self._root_path_config_entry(), value=new_root)
             self._root_path = new_root
-
-    def _root_path_config_entry(self):
-        return f'transient.{self.tree_id}.root_path'
 
     def get_root_path(self):
         return self._root_path

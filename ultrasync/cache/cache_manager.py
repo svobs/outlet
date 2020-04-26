@@ -1,14 +1,18 @@
 import logging
 import os
 
+from pydispatch import dispatcher
+
 from cache.cache_registry_db import CACHE_TYPE_GDRIVE, CACHE_TYPE_LOCAL_DISK, CacheInfoEntry, CacheRegistry
 from cache.fmeta_tree_cache import SqliteCache
 from file_util import get_resource_path
 from model.fmeta import FMeta
 from fmeta.fmeta_tree_loader import FMetaTreeLoader
 from model.fmeta_tree import FMetaTree
+from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
-from ui.tree.data_store import BaseStore
+from ui.diff_tree.bulk_fmeta_data_store import BulkLoadFMetaStore
+from ui.tree.meta_store import BaseMetaStore
 
 MAIN_REGISTRY_FILE_NAME = 'registry.db'
 
@@ -82,8 +86,7 @@ class PathBeforeSha256Dict(TwoLevelDict):
         super().__init__(get_full_path, get_sha256)
 
 
-# TODO: rename BaseStore to BaseMetaStore
-class LocalDiskSubtreeMS(BaseStore):
+class LocalDiskSubtreeMS(BaseMetaStore):
     """Meta store for a subtree on disk
     """
     def __init__(self, tree_id, config, fmeta_tree):
@@ -95,6 +98,7 @@ class LocalDiskSubtreeMS(BaseStore):
 
     def get_whole_tree(self):
         return self._fmeta_tree
+
 
 class LocalDiskMasterCache:
     def __init__(self, application):
@@ -117,8 +121,11 @@ class LocalDiskMasterCache:
         # TODO: 2. Sync from disk
         # TODO: 3. Save to disk cache again (if configured)
 
-        ds = LocalDiskSubtreeMS(tree_id=tree_id, config=self.application.config, fmeta_tree=fmeta_tree)
-        return ds
+        # ds = LocalDiskSubtreeMS(tree_id=tree_id, config=self.application.config, fmeta_tree=fmeta_tree)
+        # return ds
+
+        return BulkLoadFMetaStore(tree_id=tree_id, config=self.application.config, root_path=subtree_path)
+
 
 class GDriveMasterCache:
     def __init__(self, application):
@@ -130,6 +137,7 @@ class GDriveMasterCache:
         pass
         # TODO!
 
+
 class CacheManager:
     def __init__(self, application):
         self.application = application
@@ -137,18 +145,28 @@ class CacheManager:
         self.cache_dir_path = _ensure_cache_dir_path(self.application.config)
 
         self.main_registry_path = os.path.join(self.cache_dir_path, MAIN_REGISTRY_FILE_NAME)
-        self.cache_registry_db = CacheRegistry(self.main_registry_path)
 
         self.local_disk_cache = None
         self.gdrive_cache = None
 
-    def load_all_caches(self):
+    def load_all_caches(self, sender):
         """Should be called during startup. Loop over all caches and load/merge them into a
         single large in-memory cache"""
+        if self.local_disk_cache:
+            logger.info(f'Caches already loaded. Ignoring signal from {sender}.')
+            return
+        logger.debug(f'CacheManager.load_all_caches() initiated by {sender}')
         self.local_disk_cache = LocalDiskMasterCache(self.application)
         self.gdrive_cache = GDriveMasterCache(self.application)
 
-        exisiting_caches = self.cache_registry_db.get_cache_info()
+        with CacheRegistry(self.main_registry_path) as cache_registry_db:
+            if cache_registry_db.has_cache_info():
+                exisiting_caches = cache_registry_db.get_cache_info()
+                logger.debug(f'Found {len(exisiting_caches)} caches listed in registry')
+            else:
+                exisiting_caches = []
+                logger.debug('Registry has no caches listed')
+
         for existing in exisiting_caches:
             if existing.cache_type == CACHE_TYPE_LOCAL_DISK:
                 self.load_local_disk_cache(existing)
@@ -156,6 +174,9 @@ class CacheManager:
                 self.load_gdrive_cache(existing)
             else:
                 raise RuntimeError(f'Unrecognized value for cache_type: {existing.cache_type}')
+
+        logger.debug('Done loading caches')
+        dispatcher.send(signal=actions.LOAD_ALL_CACHES_DONE, sender=ID_GLOBAL_CACHE)
 
     def load_local_disk_cache(self, cache_info: CacheInfoEntry):
         #### Legacy code follows...
@@ -170,7 +191,6 @@ class CacheManager:
             self.local_disk_cache.add_or_update_item(fmeta)
 
         # TODO: migrate cache save from FMetaTreeLoader to here
-
 
     def get_local_disk_subtree(self, subtree_path, tree_id):
         # TODO: query our registry for a tree with the given path

@@ -1,13 +1,15 @@
+from pydispatch import dispatcher
+
 from model.gdrive import NOT_TRASHED
 from ui import actions
 from ui.assets import ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE
 import logging
-from ui.tree.data_store import DisplayStrategy
 from datetime import datetime
 
 import humanfriendly
 
 from model.display_node import CategoryNode, EmptyNode, LoadingNode
+from ui.tree.display_strategy import DisplayStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -42,13 +44,9 @@ class LazyLoadStrategy(DisplayStrategy):
         super().__init__(controller)
 
     def init(self):
-        actions.connect(actions.NODE_EXPANSION_TOGGLED, self._on_node_expansion_toggled)
+        dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.con.data_store.tree_id)
 
     def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded):
-        # TODO: put this elsewhere
-        if type(node_data) == CategoryNode:
-            self.con.display_store.display_meta.set_category_node_expanded_state(node_data.category, is_expanded)
-
         # Add children for node:
         if is_expanded:
             children = self.con.data_store.get_children(node_data.id)

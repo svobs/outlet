@@ -1,3 +1,9 @@
+from pydispatch import dispatcher
+
+from model.display_node import CategoryNode
+from ui import actions
+
+
 class TreeDisplayMeta:
     def __init__(self, config, tree_id, editable, selection_mode, is_display_persisted, is_ignored_func=None):
         self.config = config
@@ -68,6 +74,19 @@ class TreeDisplayMeta:
         self.col_types.append(object)
         col_count += 1
 
+    def init(self):
+        # Hook up persistence of expanded state (if configured):
+        if self.is_display_persisted:
+            dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_toggle_row_expanded_state, sender=self.tree_id)
+
+    def _on_toggle_row_expanded_state(self, sender, parent_iter, node_data, is_expanded):
+        if type(node_data) == CategoryNode:
+            if self.is_ignored_func and self.is_ignored_func(node_data):
+                # Do not expand if ignored:
+                return
+            cfg_path = f'transient.{self.tree_id}.expanded_state.{node_data.category.name}'
+            self.config.write(cfg_path, is_expanded)
+
     def is_category_node_expanded(self, node):
         if self.is_ignored_func and self.is_ignored_func(node):
             # Do not expand if ignored:
@@ -79,8 +98,3 @@ class TreeDisplayMeta:
 
         # Default if no config:
         return True
-
-    def set_category_node_expanded_state(self, category, is_expanded):
-        if self.is_display_persisted:
-            cfg_path = f'transient.{self.tree_id}.expanded_state.{category.name}'
-            self.config.write(cfg_path, is_expanded)

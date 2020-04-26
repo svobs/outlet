@@ -19,6 +19,13 @@ class MetaDatabase:
         logger.info(f'Connecting to database: {db_path}')
         self.conn = sqlite3.connect(db_path)
 
+    def __enter__(self):
+        assert self.conn
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
     # Utility Functions ---------------------
 
     @staticmethod

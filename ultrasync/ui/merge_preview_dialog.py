@@ -9,7 +9,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
 from ui import actions
-from ui.tree.data_store import StaticWholeTreeStore
+from ui.tree.meta_store import StaticWholeTreeMS
 import fmeta.fmeta_file_util
 from file_util import get_resource_path
 from fmeta.fmeta_file_util import FMetaError
@@ -40,7 +40,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         label = Gtk.Label(label="The following changes will be made:")
         self.content_box.add(label)
 
-        data_store = StaticWholeTreeStore(tree_id=ID_MERGE_TREE, config=self.config, tree=self.fmeta_tree)
+        data_store = StaticWholeTreeMS(tree_id=ID_MERGE_TREE, config=self.config, tree=self.fmeta_tree)
 
         self.tree_con = tree_factory.build_static_file_tree(parent_win=self, data_store=data_store)
         actions.set_status(sender=data_store.tree_id, status_msg=self.fmeta_tree.get_summary())

@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 logger = logging.getLogger(__name__)
 
 
-class BaseStore(ABC):
+class BaseMetaStore(ABC):
     def __init__(self, tree_id, config):
         self.tree_id = tree_id
         self.config = config
@@ -18,7 +18,7 @@ class BaseStore(ABC):
         return None
 
 
-class StaticWholeTreeStore(BaseStore):
+class StaticWholeTreeMS(BaseMetaStore):
     """Read-only, not persisted"""
     def __init__(self, tree_id, config, tree):
         super().__init__(tree_id=tree_id, config=config)
@@ -31,16 +31,15 @@ class StaticWholeTreeStore(BaseStore):
         return self._tree
 
 
-class DisplayStrategy(ABC):
-    def __init__(self, controller=None):
-        self.con = controller
+class DummyMS(BaseMetaStore):
+    """Just a placeholder with no actual data, to be replaced once data is available"""
+    def __init__(self, tree_id, config, root_path):
+        super().__init__(tree_id=tree_id, config=config)
+        self._root_path = root_path
 
-    @abstractmethod
-    def populate_root(self):
-        """Draws from the undelying data store as needed, to populate the display store."""
-        pass
+    def get_root_path(self):
+        return self._root_path
 
-    @abstractmethod
-    def init(self):
-        """Do post-wiring stuff like connect listeners."""
-        pass
+    def get_whole_tree(self):
+        return None
+

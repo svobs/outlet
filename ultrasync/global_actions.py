@@ -23,15 +23,21 @@ class GlobalActions:
         self.application = application
 
     def init(self):
+        logger.debug('Init global actions')
         actions.connect(signal=actions.DO_DIFF, handler=self.on_diff_requested)
         actions.connect(signal=actions.DOWNLOAD_GDRIVE_META, handler=self.on_gdrive_requested)
         actions.connect(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, handler=self.on_gdrive_download_complete)
+        actions.connect(signal=actions.LOAD_ALL_CACHES, handler=self.on_load_all_caches_requested)
 
     def show_error_ui(self, *args, **kwargs):
         self.application.window.show_error_ui(*args, *kwargs)
 
+    def on_load_all_caches_requested(self, sender):
+        logger.debug(f'Received signal: "{actions.LOAD_ALL_CACHES}"')
+        self.application.task_runner.enqueue(self.application.cache_manager.load_all_caches, sender)
+
     def on_gdrive_requested(self, sender):
-        """Callback for signal DOWNLOAD_GDRIVE_META"""
+        logger.debug(f'Received signal: "{actions.DOWNLOAD_GDRIVE_META}"')
         self.application.task_runner.enqueue(self.download_gdrive_meta, sender)
 
     def download_gdrive_meta(self, tree_id):
@@ -66,7 +72,7 @@ class GlobalActions:
         GLib.idle_add(open_dialog)
 
     def on_diff_requested(self, sender, tree_con_left, tree_con_right):
-        """Callback for signal DO_DIFF"""
+        logger.debug(f'Received signal: "{actions.DO_DIFF}"')
         self.application.task_runner.enqueue(self.do_tree_diff, sender, tree_con_left, tree_con_right)
 
     def do_tree_diff(self, sender, tree_con_left, tree_con_right):

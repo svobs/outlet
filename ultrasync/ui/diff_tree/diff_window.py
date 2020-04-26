@@ -1,6 +1,10 @@
 import logging
 
 import gi
+
+from ui.tree.meta_store import DummyMS
+from ui.tree.root_path_config import RootPathConfigPersister
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 
@@ -53,7 +57,6 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.button5= Gtk.CheckButton(label="Relative paths or file names differ")
         self.checkbox_panel.pack_start(self.button5, True, True, 0)
         self.button5.set_sensitive(False) # disable
-        #self.button1.connect("toggled", self.on_button_toggled, "3")
         self.content_box.add(self.checkbox_panel)
 
         diff_tree_panes = Gtk.HPaned()
@@ -63,12 +66,16 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Tree Left:
-        store_left = BulkLoadFMetaStore(tree_id=actions.ID_LEFT_TREE, config=self.config)
+        self.root_path_persister_left = RootPathConfigPersister(config=self.config, tree_id=actions.ID_LEFT_TREE)
+        saved_root_path_left = self.root_path_persister_left.root_path
+        store_left = DummyMS(actions.ID_LEFT_TREE, self.config, saved_root_path_left)
         self.tree_con_left = tree_factory.build_bulk_load_file_tree(parent_win=self, data_store=store_left)
         diff_tree_panes.pack1(self.tree_con_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
-        store_right = BulkLoadFMetaStore(tree_id=actions.ID_RIGHT_TREE, config=self.config)
+        self.root_path_persister_right = RootPathConfigPersister(config=self.config, tree_id=actions.ID_RIGHT_TREE)
+        saved_root_path_right = self.root_path_persister_right.root_path
+        store_right = DummyMS(actions.ID_RIGHT_TREE, self.config, saved_root_path_right)
         self.tree_con_right = tree_factory.build_bulk_load_file_tree(parent_win=self, data_store=store_right)
         diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)
 
@@ -78,7 +85,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.bottom_button_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.bottom_panel.add(self.bottom_button_panel)
 
-        listen_for = [actions.ID_LEFT_TREE, actions.ID_RIGHT_TREE, actions.ID_DIFF_WINDOW]
+        listen_for = [actions.ID_LEFT_TREE, actions.ID_RIGHT_TREE,
+                      actions.ID_DIFF_WINDOW, actions.ID_GLOBAL_CACHE]
         # Remember to hold a reference to this, for signals!
         self.proress_bar_component = ProgressBarComponent(self.config, listen_for)
         self.bottom_panel.pack_start(self.proress_bar_component.progressbar, True, True, 0)
@@ -103,6 +111,10 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         # Subscribe to signals:
         actions.connect(signal=actions.TOGGLE_UI_ENABLEMENT, handler=self.on_enable_ui_toggled)
         actions.connect(signal=actions.DIFF_DID_COMPLETE, handler=self.after_diff_completed)
+        actions.connect(signal=actions.LOAD_ALL_CACHES_DONE, handler=self.after_all_caches_loaded)
+
+        # Kick off cache load now that we have a progress bar
+        actions.get_dispatcher().send(actions.LOAD_ALL_CACHES, sender=actions.ID_DIFF_WINDOW)
 
     def replace_bottom_button_panel(self, *buttons):
         for child in self.bottom_button_panel.get_children():
@@ -113,6 +125,15 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             button.show()
 
     # --- ACTIONS ---
+
+    def after_all_caches_loaded(self):
+        logger.debug(f'Received signal: {actions.LOAD_ALL_CACHES_DONE}')
+
+        self.tree_con_left.data_store = self.application.cache_manager.get_local_disk_subtree(
+            subtree_path=self.root_path_persister_left.root_path, tree_id=actions.ID_LEFT_TREE)
+
+        self.tree_con_right.data_store = self.application.cache_manager.get_local_disk_subtree(
+            subtree_path=self.root_path_persister_right.root_path, tree_id=actions.ID_RIGHT_TREE)
 
     def after_diff_completed(self, sender, stopwatch):
         """

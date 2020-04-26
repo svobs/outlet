@@ -1,6 +1,9 @@
 from pydispatch import dispatcher
 import logging
 
+LOAD_ALL_CACHES = 'load-all-caches'
+LOAD_ALL_CACHES_DONE = 'load-all-caches-done'
+
 ROOT_PATH_UPDATED = 'root-path-updated'
 DO_DIFF = 'do-diff'
 DIFF_DID_COMPLETE = 'diff-complete'

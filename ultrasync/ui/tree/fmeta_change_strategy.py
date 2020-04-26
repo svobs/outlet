@@ -11,9 +11,11 @@ from treelib import Tree
 import file_util
 from model.fmeta import FMeta, Category
 from fmeta.fmeta_tree_loader import TreeMetaScanner
-from ui.tree.data_store import DisplayStrategy
 from model.display_node import DirNode, CategoryNode
 import gi
+
+from ui.tree.display_strategy import DisplayStrategy
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib
 

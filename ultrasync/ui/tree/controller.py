@@ -22,6 +22,7 @@ class TreePanelController:
 
     def init(self):
         """Should be called after all controller components have been wired together"""
+        self.display_meta.init()
         self.display_strategy.init()
         self.action_handlers.init()
 

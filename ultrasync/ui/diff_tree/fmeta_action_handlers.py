@@ -52,8 +52,7 @@ class FMetaTreeActionHandlers(TreeActionBridge):
         pass
 
     def _on_toggle_row_expanded_state(self, sender, parent_iter, node_data, is_expanded):
-        if type(node_data) == CategoryNode:
-            self.con.display_store.display_meta.set_category_node_expanded_state(node_data.category, is_expanded)
+        pass
 
     def build_context_menu(self, tree_path: Gtk.TreePath, node_data):
         """Dynamic context menu (right-click on tree item)"""
