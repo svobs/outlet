@@ -1,0 +1,145 @@
+import os
+from typing import Any, Callable, Dict
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+"""
+🡻🡻🡻 ① KEY FUNCS 🡻🡻🡻
+"""
+
+
+def get_md5(item):
+    return item.md5
+
+
+def get_sha256(item):
+    return item.sha256
+
+
+def get_full_path(item):
+    return item.full_path
+
+
+def get_parent_path(item):
+    return os.path.dirname(item.full_path)
+
+
+def get_file_name(item):
+    return os.path.basename(item.full_path)
+
+
+def overwrite_newer_ts(old, new) -> bool:
+    if old.sync_ts > new.sync_ts:
+        logger.error('Existing item "sync_ts" ({old.sync_ts}) is newer than new item ({new.sync_ts}) - will not overwrite in cache')
+        return False
+    if old.modify_ts > new.modify_ts:
+        logger.error('Existing item "modify_ts" ({old.modify_ts}) is newer than new item ({new.modify_ts}) - will not overwrite in cache')
+    if old.change_ts > new.change_ts:
+        logger.error('Existing item "change_ts" ({old.change_ts}) is newer than new item ({new.change_ts}) - will not overwrite in cache')
+        return False
+    return True
+
+
+"""
+🡻🡻🡻 ② Generic class 🡻🡻🡻
+"""
+
+
+class TwoLevelDict:
+    def __init__(self, key_func1: Callable[[Any], str],
+                 key_func2: Callable[[Any], str],
+                 should_overwrite: Callable[[Any, Any], bool]):
+        """
+        Args:
+            key_func1: Takes 'item' as single arg, and returns a key value for the
+                first lookup
+            key_func2: Takes 'item' as single arg, and returns a key value for the
+                second lookup
+            should_overwrite: function which takes 'old' and 'new' as args,
+                and returns True if new should replace old; False if not.
+                Will only be called if put() finds an existing item with matching
+                keys.
+        """
+        self._dict = Dict[str, Dict[str, object]]
+        self._key_func1 = key_func1
+        self._key_func2 = key_func2
+        self._should_overwrite = should_overwrite
+        self._total = 0
+
+    def put(self, item, expected_existing=None):
+        assert item, 'trying to insert None!'
+        key1 = self._key_func1(item)
+        if not key1:
+            raise RuntimeError(f'Key1 is null for item: {item}')
+        dict2 = self._dict.get(key1, None)
+        if dict2 is None:
+            dict2 = {key1: {}}
+            self._dict[key1] = dict2
+            self._total += 1
+        else:
+            key2 = self._key_func2(item)
+            if not key2:
+                raise RuntimeError(f'Key2 is null for item: {item}')
+            existing = dict2.get(key2, None)
+            if existing:
+                if expected_existing:
+                    if expected_existing != existing:
+                        logger.error(f'Replacing a different entry ({existing}) than expected ({expected_existing})!')
+                    # Overwrite either way...
+                    dict2[key2] = item
+                elif self._should_overwrite(existing, item):
+                    dict2[key2] = item
+            else:
+                dict2[key2] = item
+            return existing
+        return None
+
+    def get(self, key1, key2):
+        """Returns the item matching both keys, or None if not found"""
+        assert key1, 'key1 is empty!'
+        assert key2, 'key2 is empty!'
+        dict2 = self._dict.get(key1, None)
+        if dict2 is None:
+            return None
+        return dict2.get(key2, None)
+
+    def remove(self, key1, key2):
+        """Removes and returns the item matching both keys, or None if not found"""
+        assert key1, 'key1 is empty!'
+        assert key2, 'key2 is empty!'
+        dict2 = self._dict.get(key1, None)
+        if dict2 is None:
+            return None
+        return dict2.pop(key2, None)
+
+
+"""
+🡻🡻🡻 ③ Parameterized classes 🡻🡻🡻
+"""
+
+
+class ParentPathBeforeFileNameDict(TwoLevelDict):
+    def __init__(self):
+        super().__init__(get_parent_path, get_file_name, overwrite_newer_ts)
+
+
+class FullPathBeforeMd5Dict(TwoLevelDict):
+    def __init__(self):
+        super().__init__(get_full_path, get_md5, overwrite_newer_ts)
+
+
+class Md5BeforePathDict(TwoLevelDict):
+    def __init__(self):
+        super().__init__(get_md5, get_full_path, overwrite_newer_ts)
+
+
+class Sha256BeforePathDict(TwoLevelDict):
+    def __init__(self):
+        super().__init__(get_sha256, get_full_path, overwrite_newer_ts)
+
+
+class PathBeforeSha256Dict(TwoLevelDict):
+    def __init__(self):
+        super().__init__(get_full_path, get_sha256, overwrite_newer_ts)

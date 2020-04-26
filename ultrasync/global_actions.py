@@ -22,6 +22,10 @@ class GlobalActions:
     def __init__(self, application):
         self.application = application
 
+    """
+    🡻🡻🡻 ① Connect Listeners 🡻🡻🡻
+    """
+
     def init(self):
         logger.debug('Init global actions')
         actions.connect(signal=actions.DO_DIFF, handler=self.on_diff_requested)
@@ -29,8 +33,16 @@ class GlobalActions:
         actions.connect(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, handler=self.on_gdrive_download_complete)
         actions.connect(signal=actions.LOAD_ALL_CACHES, handler=self.on_load_all_caches_requested)
 
+    """
+    🡻🡻🡻 ② Utility functions 🡻🡻🡻
+    """
+
     def show_error_ui(self, *args, **kwargs):
         self.application.window.show_error_ui(*args, *kwargs)
+
+    """
+    🡻🡻🡻 ③ Actions 🡻🡻🡻
+    """
 
     def on_load_all_caches_requested(self, sender):
         logger.debug(f'Received signal: "{actions.LOAD_ALL_CACHES}"')
@@ -41,6 +53,7 @@ class GlobalActions:
         self.application.task_runner.enqueue(self.download_gdrive_meta, sender)
 
     def download_gdrive_meta(self, tree_id):
+        """Executed by Task Runner. NOT UI thread"""
         actions.disable_ui(sender=tree_id)
         try:
             cache_path = get_resource_path('gdrive.db')
@@ -54,7 +67,7 @@ class GlobalActions:
             actions.enable_ui(sender=tree_id)
 
     def on_gdrive_download_complete(self, sender, meta):
-        """Callback for signal GDRIVE_DOWNLOAD_COMPLETE"""
+        logger.debug(f'Received signal: "{actions.GDRIVE_DOWNLOAD_COMPLETE}"')
         assert type(sender) == str
 
         def open_dialog():

@@ -1,6 +1,7 @@
 import os
 
 import logging
+from typing import Optional
 
 import file_util
 from model.category import Category
@@ -10,17 +11,17 @@ logger = logging.getLogger(__name__)
 
 
 class FMeta(DisplayNode):
-    def __init__(self, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, file_path, category=Category.NA, prev_path=None):
+    def __init__(self, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, category=Category.NA, prev_path=None):
         super().__init__(category)
-        self.md5 = md5
-        self.sha256 = sha256
-        self.size_bytes = ensure_int(size_bytes)
-        self.sync_ts = ensure_int(sync_ts)
-        self.modify_ts = ensure_int(modify_ts)
-        self.change_ts = ensure_int(change_ts)
-        self.full_path = file_path
+        self.md5: Optional[str] = md5
+        self.sha256: Optional[str] = sha256
+        self.size_bytes: int = ensure_int(size_bytes)
+        self.sync_ts: int = ensure_int(sync_ts)
+        self.modify_ts: int = ensure_int(modify_ts)
+        self.change_ts: int = ensure_int(change_ts)
+        self.full_path: str = full_path
         # Only used if category == ADDED or MOVED
-        self.prev_path = prev_path
+        self.prev_path: Optional[str] = prev_path
 
     def get_name(self):
         return os.path.split(self.full_path)[1]
@@ -38,11 +39,13 @@ class FMeta(DisplayNode):
         return False
 
     def is_content_equal(self, other_entry):
-        return isinstance(other_entry, FMeta) and self.sha256 == other_entry.sha256 \
+        assert isinstance(other_entry, FMeta)
+        return self.sha256 == other_entry.sha256 \
                and self.md5 == other_entry.md5 and self.size_bytes == other_entry.size_bytes
 
     def is_meta_equal(self, other_entry):
-        return isinstance(other_entry, FMeta) and self.full_path == other_entry.full_path and \
+        assert isinstance(other_entry, FMeta)
+        return self.full_path == other_entry.full_path and \
                self.modify_ts == other_entry.modify_ts and self.change_ts == other_entry.change_ts
 
     def matches(self, other_entry):

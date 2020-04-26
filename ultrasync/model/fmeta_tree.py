@@ -27,7 +27,7 @@ class FMetaList:
 
 
 class FMetaTree:
-    """Note: each FMeta object should be unique within its tree. Each FMeta should not be shared
+    """🢄🢄🢄 Note: each FMeta object should be unique within its tree. Each FMeta should not be shared
     between trees, and should be cloned if needed"""
     def __init__(self, root_path):
         self.root_path = root_path
@@ -45,7 +45,7 @@ class FMetaTree:
         self._total_size_bytes = 0
 
     def categorize(self, fmeta, category: Category):
-        """Convenience method to use when building the tree.
+        """🢄🢄🢄 Convenience method to use when building the tree.
         Changes the category of the given fmeta, then adds it to the category dict.
         Important: this method assumes the fmeta has already been assigned to the md5_dict
         and path_dict"""
@@ -107,7 +107,8 @@ class FMetaTree:
         return self._md5_dict.get(md5, None)
 
     def remove(self, full_path, md5, remove_old_md5=False, ok_if_missing=False):
-        """Removes from this FMetaTree the FMeta which matches the given file path and md5.
+        """
+        🢂 Removes from this FMetaTree the FMeta which matches the given file path and md5.
         Does sanity checks and raises exceptions if internal state is found to have problems.
         If match not found: returns None if ok_if_missing=True; raises exception otherwise.
         If remove_old_md5=True: ignore the value of 'md5' and instead remove the one found from the path search

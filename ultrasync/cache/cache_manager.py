@@ -5,6 +5,7 @@ from pydispatch import dispatcher
 
 from cache.cache_registry_db import CACHE_TYPE_GDRIVE, CACHE_TYPE_LOCAL_DISK, CacheInfoEntry, CacheRegistry
 from cache.fmeta_tree_cache import SqliteCache
+from cache.two_level_dict import FullPathBeforeMd5Dict, Md5BeforePathDict, ParentPathBeforeFileNameDict, Sha256BeforePathDict
 from file_util import get_resource_path
 from model.fmeta import FMeta
 from fmeta.fmeta_tree_loader import FMetaTreeLoader
@@ -19,18 +20,6 @@ MAIN_REGISTRY_FILE_NAME = 'registry.db'
 
 logger = logging.getLogger(__name__)
 
-def get_md5(item):
-    return item.md5
-
-def get_sha256(item):
-    return item.sha256
-
-def get_full_path(item):
-    return item.full_path
-
-def get_file_name(item):
-    return item.file_name
-
 
 def _ensure_cache_dir_path(config):
     cache_dir_path = get_resource_path(config.get('cache_dir_path'))
@@ -38,52 +27,6 @@ def _ensure_cache_dir_path(config):
         logger.info(f'Cache directory does not exist; attempting to create: "{cache_dir_path}"')
     os.makedirs(name=cache_dir_path, exist_ok=True)
     return cache_dir_path
-
-
-class TwoLevelDict:
-    def __init__(self, key_func1, key_func2):
-        self._dict = {}
-        self._key_func1 = key_func1
-        self._key_func2 = key_func2
-        self._total = 0
-
-    def put(self, item, overwrite_existing=False):
-        key1 = self._key_func1(item)
-        if not key1:
-            raise RuntimeError(f'Key1 is null for item: {item}')
-        dict2 = self._dict.get(key1, None)
-        if dict2 is None:
-            dict2 = {key1: {}}
-            self._dict[key1] = dict2
-        else:
-            key2 = self._key_func2(item)
-            if not key2:
-                raise RuntimeError(f'Key2 is null for item: {item}')
-            existing = dict2.get(key2, None)
-            if not existing or overwrite_existing:
-                dict2[key2] = item
-            return existing
-        return None
-
-
-class FullPathBeforeMd5Dict(TwoLevelDict):
-    def __init__(self):
-        super().__init__(get_full_path, get_md5)
-
-
-class Md5BeforePathDict(TwoLevelDict):
-    def __init__(self):
-        super().__init__(get_md5, get_full_path)
-
-
-class Sha256BeforePathDict(TwoLevelDict):
-    def __init__(self):
-        super().__init__(get_sha256, get_full_path)
-
-
-class PathBeforeSha256Dict(TwoLevelDict):
-    def __init__(self):
-        super().__init__(get_full_path, get_sha256)
 
 
 class LocalDiskSubtreeMS(BaseMetaStore):
@@ -106,18 +49,22 @@ class LocalDiskMasterCache:
         self.full_path_dict = FullPathBeforeMd5Dict()
         self.md5_dict = Md5BeforePathDict()
         self.sha256_dict = Sha256BeforePathDict()
-
-        # TODO: dir tree...
-      #  self.parent_path_dict = ParentPathBeforeMd5Dict()
+        self.parent_path_dict = ParentPathBeforeFileNameDict()
 
     def add_or_update_item(self, fmeta: FMeta):
-        # TODO!
-        pass
+        logger.debug('Adding item')
+        existing = self.full_path_dict.put(fmeta)
+        self.md5_dict.put(fmeta, existing)
+        self.sha256_dict.put(fmeta, existing)
+        self.parent_path_dict.put(fmeta, existing)
 
     def get_subtree(self, subtree_path, tree_id):
+        logger.debug(f'Getting items from in-memory cache for subtree: {subtree_path}')
         fmeta_tree = FMetaTree(root_path=subtree_path)
 
-        # TODO: 1. Load as many items as possible from the in-memory cache
+        # 1. Load as many items as possible from the in-memory cache
+
+
         # TODO: 2. Sync from disk
         # TODO: 3. Save to disk cache again (if configured)
 

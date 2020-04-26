@@ -19,6 +19,10 @@ from gi.repository import Gtk
 
 logger = logging.getLogger(__name__)
 
+"""
+🡻🡻🡻 ① Static internal functinos 🡻🡻🡻
+"""
+
 
 def _build_status_bar():
     info_bar_container = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
@@ -220,6 +224,11 @@ def is_ignored_func(data_node):
     return data_node.category == Category.Ignored
 
 
+"""
+🡻🡻🡻 ② Generic case 🡻🡻🡻
+"""
+
+
 def build(parent_win, data_store, display_meta, display_strategy, action_handlers):
     """Builds a single instance of a tree panel, and configures all its components as specified."""
     logger.debug(f'Building controller for tree: {data_store.tree_id}')
@@ -249,6 +258,11 @@ def build(parent_win, data_store, display_meta, display_strategy, action_handler
 
     controller.init()
     return controller
+
+
+"""
+🡻🡻🡻 ③ Specialized cases 🡻🡻🡻
+"""
 
 
 def build_gdrive(parent_win, data_store):
