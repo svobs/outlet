@@ -58,18 +58,20 @@ class FMetaTreeActionHandlers(TreeActionBridge):
     def build_context_menu(self, tree_path: Gtk.TreePath, node_data):
         """Dynamic context menu (right-click on tree item)"""
 
+        if not node_data.has_path():
+            # 'Loading' node, 'Empty' node, etc.
+            return
+
         menu = Gtk.Menu()
 
-        abs_path = self.con.display_store.get_abs_path(node_data)
-        # Important: use abs_path here, otherwise file names for category nodes are not displayed properly
-        parent_path, file_name = os.path.split(abs_path)
+        parent_path, file_name = os.path.split(node_data.full_path)
 
         is_category_node = type(node_data) == CategoryNode
-        file_exists = os.path.exists(abs_path)
+        file_exists = os.path.exists(node_data.full_path)
 
         item = Gtk.MenuItem(label='')
         label = item.get_child()
-        label.set_markup(f'<i>{abs_path}</i>')
+        label.set_markup(f'<i>{node_data.full_path}</i>')
         item.set_sensitive(False)
         menu.append(item)
 
@@ -78,7 +80,7 @@ class FMetaTreeActionHandlers(TreeActionBridge):
 
         if file_exists:
             item = Gtk.MenuItem(label='Show in Nautilus')
-            item.connect('activate', lambda menu_item, f: self.show_in_nautilus(f), abs_path)
+            item.connect('activate', lambda menu_item, f: self.show_in_nautilus(f), node_data.full_path)
             menu.append(item)
         else:
             item = Gtk.MenuItem(label='')
@@ -87,18 +89,18 @@ class FMetaTreeActionHandlers(TreeActionBridge):
             item.set_sensitive(False)
             menu.append(item)
 
-        if os.path.isdir(abs_path):
+        if os.path.isdir(node_data.full_path):
             item = Gtk.MenuItem(label=f'Expand all')
             item.connect('activate', lambda menu_item: self.expand_all(tree_path))
             menu.append(item)
 
             if not is_category_node and file_exists:
                 item = Gtk.MenuItem(label=f'Delete tree "{file_name}"')
-                item.connect('activate', lambda menu_item, abs_p: self.delete_dir_tree(abs_p, tree_path), abs_path)
+                item.connect('activate', lambda menu_item, abs_p: self.delete_dir_tree(abs_p, tree_path), node_data.full_path)
                 menu.append(item)
         elif file_exists:
             item = Gtk.MenuItem(label=f'Delete "{file_name}"')
-            item.connect('activate', lambda menu_item, abs_p: self.delete_single_file(abs_p, tree_path), abs_path)
+            item.connect('activate', lambda menu_item, abs_p: self.delete_single_file(abs_p, tree_path), node_data.full_path)
             menu.append(item)
 
         menu.show_all()
@@ -110,8 +112,7 @@ class FMetaTreeActionHandlers(TreeActionBridge):
             # Delete the actual file:
             node_data = self.con.display_store.get_node_data(tree_path)
             if node_data is not None:
-                abs_path = self.con.display_store.get_abs_path(node_data)
-                if not self.delete_dir_tree(subtree_root=abs_path, tree_path=tree_path):
+                if not self.delete_dir_tree(subtree_root=node_data.full_path, tree_path=tree_path):
                     # something went wrong if we got False. Stop.
                     break
 

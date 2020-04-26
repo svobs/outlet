@@ -39,7 +39,7 @@ def _build_category_change_tree(fmeta_list, category, root_path):
 
     logger.info(f'Building change trees for category {category.name} with {set_len} files...')
 
-    root = change_tree.create_node(tag=f'{category.name} ({set_len} files)', identifier='', data=CategoryNode(category))   # root
+    root = change_tree.create_node(tag=f'{category.name} ({set_len} files)', identifier='', data=CategoryNode(root_path, category))   # root
     for fmeta in fmeta_list:
         dirs_str, file_name = os.path.split(fmeta.get_relative_path(root_path))
         # nid == Node ID == directory name

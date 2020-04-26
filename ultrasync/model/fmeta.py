@@ -30,6 +30,10 @@ class FMeta(DisplayNode):
         return file_util.strip_root(self.full_path, root_path)
 
     @classmethod
+    def has_path(cls):
+        return True
+
+    @classmethod
     def is_leaf(cls):
         return True
 

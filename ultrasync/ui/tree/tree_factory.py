@@ -228,7 +228,7 @@ def build(parent_win, data_store, display_meta, display_strategy, action_handler
 
     # The controller holds all the components in memory. Important for listeners especially,
     # since they rely on weak references.
-    controller = TreePanelController(data_store, display_store, display_meta)
+    controller = TreePanelController(parent_win, data_store, display_store, display_meta)
     controller.tree_view = _build_treeview(display_store)
     controller.root_dir_panel = RootDirPanel(parent_win=parent_win, tree_id=data_store.tree_id,
                                              current_root=data_store.get_root_path(), editable=display_meta.editable)

@@ -73,13 +73,13 @@ def find_nearest_common_ancestor(path1, path2):
     path_segs2 = split_path(path2)
 
     i = 0
-    ancestor_path = ''
+    ancestor_path = '/'
     while True:
         if i < len(path_segs1) and i < len(path_segs2) and path_segs1[i] == path_segs2[i]:
             ancestor_path = os.path.join(ancestor_path, path_segs1[i])
             i += 1
         else:
-            logger.info(f'Common ancestor: {ancestor_path}')
+            logger.info(f'Common ancestor of path "{path1}" and "{path2}": {ancestor_path}"')
             return ancestor_path
 
 

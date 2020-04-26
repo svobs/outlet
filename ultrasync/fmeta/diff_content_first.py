@@ -270,9 +270,9 @@ def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_co
                     logger.debug(f'CONFLICT: left={left.category.name}:{left.full_path} right={right.category.name}:{right.full_path}')
         else:
             _adjust_paths_and_add(side_a_metas=left_metas_dup_md5, side_a_tree=left_tree,
-                                  side_b_tree=right_tree, dst_tree=merged_tree)
+                                  side_b_tree=right_tree, merged_tree=merged_tree)
             _adjust_paths_and_add(side_a_metas=right_metas_dup_md5, side_a_tree=right_tree,
-                                  side_b_tree=left_tree, dst_tree=merged_tree)
+                                  side_b_tree=left_tree, merged_tree=merged_tree)
 
     if len(conflict_pairs) > 0:
         logger.info(f'Number of conflicts found: {len(conflict_pairs)}')

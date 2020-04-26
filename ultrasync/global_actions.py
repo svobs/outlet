@@ -69,7 +69,6 @@ class GlobalActions:
         """Callback for signal DO_DIFF"""
         self.application.task_runner.enqueue(self.do_tree_diff, sender, tree_con_left, tree_con_right)
 
-    # TODO: change DB path whenever root is changed
     def do_tree_diff(self, sender, tree_con_left, tree_con_right):
         stopwatch_diff_total = Stopwatch()
         actions.disable_ui(sender=sender)

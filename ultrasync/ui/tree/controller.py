@@ -4,7 +4,8 @@ class TreePanelController:
     This class is mostly just a place to hold references in memory of all the disparate components
     required to make a tree panel. Hopefully I will think of ways to refine it more in the future.
     """
-    def __init__(self, data_store, display_store, display_meta):
+    def __init__(self, parent_win, data_store, display_store, display_meta):
+        self.parent_win = parent_win
         self.data_store = data_store
         self.display_store = display_store
         self.display_meta = display_meta

@@ -25,9 +25,20 @@ class DisplayNode(ABC):
     def is_leaf(cls):
         return False
 
+    @classmethod
+    @abstractmethod
+    def is_dir(cls):
+        return False
+
     @abstractmethod
     def get_name(self):
         return None
+
+    @classmethod
+    @abstractmethod
+    def has_path(cls):
+        """If true, this node represents a physical path. If false, it is just a logical node"""
+        return False
 
 
 """
@@ -53,6 +64,10 @@ class DirNode(DisplayNode):
         self.size_bytes += fmeta.size_bytes
 
     @classmethod
+    def has_path(cls):
+        return True
+
+    @classmethod
     def is_dir(cls):
         return True
 
@@ -68,15 +83,15 @@ class DirNode(DisplayNode):
         return f'{size} in {self.file_count} files'
 
     def __repr__(self):
-        return f'DirNode[{self.get_summary()}]'
+        return f'DirNode(full_path="{self.full_path}" {self.get_summary()})'
 
 
 class CategoryNode(DirNode):
     """
     Represents a category in the tree (however it can possibly be treated as the root dir)
     """
-    def __init__(self, category):
-        super().__init__('', category)
+    def __init__(self, full_path, category):
+        super().__init__(full_path, category)
 
     def __repr__(self):
         return f'Category[cat={self.category}'
@@ -90,15 +105,25 @@ class LoadingNode(DisplayNode):
     def __init__(self):
         super().__init__(Category.NA)
 
-    def __repr__(self):
+    @classmethod
+    def __repr__(cls):
         return 'LoadingNode'
 
     @classmethod
     def is_leaf(cls):
         return True
 
-    def get_name(self):
+    @classmethod
+    def is_dir(cls):
+        return False
+
+    @classmethod
+    def get_name(cls):
         return 'LoadingNode'
+
+    @classmethod
+    def has_path(cls):
+        return False
 
 
 class EmptyNode(DisplayNode):
@@ -108,12 +133,22 @@ class EmptyNode(DisplayNode):
     def __init__(self):
         super().__init__(Category.NA)
 
-    def __repr__(self):
+    @classmethod
+    def __repr__(cls):
         return 'EmptyNode'
 
     @classmethod
     def is_leaf(cls):
         return True
 
-    def get_name(self):
+    @classmethod
+    def get_name(cls):
         return 'EmptyNode'
+
+    @classmethod
+    def is_dir(cls):
+        return False
+
+    @classmethod
+    def has_path(cls):
+        return False
