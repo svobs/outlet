@@ -41,9 +41,10 @@ def configure_logging(config):
         root_logger.addHandler(console_handler)
 
     # TODO: figure out how to externalize this
-    logging.getLogger('fmeta.fmeta').setLevel(logging.INFO)
+    logging.getLogger('model.fmeta_tree').setLevel(logging.INFO)
     logging.getLogger('fmeta.diff_content_first').setLevel(logging.INFO)
     logging.getLogger('ui.tree.display_store').setLevel(logging.INFO)
+    logging.getLogger('ui.tree.fmeta_change_strategy').setLevel(logging.INFO)
 
     # --- Google API ---
     # Set to INFO or loggier to go back to logging Google API request URLs

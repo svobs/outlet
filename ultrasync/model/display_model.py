@@ -1,21 +1,49 @@
+from abc import ABC, abstractmethod
+import os
+
 import humanfriendly
 import logging
+
+from model.category import Category
+
 logger = logging.getLogger(__name__)
+
+
+def ensure_int(val):
+    if type(val) == str:
+        return int(val)
+    return val
+
+
+class DisplayNode(ABC):
+    """Base class for nodes which are meant to be displayed in a UI tree"""
+    def __init__(self, category):
+        self.category = ensure_int(category)
+
+    @classmethod
+    @abstractmethod
+    def is_leaf(cls):
+        return False
+
+    @abstractmethod
+    def get_name(self):
+        return None
+
+
 """
-Extra model objects for use in the hidden 'data' column in the TreeStore, for when a domain
-object doesn't quite make sense.
+The following are model objects for use in the hidden 'data' column in the TreeStore, for when a domain object doesn't quite make sense.
 """
 
 
-class DirNode:
+class DirNode(DisplayNode):
     """
     Represents a generic directory (i.e. not an FMeta or domain object)
     """
-    def __init__(self, file_path, category):
-        self.full_path = file_path
+    def __init__(self, full_path, category):
+        super().__init__(category)
+        self.full_path = full_path
         self.file_count = 0
         self.size_bytes = 0
-        self.category = category
 
     def add_meta(self, fmeta):
         if fmeta.category != self.category:
@@ -27,6 +55,13 @@ class DirNode:
     @classmethod
     def is_dir(cls):
         return True
+
+    @classmethod
+    def is_leaf(cls):
+        return False
+
+    def get_name(self):
+        return os.path.split(self.full_path)[1]
 
     def get_summary(self):
         size = humanfriendly.format_size(self.size_bytes)
@@ -47,24 +82,38 @@ class CategoryNode(DirNode):
         return f'Category[cat={self.category}'
 
 
-class LoadingNode:
+class LoadingNode(DisplayNode):
     """
     For use in lazy loading: Temporary node to put as the only child of a directory node,
     which will be deleted and replaced with real data if the node is expanded
     """
     def __init__(self):
-        pass
+        super().__init__(Category.NA)
 
     def __repr__(self):
         return 'LoadingNode'
 
+    @classmethod
+    def is_leaf(cls):
+        return True
 
-class EmptyNode:
+    def get_name(self):
+        return 'LoadingNode'
+
+
+class EmptyNode(DisplayNode):
     """
-    Represents an empty directory's contents
+    Represents the contents of a directory which is known to be empty
     """
     def __init__(self):
-        pass
+        super().__init__(Category.NA)
 
     def __repr__(self):
+        return 'EmptyNode'
+
+    @classmethod
+    def is_leaf(cls):
+        return True
+
+    def get_name(self):
         return 'EmptyNode'

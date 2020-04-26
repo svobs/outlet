@@ -1,6 +1,6 @@
-from model.category import Category
 import logging
-
+import humanfriendly
+from model.category import Category
 from model.fmeta import FMeta
 
 logger = logging.getLogger(__name__)
@@ -151,6 +151,9 @@ class FMetaTree:
         return match
 
     def add(self, item: FMeta):
+        if not item.full_path.startswith(self.root_path):
+            raise RuntimeError(f'FMeta (cat={item.category.name}) full path ({item.full_path}) is not under this tree ({self.root_path})')
+
         if item.category == Category.Ignored:
             logger.debug(f'Found ignored file: {item.full_path}')
         else:

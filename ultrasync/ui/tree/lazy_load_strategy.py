@@ -7,7 +7,7 @@ from datetime import datetime
 
 import humanfriendly
 
-from ui.tree.display_model import CategoryNode, EmptyNode, LoadingNode
+from model.display_model import CategoryNode, EmptyNode, LoadingNode
 
 logger = logging.getLogger(__name__)
 

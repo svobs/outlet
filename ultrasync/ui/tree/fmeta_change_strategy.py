@@ -12,7 +12,7 @@ import file_util
 from model.fmeta import FMeta, Category
 from fmeta.fmeta_tree_loader import TreeMetaScanner
 from ui.tree.data_store import DisplayStrategy
-from ui.tree.display_model import DirNode, CategoryNode
+from model.display_model import DirNode, CategoryNode
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib
@@ -20,7 +20,7 @@ from gi.repository import GLib
 logger = logging.getLogger(__name__)
 
 
-def _build_category_change_tree(fmeta_list, category):
+def _build_category_change_tree(fmeta_list, category, root_path):
     """
     Builds a tree out of the flat change set.
     Args:
@@ -34,31 +34,34 @@ def _build_category_change_tree(fmeta_list, category):
     change_tree = Tree()  # from treelib
 
     set_len = len(fmeta_list)
-    if set_len > 0:
-        logger.info(f'Building change trees for category {category.name} with {set_len} files...')
+    if set_len == 0:
+        return change_tree
 
-        root = change_tree.create_node(tag=f'{category.name} ({set_len} files)', identifier='', data=CategoryNode(category))   # root
-        for fmeta in fmeta_list:
-            dirs_str, file_name = os.path.split(fmeta.full_path)
-            # nid == Node ID == directory name
-            nid = ''
-            parent = root
-            #logger.debug(f'Adding root file "{fmeta.full_path}" to dir "{parent.data.full_path}"')
-            parent.data.add_meta(fmeta)
-            if dirs_str != '':
-                directories = file_util.split_path(dirs_str)
-                for dir_name in directories:
-                    nid = os.path.join(nid, dir_name)
-                    child = change_tree.get_node(nid=nid)
-                    if child is None:
-                        #logger.debug(f'Creating dir: {nid}')
-                        child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=DirNode(nid, category))
-                    parent = child
-                    #logger.debug(f'Adding file "{fmeta.full_path}" to dir {parent.data.full_path}"')
-                    parent.data.add_meta(fmeta)
-            nid = os.path.join(nid, file_name)
-            #logger.debug(f'Creating file: {nid}')
-            change_tree.create_node(identifier=nid, tag=file_name, parent=parent, data=fmeta)
+    logger.info(f'Building change trees for category {category.name} with {set_len} files...')
+
+    root = change_tree.create_node(tag=f'{category.name} ({set_len} files)', identifier='', data=CategoryNode(category))   # root
+    for fmeta in fmeta_list:
+        dirs_str, file_name = os.path.split(fmeta.get_relative_path(root_path))
+        # nid == Node ID == directory name
+        nid = ''
+        parent = root
+        logger.debug(f'Adding root file "{fmeta.full_path}" to dir "{parent.data.full_path}"')
+        parent.data.add_meta(fmeta)
+        if dirs_str != '':
+            path_segments = file_util.split_path(dirs_str)
+            for dir_name in path_segments:
+                nid = os.path.join(nid, dir_name)
+                child = change_tree.get_node(nid=nid)
+                if child is None:
+                    dir_full_path = os.path.join(root_path, nid)
+                    logger.debug(f'Creating dir node: nid={nid}')
+                    child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=DirNode(dir_full_path, category))
+                parent = child
+                logger.debug(f'Adding file node nid="{fmeta.full_path}" to dir node {parent.data.full_path}"')
+                parent.data.add_meta(fmeta)
+        nid = os.path.join(nid, file_name)
+        logger.debug(f'Creating file node: nid={nid}')
+        change_tree.create_node(identifier=nid, tag=file_name, parent=parent, data=fmeta)
 
     return change_tree
 
@@ -138,10 +141,10 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
             root = change_tree.get_node('')
             append_recursively(None, root)
 
-    def _populate_category(self, category: Category, fmeta_list):
+    def _populate_category(self, category: Category, fmeta_list, root_path: str):
         # Build fake tree for category:
         stopwatch = Stopwatch()
-        change_tree = _build_category_change_tree(fmeta_list, category)
+        change_tree = _build_category_change_tree(fmeta_list, category, root_path)
         logger.debug(f'Faux tree built for "{category.name}" in: {stopwatch}')
 
         stopwatch = Stopwatch()
@@ -181,7 +184,8 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
                          Category.Moved,
                          Category.Updated,
                          Category.Ignored]:
-            self._populate_category(category, fmeta_tree.get_for_cat(category))
+            self._populate_category(category, fmeta_tree.get_for_cat(category),
+                                    fmeta_tree.root_path)
 
         # Restore user prefs for expanded nodes:
         GLib.idle_add(self._set_expand_states_from_config)

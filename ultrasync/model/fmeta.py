@@ -2,42 +2,32 @@ import os
 
 import logging
 
-from model import display_node
+import file_util
 from model.category import Category
-from model.display_node import DisplayNode
+from model.display_model import DisplayNode, ensure_int
 
 logger = logging.getLogger(__name__)
 
 
 class FMeta(DisplayNode):
     def __init__(self, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, file_path, category=Category.NA, prev_path=None):
-        super().__init__()
+        super().__init__(category)
         self.md5 = md5
         self.sha256 = sha256
-        self.size_bytes = size_bytes
-        self.sync_ts = sync_ts
-        self.modify_ts = display_node.ensure_int(modify_ts)
-        self.change_ts = change_ts
+        self.size_bytes = ensure_int(size_bytes)
+        self.sync_ts = ensure_int(sync_ts)
+        self.modify_ts = ensure_int(modify_ts)
+        self.change_ts = ensure_int(change_ts)
         self.full_path = file_path
-        self.category = category
         # Only used if category == ADDED or MOVED
         self.prev_path = prev_path
 
     def get_name(self):
         return os.path.split(self.full_path)[1]
 
-    @property
-    def category(self):
-        assert type(self._category) == Category
-        return self._category
-
-    @category.setter
-    def category(self, category):
-        if type(category) == int:
-            self._category = Category(category)
-        else:
-            assert type(category) == Category, f'This should be an int. Type = {type(category)}'
-            self._category = category
+    def get_relative_path(self, root_path):
+        assert self.full_path.startswith(root_path), f'FMeta full path ({self.full_path}) does not contain root ({root_path})'
+        return file_util.strip_root(self.full_path, root_path)
 
     @classmethod
     def is_leaf(cls):

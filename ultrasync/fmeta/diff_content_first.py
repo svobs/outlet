@@ -3,13 +3,13 @@ import file_util
 import os
 import copy
 import logging
-from model.fmeta import Category
+from model.fmeta import Category, FMeta
 from model.fmeta_tree import FMetaTree
 
 logger = logging.getLogger(__name__)
 
 
-def _compare_paths_for_same_md5(lefts, left_tree, rights, right_tree):
+def _compare_paths_for_same_md5(lefts, left_tree, rights, right_tree, fixer):
     if lefts is None:
         lefts = []
     if rights is None:
@@ -19,14 +19,16 @@ def _compare_paths_for_same_md5(lefts, left_tree, rights, right_tree):
     orphaned_right = []
 
     for left in lefts:
-        match = right_tree.get_for_path(left.full_path)
-        if match is None:
+        left_on_right = fixer.move_to_right(left)
+        match = right_tree.get_for_path(left_on_right)
+        if not match:
             orphaned_left.append(left)
         # Else we matched path exactly: we can discard this entry
 
     for right in rights:
-        match = left_tree.get_for_path(right.full_path)
-        if match is None:
+        right_on_left = fixer.move_to_left(right)
+        match = left_tree.get_for_path(right_on_left)
+        if not match:
             orphaned_right.append(right)
         # Else we matched path exactly: we can discard this entry
 
@@ -51,8 +53,34 @@ def _compare_paths_for_same_md5(lefts, left_tree, rights, right_tree):
 
     return compare_result
 
+#
+# def mv_left_to_right(left_fmeta, left_tree, right_tree):
+#     left_rel_path = left_fmeta.get_relative_path(left_tree.root_path)
+#     new_full_path = os.path.join(right_tree.root_path, left_rel_path)
+#     return new_full_path
+#
+#
+# def mv_right_to_left(right_fmeta, right_tree, left_tree):
+#     right_rel_path = right_fmeta.get_relative_path(right_tree.root_path)
+#     new_full_path = os.path.join(left_tree.root_path, right_rel_path)
+#     return new_full_path
 
-def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, use_modify_times=False):
+
+class PathTransplanter:
+    def __init__(self, left_tree: FMetaTree, right_tree: FMetaTree):
+        self.left_root = left_tree.root_path
+        self.right_root = right_tree.root_path
+
+    def move_to_right(self, left_fmeta: FMeta) -> str:
+        left_rel_path = left_fmeta.get_relative_path(self.left_root)
+        return os.path.join(self.right_root, left_rel_path)
+
+    def move_to_left(self, right_fmeta: FMeta) -> str:
+        right_rel_path = right_fmeta.get_relative_path(self.right_root)
+        return os.path.join(self.left_root, right_rel_path)
+
+
+def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
     """Use this method if we mostly care about having the same unique files *somewhere* in
        each tree (in other words, we care about file contents, and care less about where each
        file is placed). If a file is found with the same signature on both sides but with
@@ -71,6 +99,8 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
        """
     logger.info('Diffing files by MD5...')
 
+    fixer = PathTransplanter(left_tree, right_tree)
+
     left_tree.clear_categories()
     right_tree.clear_categories()
 
@@ -88,13 +118,13 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
      Left but not Right will be determined to be an 'added' file from the perspective of Left but a 'deleted'
      file from the perspective of Right)"""
     for md5 in md5_set:
-        right_metas = right_tree.get_for_md5(md5)
-        left_metas = left_tree.get_for_md5(md5)
+        right_metas_dup_md5 = right_tree.get_for_md5(md5)
+        left_metas_dup_md5 = left_tree.get_for_md5(md5)
 
-        if left_metas is None:
-            orphaned_md5s_right.append(right_metas)
-        elif right_metas is None:
-            orphaned_md5s_left.append(left_metas)
+        if left_metas_dup_md5 is None:
+            orphaned_md5s_right.append(right_metas_dup_md5)
+        elif right_metas_dup_md5 is None:
+            orphaned_md5s_left.append(left_metas_dup_md5)
         elif compare_paths_also:
             """If we do this, we care about what the files are named, where they are located, and how many
             duplicates exist. When it comes to determining the direction of renamed files, we simply don't
@@ -104,43 +134,31 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
             (newer is assumed to be the rename destination), or for each side to assume it is the destination
             (similar to how we handle missing signatures above)"""
 
-            orphaned_for_md5_left = []
-            orphaned_for_md5_right = []
+            orphaned_left_dup_md5 = []
+            orphaned_right_dup_md5 = []
 
-            compare_result = _compare_paths_for_same_md5(left_metas, left_tree, right_metas, right_tree)
+            compare_result = _compare_paths_for_same_md5(left_metas_dup_md5, left_tree, right_metas_dup_md5, right_tree, fixer)
             for (changed_left, changed_right) in compare_result:
                 # Did we at least find a pair?
                 if changed_left is not None and changed_right is not None:
-                    # TODO: it never makes sense currently to use modify times, since
-                    # TODO: we're always using a symmetric diff. Re-examine this issue with one-sided diff
-                    if use_modify_times:
-                        if changed_left.modify_ts > changed_right.modify_ts:
-                            # renamed from right to left (i.e. left is newer)
-                            changed_left.prev_path = changed_right.full_path
-                            left_tree.categorize(changed_left, Category.Moved)
-                        else:
-                            # renamed from left to right (i.e. right is newer)
-                            changed_right.prev_path = changed_left.full_path
-                            right_tree.categorize(changed_right, Category.Moved)
-                    else:
-                        # if not using modify times, each side will assume it is newer always:
-                        changed_right.prev_path = changed_left.full_path
-                        right_tree.categorize(changed_right, Category.Moved)
+                    # MOVED
+                    changed_right.prev_path = fixer.move_to_right(changed_left)
+                    right_tree.categorize(changed_right, Category.Moved)
 
-                        changed_left.prev_path = changed_right.full_path
-                        left_tree.categorize(changed_left, Category.Moved)
+                    changed_left.prev_path = fixer.move_to_left(changed_right)
+                    left_tree.categorize(changed_left, Category.Moved)
                 else:
                     """Looks like one side has additional file(s) with same signature 
                        - essentially a duplicate.. Remember, we know each side already contains
                        at least one copy with the given signature"""
                     if changed_left is None:
-                        orphaned_for_md5_right.append(changed_right)
+                        orphaned_right_dup_md5.append(changed_right)
                     elif changed_right is None:
-                        orphaned_for_md5_left.append(changed_left)
-            if orphaned_for_md5_left:
-                orphaned_md5s_left.append(orphaned_for_md5_left)
-            if orphaned_for_md5_right:
-                orphaned_md5s_right.append(orphaned_for_md5_right)
+                        orphaned_left_dup_md5.append(changed_left)
+            if orphaned_left_dup_md5:
+                orphaned_md5s_left.append(orphaned_left_dup_md5)
+            if orphaned_right_dup_md5:
+                orphaned_md5s_right.append(orphaned_right_dup_md5)
 
     for fmeta_duplicate_md5s_left in orphaned_md5s_left:
         # TODO: Duplicate content (options):
@@ -149,8 +167,10 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
         #  - For each unique, compare only the best match on each side and ignore the rest
         for left_meta in fmeta_duplicate_md5s_left:
             if compare_paths_also:
-                matching_right = right_tree.get_for_path(left_meta.full_path)
+                left_on_right_path = fixer.move_to_right(left_meta)
+                matching_right = right_tree.get_for_path(left_on_right_path)
                 if matching_right:
+                    # UPDATED
                     if logger.isEnabledFor(logging.DEBUG):
                         logger.debug(f'File updated: {left_meta.md5} <- "{left_meta.full_path}" -> {matching_right.md5}')
                     # Same path, different md5 -> Updated
@@ -158,24 +178,32 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
                     left_tree.categorize(left_meta, Category.Updated)
                     continue
                 # No match? fall through
+            # DUPLICATE ADDED on left + DELETED on right
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f'Left has new file: "{left_meta.full_path}"')
             left_tree.categorize(left_meta, Category.Added)
+
             left_meta_copy = copy.deepcopy(left_meta)
             left_meta_copy.category = Category.Deleted
+            left_meta_copy.full_path = fixer.move_to_right(left_meta)
             right_tree.add(left_meta_copy)
 
     for fmeta_duplicate_md5s_right in orphaned_md5s_right:
         for right_meta in fmeta_duplicate_md5s_right:
-            if compare_paths_also and left_tree.get_for_path(right_meta.full_path):
-                # logically this has already been covered since the handling is symmetrical:
-                continue
+            if compare_paths_also:
+                right_on_left = fixer.move_to_left(right_meta)
+                if left_tree.get_for_path(right_on_left):
+                    # UPDATED. Logically this has already been covered (above) since our iteration is symmetrical:
+                    continue
+            # DUPLICATE ADDED on right + DELETED on left
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f'Right has new file: "{right_meta.full_path}"')
             right_tree.categorize(right_meta, Category.Added)
+
             # Note: deleted nodes should not be thought of like 'real' nodes
             right_meta_copy = copy.deepcopy(right_meta)
             right_meta_copy.category = Category.Deleted
+            right_meta_copy.full_path = fixer.move_to_left(right_meta)
             left_tree.add(right_meta_copy)
 
     logger.debug(f'Done with diff. Left:[{left_tree.get_category_summary_string()}] Right:[{right_tree.get_category_summary_string()}]')
@@ -189,73 +217,62 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False, 
     return left_tree, right_tree
 
 
-def find_nearest_common_ancestor(path1, path2):
-    path_segs1 = file_util.split_path(path1)
-    path_segs2 = file_util.split_path(path2)
-
-    i = 0
-    ancestor_path = ''
-    while True:
-        if i < len(path_segs1) and i < len(path_segs2) and path_segs1[i] == path_segs2[i]:
-            ancestor_path = os.path.join(ancestor_path, path_segs1[i])
-            i += 1
-        else:
-            logger.info(f'Common ancestor: {ancestor_path}')
-            return ancestor_path
-
-
-def _add_adjusted_metas(side_a_metas, side_a_prefix, side_b_prefix, dst_tree):
+def _adjust_paths_and_add(side_a_metas, side_a_tree, side_b_tree, merged_tree):
     """Note: Adjust all the metas in side_a_metas, with the assumption that the opposite
     side ("Side B") is the target"""
     if side_a_metas is None:
         return
 
-    # FIXME!
+    # In this scope, a=left and b=right
+    fixer = PathTransplanter(side_a_tree, side_b_tree)
+
     for side_a_meta in side_a_metas:
-        new_fmeta = copy.deepcopy(side_a_meta)
+        side_a_meta_copy = copy.deepcopy(side_a_meta)
         if side_a_meta.category == Category.Moved:
-            # Moves are from Side B to Side B
-            new_fmeta.prev_path = os.path.join(side_b_prefix, side_a_meta.prev_path)
-            new_fmeta.full_path = os.path.join(side_b_prefix, side_a_meta.full_path)
+            # Moves from Side A to another part of Side A
+            side_a_meta_copy.prev_path = side_a_meta.prev_path
+            side_a_meta_copy.full_path = side_a_meta.full_path
         elif side_a_meta.category == Category.Added:
-            # Copies are from Side A to Side B
-            new_fmeta.prev_path = os.path.join(side_a_prefix, side_a_meta.full_path)
-            new_fmeta.full_path = os.path.join(side_b_prefix, side_a_meta.full_path)
+            # Copies from Side A to Side B
+            side_a_meta_copy.prev_path = side_a_meta.full_path
+            side_a_meta_copy.full_path = fixer.move_to_right(side_a_meta)
         elif side_a_meta.category == Category.Updated:
-            # Treated like a copy from Side A to overwrite Side B
-            new_fmeta.prev_path = os.path.join(side_a_prefix, side_a_meta.full_path)
-            new_fmeta.full_path = os.path.join(side_b_prefix, side_a_meta.full_path)
+            # Treated like a copy from Side A to overwrite Side B (same effect as Added)
+            side_a_meta_copy.prev_path = side_a_meta.full_path
+            side_a_meta_copy.full_path = fixer.move_to_right(side_a_meta)
+        elif side_a_meta.category == Category.Moved:
+            side_a_meta_copy.full_path = fixer.move_to_right(side_a_meta)
         else:
-            new_fmeta.full_path = os.path.join(side_b_prefix, side_a_meta.full_path)
-        dst_tree.add(new_fmeta)
+            logger.error(f'Invalid category: {side_a_meta.category}')
+
+        merged_tree.add(side_a_meta_copy)
 
 
 def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_conflicts=True):
-    new_root_path = find_nearest_common_ancestor(left_tree.root_path, right_tree.root_path)
+    new_root_path = file_util.find_nearest_common_ancestor(left_tree.root_path, right_tree.root_path)
     merged_tree = FMetaTree(root_path=new_root_path)
 
     md5_set = left_tree.get_md5_set() | right_tree.get_md5_set()
 
-    left_old_root_remainder = file_util.strip_root(left_tree.root_path, new_root_path)
-    right_old_root_remainder = file_util.strip_root(right_tree.root_path, new_root_path)
+    fixer = PathTransplanter(left_tree, right_tree)
 
     conflict_pairs = []
     for md5 in md5_set:
-        right_metas = right_tree.get_for_md5(md5)
-        left_metas = left_tree.get_for_md5(md5)
+        right_metas_dup_md5 = right_tree.get_for_md5(md5)
+        left_metas_dup_md5 = left_tree.get_for_md5(md5)
 
-        if check_for_conflicts and left_metas is not None and right_metas is not None:
-            compare_result = _compare_paths_for_same_md5(left_metas, left_tree, right_metas, right_tree)
+        if check_for_conflicts and left_metas_dup_md5 and right_metas_dup_md5:
+            compare_result = _compare_paths_for_same_md5(left_metas_dup_md5, left_tree, right_metas_dup_md5, right_tree, fixer)
             for (left, right) in compare_result:
                 # Finding a pair here indicates a conflict
                 if left is not None and right is not None:
                     conflict_pairs.append((left, right))
                     logger.debug(f'CONFLICT: left={left.category.name}:{left.full_path} right={right.category.name}:{right.full_path}')
         else:
-            _add_adjusted_metas(side_a_metas=left_metas, side_a_prefix=left_old_root_remainder,
-                                side_b_prefix=right_old_root_remainder, dst_tree=merged_tree)
-            _add_adjusted_metas(side_a_metas=right_metas, side_a_prefix=right_old_root_remainder,
-                                side_b_prefix=left_old_root_remainder, dst_tree=merged_tree)
+            _adjust_paths_and_add(side_a_metas=left_metas_dup_md5, side_a_tree=left_tree,
+                                  side_b_tree=right_tree, dst_tree=merged_tree)
+            _adjust_paths_and_add(side_a_metas=right_metas_dup_md5, side_a_tree=right_tree,
+                                  side_b_tree=left_tree, dst_tree=merged_tree)
 
     if len(conflict_pairs) > 0:
         logger.info(f'Number of conflicts found: {len(conflict_pairs)}')

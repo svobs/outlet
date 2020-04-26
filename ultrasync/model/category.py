@@ -1,7 +1,5 @@
-import humanfriendly
 import itertools
-import logging
-from enum import Enum
+from enum import IntEnum
 
 # See: https://www.notinventedhere.org/articles/python/how-to-use-strings-as-name-aliases-in-python-enums.html
 _CATEGORIES = {
@@ -12,10 +10,9 @@ _CATEGORIES = {
     4: ['Updated', 'UPDATED'],
     5: ['Moved', 'MOVED'],
 }
-Category = Enum(
+Category = IntEnum(
     value='Category',
     names=itertools.chain.from_iterable(
         itertools.product(v, [k]) for k, v in _CATEGORIES.items()
     )
 )
-
