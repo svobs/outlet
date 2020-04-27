@@ -40,6 +40,9 @@ class CacheRegistry(MetaDatabase):
     def has_cache_info(self):
         return self.has_rows(self.TABLE_CACHE_REGISTRY)
 
+    def create_cache_registry_if_not_exist(self):
+        self.create_table_if_not_exist(self.TABLE_CACHE_REGISTRY)
+
     def get_cache_info(self):
         # Gets all changes in the table
         rows = self.get_all_rows(self.TABLE_CACHE_REGISTRY)
@@ -51,8 +54,11 @@ class CacheRegistry(MetaDatabase):
     # Takes a list of FMeta objects:
     def insert_cache_info(self, entries, append, overwrite):
         rows = []
-        for entry in entries:
-            rows.append(entry.to_tuple())
+        if type(entries) == list:
+            for entry in entries:
+                rows.append(entry.to_tuple())
+        else:
+            rows.append(entries.to_tuple())
 
         has_existing = self.has_cache_info()
         if has_existing:

@@ -28,7 +28,7 @@ class GlobalActions:
 
     def init(self):
         logger.debug('Init global actions')
-        actions.connect(signal=actions.DO_DIFF, handler=self.on_diff_requested)
+        actions.connect(signal=actions.START_DIFF_TREES, handler=self.on_diff_requested)
         actions.connect(signal=actions.DOWNLOAD_GDRIVE_META, handler=self.on_gdrive_requested)
         actions.connect(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, handler=self.on_gdrive_download_complete)
         actions.connect(signal=actions.LOAD_ALL_CACHES, handler=self.on_load_all_caches_requested)
@@ -85,7 +85,7 @@ class GlobalActions:
         GLib.idle_add(open_dialog)
 
     def on_diff_requested(self, sender, tree_con_left, tree_con_right):
-        logger.debug(f'Received signal: "{actions.DO_DIFF}"')
+        logger.debug(f'Received signal: "{actions.START_DIFF_TREES}"')
         self.application.task_runner.enqueue(self.do_tree_diff, sender, tree_con_left, tree_con_right)
 
     def do_tree_diff(self, sender, tree_con_left, tree_con_right):
@@ -119,7 +119,7 @@ class GlobalActions:
             tree_con_left.load()
             tree_con_right.load()
 
-            actions.get_dispatcher().send(signal=actions.DIFF_DID_COMPLETE, sender=sender, stopwatch=stopwatch_diff_total)
+            actions.get_dispatcher().send(signal=actions.DIFF_TREES_DONE, sender=sender, stopwatch=stopwatch_diff_total)
         except Exception as err:
             actions.enable_ui(sender=self)
             self.show_error_ui('Diff task failed due to unexpected error', repr(err))

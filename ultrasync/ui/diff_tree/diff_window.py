@@ -12,7 +12,6 @@ from pydispatch import dispatcher
 
 import ui.actions as actions
 import ui.assets
-from ui.diff_tree.bulk_fmeta_data_store import BulkLoadFMetaStore
 from ui.progress_bar_component import ProgressBarComponent
 from ui.tree import tree_factory
 
@@ -23,7 +22,10 @@ from ui.base_dialog import BaseDialog
 logger = logging.getLogger(__name__)
 
 
+# ⬛⬛⬛⬛⬛⬛⬛ DiffWindow ⬛⬛⬛⬛⬛⬛⬛
+
 class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
+    """🢄🢄🢄 2-panel window for comparing one file tree to another"""
     def __init__(self, application):
         Gtk.Window.__init__(self, application=application)
         BaseDialog.__init__(self, application.config)
@@ -95,7 +97,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         def on_diff_btn_clicked(widget):
             logger.debug('Diff btn clicked!')
-            dispatcher.send(signal=actions.DO_DIFF, sender=actions.ID_DIFF_WINDOW,
+            dispatcher.send(signal=actions.START_DIFF_TREES, sender=actions.ID_DIFF_WINDOW,
                             tree_con_left=self.tree_con_left, tree_con_right=self.tree_con_right)
         diff_action_btn = Gtk.Button(label="Diff (content-first)")
         diff_action_btn.connect("clicked", on_diff_btn_clicked)
@@ -110,7 +112,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         # Subscribe to signals:
         actions.connect(signal=actions.TOGGLE_UI_ENABLEMENT, handler=self.on_enable_ui_toggled)
-        actions.connect(signal=actions.DIFF_DID_COMPLETE, handler=self.after_diff_completed)
+        actions.connect(signal=actions.DIFF_TREES_DONE, handler=self.after_diff_completed)
         actions.connect(signal=actions.LOAD_ALL_CACHES_DONE, handler=self.after_all_caches_loaded)
 
         # Kick off cache load now that we have a progress bar
@@ -124,20 +126,20 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             self.bottom_button_panel.pack_start(button, False, False, 0)
             button.show()
 
-    # --- ACTIONS ---
+    # ⬛⬛⬛⬛⬛⬛⬛ SIGNAL CALLBACKS ⬛⬛⬛⬛⬛⬛⬛
 
     def after_all_caches_loaded(self):
         logger.debug(f'Received signal: {actions.LOAD_ALL_CACHES_DONE}')
 
-        self.tree_con_left.data_store = self.application.cache_manager.get_local_disk_subtree(
+        self.tree_con_left.data_store = self.application.cache_manager.get_metastore_for_local_subtree(
             subtree_path=self.root_path_persister_left.root_path, tree_id=actions.ID_LEFT_TREE)
 
-        self.tree_con_right.data_store = self.application.cache_manager.get_local_disk_subtree(
+        self.tree_con_right.data_store = self.application.cache_manager.get_metastore_for_local_subtree(
             subtree_path=self.root_path_persister_right.root_path, tree_id=actions.ID_RIGHT_TREE)
 
     def after_diff_completed(self, sender, stopwatch):
         """
-        Callback for DIFF_DID_COMPLETE global action
+        Callback for DIFF_TREES_DONE global action
         """
         def change_button_bar():
             # Replace diff btn with merge buttons
@@ -186,7 +188,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                 # Assume the dialog took care of applying the changes.
                 # Refresh the diff trees:
                 logger.debug('Refreshing the diff trees')
-                actions.send_signal(signal=actions.DO_DIFF, sender=self)
+                actions.send_signal(signal=actions.START_DIFF_TREES, sender=self)
         except Exception as err:
             self.show_error_ui('Merge preview failed due to unexpected error', repr(err))
             raise

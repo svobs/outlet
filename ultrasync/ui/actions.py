@@ -1,14 +1,17 @@
 from pydispatch import dispatcher
 import logging
 
+# Tasks
 LOAD_ALL_CACHES = 'load-all-caches'
 LOAD_ALL_CACHES_DONE = 'load-all-caches-done'
-
-ROOT_PATH_UPDATED = 'root-path-updated'
-DO_DIFF = 'do-diff'
-DIFF_DID_COMPLETE = 'diff-complete'
+START_DIFF_TREES = 'start-diff-trees'
+DIFF_TREES_DONE = 'diff-trees_done'
 DOWNLOAD_GDRIVE_META = 'download-gdrive-meta'
 GDRIVE_DOWNLOAD_COMPLETE = 'gdrive-download-complete'
+
+# --- Tree actions ---
+NODE_EXPANSION_TOGGLED = 'node-expansion-toggled'
+ROOT_PATH_UPDATED = 'root-path-updated'
 
 # All components should listen for this
 TOGGLE_UI_ENABLEMENT = 'toggle-ui-enablement'
@@ -29,9 +32,6 @@ ID_LEFT_TREE = 'left_tree'
 ID_RIGHT_TREE = 'right_tree'
 ID_MERGE_TREE = 'merge_tree'
 ID_GLOBAL_CACHE = 'global_cache'
-
-# --- Tree actions ---
-NODE_EXPANSION_TOGGLED = 'node-expansion-toggled'
 
 logger = logging.getLogger(__name__)
 

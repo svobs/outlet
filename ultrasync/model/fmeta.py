@@ -41,12 +41,12 @@ class FMeta(DisplayNode):
     def is_content_equal(self, other_entry):
         assert isinstance(other_entry, FMeta)
         return self.sha256 == other_entry.sha256 \
-               and self.md5 == other_entry.md5 and self.size_bytes == other_entry.size_bytes
+            and self.md5 == other_entry.md5 and self.size_bytes == other_entry.size_bytes
 
     def is_meta_equal(self, other_entry):
         assert isinstance(other_entry, FMeta)
         return self.full_path == other_entry.full_path and \
-               self.modify_ts == other_entry.modify_ts and self.change_ts == other_entry.change_ts
+            self.modify_ts == other_entry.modify_ts and self.change_ts == other_entry.change_ts
 
     def matches(self, other_entry):
         return self.is_content_equal(other_entry) and self.is_meta_equal(other_entry)
@@ -54,3 +54,5 @@ class FMeta(DisplayNode):
     def is_ignored(self):
         return self.category == Category.Ignored
 
+    def __repr__(self):
+        return f'FMeta(cat={self.category.name} md5={self.md5} sha256={self.sha256} modify_ts={self.modify_ts} path="{self.full_path}")'

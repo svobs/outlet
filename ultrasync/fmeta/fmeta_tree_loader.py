@@ -4,9 +4,7 @@ import errno
 import copy
 import time
 from pathlib import Path
-from stopwatch import Stopwatch
 from model.fmeta import FMeta, Category
-from cache.fmeta_tree_cache import NullCache
 from fmeta.tree_recurser import TreeRecurser
 import fmeta.content_hasher
 import ui.actions as actions
@@ -211,34 +209,3 @@ class TreeMetaScanner(TreeRecurser):
         if fmeta.category != Category.Ignored:
             meta_copy.category = new_category
         self.change_tree.add(meta_copy)
-
-
-class FMetaTreeLoader:
-    """
-    Encapsulates all logic needed to retrieve, update and cache a single FMetaTree.
-    """
-
-    # TODO: dissolve this class; put into cache manager
-    def __init__(self, tree_root_path, cache=NullCache(), tree_id=None):
-        self.tree_id = tree_id
-        self.tree_root_path = tree_root_path
-        self.cache = cache
-
-    def get_current_tree(self):
-        # Load from cache:
-        stopwatch_total = Stopwatch()
-        tree = self.cache.load_fmeta_tree(self.tree_root_path)
-
-        # Directory tree scan
-        logger.debug(f'Scanning: {self.tree_root_path}')
-        scanner = TreeMetaScanner(root_path=self.tree_root_path, stale_tree=tree, tree_id=self.tree_id, track_changes=False)
-        scanner.scan()
-        tree = scanner.fresh_tree
-
-        # Update cache:
-        self.cache.overwrite_fmeta_tree(tree)
-
-        logger.info(f'Tree loaded in: {stopwatch_total}')
-        if self.tree_id:
-            actions.set_status(sender=self.tree_id, status_msg=tree.get_summary())
-        return tree
