@@ -1,8 +1,11 @@
 import logging
 import os
+from queue import Queue
 
+import treelib
 from pydispatch import dispatcher
 
+import file_util
 from cache.cache_registry_db import CACHE_TYPE_GDRIVE, CACHE_TYPE_LOCAL_DISK, CacheInfoEntry, CacheRegistry
 from cache.fmeta_tree_cache import SqliteCache
 from cache.two_level_dict import FullPathBeforeMd5Dict, Md5BeforePathDict, ParentPathBeforeFileNameDict, Sha256BeforePathDict
@@ -16,6 +19,7 @@ from ui.diff_tree.bulk_fmeta_data_store import BulkLoadFMetaStore
 from ui.tree.meta_store import BaseMetaStore
 
 MAIN_REGISTRY_FILE_NAME = 'registry.db'
+ROOT = '/'
 
 
 logger = logging.getLogger(__name__)
@@ -46,23 +50,55 @@ class LocalDiskSubtreeMS(BaseMetaStore):
 class LocalDiskMasterCache:
     def __init__(self, application):
         self.application = application
+        self.use_md5 = True
+        self.use_sha256 = False
         self.full_path_dict = FullPathBeforeMd5Dict()
-        self.md5_dict = Md5BeforePathDict()
-        self.sha256_dict = Sha256BeforePathDict()
-        self.parent_path_dict = ParentPathBeforeFileNameDict()
+        if self.use_md5:
+            self.md5_dict = Md5BeforePathDict()
+        else:
+            self.md5_dict = None
+        if self.use_sha256:
+            self.sha256_dict = Sha256BeforePathDict()
+        else:
+            self.sha256_dict = None
 
-    def add_or_update_item(self, fmeta: FMeta):
+        # Each item inserted here will have an entry created for its dir.
+        self.parent_path_dict = ParentPathBeforeFileNameDict()
+        # But we still need a dir tree to look up child dirs:
+        self.dir_tree = treelib.Tree()
+        self.dir_tree.create_node(tag=ROOT, identifier=ROOT)
+
+    def add_or_update_item(self, item: FMeta):
+        """TODO: Need to make this atomic"""
         logger.debug('Adding item')
-        existing = self.full_path_dict.put(fmeta)
-        self.md5_dict.put(fmeta, existing)
-        self.sha256_dict.put(fmeta, existing)
-        self.parent_path_dict.put(fmeta, existing)
+        existing = self.full_path_dict.put(item)
+        if self.use_md5 and item.md5:
+            self.md5_dict.put(item, existing)
+        if self.use_sha256 and item.sha256:
+            self.sha256_dict.put(item, existing)
+        self.parent_path_dict.put(item, existing)
+        self._add_ancestors_to_tree(item.full_path)
 
     def get_subtree(self, subtree_path, tree_id):
         logger.debug(f'Getting items from in-memory cache for subtree: {subtree_path}')
         fmeta_tree = FMetaTree(root_path=subtree_path)
+        count_added_from_cache = 0
 
-        # 1. Load as many items as possible from the in-memory cache
+        # 1. Load as many items as possible from the in-memory cache.
+        # Loop over all the descendants dirs, and add all of the files in each:
+        q = Queue()
+        q.put(subtree_path)
+        while not q.empty():
+            dir_path = q.get()
+            files_in_dir = self.parent_path_dict.get(subtree_path)
+            for fmeta in files_in_dir:
+                fmeta_tree.add(fmeta)
+                count_added_from_cache += 1
+            if self.dir_tree.get_node(dir_path):
+                for child_dir in self.dir_tree.children(dir_path):
+                    q.put(child_dir)
+
+        logger.debug(f'Found {count_added_from_cache} items in memory cache')
 
 
         # TODO: 2. Sync from disk
@@ -72,6 +108,20 @@ class LocalDiskMasterCache:
         # return ds
 
         return BulkLoadFMetaStore(tree_id=tree_id, config=self.application.config, root_path=subtree_path)
+
+    def _add_ancestors_to_tree(self, item_full_path):
+        nid = ROOT
+        parent = self.dir_tree.get_node(nid)
+        dirs_str = os.path.dirname(item_full_path)
+        path_segments = file_util.split_path(dirs_str)
+
+        for dir_name in path_segments:
+            nid = os.path.join(nid, dir_name)
+            child = self.dir_tree.get_node(nid=nid)
+            if child is None:
+                logger.debug(f'Creating dir node: nid={nid}')
+                child = self.dir_tree.create_node(tag=dir_name, identifier=nid, parent=parent)
+            parent = child
 
 
 class GDriveMasterCache:
@@ -130,6 +180,9 @@ class CacheManager:
 
         # Load cache from file, and update with any local FS changes found:
         legacy_cache = SqliteCache(tree_id=ID_GLOBAL_CACHE, db_file_path=cache_info.subtree_root, enable_load=True, enable_update=True)
+
+
+
         tree_loader = FMetaTreeLoader(tree_root_path=cache_info.subtree_root, cache=legacy_cache, tree_id=ID_GLOBAL_CACHE)
         # TODO: dump tree loader code here
         fmeta_tree = tree_loader.get_current_tree()

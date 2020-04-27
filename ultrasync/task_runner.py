@@ -7,25 +7,29 @@ MAX_WORKERS = 1
 
 
 class Task:
-    def __init__(self, task_func, *args):
+    def __init__(self, application, task_func, *args):
+        self.application = application
         self.task_func = task_func
         self.args = args
 
     def run(self):
         try:
             self.task_func(*self.args)
-        except Exception:
-            logger.exception(f'Task failed during execution')
+        except Exception as err:
+            msg = 'Task failed during execution'
+            logger.exception(msg)
+            self.application.window.show_error_ui(msg, repr(err))
             raise
 
 
 class CentralTaskRunner:
-    def __init__(self):
+    def __init__(self, application):
+        self.application = application
         self.executor = ThreadPoolExecutor(max_workers=MAX_WORKERS)
 
     def enqueue(self, task_func, *args):
         logger.debug('Submitting new task to executor')
-        task = Task(task_func, *args)
+        task = Task(self.application, task_func, *args)
         future = self.executor.submit(task.run)
         return future
 

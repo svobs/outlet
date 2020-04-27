@@ -185,7 +185,6 @@ class TreeMetaScanner(TreeRecurser):
         """Recurse over disk tree. Gather current stats for each file, and compare to the stale tree.
         For each current file found, remove from the stale tree.
         When recursion is complete, what's left in the stale tree will be deleted/moved files"""
-        # TODO: progress meter + cache
 
         if not os.path.exists(self.root_path):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.root_path)

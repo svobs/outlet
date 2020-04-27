@@ -50,6 +50,7 @@ def _build_category_change_tree(fmeta_list, category, root_path):
         logger.debug(f'Adding root file "{fmeta.full_path}" to dir "{parent.data.full_path}"')
         parent.data.add_meta(fmeta)
         if dirs_str != '':
+            # Create a node for each ancestor dir (path segment)
             path_segments = file_util.split_path(dirs_str)
             for dir_name in path_segments:
                 nid = os.path.join(nid, dir_name)
@@ -59,7 +60,7 @@ def _build_category_change_tree(fmeta_list, category, root_path):
                     logger.debug(f'Creating dir node: nid={nid}')
                     child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=DirNode(dir_full_path, category))
                 parent = child
-                logger.debug(f'Adding file node nid="{fmeta.full_path}" to dir node {parent.data.full_path}"')
+                logger.debug(f'Adding file meta from nid="{fmeta.full_path}" to dir node {parent.data.full_path}"')
                 parent.data.add_meta(fmeta)
         nid = os.path.join(nid, file_name)
         logger.debug(f'Creating file node: nid={nid}')

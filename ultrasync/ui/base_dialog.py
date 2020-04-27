@@ -19,9 +19,9 @@ class BaseDialog:
     def show_error_msg(self, msg, secondary_msg=None):
         dialog = Gtk.MessageDialog(parent=self, modal=True, message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CANCEL, text=msg)
         if secondary_msg is None:
-            logger.debug(f'Displaying user error: {msg}')
+            logger.debug(f'Displaying error: {msg}')
         else:
-            logger.debug(f'Displaying user error: {msg}: {secondary_msg}')
+            logger.debug(f'Displaying error: {msg}: {secondary_msg}')
             dialog.format_secondary_text(secondary_msg)
 
         def run_on_ui_thread():

@@ -62,7 +62,7 @@ class TwoLevelDict:
                 Will only be called if put() finds an existing item with matching
                 keys.
         """
-        self._dict = Dict[str, Dict[str, object]]
+        self._dict: Dict[str, Dict[str, Any]] = {}
         self._key_func1 = key_func1
         self._key_func2 = key_func2
         self._should_overwrite = should_overwrite
@@ -75,34 +75,34 @@ class TwoLevelDict:
             raise RuntimeError(f'Key1 is null for item: {item}')
         dict2 = self._dict.get(key1, None)
         if dict2 is None:
-            dict2 = {key1: {}}
+            dict2 = {}
             self._dict[key1] = dict2
-            self._total += 1
-        else:
-            key2 = self._key_func2(item)
-            if not key2:
-                raise RuntimeError(f'Key2 is null for item: {item}')
-            existing = dict2.get(key2, None)
-            if existing:
-                if expected_existing:
-                    if expected_existing != existing:
-                        logger.error(f'Replacing a different entry ({existing}) than expected ({expected_existing})!')
-                    # Overwrite either way...
-                    dict2[key2] = item
-                elif self._should_overwrite(existing, item):
-                    dict2[key2] = item
-            else:
+        key2 = self._key_func2(item)
+        if not key2:
+            raise RuntimeError(f'Key2 is null for item: {item}')
+        existing = dict2.get(key2, None)
+        if existing:
+            if expected_existing:
+                if expected_existing != existing:
+                    logger.error(f'Replacing a different entry ({existing}) than expected ({expected_existing})!')
+                # Overwrite either way...
                 dict2[key2] = item
-            return existing
-        return None
+            elif self._should_overwrite(existing, item):
+                dict2[key2] = item
+        else:
+            dict2[key2] = item
+            self._total += 1
+        return existing
 
-    def get(self, key1, key2):
-        """Returns the item matching both keys, or None if not found"""
+    def get(self, key1: str, key2: str = None):
+        """If only one arg is provided, returns the entire dict which matches the first key.
+        If two are provided, returns the item matching both keys, or None if not found"""
         assert key1, 'key1 is empty!'
-        assert key2, 'key2 is empty!'
         dict2 = self._dict.get(key1, None)
-        if dict2 is None:
-            return None
+        if not dict2:
+            return {}
+        if not key2:
+            return dict2
         return dict2.get(key2, None)
 
     def remove(self, key1, key2):

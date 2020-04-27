@@ -26,7 +26,7 @@ class UltrasyncApplication(Gtk.Application):
         Gtk.Application.__init__(self)
         self.window = None
 
-        self.task_runner = CentralTaskRunner()
+        self.task_runner = CentralTaskRunner(self)
         self.cache_manager = CacheManager(self)
         self.global_actions = GlobalActions(self)
         self.global_actions.init()
