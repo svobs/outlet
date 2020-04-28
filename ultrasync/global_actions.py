@@ -100,7 +100,7 @@ class GlobalActions:
                 return
 
             # Load trees if not loaded - may be a long operation
-
+            # TODO: turn dummy data store into a lazy-load data store
             left_fmeta_tree = tree_con_left.data_store.get_whole_tree()
             right_fmeta_tree = tree_con_right.data_store.get_whole_tree()
 

@@ -3,6 +3,7 @@ import logging
 import gi
 
 from model.fmeta_tree import FMetaTree
+from model.planning_node import PlanningNode
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -180,7 +181,7 @@ class DisplayStore:
         def action_func(t_iter):
             if not action_func.checked_only or self.is_node_checked(t_iter):
                 data_node = self.get_node_data(t_iter)
-                if isinstance(data_node, FMeta):
+                if isinstance(data_node, FMeta) or isinstance(data_node, PlanningNode):
                     subtree.add(data_node)
 
         action_func.checked_only = checked_only

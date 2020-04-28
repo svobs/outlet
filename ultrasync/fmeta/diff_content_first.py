@@ -220,38 +220,6 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
     return left_tree, right_tree
 
 
-def _adjust_paths_and_add(side_a_metas, side_a_tree, side_b_tree, merged_tree):
-    """Note: Adjust all the metas in side_a_metas, with the assumption that the opposite
-    side ("Side B") is the target"""
-    if side_a_metas is None:
-        return
-
-    # In this scope, a=left and b=right
-    fixer = PathTransplanter(side_a_tree, side_b_tree)
-
-    # FIXME: this is broken code (again)
-    for side_a_meta in side_a_metas:
-        side_a_meta_copy = copy.deepcopy(side_a_meta)
-        if side_a_meta.category == Category.Moved:
-            # Moves from Side A to another part of Side A
-            side_a_meta_copy.prev_path = side_a_meta.prev_path
-            side_a_meta_copy.full_path = side_a_meta.full_path
-        elif side_a_meta.category == Category.Added:
-            # Copies from Side A to Side B
-            side_a_meta_copy.prev_path = side_a_meta.full_path
-            side_a_meta_copy.full_path = fixer.move_to_right(side_a_meta)
-        elif side_a_meta.category == Category.Updated:
-            # Treated like a copy from Side A to overwrite Side B (same effect as Added)
-            side_a_meta_copy.prev_path = side_a_meta.full_path
-            side_a_meta_copy.full_path = fixer.move_to_right(side_a_meta)
-        elif side_a_meta.category == Category.Moved:
-            side_a_meta_copy.full_path = fixer.move_to_right(side_a_meta)
-        else:
-            logger.error(f'Invalid category: {side_a_meta.category}')
-
-        merged_tree.add(side_a_meta_copy)
-
-
 def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_conflicts=True):
     new_root_path = file_util.find_nearest_common_ancestor(left_tree.root_path, right_tree.root_path)
     merged_tree = FMetaTree(root_path=new_root_path)
@@ -267,16 +235,20 @@ def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_co
 
         if check_for_conflicts and left_metas_dup_md5 and right_metas_dup_md5:
             compare_result = _compare_paths_for_same_md5(left_metas_dup_md5, left_tree, right_metas_dup_md5, right_tree, fixer)
+            # TODO: wow, adds and deletes of the same file cancel each other out via the matching algo...
+            #       Maybe just delete the conflict detection code...
             for (left, right) in compare_result:
                 # Finding a pair here indicates a conflict
                 if left is not None and right is not None:
                     conflict_pairs.append((left, right))
                     logger.debug(f'CONFLICT: left={left.category.name}:{left.full_path} right={right.category.name}:{right.full_path}')
         else:
-            _adjust_paths_and_add(side_a_metas=left_metas_dup_md5, side_a_tree=left_tree,
-                                  side_b_tree=right_tree, merged_tree=merged_tree)
-            _adjust_paths_and_add(side_a_metas=right_metas_dup_md5, side_a_tree=right_tree,
-                                  side_b_tree=left_tree, merged_tree=merged_tree)
+            if left_metas_dup_md5:
+                for node in left_metas_dup_md5:
+                    merged_tree.add(node)
+            if right_metas_dup_md5:
+                for node in right_metas_dup_md5:
+                    merged_tree.add(node)
 
     if len(conflict_pairs) > 0:
         logger.info(f'Number of conflicts found: {len(conflict_pairs)}')
