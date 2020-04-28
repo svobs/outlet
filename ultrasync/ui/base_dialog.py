@@ -8,8 +8,9 @@ logger = logging.getLogger(__name__)
 
 
 class BaseDialog:
-    def __init__(self, config: AppConfig):
-        self.config = config
+    def __init__(self, application):
+        self.application = application
+        self.config: AppConfig = application.config
 
     def show_error_ui(self, msg, secondary_msg=None):
         def do_on_ui_thread(m, sm):

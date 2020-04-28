@@ -55,7 +55,7 @@ class LazyLoadStrategy(DisplayStrategy):
                 # Append all underneath tree_iter
                 for child in children:
                     if child.is_dir():
-                        self._append_dir_node_and_dummy_child(parent_iter, child)
+                        self._append_dir_node_and_empty_child(parent_iter, child)
                     else:
                         self._append_file_node(parent_iter, child)
                 # Remove dummy node:
@@ -102,7 +102,7 @@ class LazyLoadStrategy(DisplayStrategy):
 
         return self.con.display_store.model.append(parent_node_iter, row_values)
 
-    def _append_dir_node_and_dummy_child(self, tree_iter, node_data):
+    def _append_dir_node_and_empty_child(self, tree_iter, node_data):
         """Appends a dir or cat node to the model"""
         row_values = []
         if self.con.display_store.display_meta.editable:
@@ -181,6 +181,6 @@ class LazyLoadStrategy(DisplayStrategy):
         # Append all underneath tree_iter
         for child in children:
             if child.is_dir():
-                self._append_dir_node_and_dummy_child(tree_iter, child)
+                self._append_dir_node_and_empty_child(tree_iter, child)
             else:
                 self._append_file_node(tree_iter, child)

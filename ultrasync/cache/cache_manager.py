@@ -254,6 +254,7 @@ def from_config(config, tree_id):
                     info.is_loaded = True
                 else:
                     logger.info(f'Subtree not found; assuming it is a removable drive: "{existing_disk_cache.subtree_root}"')
+                    info.needs_refresh = True
 
             elif existing_disk_cache.cache_type == CACHE_TYPE_GDRIVE:
                 self.load_gdrive_cache(existing_disk_cache)

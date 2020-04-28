@@ -233,7 +233,7 @@ def build(parent_win, data_store, display_meta, display_strategy, action_handler
     """Builds a single instance of a tree panel, and configures all its components as specified."""
     logger.debug(f'Building controller for tree: {data_store.tree_id}')
 
-    display_store = DisplayStore(display_meta, data_store)
+    display_store = DisplayStore(display_meta)
 
     # The controller holds all the components in memory. Important for listeners especially,
     # since they rely on weak references.

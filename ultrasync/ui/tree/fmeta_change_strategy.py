@@ -76,7 +76,11 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
         super().__init__(controller)
 
     def init(self):
-        pass
+        actions.connect(actions.ROOT_PATH_UPDATED, self._on_root_path_updated, self.con.data_store.tree_id)
+
+    def _on_root_path_updated(self, sender, new_root):
+        # Get a new metastore from the cache manager:
+        self.con.data_store = self.con.parent_win.application.cache_manager.get_metastore_for_local_subtree(new_root, self.con.data_store.tree_id)
 
     def _append_dir_node(self, tree_iter, dir_name, node_data):
         """Appends a dir or cat node to the model"""
@@ -174,6 +178,8 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
         # Wipe out existing items:
         self.con.display_store.model.clear()
 
+        total_stopwatch = Stopwatch()
+
         change_trees = {}
         for category in [Category.Added,
                          Category.Deleted,
@@ -181,10 +187,12 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
                          Category.Updated,
                          Category.Ignored]:
             # Build fake tree for category:
-            faux_treestopwatch = Stopwatch()
+            category_stopwatch = Stopwatch()
             change_tree = _build_category_change_tree(fmeta_tree.get_for_cat(category), category, fmeta_tree.root_path)
-            logger.debug(f'Faux tree built for "{category.name}" in: {faux_treestopwatch}')
+            logger.info(f'Faux tree built for "{category.name}" in: {category_stopwatch}')
             change_trees[category] = change_tree
+
+        logger.info(f'Total time for all categories: {total_stopwatch}')
 
         def update_ui():
             tree_view_update_stopwatch = Stopwatch()

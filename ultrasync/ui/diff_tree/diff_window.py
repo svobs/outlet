@@ -28,9 +28,8 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
     """🢄🢄🢄 2-panel window for comparing one file tree to another"""
     def __init__(self, application):
         Gtk.Window.__init__(self, application=application)
-        BaseDialog.__init__(self, application.config)
+        BaseDialog.__init__(self, application)
 
-        self.application = application
         self.set_title('UltraSync')
         # program icon:
         self.set_icon_from_file(ui.assets.WINDOW_ICON_PATH)

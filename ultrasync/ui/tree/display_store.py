@@ -16,9 +16,8 @@ logger = logging.getLogger(__name__)
 class DisplayStore:
     """(Mostly) encapsulates the nodes inside the TreeView object, which will be a subset of the nodes
     which come from the data store """
-    def __init__(self, display_meta, data_store):
+    def __init__(self, display_meta):
         self.display_meta = display_meta
-        self.data_store = data_store
         self.model = Gtk.TreeStore()
         self.model.set_column_types(self.display_meta.col_types)
 

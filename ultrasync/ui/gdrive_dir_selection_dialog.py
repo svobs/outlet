@@ -42,6 +42,10 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
         self.connect("response", self.on_response)
         self.show_all()
 
+    def on_ok_clicked(self):
+        # TODO
+        pass
+
     def on_response(self, dialog, response_id):
         # destroy the widget (the dialog) when the function on_response() is called
         # (that is, when the button of the dialog has been clicked)
