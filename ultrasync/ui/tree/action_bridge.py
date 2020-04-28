@@ -13,6 +13,9 @@ from gi.repository import GLib, Gdk
 
 logger = logging.getLogger(__name__)
 
+# CLASS TreeActionBridge
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
 
 class TreeActionBridge:
     def __init__(self, controller):
@@ -34,7 +37,8 @@ class TreeActionBridge:
         self.con.tree_view.connect('row-collapsed', self._on_toggle_row_expanded_state, False)
         # select.connect("changed", self._on_tree_selection_changed)
 
-    # --- LISTENERS ---
+    # LISTENERS
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
     # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
     def _on_set_status(self, sender, status_msg):
@@ -49,9 +53,9 @@ class TreeActionBridge:
         if treeiter is not None and len(treeiter) == 1:
             meta = self.con.display_store.get_node_data(treeiter)
             if isinstance(meta, FMeta):
-                logger.debug(f'User selected cat="{meta.category.name}" md5="{meta.md5}" path="{meta.full_path}" prev_path="{meta.prev_path}"')
+                logger.info(f'User selected cat="{meta.category.name}" md5="{meta.md5}" path="{meta.full_path}" prev_path="{meta.prev_path}"')
             else:
-                logger.debug(f'User selected {self.con.display_store.get_node_name(treeiter)}')
+                logger.info(f'User selected {self.con.display_store.get_node_name(treeiter)}')
         return self.on_selection_changed(treeiter)
 
     def _on_row_activated(self, tree_view, tree_path, col, tree_id):
@@ -76,10 +80,10 @@ class TreeActionBridge:
 
     def _on_toggle_row_expanded_state(self, tree_view, parent_iter, tree_path, is_expanded):
         if not self.ui_enabled:
-            # logger.debug('Ignoring row expansion toggle - UI is disabled')
+            logger.debug('Ignoring row expansion toggle - UI is disabled')
             return True
         node_data = self.con.display_store.get_node_data(parent_iter)
-        logger.debug(f'Toggling expanded state to {is_expanded} for node: {node_data}')
+        logger.debug(f'[{self.con.tree_id}] Sending signal "{actions.NODE_EXPANSION_TOGGLED}" with is_expanded={is_expanded} for node: {node_data}')
         if not node_data.is_dir():
             raise RuntimeError(f'Node is not a directory: {type(node_data)}; node_data')
 
@@ -134,7 +138,8 @@ class TreeActionBridge:
                 return True
         return False
 
-    # --- END of LISTENERS ---
+    # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+    # END LISTENERS
 
     # To be optionally overridden:
     def on_selection_changed(self, treeiter):

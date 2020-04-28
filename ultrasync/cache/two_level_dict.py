@@ -43,8 +43,52 @@ def overwrite_newer_ts(old, new) -> bool:
 
 
 """
-🡻🡻🡻 ② Generic class 🡻🡻🡻
+🡻🡻🡻 ② Generic classes 🡻🡻🡻
 """
+
+
+class OneLevelDict:
+    def __init__(self, key_func1: Callable[[Any], str],
+                 should_overwrite: Callable[[Any, Any], bool]):
+        """
+        Args:
+            key_func1: Takes 'item' as single arg, and returns a key value for the
+                lookup
+            should_overwrite: function which takes 'old' and 'new' as args,
+                and returns True if new should replace old; False if not.
+                Will only be called if put() finds an existing item with matching
+                keys.
+        """
+        self._dict: Dict[str, Dict[str, Any]] = {}
+        self._key_func1 = key_func1
+        self._should_overwrite = should_overwrite
+        self.total_entries = 0
+
+    def put(self, item, expected_existing=None):
+        assert item, 'trying to insert None!'
+        key1 = self._key_func1(item)
+        if not key1:
+            raise RuntimeError(f'Key1 is null for item: {item}')
+        existing = self._dict.get(key1, None)
+        if not existing:
+            self._dict[key1] = item
+            self.total_entries += 1
+        elif expected_existing:
+            if expected_existing != existing:
+                logger.error(f'Replacing a different entry ({existing}) than expected ({expected_existing})!')
+            # Overwrite either way...
+            self._dict[key1] = item
+        elif self._should_overwrite(existing, item):
+            self._dict[key1] = item
+        return existing
+
+    def get(self, key: str):
+        assert key, 'key is empty!'
+        return self._dict.get(key, None)
+
+    def remove(self, key):
+        assert key, 'key is empty!'
+        return self._dict.pop(key, None)
 
 
 class TwoLevelDict:
@@ -66,7 +110,7 @@ class TwoLevelDict:
         self._key_func1 = key_func1
         self._key_func2 = key_func2
         self._should_overwrite = should_overwrite
-        self._total = 0
+        self.total_entries = 0
 
     def put(self, item, expected_existing=None):
         assert item, 'trying to insert None!'
@@ -81,17 +125,16 @@ class TwoLevelDict:
         if not key2:
             raise RuntimeError(f'Key2 is null for item: {item}')
         existing = dict2.get(key2, None)
-        if existing:
-            if expected_existing:
-                if expected_existing != existing:
-                    logger.error(f'Replacing a different entry ({existing}) than expected ({expected_existing})!')
-                # Overwrite either way...
-                dict2[key2] = item
-            elif self._should_overwrite(existing, item):
-                dict2[key2] = item
-        else:
+        if not existing:
             dict2[key2] = item
-            self._total += 1
+            self.total_entries += 1
+        elif expected_existing:
+            if expected_existing != existing:
+                logger.error(f'Replacing a different entry ({existing}) than expected ({expected_existing})!')
+            # Overwrite either way...
+            dict2[key2] = item
+        elif self._should_overwrite(existing, item):
+            dict2[key2] = item
         return existing
 
     def get(self, key1: str, key2: str = None):
@@ -118,6 +161,11 @@ class TwoLevelDict:
 """
 🡻🡻🡻 ③ Parameterized classes 🡻🡻🡻
 """
+
+
+class FullPathDict(OneLevelDict):
+    def __init__(self):
+        super().__init__(get_full_path, overwrite_newer_ts)
 
 
 class ParentPathBeforeFileNameDict(TwoLevelDict):

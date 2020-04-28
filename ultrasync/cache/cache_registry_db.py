@@ -8,16 +8,18 @@ CACHE_TYPE_LOCAL_DISK = 1
 CACHE_TYPE_GDRIVE = 2
 
 
+def ensure_int(val):
+    if type(val) == str:
+        return int(val)
+    return val
+
+
 class CacheInfoEntry:
     def __init__(self, cache_location, cache_type, subtree_root, sync_ts, is_complete):
         self.cache_location = cache_location
-        self.cache_type = cache_type
-        if type(self.cache_type) == str:
-            self.cache_type = int(self.cache_type)
+        self.cache_type = ensure_int(cache_type)
         self.subtree_root = subtree_root
-        self.sync_ts = sync_ts
-        if type(self.sync_ts) == str:
-            self.sync_ts = int(self.sync_ts)
+        self.sync_ts = ensure_int(sync_ts)
         self.is_complete = is_complete
 
     def to_tuple(self):

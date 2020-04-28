@@ -17,7 +17,8 @@ sudo apt install libgirepository1.0-dev gcc libcairo2-dev pkg-config python3-dev
 pip3 install pycairo
 pip install pygobject
 
-# Misc EXIF Tool Notes
+#### Misc EXIF Tool Notes
 exiftool -AllDates="2001:01:01 12:00:00" *
-exiftool -Comment="Hawaii" ./2001\ Hawaii\ *
+
+exiftool -Comment="Hawaii" {target_dir}
 find . -name "*jpg_original" -exec rm -fv {} \;

@@ -2,6 +2,7 @@ import logging
 import humanfriendly
 from model.category import Category
 from model.fmeta import FMeta
+from model.planning_node import PlanningNode
 
 logger = logging.getLogger(__name__)
 
@@ -151,14 +152,16 @@ class FMetaTree:
 
         return match
 
-    def add(self, item: FMeta):
+    def add(self, item):
         if not item.full_path.startswith(self.root_path):
             raise RuntimeError(f'FMeta (cat={item.category.name}) full path ({item.full_path}) is not under this tree ({self.root_path})')
 
         if item.category == Category.Ignored:
-            logger.debug(f'Found ignored file: {item.full_path}')
-        else:
             # ignored files may not have md5s
+            logger.debug(f'Found ignored file: {item.full_path}')
+        elif not item.md5:
+            logger.debug(f'File has no MD5: {item.full_path}')
+        else:
             set_matching_md5 = self._md5_dict.get(item.md5, None)
             if set_matching_md5 is None:
                 set_matching_md5 = [item]
@@ -167,11 +170,20 @@ class FMetaTree:
                 set_matching_md5.append(item)
                 self._dup_md5_count += 1
 
+        is_planning_node = isinstance(item, PlanningNode)
+
         item_matching_path = self._path_dict.get(item.full_path, None)
         if item_matching_path is not None:
+            if is_planning_node:
+                if not isinstance(item_matching_path, PlanningNode):
+                    raise RuntimeError(f'Attempt to overwrite type {type(item_matching_path)} with PlanningNode!')
+            else:
+                self._total_size_bytes -= item_matching_path.size_bytes
             logger.warning(f'Overwriting path: {item.full_path}')
-            self._total_size_bytes -= item_matching_path.size_bytes
-        self._total_size_bytes += item.size_bytes
+
+        if not is_planning_node:
+            self._total_size_bytes += item.size_bytes
+
         self._path_dict[item.full_path] = item
 
         if item.category != Category.NA:

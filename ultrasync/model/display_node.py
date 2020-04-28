@@ -14,13 +14,21 @@ def ensure_int(val):
         return int(val)
     return val
 
+
+def ensure_category(val):
+    if type(val) == str:
+        return Category(int(val))
+    elif type(val) == int:
+        return Category(val)
+    return val
+
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
 
 class DisplayNode(ABC):
     """Base class for nodes which are meant to be displayed in a UI tree"""
     def __init__(self, category):
-        self.category = ensure_int(category)
+        self.category = ensure_category(category)
 
     @classmethod
     @abstractmethod

@@ -5,6 +5,7 @@ import copy
 import logging
 from model.fmeta import Category, FMeta
 from model.fmeta_tree import FMetaTree
+from model.planning_node import FileToAdd, FileToMove
 
 logger = logging.getLogger(__name__)
 
@@ -142,11 +143,11 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
                 # Did we at least find a pair?
                 if changed_left is not None and changed_right is not None:
                     # MOVED
-                    changed_right.prev_path = fixer.move_to_right(changed_left)
-                    right_tree.categorize(changed_right, Category.Moved)
+                    dest_path = fixer.move_to_left(changed_right)
+                    left_tree.add(FileToMove(changed_right, dest_path))
 
-                    changed_left.prev_path = fixer.move_to_left(changed_right)
-                    left_tree.categorize(changed_left, Category.Moved)
+                    dest_path = fixer.move_to_right(changed_left)
+                    right_tree.add(FileToMove(changed_right, dest_path))
                 else:
                     """Looks like one side has additional file(s) with same signature 
                        - essentially a duplicate.. Remember, we know each side already contains
@@ -178,15 +179,15 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
                     left_tree.categorize(left_meta, Category.Updated)
                     continue
                 # No match? fall through
-            # DUPLICATE ADDED on left + DELETED on right
+            # DUPLICATE ADDED on right + DELETED on left
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f'Left has new file: "{left_meta.full_path}"')
-            left_tree.categorize(left_meta, Category.Added)
+            dest_path = fixer.move_to_right(left_meta)
+            right_tree.add(FileToAdd(left_meta, dest_path))
 
-            left_meta_copy = copy.deepcopy(left_meta)
-            left_meta_copy.category = Category.Deleted
-            left_meta_copy.full_path = fixer.move_to_right(left_meta)
-            right_tree.add(left_meta_copy)
+            # TODO: rename 'Deleted' category to 'ToDelete'
+            # Dead node walking:
+            left_tree.categorize(left_meta, Category.Deleted)
 
     for fmeta_duplicate_md5s_right in orphaned_md5s_right:
         for right_meta in fmeta_duplicate_md5s_right:
@@ -198,13 +199,11 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
             # DUPLICATE ADDED on right + DELETED on left
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f'Right has new file: "{right_meta.full_path}"')
-            right_tree.categorize(right_meta, Category.Added)
+            dest_path = fixer.move_to_left(right_meta)
+            left_tree.add(FileToAdd(right_meta, dest_path))
 
-            # Note: deleted nodes should not be thought of like 'real' nodes
-            right_meta_copy = copy.deepcopy(right_meta)
-            right_meta_copy.category = Category.Deleted
-            right_meta_copy.full_path = fixer.move_to_left(right_meta)
-            left_tree.add(right_meta_copy)
+            # Dead node walking:
+            right_tree.categorize(right_meta, Category.Deleted)
 
     logger.debug(f'Done with diff. Left:[{left_tree.get_category_summary_string()}] Right:[{right_tree.get_category_summary_string()}]')
 
@@ -226,6 +225,7 @@ def _adjust_paths_and_add(side_a_metas, side_a_tree, side_b_tree, merged_tree):
     # In this scope, a=left and b=right
     fixer = PathTransplanter(side_a_tree, side_b_tree)
 
+    # FIXME: this is broken code (again)
     for side_a_meta in side_a_metas:
         side_a_meta_copy = copy.deepcopy(side_a_meta)
         if side_a_meta.category == Category.Moved:

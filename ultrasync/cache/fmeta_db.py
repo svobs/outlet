@@ -2,6 +2,7 @@ import logging
 
 from cache.base_db import MetaDatabase
 from model.fmeta import FMeta
+from model.planning_node import PlanningNode
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +17,7 @@ class FMetaDatabase(MetaDatabase):
                  ('modify_ts', 'INTEGER'),
                  ('change_ts', 'INTEGER'),
                  ('full_path', 'TEXT'),
-                 ('category', 'TEXT'),
-                 ('prev_rel_path', 'TEXT'))
+                 ('category', 'TEXT'))
     }
 
     def __init__(self, db_path):
@@ -30,10 +30,7 @@ class FMetaDatabase(MetaDatabase):
 
     def get_local_files(self):
         """ Gets all changes in the table """
-        cursor = self.conn.cursor()
-        sql = self.build_select(self.TABLE_LOCAL_FILE)
-        cursor.execute(sql)
-        rows = cursor.fetchall()
+        rows = self.get_all_rows(self.TABLE_LOCAL_FILE)
         entries = []
         for row in rows:
             entries.append(FMeta(*row))
@@ -43,12 +40,14 @@ class FMetaDatabase(MetaDatabase):
         """ Takes a list of FMeta objects: """
         to_insert = []
         for e in entries:
-            e_tuple = (e.md5, e.sha256, e.size_bytes, e.sync_ts, e.modify_ts, e.change_ts, e.full_path, e.category.value, e.prev_path)
-            to_insert.append(e_tuple)
+            if not isinstance(e, PlanningNode):
+                e_tuple = (e.md5, e.sha256, e.size_bytes, e.sync_ts, e.modify_ts, e.change_ts, e.full_path, e.category)
+                to_insert.append(e_tuple)
 
         if overwrite:
             self.drop_table_if_exists(self.TABLE_LOCAL_FILE)
-            self.create_table_if_not_exist(self.TABLE_LOCAL_FILE)
+
+        self.create_table_if_not_exist(self.TABLE_LOCAL_FILE)
 
         self.insert_many(self.TABLE_LOCAL_FILE, to_insert)
 

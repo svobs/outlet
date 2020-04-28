@@ -12,6 +12,7 @@ __pycache__
 *.log
 .idea
 
+cache
 test/BiDirMerge
 test/BiDirMerge.7z
 

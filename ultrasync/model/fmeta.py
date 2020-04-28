@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class FMeta(DisplayNode):
-    def __init__(self, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, category=Category.NA, prev_path=None):
+    def __init__(self, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, category=Category.NA):
         super().__init__(category)
         self.md5: Optional[str] = md5
         self.sha256: Optional[str] = sha256
@@ -20,8 +20,6 @@ class FMeta(DisplayNode):
         self.modify_ts: int = ensure_int(modify_ts)
         self.change_ts: int = ensure_int(change_ts)
         self.full_path: str = full_path
-        # Only used if category == ADDED or MOVED
-        self.prev_path: Optional[str] = prev_path
 
     def get_name(self):
         return os.path.split(self.full_path)[1]
@@ -38,6 +36,10 @@ class FMeta(DisplayNode):
     def is_dir(cls):
         return False
 
+    @classmethod
+    def is_ignored(cls):
+        return False
+
     def is_content_equal(self, other_entry):
         assert isinstance(other_entry, FMeta)
         return self.sha256 == other_entry.sha256 \
@@ -51,8 +53,14 @@ class FMeta(DisplayNode):
     def matches(self, other_entry):
         return self.is_content_equal(other_entry) and self.is_meta_equal(other_entry)
 
-    def is_ignored(self):
-        return self.category == Category.Ignored
-
     def __repr__(self):
         return f'FMeta(cat={self.category.name} md5={self.md5} sha256={self.sha256} modify_ts={self.modify_ts} path="{self.full_path}")'
+
+
+class IgnoredFMeta(FMeta):
+    def __init__(self, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path):
+        super().__init__(md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, Category.Ignored)
+
+    @classmethod
+    def is_ignored(cls):
+        return True

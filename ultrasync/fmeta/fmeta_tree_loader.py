@@ -4,7 +4,7 @@ import errno
 import copy
 import time
 from pathlib import Path
-from model.fmeta import FMeta, Category
+from model.fmeta import FMeta, Category, IgnoredFMeta
 from fmeta.tree_recurser import TreeRecurser
 import fmeta.content_hasher
 import ui.actions as actions
@@ -34,7 +34,10 @@ def build_fmeta(full_path, category=Category.NA):
     modify_ts = int(stat.st_mtime)
     change_ts = int(stat.st_ctime)
 
-    return FMeta(md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, category)
+    if category == Category.Ignored:
+        return IgnoredFMeta(md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path)
+    else:
+        return FMeta(md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, category)
 
 
 def meta_matches(file_path, fmeta: FMeta):
