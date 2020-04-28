@@ -99,8 +99,6 @@ class GlobalActions:
                 actions.enable_ui(sender=self)
                 return
 
-            actions.set_status(sender=actions.ID_RIGHT_TREE, status_msg='Waiting...')
-
             # Load trees if not loaded - may be a long operation
 
             left_fmeta_tree = tree_con_left.data_store.get_whole_tree()
@@ -121,6 +119,7 @@ class GlobalActions:
 
             actions.get_dispatcher().send(signal=actions.DIFF_TREES_DONE, sender=sender, stopwatch=stopwatch_diff_total)
         except Exception as err:
+            # TODO: clean up progress bar and messages
             actions.enable_ui(sender=self)
             self.show_error_ui('Diff task failed due to unexpected error', repr(err))
             logger.exception(err)

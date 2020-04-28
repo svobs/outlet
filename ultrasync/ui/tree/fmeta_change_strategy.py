@@ -14,6 +14,8 @@ from fmeta.fmeta_tree_loader import TreeMetaScanner
 from model.display_node import DirNode, CategoryNode
 import gi
 
+from model.planning_node import FileToMove
+from ui import actions
 from ui.tree.display_strategy import DisplayStrategy
 
 gi.require_version("Gtk", "3.0")
@@ -95,7 +97,7 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
 
         return self.con.display_store.model.append(tree_iter, row_values)
 
-    def _append_fmeta_node(self, tree_iter, file_name, fmeta: FMeta, category):
+    def _append_fmeta_node(self, tree_iter, file_name, fmeta, category):
         row_values = []
 
         if self.con.display_store.display_meta.editable:
@@ -103,8 +105,8 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
             row_values.append(False)  # Inconsistent
         row_values.append(category.name)  # Icon
 
-        if category == Category.Moved:
-            node_name = f'{fmeta.prev_path} -> "{file_name}"'
+        if isinstance(fmeta, FileToMove):
+            node_name = f'{fmeta.original_full_path} -> "{file_name}"'
         else:
             node_name = file_name
         row_values.append(node_name)  # Name
@@ -179,20 +181,22 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
                          Category.Updated,
                          Category.Ignored]:
             # Build fake tree for category:
-            stopwatch = Stopwatch()
+            faux_treestopwatch = Stopwatch()
             change_tree = _build_category_change_tree(fmeta_tree.get_for_cat(category), category, fmeta_tree.root_path)
-            logger.debug(f'Faux tree built for "{category.name}" in: {stopwatch}')
+            logger.debug(f'Faux tree built for "{category.name}" in: {faux_treestopwatch}')
             change_trees[category] = change_tree
 
         def update_ui():
-            stopwatch = Stopwatch()
+            tree_view_update_stopwatch = Stopwatch()
             for cat, tree in change_trees.items():
                 self._append_to_model(cat, tree)
-            logger.debug(f'TreeStore populated in: {stopwatch}')
 
             # Restore user prefs for expanded nodes:
             self._set_expand_states_from_config()
-            logger.debug(f'Done repopulating diff tree "{self.con.data_store.tree_id}"')
+
+            # Show tree summary:
+            actions.set_status(sender=self.con.data_store.tree_id, status_msg=fmeta_tree.get_summary())
+            logger.info(f'Repopulated diff tree "{self.con.data_store.tree_id}" in {tree_view_update_stopwatch}')
 
         GLib.idle_add(update_ui)
 

@@ -1,5 +1,8 @@
 from abc import ABC
 
+import file_util
+from model.category import Category
+
 
 class PlanningNode(ABC):
     """
@@ -15,6 +18,10 @@ class FMetaDecorator(PlanningNode):
     def __init__(self, fmeta):
         super().__init__()
         self.fmeta = fmeta
+
+    @property
+    def original_full_path(self):
+        return self.fmeta.full_path
 
     @property
     def md5(self):
@@ -62,14 +69,48 @@ class FMetaDecorator(PlanningNode):
     def is_ignored(cls):
         return False
 
+    @property
+    def category(self):
+        return Category.NA
+
 
 class FileToAdd(FMetaDecorator):
+    # NOTE: this decorates its enclosed FMeta, EXCEPT for full_path and get_relative_path(),
+    # which use the destination path, because this node is placed until a different subtree.
+    # TODO: this may be a huge bug bomb
     def __init__(self, fmeta, dest_path):
         super().__init__(fmeta)
         self.dest_path = dest_path
+
+    @property
+    def full_path(self):
+        return self.dest_path
+
+    def get_relative_path(self, root_path):
+        assert self.full_path.startswith(root_path), f'FileToAdd full path ({self.full_path}) does not contain root ({root_path})'
+        return file_util.strip_root(self.full_path, root_path)
+
+    # TODO: KLUDGE! Get rid of the category system
+    @property
+    def category(self):
+        return Category.ADDED
 
 
 class FileToMove(FMetaDecorator):
+    # NOTE: this decorates its enclosed FMeta, EXCEPT for full_path and get_relative_path()
     def __init__(self, fmeta, dest_path):
         super().__init__(fmeta)
         self.dest_path = dest_path
+
+    @property
+    def full_path(self):
+        return self.dest_path
+
+    def get_relative_path(self, root_path):
+        assert self.full_path.startswith(root_path), f'FileToMove full path ({self.full_path}) does not contain root ({root_path})'
+        return file_util.strip_root(self.full_path, root_path)
+
+    # TODO: KLUDGE! Get rid of the category system
+    @property
+    def category(self):
+        return Category.MOVED

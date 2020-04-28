@@ -144,10 +144,12 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
                 if changed_left is not None and changed_right is not None:
                     # MOVED
                     dest_path = fixer.move_to_left(changed_right)
-                    left_tree.add(FileToMove(changed_right, dest_path))
+                    file_to_move_left = FileToMove(changed_right, dest_path)
+                    left_tree.add(file_to_move_left)
 
                     dest_path = fixer.move_to_right(changed_left)
-                    right_tree.add(FileToMove(changed_right, dest_path))
+                    file_to_move_right = FileToMove(changed_left, dest_path)
+                    right_tree.add(file_to_move_right)
                 else:
                     """Looks like one side has additional file(s) with same signature 
                        - essentially a duplicate.. Remember, we know each side already contains
@@ -183,7 +185,8 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f'Left has new file: "{left_meta.full_path}"')
             dest_path = fixer.move_to_right(left_meta)
-            right_tree.add(FileToAdd(left_meta, dest_path))
+            file_to_add_to_right = FileToAdd(left_meta, dest_path)
+            right_tree.add(file_to_add_to_right)
 
             # TODO: rename 'Deleted' category to 'ToDelete'
             # Dead node walking:
@@ -200,7 +203,8 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f'Right has new file: "{right_meta.full_path}"')
             dest_path = fixer.move_to_left(right_meta)
-            left_tree.add(FileToAdd(right_meta, dest_path))
+            file_to_add_to_left = FileToAdd(right_meta, dest_path)
+            left_tree.add(file_to_add_to_left)
 
             # Dead node walking:
             right_tree.categorize(right_meta, Category.Deleted)
