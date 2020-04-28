@@ -16,8 +16,10 @@ class MetaDatabase:
     }
     """
     def __init__(self, db_path):
-        logger.info(f'Connecting to database: {db_path}')
+        logger.info(f'Opening database: {db_path}')
         self.conn = sqlite3.connect(db_path)
+        if logger.isEnabledFor(logging.DEBUG):
+            self.db_path = db_path
 
     def __enter__(self):
         assert self.conn is not None
@@ -68,6 +70,8 @@ class MetaDatabase:
         # We can also close the connection if we are done with it.
         # Just be sure any changes have been committed or they will be lost.
         self.conn.close()
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.info(f'Closed database: {self.db_path}')
 
     def create_table(self, table):
         sql = self.build_create_table(table)

@@ -40,13 +40,12 @@ def configure_logging(config):
         # add console output to all loggers
         root_logger.addHandler(console_handler)
 
-    # TODO: figure out how to externalize this
-    logging.getLogger('model.fmeta_tree').setLevel(logging.INFO)
-    logging.getLogger('fmeta.diff_content_first').setLevel(logging.INFO)
-    logging.getLogger('ui.tree.display_store').setLevel(logging.INFO)
-    logging.getLogger('ui.tree.fmeta_change_strategy').setLevel(logging.INFO)
+    # TODO: figure out how to externalize these
+    info_loggers = config.get('logging.loglevel_info')
+    for logger_name in info_loggers:
+        logging.getLogger(logger_name).setLevel(logging.INFO)
 
     # --- Google API ---
-    # Set to INFO or loggier to go back to logging Google API request URLs
-    # TODO: how the hell do I log this to a separate file??
-    logging.getLogger('googleapiclient.discovery').setLevel(logging.WARNING)
+    warning_loggers = config.get('logging.loglevel_warning')
+    for logger_name in warning_loggers:
+        logging.getLogger(logger_name).setLevel(logging.WARNING)

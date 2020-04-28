@@ -136,14 +136,14 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
                 subtree_path=self.root_path_persister_left.root_path, tree_id=actions.ID_LEFT_TREE)
         except RuntimeError as err:
             # TODO: custom exceptions
-            logger.error(f'Failed to load cache for left tree: {repr(err)}')
+            logger.warning(f'Failed to load cache for left tree: {repr(err)}')
 
         try:
             self.tree_con_right.data_store = self.application.cache_manager.get_metastore_for_local_subtree(
                 subtree_path=self.root_path_persister_right.root_path, tree_id=actions.ID_RIGHT_TREE)
         except RuntimeError as err:
             # TODO: custom exceptions
-            logger.error(f'Failed to load cache for right tree: {repr(err)}')
+            logger.warning(f'Failed to load cache for right tree: {repr(err)}')
 
     def after_diff_completed(self, sender, stopwatch):
         """
