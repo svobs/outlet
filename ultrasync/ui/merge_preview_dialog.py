@@ -3,7 +3,7 @@ import logging
 import gi
 from pydispatch import dispatcher
 
-from cache.meta_store.local_static import StaticWholeTreeMS
+from index.meta_store.local_static import StaticWholeTreeMS
 from ui.actions import ID_MERGE_TREE
 from ui.tree import tree_factory
 

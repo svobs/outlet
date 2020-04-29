@@ -6,10 +6,10 @@ from typing import Dict
 from pydispatch import dispatcher
 from stopwatch import Stopwatch
 
-from cache.master_gdrive import GDriveMasterCache
-from cache.master_local import LocalDiskMasterCache
-from cache.sqlite.cache_registry_db import CacheInfoEntry, CacheRegistry
-from cache.sqlite.fmeta_db import FMetaDatabase
+from index.master_gdrive import GDriveMasterCache
+from index.master_local import LocalDiskMasterCache
+from index.sqlite.cache_registry_db import CacheInfoEntry, CacheRegistry
+from index.sqlite.fmeta_db import FMetaDatabase
 from constants import CACHE_TYPE_GDRIVE, CACHE_TYPE_LOCAL_DISK, MAIN_REGISTRY_FILE_NAME
 from file_util import get_resource_path
 from fmeta.fmeta_tree_loader import TreeMetaScanner

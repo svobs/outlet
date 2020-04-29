@@ -2,7 +2,7 @@ import logging
 import os
 from queue import Queue
 from gdrive.client import GDriveClient
-from cache.sqlite.gdrive_db import GDriveDatabase
+from index.sqlite.gdrive_db import GDriveDatabase
 from model.gdrive import EXPLICITLY_TRASHED, GoogFolder, GoogFile, GDriveMeta, IMPLICITLY_TRASHED, NOT_TRASHED
 from ui import actions
 

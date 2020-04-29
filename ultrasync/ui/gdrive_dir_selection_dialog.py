@@ -2,7 +2,7 @@ import logging
 
 import gi
 
-from cache.meta_store.gdrive import GDriveDataStore
+from index.meta_store.gdrive import GDriveDataStore
 from ui.tree import tree_factory
 
 gi.require_version("Gtk", "3.0")
