@@ -19,7 +19,7 @@ class LazyLoadStrategy(DisplayStrategy):
     """
     - Start by listing root nodes
     Phase 1: do not worry about scrolling
-    - When a dir node is expanded, a call should be made to the data_store to retrieve its children, which may or may not be cached. But new display nodes will be created when it is expanded (i.e. lazily)
+    - When a dir node is expanded, a call should be made to the meta_store to retrieve its children, which may or may not be cached. But new display nodes will be created when it is expanded (i.e. lazily)
     - Need to create a store which can keep track of whether each parent has all children. If not we will have to make a request to retrieve all nodes with 'X' as parent and update the store before returning
     was last synced (for stats if nothing else)
 
@@ -36,7 +36,7 @@ class LazyLoadStrategy(DisplayStrategy):
     -
     - Every time you retrieve new data from G, you must perform sanity checks on it and proactively correct them.
     - - Modify TS, MD5, create date, version, revision - any of these changes should be aggressively logged
-    and their meta updated in the data_store,
+    and their meta updated in the meta_store,
 
     Google Drive Stor <- superset of Display Stor
     """
@@ -46,12 +46,12 @@ class LazyLoadStrategy(DisplayStrategy):
 
     def init(self):
         super().init()
-        dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.con.data_store.tree_id)
+        dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.con.meta_store.tree_id)
 
     def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded):
         # Add children for node:
         if is_expanded:
-            children = self.con.data_store.get_children(node_data.id)
+            children = self.con.meta_store.get_children(node_data.id)
             if children:
                 logger.debug(f'Filling out display children: {len(children)}')
                 # Append all underneath tree_iter
@@ -142,7 +142,7 @@ class LazyLoadStrategy(DisplayStrategy):
         return self.con.display_store.model.append(tree_iter, row_values)
 
     def populate_root(self):
-        children = self.con.data_store.get_children(parent_id=None)
+        children = self.con.meta_store.get_children(parent_id=None)
         tree_iter = self.con.display_store.model.get_iter_first()
         # Append all underneath tree_iter
         for child in children:

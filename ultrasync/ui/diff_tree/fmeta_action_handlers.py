@@ -161,7 +161,7 @@ class FMetaTreeActionHandlers(TreeActionBridge):
         dir_count = 0
 
         try:
-            root_path = self.con.data_store.get_root_path()
+            root_path = self.con.meta_store.get_root_path()
             # We will populate this with files and directories we encounter
             # doing a DFS of the subtree root:
             path_list = []

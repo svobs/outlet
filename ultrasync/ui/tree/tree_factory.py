@@ -10,7 +10,7 @@ from ui.root_dir_panel import RootDirPanel
 import gi
 
 from ui.tree.controller import TreePanelController
-from ui.tree.display_meta import TreeDisplayMeta
+from ui.tree.treeview_meta import TreeViewMeta
 from ui.tree.display_store import DisplayStore
 from ui.tree.lazy_load_strategy import LazyLoadStrategy
 
@@ -229,18 +229,18 @@ def is_ignored_func(data_node):
 """
 
 
-def build(parent_win, data_store, display_meta, display_strategy, action_handlers):
+def build(parent_win, meta_store, display_meta, display_strategy, action_handlers):
     """Builds a single instance of a tree panel, and configures all its components as specified."""
-    logger.debug(f'Building controller for tree: {data_store.tree_id}')
+    logger.debug(f'Building controller for tree: {meta_store.tree_id}')
 
     display_store = DisplayStore(display_meta)
 
     # The controller holds all the components in memory. Important for listeners especially,
     # since they rely on weak references.
-    controller = TreePanelController(parent_win, data_store, display_store, display_meta)
+    controller = TreePanelController(parent_win, meta_store, display_store, display_meta)
     controller.tree_view = _build_treeview(display_store)
-    controller.root_dir_panel = RootDirPanel(parent_win=parent_win, tree_id=data_store.tree_id,
-                                             current_root=data_store.get_root_path(), editable=display_meta.editable)
+    controller.root_dir_panel = RootDirPanel(parent_win=parent_win, tree_id=meta_store.tree_id,
+                                             current_root=meta_store.get_root_path(), editable=display_meta.editable)
     controller.display_strategy = display_strategy
     display_strategy.con = controller
     controller.action_handlers = action_handlers
@@ -265,37 +265,37 @@ def build(parent_win, data_store, display_meta, display_strategy, action_handler
 """
 
 
-def build_gdrive(parent_win, data_store):
+def build_gdrive(parent_win, meta_store):
     """Builds a tree panel for browsing a Google Drive tree, using lazy loading."""
-    display_meta = TreeDisplayMeta(config=parent_win.config, tree_id=data_store.tree_id, editable=False,
+    display_meta = TreeViewMeta(config=parent_win.config, tree_id=meta_store.tree_id, editable=False,
                                    selection_mode=Gtk.SelectionMode.SINGLE,
                                    is_display_persisted=True, is_ignored_func=is_ignored_func)
 
     display_strategy = LazyLoadStrategy()
     action_handlers = GDriveActionHandlers()
 
-    return build(parent_win=parent_win, data_store=data_store, display_meta=display_meta, display_strategy=display_strategy, action_handlers=action_handlers)
+    return build(parent_win=parent_win, meta_store=meta_store, display_meta=display_meta, display_strategy=display_strategy, action_handlers=action_handlers)
 
 
-def build_bulk_load_file_tree(parent_win, data_store):
-    display_meta = TreeDisplayMeta(config=parent_win.config, tree_id=data_store.tree_id, editable=True,
+def build_bulk_load_file_tree(parent_win, meta_store):
+    display_meta = TreeViewMeta(config=parent_win.config, tree_id=meta_store.tree_id, editable=True,
                                    selection_mode=Gtk.SelectionMode.MULTIPLE,
                                    is_display_persisted=True, is_ignored_func=is_ignored_func)
 
     display_strategy = FMetaChangeTreeStrategy()
     action_handlers = FMetaTreeActionHandlers()
 
-    con = build(parent_win=parent_win, data_store=data_store, display_meta=display_meta, display_strategy=display_strategy, action_handlers=action_handlers)
+    con = build(parent_win=parent_win, meta_store=meta_store, display_meta=display_meta, display_strategy=display_strategy, action_handlers=action_handlers)
     return con
 
 
-def build_static_file_tree(parent_win, data_store):
-    display_meta = TreeDisplayMeta(config=parent_win.config, tree_id=data_store.tree_id, editable=False,
+def build_static_file_tree(parent_win, meta_store):
+    display_meta = TreeViewMeta(config=parent_win.config, tree_id=meta_store.tree_id, editable=False,
                                    selection_mode=Gtk.SelectionMode.SINGLE,
                                    is_display_persisted=False, is_ignored_func=is_ignored_func)
 
     display_strategy = FMetaChangeTreeStrategy()
     action_handlers = FMetaTreeActionHandlers()
 
-    con = build(parent_win=parent_win, data_store=data_store, display_meta=display_meta, display_strategy=display_strategy, action_handlers=action_handlers)
+    con = build(parent_win=parent_win, meta_store=meta_store, display_meta=display_meta, display_strategy=display_strategy, action_handlers=action_handlers)
     return con

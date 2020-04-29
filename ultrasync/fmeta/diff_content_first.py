@@ -243,8 +243,8 @@ def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_co
 
         if check_for_conflicts and left_metas_dup_md5 and right_metas_dup_md5:
             compare_result = _compare_paths_for_same_md5(left_metas_dup_md5, left_tree, right_metas_dup_md5, right_tree, fixer)
-            # TODO: wow, adds and deletes of the same file cancel each other out via the matching algo...
-            #       Maybe just delete the conflict detection code...
+            # Aadds and deletes of the same file cancel each other out via the matching algo...
+            # Maybe just delete the conflict detection code because it will now never be hit.
             for (left, right) in compare_result:
                 # Finding a pair here indicates a conflict
                 if left is not None and right is not None:

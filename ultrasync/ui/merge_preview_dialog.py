@@ -42,10 +42,10 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         label = Gtk.Label(label="The following changes will be made:")
         self.content_box.add(label)
 
-        data_store = StaticWholeTreeMS(tree_id=ID_MERGE_TREE, config=self.config, tree=self.fmeta_tree)
+        meta_store = StaticWholeTreeMS(tree_id=ID_MERGE_TREE, config=self.config, tree=self.fmeta_tree)
 
-        self.tree_con = tree_factory.build_static_file_tree(parent_win=self, data_store=data_store)
-        actions.set_status(sender=data_store.tree_id, status_msg=self.fmeta_tree.get_summary())
+        self.tree_con = tree_factory.build_static_file_tree(parent_win=self, meta_store=meta_store)
+        actions.set_status(sender=meta_store.tree_id, status_msg=self.fmeta_tree.get_summary())
         self.content_box.pack_start(self.tree_con.content_box, True, True, 0)
         self.tree_con.load()
 

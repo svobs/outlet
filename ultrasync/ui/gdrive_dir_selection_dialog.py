@@ -31,8 +31,8 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
         label = Gtk.Label(label="Select the Google Drive folder to use as the root for comparison:")
         self.content_box.add(label)
 
-        data_store = GDriveDataStore(tree_id='gdrive_dir_selection', config=parent.config, gdrive_meta=gdrive_meta, root_path='/')
-        self.tree_controller = tree_factory.build_gdrive(parent_win=self, data_store=data_store)
+        meta_store = GDriveDataStore(tree_id='gdrive_dir_selection', config=parent.config, gdrive_meta=gdrive_meta, root_path='/')
+        self.tree_controller = tree_factory.build_gdrive(parent_win=self, meta_store=meta_store)
 
         self.content_box.pack_start(self.tree_controller.content_box, True, True, 0)
 

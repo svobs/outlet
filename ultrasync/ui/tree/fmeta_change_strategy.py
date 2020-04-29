@@ -28,12 +28,12 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
 
     def init(self):
         super().init()
-        dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.con.data_store.tree_id)
-        dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.data_store.tree_id)
+        dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.con.meta_store.tree_id)
+        dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.meta_store.tree_id)
 
     def _on_root_path_updated(self, sender, new_root):
         # Get a new metastore from the cache manager:
-        self.con.data_store = self.con.parent_win.application.cache_manager.get_metastore_for_local_subtree(new_root, self.con.data_store.tree_id)
+        self.con.meta_store = self.con.parent_win.application.cache_manager.get_metastore_for_local_subtree(new_root, self.con.meta_store.tree_id)
 
     def _append_children(self, children, parent_iter):
         if children:
@@ -50,14 +50,14 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
     def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded):
         logger.debug(f'Node expansion toggled to {is_expanded} for cat={node_data.category} path="{node_data.full_path}"')
 
-        if not self.con.data_store.is_lazy():
+        if not self.con.meta_store.is_lazy():
             return
 
         # FIXME: checkboxes + lazy load
 
         # Add children for node:
         if is_expanded:
-            children = self.con.data_store.get_children(node_data.display_id)
+            children = self.con.meta_store.get_children(node_data.display_id)
             self._append_children(children, parent_iter)
             # Remove Loading node:
             self.con.display_store.remove_first_child(parent_iter)
@@ -162,11 +162,11 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
             append_recursively(None, root)
 
     def populate_root(self):
-        logger.debug(f'Repopulating diff tree "{self.con.data_store.tree_id}"')
+        logger.debug(f'Repopulating diff tree "{self.con.meta_store.tree_id}"')
 
-        if self.con.data_store.is_lazy():
+        if self.con.meta_store.is_lazy():
             # This may be a long task
-            children = self.con.data_store.get_children(parent_id=None)
+            children = self.con.meta_store.get_children(parent_id=None)
 
             def update_ui():
                 # Wipe out existing items:
@@ -180,7 +180,7 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
             GLib.idle_add(update_ui)
         else:
             # KLUDGE
-            category_trees = self.con.data_store.get_category_trees()
+            category_trees = self.con.meta_store.get_category_trees()
 
             def update_ui():
                 # Wipe out existing items:
@@ -191,27 +191,27 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
 
                 # Restore user prefs for expanded nodes:
                 self._set_expand_states_from_config()
-                logger.debug(f'Done repopulating diff tree "{self.con.data_store.tree_id}"')
+                logger.debug(f'Done repopulating diff tree "{self.con.meta_store.tree_id}"')
 
             GLib.idle_add(update_ui)
 
         # Show tree summary:
-        actions.set_status(sender=self.con.data_store.tree_id,
-                           status_msg=self.con.data_store.get_whole_tree().get_summary())
+        actions.set_status(sender=self.con.meta_store.tree_id,
+                           status_msg=self.con.meta_store.get_whole_tree().get_summary())
 
     def resync_subtree(self, tree_path):
         # Construct a FMetaTree from the UI nodes: this is the 'stale' subtree.
         stale_tree = self.con.display_store.get_subtree_as_tree(tree_path)
         fresh_tree = None
         # Master tree contains all FMeta in this widget
-        master_tree = self.con.data_store.get_whole_tree()
+        master_tree = self.con.meta_store.get_whole_tree()
 
         # If the path no longer exists at all, then it's simple: the entire stale_tree should be deleted.
         if os.path.exists(stale_tree.root_path):
             # But if there are still files present: use FMetaTreeLoader to re-scan subtree
             # and construct a FMetaTree from the 'fresh' data
             logger.debug(f'Scanning: {stale_tree.root_path}')
-            scanner = TreeMetaScanner(root_path=stale_tree.root_path, stale_tree=stale_tree, tree_id=self.con.data_store.tree_id, track_changes=False)
+            scanner = TreeMetaScanner(root_path=stale_tree.root_path, stale_tree=stale_tree, tree_id=self.con.meta_store.tree_id, track_changes=False)
             fresh_tree = scanner.scan()
 
         # TODO: files in different categories are showing up as 'added' in the scan

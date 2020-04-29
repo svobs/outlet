@@ -4,9 +4,9 @@ class TreePanelController:
     This class is mostly just a place to hold references in memory of all the disparate components
     required to make a tree panel. Hopefully I will think of ways to refine it more in the future.
     """
-    def __init__(self, parent_win, data_store, display_store, display_meta):
+    def __init__(self, parent_win, meta_store, display_store, display_meta):
         self.parent_win = parent_win
-        self.data_store = data_store
+        self.meta_store = meta_store
         self.display_store = display_store
         self.display_meta = display_meta
         self.tree_view = None
@@ -24,7 +24,7 @@ class TreePanelController:
     @property
     def tree_id(self):
         """Convenience method. Retreives the tree_id from the metastore"""
-        return self.data_store.tree_id
+        return self.meta_store.tree_id
 
     def init(self):
         """Should be called after all controller components have been wired together"""

@@ -4,8 +4,7 @@ from model.display_node import CategoryNode
 from ui import actions
 
 
-# TODO: rename to TreeViewMeta
-class TreeDisplayMeta:
+class TreeViewMeta:
     def __init__(self, config, tree_id, editable, selection_mode, is_display_persisted, is_ignored_func=None):
         self.config = config
         self.selection_mode = selection_mode

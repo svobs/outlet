@@ -70,14 +70,14 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.root_path_persister_left = RootPathConfigPersister(config=self.config, tree_id=actions.ID_LEFT_TREE)
         saved_root_path_left = self.root_path_persister_left.root_path
         store_left = DummyMS(actions.ID_LEFT_TREE, self.config, saved_root_path_left)
-        self.tree_con_left = tree_factory.build_bulk_load_file_tree(parent_win=self, data_store=store_left)
+        self.tree_con_left = tree_factory.build_bulk_load_file_tree(parent_win=self, meta_store=store_left)
         diff_tree_panes.pack1(self.tree_con_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
         self.root_path_persister_right = RootPathConfigPersister(config=self.config, tree_id=actions.ID_RIGHT_TREE)
         saved_root_path_right = self.root_path_persister_right.root_path
         store_right = DummyMS(actions.ID_RIGHT_TREE, self.config, saved_root_path_right)
-        self.tree_con_right = tree_factory.build_bulk_load_file_tree(parent_win=self, data_store=store_right)
+        self.tree_con_right = tree_factory.build_bulk_load_file_tree(parent_win=self, meta_store=store_right)
         diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)
 
         self.bottom_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
@@ -133,14 +133,14 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         logger.debug(f'Received signal: {actions.LOAD_ALL_CACHES_DONE}')
 
         try:
-            self.tree_con_left.data_store = self.application.cache_manager.get_metastore_for_local_subtree(
+            self.tree_con_left.meta_store = self.application.cache_manager.get_metastore_for_local_subtree(
                 subtree_path=self.root_path_persister_left.root_path, tree_id=actions.ID_LEFT_TREE)
         except RuntimeError as err:
             # TODO: custom exceptions
             logger.warning(f'Failed to load cache for left tree: {repr(err)}')
 
         try:
-            self.tree_con_right.data_store = self.application.cache_manager.get_metastore_for_local_subtree(
+            self.tree_con_right.meta_store = self.application.cache_manager.get_metastore_for_local_subtree(
                 subtree_path=self.root_path_persister_right.root_path, tree_id=actions.ID_RIGHT_TREE)
         except RuntimeError as err:
             # TODO: custom exceptions
