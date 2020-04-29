@@ -3,6 +3,7 @@ import logging
 import gi
 from pydispatch import dispatcher
 
+from cache.meta_store.local_static import StaticWholeTreeMS
 from ui.actions import ID_MERGE_TREE
 from ui.tree import tree_factory
 
@@ -10,7 +11,6 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
 from ui import actions
-from ui.tree.meta_store import StaticWholeTreeMS
 import fmeta.fmeta_file_util
 from file_util import get_resource_path
 from fmeta.fmeta_file_util import FMetaError
