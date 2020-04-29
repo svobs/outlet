@@ -1,4 +1,5 @@
 import logging
+from typing import Dict
 
 from ui.tree import category_tree_builder
 
@@ -8,7 +9,6 @@ logger = logging.getLogger(__name__)
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 # CLASS LocalDiskSubtreeMS
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
-from plistlib import Dict
 
 import treelib
 from stopwatch import Stopwatch

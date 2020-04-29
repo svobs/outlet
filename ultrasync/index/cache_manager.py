@@ -29,39 +29,6 @@ def _ensure_cache_dir_path(config):
     return cache_dir_path
 
 
-def _load_local_disk_cache(cache_info: CacheInfoEntry) -> FMetaTree:
-    fmeta_tree = FMetaTree(cache_info.subtree_root)
-
-    # Load cache from file, and update with any local FS changes found:
-    with FMetaDatabase(cache_info.cache_location) as fmeta_disk_cache:
-        if not fmeta_disk_cache.has_local_files():
-            logger.debug('No meta found in cache')
-            return fmeta_tree
-
-        status = f'Loading meta for subtree "{cache_info.subtree_root}" from disk cache: {cache_info.cache_location}'
-        logger.info(status)
-        actions.set_status(sender=ID_GLOBAL_CACHE, status_msg=status)
-
-        db_file_changes = fmeta_disk_cache.get_local_files()
-        if len(db_file_changes) == 0:
-            logger.debug('No data found in disk cache')
-
-        count_from_disk = 0
-        for change in db_file_changes:
-            existing = fmeta_tree.get_for_path(change.full_path)
-            # Overwrite older changes for the same path:
-            if existing is None:
-                fmeta_tree.add(change)
-                count_from_disk += 1
-            elif existing.sync_ts < change.sync_ts:
-                fmeta_tree.add(change)
-
-        logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
-        logger.debug(fmeta_tree.get_stats_string())
-
-    return fmeta_tree
-
-
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 # CLASS PersistedCacheInfo
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
@@ -133,7 +100,7 @@ class CacheManager:
                 elif os.path.exists(existing_disk_cache.subtree_root):
                     stopwatch_total = Stopwatch()
                     # 1. Load from disk cache:
-                    fmeta_tree = _load_local_disk_cache(existing_disk_cache)
+                    fmeta_tree = self.load_local_disk_cache(existing_disk_cache)
                     # 2. Update from the file system, and optionally save any changes back to cache:
                     if self.application.cache_manager.sync_from_local_disk_on_cache_load:
                         self._refresh_from_local_fs(fmeta_tree, ID_GLOBAL_CACHE)
@@ -152,6 +119,38 @@ class CacheManager:
 
         logger.debug('Done loading caches')
         dispatcher.send(signal=actions.LOAD_ALL_CACHES_DONE, sender=ID_GLOBAL_CACHE)
+
+    def load_local_disk_cache(self, cache_info: CacheInfoEntry) -> FMetaTree:
+        fmeta_tree = FMetaTree(cache_info.subtree_root)
+
+        # Load cache from file, and update with any local FS changes found:
+        with FMetaDatabase(cache_info.cache_location) as fmeta_disk_cache:
+            if not fmeta_disk_cache.has_local_files():
+                logger.debug('No meta found in cache')
+                return fmeta_tree
+
+            status = f'Loading meta for subtree "{cache_info.subtree_root}" from disk cache: {cache_info.cache_location}'
+            logger.info(status)
+            actions.set_status(sender=ID_GLOBAL_CACHE, status_msg=status)
+
+            db_file_changes = fmeta_disk_cache.get_local_files()
+            if len(db_file_changes) == 0:
+                logger.debug('No data found in disk cache')
+
+            count_from_disk = 0
+            for change in db_file_changes:
+                existing = fmeta_tree.get_for_path(change.full_path)
+                # Overwrite older changes for the same path:
+                if existing is None:
+                    fmeta_tree.add(change)
+                    count_from_disk += 1
+                elif existing.sync_ts < change.sync_ts:
+                    fmeta_tree.add(change)
+
+            logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
+            logger.debug(fmeta_tree.get_stats_string())
+
+        return fmeta_tree
 
     def _sync_from_file_system(self, stale_tree: FMetaTree, tree_id: str):
         # Scan directory tree and update where needed.
