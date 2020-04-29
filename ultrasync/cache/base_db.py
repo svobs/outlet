@@ -16,7 +16,7 @@ class MetaDatabase:
     }
     """
     def __init__(self, db_path):
-        logger.info(f'Opening database: {db_path}')
+        logger.debug(f'Opening database: {db_path}')
         self.conn = sqlite3.connect(db_path)
         if logger.isEnabledFor(logging.DEBUG):
             self.db_path = db_path
@@ -43,6 +43,13 @@ class MetaDatabase:
     def build_create_table(table):
         return 'CREATE TABLE ' + table['name'] + '(' + ', '.join(col[0] + ' ' + col[1] for col in table['cols']) + ')'
 
+    def close(self):
+        # We can also close the connection if we are done with it.
+        # Just be sure any changes have been committed or they will be lost.
+        self.conn.close()
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f'Closed database: {self.db_path}')
+
     def get_all_rows(self, table):
         cursor = self.conn.cursor()
         sql = self.build_select(table)
@@ -65,13 +72,6 @@ class MetaDatabase:
         logger.debug(f"Inserting {len(tuples)} tuples into table {table['name']}")
         self.conn.executemany(sql, tuples)
         self.conn.commit()
-
-    def close(self):
-        # We can also close the connection if we are done with it.
-        # Just be sure any changes have been committed or they will be lost.
-        self.conn.close()
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.info(f'Closed database: {self.db_path}')
 
     def create_table(self, table):
         sql = self.build_create_table(table)

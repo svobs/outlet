@@ -1,34 +1,22 @@
 {
     "left_tree": {
-        "cache": {
-            "enable": true,
-            "enable_load": true,
-            "enable_update": false,
-            "full_path": "$PROJECT_DIR/test/SvobodaLeft.db"
-        },
         "expanded_state": {
             "Added": true,
             "Deleted": true,
             "Ignored": false,
-            "Moved": false,
+            "Moved": true,
             "Updated": true
         },
-        "root_path": "/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos"
+        "root_path": "/home/msvoboda/LocalDevel/ultrasync/test/BiDirMerge/Sen Mitsuji Left"
     },
     "right_tree": {
-        "cache": {
-            "enable": true,
-            "enable_load": true,
-            "enable_update": false,
-            "full_path": "$PROJECT_DIR/test/SvobodaRight.db"
-        },
         "expanded_state": {
             "Added": true,
             "Deleted": true,
             "Ignored": false,
-            "Moved": false,
-            "Updated": true
+            "Moved": true,
+            "Updated": false
         },
-        "root_path": "/media/msvoboda/Thumb128G/Takeout/Google Photos"
+        "root_path": "/home/msvoboda/LocalDevel/ultrasync/test/BiDirMerge/Sen Mitsuji Right"
     }
 }

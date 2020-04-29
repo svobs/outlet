@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 def _ensure_cache_dir_path(config):
-    cache_dir_path = get_resource_path(config.get('cache_dir_path'))
+    cache_dir_path = get_resource_path(config.get('cache.cache_dir_path'))
     if not os.path.exists(cache_dir_path):
         logger.info(f'Cache directory does not exist; attempting to create: "{cache_dir_path}"')
     os.makedirs(name=cache_dir_path, exist_ok=True)
@@ -85,6 +85,9 @@ class LocalDiskSubtreeMS(BaseMetaStore):
             self._category_trees[parent_id.category] = category_tree
             logger.info(f'Tree constructed for "{parent_id.category.name}" in: {category_stopwatch}')
 
+        if parent_id.full_path.endswith('Oregon State University - Corvallis, November 24, 2017'):
+            logger.debug(f'CategoryTree for "{self.get_root_path()}": ' + category_tree.show(stdout=False))
+
         try:
             for child in category_tree.children(parent_id.full_path):
                 children.append(child.data)
@@ -103,13 +106,13 @@ class LocalDiskSubtreeMS(BaseMetaStore):
 class LocalDiskMasterCache:
     def __init__(self, application):
         self.application = application
-        self.use_md5 = True
+        self.use_md5 = application.config.get('cache.enable_md5_lookup')
         if self.use_md5:
             self.md5_dict = Md5BeforePathDict()
         else:
             self.md5_dict = None
 
-        self.use_sha256 = False
+        self.use_sha256 = application.config.get('cache.enable_sha256_lookup')
         if self.use_sha256:
             self.sha256_dict = Sha256BeforePathDict()
         else:
@@ -176,8 +179,16 @@ class LocalDiskMasterCache:
             # Load as many items as possible from the in-memory cache.
             fmeta_tree = self._get_subtree_from_memory_only(subtree_path)
 
-        if cache_info and cache_info.needs_refresh:
-            # 2. Sync from disk, and save to disk cache again (if configured) and in-memory-store:
+        sync_to_fs = True
+        if cache_info:
+            if not self.application.cache_manager.sync_from_local_disk_on_cache_load:
+                logger.debug('Skipping file system sync because it is disabled for cache loads')
+                sync_to_fs = False
+            elif not cache_info.needs_refresh:
+                logger.debug(f'Skipping filesystem sync because the cache is still fresh for path: {subtree_path}')
+                sync_to_fs = False
+        if sync_to_fs:
+            # Sync from disk, and save to disk cache again (if configured) and update in-memory-store:
             fmeta_tree = self.application.cache_manager.refresh_from_local_fs(fmeta_tree, tree_id)
 
         ds = LocalDiskSubtreeMS(tree_id=tree_id, config=self.application.config, fmeta_tree=fmeta_tree)
@@ -240,24 +251,16 @@ class CacheManager:
         self.main_registry_path = os.path.join(self.cache_dir_path, MAIN_REGISTRY_FILE_NAME)
         self.persisted_cache_info: Dict[str, PersistedCacheInfo] = {}
 
-        self.enable_load_from_disk = True
-        self.enable_save_to_disk = True  # TODO: put in config
+        self.enable_load_from_disk = application.config.get('cache.enable_cache_load')
+        self.enable_save_to_disk = application.config.get('cache.enable_cache_save')
+        self.load_all_caches_on_startup = application.config.get('cache.load_all_caches_on_startup')
+        self.sync_from_local_disk_on_cache_load = application.config.get('cache.sync_from_local_disk_on_cache_load')
+
+        if not self.load_all_caches_on_startup:
+            logger.debug('Configured not to fetch all caches on startup; will lazy load instead')
 
         self.local_disk_cache = None
         self.gdrive_cache = None
-
-        """
-        TODO!
-def from_config(config, tree_id):
-    enable_cache = config.get(f'transient.{tree_id}.cache.enable')
-    if enable_cache:
-        cache_file_path = config.get(f'transient.{tree_id}.cache.full_path')
-        enable_load = config.get(f'transient.{tree_id}.cache.enable_load')
-        enable_update = config.get(f'transient.{tree_id}.cache.enable_update')
-        return SqliteCache(tree_id, cache_file_path, enable_load, enable_update)
-
-    return NullCache()
-"""
 
     def load_all_caches(self, sender):
         """Should be called during startup. Loop over all caches and load/merge them into a
@@ -286,12 +289,17 @@ def from_config(config, tree_id):
             info = PersistedCacheInfo(existing_disk_cache)
             self.persisted_cache_info[existing_disk_cache.subtree_root] = info
             if existing_disk_cache.cache_type == CACHE_TYPE_LOCAL_DISK:
-                if os.path.exists(existing_disk_cache.subtree_root):
+                if not self.load_all_caches_on_startup:
+                    info.needs_refresh = True
+                elif os.path.exists(existing_disk_cache.subtree_root):
                     stopwatch_total = Stopwatch()
                     # 1. Load from disk cache:
                     fmeta_tree = self.load_local_disk_cache(existing_disk_cache)
                     # 2. Update from the file system, and optionally save any changes back to cache:
-                    self.refresh_from_local_fs(fmeta_tree, ID_GLOBAL_CACHE)
+                    if self.application.cache_manager.sync_from_local_disk_on_cache_load:
+                        self.refresh_from_local_fs(fmeta_tree, ID_GLOBAL_CACHE)
+                    else:
+                        logger.debug('Skipping file system sync because it is disabled for cache loads')
                     logger.info(f'Tree loaded in: {stopwatch_total}')
                     info.is_loaded = True
                 else:
@@ -316,7 +324,7 @@ def from_config(config, tree_id):
                 return fmeta_tree
 
             status = f'Loading meta for subtree "{cache_info.subtree_root}" from disk cache: {cache_info.cache_location}'
-            logger.debug(status)
+            logger.info(status)
             actions.set_status(sender=ID_GLOBAL_CACHE, status_msg=status)
 
             db_file_changes = fmeta_disk_cache.get_local_files()
@@ -334,7 +342,7 @@ def from_config(config, tree_id):
                     fmeta_tree.add(change)
 
             logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
-            logger.info(fmeta_tree.get_stats_string())
+            logger.debug(fmeta_tree.get_stats_string())
 
         return fmeta_tree
 
@@ -400,10 +408,11 @@ def from_config(config, tree_id):
         return new_cache_info
 
     def refresh_from_local_fs(self, stale_tree: FMetaTree, tree_id: str) -> FMetaTree:
-        # 2. Bring it up to date with the file system, and also update in-memory store
+        # Bring it up to date with the file system, and also update in-memory store:
         fresh_tree = self.sync_from_file_system(stale_tree, tree_id)
-        # 3. Save the updates back to disk cache
+        # Save the updates back to local disk cache:
         if self.enable_save_to_disk:
             self.save_to_local_disk_cache(fresh_tree)
-
         return fresh_tree
+
+        return stale_tree

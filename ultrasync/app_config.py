@@ -27,6 +27,8 @@ class AppConfig:
             raise RuntimeError(f'Could not read config file ({config_file_path})') from err
 
         logging_config.configure_logging(self)
+        if self.read_only:
+            logger.info('Config is set to read-only')
 
     def get(self, cfg_path, default_val=None):
         try:

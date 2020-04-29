@@ -97,7 +97,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         def on_diff_btn_clicked(widget):
             logger.debug('Diff btn clicked!')
             # Disable button bar immediately:
-            self.on_diff_btn_clicked(sender=actions.ID_DIFF_WINDOW, enable=False)
+            self.on_enable_ui_toggled(sender=actions.ID_DIFF_WINDOW, enable=False)
             dispatcher.send(signal=actions.START_DIFF_TREES, sender=actions.ID_DIFF_WINDOW,
                             tree_con_left=self.tree_con_left, tree_con_right=self.tree_con_right)
         diff_action_btn = Gtk.Button(label="Diff (content-first)")

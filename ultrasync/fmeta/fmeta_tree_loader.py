@@ -122,9 +122,6 @@ class TreeMetaScanner(TreeRecurser):
         self.total = file_counter.files_to_scan
         logger.debug(f'Found {self.total} files to scan.')
         if self.tree_id:
-            status_msg = f'Scanning tree: {self.root_path}'
-
-            actions.set_status(sender=self.tree_id, status_msg=status_msg)
             logger.debug(f'Sending START_PROGRESS for tree_id: {self.tree_id}')
             actions.get_dispatcher().send(actions.START_PROGRESS, sender=self.tree_id, total=self.total)
 

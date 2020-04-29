@@ -1,6 +1,9 @@
 from pydispatch import dispatcher
+import logging
 
 from ui import actions
+
+logger = logging.getLogger(__name__)
 
 
 class RootPathConfigPersister:
@@ -16,6 +19,7 @@ class RootPathConfigPersister:
 
     def _on_root_path_updated(self, sender, new_root):
         if self.root_path != new_root:
+            logger.debug(f'Root path changed. Saving config key {self._config_key} = "{new_root}')
             # Root changed. Invalidate the current tree contents
             self._config.write(transient_path=self._config_key, value=new_root)
         # always, just to be safe

@@ -4,8 +4,8 @@ import logging
 # Tasks
 LOAD_ALL_CACHES = 'load-all-caches'
 LOAD_ALL_CACHES_DONE = 'load-all-caches-done'
-START_DIFF_TREES = 'start-diff-trees'
-DIFF_TREES_DONE = 'diff-trees_done'
+START_DIFF_TREES = 'start-tree-diff'
+DIFF_TREES_DONE = 'tree-diff_done'
 DOWNLOAD_GDRIVE_META = 'download-gdrive-meta'
 GDRIVE_DOWNLOAD_COMPLETE = 'gdrive-download-complete'
 

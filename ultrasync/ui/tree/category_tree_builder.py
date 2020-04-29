@@ -47,7 +47,8 @@ def build_category_tree(fmeta_tree: FMetaTree, root_node: CategoryNode) -> Tree:
                 if child is None:
                     dir_full_path = os.path.join(fmeta_tree.root_path, nid)
                     # logger.debug(f'Creating dir node: nid={nid}')
-                    child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=DirNode(dir_full_path, category))
+                    dir_node = DirNode(dir_full_path, category)
+                    child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=dir_node)
                 parent = child
                 # logger.debug(f'Adding file meta from nid="{fmeta.full_path}" to dir node {parent.data.full_path}"')
                 parent.data.add_meta(fmeta)

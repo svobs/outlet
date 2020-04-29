@@ -31,6 +31,7 @@ class ProgressBarComponent:
         def start_animation():
             self.progressbar.show()
             self.timeout_id = GLib.timeout_add(self.update_interval_ms, self.on_timeout, indeterminate)
+            logger.debug(f'Started a progress bar animation with timeout_id: {self.timeout_id}')
 
         GLib.idle_add(start_animation)
 

@@ -2,7 +2,6 @@ import os
 import logging
 import subprocess
 import ui.actions as actions
-from model.fmeta import FMeta, Category
 from model.planning_node import FMetaDecorator
 from ui.tree.action_bridge import TreeActionBridge
 from model.display_node import DirNode, CategoryNode
@@ -41,7 +40,8 @@ class FMetaTreeActionHandlers(TreeActionBridge):
                     self.call_xdg_open(node_data.original_full_path)
                 else:
                     logger.debug(f'Path does not exist: {node_data.original_full_path}')
-            logger.debug(f'Path does not exist: {node_data.full_path}')
+            else:
+                logger.debug(f'Path does not exist: {node_data.full_path}')
         else:
             logger.debug(f'Unexpected data element: {type(node_data)}')
 

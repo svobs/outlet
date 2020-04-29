@@ -200,8 +200,7 @@ class FMetaTree:
         """
         For internal use only
         """
-        cats_string = self.get_category_summary_string()
-        return f'FMetaTree=[md5s:{len(self._md5_dict)} paths:{len(self._path_dict)} dup_md5s:{self._dup_md5_count} cats=[{cats_string}]'
+        return self.__repr__()
 
     def get_summary(self):
         """
@@ -227,3 +226,7 @@ class FMetaTree:
             ignored_size_hf = humanfriendly.format_size(ignored_size)
             summary_string += f' (+{ignored_size_hf} in {ignored_count} ignored files)'
         return summary_string
+
+    def __repr__(self):
+        cats_string = self.get_category_summary_string()
+        return f'FMetaTree(Paths={len(self._path_dict)} MD5s={len(self._md5_dict)} Dup_MD5s={self._dup_md5_count} Root="{self.root_path}" cats=[{cats_string}])'

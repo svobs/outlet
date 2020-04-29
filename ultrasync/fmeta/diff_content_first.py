@@ -98,6 +98,9 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
        3c. File's signature and path are unique to opposite side --> ADDED
        """
     logger.info('Diffing files by MD5...')
+    count_add_delete_pairs = 0
+    count_moved_pairs = 0
+    count_updated_pairs = 0
 
     fixer = PathTransplanter(left_tree, right_tree)
 
@@ -141,14 +144,16 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
             for (changed_left, changed_right) in compare_result:
                 # Did we at least find a pair?
                 if changed_left is not None and changed_right is not None:
-                    # MOVED
-                    dest_path = fixer.move_to_left(changed_right)
-                    file_to_move_left = FileToMove(changed_right, dest_path)
-                    left_tree.add(file_to_move_left)
-
+                    # MOVED: the file already exists in each tree, so just do a rename within the tree
+                    # (it is possible that the trees are on different disks, so keep performance in mind)
                     dest_path = fixer.move_to_right(changed_left)
-                    file_to_move_right = FileToMove(changed_left, dest_path)
-                    right_tree.add(file_to_move_right)
+                    move_right_to_right = FileToMove(changed_right, dest_path)
+                    right_tree.add(move_right_to_right)
+
+                    dest_path = fixer.move_to_left(changed_right)
+                    move_left_to_left = FileToMove(changed_left, dest_path)
+                    left_tree.add(move_left_to_left)
+                    count_moved_pairs += 1
                 else:
                     """Looks like one side has additional file(s) with same signature 
                        - essentially a duplicate.. Remember, we know each side already contains
@@ -178,6 +183,7 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
                     # Same path, different md5 -> Updated
                     right_tree.categorize(matching_right, Category.Updated)
                     left_tree.categorize(left_meta, Category.Updated)
+                    count_updated_pairs += 1
                     continue
                 # No match? fall through
             # DUPLICATE ADDED on right + DELETED on left
@@ -190,6 +196,7 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
             # TODO: rename 'Deleted' category to 'ToDelete'
             # Dead node walking:
             left_tree.categorize(left_meta, Category.Deleted)
+            count_add_delete_pairs += 1
 
     for fmeta_duplicate_md5s_right in orphaned_md5s_right:
         for right_meta in fmeta_duplicate_md5s_right:
@@ -207,14 +214,16 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
 
             # Dead node walking:
             right_tree.categorize(right_meta, Category.Deleted)
+            count_add_delete_pairs += 1
 
-    logger.debug(f'Done with diff. Left:[{left_tree.get_category_summary_string()}] Right:[{right_tree.get_category_summary_string()}]')
+    logger.info(f'Done with diff (pairs: add/del={count_add_delete_pairs} upd={count_updated_pairs} moved={count_moved_pairs})'
+                f' Left:[{left_tree.get_category_summary_string()}] Right:[{right_tree.get_category_summary_string()}]')
 
-    debug = False
-    logger.debug('Validating categories on Left...')
-    left_tree.validate_categories()
-    logger.debug('Validating categories on Right...')
-    right_tree.validate_categories()
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug('Validating categories on Left...')
+        left_tree.validate_categories()
+        logger.debug('Validating categories on Right...')
+        right_tree.validate_categories()
 
     return left_tree, right_tree
 
