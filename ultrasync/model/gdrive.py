@@ -72,7 +72,7 @@ class GoogFolder(DisplayNode):
 
 
 class GoogFile(GoogFolder):
-    # TODO: handling of shortcuts... maybe put target_id in MD5 field?
+    # TODO: handling of shortcuts... does a shortcut have an ID?
     # TODO: handling of special chars in file systems
 
     def __init__(self, item_id, item_name, trashed, drive_id, version, head_revision_id, md5,

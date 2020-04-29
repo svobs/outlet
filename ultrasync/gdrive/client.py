@@ -87,7 +87,7 @@ def try_repeatedly(request_func):
             if retries_remaining == 0:
                 raise
             # Typically a transport error (socket timeout, name server problem...)
-            logger.error(f'Request failed: {repr(err)}: sleeping 3 secs (retries remaining: {retries_remaining}')
+            logger.error(f'Request failed: {repr(err)}: sleeping 3 secs (retries remaining: {retries_remaining})')
             time.sleep(3)
             retries_remaining -= 1
 

@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from queue import Queue
-from typing import Dict, List
+from typing import Dict
 
 import treelib
 from pydispatch import dispatcher
@@ -10,9 +10,9 @@ from stopwatch import Stopwatch
 
 import file_util
 from constants import CACHE_TYPE_GDRIVE, CACHE_TYPE_LOCAL_DISK, MAIN_REGISTRY_FILE_NAME, ROOT
-from cache.cache_registry_db import CacheInfoEntry, CacheRegistry
-from cache.fmeta_db import FMetaDatabase
-from cache.two_level_dict import FullPathBeforeMd5Dict, FullPathDict, Md5BeforePathDict, ParentPathBeforeFileNameDict, Sha256BeforePathDict
+from cache.sqlite.cache_registry_db import CacheInfoEntry, CacheRegistry
+from cache.sqlite.fmeta_db import FMetaDatabase
+from cache.two_level_dict import FullPathDict, Md5BeforePathDict, ParentPathBeforeFileNameDict, Sha256BeforePathDict
 from file_util import get_resource_path
 from model.category import Category
 from model.display_node import CategoryNode
