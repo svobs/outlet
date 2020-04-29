@@ -27,9 +27,10 @@ def ensure_category(val):
 
 
 class DisplayId(ABC):
-    def __init__(self, category, full_path):
+    def __init__(self, category=None, full_path=None, id_string=None):
         self.category = category
         self.full_path = full_path
+        self.id_string = id_string
 
     @property
     def tree_type(self) -> int:

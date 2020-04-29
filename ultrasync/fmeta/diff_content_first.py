@@ -53,18 +53,6 @@ def _compare_paths_for_same_md5(lefts, left_tree, rights, right_tree, fixer):
 
     return compare_result
 
-#
-# def mv_left_to_right(left_fmeta, left_tree, right_tree):
-#     left_rel_path = left_fmeta.get_relative_path(left_tree.root_path)
-#     new_full_path = os.path.join(right_tree.root_path, left_rel_path)
-#     return new_full_path
-#
-#
-# def mv_right_to_left(right_fmeta, right_tree, left_tree):
-#     right_rel_path = right_fmeta.get_relative_path(right_tree.root_path)
-#     new_full_path = os.path.join(left_tree.root_path, right_rel_path)
-#     return new_full_path
-
 
 class PathTransplanter:
     def __init__(self, left_tree: FMetaTree, right_tree: FMetaTree):

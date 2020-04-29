@@ -1,7 +1,7 @@
 import logging
 
 from model.category import Category
-from model.display_node import DisplayNode
+from model.display_node import DisplayId, DisplayNode, ensure_int
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ class UserMeta:
 
 
 class GoogFolder(DisplayNode):
+
     def __init__(self, item_id, item_name, trashed, drive_id, my_share, sync_ts, category=Category.NA):
         super().__init__(category)
         self.id = item_id
@@ -43,6 +44,10 @@ class GoogFolder(DisplayNode):
     def __repr__(self):
         return f'Folder:(id="{self.id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
                    f'my_share={self.my_share} sync_ts={self.sync_ts} ]'
+
+    @property
+    def display_id(self) -> DisplayId:
+        return DisplayId(id_string=self.id)
 
     @classmethod
     def is_dir(cls):
@@ -77,15 +82,10 @@ class GoogFile(GoogFolder):
         self.head_revision_id = head_revision_id
         self.md5 = md5
         self.my_share = my_share
-        self.create_ts = create_ts
-        if type(create_ts) == str:
-            self.create_ts = int(create_ts)
-        self.modify_ts = modify_ts
-        if type(modify_ts) == str:
-            self.modify_ts = int(modify_ts)
-        self.size_bytes = size_bytes
-        if type(size_bytes) == str:
-            self.size_bytes = int(size_bytes)
+        self.create_ts = ensure_int(create_ts)
+        self.modify_ts = ensure_int(modify_ts)
+        self._size_bytes = ensure_int(size_bytes)
+        self._size_bytes = ensure_int(size_bytes)
         self.owner_id = owner_id
 
     def __repr__(self):
@@ -99,7 +99,7 @@ class GoogFile(GoogFolder):
         return False
 
     def make_tuple(self, parent_id):
-        return (self.id, self.name, parent_id, self.trashed, self.size_bytes, self.md5, self.create_ts, self.modify_ts,
+        return (self.id, self.name, parent_id, self.trashed, self._size_bytes, self.md5, self.create_ts, self.modify_ts,
                 self.owner_id, self.drive_id, self.my_share, self.version, self.head_revision_id, self.sync_ts)
 
 
