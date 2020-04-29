@@ -6,12 +6,9 @@ import os
 import humanfriendly
 import logging
 
-from stopwatch import Stopwatch
-from treelib import Tree
-import file_util
-from model.fmeta import FMeta, Category
+from pydispatch import dispatcher
 from fmeta.fmeta_tree_loader import TreeMetaScanner
-from model.display_node import DirNode, CategoryNode
+from model.display_node import DirNode, CategoryNode, DisplayNode
 import gi
 
 from model.planning_node import FileToMove
@@ -24,131 +21,106 @@ from gi.repository import GLib
 logger = logging.getLogger(__name__)
 
 
-def _build_category_change_tree(fmeta_list, category, root_path):
-    """
-    Builds a tree out of the flat change set.
-    Args:
-        fmeta_list: source tree for category
-        cat_name: the category name
-
-    Returns:
-        change tree
-    """
-    # The change set in tree form
-    change_tree = Tree()  # from treelib
-
-    set_len = len(fmeta_list)
-    if set_len == 0:
-        return change_tree
-
-    logger.info(f'Building change trees for category {category.name} with {set_len} files...')
-
-    root = change_tree.create_node(tag=f'{category.name} ({set_len} files)', identifier='', data=CategoryNode(root_path, category))   # root
-    for fmeta in fmeta_list:
-        dirs_str, file_name = os.path.split(fmeta.get_relative_path(root_path))
-        # nid == Node ID == directory name
-        nid = ''
-        parent = root
-        logger.debug(f'Adding root file "{fmeta.full_path}" to dir "{parent.data.full_path}"')
-        parent.data.add_meta(fmeta)
-        if dirs_str != '':
-            # Create a node for each ancestor dir (path segment)
-            path_segments = file_util.split_path(dirs_str)
-            for dir_name in path_segments:
-                nid = os.path.join(nid, dir_name)
-                child = change_tree.get_node(nid=nid)
-                if child is None:
-                    dir_full_path = os.path.join(root_path, nid)
-                    logger.debug(f'Creating dir node: nid={nid}')
-                    child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=DirNode(dir_full_path, category))
-                parent = child
-                logger.debug(f'Adding file meta from nid="{fmeta.full_path}" to dir node {parent.data.full_path}"')
-                parent.data.add_meta(fmeta)
-        nid = os.path.join(nid, file_name)
-        logger.debug(f'Creating file node: nid={nid}')
-        change_tree.create_node(identifier=nid, tag=file_name, parent=parent, data=fmeta)
-
-    return change_tree
-
-
 class FMetaChangeTreeStrategy(DisplayStrategy):
     def __init__(self, controller=None):
         super().__init__(controller)
 
     def init(self):
-        actions.connect(actions.ROOT_PATH_UPDATED, self._on_root_path_updated, self.con.data_store.tree_id)
+        dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.con.data_store.tree_id)
+        dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.data_store.tree_id)
 
     def _on_root_path_updated(self, sender, new_root):
         # Get a new metastore from the cache manager:
         self.con.data_store = self.con.parent_win.application.cache_manager.get_metastore_for_local_subtree(new_root, self.con.data_store.tree_id)
 
-    def _append_dir_node(self, tree_iter, dir_name, node_data):
+    def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded):
+        logger.debug(f'Node expansion toggled to {is_expanded} for cat={node_data.category} path="{node_data.full_path}"')
+
+        # Add children for node:
+        if is_expanded:
+            children = self.con.data_store.get_children(node_data.display_id)
+            if children:
+                logger.debug(f'Filling out display children: {len(children)}')
+                # Append all underneath tree_iter
+                for child in children:
+                    if child.is_dir():
+                        self.append_dir_node_and_empty_child(parent_iter, child)
+                    else:
+                        self._append_file_node(parent_iter, child)
+                # Remove dummy node:
+                self.con.display_store.remove_first_child(parent_iter)
+            else:
+                self._append_empty_child(parent_iter)
+            # Remove Loading node:
+            self.con.display_store.remove_first_child(parent_iter)
+        else:
+            # Collapsed:
+            self.con.display_store.remove_all_children(parent_iter)
+            # Always have at least a dummy node:
+            self._append_loading_child(parent_iter)
+
+    def append_dir_node(self, tree_iter, node_data: DisplayNode):
         """Appends a dir or cat node to the model"""
         row_values = []
+
         if self.con.display_store.display_meta.editable:
             row_values.append(False)  # Checked
             row_values.append(False)  # Inconsistent
+
         row_values.append('folder')  # Icon
-        row_values.append(dir_name)  # Name
+
+        row_values.append(node_data.get_name())  # Name
+
         if not self.con.display_store.display_meta.use_dir_tree:
             row_values.append(None)  # Directory
-        num_bytes_str = humanfriendly.format_size(node_data.size_bytes)
-        row_values.append(num_bytes_str)  # Size
+
+        if not node_data.size_bytes:
+            num_bytes_formatted = None
+        else:
+            num_bytes_formatted = humanfriendly.format_size(node_data.size_bytes)
+        row_values.append(num_bytes_formatted)  # Size
+
         row_values.append(None)  # Modify Date
+
         if self.con.display_store.display_meta.show_change_ts:
             row_values.append(None)  # Modify Date
+
         row_values.append(node_data)  # Data
 
         return self.con.display_store.model.append(tree_iter, row_values)
 
-    def _append_fmeta_node(self, tree_iter, file_name, fmeta, category):
+    def _append_file_node(self, tree_iter, node_data: DisplayNode):
         row_values = []
 
         if self.con.display_store.display_meta.editable:
             row_values.append(False)  # Checked
             row_values.append(False)  # Inconsistent
-        row_values.append(category.name)  # Icon
+        row_values.append(node_data.category.name)  # Icon
 
-        if isinstance(fmeta, FileToMove):
-            node_name = f'{fmeta.original_full_path} -> "{file_name}"'
+        if isinstance(node_data, FileToMove):
+            node_name = f'{node_data.original_full_path} -> "{node_data.get_name()}"'
         else:
-            node_name = file_name
+            node_name = node_data.get_name()
         row_values.append(node_name)  # Name
 
         if not self.con.display_store.display_meta.use_dir_tree:
-            directory, name = os.path.split(fmeta.full_path)
+            directory, name = os.path.split(node_data.full_path)
             row_values.append(directory)  # Directory
 
-        num_bytes_str = humanfriendly.format_size(fmeta.size_bytes)
+        num_bytes_str = humanfriendly.format_size(node_data.size_bytes)
         row_values.append(num_bytes_str)  # Size
 
-        modify_datetime = datetime.fromtimestamp(fmeta.modify_ts)
+        modify_datetime = datetime.fromtimestamp(node_data.modify_ts)
         modify_time = modify_datetime.strftime(self.con.display_store.display_meta.datetime_format)
         row_values.append(modify_time)  # Modify TS
 
         if self.con.display_store.display_meta.show_change_ts:
-            change_datetime = datetime.fromtimestamp(fmeta.change_ts)
+            change_datetime = datetime.fromtimestamp(node_data.change_ts)
             change_time = change_datetime.strftime(self.con.display_store.display_meta.datetime_format)
             row_values.append(change_time)  # Change TS
 
-        row_values.append(fmeta)  # Data
+        row_values.append(node_data)  # Data
         return self.con.display_store.model.append(tree_iter, row_values)
-
-    def _append_to_model(self, category, change_tree):
-        def append_recursively(tree_iter, node):
-            # Do a DFS of the change tree and populate the UI tree along the way
-            if isinstance(node.data, DirNode):
-                # Is dir
-                tree_iter = self._append_dir_node(tree_iter, node.tag, node.data)
-                for child in change_tree.children(node.identifier):
-                    append_recursively(tree_iter, child)
-            else:
-                self._append_fmeta_node(tree_iter, node.tag, node.data, category)
-
-        if change_tree.size(1) > 0:
-            # logger.debug(f'Appending category: {category.name}')
-            root = change_tree.get_node('')
-            append_recursively(None, root)
 
     def _set_expand_states_from_config(self):
         # Loop over top level. Find the category nodes and expand them appropriately
@@ -159,54 +131,36 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
                 is_expand = self.con.display_store.display_meta.is_category_node_expanded(node_data)
                 if is_expand:
                     tree_path = self.con.display_store.model.get_path(tree_iter)
+                    logger.info(f'Expanding row: {node_data.get_name()} in tree {self.con.tree_id}')
                     self.con.tree_view.expand_row(path=tree_path, open_all=True)
+                    # TODO! Listeners
 
             tree_iter = self.con.display_store.model.iter_next(tree_iter)
 
     def populate_root(self):
-        """
-        Populates the given DiffTreePanel using categories as the topmost elements.
-        TODO: looks like we'll have to implement lazy loading to speed things up...
-        Args:
-            diff_tree: the DiffTreePanel widget
-
-        """
         logger.debug(f'Repopulating diff tree "{self.con.data_store.tree_id}"')
 
-        fmeta_tree = self.con.data_store.get_whole_tree()
-
-        # Wipe out existing items:
-        self.con.display_store.model.clear()
-
-        total_stopwatch = Stopwatch()
-
-        change_trees = {}
-        for category in [Category.Added,
-                         Category.Deleted,
-                         Category.Moved,
-                         Category.Updated,
-                         Category.Ignored]:
-            # Build fake tree for category:
-            category_stopwatch = Stopwatch()
-            change_tree = _build_category_change_tree(fmeta_tree.get_for_cat(category), category, fmeta_tree.root_path)
-            logger.info(f'Faux tree built for "{category.name}" in: {category_stopwatch}')
-            change_trees[category] = change_tree
-
-        logger.info(f'Total time for all categories: {total_stopwatch}')
+        # This may be a long task
+        children = self.con.data_store.get_children(parent_id=None)
 
         def update_ui():
-            tree_view_update_stopwatch = Stopwatch()
-            for cat, tree in change_trees.items():
-                self._append_to_model(cat, tree)
+            # Wipe out existing items:
+            tree_iter = self.con.display_store.clear_model()
+            # Append all underneath tree_iter
+            for child in children:
+                if child.is_dir():
+                    self.append_dir_node_and_empty_child(tree_iter, child)
+                else:
+                    self._append_file_node(tree_iter, child)
 
-            # Restore user prefs for expanded nodes:
+            # This should fire expanded state listener to populate nodes as needed:
             self._set_expand_states_from_config()
 
-            # Show tree summary:
-            actions.set_status(sender=self.con.data_store.tree_id, status_msg=fmeta_tree.get_summary())
-            logger.info(f'Repopulated diff tree "{self.con.data_store.tree_id}" in {tree_view_update_stopwatch}')
-
         GLib.idle_add(update_ui)
+
+        # Show tree summary:
+        actions.set_status(sender=self.con.data_store.tree_id,
+                           status_msg=self.con.data_store.get_whole_tree().get_summary())
 
     def resync_subtree(self, tree_path):
         # Construct a FMetaTree from the UI nodes: this is the 'stale' subtree.

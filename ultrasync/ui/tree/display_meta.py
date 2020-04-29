@@ -4,6 +4,7 @@ from model.display_node import CategoryNode
 from ui import actions
 
 
+# TODO: rename to TreeViewMeta
 class TreeDisplayMeta:
     def __init__(self, config, tree_id, editable, selection_mode, is_display_persisted, is_ignored_func=None):
         self.config = config
@@ -77,15 +78,17 @@ class TreeDisplayMeta:
     def init(self):
         # Hook up persistence of expanded state (if configured):
         if self.is_display_persisted:
-            dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_toggle_row_expanded_state, sender=self.tree_id)
+            dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.tree_id)
 
-    def _on_toggle_row_expanded_state(self, sender, parent_iter, node_data, is_expanded):
+    def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded, expand_all=False):
         if type(node_data) == CategoryNode:
             if self.is_ignored_func and self.is_ignored_func(node_data):
                 # Do not expand if ignored:
                 return
             cfg_path = f'transient.{self.tree_id}.expanded_state.{node_data.category.name}'
             self.config.write(cfg_path, is_expanded)
+        # Allow other listeners to handle this also:
+        return False
 
     def is_category_node_expanded(self, node):
         if self.is_ignored_func and self.is_ignored_func(node):

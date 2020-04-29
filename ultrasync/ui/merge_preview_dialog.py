@@ -25,7 +25,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
     def __init__(self, parent, fmeta_tree):
         Gtk.Dialog.__init__(self, "Confirm Merge", parent, 0)
-        BaseDialog.__init__(self, parent.config)
+        BaseDialog.__init__(self, parent.application)
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_APPLY, Gtk.ResponseType.APPLY)
 

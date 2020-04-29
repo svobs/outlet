@@ -18,6 +18,7 @@ class TreePanelController:
 
     @property
     def tree_id(self):
+        """Convenience method. Retreives the tree_id from the metastore"""
         return self.data_store.tree_id
 
     def init(self):

@@ -1,6 +1,7 @@
 import logging
 
 import gi
+from gi.repository.Gtk import TreeIter
 
 from model.fmeta_tree import FMetaTree
 from model.planning_node import PlanningNode
@@ -51,13 +52,19 @@ class DisplayStore:
     def set_inconsistent(self, tree_path, inconsistent_value):
         self.model[tree_path][self.display_meta.col_num_inconsistent] = inconsistent_value
 
+    def clear_model(self) -> TreeIter:
+        self.model.clear()
+        return self.model.get_iter_first()
+
     def on_cell_checkbox_toggled(self, widget, path):
         """Called when checkbox in treeview is toggled"""
         data_node = self.get_node_data(path)
-        if self.display_meta.is_ignored_func:
-            if self.display_meta.is_ignored_func(data_node):
-                logger.debug('Disallowing checkbox toggle because node is in IGNORED category')
-                return
+        if not data_node.has_path():
+            logger.debug('Disallowing checkbox toggle because node is ephemereal')
+            return
+        elif self.display_meta.is_ignored_func and self.display_meta.is_ignored_func(data_node):
+            logger.debug('Disallowing checkbox toggle because node is in IGNORED category')
+            return
         # DOC: model[path][column] = not model[path][column]
         checked_value = not self.is_node_checked(path)
         logger.debug(f'Toggled {checked_value}: {self.get_node_name(path)}')

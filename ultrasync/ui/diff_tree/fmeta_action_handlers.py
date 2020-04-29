@@ -20,7 +20,7 @@ class FMetaTreeActionHandlers(TreeActionBridge):
 
     def init(self):
         super().init()
-        actions.connect(actions.NODE_EXPANSION_TOGGLED, self._on_toggle_row_expanded_state, sender=self.con.tree_id)
+        actions.connect(actions.NODE_EXPANSION_TOGGLED, self._on_node_expansion_toggled, sender=self.con.tree_id)
 
     # --- LISTENERS ---
 
@@ -33,27 +33,25 @@ class FMetaTreeActionHandlers(TreeActionBridge):
                 tree_view.collapse_row(tree_path)
             else:
                 tree_view.expand_row(path=tree_path, open_all=False)
-        elif type(node_data) == DirNode or type(node_data) == FMeta:
-            if node_data.category == Category.Deleted:
-                logger.debug(f'Cannot open a Deleted node: {node_data.full_path}')
-            else:
-                # TODO: ensure prev_path is filled out for all nodes!
-                file_path = os.path.join(self.con.data_store.get_root_path(), node_data.full_path)
-                # if not os.path.exists(file_path):
-                #     logger.debug(f'File not found: {file_path}')
-                #     # File is an 'added' node or some such. Open the old one:
-                #     file_path = os.path.join(self.root_path, node_data.prev_path)
-                self.call_xdg_open(file_path)
+        elif node_data.has_path():
+            if os.path.exists(node_data.full_path):
+                self.call_xdg_open(node_data.full_path)
+            elif isinstance(node_data, FMetaDecorator):
+                if os.path.exists(node_data.original_full_path):
+                    self.call_xdg_open(node_data.original_full_path)
+                else:
+                    logger.debug(f'Path does not exist: {node_data.original_full_path}')
+            logger.debug(f'Path does not exist: {node_data.full_path}')
         else:
-            raise RuntimeError('Unexpected data element')
+            logger.debug(f'Unexpected data element: {type(node_data)}')
 
     def on_multiple_rows_activated(self, tree_view, tree_iter):
         # TODO: intelligent logic for multiple selected rows
         logger.error('Multiple rows activated, but no logic implemented yet!')
         pass
 
-    def _on_toggle_row_expanded_state(self, sender, parent_iter, node_data, is_expanded):
-        pass
+    def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded, expand_all=False):
+        return False
 
     def build_context_menu(self, tree_path: Gtk.TreePath, node_data):
         """Dynamic context menu (right-click on tree item)"""

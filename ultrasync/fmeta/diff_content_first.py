@@ -1,7 +1,6 @@
 """Content-first diff. See diff function below."""
 import file_util
 import os
-import copy
 import logging
 from model.fmeta import Category, FMeta
 from model.fmeta_tree import FMetaTree

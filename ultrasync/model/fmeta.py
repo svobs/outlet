@@ -5,7 +5,7 @@ from typing import Optional
 
 import file_util
 from model.category import Category
-from model.display_node import DisplayNode, ensure_int
+from model.display_node import DisplayId, DisplayNode, ensure_int
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ class FMeta(DisplayNode):
         super().__init__(category)
         self.md5: Optional[str] = md5
         self.sha256: Optional[str] = sha256
-        self.size_bytes: int = ensure_int(size_bytes)
+        self._size_bytes: int = ensure_int(size_bytes)
         self.sync_ts: int = ensure_int(sync_ts)
         self.modify_ts: int = ensure_int(modify_ts)
         self.change_ts: int = ensure_int(change_ts)
@@ -32,9 +32,17 @@ class FMeta(DisplayNode):
     def has_path(cls):
         return True
 
+    @property
+    def display_id(self):
+        return DisplayId(self.category, self.full_path)
+
     @classmethod
     def is_dir(cls):
         return False
+
+    @property
+    def size_bytes(self):
+        return self._size_bytes
 
     @classmethod
     def is_ignored(cls):
@@ -43,7 +51,7 @@ class FMeta(DisplayNode):
     def is_content_equal(self, other_entry):
         assert isinstance(other_entry, FMeta)
         return self.sha256 == other_entry.sha256 \
-            and self.md5 == other_entry.md5 and self.size_bytes == other_entry.size_bytes
+            and self.md5 == other_entry.md5 and self._size_bytes == other_entry._size_bytes
 
     def is_meta_equal(self, other_entry):
         assert isinstance(other_entry, FMeta)

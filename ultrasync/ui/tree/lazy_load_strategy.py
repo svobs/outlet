@@ -1,3 +1,4 @@
+from gi.repository.Gtk import TreeIter
 from pydispatch import dispatcher
 
 from model.gdrive import NOT_TRASHED
@@ -55,7 +56,7 @@ class LazyLoadStrategy(DisplayStrategy):
                 # Append all underneath tree_iter
                 for child in children:
                     if child.is_dir():
-                        self._append_dir_node_and_empty_child(parent_iter, child)
+                        self.append_dir_node_and_empty_child(parent_iter, child)
                     else:
                         self._append_file_node(parent_iter, child)
                 # Remove dummy node:
@@ -70,39 +71,7 @@ class LazyLoadStrategy(DisplayStrategy):
             # Always have at least a dummy node:
             self._append_loading_child(parent_iter)
 
-    def _append_empty_child(self, parent_node_iter):
-        row_values = []
-        if self.con.display_store.display_meta.editable:
-            row_values.append(False)  # Checked
-            row_values.append(False)  # Inconsistent
-        row_values.append(None)  # Icon
-        row_values.append('(empty)')  # Name
-        if not self.con.display_store.display_meta.use_dir_tree:
-            row_values.append(None)  # Directory
-        row_values.append(None)  # Size
-        row_values.append(None)  # Modify Date
-        row_values.append(None)  # Created Date
-        row_values.append(EmptyNode())
-
-        return self.con.display_store.model.append(parent_node_iter, row_values)
-
-    def _append_loading_child(self, parent_node_iter):
-        row_values = []
-        if self.con.display_store.display_meta.editable:
-            row_values.append(False)  # Checked
-            row_values.append(False)  # Inconsistent
-        row_values.append('folder')  # Icon
-        row_values.append('Loading...')  # Name
-        if not self.con.display_store.display_meta.use_dir_tree:
-            row_values.append(None)  # Directory
-        row_values.append(None)  # Size
-        row_values.append(None)  # Modify Date
-        row_values.append(None)  # Created Date
-        row_values.append(LoadingNode())
-
-        return self.con.display_store.model.append(parent_node_iter, row_values)
-
-    def _append_dir_node_and_empty_child(self, tree_iter, node_data):
+    def append_dir_node(self, tree_iter, node_data) -> TreeIter:
         """Appends a dir or cat node to the model"""
         row_values = []
         if self.con.display_store.display_meta.editable:
@@ -123,9 +92,7 @@ class LazyLoadStrategy(DisplayStrategy):
         row_values.append(None)  # Created Date
         row_values.append(node_data)  # Data
 
-        dir_node_iter = self.con.display_store.model.append(tree_iter, row_values)
-        self._append_loading_child(dir_node_iter)
-        return dir_node_iter
+        return self.con.display_store.model.append(tree_iter, row_values)
 
     def _append_file_node(self, tree_iter, node_data):
         row_values = []
@@ -181,6 +148,6 @@ class LazyLoadStrategy(DisplayStrategy):
         # Append all underneath tree_iter
         for child in children:
             if child.is_dir():
-                self._append_dir_node_and_empty_child(tree_iter, child)
+                self.append_dir_node_and_empty_child(tree_iter, child)
             else:
                 self._append_file_node(tree_iter, child)

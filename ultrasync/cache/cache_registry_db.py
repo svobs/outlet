@@ -4,9 +4,6 @@ from cache.base_db import MetaDatabase
 
 logger = logging.getLogger(__name__)
 
-CACHE_TYPE_LOCAL_DISK = 1
-CACHE_TYPE_GDRIVE = 2
-
 
 def ensure_int(val):
     if type(val) == str:
