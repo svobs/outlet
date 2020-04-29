@@ -45,6 +45,7 @@ class LazyLoadStrategy(DisplayStrategy):
         super().__init__(controller)
 
     def init(self):
+        super().init()
         dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.con.data_store.tree_id)
 
     def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded):
@@ -59,7 +60,7 @@ class LazyLoadStrategy(DisplayStrategy):
                         self.append_dir_node_and_empty_child(parent_iter, child)
                     else:
                         self._append_file_node(parent_iter, child)
-            else:
+            elif self.use_empty_nodes:
                 self._append_empty_child(parent_iter)
             # Remove Loading node:
             self.con.display_store.remove_first_child(parent_iter)

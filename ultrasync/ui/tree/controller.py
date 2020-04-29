@@ -17,6 +17,11 @@ class TreePanelController:
         self.action_handlers = None
 
     @property
+    def config(self):
+        """Convenience method. Retreives the tree_id from the parent_win"""
+        return self.parent_win.config
+
+    @property
     def tree_id(self):
         """Convenience method. Retreives the tree_id from the metastore"""
         return self.data_store.tree_id

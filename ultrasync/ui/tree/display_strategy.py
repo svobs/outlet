@@ -8,6 +8,7 @@ from model.display_node import EmptyNode, LoadingNode
 class DisplayStrategy(ABC):
     def __init__(self, controller=None):
         self.con = controller
+        self.use_empty_nodes = True
 
     @abstractmethod
     def populate_root(self):
@@ -17,7 +18,7 @@ class DisplayStrategy(ABC):
     @abstractmethod
     def init(self):
         """Do post-wiring stuff like connect listeners."""
-        pass
+        self.use_empty_nodes = self.con.config.get('display.diff_tree.use_empty_nodes')
 
     def append_dir_node_and_empty_child(self, tree_iter, node_data):
         dir_node_iter = self.append_dir_node(tree_iter, node_data)

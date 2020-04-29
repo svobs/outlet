@@ -1,6 +1,7 @@
 import logging
 
 import gi
+from pydispatch import dispatcher
 
 from ui.actions import ID_MERGE_TREE
 from ui.tree import tree_factory
@@ -26,6 +27,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
     def __init__(self, parent, fmeta_tree):
         Gtk.Dialog.__init__(self, "Confirm Merge", parent, 0)
         BaseDialog.__init__(self, parent.application)
+        self.parent_win = parent
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_APPLY, Gtk.ResponseType.APPLY)
 
@@ -108,3 +110,9 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
                         noop_movs += 1
             self.show_error_ui(f'{len(error_collection)} Errors occurred',
                                f'Collected the following errors while applying changes: adds={err_adds} dels={err_dels} movs={err_movs} noops={noop_adds + noop_dels + noop_movs}')
+
+        logger.debug('Refreshing the diff trees')
+        # FIXME: do cache reload, not diff!
+        dispatcher.send(signal=actions.START_DIFF_TREES, sender=self.tree_con.tree_id,
+                        tree_con_left=self.parent_win.tree_con_left,
+                        tree_con_right=self.parent_win.tree_con_right)

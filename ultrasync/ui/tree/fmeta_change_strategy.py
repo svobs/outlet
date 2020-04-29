@@ -13,6 +13,7 @@ import gi
 
 from model.planning_node import FileToMove
 from ui import actions
+from ui.tree import category_tree_builder
 from ui.tree.display_strategy import DisplayStrategy
 
 gi.require_version("Gtk", "3.0")
@@ -26,6 +27,7 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
         super().__init__(controller)
 
     def init(self):
+        super().init()
         dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.con.data_store.tree_id)
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.data_store.tree_id)
 
@@ -33,22 +35,30 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
         # Get a new metastore from the cache manager:
         self.con.data_store = self.con.parent_win.application.cache_manager.get_metastore_for_local_subtree(new_root, self.con.data_store.tree_id)
 
+    def _append_children(self, children, parent_iter):
+        if children:
+            logger.debug(f'Filling out display children: {len(children)}')
+            # Append all underneath tree_iter
+            for child in children:
+                if child.is_dir():
+                    self.append_dir_node_and_empty_child(parent_iter, child)
+                else:
+                    self._append_file_node(parent_iter, child)
+        elif self.use_empty_nodes:
+            self._append_empty_child(parent_iter)
+
     def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded):
         logger.debug(f'Node expansion toggled to {is_expanded} for cat={node_data.category} path="{node_data.full_path}"')
+
+        if not self.con.data_store.is_lazy():
+            return
+
+        # FIXME: checkboxes + lazy load
 
         # Add children for node:
         if is_expanded:
             children = self.con.data_store.get_children(node_data.display_id)
-            if children:
-                logger.debug(f'Filling out display children: {len(children)}')
-                # Append all underneath tree_iter
-                for child in children:
-                    if child.is_dir():
-                        self.append_dir_node_and_empty_child(parent_iter, child)
-                    else:
-                        self._append_file_node(parent_iter, child)
-            else:
-                self._append_empty_child(parent_iter)
+            self._append_children(children, parent_iter)
             # Remove Loading node:
             self.con.display_store.remove_first_child(parent_iter)
         else:
@@ -135,26 +145,55 @@ class FMetaChangeTreeStrategy(DisplayStrategy):
 
             tree_iter = self.con.display_store.model.iter_next(tree_iter)
 
+    def _append_to_model(self, change_tree):
+        def append_recursively(tree_iter, node):
+            # Do a DFS of the change tree and populate the UI tree along the way
+            if isinstance(node.data, DirNode):
+                # Is dir
+                tree_iter = self.append_dir_node(tree_iter, node.data)
+                for child in change_tree.children(node.identifier):
+                    append_recursively(tree_iter, child)
+            else:
+                self._append_file_node(tree_iter, node.data)
+
+        if change_tree.size(1) > 0:
+            # logger.debug(f'Appending category: {category.name}')
+            root = change_tree.get_node(change_tree.root)
+            append_recursively(None, root)
+
     def populate_root(self):
         logger.debug(f'Repopulating diff tree "{self.con.data_store.tree_id}"')
 
-        # This may be a long task
-        children = self.con.data_store.get_children(parent_id=None)
+        if self.con.data_store.is_lazy():
+            # This may be a long task
+            children = self.con.data_store.get_children(parent_id=None)
 
-        def update_ui():
-            # Wipe out existing items:
-            tree_iter = self.con.display_store.clear_model()
-            # Append all underneath tree_iter
-            for child in children:
-                if child.is_dir():
-                    self.append_dir_node_and_empty_child(tree_iter, child)
-                else:
-                    self._append_file_node(tree_iter, child)
+            def update_ui():
+                # Wipe out existing items:
+                root_iter = self.con.display_store.clear_model()
 
-            # This should fire expanded state listener to populate nodes as needed:
-            self._set_expand_states_from_config()
+                self._append_children(children, root_iter)
 
-        GLib.idle_add(update_ui)
+                # This should fire expanded state listener to populate nodes as needed:
+                self._set_expand_states_from_config()
+
+            GLib.idle_add(update_ui)
+        else:
+            # KLUDGE
+            category_trees = self.con.data_store.get_category_trees()
+
+            def update_ui():
+                # Wipe out existing items:
+                self.con.display_store.clear_model()
+
+                for tree in category_trees:
+                    self._append_to_model(tree)
+
+                # Restore user prefs for expanded nodes:
+                self._set_expand_states_from_config()
+                logger.debug(f'Done repopulating diff tree "{self.con.data_store.tree_id}"')
+
+            GLib.idle_add(update_ui)
 
         # Show tree summary:
         actions.set_status(sender=self.con.data_store.tree_id,

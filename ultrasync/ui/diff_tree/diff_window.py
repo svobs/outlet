@@ -193,11 +193,6 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             # Preview changes in UI pop-up
             dialog = MergePreviewDialog(self, merged_changes_tree)
             response_id = dialog.run()
-            if response_id == Gtk.ResponseType.APPLY:
-                # Assume the dialog took care of applying the changes.
-                # Refresh the diff trees:
-                logger.debug('Refreshing the diff trees')
-                actions.send_signal(signal=actions.START_DIFF_TREES, sender=self)
         except Exception as err:
             self.show_error_ui('Merge preview failed due to unexpected error', repr(err))
             raise

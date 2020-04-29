@@ -56,6 +56,10 @@ class LocalDiskSubtreeMS(BaseMetaStore):
 
         self._root_level_nodes = []
 
+    @classmethod
+    def is_lazy(cls):
+        return True
+
     def get_root_path(self):
         return self._fmeta_tree.root_path
 
