@@ -1,6 +1,8 @@
 import logging
 from typing import Dict
 
+from model.display_id import DisplayId
+from model.fmeta import LocalFsDisplayId
 from ui.tree import category_tree_builder
 
 logger = logging.getLogger(__name__)
@@ -44,7 +46,7 @@ class LocalDiskSubtreeMS(BaseMetaStore):
         return self._fmeta_tree
 
     # Must return files AND directories
-    def get_children(self, parent_id):
+    def get_children(self, parent_id: LocalFsDisplayId):
         if not parent_id:
             # Root level.
             if not self._root_level_nodes:
@@ -65,11 +67,8 @@ class LocalDiskSubtreeMS(BaseMetaStore):
             self._category_trees[parent_id.category] = category_tree
             logger.info(f'Tree constructed for "{parent_id.category.name}" in: {category_stopwatch}')
 
-        if parent_id.full_path.endswith('Oregon State University - Corvallis, November 24, 2017'):
-            logger.debug(f'CategoryTree for "{self.get_root_path()}": ' + category_tree.show(stdout=False))
-
         try:
-            for child in category_tree.children(parent_id.full_path):
+            for child in category_tree.children(parent_id.id_string):
                 children.append(child.data)
         except Exception as err:
             logger.debug(f'CategoryTree for "{self.get_root_path()}": ' + category_tree.show(stdout=False))

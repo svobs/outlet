@@ -1,11 +1,15 @@
 import os
-from abc import ABC
+from abc import ABC, abstractmethod
+from typing import Optional
 
 import file_util
 from model.category import Category
+from model.display_id import DisplayId
+from model.display_node import DisplayNode
+from model.fmeta import LocalFsDisplayId
 
 
-class PlanningNode(ABC):
+class PlanningNode(DisplayNode, ABC):
     """
     Planning nodes represent work which has not yet been done, such as copying a file.
     They can be thought of as 'ghosts of a possible future'. As such, they should not be
@@ -14,11 +18,16 @@ class PlanningNode(ABC):
     Note also that this node should think of itself as 'living' in its destination tree - thus
     properties like 'full_path' return the destination path, not the source.
     """
+
     def __init__(self):
-        pass
+        super().__init__(Category.NA)
+
+    @abstractmethod
+    def get_icon(self):
+        return None
 
 
-class FMetaDecorator(PlanningNode):
+class FMetaDecorator(PlanningNode, ABC):
     def __init__(self, fmeta, dest_path):
         super().__init__()
         self.fmeta = fmeta
@@ -59,6 +68,10 @@ class FMetaDecorator(PlanningNode):
     def change_ts(self):
         return self.fmeta.change_ts
 
+    @property
+    def display_id(self) -> Optional[DisplayId]:
+        return LocalFsDisplayId(self.dest_path, self.category)
+
     def get_relative_path(self, root_path):
         assert self.full_path.startswith(root_path), f'Full path ({self.full_path}) does not contain root ({root_path})'
         return file_util.strip_root(self.full_path, root_path)
@@ -79,6 +92,9 @@ class FMetaDecorator(PlanningNode):
     def category(self):
         return Category.NA
 
+    def get_icon(self):
+        return self.category.name
+
 
 class FileToAdd(FMetaDecorator):
     # NOTE: this decorates its enclosed FMeta, EXCEPT for pathname stuff!
@@ -90,6 +106,10 @@ class FileToAdd(FMetaDecorator):
     def category(self):
         return Category.ADDED
 
+    @category.setter
+    def category(self, category):
+        pass
+
     def __repr__(self):
         return f'FileToAdd(original_path={self.original_full_path} dest_path={self.dest_path})'
 
@@ -99,10 +119,13 @@ class FileToMove(FMetaDecorator):
     def __init__(self, fmeta, dest_path):
         super().__init__(fmeta, dest_path)
 
-    # TODO: KLUDGE! Get rid of the category system
     @property
     def category(self):
         return Category.MOVED
+
+    @category.setter
+    def category(self, category):
+        pass
 
     def __repr__(self):
         return f'FileToMove(original_path={self.original_full_path} dest_path={self.dest_path})'

@@ -50,7 +50,9 @@ class FMetaTreeActionHandlers(TreeActionBridge):
         logger.error('Multiple rows activated, but no logic implemented yet!')
         pass
 
-    def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded, expand_all=False):
+    def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded,
+                                   expand_all=False):
+        """CB for NODE_EXPANSION_TOGGLED"""
         return False
 
     def build_context_menu(self, tree_path: Gtk.TreePath, node_data):

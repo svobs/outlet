@@ -15,8 +15,9 @@ logger = logging.getLogger(__name__)
 
 
 class LocalFsDisplayId(DisplayId):
-    def __init__(self, full_path):
-        super().__init__(id_string=full_path)
+    def __init__(self, id_string, category: Category):
+        super().__init__(id_string=id_string)
+        self.category = category
 
     @property
     def tree_type(self) -> int:
@@ -49,7 +50,7 @@ class FMeta(DisplayNode):
 
     @property
     def display_id(self):
-        return LocalFsDisplayId(self.full_path)
+        return LocalFsDisplayId(self.full_path, self.category)
 
     def get_icon(self):
         return self.category.name

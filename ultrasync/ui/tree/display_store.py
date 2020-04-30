@@ -1,8 +1,10 @@
 import logging
+from typing import Dict, Union
 
 import gi
-from gi.repository.Gtk import TreeIter
+from gi.repository.Gtk import TreeIter, TreePath
 
+from model.display_node import DisplayNode
 from model.fmeta_tree import FMetaTree
 from model.planning_node import PlanningNode
 
@@ -21,8 +23,10 @@ class DisplayStore:
         self.treeview_meta = treeview_meta
         self.model = Gtk.TreeStore()
         self.model.set_column_types(self.treeview_meta.col_types)
+        self.selected_rows: Dict[str, DisplayNode] = {}
+        self.inconsistent_rows: Dict[str, DisplayNode] = {}
 
-    def get_node_data(self, tree_path):
+    def get_node_data(self, tree_path: Union[TreeIter, TreePath]):
         """
         Args
             tree_path: TreePath, or TreeIter of target node
@@ -43,18 +47,25 @@ class DisplayStore:
     def is_node_checked(self, tree_path):
         return self.model[tree_path][self.treeview_meta.col_num_checked]
 
-    def set_checked(self, tree_path, checked_value):
-        self.model[tree_path][self.treeview_meta.col_num_checked] = checked_value
-
     def is_inconsistent(self, tree_path):
         return self.model[tree_path][self.treeview_meta.col_num_inconsistent]
-
-    def set_inconsistent(self, tree_path, inconsistent_value):
-        self.model[tree_path][self.treeview_meta.col_num_inconsistent] = inconsistent_value
 
     def clear_model(self) -> TreeIter:
         self.model.clear()
         return self.model.get_iter_first()
+
+    def set_checked_state(self, tree_iter, is_checked, is_inconsistent):
+        assert not (is_checked and is_inconsistent)
+        row = self.model[tree_iter]
+        row[self.treeview_meta.col_num_checked] = is_checked
+        row[self.treeview_meta.col_num_inconsistent] = is_inconsistent
+
+        node_data = self.get_node_data(tree_iter)
+        row_id = node_data.display_id.id_string
+        if is_inconsistent:
+            self.inconsistent_rows[row_id] = node_data
+        else:
+            self.inconsistent_rows.pop(row_id)
 
     def on_cell_checkbox_toggled(self, widget, path):
         """Called when checkbox in treeview is toggled"""
@@ -71,8 +82,7 @@ class DisplayStore:
 
         # Update all of the node's children change to match its check state:
         def update_checked_state(t_iter):
-            self.set_checked(t_iter, checked_value)
-            self.set_inconsistent(t_iter, False)
+            self.set_checked_state(t_iter, checked_value, False)
 
         self.do_for_self_and_descendants(path, update_checked_state)
 
@@ -100,8 +110,9 @@ class DisplayStore:
                     # ...or if any of its children are inconsistent
                     has_inconsistent |= self.is_inconsistent(child_iter)
                     child_iter = self.model.iter_next(child_iter)
-                self.set_inconsistent(tree_iter, has_inconsistent or (has_checked and has_unchecked))
-                self.set_checked(tree_iter, has_checked and not has_unchecked and not has_inconsistent)
+                is_checked = has_checked and not has_unchecked and not has_inconsistent
+                is_inconsistent = has_inconsistent or (has_checked and has_unchecked)
+                self.set_checked_state(tree_iter, is_checked, is_inconsistent)
 
     # --- Tree searching & iteration (utility functions) --- #
 
@@ -198,4 +209,3 @@ class DisplayStore:
             self.do_for_self_and_descendants(tree_path, action_func)
 
         return subtree
-

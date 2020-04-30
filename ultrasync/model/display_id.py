@@ -5,6 +5,7 @@ from constants import OBJ_TYPE_DISPLAY_ONLY, OBJ_TYPE_LOCAL_DISK
 
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
+from model.category import Category
 
 
 class DisplayId(ABC):
@@ -25,9 +26,10 @@ class DisplayId(ABC):
 
 
 class LogicalNodeDisplayId(DisplayId):
-    def __init__(self, id_string):
+    def __init__(self, id_string, category: Category):
         """Object has a path, but does not represent a physical item"""
         super().__init__(id_string=id_string)
+        self.category = category
 
     @property
     def tree_type(self) -> int:

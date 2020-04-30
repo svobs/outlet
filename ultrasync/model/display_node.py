@@ -71,7 +71,7 @@ class DirNode(DisplayNode):
     """
     Represents a generic directory (i.e. not an FMeta or domain object)
     """
-    def __init__(self, full_path, category):
+    def __init__(self, full_path, category=Category.NA):
         super().__init__(category)
         self.full_path = full_path
         self.file_count = 0
@@ -86,7 +86,7 @@ class DirNode(DisplayNode):
 
     @property
     def display_id(self):
-        return LogicalNodeDisplayId(id_string=self.full_path)
+        return LogicalNodeDisplayId(id_string=self.full_path, category=self.category)
 
     @property
     def size_bytes(self):

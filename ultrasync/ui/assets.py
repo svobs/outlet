@@ -1,8 +1,8 @@
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import GdkPixbuf
 
 from constants import ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE
+from gi.repository import GdkPixbuf
 
 from model.fmeta import Category
 

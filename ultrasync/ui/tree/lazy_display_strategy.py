@@ -92,6 +92,7 @@ class LazyDisplayStrategy:
             self._append_empty_child(parent_iter)
 
     def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded):
+        # CB for actions.NODE_EXPANSION_TOGGLED:
         logger.debug(f'Node expansion toggled to {is_expanded} for cat={node_data.category} id="{node_data.display_id}"')
 
         if not self.con.meta_store.is_lazy():
