@@ -12,7 +12,7 @@ from index.cache_manager import PersistedCacheInfo
 from index.meta_store.local import LocalDiskSubtreeMS
 from index.sqlite.fmeta_db import FMetaDatabase
 from index.two_level_dict import FullPathDict, Md5BeforePathDict, ParentPathBeforeFileNameDict, Sha256BeforePathDict
-from constants import CACHE_TYPE_LOCAL_DISK, ROOT
+from constants import OBJ_TYPE_LOCAL_DISK, ROOT
 from model.fmeta import FMeta
 from model.fmeta_tree import FMetaTree
 from model.planning_node import PlanningNode
@@ -170,7 +170,7 @@ class LocalDiskMasterCache:
             raise RuntimeError(f'Cannot load meta for subtree because it does not exist: {subtree_path}')
 
         cache_man = self.application.cache_manager
-        cache_info = cache_man.get_cache_info_entry(CACHE_TYPE_LOCAL_DISK, subtree_path)
+        cache_info = cache_man.get_cache_info_entry(OBJ_TYPE_LOCAL_DISK, subtree_path)
         if cache_info and not cache_info.is_loaded:
             # Load from disk
             fmeta_tree = self.load_local_disk_cache(cache_info)

@@ -5,7 +5,7 @@ from typing import Dict, List
 
 from pydispatch import dispatcher
 
-from constants import CACHE_TYPE_GDRIVE, CACHE_TYPE_LOCAL_DISK, MAIN_REGISTRY_FILE_NAME
+from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, MAIN_REGISTRY_FILE_NAME
 from file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
 from index.master_gdrive import GDriveMasterCache
@@ -91,10 +91,10 @@ class CacheManager:
         if not self.load_all_caches_on_startup:
             info.needs_refresh = True
         else:
-            if existing_disk_cache.cache_type == CACHE_TYPE_LOCAL_DISK:
+            if existing_disk_cache.cache_type == OBJ_TYPE_LOCAL_DISK:
                 self.local_disk_cache.init_subtree_localfs_cache(info)
 
-            elif existing_disk_cache.cache_type == CACHE_TYPE_GDRIVE:
+            elif existing_disk_cache.cache_type == OBJ_TYPE_GDRIVE:
                 self.gdrive_cache.init_subtree_gdrive_cache(info, ID_GLOBAL_CACHE)
             else:
                 raise RuntimeError(f'Unrecognized value for cache_type: {existing_disk_cache.cache_type}')
@@ -113,9 +113,9 @@ class CacheManager:
         return self.gdrive_cache.download_all_gdrive_meta(tree_id)
 
     def get_cache_info_entry(self, cache_type, subtree_root) -> PersistedCacheInfo:
-        if cache_type == CACHE_TYPE_LOCAL_DISK:
+        if cache_type == OBJ_TYPE_LOCAL_DISK:
             already_in_memory = self.persisted_localfs_cache_info.get(subtree_root, None)
-        elif cache_type == CACHE_TYPE_GDRIVE:
+        elif cache_type == OBJ_TYPE_GDRIVE:
             already_in_memory = self.persisted_gdrive_cache_info.get(subtree_root, None)
         else:
             raise RuntimeError(f'Unknown cache type: {cache_type}')
@@ -126,9 +126,9 @@ class CacheManager:
         if existing:
             return existing
 
-        if tree_type == CACHE_TYPE_LOCAL_DISK:
+        if tree_type == OBJ_TYPE_LOCAL_DISK:
             prefix = 'FS'
-        elif tree_type == CACHE_TYPE_GDRIVE:
+        elif tree_type == OBJ_TYPE_GDRIVE:
             prefix = 'GD'
         else:
             prefix = 'UNKNOWN'
@@ -137,7 +137,7 @@ class CacheManager:
         cache_location = os.path.join(self.cache_dir_path, mangled_file_name)
         now_ms = int(time.time())
         new_cache_info = CacheInfoEntry(cache_location=cache_location,
-                                        cache_type=CACHE_TYPE_LOCAL_DISK,
+                                        cache_type=OBJ_TYPE_LOCAL_DISK,
                                         subtree_root=subtree_root, sync_ts=now_ms,
                                         is_complete=True)
 

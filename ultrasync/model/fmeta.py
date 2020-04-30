@@ -4,10 +4,20 @@ import logging
 from typing import Optional
 
 import file_util
+from constants import OBJ_TYPE_LOCAL_DISK
 from model.category import Category
 from model.display_node import DisplayId, DisplayNode, ensure_int
 
 logger = logging.getLogger(__name__)
+
+
+class LocalFsDisplayId(DisplayId):
+    def __init__(self, full_path):
+        super().__init__(id_string=full_path)
+
+    @property
+    def tree_type(self) -> int:
+        return OBJ_TYPE_LOCAL_DISK
 
 
 class FMeta(DisplayNode):
@@ -34,7 +44,7 @@ class FMeta(DisplayNode):
 
     @property
     def display_id(self):
-        return DisplayId(self.category, self.full_path)
+        return LocalFsDisplayId(self.full_path)
 
     @classmethod
     def is_dir(cls):

@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 import os
+from typing import Optional
 
 import humanfriendly
 import logging
 
-from constants import CACHE_TYPE_LOCAL_DISK
+from constants import OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_DISPLAY_ONLY
 from model.category import Category
 
 logger = logging.getLogger(__name__)
@@ -27,14 +28,31 @@ def ensure_category(val):
 
 
 class DisplayId(ABC):
-    def __init__(self, category=None, full_path=None, id_string=None):
-        self.category = category
-        self.full_path = full_path
+    """
+    Represents a unique identifier that can be used across trees and tree types to identify a node.
+    Still a work in progress and may change greatly.
+    """
+    def __init__(self, id_string: str):
         self.id_string = id_string
 
     @property
+    @abstractmethod
     def tree_type(self) -> int:
-        return CACHE_TYPE_LOCAL_DISK
+        return OBJ_TYPE_LOCAL_DISK
+
+    def __repr__(self):
+        return f'{self.tree_type}:{self.id_string}'
+
+
+class LogicalNodeDisplayId(DisplayId):
+    def __init__(self, id_string):
+        """Object has a path, but does not represent a physical item"""
+        super().__init__(id_string=id_string)
+
+    @property
+    def tree_type(self) -> int:
+        return OBJ_TYPE_DISPLAY_ONLY
+
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
@@ -59,7 +77,7 @@ class DisplayNode(ABC):
 
     @property
     @abstractmethod
-    def display_id(self) -> DisplayId:
+    def display_id(self) -> Optional[DisplayId]:
         return None
 
     @classmethod
@@ -94,7 +112,7 @@ class DirNode(DisplayNode):
 
     @property
     def display_id(self):
-        return DisplayId(self.category, self.full_path)
+        return LogicalNodeDisplayId(id_string=self.full_path)
 
     @property
     def size_bytes(self):
@@ -133,10 +151,6 @@ class CategoryNode(DirNode):
 
     def get_name(self):
         return self.category.name
-
-    @property
-    def display_id(self):
-        return DisplayId(self.category, self.full_path)
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 

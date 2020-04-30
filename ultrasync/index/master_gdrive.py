@@ -6,7 +6,7 @@ import logging
 
 from stopwatch import Stopwatch
 
-from constants import CACHE_TYPE_GDRIVE, GDRIVE_PREFIX, ROOT
+from constants import OBJ_TYPE_GDRIVE, GDRIVE_PREFIX, ROOT
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index.cache_manager import PersistedCacheInfo
 from index.meta_store.gdrive import GDriveMS
@@ -46,7 +46,7 @@ class GDriveMasterCache:
         cache_man = self.application.cache_manager
         # TODO: currently we will just load the root and use that.
         #       But in the future we should do on-demand retrieval of subtrees
-        cache_info = cache_man.get_or_create_cache_info_entry(CACHE_TYPE_GDRIVE, ROOT)
+        cache_info = cache_man.get_or_create_cache_info_entry(OBJ_TYPE_GDRIVE, ROOT)
 
         if not cache_info.is_loaded:
             # Load from disk
@@ -56,7 +56,7 @@ class GDriveMasterCache:
         return GDriveMS(tree_id, self.application.config, self.meta_master, ROOT)
 
     def download_all_gdrive_meta(self, tree_id):
-        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(CACHE_TYPE_GDRIVE, ROOT)
+        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(OBJ_TYPE_GDRIVE, ROOT)
         cache_path = cache_info.cache_info.cache_location
         tree_builder = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
         meta = tree_builder.load_all(invalidate_cache=False)

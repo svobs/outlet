@@ -1,5 +1,6 @@
 import logging
 
+from constants import OBJ_TYPE_GDRIVE
 from model.category import Category
 from model.display_node import DisplayId, DisplayNode, ensure_int
 
@@ -10,6 +11,15 @@ EXPLICITLY_TRASHED = 1
 IMPLICITLY_TRASHED = 2
 
 TRASHED_STATUS = ['No', 'UserTrashed', 'Trashed']
+
+
+class GDriveDisplayId(DisplayId):
+    def __init__(self, id_string):
+        super().__init__(id_string=id_string)
+
+    @property
+    def tree_type(self) -> int:
+        return OBJ_TYPE_GDRIVE
 
 
 class UserMeta:
@@ -47,7 +57,7 @@ class GoogFolder(DisplayNode):
 
     @property
     def display_id(self) -> DisplayId:
-        return DisplayId(id_string=self.id)
+        return GDriveDisplayId(id_string=self.id)
 
     @classmethod
     def is_dir(cls):

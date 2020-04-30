@@ -52,9 +52,11 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
         try:
             if response_id == Gtk.ResponseType.OK:
                 logger.debug("The OK button was clicked")
-                self.tree_controller.display_store.get_selection()
-                filename = dialog.get_filename() # FIXME
-                logger.info(f'User selected dir: {filename}')
+                node_data = self.tree_controller.get_single_selection()
+                assert node_data.display_id
+                assert node_data.display_id.id_string
+                item_id = node_data.display_id.id_string
+                logger.info(f'User selected dir: {node_data.display_id.id_string}')
                 # TODO: swap out data store if needed?
             #    actions.get_dispatcher().send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root=filename)
                 self.on_ok_clicked()
