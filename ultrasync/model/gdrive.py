@@ -3,6 +3,7 @@ import logging
 from constants import OBJ_TYPE_GDRIVE
 from model.category import Category
 from model.display_node import DisplayId, DisplayNode, ensure_int
+from ui.assets import ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,11 @@ class GoogFolder(DisplayNode):
     def display_id(self) -> DisplayId:
         return GDriveDisplayId(id_string=self.id)
 
+    def get_icon(self):
+        if self.trashed != NOT_TRASHED:
+            return ICON_TRASHED_DIR
+        return ICON_GENERIC_DIR
+
     @classmethod
     def is_dir(cls):
         return True
@@ -107,6 +113,11 @@ class GoogFile(GoogFolder):
     @classmethod
     def is_dir(cls):
         return False
+
+    def get_icon(self):
+        if self.trashed != NOT_TRASHED:
+            return ICON_TRASHED_FILE
+        return ICON_GENERIC_FILE
 
     def make_tuple(self, parent_id):
         return (self.id, self.name, parent_id, self.trashed, self._size_bytes, self.md5, self.create_ts, self.modify_ts,

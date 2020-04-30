@@ -2,6 +2,7 @@ import logging
 
 import ui.assets
 from model.fmeta import Category
+from ui.tree.lazy_display_strategy import LazyDisplayStrategy
 from ui.tree.fmeta_action_handlers import FMetaTreeActionHandlers
 from ui.tree.gdrive_action_handlers import GDriveActionHandlers
 from ui.tree.fmeta_change_strategy import FMetaChangeTreeStrategy
@@ -12,7 +13,6 @@ import gi
 from ui.tree.controller import TreePanelController
 from ui.tree.treeview_meta import TreeViewMeta
 from ui.tree.display_store import DisplayStore
-from ui.tree.lazy_load_strategy import LazyLoadStrategy
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -57,14 +57,14 @@ def _compare_data(model, row1, row2, args):
     """
     Comparison function, for use in model sort by column.
     """
-    display_meta = args[0]
+    treeview_meta = args[0]
     compare_field_func = args[1]
 
     sort_column, _ = model.get_sort_column_id()
 
     try:
-        value1 = compare_field_func(model[row1][display_meta.col_num_data])
-        value2 = compare_field_func(model[row2][display_meta.col_num_data])
+        value1 = compare_field_func(model[row1][treeview_meta.col_num_data])
+        value2 = compare_field_func(model[row2][treeview_meta.col_num_data])
         if not value1 or not value2:
             # This appears to achieve satisfactory behavior
             # (preserving previous column sort order for directories)
@@ -83,10 +83,10 @@ def _compare_data(model, row1, row2, args):
 def _build_treeview(display_store):
     """ Builds the GTK3 treeview widget"""
     model = display_store.model
-    display_meta = display_store.display_meta
+    treeview_meta = display_store.treeview_meta
 
     treeview = Gtk.TreeView(model=model)
-    treeview.set_level_indentation(display_meta.extra_indent)
+    treeview.set_level_indentation(treeview_meta.extra_indent)
     treeview.set_show_expanders(True)
     treeview.set_property('enable_grid_lines', True)
     treeview.set_property('enable_tree_lines', True)
@@ -98,24 +98,24 @@ def _build_treeview(display_store):
 
     # 0 Checkbox + Icon + Name
     # See: https://stackoverflow.com/questions/27745585/show-icon-or-color-in-gtk-treeview-tree
-    px_column = Gtk.TreeViewColumn(display_meta.col_names[display_meta.col_num_name])
+    px_column = Gtk.TreeViewColumn(treeview_meta.col_names[treeview_meta.col_num_name])
     px_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
 
-    if display_meta.editable:
+    if treeview_meta.editable:
         renderer = Gtk.CellRendererToggle()
         renderer.connect("toggled", display_store.on_cell_checkbox_toggled)
-        renderer.set_fixed_size(width=-1, height=display_meta.row_height)
+        renderer.set_fixed_size(width=-1, height=treeview_meta.row_height)
         px_column.pack_start(renderer, False)
-        px_column.add_attribute(renderer, 'active', display_meta.col_num_checked)
-        px_column.add_attribute(renderer, 'inconsistent', display_meta.col_num_inconsistent)
+        px_column.add_attribute(renderer, 'active', treeview_meta.col_num_checked)
+        px_column.add_attribute(renderer, 'inconsistent', treeview_meta.col_num_inconsistent)
 
     px_renderer = Gtk.CellRendererPixbuf()
-    px_renderer.set_fixed_size(width=-1, height=display_meta.row_height)
+    px_renderer.set_fixed_size(width=-1, height=treeview_meta.row_height)
     px_column.pack_start(px_renderer, False)
 
     str_renderer = Gtk.CellRendererText()
     str_renderer.set_fixed_height_from_font(1)
-    str_renderer.set_fixed_size(width=-1, height=display_meta.row_height)
+    str_renderer.set_fixed_size(width=-1, height=treeview_meta.row_height)
     str_renderer.set_property('width-chars', 15)
     px_column.pack_start(str_renderer, False)
 
@@ -123,29 +123,29 @@ def _build_treeview(display_store):
 
     # For displaying icons
     def get_tree_cell_pixbuf(col, cell, model, iter, user_data):
-        cell.set_property('pixbuf', ui.assets.get_icon(model.get_value(iter, display_meta.col_num_icon)))
+        cell.set_property('pixbuf', ui.assets.get_icon(model.get_value(iter, treeview_meta.col_num_icon)))
     px_column.set_cell_data_func(px_renderer, get_tree_cell_pixbuf)
 
     # For displaying text next to icon
     def get_tree_cell_text(col, cell, model, iter, user_data):
-        cell.set_property('text', model.get_value(iter, display_meta.col_num_name))
+        cell.set_property('text', model.get_value(iter, treeview_meta.col_num_name))
     px_column.set_cell_data_func(str_renderer, get_tree_cell_text)
 
     px_column.set_min_width(50)
     px_column.set_expand(True)
     px_column.set_resizable(True)
     px_column.set_reorderable(True)
-    px_column.set_sort_column_id(display_meta.col_num_name)
+    px_column.set_sort_column_id(treeview_meta.col_num_name)
     treeview.append_column(px_column)
 
-    if not display_meta.use_dir_tree:
+    if not treeview_meta.use_dir_tree:
         # DIRECTORY COLUMN
         renderer = Gtk.CellRendererText()
         renderer.set_fixed_height_from_font(1)
-        renderer.set_fixed_size(width=-1, height=display_meta.row_height)
+        renderer.set_fixed_size(width=-1, height=treeview_meta.row_height)
         renderer.set_property('width-chars', 20)
-        column = Gtk.TreeViewColumn(display_meta.col_names[display_meta.col_num_dir], renderer, text=display_meta.col_num_dir)
-        column.set_sort_column_id(display_meta.col_num_dir)
+        column = Gtk.TreeViewColumn(treeview_meta.col_names[treeview_meta.col_num_dir], renderer, text=treeview_meta.col_num_dir)
+        column.set_sort_column_id(treeview_meta.col_num_dir)
 
         column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         column.set_min_width(50)
@@ -158,11 +158,11 @@ def _build_treeview(display_store):
 
     # SIZE COLUMN
     renderer = Gtk.CellRendererText()
-    renderer.set_fixed_size(width=-1, height=display_meta.row_height)
+    renderer.set_fixed_size(width=-1, height=treeview_meta.row_height)
     renderer.set_fixed_height_from_font(1)
     # renderer.set_property('width-chars', 15)
-    column = Gtk.TreeViewColumn(display_meta.col_names[display_meta.col_num_size], renderer, text=display_meta.col_num_size)
-    column.set_sort_column_id(display_meta.col_num_size)
+    column = Gtk.TreeViewColumn(treeview_meta.col_names[treeview_meta.col_num_size], renderer, text=treeview_meta.col_num_size)
+    column.set_sort_column_id(treeview_meta.col_num_size)
 
     column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
     #  column.set_fixed_width(50)
@@ -174,15 +174,15 @@ def _build_treeview(display_store):
     treeview.append_column(column)
 
     # Need the original file sizes (in bytes) here, not the formatted one
-    model.set_sort_func(display_meta.col_num_size, _compare_data, (display_meta, lambda f: f.size_bytes))
+    model.set_sort_func(treeview_meta.col_num_size, _compare_data, (treeview_meta, lambda f: f.size_bytes))
 
     # MODIFICATION TS COLUMN
     renderer = Gtk.CellRendererText()
     renderer.set_property('width-chars', 8)
-    renderer.set_fixed_size(width=-1, height=display_meta.row_height)
+    renderer.set_fixed_size(width=-1, height=treeview_meta.row_height)
     renderer.set_fixed_height_from_font(1)
-    column = Gtk.TreeViewColumn(display_meta.col_names[display_meta.col_num_modification_ts], renderer, text=display_meta.col_num_modification_ts)
-    column.set_sort_column_id(display_meta.col_num_modification_ts)
+    column = Gtk.TreeViewColumn(treeview_meta.col_names[treeview_meta.col_num_modification_ts], renderer, text=treeview_meta.col_num_modification_ts)
+    column.set_sort_column_id(treeview_meta.col_num_modification_ts)
 
     column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
     # column.set_fixed_width(50)
@@ -193,16 +193,16 @@ def _build_treeview(display_store):
     column.set_reorderable(True)
     treeview.append_column(column)
 
-    model.set_sort_func(display_meta.col_num_modification_ts, _compare_data, (display_meta, lambda f: f.modify_ts))
+    model.set_sort_func(treeview_meta.col_num_modification_ts, _compare_data, (treeview_meta, lambda f: f.modify_ts))
 
-    if display_meta.show_change_ts:
+    if treeview_meta.show_change_ts:
         # METADATA CHANGE TS COLUMN
         renderer = Gtk.CellRendererText()
         renderer.set_property('width-chars', 8)
-        renderer.set_fixed_size(width=-1, height=display_meta.row_height)
+        renderer.set_fixed_size(width=-1, height=treeview_meta.row_height)
         renderer.set_fixed_height_from_font(1)
-        column = Gtk.TreeViewColumn(display_meta.col_names[display_meta.col_num_change_ts], renderer, text=display_meta.col_num_change_ts)
-        column.set_sort_column_id(display_meta.col_num_change_ts)
+        column = Gtk.TreeViewColumn(treeview_meta.col_names[treeview_meta.col_num_change_ts], renderer, text=treeview_meta.col_num_change_ts)
+        column.set_sort_column_id(treeview_meta.col_num_change_ts)
 
         column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         # column.set_fixed_width(50)
@@ -213,10 +213,10 @@ def _build_treeview(display_store):
         column.set_reorderable(True)
         treeview.append_column(column)
 
-        model.set_sort_func(display_meta.col_num_change_ts, _compare_data, (display_meta, lambda f: f.change_ts))
+        model.set_sort_func(treeview_meta.col_num_change_ts, _compare_data, (treeview_meta, lambda f: f.change_ts))
 
     select = treeview.get_selection()
-    select.set_mode(display_meta.selection_mode)
+    select.set_mode(treeview_meta.selection_mode)
     return treeview
 
 
@@ -229,18 +229,18 @@ def is_ignored_func(data_node):
 """
 
 
-def build(parent_win, meta_store, display_meta, display_strategy, action_handlers):
+def build(parent_win, meta_store, treeview_meta, display_strategy, action_handlers):
     """Builds a single instance of a tree panel, and configures all its components as specified."""
     logger.debug(f'Building controller for tree: {meta_store.tree_id}')
 
-    display_store = DisplayStore(display_meta)
+    display_store = DisplayStore(treeview_meta)
 
     # The controller holds all the components in memory. Important for listeners especially,
     # since they rely on weak references.
-    controller = TreePanelController(parent_win, meta_store, display_store, display_meta)
+    controller = TreePanelController(parent_win, meta_store, display_store, treeview_meta)
     controller.tree_view = _build_treeview(display_store)
     controller.root_dir_panel = RootDirPanel(parent_win=parent_win, tree_id=meta_store.tree_id,
-                                             current_root=meta_store.get_root_path(), editable=display_meta.editable)
+                                             current_root=meta_store.get_root_path(), editable=treeview_meta.editable)
     controller.display_strategy = display_strategy
     display_strategy.con = controller
     controller.action_handlers = action_handlers
@@ -267,35 +267,35 @@ def build(parent_win, meta_store, display_meta, display_strategy, action_handler
 
 def build_gdrive(parent_win, meta_store):
     """Builds a tree panel for browsing a Google Drive tree, using lazy loading."""
-    display_meta = TreeViewMeta(config=parent_win.config, tree_id=meta_store.tree_id, editable=False,
+    treeview_meta = TreeViewMeta(config=parent_win.config, tree_id=meta_store.tree_id, editable=False,
                                    selection_mode=Gtk.SelectionMode.SINGLE,
                                    is_display_persisted=True, is_ignored_func=is_ignored_func)
 
-    display_strategy = LazyLoadStrategy()
+    display_strategy = LazyDisplayStrategy()
     action_handlers = GDriveActionHandlers()
 
-    return build(parent_win=parent_win, meta_store=meta_store, display_meta=display_meta, display_strategy=display_strategy, action_handlers=action_handlers)
+    return build(parent_win=parent_win, meta_store=meta_store, treeview_meta=treeview_meta, display_strategy=display_strategy, action_handlers=action_handlers)
 
 
 def build_bulk_load_file_tree(parent_win, meta_store):
-    display_meta = TreeViewMeta(config=parent_win.config, tree_id=meta_store.tree_id, editable=True,
+    treeview_meta = TreeViewMeta(config=parent_win.config, tree_id=meta_store.tree_id, editable=True,
                                    selection_mode=Gtk.SelectionMode.MULTIPLE,
                                    is_display_persisted=True, is_ignored_func=is_ignored_func)
 
     display_strategy = FMetaChangeTreeStrategy()
     action_handlers = FMetaTreeActionHandlers()
 
-    con = build(parent_win=parent_win, meta_store=meta_store, display_meta=display_meta, display_strategy=display_strategy, action_handlers=action_handlers)
+    con = build(parent_win=parent_win, meta_store=meta_store, treeview_meta=treeview_meta, display_strategy=display_strategy, action_handlers=action_handlers)
     return con
 
 
 def build_static_file_tree(parent_win, meta_store):
-    display_meta = TreeViewMeta(config=parent_win.config, tree_id=meta_store.tree_id, editable=False,
+    treeview_meta = TreeViewMeta(config=parent_win.config, tree_id=meta_store.tree_id, editable=False,
                                    selection_mode=Gtk.SelectionMode.SINGLE,
                                    is_display_persisted=False, is_ignored_func=is_ignored_func)
 
     display_strategy = FMetaChangeTreeStrategy()
     action_handlers = FMetaTreeActionHandlers()
 
-    con = build(parent_win=parent_win, meta_store=meta_store, display_meta=display_meta, display_strategy=display_strategy, action_handlers=action_handlers)
+    con = build(parent_win=parent_win, meta_store=meta_store, treeview_meta=treeview_meta, display_strategy=display_strategy, action_handlers=action_handlers)
     return con

@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 class LocalDiskMasterCache:
     def __init__(self, application):
+        """Singleton in-memory cache for local filesystem"""
         self.application = application
         self.use_md5 = application.config.get('cache.enable_md5_lookup')
         if self.use_md5:

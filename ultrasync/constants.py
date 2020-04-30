@@ -7,3 +7,8 @@ MAIN_REGISTRY_FILE_NAME = 'registry.db'
 ROOT = '/'
 
 GDRIVE_PREFIX = 'gdrive:/'
+
+ICON_GENERIC_FILE = 'file'
+ICON_TRASHED_DIR = 'trash-dir'
+ICON_TRASHED_FILE = 'trash-file'
+ICON_GENERIC_DIR = 'folder'

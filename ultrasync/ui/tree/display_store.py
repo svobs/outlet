@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 class DisplayStore:
     """(Mostly) encapsulates the nodes inside the TreeView object, which will be a subset of the nodes
     which come from the data store """
-    def __init__(self, display_meta):
-        self.display_meta = display_meta
+    def __init__(self, treeview_meta):
+        self.treeview_meta = treeview_meta
         self.model = Gtk.TreeStore()
-        self.model.set_column_types(self.display_meta.col_types)
+        self.model.set_column_types(self.treeview_meta.col_types)
 
     def get_node_data(self, tree_path):
         """
@@ -29,7 +29,7 @@ class DisplayStore:
         Returns:
             The data node (the contents of the hidden "data" column for the given row
         """
-        return self.model[tree_path][self.display_meta.col_num_data]
+        return self.model[tree_path][self.treeview_meta.col_num_data]
 
     def get_node_name(self, tree_path):
         """
@@ -38,19 +38,19 @@ class DisplayStore:
         Returns:
             The value of the 'name' column for the given row
         """
-        return self.model[tree_path][self.display_meta.col_num_name]
+        return self.model[tree_path][self.treeview_meta.col_num_name]
 
     def is_node_checked(self, tree_path):
-        return self.model[tree_path][self.display_meta.col_num_checked]
+        return self.model[tree_path][self.treeview_meta.col_num_checked]
 
     def set_checked(self, tree_path, checked_value):
-        self.model[tree_path][self.display_meta.col_num_checked] = checked_value
+        self.model[tree_path][self.treeview_meta.col_num_checked] = checked_value
 
     def is_inconsistent(self, tree_path):
-        return self.model[tree_path][self.display_meta.col_num_inconsistent]
+        return self.model[tree_path][self.treeview_meta.col_num_inconsistent]
 
     def set_inconsistent(self, tree_path, inconsistent_value):
-        self.model[tree_path][self.display_meta.col_num_inconsistent] = inconsistent_value
+        self.model[tree_path][self.treeview_meta.col_num_inconsistent] = inconsistent_value
 
     def clear_model(self) -> TreeIter:
         self.model.clear()
@@ -62,7 +62,7 @@ class DisplayStore:
         if not data_node.has_path():
             logger.debug('Disallowing checkbox toggle because node is ephemereal')
             return
-        elif self.display_meta.is_ignored_func and self.display_meta.is_ignored_func(data_node):
+        elif self.treeview_meta.is_ignored_func and self.treeview_meta.is_ignored_func(data_node):
             logger.debug('Disallowing checkbox toggle because node is in IGNORED category')
             return
         # DOC: model[path][column] = not model[path][column]
@@ -160,7 +160,7 @@ class DisplayStore:
         """Returns a FMetaTree which contains the FMetas of the rows which are currently
         checked by the user. This will be a subset of the FMetaTree which was used to
         populate this tree."""
-        assert self.display_meta.editable
+        assert self.treeview_meta.editable
 
         tree_iter = self.model.get_iter_first()
         tree_path = self.model.get_path(tree_iter)

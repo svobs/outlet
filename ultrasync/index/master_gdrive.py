@@ -12,12 +12,12 @@ from index.cache_manager import PersistedCacheInfo
 from index.meta_store.gdrive import GDriveMS
 from index.two_level_dict import FullPathBeforeIdDict, Md5BeforeIdDict
 from model.gdrive import GDriveMeta
-from ui.actions import ID_GLOBAL_CACHE
 
 logger = logging.getLogger(__name__)
 
 
 class GDriveMasterCache:
+    """Singleton in-memory cache for Google Drive"""
     def __init__(self, application):
         self.application = application
         self.full_path_dict = FullPathBeforeIdDict()

@@ -6,9 +6,12 @@ from typing import Optional
 import file_util
 from constants import OBJ_TYPE_LOCAL_DISK
 from model.category import Category
-from model.display_node import DisplayId, DisplayNode, ensure_int
+from model.display_id import DisplayId
+from model.display_node import DisplayNode, ensure_int
 
 logger = logging.getLogger(__name__)
+
+# ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
 
 class LocalFsDisplayId(DisplayId):
@@ -18,6 +21,8 @@ class LocalFsDisplayId(DisplayId):
     @property
     def tree_type(self) -> int:
         return OBJ_TYPE_LOCAL_DISK
+
+# ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
 
 class FMeta(DisplayNode):
@@ -45,6 +50,9 @@ class FMeta(DisplayNode):
     @property
     def display_id(self):
         return LocalFsDisplayId(self.full_path)
+
+    def get_icon(self):
+        return self.category.name
 
     @classmethod
     def is_dir(cls):

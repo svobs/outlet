@@ -5,8 +5,9 @@ from typing import Optional
 import humanfriendly
 import logging
 
-from constants import OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_DISPLAY_ONLY
+from constants import ICON_GENERIC_DIR, ICON_GENERIC_FILE
 from model.category import Category
+from model.display_id import DisplayId, LogicalNodeDisplayId
 
 logger = logging.getLogger(__name__)
 
@@ -23,36 +24,6 @@ def ensure_category(val):
     elif type(val) == int:
         return Category(val)
     return val
-
-# ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
-
-
-class DisplayId(ABC):
-    """
-    Represents a unique identifier that can be used across trees and tree types to identify a node.
-    Still a work in progress and may change greatly.
-    """
-    def __init__(self, id_string: str):
-        self.id_string = id_string
-
-    @property
-    @abstractmethod
-    def tree_type(self) -> int:
-        return OBJ_TYPE_LOCAL_DISK
-
-    def __repr__(self):
-        return f'{self.tree_type}:{self.id_string}'
-
-
-class LogicalNodeDisplayId(DisplayId):
-    def __init__(self, id_string):
-        """Object has a path, but does not represent a physical item"""
-        super().__init__(id_string=id_string)
-
-    @property
-    def tree_type(self) -> int:
-        return OBJ_TYPE_DISPLAY_ONLY
-
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
@@ -86,6 +57,9 @@ class DisplayNode(ABC):
         """If true, this node represents a physical path. If false, it is just a logical node"""
         return False
 
+    @abstractmethod
+    def get_icon(self):
+        return ICON_GENERIC_FILE
 
 """
 ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
@@ -133,6 +107,9 @@ class DirNode(DisplayNode):
         size = humanfriendly.format_size(self._size_bytes)
         return f'{size} in {self.file_count} files'
 
+    def get_icon(self):
+        return ICON_GENERIC_DIR
+
     def __repr__(self):
         return f'DirNode(full_path="{self.full_path}" {self.get_summary()})'
 
@@ -151,6 +128,9 @@ class CategoryNode(DirNode):
 
     def get_name(self):
         return self.category.name
+
+    def get_icon(self):
+        return ICON_GENERIC_DIR
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
@@ -183,6 +163,9 @@ class LoadingNode(DisplayNode):
     def display_id(self):
         return None
 
+    def get_icon(self):
+        return None
+
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
 
@@ -211,4 +194,7 @@ class EmptyNode(DisplayNode):
 
     @property
     def display_id(self):
+        return None
+
+    def get_icon(self):
         return None

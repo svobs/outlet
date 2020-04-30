@@ -1,10 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
 
-from model.category import Category
-from model.display_node import CategoryNode
-from ui.tree import category_tree_builder
-
 logger = logging.getLogger(__name__)
 
 

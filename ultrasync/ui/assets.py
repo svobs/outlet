@@ -1,20 +1,17 @@
 import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import GdkPixbuf
+
+from constants import ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE
 
 from model.fmeta import Category
 
-gi.require_version("Gtk", "3.0")
 from file_util import get_resource_path
-from gi.repository import GdkPixbuf
 
 ALERT_ICON_PATH = get_resource_path("resources/dialog-error-icon-24px.png")
 CHOOSE_ROOT_ICON_PATH = get_resource_path("resources/Folder-tree-flat-40px.png")
 GDRIVE_ICON_PATH = get_resource_path("resources/google-drive-logo-40px.png")
 WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
-
-ICON_GENERIC_FILE = 'file'
-ICON_TRASHED_DIR = 'trash-dir'
-ICON_TRASHED_FILE = 'trash-file'
-ICON_GENERIC_DIR = 'folder'
 
 
 def _build_icons(icon_size):

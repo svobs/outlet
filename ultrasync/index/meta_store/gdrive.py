@@ -1,4 +1,6 @@
 import logging
+
+from model.display_id import DisplayId
 from ui.tree.meta_store import BaseMetaStore
 
 
@@ -7,9 +9,6 @@ logger = logging.getLogger(__name__)
 
 # TODO: need more metadata about each dir: need to know if we have *all* the children
 class GDriveMS(BaseMetaStore):
-    @classmethod
-    def is_lazy(cls):
-        return True
 
     def __init__(self, tree_id, config, gdrive_meta, root_path):
         super().__init__(tree_id=tree_id, config=config)
@@ -25,7 +24,11 @@ class GDriveMS(BaseMetaStore):
     def get_children(self, parent_id):
         if parent_id is None:
             return self._gdrive_meta.roots
+        elif isinstance(parent_id, DisplayId):
+            parent_id = parent_id.id_string
 
         return self._gdrive_meta.get_children(parent_id=parent_id)
 
-
+    @classmethod
+    def is_lazy(cls):
+        return True
