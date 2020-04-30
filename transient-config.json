@@ -1,10 +1,10 @@
 {
     "left_tree": {
         "expanded_state": {
-            "Added": true,
+            "Added": false,
             "Deleted": true,
             "Ignored": false,
-            "Moved": true,
+            "Moved": false,
             "Updated": true
         },
         "root_path": "/home/msvoboda/LocalDevel/ultrasync/test/BiDirMerge/Sen Mitsuji Left"

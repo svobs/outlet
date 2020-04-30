@@ -74,31 +74,6 @@ class DisplayStore:
 
         if is_inconsistent:
             self.inconsistent_rows[row_id] = node_data
-
-            # Need to update all the siblings (children of parent) because their checked state may not be tracked:
-            parent_iter = self.model.iter_parent(tree_iter)
-            if parent_iter:
-                child_iter = self.model.iter_children(parent_iter)
-                while child_iter:
-                    # FIXME: there is a bug when check dir while collapsed, then expand, then uncheck one child, then collapse & expand again
-                    child_data = self.get_node_data(child_iter)
-                    child_id = child_data.display_id.id_string
-                    child_checked = self.model[child_iter][self.treeview_meta.col_num_checked]
-                    child_inconsistent = self.model[child_iter][self.treeview_meta.col_num_inconsistent]
-
-                    if child_checked:
-                        self.selected_rows[child_id] = child_data
-                    else:
-                        if child_id in self.selected_rows: del self.selected_rows[child_id]
-
-                    if child_inconsistent:
-                        self.inconsistent_rows[child_id] = child_data
-                    else:
-                        if child_id in self.inconsistent_rows: del self.inconsistent_rows[child_id]
-
-                    child_iter = self.model.iter_next(child_iter)
-
-
         else:
             if row_id in self.inconsistent_rows: del self.inconsistent_rows[row_id]
 
@@ -111,11 +86,35 @@ class DisplayStore:
         elif self.treeview_meta.is_ignored_func and self.treeview_meta.is_ignored_func(data_node):
             logger.debug('Disallowing checkbox toggle because node is in IGNORED category')
             return
-        # DOC: model[path][column] = not model[path][column]
         checked_value = not self.is_node_checked(path)
         logger.debug(f'Toggled {checked_value}: {self.get_node_name(path)}')
 
-        # Update all of the node's children change to match its check state:
+        # Need to update all the siblings (children of parent) because their checked state may not be tracked.
+        # We can assume that if a parent is not inconsistent (i.e. is either checked or unchecked), the state of its children are implied.
+        # But if the parent is inconsistent, we must track the state of ALL of its children.
+        tree_iter = self.model.get_iter(path)
+        parent_iter = self.model.iter_parent(tree_iter)
+        if parent_iter:
+            child_iter = self.model.iter_children(parent_iter)
+            while child_iter:
+                child_data = self.get_node_data(child_iter)
+                child_id = child_data.display_id.id_string
+                child_checked = self.model[child_iter][self.treeview_meta.col_num_checked]
+                child_inconsistent = self.model[child_iter][self.treeview_meta.col_num_inconsistent]
+
+                if child_checked:
+                    self.selected_rows[child_id] = child_data
+                else:
+                    if child_id in self.selected_rows: del self.selected_rows[child_id]
+
+                if child_inconsistent:
+                    self.inconsistent_rows[child_id] = child_data
+                else:
+                    if child_id in self.inconsistent_rows: del self.inconsistent_rows[child_id]
+
+                child_iter = self.model.iter_next(child_iter)
+
+        # Update all of the node's children to match its check state:
         def update_checked_state(t_iter):
             self.set_checked_state(t_iter, checked_value, False)
 
