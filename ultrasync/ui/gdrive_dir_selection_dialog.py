@@ -41,8 +41,10 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
         self.connect("response", self.on_response)
         self.show_all()
 
-    def on_ok_clicked(self):
-        # TODO
+    def on_ok_clicked(self, item_id):
+        # TODO: disallow selection of files
+        # TODO: swap out data store if needed?
+        #    actions.get_dispatcher().send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root=filename)
         pass
 
     def on_response(self, dialog, response_id):
@@ -55,11 +57,8 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
                 node_data = self.tree_controller.get_single_selection()
                 assert node_data.display_id
                 assert node_data.display_id.id_string
-                item_id = node_data.display_id.id_string
                 logger.info(f'User selected dir: {node_data.display_id.id_string}')
-                # TODO: swap out data store if needed?
-            #    actions.get_dispatcher().send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root=filename)
-                self.on_ok_clicked()
+                self.on_ok_clicked(node_data.display_id)
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
             elif response_id == Gtk.ResponseType.CLOSE:

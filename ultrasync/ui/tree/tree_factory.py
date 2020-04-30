@@ -2,8 +2,8 @@ import logging
 
 import ui.assets
 from model.fmeta import Category
-from ui.diff_tree.fmeta_action_handlers import FMetaTreeActionHandlers
-from ui.diff_tree.gdrive_action_handlers import GDriveActionHandlers
+from ui.tree.fmeta_action_handlers import FMetaTreeActionHandlers
+from ui.tree.gdrive_action_handlers import GDriveActionHandlers
 from ui.tree.fmeta_change_strategy import FMetaChangeTreeStrategy
 from ui.root_dir_panel import RootDirPanel
 
