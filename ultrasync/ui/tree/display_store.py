@@ -56,16 +56,51 @@ class DisplayStore:
 
     def set_checked_state(self, tree_iter, is_checked, is_inconsistent):
         assert not (is_checked and is_inconsistent)
+        node_data = self.get_node_data(tree_iter)
+
+        if not node_data.has_path():
+            # Cannot be checked if no path (LoadingNode, etc.)
+            return
+
         row = self.model[tree_iter]
         row[self.treeview_meta.col_num_checked] = is_checked
         row[self.treeview_meta.col_num_inconsistent] = is_inconsistent
 
-        node_data = self.get_node_data(tree_iter)
         row_id = node_data.display_id.id_string
+        if is_checked:
+            self.selected_rows[row_id] = node_data
+        else:
+            if row_id in self.selected_rows: del self.selected_rows[row_id]
+
         if is_inconsistent:
             self.inconsistent_rows[row_id] = node_data
+
+            # Need to update all the siblings (children of parent) because their checked state may not be tracked:
+            parent_iter = self.model.iter_parent(tree_iter)
+            if parent_iter:
+                child_iter = self.model.iter_children(parent_iter)
+                while child_iter:
+                    # FIXME: there is a bug when check dir while collapsed, then expand, then uncheck one child, then collapse & expand again
+                    child_data = self.get_node_data(child_iter)
+                    child_id = child_data.display_id.id_string
+                    child_checked = self.model[child_iter][self.treeview_meta.col_num_checked]
+                    child_inconsistent = self.model[child_iter][self.treeview_meta.col_num_inconsistent]
+
+                    if child_checked:
+                        self.selected_rows[child_id] = child_data
+                    else:
+                        if child_id in self.selected_rows: del self.selected_rows[child_id]
+
+                    if child_inconsistent:
+                        self.inconsistent_rows[child_id] = child_data
+                    else:
+                        if child_id in self.inconsistent_rows: del self.inconsistent_rows[child_id]
+
+                    child_iter = self.model.iter_next(child_iter)
+
+
         else:
-            self.inconsistent_rows.pop(row_id)
+            if row_id in self.inconsistent_rows: del self.inconsistent_rows[row_id]
 
     def on_cell_checkbox_toggled(self, widget, path):
         """Called when checkbox in treeview is toggled"""

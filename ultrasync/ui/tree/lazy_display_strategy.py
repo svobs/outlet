@@ -3,6 +3,9 @@ import os
 from datetime import datetime
 
 import gi
+
+from model.display_id import DisplayId
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib
 from gi.repository.Gtk import TreeIter
@@ -45,7 +48,7 @@ class LazyDisplayStrategy:
             # Wipe out existing items:
             root_iter = self.con.display_store.clear_model()
 
-            self._append_children(children, root_iter)
+            self._append_children(children, root_iter, None)
 
             # This should fire expanded state listener to populate nodes as needed:
             if self.con.treeview_meta.is_display_persisted:
@@ -74,20 +77,20 @@ class LazyDisplayStrategy:
 
             tree_iter = self.con.display_store.model.iter_next(tree_iter)
 
-    def _append_dir_node_and_empty_child(self, tree_iter, node_data):
-        dir_node_iter = self.append_dir_node(tree_iter, node_data)
+    def _append_dir_node_and_empty_child(self, parent_iter, parent_display_id, node_data):
+        dir_node_iter = self._append_dir_node(parent_iter, parent_display_id, node_data)
         self._append_loading_child(dir_node_iter)
         return dir_node_iter
 
-    def _append_children(self, children, parent_iter):
+    def _append_children(self, children, parent_iter, parent_display_id: DisplayId):
         if children:
             logger.debug(f'Filling out display children: {len(children)}')
             # Append all underneath tree_iter
             for child in children:
                 if child.is_dir():
-                    self._append_dir_node_and_empty_child(parent_iter, child)
+                    self._append_dir_node_and_empty_child(parent_iter, parent_display_id, child)
                 else:
-                    self._append_file_node(parent_iter, child)
+                    self._append_file_node(parent_iter, parent_display_id, child)
         elif self.use_empty_nodes:
             self._append_empty_child(parent_iter)
 
@@ -98,12 +101,10 @@ class LazyDisplayStrategy:
         if not self.con.meta_store.is_lazy():
             return
 
-        # FIXME: checkboxes + lazy load
-
         # Add children for node:
         if is_expanded:
             children = self.con.meta_store.get_children(node_data.display_id)
-            self._append_children(children, parent_iter)
+            self._append_children(children, parent_iter, node_data.display_id)
             # Remove Loading node:
             self.con.display_store.remove_first_child(parent_iter)
         else:
@@ -144,13 +145,31 @@ class LazyDisplayStrategy:
 
         return self.con.display_store.model.append(parent_node_iter, row_values)
 
-    def append_dir_node(self, tree_iter, node_data: DisplayNode) -> TreeIter:
+    def _add_checked_columns(self, parent_row_id: DisplayId, node_data, row_values):
+        if self.con.treeview_meta.editable and node_data.has_path():
+            if parent_row_id:
+                parent_checked = self.con.display_store.selected_rows.get(parent_row_id.id_string, None)
+                if parent_checked:
+                    row_values.append(True)  # Checked
+                    row_values.append(False)  # Inconsistent
+                    return
+                parent_inconsistent = self.con.display_store.inconsistent_rows.get(parent_row_id.id_string, None)
+                if not parent_inconsistent:
+                    row_values.append(False)  # Checked
+                    row_values.append(False)  # Inconsistent
+                    return
+                # Otherwise: inconsistent. Look up individual values below:
+            row_id = node_data.display_id.id_string
+            checked = self.con.display_store.selected_rows.get(row_id, None)
+            inconsistent = self.con.display_store.inconsistent_rows.get(row_id, None)
+            row_values.append(checked)  # Checked
+            row_values.append(inconsistent)  # Inconsistent
+
+    def _append_dir_node(self, parent_iter, parent_display_id, node_data: DisplayNode) -> TreeIter:
         """Appends a dir-type node to the model"""
         row_values = []
 
-        if self.con.treeview_meta.editable:
-            row_values.append(False)  # Checked
-            row_values.append(False)  # Inconsistent
+        self._add_checked_columns(parent_display_id, node_data, row_values)
 
         # Icon
         row_values.append(node_data.get_icon())
@@ -173,15 +192,13 @@ class LazyDisplayStrategy:
 
         row_values.append(node_data)  # Data
 
-        return self.con.display_store.model.append(tree_iter, row_values)
+        return self.con.display_store.model.append(parent_iter, row_values)
 
-    def _append_file_node(self, tree_iter, node_data: DisplayNode):
+    def _append_file_node(self, parent_iter, parent_display_id, node_data: DisplayNode):
         row_values = []
 
         # Checked State
-        if self.con.treeview_meta.editable:
-            row_values.append(False)  # Checked
-            row_values.append(False)  # Inconsistent
+        self._add_checked_columns(parent_display_id, node_data, row_values)
 
         # Icon
         row_values.append(node_data.get_icon())
@@ -228,4 +245,4 @@ class LazyDisplayStrategy:
         # Data (hidden)
         row_values.append(node_data)  # Data
 
-        return self.con.display_store.model.append(tree_iter, row_values)
+        return self.con.display_store.model.append(parent_iter, row_values)
