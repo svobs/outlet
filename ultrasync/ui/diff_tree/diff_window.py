@@ -1,12 +1,11 @@
 import logging
 
 import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import GLib, Gtk
 
 from ui.tree.meta_store import DummyMS
 from ui.tree.root_path_config import RootPathConfigPersister
-
-gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk
 
 from pydispatch import dispatcher
 

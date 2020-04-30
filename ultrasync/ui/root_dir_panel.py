@@ -1,15 +1,13 @@
 import logging
 import os
 
-
-import ui.actions as actions
-
 import gi
-
-from ui.assets import ALERT_ICON_PATH, CHOOSE_ROOT_ICON_PATH, GDRIVE_ICON_PATH
-
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
+
+import ui.actions as actions
+from ui.assets import ALERT_ICON_PATH, CHOOSE_ROOT_ICON_PATH, GDRIVE_ICON_PATH
+
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,9 @@
 import logging
 
-import ui.assets
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+
 from model.fmeta import Category
 from ui.tree.lazy_display_strategy import LazyDisplayStrategy
 from ui.tree.fmeta_action_handlers import FMetaTreeActionHandlers
@@ -8,14 +11,11 @@ from ui.tree.gdrive_action_handlers import GDriveActionHandlers
 from ui.tree.fmeta_change_strategy import FMetaChangeTreeStrategy
 from ui.root_dir_panel import RootDirPanel
 
-import gi
-
 from ui.tree.controller import TreePanelController
 from ui.tree.treeview_meta import TreeViewMeta
 from ui.tree.display_store import DisplayStore
+import ui.assets
 
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
 
 logger = logging.getLogger(__name__)
 

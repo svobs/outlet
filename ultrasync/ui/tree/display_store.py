@@ -66,6 +66,9 @@ class DisplayStore:
         row[self.treeview_meta.col_num_checked] = is_checked
         row[self.treeview_meta.col_num_inconsistent] = is_inconsistent
 
+        self.update_checked_state_tracking(node_data, is_checked, is_inconsistent)
+
+    def update_checked_state_tracking(self, node_data, is_checked, is_inconsistent):
         row_id = node_data.display_id.id_string
         if is_checked:
             self.selected_rows[row_id] = node_data
@@ -98,19 +101,10 @@ class DisplayStore:
             child_iter = self.model.iter_children(parent_iter)
             while child_iter:
                 child_data = self.get_node_data(child_iter)
-                child_id = child_data.display_id.id_string
                 child_checked = self.model[child_iter][self.treeview_meta.col_num_checked]
                 child_inconsistent = self.model[child_iter][self.treeview_meta.col_num_inconsistent]
 
-                if child_checked:
-                    self.selected_rows[child_id] = child_data
-                else:
-                    if child_id in self.selected_rows: del self.selected_rows[child_id]
-
-                if child_inconsistent:
-                    self.inconsistent_rows[child_id] = child_data
-                else:
-                    if child_id in self.inconsistent_rows: del self.inconsistent_rows[child_id]
+                self.update_checked_state_tracking(child_data, child_checked, child_inconsistent)
 
                 child_iter = self.model.iter_next(child_iter)
 
