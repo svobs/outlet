@@ -14,6 +14,10 @@ def get_md5(item):
     return item.md5
 
 
+def get_id(item):
+    return item.id
+
+
 def get_sha256(item):
     return item.sha256
 
@@ -176,6 +180,16 @@ class ParentPathBeforeFileNameDict(TwoLevelDict):
 class FullPathBeforeMd5Dict(TwoLevelDict):
     def __init__(self):
         super().__init__(get_full_path, get_md5, overwrite_newer_ts)
+
+
+class FullPathBeforeIdDict(TwoLevelDict):
+    def __init__(self):
+        super().__init__(get_full_path, get_id, overwrite_newer_ts)
+
+
+class Md5BeforeIdDict(TwoLevelDict):
+    def __init__(self):
+        super().__init__(get_md5, get_id, overwrite_newer_ts)
 
 
 class Md5BeforePathDict(TwoLevelDict):

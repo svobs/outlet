@@ -2,7 +2,7 @@ import logging
 
 import gi
 
-from index.meta_store.gdrive import GDriveMS
+from constants import ROOT
 from ui.tree import tree_factory
 
 gi.require_version("Gtk", "3.0")
@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 
 class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
 
-    def __init__(self, parent, gdrive_meta, tree_id):
-        Gtk.Dialog.__init__(self, "Select GDrive Root", parent, 0)
-        BaseDialog.__init__(self, parent.config)
+    def __init__(self, parent_win: BaseDialog, tree_id: str):
+        Gtk.Dialog.__init__(self, "Select GDrive Root", parent_win, 0)
+        BaseDialog.__init__(self, parent_win)
         tree_id = tree_id
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
@@ -31,7 +31,7 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
         label = Gtk.Label(label="Select the Google Drive folder to use as the root for comparison:")
         self.content_box.add(label)
 
-        meta_store = GDriveMS(tree_id='gdrive_dir_selection', config=parent.config, gdrive_meta=gdrive_meta, root_path='/')
+        meta_store = parent_win.application.cache_manager.get_metastore_for_gdrive_subtree(ROOT, tree_id)
         self.tree_controller = tree_factory.build_gdrive(parent_win=self, meta_store=meta_store)
 
         self.content_box.pack_start(self.tree_controller.content_box, True, True, 0)

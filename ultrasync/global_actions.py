@@ -10,9 +10,6 @@ from stopwatch import Stopwatch
 import ui.actions as actions
 from ui.gdrive_dir_selection_dialog import GDriveDirSelectionDialog
 
-
-from gdrive.gdrive_tree_loader import GDriveTreeLoader
-from file_util import get_resource_path
 from fmeta import diff_content_first
 
 logger = logging.getLogger(__name__)
@@ -56,22 +53,22 @@ class GlobalActions:
         """Executed by Task Runner. NOT UI thread"""
         actions.disable_ui(sender=tree_id)
         try:
-            meta = self.application.cache_manager.download_all_gdrive_meta(tree_id)
-            actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, meta=meta)
+            self.application.cache_manager.download_all_gdrive_meta(tree_id)
+            actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id)
         except Exception as err:
             self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
             logger.exception(err)
         finally:
             actions.enable_ui(sender=tree_id)
 
-    def on_gdrive_download_complete(self, sender, meta):
+    def on_gdrive_download_complete(self, sender):
         logger.debug(f'Received signal: "{actions.GDRIVE_DOWNLOAD_COMPLETE}"')
         assert type(sender) == str
 
         def open_dialog():
             try:
                 # Preview changes in UI pop-up
-                dialog = GDriveDirSelectionDialog(self.application.window, meta, sender)
+                dialog = GDriveDirSelectionDialog(self.application.window, sender)
                 response_id = dialog.run()
                 if response_id == Gtk.ResponseType.OK:
                     logger.debug('User clicked OK!')

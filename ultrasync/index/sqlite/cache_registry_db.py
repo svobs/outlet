@@ -1,4 +1,5 @@
 import logging
+from typing import List
 
 from index.cache_info import CacheInfoEntry
 from index.sqlite.base_db import MetaDatabase
@@ -31,7 +32,7 @@ class CacheRegistry(MetaDatabase):
     def create_cache_registry_if_not_exist(self):
         self.create_table_if_not_exist(self.TABLE_CACHE_REGISTRY)
 
-    def get_cache_info(self):
+    def get_cache_info(self) -> List[CacheInfoEntry]:
         # Gets all changes in the table
         rows = self.get_all_rows(self.TABLE_CACHE_REGISTRY)
         entries = []

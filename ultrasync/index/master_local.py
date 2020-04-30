@@ -77,7 +77,7 @@ class LocalDiskMasterCache:
         stopwatch_total = Stopwatch()
 
         # 1. Load from disk cache:
-        fmeta_tree = self.load_local_disk_cache(cache_info.cache_info)
+        fmeta_tree = self.load_local_disk_cache(cache_info)
 
         # 2. Update from the file system, and optionally save any changes back to cache:
         cache_man = self.application.cache_manager
@@ -120,16 +120,16 @@ class LocalDiskMasterCache:
         logger.debug(f'Got {count_added_from_cache} items from in-memory cache (from {count_dirs} dirs)')
         return fmeta_tree
 
-    def load_local_disk_cache(self, cache_info: CacheInfoEntry) -> FMetaTree:
-        fmeta_tree = FMetaTree(cache_info.subtree_root)
+    def load_local_disk_cache(self, cache_info: PersistedCacheInfo) -> FMetaTree:
+        fmeta_tree = FMetaTree(cache_info.cache_info.subtree_root)
 
         # Load cache from file, and update with any local FS changes found:
-        with FMetaDatabase(cache_info.cache_location) as fmeta_disk_cache:
+        with FMetaDatabase(cache_info.cache_info.cache_location) as fmeta_disk_cache:
             if not fmeta_disk_cache.has_local_files():
                 logger.debug('No meta found in cache')
                 return fmeta_tree
 
-            status = f'Loading meta for subtree "{cache_info.subtree_root}" from disk cache: {cache_info.cache_location}'
+            status = f'Loading meta for subtree "{cache_info.cache_info.subtree_root}" from disk cache: {cache_info.cache_info.cache_location}'
             logger.info(status)
             actions.set_status(sender=ID_GLOBAL_CACHE, status_msg=status)
 
@@ -150,6 +150,7 @@ class LocalDiskMasterCache:
             logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
             logger.debug(fmeta_tree.get_stats_string())
 
+        cache_info.is_loaded = True
         return fmeta_tree
 
     def save_to_local_disk_cache(self, fmeta_tree: FMetaTree):
@@ -172,8 +173,7 @@ class LocalDiskMasterCache:
         cache_info = cache_man.get_cache_info_entry(CACHE_TYPE_LOCAL_DISK, subtree_path)
         if cache_info and not cache_info.is_loaded:
             # Load from disk
-            fmeta_tree = self.load_local_disk_cache(cache_info.cache_info)
-            cache_info.is_loaded = True
+            fmeta_tree = self.load_local_disk_cache(cache_info)
         else:
             # Load as many items as possible from the in-memory cache.
             fmeta_tree = self._get_subtree_from_memory_only(subtree_path)

@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from typing import Dict
+from typing import Dict, List
 
 from pydispatch import dispatcher
 
@@ -68,7 +68,7 @@ class CacheManager:
         logger.debug('Done loading caches')
         dispatcher.send(signal=actions.LOAD_ALL_CACHES_DONE, sender=ID_GLOBAL_CACHE)
 
-    def _get_cache_info_from_registry(self):
+    def _get_cache_info_from_registry(self) -> List[CacheInfoEntry]:
         with CacheRegistry(self.main_registry_path) as cache_registry_db:
             if cache_registry_db.has_cache_info():
                 exisiting_caches = cache_registry_db.get_cache_info()
@@ -78,10 +78,10 @@ class CacheManager:
                 logger.debug('Registry has no caches listed')
                 return []
 
-    def _init_existing_cache(self, existing_disk_cache):
-        already_in_memory = (self.get_cache_info_entry(existing_disk_cache.cache_type, existing_disk_cache.subtree_root) is not None)
+    def _init_existing_cache(self, existing_disk_cache: CacheInfoEntry):
+        from_memory: PersistedCacheInfo = self.get_cache_info_entry(existing_disk_cache.cache_type, existing_disk_cache.subtree_root)
 
-        if already_in_memory and existing_disk_cache.sync_ts < already_in_memory.cache_info.sync_ts:
+        if from_memory and existing_disk_cache.sync_ts < from_memory.cache_info.sync_ts:
             logger.info(f'Skipping cache load: a newer cache already exists for the same subtree: {existing_disk_cache.subtree_root}')
             return
 
@@ -95,7 +95,7 @@ class CacheManager:
                 self.local_disk_cache.init_subtree_localfs_cache(info)
 
             elif existing_disk_cache.cache_type == CACHE_TYPE_GDRIVE:
-                self.gdrive_cache.init_subtree_gdrive_cache(info)
+                self.gdrive_cache.init_subtree_gdrive_cache(info, ID_GLOBAL_CACHE)
             else:
                 raise RuntimeError(f'Unrecognized value for cache_type: {existing_disk_cache.cache_type}')
 
