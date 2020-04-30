@@ -1,3 +1,4 @@
+import fnmatch
 import os
 import logging
 import subprocess
@@ -12,6 +13,7 @@ from gi.repository import Gtk
 
 logger = logging.getLogger(__name__)
 
+DATE_REGEX = r'^[\d]{4}(\-[\d]{2})?(-[\d]{2})?'
 
 class FMetaTreeActionHandlers(TreeActionBridge):
     def __init__(self, controller=None):
@@ -97,6 +99,11 @@ class FMetaTreeActionHandlers(TreeActionBridge):
             item = Gtk.MenuItem(label=f'Expand all')
             item.connect('activate', lambda menu_item: self.expand_all(tree_path))
             menu.append(item)
+
+            if fnmatch.fnmatch(os.path.basename(full_path), DATE_REGEX):
+                item = Gtk.MenuItem(label=f'Use EXIFTool on dir')
+                item.connect('activate', lambda menu_item: self.call_exiftool(full_path))
+                menu.append(item)
 
             if not is_category_node and file_exists:
                 item = Gtk.MenuItem(label=f'Delete tree "{file_name}"')
@@ -225,5 +232,45 @@ class FMetaTreeActionHandlers(TreeActionBridge):
             subprocess.check_call(["nautilus", "--browser", file_path])
         else:
             self.con.parent_win.show_error_msg('Cannot open file in Nautilus', f'File not found: {file_path}')
+
+    def call_exiftool(self, file_path):
+        """exiftool -AllDates="2001:01:01 12:00:00" *
+        exiftool -Comment="Hawaii" {target_dir}
+        find . -name "*jpg_original" -exec rm -fv {} \;
+        """
+        if not os.path.exists(file_path):
+            self.con.parent_win.show_error_msg(f'Cannot manipulate dir', f'Dir not found: {file_path}')
+            return
+        if not os.path.isdir(file_path):
+            self.con.parent_win.show_error_msg(f'Cannot manipulate dir', f'Not a dir: {file_path}')
+            return
+        dir_name = os.path.basename(file_path)
+        tokens = dir_name.split(' ', 1)
+        date_to_set = None
+        comment_to_set = None
+        if len(tokens) > 1:
+            assert not len(tokens) > 2, f'Length of tokens is {len(tokens)}: "{file_path}"'
+            comment_to_set = tokens[1]
+        date_to_set = tokens[0]
+        if not fnmatch.fnmatch(date_to_set, DATE_REGEX + '$'):
+            raise RuntimeError(f'Unexpected date pattern: {tokens[0]}')
+        if len(date_to_set) == 10:
+            # good, whole date. Just to be sure, replace all dashes with colons
+            pass
+        elif len(date_to_set) == 7:
+            # only year + month found. Add default day
+            date_to_set += ':01'
+        elif len(date_to_set) == 4:
+            # only year found. Add default day
+            date_to_set += ':01:01'
+        date_to_set = date_to_set.replace('-', ':')
+
+        logger.info(f'Calling exiftool for: {file_path}')
+        args = ["exiftool"]
+        args.append(f'-AllDates="{date_to_set} 12:00:00"')
+        if comment_to_set:
+            args.append(f'-Comment="{comment_to_set}"')
+        args.append(file_path)
+        subprocess.check_call(args)
 
     # --- END ACTIONS ---

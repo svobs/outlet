@@ -14,8 +14,8 @@ class GDriveDatabase(MetaDatabase):
                  ('trashed', 'INTEGER'),
                  ('drive_id', 'TEXT'),
                  ('my_share', 'INTEGER'),
-                 ('sync_ts', 'INTEGER'))
-        # TODO: children_fetched
+                 ('sync_ts', 'INTEGER'),
+                 ('all_children_fetched', 'INTEGER'))
     }
 
     TABLE_GRDIVE_MULTIPLE_PARENTS = {

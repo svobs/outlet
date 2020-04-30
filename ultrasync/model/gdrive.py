@@ -33,7 +33,7 @@ class UserMeta:
 
 class GoogFolder(DisplayNode):
 
-    def __init__(self, item_id, item_name, trashed, drive_id, my_share, sync_ts, category=Category.NA):
+    def __init__(self, item_id, item_name, trashed, drive_id, my_share, sync_ts, all_children_fetched, category=Category.NA):
         super().__init__(category)
         self.id = item_id
         """Google ID"""
@@ -52,9 +52,12 @@ class GoogFolder(DisplayNode):
 
         self.sync_ts = sync_ts
 
+        self.all_children_fetched = all_children_fetched
+        """If true, all its children have been fetched from Google"""
+
     def __repr__(self):
         return f'Folder:(id="{self.id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
-                   f'my_share={self.my_share} sync_ts={self.sync_ts} ]'
+                   f'my_share={self.my_share} sync_ts={self.sync_ts} children_fetched={self.all_children_fetched} ]'
 
     @property
     def display_id(self) -> DisplayId:
@@ -84,7 +87,7 @@ class GoogFolder(DisplayNode):
         return TRASHED_STATUS[self.trashed]
 
     def make_tuple(self, parent_id):
-        return self.id, self.name, parent_id, self.trashed, self.drive_id, self.my_share, self.sync_ts
+        return self.id, self.name, parent_id, self.trashed, self.drive_id, self.my_share, self.sync_ts, self.all_children_fetched
 
 
 class GoogFile(GoogFolder):
@@ -93,7 +96,9 @@ class GoogFile(GoogFolder):
 
     def __init__(self, item_id, item_name, trashed, drive_id, version, head_revision_id, md5,
                  my_share, create_ts, modify_ts, size_bytes, owner_id, sync_ts):
-        super().__init__(item_id=item_id, item_name=item_name, trashed=trashed, drive_id=drive_id, my_share=my_share, sync_ts=sync_ts)
+        super().__init__(item_id=item_id, item_name=item_name, trashed=trashed,
+                         drive_id=drive_id, my_share=my_share, sync_ts=sync_ts,
+                         all_children_fetched=False)  # all_children_fetched is not used
         self.version = version
         self.head_revision_id = head_revision_id
         self.md5 = md5

@@ -1,13 +1,13 @@
 {
     "left_tree": {
         "expanded_state": {
-            "Added": false,
+            "Added": true,
             "Deleted": true,
             "Ignored": false,
-            "Moved": false,
+            "Moved": true,
             "Updated": true
         },
-        "root_path": "/home/msvoboda/LocalDevel/ultrasync/test/BiDirMerge/Sen Mitsuji Left"
+        "root_path": "/home/msvoboda/Downloads/DVDYourMemories Batch1/Disc 2 - 2000-01 - 2000-02/Good/2001-05-06"
     },
     "right_tree": {
         "expanded_state": {

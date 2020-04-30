@@ -203,6 +203,7 @@ class DisplayStore:
 
         tree_iter = self.model.get_iter_first()
         tree_path = self.model.get_path(tree_iter)
+        # TODO; checked rows as
         return self.get_subtree_as_tree(tree_path, include_following_siblings=True, checked_only=True)
 
     def get_subtree_as_tree(self, tree_path, include_following_siblings=False, checked_only=False):

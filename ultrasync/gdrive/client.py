@@ -111,7 +111,7 @@ def convert_goog_folder(result):
     # 'shared' only populated for items which are owned by me
     sync_ts = int(time.time())
     return GoogFolder(item_id=result['id'], item_name=result['name'], trashed=convert_trashed(result),
-                      drive_id=result.get('driveId', None), my_share=result.get('shared', None), sync_ts=sync_ts)
+                      drive_id=result.get('driveId', None), my_share=result.get('shared', None), sync_ts=sync_ts, all_children_fetched=False)
 
 
 class GDriveClient:

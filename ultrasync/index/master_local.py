@@ -67,6 +67,29 @@ class LocalDiskMasterCache:
         self.parent_path_dict.put(item, existing)
         self._add_ancestors_to_tree(item.full_path)
 
+    def _get_subtree_from_memory_only(self, subtree_path):
+        logger.debug(f'Getting items from in-memory cache for subtree: {subtree_path}')
+        fmeta_tree = FMetaTree(root_path=subtree_path)
+        count_dirs = 0
+        count_added_from_cache = 0
+
+        # Loop over all the descendants dirs, and add all of the files in each:
+        q = Queue()
+        q.put(subtree_path)
+        while not q.empty():
+            dir_path = q.get()
+            count_dirs += 1
+            files_in_dir = self.parent_path_dict.get(dir_path)
+            for file_name, fmeta in files_in_dir.items():
+                fmeta_tree.add(fmeta)
+                count_added_from_cache += 1
+            if self.dir_tree.get_node(dir_path):
+                for child_dir in self.dir_tree.children(dir_path):
+                    q.put(child_dir.identifier)
+
+        logger.debug(f'Got {count_added_from_cache} items from in-memory cache (from {count_dirs} dirs)')
+        return fmeta_tree
+
     def init_subtree_localfs_cache(self, cache_info: PersistedCacheInfo):
         """Called at startup to handle a single subtree cache from a local fs"""
 
@@ -97,29 +120,6 @@ class LocalDiskMasterCache:
         logger.info(f'LocalFS cache for {cache_info.cache_info.subtree_root} loaded in: {stopwatch_total}')
 
         cache_info.is_loaded = True
-
-    def _get_subtree_from_memory_only(self, subtree_path):
-        logger.debug(f'Getting items from in-memory cache for subtree: {subtree_path}')
-        fmeta_tree = FMetaTree(root_path=subtree_path)
-        count_dirs = 0
-        count_added_from_cache = 0
-
-        # Loop over all the descendants dirs, and add all of the files in each:
-        q = Queue()
-        q.put(subtree_path)
-        while not q.empty():
-            dir_path = q.get()
-            count_dirs += 1
-            files_in_dir = self.parent_path_dict.get(dir_path)
-            for file_name, fmeta in files_in_dir.items():
-                fmeta_tree.add(fmeta)
-                count_added_from_cache += 1
-            if self.dir_tree.get_node(dir_path):
-                for child_dir in self.dir_tree.children(dir_path):
-                    q.put(child_dir.identifier)
-
-        logger.debug(f'Got {count_added_from_cache} items from in-memory cache (from {count_dirs} dirs)')
-        return fmeta_tree
 
     def load_local_disk_cache(self, cache_info: PersistedCacheInfo) -> FMetaTree:
         fmeta_tree = FMetaTree(cache_info.cache_info.subtree_root)
@@ -189,7 +189,7 @@ class LocalDiskMasterCache:
                 sync_to_fs = False
         if sync_to_fs:
             # Sync from disk, and save to disk cache again (if configured) and update in-memory-store:
-            fmeta_tree = self.application.cache_manager.refresh_from_local_fs(fmeta_tree, tree_id)
+            fmeta_tree = self._sync_from_file_system(fmeta_tree, tree_id)
 
         ds = LocalDiskSubtreeMS(tree_id=tree_id, config=self.application.config, fmeta_tree=fmeta_tree)
         return ds

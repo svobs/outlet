@@ -1,5 +1,6 @@
 import logging
 import os
+import uuid
 from queue import Queue
 from gdrive.client import GDriveClient
 from index.sqlite.gdrive_db import GDriveDatabase
@@ -95,10 +96,11 @@ class GDriveTreeLoader:
         self.gdrive_client = GDriveClient(self.config, tree_id)
 
     def load_all(self, invalidate_cache=False):
+        tx_id = uuid.uuid1()
         try:
             if self.tree_id:
                 logger.debug(f'Sending START_PROGRESS_INDETERMINATE for tree_id: {self.tree_id}')
-                actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=self.tree_id)
+                actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=self.tree_id, tx_id=tx_id)
 
             meta = GDriveMeta()
 
@@ -109,7 +111,7 @@ class GDriveTreeLoader:
             if self.cache and cache_has_data and not invalidate_cache:
                 if self.tree_id:
                     msg = 'Reading cache...'
-                    actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+                    actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=tx_id, msg=msg)
 
                 self.load_from_cache(meta)
             else:
@@ -120,7 +122,7 @@ class GDriveTreeLoader:
             if self.cache and (not cache_has_data or invalidate_cache):
                 if self.tree_id:
                     msg = 'Saving to cache...'
-                    actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+                    actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=tx_id, msg=msg)
                 self.save_to_cache(meta=meta, overwrite=True)
 
             # Finally, build the dir tree:
@@ -130,7 +132,7 @@ class GDriveTreeLoader:
         finally:
             if self.tree_id:
                 logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
-                actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id)
+                actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id, tx_id=tx_id)
 
     def save_to_cache(self, meta, overwrite):
         # Convert to tuples for insert into DB:

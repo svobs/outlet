@@ -157,9 +157,6 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
             # FIXME: this is causing the button bar to disappear. Fix layout!
             self.replace_bottom_button_panel(merge_btn)
 
-            logger.debug(f'Sending STOP_PROGRESS for ID: {actions.ID_DIFF_WINDOW}')
-            actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW)
-
             actions.enable_ui(sender=self)
             logger.debug(f'Diff time + redraw: {stopwatch}')
         GLib.idle_add(change_button_bar)
