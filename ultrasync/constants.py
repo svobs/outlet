@@ -4,3 +4,5 @@ CACHE_TYPE_GDRIVE = 2
 
 MAIN_REGISTRY_FILE_NAME = 'registry.db'
 ROOT = '/'
+
+GDRIVE_PREFIX = 'gdrive:/'

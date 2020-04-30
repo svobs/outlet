@@ -1,5 +1,6 @@
 import logging
 
+from index.cache_info import CacheInfoEntry
 from index.sqlite.base_db import MetaDatabase
 
 logger = logging.getLogger(__name__)
@@ -9,18 +10,6 @@ def ensure_int(val):
     if type(val) == str:
         return int(val)
     return val
-
-
-class CacheInfoEntry:
-    def __init__(self, cache_location, cache_type, subtree_root, sync_ts, is_complete):
-        self.cache_location = cache_location
-        self.cache_type = ensure_int(cache_type)
-        self.subtree_root = subtree_root
-        self.sync_ts = ensure_int(sync_ts)
-        self.is_complete = is_complete
-
-    def to_tuple(self):
-        return self.cache_location, self.cache_type, self.subtree_root, self.sync_ts, self.is_complete
 
 
 class CacheRegistry(MetaDatabase):

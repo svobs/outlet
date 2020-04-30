@@ -56,9 +56,7 @@ class GlobalActions:
         """Executed by Task Runner. NOT UI thread"""
         actions.disable_ui(sender=tree_id)
         try:
-            cache_path = get_resource_path('gdrive.db')
-            tree_builder = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
-            meta = tree_builder.load_all(invalidate_cache=False)
+            meta = self.application.cache_manager.download_all_gdrive_meta(tree_id)
             actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, meta=meta)
         except Exception as err:
             self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))

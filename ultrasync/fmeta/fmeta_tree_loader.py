@@ -112,6 +112,8 @@ class TreeMetaScanner(TreeRecurser):
             # This is effectively a diff of stale & fresh trees.
             # Don't need it yet, but have a feeling it will be handy in the future.
             self.change_tree = FMetaTree(self.root_path)
+        else:
+            self.change_tree = None
 
     def find_total_files_to_scan(self):
         # First survey our local files:

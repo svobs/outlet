@@ -58,10 +58,10 @@ class GDriveDatabase(MetaDatabase):
         if self.has_gdrive_dirs():
             if overwrite:
                 self.drop_table_if_exists(self.TABLE_GRDIVE_DIRS)
-                self.create_table_if_not_exist(self.TABLE_GRDIVE_DIRS)
             else:
                 raise RuntimeError('Will not insert GDrive meta into a non-empty table!')
 
+        self.create_table_if_not_exist(self.TABLE_GRDIVE_DIRS)
         self.insert_many(self.TABLE_GRDIVE_DIRS, dir_list)
 
     def get_gdrive_dirs(self):
@@ -79,10 +79,10 @@ class GDriveDatabase(MetaDatabase):
         if self.has_gdrive_files():
             if overwrite:
                 self.drop_table_if_exists(self.TABLE_GRDIVE_FILES)
-                self.create_table_if_not_exist(self.TABLE_GRDIVE_FILES)
             else:
                 raise RuntimeError('Cannot insert GDrive file meta into a non-empty table (Overwrite=False)')
 
+        self.create_table_if_not_exist(self.TABLE_GRDIVE_FILES)
         self.insert_many(self.TABLE_GRDIVE_FILES, file_list)
 
     def get_gdrive_files(self):
@@ -95,10 +95,10 @@ class GDriveDatabase(MetaDatabase):
         if self.is_table(self.TABLE_GRDIVE_MULTIPLE_PARENTS):
             if overwrite:
                 self.drop_table_if_exists(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
-                self.create_table_if_not_exist(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
             else:
                 raise RuntimeError('Cannot insert GDrive parent meta into a non-empty table (overwrite=False)')
 
+        self.create_table_if_not_exist(self.TABLE_GRDIVE_MULTIPLE_PARENTS)
         self.insert_many(self.TABLE_GRDIVE_MULTIPLE_PARENTS, ids_with_multiple_parents)
 
     def get_multiple_parent_ids(self):
