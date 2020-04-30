@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 # TODO: need more metadata about each dir: need to know if we have *all* the children
-class GDriveDataStore(BaseMetaStore):
+class GDriveMS(BaseMetaStore):
     @classmethod
     def is_lazy(cls):
         return True

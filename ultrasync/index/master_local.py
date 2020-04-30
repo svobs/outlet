@@ -93,7 +93,7 @@ class LocalDiskMasterCache:
             self._sync_from_file_system(fmeta_tree, ID_GLOBAL_CACHE)
         else:
             logger.debug('Skipping file system sync because it is disabled for cache loads')
-        logger.info(f'Tree loaded in: {stopwatch_total}')
+        logger.info(f'LocalFS cache for {cache_info.cache_info.subtree_root} loaded in: {stopwatch_total}')
 
         cache_info.is_loaded = True
 
@@ -181,7 +181,7 @@ class LocalDiskMasterCache:
         sync_to_fs = True
         if cache_info:
             if not self.application.cache_manager.sync_from_local_disk_on_cache_load:
-                logger.debug('Skipping file system sync because it is disabled for cache loads')
+                logger.debug('Skipping filesystem sync because it is disabled for cache loads')
                 sync_to_fs = False
             elif not cache_info.needs_refresh:
                 logger.debug(f'Skipping filesystem sync because the cache is still fresh for path: {subtree_path}')
