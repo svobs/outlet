@@ -38,13 +38,13 @@ class TreePanelController:
     def get_single_selection(self):
         """Assumes that only one node can be selected at a given time"""
         selection = self.tree_view.get_selection()
-        model, tree_iter = selection.get_selected_rows()
-        if len(tree_iter) == 1:
-            return self.display_store.get_node_data(tree_iter)
-        elif len(tree_iter) == 0:
+        model, tree_paths = selection.get_selected_rows()
+        if len(tree_paths) == 1:
+            return self.display_store.get_node_data(tree_paths)
+        elif len(tree_paths) == 0:
             return None
         else:
-            raise Exception(f'Selection has more rows than expected: count={len(tree_iter)}')
+            raise Exception(f'Selection has more rows than expected: count={len(tree_paths)}')
 
     def get_multiple_selection(self):
         """Returns a list of the selected items (empty if none)"""

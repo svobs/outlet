@@ -86,13 +86,12 @@ class CacheManager:
             return
 
         info = PersistedCacheInfo(existing_disk_cache)
+        info.needs_refresh = True
         self.persisted_localfs_cache_info[existing_disk_cache.subtree_root] = info
 
-        if not self.load_all_caches_on_startup:
-            info.needs_refresh = True
-        else:
+        if self.load_all_caches_on_startup:
             if existing_disk_cache.cache_type == OBJ_TYPE_LOCAL_DISK:
-                self.local_disk_cache.init_subtree_localfs_cache(info)
+                self.local_disk_cache.init_subtree_localfs_cache(info, ID_GLOBAL_CACHE)
 
             elif existing_disk_cache.cache_type == OBJ_TYPE_GDRIVE:
                 self.gdrive_cache.init_subtree_gdrive_cache(info, ID_GLOBAL_CACHE)

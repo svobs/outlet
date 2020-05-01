@@ -117,6 +117,8 @@ class GDriveTreeLoader:
             else:
                 self.gdrive_client.download_directory_structure(meta)
                 self.gdrive_client.download_all_file_meta(meta)
+                for goog_dir in meta.first_parent_dict.values():
+                    goog_dir.all_children_fetched = True
 
             # Save to cache if configured:
             if self.cache and (not cache_has_data or invalidate_cache):
@@ -163,10 +165,10 @@ class GDriveTreeLoader:
         # DIRs:
         dir_rows = self.cache.get_gdrive_dirs()
 
-        for item_id, item_name, parent_id, item_trashed, drive_id, my_share, sync_ts in dir_rows:
+        for item_id, item_name, parent_id, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
             meta.add_to_parent_dict(parent_id, GoogFolder(item_id=item_id, item_name=item_name,
                                                           trashed=item_trashed, drive_id=drive_id, my_share=my_share,
-                                                          sync_ts=sync_ts))
+                                                          sync_ts=sync_ts, all_children_fetched=all_children_fetched))
 
         # FILES:
         file_rows = self.cache.get_gdrive_files()

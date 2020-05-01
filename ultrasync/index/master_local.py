@@ -1,6 +1,7 @@
 import logging
 import os
 from queue import Queue
+from typing import Optional
 
 import treelib
 from stopwatch import Stopwatch
@@ -90,49 +91,24 @@ class LocalDiskMasterCache:
         logger.debug(f'Got {count_added_from_cache} items from in-memory cache (from {count_dirs} dirs)')
         return fmeta_tree
 
-    def init_subtree_localfs_cache(self, cache_info: PersistedCacheInfo):
-        """Called at startup to handle a single subtree cache from a local fs"""
+    # Load/save on-disk cache:
 
-        if not os.path.exists(cache_info.cache_info.subtree_root):
-            logger.info(f'Subtree not found; assuming it is a removable drive: "{cache_info.cache_info.subtree_root}"')
-            cache_info.needs_refresh = True
-            return
-
-        stopwatch_total = Stopwatch()
-
-        # 1. Load from disk cache:
-        fmeta_tree = self.load_local_disk_cache(cache_info)
-
-        # 2. Update from the file system, and optionally save any changes back to cache:
-        cache_man = self.application.cache_manager
-        # Bring it up to date with the file system, and also update in-memory store:
-        if cache_man.sync_from_local_disk_on_cache_load:
-            fmeta_tree = self._sync_from_file_system(fmeta_tree, ID_GLOBAL_CACHE)
-            # Save the updates back to local disk cache:
-            if cache_man.enable_save_to_disk:
-                self.save_to_local_disk_cache(fmeta_tree)
-        self._update_in_memory_cache(fmeta_tree)
-
-        if cache_man.sync_from_local_disk_on_cache_load:
-            self._sync_from_file_system(fmeta_tree, ID_GLOBAL_CACHE)
-        else:
-            logger.debug('Skipping file system sync because it is disabled for cache loads')
-        logger.info(f'LocalFS cache for {cache_info.cache_info.subtree_root} loaded in: {stopwatch_total}')
-
-        cache_info.is_loaded = True
-
-    def load_local_disk_cache(self, cache_info: PersistedCacheInfo) -> FMetaTree:
-        fmeta_tree = FMetaTree(cache_info.cache_info.subtree_root)
+    def _load_subtree_disk_cache(self, cache_info: PersistedCacheInfo, tree_id) -> Optional[FMetaTree]:
+        if not self.application.cache_manager.enable_load_from_disk:
+            logger.debug('Skipping cache load because enable_load_from_disk is False')
+            return None
 
         # Load cache from file, and update with any local FS changes found:
         with FMetaDatabase(cache_info.cache_info.cache_location) as fmeta_disk_cache:
             if not fmeta_disk_cache.has_local_files():
                 logger.debug('No meta found in cache')
-                return fmeta_tree
+                return None
+
+            fmeta_tree = FMetaTree(cache_info.cache_info.subtree_root)
 
             status = f'Loading meta for subtree "{cache_info.cache_info.subtree_root}" from disk cache: {cache_info.cache_info.cache_location}'
             logger.info(status)
-            actions.set_status(sender=ID_GLOBAL_CACHE, status_msg=status)
+            actions.set_status(sender=tree_id, status_msg=status)
 
             db_file_changes = fmeta_disk_cache.get_local_files()
             if len(db_file_changes) == 0:
@@ -151,48 +127,85 @@ class LocalDiskMasterCache:
             logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
             logger.debug(fmeta_tree.get_stats_string())
 
-        cache_info.is_loaded = True
-        return fmeta_tree
+            cache_info.is_loaded = True
+            return fmeta_tree
 
-    def save_to_local_disk_cache(self, fmeta_tree: FMetaTree):
+    def _save_subtree_disk_cache(self, fmeta_tree: FMetaTree):
         # Get existing cache location if available. We will overwrite it.
-        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(fmeta_tree.root_path)
+        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(
+            OBJ_TYPE_LOCAL_DISK, fmeta_tree.root_path)
         to_insert = fmeta_tree.get_all()
 
         stopwatch_write_cache = Stopwatch()
-        with FMetaDatabase(cache_info.cache_location) as fmeta_disk_cache:
+        with FMetaDatabase(cache_info.cache_info.cache_location) as fmeta_disk_cache:
             # Update cache:
             fmeta_disk_cache.insert_local_files(to_insert, overwrite=True)
 
-        logger.info(f'Wrote {str(len(to_insert))} FMetas to "{cache_info.cache_location}" in {stopwatch_write_cache}')
+        logger.info(f'Wrote {str(len(to_insert))} FMetas to "{cache_info.cache_info.cache_location}" in {stopwatch_write_cache}')
+
+    # Load/save on-disk cache:
+
+    def init_subtree_localfs_cache(self, cache_info: PersistedCacheInfo, tree_id):
+        """Called at startup to handle a single subtree cache from a local fs"""
+
+        if not os.path.exists(cache_info.cache_info.subtree_root):
+            logger.info(f'Subtree not found; assuming it is a removable drive: "{cache_info.cache_info.subtree_root}"')
+            cache_info.needs_refresh = True
+            return
+
+        self._load_subtree(cache_info, tree_id)
 
     def get_metastore_for_subtree(self, subtree_path: str, tree_id: str) -> LocalDiskSubtreeMS:
         if not os.path.exists(subtree_path):
             raise RuntimeError(f'Cannot load meta for subtree because it does not exist: {subtree_path}')
 
         cache_man = self.application.cache_manager
-        cache_info = cache_man.get_cache_info_entry(OBJ_TYPE_LOCAL_DISK, subtree_path)
-        if cache_info and not cache_info.is_loaded:
-            # Load from disk
-            fmeta_tree = self.load_local_disk_cache(cache_info)
-        else:
-            # Load as many items as possible from the in-memory cache.
-            fmeta_tree = self._get_subtree_from_memory_only(subtree_path)
+        cache_info = cache_man.get_or_create_cache_info_entry(OBJ_TYPE_LOCAL_DISK, subtree_path)
+        assert cache_info is not None
 
-        sync_to_fs = True
-        if cache_info:
-            if not self.application.cache_manager.sync_from_local_disk_on_cache_load:
-                logger.debug('Skipping filesystem sync because it is disabled for cache loads')
-                sync_to_fs = False
-            elif not cache_info.needs_refresh:
-                logger.debug(f'Skipping filesystem sync because the cache is still fresh for path: {subtree_path}')
-                sync_to_fs = False
-        if sync_to_fs:
-            # Sync from disk, and save to disk cache again (if configured) and update in-memory-store:
-            fmeta_tree = self._sync_from_file_system(fmeta_tree, tree_id)
+        fmeta_tree = self._load_subtree(cache_info, tree_id)
 
         ds = LocalDiskSubtreeMS(tree_id=tree_id, config=self.application.config, fmeta_tree=fmeta_tree)
         return ds
+
+    def _load_subtree(self, cache_info: PersistedCacheInfo, tree_id):
+        assert cache_info
+        stopwatch_total = Stopwatch()
+        has_data_to_store_in_memory = False
+        fmeta_tree = None
+
+        if cache_info.is_loaded:
+            fmeta_tree = self._get_subtree_from_memory_only(cache_info.cache_info.subtree_root)
+        else:
+            # Load from disk
+            fmeta_tree = self._load_subtree_disk_cache(cache_info, tree_id)
+            if fmeta_tree:
+                has_data_to_store_in_memory = True
+            else:
+                fmeta_tree = FMetaTree(cache_info.cache_info.subtree_root)
+
+        if cache_info.is_loaded and not \
+                self.application.cache_manager.sync_from_local_disk_on_cache_load:
+            logger.debug('Skipping filesystem sync because it is disabled for cache loads')
+        elif cache_info.is_loaded and not cache_info.needs_refresh:
+            logger.debug(f'Skipping filesystem sync because the cache is still fresh for path: {cache_info.cache_info.subtree_root}')
+        else:
+            # 2. Update from the file system, and optionally save any changes back to cache:
+            fmeta_tree = self._resync_with_file_system(fmeta_tree, tree_id)
+            cache_info.needs_refresh = False
+            has_data_to_store_in_memory = True
+
+        # Save the updates back to in-memory cache:
+        if has_data_to_store_in_memory:
+            self._update_in_memory_cache(fmeta_tree)
+
+        logger.info(f'LocalFS cache for {cache_info.cache_info.subtree_root} loaded in: {stopwatch_total}')
+
+        # Display summary of tree in the status area (if any)
+        status = fmeta_tree.get_summary()
+        actions.set_status(sender=tree_id, status_msg=status)
+
+        return fmeta_tree
 
     def _add_ancestors_to_tree(self, item_full_path):
         nid = ROOT
@@ -215,13 +228,18 @@ class LocalDiskMasterCache:
                 # FIXME: need to enable track changes, and handle deletes, etc
                 # FIXME FIXME FIXME
 
-        logger.debug(self.get_summary())
+        logger.debug(f'Updated in-memory cache: {self.get_summary()}')
 
-    def _sync_from_file_system(self, stale_tree: FMetaTree, tree_id: str):
+    def _resync_with_file_system(self, stale_tree: FMetaTree, tree_id: str):
         # Scan directory tree and update where needed.
         logger.debug(f'Scanning filesystem subtree: {stale_tree.root_path}')
         scanner = TreeMetaScanner(root_path=stale_tree.root_path, stale_tree=stale_tree, tree_id=tree_id, track_changes=False)
         scanner.scan()
         fresh_tree = scanner.fresh_tree
+
+        # Save the updates back to local disk cache:
+        cache_man = self.application.cache_manager
+        if cache_man.enable_save_to_disk:
+            self._save_subtree_disk_cache(fresh_tree)
 
         return fresh_tree
