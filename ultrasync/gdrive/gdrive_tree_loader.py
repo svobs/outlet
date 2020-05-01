@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 import uuid
 from queue import Queue
 from gdrive.client import GDriveClient
@@ -115,8 +116,9 @@ class GDriveTreeLoader:
 
                 self.load_from_cache(meta)
             else:
-                self.gdrive_client.download_directory_structure(meta)
-                self.gdrive_client.download_all_file_meta(meta)
+                sync_ts = int(time.time())
+                self.gdrive_client.download_directory_structure(meta, sync_ts)
+                self.gdrive_client.download_all_file_meta(meta, sync_ts)
                 for goog_dir in meta.first_parent_dict.values():
                     goog_dir.all_children_fetched = True
 
@@ -166,9 +168,11 @@ class GDriveTreeLoader:
         dir_rows = self.cache.get_gdrive_dirs()
 
         for item_id, item_name, parent_id, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
-            meta.add_to_parent_dict(parent_id, GoogFolder(item_id=item_id, item_name=item_name,
+            item = GoogFolder(item_id=item_id, item_name=item_name,
                                                           trashed=item_trashed, drive_id=drive_id, my_share=my_share,
-                                                          sync_ts=sync_ts, all_children_fetched=all_children_fetched))
+                                                          sync_ts=sync_ts, all_children_fetched=all_children_fetched)
+            item.parents = parent_id
+            meta.add_item(item)
 
         # FILES:
         file_rows = self.cache.get_gdrive_files()
@@ -180,7 +184,8 @@ class GDriveTreeLoader:
                                  head_revision_id=head_revision_id, md5=md5,
                                  create_ts=int(create_ts), modify_ts=int(modify_ts), size_bytes=size_bytes,
                                  owner_id=owner_id, sync_ts=sync_ts)
-            meta.add_to_parent_dict(parent_id, file_node)
+            file_node.parents = parent_id
+            meta.add_item(file_node)
 
         # MISC:
         meta.ids_with_multiple_parents = self.cache.get_multiple_parent_ids()

@@ -1,4 +1,5 @@
 import logging
+from typing import Dict, List, Optional, Union
 
 from constants import OBJ_TYPE_GDRIVE
 from model.category import Category
@@ -35,6 +36,10 @@ class GoogFolder(DisplayNode):
 
     def __init__(self, item_id, item_name, trashed, drive_id, my_share, sync_ts, all_children_fetched, category=Category.NA):
         super().__init__(category)
+
+        self._parent:  Optional[Union[GoogFolder, List[GoogFolder]]] = None
+        """ Most items will have only one parent, so store that way for efficiency"""
+
         self.id = item_id
         """Google ID"""
 
@@ -57,7 +62,42 @@ class GoogFolder(DisplayNode):
 
     def __repr__(self):
         return f'Folder:(id="{self.id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
-                   f'my_share={self.my_share} sync_ts={self.sync_ts} children_fetched={self.all_children_fetched} ]'
+                   f'my_share={self.my_share} sync_ts={self.sync_ts} parents={self.parents} children_fetched={self.all_children_fetched} ]'
+
+    @property
+    def parents(self):
+        if not self._parent:
+            return []
+        if isinstance(self._parent, list):
+            return self._parent
+        return [self._parent]
+
+    @parents.setter
+    def parents(self, parents):
+        """Can be a list of GoogFolders, or a single instance, or None"""
+        if not parents:
+            self._parent = None
+        elif isinstance(parents, list):
+            if len(parents) == 0:
+                self._parent = None
+            elif len(parents) == 1:
+                self._parent = parents[0]
+            else:
+                self._parent = parents
+        else:
+            self._parent = parents
+
+    def add_parent(self, parent):
+        current_parents = self.parents
+        if len(current_parents) == 0:
+            self.parents = parent
+        else:
+            for current_parent in current_parents:
+                if current_parent.id == parent.id:
+                    logger.debug(f'Parent is already in list; skipping: {parent.id}')
+                    return
+            current_parents.append(parent)
+            self.parents = current_parents
 
     @property
     def display_id(self) -> DisplayId:
@@ -77,8 +117,7 @@ class GoogFolder(DisplayNode):
 
     @classmethod
     def has_path(cls):
-        # TODO: make this return True in the future
-        return False
+        return True
 
     @property
     def trashed_str(self):
@@ -106,14 +145,13 @@ class GoogFile(GoogFolder):
         self.create_ts = ensure_int(create_ts)
         self.modify_ts = ensure_int(modify_ts)
         self._size_bytes = ensure_int(size_bytes)
-        self._size_bytes = ensure_int(size_bytes)
         self.owner_id = owner_id
 
     def __repr__(self):
         return f'GoogFile(id="{self.id}" name="{self.name}" trashed={self.trashed_str}  size={self.size_bytes}' \
                f'md5="{self.md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
                f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
-               f'sync_ts={self.sync_ts})'
+               f'sync_ts={self.sync_ts} parents={self.parents})'
 
     @classmethod
     def is_dir(cls):
@@ -132,13 +170,16 @@ class GoogFile(GoogFolder):
 class GDriveMeta:
     def __init__(self):
         # Keep track of parentless nodes. These include the 'My Drive' item, as well as shared items.
-        self.roots = []
+        self.roots: List[GoogFolder] = []
 
-        # 'parent_id' -> list of child nodes
-        self.first_parent_dict = {}
+        self.id_dict: Dict[str, GoogFolder] = {}
+        """ Forward lookup table: nodes are indexed by GOOG ID"""
 
-        # List of item_ids which have more than 1 parent:
+        self.first_parent_dict: Dict[str, List[GoogFolder]] = {}
+        """ Reverse lookup table: 'parent_id' -> list of child nodes """
+
         self.ids_with_multiple_parents = []
+        """List of item_ids which have more than 1 parent"""
 
         self.me = None
         self.path_dict = None
@@ -149,34 +190,47 @@ class GDriveMeta:
     def get_children(self, parent_id):
         return self.first_parent_dict.get(parent_id, None)
 
-    def add_item_with_parents(self, parents, item):
+    def get_for_id(self, goog_id):
+        return self.id_dict.get(goog_id, None)
+
+    def add_item(self, item):
+        """Called when adding from Google API"""
+        existing_item = self.id_dict.get(item.id, None)
+        if existing_item:
+            # If we have a conflict at all, it should mean we are loading from cache and are combining two goog_folder entries
+            assert len(existing_item.parents) >= 1 and len(item.parents) == 1, f'Expected exactly 1 parent for existing and new item!'
+            existing_parents = existing_item.parents
+            new_parents = item.parents
+            for parent_id in new_parents:
+                if parent_id in existing_parents:
+                    logger.error(f'Duplicate entry found; skipping: {item.id} (parent_id={parent_id})')
+                    return
+                existing_parents.append(item)
+                # Make sure this is initialized:
+                existing_item.parents = existing_parents
+            item = existing_item
+        else:
+            self.id_dict[item.id] = item
+
+        # build reverse dictionaries
+        parents = item.parents
         if len(parents) == 0:
-            self.add_root(item)
+            self.roots.append(item)
         else:
             has_multiple_parents = (len(parents) > 1)
             parent_index = 0
             if has_multiple_parents:
                 logger.debug(f'Item has multiple parents:  [{item.id}] {item.name}')
-                self.add_id_with_multiple_parents(item)
+                self.ids_with_multiple_parents.append((item.id,))
             for parent_id in parents:
-                self.add_to_parent_dict(parent_id, item)
+                self._add_to_parent_dict(parent_id, item)
                 if has_multiple_parents:
                     parent_index += 1
                     logger.debug(f'\tParent {parent_index}: [{parent_id}]')
 
-    def add_to_parent_dict(self, parent_id, item):
-        if not parent_id:
-            self.add_root(item)
-            return
-
+    def _add_to_parent_dict(self, parent_id, item):
         child_list = self.first_parent_dict.get(parent_id)
         if not child_list:
             child_list = []
             self.first_parent_dict[parent_id] = child_list
         child_list.append(item)
-
-    def add_id_with_multiple_parents(self, item):
-        self.ids_with_multiple_parents.append((item.id,))
-
-    def add_root(self, item):
-        self.roots.append(item)

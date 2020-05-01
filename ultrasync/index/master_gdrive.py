@@ -75,4 +75,15 @@ class GDriveMasterCache:
         pass
 
     def get_path_for_id(self, goog_id: str) -> str:
-        return 'Nope'
+        item = self.meta_master.get_for_id(goog_id)
+        if not item:
+            raise RuntimeError(f'Item not found: id={goog_id}')
+        path = ''
+        while True:
+            path = '/' + item.name + path
+            parents = item.parents
+            if not parents:
+                return path
+            elif len(parents > 1):
+                logger.debug(f'Multiple parents found for {item.id} ("{item.name}"). Picking the first one.')
+                item = self.meta_master.get_for_id(parents[0])

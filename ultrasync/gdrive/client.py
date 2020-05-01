@@ -106,10 +106,9 @@ def convert_trashed(result):
         return NOT_TRASHED
 
 
-def convert_goog_folder(result):
+def convert_goog_folder(result, sync_ts):
     # 'driveId' only populated for items which someone has shared with me
     # 'shared' only populated for items which are owned by me
-    sync_ts = int(time.time())
     return GoogFolder(item_id=result['id'], item_name=result['name'], trashed=convert_trashed(result),
                       drive_id=result.get('driveId', None), my_share=result.get('shared', None), sync_ts=sync_ts, all_children_fetched=False)
 
@@ -161,7 +160,7 @@ class GDriveClient:
         logger.info(f'{used} of {total} used (including {drive_used} for Drive files; of which {drive_trash_used} is trash)')
         return user_meta
 
-    def get_my_drive_root(self):
+    def get_my_drive_root(self, sync_ts):
         """
         Returns: a GoogFolder representing the user's GDrive root node.
         """
@@ -172,7 +171,7 @@ class GDriveClient:
         fields = 'id, name, trashed, explicitlyTrashed, shared, driveId'
         result = try_repeatedly(request)
 
-        root_node = convert_goog_folder(result)
+        root_node = convert_goog_folder(result, sync_ts)
         logger.debug(f'Drive root: {root_node}')
         return root_node
 
@@ -181,7 +180,7 @@ class GDriveClient:
         # TODO
         # query = f"and '{subtree_root_gd_id}' in parents"
 
-    def download_all_file_meta(self, meta):
+    def download_all_file_meta(self, meta, sync_ts):
         fields = f'nextPageToken, incompleteSearch, files({FILE_FIELDS}, parents)'
         # Google Drive only; not app data or Google Photos:
         spaces = 'drive'
@@ -250,14 +249,13 @@ class GDriveClient:
                 version = item.get('version', None)
                 if version:
                     version = int(version)
-                sync_ts = int(time.time())
 
                 node = GoogFile(item_id=item['id'], item_name=item["name"], trashed=convert_trashed(item), drive_id=item.get('driveId', None),
                                 version=version, head_revision_id=head_revision_id,
                                 md5=item.get('md5Checksum', None), my_share=item.get('shared', None), create_ts=create_ts,
                                 modify_ts=modify_ts, size_bytes=size, owner_id=owner_id, sync_ts=sync_ts)
-                parents = item.get('parents', [])
-                meta.add_item_with_parents(parents, node)
+                node.parents = item.get('parents', [])
+                meta.add_item(node)
                 meta.mime_types[mime_type] = node
 
                 # web_view_link = item.get('webViewLink', None)
@@ -305,7 +303,7 @@ class GDriveClient:
 
         return meta
 
-    def download_directory_structure(self, meta):
+    def download_directory_structure(self, meta, sync_ts):
         """
         Downloads all of the directory nodes from the user's GDrive and puts them into a
         GDriveMeta object.
@@ -316,8 +314,8 @@ class GDriveClient:
 
         # Need to make a special call to get the root node 'My Drive'. This node will not be included
         # in the "list files" call:
-        drive_root = self.get_my_drive_root()
-        meta.add_root(drive_root)
+        drive_root = self.get_my_drive_root(sync_ts)
+        meta.add_item(drive_root)
 
         fields = f'nextPageToken, incompleteSearch, files({DIR_FIELDS}, parents)'
         # Google Drive only; not app data or Google Photos:
@@ -358,9 +356,9 @@ class GDriveClient:
                 actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             for item in items:
-                dir_node = convert_goog_folder(item)
-                parents = item.get('parents', [])
-                meta.add_item_with_parents(parents, dir_node)
+                dir_node = convert_goog_folder(item, sync_ts)
+                dir_node.parents = item.get('parents', [])
+                meta.add_item(dir_node)
                 item_count += 1
 
             request.next_token = results.get('nextPageToken')

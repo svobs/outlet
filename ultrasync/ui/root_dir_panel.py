@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import os
+import threading
 
 import gi
 from pydispatch import dispatcher
@@ -116,15 +118,19 @@ class RootDirPanel:
             self.change_btn.set_sensitive(enable)
         GLib.idle_add(change_button)
 
+    def _set_gdrive_path(self, new_root):
+        self.parent_win.application.cache_manager.all_caches_loaded.wait()
+
+        root_part_regular = self.parent_win.application.cache_manager.get_gdrive_path_for_id(new_root)
+        GLib.idle_add(self._set_label_markup, '', '', root_part_regular, '')
+
     def _update_root_label(self, new_root, tree_type):
-        color = ''
-        pre = ''
-        root_part_regular = ''
-        root_part_bold = ''
         if tree_type == OBJ_TYPE_LOCAL_DISK:
             self.icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
 
             if os.path.exists(new_root):
+                pre = ''
+                color = ''
                 root_part_regular, root_part_bold = os.path.split(new_root)
                 root_part_regular = root_part_regular + '/'
                 if len(self.alert_image_box.get_children()) > 0:
@@ -139,14 +145,19 @@ class RootDirPanel:
                 pre = f"<span foreground='red' size='small'>Not found:  </span>"
                 self.alert_image.show()
 
+            self._set_label_markup(pre, color, root_part_regular, root_part_bold)
+
         elif tree_type == OBJ_TYPE_GDRIVE:
             self.icon.set_from_file(GDRIVE_ICON_PATH)
 
-            root_part_regular = new_root
-            # root_part_regular = self.parent_win.application.cache_manager.get_gdrive_path_for_id(new_root)
+            thread = threading.Thread(target=self._set_gdrive_path, args=(new_root,))
+            self._set_label_markup('', f"foreground='gray'", 'Loading...', '')
+            thread.start()
+
         else:
             raise RuntimeError(f'Unrecognized tree type: {tree_type}')
 
+    def _set_label_markup(self, pre, color, root_part_regular, root_part_bold):
         self.label.set_markup(f"{pre}<span font_family='monospace' size='medium' {color}><i>{root_part_regular}\n<b>{root_part_bold}</b></i></span>")
 
     def _on_root_path_updated(self, sender, new_root, tree_type):
@@ -186,4 +197,5 @@ class RootDirPanel:
         item_gdrive.connect('activate', self._select_gdrive_path)
         source_menu.show_all()
         return source_menu
+
 

@@ -1,5 +1,6 @@
 import logging
 import os
+import threading
 import time
 import uuid
 from typing import Dict, List
@@ -52,6 +53,9 @@ class CacheManager:
         self.local_disk_cache = None
         self.gdrive_cache = None
 
+        # Create an Event object.
+        self.all_caches_loaded = threading.Event()
+
     def load_all_caches(self, sender):
         """Should be called during startup. Loop over all caches and load/merge them into a
         single large in-memory cache"""
@@ -78,6 +82,7 @@ class CacheManager:
             logger.debug('Done loading caches')
         finally:
             dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE, tx_id=tx_id)
+            self.all_caches_loaded.set()
             dispatcher.send(signal=actions.LOAD_ALL_CACHES_DONE, sender=ID_GLOBAL_CACHE)
 
     def _get_cache_info_from_registry(self) -> List[CacheInfoEntry]:
@@ -185,4 +190,4 @@ class CacheManager:
         return info_info
 
     def get_gdrive_path_for_id(self, goog_id) -> str:
-        self.gdrive_cache.get_path_for_id(goog_id)
+        return self.gdrive_cache.get_path_for_id(goog_id)
