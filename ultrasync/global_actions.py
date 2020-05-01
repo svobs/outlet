@@ -107,6 +107,7 @@ class GlobalActions:
 
     def do_tree_diff(self, sender, tree_con_left, tree_con_right):
         stopwatch_diff_total = Stopwatch()
+        tx_id = uuid.uuid1()
         actions.disable_ui(sender=sender)
         try:
             left_root = tree_con_left.meta_store.get_root_path()
@@ -122,7 +123,6 @@ class GlobalActions:
             right_fmeta_tree = tree_con_right.meta_store.get_whole_tree()
 
             logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {actions.ID_DIFF_WINDOW}')
-            tx_id = uuid.uuid1()
             actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=actions.ID_DIFF_WINDOW, tx_id=tx_id)
             msg = 'Computing bidrectional content-first diff...'
             actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, tx_id=tx_id, msg=msg)
@@ -138,7 +138,8 @@ class GlobalActions:
             actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW, tx_id=tx_id)
             actions.get_dispatcher().send(signal=actions.DIFF_TREES_DONE, sender=sender, stopwatch=stopwatch_diff_total)
         except Exception as err:
-            # TODO: clean up progress bar and messages
+            # Clean up progress bar:
+            actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW, tx_id=tx_id)
             actions.enable_ui(sender=self)
             self.show_error_ui('Diff task failed due to unexpected error', repr(err))
             logger.exception(err)

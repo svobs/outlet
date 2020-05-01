@@ -116,39 +116,48 @@ class RootDirPanel:
             self.change_btn.set_sensitive(enable)
         GLib.idle_add(change_button)
 
+    def _update_root_label(self, new_root, tree_type):
+        color = ''
+        pre = ''
+        root_part_regular = ''
+        root_part_bold = ''
+        if tree_type == OBJ_TYPE_LOCAL_DISK:
+            self.icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
+
+            if os.path.exists(new_root):
+                root_part_regular, root_part_bold = os.path.split(new_root)
+                root_part_regular = root_part_regular + '/'
+                if len(self.alert_image_box.get_children()) > 0:
+                    self.alert_image_box.remove(self.alert_image)
+            else:
+                # TODO: determine offensive parent
+                root_part_regular, root_part_bold = os.path.split(new_root)
+                root_part_regular = root_part_regular + '/'
+                if len(self.alert_image_box.get_children()) == 0:
+                    self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
+                color = f"foreground='gray'"
+                pre = f"<span foreground='red' size='small'>Not found:  </span>"
+                self.alert_image.show()
+
+        elif tree_type == OBJ_TYPE_GDRIVE:
+            self.icon.set_from_file(GDRIVE_ICON_PATH)
+
+            root_part_regular = new_root
+            # root_part_regular = self.parent_win.application.cache_manager.get_gdrive_path_for_id(new_root)
+        else:
+            raise RuntimeError(f'Unrecognized tree type: {tree_type}')
+
+        self.label.set_markup(f"{pre}<span font_family='monospace' size='medium' {color}><i>{root_part_regular}\n<b>{root_part_bold}</b></i></span>")
+
     def _on_root_path_updated(self, sender, new_root, tree_type):
         if new_root is None:
             raise RuntimeError(f'Root path cannot be None! (tree_id={sender})')
+        self.current_root = new_root
 
         # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html
-        def update_root_label(root):
-            self.current_root = root
+        GLib.idle_add(self._update_root_label, new_root, tree_type)
 
-            color = ''
-            pre = ''
-            if tree_type == OBJ_TYPE_LOCAL_DISK:
-                self.icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
-
-                if os.path.exists(root):
-                    if len(self.alert_image_box.get_children()) > 0:
-                        self.alert_image_box.remove(self.alert_image)
-                else:
-                    if len(self.alert_image_box.get_children()) == 0:
-                        self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
-                    color = f"foreground='gray'"
-                    pre = f"<span foreground='red' size='small'>Not found:  </span>"
-                    self.alert_image.show()
-            elif tree_type == OBJ_TYPE_GDRIVE:
-                self.icon.set_from_file(GDRIVE_ICON_PATH)
-
-                # root = self.parent_win.application.cache_manager.get_gdrive_path_for_id(root)
-            else:
-                raise RuntimeError(f'Unrecognized tree type: {tree_type}')
-
-            self.label.set_markup(f"{pre}<span font_family='monospace' size='medium' {color}><i>{root}</i></span>")
-        GLib.idle_add(update_root_label, new_root)
-
-    def select_local_path(self, menu_item):
+    def _select_local_path(self, menu_item):
         # create a RootDirChooserDialog to open:
         # the arguments are: title of the window, parent_window, action,
         # (buttons, response)
@@ -164,18 +173,17 @@ class RootDirPanel:
         # show the dialog
         open_dialog.show()
 
-    def select_gdrive_path(self, menu_item):
+    def _select_gdrive_path(self, menu_item):
         actions.send_signal(signal=actions.SHOW_GDRIVE_ROOT_DIALOG, sender=self.tree_id)
-        pass
 
     def build_source_menu(self):
         source_menu = Gtk.Menu()
         item_select_local = Gtk.MenuItem(label="Local filesystem subtree...")
-        item_select_local.connect('activate', self.select_local_path)
+        item_select_local.connect('activate', self._select_local_path)
         source_menu.append(item_select_local)
         item_gdrive = Gtk.MenuItem(label="Google Drive subtree...")
         source_menu.append(item_gdrive)
-        item_gdrive.connect('activate', self.select_gdrive_path)
+        item_gdrive.connect('activate', self._select_gdrive_path)
         source_menu.show_all()
         return source_menu
 
