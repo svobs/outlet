@@ -26,10 +26,10 @@ class FMetaChangeTreeStrategy(LazyDisplayStrategy):
         super().init()
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.meta_store.tree_id)
 
-    def _on_root_path_updated(self, sender, new_root):
+    def _on_root_path_updated(self, sender, new_root, tree_type):
         # Get a new metastore from the cache manager:
         # TODO: find a way to encode the tree type into the root so we can move this into parent class
-        self.con.meta_store = self.con.parent_win.application.cache_manager.get_metastore_for_local_subtree(new_root, self.con.meta_store.tree_id)
+        self.con.meta_store = self.con.parent_win.application.cache_manager.get_metastore(new_root, tree_type, self.con.meta_store.tree_id)
 
     def _append_category_tree_to_model(self, category_tree):
         def append_recursively(tree_iter, node):

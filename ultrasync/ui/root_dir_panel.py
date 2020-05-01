@@ -2,7 +2,9 @@ import logging
 import os
 
 import gi
+from pydispatch import dispatcher
 
+from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
 from ui.base_dialog import BaseDialog
 
 gi.require_version("Gtk", "3.0")
@@ -22,7 +24,7 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
     if response_id == Gtk.ResponseType.OK:
         filename = open_dialog.get_filename()
         logger.info(f'User selected dir: {filename}')
-        actions.get_dispatcher().send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.tree_id, new_root=filename)
+        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.tree_id, new_root=filename, tree_type=OBJ_TYPE_LOCAL_DISK)
     # if response is "CANCEL" (the button "Cancel" has been clicked)
     elif response_id == Gtk.ResponseType.CANCEL:
         logger.debug("Cancelled: RootDirChooserDialog")
@@ -63,7 +65,7 @@ class RootDirChooserDialog(Gtk.FileChooserDialog):
 
 
 class RootDirPanel:
-    def __init__(self, parent_win, tree_id, current_root, editable):
+    def __init__(self, parent_win, tree_id, current_root, tree_type, editable):
         self.parent_win: BaseDialog = parent_win
         assert type(tree_id) == str
         self.tree_id = tree_id
@@ -100,7 +102,7 @@ class RootDirPanel:
         actions.connect(actions.ROOT_PATH_UPDATED, self._on_root_path_updated, self.tree_id)
 
         # Need to call this to do the initial UI draw:
-        self._on_root_path_updated(self.tree_id, current_root)
+        self._on_root_path_updated(self.tree_id, current_root, tree_type)
 
     def _on_change_btn_clicked(self, widget, parent_win):
         self.source_menu.popup_at_widget(widget, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, None)
@@ -114,29 +116,37 @@ class RootDirPanel:
             self.change_btn.set_sensitive(enable)
         GLib.idle_add(change_button)
 
-    def _on_root_path_updated(self, sender, new_root):
+    def _on_root_path_updated(self, sender, new_root, tree_type):
         if new_root is None:
             raise RuntimeError(f'Root path cannot be None! (tree_id={sender})')
 
         # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html
-        def update_root_label():
-            self.current_root = new_root
+        def update_root_label(root):
+            self.current_root = root
 
-            # self.icon.set_from_file(GDRIVE_ICON_PATH) TODO
-            self.icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
-            if os.path.exists(new_root):
-                if len(self.alert_image_box.get_children()) > 0:
-                    self.alert_image_box.remove(self.alert_image)
-                color = ''
-                pre = ''
+            color = ''
+            pre = ''
+            if tree_type == OBJ_TYPE_LOCAL_DISK:
+                self.icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
+
+                if os.path.exists(root):
+                    if len(self.alert_image_box.get_children()) > 0:
+                        self.alert_image_box.remove(self.alert_image)
+                else:
+                    if len(self.alert_image_box.get_children()) == 0:
+                        self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
+                    color = f"foreground='gray'"
+                    pre = f"<span foreground='red' size='small'>Not found:  </span>"
+                    self.alert_image.show()
+            elif tree_type == OBJ_TYPE_GDRIVE:
+                self.icon.set_from_file(GDRIVE_ICON_PATH)
+
+                # root = self.parent_win.application.cache_manager.get_gdrive_path_for_id(root)
             else:
-                if len(self.alert_image_box.get_children()) == 0:
-                    self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
-                color = f"foreground='gray'"
-                pre = f"<span foreground='red' size='small'>Not found:  </span>"
-                self.alert_image.show()
-            self.label.set_markup(f"{pre}<span font_family='monospace' size='medium' {color}><i>{new_root}</i></span>")
-        GLib.idle_add(update_root_label)
+                raise RuntimeError(f'Unrecognized tree type: {tree_type}')
+
+            self.label.set_markup(f"{pre}<span font_family='monospace' size='medium' {color}><i>{root}</i></span>")
+        GLib.idle_add(update_root_label, new_root)
 
     def select_local_path(self, menu_item):
         # create a RootDirChooserDialog to open:

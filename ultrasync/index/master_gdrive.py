@@ -46,6 +46,7 @@ class GDriveMasterCache:
         logger.info(f'GDrive cache for {info.cache_info.subtree_root} loaded in: {stopwatch_total}')
 
         info.is_loaded = True
+        self.meta_master = meta  # TODO
         return meta
 
     def get_metastore_for_subtree(self, subtree_path, tree_id):
@@ -59,7 +60,6 @@ class GDriveMasterCache:
             # Load from disk
             # TODO: this will fail if the cache does not exist. Need the above!
             gdrive_meta = self._load_gdrive_cache(cache_info, tree_id)
-            self.meta_master = gdrive_meta
         return GDriveMS(tree_id, self.application.config, self.meta_master, ROOT)
 
     def download_all_gdrive_meta(self, tree_id):
@@ -74,3 +74,5 @@ class GDriveMasterCache:
         # TODO
         pass
 
+    def get_path_for_id(self, goog_id: str) -> str:
+        return 'Nope'

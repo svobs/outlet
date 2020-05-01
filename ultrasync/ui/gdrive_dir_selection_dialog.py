@@ -1,8 +1,10 @@
 import logging
 
 import gi
+from pydispatch import dispatcher
 
-from constants import ROOT
+from constants import OBJ_TYPE_GDRIVE
+from ui import actions
 from ui.tree import tree_factory
 
 gi.require_version("Gtk", "3.0")
@@ -17,8 +19,8 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
 
     def __init__(self, parent_win: BaseDialog, meta_store, tree_id: str):
         Gtk.Dialog.__init__(self, "Select GDrive Root", parent_win, 0)
-        BaseDialog.__init__(self, parent_win)
-        tree_id = tree_id
+        BaseDialog.__init__(self, application=parent_win.application)
+        self.tree_id = tree_id
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
@@ -40,11 +42,9 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
         self.connect("response", self.on_response)
         self.show_all()
 
-    def on_ok_clicked(self, item_id):
+    def on_ok_clicked(self, item_id: str):
         # TODO: disallow selection of files
-        # TODO: swap out data store if needed?
-        #    actions.get_dispatcher().send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root=filename)
-        pass
+        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root=item_id, tree_type=OBJ_TYPE_GDRIVE)
 
     def on_response(self, dialog, response_id):
         # destroy the widget (the dialog) when the function on_response() is called
@@ -57,7 +57,7 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
                 assert node_data.display_id
                 assert node_data.display_id.id_string
                 logger.info(f'User selected dir: {node_data.display_id.id_string}')
-                self.on_ok_clicked(node_data.display_id)
+                self.on_ok_clicked(node_data.display_id.id_string)
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
             elif response_id == Gtk.ResponseType.CLOSE:

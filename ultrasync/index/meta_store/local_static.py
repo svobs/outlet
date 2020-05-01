@@ -1,3 +1,4 @@
+from constants import OBJ_TYPE_LOCAL_DISK
 from model.category import Category
 from model.display_node import CategoryNode
 from ui.tree import category_tree_builder
@@ -31,3 +32,8 @@ class StaticWholeTreeMS(BaseMetaStore):
     @classmethod
     def is_lazy(cls):
         return False
+
+    @classmethod
+    def get_tree_type(cls):
+        return OBJ_TYPE_LOCAL_DISK
+

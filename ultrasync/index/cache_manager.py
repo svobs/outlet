@@ -65,15 +65,20 @@ class CacheManager:
         tx_id = uuid.uuid1()
         dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=ID_GLOBAL_CACHE, tx_id=tx_id)
 
-        self.local_disk_cache = LocalDiskMasterCache(self.application)
-        self.gdrive_cache = GDriveMasterCache(self.application)
+        try:
+            self.local_disk_cache = LocalDiskMasterCache(self.application)
+            self.gdrive_cache = GDriveMasterCache(self.application)
 
-        for existing_disk_cache in self._get_cache_info_from_registry():
-            self._init_existing_cache(existing_disk_cache)
+            for existing_disk_cache in self._get_cache_info_from_registry():
+                try:
+                    self._init_existing_cache(existing_disk_cache)
+                except Exception:
+                    logger.exception(f'Failed to load cache: {existing_disk_cache.cache_location}')
 
-        logger.debug('Done loading caches')
-        dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE, tx_id=tx_id)
-        dispatcher.send(signal=actions.LOAD_ALL_CACHES_DONE, sender=ID_GLOBAL_CACHE)
+            logger.debug('Done loading caches')
+        finally:
+            dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE, tx_id=tx_id)
+            dispatcher.send(signal=actions.LOAD_ALL_CACHES_DONE, sender=ID_GLOBAL_CACHE)
 
     def _get_cache_info_from_registry(self) -> List[CacheInfoEntry]:
         with CacheRegistry(self.main_registry_path) as cache_registry_db:
@@ -108,6 +113,18 @@ class CacheManager:
                 self.gdrive_cache.init_subtree_gdrive_cache(info, ID_GLOBAL_CACHE)
             else:
                 raise RuntimeError(f'Unrecognized value for cache_type: {existing_disk_cache.cache_type}')
+
+    def get_metastore_for_subtree(self, subtree_path: str, tree_type: int, tree_id: str):
+        """
+        Performs a read-through retreival of all the FMetas in the given subtree
+        on the local filesystem.
+        """
+        if tree_type == OBJ_TYPE_LOCAL_DISK:
+            return self.local_disk_cache.get_metastore_for_subtree(subtree_path, tree_id)
+        elif tree_type == OBJ_TYPE_GDRIVE:
+            return self.gdrive_cache.get_metastore_for_subtree(subtree_path, tree_id)
+        else:
+            raise RuntimeError(f'Unrecognized tree type: {tree_type}')
 
     def get_metastore_for_local_subtree(self, subtree_path, tree_id):
         """
@@ -166,3 +183,6 @@ class CacheManager:
         elif tree_type == OBJ_TYPE_GDRIVE:
             self.persisted_gdrive_cache_info[subtree_root] = info_info
         return info_info
+
+    def get_gdrive_path_for_id(self, goog_id) -> str:
+        self.gdrive_cache.get_path_for_id(goog_id)

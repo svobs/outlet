@@ -7,6 +7,7 @@
             "Moved": true,
             "Updated": true
         },
+        "tree_type": 1,
         "root_path": "/home/msvoboda/Downloads/DVDYourMemories Batch1/Disc 3 - 2000-08 - 2002-04"
     },
     "right_tree": {
@@ -17,6 +18,7 @@
             "Moved": true,
             "Updated": true
         },
-        "root_path": "/home/msvoboda/LocalDevel/ultrasync/test/BiDirMerge/Sen Mitsuji Right"
+        "tree_type": 2,
+        "root_path": "1EfsD_CIxq3l0nnjfsrzvwdcy9keo3aWc"
     }
 }

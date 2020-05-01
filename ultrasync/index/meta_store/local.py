@@ -1,6 +1,7 @@
 import logging
 from typing import Dict
 
+from constants import OBJ_TYPE_LOCAL_DISK
 from model.display_id import DisplayId
 from model.fmeta import LocalFsDisplayId
 from ui.tree import category_tree_builder
@@ -75,3 +76,7 @@ class LocalDiskSubtreeMS(BaseMetaStore):
             raise
 
         return children
+
+    @classmethod
+    def get_tree_type(cls):
+        return OBJ_TYPE_LOCAL_DISK

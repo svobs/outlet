@@ -1,5 +1,6 @@
 import logging
 
+from constants import OBJ_TYPE_GDRIVE
 from model.display_id import DisplayId
 from ui.tree.meta_store import BaseMetaStore
 
@@ -32,3 +33,8 @@ class GDriveMS(BaseMetaStore):
     @classmethod
     def is_lazy(cls):
         return True
+
+    @classmethod
+    def get_tree_type(cls):
+        return OBJ_TYPE_GDRIVE
+
