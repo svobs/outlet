@@ -4,6 +4,7 @@ from queue import Queue
 from typing import Optional
 
 import treelib
+from pydispatch import dispatcher
 from stopwatch import Stopwatch
 
 import file_util
@@ -104,11 +105,11 @@ class LocalDiskMasterCache:
                 logger.debug('No meta found in cache')
                 return None
 
-            fmeta_tree = FMetaTree(cache_info.cache_info.subtree_root)
+            status = f'Loading meta for "{cache_info.cache_info.subtree_root}" from cache: "{cache_info.cache_info.cache_location}"'
+            logger.debug(status)
+            dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
 
-            status = f'Loading meta for subtree "{cache_info.cache_info.subtree_root}" from disk cache: {cache_info.cache_info.cache_location}'
-            logger.info(status)
-            actions.set_status(sender=tree_id, status_msg=status)
+            fmeta_tree = FMetaTree(cache_info.cache_info.subtree_root)
 
             db_file_changes = fmeta_disk_cache.get_local_files()
             if len(db_file_changes) == 0:

@@ -3,6 +3,9 @@ import os
 import uuid
 
 import gi
+
+from constants import ROOT
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 
@@ -28,6 +31,7 @@ class GlobalActions:
         logger.debug('Init global actions')
         actions.connect(signal=actions.START_DIFF_TREES, handler=self.on_diff_requested)
         actions.connect(signal=actions.DOWNLOAD_GDRIVE_META, handler=self.on_gdrive_requested)
+        actions.connect(signal=actions.SHOW_GDRIVE_ROOT_DIALOG, handler=self.on_gdrive_root_dialog_requested)
         actions.connect(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, handler=self.on_gdrive_download_complete)
         actions.connect(signal=actions.LOAD_ALL_CACHES, handler=self.on_load_all_caches_requested)
 
@@ -55,21 +59,38 @@ class GlobalActions:
         actions.disable_ui(sender=tree_id)
         try:
             self.application.cache_manager.download_all_gdrive_meta(tree_id)
-            actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id)
+            meta_store = self.application.cache_manager.get_metastore_for_gdrive_subtree(ROOT, tree_id)
+            actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, meta_store=meta_store)
         except Exception as err:
             self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
             logger.exception(err)
         finally:
             actions.enable_ui(sender=tree_id)
 
-    def on_gdrive_download_complete(self, sender):
+    def load_gdrive_root_meta(self, tree_id):
+        """Executed by Task Runner. NOT UI thread"""
+        actions.disable_ui(sender=tree_id)
+        try:
+            meta_store = self.application.cache_manager.get_metastore_for_gdrive_subtree(ROOT, tree_id)
+            actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, meta_store=meta_store)
+        except Exception as err:
+            self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
+            logger.exception(err)
+        finally:
+            actions.enable_ui(sender=tree_id)
+
+    def on_gdrive_root_dialog_requested(self, sender):
+        logger.debug(f'Received signal: "{actions.SHOW_GDRIVE_ROOT_DIALOG}"')
+        self.application.task_runner.enqueue(self.load_gdrive_root_meta, sender)
+
+    def on_gdrive_download_complete(self, sender, meta_store):
         logger.debug(f'Received signal: "{actions.GDRIVE_DOWNLOAD_COMPLETE}"')
         assert type(sender) == str
 
         def open_dialog():
             try:
                 # Preview changes in UI pop-up
-                dialog = GDriveDirSelectionDialog(self.application.window, sender)
+                dialog = GDriveDirSelectionDialog(self.application.window, meta_store, sender)
                 response_id = dialog.run()
                 if response_id == Gtk.ResponseType.OK:
                     logger.debug('User clicked OK!')

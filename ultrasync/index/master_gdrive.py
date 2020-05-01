@@ -4,6 +4,7 @@
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 import logging
 
+from pydispatch import dispatcher
 from stopwatch import Stopwatch
 
 from constants import OBJ_TYPE_GDRIVE, GDRIVE_PREFIX, ROOT
@@ -12,6 +13,7 @@ from index.cache_manager import PersistedCacheInfo
 from index.meta_store.gdrive import GDriveMS
 from index.two_level_dict import FullPathBeforeIdDict, Md5BeforeIdDict
 from model.gdrive import GDriveMeta
+from ui import actions
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +27,14 @@ class GDriveMasterCache:
         self.meta_master = GDriveMeta()
 
     def init_subtree_gdrive_cache(self, info: PersistedCacheInfo, tree_id: str):
-        self.load_gdrive_cache(info, tree_id)
+        self._load_gdrive_cache(info, tree_id)
 
-    def load_gdrive_cache(self, info: PersistedCacheInfo, tree_id: str) -> GDriveMeta:
+    def _load_gdrive_cache(self, info: PersistedCacheInfo, tree_id: str) -> GDriveMeta:
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
+        status = f'Loading meta for "{info.cache_info.subtree_root}" from cache: "{info.cache_info.cache_location}"'
+        logger.debug(status)
+        dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
+
         stopwatch_total = Stopwatch()
 
         cache_path = info.cache_info.cache_location
@@ -43,6 +49,7 @@ class GDriveMasterCache:
         return meta
 
     def get_metastore_for_subtree(self, subtree_path, tree_id):
+        logger.debug(f'Getting metastore for subtree: "{subtree_path}"')
         cache_man = self.application.cache_manager
         # TODO: currently we will just load the root and use that.
         #       But in the future we should do on-demand retrieval of subtrees
@@ -51,7 +58,7 @@ class GDriveMasterCache:
         if not cache_info.is_loaded:
             # Load from disk
             # TODO: this will fail if the cache does not exist. Need the above!
-            gdrive_meta = self.load_gdrive_cache(cache_info, tree_id)
+            gdrive_meta = self._load_gdrive_cache(cache_info, tree_id)
             self.meta_master = gdrive_meta
         return GDriveMS(tree_id, self.application.config, self.meta_master, ROOT)
 

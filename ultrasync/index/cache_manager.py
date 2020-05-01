@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+import uuid
 from typing import Dict, List
 
 from pydispatch import dispatcher
@@ -36,6 +37,7 @@ class CacheManager:
 
         self.cache_dir_path = _ensure_cache_dir_path(self.application.config)
         self.main_registry_path = os.path.join(self.cache_dir_path, MAIN_REGISTRY_FILE_NAME)
+
         self.persisted_localfs_cache_info: Dict[str, PersistedCacheInfo] = {}
         self.persisted_gdrive_cache_info: Dict[str, PersistedCacheInfo] = {}
 
@@ -45,7 +47,7 @@ class CacheManager:
         self.sync_from_local_disk_on_cache_load = application.config.get('cache.sync_from_local_disk_on_cache_load')
 
         if not self.load_all_caches_on_startup:
-            logger.debug('Configured not to fetch all caches on startup; will lazy load instead')
+            logger.info('Configured not to fetch all caches on startup; will lazy load instead')
 
         self.local_disk_cache = None
         self.gdrive_cache = None
@@ -59,6 +61,10 @@ class CacheManager:
             return
 
         logger.debug(f'CacheManager.load_all_caches() initiated by {sender}')
+        logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {ID_GLOBAL_CACHE}')
+        tx_id = uuid.uuid1()
+        dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=ID_GLOBAL_CACHE, tx_id=tx_id)
+
         self.local_disk_cache = LocalDiskMasterCache(self.application)
         self.gdrive_cache = GDriveMasterCache(self.application)
 
@@ -66,6 +72,7 @@ class CacheManager:
             self._init_existing_cache(existing_disk_cache)
 
         logger.debug('Done loading caches')
+        dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE, tx_id=tx_id)
         dispatcher.send(signal=actions.LOAD_ALL_CACHES_DONE, sender=ID_GLOBAL_CACHE)
 
     def _get_cache_info_from_registry(self) -> List[CacheInfoEntry]:
@@ -79,6 +86,8 @@ class CacheManager:
                 return []
 
     def _init_existing_cache(self, existing_disk_cache: CacheInfoEntry):
+        logger.debug(f'Loading cache: type={existing_disk_cache.cache_type} subtree="{existing_disk_cache.subtree_root}"')
+
         from_memory: PersistedCacheInfo = self.get_cache_info_entry(existing_disk_cache.cache_type, existing_disk_cache.subtree_root)
 
         if from_memory and existing_disk_cache.sync_ts < from_memory.cache_info.sync_ts:
@@ -86,13 +95,15 @@ class CacheManager:
             return
 
         info = PersistedCacheInfo(existing_disk_cache)
-        info.needs_refresh = True
-        self.persisted_localfs_cache_info[existing_disk_cache.subtree_root] = info
+
+        if existing_disk_cache.cache_type == OBJ_TYPE_LOCAL_DISK:
+            self.persisted_localfs_cache_info[existing_disk_cache.subtree_root] = info
+        elif existing_disk_cache.cache_type == OBJ_TYPE_GDRIVE:
+            self.persisted_gdrive_cache_info[existing_disk_cache.subtree_root] = info
 
         if self.load_all_caches_on_startup:
             if existing_disk_cache.cache_type == OBJ_TYPE_LOCAL_DISK:
                 self.local_disk_cache.init_subtree_localfs_cache(info, ID_GLOBAL_CACHE)
-
             elif existing_disk_cache.cache_type == OBJ_TYPE_GDRIVE:
                 self.gdrive_cache.init_subtree_gdrive_cache(info, ID_GLOBAL_CACHE)
             else:
@@ -123,20 +134,23 @@ class CacheManager:
     def get_or_create_cache_info_entry(self, tree_type, subtree_root: str) -> PersistedCacheInfo:
         existing = self.get_cache_info_entry(tree_type, subtree_root)
         if existing:
+            logger.debug(f'Found existing cache for type={tree_type} subtree="{subtree_root}"')
             return existing
+        else:
+            logger.debug(f'No existing cache found for type={tree_type} subtree="{subtree_root}"')
 
         if tree_type == OBJ_TYPE_LOCAL_DISK:
             prefix = 'FS'
         elif tree_type == OBJ_TYPE_GDRIVE:
             prefix = 'GD'
         else:
-            prefix = 'UNKNOWN'
+            raise RuntimeError(f'Unrecognized tree type: {tree_type}')
 
         mangled_file_name = prefix + subtree_root.replace('/', '_')
         cache_location = os.path.join(self.cache_dir_path, mangled_file_name)
         now_ms = int(time.time())
         new_cache_info = CacheInfoEntry(cache_location=cache_location,
-                                        cache_type=OBJ_TYPE_LOCAL_DISK,
+                                        cache_type=tree_type,
                                         subtree_root=subtree_root, sync_ts=now_ms,
                                         is_complete=True)
 
@@ -145,4 +159,10 @@ class CacheManager:
             cache_registry_db.insert_cache_info(new_cache_info, append=True, overwrite=False)
 
         info_info = PersistedCacheInfo(new_cache_info)
+
+        # Save reference in memory
+        if tree_type == OBJ_TYPE_LOCAL_DISK:
+            self.persisted_localfs_cache_info[subtree_root] = info_info
+        elif tree_type == OBJ_TYPE_GDRIVE:
+            self.persisted_gdrive_cache_info[subtree_root] = info_info
         return info_info

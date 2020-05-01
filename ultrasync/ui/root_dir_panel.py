@@ -2,6 +2,9 @@ import logging
 import os
 
 import gi
+
+from ui.base_dialog import BaseDialog
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
@@ -61,7 +64,7 @@ class RootDirChooserDialog(Gtk.FileChooserDialog):
 
 class RootDirPanel:
     def __init__(self, parent_win, tree_id, current_root, editable):
-        self.parent_win = parent_win
+        self.parent_win: BaseDialog = parent_win
         assert type(tree_id) == str
         self.tree_id = tree_id
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
@@ -152,7 +155,7 @@ class RootDirPanel:
         open_dialog.show()
 
     def select_gdrive_path(self, menu_item):
-        actions.send_signal(signal=actions.DOWNLOAD_GDRIVE_META, sender=self.tree_id)
+        actions.send_signal(signal=actions.SHOW_GDRIVE_ROOT_DIALOG, sender=self.tree_id)
         pass
 
     def build_source_menu(self):

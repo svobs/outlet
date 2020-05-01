@@ -8,6 +8,7 @@ from gi.repository import GLib, Gtk
 logger = logging.getLogger(__name__)
 
 PULSE_STEP = 0.001
+MAX_MSG_LENGTH = 60
 
 
 class ProgressBarComponent:
@@ -85,14 +86,13 @@ class ProgressBarComponent:
         logger.debug(f'Stopped progress animation')
 
     def on_set_progress_text(self, sender, msg, tx_id=None):
-        if self.transactions.get(tx_id, None):
-            logger.debug(f'Ignoring progress_made; already completed: {tx_id}')
-            return
+        if len(msg) > MAX_MSG_LENGTH:
+            msg = msg[:(MAX_MSG_LENGTH-3)] + '...'
 
-        def set_text():
+        def set_text(m):
             self.progressbar.set_show_text(True)
-            self.progressbar.set_text(msg)
-        GLib.idle_add(set_text)
+            self.progressbar.set_text(m)
+        GLib.idle_add(set_text, msg)
 
     def on_timeout(self):
         """

@@ -1,6 +1,8 @@
 from concurrent.futures import ThreadPoolExecutor
 import logging
 
+from stopwatch import Stopwatch
+
 logger = logging.getLogger(__name__)
 
 MAX_WORKERS = 1
@@ -13,6 +15,7 @@ class Task:
         self.args = args
 
     def run(self):
+        task_time = Stopwatch()
         try:
             self.task_func(*self.args)
         except Exception as err:
@@ -20,6 +23,8 @@ class Task:
             logger.exception(msg)
             self.application.window.show_error_ui(msg, repr(err))
             raise
+        finally:
+            logger.info(f'Task returned in {task_time}')
 
 
 class CentralTaskRunner:

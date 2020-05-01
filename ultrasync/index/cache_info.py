@@ -28,5 +28,5 @@ class PersistedCacheInfo:
         self.is_loaded = False
         # Indicates the data needs to be loaded from disk again.
         # TODO: replace this with a more sophisticated mechanism
-        self.needs_refresh = False
+        self.needs_refresh = True
 

@@ -53,8 +53,8 @@ class CacheRegistry(MetaDatabase):
         if has_existing:
             if overwrite:
                 self.drop_table_if_exists(self.TABLE_CACHE_REGISTRY)
-                self.create_table_if_not_exist(self.TABLE_CACHE_REGISTRY)
             elif not append:
                 raise RuntimeError('Cannot insert CacheInfo into a non-empty table (overwrite=False, append=False)')
 
+        self.create_table_if_not_exist(self.TABLE_CACHE_REGISTRY)
         self.insert_many(self.TABLE_CACHE_REGISTRY, rows)
