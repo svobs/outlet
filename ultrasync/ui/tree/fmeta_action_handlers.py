@@ -1,11 +1,14 @@
 import fnmatch
 import os
 import logging
+import re
 import subprocess
+from typing import List
+
 import ui.actions as actions
 from model.planning_node import FMetaDecorator
 from ui.tree.action_bridge import TreeActionBridge
-from model.display_node import DirNode, CategoryNode
+from model.display_node import DirNode, CategoryNode, DisplayNode
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -14,6 +17,7 @@ from gi.repository import Gtk
 logger = logging.getLogger(__name__)
 
 DATE_REGEX = r'^[\d]{4}(\-[\d]{2})?(-[\d]{2})?'
+
 
 class FMetaTreeActionHandlers(TreeActionBridge):
     def __init__(self, controller=None):
@@ -56,6 +60,16 @@ class FMetaTreeActionHandlers(TreeActionBridge):
                                    expand_all=False):
         """CB for NODE_EXPANSION_TOGGLED"""
         return False
+
+    def build_context_menu_multiple(self, selected_items):
+        menu = Gtk.Menu()
+
+        item = Gtk.MenuItem(label=f'Use EXIFTool on dirs')
+        item.connect('activate', lambda menu_item: self.call_exiftool_list(selected_items))
+        menu.append(item)
+
+        menu.show_all()
+        return menu
 
     def build_context_menu(self, tree_path: Gtk.TreePath, node_data):
         """Dynamic context menu (right-click on tree item)"""
@@ -100,7 +114,8 @@ class FMetaTreeActionHandlers(TreeActionBridge):
             item.connect('activate', lambda menu_item: self.expand_all(tree_path))
             menu.append(item)
 
-            if fnmatch.fnmatch(os.path.basename(full_path), DATE_REGEX):
+            dirname = os.path.basename(full_path)
+            if re.fullmatch(DATE_REGEX, dirname):
                 item = Gtk.MenuItem(label=f'Use EXIFTool on dir')
                 item.connect('activate', lambda menu_item: self.call_exiftool(full_path))
                 menu.append(item)
@@ -128,9 +143,23 @@ class FMetaTreeActionHandlers(TreeActionBridge):
                     break
 
     def on_row_right_clicked(self, event, tree_path, node_data):
-        # Display context menu:
+        # TODO: clicked on selection? -> apply context menu to selection
+        id_clicked = node_data.display_id.id_string
+        selected_items = self.con.get_multiple_selection()
+
+        for item in selected_items:
+            if item.display_id.id_string == id_clicked:
+                # User right-clicked on selection -> apply context menu to selection
+                context_menu = self.build_context_menu_multiple(selected_items)
+                context_menu.popup_at_pointer(event)
+                # Suppress selection event
+                return True
+
+        # Not a selected item. Display context menu:
         context_menu = self.build_context_menu(tree_path, node_data)
         context_menu.popup_at_pointer(event)
+
+        return False
 
     # --- END of LISTENERS ---
 
@@ -233,6 +262,10 @@ class FMetaTreeActionHandlers(TreeActionBridge):
         else:
             self.con.parent_win.show_error_msg('Cannot open file in Nautilus', f'File not found: {file_path}')
 
+    def call_exiftool_list(self, data_node_list: List[DisplayNode]):
+        for item in data_node_list:
+            self.call_exiftool(item.display_id.id_string)
+
     def call_exiftool(self, file_path):
         """exiftool -AllDates="2001:01:01 12:00:00" *
         exiftool -Comment="Hawaii" {target_dir}
@@ -246,13 +279,12 @@ class FMetaTreeActionHandlers(TreeActionBridge):
             return
         dir_name = os.path.basename(file_path)
         tokens = dir_name.split(' ', 1)
-        date_to_set = None
         comment_to_set = None
         if len(tokens) > 1:
             assert not len(tokens) > 2, f'Length of tokens is {len(tokens)}: "{file_path}"'
             comment_to_set = tokens[1]
         date_to_set = tokens[0]
-        if not fnmatch.fnmatch(date_to_set, DATE_REGEX + '$'):
+        if not re.fullmatch(DATE_REGEX + '$', date_to_set):
             raise RuntimeError(f'Unexpected date pattern: {tokens[0]}')
         if len(date_to_set) == 10:
             # good, whole date. Just to be sure, replace all dashes with colons
@@ -272,5 +304,10 @@ class FMetaTreeActionHandlers(TreeActionBridge):
             args.append(f'-Comment="{comment_to_set}"')
         args.append(file_path)
         subprocess.check_call(args)
+
+        list_original_files = [f.path for f in os.scandir(file_path) if not f.is_dir() and f.path.endswith('.jpg_original')]
+        for file in list_original_files:
+            logger.debug(f'Removing file: {file}')
+            os.remove(file)
 
     # --- END ACTIONS ---

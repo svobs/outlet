@@ -49,12 +49,11 @@ class TreePanelController:
     def get_multiple_selection(self):
         """Returns a list of the selected items (empty if none)"""
         selection = self.tree_view.get_selection()
-        model, tree_iter = selection.get_selected_rows()
+        model, tree_paths = selection.get_selected_rows()
         items = []
-        while tree_iter is not None:
-            item = self.display_store.get_node_data(tree_iter)
+        for tree_path in tree_paths:
+            item = self.display_store.get_node_data(tree_path)
             items.append(item)
-            tree_iter = self.display_store.model.iter_next(tree_iter)
         return items
 
 
