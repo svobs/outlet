@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 class GDriveDatabase(MetaDatabase):
     TABLE_GRDIVE_DIRS = {
-        'name': 'gdrive_directory',
+        'name': 'goog_folder',
         'cols': (('id', 'TEXT'),
                  ('name', 'TEXT'),
                  ('parent_id', 'TEXT'),
@@ -19,12 +19,12 @@ class GDriveDatabase(MetaDatabase):
     }
 
     TABLE_GRDIVE_MULTIPLE_PARENTS = {
-        'name': 'gdrive_multiple_parents',
+        'name': 'goog_multiple_parents',
         'cols': (('id', 'TEXT'),)
     }
 
     TABLE_GRDIVE_FILES = {
-        'name': 'gdrive_files',
+        'name': 'goog_file',
         'cols': (('id', 'TEXT'),
                  ('name', 'TEXT'),
                  ('parent_id', 'TEXT'),

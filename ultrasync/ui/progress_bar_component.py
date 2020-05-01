@@ -84,7 +84,7 @@ class ProgressBarComponent:
         self.timeout_id = None
         logger.debug(f'Stopped progress animation')
 
-    def on_set_progress_text(self, sender, tx_id, msg):
+    def on_set_progress_text(self, sender, msg, tx_id=None):
         if self.transactions.get(tx_id, None):
             logger.debug(f'Ignoring progress_made; already completed: {tx_id}')
             return
@@ -102,6 +102,7 @@ class ProgressBarComponent:
             self.progressbar.set_show_text(False)
             # Stop looping
             self.progressbar.hide()
+            logger.debug('Hiding progress animation because it is done')
             return False
 
         if self.indeterminate:
