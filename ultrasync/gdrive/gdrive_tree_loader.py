@@ -193,4 +193,4 @@ class GDriveTreeLoader:
         meta.ids_with_multiple_parents = self.cache.get_multiple_parent_ids()
 
         # Finally, build the id tree:
-        meta.path_dict = build_path_trees_by_id(meta)
+        # meta.path_dict = build_path_trees_by_id(meta)

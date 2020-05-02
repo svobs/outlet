@@ -1,3 +1,4 @@
+import copy
 import logging
 from typing import Dict, List, Optional, Union
 
@@ -83,6 +84,9 @@ class GoogFolder(DisplayNode):
     def __repr__(self):
         return f'Folder:(id="{self.id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
                    f'my_share={self.my_share} sync_ts={self.sync_ts} parents={self.parents} children_fetched={self.all_children_fetched} ]'
+
+    def is_newer_than(self, other_folder):
+        return self.sync_ts > other_folder.sync_ts
 
     @property
     def parents(self):
@@ -180,6 +184,13 @@ class GoogFile(GoogFolder):
                f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
                f'sync_ts={self.sync_ts} parents={self.parents})'
 
+    def is_newer_than(self, other_folder):
+        if self.modify_ts and other_folder.modify_ts:
+            delta = self.modify_ts - other_folder.modify_ts
+            if delta != 0:
+                return delta
+        return self.sync_ts > other_folder.sync_ts
+
     @classmethod
     def is_dir(cls):
         return False
@@ -231,18 +242,11 @@ class GDriveMeta:
         """Called when adding from Google API"""
         existing_item = self.id_dict.get(item.id, None)
         if existing_item:
-            # If we have a conflict at all, it should mean we are loading from cache and are combining two goog_folder entries
-            assert len(existing_item.parents) >= 1 and len(item.parents) == 1, f'Expected exactly 1 parent for existing and new item!'
-            existing_parents = existing_item.parents
-            new_parents = item.parents
-            for parent_id in new_parents:
-                if parent_id in existing_parents:
-                    logger.error(f'Duplicate entry found; skipping: {item.id} (parent_id={parent_id})')
-                    return
-                existing_parents.append(item)
-                # Make sure this is initialized:
-                existing_item.parents = existing_parents
-            item = existing_item
+            item = _try_to_merge(existing_item, item)
+            if item:
+                self.id_dict[item.id] = item
+            else:
+                return
         else:
             self.id_dict[item.id] = item
 
@@ -251,16 +255,8 @@ class GDriveMeta:
         if len(parents) == 0:
             self.roots.append(item)
         else:
-            # has_multiple_parents = (len(parents) > 1)
-            # parent_index = 0
-            # if has_multiple_parents:
-            #     logger.debug(f'Item has multiple parents:  [{item.id}] {item.name}')
-            #     self.ids_with_multiple_parents.append((item.id,))
             for parent_id in parents:
                 self._add_to_parent_dict(parent_id, item)
-                # if has_multiple_parents:
-                #     parent_index += 1
-                #     logger.debug(f'\tParent {parent_index}: [{parent_id}]')
 
     def _add_to_parent_dict(self, parent_id, item):
         child_list = self.first_parent_dict.get(parent_id)
@@ -268,3 +264,14 @@ class GDriveMeta:
             child_list = []
             self.first_parent_dict[parent_id] = child_list
         child_list.append(item)
+
+
+def _try_to_merge(existing_item: GoogFolder, new_item: GoogFolder) -> Optional[GoogFolder]:
+    # Let's be safe and clone the data if there's a conflict. We don't know whether we're loading from
+    # cache or whether we're slicing a subtree
+    if new_item.is_newer_than(existing_item):
+        clone = copy.deepcopy(new_item)
+    else:
+        clone = copy.deepcopy(existing_item)
+    clone.parents = list(set(existing_item.parents) | set(new_item.parents))
+    return clone

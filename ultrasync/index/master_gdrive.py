@@ -1,8 +1,5 @@
-
-# ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
-# CLASS GDriveMasterCache
-# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 import logging
+from queue import Queue
 from typing import Optional
 
 from pydispatch import dispatcher
@@ -13,10 +10,14 @@ from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index.cache_manager import PersistedCacheInfo
 from index.meta_store.gdrive import GDriveMS
 from index.two_level_dict import FullPathBeforeIdDict, Md5BeforeIdDict
-from model.gdrive import GDriveMeta
+from model.gdrive import GDriveMeta, GoogFolder, NOT_TRASHED
 from ui import actions
 
 logger = logging.getLogger(__name__)
+
+# ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
+# CLASS GDriveMasterCache
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 
 class GDriveMasterCache:
@@ -50,18 +51,48 @@ class GDriveMasterCache:
         self.meta_master = meta  # TODO
         return meta
 
-    def get_metastore_for_subtree(self, subtree_path, tree_id):
-        logger.debug(f'Getting metastore for subtree: "{subtree_path}"')
+    def _slice_off_subtree_from_master(self, subtree_root_id) -> GDriveMeta:
+        subtree_meta = GDriveMeta()
+
+        root = self.meta_master.get_for_id(subtree_root_id)
+        if not root:
+            raise RuntimeError(f'Root not found: {subtree_root_id}')
+
+        q = Queue()
+        q.put(root)
+
+        count_trashed = 0
+        count_total = 0
+
+        while not q.empty():
+            item: GoogFolder = q.get()
+            if item.trashed == NOT_TRASHED:
+                subtree_meta.add_item(item)
+            else:
+                count_trashed += 1
+            count_total += 1
+
+            child_list = self.meta_master.get_children(item.id)
+            if child_list:
+                for child in child_list:
+                    q.put(child)
+
+        logger.debug(f'Sliced off subtree with {(count_total - count_trashed)} items (+{count_trashed} trashed)')
+        return subtree_meta
+
+    def get_metastore_for_subtree(self, subtree_root_id, tree_id):
+        logger.debug(f'Getting metastore for subtree: "{subtree_root_id}"')
         cache_man = self.application.cache_manager
         # TODO: currently we will just load the root and use that.
         #       But in the future we should do on-demand retrieval of subtrees
         cache_info = cache_man.get_or_create_cache_info_entry(OBJ_TYPE_GDRIVE, ROOT)
-
         if not cache_info.is_loaded:
             # Load from disk
             # TODO: this will fail if the cache does not exist. Need the above!
-            gdrive_meta = self._load_gdrive_cache(cache_info, tree_id)
-        return GDriveMS(tree_id, self.application.config, self.meta_master, ROOT)
+            self._load_gdrive_cache(cache_info, tree_id)
+
+        gdrive_meta = self._slice_off_subtree_from_master(subtree_root_id)
+        return GDriveMS(tree_id, self.application.config, gdrive_meta, ROOT)
 
     def download_all_gdrive_meta(self, tree_id):
         cache_info = self.application.cache_manager.get_or_create_cache_info_entry(OBJ_TYPE_GDRIVE, ROOT)
