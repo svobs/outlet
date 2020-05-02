@@ -20,6 +20,7 @@ class RootPathConfigPersister:
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=tree_id)
 
     def _on_root_path_updated(self, sender, new_root, tree_type):
+        logger.info(f'Received signal: {actions.ROOT_PATH_UPDATED} with root: {new_root}')
         if self.root_path != new_root:
             logger.debug(f'Root path changed. Saving to config: {self._tree_type_config_key} = {tree_type}, {self._root_config_key} = "{new_root}"')
             # Root changed. Invalidate the current tree contents

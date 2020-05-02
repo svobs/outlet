@@ -33,6 +33,8 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
         label = Gtk.Label(label="Select the Google Drive folder to use as the root for comparison:")
         self.content_box.add(label)
 
+        # Prevent dialog from stepping on existing trees by giving it its own ID:
+        meta_store.tree_id = actions.ID_GDRIVE_DIR_SELECT
         self.tree_controller = tree_factory.build_gdrive(parent_win=self, meta_store=meta_store)
 
         self.content_box.pack_start(self.tree_controller.content_box, True, True, 0)
@@ -44,6 +46,8 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
 
     def on_ok_clicked(self, item_id: str):
         # TODO: disallow selection of files
+        path = self.application.cache_manager.get_gdrive_path_for_id(item_id)
+        logger.info(f'User selected dir id="{item_id}" path="{path}"')
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root=item_id, tree_type=OBJ_TYPE_GDRIVE)
 
     def on_response(self, dialog, response_id):
@@ -56,7 +60,6 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
                 node_data = self.tree_controller.get_single_selection()
                 assert node_data.display_id
                 assert node_data.display_id.id_string
-                logger.info(f'User selected dir: {node_data.display_id.id_string}')
                 self.on_ok_clicked(node_data.display_id.id_string)
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")

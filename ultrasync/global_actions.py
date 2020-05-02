@@ -91,8 +91,7 @@ class GlobalActions:
         def open_dialog():
             try:
                 # Preview changes in UI pop-up. Change tree_id so that listeners don't step on existing trees
-                meta_store.tree_id = actions.ID_GDRIVE_DIR_SELECT
-                dialog = GDriveDirSelectionDialog(self.application.window, meta_store, actions.ID_GDRIVE_DIR_SELECT)
+                dialog = GDriveDirSelectionDialog(self.application.window, meta_store, sender)
                 response_id = dialog.run()
                 if response_id == Gtk.ResponseType.OK:
                     logger.debug('User clicked OK!')

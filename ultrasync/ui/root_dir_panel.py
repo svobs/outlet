@@ -107,7 +107,7 @@ class RootDirPanel:
                 if self.ui_enabled and (event.button == 1 or event.button == 3) and self.entry:
                     # cancel
                     logger.debug(f'User clicked elsewhere! Activating root path entry box')
-                    self._on_root_entry_submitted(widget, tree_id)
+                    self._on_root_text_entry_submitted(widget, tree_id)
                     return True
                 # False = allow it to propogate
                 return False
@@ -138,10 +138,11 @@ class RootDirPanel:
         # Need to call this to do the initial UI draw:
         GLib.idle_add(self._update_root_label, current_root, tree_type)
 
-    def _on_root_entry_submitted(self, widget, tree_id):
+    def _on_root_text_entry_submitted(self, widget, tree_id):
+        # Triggered when the user submits a root via the text entry box
         new_root = self.entry.get_text()
         # TODO: parse tree type
-        logger.info(f'User entered root path: {new_root}')
+        logger.info(f'User entered root path: "{new_root}" for tree_id={tree_id}')
         # Important: send this signal AFTER label updated
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root, tree_type=self.current_tree_type)
 
@@ -151,11 +152,13 @@ class RootDirPanel:
         return True
 
     def _on_label_clicked(self, widget, event):
+        """User clicked on the root label: toggle it to show the text entry box"""
         if not self.ui_enabled:
             logger.debug('Ignoring button press - UI is disabled')
             return False
 
-        if not event.button == 1:  # left click
+        if not event.button == 1:
+            # Left click only
             return False
 
         # Remove alert image if present; only show entry box
@@ -164,7 +167,7 @@ class RootDirPanel:
 
         self.entry = Gtk.Entry()
         self.entry.set_text(self.current_root)
-        self.entry.connect('activate', self._on_root_entry_submitted, self.tree_id)
+        self.entry.connect('activate', self._on_root_text_entry_submitted, self.tree_id)
         self.path_box.remove(self.label_event_box)
         self.path_box.pack_start(self.entry, expand=True, fill=True, padding=0)
         self.entry.show()
@@ -178,7 +181,7 @@ class RootDirPanel:
             return
 
         self.ui_enabled = enable
-        # TODO: what if root entry is showing?
+        # TODO: what if root text entry is showing?
 
         def change_button():
             self.change_btn.set_sensitive(enable)
@@ -222,27 +225,7 @@ class RootDirPanel:
             self.label_event_box.connect('button_press_event', self._on_label_clicked)
 
         if tree_type == OBJ_TYPE_LOCAL_DISK:
-            self.icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
-
-            if os.path.exists(new_root):
-                pre = ''
-                color = ''
-                root_part_regular, root_part_bold = os.path.split(new_root)
-                root_part_regular = root_part_regular + '/'
-                if len(self.alert_image_box.get_children()) > 0:
-                    self.alert_image_box.remove(self.alert_image)
-            else:
-                # TODO: determine offensive parent
-                root_part_regular, root_part_bold = os.path.split(new_root)
-                root_part_regular = root_part_regular + '/'
-                if len(self.alert_image_box.get_children()) == 0:
-                    self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
-                color = f"foreground='gray'"
-                pre = f"<span foreground='red' size='small'>Not found:  </span>"
-                self.alert_image.show()
-
-            self._set_label_markup(pre, color, root_part_regular, root_part_bold)
-
+            self._update_root_label_localfs(new_root, tree_type)
         elif tree_type == OBJ_TYPE_GDRIVE:
             self.icon.set_from_file(GDRIVE_ICON_PATH)
 
@@ -253,10 +236,33 @@ class RootDirPanel:
         else:
             raise RuntimeError(f'Unrecognized tree type: {tree_type}')
 
+    def _update_root_label_localfs(self, new_root, tree_type):
+        self.icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
+
+        if os.path.exists(new_root):
+            pre = ''
+            color = ''
+            root_part_regular, root_part_bold = os.path.split(new_root)
+            root_part_regular = root_part_regular + '/'
+            if len(self.alert_image_box.get_children()) > 0:
+                self.alert_image_box.remove(self.alert_image)
+        else:
+            # TODO: determine offensive parent
+            root_part_regular, root_part_bold = os.path.split(new_root)
+            root_part_regular = root_part_regular + '/'
+            if len(self.alert_image_box.get_children()) == 0:
+                self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
+            color = f"foreground='gray'"
+            pre = f"<span foreground='red' size='small'>Not found:  </span>"
+            self.alert_image.show()
+
+        self._set_label_markup(pre, color, root_part_regular, root_part_bold)
+
     def _set_label_markup(self, pre, color, root_part_regular, root_part_bold):
         """Sets the content of the label only. Expected to be called from the UI thread"""
         self.label.set_markup(f"{pre}<span font_family='monospace' size='medium' {color}><i>{root_part_regular}\n<b>{root_part_bold}</b></i></span>")
         self.label.show()
+        self.label_event_box.show()
 
     def _on_root_path_updated(self, sender, new_root, tree_type):
         """Callback for actions.ROOT_PATH_UPDATED"""

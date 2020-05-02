@@ -32,11 +32,11 @@ class UserMeta:
 
 
 class GDriveMeta:
-    def __init__(self, root_id):
+    def __init__(self, root_id, root_path):
         self.root_id = root_id
         """GoogID for where to start"""
 
-        self.root_path = None
+        self.root_path = root_path
         """Filesystem-like-path. Used for reference when comparing to FMetaTree"""
 
         # Keep track of parentless nodes. These include the 'My Drive' item, as well as shared items.
@@ -50,7 +50,7 @@ class GDriveMeta:
 
         self.md5_dict: Md5BeforeIdDict = Md5BeforeIdDict()
 
-        self.ids_with_multiple_parents: List[str] = []
+        # self.ids_with_multiple_parents: List[str] = []
         """List of item_ids which have more than 1 parent"""
 
         self.me: Optional[UserMeta] = None
