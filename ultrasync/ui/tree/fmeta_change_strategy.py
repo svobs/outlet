@@ -24,18 +24,12 @@ class FMetaChangeTreeStrategy(LazyDisplayStrategy):
 
     def init(self):
         super().init()
-        dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.meta_store.tree_id)
-
-    def _on_root_path_updated(self, sender, new_root, tree_type):
-        # Get a new metastore from the cache manager:
-        # TODO: find a way to encode the tree type into the root so we can move this into parent class
-        self.con.meta_store = self.con.parent_win.application.cache_manager.get_metastore(new_root, tree_type, self.con.meta_store.tree_id)
 
     def _append_category_tree_to_model(self, category_tree):
         def append_recursively(tree_iter, node):
             # Do a DFS of the change tree and populate the UI tree along the way
             if node.data.is_dir():
-                tree_iter = self.append_dir_node(tree_iter, node.data)
+                tree_iter = self._append_dir_node(tree_iter, node.data)
                 for child in category_tree.children(node.identifier):
                     append_recursively(tree_iter, child)
             else:

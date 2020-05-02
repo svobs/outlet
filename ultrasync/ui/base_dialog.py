@@ -20,6 +20,7 @@ class BaseDialog:
 
     def show_error_msg(self, msg, secondary_msg=None):
         dialog = Gtk.MessageDialog(parent=self, modal=True, message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CANCEL, text=msg)
+        dialog.set_default_response(Gtk.ResponseType.CANCEL)
         if secondary_msg is None:
             logger.debug(f'Displaying error: {msg}')
         else:
@@ -27,6 +28,7 @@ class BaseDialog:
             dialog.format_secondary_text(secondary_msg)
 
         def run_on_ui_thread():
+
             dialog.run()
             dialog.destroy()
 

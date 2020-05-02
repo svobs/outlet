@@ -60,7 +60,33 @@ class LazyDisplayStrategy:
         """Do post-wiring stuff like connect listeners."""
         self.use_empty_nodes = self.con.config.get('display.diff_tree.use_empty_nodes')
 
+        dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.meta_store.tree_id)
         dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.con.meta_store.tree_id)
+
+    def _on_root_path_updated(self, sender, new_root, tree_type):
+        # Callback for actions.ROOT_PATH_UPDATED
+        # Get a new metastore from the cache manager:
+        cacheman = self.con.parent_win.application.cache_manager
+        self.con.meta_store = cacheman.get_metastore_for_subtree(new_root, tree_type, self.con.meta_store.tree_id)
+
+    def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded):
+        # Callback for actions.NODE_EXPANSION_TOGGLED:
+        logger.debug(f'Node expansion toggled to {is_expanded} for cat={node_data.category} id="{node_data.display_id}"')
+
+        if not self.con.meta_store.is_lazy():
+            return
+
+        # Add children for node:
+        if is_expanded:
+            children = self.con.meta_store.get_children(node_data.display_id)
+            self._append_children(children, parent_iter, node_data.display_id)
+            # Remove Loading node:
+            self.con.display_store.remove_first_child(parent_iter)
+        else:
+            # Collapsed:
+            self.con.display_store.remove_all_children(parent_iter)
+            # Always have at least a dummy node:
+            self._append_loading_child(parent_iter)
 
     def _set_expand_states_from_config(self):
         # Loop over top level. Find the category nodes and expand them appropriately
@@ -93,25 +119,6 @@ class LazyDisplayStrategy:
                     self._append_file_node(parent_iter, parent_display_id, child)
         elif self.use_empty_nodes:
             self._append_empty_child(parent_iter)
-
-    def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded):
-        # CB for actions.NODE_EXPANSION_TOGGLED:
-        logger.debug(f'Node expansion toggled to {is_expanded} for cat={node_data.category} id="{node_data.display_id}"')
-
-        if not self.con.meta_store.is_lazy():
-            return
-
-        # Add children for node:
-        if is_expanded:
-            children = self.con.meta_store.get_children(node_data.display_id)
-            self._append_children(children, parent_iter, node_data.display_id)
-            # Remove Loading node:
-            self.con.display_store.remove_first_child(parent_iter)
-        else:
-            # Collapsed:
-            self.con.display_store.remove_all_children(parent_iter)
-            # Always have at least a dummy node:
-            self._append_loading_child(parent_iter)
 
     def _append_empty_child(self, parent_node_iter):
         row_values = []

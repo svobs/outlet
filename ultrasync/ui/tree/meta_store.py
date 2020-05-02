@@ -30,9 +30,10 @@ class BaseMetaStore(ABC):
 
 class DummyMS(BaseMetaStore):
     """Just a placeholder with no actual data, to be replaced once data is available"""
-    def __init__(self, tree_id, config, root_path: str):
+    def __init__(self, tree_id, config, root_path: str, tree_type: int):
         super().__init__(tree_id=tree_id, config=config)
         self._root_path = root_path
+        self._tree_type = tree_type
 
     def get_root_path(self):
         return self._root_path
@@ -45,8 +46,4 @@ class DummyMS(BaseMetaStore):
         return False
 
     def get_tree_type(self):
-        # Not the greatest logic here...
-        if self._root_path.find('/') >= 0:
-            return OBJ_TYPE_LOCAL_DISK
-        else:
-            return OBJ_TYPE_GDRIVE
+        return self._tree_type

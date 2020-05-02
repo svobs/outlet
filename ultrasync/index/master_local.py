@@ -20,6 +20,7 @@ from model.fmeta_tree import FMetaTree
 from model.planning_node import PlanningNode
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
+from ui.tree.meta_store import BaseMetaStore, DummyMS
 
 logger = logging.getLogger(__name__)
 
@@ -156,9 +157,10 @@ class LocalDiskMasterCache:
 
         self._load_subtree(cache_info, tree_id)
 
-    def get_metastore_for_subtree(self, subtree_path: str, tree_id: str) -> LocalDiskSubtreeMS:
+    def get_metastore_for_subtree(self, subtree_path: str, tree_id: str) -> BaseMetaStore:
         if not os.path.exists(subtree_path):
-            raise RuntimeError(f'Cannot load meta for subtree because it does not exist: {subtree_path}')
+            logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_path}". Returning an empty metastore')
+            return DummyMS(tree_id, self.application.config, subtree_path, OBJ_TYPE_LOCAL_DISK)
 
         cache_man = self.application.cache_manager
         cache_info = cache_man.get_or_create_cache_info_entry(OBJ_TYPE_LOCAL_DISK, subtree_path)

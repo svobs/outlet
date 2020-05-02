@@ -148,7 +148,7 @@ class GoogFile(GoogFolder):
         self.owner_id = owner_id
 
     def __repr__(self):
-        return f'GoogFile(id="{self.id}" name="{self.name}" trashed={self.trashed_str}  size={self.size_bytes}' \
+        return f'GoogFile(id="{self.id}" name="{self.name}" trashed={self.trashed_str}  size={self.size_bytes} ' \
                f'md5="{self.md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
                f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
                f'sync_ts={self.sync_ts} parents={self.parents})'
@@ -217,16 +217,16 @@ class GDriveMeta:
         if len(parents) == 0:
             self.roots.append(item)
         else:
-            has_multiple_parents = (len(parents) > 1)
-            parent_index = 0
-            if has_multiple_parents:
-                logger.debug(f'Item has multiple parents:  [{item.id}] {item.name}')
-                self.ids_with_multiple_parents.append((item.id,))
+            # has_multiple_parents = (len(parents) > 1)
+            # parent_index = 0
+            # if has_multiple_parents:
+            #     logger.debug(f'Item has multiple parents:  [{item.id}] {item.name}')
+            #     self.ids_with_multiple_parents.append((item.id,))
             for parent_id in parents:
                 self._add_to_parent_dict(parent_id, item)
-                if has_multiple_parents:
-                    parent_index += 1
-                    logger.debug(f'\tParent {parent_index}: [{parent_id}]')
+                # if has_multiple_parents:
+                #     parent_index += 1
+                #     logger.debug(f'\tParent {parent_index}: [{parent_id}]')
 
     def _add_to_parent_dict(self, parent_id, item):
         child_list = self.first_parent_dict.get(parent_id)
