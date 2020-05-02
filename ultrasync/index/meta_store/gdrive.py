@@ -17,10 +17,10 @@ class GDriveMS(BaseMetaStore):
     def __init__(self, tree_id, config, gdrive_meta, root_path):
         super().__init__(tree_id=tree_id, config=config)
         self._gdrive_meta = gdrive_meta
-        self._root_path = root_path
+        self._root_id = root_path
 
     def get_root_path(self):
-        return self._root_path
+        return self._root_id
 
     def get_whole_tree(self):
         return self._gdrive_meta

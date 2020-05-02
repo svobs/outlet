@@ -4,7 +4,7 @@ import time
 import uuid
 from queue import Queue
 
-from constants import EXPLICITLY_TRASHED, IMPLICITLY_TRASHED
+from constants import EXPLICITLY_TRASHED, IMPLICITLY_TRASHED, ROOT
 from gdrive.client import GDriveClient
 from index.sqlite.gdrive_db import GDriveDatabase
 from model.gdrive_meta import GDriveMeta
@@ -111,7 +111,7 @@ class GDriveTreeLoader:
                 logger.debug(f'Sending START_PROGRESS_INDETERMINATE for tree_id: {self.tree_id}')
                 actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=self.tree_id, tx_id=self.tx_id)
 
-            meta = GDriveMeta()
+            meta = GDriveMeta(ROOT)
 
             meta.me = self.gdrive_client.get_about()
             cache_has_data = self.cache.has_gdrive_dirs() or self.cache.has_gdrive_files()

@@ -4,6 +4,8 @@ import re
 import errno
 import platform
 import logging
+from typing import List
+
 import fmeta.content_hasher
 
 logger = logging.getLogger(__name__)
@@ -31,7 +33,7 @@ def get_resource_path(rel_path: str, resolve_symlinks=False):
     return abs_path_to_resource
 
 
-def strip_root(file_path, root_path):
+def strip_root(file_path, root_path) -> str:
     """
     Strips the root_path out of the file path.
     Args:
@@ -45,7 +47,7 @@ def strip_root(file_path, root_path):
     return re.sub(root_path_with_slash, '', file_path, count=1)
 
 
-def split_path(path):
+def split_path(path) -> List[str]:
     """
     Args
         path: a string containing an absolute file path
@@ -68,7 +70,7 @@ def split_path(path):
     return all_parts
 
 
-def find_nearest_common_ancestor(path1, path2):
+def find_nearest_common_ancestor(path1, path2) -> str:
     path_segs1 = split_path(path1)
     path_segs2 = split_path(path2)
 

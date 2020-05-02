@@ -11,7 +11,7 @@ from index.cache_manager import PersistedCacheInfo
 from index.meta_store.gdrive import GDriveMS
 from index.two_level_dict import FullPathBeforeIdDict, Md5BeforeIdDict
 from model.gdrive_meta import GDriveMeta
-from model.goog_node import GoogFolder
+from model.goog_node import GoogFolder, GoogNode
 from ui import actions
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class GDriveMasterCache:
         cache_path = info.cache_info.cache_location
         tree_builder = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
 
-        meta = GDriveMeta()
+        meta = GDriveMeta(ROOT)  # TODO
         tree_builder.load_from_cache(meta)
         self._update_in_memory_cache(meta)
         logger.info(f'GDrive cache for {info.cache_info.subtree_root} loaded in: {stopwatch_total}')
@@ -53,9 +53,10 @@ class GDriveMasterCache:
         return meta
 
     def _slice_off_subtree_from_master(self, subtree_root_id) -> GDriveMeta:
-        subtree_meta = GDriveMeta()
+        subtree_meta = GDriveMeta(subtree_root_id)
+        subtree_meta.root_path = self.get_path_for_id(subtree_root_id)
 
-        root = self.meta_master.get_for_id(subtree_root_id)
+        root: GoogNode = self.meta_master.get_for_id(subtree_root_id)
         if not root:
             raise RuntimeError(f'Root not found: {subtree_root_id}')
 
@@ -67,6 +68,7 @@ class GDriveMasterCache:
 
         while not q.empty():
             item: GoogFolder = q.get()
+            # Filter out trashed items:
             if item.trashed == NOT_TRASHED:
                 subtree_meta.add_item(item)
             else:
@@ -126,6 +128,7 @@ class GDriveMasterCache:
             path = '/' + item.name + path
             parents = item.parents
             if not parents:
+                logger.debug(f'Mapped ID "{goog_id}" to path "{path}"')
                 return path
             elif len(parents > 1):
                 logger.debug(f'Multiple parents found for {item.id} ("{item.name}"). Picking the first one.')

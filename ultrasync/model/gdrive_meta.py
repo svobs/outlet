@@ -1,7 +1,9 @@
 import copy
 import logging
+import os
 from typing import Dict, List, Optional
 
+import file_util
 from index.two_level_dict import Md5BeforeIdDict
 from model.goog_node import GoogFile, GoogNode
 
@@ -30,7 +32,13 @@ class UserMeta:
 
 
 class GDriveMeta:
-    def __init__(self):
+    def __init__(self, root_id):
+        self.root_id = root_id
+        """GoogID for where to start"""
+
+        self.root_path = None
+        """Filesystem-like-path. Used for reference when comparing to FMetaTree"""
+
         # Keep track of parentless nodes. These include the 'My Drive' item, as well as shared items.
         self.roots: List[GoogNode] = []
 
@@ -45,7 +53,7 @@ class GDriveMeta:
         self.ids_with_multiple_parents: List[str] = []
         """List of item_ids which have more than 1 parent"""
 
-        self.me: UserMeta = None
+        self.me: Optional[UserMeta] = None
         self.path_dict = None
         self.owner_dict = {}
         self.mime_types = {}
@@ -54,11 +62,31 @@ class GDriveMeta:
     def get_children(self, parent_id):
         return self.first_parent_dict.get(parent_id, None)
 
-    def get_for_id(self, goog_id):
+    def get_for_id(self, goog_id) -> Optional[GoogNode]:
         return self.id_dict.get(goog_id, None)
 
-    def get_for_md5(self, md5) -> List[GoogNode]:
+    def get_for_md5(self, md5) -> Optional[List[GoogNode]]:
         return self.md5_dict.get(md5, None)
+
+    def get_for_path(self, path: str) -> Optional[GoogNode]:
+        """Try to get a singular item corresponding to the given file-system-like
+        path, mapping the root of this tree to the first segment of the path."""
+        name_segments = file_util.split_path(path)
+        current_id = self.root_id
+        path_so_far = ''
+        for name_seg in name_segments:
+            path_so_far = os.path.join(path_so_far, name_seg)
+            children = self.get_children(current_id)
+            matches = [x for x in children if x.name == name_seg]
+            if len(matches) > 1:
+                logger.error(f'Multiple IDs map found for segment {path_so_far}. Choosing the first found')
+            elif len(matches) == 0:
+                logger.debug(f'No match found for path: {path_so_far}')
+                return None
+            else:
+                current_id = matches[0].id
+        logger.debug(f'Found for path "{path}": {self.get_for_id(current_id)}')
+        return current_id
 
     def add_item(self, item):
         """Called when adding from Google API, or when slicing a metastore"""
