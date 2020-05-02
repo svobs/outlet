@@ -53,7 +53,7 @@ class TreeActionBridge:
         if treeiter is not None and len(treeiter) == 1:
             meta = self.con.display_store.get_node_data(treeiter)
             if isinstance(meta, FMeta):
-                logger.info(f'User selected cat="{meta.category.name}" md5="{meta.md5}" path="{meta.full_path}" prev_path="{meta.prev_path}"')
+                logger.info(f'User selected cat="{meta.category.name}" md5="{meta.md5}" path="{meta.full_path}"')
             else:
                 logger.info(f'User selected {self.con.display_store.get_node_name(treeiter)}')
         return self.on_selection_changed(treeiter)
@@ -79,9 +79,6 @@ class TreeActionBridge:
         return False
 
     def _on_toggle_gtk_row_expanded_state(self, tree_view, parent_iter, tree_path, is_expanded):
-        # if not self.ui_enabled:
-        #     logger.debug('Ignoring row expansion toggle - UI is disabled')
-        #     return True
         node_data = self.con.display_store.get_node_data(parent_iter)
         logger.debug(f'[{self.con.tree_id}] Sending signal "{actions.NODE_EXPANSION_TOGGLED}" with is_expanded={is_expanded} for node: {node_data}')
         if not node_data.is_dir():
@@ -111,7 +108,7 @@ class TreeActionBridge:
             mods.append('Super')
         if (event.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK:
             mods.append('Alt')
-        logger.debug(f'Key pressed, mods: {Gdk.keyval_name(event.keyval)} ({event.keyval}), {" ".join(mods)}')
+        logger.info(f'Key pressed: {Gdk.keyval_name(event.keyval)} ({event.keyval}), mods: {" ".join(mods)}')
 
         if event.keyval == Gdk.KEY_Delete:
             logger.debug('DELETE key detected!')

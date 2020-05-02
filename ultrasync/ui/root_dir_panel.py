@@ -74,10 +74,12 @@ class RootDirPanel:
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.current_root = current_root
         self.current_tree_type = tree_type
-        self.ui_enabled = True
+        self.editable = editable
+        self.ui_enabled = editable
+        """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
 
         self.icon = Gtk.Image()
-        if editable:
+        if self.editable:
             self.change_btn = Gtk.MenuButton()
             self.change_btn.set_image(image=self.icon)
             self.content_box.pack_start(self.change_btn, expand=False, fill=False, padding=5)
@@ -88,38 +90,28 @@ class RootDirPanel:
             self.change_btn = None
             self.content_box.pack_start(self.icon, expand=False, fill=False, padding=0)
 
+        self.path_box = Gtk.Box(spacing=0, orientation=Gtk.Orientation.HORIZONTAL)
+        self.content_box.pack_start(self.path_box, expand=True, fill=True, padding=0)
+
         self.alert_image_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
-        self.content_box.pack_start(self.alert_image_box, expand=False, fill=False, padding=0)
+        self.path_box.pack_start(self.alert_image_box, expand=False, fill=False, padding=0)
 
         self.alert_image = Gtk.Image()
         self.alert_image.set_from_file(ALERT_ICON_PATH)
 
-        self.event_box = Gtk.EventBox()
-        self.content_box.pack_start(self.event_box, expand=True, fill=True, padding=0)
-
         self.entry = None
-        self.label = self._add_label()
-
-        self.event_box.connect('button_press_event', self._on_label_clicked)
+        self.label_event_box = None
+        self.label = None
 
         actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
         actions.connect(actions.ROOT_PATH_UPDATED, self._on_root_path_updated, self.tree_id)
 
         # Need to call this to do the initial UI draw:
-        self._on_root_path_updated(self.tree_id, current_root, tree_type)
-
-    def _add_label(self):
-        self.label = Gtk.Label(label='')
-        self.label.set_justify(Gtk.Justification.LEFT)
-        self.label.set_xalign(0)
-        self.label.set_line_wrap(True)
-        if self.entry:
-            self.event_box.remove(self.entry)
-        self.event_box.add(self.label)
-        return self.label
+        GLib.idle_add(self._update_root_label, current_root, tree_type)
 
     def _on_change_btn_clicked(self, widget, parent_win):
-        self.source_menu.popup_at_widget(widget, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, None)
+        if self.ui_enabled:
+            self.source_menu.popup_at_widget(widget, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, None)
 
     def _on_label_clicked(self, widget, event):
         if not self.ui_enabled:
@@ -133,26 +125,36 @@ class RootDirPanel:
             new_root = self.entry.get_text()
             # TODO: parse tree type
             logger.info(f'User entered root path: {new_root}')
-            self._add_label()
+            # Important: send this signal AFTER label updated
             dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root, tree_type=self.current_tree_type)
+
+        def on_key_pressed(widget, event):
+            if event.keyval == Gdk.KEY_Escape:
+                # cancel
+                self._update_root_label(self.current_root, self.current_tree_type)
+                return True
+
+        # Remove alert image if present; only show entry box
+        if len(self.alert_image_box.get_children()) > 0:
+            self.alert_image_box.remove(self.alert_image)
 
         self.entry = Gtk.Entry()
         self.entry.set_text(self.current_root)
-
-        self.entry.connect("activate", on_root_entry_submitted, self.tree_id)
-        self.event_box.remove(self.label)
-        self.event_box.add(self.entry)
-        # self.content_box.pack_start(self.entry, expand=True, fill=True, padding=0)
+        self.entry.connect('activate', on_root_entry_submitted, self.tree_id)
+        self.entry.connect('key-press-event', on_key_pressed)
+        self.path_box.remove(self.label_event_box)
+        self.path_box.pack_start(self.entry, expand=True, fill=True, padding=0)
         self.entry.show()
+        self.entry.grab_focus()
 
     def _on_enable_ui_toggled(self, sender, enable):
         # Callback for actions.TOGGLE_UI_ENABLEMENT
+        if not self.editable:
+            self.ui_enabled = False
+            return
+
         self.ui_enabled = enable
         # TODO: what if root entry is showing?
-
-        if not self.change_btn:
-            # Not editable
-            return
 
         def change_button():
             self.change_btn.set_sensitive(enable)
@@ -172,6 +174,23 @@ class RootDirPanel:
         """Updates the UI to reflect the new root and tree type.
         Expected to be called from the UI thread.
         """
+
+        self.label = Gtk.Label(label='')
+        self.label.set_justify(Gtk.Justification.LEFT)
+        self.label.set_xalign(0)
+        self.label.set_line_wrap(True)
+        if self.entry:
+            self.path_box.remove(self.entry)
+        elif self.label_event_box:
+            self.path_box.remove(self.label_event_box)
+        self.label_event_box = Gtk.EventBox()
+        self.path_box.pack_start(self.label_event_box, expand=True, fill=True, padding=0)
+        self.label_event_box.add(self.label)
+        self.label_event_box.show()
+
+        if self.editable:
+            self.label_event_box.connect('button_press_event', self._on_label_clicked)
+
         if tree_type == OBJ_TYPE_LOCAL_DISK:
             self.icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
 
