@@ -15,7 +15,7 @@ from ui import actions
 
 logger = logging.getLogger(__name__)
 
-# ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
+
 # CLASS GDriveMasterCache
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
@@ -77,7 +77,8 @@ class GDriveMasterCache:
                 for child in child_list:
                     q.put(child)
 
-        logger.debug(f'Sliced off subtree with {(count_total - count_trashed)} items (+{count_trashed} trashed)')
+        md5_count = subtree_meta.md5_dict.total_entries
+        logger.debug(f'Sliced off subtree with {(count_total - count_trashed)} items (+{count_trashed} trashed), {md5_count} MD5s')
         return subtree_meta
 
     def get_metastore_for_subtree(self, subtree_root_id, tree_id):

@@ -40,6 +40,10 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
     dialog.destroy()
 
 
+#    CLASS RootDirChooserDialog
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
+
 class RootDirChooserDialog(Gtk.FileChooserDialog):
     def __init__(self, title, parent_win, tree_id, current_dir):
         Gtk.FileChooserDialog.__init__(self, title=title, parent=parent_win, action=Gtk.FileChooserAction.SELECT_FOLDER)
@@ -64,6 +68,10 @@ class RootDirChooserDialog(Gtk.FileChooserDialog):
             return file_name
         else:
             return None
+
+
+#    CLASS RootDirPanel
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 
 class RootDirPanel:

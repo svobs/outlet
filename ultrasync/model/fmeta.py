@@ -67,6 +67,15 @@ class FMeta(DisplayNode):
     def is_ignored(cls):
         return False
 
+    def is_newer_than(self, other):
+        if self.sync_ts > other.sync_ts:
+            return True
+        if self.modify_ts > other.modify_ts:
+            return True
+        if self.change_ts > other.change_ts:
+            return True
+        return False
+
     def is_content_equal(self, other_entry):
         assert isinstance(other_entry, FMeta)
         return self.sha256 == other_entry.sha256 \

@@ -35,13 +35,8 @@ def get_file_name(item):
 
 
 def overwrite_newer_ts(old, new) -> bool:
-    if old.sync_ts > new.sync_ts:
-        logger.error('Existing item "sync_ts" ({old.sync_ts}) is newer than new item ({new.sync_ts}) - will not overwrite in cache')
-        return False
-    if old.modify_ts > new.modify_ts:
-        logger.error('Existing item "modify_ts" ({old.modify_ts}) is newer than new item ({new.modify_ts}) - will not overwrite in cache')
-    if old.change_ts > new.change_ts:
-        logger.error('Existing item "change_ts" ({old.change_ts}) is newer than new item ({new.change_ts}) - will not overwrite in cache')
+    if old.is_newer_than(new):
+        logger.error('Existing item is newer than new item - will not overwrite in cache')
         return False
     return True
 

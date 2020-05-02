@@ -16,6 +16,10 @@ from model.fmeta import FMeta
 logger = logging.getLogger(__name__)
 
 
+#    CLASS DisplayStore
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
+
 class DisplayStore:
     """(Mostly) encapsulates the nodes inside the TreeView object, which will be a subset of the nodes
     which come from the data store """

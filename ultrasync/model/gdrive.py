@@ -1,8 +1,10 @@
 import copy
 import logging
+from abc import ABC
 from typing import Dict, List, Optional, Union
 
 from constants import OBJ_TYPE_GDRIVE
+from index.two_level_dict import Md5BeforeIdDict
 from model.category import Category
 from model.display_node import DisplayId, DisplayNode, ensure_int
 from ui.assets import ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE
@@ -48,17 +50,17 @@ class UserMeta:
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    CLASS GoogFolder
+    CLASS GoogNode
 ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
 """
 
 
-class GoogFolder(DisplayNode):
+class GoogNode(DisplayNode, ABC):
 
-    def __init__(self, item_id, item_name, trashed, drive_id, my_share, sync_ts, all_children_fetched, category=Category.NA):
+    def __init__(self, item_id, item_name, trashed, drive_id, my_share, sync_ts, category=Category.NA):
         super().__init__(category)
 
-        self._parent:  Optional[Union[GoogFolder, List[GoogFolder]]] = None
+        self._parent:  Optional[Union[GoogNode, List[GoogNode]]] = None
         """ Most items will have only one parent, so store that way for efficiency"""
 
         self.id = item_id
@@ -78,13 +80,7 @@ class GoogFolder(DisplayNode):
 
         self.sync_ts = sync_ts
 
-        self.all_children_fetched = all_children_fetched
-        """If true, all its children have been fetched from Google"""
-
-    def __repr__(self):
-        return f'Folder:(id="{self.id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
-                   f'my_share={self.my_share} sync_ts={self.sync_ts} parents={self.parents} children_fetched={self.all_children_fetched} ]'
-
+    # TODO: rewrite this as compare_to()
     def is_newer_than(self, other_folder):
         return self.sync_ts > other_folder.sync_ts
 
@@ -150,7 +146,27 @@ class GoogFolder(DisplayNode):
         return TRASHED_STATUS[self.trashed]
 
     def make_tuple(self, parent_id):
-        return self.id, self.name, parent_id, self.trashed, self.drive_id, self.my_share, self.sync_ts, self.all_children_fetched
+        return self.id, self.name, parent_id, self.trashed, self.drive_id, self.my_share, self.sync_ts
+
+
+"""
+◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+    CLASS GoogFolder
+◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+"""
+
+
+class GoogFolder(GoogNode):
+    def __init__(self, item_id, item_name, trashed, drive_id, my_share, sync_ts, all_children_fetched, category=Category.NA):
+        super().__init__(item_id, item_name, trashed, drive_id, my_share, sync_ts, category)
+
+        self.all_children_fetched = all_children_fetched
+        """If true, all its children have been fetched from Google"""
+
+    def __repr__(self):
+        return f'Folder:(id="{self.id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
+               f'my_share={self.my_share} sync_ts={self.sync_ts} parents={self.parents} children_fetched={self.all_children_fetched} ]'
+
 
 
 """
@@ -160,15 +176,14 @@ class GoogFolder(DisplayNode):
 """
 
 
-class GoogFile(GoogFolder):
+class GoogFile(GoogNode):
     # TODO: handling of shortcuts... does a shortcut have an ID?
     # TODO: handling of special chars in file systems
 
     def __init__(self, item_id, item_name, trashed, drive_id, version, head_revision_id, md5,
                  my_share, create_ts, modify_ts, size_bytes, owner_id, sync_ts):
         super().__init__(item_id=item_id, item_name=item_name, trashed=trashed,
-                         drive_id=drive_id, my_share=my_share, sync_ts=sync_ts,
-                         all_children_fetched=False)  # all_children_fetched is not used
+                         drive_id=drive_id, my_share=my_share, sync_ts=sync_ts)
         self.version = version
         self.head_revision_id = head_revision_id
         self.md5 = md5
@@ -215,13 +230,15 @@ class GoogFile(GoogFolder):
 class GDriveMeta:
     def __init__(self):
         # Keep track of parentless nodes. These include the 'My Drive' item, as well as shared items.
-        self.roots: List[GoogFolder] = []
+        self.roots: List[GoogNode] = []
 
-        self.id_dict: Dict[str, GoogFolder] = {}
+        self.id_dict: Dict[str, GoogNode] = {}
         """ Forward lookup table: nodes are indexed by GOOG ID"""
 
-        self.first_parent_dict: Dict[str, List[GoogFolder]] = {}
+        self.first_parent_dict: Dict[str, List[GoogNode]] = {}
         """ Reverse lookup table: 'parent_id' -> list of child nodes """
+
+        self.md5_dict: Md5BeforeIdDict = Md5BeforeIdDict()
 
         self.ids_with_multiple_parents = []
         """List of item_ids which have more than 1 parent"""
@@ -238,8 +255,13 @@ class GDriveMeta:
     def get_for_id(self, goog_id):
         return self.id_dict.get(goog_id, None)
 
+    def get_for_md5(self, md5) -> List[GoogNode]:
+        return self.md5_dict.get(md5, None)
+
     def add_item(self, item):
-        """Called when adding from Google API"""
+        """Called when adding from Google API, or when slicing a metastore"""
+
+        # Build forward dictionary
         existing_item = self.id_dict.get(item.id, None)
         if existing_item:
             item = _try_to_merge(existing_item, item)
@@ -250,7 +272,14 @@ class GDriveMeta:
         else:
             self.id_dict[item.id] = item
 
-        # build reverse dictionaries
+        # Do this after any merging we do above, so we are consistent
+        if isinstance(item, GoogFile) and item.md5:
+            self.md5_dict.get(item.md5, item.id)
+            previous = self.md5_dict.put(item)
+            # if previous:
+            #     logger.debug(f'Overwrite existing MD5/ID pair')
+
+        # build reverse dictionary
         parents = item.parents
         if len(parents) == 0:
             self.roots.append(item)
@@ -266,7 +295,7 @@ class GDriveMeta:
         child_list.append(item)
 
 
-def _try_to_merge(existing_item: GoogFolder, new_item: GoogFolder) -> Optional[GoogFolder]:
+def _try_to_merge(existing_item: GoogNode, new_item: GoogNode) -> Optional[GoogNode]:
     # Let's be safe and clone the data if there's a conflict. We don't know whether we're loading from
     # cache or whether we're slicing a subtree
     if new_item.is_newer_than(existing_item):

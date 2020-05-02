@@ -8,7 +8,10 @@ from ui.tree.meta_store import BaseMetaStore
 logger = logging.getLogger(__name__)
 
 
-# TODO: need more metadata about each dir: need to know if we have *all* the children
+# CLASS GDriveMS
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
+
 class GDriveMS(BaseMetaStore):
 
     def __init__(self, tree_id, config, gdrive_meta, root_path):
