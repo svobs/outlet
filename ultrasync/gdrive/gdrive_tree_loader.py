@@ -11,7 +11,10 @@ from ui import actions
 logger = logging.getLogger(__name__)
 
 
-def build_trees(meta: GDriveMeta):
+#  Static functions
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
+def build_path_trees_by_id(meta: GDriveMeta):
     path_dict = {}
 
     total_items = 0
@@ -29,19 +32,17 @@ def build_trees(meta: GDriveMeta):
         count_tree_dirs = 0
         logger.debug(f'Building tree for GDrive root: [{root_node.id}] {root_node.name}')
         q = Queue()
-        q.put((root_node, '/'))
+        q.put((root_node, root_node.id))
 
         while not q.empty():
-            item, parent_path = q.get()
-            path = os.path.join(parent_path, item.name)
+            item, parent_id = q.get()
+            path = os.path.join(parent_id, item.id)
             existing = path_dict.get(path, None)
             if existing:
-                if existing.trashed == NOT_TRASHED and item.trashed != NOT_TRASHED:
+                if item.id == existing.id:
+                    # dunno why these come through, but they seem to be harmless
                     count_resolved_conflicts += 1
                     continue
-                elif item.trashed == NOT_TRASHED and existing.trashed != NOT_TRASHED:
-                    count_resolved_conflicts += 1
-                    # pass through
                 else:
                     logger.error(f'Overwriting path "{path}":\n'
                                  f'OLD: {existing}\n'
@@ -53,11 +54,10 @@ def build_trees(meta: GDriveMeta):
             total_items += 1
 
             # Collect stats
-            if not item.is_dir():
-                if item.shared:
-                    count_shared += 1
-                if not item.md5:
-                    count_no_md5 += 1
+            if item.my_share:
+                count_shared += 1
+            if not item.is_dir() and not item.md5:
+                count_no_md5 += 1
 
             if item.trashed == EXPLICITLY_TRASHED:
                 count_explicit_trash += 1
@@ -76,14 +76,19 @@ def build_trees(meta: GDriveMeta):
                 for child in child_list:
                     q.put((child, path))
 
-            # TODO: include multiple parent mappings!
-
         logger.debug(f'"{root_node.name}" contains {count_tree_items} nodes ({count_tree_files} files, {count_tree_dirs} dirs)')
 
     logger.info(f'Finished paths for {total_items} items under {len(meta.roots)} roots! Stats: shared_by_me={count_shared}, '
                 f'no_md5={count_no_md5}, user_trashed={count_explicit_trash}, also_trashed={count_implicit_trash}, '
                 f'path_conflicts={count_path_conflicts}, resolved={count_resolved_conflicts}')
     return path_dict
+
+
+"""
+▛▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝ ▜
+          Class GDriveTreeLoader
+▙ ▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▟
+"""
 
 
 class GDriveTreeLoader:
@@ -128,9 +133,6 @@ class GDriveTreeLoader:
                     msg = 'Saving to cache...'
                     actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=msg)
                 self.save_to_cache(meta=meta, overwrite=True)
-
-            # Finally, build the dir tree:
-            #meta.path_dict = build_trees(meta)
 
             return meta
         finally:
@@ -189,3 +191,6 @@ class GDriveTreeLoader:
 
         # MISC:
         meta.ids_with_multiple_parents = self.cache.get_multiple_parent_ids()
+
+        # Finally, build the id tree:
+        meta.path_dict = build_path_trees_by_id(meta)

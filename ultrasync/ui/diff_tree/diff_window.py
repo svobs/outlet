@@ -21,7 +21,10 @@ from ui.base_dialog import BaseDialog
 logger = logging.getLogger(__name__)
 
 
-# ⬛⬛⬛⬛⬛⬛⬛ DiffWindow ⬛⬛⬛⬛⬛⬛⬛
+""" ▂ ▃ ▄ ▅ ▆ ▇ █ █ ▇ ▆ ▅ ▄ ▃ ▂
+             DiffWindow
+"""
+
 
 class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
     """🢄🢄🢄 2-panel window for comparing one file tree to another"""
@@ -117,15 +120,6 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         # Kick off cache load now that we have a progress bar
         actions.get_dispatcher().send(actions.LOAD_ALL_CACHES, sender=actions.ID_DIFF_WINDOW)
-
-        self.connect('button_press_event', self._on_mouse_clicked)
-
-    def _on_mouse_clicked(self, widget, event):
-        if event.button == 1:  # left click
-            logger.debug(f'Mouse clicked!')
-            return False
-        # False = allow it to propogate
-        return False
 
     def replace_bottom_button_panel(self, *buttons):
         for child in self.bottom_button_panel.get_children():

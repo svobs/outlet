@@ -27,6 +27,13 @@ class FMetaList:
         return self._total_count
 
 
+"""
+━━━━━━━━━━━━━━━━━┛ ✠ ┗━━━━━━━━━━━━━━━━━
+                  FMetaTree
+━━━━━━━━━━━━━━━━━┓ ✠ ┏━━━━━━━━━━━━━━━━━
+"""
+
+
 class FMetaTree:
     """🢄🢄🢄 Note: each FMeta object should be unique within its tree. Each FMeta should not be shared
     between trees, and should be cloned if needed"""

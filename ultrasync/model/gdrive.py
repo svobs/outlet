@@ -14,6 +14,12 @@ IMPLICITLY_TRASHED = 2
 
 TRASHED_STATUS = ['No', 'UserTrashed', 'Trashed']
 
+"""
+◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+    CLASS GDriveDisplayId
+◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+"""
+
 
 class GDriveDisplayId(DisplayId):
     def __init__(self, id_string):
@@ -24,12 +30,26 @@ class GDriveDisplayId(DisplayId):
         return OBJ_TYPE_GDRIVE
 
 
+"""
+◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+    CLASS UserMeta
+◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+"""
+
+
 class UserMeta:
     def __init__(self, display_name, permission_id, email_address, photo_link):
         self.display_name = display_name
         self.permission_id = permission_id
         self.email_address = email_address
         self.photo_link = photo_link
+
+
+"""
+◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+    CLASS GoogFolder
+◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+"""
 
 
 class GoogFolder(DisplayNode):
@@ -129,6 +149,13 @@ class GoogFolder(DisplayNode):
         return self.id, self.name, parent_id, self.trashed, self.drive_id, self.my_share, self.sync_ts, self.all_children_fetched
 
 
+"""
+◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+    CLASS GoogFile
+◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+"""
+
+
 class GoogFile(GoogFolder):
     # TODO: handling of shortcuts... does a shortcut have an ID?
     # TODO: handling of special chars in file systems
@@ -165,6 +192,13 @@ class GoogFile(GoogFolder):
     def make_tuple(self, parent_id):
         return (self.id, self.name, parent_id, self.trashed, self._size_bytes, self.md5, self.create_ts, self.modify_ts,
                 self.owner_id, self.drive_id, self.my_share, self.version, self.head_revision_id, self.sync_ts)
+
+
+"""
+◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+    CLASS GDriveMeta
+◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+"""
 
 
 class GDriveMeta:
