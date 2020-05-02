@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 import treelib
-from stopwatch import Stopwatch
+from stopwatch_sec import Stopwatch
 
 from model.category import Category
 from model.display_node import CategoryNode

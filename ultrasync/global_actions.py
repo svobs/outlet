@@ -10,7 +10,7 @@ from ui.tree.meta_store import BaseMetaStore
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 
-from stopwatch import Stopwatch
+from stopwatch_sec import Stopwatch
 
 import ui.actions as actions
 from ui.gdrive_dir_selection_dialog import GDriveDirSelectionDialog

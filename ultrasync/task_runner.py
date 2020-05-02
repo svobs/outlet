@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 import logging
 
-from stopwatch import Stopwatch
+from stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 

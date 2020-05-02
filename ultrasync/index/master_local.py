@@ -5,7 +5,7 @@ from typing import Optional
 
 import treelib
 from pydispatch import dispatcher
-from stopwatch import Stopwatch
+from stopwatch_sec import Stopwatch
 
 import file_util
 from fmeta.fmeta_tree_loader import TreeMetaScanner

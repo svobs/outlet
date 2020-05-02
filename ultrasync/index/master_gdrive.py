@@ -3,7 +3,7 @@ from queue import Queue
 from typing import Optional
 
 from pydispatch import dispatcher
-from stopwatch import Stopwatch
+from stopwatch_sec import Stopwatch
 
 from constants import NOT_TRASHED, OBJ_TYPE_GDRIVE, ROOT
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
