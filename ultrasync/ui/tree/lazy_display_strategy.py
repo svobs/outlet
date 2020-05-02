@@ -71,22 +71,24 @@ class LazyDisplayStrategy:
 
     def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded):
         # Callback for actions.NODE_EXPANSION_TOGGLED:
-        logger.debug(f'Node expansion toggled to {is_expanded} for cat={node_data.category} id="{node_data.display_id}"')
+        logger.debug(f'Node expansion toggled to {is_expanded} for cat={node_data.category} id="{node_data.display_id}" tree_id={sender}')
 
         if not self.con.meta_store.is_lazy():
             return
 
-        # Add children for node:
-        if is_expanded:
-            children = self.con.meta_store.get_children(node_data.display_id)
-            self._append_children(children, parent_iter, node_data.display_id)
-            # Remove Loading node:
-            self.con.display_store.remove_first_child(parent_iter)
-        else:
-            # Collapsed:
-            self.con.display_store.remove_all_children(parent_iter)
-            # Always have at least a dummy node:
-            self._append_loading_child(parent_iter)
+        def expand_or_contract():
+            # Add children for node:
+            if is_expanded:
+                children = self.con.meta_store.get_children(node_data.display_id)
+                self._append_children(children, parent_iter, node_data.display_id)
+                # Remove Loading node:
+                self.con.display_store.remove_first_child(parent_iter)
+            else:
+                # Collapsed:
+                self.con.display_store.remove_all_children(parent_iter)
+                # Always have at least a dummy node:
+                self._append_loading_child(parent_iter)
+        GLib.idle_add(expand_or_contract)
 
     def _set_expand_states_from_config(self):
         # Loop over top level. Find the category nodes and expand them appropriately

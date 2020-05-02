@@ -83,7 +83,7 @@ class TreeViewMeta:
         if type(node_data) == CategoryNode:
             if self.is_ignored_func and self.is_ignored_func(node_data):
                 # Do not expand if ignored:
-                return
+                return False
             cfg_path = f'transient.{self.tree_id}.expanded_state.{node_data.category.name}'
             self.config.write(cfg_path, is_expanded)
         # Allow other listeners to handle this also:

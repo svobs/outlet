@@ -91,7 +91,12 @@ class GDriveMasterCache:
             # TODO: this will fail if the cache does not exist. Need the above!
             self._load_gdrive_cache(cache_info, tree_id)
 
-        gdrive_meta = self._slice_off_subtree_from_master(subtree_root_id)
+        if subtree_root_id == ROOT:
+            # Special case. GDrive does not have a single root (it treats shared drives as roots, for example).
+            # We'll use this special token to represent "everything"
+            gdrive_meta = self.meta_master
+        else:
+            gdrive_meta = self._slice_off_subtree_from_master(subtree_root_id)
         return GDriveMS(tree_id, self.application.config, gdrive_meta, ROOT)
 
     def download_all_gdrive_meta(self, tree_id):

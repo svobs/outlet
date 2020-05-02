@@ -8,7 +8,7 @@ from gi.repository import GLib, Gtk
 logger = logging.getLogger(__name__)
 
 PULSE_STEP = 0.001
-MAX_MSG_LENGTH = 60
+MAX_MSG_LENGTH = 80
 
 
 class ProgressBarComponent:

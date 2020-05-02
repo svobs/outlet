@@ -5,6 +5,7 @@ import uuid
 import gi
 
 from constants import ROOT
+from ui.tree.meta_store import BaseMetaStore
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
@@ -83,14 +84,15 @@ class GlobalActions:
         logger.debug(f'Received signal: "{actions.SHOW_GDRIVE_ROOT_DIALOG}"')
         self.application.task_runner.enqueue(self.load_gdrive_root_meta, sender)
 
-    def on_gdrive_download_complete(self, sender, meta_store):
+    def on_gdrive_download_complete(self, sender, meta_store: BaseMetaStore):
         logger.debug(f'Received signal: "{actions.GDRIVE_DOWNLOAD_COMPLETE}"')
         assert type(sender) == str
 
         def open_dialog():
             try:
-                # Preview changes in UI pop-up
-                dialog = GDriveDirSelectionDialog(self.application.window, meta_store, sender)
+                # Preview changes in UI pop-up. Change tree_id so that listeners don't step on existing trees
+                meta_store.tree_id = actions.ID_GDRIVE_DIR_SELECT
+                dialog = GDriveDirSelectionDialog(self.application.window, meta_store, actions.ID_GDRIVE_DIR_SELECT)
                 response_id = dialog.run()
                 if response_id == Gtk.ResponseType.OK:
                     logger.debug('User clicked OK!')

@@ -7,7 +7,7 @@ from typing import Dict, List
 
 from pydispatch import dispatcher
 
-from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, MAIN_REGISTRY_FILE_NAME
+from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, MAIN_REGISTRY_FILE_NAME, ROOT
 from file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
 from index.master_gdrive import GDriveMasterCache
@@ -190,5 +190,7 @@ class CacheManager:
         return info_info
 
     def get_gdrive_path_for_id(self, goog_id) -> str:
+        if goog_id == ROOT:
+            return ROOT
         return self.gdrive_cache.get_path_for_id(goog_id)
 

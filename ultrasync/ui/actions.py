@@ -32,6 +32,7 @@ ID_DIFF_WINDOW = 'diff_win'
 ID_LEFT_TREE = 'left_tree'
 ID_RIGHT_TREE = 'right_tree'
 ID_MERGE_TREE = 'merge_tree'
+ID_GDRIVE_DIR_SELECT = 'gdrive_dir_select'
 ID_GLOBAL_CACHE = 'global_cache'
 
 logger = logging.getLogger(__name__)
