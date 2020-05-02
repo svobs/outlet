@@ -2,7 +2,6 @@ import os
 from abc import ABC, abstractmethod
 from typing import Optional
 
-import file_util
 from model.category import Category
 from model.display_id import DisplayId
 from model.display_node import DisplayNode
@@ -72,9 +71,8 @@ class FMetaDecorator(PlanningNode, ABC):
     def display_id(self) -> Optional[DisplayId]:
         return LocalFsDisplayId(self.dest_path, self.category)
 
-    def get_relative_path(self, root_path):
-        assert self.full_path.startswith(root_path), f'Full path ({self.full_path}) does not contain root ({root_path})'
-        return file_util.strip_root(self.full_path, root_path)
+    def get_relative_path(self, parent_tree):
+        return parent_tree.get_relative_path_of(self.full_path)
 
     @classmethod
     def has_path(cls):

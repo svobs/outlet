@@ -56,16 +56,16 @@ def _compare_paths_for_same_md5(lefts, left_tree, rights, right_tree, fixer):
 
 class PathTransplanter:
     def __init__(self, left_tree: FMetaTree, right_tree: FMetaTree):
-        self.left_root = left_tree.root_path
-        self.right_root = right_tree.root_path
+        self.left_tree = left_tree
+        self.right_tree = right_tree
 
     def move_to_right(self, left_fmeta: FMeta) -> str:
-        left_rel_path = left_fmeta.get_relative_path(self.left_root)
-        return os.path.join(self.right_root, left_rel_path)
+        left_rel_path = left_fmeta.get_relative_path(self.left_tree)
+        return os.path.join(self.right_tree.root_path, left_rel_path)
 
     def move_to_left(self, right_fmeta: FMeta) -> str:
-        right_rel_path = right_fmeta.get_relative_path(self.right_root)
-        return os.path.join(self.left_root, right_rel_path)
+        right_rel_path = right_fmeta.get_relative_path(self.right_tree)
+        return os.path.join(self.left_tree.root_path, right_rel_path)
 
 
 def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
@@ -110,7 +110,11 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
      file from the perspective of Right)"""
     for md5 in md5_set:
         right_metas_dup_md5 = right_tree.get_for_md5(md5)
+        if isinstance(right_metas_dup_md5, dict):
+            right_metas_dup_md5 = right_metas_dup_md5.values()
         left_metas_dup_md5 = left_tree.get_for_md5(md5)
+        if isinstance(left_metas_dup_md5, dict):
+            left_metas_dup_md5 = right_metas_dup_md5.values()
 
         if left_metas_dup_md5 is None:
             orphaned_md5s_right.append(right_metas_dup_md5)
@@ -136,11 +140,11 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
                     # (it is possible that the trees are on different disks, so keep performance in mind)
                     dest_path = fixer.move_to_right(changed_left)
                     move_right_to_right = FileToMove(changed_right, dest_path)
-                    right_tree.add(move_right_to_right)
+                    right_tree.add_item(move_right_to_right)
 
                     dest_path = fixer.move_to_left(changed_right)
                     move_left_to_left = FileToMove(changed_left, dest_path)
-                    left_tree.add(move_left_to_left)
+                    left_tree.add_item(move_left_to_left)
                     count_moved_pairs += 1
                 else:
                     """Looks like one side has additional file(s) with same signature 
@@ -179,7 +183,7 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
                 logger.debug(f'Left has new file: "{left_meta.full_path}"')
             dest_path = fixer.move_to_right(left_meta)
             file_to_add_to_right = FileToAdd(left_meta, dest_path)
-            right_tree.add(file_to_add_to_right)
+            right_tree.add_item(file_to_add_to_right)
 
             # TODO: rename 'Deleted' category to 'ToDelete'
             # Dead node walking:
@@ -198,7 +202,7 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
                 logger.debug(f'Right has new file: "{right_meta.full_path}"')
             dest_path = fixer.move_to_left(right_meta)
             file_to_add_to_left = FileToAdd(right_meta, dest_path)
-            left_tree.add(file_to_add_to_left)
+            left_tree.add_item(file_to_add_to_left)
 
             # Dead node walking:
             right_tree.categorize(right_meta, Category.Deleted)
@@ -241,10 +245,10 @@ def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_co
         else:
             if left_metas_dup_md5:
                 for node in left_metas_dup_md5:
-                    merged_tree.add(node)
+                    merged_tree.add_item(node)
             if right_metas_dup_md5:
                 for node in right_metas_dup_md5:
-                    merged_tree.add(node)
+                    merged_tree.add_item(node)
 
     if len(conflict_pairs) > 0:
         logger.info(f'Number of conflicts found: {len(conflict_pairs)}')

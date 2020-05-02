@@ -232,7 +232,7 @@ class DisplayStore:
             if not action_func.checked_only or self.is_node_checked(t_iter):
                 data_node = self.get_node_data(t_iter)
                 if isinstance(data_node, FMeta) or isinstance(data_node, PlanningNode):
-                    subtree.add(data_node)
+                    subtree.add_item(data_node)
 
         action_func.checked_only = checked_only
 

@@ -32,7 +32,7 @@ def build_category_tree(fmeta_tree: FMetaTree, root_node: CategoryNode) -> Tree:
     root = change_tree.create_node(tag=f'{category.name} ({set_len} files)',
                                    identifier=root_node.full_path, data=root_node)   # root
     for fmeta in fmeta_list:
-        dirs_str, file_name = os.path.split(fmeta.get_relative_path(fmeta_tree.root_path))
+        dirs_str, file_name = os.path.split(fmeta.get_relative_path(fmeta_tree))
         # nid == Node ID == directory name
         nid = root_node.full_path
         parent = root

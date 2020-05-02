@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 
 import file_util
 from index.two_level_dict import Md5BeforeIdDict
+from model.category import Category
 from model.goog_node import GoogFile, GoogNode
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,14 @@ class GDriveMeta:
         self.first_parent_dict: Dict[str, List[GoogNode]] = {}
         """ Reverse lookup table: 'parent_id' -> list of child nodes """
 
-        self.md5_dict: Md5BeforeIdDict = Md5BeforeIdDict()
+        self._md5_dict: Md5BeforeIdDict = Md5BeforeIdDict()
+
+        self._cat_dict: Dict[Category, List[GoogNode]] = {Category.Ignored: [],
+                                                          Category.Added: [],
+                                                          Category.Deleted: [],
+                                                          Category.Moved: [],
+                                                          Category.Updated: [],
+                                                          }
 
         # self.ids_with_multiple_parents: List[str] = []
         """List of item_ids which have more than 1 parent"""
@@ -66,7 +74,37 @@ class GDriveMeta:
         return self.id_dict.get(goog_id, None)
 
     def get_for_md5(self, md5) -> Optional[List[GoogNode]]:
-        return self.md5_dict.get(md5, None)
+        return self._md5_dict.get(md5, None)
+
+    def get_md5_set(self):
+        return self._md5_dict.keys()
+
+    def get_path_for_id(self, goog_id: str) -> str:
+        """Gets the filesystem-like-path for the item with the given GoogID, relative to the root of this subtree"""
+        item = self.get_for_id(goog_id)
+        if not item:
+            raise RuntimeError(f'Item not found: id={goog_id}')
+
+        path = ''
+        while True:
+            if path == '':
+                path = item.name
+            else:
+                path = item.name + '/' + path
+            path = item.name + path
+            parents = item.parents
+            if parents:
+                if len(parents) > 1:
+                    logger.warning(f'Multiple parents found for {item.id} ("{item.name}"). Picking the first one.')
+                    # pass through
+                item = self.get_for_id(parents[0])
+                if not item:
+                    # reached root of subtree
+                    logger.debug(f'Mapped ID "{goog_id}" to subtree path "{path}"')
+                    return path
+            else:
+                # Root of Google Drive
+                return '/' + path
 
     def get_for_path(self, path: str) -> Optional[GoogNode]:
         """Try to get a singular item corresponding to the given file-system-like
@@ -104,8 +142,8 @@ class GDriveMeta:
 
         # Do this after any merging we do above, so we are consistent
         if isinstance(item, GoogFile) and item.md5:
-            self.md5_dict.get(item.md5, item.id)
-            previous = self.md5_dict.put(item)
+            self._md5_dict.get(item.md5, item.id)
+            previous = self._md5_dict.put(item)
             # if previous:
             #     logger.debug(f'Overwrite existing MD5/ID pair')
 
@@ -123,6 +161,17 @@ class GDriveMeta:
             child_list = []
             self.first_parent_dict[parent_id] = child_list
         child_list.append(item)
+
+    def clear_categories(self):
+        for cat, cat_list in self._cat_dict.items():
+            if cat != Category.Ignored:
+                cat_list.clear()
+
+    def validate_categories(self):
+        pass
+
+    def get_relative_path_of(self, goog_node: GoogNode):
+        return self.get_path_for_id(goog_node.id)
 
 
 def _try_to_merge(existing_item: GoogNode, new_item: GoogNode) -> Optional[GoogNode]:

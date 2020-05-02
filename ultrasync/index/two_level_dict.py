@@ -89,6 +89,9 @@ class OneLevelDict:
         assert key, 'key is empty!'
         return self._dict.pop(key, None)
 
+    def keys(self):
+        return self._dict.keys()
+
 
 class TwoLevelDict:
     def __init__(self, key_func1: Callable[[Any], str],
@@ -155,6 +158,9 @@ class TwoLevelDict:
         if dict2 is None:
             return None
         return dict2.pop(key2, None)
+
+    def keys(self):
+        return self._dict.keys()
 
 
 """

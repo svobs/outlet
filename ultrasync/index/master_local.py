@@ -84,7 +84,7 @@ class LocalDiskMasterCache:
             count_dirs += 1
             files_in_dir = self.parent_path_dict.get(dir_path)
             for file_name, fmeta in files_in_dir.items():
-                fmeta_tree.add(fmeta)
+                fmeta_tree.add_item(fmeta)
                 count_added_from_cache += 1
             if self.dir_tree.get_node(dir_path):
                 for child_dir in self.dir_tree.children(dir_path):
@@ -121,10 +121,10 @@ class LocalDiskMasterCache:
                 existing = fmeta_tree.get_for_path(change.full_path)
                 # Overwrite older changes for the same path:
                 if existing is None:
-                    fmeta_tree.add(change)
+                    fmeta_tree.add_item(change)
                     count_from_disk += 1
                 elif existing.sync_ts < change.sync_ts:
-                    fmeta_tree.add(change)
+                    fmeta_tree.add_item(change)
 
             logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
             logger.debug(fmeta_tree.get_stats_string())

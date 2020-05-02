@@ -80,7 +80,7 @@ class GDriveMasterCache:
                 for child in child_list:
                     q.put(child)
 
-        md5_count = subtree_meta.md5_dict.total_entries
+        md5_count = subtree_meta._md5_dict.total_entries
         logger.debug(f'Sliced off subtree with {(count_total - count_trashed)} items (+{count_trashed} trashed), {md5_count} MD5s')
         return subtree_meta
 
@@ -131,5 +131,6 @@ class GDriveMasterCache:
                 logger.debug(f'Mapped ID "{goog_id}" to path "{path}"')
                 return path
             elif len(parents > 1):
-                logger.debug(f'Multiple parents found for {item.id} ("{item.name}"). Picking the first one.')
-                item = self.meta_master.get_for_id(parents[0])
+                logger.warning(f'Multiple parents found for {item.id} ("{item.name}"). Picking the first one.')
+                # pass through
+            item = self.meta_master.get_for_id(parents[0])

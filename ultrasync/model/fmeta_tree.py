@@ -2,6 +2,8 @@ import logging
 from typing import Dict, List
 
 import humanfriendly
+
+import file_util
 from model.category import Category
 from model.fmeta import FMeta
 from model.planning_node import PlanningNode
@@ -123,6 +125,10 @@ class FMetaTree:
     def get_for_md5(self, md5):
         return self._md5_dict.get(md5, None)
 
+    def get_relative_path_of(self, fmeta: FMeta):
+        assert fmeta.full_path.startswith(self.root_path), f'FMeta full path ({fmeta.full_path}) does not contain root ({self.root_path})'
+        return file_util.strip_root(fmeta.full_path, self.root_path)
+
     def remove(self, full_path, md5, remove_old_md5=False, ok_if_missing=False):
         """
         🢂 Removes from this FMetaTree the FMeta which matches the given file path and md5.
@@ -168,7 +174,7 @@ class FMetaTree:
 
         return match
 
-    def add(self, item):
+    def add_item(self, item):
         if not item.full_path.startswith(self.root_path):
             raise RuntimeError(f'FMeta (cat={item.category.name}) full path ({item.full_path}) is not under this tree ({self.root_path})')
 

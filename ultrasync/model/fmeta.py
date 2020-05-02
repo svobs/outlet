@@ -40,9 +40,8 @@ class FMeta(DisplayNode):
     def get_name(self):
         return os.path.split(self.full_path)[1]
 
-    def get_relative_path(self, root_path):
-        assert self.full_path.startswith(root_path), f'FMeta full path ({self.full_path}) does not contain root ({root_path})'
-        return file_util.strip_root(self.full_path, root_path)
+    def get_relative_path(self, parent_tree):
+        return parent_tree.get_relative_path_of(self)
 
     @classmethod
     def has_path(cls):

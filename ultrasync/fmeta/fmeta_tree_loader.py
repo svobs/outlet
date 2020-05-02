@@ -168,7 +168,7 @@ class TreeMetaScanner(TreeRecurser):
         if self._track_changes:
             self._add_tracked_copy(meta, cache_diff_status)
 
-        self.fresh_tree.add(meta)
+        self.fresh_tree.add_item(meta)
         if self.tree_id:
             actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=self.tree_id, tx_id=self.tx_id, progress=1)
             self.progress += 1
