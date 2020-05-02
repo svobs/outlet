@@ -1,4 +1,6 @@
 import logging
+from typing import Dict, List
+
 import humanfriendly
 from model.category import Category
 from model.fmeta import FMeta
@@ -6,12 +8,18 @@ from model.planning_node import PlanningNode
 
 logger = logging.getLogger(__name__)
 
+"""
+━━━━━━━━━━━━━━━━━┛ ✠ ┗━━━━━━━━━━━━━━━━━
+                  FMetaList
+━━━━━━━━━━━━━━━━━┓ ✠ ┏━━━━━━━━━━━━━━━━━
+"""
+
 
 class FMetaList:
     def __init__(self):
-        self.list = []
-        self._total_count = 0
-        self._total_size_bytes = 0
+        self.list: List[FMeta] = []
+        self._total_count: int = 0
+        self._total_size_bytes: int = 0
 
     def add(self, item):
         self.list.append(item)
@@ -37,18 +45,19 @@ class FMetaList:
 class FMetaTree:
     """🢄🢄🢄 Note: each FMeta object should be unique within its tree. Each FMeta should not be shared
     between trees, and should be cloned if needed"""
+
     def __init__(self, root_path):
-        self.root_path = root_path
+        self.root_path: str = root_path
         # Each item is an entry
-        self._path_dict = {}
+        self._path_dict: Dict[str, FMeta] = {}
         # Each item contains a list of entries
-        self._md5_dict = {}
-        self._cat_dict = {Category.Ignored: FMetaList(),
-                          Category.Added: FMetaList(),
-                          Category.Deleted: FMetaList(),
-                          Category.Moved: FMetaList(),
-                          Category.Updated: FMetaList(),
-                          }
+        self._md5_dict: Dict[str, List[FMeta]] = {}
+        self._cat_dict: Dict[Category, FMetaList] = {Category.Ignored: FMetaList(),
+                                                     Category.Added: FMetaList(),
+                                                     Category.Deleted: FMetaList(),
+                                                     Category.Moved: FMetaList(),
+                                                     Category.Updated: FMetaList(),
+                                                     }
         self._dup_md5_count = 0
         self._total_size_bytes = 0
 

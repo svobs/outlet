@@ -42,10 +42,10 @@ class GDriveMeta:
 
         self.md5_dict: Md5BeforeIdDict = Md5BeforeIdDict()
 
-        self.ids_with_multiple_parents = []
+        self.ids_with_multiple_parents: List[str] = []
         """List of item_ids which have more than 1 parent"""
 
-        self.me = None
+        self.me: UserMeta = None
         self.path_dict = None
         self.owner_dict = {}
         self.mime_types = {}

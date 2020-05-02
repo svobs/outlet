@@ -122,7 +122,7 @@ class GDriveClient:
         self.tree_id = tree_id
         self.page_size = config.get('gdrive.page_size')
 
-    def get_about(self):
+    def get_about(self) -> UserMeta:
         """
         self.service.about().get()
         Returns: info about the current user and its storage usage

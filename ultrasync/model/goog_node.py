@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class GDriveDisplayId(DisplayId):
-    def __init__(self, id_string):
+    def __init__(self, id_string: str):
         super().__init__(id_string=id_string)
 
     @property
