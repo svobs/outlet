@@ -86,6 +86,27 @@ class RootDirPanel:
             self.change_btn.connect("clicked", self._on_change_btn_clicked, parent_win)
             self.source_menu = self._build_source_menu()
             self.change_btn.set_popup(self.source_menu)
+
+            def on_key_pressed(widget, event):
+                if self.ui_enabled and event.keyval == Gdk.KEY_Escape and self.entry:
+                    # cancel
+                    logger.debug(f'Escape pressed! Cancelling root path entry box')
+                    self._update_root_label(self.current_root, self.current_tree_type)
+                    return True
+                return False
+
+            def on_button_pressed(widget, event, tree_id):
+                if self.ui_enabled and (event.button == 1 or event.button == 3) and self.entry:
+                    # cancel
+                    logger.debug(f'User clicked elsewhere! Activating root path entry box')
+                    self._on_root_entry_submitted(widget, tree_id)
+                    return True
+                # False = allow it to propogate
+                return False
+
+            # Connect Escape key listener to parent window so it can be heard everywhere
+            self.parent_win.connect('key-press-event', on_key_pressed)
+            self.parent_win.connect('button_press_event', on_button_pressed, tree_id)
         else:
             self.change_btn = None
             self.content_box.pack_start(self.icon, expand=False, fill=False, padding=0)
@@ -109,30 +130,25 @@ class RootDirPanel:
         # Need to call this to do the initial UI draw:
         GLib.idle_add(self._update_root_label, current_root, tree_type)
 
+    def _on_root_entry_submitted(self, widget, tree_id):
+        new_root = self.entry.get_text()
+        # TODO: parse tree type
+        logger.info(f'User entered root path: {new_root}')
+        # Important: send this signal AFTER label updated
+        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root, tree_type=self.current_tree_type)
+
     def _on_change_btn_clicked(self, widget, parent_win):
         if self.ui_enabled:
             self.source_menu.popup_at_widget(widget, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, None)
+        return True
 
     def _on_label_clicked(self, widget, event):
         if not self.ui_enabled:
             logger.debug('Ignoring button press - UI is disabled')
-            return True
+            return False
 
         if not event.button == 1:  # left click
-            return
-
-        def on_root_entry_submitted(widget, tree_id):
-            new_root = self.entry.get_text()
-            # TODO: parse tree type
-            logger.info(f'User entered root path: {new_root}')
-            # Important: send this signal AFTER label updated
-            dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root, tree_type=self.current_tree_type)
-
-        def on_key_pressed(widget, event):
-            if event.keyval == Gdk.KEY_Escape:
-                # cancel
-                self._update_root_label(self.current_root, self.current_tree_type)
-                return True
+            return False
 
         # Remove alert image if present; only show entry box
         if len(self.alert_image_box.get_children()) > 0:
@@ -140,12 +156,12 @@ class RootDirPanel:
 
         self.entry = Gtk.Entry()
         self.entry.set_text(self.current_root)
-        self.entry.connect('activate', on_root_entry_submitted, self.tree_id)
-        self.entry.connect('key-press-event', on_key_pressed)
+        self.entry.connect('activate', self._on_root_entry_submitted, self.tree_id)
         self.path_box.remove(self.label_event_box)
         self.path_box.pack_start(self.entry, expand=True, fill=True, padding=0)
         self.entry.show()
         self.entry.grab_focus()
+        return False
 
     def _on_enable_ui_toggled(self, sender, enable):
         # Callback for actions.TOGGLE_UI_ENABLEMENT
@@ -165,6 +181,8 @@ class RootDirPanel:
 
         try:
             root_part_regular = self.parent_win.application.cache_manager.get_gdrive_path_for_id(new_root)
+            if root_part_regular is None:
+                root_part_regular = '(Not Found)'
             GLib.idle_add(self._set_label_markup, '', '', root_part_regular, '')
         except Exception:
             GLib.idle_add(self._set_label_markup, '', "foreground='red'", '', 'ERROR')
@@ -180,9 +198,13 @@ class RootDirPanel:
         self.label.set_xalign(0)
         self.label.set_line_wrap(True)
         if self.entry:
+            # Remove entry box (we were probably called by it to do cleanup in fact)
             self.path_box.remove(self.entry)
+            self.entry = None
         elif self.label_event_box:
+            # Remove label even if it's found. Simpler just to redraw the whole thing
             self.path_box.remove(self.label_event_box)
+            self.label_event_box = None
         self.label_event_box = Gtk.EventBox()
         self.path_box.pack_start(self.label_event_box, expand=True, fill=True, padding=0)
         self.label_event_box.add(self.label)

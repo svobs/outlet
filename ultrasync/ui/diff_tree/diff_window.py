@@ -2,7 +2,7 @@ import logging
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk
+from gi.repository import GLib, Gtk, Gdk
 
 from ui.tree.meta_store import DummyMS
 from ui.tree.root_path_config import RootPathConfigPersister
@@ -117,6 +117,15 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         # Kick off cache load now that we have a progress bar
         actions.get_dispatcher().send(actions.LOAD_ALL_CACHES, sender=actions.ID_DIFF_WINDOW)
+
+        self.connect('button_press_event', self._on_mouse_clicked)
+
+    def _on_mouse_clicked(self, widget, event):
+        if event.button == 1:  # left click
+            logger.debug(f'Mouse clicked!')
+            return False
+        # False = allow it to propogate
+        return False
 
     def replace_bottom_button_panel(self, *buttons):
         for child in self.bottom_button_panel.get_children():

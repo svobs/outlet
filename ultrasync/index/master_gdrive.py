@@ -3,6 +3,7 @@
 # CLASS GDriveMasterCache
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 import logging
+from typing import Optional
 
 from pydispatch import dispatcher
 from stopwatch import Stopwatch
@@ -24,7 +25,7 @@ class GDriveMasterCache:
         self.application = application
         self.full_path_dict = FullPathBeforeIdDict()
         self.md5_dict = Md5BeforeIdDict()
-        self.meta_master = GDriveMeta()
+        self.meta_master = None
 
     def init_subtree_gdrive_cache(self, info: PersistedCacheInfo, tree_id: str):
         self._load_gdrive_cache(info, tree_id)
@@ -74,7 +75,11 @@ class GDriveMasterCache:
         # TODO
         pass
 
-    def get_path_for_id(self, goog_id: str) -> str:
+    def get_path_for_id(self, goog_id: str) -> Optional[str]:
+        if not self.meta_master:
+            logger.warning('Cannot look up item: caches have not been loaded!')
+            return None
+
         item = self.meta_master.get_for_id(goog_id)
         if not item:
             raise RuntimeError(f'Item not found: id={goog_id}')

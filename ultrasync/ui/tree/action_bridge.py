@@ -61,12 +61,13 @@ class TreeActionBridge:
     def _on_row_activated(self, tree_view, tree_path, col, tree_id):
         if not self.ui_enabled:
             logger.debug('Ignoring row activation - UI is disabled')
-            return True
+            # Allow it to propagate down the chain:
+            return False
         selection = tree_view.get_selection()
         model, treeiter = selection.get_selected_rows()
         if not treeiter:
             logger.error('Row somehow activated with no selection!')
-            return
+            return False
         else:
             logger.debug(f'User activated {len(treeiter)} rows')
 
@@ -93,7 +94,7 @@ class TreeActionBridge:
         """Fired when a key is pressed"""
         if not self.ui_enabled:
             logger.debug('Ignoring key press - UI is disabled')
-            return True
+            return False
 
         # Note: if the key sequence matches a Gnome keyboard shortcut, it will grab part
         # of the sequence and we will never get notified
@@ -123,7 +124,7 @@ class TreeActionBridge:
         """Used for displaying context menu on right click"""
         if not self.ui_enabled:
             logger.debug('Ignoring button press - UI is disabled')
-            return True
+            return False
 
         if event.button == 3:  # right click
             tree_path, col, cell_x, cell_y = tree_view.get_path_at_pos(int(event.x), int(event.y))
