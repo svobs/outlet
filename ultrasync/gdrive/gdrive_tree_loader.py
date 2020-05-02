@@ -3,9 +3,12 @@ import os
 import time
 import uuid
 from queue import Queue
+
+from constants import EXPLICITLY_TRASHED, IMPLICITLY_TRASHED
 from gdrive.client import GDriveClient
 from index.sqlite.gdrive_db import GDriveDatabase
-from model.gdrive import EXPLICITLY_TRASHED, GoogFolder, GoogFile, GDriveMeta, IMPLICITLY_TRASHED, NOT_TRASHED
+from model.gdrive_meta import GDriveMeta
+from model.goog_node import GoogFile, GoogFolder
 from ui import actions
 
 logger = logging.getLogger(__name__)
@@ -190,7 +193,7 @@ class GDriveTreeLoader:
             meta.add_item(file_node)
 
         # MISC:
-        meta.ids_with_multiple_parents = self.cache.get_multiple_parent_ids()
+        # meta.ids_with_multiple_parents = self.cache.get_multiple_parent_ids()
 
         # Finally, build the id tree:
         # meta.path_dict = build_path_trees_by_id(meta)

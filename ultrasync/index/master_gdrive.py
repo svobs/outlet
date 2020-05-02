@@ -5,12 +5,13 @@ from typing import Optional
 from pydispatch import dispatcher
 from stopwatch import Stopwatch
 
-from constants import OBJ_TYPE_GDRIVE, GDRIVE_PREFIX, ROOT
+from constants import NOT_TRASHED, OBJ_TYPE_GDRIVE, ROOT
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index.cache_manager import PersistedCacheInfo
 from index.meta_store.gdrive import GDriveMS
 from index.two_level_dict import FullPathBeforeIdDict, Md5BeforeIdDict
-from model.gdrive import GDriveMeta, GoogFolder, NOT_TRASHED
+from model.gdrive_meta import GDriveMeta
+from model.goog_node import GoogFolder
 from ui import actions
 
 logger = logging.getLogger(__name__)

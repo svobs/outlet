@@ -12,3 +12,10 @@ ICON_GENERIC_FILE = 'file'
 ICON_TRASHED_DIR = 'trash-dir'
 ICON_TRASHED_FILE = 'trash-file'
 ICON_GENERIC_DIR = 'folder'
+
+# GDrive
+NOT_TRASHED = 0
+EXPLICITLY_TRASHED = 1
+IMPLICITLY_TRASHED = 2
+
+TRASHED_STATUS = ['No', 'UserTrashed', 'Trashed']
