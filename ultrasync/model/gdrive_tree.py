@@ -1,13 +1,12 @@
-import copy
 import logging
 import os
 from typing import Any, Dict, List, Optional
 
 import file_util
-from constants import NOT_TRASHED
 from index.two_level_dict import Md5BeforeIdDict
 from model.category import Category
-from model.goog_node import GoogFile, GoogNode
+from model.goog_node import FolderToAdd, GoogFile, GoogNode
+from model.planning_node import FMetaDecorator, PlanningNode
 from model.subtree_snapshot import SubtreeSnapshot
 
 logger = logging.getLogger(__name__)
@@ -211,7 +210,7 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
             path_so_far = os.path.join(path_so_far, name_seg)
             children = self.get_children(current_id)
             if not children:
-                raise RuntimeError(f'Item has no children: {current_id}: path_so_far={path_so_far}')
+                raise RuntimeError(f'Item has no children: id="{current_id}" path_so_far="{path_so_far}"')
             matches = [x for x in children if x.name == name_seg]
             if len(matches) > 1:
                 logger.error(f'get_for_path(): Multiple child IDs ({len(matches)}) found for parent ID"{current_id}", '
@@ -230,13 +229,32 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
     def add_item(self, item):
         """Called when adding from Google API, or when slicing a metastore"""
 
+        # Some extra validation here to be safe:
+        is_planning_node = isinstance(item, PlanningNode)
+        existing_item = self.id_dict.get(item.id, None)
+        if existing_item is not None:
+            if is_planning_node:
+                if not isinstance(existing_item, PlanningNode):
+                    raise RuntimeError(f'Attempt to overwrite type {type(existing_item)} with PlanningNode!')
+
+        if isinstance(item, FMetaDecorator):
+            # Add fake parents
+            self.make_parents_if_not_exist(item)
+
+            logger.debug(f'Adding new PlanningNode: {item.get_name()}')
+
+        # Do the parent work here:
         added_item = super().add_item(item)
-        # Do this after any merging we do above, so we are consistent
+
+        # Do this after any merging we do above
         if isinstance(added_item, GoogFile) and added_item.md5:
             self._md5_dict.get(added_item.md5, added_item.id)
             previous = self._md5_dict.put(added_item)
-            # if previous:
-            #     logger.debug(f'Overwrite existing MD5/ID pair')
+            if previous:
+                logger.warning(f'Overwrote existing MD5/ID pair: {previous}')
+
+        if item.category != Category.NA:
+            self._cat_dict[item.category].append(item)
 
     def validate(self):
         logger.debug(f'Validating GDriveSubtree "{self.root_path}"...')
@@ -290,3 +308,44 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         assert self.get_for_id(goog_id=item.id) == item
         item.category = category
         return self._cat_dict[category].append(item)
+
+    def get_category_summary_string(self):
+        summary = []
+        for cat in self._cat_dict.keys():
+            length = len(self._cat_dict[cat])
+            summary.append(f'{cat.name}={length}')
+        return ' '.join(summary)
+
+    def make_parents_if_not_exist(self, item: FMetaDecorator):
+        """
+        Compare this to get_for_path(). TODO: combine these
+        """
+        relative_path = file_util.strip_root(item.dest_path, self.root_path)
+        name_segments = file_util.split_path(relative_path)
+        # Skip last item (it's the file name)
+        name_segments.pop()
+        current_id = self.root_id
+        path_so_far = ''
+        for name_seg in name_segments:
+            path_so_far = os.path.join(path_so_far, name_seg)
+            children = self.get_children(current_id)
+            if children:
+                matches = [x for x in children if x.name == name_seg]
+                if len(matches) > 1:
+                    logger.error(f'get_for_path(): Multiple child IDs ({len(matches)}) found for parent ID"{current_id}", '
+                                 f'tree "{self.root_path}" Choosing the first found')
+                    for num, match in enumerate(matches):
+                        logger.info(f'Match {num}: {match}')
+                    current_id = matches[0].id
+                    continue
+                elif len(matches) == 1:
+                    current_id = matches[0].id
+                    continue
+
+            logger.debug(f'Creating new fake folder for: {path_so_far}')
+            new_folder = FolderToAdd(dest_path=path_so_far)
+            new_folder.parents = current_id
+            self.add_item(new_folder)
+            current_id = new_folder.id
+
+        item.parents = current_id

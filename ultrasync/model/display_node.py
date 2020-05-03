@@ -61,6 +61,7 @@ class DisplayNode(ABC):
     def get_icon(self):
         return ICON_GENERIC_FILE
 
+
 """
 ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 The following are model objects for use in the hidden 'data' column in the TreeStore, for when a domain object doesn't quite make sense.

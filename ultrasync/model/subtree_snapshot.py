@@ -44,3 +44,7 @@ class SubtreeSnapshot(ABC):
     @abstractmethod
     def get_summary(self):
         pass
+
+    @abstractmethod
+    def get_category_summary_string(self):
+        pass

@@ -2,9 +2,11 @@
 import file_util
 import os
 import logging
-from model.fmeta import Category, FMeta
+
+from model.category import Category
 from model.fmeta_tree import FMetaTree
 from model.planning_node import FileToAdd, FileToMove
+from model.subtree_snapshot import SubtreeSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -55,20 +57,20 @@ def _compare_paths_for_same_md5(lefts, left_tree, rights, right_tree, fixer):
 
 
 class PathTransplanter:
-    def __init__(self, left_tree: FMetaTree, right_tree: FMetaTree):
+    def __init__(self, left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot):
         self.left_tree = left_tree
         self.right_tree = right_tree
 
-    def move_to_right(self, left_fmeta: FMeta) -> str:
-        left_rel_path = left_fmeta.get_relative_path(self.left_tree)
+    def move_to_right(self, left_item) -> str:
+        left_rel_path = left_item.get_relative_path(self.left_tree)
         return os.path.join(self.right_tree.root_path, left_rel_path)
 
-    def move_to_left(self, right_fmeta: FMeta) -> str:
+    def move_to_left(self, right_fmeta) -> str:
         right_rel_path = right_fmeta.get_relative_path(self.right_tree)
         return os.path.join(self.left_tree.root_path, right_rel_path)
 
 
-def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
+def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_also=False):
     """Use this method if we mostly care about having the same unique files *somewhere* in
        each tree (in other words, we care about file contents, and care less about where each
        file is placed). If a file is found with the same signature on both sides but with
@@ -220,7 +222,7 @@ def diff(left_tree: FMetaTree, right_tree: FMetaTree, compare_paths_also=False):
     return left_tree, right_tree
 
 
-def merge_change_trees(left_tree: FMetaTree, right_tree: FMetaTree, check_for_conflicts=True):
+def merge_change_trees(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, check_for_conflicts=True):
     new_root_path = file_util.find_nearest_common_ancestor(left_tree.root_path, right_tree.root_path)
     merged_tree = FMetaTree(root_path=new_root_path)
 

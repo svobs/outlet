@@ -1,3 +1,4 @@
+import os
 from abc import ABC
 import logging
 from typing import List, Optional, Union
@@ -5,6 +6,7 @@ from typing import List, Optional, Union
 from constants import NOT_TRASHED, OBJ_TYPE_GDRIVE, TRASHED_STATUS
 from model.category import Category
 from model.display_node import DisplayId, DisplayNode, ensure_int
+from model.planning_node import PlanningNode
 from ui.assets import ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE
 
 logger = logging.getLogger(__name__)
@@ -105,9 +107,9 @@ class GoogNode(DisplayNode, ABC):
         return GDriveDisplayId(id_string=self.id)
 
     def get_icon(self):
-        if self.trashed != NOT_TRASHED:
-            return ICON_TRASHED_DIR
-        return ICON_GENERIC_DIR
+        if self.trashed == NOT_TRASHED:
+            return ICON_GENERIC_DIR
+        return ICON_TRASHED_DIR
 
     @classmethod
     def is_dir(cls):
@@ -199,3 +201,29 @@ class GoogFile(GoogNode):
     def make_tuple(self, parent_id):
         return (self.id, self.name, parent_id, self.trashed, self._size_bytes, self.md5, self.create_ts, self.modify_ts,
                 self.owner_id, self.drive_id, self.my_share, self.version, self.head_revision_id, self.sync_ts)
+
+
+class FolderToAdd(PlanningNode, GoogNode):
+    def __init__(self, dest_path):
+        self.dest_path = dest_path
+        GoogNode.__init__(self, item_id=str(self.display_id), item_name=os.path.basename(self.dest_path), trashed=NOT_TRASHED, drive_id=None,
+                          my_share=False, sync_ts=None, category=Category.ADDED)
+
+    def get_icon(self):
+        # TODO: added folder
+        return ICON_GENERIC_DIR
+
+    @classmethod
+    def is_dir(cls):
+        return True
+
+    def id(self):
+        return str(self.display_id)
+
+    @property
+    def display_id(self) -> Optional[DisplayId]:
+        return GDriveDisplayId(id_string=self.dest_path)
+
+    @classmethod
+    def has_path(cls):
+        return True

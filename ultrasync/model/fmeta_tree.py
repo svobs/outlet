@@ -26,7 +26,10 @@ class FMetaList:
 
     def add(self, item):
         self.list.append(item)
-        self._total_size_bytes += item.size_bytes
+        if item.size_bytes:
+            self._total_size_bytes += item.size_bytes
+        else:
+            logger.warning(f'Object has no size: {item}')
         self._total_count += 1
 
     @property
