@@ -245,7 +245,7 @@ class LazyDisplayStrategy:
         # Change TS
         if self.con.treeview_meta.show_change_ts:
             try:
-                change_datetime = datetime.fromtimestamp(node_data.change_ts)
+                change_datetime = datetime.fromtimestamp(node_data.change_ts / 1000)
                 change_time = change_datetime.strftime(self.con.treeview_meta.datetime_format)
                 row_values.append(change_time)
             except AttributeError:

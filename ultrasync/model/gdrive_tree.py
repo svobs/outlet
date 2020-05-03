@@ -221,7 +221,8 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
                 for num, match in enumerate(matches):
                     logger.info(f'Match {num}: {match}')
             elif len(matches) == 0:
-                logger.debug(f'No match found for path: {path_so_far}')
+                if SUPER_DEBUG:
+                    logger.debug(f'No match found for path: {path_so_far}')
                 return None
             else:
                 current_id = matches[0].id
@@ -244,7 +245,8 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
             # Add fake parents
             self.make_parents_if_not_exist(item)
 
-            logger.debug(f'Adding new PlanningNode: {item.get_name()}')
+            if SUPER_DEBUG:
+                logger.debug(f'Adding new PlanningNode: {item.get_name()}')
 
         # Do the parent work here:
         added_item = super().add_item(item)
@@ -351,7 +353,8 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
                     current_id = matches[0].id
                     continue
 
-            logger.debug(f'Creating new fake folder for: {path_so_far}')
+            if SUPER_DEBUG:
+                logger.debug(f'Creating new fake folder for: {path_so_far}')
             new_folder = FolderToAdd(dest_path=path_so_far)
             new_folder.parents = current_id
             self.add_item(new_folder)
