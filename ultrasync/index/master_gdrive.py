@@ -129,7 +129,7 @@ class GDriveMasterCache:
             if not parents:
                 logger.debug(f'Mapped ID "{goog_id}" to path "{path}"')
                 return path
-            elif len(parents > 1):
+            elif len(parents) > 1:
                 logger.warning(f'Multiple parents found for {item.id} ("{item.name}"). Picking the first one.')
                 # pass through
             item = self.meta_master.get_for_id(parents[0])
