@@ -28,8 +28,8 @@ class FMetaList:
         self.list.append(item)
         if item.size_bytes:
             self._total_size_bytes += item.size_bytes
-        else:
-            logger.warning(f'Object has no size: {item}')
+        # else:
+        #     logger.debug(f'Object has no size: {item}')
         self._total_count += 1
 
     @property
@@ -115,6 +115,10 @@ class FMetaTree(SubtreeSnapshot):
 
     def get_for_cat(self, category: Category):
         return self._cat_dict[category].list
+
+    def get_path_for_item(self, item: FMeta) -> str:
+        # Trivial for FMetas
+        return item.full_path
 
     def get_for_path(self, path, include_ignored=False) -> Optional[FMeta]:
         fmeta = self._path_dict.get(path, None)

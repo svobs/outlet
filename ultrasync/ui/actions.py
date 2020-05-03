@@ -64,6 +64,7 @@ def enable_ui(sender):
 
 
 def set_status(sender, status_msg):
+    assert status_msg
     assert type(sender) == str
     dispatcher.send(signal=SET_STATUS, sender=sender, status_msg=status_msg)
 

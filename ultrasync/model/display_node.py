@@ -83,7 +83,8 @@ class DirNode(DisplayNode):
             logger.error(f'BAD CATEGORY: expected={self.category} found={fmeta.category} path={fmeta.full_path}')
         assert fmeta.category == self.category
         self.file_count += 1
-        self._size_bytes += fmeta.size_bytes
+        if fmeta.size_bytes:
+            self._size_bytes += fmeta.size_bytes
 
     @property
     def display_id(self):

@@ -26,16 +26,18 @@ class PlanningNode(DisplayNode, ABC):
 
 
 class FMetaDecorator(PlanningNode, ABC):
-    def __init__(self, original_node, dest_path, category=Category.NA):
+    def __init__(self, original_node, orig_path, dest_path, category=Category.NA):
         super().__init__(category)
         self.original = original_node
+        # GoogNodes do not have a path built-in, so we must store them preemptively
+        self.orig_path = orig_path
         self.dest_path = dest_path
         self._parent = None
         """Only used in Goog trees currently"""
 
     @property
     def original_full_path(self):
-        return self.original.full_path
+        return self.orig_path
 
     @property
     def full_path(self):
@@ -46,7 +48,7 @@ class FMetaDecorator(PlanningNode, ABC):
 
     @property
     def name(self):
-        # Needed for GOOG
+        # Needed for GDrive
         return self.get_name()
 
     @property
@@ -86,7 +88,7 @@ class FMetaDecorator(PlanningNode, ABC):
         return disp_id
 
     def get_relative_path(self, parent_tree):
-        return parent_tree.get_relative_path_of(self.full_path)
+        return parent_tree.get_relative_path_of(self)
 
     @classmethod
     def has_path(cls):
@@ -129,8 +131,8 @@ class FMetaDecorator(PlanningNode, ABC):
 
 class FileToAdd(FMetaDecorator):
     # NOTE: this decorates its enclosed FMeta, EXCEPT for pathname stuff!
-    def __init__(self, original, dest_path):
-        super().__init__(original, dest_path, Category.ADDED)
+    def __init__(self, original, orig_path, dest_path):
+        super().__init__(original, orig_path, dest_path, Category.ADDED)
 
     def __repr__(self):
         return f'FileToAdd(original_path={self.original_full_path} dest_path={self.dest_path})'
@@ -138,8 +140,8 @@ class FileToAdd(FMetaDecorator):
 
 class FileToMove(FMetaDecorator):
     # NOTE: this decorates its enclosed FMeta, EXCEPT for pathname stuff!
-    def __init__(self, original, dest_path):
-        super().__init__(original, dest_path, Category.MOVED)
+    def __init__(self, original, orig_path, dest_path):
+        super().__init__(original, orig_path, dest_path, Category.MOVED)
 
     def __repr__(self):
         return f'FileToMove(original_path={self.original_full_path} dest_path={self.dest_path})'

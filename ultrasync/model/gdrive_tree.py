@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 import file_util
 from index.two_level_dict import Md5BeforeIdDict
 from model.category import Category
-from model.goog_node import FolderToAdd, GoogFile, GoogNode
+from model.goog_node import FolderToAdd, GoogFile, GoogFolder, GoogNode
 from model.planning_node import FMetaDecorator, PlanningNode
 from model.subtree_snapshot import SubtreeSnapshot
 
@@ -48,6 +48,9 @@ class GDriveTree:
 
     def get_for_id(self, goog_id) -> Optional[GoogNode]:
         return self.id_dict.get(goog_id, None)
+
+    def get_path_for_item(self, item: GoogNode) -> str:
+        return self.get_path_for_id(item.id)
 
     def get_path_for_id(self, goog_id: str) -> str:
         """Gets the filesystem-like-path for the item with the given GoogID, relative to the root of this subtree"""
@@ -299,8 +302,14 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         return self.get_path_for_id(goog_node.id)
 
     def get_summary(self):
-        # TODO
-        pass
+        file_count = 0
+        folder_count = 0
+        for item in self.id_dict.values():
+            if isinstance(item, GoogFile):
+                file_count += 1
+            elif isinstance(item, GoogFolder):
+                folder_count += 1
+        return f'{file_count} files and {folder_count} folders'
 
     def categorize(self, item, category: Category):
         assert category != Category.NA

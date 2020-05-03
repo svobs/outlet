@@ -1,7 +1,8 @@
 import logging
 
-from constants import OBJ_TYPE_GDRIVE
+from constants import OBJ_TYPE_GDRIVE, ROOT
 from model.display_id import DisplayId
+from model.gdrive_tree import GDriveSubtree, GDriveWholeTree
 from ui.tree.meta_store import BaseMetaStore
 
 
@@ -26,8 +27,14 @@ class GDriveMS(BaseMetaStore):
         return self._gdrive_meta
 
     def get_children(self, parent_id):
-        if parent_id is None:
-            return self._gdrive_meta.roots
+        if parent_id is None or parent_id == ROOT:
+            if isinstance(self._gdrive_meta, GDriveWholeTree):
+                # Whole tree? -> return the root nodes
+                return self._gdrive_meta.roots
+            else:
+                # Subtree? -> return the subtree root
+                assert isinstance(self._gdrive_meta, GDriveSubtree)
+                parent_id = self._gdrive_meta.root_id
         elif isinstance(parent_id, DisplayId):
             parent_id = parent_id.id_string
 

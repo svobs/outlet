@@ -4,7 +4,7 @@ import uuid
 
 import gi
 
-from constants import ROOT
+from constants import OBJ_TYPE_LOCAL_DISK, ROOT
 from ui.tree.meta_store import BaseMetaStore
 
 gi.require_version("Gtk", "3.0")
@@ -113,8 +113,12 @@ class GlobalActions:
         try:
             left_root = tree_con_left.meta_store.get_root_path()
             right_root = tree_con_right.meta_store.get_root_path()
-            if not os.path.exists(left_root) or not os.path.exists(right_root):
-                logger.info('Skipping diff because one of the paths does not exist')
+            if tree_con_left.meta_store.get_tree_type() == OBJ_TYPE_LOCAL_DISK and not os.path.exists(left_root):
+                logger.info(f'Skipping diff because the left path does not exist: "{left_root}"')
+                actions.enable_ui(sender=self)
+                return
+            elif tree_con_right.meta_store.get_tree_type() == OBJ_TYPE_LOCAL_DISK and not os.path.exists(right_root):
+                logger.info(f'Skipping diff because the right path does not exist: "{right_root}"')
                 actions.enable_ui(sender=self)
                 return
 

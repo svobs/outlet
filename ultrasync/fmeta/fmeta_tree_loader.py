@@ -32,8 +32,10 @@ def build_fmeta(full_path, category=Category.NA):
 
     stat = os.stat(full_path)
     size_bytes = int(stat.st_size)
-    modify_ts = int(stat.st_mtime)
-    change_ts = int(stat.st_ctime)
+    modify_ts = int(stat.st_mtime * 1000)
+    assert modify_ts > 1000000000000, f'modify_ts too small: {modify_ts}'
+    change_ts = int(stat.st_ctime * 1000)
+    assert change_ts > 1000000000000, f'change_ts too small: {change_ts}'
 
     if category == Category.Ignored:
         return IgnoredFMeta(md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path)
@@ -44,8 +46,10 @@ def build_fmeta(full_path, category=Category.NA):
 def meta_matches(file_path, fmeta: FMeta):
     stat = os.stat(file_path)
     size_bytes = int(stat.st_size)
-    modify_ts = int(stat.st_mtime)
-    change_ts = int(stat.st_ctime)
+    modify_ts = int(stat.st_mtime * 1000)
+    assert modify_ts > 1000000000000, f'modify_ts too small: {modify_ts}'
+    change_ts = int(stat.st_ctime * 1000)
+    assert change_ts > 1000000000000, f'change_ts too small: {change_ts}'
 
     is_equal = fmeta.size_bytes == size_bytes and fmeta.modify_ts == modify_ts and fmeta.change_ts == change_ts
 

@@ -65,9 +65,35 @@ class PathTransplanter:
         left_rel_path = left_item.get_relative_path(self.left_tree)
         return os.path.join(self.right_tree.root_path, left_rel_path)
 
-    def move_to_left(self, right_fmeta) -> str:
-        right_rel_path = right_fmeta.get_relative_path(self.right_tree)
+    def move_to_left(self, right_item) -> str:
+        right_rel_path = right_item.get_relative_path(self.right_tree)
         return os.path.join(self.left_tree.root_path, right_rel_path)
+
+    def plan_rename_file_right(self, left_item, right_item):
+        """Make a FileToMove node which will rename a file in the right tree to the name of the file on left"""
+        dest_path = self.move_to_right(left_item)
+        orig_path = self.right_tree.get_path_for_item(right_item)
+        move_right_to_right = FileToMove(right_item, orig_path, dest_path)
+        self.right_tree.add_item(move_right_to_right)
+
+    def plan_rename_file_left(self, left_item, right_item):
+        """Make a FileToMove node which will rename a file in the left tree to the name of the file on right"""
+        dest_path = self.move_to_left(right_item)
+        orig_path = self.left_tree.get_path_for_item(left_item)
+        move_left_to_left = FileToMove(left_item, orig_path, dest_path)
+        self.left_tree.add_item(move_left_to_left)
+
+    def plan_add_file_left_to_right(self, left_item):
+        dest_path = self.move_to_right(left_item)
+        orig_path = self.left_tree.get_path_for_item(left_item)
+        file_to_add_to_right = FileToAdd(left_item, orig_path, dest_path)
+        self.right_tree.add_item(file_to_add_to_right)
+
+    def plan_add_file_right_to_left(self, right_item):
+        dest_path = self.move_to_left(right_item)
+        orig_path = self.right_tree.get_path_for_item(right_item)
+        file_to_add_to_left = FileToAdd(right_item, orig_path, dest_path)
+        self.left_tree.add_item(file_to_add_to_left)
 
 
 def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_also=False):
@@ -140,13 +166,9 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
                 if changed_left is not None and changed_right is not None:
                     # MOVED: the file already exists in each tree, so just do a rename within the tree
                     # (it is possible that the trees are on different disks, so keep performance in mind)
-                    dest_path = fixer.move_to_right(changed_left)
-                    move_right_to_right = FileToMove(changed_right, dest_path)
-                    right_tree.add_item(move_right_to_right)
+                    fixer.plan_rename_file_right(changed_left, changed_right)
 
-                    dest_path = fixer.move_to_left(changed_right)
-                    move_left_to_left = FileToMove(changed_left, dest_path)
-                    left_tree.add_item(move_left_to_left)
+                    fixer.plan_rename_file_left(changed_left, changed_right)
                     count_moved_pairs += 1
                 else:
                     """Looks like one side has additional file(s) with same signature 
@@ -183,9 +205,7 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
             # DUPLICATE ADDED on right + DELETED on left
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f'Left has new file: "{left_meta.full_path}"')
-            dest_path = fixer.move_to_right(left_meta)
-            file_to_add_to_right = FileToAdd(left_meta, dest_path)
-            right_tree.add_item(file_to_add_to_right)
+            fixer.plan_add_file_left_to_right(left_meta)
 
             # TODO: rename 'Deleted' category to 'ToDelete'
             # Dead node walking:
@@ -202,9 +222,7 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
             # DUPLICATE ADDED on right + DELETED on left
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f'Right has new file: "{right_meta.full_path}"')
-            dest_path = fixer.move_to_left(right_meta)
-            file_to_add_to_left = FileToAdd(right_meta, dest_path)
-            left_tree.add_item(file_to_add_to_left)
+            fixer.plan_add_file_right_to_left(right_meta)
 
             # Dead node walking:
             right_tree.categorize(right_meta, Category.Deleted)

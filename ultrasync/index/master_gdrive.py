@@ -68,8 +68,6 @@ class GDriveMasterCache:
 
         while not q.empty():
             item: GoogNode = q.get()
-            if item.id == '1MXZIg41ysts9azN8oeeP2FR0h9daXE5s': # TODO
-                logger.debug(f'Found as item: {item}')
             # Filter out trashed items:
             if item.trashed == NOT_TRASHED:
                 subtree_meta.add_item(item)
@@ -80,8 +78,6 @@ class GDriveMasterCache:
             child_list = self.meta_master.get_children(item.id)
             if child_list:
                 for child in child_list:
-                    if child.id == '1MXZIg41ysts9azN8oeeP2FR0h9daXE5s': # TODO
-                        logger.debug(f'Found as child: {child}')
                     q.put(child)
 
         if logger.isEnabledFor(logging.DEBUG):
@@ -107,7 +103,7 @@ class GDriveMasterCache:
             gdrive_meta = self.meta_master
         else:
             gdrive_meta = self._slice_off_subtree_from_master(subtree_root_id)
-        return GDriveMS(tree_id, self.application.config, gdrive_meta, ROOT)
+        return GDriveMS(tree_id, self.application.config, gdrive_meta, subtree_root_id)
 
     def download_all_gdrive_meta(self, tree_id):
         cache_info = self.application.cache_manager.get_or_create_cache_info_entry(OBJ_TYPE_GDRIVE, ROOT)

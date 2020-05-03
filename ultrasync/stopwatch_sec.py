@@ -67,4 +67,4 @@ class Stopwatch:
             return "{:,.2f}s".format(dur / 1000)
         if dur >= 1:
             return "{:.3f}s".format(dur / 1000)
-        return "{:.6f}μs".format(dur / 1000)
+        return "{:.6f}s".format(dur / 1000)

@@ -22,6 +22,10 @@ class SubtreeSnapshot(ABC):
         pass
 
     @abstractmethod
+    def get_path_for_item(self, item) -> str:
+        pass
+
+    @abstractmethod
     def get_for_path(self, path: str, include_ignored=False) -> Optional[Any]:
         pass
 
