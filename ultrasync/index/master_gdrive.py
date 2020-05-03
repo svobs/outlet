@@ -67,7 +67,9 @@ class GDriveMasterCache:
         count_total = 0
 
         while not q.empty():
-            item: GoogFolder = q.get()
+            item: GoogNode = q.get()
+            if item.id == '1MXZIg41ysts9azN8oeeP2FR0h9daXE5s': # TODO
+                logger.debug(f'Found as item: {item}')
             # Filter out trashed items:
             if item.trashed == NOT_TRASHED:
                 subtree_meta.add_item(item)
@@ -78,10 +80,14 @@ class GDriveMasterCache:
             child_list = self.meta_master.get_children(item.id)
             if child_list:
                 for child in child_list:
+                    if child.id == '1MXZIg41ysts9azN8oeeP2FR0h9daXE5s': # TODO
+                        logger.debug(f'Found as child: {child}')
                     q.put(child)
 
-        md5_count = subtree_meta._md5_dict.total_entries
-        logger.debug(f'Sliced off subtree with {(count_total - count_trashed)} items (+{count_trashed} trashed), {md5_count} MD5s')
+        if logger.isEnabledFor(logging.DEBUG):
+            subtree_meta.validate()
+
+        logger.debug(f'Sliced off {subtree_meta}')
         return subtree_meta
 
     def get_metastore_for_subtree(self, subtree_root_id, tree_id):

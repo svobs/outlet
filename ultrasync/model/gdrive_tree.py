@@ -12,6 +12,8 @@ from model.subtree_snapshot import SubtreeSnapshot
 
 logger = logging.getLogger(__name__)
 
+SUPER_DEBUG = False
+
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
     CLASS UserMeta
@@ -65,11 +67,12 @@ class GDriveTree:
                 if len(parents) > 1:
                     resolved_parents = [x for x in parents if self.get_for_id(x)]
                     if len(resolved_parents) > 1:
+                        # If we see this, need to investigate
                         logger.warning(f'Multiple parents found for {item.id} ("{item.name}"). Picking the first one.')
                         for parent_num, p in enumerate(resolved_parents):
                             logger.info(f'Parent {parent_num}: {p}')
                         # pass through
-                    else:
+                    elif SUPER_DEBUG:
                         logger.debug(f'Found multiple parents for item but only one is valid: item={item.id} ("{item.name}")')
                     item = self.get_for_id(resolved_parents[0])
                     # pass through
@@ -78,7 +81,8 @@ class GDriveTree:
 
                 if not item:
                     # Parent refs cannot be resolved == root of subtree
-                    logger.debug(f'Mapped ID "{goog_id}" to subtree path "{path}"')
+                    if SUPER_DEBUG:
+                        logger.debug(f'Mapped ID "{goog_id}" to subtree path "{path}"')
                     return path
             else:
                 # No parent refs. Root of Google Drive
@@ -90,8 +94,9 @@ class GDriveTree:
         # Build forward dictionary
         existing_item = self.id_dict.get(item.id, None)
         if existing_item:
-            item = _merge_items(existing_item, item)
-            self.id_dict[item.id] = item
+            if SUPER_DEBUG:
+                logger.debug(f'add_item(): found existing item with same ID (will attempt to merge items): existing: {existing_item}; new={item}')
+            _merge_items(existing_item, item)
         else:
             self.id_dict[item.id] = item
 
@@ -115,15 +120,11 @@ class GDriveTree:
         return self.get_path_for_id(goog_node.id)
 
 
-def _merge_items(existing_item: GoogNode, new_item: GoogNode) -> Optional[GoogNode]:
-    # Let's be safe and clone the data if there's a conflict. We don't know whether we're loading from
-    # cache or whether we're slicing a subtree
-    if new_item.is_newer_than(existing_item):
-        clone = copy.deepcopy(new_item)
-    else:
-        clone = copy.deepcopy(existing_item)
-    clone.parents = list(set(existing_item.parents) | set(new_item.parents))
-    return clone
+def _merge_items(existing_item: GoogNode, new_item: GoogNode):
+    # Assume items are identical but each references a different parent (most likely flattened for SQL)
+    assert len(existing_item.parents) == 1 and len(new_item.parents) == 1, f'Expected 1 parent each but found: {existing_item.parents} and {new_item.parents}'
+    # Just merge into the existing item
+    existing_item.parents = list(set(existing_item.parents) | set(new_item.parents))
 
 
 """
@@ -186,6 +187,10 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
                                                           Category.Updated: [],
                                                           }
 
+    def __repr__(self):
+        return f'GDriveSubtree(root_id={self.root_id} root_path="{self.root_path}" id_count={len(self.id_dict)} ' \
+               f'parent_count={len(self.first_parent_dict)} md5_count={self._md5_dict.total_entries})'
+
     def get_for_md5(self, md5) -> Optional[List[GoogNode]]:
         return self._md5_dict.get(md5, None)
 
@@ -194,7 +199,10 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
 
     def get_for_path(self, path: str, include_ignored=False) -> Optional[GoogNode]:
         """Try to get a singular item corresponding to the given file-system-like
-        path, mapping the root of this tree to the first segment of the path."""
+        path, mapping the root of this tree to the first segment of the path.
+
+        We can probably cache this mapping in the future if performance is a concern
+        """
         relative_path = file_util.strip_root(path, self.root_path)
         name_segments = file_util.split_path(relative_path)
         current_id = self.root_id
@@ -204,15 +212,19 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
             children = self.get_children(current_id)
             if not children:
                 raise RuntimeError(f'Item has no children: {current_id}: path_so_far={path_so_far}')
-            matches = [x for x in children if x.name == name_seg and x.trashed == NOT_TRASHED]
+            matches = [x for x in children if x.name == name_seg]
             if len(matches) > 1:
-                logger.error(f'Multiple IDs found for root "{self.root_path}", path "{path_so_far}". Choosing the first found')
+                logger.error(f'get_for_path(): Multiple child IDs ({len(matches)}) found for parent ID"{current_id}", '
+                             f'tree "{self.root_path}", path "{path_so_far}". Choosing the first found')
+                for num, match in enumerate(matches):
+                    logger.info(f'Match {num}: {match}')
             elif len(matches) == 0:
                 logger.debug(f'No match found for path: {path_so_far}')
                 return None
             else:
                 current_id = matches[0].id
-        logger.debug(f'Found for path "{path}": {self.get_for_id(current_id)}')
+        if SUPER_DEBUG:
+            logger.debug(f'Found for path "{path}": {self.get_for_id(current_id)}')
         return current_id
 
     def add_item(self, item):
@@ -225,6 +237,36 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
             previous = self._md5_dict.put(added_item)
             # if previous:
             #     logger.debug(f'Overwrite existing MD5/ID pair')
+
+    def validate(self):
+        logger.debug(f'Validating GDriveSubtree "{self.root_path}"...')
+        if not self.root_id:
+            logger.error('No root ID!');
+
+        if not self.root_path:
+            logger.error('No root path!')
+
+        # Validate parent dict:
+        for parent_id, children in self.first_parent_dict.items():
+            unique_child_ids = {}
+            for child in children:
+                if not self.get_for_id(child.id):
+                    logger.error(f'Child present in child list of parent {parent_id} but not found in id_dict: {child}')
+                duplicate_child = unique_child_ids.get(child.id)
+                if duplicate_child:
+                    logger.error(f'Child already present in list of parent {parent_id}: orig={duplicate_child} dup={child}')
+                else:
+                    unique_child_ids[child.id] = child
+
+        for item_id, item in self.id_dict.items():
+            if item_id != item.id:
+                logger.error(f'[!!!] Item actual ID does not match its key in the ID dict ({item_id}): {item}')
+            if len(item.parents) > 1:
+                resolved_parents = [x for x in item.parents if self.get_for_id(x)]
+                if len(resolved_parents) > 1:
+                    logger.error(f'Found multiple valid parents for item: {item}: parents={resolved_parents}')
+
+        logger.debug(f'Done validating GDriveSubtree "{self.root_path}"')
 
     def clear_categories(self):
         for cat, cat_list in self._cat_dict.items():
