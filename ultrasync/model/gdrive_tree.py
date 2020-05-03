@@ -4,6 +4,7 @@ import os
 from typing import Any, Dict, List, Optional
 
 import file_util
+from constants import NOT_TRASHED
 from index.two_level_dict import Md5BeforeIdDict
 from model.category import Category
 from model.goog_node import GoogFile, GoogNode
@@ -59,19 +60,28 @@ class GDriveTree:
                 path = item.name
             else:
                 path = item.name + '/' + path
-            path = item.name + path
             parents = item.parents
             if parents:
                 if len(parents) > 1:
-                    logger.warning(f'Multiple parents found for {item.id} ("{item.name}"). Picking the first one.')
+                    resolved_parents = [x for x in parents if self.get_for_id(x)]
+                    if len(resolved_parents) > 1:
+                        logger.warning(f'Multiple parents found for {item.id} ("{item.name}"). Picking the first one.')
+                        for parent_num, p in enumerate(resolved_parents):
+                            logger.info(f'Parent {parent_num}: {p}')
+                        # pass through
+                    else:
+                        logger.debug(f'Found multiple parents for item but only one is valid: item={item.id} ("{item.name}")')
+                    item = self.get_for_id(resolved_parents[0])
                     # pass through
-                item = self.get_for_id(parents[0])
+                else:
+                    item = self.get_for_id(parents[0])
+
                 if not item:
-                    # reached root of subtree
+                    # Parent refs cannot be resolved == root of subtree
                     logger.debug(f'Mapped ID "{goog_id}" to subtree path "{path}"')
                     return path
             else:
-                # Root of Google Drive
+                # No parent refs. Root of Google Drive
                 return '/' + path
 
     def add_item(self, item):
@@ -194,9 +204,9 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
             children = self.get_children(current_id)
             if not children:
                 raise RuntimeError(f'Item has no children: {current_id}: path_so_far={path_so_far}')
-            matches = [x for x in children if x.name == name_seg]
+            matches = [x for x in children if x.name == name_seg and x.trashed == NOT_TRASHED]
             if len(matches) > 1:
-                logger.error(f'Multiple IDs map found for segment {path_so_far}. Choosing the first found')
+                logger.error(f'Multiple IDs found for root "{self.root_path}", path "{path_so_far}". Choosing the first found')
             elif len(matches) == 0:
                 logger.debug(f'No match found for path: {path_so_far}')
                 return None
