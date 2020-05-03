@@ -12,7 +12,7 @@ from google.auth.transport.requests import Request
 
 # If modifying these scopes, delete the file token.pickle.
 from constants import EXPLICITLY_TRASHED, IMPLICITLY_TRASHED, NOT_TRASHED
-from model.gdrive_meta import UserMeta
+from model.gdrive_tree import UserMeta
 from model.goog_node import GoogFile, GoogFolder
 from ui import actions
 

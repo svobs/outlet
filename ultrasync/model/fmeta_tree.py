@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import humanfriendly
 
@@ -7,6 +7,7 @@ import file_util
 from model.category import Category
 from model.fmeta import FMeta
 from model.planning_node import PlanningNode
+from model.subtree_snapshot import SubtreeSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -44,12 +45,12 @@ class FMetaList:
 """
 
 
-class FMetaTree:
+class FMetaTree(SubtreeSnapshot):
     """🢄🢄🢄 Note: each FMeta object should be unique within its tree. Each FMeta should not be shared
     between trees, and should be cloned if needed"""
 
     def __init__(self, root_path):
-        self.root_path: str = root_path
+        super().__init__(root_path)
         # Each item is an entry
         self._path_dict: Dict[str, FMeta] = {}
         # Each item contains a list of entries
@@ -70,7 +71,7 @@ class FMetaTree:
         and path_dict"""
         assert category != Category.NA
         # param fmeta should already be a member of this tree
-        assert self.get_for_path(file_path=fmeta.full_path, include_ignored=True) == fmeta
+        assert self.get_for_path(path=fmeta.full_path, include_ignored=True) == fmeta
         fmeta.category = category
         return self._cat_dict[category].add(fmeta)
 
@@ -112,8 +113,8 @@ class FMetaTree:
     def get_for_cat(self, category: Category):
         return self._cat_dict[category].list
 
-    def get_for_path(self, file_path, include_ignored=False):
-        fmeta = self._path_dict.get(file_path, None)
+    def get_for_path(self, path, include_ignored=False) -> Optional[FMeta]:
+        fmeta = self._path_dict.get(path, None)
         if fmeta is None or include_ignored:
             return fmeta
         elif fmeta.category != Category.Ignored:

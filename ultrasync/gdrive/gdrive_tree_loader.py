@@ -7,7 +7,7 @@ from queue import Queue
 from constants import EXPLICITLY_TRASHED, IMPLICITLY_TRASHED, ROOT
 from gdrive.client import GDriveClient
 from index.sqlite.gdrive_db import GDriveDatabase
-from model.gdrive_meta import GDriveMeta
+from model.gdrive_tree import GDriveWholeTree
 from model.goog_node import GoogFile, GoogFolder
 from ui import actions
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 #  Static functions
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
-def build_path_trees_by_id(meta: GDriveMeta):
+def build_path_trees_by_id(meta: GDriveWholeTree):
     path_dict = {}
 
     total_items = 0
@@ -105,13 +105,13 @@ class GDriveTreeLoader:
             self.cache = None
         self.gdrive_client = GDriveClient(self.config, tree_id)
 
-    def load_all(self, invalidate_cache=False):
+    def load_all(self, invalidate_cache=False) -> GDriveWholeTree:
         try:
             if self.tree_id:
                 logger.debug(f'Sending START_PROGRESS_INDETERMINATE for tree_id: {self.tree_id}')
                 actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=self.tree_id, tx_id=self.tx_id)
 
-            meta = GDriveMeta(ROOT, ROOT)
+            meta = GDriveWholeTree()
 
             meta.me = self.gdrive_client.get_about()
             cache_has_data = self.cache.has_gdrive_dirs() or self.cache.has_gdrive_files()
@@ -174,15 +174,15 @@ class GDriveTreeLoader:
 
         for item_id, item_name, parent_id, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
             item = GoogFolder(item_id=item_id, item_name=item_name,
-                                                          trashed=item_trashed, drive_id=drive_id, my_share=my_share,
-                                                          sync_ts=sync_ts, all_children_fetched=all_children_fetched)
+                              trashed=item_trashed, drive_id=drive_id, my_share=my_share,
+                              sync_ts=sync_ts, all_children_fetched=all_children_fetched)
             item.parents = parent_id
             meta.add_item(item)
 
         # FILES:
         file_rows = self.cache.get_gdrive_files()
         for item_id, item_name, parent_id, item_trashed, size_bytes_str, md5, create_ts, modify_ts, owner_id, drive_id, \
-                my_share, version, head_revision_id, sync_ts in file_rows:
+            my_share, version, head_revision_id, sync_ts in file_rows:
             size_bytes = None if size_bytes_str is None else int(size_bytes_str)
             file_node = GoogFile(item_id=item_id, item_name=item_name,
                                  trashed=item_trashed, drive_id=drive_id, my_share=my_share, version=int(version),

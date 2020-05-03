@@ -3,6 +3,8 @@ from queue import Queue
 from typing import Optional
 
 from pydispatch import dispatcher
+
+from model.gdrive_tree import GDriveSubtree, GDriveWholeTree
 from stopwatch_sec import Stopwatch
 
 from constants import NOT_TRASHED, OBJ_TYPE_GDRIVE, ROOT
@@ -10,7 +12,6 @@ from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index.cache_manager import PersistedCacheInfo
 from index.meta_store.gdrive import GDriveMS
 from index.two_level_dict import FullPathBeforeIdDict, Md5BeforeIdDict
-from model.gdrive_meta import GDriveMeta
 from model.goog_node import GoogFolder, GoogNode
 from ui import actions
 
@@ -27,12 +28,12 @@ class GDriveMasterCache:
         self.application = application
         self.full_path_dict = FullPathBeforeIdDict()
         self.md5_dict = Md5BeforeIdDict()
-        self.meta_master = None
+        self.meta_master: GDriveWholeTree = None
 
     def init_subtree_gdrive_cache(self, info: PersistedCacheInfo, tree_id: str):
         self._load_gdrive_cache(info, tree_id)
 
-    def _load_gdrive_cache(self, info: PersistedCacheInfo, tree_id: str) -> GDriveMeta:
+    def _load_gdrive_cache(self, info: PersistedCacheInfo, tree_id: str):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
         status = f'Loading meta for "{info.cache_info.subtree_root}" from cache: "{info.cache_info.cache_location}"'
         logger.debug(status)
@@ -43,18 +44,17 @@ class GDriveMasterCache:
         cache_path = info.cache_info.cache_location
         tree_builder = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
 
-        meta = GDriveMeta(ROOT, ROOT)  # TODO
+        meta = GDriveWholeTree()  # TODO
         tree_builder.load_from_cache(meta)
         self._update_in_memory_cache(meta)
         logger.info(f'GDrive cache for {info.cache_info.subtree_root} loaded in: {stopwatch_total}')
 
         info.is_loaded = True
         self.meta_master = meta  # TODO
-        return meta
 
-    def _slice_off_subtree_from_master(self, subtree_root_id) -> GDriveMeta:
+    def _slice_off_subtree_from_master(self, subtree_root_id) -> GDriveSubtree:
         root_path = self.get_path_for_id(subtree_root_id)
-        subtree_meta = GDriveMeta(subtree_root_id, root_path)
+        subtree_meta = GDriveSubtree(subtree_root_id, root_path)
 
         root: GoogNode = self.meta_master.get_for_id(subtree_root_id)
         if not root:
@@ -107,8 +107,7 @@ class GDriveMasterCache:
         cache_info = self.application.cache_manager.get_or_create_cache_info_entry(OBJ_TYPE_GDRIVE, ROOT)
         cache_path = cache_info.cache_info.cache_location
         tree_builder = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
-        meta = tree_builder.load_all(invalidate_cache=False)
-        self.meta_master = meta
+        self.meta_master = tree_builder.load_all(invalidate_cache=False)
         logger.info('Replaced entire GDrive in-memory cache with downloaded meta')
 
     def _update_in_memory_cache(self, meta):
