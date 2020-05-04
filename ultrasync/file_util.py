@@ -1,10 +1,11 @@
+import fnmatch
 import os
 import shutil
 import re
 import errno
 import platform
 import logging
-from typing import List
+from typing import List, Tuple
 
 import fmeta.content_hasher
 
@@ -14,6 +15,16 @@ logger = logging.getLogger(__name__)
 class IdenticalFileExistsError(Exception):
     def __init__(self, *args, **kwargs):
         pass
+
+
+def is_target_type(file_path: str, valid_suffixes: Tuple[str]):
+    """Returns True iff the given file_path ends in one of the suffixes provided (case-insensitive"""
+    file_path_lower = file_path.lower()
+    for suffix in valid_suffixes:
+        regex = '*.' + suffix
+        if fnmatch.fnmatch(file_path_lower, regex):
+            return True
+    return False
 
 
 def get_resource_path(rel_path: str, resolve_symlinks=False):

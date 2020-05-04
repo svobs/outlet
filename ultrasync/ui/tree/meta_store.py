@@ -27,6 +27,10 @@ class BaseMetaStore(ABC):
     def get_tree_type(self):
         return None
 
+    @abstractmethod
+    def get_path_for_item(self, item) -> str:
+        raise NotImplementedError
+
 
 class DummyMS(BaseMetaStore):
     """Just a placeholder with no actual data, to be replaced once data is available"""
@@ -47,3 +51,6 @@ class DummyMS(BaseMetaStore):
 
     def get_tree_type(self):
         return self._tree_type
+
+    def get_path_for_item(self, item) -> str:
+        raise NotImplementedError

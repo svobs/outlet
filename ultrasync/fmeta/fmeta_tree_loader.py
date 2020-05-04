@@ -5,6 +5,8 @@ import copy
 import time
 import uuid
 from pathlib import Path
+
+from constants import VALID_SUFFIXES
 from model.fmeta import FMeta, Category, IgnoredFMeta
 from fmeta.tree_recurser import TreeRecurser
 import fmeta.content_hasher
@@ -12,8 +14,6 @@ import ui.actions as actions
 from model.fmeta_tree import FMetaTree
 
 logger = logging.getLogger(__name__)
-
-VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp4', 'mpeg', 'mpg', 'm4v', 'avi', 'pdf', 'nef')
 
 
 def build_fmeta(full_path, category=Category.NA):

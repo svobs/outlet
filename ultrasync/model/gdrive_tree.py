@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 
+import constants
 import file_util
 from index.two_level_dict import Md5BeforeIdDict
 from model.category import Category
@@ -49,17 +50,19 @@ class GDriveTree:
     def get_for_id(self, goog_id) -> Optional[GoogNode]:
         return self.id_dict.get(goog_id, None)
 
-    def get_path_for_item(self, item: GoogNode) -> str:
-        return self.get_path_for_id(item.id)
-
-    def get_path_for_id(self, goog_id: str) -> str:
-        """Gets the filesystem-like-path for the item with the given GoogID, relative to the root of this subtree"""
+    def get_path_for_id(self, goog_id: str, stop_before_id: str = None) -> str:
+        """Gets the filesystem-like-path for the item with the given GoogID.
+        If stop_before_id is given, treat it as the subtree root and stop before including it; otherwise continue
+        until a parent cannot be found, or until the root of the tree is reached"""
         item = self.get_for_id(goog_id)
         if not item:
             raise RuntimeError(f'Item not found: id={goog_id}')
 
+        # Iterate backwards (the given ID is the last segment in the path
         path = ''
         while True:
+            if item.id == stop_before_id:
+                return path
             if path == '':
                 path = item.name
             else:
@@ -117,9 +120,6 @@ class GDriveTree:
             child_list = []
             self.first_parent_dict[parent_id] = child_list
         child_list.append(item)
-
-    def get_relative_path_of(self, goog_node: GoogNode):
-        return self.get_path_for_id(goog_node.id)
 
 
 def _merge_items(existing_item: GoogNode, new_item: GoogNode):
@@ -199,6 +199,11 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
     def get_md5_set(self):
         return self._md5_dict.keys()
 
+    def get_path_for_item(self, item: GoogNode) -> str:
+        """Gets the absolute path for the item"""
+        rel_path = self.get_path_for_id(item.id, self.root_id)
+        return os.path.join(self.root_path, rel_path)
+
     def get_for_path(self, path: str, include_ignored=False) -> Optional[GoogNode]:
         """Try to get a singular item corresponding to the given file-system-like
         path, mapping the root of this tree to the first segment of the path.
@@ -208,6 +213,7 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         relative_path = file_util.strip_root(path, self.root_path)
         name_segments = file_util.split_path(relative_path)
         current_id = self.root_id
+        current = None
         path_so_far = ''
         for name_seg in name_segments:
             path_so_far = os.path.join(path_so_far, name_seg)
@@ -224,11 +230,11 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
                 if SUPER_DEBUG:
                     logger.debug(f'No match found for path: {path_so_far}')
                 return None
-            else:
-                current_id = matches[0].id
+            current = matches[0]
+            current_id = current.id
         if SUPER_DEBUG:
             logger.debug(f'Found for path "{path}": {self.get_for_id(current_id)}')
-        return current_id
+        return current
 
     def add_item(self, item):
         """Called when adding from Google API, or when slicing a metastore"""
@@ -253,10 +259,13 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
 
         # Do this after any merging we do above
         if isinstance(added_item, GoogFile) and added_item.md5:
-            self._md5_dict.get(added_item.md5, added_item.id)
-            previous = self._md5_dict.put(added_item)
-            if previous:
-                logger.warning(f'Overwrote existing MD5/ID pair: {previous}')
+            if file_util.is_target_type(added_item.name, constants.VALID_SUFFIXES):
+                self._md5_dict.get(added_item.md5, added_item.id)
+                previous = self._md5_dict.put(added_item)
+                if previous:
+                    logger.warning(f'Overwrote existing MD5/ID pair: {previous}')
+            else:
+                added_item.category = Category.Ignored
 
         if item.category != Category.NA:
             self._cat_dict[item.category].append(item)
@@ -301,7 +310,8 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         pass
 
     def get_relative_path_of(self, goog_node: GoogNode):
-        return self.get_path_for_id(goog_node.id)
+        # Get the path for the given ID, relative to the root of this subtree
+        return self.get_path_for_id(goog_node.id, self.root_id)
 
     def get_summary(self):
         file_count = 0

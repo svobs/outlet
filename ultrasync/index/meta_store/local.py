@@ -4,6 +4,7 @@ from typing import Dict
 from constants import OBJ_TYPE_LOCAL_DISK
 from model.display_id import DisplayId
 from model.fmeta import LocalFsDisplayId
+from model.fmeta_tree import FMetaTree
 from ui.tree import category_tree_builder
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ class LocalDiskSubtreeMS(BaseMetaStore):
     def __init__(self, tree_id, config, fmeta_tree):
         super().__init__(tree_id, config)
 
-        self._fmeta_tree = fmeta_tree
+        self._fmeta_tree: FMetaTree = fmeta_tree
         """The source tree"""
 
         self._category_trees: Dict[Category, treelib.Tree] = {}
@@ -80,3 +81,6 @@ class LocalDiskSubtreeMS(BaseMetaStore):
     @classmethod
     def get_tree_type(cls):
         return OBJ_TYPE_LOCAL_DISK
+
+    def get_path_for_item(self, item) -> str:
+        return self._fmeta_tree.get_path_for_item(item)

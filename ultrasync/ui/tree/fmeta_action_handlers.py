@@ -83,7 +83,7 @@ class FMetaTreeActionHandlers(TreeActionBridge):
         if isinstance(node_data, FMetaDecorator):
             full_path = node_data.original_full_path
         else:
-            full_path = node_data.full_path
+            full_path = self.con.meta_store.get_path_for_item(node_data)
         parent_path, file_name = os.path.split(full_path)
 
         is_category_node = type(node_data) == CategoryNode
@@ -143,19 +143,20 @@ class FMetaTreeActionHandlers(TreeActionBridge):
                     break
 
     def on_row_right_clicked(self, event, tree_path, node_data):
-        # TODO: clicked on selection? -> apply context menu to selection
         id_clicked = node_data.display_id.id_string
         selected_items = self.con.get_multiple_selection()
 
-        for item in selected_items:
-            if item.display_id.id_string == id_clicked:
-                # User right-clicked on selection -> apply context menu to selection
-                context_menu = self.build_context_menu_multiple(selected_items)
-                context_menu.popup_at_pointer(event)
-                # Suppress selection event
-                return True
+        if len(selected_items) > 1:
+            # Multiple selected items:
+            for item in selected_items:
+                if item.display_id.id_string == id_clicked:
+                    # User right-clicked on selection -> apply context menu to all selected items:
+                    context_menu = self.build_context_menu_multiple(selected_items)
+                    context_menu.popup_at_pointer(event)
+                    # Suppress selection event
+                    return True
 
-        # Not a selected item. Display context menu:
+        # Singular item, or singular selection (equivalent logic). Display context menu:
         context_menu = self.build_context_menu(tree_path, node_data)
         context_menu.popup_at_pointer(event)
 

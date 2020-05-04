@@ -1,7 +1,7 @@
 {
     "left_tree": {
         "expanded_state": {
-            "Added": true,
+            "Added": false,
             "Deleted": true,
             "Ignored": false,
             "Moved": true,

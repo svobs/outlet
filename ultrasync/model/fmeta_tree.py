@@ -206,7 +206,7 @@ class FMetaTree(SubtreeSnapshot):
         if item_matching_path is not None:
             if is_planning_node:
                 if not isinstance(item_matching_path, PlanningNode):
-                    raise RuntimeError(f'Attempt to overwrite type {type(item_matching_path)} with PlanningNode!')
+                    raise RuntimeError(f'Attempt to overwrite type {type(item_matching_path)} with PlanningNode! Orig={item_matching_path}; New={item}')
             else:
                 self._total_size_bytes -= item_matching_path.size_bytes
             logger.warning(f'Overwriting path: {item.full_path}')

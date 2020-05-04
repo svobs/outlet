@@ -17,7 +17,7 @@ class GDriveMS(BaseMetaStore):
 
     def __init__(self, tree_id, config, gdrive_meta, root_path):
         super().__init__(tree_id=tree_id, config=config)
-        self._gdrive_meta = gdrive_meta
+        self._gdrive_meta: GDriveSubtree = gdrive_meta
         self._root_id = root_path
 
     def get_root_path(self):
@@ -47,4 +47,7 @@ class GDriveMS(BaseMetaStore):
     @classmethod
     def get_tree_type(cls):
         return OBJ_TYPE_GDRIVE
+
+    def get_path_for_item(self, item) -> str:
+        return self._gdrive_meta.get_path_for_item(item)
 
