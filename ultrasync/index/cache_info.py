@@ -22,9 +22,9 @@ class CacheInfoEntry:
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 
-class PersistedCacheInfo:
-    def __init__(self, cache_info: CacheInfoEntry):
-        self.cache_info = cache_info
+class PersistedCacheInfo(CacheInfoEntry):
+    def __init__(self, base: CacheInfoEntry):
+        super().__init__(base.cache_location, base.subtree_root, base.sync_ts, base.is_complete)
         self.is_loaded = False
         # Indicates the data needs to be loaded from disk again.
         # TODO: replace this with a more sophisticated mechanism

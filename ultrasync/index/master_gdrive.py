@@ -35,23 +35,23 @@ class GDriveMasterCache:
     def init_subtree_gdrive_cache(self, info: PersistedCacheInfo, tree_id: str):
         self._load_gdrive_cache(info, tree_id)
 
-    def _load_gdrive_cache(self, info: PersistedCacheInfo, tree_id: str):
+    def _load_gdrive_cache(self, cache_info: PersistedCacheInfo, tree_id: str):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
-        status = f'Loading meta for "{info.cache_info.subtree_root}" from cache: "{info.cache_info.cache_location}"'
+        status = f'Loading meta for "{cache_info.subtree_root}" from cache: "{cache_info.cache_location}"'
         logger.debug(status)
         dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
 
         stopwatch_total = Stopwatch()
 
-        cache_path = info.cache_info.cache_location
+        cache_path = cache_info.cache_location
         tree_builder = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
 
         meta = GDriveWholeTree()  # TODO
         tree_builder.load_from_cache(meta)
         self._update_in_memory_cache(meta)
-        logger.info(f'GDrive cache for {info.cache_info.subtree_root} loaded in: {stopwatch_total}')
+        logger.info(f'GDrive cache for {cache_info.subtree_root} loaded in: {stopwatch_total}')
 
-        info.is_loaded = True
+        cache_info.is_loaded = True
         self.meta_master = meta  # TODO
 
     def _slice_off_subtree_from_master(self, subtree_root: GDriveIdentifier) -> GDriveSubtree:

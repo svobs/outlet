@@ -1,5 +1,5 @@
 import os
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, List, Optional, Union
 import logging
 
 logger = logging.getLogger(__name__)
@@ -94,8 +94,8 @@ class OneLevelDict:
 
 
 class TwoLevelDict:
-    def __init__(self, key_func1: Callable[[Any], str],
-                 key_func2: Callable[[Any], str],
+    def __init__(self, key_func1: Callable[[Any], Union[str, int]],
+                 key_func2: Callable[[Any], Union[str, int]],
                  should_overwrite: Callable[[Any, Any], bool]):
         """
         Args:
@@ -108,13 +108,13 @@ class TwoLevelDict:
                 Will only be called if put() finds an existing item with matching
                 keys.
         """
-        self._dict: Dict[str, Dict[str, Any]] = {}
+        self._dict: Dict[Union[str, int], Dict[Union[str, int], Any]] = {}
         self._key_func1 = key_func1
         self._key_func2 = key_func2
         self._should_overwrite = should_overwrite
         self.total_entries = 0
 
-    def put(self, item, expected_existing=None):
+    def put(self, item, expected_existing=None) -> Optional[Any]:
         assert item, 'trying to insert None!'
         key1 = self._key_func1(item)
         if not key1:
@@ -139,7 +139,7 @@ class TwoLevelDict:
             dict2[key2] = item
         return existing
 
-    def get(self, key1: str, key2: str = None):
+    def get(self, key1: Union[str, int], key2: Union[str, int] = None) -> Union[List, Any]:
         """If only one arg is provided, returns the entire dict which matches the first key.
         If two are provided, returns the item matching both keys, or None if not found"""
         assert key1, 'key1 is empty!'
@@ -150,7 +150,7 @@ class TwoLevelDict:
             return dict2
         return dict2.get(key2, None)
 
-    def remove(self, key1, key2):
+    def remove(self, key1: Union[str, int], key2: Union[str, int]) -> Optional[Any]:
         """Removes and returns the item matching both keys, or None if not found"""
         assert key1, 'key1 is empty!'
         assert key2, 'key2 is empty!'
