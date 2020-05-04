@@ -137,17 +137,17 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
      Left but not Right will be determined to be an 'added' file from the perspective of Left but a 'deleted'
      file from the perspective of Right)"""
     for md5 in md5_set:
-        right_metas_dup_md5 = right_tree.get_for_md5(md5)
-        if isinstance(right_metas_dup_md5, dict):
-            right_metas_dup_md5 = right_metas_dup_md5.values()
-        left_metas_dup_md5 = left_tree.get_for_md5(md5)
-        if isinstance(left_metas_dup_md5, dict):
-            left_metas_dup_md5 = right_metas_dup_md5.values()
+        right_items_dup_md5 = right_tree.get_for_md5(md5)
+        if isinstance(right_items_dup_md5, dict):
+            right_items_dup_md5 = right_items_dup_md5.values()
+        left_items_dup_md5 = left_tree.get_for_md5(md5)
+        if isinstance(left_items_dup_md5, dict):
+            left_items_dup_md5 = right_items_dup_md5.values()
 
-        if left_metas_dup_md5 is None:
-            orphaned_md5s_right.append(right_metas_dup_md5)
-        elif right_metas_dup_md5 is None:
-            orphaned_md5s_left.append(left_metas_dup_md5)
+        if left_items_dup_md5 is None:
+            orphaned_md5s_right.append(right_items_dup_md5)
+        elif right_items_dup_md5 is None:
+            orphaned_md5s_left.append(left_items_dup_md5)
         elif compare_paths_also:
             """If we do this, we care about what the files are named, where they are located, and how many
             duplicates exist. When it comes to determining the direction of renamed files, we simply don't
@@ -160,7 +160,7 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
             orphaned_left_dup_md5 = []
             orphaned_right_dup_md5 = []
 
-            compare_result = _compare_paths_for_same_md5(left_metas_dup_md5, left_tree, right_metas_dup_md5, right_tree, fixer)
+            compare_result = _compare_paths_for_same_md5(left_items_dup_md5, left_tree, right_items_dup_md5, right_tree, fixer)
             for (changed_left, changed_right) in compare_result:
                 # Did we at least find a pair?
                 if changed_left is not None and changed_right is not None:
@@ -183,49 +183,49 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
             if orphaned_right_dup_md5:
                 orphaned_md5s_right.append(orphaned_right_dup_md5)
 
-    for fmeta_duplicate_md5s_left in orphaned_md5s_left:
+    for item_duplicate_md5s_left in orphaned_md5s_left:
         # TODO: Duplicate content (options):
         #  - No special handling of duplicates / treat like other files [default]
         #  - Flag added/missing duplicates as Duplicates
         #  - For each unique, compare only the best match on each side and ignore the rest
-        for left_meta in fmeta_duplicate_md5s_left:
+        for left_item in item_duplicate_md5s_left:
             if compare_paths_also:
-                left_on_right_path = fixer.move_to_right(left_meta)
+                left_on_right_path = fixer.move_to_right(left_item)
                 matching_right = right_tree.get_for_path(left_on_right_path)
                 if matching_right:
                     # UPDATED
                     if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f'File updated: {left_meta.md5} <- "{left_meta.full_path}" -> {matching_right.md5}')
+                        logger.debug(f'File updated: {left_item.md5} <- "{left_tree.get_path_for_item(left_item)}" -> {matching_right.md5}')
                     # Same path, different md5 -> Updated
                     right_tree.categorize(matching_right, Category.Updated)
-                    left_tree.categorize(left_meta, Category.Updated)
+                    left_tree.categorize(left_item, Category.Updated)
                     count_updated_pairs += 1
                     continue
                 # No match? fall through
             # DUPLICATE ADDED on right + DELETED on left
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f'Left has new file: "{left_meta.full_path}"')
-            fixer.plan_add_file_left_to_right(left_meta)
+                logger.debug(f'Left has new file: "{left_tree.get_path_for_item(left_item)}"')
+            fixer.plan_add_file_left_to_right(left_item)
 
             # TODO: rename 'Deleted' category to 'ToDelete'
             # Dead node walking:
-            left_tree.categorize(left_meta, Category.Deleted)
+            left_tree.categorize(left_item, Category.Deleted)
             count_add_delete_pairs += 1
 
-    for fmeta_duplicate_md5s_right in orphaned_md5s_right:
-        for right_meta in fmeta_duplicate_md5s_right:
+    for item_duplicate_md5s_right in orphaned_md5s_right:
+        for right_item in item_duplicate_md5s_right:
             if compare_paths_also:
-                right_on_left = fixer.move_to_left(right_meta)
+                right_on_left = fixer.move_to_left(right_item)
                 if left_tree.get_for_path(right_on_left):
                     # UPDATED. Logically this has already been covered (above) since our iteration is symmetrical:
                     continue
             # DUPLICATE ADDED on right + DELETED on left
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f'Right has new file: "{right_meta.full_path}"')
-            fixer.plan_add_file_right_to_left(right_meta)
+                logger.debug(f'Right has new file: "{right_tree.get_path_for_item(right_item)}"')
+            fixer.plan_add_file_right_to_left(right_item)
 
             # Dead node walking:
-            right_tree.categorize(right_meta, Category.Deleted)
+            right_tree.categorize(right_item, Category.Deleted)
             count_add_delete_pairs += 1
 
     logger.info(f'Done with diff (pairs: add/del={count_add_delete_pairs} upd={count_updated_pairs} moved={count_moved_pairs})'
@@ -250,24 +250,25 @@ def merge_change_trees(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, 
 
     conflict_pairs = []
     for md5 in md5_set:
-        right_metas_dup_md5 = right_tree.get_for_md5(md5)
-        left_metas_dup_md5 = left_tree.get_for_md5(md5)
+        right_items_dup_md5 = right_tree.get_for_md5(md5)
+        left_items_dup_md5 = left_tree.get_for_md5(md5)
 
-        if check_for_conflicts and left_metas_dup_md5 and right_metas_dup_md5:
-            compare_result = _compare_paths_for_same_md5(left_metas_dup_md5, left_tree, right_metas_dup_md5, right_tree, fixer)
-            # Aadds and deletes of the same file cancel each other out via the matching algo...
+        if check_for_conflicts and left_items_dup_md5 and right_items_dup_md5:
+            compare_result = _compare_paths_for_same_md5(left_items_dup_md5, left_tree, right_items_dup_md5, right_tree, fixer)
+            # Adds and deletes of the same file cancel each other out via the matching algo...
             # Maybe just delete the conflict detection code because it will now never be hit.
             for (left, right) in compare_result:
                 # Finding a pair here indicates a conflict
                 if left is not None and right is not None:
                     conflict_pairs.append((left, right))
-                    logger.debug(f'CONFLICT: left={left.category.name}:{left.full_path} right={right.category.name}:{right.full_path}')
+                    logger.debug(f'CONFLICT: left={left.category.name}:{left_tree.get_path_for_item(left)} '
+                                 f'right={right.category.name}:{right_tree.get_path_for_item(right)}')
         else:
-            if left_metas_dup_md5:
-                for node in left_metas_dup_md5:
+            if left_items_dup_md5:
+                for node in left_items_dup_md5:
                     merged_tree.add_item(node)
-            if right_metas_dup_md5:
-                for node in right_metas_dup_md5:
+            if right_items_dup_md5:
+                for node in right_items_dup_md5:
                     merged_tree.add_item(node)
 
     if len(conflict_pairs) > 0:
