@@ -10,7 +10,7 @@ import file_util
 from constants import OBJ_TYPE_LOCAL_DISK, ROOT
 from fmeta.fmeta_tree_loader import TreeMetaScanner
 from index.cache_manager import PersistedCacheInfo
-from index.meta_store.local import LocalDiskSubtreeMS
+from index.meta_store.local_lazy import LocalDiskSubtreeMS
 from index.sqlite.fmeta_db import FMetaDatabase
 from index.two_level_dict import FullPathDict, Md5BeforePathDict, ParentPathBeforeFileNameDict, Sha256BeforePathDict
 from model.display_id import Identifier, LocalFsIdentifier

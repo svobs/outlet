@@ -127,8 +127,8 @@ class GlobalActions:
 
             # Load trees if not loaded - may be a long operation
             # TODO: turn dummy data store into a lazy-load data store
-            left_fmeta_tree = tree_con_left.meta_store.get_whole_tree()
-            right_fmeta_tree = tree_con_right.meta_store.get_whole_tree()
+            left_fmeta_tree = tree_con_left.meta_store.get_model()
+            right_fmeta_tree = tree_con_right.meta_store.get_model()
 
             logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {actions.ID_DIFF_WINDOW}')
             actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=actions.ID_DIFF_WINDOW, tx_id=tx_id)

@@ -25,7 +25,7 @@ class GDriveMS(LazyMetaStore):
         self._gdrive_meta: GDriveSubtree = gdrive_meta
         self.root_identifier: GDriveIdentifier = root_identifier
 
-    def get_whole_tree(self):
+    def get_model(self):
         return self._gdrive_meta
 
     def get_children_for_root(self, tree_display_mode: TreeDisplayMode) -> Optional[List[DisplayNode]]:

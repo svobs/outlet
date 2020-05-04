@@ -25,7 +25,7 @@ class BaseMetaStore(ABC):
         pass
 
     @abstractmethod
-    def get_whole_tree(self) -> SubtreeSnapshot:
+    def get_model(self) -> SubtreeSnapshot:
         pass
 
     @abstractmethod
@@ -47,7 +47,7 @@ class DummyMS(BaseMetaStore):
     def get_root_identifier(self) -> Identifier:
         return self._root_identifier
 
-    def get_whole_tree(self):
+    def get_model(self):
         return None
 
     @classmethod
@@ -94,7 +94,7 @@ class LazyMetaStore(BaseMetaStore, ABC):
         if not category_tree:
             category_stopwatch = Stopwatch()
             category_node = CategoryNode(self.get_root_identifier().uid, parent_id.category)
-            category_tree = category_tree_builder.build_category_tree(self.get_whole_tree(), category_node)
+            category_tree = category_tree_builder.build_category_tree(self.get_model(), category_node)
             self._category_trees[parent_id.category] = category_tree
             logger.info(f'Tree constructed for "{parent_id.category.name}" (size {len(category_tree)}) in: {category_stopwatch}')
 

@@ -16,7 +16,7 @@ class StaticWholeTreeMS(BaseMetaStore):
     def get_root_path(self):
         return self._fmeta_tree.root_path
 
-    def get_whole_tree(self):
+    def get_model(self):
         return self._fmeta_tree
 
     def get_category_trees(self):

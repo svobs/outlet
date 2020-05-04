@@ -70,14 +70,14 @@ class FMetaChangeTreeStrategy(LazyDisplayStrategy):
 
         # Show tree summary:
         actions.set_status(sender=self.con.meta_store.tree_id,
-                           status_msg=self.con.meta_store.get_whole_tree().get_summary())
+                           status_msg=self.con.meta_store.get_model().get_summary())
 
     def resync_subtree(self, tree_path):
         # Construct a FMetaTree from the UI nodes: this is the 'stale' subtree.
         stale_tree = self.con.display_store.get_subtree_as_tree(tree_path)
         fresh_tree = None
         # Master tree contains all FMeta in this widget
-        master_tree = self.con.meta_store.get_whole_tree()
+        master_tree = self.con.meta_store.get_model()
 
         # If the path no longer exists at all, then it's simple: the entire stale_tree should be deleted.
         if os.path.exists(stale_tree.root_path):

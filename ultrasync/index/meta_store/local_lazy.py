@@ -16,7 +16,6 @@ from model.display_node import DisplayNode
 from ui.tree.meta_store import LazyMetaStore
 
 
-# TODO: rename file to local_lazy
 class LocalDiskSubtreeMS(LazyMetaStore):
     """Meta store for a subtree on disk
     """
@@ -30,8 +29,7 @@ class LocalDiskSubtreeMS(LazyMetaStore):
     def get_root_identifier(self) -> Identifier:
         return self._fmeta_tree.identifier
 
-    def get_whole_tree(self):
-        # TODO: rename this to prevent confusion. This is not a displayable tree
+    def get_model(self):
         return self._fmeta_tree
 
     def get_children_for_root(self, tree_display_mode: TreeDisplayMode) -> Optional[List[DisplayNode]]:
