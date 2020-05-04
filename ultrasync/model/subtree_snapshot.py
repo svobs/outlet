@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from model.category import Category
+from model.display_id import DisplayId
 
 
 class SubtreeSnapshot(ABC):
@@ -26,7 +27,16 @@ class SubtreeSnapshot(ABC):
         pass
 
     @abstractmethod
+    def get_relative_path_of(self, item):
+        # TODO: rename this to get_relative_path_for_item for consistency
+        pass
+
+    @abstractmethod
     def get_for_path(self, path: str, include_ignored=False) -> Optional[Any]:
+        pass
+
+    @abstractmethod
+    def get_for_cat(self, category: Category):
         pass
 
     @abstractmethod
@@ -35,10 +45,6 @@ class SubtreeSnapshot(ABC):
 
     @abstractmethod
     def get_for_md5(self, md5):
-        pass
-
-    @abstractmethod
-    def get_relative_path_of(self, item):
         pass
 
     @abstractmethod

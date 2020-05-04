@@ -3,7 +3,6 @@ import os
 import logging
 from typing import Optional
 
-import file_util
 from constants import OBJ_TYPE_LOCAL_DISK
 from model.category import Category
 from model.display_id import DisplayId
@@ -16,8 +15,7 @@ logger = logging.getLogger(__name__)
 
 class LocalFsDisplayId(DisplayId):
     def __init__(self, id_string, category: Category):
-        super().__init__(id_string=id_string)
-        self.category = category
+        super().__init__(id_string=id_string, category=category)
 
     @property
     def tree_type(self) -> int:

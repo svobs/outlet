@@ -77,7 +77,7 @@ class FMetaDecorator(PlanningNode, ABC):
 
     @property
     def id(self):
-        return str(self.display_id)
+        return self.display_id.id_string
 
     @property
     def display_id(self) -> Optional[DisplayId]:

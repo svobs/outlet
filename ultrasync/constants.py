@@ -1,3 +1,5 @@
+from enum import IntEnum
+
 VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp4', 'mpeg', 'mpg', 'm4v', 'avi', 'pdf', 'nef')
 
 OBJ_TYPE_LOCAL_DISK = 1
@@ -20,3 +22,10 @@ EXPLICITLY_TRASHED = 1
 IMPLICITLY_TRASHED = 2
 
 TRASHED_STATUS = ['No', 'UserTrashed', 'Trashed']
+
+
+class TreeDisplayMode(IntEnum):
+    ONE_TREE_ALL_ITEMS = 1
+    CHANGES_ONE_TREE_PER_CATEGORY = 2
+
+

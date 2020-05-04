@@ -1,11 +1,12 @@
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import constants
 import file_util
 from index.two_level_dict import Md5BeforeIdDict
 from model.category import Category
+from model.display_id import DisplayId
 from model.goog_node import FolderToAdd, GoogFile, GoogFolder, GoogNode
 from model.planning_node import FMetaDecorator, PlanningNode
 from model.subtree_snapshot import SubtreeSnapshot
@@ -44,7 +45,10 @@ class GDriveTree:
         self.first_parent_dict: Dict[str, List[GoogNode]] = {}
         """ Reverse lookup table: 'parent_id' -> list of child nodes """
 
-    def get_children(self, parent_id):
+    def get_children(self, parent_id: Union[str, DisplayId]):
+        if isinstance(parent_id, DisplayId):
+            parent_id = parent_id.id_string
+
         return self.first_parent_dict.get(parent_id, None)
 
     def get_for_id(self, goog_id) -> Optional[GoogNode]:
@@ -192,6 +196,9 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
     def __repr__(self):
         return f'GDriveSubtree(root_id={self.root_id} root_path="{self.root_path}" id_count={len(self.id_dict)} ' \
                f'parent_count={len(self.first_parent_dict)} md5_count={self._md5_dict.total_entries})'
+
+    def get_for_cat(self, category: Category):
+        return self._cat_dict[category]
 
     def get_for_md5(self, md5) -> Optional[List[GoogNode]]:
         return self._md5_dict.get(md5, None)

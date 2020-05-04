@@ -5,6 +5,9 @@ import logging
 import os
 
 import gi
+
+from constants import TreeDisplayMode
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib
 
@@ -42,6 +45,8 @@ class FMetaChangeTreeStrategy(LazyDisplayStrategy):
 
     def populate_root(self):
         logger.debug(f'Repopulating tree "{self.con.meta_store.tree_id}"')
+        if self.con.treeview_meta.tree_display_mode != TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
+            raise NotImplementedError('We cannot display file trees without categories yet')
 
         if self.con.meta_store.is_lazy():
             super().populate_root()

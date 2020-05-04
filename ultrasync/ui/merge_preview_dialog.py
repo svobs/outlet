@@ -44,7 +44,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
         meta_store = StaticWholeTreeMS(tree_id=ID_MERGE_TREE, config=self.config, tree=self.fmeta_tree)
 
-        self.tree_con = tree_factory.build_static_file_tree(parent_win=self, meta_store=meta_store)
+        self.tree_con = tree_factory.build_static_category_file_tree(parent_win=self, meta_store=meta_store)
         actions.set_status(sender=meta_store.tree_id, status_msg=self.fmeta_tree.get_summary())
         self.content_box.pack_start(self.tree_con.content_box, True, True, 0)
         self.tree_con.load()

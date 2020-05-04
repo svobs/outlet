@@ -41,8 +41,11 @@ class LazyDisplayStrategy:
 
     def populate_root(self):
         """Draws from the undelying data store as needed, to populate the display store."""
+
+        tree_display_mode = self.con.treeview_meta.tree_display_mode
+
         # This may be a long task
-        children = self.con.meta_store.get_children(parent_id=None)
+        children = self.con.meta_store.get_children_for_root(tree_display_mode=tree_display_mode)
 
         def update_ui():
             # Wipe out existing items:
@@ -79,7 +82,7 @@ class LazyDisplayStrategy:
         def expand_or_contract():
             # Add children for node:
             if is_expanded:
-                children = self.con.meta_store.get_children(node_data.display_id)
+                children = self.con.meta_store.get_children(node_data.display_id, self.con.treeview_meta.tree_display_mode)
                 self._append_children(children, parent_iter, node_data.display_id)
                 # Remove Loading node:
                 self.con.display_store.remove_first_child(parent_iter)

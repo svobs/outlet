@@ -109,7 +109,7 @@ class TreeActionBridge:
             mods.append('Super')
         if (event.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK:
             mods.append('Alt')
-        logger.info(f'Key pressed: {Gdk.keyval_name(event.keyval)} ({event.keyval}), mods: {" ".join(mods)}')
+        logger.debug(f'Key pressed: {Gdk.keyval_name(event.keyval)} ({event.keyval}), mods: {" ".join(mods)}')
 
         if event.keyval == Gdk.KEY_Delete:
             logger.debug('DELETE key detected!')

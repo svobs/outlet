@@ -72,14 +72,14 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         self.root_path_persister_left = RootPathConfigPersister(config=self.config, tree_id=actions.ID_LEFT_TREE)
         saved_root_path_left = self.root_path_persister_left.root_path
         store_left = DummyMS(actions.ID_LEFT_TREE, self.config, saved_root_path_left, self.root_path_persister_left.tree_type)
-        self.tree_con_left = tree_factory.build_bulk_load_file_tree(parent_win=self, meta_store=store_left)
+        self.tree_con_left = tree_factory.build_category_file_tree(parent_win=self, meta_store=store_left)
         diff_tree_panes.pack1(self.tree_con_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
         self.root_path_persister_right = RootPathConfigPersister(config=self.config, tree_id=actions.ID_RIGHT_TREE)
         saved_root_path_right = self.root_path_persister_right.root_path
         store_right = DummyMS(actions.ID_RIGHT_TREE, self.config, saved_root_path_right, self.root_path_persister_right.tree_type)
-        self.tree_con_right = tree_factory.build_bulk_load_file_tree(parent_win=self, meta_store=store_right)
+        self.tree_con_right = tree_factory.build_category_file_tree(parent_win=self, meta_store=store_right)
         diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)
 
         self.bottom_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)

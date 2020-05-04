@@ -1,20 +1,25 @@
 from pydispatch import dispatcher
 
+from constants import TreeDisplayMode
 from model.display_node import CategoryNode
 from ui import actions
 
 
 class TreeViewMeta:
-    def __init__(self, config, tree_id, editable, selection_mode, is_display_persisted, is_ignored_func=None):
+    def __init__(self, config, tree_id, editable, tree_display_mode, selection_mode, is_display_persisted, is_ignored_func=None):
         self.config = config
         self.selection_mode = selection_mode
         self.tree_id = tree_id
-        """If false, disable actions in UI"""
         self.editable = editable
-        """If true, load and save aesthetic things like expanded state of some nodes"""
+        """If false, disable actions in UI"""
         self.is_display_persisted = is_display_persisted
-        # This is a function pointer which accepts a data node arg and returns true if it is considered "ignored":
+        """If true, load and save aesthetic things like expanded state of some nodes"""
         self.is_ignored_func = is_ignored_func
+        """This is a function pointer which accepts a data node arg and returns true if it is considered ignored"""
+
+        self.tree_display_mode: TreeDisplayMode = tree_display_mode
+        """If true, display category trees for items which are not Category.NA. If false, show all items and
+        do not use category nodes."""
 
         """If true, create a node for each ancestor directory for the files.
            If false, create a second column which shows the parent path. """

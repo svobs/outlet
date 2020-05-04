@@ -1,6 +1,9 @@
 import logging
 
 import gi
+
+from constants import TreeDisplayMode
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -15,7 +18,6 @@ from ui.tree.controller import TreePanelController
 from ui.tree.treeview_meta import TreeViewMeta
 from ui.tree.display_store import DisplayStore
 import ui.assets
-
 
 logger = logging.getLogger(__name__)
 
@@ -124,11 +126,13 @@ def _build_treeview(display_store):
     # For displaying icons
     def get_tree_cell_pixbuf(col, cell, model, iter, user_data):
         cell.set_property('pixbuf', ui.assets.get_icon(model.get_value(iter, treeview_meta.col_num_icon)))
+
     px_column.set_cell_data_func(px_renderer, get_tree_cell_pixbuf)
 
     # For displaying text next to icon
     def get_tree_cell_text(col, cell, model, iter, user_data):
         cell.set_property('text', model.get_value(iter, treeview_meta.col_num_name))
+
     px_column.set_cell_data_func(str_renderer, get_tree_cell_text)
 
     px_column.set_min_width(50)
@@ -240,7 +244,8 @@ def build(parent_win, meta_store, treeview_meta, display_strategy, action_handle
     controller = TreePanelController(parent_win, meta_store, display_store, treeview_meta)
     controller.tree_view = _build_treeview(display_store)
     controller.root_dir_panel = RootDirPanel(parent_win=parent_win, tree_id=meta_store.tree_id,
-                                             current_root=meta_store.get_root_path(), editable=treeview_meta.editable, tree_type=meta_store.get_tree_type())
+                                             current_root=meta_store.get_root_path(), editable=treeview_meta.editable,
+                                             tree_type=meta_store.get_tree_type())
     controller.display_strategy = display_strategy
     display_strategy.con = controller
     controller.action_handlers = action_handlers
@@ -268,34 +273,40 @@ def build(parent_win, meta_store, treeview_meta, display_strategy, action_handle
 def build_gdrive(parent_win, meta_store):
     """Builds a tree panel for browsing a Google Drive tree, using lazy loading."""
     treeview_meta = TreeViewMeta(config=parent_win.config, tree_id=meta_store.tree_id, editable=False,
-                                   selection_mode=Gtk.SelectionMode.SINGLE,
-                                   is_display_persisted=True, is_ignored_func=is_ignored_func)
+                                 tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS,
+                                 selection_mode=Gtk.SelectionMode.SINGLE,
+                                 is_display_persisted=True, is_ignored_func=is_ignored_func)
 
     display_strategy = LazyDisplayStrategy()
     action_handlers = GDriveActionHandlers()
 
-    return build(parent_win=parent_win, meta_store=meta_store, treeview_meta=treeview_meta, display_strategy=display_strategy, action_handlers=action_handlers)
+    return build(parent_win=parent_win, meta_store=meta_store, treeview_meta=treeview_meta, display_strategy=display_strategy,
+                 action_handlers=action_handlers)
 
 
-def build_bulk_load_file_tree(parent_win, meta_store):
+def build_category_file_tree(parent_win, meta_store):
     treeview_meta = TreeViewMeta(config=parent_win.config, tree_id=meta_store.tree_id, editable=True,
-                                   selection_mode=Gtk.SelectionMode.MULTIPLE,
-                                   is_display_persisted=True, is_ignored_func=is_ignored_func)
+                                 tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY,
+                                 selection_mode=Gtk.SelectionMode.MULTIPLE,
+                                 is_display_persisted=True, is_ignored_func=is_ignored_func)
 
     display_strategy = FMetaChangeTreeStrategy()
     action_handlers = FMetaTreeActionHandlers()
 
-    con = build(parent_win=parent_win, meta_store=meta_store, treeview_meta=treeview_meta, display_strategy=display_strategy, action_handlers=action_handlers)
+    con = build(parent_win=parent_win, meta_store=meta_store, treeview_meta=treeview_meta, display_strategy=display_strategy,
+                action_handlers=action_handlers)
     return con
 
 
-def build_static_file_tree(parent_win, meta_store):
+def build_static_category_file_tree(parent_win, meta_store):
     treeview_meta = TreeViewMeta(config=parent_win.config, tree_id=meta_store.tree_id, editable=False,
-                                   selection_mode=Gtk.SelectionMode.SINGLE,
-                                   is_display_persisted=False, is_ignored_func=is_ignored_func)
+                                 tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY,
+                                 selection_mode=Gtk.SelectionMode.SINGLE,
+                                 is_display_persisted=False, is_ignored_func=is_ignored_func)
 
     display_strategy = FMetaChangeTreeStrategy()
     action_handlers = FMetaTreeActionHandlers()
 
-    con = build(parent_win=parent_win, meta_store=meta_store, treeview_meta=treeview_meta, display_strategy=display_strategy, action_handlers=action_handlers)
+    con = build(parent_win=parent_win, meta_store=meta_store, treeview_meta=treeview_meta, display_strategy=display_strategy,
+                action_handlers=action_handlers)
     return con

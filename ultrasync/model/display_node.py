@@ -87,6 +87,10 @@ class DirNode(DisplayNode):
             self._size_bytes += fmeta.size_bytes
 
     @property
+    def id(self):
+        return self.display_id.id_string
+
+    @property
     def display_id(self):
         return LogicalNodeDisplayId(id_string=self.full_path, category=self.category)
 

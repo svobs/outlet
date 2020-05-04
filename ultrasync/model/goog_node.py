@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 class GDriveDisplayId(DisplayId):
-    def __init__(self, id_string: str):
-        super().__init__(id_string=id_string)
+    def __init__(self, id_string: str, category: Category):
+        super().__init__(id_string=id_string, category=Category)
 
     @property
     def tree_type(self) -> int:
@@ -104,7 +104,7 @@ class GoogNode(DisplayNode, ABC):
 
     @property
     def display_id(self) -> DisplayId:
-        return GDriveDisplayId(id_string=self.id)
+        return GDriveDisplayId(id_string=self.id, category=self.category)
 
     def get_icon(self):
         if self.trashed == NOT_TRASHED:
@@ -205,9 +205,9 @@ class GoogFile(GoogNode):
 
 class FolderToAdd(PlanningNode, GoogNode):
     def __init__(self, dest_path):
-        self.dest_path = dest_path
-        GoogNode.__init__(self, item_id=str(self.display_id), item_name=os.path.basename(self.dest_path), trashed=NOT_TRASHED, drive_id=None,
+        GoogNode.__init__(self, item_id=dest_path, item_name=os.path.basename(dest_path), trashed=NOT_TRASHED, drive_id=None,
                           my_share=False, sync_ts=None, category=Category.ADDED)
+        self.dest_path = dest_path
 
     def get_icon(self):
         # TODO: added folder
@@ -218,11 +218,11 @@ class FolderToAdd(PlanningNode, GoogNode):
         return True
 
     def id(self):
-        return str(self.display_id)
+        return self.display_id.id_string
 
     @property
     def display_id(self) -> Optional[DisplayId]:
-        return GDriveDisplayId(id_string=self.dest_path)
+        return GDriveDisplayId(id_string=self.dest_path, category=self.category)
 
     @classmethod
     def has_path(cls):
