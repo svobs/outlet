@@ -4,6 +4,8 @@ from typing import Optional
 
 from pydispatch import dispatcher
 
+from model import display_id
+from model.display_id import GDriveIdentifier
 from model.gdrive_tree import GDriveSubtree, GDriveWholeTree
 from stopwatch_sec import Stopwatch
 
@@ -11,7 +13,7 @@ from constants import NOT_TRASHED, OBJ_TYPE_GDRIVE, ROOT
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index.cache_manager import PersistedCacheInfo
 from index.meta_store.gdrive import GDriveMS
-from index.two_level_dict import FullPathBeforeIdDict, Md5BeforeIdDict
+from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
 from model.goog_node import GoogFolder, GoogNode
 from ui import actions
 
@@ -26,8 +28,8 @@ class GDriveMasterCache:
     """Singleton in-memory cache for Google Drive"""
     def __init__(self, application):
         self.application = application
-        self.full_path_dict = FullPathBeforeIdDict()
-        self.md5_dict = Md5BeforeIdDict()
+        self.full_path_dict = FullPathBeforeUidDict()
+        self.md5_dict = Md5BeforeUidDict()
         self.meta_master: GDriveWholeTree = None
 
     def init_subtree_gdrive_cache(self, info: PersistedCacheInfo, tree_id: str):
@@ -52,13 +54,12 @@ class GDriveMasterCache:
         info.is_loaded = True
         self.meta_master = meta  # TODO
 
-    def _slice_off_subtree_from_master(self, subtree_root_id) -> GDriveSubtree:
-        root_path = self.get_path_for_id(subtree_root_id)
-        subtree_meta = GDriveSubtree(subtree_root_id, root_path)
+    def _slice_off_subtree_from_master(self, subtree_root: GDriveIdentifier) -> GDriveSubtree:
+        subtree_meta = GDriveSubtree(subtree_root)
 
-        root: GoogNode = self.meta_master.get_for_id(subtree_root_id)
+        root: GoogNode = self.meta_master.get_for_id(subtree_root.uid)
         if not root:
-            raise RuntimeError(f'Root not found: {subtree_root_id}')
+            raise RuntimeError(f'Root not found: {subtree_root.uid}')
 
         q = Queue()
         q.put(root)
@@ -75,7 +76,7 @@ class GDriveMasterCache:
                 count_trashed += 1
             count_total += 1
 
-            child_list = self.meta_master.get_children(item.id)
+            child_list = self.meta_master.get_children(item.uid)
             if child_list:
                 for child in child_list:
                     q.put(child)
@@ -83,30 +84,41 @@ class GDriveMasterCache:
         if logger.isEnabledFor(logging.DEBUG):
             subtree_meta.validate()
 
+        # Calculate full paths
+        # Needs to be done AFTER all the nodes in the tree have been downloaded
+        for item in subtree_meta.id_dict.values():
+            full_path = subtree_meta.get_full_path_for_item(item)
+
+            item.identifier.full_path = full_path
+
         logger.debug(f'Sliced off {subtree_meta}')
         return subtree_meta
 
-    def get_metastore_for_subtree(self, subtree_root_id, tree_id):
-        logger.debug(f'Getting metastore for subtree: "{subtree_root_id}"')
+    def get_metastore_for_subtree(self, subtree_root: GDriveIdentifier, tree_id: str):
+        logger.debug(f'Getting metastore for subtree: "{subtree_root}"')
         cache_man = self.application.cache_manager
         # TODO: currently we will just load the root and use that.
         #       But in the future we should do on-demand retrieval of subtrees
-        cache_info = cache_man.get_or_create_cache_info_entry(OBJ_TYPE_GDRIVE, ROOT)
+        root = display_id.for_values(OBJ_TYPE_GDRIVE, ROOT, ROOT)
+        cache_info = cache_man.get_or_create_cache_info_entry(root)
         if not cache_info.is_loaded:
             # Load from disk
             # TODO: this will fail if the cache does not exist. Need the above!
             self._load_gdrive_cache(cache_info, tree_id)
 
-        if subtree_root_id == ROOT:
+        if subtree_root.uid == ROOT:
             # Special case. GDrive does not have a single root (it treats shared drives as roots, for example).
             # We'll use this special token to represent "everything"
             gdrive_meta = self.meta_master
+            # TODO: this will not work
+            return gdrive_meta
         else:
-            gdrive_meta = self._slice_off_subtree_from_master(subtree_root_id)
-        return GDriveMS(tree_id, self.application.config, gdrive_meta, subtree_root_id)
+            gdrive_meta = self._slice_off_subtree_from_master(subtree_root)
+        return GDriveMS(tree_id, self.application.config, gdrive_meta, subtree_root)
 
     def download_all_gdrive_meta(self, tree_id):
-        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(OBJ_TYPE_GDRIVE, ROOT)
+        root_identifier = GDriveIdentifier(uid=ROOT, full_path=ROOT)
+        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(root_identifier)
         cache_path = cache_info.cache_info.cache_location
         tree_builder = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
         self.meta_master = tree_builder.load_all(invalidate_cache=False)
@@ -132,6 +144,7 @@ class GDriveMasterCache:
                 logger.debug(f'Mapped ID "{goog_id}" to path "{path}"')
                 return path
             elif len(parents) > 1:
-                logger.warning(f'Multiple parents found for {item.id} ("{item.name}"). Picking the first one.')
+                logger.warning(f'Multiple parents found for {item.uid} ("{item.name}"). Picking the first one.')
                 # pass through
             item = self.meta_master.get_for_id(parents[0])
+

@@ -3,6 +3,7 @@ from typing import List
 
 from index.cache_info import CacheInfoEntry
 from index.sqlite.base_db import MetaDatabase
+from model import display_id
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,8 @@ class CacheRegistry(MetaDatabase):
         'name': 'cache_registry',
         'cols': (('cache_location', 'TEXT'),
                  ('cache_type', 'INTEGER'),
-                 ('subtree_root', 'TEXT'),
+                 ('subtree_root_path', 'TEXT'),
+                 ('subtree_root_uid', 'TEXT'),
                  ('sync_ts', 'INTEGER'),
                  ('complete', 'INTEGER'))
     }
@@ -37,7 +39,9 @@ class CacheRegistry(MetaDatabase):
         rows = self.get_all_rows(self.TABLE_CACHE_REGISTRY)
         entries = []
         for row in rows:
-            entries.append(CacheInfoEntry(*row))
+            cache_location, cache_type, subtree_root_path, subtree_root_uid, sync_ts, is_complete = row
+            identifier = display_id.for_values(cache_type, subtree_root_path, subtree_root_uid)
+            entries.append(CacheInfoEntry(cache_location, identifier, sync_ts, is_complete))
         return entries
 
     # Takes a list of FMeta objects:

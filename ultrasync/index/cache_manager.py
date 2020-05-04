@@ -13,6 +13,7 @@ from index.cache_info import CacheInfoEntry, PersistedCacheInfo
 from index.master_gdrive import GDriveMasterCache
 from index.master_local import LocalDiskMasterCache
 from index.sqlite.cache_registry_db import CacheRegistry
+from model.display_id import Identifier
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
 
@@ -96,9 +97,9 @@ class CacheManager:
                 return []
 
     def _init_existing_cache(self, existing_disk_cache: CacheInfoEntry):
-        logger.debug(f'Loading cache: type={existing_disk_cache.cache_type} subtree="{existing_disk_cache.subtree_root}"')
+        logger.debug(f'Loading cache: id={existing_disk_cache.subtree_root}')
 
-        from_memory: PersistedCacheInfo = self.get_cache_info_entry(existing_disk_cache.cache_type, existing_disk_cache.subtree_root)
+        from_memory: PersistedCacheInfo = self.get_cache_info_entry(existing_disk_cache.subtree_root)
 
         if from_memory and existing_disk_cache.sync_ts < from_memory.cache_info.sync_ts:
             logger.info(f'Skipping cache load: a newer cache already exists for the same subtree: {existing_disk_cache.subtree_root}')
@@ -106,30 +107,31 @@ class CacheManager:
 
         info = PersistedCacheInfo(existing_disk_cache)
 
-        if existing_disk_cache.cache_type == OBJ_TYPE_LOCAL_DISK:
-            self.persisted_localfs_cache_info[existing_disk_cache.subtree_root] = info
-        elif existing_disk_cache.cache_type == OBJ_TYPE_GDRIVE:
-            self.persisted_gdrive_cache_info[existing_disk_cache.subtree_root] = info
+        cache_type = existing_disk_cache.subtree_root.tree_type
+        if cache_type == OBJ_TYPE_LOCAL_DISK:
+            self.persisted_localfs_cache_info[existing_disk_cache.subtree_root.uid] = info
+        elif cache_type == OBJ_TYPE_GDRIVE:
+            self.persisted_gdrive_cache_info[existing_disk_cache.subtree_root.uid] = info
+        else:
+            raise RuntimeError(f'Unrecognized value for cache_type: {cache_type}')
 
         if self.load_all_caches_on_startup:
-            if existing_disk_cache.cache_type == OBJ_TYPE_LOCAL_DISK:
+            if cache_type == OBJ_TYPE_LOCAL_DISK:
                 self.local_disk_cache.init_subtree_localfs_cache(info, ID_GLOBAL_CACHE)
-            elif existing_disk_cache.cache_type == OBJ_TYPE_GDRIVE:
+            elif cache_type == OBJ_TYPE_GDRIVE:
                 self.gdrive_cache.init_subtree_gdrive_cache(info, ID_GLOBAL_CACHE)
-            else:
-                raise RuntimeError(f'Unrecognized value for cache_type: {existing_disk_cache.cache_type}')
 
-    def get_metastore_for_subtree(self, subtree_path: str, tree_type: int, tree_id: str):
+    def get_metastore_for_subtree(self, identifier: Identifier, tree_id: str):
         """
         Performs a read-through retreival of all the FMetas in the given subtree
         on the local filesystem.
         """
-        if tree_type == OBJ_TYPE_LOCAL_DISK:
-            return self.local_disk_cache.get_metastore_for_subtree(subtree_path, tree_id)
-        elif tree_type == OBJ_TYPE_GDRIVE:
-            return self.gdrive_cache.get_metastore_for_subtree(subtree_path, tree_id)
+        if identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
+            return self.local_disk_cache.get_metastore_for_subtree(identifier, tree_id)
+        elif identifier.tree_type == OBJ_TYPE_GDRIVE:
+            return self.gdrive_cache.get_metastore_for_subtree(identifier, tree_id)
         else:
-            raise RuntimeError(f'Unrecognized tree type: {tree_type}')
+            raise RuntimeError(f'Unrecognized tree type: {identifier.tree_type}')
 
     def get_metastore_for_local_subtree(self, subtree_path, tree_id):
         """
@@ -144,35 +146,34 @@ class CacheManager:
     def download_all_gdrive_meta(self, tree_id):
         return self.gdrive_cache.download_all_gdrive_meta(tree_id)
 
-    def get_cache_info_entry(self, cache_type, subtree_root) -> PersistedCacheInfo:
-        if cache_type == OBJ_TYPE_LOCAL_DISK:
-            already_in_memory = self.persisted_localfs_cache_info.get(subtree_root, None)
-        elif cache_type == OBJ_TYPE_GDRIVE:
-            already_in_memory = self.persisted_gdrive_cache_info.get(subtree_root, None)
+    def get_cache_info_entry(self, subtree_root: Identifier) -> PersistedCacheInfo:
+        if subtree_root.tree_type == OBJ_TYPE_LOCAL_DISK:
+            already_in_memory = self.persisted_localfs_cache_info.get(subtree_root.uid, None)
+        elif subtree_root.tree_type == OBJ_TYPE_GDRIVE:
+            already_in_memory = self.persisted_gdrive_cache_info.get(subtree_root.uid, None)
         else:
-            raise RuntimeError(f'Unknown cache type: {cache_type}')
+            raise RuntimeError(f'Unrecognized tree type: {subtree_root.tree_type}')
         return already_in_memory
 
-    def get_or_create_cache_info_entry(self, tree_type, subtree_root: str) -> PersistedCacheInfo:
-        existing = self.get_cache_info_entry(tree_type, subtree_root)
+    def get_or_create_cache_info_entry(self, subtree_root: Identifier) -> PersistedCacheInfo:
+        existing = self.get_cache_info_entry(subtree_root)
         if existing:
-            logger.debug(f'Found existing cache for type={tree_type} subtree="{subtree_root}"')
+            logger.debug(f'Found existing cache for type={subtree_root.tree_type} subtree="{subtree_root.uid}"')
             return existing
         else:
-            logger.debug(f'No existing cache found for type={tree_type} subtree="{subtree_root}"')
+            logger.debug(f'No existing cache found for type={subtree_root.tree_type} subtree="{subtree_root.uid}"')
 
-        if tree_type == OBJ_TYPE_LOCAL_DISK:
+        if subtree_root.tree_type == OBJ_TYPE_LOCAL_DISK:
             prefix = 'FS'
-        elif tree_type == OBJ_TYPE_GDRIVE:
+        elif subtree_root.tree_type == OBJ_TYPE_GDRIVE:
             prefix = 'GD'
         else:
-            raise RuntimeError(f'Unrecognized tree type: {tree_type}')
+            raise RuntimeError(f'Unrecognized tree type: {subtree_root.tree_type}')
 
-        mangled_file_name = prefix + subtree_root.replace('/', '_')
+        mangled_file_name = prefix + subtree_root.uid.replace('/', '_') + '.db'
         cache_location = os.path.join(self.cache_dir_path, mangled_file_name)
         now_ms = int(time.time())
         new_cache_info = CacheInfoEntry(cache_location=cache_location,
-                                        cache_type=tree_type,
                                         subtree_root=subtree_root, sync_ts=now_ms,
                                         is_complete=True)
 
@@ -183,10 +184,10 @@ class CacheManager:
         info_info = PersistedCacheInfo(new_cache_info)
 
         # Save reference in memory
-        if tree_type == OBJ_TYPE_LOCAL_DISK:
-            self.persisted_localfs_cache_info[subtree_root] = info_info
-        elif tree_type == OBJ_TYPE_GDRIVE:
-            self.persisted_gdrive_cache_info[subtree_root] = info_info
+        if subtree_root.tree_type == OBJ_TYPE_LOCAL_DISK:
+            self.persisted_localfs_cache_info[subtree_root.uid] = info_info
+        elif subtree_root.tree_type == OBJ_TYPE_GDRIVE:
+            self.persisted_gdrive_cache_info[subtree_root.uid] = info_info
         return info_info
 
     def get_gdrive_path_for_id(self, goog_id) -> str:

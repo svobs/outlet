@@ -14,8 +14,8 @@ def get_md5(item):
     return item.md5
 
 
-def get_id(item):
-    return item.id
+def get_uid(item):
+    return item.uid
 
 
 def get_sha256(item):
@@ -183,14 +183,14 @@ class FullPathBeforeMd5Dict(TwoLevelDict):
         super().__init__(get_full_path, get_md5, overwrite_newer_ts)
 
 
-class FullPathBeforeIdDict(TwoLevelDict):
+class FullPathBeforeUidDict(TwoLevelDict):
     def __init__(self):
-        super().__init__(get_full_path, get_id, overwrite_newer_ts)
+        super().__init__(get_full_path, get_uid, overwrite_newer_ts)
 
 
-class Md5BeforeIdDict(TwoLevelDict):
+class Md5BeforeUidDict(TwoLevelDict):
     def __init__(self):
-        super().__init__(get_md5, get_id, overwrite_newer_ts)
+        super().__init__(get_md5, get_uid, overwrite_newer_ts)
 
 
 class Md5BeforePathDict(TwoLevelDict):

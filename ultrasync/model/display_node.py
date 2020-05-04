@@ -7,7 +7,7 @@ import logging
 
 from constants import ICON_GENERIC_DIR, ICON_GENERIC_FILE
 from model.category import Category
-from model.display_id import DisplayId, LogicalNodeDisplayId
+from model.display_id import ensure_category, Identifier, LogicalNodeIdentifier
 
 logger = logging.getLogger(__name__)
 
@@ -18,38 +18,38 @@ def ensure_int(val):
     return val
 
 
-def ensure_category(val):
-    if type(val) == str:
-        return Category(int(val))
-    elif type(val) == int:
-        return Category(val)
-    return val
-
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
 
 class DisplayNode(ABC):
     """Base class for nodes which are meant to be displayed in a UI tree"""
-    def __init__(self, category):
-        self.category = ensure_category(category)
+    def __init__(self, identifier: Optional[Identifier]):
+        self.identifier = identifier
 
     @classmethod
     @abstractmethod
     def is_dir(cls):
         return False
 
-    @abstractmethod
-    def get_name(self):
-        return None
+    @property
+    def name(self):
+        return os.path.basename(self.identifier.full_path)
 
     @property
     def size_bytes(self):
         return None
 
     @property
-    @abstractmethod
-    def display_id(self) -> Optional[DisplayId]:
-        return None
+    def full_path(self):
+        return self.identifier.full_path
+
+    @property
+    def category(self):
+        return self.identifier.category
+
+    @property
+    def uid(self) -> str:
+        return self.identifier.uid
 
     @classmethod
     @abstractmethod
@@ -57,7 +57,6 @@ class DisplayNode(ABC):
         """If true, this node represents a physical path. If false, it is just a logical node"""
         return False
 
-    @abstractmethod
     def get_icon(self):
         return ICON_GENERIC_FILE
 
@@ -72,13 +71,13 @@ class DirNode(DisplayNode):
     """
     Represents a generic directory (i.e. not an FMeta or domain object)
     """
+
     def __init__(self, full_path, category=Category.NA):
-        super().__init__(category)
-        self.full_path = full_path
+        super().__init__(LogicalNodeIdentifier(full_path, category))
         self.file_count = 0
         self._size_bytes = 0
 
-    def add_meta(self, fmeta):
+    def add_meta_emtrics(self, fmeta):
         if fmeta.category != self.category:
             logger.error(f'BAD CATEGORY: expected={self.category} found={fmeta.category} path={fmeta.full_path}')
         assert fmeta.category == self.category
@@ -86,13 +85,8 @@ class DirNode(DisplayNode):
         if fmeta.size_bytes:
             self._size_bytes += fmeta.size_bytes
 
-    @property
-    def id(self):
-        return self.display_id.id_string
-
-    @property
-    def display_id(self):
-        return LogicalNodeDisplayId(id_string=self.full_path, category=self.category)
+    def get_icon(self):
+        return ICON_GENERIC_DIR
 
     @property
     def size_bytes(self):
@@ -106,18 +100,12 @@ class DirNode(DisplayNode):
     def is_dir(cls):
         return True
 
-    def get_name(self):
-        return os.path.split(self.full_path)[1]
-
     def get_summary(self):
         size = humanfriendly.format_size(self._size_bytes)
         return f'{size} in {self.file_count} files'
 
-    def get_icon(self):
-        return ICON_GENERIC_DIR
-
     def __repr__(self):
-        return f'DirNode(full_path="{self.full_path}" {self.get_summary()})'
+        return f'DirNode({self.identifier} {self.get_summary()})'
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
@@ -132,7 +120,8 @@ class CategoryNode(DirNode):
     def __repr__(self):
         return f'CategoryNode({self.category.name})'
 
-    def get_name(self):
+    @property
+    def name(self):
         return self.category.name
 
     def get_icon(self):
@@ -141,66 +130,68 @@ class CategoryNode(DirNode):
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
 
-class LoadingNode(DisplayNode):
+class EphemeralNode(DisplayNode, ABC):
+    def __init__(self):
+        super().__init__(None)
+
+    def __repr__(self):
+        return self.name
+
+    @property
+    @abstractmethod
+    def name(self):
+        return 'EphemeralNode'
+
+    def get_icon(self):
+        return None
+
+    @property
+    def full_path(self):
+        raise RuntimeError
+
+    @property
+    def uid(self):
+        raise RuntimeError
+
+    @property
+    def category(self):
+        raise RuntimeError
+
+    @classmethod
+    def is_dir(cls):
+        return False
+
+    @classmethod
+    def has_path(cls):
+        return False
+
+# ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
+
+
+class LoadingNode(EphemeralNode):
     """
     For use in lazy loading: Temporary node to put as the only child of a directory node,
     which will be deleted and replaced with real data if the node is expanded
     """
 
     def __init__(self):
-        super().__init__(Category.NA)
-
-    @classmethod
-    def __repr__(cls):
-        return 'LoadingNode'
-
-    def get_name(self):
-        return 'LoadingNode'
-
-    @classmethod
-    def is_dir(cls):
-        return False
-
-    @classmethod
-    def has_path(cls):
-        return False
+        super().__init__()
 
     @property
-    def display_id(self):
-        return None
-
-    def get_icon(self):
-        return None
+    def name(self):
+        return 'LoadingNode'
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
 
-class EmptyNode(DisplayNode):
+class EmptyNode(EphemeralNode):
     """
     Represents the contents of a directory which is known to be empty
     """
+
     def __init__(self):
-        super().__init__(Category.NA)
-
-    @classmethod
-    def __repr__(cls):
-        return 'EmptyNode'
-
-    @classmethod
-    def get_name(cls):
-        return 'EmptyNode'
-
-    @classmethod
-    def is_dir(cls):
-        return False
-
-    @classmethod
-    def has_path(cls):
-        return False
+        super().__init__()
 
     @property
-    def display_id(self):
-        return None
-
-    def get_icon(self):
-        return None
+    def name(self):
+        return 'EmptyNode'

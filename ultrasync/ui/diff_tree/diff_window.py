@@ -70,15 +70,15 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         # Diff Tree Left:
         self.root_path_persister_left = RootPathConfigPersister(config=self.config, tree_id=actions.ID_LEFT_TREE)
-        saved_root_path_left = self.root_path_persister_left.root_path
-        store_left = DummyMS(actions.ID_LEFT_TREE, self.config, saved_root_path_left, self.root_path_persister_left.tree_type)
+        saved_root_left = self.root_path_persister_left.root_identifier
+        store_left = DummyMS(actions.ID_LEFT_TREE, self.config, saved_root_left)
         self.tree_con_left = tree_factory.build_category_file_tree(parent_win=self, meta_store=store_left)
         diff_tree_panes.pack1(self.tree_con_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
         self.root_path_persister_right = RootPathConfigPersister(config=self.config, tree_id=actions.ID_RIGHT_TREE)
-        saved_root_path_right = self.root_path_persister_right.root_path
-        store_right = DummyMS(actions.ID_RIGHT_TREE, self.config, saved_root_path_right, self.root_path_persister_right.tree_type)
+        saved_root_right = self.root_path_persister_right.root_identifier
+        store_right = DummyMS(actions.ID_RIGHT_TREE, self.config, saved_root_right)
         self.tree_con_right = tree_factory.build_category_file_tree(parent_win=self, meta_store=store_right)
         diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)
 
@@ -136,7 +136,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         try:
             self.tree_con_left.meta_store = self.application.cache_manager.get_metastore_for_subtree(
-                subtree_path=self.root_path_persister_left.root_path, tree_type=self.root_path_persister_left.tree_type,
+                identifier=self.root_path_persister_left.root_identifier,
                 tree_id=actions.ID_LEFT_TREE)
         except RuntimeError as err:
             # TODO: custom exceptions
@@ -144,7 +144,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
 
         try:
             self.tree_con_right.meta_store = self.application.cache_manager.get_metastore_for_subtree(
-                subtree_path=self.root_path_persister_right.root_path, tree_type=self.root_path_persister_right.tree_type,
+                identifier=self.root_path_persister_right.root_identifier,
                 tree_id=actions.ID_RIGHT_TREE)
         except RuntimeError as err:
             # TODO: custom exceptions

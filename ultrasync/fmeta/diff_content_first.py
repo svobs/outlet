@@ -1,9 +1,12 @@
 """Content-first diff. See diff function below."""
+from typing import List, Optional
+
 import file_util
 import os
 import logging
 
 from model.category import Category
+from model.display_node import DisplayNode
 from model.fmeta_tree import FMetaTree
 from model.planning_node import FileToAdd, FileToMove
 from model.subtree_snapshot import SubtreeSnapshot
@@ -11,14 +14,14 @@ from model.subtree_snapshot import SubtreeSnapshot
 logger = logging.getLogger(__name__)
 
 
-def _compare_paths_for_same_md5(lefts, left_tree, rights, right_tree, fixer):
+def _compare_paths_for_same_md5(lefts, left_tree: SubtreeSnapshot, rights: Optional[List[DisplayNode]], right_tree: SubtreeSnapshot, fixer):
     if lefts is None:
         lefts = []
     if rights is None:
         rights = []
 
-    orphaned_left = []
-    orphaned_right = []
+    orphaned_left: List[DisplayNode] = []
+    orphaned_right: List[DisplayNode] = []
 
     for left in lefts:
         left_on_right = fixer.move_to_right(left)
@@ -72,27 +75,31 @@ class PathTransplanter:
     def plan_rename_file_right(self, left_item, right_item):
         """Make a FileToMove node which will rename a file in the right tree to the name of the file on left"""
         dest_path = self.move_to_right(left_item)
-        orig_path = self.right_tree.get_path_for_item(right_item)
-        move_right_to_right = FileToMove(right_item, orig_path, dest_path)
+        orig_path = self.right_tree.get_full_path_for_item(right_item)
+        identifier = self.right_tree.create_identifier(full_path=dest_path, category=Category.Moved)
+        move_right_to_right = FileToMove(identifier=identifier, orig_path=orig_path, original_node=right_item)
         self.right_tree.add_item(move_right_to_right)
 
     def plan_rename_file_left(self, left_item, right_item):
         """Make a FileToMove node which will rename a file in the left tree to the name of the file on right"""
         dest_path = self.move_to_left(right_item)
-        orig_path = self.left_tree.get_path_for_item(left_item)
-        move_left_to_left = FileToMove(left_item, orig_path, dest_path)
+        orig_path = self.left_tree.get_full_path_for_item(left_item)
+        identifier = self.left_tree.create_identifier(full_path=dest_path, category=Category.Moved)
+        move_left_to_left = FileToMove(identifier=identifier, orig_path=orig_path, original_node=left_item)
         self.left_tree.add_item(move_left_to_left)
 
     def plan_add_file_left_to_right(self, left_item):
         dest_path = self.move_to_right(left_item)
-        orig_path = self.left_tree.get_path_for_item(left_item)
-        file_to_add_to_right = FileToAdd(left_item, orig_path, dest_path)
+        orig_path = self.left_tree.get_full_path_for_item(left_item)
+        identifier = self.right_tree.create_identifier(full_path=dest_path, category=Category.Added)
+        file_to_add_to_right = FileToAdd(identifier=identifier, orig_path=orig_path, original_node=left_item)
         self.right_tree.add_item(file_to_add_to_right)
 
     def plan_add_file_right_to_left(self, right_item):
         dest_path = self.move_to_left(right_item)
-        orig_path = self.right_tree.get_path_for_item(right_item)
-        file_to_add_to_left = FileToAdd(right_item, orig_path, dest_path)
+        orig_path = self.right_tree.get_full_path_for_item(right_item)
+        identifier = self.left_tree.create_identifier(full_path=dest_path, category=Category.Added)
+        file_to_add_to_left = FileToAdd(identifier=identifier, orig_path=orig_path, original_node=right_item)
         self.left_tree.add_item(file_to_add_to_left)
 
 
@@ -195,7 +202,7 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
                 if matching_right:
                     # UPDATED
                     if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f'File updated: {left_item.md5} <- "{left_tree.get_path_for_item(left_item)}" -> {matching_right.md5}')
+                        logger.debug(f'File updated: {left_item.md5} <- "{left_tree.get_full_path_for_item(left_item)}" -> {matching_right.md5}')
                     # Same path, different md5 -> Updated
                     right_tree.categorize(matching_right, Category.Updated)
                     left_tree.categorize(left_item, Category.Updated)
@@ -204,7 +211,7 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
                 # No match? fall through
             # DUPLICATE ADDED on right + DELETED on left
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f'Left has new file: "{left_tree.get_path_for_item(left_item)}"')
+                logger.debug(f'Left has new file: "{left_tree.get_full_path_for_item(left_item)}"')
             fixer.plan_add_file_left_to_right(left_item)
 
             # TODO: rename 'Deleted' category to 'ToDelete'
@@ -221,7 +228,7 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
                     continue
             # DUPLICATE ADDED on right + DELETED on left
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f'Right has new file: "{right_tree.get_path_for_item(right_item)}"')
+                logger.debug(f'Right has new file: "{right_tree.get_full_path_for_item(right_item)}"')
             fixer.plan_add_file_right_to_left(right_item)
 
             # Dead node walking:
@@ -261,8 +268,8 @@ def merge_change_trees(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, 
                 # Finding a pair here indicates a conflict
                 if left is not None and right is not None:
                     conflict_pairs.append((left, right))
-                    logger.debug(f'CONFLICT: left={left.category.name}:{left_tree.get_path_for_item(left)} '
-                                 f'right={right.category.name}:{right_tree.get_path_for_item(right)}')
+                    logger.debug(f'CONFLICT: left={left.category.name}:{left_tree.get_full_path_for_item(left)} '
+                                 f'right={right.category.name}:{right_tree.get_full_path_for_item(right)}')
         else:
             if left_items_dup_md5:
                 for node in left_items_dup_md5:

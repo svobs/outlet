@@ -1,25 +1,24 @@
 import logging
 import os
 from queue import Queue
-from typing import Optional
+from typing import List, Optional
 
 import treelib
 from pydispatch import dispatcher
-from stopwatch_sec import Stopwatch
 
 import file_util
+from constants import OBJ_TYPE_LOCAL_DISK, ROOT
 from fmeta.fmeta_tree_loader import TreeMetaScanner
-from index.cache_info import CacheInfoEntry
 from index.cache_manager import PersistedCacheInfo
 from index.meta_store.local import LocalDiskSubtreeMS
 from index.sqlite.fmeta_db import FMetaDatabase
 from index.two_level_dict import FullPathDict, Md5BeforePathDict, ParentPathBeforeFileNameDict, Sha256BeforePathDict
-from constants import OBJ_TYPE_LOCAL_DISK, ROOT
+from model.display_id import Identifier, LocalFsIdentifier
 from model.fmeta import FMeta
 from model.fmeta_tree import FMetaTree
 from model.planning_node import PlanningNode
+from stopwatch_sec import Stopwatch
 from ui import actions
-from ui.actions import ID_GLOBAL_CACHE
 from ui.tree.meta_store import BaseMetaStore, DummyMS
 
 logger = logging.getLogger(__name__)
@@ -70,15 +69,15 @@ class LocalDiskMasterCache:
         self.parent_path_dict.put(item, existing)
         self._add_ancestors_to_tree(item.full_path)
 
-    def _get_subtree_from_memory_only(self, subtree_path):
+    def _get_subtree_from_memory_only(self, subtree_path: Identifier):
         logger.debug(f'Getting items from in-memory cache for subtree: {subtree_path}')
-        fmeta_tree = FMetaTree(root_path=subtree_path)
+        fmeta_tree = FMetaTree(root_path=subtree_path.full_path)
         count_dirs = 0
         count_added_from_cache = 0
 
         # Loop over all the descendants dirs, and add all of the files in each:
         q = Queue()
-        q.put(subtree_path)
+        q.put(subtree_path.full_path)
         while not q.empty():
             dir_path = q.get()
             count_dirs += 1
@@ -110,9 +109,9 @@ class LocalDiskMasterCache:
             logger.debug(status)
             dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
 
-            fmeta_tree = FMetaTree(cache_info.cache_info.subtree_root)
+            fmeta_tree = FMetaTree(cache_info.cache_info.subtree_root.full_path)
 
-            db_file_changes = fmeta_disk_cache.get_local_files()
+            db_file_changes: List[FMeta] = fmeta_disk_cache.get_local_files()
             if len(db_file_changes) == 0:
                 logger.debug('No data found in disk cache')
 
@@ -134,8 +133,7 @@ class LocalDiskMasterCache:
 
     def _save_subtree_disk_cache(self, fmeta_tree: FMetaTree):
         # Get existing cache location if available. We will overwrite it.
-        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(
-            OBJ_TYPE_LOCAL_DISK, fmeta_tree.root_path)
+        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(fmeta_tree.identifier)
         to_insert = fmeta_tree.get_all()
 
         stopwatch_write_cache = Stopwatch()
@@ -150,20 +148,20 @@ class LocalDiskMasterCache:
     def init_subtree_localfs_cache(self, cache_info: PersistedCacheInfo, tree_id):
         """Called at startup to handle a single subtree cache from a local fs"""
 
-        if not os.path.exists(cache_info.cache_info.subtree_root):
+        if not os.path.exists(cache_info.cache_info.subtree_root.full_path):
             logger.info(f'Subtree not found; assuming it is a removable drive: "{cache_info.cache_info.subtree_root}"')
             cache_info.needs_refresh = True
             return
 
         self._load_subtree(cache_info, tree_id)
 
-    def get_metastore_for_subtree(self, subtree_path: str, tree_id: str) -> BaseMetaStore:
-        if not os.path.exists(subtree_path):
-            logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_path}". Returning an empty metastore')
-            return DummyMS(tree_id, self.application.config, subtree_path, OBJ_TYPE_LOCAL_DISK)
+    def get_metastore_for_subtree(self, subtree_root: LocalFsIdentifier, tree_id: str) -> BaseMetaStore:
+        if not os.path.exists(subtree_root.full_path):
+            logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root.full_path}". Returning an empty metastore')
+            return DummyMS(tree_id, self.application.config, subtree_root)
 
         cache_man = self.application.cache_manager
-        cache_info = cache_man.get_or_create_cache_info_entry(OBJ_TYPE_LOCAL_DISK, subtree_path)
+        cache_info = cache_man.get_or_create_cache_info_entry(subtree_root)
         assert cache_info is not None
 
         fmeta_tree = self._load_subtree(cache_info, tree_id)
@@ -185,7 +183,7 @@ class LocalDiskMasterCache:
             if fmeta_tree:
                 has_data_to_store_in_memory = True
             else:
-                fmeta_tree = FMetaTree(cache_info.cache_info.subtree_root)
+                fmeta_tree = FMetaTree(cache_info.cache_info.subtree_root.full_path)
 
         if cache_info.is_loaded and not \
                 self.application.cache_manager.sync_from_local_disk_on_cache_load:

@@ -44,7 +44,7 @@ def build_category_tree(source_tree: SubtreeSnapshot, root_node: CategoryNode) -
         nid = root_node_id
         parent = root
         logger.debug(f'Adding root file "{item.display_id.id_string}" to dir "{parent.data.full_path}"')
-        parent.data.add_meta(item)
+        parent.data.add_meta_emtrics(item)
         if dirs_str != '':
             # Create a node for each ancestor dir (path segment)
             path_segments = file_util.split_path(dirs_str)
@@ -59,7 +59,7 @@ def build_category_tree(source_tree: SubtreeSnapshot, root_node: CategoryNode) -
                 parent = child
                 # logger.debug(f'Adding file meta from nid="{item.full_path}" to dir node {parent.data.full_path}"')
                 assert isinstance(parent.data, DirNode)
-                parent.data.add_meta(item)
+                parent.data.add_meta_emtrics(item)
         nid = os.path.join(nid, file_name)
         # logger.debug(f'Creating file node: nid={nid}')
         change_tree.create_node(identifier=nid, tag=file_name, parent=parent, data=item)

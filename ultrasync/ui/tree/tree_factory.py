@@ -244,8 +244,7 @@ def build(parent_win, meta_store, treeview_meta, display_strategy, action_handle
     controller = TreePanelController(parent_win, meta_store, display_store, treeview_meta)
     controller.tree_view = _build_treeview(display_store)
     controller.root_dir_panel = RootDirPanel(parent_win=parent_win, tree_id=meta_store.tree_id,
-                                             current_root=meta_store.get_root_path(), editable=treeview_meta.editable,
-                                             tree_type=meta_store.get_tree_type())
+                                             current_root=meta_store.get_root_identifier(), editable=treeview_meta.editable)
     controller.display_strategy = display_strategy
     display_strategy.con = controller
     controller.action_handlers = action_handlers

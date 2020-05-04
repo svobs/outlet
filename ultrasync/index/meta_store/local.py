@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional
 
 from constants import OBJ_TYPE_LOCAL_DISK, ROOT, TreeDisplayMode
-from model.fmeta import LocalFsDisplayId
+from model.display_id import Identifier, LocalFsIdentifier
 from model.fmeta_tree import FMetaTree
 
 logger = logging.getLogger(__name__)
@@ -27,8 +27,8 @@ class LocalDiskSubtreeMS(LazyMetaStore):
         self._fmeta_tree: FMetaTree = fmeta_tree
         """The source tree"""
 
-    def get_root_path(self):
-        return self._fmeta_tree.root_path
+    def get_root_identifier(self) -> Identifier:
+        return self._fmeta_tree.identifier
 
     def get_whole_tree(self):
         # TODO: rename this to prevent confusion. This is not a displayable tree
@@ -41,8 +41,8 @@ class LocalDiskSubtreeMS(LazyMetaStore):
             raise NotImplementedError(f'Not supported: {tree_display_mode}')
 
     # Must return files AND directories
-    def get_children(self, parent_id: LocalFsDisplayId, tree_display_mode: TreeDisplayMode):
-        if parent_id is None or parent_id == ROOT:
+    def get_children(self, parent_id: LocalFsIdentifier, tree_display_mode: TreeDisplayMode):
+        if parent_id is None or parent_id.full_path == ROOT:
             raise RuntimeError(f'get_children() called for empty parent!')
 
         if tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
@@ -57,5 +57,5 @@ class LocalDiskSubtreeMS(LazyMetaStore):
     def get_tree_type(cls):
         return OBJ_TYPE_LOCAL_DISK
 
-    def get_path_for_item(self, item) -> str:
-        return self._fmeta_tree.get_path_for_item(item)
+    def get_full_path_for_item(self, item) -> str:
+        return self._fmeta_tree.get_full_path_for_item(item)

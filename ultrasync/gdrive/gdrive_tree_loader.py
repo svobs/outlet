@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 def build_path_trees_by_id(meta: GDriveWholeTree):
+    # TODO DEAD CODE prob delete later
     path_dict = {}
 
     total_items = 0
@@ -33,16 +34,16 @@ def build_path_trees_by_id(meta: GDriveWholeTree):
         count_tree_items = 0
         count_tree_files = 0
         count_tree_dirs = 0
-        logger.debug(f'Building tree for GDrive root: [{root_node.id}] {root_node.name}')
+        logger.debug(f'Building tree for GDrive root: [{root_node.uid}] {root_node.name}')
         q = Queue()
-        q.put((root_node, root_node.id))
+        q.put((root_node, root_node.uid))
 
         while not q.empty():
             item, parent_id = q.get()
-            path = os.path.join(parent_id, item.id)
+            path = os.path.join(parent_id, item.uid)
             existing = path_dict.get(path, None)
             if existing:
-                if item.id == existing.id:
+                if item.uid == existing.uid:
                     # dunno why these come through, but they seem to be harmless
                     count_resolved_conflicts += 1
                     continue
@@ -67,13 +68,13 @@ def build_path_trees_by_id(meta: GDriveWholeTree):
             elif item.trashed == IMPLICITLY_TRASHED:
                 count_implicit_trash += 1
 
-            child_list = meta.get_children(item.id)
+            child_list = meta.get_children(item.uid)
             if item.is_dir():
                 count_tree_dirs += 1
             else:
                 count_tree_files += 1
                 if child_list:
-                    logger.error(f'Item is marked as a FILE but has children! [{root_node.id}] {root_node.name}')
+                    logger.error(f'Item is marked as a FILE but has children! [{root_node.uid}] {root_node.name}')
 
             if child_list:
                 for child in child_list:
@@ -99,7 +100,10 @@ class GDriveTreeLoader:
         self.config = config
         self.tree_id = tree_id
         self.tx_id = uuid.uuid1()
+        self.cache_path = cache_path
         if cache_path:
+            if not os.path.exists(cache_path):
+                raise FileNotFoundError(cache_path)
             self.cache = GDriveDatabase(cache_path)
         else:
             self.cache = None
@@ -167,7 +171,10 @@ class GDriveTreeLoader:
 
         self.cache.insert_multiple_parent_mappings(meta.ids_with_multiple_parents, overwrite)
 
-    def load_from_cache(self, meta):
+    def load_from_cache(self, meta: GDriveWholeTree):
+
+        if not self.cache.has_gdrive_dirs() or not self.cache.has_gdrive_files():
+            raise RuntimeError(f'Cache is corrupted: {self.cache_path}')
 
         # DIRs:
         dir_rows = self.cache.get_gdrive_dirs()
@@ -182,7 +189,7 @@ class GDriveTreeLoader:
         # FILES:
         file_rows = self.cache.get_gdrive_files()
         for item_id, item_name, parent_id, item_trashed, size_bytes_str, md5, create_ts, modify_ts, owner_id, drive_id, \
-            my_share, version, head_revision_id, sync_ts in file_rows:
+                my_share, version, head_revision_id, sync_ts in file_rows:
             size_bytes = None if size_bytes_str is None else int(size_bytes_str)
             file_node = GoogFile(item_id=item_id, item_name=item_name,
                                  trashed=item_trashed, drive_id=drive_id, my_share=my_share, version=int(version),
@@ -197,3 +204,4 @@ class GDriveTreeLoader:
 
         # Finally, build the id tree:
         # meta.path_dict = build_path_trees_by_id(meta)
+

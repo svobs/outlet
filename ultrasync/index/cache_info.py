@@ -1,3 +1,4 @@
+from model.display_id import Identifier
 from model.display_node import ensure_int
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
@@ -6,15 +7,14 @@ from model.display_node import ensure_int
 
 
 class CacheInfoEntry:
-    def __init__(self, cache_location, cache_type, subtree_root, sync_ts, is_complete):
-        self.cache_location = cache_location
-        self.cache_type = ensure_int(cache_type)
-        self.subtree_root = subtree_root
+    def __init__(self, cache_location, subtree_root: Identifier, sync_ts, is_complete):
+        self.cache_location: str = cache_location
+        self.subtree_root: Identifier = subtree_root
         self.sync_ts = ensure_int(sync_ts)
         self.is_complete = is_complete
 
     def to_tuple(self):
-        return self.cache_location, self.cache_type, self.subtree_root, self.sync_ts, self.is_complete
+        return self.cache_location, self.subtree_root.tree_type, self.subtree_root.full_path, self.subtree_root.uid, self.sync_ts, self.is_complete
 
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛

@@ -4,6 +4,8 @@ import gi
 from pydispatch import dispatcher
 
 from constants import OBJ_TYPE_GDRIVE
+from model.display_id import Identifier
+from model.display_node import DisplayNode
 from ui import actions
 from ui.tree import tree_factory
 
@@ -44,11 +46,10 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
         self.connect("response", self.on_response)
         self.show_all()
 
-    def on_ok_clicked(self, item_id: str):
+    def on_ok_clicked(self, identifier: Identifier):
         # TODO: disallow selection of files
-        path = self.application.cache_manager.get_gdrive_path_for_id(item_id)
-        logger.info(f'User selected dir id="{item_id}" path="{path}"')
-        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root=item_id, tree_type=OBJ_TYPE_GDRIVE)
+        logger.info(f'User selected dir id="{identifier.uid}"')
+        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root=identifier)
 
     def on_response(self, dialog, response_id):
         # destroy the widget (the dialog) when the function on_response() is called
@@ -57,10 +58,10 @@ class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
         try:
             if response_id == Gtk.ResponseType.OK:
                 logger.debug("The OK button was clicked")
-                node_data = self.tree_controller.get_single_selection()
-                assert node_data.display_id
-                assert node_data.display_id.id_string
-                self.on_ok_clicked(node_data.display_id.id_string)
+                # FIXME: derive path from tree selection
+                node_data: DisplayNode = self.tree_controller.get_single_selection()
+                assert node_data.identifier
+                self.on_ok_clicked(node_data.identifier)
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
             elif response_id == Gtk.ResponseType.CLOSE:

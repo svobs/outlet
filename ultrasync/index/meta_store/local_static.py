@@ -40,6 +40,6 @@ class StaticWholeTreeMS(BaseMetaStore):
     def get_tree_type(cls):
         return OBJ_TYPE_LOCAL_DISK
 
-    def get_path_for_item(self, item: FMeta) -> str:
+    def get_full_path_for_item(self, item: FMeta) -> str:
         return item.full_path
 

@@ -5,7 +5,8 @@ import humanfriendly
 
 import file_util
 from model.category import Category
-from model.display_id import DisplayId
+from model.display_id import LocalFsIdentifier
+from model.display_node import DisplayNode
 from model.fmeta import FMeta
 from model.planning_node import PlanningNode
 from model.subtree_snapshot import SubtreeSnapshot
@@ -53,8 +54,8 @@ class FMetaTree(SubtreeSnapshot):
     """🢄🢄🢄 Note: each FMeta object should be unique within its tree. Each FMeta should not be shared
     between trees, and should be cloned if needed"""
 
-    def __init__(self, root_path):
-        super().__init__(root_path)
+    def __init__(self, root_path: str):
+        super().__init__(LocalFsIdentifier(root_path))
         # Each item is an entry
         self._path_dict: Dict[str, FMeta] = {}
         # Each item contains a list of entries
@@ -68,6 +69,9 @@ class FMetaTree(SubtreeSnapshot):
         self._dup_md5_count = 0
         self._total_size_bytes = 0
 
+    def create_identifier(self, full_path, category):
+        return LocalFsIdentifier(full_path=full_path, category=category)
+
     def categorize(self, fmeta, category: Category):
         """🢄🢄🢄 Convenience method to use when building the tree.
         Changes the category of the given fmeta, then adds it to the category dict.
@@ -76,7 +80,7 @@ class FMetaTree(SubtreeSnapshot):
         assert category != Category.NA
         # param fmeta should already be a member of this tree
         assert self.get_for_path(path=fmeta.full_path, include_ignored=True) == fmeta
-        fmeta.category = category
+        fmeta.identifier.category = category
         return self._cat_dict[category].add(fmeta)
 
     def clear_categories(self):
@@ -117,7 +121,7 @@ class FMetaTree(SubtreeSnapshot):
     def get_for_cat(self, category: Category):
         return self._cat_dict[category].list
 
-    def get_path_for_item(self, item: FMeta) -> str:
+    def get_full_path_for_item(self, item: FMeta) -> str:
         # Trivial for FMetas
         return item.full_path
 
@@ -134,7 +138,7 @@ class FMetaTree(SubtreeSnapshot):
     def get_for_md5(self, md5):
         return self._md5_dict.get(md5, None)
 
-    def get_relative_path_of(self, fmeta: FMeta):
+    def get_relative_path_for_item(self, fmeta: FMeta):
         assert fmeta.full_path.startswith(self.root_path), f'FMeta full path ({fmeta.full_path}) does not contain root ({self.root_path})'
         return file_util.strip_root(fmeta.full_path, self.root_path)
 
@@ -183,7 +187,7 @@ class FMetaTree(SubtreeSnapshot):
 
         return match
 
-    def add_item(self, item):
+    def add_item(self, item: FMeta):
         if not item.full_path.startswith(self.root_path):
             raise RuntimeError(f'FMeta (cat={item.category.name}) full path ({item.full_path}) is not under this tree ({self.root_path})')
 

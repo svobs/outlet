@@ -2,13 +2,21 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional, Union
 
 from model.category import Category
-from model.display_id import DisplayId
+from model.display_id import Identifier
 
 
 class SubtreeSnapshot(ABC):
-    def __init__(self, root_path):
+    def __init__(self, root_identifier: Identifier):
         super().__init__()
-        self.root_path: str = root_path
+        self.identifier: Identifier = root_identifier
+
+    @property
+    def root_path(self):
+        return self.identifier.full_path
+
+    @property
+    def uid(self):
+        return self.identifier.uid
 
     @abstractmethod
     def categorize(self, item, category: Category):
@@ -23,12 +31,11 @@ class SubtreeSnapshot(ABC):
         pass
 
     @abstractmethod
-    def get_path_for_item(self, item) -> str:
+    def get_full_path_for_item(self, item) -> str:
         pass
 
     @abstractmethod
-    def get_relative_path_of(self, item):
-        # TODO: rename this to get_relative_path_for_item for consistency
+    def get_relative_path_for_item(self, item):
         pass
 
     @abstractmethod
@@ -57,4 +64,8 @@ class SubtreeSnapshot(ABC):
 
     @abstractmethod
     def get_category_summary_string(self):
+        pass
+
+    @abstractmethod
+    def create_identifier(self, full_path, category):
         pass

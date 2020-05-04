@@ -1,12 +1,11 @@
-import asyncio
 import logging
 import os
-import threading
 
 import gi
 from pydispatch import dispatcher
 
 from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
+from model.display_id import Identifier, LocalFsIdentifier
 from ui.base_dialog import BaseDialog
 
 gi.require_version("Gtk", "3.0")
@@ -26,7 +25,8 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
     if response_id == Gtk.ResponseType.OK:
         filename = open_dialog.get_filename()
         logger.info(f'User selected dir: {filename}')
-        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.tree_id, new_root=filename, tree_type=OBJ_TYPE_LOCAL_DISK)
+        identifier = LocalFsIdentifier(full_path=filename)
+        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.tree_id, new_root=identifier)
     # if response is "CANCEL" (the button "Cancel" has been clicked)
     elif response_id == Gtk.ResponseType.CANCEL:
         logger.debug("Cancelled: RootDirChooserDialog")
@@ -75,13 +75,12 @@ class RootDirChooserDialog(Gtk.FileChooserDialog):
 
 
 class RootDirPanel:
-    def __init__(self, parent_win, tree_id, current_root, tree_type, editable):
+    def __init__(self, parent_win, tree_id, current_root: Identifier, editable):
         self.parent_win: BaseDialog = parent_win
         assert type(tree_id) == str
         self.tree_id = tree_id
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
-        self.current_root = current_root
-        self.current_tree_type = tree_type
+        self.current_root: Identifier = current_root
         self.editable = editable
         self.ui_enabled = editable
         """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
@@ -99,7 +98,7 @@ class RootDirPanel:
                 if self.ui_enabled and event.keyval == Gdk.KEY_Escape and self.entry:
                     # cancel
                     logger.debug(f'Escape pressed! Cancelling root path entry box')
-                    self._update_root_label(self.current_root, self.current_tree_type)
+                    self._update_root_label(self.current_root)
                     return True
                 return False
 
@@ -136,15 +135,16 @@ class RootDirPanel:
         actions.connect(actions.ROOT_PATH_UPDATED, self._on_root_path_updated, self.tree_id)
 
         # Need to call this to do the initial UI draw:
-        GLib.idle_add(self._update_root_label, current_root, tree_type)
+        GLib.idle_add(self._update_root_label, current_root)
 
     def _on_root_text_entry_submitted(self, widget, tree_id):
         # Triggered when the user submits a root via the text entry box
-        new_root = self.entry.get_text()
-        # TODO: parse tree type
-        logger.info(f'User entered root path: "{new_root}" for tree_id={tree_id}')
+        new_root_path = self.entry.get_text()
+        # TODO: parse tree type, allow for GDrive
+        new_root = LocalFsIdentifier(full_path=new_root_path)
+        logger.info(f'User entered root path: "{new_root_path}" for tree_id={tree_id}')
         # Important: send this signal AFTER label updated
-        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root, tree_type=self.current_tree_type)
+        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root)
 
     def _on_change_btn_clicked(self, widget, parent_win):
         if self.ui_enabled:
@@ -187,19 +187,7 @@ class RootDirPanel:
             self.change_btn.set_sensitive(enable)
         GLib.idle_add(change_button)
 
-    def _set_gdrive_path(self, new_root):
-        self.parent_win.application.cache_manager.all_caches_loaded.wait()
-
-        try:
-            root_part_regular = self.parent_win.application.cache_manager.get_gdrive_path_for_id(new_root)
-            if root_part_regular is None:
-                root_part_regular = '(Not Found)'
-            GLib.idle_add(self._set_label_markup, '', '', root_part_regular, '')
-        except Exception:
-            GLib.idle_add(self._set_label_markup, '', "foreground='red'", '', 'ERROR')
-            raise
-
-    def _update_root_label(self, new_root, tree_type):
+    def _update_root_label(self, new_root: Identifier):
         """Updates the UI to reflect the new root and tree type.
         Expected to be called from the UI thread.
         """
@@ -224,31 +212,32 @@ class RootDirPanel:
         if self.editable:
             self.label_event_box.connect('button_press_event', self._on_label_clicked)
 
-        if tree_type == OBJ_TYPE_LOCAL_DISK:
-            self._update_root_label_localfs(new_root, tree_type)
-        elif tree_type == OBJ_TYPE_GDRIVE:
+        if new_root.tree_type == OBJ_TYPE_LOCAL_DISK:
+            self._update_root_label_localfs(new_root)
+        elif new_root.tree_type == OBJ_TYPE_GDRIVE:
             self.icon.set_from_file(GDRIVE_ICON_PATH)
-
-            thread = threading.Thread(target=self._set_gdrive_path, args=(new_root,))
-            self._set_label_markup('', "foreground='gray'", 'Loading...', '')
-            thread.start()
+            # Display the user-readable path, not the ID:
+            root_part_regular = new_root.full_path
+            if root_part_regular is None:
+                root_part_regular = '(Not Found)'
+            GLib.idle_add(self._set_label_markup, '', '', root_part_regular, '')
 
         else:
-            raise RuntimeError(f'Unrecognized tree type: {tree_type}')
+            raise RuntimeError(f'Unrecognized tree type: {new_root.tree_type}')
 
-    def _update_root_label_localfs(self, new_root, tree_type):
+    def _update_root_label_localfs(self, new_root: Identifier):
         self.icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
 
-        if os.path.exists(new_root):
+        if os.path.exists(new_root.full_path):
             pre = ''
             color = ''
-            root_part_regular, root_part_bold = os.path.split(new_root)
+            root_part_regular, root_part_bold = os.path.split(new_root.full_path)
             root_part_regular = root_part_regular + '/'
             if len(self.alert_image_box.get_children()) > 0:
                 self.alert_image_box.remove(self.alert_image)
         else:
             # TODO: determine offensive parent
-            root_part_regular, root_part_bold = os.path.split(new_root)
+            root_part_regular, root_part_bold = os.path.split(new_root.full_path)
             root_part_regular = root_part_regular + '/'
             if len(self.alert_image_box.get_children()) == 0:
                 self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
@@ -264,16 +253,15 @@ class RootDirPanel:
         self.label.show()
         self.label_event_box.show()
 
-    def _on_root_path_updated(self, sender, new_root, tree_type):
+    def _on_root_path_updated(self, sender, new_root: Identifier):
         """Callback for actions.ROOT_PATH_UPDATED"""
-        logger.debug(f'Received a new root: type={tree_type} path="{new_root}"')
-        if not new_root:
+        logger.debug(f'Received a new root: type={new_root.tree_type} path="{new_root.full_path}"')
+        if not new_root or new_root.full_path:
             raise RuntimeError(f'Root path cannot be empty! (tree_id={sender})')
         self.current_root = new_root
-        self.current_tree_type = tree_type
 
         # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html
-        GLib.idle_add(self._update_root_label, new_root, tree_type)
+        GLib.idle_add(self._update_root_label, new_root)
 
     def _open_localfs_root_chooser_dialog(self, menu_item):
         """Creates and displays a RootDirChooserDialog.

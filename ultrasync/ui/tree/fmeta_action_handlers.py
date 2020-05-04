@@ -6,7 +6,7 @@ import subprocess
 from typing import List
 
 import ui.actions as actions
-from model.planning_node import FMetaDecorator
+from model.planning_node import FileDecoratorNode
 from ui.tree.action_bridge import TreeActionBridge
 from model.display_node import DirNode, CategoryNode, DisplayNode
 
@@ -41,7 +41,7 @@ class FMetaTreeActionHandlers(TreeActionBridge):
         elif node_data.has_path():
             if os.path.exists(node_data.full_path):
                 self.call_xdg_open(node_data.full_path)
-            elif isinstance(node_data, FMetaDecorator):
+            elif isinstance(node_data, FileDecoratorNode):
                 if os.path.exists(node_data.original_full_path):
                     self.call_xdg_open(node_data.original_full_path)
                 else:
@@ -80,10 +80,10 @@ class FMetaTreeActionHandlers(TreeActionBridge):
 
         menu = Gtk.Menu()
 
-        if isinstance(node_data, FMetaDecorator):
+        if isinstance(node_data, FileDecoratorNode):
             full_path = node_data.original_full_path
         else:
-            full_path = self.con.meta_store.get_path_for_item(node_data)
+            full_path = self.con.meta_store.get_full_path_for_item(node_data)
         parent_path, file_name = os.path.split(full_path)
 
         is_category_node = type(node_data) == CategoryNode

@@ -44,23 +44,23 @@ def get_resource_path(rel_path: str, resolve_symlinks=False):
     return abs_path_to_resource
 
 
-def strip_root(file_path: str, root_path: str) -> str:
+def strip_root(full_path: str, root_path: str) -> str:
     """
     Strips the root_path out of the file path.
     Args:
-        file_path: absolute path (starts with '/'; may or may not end with a '/'
+        full_path: absolute path (starts with '/'; may or may not end with a '/'
         root_path: Root path (must be present in file_path)
 
     Returns:
         a relative path
     """
-    assert file_path.find(root_path) >= 0
-    if file_path.endswith('/'):
-        file_path = file_path[:-1]
+    assert full_path.find(root_path) >= 0, f'Did not find root_path ({root_path}) in full path ({full_path})'
+    if full_path.endswith('/'):
+        file_path = full_path[:-1]
     if root_path.endswith('/'):
         root_path = root_path[:-1]
-    rel_path = re.sub(root_path, '', file_path, count=1)
-    if len(rel_path) < len(file_path) and rel_path.startswith('/'):
+    rel_path = re.sub(root_path, '', full_path, count=1)
+    if len(rel_path) < len(full_path) and rel_path.startswith('/'):
         rel_path = rel_path[1:]
     return rel_path
 

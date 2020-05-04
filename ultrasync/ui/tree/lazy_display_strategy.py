@@ -1,10 +1,11 @@
 import logging
 import os
 from datetime import datetime
+from typing import List, Optional
 
 import gi
 
-from model.display_id import DisplayId
+from model.display_id import Identifier
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib
@@ -66,15 +67,15 @@ class LazyDisplayStrategy:
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.meta_store.tree_id)
         dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.con.meta_store.tree_id)
 
-    def _on_root_path_updated(self, sender, new_root, tree_type):
+    def _on_root_path_updated(self, sender, new_root: Identifier):
         # Callback for actions.ROOT_PATH_UPDATED
         # Get a new metastore from the cache manager:
         cacheman = self.con.parent_win.application.cache_manager
-        self.con.meta_store = cacheman.get_metastore_for_subtree(new_root, tree_type, self.con.meta_store.tree_id)
+        self.con.meta_store = cacheman.get_metastore_for_subtree(new_root, self.con.meta_store.tree_id)
 
-    def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded):
+    def _on_node_expansion_toggled(self, sender: str, parent_iter, node_data: DisplayNode, is_expanded: bool):
         # Callback for actions.NODE_EXPANSION_TOGGLED:
-        logger.debug(f'Node expansion toggled to {is_expanded} for cat={node_data.category} id="{node_data.display_id}" tree_id={sender}')
+        logger.debug(f'Node expansion toggled to {is_expanded} for cat={node_data.category} id="{node_data.uid}" tree_id={sender}')
 
         if not self.con.meta_store.is_lazy():
             return
@@ -82,8 +83,8 @@ class LazyDisplayStrategy:
         def expand_or_contract():
             # Add children for node:
             if is_expanded:
-                children = self.con.meta_store.get_children(node_data.display_id, self.con.treeview_meta.tree_display_mode)
-                self._append_children(children, parent_iter, node_data.display_id)
+                children = self.con.meta_store.get_children(node_data.identifier, self.con.treeview_meta.tree_display_mode)
+                self._append_children(children, parent_iter, node_data.uid)
                 # Remove Loading node:
                 self.con.display_store.remove_first_child(parent_iter)
             else:
@@ -102,26 +103,26 @@ class LazyDisplayStrategy:
                 is_expand = self.con.treeview_meta.is_category_node_expanded(node_data)
                 if is_expand:
                     tree_path = self.con.display_store.model.get_path(tree_iter)
-                    logger.info(f'Expanding row: {node_data.get_name()} in tree {self.con.tree_id}')
+                    logger.info(f'Expanding row: {node_data.name} in tree {self.con.tree_id}')
                     self.con.tree_view.expand_row(path=tree_path, open_all=True)
                     # FIXME! Open-all not respected!
 
             tree_iter = self.con.display_store.model.iter_next(tree_iter)
 
-    def _append_dir_node_and_empty_child(self, parent_iter, parent_display_id, node_data):
-        dir_node_iter = self._append_dir_node(parent_iter, parent_display_id, node_data)
+    def _append_dir_node_and_empty_child(self, parent_iter, parent_uid: Optional[str], node_data: DisplayNode):
+        dir_node_iter = self._append_dir_node(parent_iter, parent_uid, node_data)
         self._append_loading_child(dir_node_iter)
         return dir_node_iter
 
-    def _append_children(self, children, parent_iter, parent_display_id: DisplayId):
+    def _append_children(self, children: List[DisplayNode], parent_iter, parent_uid: Optional[str]):
         if children:
             logger.debug(f'Filling out display children: {len(children)}')
             # Append all underneath tree_iter
             for child in children:
                 if child.is_dir():
-                    self._append_dir_node_and_empty_child(parent_iter, parent_display_id, child)
+                    self._append_dir_node_and_empty_child(parent_iter, parent_uid, child)
                 else:
-                    self._append_file_node(parent_iter, parent_display_id, child)
+                    self._append_file_node(parent_iter, parent_uid, child)
         elif self.use_empty_nodes:
             self._append_empty_child(parent_iter)
 
@@ -157,36 +158,36 @@ class LazyDisplayStrategy:
 
         return self.con.display_store.model.append(parent_node_iter, row_values)
 
-    def _add_checked_columns(self, parent_row_id: DisplayId, node_data, row_values):
+    def _add_checked_columns(self, parent_uid: Optional[str], node_data: DisplayNode, row_values: List):
         if self.con.treeview_meta.editable and node_data.has_path():
-            if parent_row_id:
-                parent_checked = self.con.display_store.selected_rows.get(parent_row_id.id_string, None)
+            if parent_uid:
+                parent_checked = self.con.display_store.selected_rows.get(parent_uid, None)
                 if parent_checked:
                     row_values.append(True)  # Checked
                     row_values.append(False)  # Inconsistent
                     return
-                parent_inconsistent = self.con.display_store.inconsistent_rows.get(parent_row_id.id_string, None)
+                parent_inconsistent = self.con.display_store.inconsistent_rows.get(parent_uid, None)
                 if not parent_inconsistent:
                     row_values.append(False)  # Checked
                     row_values.append(False)  # Inconsistent
                     return
                 # Otherwise: inconsistent. Look up individual values below:
-            row_id = node_data.display_id.id_string
+            row_id = node_data.identifier.uid
             checked = self.con.display_store.selected_rows.get(row_id, None)
             inconsistent = self.con.display_store.inconsistent_rows.get(row_id, None)
             row_values.append(checked)  # Checked
             row_values.append(inconsistent)  # Inconsistent
 
-    def _append_dir_node(self, parent_iter, parent_display_id, node_data: DisplayNode) -> TreeIter:
+    def _append_dir_node(self, parent_iter, parent_uid: Optional[str], node_data: DisplayNode) -> TreeIter:
         """Appends a dir-type node to the model"""
         row_values = []
 
-        self._add_checked_columns(parent_display_id, node_data, row_values)
+        self._add_checked_columns(parent_uid, node_data, row_values)
 
         # Icon
         row_values.append(node_data.get_icon())
 
-        row_values.append(node_data.get_name())  # Name
+        row_values.append(node_data.name)  # Name
 
         if not self.con.treeview_meta.use_dir_tree:
             row_values.append(None)  # Directory

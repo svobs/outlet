@@ -276,14 +276,14 @@ class GDriveClient:
                 if is_shortcut:
                     shortcut_details = item.get('shortcutDetails', None)
                     if not shortcut_details:
-                        logger.error(f'Shortcut is missing shortcutDetails: id="{node.id}" name="{node.name}"')
+                        logger.error(f'Shortcut is missing shortcutDetails: id="{node.uid}" name="{node.name}"')
                     else:
                         target_id = shortcut_details.get('targetId')
                         if not target_id:
-                            logger.error(f'Shortcut is missing targetId: id="{node.id}" name="{node.name}"')
+                            logger.error(f'Shortcut is missing targetId: id="{node.uid}" name="{node.name}"')
                         else:
-                            logger.debug(f'Found shortcut: id="{node.id}" name="{node.name}" -> target_id="{target_id}"')
-                            meta.shortcuts[node.id] = target_id
+                            logger.debug(f'Found shortcut: id="{node.uid}" name="{node.name}" -> target_id="{target_id}"')
+                            meta.shortcuts[node.uid] = target_id
 
                 item_count += 1
 
@@ -301,7 +301,7 @@ class GDriveClient:
 
             logger.debug(f'Found {len(meta.mime_types)} distinct MIME types')
             for mime_type, item in meta.mime_types.items():
-                logger.debug(f'MIME type: {mime_type} -> [{item.id}] {item.name} {item.size_bytes}')
+                logger.debug(f'MIME type: {mime_type} -> [{item.uid}] {item.name} {item.size_bytes}')
 
         return meta
 
@@ -372,6 +372,6 @@ class GDriveClient:
 
         if logger.isEnabledFor(logging.DEBUG):
             for node in meta.roots:
-                logger.debug(f'Found root:  [{node.id}] {node.name}')
+                logger.debug(f'Found root:  [{node.uid}] {node.name}')
 
         return meta

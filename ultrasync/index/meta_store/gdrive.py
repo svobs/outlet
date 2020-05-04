@@ -3,7 +3,7 @@ from typing import Any, List, Optional
 
 from constants import OBJ_TYPE_GDRIVE, ROOT, TreeDisplayMode
 from model.category import Category
-from model.display_id import DisplayId
+from model.display_id import GDriveIdentifier, Identifier
 from model.display_node import DisplayNode
 from model.gdrive_tree import GDriveSubtree, GDriveWholeTree
 from ui.tree.meta_store import BaseMetaStore, LazyMetaStore
@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 
 class GDriveMS(LazyMetaStore):
 
-    def __init__(self, tree_id, config, gdrive_meta, root_path):
+    def get_root_identifier(self) -> Identifier:
+        return self.root_identifier
+
+    def __init__(self, tree_id, config, gdrive_meta, root_identifier: GDriveIdentifier):
         super().__init__(tree_id=tree_id, config=config)
         self._gdrive_meta: GDriveSubtree = gdrive_meta
-        self._root_id = root_path
-
-    def get_root_path(self):
-        return self._root_id
+        self.root_identifier: GDriveIdentifier = root_identifier
 
     def get_whole_tree(self):
         return self._gdrive_meta
@@ -42,8 +42,8 @@ class GDriveMS(LazyMetaStore):
         else:
             raise NotImplementedError(f'Not supported: {tree_display_mode}')
 
-    def get_children(self, parent_id: DisplayId, tree_display_mode: TreeDisplayMode):
-        if parent_id is None or parent_id == ROOT:
+    def get_children(self, parent_id: Identifier, tree_display_mode: TreeDisplayMode):
+        if parent_id is None or parent_id.full_path == ROOT:
             raise RuntimeError(f'get_children() called for empty parent!')
 
         if tree_display_mode == TreeDisplayMode.ONE_TREE_ALL_ITEMS:
@@ -56,9 +56,5 @@ class GDriveMS(LazyMetaStore):
         else:
             raise NotImplementedError(f'Nope: {tree_display_mode}')
 
-    @classmethod
-    def get_tree_type(cls):
-        return OBJ_TYPE_GDRIVE
-
-    def get_path_for_item(self, item) -> str:
-        return self._gdrive_meta.get_path_for_item(item)
+    def get_full_path_for_item(self, item) -> str:
+        return self._gdrive_meta.get_full_path_for_item(item)
