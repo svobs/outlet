@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 
 import treelib
 
+import file_util
 from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, TreeDisplayMode
 from model.category import Category
 from model.display_id import DisplayId
@@ -105,7 +106,12 @@ class LazyMetaStore(BaseMetaStore, ABC):
             logger.info(f'Tree constructed for "{parent_id.category.name}" (size {len(category_tree)}) in: {category_stopwatch}')
 
         try:
-            for child in category_tree.children(parent_id.id_string):
+            # Need to get relative path for item:
+
+            relative_path = file_util.strip_root(parent_id.id_string, self.get_root_path())
+            if relative_path.startswith('/'):
+                logger.debug(f"FUCK! '{parent_id.id_string}' /  '{self.get_root_path()}'")
+            for child in category_tree.children(relative_path):
                 children.append(child.data)
         except Exception:
             logger.debug(f'CategoryTree for "{self.get_root_path()}": ' + category_tree.show(stdout=False))

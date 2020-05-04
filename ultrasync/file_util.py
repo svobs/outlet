@@ -44,7 +44,7 @@ def get_resource_path(rel_path: str, resolve_symlinks=False):
     return abs_path_to_resource
 
 
-def strip_root(file_path, root_path) -> str:
+def strip_root(file_path: str, root_path: str) -> str:
     """
     Strips the root_path out of the file path.
     Args:
@@ -54,8 +54,15 @@ def strip_root(file_path, root_path) -> str:
     Returns:
         a relative path
     """
-    root_path_with_slash = root_path if root_path.endswith('/') else root_path + '/'
-    return re.sub(root_path_with_slash, '', file_path, count=1)
+    assert file_path.find(root_path) >= 0
+    if file_path.endswith('/'):
+        file_path = file_path[:-1]
+    if root_path.endswith('/'):
+        root_path = root_path[:-1]
+    rel_path = re.sub(root_path, '', file_path, count=1)
+    if len(rel_path) < len(file_path) and rel_path.startswith('/'):
+        rel_path = rel_path[1:]
+    return rel_path
 
 
 def split_path(path) -> List[str]:
