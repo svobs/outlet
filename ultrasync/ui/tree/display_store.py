@@ -6,6 +6,7 @@ from gi.repository.Gtk import TreeIter, TreePath
 
 from model.display_node import DisplayNode
 from model.fmeta_tree import FMetaTree
+from model.goog_node import GoogFile
 from model.planning_node import PlanningNode
 
 gi.require_version("Gtk", "3.0")
@@ -30,7 +31,7 @@ class DisplayStore:
         self.selected_rows: Dict[str, DisplayNode] = {}
         self.inconsistent_rows: Dict[str, DisplayNode] = {}
 
-    def get_node_data(self, tree_path: Union[TreeIter, TreePath]):
+    def get_node_data(self, tree_path: Union[TreeIter, TreePath]) -> DisplayNode:
         """
         Args
             tree_path: TreePath, or TreeIter of target node
@@ -39,7 +40,7 @@ class DisplayStore:
         """
         return self.model[tree_path][self.treeview_meta.col_num_data]
 
-    def get_node_name(self, tree_path):
+    def get_node_name(self, tree_path) -> str:
         """
         Args
             tree_path: TreePath, or TreeIter of target node
@@ -48,10 +49,10 @@ class DisplayStore:
         """
         return self.model[tree_path][self.treeview_meta.col_num_name]
 
-    def is_node_checked(self, tree_path):
+    def is_node_checked(self, tree_path) -> bool:
         return self.model[tree_path][self.treeview_meta.col_num_checked]
 
-    def is_inconsistent(self, tree_path):
+    def is_inconsistent(self, tree_path) -> bool:
         return self.model[tree_path][self.treeview_meta.col_num_inconsistent]
 
     def clear_model(self) -> TreeIter:
@@ -60,7 +61,7 @@ class DisplayStore:
 
     def set_checked_state(self, tree_iter, is_checked, is_inconsistent):
         assert not (is_checked and is_inconsistent)
-        node_data = self.get_node_data(tree_iter)
+        node_data: DisplayNode = self.get_node_data(tree_iter)
 
         if not node_data.has_path():
             # Cannot be checked if no path (LoadingNode, etc.)
@@ -72,8 +73,8 @@ class DisplayStore:
 
         self.update_checked_state_tracking(node_data, is_checked, is_inconsistent)
 
-    def update_checked_state_tracking(self, node_data, is_checked, is_inconsistent):
-        row_id = node_data.display_id.id_string
+    def update_checked_state_tracking(self, node_data: DisplayNode, is_checked: bool, is_inconsistent: bool):
+        row_id = node_data.uid
         if is_checked:
             self.selected_rows[row_id] = node_data
         else:
@@ -86,7 +87,7 @@ class DisplayStore:
 
     def on_cell_checkbox_toggled(self, widget, path):
         """Called when checkbox in treeview is toggled"""
-        data_node = self.get_node_data(path)
+        data_node: DisplayNode = self.get_node_data(path)
         if not data_node.has_path():
             logger.debug('Disallowing checkbox toggle because node is ephemereal')
             return
@@ -230,10 +231,11 @@ class DisplayStore:
 
         def action_func(t_iter):
             if not action_func.checked_only or self.is_node_checked(t_iter):
-                data_node = self.get_node_data(t_iter)
-                if isinstance(data_node, FMeta) or isinstance(data_node, PlanningNode):
+                data_node: DisplayNode = self.get_node_data(t_iter)
+                if isinstance(data_node, FMeta) or isinstance(data_node, GoogFile) or isinstance(data_node, PlanningNode):
                     subtree.add_item(data_node)
 
+        # FIXME this is broken for GDrive
         action_func.checked_only = checked_only
 
         if include_following_siblings:

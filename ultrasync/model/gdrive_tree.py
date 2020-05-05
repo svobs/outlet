@@ -219,6 +219,10 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
 
     def get_full_path_for_item(self, item: GoogNode) -> str:
         """Gets the absolute path for the item"""
+        if item.full_path:
+            # Does item already have a full_path? Just return that (huge speed gain):
+            return item.full_path
+
         rel_path = self.get_path_for_id(item.uid, self.root_id)
         return os.path.join(self.root_path, rel_path)
 

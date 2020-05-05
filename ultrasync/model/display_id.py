@@ -21,6 +21,9 @@ class Identifier(ABC):
     Still a work in progress and may change greatly.
     """
     def __init__(self, full_path: str, category: Category):
+        if full_path is not None and full_path.find('/') < 0:
+            print('Something bad, better stop here')
+        assert full_path is None or full_path.find('/') >= 0, f'full_path does not look like a path: {full_path}'
         self.full_path: str = full_path
         self.category: Category = ensure_category(category)
 
@@ -78,7 +81,7 @@ class GDriveIdentifier(Identifier):
         return self._uid
 
     def __repr__(self):
-        return f'ID:GD:{self.category.name}:{self.full_path}'
+        return f'ID:GD:{self.category.name}:{self.full_path}:{self._uid}'
 
 
 """

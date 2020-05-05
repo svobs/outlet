@@ -42,9 +42,6 @@ class GoogNode(DisplayNode, ABC):
 
         self.sync_ts = sync_ts
 
-    def get_relative_path(self, parent_tree):
-        return parent_tree.get_relative_path_for_item(self)
-
     # TODO: rewrite this as compare_to()
     def is_newer_than(self, other_folder):
         return self.sync_ts > other_folder.sync_ts

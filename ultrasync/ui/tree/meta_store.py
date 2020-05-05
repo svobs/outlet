@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 
 import treelib
 
+import file_util
 from constants import TreeDisplayMode
 from model.category import Category
 from model.display_id import Identifier
@@ -74,7 +75,7 @@ class LazyMetaStore(BaseMetaStore, ABC):
         pass
 
     @abstractmethod
-    def get_children(self, parent_id: Identifier, tree_display_mode: TreeDisplayMode) -> Optional[List[DisplayNode]]:
+    def get_children(self, parent_identifier: Identifier, tree_display_mode: TreeDisplayMode) -> Optional[List[DisplayNode]]:
         """Return the children for the given parent_id.
         The children of the given node can look very different depending on value of 'tree_display_mode'"""
         return None
@@ -84,24 +85,28 @@ class LazyMetaStore(BaseMetaStore, ABC):
         root_level_nodes = []
         for category in [Category.Added, Category.Deleted, Category.Moved,
                          Category.Updated, Category.Ignored]:
-            category_node = CategoryNode(self.get_root_identifier().uid, category)
+            category_node = CategoryNode(self.get_root_identifier().full_path, category)
             root_level_nodes.append(category_node)
         return root_level_nodes
 
-    def _get_category_children(self, parent_id: Identifier):
+    def _get_category_children(self, parent_identifier: Identifier):
+        """Gets and returns the children for the given parent_identifier, assuming we are displaying category trees.
+        If a category tree for the category of the given identifier has not been constructed yet, it will be constructed
+        and cached before being returned."""
         children = []
-        category_tree: treelib.Tree = self._category_trees.get(parent_id.category, None)
+        category_tree: treelib.Tree = self._category_trees.get(parent_identifier.category, None)
         if not category_tree:
             category_stopwatch = Stopwatch()
-            category_node = CategoryNode(self.get_root_identifier().uid, parent_id.category)
+            category_node = CategoryNode(self.get_root_identifier().full_path, parent_identifier.category)
             category_tree = category_tree_builder.build_category_tree(self.get_model(), category_node)
-            self._category_trees[parent_id.category] = category_tree
-            logger.info(f'Tree constructed for "{parent_id.category.name}" (size {len(category_tree)}) in: {category_stopwatch}')
+            self._category_trees[parent_identifier.category] = category_tree
+            logger.info(f'Tree constructed for "{parent_identifier.category.name}" (size {len(category_tree)}) in: {category_stopwatch}')
 
         try:
             # Need to get relative path for item:
+            relative_path = file_util.strip_root(parent_identifier.full_path, self.get_root_identifier().full_path)
 
-            for child in category_tree.children(parent_id.uid):
+            for child in category_tree.children(relative_path):
                 children.append(child.data)
         except Exception:
             logger.debug(f'CategoryTree for "{self.get_root_identifier()}": ' + category_tree.show(stdout=False))

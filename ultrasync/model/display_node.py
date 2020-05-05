@@ -51,6 +51,9 @@ class DisplayNode(ABC):
     def uid(self) -> str:
         return self.identifier.uid
 
+    def get_relative_path(self, parent_tree):
+        return parent_tree.get_relative_path_for_item(self)
+
     @classmethod
     @abstractmethod
     def has_path(cls):

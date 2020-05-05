@@ -219,9 +219,9 @@ class LazyDisplayStrategy:
         # Name
         # TODO: find more elegant solution
         if isinstance(node_data, FileToMove):
-            node_name = f'{node_data.original_full_path} -> "{node_data.get_name()}"'
+            node_name = f'{node_data.original_full_path} -> "{node_data.name}"'
         else:
-            node_name = node_data.get_name()
+            node_name = node_data.name
         row_values.append(node_name)  # Name
 
         # Directory

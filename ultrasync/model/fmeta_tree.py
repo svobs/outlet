@@ -188,8 +188,8 @@ class FMetaTree(SubtreeSnapshot):
         return match
 
     def add_item(self, item: FMeta):
-        if not item.full_path.startswith(self.root_path):
-            raise RuntimeError(f'FMeta (cat={item.category.name}) full path ({item.full_path}) is not under this tree ({self.root_path})')
+        assert item.full_path.startswith(self.root_path), f'FMeta (cat={item.category.name}) full path (' \
+                                                          f'{item.full_path}) is not under this tree ({self.root_path})'
 
         if item.category == Category.Ignored:
             # ignored files may not have md5s
@@ -211,7 +211,8 @@ class FMetaTree(SubtreeSnapshot):
         if item_matching_path is not None:
             if is_planning_node:
                 if not isinstance(item_matching_path, PlanningNode):
-                    raise RuntimeError(f'Attempt to overwrite type {type(item_matching_path)} with PlanningNode! Orig={item_matching_path}; New={item}')
+                    raise RuntimeError(f'Attempt to overwrite type {type(item_matching_path)} with PlanningNode! '
+                                       f'Orig={item_matching_path}; New={item}')
             else:
                 self._total_size_bytes -= item_matching_path.size_bytes
             logger.warning(f'Overwriting path: {item.full_path}')

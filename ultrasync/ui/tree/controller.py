@@ -1,3 +1,7 @@
+from typing import List
+
+from model.display_node import DisplayNode
+
 
 class TreePanelController:
     """
@@ -46,7 +50,7 @@ class TreePanelController:
         else:
             raise Exception(f'Selection has more rows than expected: count={len(tree_paths)}')
 
-    def get_multiple_selection(self):
+    def get_multiple_selection(self) -> List[DisplayNode]:
         """Returns a list of the selected items (empty if none)"""
         selection = self.tree_view.get_selection()
         model, tree_paths = selection.get_selected_rows()

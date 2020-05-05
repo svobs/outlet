@@ -39,15 +39,15 @@ class LocalDiskSubtreeMS(LazyMetaStore):
             raise NotImplementedError(f'Not supported: {tree_display_mode}')
 
     # Must return files AND directories
-    def get_children(self, parent_id: LocalFsIdentifier, tree_display_mode: TreeDisplayMode):
-        if parent_id is None or parent_id.full_path == ROOT:
+    def get_children(self, parent_identifier: LocalFsIdentifier, tree_display_mode: TreeDisplayMode):
+        if parent_identifier is None or parent_identifier.full_path == ROOT:
             raise RuntimeError(f'get_children() called for empty parent!')
 
         if tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
-            if parent_id.category == Category.NA:
+            if parent_identifier.category == Category.NA:
                 raise NotImplementedError('Not implemented!')
 
-            return self._get_category_children(parent_id=parent_id)
+            return self._get_category_children(parent_identifier=parent_identifier)
         else:
             raise NotImplementedError(f'Cannot do this: {tree_display_mode}')
 

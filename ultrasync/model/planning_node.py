@@ -69,9 +69,6 @@ class FileDecoratorNode(PlanningNode, ABC):
     def change_ts(self):
         return self.original_node.change_ts
 
-    def get_relative_path(self, parent_tree):
-        return parent_tree.get_relative_path_for_item(self)
-
     @classmethod
     def has_path(cls):
         return True

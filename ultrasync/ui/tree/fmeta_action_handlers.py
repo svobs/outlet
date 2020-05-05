@@ -71,7 +71,7 @@ class FMetaTreeActionHandlers(TreeActionBridge):
         menu.show_all()
         return menu
 
-    def build_context_menu(self, tree_path: Gtk.TreePath, node_data):
+    def build_context_menu(self, tree_path: Gtk.TreePath, node_data: DisplayNode):
         """Dynamic context menu (right-click on tree item)"""
 
         if not node_data.has_path():
@@ -142,14 +142,14 @@ class FMetaTreeActionHandlers(TreeActionBridge):
                     # something went wrong if we got False. Stop.
                     break
 
-    def on_row_right_clicked(self, event, tree_path, node_data):
-        id_clicked = node_data.display_id.id_string
-        selected_items = self.con.get_multiple_selection()
+    def on_row_right_clicked(self, event, tree_path, node_data: DisplayNode):
+        id_clicked = node_data.uid
+        selected_items: List[DisplayNode] = self.con.get_multiple_selection()
 
         if len(selected_items) > 1:
             # Multiple selected items:
             for item in selected_items:
-                if item.display_id.id_string == id_clicked:
+                if item.uid == id_clicked:
                     # User right-clicked on selection -> apply context menu to all selected items:
                     context_menu = self.build_context_menu_multiple(selected_items)
                     context_menu.popup_at_pointer(event)
@@ -299,8 +299,7 @@ class FMetaTreeActionHandlers(TreeActionBridge):
         date_to_set = date_to_set.replace('-', ':')
 
         logger.info(f'Calling exiftool for: {file_path}')
-        args = ["exiftool"]
-        args.append(f'-AllDates="{date_to_set} 12:00:00"')
+        args = ["exiftool", f'-AllDates="{date_to_set} 12:00:00"']
         if comment_to_set:
             args.append(f'-Comment="{comment_to_set}"')
         args.append(file_path)

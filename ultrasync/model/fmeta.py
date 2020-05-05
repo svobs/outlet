@@ -20,9 +20,6 @@ class FMeta(DisplayNode):
         self.modify_ts: int = ensure_int(modify_ts)
         self.change_ts: int = ensure_int(change_ts)
 
-    def get_relative_path(self, parent_tree):
-        return parent_tree.get_relative_path_for_item(self)
-
     @classmethod
     def has_path(cls):
         return True
