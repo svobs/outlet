@@ -1,5 +1,6 @@
 from constants import OBJ_TYPE_LOCAL_DISK
 from model.category import Category
+from model.display_id import Identifier
 from model.display_node import CategoryNode
 from model.fmeta import FMeta
 from ui.tree import category_tree_builder
@@ -12,9 +13,6 @@ class StaticWholeTreeMS(BaseMetaStore):
     def __init__(self, tree_id, config, tree):
         super().__init__(tree_id=tree_id, config=config)
         self._fmeta_tree = tree
-
-    def get_root_path(self):
-        return self._fmeta_tree.root_path
 
     def get_model(self):
         return self._fmeta_tree
@@ -42,4 +40,7 @@ class StaticWholeTreeMS(BaseMetaStore):
 
     def get_full_path_for_item(self, item: FMeta) -> str:
         return item.full_path
+
+    def get_root_identifier(self) -> Identifier:
+        return self._fmeta_tree.root_path
 

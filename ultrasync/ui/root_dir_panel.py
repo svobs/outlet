@@ -141,6 +141,7 @@ class RootDirPanel:
         # Triggered when the user submits a root via the text entry box
         new_root_path = self.entry.get_text()
         # TODO: parse tree type, allow for GDrive
+        # FIXME
         new_root = LocalFsIdentifier(full_path=new_root_path)
         logger.info(f'User entered root path: "{new_root_path}" for tree_id={tree_id}')
         # Important: send this signal AFTER label updated
@@ -166,7 +167,7 @@ class RootDirPanel:
             self.alert_image_box.remove(self.alert_image)
 
         self.entry = Gtk.Entry()
-        self.entry.set_text(self.current_root)
+        self.entry.set_text(self.current_root.full_path)
         self.entry.connect('activate', self._on_root_text_entry_submitted, self.tree_id)
         self.path_box.remove(self.label_event_box)
         self.path_box.pack_start(self.entry, expand=True, fill=True, padding=0)
@@ -256,7 +257,7 @@ class RootDirPanel:
     def _on_root_path_updated(self, sender, new_root: Identifier):
         """Callback for actions.ROOT_PATH_UPDATED"""
         logger.debug(f'Received a new root: type={new_root.tree_type} path="{new_root.full_path}"')
-        if not new_root or new_root.full_path:
+        if not new_root or not new_root.full_path:
             raise RuntimeError(f'Root path cannot be empty! (tree_id={sender})')
         self.current_root = new_root
 
