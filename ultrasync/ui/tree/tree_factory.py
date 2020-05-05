@@ -12,7 +12,7 @@ from ui.tree.lazy_display_strategy import LazyDisplayStrategy
 from ui.tree.fmeta_action_handlers import FMetaTreeActionHandlers
 from ui.tree.gdrive_action_handlers import GDriveActionHandlers
 from ui.tree.fmeta_change_strategy import FMetaChangeTreeStrategy
-from ui.root_dir_panel import RootDirPanel
+from ui.comp.root_dir_panel import RootDirPanel
 
 from ui.tree.controller import TreePanelController
 from ui.tree.treeview_meta import TreeViewMeta

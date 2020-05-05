@@ -12,6 +12,7 @@ ALERT_ICON_PATH = get_resource_path("resources/dialog-error-icon-24px.png")
 CHOOSE_ROOT_ICON_PATH = get_resource_path("resources/Folder-tree-flat-40px.png")
 GDRIVE_ICON_PATH = get_resource_path("resources/google-drive-logo-40px.png")
 WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
+REFRESH_ICON_PATH = get_resource_path('resources/icons8-refresh-30.png')
 
 
 def _build_icons(icon_size):

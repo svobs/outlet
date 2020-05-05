@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 
 from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
 from model.display_id import Identifier, LocalFsIdentifier
-from ui.base_dialog import BaseDialog
+from ui.dialog.base_dialog import BaseDialog
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib

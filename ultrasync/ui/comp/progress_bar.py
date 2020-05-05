@@ -11,7 +11,7 @@ PULSE_STEP = 0.00001
 MAX_MSG_LENGTH = 80
 
 
-class ProgressBarComponent:
+class ProgressBar:
     def __init__(self, config, sender_list):
         self.update_interval_ms = float(config.get('display.max_refresh_interval_sec', 0.001)) * 1000
         self.progressbar = Gtk.ProgressBar()

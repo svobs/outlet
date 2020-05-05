@@ -2,7 +2,7 @@ import logging
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, Gdk
+from gi.repository import GLib, Gtk
 
 from ui.tree.meta_store import DummyMS
 from ui.tree.root_path_config import RootPathConfigPersister
@@ -11,12 +11,12 @@ from pydispatch import dispatcher
 
 import ui.actions as actions
 import ui.assets
-from ui.progress_bar_component import ProgressBarComponent
+from ui.comp.progress_bar import ProgressBar
 from ui.tree import tree_factory
 
-from ui.merge_preview_dialog import MergePreviewDialog
+from ui.dialog.merge_preview_dialog import MergePreviewDialog
 from fmeta import diff_content_first
-from ui.base_dialog import BaseDialog
+from ui.dialog.base_dialog import BaseDialog
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ class DiffWindow(Gtk.ApplicationWindow, BaseDialog):
         listen_for = [actions.ID_LEFT_TREE, actions.ID_RIGHT_TREE,
                       actions.ID_DIFF_WINDOW, actions.ID_GLOBAL_CACHE]
         # Remember to hold a reference to this, for signals!
-        self.proress_bar_component = ProgressBarComponent(self.config, listen_for)
+        self.proress_bar_component = ProgressBar(self.config, listen_for)
         self.bottom_panel.pack_start(self.proress_bar_component.progressbar, True, True, 0)
         # Give progress bar exactly half of the window width:
         self.bottom_panel.set_homogeneous(True)

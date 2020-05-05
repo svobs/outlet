@@ -21,8 +21,6 @@ class Identifier(ABC):
     """
 
     def __init__(self, full_path: str, category: Category):
-        if full_path is not None and full_path.find('/') < 0:
-            print('Something bad, better stop here')
         assert full_path is None or full_path.find('/') >= 0, f'full_path does not look like a path: {full_path}'
         self.full_path: str = full_path
         self.category: Category = ensure_category(category)

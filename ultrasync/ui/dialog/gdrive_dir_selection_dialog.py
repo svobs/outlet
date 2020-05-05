@@ -3,7 +3,6 @@ import logging
 import gi
 from pydispatch import dispatcher
 
-from constants import OBJ_TYPE_GDRIVE
 from model.display_id import Identifier
 from model.display_node import DisplayNode
 from ui import actions
@@ -12,7 +11,7 @@ from ui.tree import tree_factory
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
-from ui.base_dialog import BaseDialog
+from ui.dialog.base_dialog import BaseDialog
 
 logger = logging.getLogger(__name__)
 

@@ -16,7 +16,7 @@ import fmeta.fmeta_file_util
 from file_util import get_resource_path
 from fmeta.fmeta_file_util import FMetaError
 from model.fmeta import Category
-from ui.base_dialog import BaseDialog
+from ui.dialog.base_dialog import BaseDialog
 
 STAGING_DIR_PATH = get_resource_path("temp")
 

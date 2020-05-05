@@ -14,7 +14,7 @@ from gi.repository import GLib, Gtk
 from stopwatch_sec import Stopwatch
 
 import ui.actions as actions
-from ui.gdrive_dir_selection_dialog import GDriveDirSelectionDialog
+from ui.dialog.gdrive_dir_selection_dialog import GDriveDirSelectionDialog
 
 from fmeta import diff_content_first
 

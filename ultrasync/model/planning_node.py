@@ -114,7 +114,7 @@ class FileToAdd(FileDecoratorNode):
         super().__init__(identifier, orig_path, original_node)
 
     def __repr__(self):
-        return f'FileToAdd(original_path={self.original_full_path} dest_path={self.dest_path})'
+        return f'FileToAdd(original_path={self.original_full_path} dest_path={self.dest_path} md5={self.original_node.md5})'
 
 
 class FileToMove(FileDecoratorNode):
@@ -123,4 +123,4 @@ class FileToMove(FileDecoratorNode):
         super().__init__(identifier, orig_path, original_node)
 
     def __repr__(self):
-        return f'FileToMove(original_path={self.original_full_path} dest_path={self.dest_path})'
+        return f'FileToMove(original_path={self.original_full_path} dest_path={self.dest_path} md5={self.original_node.md5})'
