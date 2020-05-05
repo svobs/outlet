@@ -52,7 +52,7 @@ class LazyDisplayStrategy:
             # Wipe out existing items:
             root_iter = self.con.display_store.clear_model()
 
-            self._append_children(children, root_iter, None)
+            self._append_children(children=children, parent_iter=root_iter, parent_uid=None)
 
             # This should fire expanded state listener to populate nodes as needed:
             if self.con.treeview_meta.is_display_persisted:
@@ -84,7 +84,7 @@ class LazyDisplayStrategy:
             # Add children for node:
             if is_expanded:
                 children = self.con.meta_store.get_children(node_data.identifier, self.con.treeview_meta.tree_display_mode)
-                self._append_children(children, parent_iter, node_data.uid)
+                self._append_children(children=children, parent_iter=parent_iter, parent_uid=node_data.uid)
                 # Remove Loading node:
                 self.con.display_store.remove_first_child(parent_iter)
             else:
@@ -207,11 +207,11 @@ class LazyDisplayStrategy:
 
         return self.con.display_store.model.append(parent_iter, row_values)
 
-    def _append_file_node(self, parent_iter, parent_display_id, node_data: DisplayNode):
+    def _append_file_node(self, parent_iter, parent_uid: Optional[str], node_data: DisplayNode):
         row_values = []
 
         # Checked State
-        self._add_checked_columns(parent_display_id, node_data, row_values)
+        self._add_checked_columns(parent_uid, node_data, row_values)
 
         # Icon
         row_values.append(node_data.get_icon())

@@ -80,13 +80,13 @@ class TreeActionBridge:
         return False
 
     def _on_toggle_gtk_row_expanded_state(self, tree_view, parent_iter, tree_path, is_expanded):
-        node_data = self.con.display_store.get_node_data(parent_iter)
-        logger.debug(f'[{self.con.tree_id}] Sending signal "{actions.NODE_EXPANSION_TOGGLED}" with is_expanded={is_expanded} for node: {node_data}')
-        if not node_data.is_dir():
-            raise RuntimeError(f'Node is not a directory: {type(node_data)}; node_data')
+        parent_data = self.con.display_store.get_node_data(parent_iter)
+        logger.debug(f'[{self.con.tree_id}] Sending signal "{actions.NODE_EXPANSION_TOGGLED}" with is_expanded={is_expanded} for node: {parent_data}')
+        if not parent_data.is_dir():
+            raise RuntimeError(f'Node is not a directory: {type(parent_data)}; node_data')
 
         dispatcher.send(signal=actions.NODE_EXPANSION_TOGGLED, sender=self.con.tree_id, parent_iter=parent_iter,
-                        node_data=node_data, is_expanded=is_expanded, expand_all=False)
+                        node_data=parent_data, is_expanded=is_expanded, expand_all=False)
 
         return True
 

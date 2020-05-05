@@ -68,4 +68,5 @@ class SubtreeSnapshot(ABC):
 
     @abstractmethod
     def create_identifier(self, full_path, category):
+        """Create a new identifier of the type matching this tree"""
         pass

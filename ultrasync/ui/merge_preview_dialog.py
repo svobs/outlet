@@ -4,6 +4,7 @@ import gi
 from pydispatch import dispatcher
 
 from index.meta_store.local_static import StaticWholeTreeMS
+from model.fmeta_tree import FMetaTree
 from ui.actions import ID_MERGE_TREE
 from ui.tree import tree_factory
 
@@ -33,7 +34,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
         self.set_default_size(700, 700)
 
-        self.fmeta_tree = fmeta_tree
+        self.fmeta_tree: FMetaTree = fmeta_tree
 
         box = self.get_content_area()
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)

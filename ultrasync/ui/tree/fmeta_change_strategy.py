@@ -5,7 +5,9 @@ import logging
 import os
 
 import gi
+import treelib
 
+import file_util
 from constants import TreeDisplayMode
 
 gi.require_version("Gtk", "3.0")
@@ -28,20 +30,23 @@ class FMetaChangeTreeStrategy(LazyDisplayStrategy):
     def init(self):
         super().init()
 
-    def _append_category_tree_to_model(self, category_tree):
-        def append_recursively(tree_iter, node):
+    def _append_category_tree_to_model(self, category_tree: treelib.Tree):
+        def append_recursively(parent_iter, parent_uid, node: treelib.Node):
             # Do a DFS of the change tree and populate the UI tree along the way
             if node.data.is_dir():
-                tree_iter = self._append_dir_node(tree_iter, node.data)
-                for child in category_tree.children(node.identifier):
-                    append_recursively(tree_iter, child)
+                parent_iter = self._append_dir_node(parent_iter=parent_iter, parent_uid=parent_uid, node_data=node.data)
+
+                child_relative_path = file_util.strip_root(node.data.full_path, self.con.meta_store.get_root_identifier().full_path)
+
+                for child in category_tree.children(child_relative_path):
+                    append_recursively(parent_iter, parent_uid, child)
             else:
-                self._append_file_node(tree_iter, node.data)
+                self._append_file_node(parent_iter, parent_uid, node.data)
 
         if category_tree.size(1) > 0:
             # logger.debug(f'Appending category: {category.name}')
-            root = category_tree.get_node(category_tree.root)
-            append_recursively(None, root)
+            root_node: treelib.Node = category_tree.get_node(category_tree.root)
+            append_recursively(None, None, root_node)
 
     def populate_root(self):
         logger.debug(f'Repopulating tree "{self.con.meta_store.tree_id}"')
