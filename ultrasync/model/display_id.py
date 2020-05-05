@@ -1,4 +1,3 @@
-
 from abc import ABC, abstractmethod
 
 from constants import OBJ_TYPE_DISPLAY_ONLY, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
@@ -20,6 +19,7 @@ class Identifier(ABC):
     Represents a unique identifier that can be used across trees and tree types to identify a node.
     Still a work in progress and may change greatly.
     """
+
     def __init__(self, full_path: str, category: Category):
         if full_path is not None and full_path.find('/') < 0:
             print('Something bad, better stop here')
@@ -38,7 +38,7 @@ class Identifier(ABC):
 
     def __repr__(self):
         # should never be displayed
-        return f'ID:XX:{self.category.name}:{self.full_path}'
+        return f'[XX:{self.category.name}:{self.full_path}]'
 
     def __eq__(self, other):
         return self.full_path == other.full_path and self.uid == other.uid and self.tree_type == other.tree_type
@@ -57,7 +57,7 @@ class LogicalNodeIdentifier(Identifier):
         return OBJ_TYPE_DISPLAY_ONLY
 
     def __repr__(self):
-        return f'ID:--:{self.full_path}'
+        return f'[--:{self.full_path}]'
 
 
 """
@@ -81,7 +81,7 @@ class GDriveIdentifier(Identifier):
         return self._uid
 
     def __repr__(self):
-        return f'ID:GD:{self.full_path}:{self._uid}'
+        return f'[GD:{self.full_path}:{self._uid}]'
 
 
 """
@@ -100,7 +100,7 @@ class LocalFsIdentifier(Identifier):
         return OBJ_TYPE_LOCAL_DISK
 
     def __repr__(self):
-        return f'ID:FS:{self.full_path}'
+        return f'[FS:{self.full_path}]'
 
 
 def for_values(tree_type: int, full_path: str, uid: str = None, category=Category.NA):
