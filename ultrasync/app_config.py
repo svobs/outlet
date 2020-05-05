@@ -1,3 +1,5 @@
+from typing import Any
+
 import config
 import os
 import json
@@ -34,7 +36,7 @@ class AppConfig:
         try:
             val = self.cfg[cfg_path]
             if val is not None and type(val) == str:
-               val = val.replace('$PROJECT_DIR', PROJECT_DIR)
+                val = val.replace('$PROJECT_DIR', PROJECT_DIR)
             logger.debug(f'Read "{cfg_path}" = "{val}"')
             return val
         except config.KeyNotFoundError:
@@ -45,7 +47,7 @@ class AppConfig:
         filename = self.get('transient_filename')
         return os.path.join(self.cfg.rootdir, filename)
 
-    def write(self, transient_path, value):
+    def write(self, transient_path: str, value: Any, insert_new_ok=True):
         if self.read_only:
             logger.debug(f'No change to config "{transient_path}"; we are read-only')
             return
@@ -60,13 +62,22 @@ class AppConfig:
         for num, segment in enumerate(path_segments):
             if num == 0:
                 assert segment == 'transient'
-            elif num == last:
-                if sub_dict[segment] == value:
-                    logger.debug(f'No change to config {segment}')
-                    return
-                sub_dict[segment] = value
             else:
-                sub_dict = sub_dict[segment]
+                val = sub_dict.get(segment, None)
+                if num == last:
+                    if val == value:
+                        logger.debug(f'No change to config {segment}')
+                        return
+                    sub_dict[segment] = value
+                elif val is None:
+                    if not insert_new_ok:
+                        raise RuntimeError(f'Path segment "{segment}" not found in path "{transient_path}"')
+                    else:
+                        sub_dict[segment] = {}
+                        sub_dict = sub_dict[segment]
+                else:
+                    # go to next segment
+                    sub_dict = val
 
         # Dump JSON to file atomically:
         json_file = self._get_transient_filename()

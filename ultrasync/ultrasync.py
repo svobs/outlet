@@ -1,6 +1,8 @@
 import sys
 import gi
 
+from ui.actions import ID_DIFF_WINDOW
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gio
 
@@ -11,7 +13,7 @@ import logging
 from global_actions import GlobalActions
 from task_runner import CentralTaskRunner
 
-from ui.diff_tree.diff_window import DiffWindow
+from ui.diff_tree.diff_window import TwoPanelWindow
 from app_config import AppConfig
 import ui.assets
 
@@ -37,7 +39,8 @@ class UltrasyncApplication(Gtk.Application):
         if not self.window:
             # Windows are associated with the application
             # when the last one is closed the application shuts down
-            self.window = DiffWindow(application=self)
+
+            self.window = TwoPanelWindow(application=self, id=ID_DIFF_WINDOW)
             self.window.show_all()
 
         self.window.present()

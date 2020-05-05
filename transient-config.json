@@ -1,4 +1,10 @@
 {
+    "diff_win": {
+        "height": 571,
+        "width": 1088,
+        "x": 0,
+        "y": 0
+    },
     "left_tree": {
         "expanded_state": {
             "Added": true,
