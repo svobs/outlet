@@ -82,9 +82,25 @@ class CacheManager:
             self.local_disk_cache = LocalDiskMasterCache(self.application)
             self.gdrive_cache = GDriveMasterCache(self.application)
 
-            for existing_disk_cache in self._get_cache_info_from_registry():
+            # First put into map, to eliminate possible duplicates
+            existing_caches = self._get_cache_info_from_registry()
+            for existing_cache in existing_caches:
+                info = PersistedCacheInfo(existing_cache)
+                duplicate = self.caches_by_type.get_single(info.subtree_root.tree_type, info.subtree_root.full_path)
+                if duplicate:
+                    if duplicate.sync_ts < info.sync_ts:
+                        logger.debug(f'Overwriting older duplicate cache info entry: {duplicate.subtree_root}')
+                    else:
+                        logger.debug(f'Skipping duplicate cache info entry: {duplicate.subtree_root}')
+                        continue
+                self.caches_by_type.put(info)
+
+            existing_caches = self.caches_by_type.get_all()
+            for cache_num, existing_disk_cache in enumerate(existing_caches):
                 try:
                     info = PersistedCacheInfo(existing_disk_cache)
+                    self.caches_by_type.put(info)
+                    logger.info(f'Init cache {cache_num}/{len(existing_caches)}: id={existing_disk_cache.subtree_root}')
                     self._init_existing_cache(info)
                 except Exception:
                     logger.exception(f'Failed to load cache: {existing_disk_cache.cache_location}')
@@ -106,13 +122,9 @@ class CacheManager:
                 return []
 
     def _init_existing_cache(self, existing_disk_cache: PersistedCacheInfo):
-        logger.debug(f'Loading cache: id={existing_disk_cache.subtree_root}')
-
         cache_type = existing_disk_cache.subtree_root.tree_type
         if cache_type != OBJ_TYPE_LOCAL_DISK and cache_type != OBJ_TYPE_GDRIVE:
             raise RuntimeError(f'Unrecognized tree type: {cache_type}')
-
-        self.caches_by_type.put(existing_disk_cache)
 
         if self.load_all_caches_on_startup:
             if cache_type == OBJ_TYPE_LOCAL_DISK:
@@ -146,7 +158,7 @@ class CacheManager:
         return self.gdrive_cache.download_all_gdrive_meta(tree_id)
 
     def get_cache_info_entry(self, subtree_root: Identifier) -> PersistedCacheInfo:
-        return self.caches_by_type.get(subtree_root.tree_type, subtree_root.full_path)
+        return self.caches_by_type.get_single(subtree_root.tree_type, subtree_root.full_path)
 
     def get_or_create_cache_info_entry(self, subtree_root: Identifier) -> PersistedCacheInfo:
         existing = self.get_cache_info_entry(subtree_root)

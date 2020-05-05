@@ -1,7 +1,7 @@
 import logging
 import os
 from queue import Queue
-from typing import List, Optional
+from typing import Dict, List, Optional, Union
 
 import treelib
 from pydispatch import dispatcher
@@ -14,6 +14,7 @@ from index.meta_store.local_lazy import LocalDiskSubtreeMS
 from index.sqlite.fmeta_db import FMetaDatabase
 from index.two_level_dict import FullPathDict, Md5BeforePathDict, ParentPathBeforeFileNameDict, Sha256BeforePathDict
 from model.display_id import Identifier, LocalFsIdentifier
+from model.display_node import DisplayNode
 from model.fmeta import FMeta
 from model.fmeta_tree import FMetaTree
 from model.planning_node import PlanningNode
@@ -81,7 +82,7 @@ class LocalDiskMasterCache:
         while not q.empty():
             dir_path = q.get()
             count_dirs += 1
-            files_in_dir = self.parent_path_dict.get(dir_path)
+            files_in_dir: Dict[str, Union[FMeta, PlanningNode]] = self.parent_path_dict.get_second_dict(dir_path)
             for file_name, fmeta in files_in_dir.items():
                 fmeta_tree.add_item(fmeta)
                 count_added_from_cache += 1
@@ -200,7 +201,7 @@ class LocalDiskMasterCache:
         if has_data_to_store_in_memory:
             self._update_in_memory_cache(fmeta_tree)
 
-        logger.info(f'LocalFS cache for {cache_info.subtree_root} loaded in: {stopwatch_total}')
+        logger.info(f'LocalFS cache for {cache_info.subtree_root.full_path} loaded in: {stopwatch_total}')
 
         # Display summary of tree in the status area (if any)
         status = fmeta_tree.get_summary()

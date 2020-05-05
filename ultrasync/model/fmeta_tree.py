@@ -6,7 +6,6 @@ import humanfriendly
 import file_util
 from model.category import Category
 from model.display_id import LocalFsIdentifier
-from model.display_node import DisplayNode
 from model.fmeta import FMeta
 from model.planning_node import PlanningNode
 from model.subtree_snapshot import SubtreeSnapshot
@@ -187,7 +186,7 @@ class FMetaTree(SubtreeSnapshot):
 
         return match
 
-    def add_item(self, item: FMeta):
+    def add_item(self, item: Union[FMeta, PlanningNode]):
         assert item.full_path.startswith(self.root_path), f'FMeta (cat={item.category.name}) full path (' \
                                                           f'{item.full_path}) is not under this tree ({self.root_path})'
 

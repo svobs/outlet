@@ -37,7 +37,7 @@ class GDriveMasterCache:
 
     def _load_gdrive_cache(self, cache_info: PersistedCacheInfo, tree_id: str):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
-        status = f'Loading meta for "{cache_info.subtree_root}" from cache: "{cache_info.cache_location}"'
+        status = f'Loading meta for "{cache_info.subtree_root.full_path}" from cache: "{cache_info.cache_location}"'
         logger.debug(status)
         dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
 
@@ -49,7 +49,7 @@ class GDriveMasterCache:
         meta = GDriveWholeTree()  # TODO
         tree_builder.load_from_cache(meta)
         self._update_in_memory_cache(meta)
-        logger.info(f'GDrive cache for {cache_info.subtree_root} loaded in: {stopwatch_total}')
+        logger.info(f'GDrive cache for {cache_info.subtree_root.full_path} loaded in: {stopwatch_total}')
 
         cache_info.is_loaded = True
         self.meta_master = meta  # TODO
@@ -104,6 +104,7 @@ class GDriveMasterCache:
         if not cache_info.is_loaded:
             # Load from disk
             # TODO: this will fail if the cache does not exist. Need the above!
+            logger.debug(f'Cache is not loaded: {cache_info.cache_location}')
             self._load_gdrive_cache(cache_info, tree_id)
 
         if subtree_root.uid == ROOT:

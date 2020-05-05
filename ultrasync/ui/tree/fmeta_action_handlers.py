@@ -1,4 +1,3 @@
-import fnmatch
 import os
 import logging
 import re
@@ -8,7 +7,7 @@ from typing import List
 import ui.actions as actions
 from model.planning_node import FileDecoratorNode
 from ui.tree.action_bridge import TreeActionBridge
-from model.display_node import DirNode, CategoryNode, DisplayNode
+from model.display_node import CategoryNode, DisplayNode
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -265,7 +264,7 @@ class FMetaTreeActionHandlers(TreeActionBridge):
 
     def call_exiftool_list(self, data_node_list: List[DisplayNode]):
         for item in data_node_list:
-            self.call_exiftool(item.display_id.id_string)
+            self.call_exiftool(item.full_path)
 
     def call_exiftool(self, file_path):
         """exiftool -AllDates="2001:01:01 12:00:00" *

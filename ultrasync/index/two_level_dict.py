@@ -139,15 +139,20 @@ class TwoLevelDict:
             dict2[key2] = item
         return existing
 
-    def get(self, key1: Union[str, int], key2: Union[str, int] = None) -> Union[List, Any]:
+    def get_second_dict(self, key1: Union[str, int]) -> Dict[Union[str, int], Any]:
+        dict2 = self._dict.get(key1, None)
+        if dict2:
+            return dict2
+        return {}
+
+    def get_single(self, key1: Union[str, int], key2: Union[str, int]) -> Optional[Any]:
         """If only one arg is provided, returns the entire dict which matches the first key.
         If two are provided, returns the item matching both keys, or None if not found"""
         assert key1, 'key1 is empty!'
+        assert key2, 'key2 is empty!'
         dict2 = self._dict.get(key1, None)
         if not dict2:
-            return {}
-        if not key2:
-            return dict2
+            return None
         return dict2.get(key2, None)
 
     def remove(self, key1: Union[str, int], key2: Union[str, int]) -> Optional[Any]:
@@ -162,6 +167,12 @@ class TwoLevelDict:
     def keys(self):
         return self._dict.keys()
 
+    def get_all(self) -> List[Any]:
+        all_vals = []
+        for d in self._dict.values():
+            if d:
+                all_vals += d.values()
+        return all_vals
 
 """
 🡻🡻🡻 ③ Parameterized classes 🡻🡻🡻

@@ -57,7 +57,7 @@ class LogicalNodeIdentifier(Identifier):
         return OBJ_TYPE_DISPLAY_ONLY
 
     def __repr__(self):
-        return f'ID:--:{self.category.name}:{self.full_path}'
+        return f'ID:--:{self.full_path}'
 
 
 """
@@ -81,7 +81,7 @@ class GDriveIdentifier(Identifier):
         return self._uid
 
     def __repr__(self):
-        return f'ID:GD:{self.category.name}:{self.full_path}:{self._uid}'
+        return f'ID:GD:{self.full_path}:{self._uid}'
 
 
 """
@@ -100,7 +100,7 @@ class LocalFsIdentifier(Identifier):
         return OBJ_TYPE_LOCAL_DISK
 
     def __repr__(self):
-        return f'ID:FS:{self.category.name}:{self.full_path}'
+        return f'ID:FS:{self.full_path}'
 
 
 def for_values(tree_type: int, full_path: str, uid: str = None, category=Category.NA):

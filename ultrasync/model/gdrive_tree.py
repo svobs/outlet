@@ -211,8 +211,8 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
     def get_for_cat(self, category: Category):
         return self._cat_dict[category]
 
-    def get_for_md5(self, md5) -> Optional[List[GoogNode]]:
-        return self._md5_dict.get(md5, None)
+    def get_for_md5(self, md5) -> Dict[Union[str], GoogNode]:
+        return self._md5_dict.get_second_dict(md5)
 
     def get_md5_set(self):
         return self._md5_dict.keys()
@@ -282,7 +282,6 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         # Do this after any merging we do above
         if isinstance(added_item, GoogFile) and added_item.md5:
             if file_util.is_target_type(added_item.name, constants.VALID_SUFFIXES):
-                self._md5_dict.get(added_item.md5, added_item.uid)
                 previous = self._md5_dict.put(added_item)
                 if previous:
                     logger.warning(f'Overwrote existing MD5/ID pair: {previous}')
