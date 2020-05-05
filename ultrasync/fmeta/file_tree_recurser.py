@@ -3,7 +3,7 @@ import os
 import file_util
 
 
-class TreeRecurser:
+class FileTreeRecurser:
     def __init__(self, root_path, valid_suffixes):
         self.root_path = root_path
         self.valid_suffixes = valid_suffixes

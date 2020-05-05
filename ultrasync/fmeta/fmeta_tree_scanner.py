@@ -8,7 +8,7 @@ from pathlib import Path
 
 from constants import VALID_SUFFIXES
 from model.fmeta import FMeta, Category
-from fmeta.tree_recurser import TreeRecurser
+from fmeta.file_tree_recurser import FileTreeRecurser
 import fmeta.content_hasher
 import ui.actions as actions
 from model.fmeta_tree import FMetaTree
@@ -72,13 +72,13 @@ def _check_update_sanity(old_fmeta, new_fmeta):
 # SUPPORT CLASSES ####################
 
 
-class FileCounter(TreeRecurser):
+class FileCounter(FileTreeRecurser):
     """
     Does a quick walk of the filesystem and counts the files which are of interest
     """
 
     def __init__(self, root_path):
-        TreeRecurser.__init__(self, root_path, valid_suffixes=VALID_SUFFIXES)
+        FileTreeRecurser.__init__(self, root_path, valid_suffixes=VALID_SUFFIXES)
         self.files_to_scan = 0
 
     def handle_target_file_type(self, file_path):
@@ -88,14 +88,14 @@ class FileCounter(TreeRecurser):
         self.files_to_scan += 1
 
 
-class TreeMetaScanner(TreeRecurser):
+class TreeMetaScanner(FileTreeRecurser):
     """
     Walks the filesystem for a subtree (FMetaTree), using a cache if configured,
     to generate an up-to-date FMetaTree.
     """
 
     def __init__(self, root_path, stale_tree=None, tree_id=None, track_changes=False):
-        TreeRecurser.__init__(self, Path(stale_tree.root_path), valid_suffixes=VALID_SUFFIXES)
+        FileTreeRecurser.__init__(self, Path(stale_tree.root_path), valid_suffixes=VALID_SUFFIXES)
         # Note: this tree will be useless after we are done with it
         self.root_path = root_path
         self.stale_tree = stale_tree

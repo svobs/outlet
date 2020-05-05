@@ -15,7 +15,7 @@ from ui.comp.progress_bar import ProgressBar
 from ui.tree import tree_factory
 
 from ui.dialog.merge_preview_dialog import MergePreviewDialog
-from fmeta import diff_content_first
+from diff import diff_content_first
 from ui.dialog.base_dialog import BaseDialog
 
 logger = logging.getLogger(__name__)

@@ -8,7 +8,7 @@ from pydispatch import dispatcher
 
 import file_util
 from constants import OBJ_TYPE_LOCAL_DISK, ROOT
-from fmeta.fmeta_tree_loader import TreeMetaScanner
+from fmeta.fmeta_tree_scanner import TreeMetaScanner
 from index.cache_manager import PersistedCacheInfo
 from index.meta_store.local_lazy import LocalDiskSubtreeMS
 from index.sqlite.fmeta_db import FMetaDatabase

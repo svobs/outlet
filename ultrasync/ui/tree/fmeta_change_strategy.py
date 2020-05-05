@@ -14,7 +14,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import GLib
 
 from pydispatch import dispatcher
-from fmeta.fmeta_tree_loader import TreeMetaScanner
+from fmeta.fmeta_tree_scanner import TreeMetaScanner
 
 from ui import actions
 from ui.tree.lazy_display_strategy import LazyDisplayStrategy

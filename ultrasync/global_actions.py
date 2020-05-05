@@ -16,7 +16,7 @@ from stopwatch_sec import Stopwatch
 import ui.actions as actions
 from ui.dialog.gdrive_dir_selection_dialog import GDriveDirSelectionDialog
 
-from fmeta import diff_content_first
+from diff import diff_content_first
 
 logger = logging.getLogger(__name__)
 
