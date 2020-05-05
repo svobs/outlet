@@ -269,7 +269,7 @@ class RootDirPanel:
         # the arguments are: title of the window, parent_window, action,
         # (buttons, response)"""
         logger.debug('Creating and displaying RootDirChooserDialog')
-        open_dialog = RootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, tree_id=self.tree_id, current_dir=self.current_root)
+        open_dialog = RootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, tree_id=self.tree_id, current_dir=self.current_root.full_path)
 
         # not only local files can be selected in the file selector
         open_dialog.set_local_only(False)

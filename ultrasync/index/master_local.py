@@ -138,11 +138,11 @@ class LocalDiskMasterCache:
         to_insert = fmeta_tree.get_all()
 
         stopwatch_write_cache = Stopwatch()
-        with FMetaDatabase(cache_info.cache_info.cache_location) as fmeta_disk_cache:
+        with FMetaDatabase(cache_info.cache_location) as fmeta_disk_cache:
             # Update cache:
             fmeta_disk_cache.insert_local_files(to_insert, overwrite=True)
 
-        logger.info(f'Wrote {str(len(to_insert))} FMetas to "{cache_info.cache_info.cache_location}" in {stopwatch_write_cache}')
+        logger.info(f'Wrote {str(len(to_insert))} FMetas to "{cache_info.cache_location}" in {stopwatch_write_cache}')
 
     # Load/save on-disk cache:
 
