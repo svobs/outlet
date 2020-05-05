@@ -150,7 +150,7 @@ class LocalDiskMasterCache:
         """Called at startup to handle a single subtree cache from a local fs"""
 
         if not os.path.exists(cache_info.subtree_root.full_path):
-            logger.info(f'Subtree not found; assuming it is a removable drive: "{cache_info.subtree_root}"')
+            logger.info(f'Subtree not found; will defer loading: "{cache_info.subtree_root}"')
             cache_info.needs_refresh = True
             return
 
