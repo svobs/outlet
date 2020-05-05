@@ -54,7 +54,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         allocation.height = height
         self.size_allocate(allocation)
         # i.e. "minimum" window size allowed:
-    #    self.set_size_request(1200, 500)
+        self.set_size_request(1200, 500)
         #
       #  self.set_default_size(width, height)
         self.set_border_width(10)

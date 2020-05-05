@@ -13,7 +13,7 @@ import logging
 from global_actions import GlobalActions
 from task_runner import CentralTaskRunner
 
-from ui.diff_tree.diff_window import TwoPanelWindow
+from ui.two_pane_window import TwoPanelWindow
 from app_config import AppConfig
 import ui.assets
 
