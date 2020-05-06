@@ -13,8 +13,7 @@ from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
 from model.display_id import GDriveIdentifier, Identifier, LocalFsIdentifier
 from ui.dialog.base_dialog import BaseDialog
 import ui.actions as actions
-from ui.assets import ALERT_ICON_PATH, CHOOSE_ROOT_ICON_PATH, GDRIVE_ICON_PATH
-
+from ui.assets import ALERT_ICON_PATH, CHOOSE_ROOT_ICON_PATH, GDRIVE_ICON_PATH, REFRESH_ICON_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -34,12 +33,14 @@ class RootDirPanel:
         self.ui_enabled = editable
         """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
 
-        self.icon = Gtk.Image()
+        self.path_icon = Gtk.Image()
+        self.refresh_icon = Gtk.Image()
+        self.refresh_icon.set_from_file(REFRESH_ICON_PATH)
         if self.editable:
             self.change_btn = Gtk.MenuButton()
-            self.change_btn.set_image(image=self.icon)
+            self.change_btn.set_image(image=self.path_icon)
             self.content_box.pack_start(self.change_btn, expand=False, fill=False, padding=5)
-            self.change_btn.connect("clicked", self._on_change_btn_clicked, parent_win)
+            self.change_btn.connect("clicked", self._on_change_btn_clicked)
             self.source_menu = self._build_source_menu()
             self.change_btn.set_popup(self.source_menu)
 
@@ -47,6 +48,7 @@ class RootDirPanel:
                 if self.ui_enabled and event.keyval == Gdk.KEY_Escape and self.entry:
                     # cancel
                     logger.debug(f'Escape pressed! Cancelling root path entry box')
+                    self.entry.disconnect(self.entry_box_focus_eid)
                     self._update_root_label(self.current_root)
                     return True
                 return False
@@ -55,8 +57,9 @@ class RootDirPanel:
             self.parent_win.connect('key-press-event', on_key_pressed)
         else:
             self.change_btn = None
-            self.content_box.pack_start(self.icon, expand=False, fill=False, padding=0)
+            self.content_box.pack_start(self.path_icon, expand=False, fill=False, padding=0)
 
+        # path_box contains alert_image_box (which may contain alert_image) and label_event_box (contains label)
         self.path_box = Gtk.Box(spacing=0, orientation=Gtk.Orientation.HORIZONTAL)
         self.content_box.pack_start(self.path_box, expand=True, fill=True, padding=0)
 
@@ -69,6 +72,8 @@ class RootDirPanel:
         self.entry = None
         self.label_event_box = None
         self.label = None
+        self.toolbar = None
+        self.refresh_button = None
 
         actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
         actions.connect(actions.ROOT_PATH_UPDATED, self._on_root_path_updated, self.tree_id)
@@ -94,7 +99,7 @@ class RootDirPanel:
 
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root)
 
-    def _on_change_btn_clicked(self, widget, parent_win):
+    def _on_change_btn_clicked(self, widget):
         if self.ui_enabled:
             self.source_menu.popup_at_widget(widget, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, None)
         return True
@@ -121,6 +126,7 @@ class RootDirPanel:
         self.entry.set_text(path)
         self.entry.connect('activate', self._on_root_text_entry_submitted, self.tree_id)
         self.path_box.remove(self.label_event_box)
+        self.path_box.remove(self.toolbar)
         self.path_box.pack_start(self.entry, expand=True, fill=True, padding=0)
 
         def cancel_edit(widget, event):
@@ -164,19 +170,33 @@ class RootDirPanel:
             # Remove label even if it's found. Simpler just to redraw the whole thing
             self.path_box.remove(self.label_event_box)
             self.label_event_box = None
+        if self.toolbar:
+            self.path_box.remove(self.toolbar)
         self.label_event_box = Gtk.EventBox()
         self.path_box.pack_start(self.label_event_box, expand=True, fill=True, padding=0)
         self.label_event_box.add(self.label)
         self.label_event_box.show()
 
+        # Note: good example of toolbar here:
+        # https://github.com/kyleuckert/LaserTOF/blob/master/labTOF_main.app/Contents/Resources/lib/python2.7/matplotlib/backends/backend_gtk3.py
+        self.toolbar = Gtk.Toolbar()
+        self.toolbar.set_style(Gtk.ToolbarStyle.ICONS)
+        self.refresh_button = Gtk.ToolButton()
+        self.refresh_button.set_icon_widget(self.refresh_icon)
+        self.refresh_button.set_tooltip_text('Load meta for tree')
+        self.refresh_button.connect('clicked', self._on_refresh_button_clicked)
+        self.toolbar.insert(self.refresh_button, -1)
+        self.path_box.pack_end(self.toolbar, expand=False, fill=True, padding=5)
+        self.toolbar.show_all()
+
         if self.editable:
             self.label_event_box.connect('button_press_event', self._on_label_clicked)
 
         if new_root.tree_type == OBJ_TYPE_LOCAL_DISK:
-            self.icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
+            self.path_icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
             root_exists = os.path.exists(new_root.full_path)
         elif new_root.tree_type == OBJ_TYPE_GDRIVE:
-            self.icon.set_from_file(GDRIVE_ICON_PATH)
+            self.path_icon.set_from_file(GDRIVE_ICON_PATH)
             root_exists = new_root.uid != 'NULL'
         else:
             raise RuntimeError(f'Unrecognized tree type: {new_root.tree_type}')
@@ -240,4 +260,5 @@ class RootDirPanel:
         source_menu.show_all()
         return source_menu
 
-
+    def _on_refresh_button_clicked(self, widget):
+        logger.debug('The Refresh button was clicked!')
