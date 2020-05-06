@@ -24,7 +24,7 @@ class Task:
             self.application.window.show_error_ui(msg, repr(err))
             raise
         finally:
-            logger.info(f'Task returned in {task_time}')
+            logger.info(f'🕑{task_time} Task returned')
 
 
 class CentralTaskRunner:

@@ -137,7 +137,7 @@ class GlobalActions:
 
             stopwatch_diff = Stopwatch()
             diff_content_first.diff(left_fmeta_tree, right_fmeta_tree, compare_paths_also=True)
-            logger.info(f'Diff completed in: {stopwatch_diff}')
+            logger.info(f'{stopwatch_diff} Diff completed')
 
             actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, tx_id=tx_id, msg='Populating UI trees...')
             tree_con_left.load()

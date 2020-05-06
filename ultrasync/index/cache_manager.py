@@ -16,10 +16,13 @@ from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
 from model.display_id import GDriveIdentifier, Identifier, LocalFsIdentifier
 from model.goog_node import GoogNode
+from stopwatch_sec import Stopwatch
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
 
 logger = logging.getLogger(__name__)
+
+CFG_ENABLE_LOAD_FROM_DISK = 'cache.enable_cache_load'
 
 
 def _ensure_cache_dir_path(config):
@@ -41,7 +44,6 @@ class CacheInfoByType(TwoLevelDict):
 #    CLASS CacheManager
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
-
 # -> only the "rea1" nodes should go in the cache. Other nodes (e.g. 'planning nodes') should not
 class CacheManager:
     def __init__(self, application):
@@ -52,7 +54,7 @@ class CacheManager:
 
         self.caches_by_type: CacheInfoByType = CacheInfoByType()
 
-        self.enable_load_from_disk = application.config.get('cache.enable_cache_load')
+        self.enable_load_from_disk = application.config.get(CFG_ENABLE_LOAD_FROM_DISK)
         self.enable_save_to_disk = application.config.get('cache.enable_cache_save')
         self.load_all_caches_on_startup = application.config.get('cache.load_all_caches_on_startup')
         self.sync_from_local_disk_on_cache_load = application.config.get('cache.sync_from_local_disk_on_cache_load')
@@ -76,6 +78,7 @@ class CacheManager:
 
         logger.debug(f'CacheManager.load_all_caches() initiated by {sender}')
         logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {ID_GLOBAL_CACHE}')
+        stopwatch = Stopwatch()
         tx_id = uuid.uuid1()
         dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=ID_GLOBAL_CACHE, tx_id=tx_id)
 
@@ -106,7 +109,7 @@ class CacheManager:
                 except Exception:
                     logger.exception(f'Failed to load cache: {existing_disk_cache.cache_location}')
 
-            logger.debug('Done loading caches')
+            logger.debug(f'{stopwatch} Load All Caches complete')
         finally:
             dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE, tx_id=tx_id)
             self.all_caches_loaded.set()

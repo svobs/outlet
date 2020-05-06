@@ -69,7 +69,7 @@ class TreePanelController:
     def get_checked_rows_as_tree(self) -> SubtreeSnapshot:
         timer = Stopwatch()
         subtree: SubtreeSnapshot = self.display_strategy.get_checked_rows_as_tree()
-        logger.debug(f'Retreived checked rows in {timer}: {subtree.get_summary()}')
+        logger.debug(f'{timer} Retreived checked rows: {subtree.get_summary()}')
 
         return subtree
 

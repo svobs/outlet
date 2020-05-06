@@ -100,7 +100,7 @@ class LazyMetaStore(BaseMetaStore, ABC):
             category_node = CategoryNode(self.get_root_identifier().full_path, parent_identifier.category)
             category_tree = category_tree_builder.build_category_tree(self.get_model(), category_node)
             self._category_trees[parent_identifier.category] = category_tree
-            logger.debug(f'Tree constructed for "{parent_identifier.category.name}" (size {len(category_tree)}) in: {category_stopwatch}')
+            logger.debug(f'{category_stopwatch} Tree constructed for "{parent_identifier.category.name}" (size {len(category_tree)})')
 
         try:
             # Need to get relative path for item:

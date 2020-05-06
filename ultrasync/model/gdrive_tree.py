@@ -410,7 +410,7 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
                 file_count += 1
             elif isinstance(item, GoogFolder):
                 folder_count += 1
-        return f'{file_count:n} files and {folder_count:n} folders in subtree'
+        return f'{file_count:n} files and {folder_count:n} folders in subtree '
 
     def categorize(self, item, category: Category):
         assert category != Category.NA

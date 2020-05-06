@@ -64,7 +64,7 @@ class Stopwatch:
     def __str__(self):
         dur = self.duration * 1000
         if dur >= 10:
-            return "{:,.2f}s".format(dur / 1000)
+            return "🕑{:,.2f}s".format(dur / 1000)
         if dur >= 1:
-            return "{:.3f}s".format(dur / 1000)
-        return "{:.6f}s".format(dur / 1000)
+            return "🕑{:.3f}s".format(dur / 1000)
+        return "🕑{:.6f}s".format(dur / 1000)

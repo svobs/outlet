@@ -71,6 +71,7 @@ class LocalDiskMasterCache:
         self._add_ancestors_to_tree(item.full_path)
 
     def _get_subtree_from_memory_only(self, subtree_path: Identifier):
+        stopwatch = Stopwatch()
         logger.debug(f'Getting items from in-memory cache for subtree: {subtree_path}')
         fmeta_tree = FMetaTree(root_path=subtree_path.full_path)
         count_dirs = 0
@@ -90,15 +91,18 @@ class LocalDiskMasterCache:
                 for child_dir in self.dir_tree.children(dir_path):
                     q.put(child_dir.identifier)
 
-        logger.debug(f'Got {count_added_from_cache} items from in-memory cache (from {count_dirs} dirs)')
+        logger.debug(f'{stopwatch} Got {count_added_from_cache} items from in-memory cache (from {count_dirs} dirs)')
         return fmeta_tree
 
     # Load/save on-disk cache:
 
     def _load_subtree_disk_cache(self, cache_info: PersistedCacheInfo, tree_id) -> Optional[FMetaTree]:
+        """Loads the given subtree disk cache from disk. Does nothing if cache load is disabled."""
         if not self.application.cache_manager.enable_load_from_disk:
-            logger.debug('Skipping cache load because enable_load_from_disk is False')
+            logger.debug('Skipping cache load because cache.enable_cache_load is False')
             return None
+
+        stopwatch_load = Stopwatch()
 
         # Load cache from file, and update with any local FS changes found:
         with FMetaDatabase(cache_info.cache_location) as fmeta_disk_cache:
@@ -126,8 +130,8 @@ class LocalDiskMasterCache:
                 elif existing.sync_ts < change.sync_ts:
                     fmeta_tree.add_item(change)
 
-            logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
-            logger.debug(fmeta_tree.get_stats_string())
+            # logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
+            logger.debug(f'{stopwatch_load} Loaded {fmeta_tree.get_stats_string()}')
 
             cache_info.is_loaded = True
             return fmeta_tree
@@ -142,7 +146,7 @@ class LocalDiskMasterCache:
             # Update cache:
             fmeta_disk_cache.insert_local_files(to_insert, overwrite=True)
 
-        logger.info(f'Wrote {str(len(to_insert))} FMetas to "{cache_info.cache_location}" in {stopwatch_write_cache}')
+        logger.info(f'{stopwatch_write_cache} Wrote {str(len(to_insert))} FMetas to "{cache_info.cache_location}"')
 
     # Load/save on-disk cache:
 
@@ -201,7 +205,7 @@ class LocalDiskMasterCache:
         if has_data_to_store_in_memory:
             self._update_in_memory_cache(fmeta_tree)
 
-        logger.info(f'LocalFS cache for {cache_info.subtree_root.full_path} loaded in: {stopwatch_total}')
+        logger.info(f'{stopwatch_total} LocalFS cache for {cache_info.subtree_root.full_path} loaded')
 
         # Display summary of tree in the status area (if any)
         status = fmeta_tree.get_summary()
@@ -243,5 +247,7 @@ class LocalDiskMasterCache:
         cache_man = self.application.cache_manager
         if cache_man.enable_save_to_disk:
             self._save_subtree_disk_cache(fresh_tree)
+        else:
+            logger.debug('Skipping cache save because it is disabled')
 
         return fresh_tree

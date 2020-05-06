@@ -38,6 +38,9 @@ class GDriveMasterCache:
 
     def _load_gdrive_cache(self, cache_info: PersistedCacheInfo, tree_id: str):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
+        if not self.application.cache_manager.enable_load_from_disk:
+            logger.debug('Skipping cache load because cache.enable_cache_load is False')
+            return None
         status = f'Loading meta for "{cache_info.subtree_root.full_path}" from cache: "{cache_info.cache_location}"'
         logger.debug(status)
         dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
@@ -50,7 +53,7 @@ class GDriveMasterCache:
         meta = GDriveWholeTree()  # TODO
         tree_builder.load_from_cache(meta)
         self._update_in_memory_cache(meta)
-        logger.info(f'GDrive cache for {cache_info.subtree_root.full_path} loaded in: {stopwatch_total}')
+        logger.info(f'{stopwatch_total} GDrive cache for {cache_info.subtree_root.full_path} loaded')
 
         cache_info.is_loaded = True
         self.meta_master = meta  # TODO
@@ -92,7 +95,6 @@ class GDriveMasterCache:
 
             item.identifier.full_path = full_path
 
-        logger.debug(f'Sliced off {subtree_meta}')
         return subtree_meta
 
     def get_metastore_for_subtree(self, subtree_root: GDriveIdentifier, tree_id: str):
@@ -115,8 +117,11 @@ class GDriveMasterCache:
             # TODO: this will not work
             return gdrive_meta
         else:
+            slice_timer = Stopwatch()
             gdrive_meta = self._slice_off_subtree_from_master(subtree_root, tree_id)
-            if not gdrive_meta:
+            if gdrive_meta:
+                logger.debug(f'{slice_timer} Sliced off {gdrive_meta}')
+            else:
                 logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root}". '
                             f'Returning an empty metastore')
                 return DummyMS(tree_id, self.application.config, subtree_root)
