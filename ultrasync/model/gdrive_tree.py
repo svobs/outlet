@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Union, ValuesView
 
 import constants
 import file_util
+from format_util import with_commas
 from index.two_level_dict import Md5BeforeUidDict
 from model.category import Category
 from model.display_id import GDriveIdentifier, Identifier
@@ -409,7 +410,7 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
                 file_count += 1
             elif isinstance(item, GoogFolder):
                 folder_count += 1
-        return f'{file_count} files and {folder_count} folders'
+        return f'{file_count:n} files and {folder_count:n} folders in subtree'
 
     def categorize(self, item, category: Category):
         assert category != Category.NA

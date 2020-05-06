@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Union, ValuesView
 import humanfriendly
 
 import file_util
+import format_util
 from model.category import Category
 from model.display_id import Identifier, LocalFsIdentifier
 from model.display_node import DisplayNode
@@ -256,13 +257,13 @@ class FMetaTree(SubtreeSnapshot):
         deleted_size = self._cat_dict[Category.Deleted].size_bytes
 
         total_size = self._total_size_bytes - ignored_size - deleted_size
-        size_hf = humanfriendly.format_size(total_size)
+        size_hf = format_util.humanfriendlier_size(total_size)
 
         count = len(self._path_dict) - ignored_count - deleted_count
 
-        summary_string = f'{size_hf} total in {count} files'
+        summary_string = f'{size_hf} total in {format_util.with_commas(count)} files'
         if ignored_count > 0:
-            ignored_size_hf = humanfriendly.format_size(ignored_size)
+            ignored_size_hf = format_util.humanfriendlier_size(ignored_size)
             summary_string += f' (+{ignored_size_hf} in {ignored_count} ignored files)'
         return summary_string
 

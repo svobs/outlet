@@ -57,7 +57,6 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         try:
             if response_id == Gtk.ResponseType.OK:
                 logger.debug("The OK button was clicked")
-                # FIXME: derive path from tree selection
                 node_data: DisplayNode = self.tree_controller.get_single_selection()
                 assert node_data.identifier
                 self.on_ok_clicked(node_data.identifier)
