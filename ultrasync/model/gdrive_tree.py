@@ -47,6 +47,10 @@ class GDriveTree:
         self.first_parent_dict: Dict[str, List[GoogNode]] = {}
         """ Reverse lookup table: 'parent_id' -> list of child nodes """
 
+    @classmethod
+    def get_root_identifier(cls):
+        return GDriveIdentifier(uid=constants.ROOT, full_path=constants.ROOT)
+
     def get_children(self, parent_id: Union[str, Identifier]) -> List[GoogNode]:
         if isinstance(parent_id, Identifier):
             parent_id = parent_id.uid
@@ -262,6 +266,14 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
     @property
     def root_id(self):
         return self.identifier.uid
+
+    def __eq__(self, other):
+        if self.uid == constants.ROOT:
+            return other.uid == constants.ROOT
+        return super().__eq__(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __repr__(self):
         return f'GDriveSubtree(root_id={self.root_id} root_path="{self.root_path}" id_count={len(self.id_dict)} ' \

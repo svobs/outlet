@@ -54,13 +54,14 @@ class GlobalActions:
 
     def on_gdrive_requested(self, sender):
         logger.debug(f'Received signal: "{actions.DOWNLOAD_GDRIVE_META}"')
-        self.application.task_runner.enqueue(self.download_gdrive_meta, sender)
+        self.application.task_runner.enqueue(self.download_all_gdrive_meta, sender)
 
-    def download_gdrive_meta(self, tree_id):
+    def download_all_gdrive_meta(self, tree_id):
         """Executed by Task Runner. NOT UI thread"""
         actions.disable_ui(sender=tree_id)
         try:
             self.application.cache_manager.download_all_gdrive_meta(tree_id)
+
             meta_store = self.application.cache_manager.get_metastore_for_gdrive_subtree(ROOT, tree_id)
             actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, meta_store=meta_store)
         except Exception as err:

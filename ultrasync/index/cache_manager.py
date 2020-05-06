@@ -141,6 +141,7 @@ class CacheManager:
         Performs a read-through retreival of all the FMetas in the given subtree
         on the local filesystem.
         """
+
         if identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
             return self.local_disk_cache.get_metastore_for_subtree(identifier, tree_id)
         elif identifier.tree_type == OBJ_TYPE_GDRIVE:
@@ -155,7 +156,7 @@ class CacheManager:
         """
         return self.local_disk_cache.get_metastore_for_subtree(subtree_path, tree_id)
 
-    def get_metastore_for_gdrive_subtree(self, subtree_path, tree_id):
+    def get_metastore_for_gdrive_subtree(self, subtree_path: GDriveIdentifier, tree_id):
         return self.gdrive_cache.get_metastore_for_subtree(subtree_path, tree_id)
 
     def download_all_gdrive_meta(self, tree_id):

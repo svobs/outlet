@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from constants import OBJ_TYPE_DISPLAY_ONLY, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
+from constants import OBJ_TYPE_DISPLAY_ONLY, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, ROOT
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 from model.category import Category
@@ -39,6 +39,8 @@ class Identifier(ABC):
         return f'[XX:{self.category.name}:{self.full_path}]'
 
     def __eq__(self, other):
+        if isinstance(other, str):
+            return other == ROOT and self.uid == ROOT
         return self.full_path == other.full_path and self.uid == other.uid and self.tree_type == other.tree_type
 
     def __ne__(self, other):

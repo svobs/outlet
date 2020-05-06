@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 
 from model import display_id
 from model.display_id import GDriveIdentifier, Identifier
-from model.gdrive_tree import GDriveSubtree, GDriveWholeTree
+from model.gdrive_tree import GDriveSubtree, GDriveTree, GDriveWholeTree
 from stopwatch_sec import Stopwatch
 
 from constants import NOT_TRASHED, OBJ_TYPE_GDRIVE, ROOT
@@ -98,6 +98,8 @@ class GDriveMasterCache:
         return subtree_meta
 
     def get_metastore_for_subtree(self, subtree_root: GDriveIdentifier, tree_id: str):
+        if subtree_root == ROOT:
+            subtree_root = GDriveTree.get_root_identifier()
         logger.debug(f'Getting metastore for subtree: "{subtree_root}"')
         cache_man = self.application.cache_manager
         # TODO: currently we will just load the root and use that.
@@ -115,7 +117,7 @@ class GDriveMasterCache:
             # We'll use this special token to represent "everything"
             gdrive_meta = self.meta_master
             # TODO: this will not work
-            return gdrive_meta
+            return GDriveMS(tree_id, self.application.config, gdrive_meta, subtree_root)
         else:
             slice_timer = Stopwatch()
             gdrive_meta = self._slice_off_subtree_from_master(subtree_root, tree_id)

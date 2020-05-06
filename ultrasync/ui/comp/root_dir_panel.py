@@ -79,6 +79,7 @@ class RootDirPanel:
         actions.connect(actions.ROOT_PATH_UPDATED, self._on_root_path_updated, self.tree_id)
 
         # Need to call this to do the initial UI draw:
+        logger.debug(f'Building panel: {self.tree_id} with current root {self.current_root}')
         GLib.idle_add(self._update_root_label, current_root)
 
     def _on_root_text_entry_submitted(self, widget, tree_id):
