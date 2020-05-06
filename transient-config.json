@@ -1,7 +1,7 @@
 {
     "diff_win": {
-        "height": 726,
-        "width": 1440,
+        "height": 1026,
+        "width": 1680,
         "x": 0,
         "y": 0
     },
@@ -25,8 +25,8 @@
             "Moved": true,
             "Updated": true
         },
-        "root_path": "/My Drive/Media/Svoboda-Family/Svoboda Family Photos",
-        "root_uid": "17Laq7U_w3ZXBmJD6ViLFgIs1FheFk40K",
+        "root_path": "/My Drive/Development",
+        "root_uid": "1rfaQHxoRr0QusPhK6xd_otLrskeaXiFM",
         "tree_type": 2
     }
 }

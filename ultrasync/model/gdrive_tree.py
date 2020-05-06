@@ -163,6 +163,14 @@ class GDriveWholeTree(GDriveTree):
         self.mime_types = {}
         self.shortcuts = {}
 
+    def get_full_path_for_item(self, item: GoogNode) -> str:
+        """Gets the absolute path for the item"""
+        if item.full_path:
+            # Does item already have a full_path? Just return that (huge speed gain):
+            return item.full_path
+
+        return self.get_path_for_id(item.uid)
+
     def add_item(self, item):
         """Called when adding from Google API, or when slicing a metastore"""
         added_item = super().add_item(item)
