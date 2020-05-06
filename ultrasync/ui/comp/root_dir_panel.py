@@ -4,8 +4,8 @@ import os
 import gi
 from pydispatch import dispatcher
 
-from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
-from model.display_id import Identifier, LocalFsIdentifier
+from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
+from model.display_id import GDriveIdentifier, Identifier, LocalFsIdentifier
 from ui.dialog.base_dialog import BaseDialog
 
 gi.require_version("Gtk", "3.0")
@@ -108,7 +108,7 @@ class RootDirPanel:
                     logger.debug(f'User clicked elsewhere! Activating root path entry box')
                     self._on_root_text_entry_submitted(widget, tree_id)
                     return True
-                # False = allow it to propogate
+                # False = allow it to propagate
                 return False
 
             # Connect Escape key listener to parent window so it can be heard everywhere
@@ -139,12 +139,19 @@ class RootDirPanel:
 
     def _on_root_text_entry_submitted(self, widget, tree_id):
         # Triggered when the user submits a root via the text entry box
-        new_root_path = self.entry.get_text()
-        # TODO: parse tree type, allow for GDrive
-        # FIXME
-        new_root = LocalFsIdentifier(full_path=new_root_path)
+        new_root_path: str = self.entry.get_text()
         logger.info(f'User entered root path: "{new_root_path}" for tree_id={tree_id}')
-        # Important: send this signal AFTER label updated
+        new_root = None
+        try:
+            identifiers = self.parent_win.application.cache_manager.get_all_for_path(new_root_path)
+            assert len(identifiers) > 0, f'Got no identifiers (not even NULL) for path: {new_root_path}'
+            new_root = identifiers[0]
+        except FileNotFoundError as err:
+            # currently only GDrive does this.
+            # TODO: create GDrive-specific exception class which strips out the gdrive prefix and returns offending dir
+            gdrive_path = new_root_path[len(GDRIVE_PATH_PREFIX):]
+            new_root = GDriveIdentifier('NULL', gdrive_path)
+
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root)
 
     def _on_change_btn_clicked(self, widget, parent_win):
@@ -167,7 +174,11 @@ class RootDirPanel:
             self.alert_image_box.remove(self.alert_image)
 
         self.entry = Gtk.Entry()
-        self.entry.set_text(self.current_root.full_path)
+
+        path = self.current_root.full_path
+        if self.current_root.tree_type == OBJ_TYPE_GDRIVE:
+            path = GDRIVE_PATH_PREFIX + path
+        self.entry.set_text(path)
         self.entry.connect('activate', self._on_root_text_entry_submitted, self.tree_id)
         self.path_box.remove(self.label_event_box)
         self.path_box.pack_start(self.entry, expand=True, fill=True, padding=0)
@@ -214,22 +225,15 @@ class RootDirPanel:
             self.label_event_box.connect('button_press_event', self._on_label_clicked)
 
         if new_root.tree_type == OBJ_TYPE_LOCAL_DISK:
-            self._update_root_label_localfs(new_root)
+            self.icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
+            root_exists = os.path.exists(new_root.full_path)
         elif new_root.tree_type == OBJ_TYPE_GDRIVE:
             self.icon.set_from_file(GDRIVE_ICON_PATH)
-            # Display the user-readable path, not the ID:
-            root_part_regular = new_root.full_path
-            if root_part_regular is None:
-                root_part_regular = '(Not Found)'
-            GLib.idle_add(self._set_label_markup, '', '', root_part_regular, '')
-
+            root_exists = new_root.uid != 'NULL'
         else:
             raise RuntimeError(f'Unrecognized tree type: {new_root.tree_type}')
 
-    def _update_root_label_localfs(self, new_root: Identifier):
-        self.icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
-
-        if os.path.exists(new_root.full_path):
+        if root_exists:
             pre = ''
             color = ''
             root_part_regular, root_part_bold = os.path.split(new_root.full_path)

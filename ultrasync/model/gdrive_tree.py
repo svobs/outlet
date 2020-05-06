@@ -1,3 +1,4 @@
+import errno
 import logging
 import os
 from typing import Any, Dict, List, Optional, Union
@@ -166,6 +167,60 @@ class GDriveWholeTree(GDriveTree):
 
         return item
 
+    def get_all_ids_for_path(self, path: str) -> List[Identifier]:
+        """Try to match the given file-system-like path, mapping the root of this tree to the first segment of the path.
+        Since GDrive allows for multiple parents per child, it is possible for multiple matches to occur. This
+        returns them all.
+        """
+        logger.debug(f'get_all_ids_for_path() requested for path: "{path}"')
+        name_segments = file_util.split_path(path)
+        if len(name_segments) == 0:
+            raise RuntimeError(f'Bad path: "{path}"')
+        # name_segments = list(map(lambda x: x.lower(), name_segments))
+        iter_name_segs = iter(name_segments)
+        seg = next(iter_name_segs)
+        if seg == '/':
+            # Strip off root prefix if there is one
+            seg = next(iter_name_segs)
+        path_so_far = '/' + seg
+        current_seg_items: List = [x for x in self.roots if x.name.lower() == seg.lower()]
+        next_seg_items = []
+        path_found = '/'
+        if current_seg_items:
+            path_found += current_seg_items[0].name
+
+        for name_seg in iter_name_segs:
+            path_so_far = path_so_far + '/' + name_seg
+            for current in current_seg_items:
+                current_id = current.uid
+                children = self.get_children(current_id)
+                if not children:
+                    logger.debug(f'Item has no children: id="{current_id}" path_so_far="{path_so_far}"')
+                    break
+                matches: List = [x for x in children if x.name.lower() == name_seg.lower()]
+                if len(matches) > 1:
+                    logger.info(f'get_all_ids_for_path(): Multiple child IDs ({len(matches)}) found for parent ID"'
+                                f'{current_id}", path_so_far "{path_so_far}"')
+                    for num, match in enumerate(matches):
+                        logger.info(f'Match {num}: {match}')
+                next_seg_items += matches
+
+            if len(next_seg_items) == 0:
+                logger.debug(f'Segment not found: {name_seg}')
+                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path_so_far)
+            else:
+                path_found = path_found + '/' + next_seg_items[0].name
+
+            current_seg_items = next_seg_items
+            next_seg_items = []
+        matching_ids = list(map(lambda x: x.identifier, current_seg_items))
+        for identifier in matching_ids:
+            # Needs to be filled in:
+            identifier.full_path = path_found
+        if SUPER_DEBUG:
+            logger.debug(f'Found for path "{path_so_far}": {matching_ids}')
+        return matching_ids
+
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
@@ -244,10 +299,10 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
                 raise RuntimeError(f'Item has no children: id="{current_id}" path_so_far="{path_so_far}"')
             matches = [x for x in children if x.name == name_seg]
             if len(matches) > 1:
-                logger.error(f'get_for_path(): Multiple child IDs ({len(matches)}) found for parent ID"{current_id}", '
+                logger.error(f'get_for_path(): Multiple child IDs ({len(matches)}) found for parent ID "{current_id}", '
                              f'tree "{self.root_path}", path "{path_so_far}". Choosing the first found')
                 for num, match in enumerate(matches):
-                    logger.info(f'Match {num}: {match}')
+                    logger.warning(f'Match {num}: {match}')
             elif len(matches) == 0:
                 if SUPER_DEBUG:
                     logger.debug(f'No match found for path: {path_so_far}')

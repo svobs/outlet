@@ -1,11 +1,11 @@
 import logging
 from queue import Queue
-from typing import Optional
+from typing import List, Optional
 
 from pydispatch import dispatcher
 
 from model import display_id
-from model.display_id import GDriveIdentifier
+from model.display_id import GDriveIdentifier, Identifier
 from model.gdrive_tree import GDriveSubtree, GDriveWholeTree
 from stopwatch_sec import Stopwatch
 
@@ -16,6 +16,7 @@ from index.meta_store.gdrive import GDriveMS
 from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
 from model.goog_node import GoogFolder, GoogNode
 from ui import actions
+from ui.tree.meta_store import DummyMS
 
 logger = logging.getLogger(__name__)
 
@@ -54,12 +55,12 @@ class GDriveMasterCache:
         cache_info.is_loaded = True
         self.meta_master = meta  # TODO
 
-    def _slice_off_subtree_from_master(self, subtree_root: GDriveIdentifier) -> GDriveSubtree:
+    def _slice_off_subtree_from_master(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveSubtree:
         subtree_meta = GDriveSubtree(subtree_root)
 
         root: GoogNode = self.meta_master.get_for_id(subtree_root.uid)
         if not root:
-            raise RuntimeError(f'Root not found: {subtree_root.uid}')
+            return None
 
         q = Queue()
         q.put(root)
@@ -114,7 +115,11 @@ class GDriveMasterCache:
             # TODO: this will not work
             return gdrive_meta
         else:
-            gdrive_meta = self._slice_off_subtree_from_master(subtree_root)
+            gdrive_meta = self._slice_off_subtree_from_master(subtree_root, tree_id)
+            if not gdrive_meta:
+                logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root}". '
+                            f'Returning an empty metastore')
+                return DummyMS(tree_id, self.application.config, subtree_root)
         return GDriveMS(tree_id, self.application.config, gdrive_meta, subtree_root)
 
     def download_all_gdrive_meta(self, tree_id):
@@ -149,3 +154,5 @@ class GDriveMasterCache:
                 # pass through
             item = self.meta_master.get_for_id(parents[0])
 
+    def get_all_for_path(self, path: str) -> List[Identifier]:
+        return self.meta_master.get_all_ids_for_path(path)

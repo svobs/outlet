@@ -7,14 +7,15 @@ from typing import Dict, List
 
 from pydispatch import dispatcher
 
-from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, MAIN_REGISTRY_FILE_NAME, ROOT
+from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, MAIN_REGISTRY_FILE_NAME, ROOT
 from file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
 from index.master_gdrive import GDriveMasterCache
 from index.master_local import LocalDiskMasterCache
 from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
-from model.display_id import Identifier
+from model.display_id import GDriveIdentifier, Identifier, LocalFsIdentifier
+from model.goog_node import GoogNode
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
 
@@ -192,3 +193,17 @@ class CacheManager:
         self.caches_by_type.put(cache_info)
 
         return cache_info
+
+    def get_all_for_path(self, path_string: str) -> List[Identifier]:
+        if path_string.startswith(GDRIVE_PATH_PREFIX):
+            # Need to wait until all caches are loaded:
+            self.all_caches_loaded.wait()
+            
+            gdrive_path = path_string[len(GDRIVE_PATH_PREFIX):]
+            matches = self.gdrive_cache.get_all_for_path(gdrive_path)
+            if len(matches) == 0:
+                return [GDriveIdentifier('NULL', gdrive_path)]
+            else:
+                return matches
+        else:
+            return [LocalFsIdentifier(full_path=path_string)]

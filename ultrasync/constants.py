@@ -2,12 +2,15 @@ from enum import IntEnum
 
 VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp4', 'mpeg', 'mpg', 'm4v', 'avi', 'pdf', 'nef', 'vob')
 
+READ_CHUNK_SIZE = 1024 * 1024
+
 OBJ_TYPE_LOCAL_DISK = 1
 OBJ_TYPE_GDRIVE = 2
 OBJ_TYPE_DISPLAY_ONLY = 3
 
 MAIN_REGISTRY_FILE_NAME = 'registry.db'
 ROOT = '/'
+GDRIVE_PATH_PREFIX = 'gdrive:/'
 
 GDRIVE_PREFIX = 'gdrive:/'
 

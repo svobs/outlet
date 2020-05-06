@@ -53,7 +53,7 @@ class AppConfig:
             return
 
         assert transient_path is not None
-        assert value is not None
+        assert value is not None, f'For path "{transient_path}"'
 
         # Update JSON in memory:
         path_segments = transient_path.split('.')

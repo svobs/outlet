@@ -142,7 +142,6 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # window *stops* being resized, so we can persist the value semi-efficiently
         self._connect_resize_event()
 
-
         # Docs: https://developer.gnome.org/pygtk/stable/class-gdkdisplay.html
         display: Gdk.Display = self.get_display()
         logger.debug(f'Display has {display.get_n_screens()} screen(s)')
