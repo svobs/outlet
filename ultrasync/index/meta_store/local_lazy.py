@@ -32,7 +32,7 @@ class LocalDiskSubtreeMS(LazyMetaStore):
     def get_model(self):
         return self._fmeta_tree
 
-    def get_children_for_root(self, tree_display_mode: TreeDisplayMode) -> Optional[List[DisplayNode]]:
+    def get_children_for_root(self, tree_display_mode: TreeDisplayMode) -> List[DisplayNode]:
         if tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             return self._get_change_category_roots()
         else:

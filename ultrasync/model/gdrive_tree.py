@@ -1,7 +1,7 @@
 import errno
 import logging
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, ValuesView
 
 import constants
 import file_util
@@ -46,11 +46,11 @@ class GDriveTree:
         self.first_parent_dict: Dict[str, List[GoogNode]] = {}
         """ Reverse lookup table: 'parent_id' -> list of child nodes """
 
-    def get_children(self, parent_id: Union[str, Identifier]):
+    def get_children(self, parent_id: Union[str, Identifier]) -> List[GoogNode]:
         if isinstance(parent_id, Identifier):
             parent_id = parent_id.uid
 
-        return self.first_parent_dict.get(parent_id, None)
+        return self.first_parent_dict.get(parent_id, [])
 
     def get_for_id(self, goog_id) -> Optional[GoogNode]:
         return self.id_dict.get(goog_id, None)
@@ -248,6 +248,9 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
                                                           Category.Updated: [],
                                                           }
 
+    def create_empty_subtree(self, subtree_root_identifier: GDriveIdentifier):
+        return GDriveSubtree(subtree_root_identifier)
+
     def create_identifier(self, full_path, category):
         return GDriveIdentifier(uid=full_path, full_path=full_path, category=category)
 
@@ -266,11 +269,18 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
     def get_for_cat(self, category: Category):
         return self._cat_dict[category]
 
-    def get_for_md5(self, md5) -> Dict[Union[str], GoogNode]:
-        return self._md5_dict.get_second_dict(md5)
+    def get_for_md5(self, md5) -> Union[List[GoogNode], ValuesView[GoogNode]]:
+        uid_dict = self._md5_dict.get_second_dict(md5)
+        if uid_dict:
+            return uid_dict.values()
+        return []
 
     def get_md5_set(self):
         return self._md5_dict.keys()
+
+    def get_all(self) -> ValuesView[GoogNode]:
+        """Returns the complete set of all unique items from this subtree."""
+        return self.id_dict.values()
 
     def get_full_path_for_item(self, item: GoogNode) -> str:
         """Gets the absolute path for the item"""

@@ -1,14 +1,25 @@
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Union
+from typing import Any, List, Optional, Union
 
 from model.category import Category
 from model.display_id import Identifier
+from model.display_node import DisplayNode
 
 
 class SubtreeSnapshot(ABC):
     def __init__(self, root_identifier: Identifier):
         super().__init__()
         self.identifier: Identifier = root_identifier
+
+    @abstractmethod
+    def create_empty_subtree(self, subtree_root_identifier):
+        """Return a new empty subtree with the given root and which is of the same type of this tree"""
+        return
+
+    @abstractmethod
+    def get_all(self) -> List[DisplayNode]:
+        """Returns the complete set of all unique items from this subtree."""
+        return []
 
     @property
     def root_path(self):
@@ -39,7 +50,7 @@ class SubtreeSnapshot(ABC):
         pass
 
     @abstractmethod
-    def get_for_path(self, path: str, include_ignored=False) -> Optional[Any]:
+    def get_for_path(self, path: str, include_ignored=False) -> Optional[DisplayNode]:
         pass
 
     @abstractmethod
@@ -51,7 +62,7 @@ class SubtreeSnapshot(ABC):
         pass
 
     @abstractmethod
-    def get_for_md5(self, md5):
+    def get_for_md5(self, md5) -> List[DisplayNode]:
         pass
 
     @abstractmethod

@@ -7,7 +7,7 @@ from typing import Dict, List
 
 from pydispatch import dispatcher
 
-from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, MAIN_REGISTRY_FILE_NAME, ROOT
+from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, MAIN_REGISTRY_FILE_NAME, ROOT
 from file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
 from index.master_gdrive import GDriveMasterCache
@@ -197,8 +197,8 @@ class CacheManager:
     def get_all_for_path(self, path_string: str) -> List[Identifier]:
         if path_string.startswith(GDRIVE_PATH_PREFIX):
             # Need to wait until all caches are loaded:
-            self.all_caches_loaded.wait()
-            
+            self.all_caches_loaded.wait(CACHE_LOAD_TIMEOUT_SEC)
+
             gdrive_path = path_string[len(GDRIVE_PATH_PREFIX):]
             matches = self.gdrive_cache.get_all_for_path(gdrive_path)
             if len(matches) == 0:

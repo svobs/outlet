@@ -28,7 +28,18 @@ class DisplayStore:
         self.treeview_meta = treeview_meta
         self.model = Gtk.TreeStore()
         self.model.set_column_types(self.treeview_meta.col_types)
-        self.selected_rows: Dict[str, DisplayNode] = {}
+
+        # Track the checkbox states here. For increased speed and to accommodate lazy loading strategies,
+        # we employ the following heuristic:
+        # - When a user checks a row, it goes in the 'checked_rows' set below.
+        # - When it is placed in the checked_rows set, it is implied that all its descendants are also checked.
+        # - Similarly, when an item is unchecked by the user, all of its descendants are implied to be unchecked.
+        # - HOWEVER, un-checking an item will not delete any descendants that may be in the 'checked_rows' list.
+        #   Anything in the 'checked_rows' and 'inconsistent_rows' lists is only relevant if its parent is 'inconsistent',
+        #   thus, having a parent which is either checked or unchecked overrides any presence in either of these two lists.
+        # - At the same time as an item is checked, the checked & inconsistent state of its all ancestors must be recorded.
+        # - The 'inconsistent_rows' list is needed for display purposes.
+        self.checked_rows: Dict[str, DisplayNode] = {}
         self.inconsistent_rows: Dict[str, DisplayNode] = {}
 
     def get_node_data(self, tree_path: Union[TreeIter, TreePath]) -> DisplayNode:
@@ -76,9 +87,9 @@ class DisplayStore:
     def update_checked_state_tracking(self, node_data: DisplayNode, is_checked: bool, is_inconsistent: bool):
         row_id = node_data.uid
         if is_checked:
-            self.selected_rows[row_id] = node_data
+            self.checked_rows[row_id] = node_data
         else:
-            if row_id in self.selected_rows: del self.selected_rows[row_id]
+            if row_id in self.checked_rows: del self.checked_rows[row_id]
 
         if is_inconsistent:
             self.inconsistent_rows[row_id] = node_data
@@ -200,20 +211,9 @@ class DisplayStore:
             removed_count += 1
         logger.debug(f'Removed {removed_count} children')
 
-    def get_checked_rows_as_tree(self):
-        """Returns a FMetaTree which contains the FMetas of the rows which are currently
-        checked by the user. This will be a subset of the FMetaTree which was used to
-        populate this tree."""
-        assert self.treeview_meta.editable
-
-        tree_iter = self.model.get_iter_first()
-        tree_path = self.model.get_path(tree_iter)
-        # TODO; checked rows as
-        return self.get_subtree_as_tree(tree_path, include_following_siblings=True, checked_only=True)
-
     def get_subtree_as_tree(self, tree_path, include_following_siblings=False, checked_only=False):
         """
-        FIXME: need to generalize this so it doesn't depend on FMeta!
+        FIXME: DEAD CODE. Needs complete rewrite
         Constructs a new FMetaTree out of the data nodes of the subtree referenced
         by tree_path. NOTE: currently the FMeta objects are reused in the new tree,
         for efficiency.

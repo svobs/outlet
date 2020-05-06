@@ -1,11 +1,14 @@
 import logging
 import os
 from datetime import datetime
+from queue import Queue
 from typing import List, Optional
 
 import gi
 
+from constants import TreeDisplayMode
 from model.display_id import Identifier
+from model.subtree_snapshot import SubtreeSnapshot
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib
@@ -66,6 +69,50 @@ class LazyDisplayStrategy:
 
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.meta_store.tree_id)
         dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.con.meta_store.tree_id)
+
+    def get_checked_rows_as_tree(self) -> SubtreeSnapshot:
+        """Returns a SubtreeSnapshot which contains the DisplayNodes of the rows which are currently
+        checked by the user (including collapsed rows). This will be a subset of the SubtreeSnapshot which was used to
+        populate this tree. Includes file nodes only; does not include directory nodes."""
+        assert self.con.treeview_meta.editable
+        tree_iter = self.con.display_store.model.get_iter_first()
+        subtree_root: Identifier = self.con.display_store.get_node_data(tree_iter).identifier
+        subtree: SubtreeSnapshot = self.con.meta_store.get_model().create_empty_subtree(subtree_root)
+
+        # Algorithm:
+        # Iterate over metastore nodes. Start with top-level nodes.
+        # - Add each checked row to DFS queue. It and all of its descendants will be added.
+        # - Ignore each unchecked row
+        # - Each inconsistent row needs to be drilled down into.
+        whitelist = Queue()
+        secondary_screening = Queue()
+
+        tree_display_mode = self.con.treeview_meta.tree_display_mode
+        children = self.con.meta_store.get_children_for_root(tree_display_mode)
+        for child in children:
+            if self.con.display_store.checked_rows.get(child.uid, None):
+                whitelist.put(child)
+            elif self.con.display_store.inconsistent_rows.get(child.uid, None):
+                secondary_screening.put(child)
+
+        while not secondary_screening.empty():
+            parent: DisplayNode = secondary_screening.get()
+            children = self.con.meta_store.get_children(parent, tree_display_mode)
+            for child in children:
+                if self.con.display_store.checked_rows.get(child.uid, None):
+                    whitelist.put(child)
+                elif self.con.display_store.inconsistent_rows.get(child.uid, None):
+                    secondary_screening.put(child)
+
+        while not whitelist.empty():
+            chosen_node: DisplayNode = whitelist.get()
+            if not chosen_node.is_dir():
+                subtree.add_item(chosen_node)
+            children = self.con.meta_store.get_children(chosen_node, tree_display_mode)
+            for child in children:
+                whitelist.put(child)
+
+        return subtree
 
     def _on_root_path_updated(self, sender, new_root: Identifier):
         # Callback for actions.ROOT_PATH_UPDATED
@@ -161,7 +208,7 @@ class LazyDisplayStrategy:
     def _add_checked_columns(self, parent_uid: Optional[str], node_data: DisplayNode, row_values: List):
         if self.con.treeview_meta.editable and node_data.has_path():
             if parent_uid:
-                parent_checked = self.con.display_store.selected_rows.get(parent_uid, None)
+                parent_checked = self.con.display_store.checked_rows.get(parent_uid, None)
                 if parent_checked:
                     row_values.append(True)  # Checked
                     row_values.append(False)  # Inconsistent
@@ -173,7 +220,7 @@ class LazyDisplayStrategy:
                     return
                 # Otherwise: inconsistent. Look up individual values below:
             row_id = node_data.identifier.uid
-            checked = self.con.display_store.selected_rows.get(row_id, None)
+            checked = self.con.display_store.checked_rows.get(row_id, None)
             inconsistent = self.con.display_store.inconsistent_rows.get(row_id, None)
             row_values.append(checked)  # Checked
             row_values.append(inconsistent)  # Inconsistent
@@ -226,7 +273,6 @@ class LazyDisplayStrategy:
 
         # Directory
         if not self.con.treeview_meta.use_dir_tree:
-            # TODO: need to generate full_path for GOOG files
             directory, name = os.path.split(node_data.full_path)
             row_values.append(directory)  # Directory
 
@@ -241,7 +287,6 @@ class LazyDisplayStrategy:
         if node_data.modify_ts is None:
             row_values.append(None)
         else:
-            # TODO: TS GOOG vs LocalFS?
             modify_datetime = datetime.fromtimestamp(node_data.modify_ts / 1000)
             modify_formatted = modify_datetime.strftime(self.con.treeview_meta.datetime_format)
             row_values.append(modify_formatted)

@@ -1,6 +1,12 @@
 from typing import List
+import logging
+
+from stopwatch import Stopwatch
 
 from model.display_node import DisplayNode
+from model.subtree_snapshot import SubtreeSnapshot
+
+logger = logging.getLogger(__name__)
 
 
 class TreePanelController:
@@ -60,5 +66,10 @@ class TreePanelController:
             items.append(item)
         return items
 
+    def get_checked_rows_as_tree(self) -> SubtreeSnapshot:
+        timer = Stopwatch()
+        subtree: SubtreeSnapshot = self.display_strategy.get_checked_rows_as_tree()
+        logger.debug(f'Retreived checked rows in {timer}: {subtree.get_summary()}')
 
+        return subtree
 

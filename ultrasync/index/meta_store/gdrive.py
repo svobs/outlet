@@ -28,7 +28,7 @@ class GDriveMS(LazyMetaStore):
     def get_model(self):
         return self._gdrive_meta
 
-    def get_children_for_root(self, tree_display_mode: TreeDisplayMode) -> Optional[List[DisplayNode]]:
+    def get_children_for_root(self, tree_display_mode: TreeDisplayMode) -> List[DisplayNode]:
         if tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             return self._get_change_category_roots()
         elif tree_display_mode == TreeDisplayMode.ONE_TREE_ALL_ITEMS:
@@ -39,6 +39,7 @@ class GDriveMS(LazyMetaStore):
                 # Subtree? -> return the subtree root
                 assert isinstance(self._gdrive_meta, GDriveSubtree)
                 parent_id = self._gdrive_meta.root_id
+                return self._gdrive_meta.get_children(parent_id)
         else:
             raise NotImplementedError(f'Not supported: {tree_display_mode}')
 

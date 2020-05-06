@@ -4,6 +4,8 @@ VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp
 
 READ_CHUNK_SIZE = 1024 * 1024
 
+CACHE_LOAD_TIMEOUT_SEC = 30
+
 OBJ_TYPE_LOCAL_DISK = 1
 OBJ_TYPE_GDRIVE = 2
 OBJ_TYPE_DISPLAY_ONLY = 3

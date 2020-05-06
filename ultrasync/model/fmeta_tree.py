@@ -1,11 +1,12 @@
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, ValuesView
 
 import humanfriendly
 
 import file_util
 from model.category import Category
-from model.display_id import LocalFsIdentifier
+from model.display_id import Identifier, LocalFsIdentifier
+from model.display_node import DisplayNode
 from model.fmeta import FMeta
 from model.planning_node import PlanningNode
 from model.subtree_snapshot import SubtreeSnapshot
@@ -71,6 +72,9 @@ class FMetaTree(SubtreeSnapshot):
     def create_identifier(self, full_path, category):
         return LocalFsIdentifier(full_path=full_path, category=category)
 
+    def create_empty_subtree(self, subtree_root_identifier: Identifier):
+        return FMetaTree(subtree_root_identifier.full_path)
+
     def categorize(self, fmeta, category: Category):
         """🢄🢄🢄 Convenience method to use when building the tree.
         Changes the category of the given fmeta, then adds it to the category dict.
@@ -110,7 +114,7 @@ class FMetaTree(SubtreeSnapshot):
         if errors > 0:
             raise RuntimeError(f'Category validation found {errors} errors')
 
-    def get_all(self):
+    def get_all(self) -> ValuesView[FMeta]:
         """
         Gets the complete set of all unique FMetas from this FMetaTree.
         Returns: List of FMetas from list of unique paths
@@ -134,8 +138,8 @@ class FMetaTree(SubtreeSnapshot):
     def get_md5_set(self):
         return self._md5_dict.keys()
 
-    def get_for_md5(self, md5):
-        return self._md5_dict.get(md5, None)
+    def get_for_md5(self, md5) -> List[FMeta]:
+        return self._md5_dict.get(md5, [])
 
     def get_relative_path_for_item(self, fmeta: FMeta):
         assert fmeta.full_path.startswith(self.root_path), f'FMeta full path ({fmeta.full_path}) does not contain root ({self.root_path})'
