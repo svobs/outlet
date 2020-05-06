@@ -310,7 +310,10 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
             return item.full_path
 
         rel_path = self.get_path_for_id(item.uid, self.root_id)
-        return os.path.join(self.root_path, rel_path)
+        full_path = os.path.join(self.root_path, rel_path)
+        # Set in the item for future use:
+        item.identifier.full_path = full_path
+        return full_path
 
     def get_for_path(self, path: str, include_ignored=False) -> Optional[GoogNode]:
         """Try to get a singular item corresponding to the given file-system-like

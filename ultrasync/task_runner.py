@@ -24,7 +24,7 @@ class Task:
             self.application.window.show_error_ui(msg, repr(err))
             raise
         finally:
-            logger.info(f'{task_time} Task returned')
+            logger.info(f'{task_time} Task returned: "{self.task_func.__name__}"')
 
 
 class CentralTaskRunner:
@@ -33,7 +33,7 @@ class CentralTaskRunner:
         self.executor = ThreadPoolExecutor(max_workers=MAX_WORKERS)
 
     def enqueue(self, task_func, *args):
-        logger.debug('Submitting new task to executor')
+        logger.debug(f'Submitting new task to executor: "{task_func.__name__}"')
         task = Task(self.application, task_func, *args)
         future = self.executor.submit(task.run)
         return future

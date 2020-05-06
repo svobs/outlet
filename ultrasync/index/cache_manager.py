@@ -88,6 +88,7 @@ class CacheManager:
 
             # First put into map, to eliminate possible duplicates
             existing_caches = self._get_cache_info_from_registry()
+            unique_cache_count = 0
             for existing_cache in existing_caches:
                 info = PersistedCacheInfo(existing_cache)
                 duplicate = self.caches_by_type.get_single(info.subtree_root.tree_type, info.subtree_root.full_path)
@@ -97,19 +98,23 @@ class CacheManager:
                     else:
                         logger.debug(f'Skipping duplicate cache info entry: {duplicate.subtree_root}')
                         continue
+                else:
+                    unique_cache_count += 1
                 self.caches_by_type.put(info)
 
-            existing_caches = self.caches_by_type.get_all()
-            for cache_num, existing_disk_cache in enumerate(existing_caches):
-                try:
-                    info = PersistedCacheInfo(existing_disk_cache)
-                    self.caches_by_type.put(info)
-                    logger.info(f'Init cache {cache_num}/{len(existing_caches)}: id={existing_disk_cache.subtree_root}')
-                    self._init_existing_cache(info)
-                except Exception:
-                    logger.exception(f'Failed to load cache: {existing_disk_cache.cache_location}')
-
-            logger.debug(f'{stopwatch} Load All Caches complete')
+            if self.load_all_caches_on_startup:
+                existing_caches = self.caches_by_type.get_all()
+                for cache_num, existing_disk_cache in enumerate(existing_caches):
+                    try:
+                        info = PersistedCacheInfo(existing_disk_cache)
+                        self.caches_by_type.put(info)
+                        logger.info(f'Init cache {(cache_num+1)}/{len(existing_caches)}: id={existing_disk_cache.subtree_root}')
+                        self._init_existing_cache(info)
+                    except Exception:
+                        logger.exception(f'Failed to load cache: {existing_disk_cache.cache_location}')
+                logger.info(f'{stopwatch} Load All Caches complete')
+            else:
+                logger.info(f'{stopwatch} Found {unique_cache_count} existing caches but configured not to load on startup')
         finally:
             dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE, tx_id=tx_id)
             self.all_caches_loaded.set()
@@ -130,11 +135,10 @@ class CacheManager:
         if cache_type != OBJ_TYPE_LOCAL_DISK and cache_type != OBJ_TYPE_GDRIVE:
             raise RuntimeError(f'Unrecognized tree type: {cache_type}')
 
-        if self.load_all_caches_on_startup:
-            if cache_type == OBJ_TYPE_LOCAL_DISK:
-                self.local_disk_cache.init_subtree_localfs_cache(existing_disk_cache, ID_GLOBAL_CACHE)
-            elif cache_type == OBJ_TYPE_GDRIVE:
-                self.gdrive_cache.init_subtree_gdrive_cache(existing_disk_cache, ID_GLOBAL_CACHE)
+        if cache_type == OBJ_TYPE_LOCAL_DISK:
+            self.local_disk_cache.init_subtree_localfs_cache(existing_disk_cache, ID_GLOBAL_CACHE)
+        elif cache_type == OBJ_TYPE_GDRIVE:
+            self.gdrive_cache.init_subtree_gdrive_cache(existing_disk_cache, ID_GLOBAL_CACHE)
 
     def get_metastore_for_subtree(self, identifier: Identifier, tree_id: str):
         """
@@ -201,7 +205,8 @@ class CacheManager:
     def get_all_for_path(self, path_string: str) -> List[Identifier]:
         if path_string.startswith(GDRIVE_PATH_PREFIX):
             # Need to wait until all caches are loaded:
-            self.all_caches_loaded.wait(CACHE_LOAD_TIMEOUT_SEC)
+            if not self.all_caches_loaded.wait(CACHE_LOAD_TIMEOUT_SEC):
+                logger.error('Timed out waiting for all caches to load!')
 
             gdrive_path = path_string[len(GDRIVE_PATH_PREFIX):]
             matches = self.gdrive_cache.get_all_for_path(gdrive_path)

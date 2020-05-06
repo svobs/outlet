@@ -88,12 +88,13 @@ class GDriveMasterCache:
         if logger.isEnabledFor(logging.DEBUG):
             subtree_meta.validate()
 
-        # Calculate full paths
+        # Fill in full paths
         # Needs to be done AFTER all the nodes in the tree have been downloaded
+        full_path_stopwatch = Stopwatch()
         for item in subtree_meta.id_dict.values():
-            full_path = subtree_meta.get_full_path_for_item(item)
+            subtree_meta.get_full_path_for_item(item)
 
-            item.identifier.full_path = full_path
+        logger.debug(f'{full_path_stopwatch} Full paths calculated for {len(subtree_meta.id_dict)} items')
 
         return subtree_meta
 
