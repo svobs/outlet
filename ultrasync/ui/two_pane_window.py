@@ -28,11 +28,11 @@ logger = logging.getLogger(__name__)
 
 class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
     """🢄🢄🢄 2-panel window for comparing one file tree to another"""
-    def __init__(self, application, id):
+    def __init__(self, application, win_id):
         Gtk.Window.__init__(self, application=application)
         BaseDialog.__init__(self, application)
 
-        self.win_id = id
+        self.win_id = win_id
         self.set_title('UltraSync')
         # program icon:
         self.set_icon_from_file(ui.assets.WINDOW_ICON_PATH)
@@ -55,8 +55,6 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.size_allocate(allocation)
         # i.e. "minimum" window size allowed:
         self.set_size_request(1200, 500)
-        #
-      #  self.set_default_size(width, height)
         self.set_border_width(10)
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
         self.add(self.content_box)
@@ -218,7 +216,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
     # ⬛⬛⬛⬛⬛⬛⬛ SIGNAL CALLBACKS ⬛⬛⬛⬛⬛⬛⬛
 
     def after_all_caches_loaded(self):
-        logger.debug(f'Received signal: {actions.LOAD_ALL_CACHES_DONE}')
+        logger.debug(f'Received signal: "{actions.LOAD_ALL_CACHES_DONE}"')
 
         try:
             self.tree_con_left.meta_store = self.application.cache_manager.get_metastore_for_subtree(

@@ -1,73 +1,22 @@
 import logging
 import os
-
-import gi
 from pydispatch import dispatcher
 
-from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
-from model.display_id import GDriveIdentifier, Identifier, LocalFsIdentifier
-from ui.dialog.base_dialog import BaseDialog
+import gi
+
+from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
+from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
+from model.display_id import GDriveIdentifier, Identifier, LocalFsIdentifier
+from ui.dialog.base_dialog import BaseDialog
 import ui.actions as actions
 from ui.assets import ALERT_ICON_PATH, CHOOSE_ROOT_ICON_PATH, GDRIVE_ICON_PATH
 
 
 logger = logging.getLogger(__name__)
-
-
-def _on_root_dir_selected(dialog, response_id, root_dir_panel):
-    """Called after a directory is chosen via the RootDirChooserDialog"""
-    open_dialog = dialog
-    # if response is "ACCEPT" (the button "Open" has been clicked)
-    if response_id == Gtk.ResponseType.OK:
-        filename = open_dialog.get_filename()
-        logger.info(f'User selected dir: {filename}')
-        identifier = LocalFsIdentifier(full_path=filename)
-        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.tree_id, new_root=identifier)
-    # if response is "CANCEL" (the button "Cancel" has been clicked)
-    elif response_id == Gtk.ResponseType.CANCEL:
-        logger.debug("Cancelled: RootDirChooserDialog")
-    elif response_id == Gtk.ResponseType.CLOSE:
-        logger.debug("Closed: RootDirChooserDialog")
-    elif response_id == Gtk.ResponseType.DELETE_EVENT:
-        logger.debug("Deleted: RootDirChooserDialog")
-    else:
-        logger.error(f'Unrecognized response: {response_id}')
-    # destroy the FileChooserDialog
-    dialog.destroy()
-
-
-#    CLASS RootDirChooserDialog
-# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
-
-
-class RootDirChooserDialog(Gtk.FileChooserDialog):
-    def __init__(self, title, parent_win, tree_id, current_dir):
-        Gtk.FileChooserDialog.__init__(self, title=title, parent=parent_win, action=Gtk.FileChooserAction.SELECT_FOLDER)
-        self.tree_id = tree_id
-        self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
-        self.add_button(Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
-
-        if current_dir is not None:
-            self.set_current_folder(current_dir)
-
-    def __call__(self):
-        resp = self.run()
-        self.hide()
-
-        file_name = self.get_filename()
-
-        d = self.get_current_folder()
-        if d:
-            self.set_current_folder(d)
-
-        if resp == Gtk.ResponseType.OK:
-            return file_name
-        else:
-            return None
 
 
 #    CLASS RootDirPanel
@@ -268,18 +217,12 @@ class RootDirPanel:
         GLib.idle_add(self._update_root_label, new_root)
 
     def _open_localfs_root_chooser_dialog(self, menu_item):
-        """Creates and displays a RootDirChooserDialog.
+        """Creates and displays a LocalRootDirChooserDialog.
         # the arguments are: title of the window, parent_window, action,
         # (buttons, response)"""
-        logger.debug('Creating and displaying RootDirChooserDialog')
-        open_dialog = RootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, tree_id=self.tree_id, current_dir=self.current_root.full_path)
+        logger.debug('Creating and displaying LocalRootDirChooserDialog')
+        open_dialog = LocalRootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, tree_id=self.tree_id, current_dir=self.current_root.full_path)
 
-        # not only local files can be selected in the file selector
-        open_dialog.set_local_only(False)
-        # dialog always on top of the parent window
-        open_dialog.set_modal(True)
-        # connect the dialog with the callback function open_response_cb()
-        open_dialog.connect("response", _on_root_dir_selected, self)
         # show the dialog
         open_dialog.show()
 

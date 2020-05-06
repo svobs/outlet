@@ -16,7 +16,7 @@ from ui.dialog.base_dialog import BaseDialog
 logger = logging.getLogger(__name__)
 
 
-class GDriveDirSelectionDialog(Gtk.Dialog, BaseDialog):
+class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
 
     def __init__(self, parent_win: BaseDialog, meta_store, tree_id: str):
         Gtk.Dialog.__init__(self, "Select GDrive Root", parent_win, 0)

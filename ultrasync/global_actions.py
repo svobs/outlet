@@ -14,7 +14,7 @@ from gi.repository import GLib, Gtk
 from stopwatch_sec import Stopwatch
 
 import ui.actions as actions
-from ui.dialog.gdrive_dir_selection_dialog import GDriveDirSelectionDialog
+from ui.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
 
 from diff import diff_content_first
 
@@ -92,13 +92,13 @@ class GlobalActions:
         def open_dialog():
             try:
                 # Preview changes in UI pop-up. Change tree_id so that listeners don't step on existing trees
-                dialog = GDriveDirSelectionDialog(self.application.window, meta_store, sender)
+                dialog = GDriveDirChooserDialog(self.application.window, meta_store, sender)
                 response_id = dialog.run()
                 if response_id == Gtk.ResponseType.OK:
                     logger.debug('User clicked OK!')
 
             except Exception as err:
-                self.show_error_ui('GDriveDirSelectionDialog failed due to unexpected error', repr(err))
+                self.show_error_ui('GDriveDirChooserDialog failed due to unexpected error', repr(err))
                 raise
 
         GLib.idle_add(open_dialog)

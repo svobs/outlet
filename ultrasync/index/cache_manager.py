@@ -69,7 +69,7 @@ class CacheManager:
     def load_all_caches(self, sender):
         """Should be called during startup. Loop over all caches and load/merge them into a
         single large in-memory cache"""
-        logger.debug(f'Received signal: {actions.LOAD_ALL_CACHES}')
+        logger.debug(f'Received signal: "{actions.LOAD_ALL_CACHES}"')
         if self.local_disk_cache:
             logger.info(f'Caches already loaded. Ignoring signal from {sender}.')
             return
