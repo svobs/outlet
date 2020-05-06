@@ -102,18 +102,8 @@ class RootDirPanel:
                     return True
                 return False
 
-            def on_button_pressed(widget, event, tree_id):
-                if self.ui_enabled and (event.button == 1 or event.button == 3) and self.entry:
-                    # cancel
-                    logger.debug(f'User clicked elsewhere! Activating root path entry box')
-                    self._on_root_text_entry_submitted(widget, tree_id)
-                    return True
-                # False = allow it to propagate
-                return False
-
             # Connect Escape key listener to parent window so it can be heard everywhere
             self.parent_win.connect('key-press-event', on_key_pressed)
-            self.parent_win.connect('button_press_event', on_button_pressed, tree_id)
         else:
             self.change_btn = None
             self.content_box.pack_start(self.icon, expand=False, fill=False, padding=0)
@@ -138,6 +128,7 @@ class RootDirPanel:
         GLib.idle_add(self._update_root_label, current_root)
 
     def _on_root_text_entry_submitted(self, widget, tree_id):
+        self.entry.disconnect(self.entry_box_focus_eid)
         # Triggered when the user submits a root via the text entry box
         new_root_path: str = self.entry.get_text()
         logger.info(f'User entered root path: "{new_root_path}" for tree_id={tree_id}')
@@ -182,6 +173,14 @@ class RootDirPanel:
         self.entry.connect('activate', self._on_root_text_entry_submitted, self.tree_id)
         self.path_box.remove(self.label_event_box)
         self.path_box.pack_start(self.entry, expand=True, fill=True, padding=0)
+
+        def cancel_edit(widget, event):
+            if self.entry:
+                self.entry.disconnect(self.entry_box_focus_eid)
+            logger.debug(f'Focus lost! Cancelling root path entry box')
+            self._update_root_label(self.current_root)
+
+        self.entry_box_focus_eid = self.entry.connect('focus-out-event', cancel_edit)
         self.entry.show()
         self.entry.grab_focus()
         return False
