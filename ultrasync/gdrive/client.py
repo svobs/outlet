@@ -1,4 +1,5 @@
 import io
+from typing import List, Union
 
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
@@ -386,13 +387,13 @@ class GDriveClient:
 
         return meta
 
-    def download_file(self, file_uid: str, dest_path: str):
+    def download_file(self, file_id: str, dest_path: str):
         """Download a single file based on Google ID and destination path"""
         # logger.debug(f'Downloading file: "{file.identifier}" to "{dest_path}"')
         download_abusive_file = False
 
         def download():
-            request = self.service.files().get_media(fileId=file_uid, acknowledgeAbuse=download_abusive_file)
+            request = self.service.files().get_media(fileId=file_id, acknowledgeAbuse=download_abusive_file)
             fh = io.BytesIO()
             downloader = MediaIoBaseDownload(fh, request)
             done = False
@@ -408,17 +409,20 @@ class GDriveClient:
 
         try_repeatedly(download)
 
-    def upload_file(self, file: GoogFile):
-        """Upload a single file based on its path. If successful, its identifier's UID will be set to the newly created Google ID"""
-        if not file.full_path:
-            raise RuntimeError(f'No path specified for file: {file}')
+    def upload_file(self, full_path: str, parents: Union[str, List[str]]) -> str:
+        """Upload a single file based on its path. If successful, returns the newly created Google ID"""
+        if not full_path:
+            raise RuntimeError(f'No path specified for file!')
 
-        file_metadata = {'name': file.name}
-        media = MediaFileUpload(file.full_path)
+        if isinstance(parents, str):
+            parents = [parents]
+
+        parent_path, file_name = os.path.split(full_path)
+        file_metadata = {'name': file_name, 'parents': parents}
+        media = MediaFileUpload(filename=full_path, resumable=True)
 
         def request():
-            msg = f'Uploading file: {file.full_path}'
-            logger.debug(msg)
+            logger.debug(f'Uploading file: {full_path}')
 
             response = self.service.files().create(body=file_metadata, media_body=media, fields='id').execute()
             return response
@@ -431,5 +435,37 @@ class GDriveClient:
 
         logger.debug(f'File uploaded successfully) Returned id={new_file_id}')
 
-        file.identifier.uid = new_file_id
+        return new_file_id
 
+    def create_folder(self, name: str, parents: Union[str, List[str]]) -> str:
+        """Create a folder with the given name. If successful, returns a new Google ID for the created folder"""
+        if not name:
+            raise RuntimeError(f'No name specified for folder!')
+
+        file_metadata = {'name': name, 'parents': parents, 'mimeType': MIME_TYPE_FOLDER}
+
+        def request():
+            logger.debug(f'Creating folder: {name}')
+
+            response = self.service.files().create(body=file_metadata, fields='id').execute()
+            return response
+
+        result = try_repeatedly(request)
+
+        new_folder_id = result.get('id', None)
+        if not new_folder_id:
+            raise RuntimeError(f'Folder creation failed (no ID returned)!')
+
+        logger.debug(f'Folder created successfully) Returned id={new_folder_id}')
+        return new_folder_id
+
+    def move_file(self, file_id: str, dest_parent_id: str):
+        # TODO
+        def request():
+            # Retrieve the existing parents to remove
+            file = self.service.files().get(fileId=file_id, fields='parents').execute()
+            previous_parents = ",".join(file.get('parents'))
+
+            # Move the file to the new folder
+            file = self.service.files().update(fileId=file_id, addParents=dest_parent_id,
+                                               removeParents=previous_parents, fields='id, parents').execute()
