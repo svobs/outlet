@@ -1,6 +1,11 @@
 import logging
+import os
 
 import gi
+
+import file_util
+from gdrive.client import GDriveClient
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk
 
@@ -152,8 +157,6 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
         # Kick off cache load now that we have a progress bar
         actions.get_dispatcher().send(actions.LOAD_ALL_CACHES, sender=self.win_id)
-
-        # self.get_screen()
 
     def _connect_resize_event(self):
         self._timer_id = None

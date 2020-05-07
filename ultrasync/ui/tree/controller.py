@@ -5,6 +5,7 @@ from stopwatch import Stopwatch
 
 from model.display_node import DisplayNode
 from model.subtree_snapshot import SubtreeSnapshot
+from ui.dialog.base_dialog import BaseDialog
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ class TreePanelController:
     required to make a tree panel. Hopefully I will think of ways to refine it more in the future.
     """
     def __init__(self, parent_win, meta_store, display_store, treeview_meta):
-        self.parent_win = parent_win
+        self.parent_win: BaseDialog = parent_win
         self.meta_store = meta_store
         self.display_store = display_store
         self.treeview_meta = treeview_meta

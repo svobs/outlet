@@ -2,9 +2,11 @@ import logging
 import os
 from typing import Optional
 
-from constants import GDRIVE_PREFIX
+import file_util
+from constants import GDRIVE_PATH_PREFIX
+from gdrive.client import GDriveClient
 from model.display_node import CategoryNode, DisplayNode
-from model.goog_node import GoogNode
+from model.goog_node import GoogFile, GoogNode
 from model.planning_node import FileDecoratorNode
 from ui.tree.action_bridge import TreeActionBridge
 
@@ -41,9 +43,15 @@ class GDriveActionHandlers(TreeActionBridge):
 
     # ACTIONS begin
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
-    def download_file(self, file_path: str, tree_path: Gtk.TreePath):
-        # TODO
-        pass
+    def download_file(self, node: GoogFile):
+        gdrive_client = GDriveClient(self.con.config)
+        cache_dir_path = file_util.get_resource_path(self.con.config.get('cache.cache_dir_path'))
+        dest_file = os.path.join(cache_dir_path, node.name)
+        try:
+            gdrive_client.download_file(node.uid, dest_file)
+        except Exception as err:
+            self.con.parent_win.show_error_msg('Download failed', repr(err))
+            raise
 
     def delete_dir_tree(self, subtree_root: str, tree_path: Gtk.TreePath):
         # TODO
@@ -73,13 +81,13 @@ class GDriveActionHandlers(TreeActionBridge):
             file_exists = False
             full_path = node_data.original_full_path
             if isinstance(node_data.original_node, GoogNode):
-                full_path_display = GDRIVE_PREFIX + full_path
+                full_path_display = GDRIVE_PATH_PREFIX + full_path
             else:
                 full_path_display = full_path
         else:
             full_path = self.con.meta_store.get_full_path_for_item(node_data)
             if isinstance(node_data, GoogNode):
-                full_path_display = GDRIVE_PREFIX + full_path
+                full_path_display = GDRIVE_PATH_PREFIX + full_path
             else:
                 full_path_display = full_path
             file_exists = True
@@ -97,7 +105,7 @@ class GDriveActionHandlers(TreeActionBridge):
 
         if file_exists and not is_dir:
             item = Gtk.MenuItem(label=f'Download from Google Drive')
-            item.connect('activate', lambda menu_item, abs_p: self.download_file(abs_p, tree_path), full_path)
+            item.connect('activate', lambda menu_item, node: self.download_file(node), node_data)
             menu.append(item)
 
         item = Gtk.SeparatorMenuItem()

@@ -1,3 +1,8 @@
+import io
+
+from googleapiclient.errors import HttpError
+from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+
 import file_util
 import os.path
 import pickle
@@ -10,24 +15,22 @@ from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
-# If modifying these scopes, delete the file token.pickle.
-from constants import EXPLICITLY_TRASHED, IMPLICITLY_TRASHED, NOT_TRASHED
+from constants import EXPLICITLY_TRASHED, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, IMPLICITLY_TRASHED, NOT_TRASHED
 from model.gdrive_tree import UserMeta
 from model.goog_node import GoogFile, GoogFolder
 from ui import actions
 
-SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
+# IMPORTANT: If modifying these scopes, delete the file token.pickle.
+# SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
+SCOPES = ['https://www.googleapis.com/auth/drive']
 
 MIME_TYPE_SHORTCUT = 'application/vnd.google-apps.shortcut'
 MIME_TYPE_FOLDER = 'application/vnd.google-apps.folder'
 
 QUERY_FOLDERS_ONLY = f"mimeType='{MIME_TYPE_FOLDER}'"
 QUERY_NON_FOLDERS_ONLY = f"not {QUERY_FOLDERS_ONLY}"
-MAX_RETRIES = 10
 
 # Web view link takes the form:
-
-
 WEB_VIEW_LINK = 'https://drive.google.com/file/d/{id}/view?usp=drivesdk'
 WEB_CONTENT_LINK = 'https://drive.google.com/uc?id={id}&export=download'
 
@@ -81,11 +84,14 @@ def load_google_client_service():
 
 
 def try_repeatedly(request_func):
-    retries_remaining = MAX_RETRIES
+    retries_remaining = GDRIVE_CLIENT_REQUEST_MAX_RETRIES
     while True:
         try:
             return request_func()
         except Exception as err:
+            if isinstance(err, HttpError) and err.resp.status == 403 or err.resp.status == 404:
+                # TODO: custom error class
+                raise
             if retries_remaining == 0:
                 raise
             # Typically a transport error (socket timeout, name server problem...)
@@ -113,6 +119,10 @@ def convert_goog_folder(result, sync_ts):
     # 'shared' only populated for items which are owned by me
     return GoogFolder(item_id=result['id'], item_name=result['name'], trashed=convert_trashed(result),
                       drive_id=result.get('driveId', None), my_share=result.get('shared', None), sync_ts=sync_ts, all_children_fetched=False)
+
+
+# CLASS GDriveClient
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 
 class GDriveClient:
@@ -375,3 +385,51 @@ class GDriveClient:
                 logger.debug(f'Found root:  [{node.uid}] {node.name}')
 
         return meta
+
+    def download_file(self, file_uid: str, dest_path: str):
+        """Download a single file based on Google ID and destination path"""
+        # logger.debug(f'Downloading file: "{file.identifier}" to "{dest_path}"')
+        download_abusive_file = False
+
+        def download():
+            request = self.service.files().get_media(fileId=file_uid, acknowledgeAbuse=download_abusive_file)
+            fh = io.BytesIO()
+            downloader = MediaIoBaseDownload(fh, request)
+            done = False
+            while done is False:
+                status, done = downloader.next_chunk()
+                logger.debug(f'Download {status.progress() * 100}%')
+
+            with io.open(dest_path, 'wb') as f:
+                fh.seek(0)
+                f.write(fh.read())
+
+            logger.info(f'Download complete: "{dest_path}"')
+
+        try_repeatedly(download)
+
+    def upload_file(self, file: GoogFile):
+        """Upload a single file based on its path. If successful, its identifier's UID will be set to the newly created Google ID"""
+        if not file.full_path:
+            raise RuntimeError(f'No path specified for file: {file}')
+
+        file_metadata = {'name': file.name}
+        media = MediaFileUpload(file.full_path)
+
+        def request():
+            msg = f'Uploading file: {file.full_path}'
+            logger.debug(msg)
+
+            response = self.service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+            return response
+
+        result = try_repeatedly(request)
+
+        new_file_id = result.get('id', None)
+        if not new_file_id:
+            raise RuntimeError(f'Upload failed (no ID returned)!')
+
+        logger.debug(f'File uploaded successfully) Returned id={new_file_id}')
+
+        file.identifier.uid = new_file_id
+
