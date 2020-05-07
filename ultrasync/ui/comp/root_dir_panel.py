@@ -7,7 +7,7 @@ import gi
 from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib
+from gi.repository import Gtk, Gdk, GLib, GObject
 
 from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
 from model.display_id import GDriveIdentifier, Identifier, LocalFsIdentifier
@@ -223,6 +223,8 @@ class RootDirPanel:
 
     def _set_label_markup(self, pre, color, root_part_regular, root_part_bold):
         """Sets the content of the label only. Expected to be called from the UI thread"""
+        root_part_regular = GObject.markup_escape_text(root_part_regular)
+        root_part_bold = GObject.markup_escape_text(root_part_bold)
         self.label.set_markup(f"{pre}<span font_family='monospace' size='medium' {color}><i>{root_part_regular}\n<b>{root_part_bold}</b></i></span>")
         self.label.show()
         self.label_event_box.show()

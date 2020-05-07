@@ -1,15 +1,17 @@
 
 
 import logging
+from typing import List, Optional
 
 from pydispatch import dispatcher
 
 import ui.actions as actions
+from model.display_node import DisplayNode
 from model.fmeta import FMeta
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gdk
+from gi.repository import GLib, Gdk, Gtk
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +39,8 @@ class TreeActionBridge:
         self.con.tree_view.connect('row-collapsed', self._on_toggle_gtk_row_expanded_state, False)
         # select.connect("changed", self._on_tree_selection_changed)
 
-    # LISTENERS
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+    # LISTENERS begin
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
     # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
     def _on_set_status(self, sender, status_msg):
@@ -136,8 +138,11 @@ class TreeActionBridge:
                 return True
         return False
 
-    # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
-    # END LISTENERS
+    # ⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝
+    # LISTENERS end
+
+    # ACTIONS begin
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
     # To be optionally overridden:
     def on_selection_changed(self, treeiter):
@@ -152,6 +157,38 @@ class TreeActionBridge:
     def on_delete_key_pressed(self, selected_tree_paths):
         return False
 
-    def on_row_right_clicked(self, event, tree_path, node_data):
+    def on_row_right_clicked(self, event, tree_path, node_data: DisplayNode):
+        id_clicked = node_data.uid
+        selected_items: List[DisplayNode] = self.con.get_multiple_selection()
+
+        if len(selected_items) > 1:
+            # Multiple selected items:
+            for item in selected_items:
+                if item.uid == id_clicked:
+                    # User right-clicked on selection -> apply context menu to all selected items:
+                    context_menu = self.build_context_menu_multiple(selected_items)
+                    if context_menu:
+                        context_menu.popup_at_pointer(event)
+                        # Suppress selection event
+                        return True
+                    else:
+                        return False
+
+        # Singular item, or singular selection (equivalent logic). Display context menu:
+        context_menu = self.build_context_menu(tree_path, node_data)
+        if context_menu:
+            context_menu.popup_at_pointer(event)
+            return True
+
         return False
 
+    # ⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝
+    # ACTIONS end
+
+    def build_context_menu_multiple(self, selected_items: List[DisplayNode]) -> Optional[Gtk.Menu]:
+        """Create context menu for multiple selected items"""
+        return None
+
+    def build_context_menu(self, tree_path: Gtk.TreePath, node_data: DisplayNode) -> Optional[Gtk.Menu]:
+        """Create context menu for single item, or singular selection (equivalent logic)"""
+        return None

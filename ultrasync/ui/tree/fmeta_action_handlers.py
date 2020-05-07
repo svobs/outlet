@@ -2,7 +2,7 @@ import os
 import logging
 import re
 import subprocess
-from typing import List
+from typing import List, Optional
 
 import ui.actions as actions
 from model.planning_node import FileDecoratorNode
@@ -11,11 +11,14 @@ from model.display_node import CategoryNode, DisplayNode
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+from gi.repository import Gtk, GObject
 
 logger = logging.getLogger(__name__)
 
 DATE_REGEX = r'^[\d]{4}(\-[\d]{2})?(-[\d]{2})?'
+
+# CLASS FMetaTreeActionHandlers
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 
 class FMetaTreeActionHandlers(TreeActionBridge):
@@ -26,29 +29,8 @@ class FMetaTreeActionHandlers(TreeActionBridge):
         super().init()
         actions.connect(actions.NODE_EXPANSION_TOGGLED, self._on_node_expansion_toggled, sender=self.con.tree_id)
 
-    # --- LISTENERS ---
-
-    def on_single_row_activated(self, tree_view, tree_iter, tree_path):
-        """Fired when an item is double-clicked or when an item is selected and Enter is pressed"""
-        node_data = self.con.display_store.get_node_data(tree_iter)
-        if type(node_data) == CategoryNode:
-            # Special handling for categories: toggle collapse state
-            if tree_view.row_expanded(tree_path):
-                tree_view.collapse_row(tree_path)
-            else:
-                tree_view.expand_row(path=tree_path, open_all=False)
-        elif node_data.has_path():
-            if os.path.exists(node_data.full_path):
-                self.call_xdg_open(node_data.full_path)
-            elif isinstance(node_data, FileDecoratorNode):
-                if os.path.exists(node_data.original_full_path):
-                    self.call_xdg_open(node_data.original_full_path)
-                else:
-                    logger.debug(f'Path does not exist: {node_data.original_full_path}')
-            else:
-                logger.debug(f'Path does not exist: {node_data.full_path}')
-        else:
-            logger.debug(f'Unexpected data element: {type(node_data)}')
+    # LISTENERS begin
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
     def on_multiple_rows_activated(self, tree_view, tree_iter):
         # TODO: intelligent logic for multiple selected rows
@@ -60,7 +42,7 @@ class FMetaTreeActionHandlers(TreeActionBridge):
         """CB for NODE_EXPANSION_TOGGLED"""
         return False
 
-    def build_context_menu_multiple(self, selected_items):
+    def build_context_menu_multiple(self, selected_items: List[DisplayNode]) -> Optional[Gtk.Menu]:
         menu = Gtk.Menu()
 
         item = Gtk.MenuItem(label=f'Use EXIFTool on dirs')
@@ -70,7 +52,7 @@ class FMetaTreeActionHandlers(TreeActionBridge):
         menu.show_all()
         return menu
 
-    def build_context_menu(self, tree_path: Gtk.TreePath, node_data: DisplayNode):
+    def build_context_menu(self, tree_path: Gtk.TreePath, node_data: DisplayNode) -> Optional[Gtk.Menu]:
         """Dynamic context menu (right-click on tree item)"""
 
         if not node_data.has_path():
@@ -80,17 +62,19 @@ class FMetaTreeActionHandlers(TreeActionBridge):
         menu = Gtk.Menu()
 
         if isinstance(node_data, FileDecoratorNode):
+            # TODO: better handling of GDrive paths
             full_path = node_data.original_full_path
         else:
             full_path = self.con.meta_store.get_full_path_for_item(node_data)
-        parent_path, file_name = os.path.split(full_path)
+        file_name = os.path.basename(full_path)
 
         is_category_node = type(node_data) == CategoryNode
         file_exists = os.path.exists(full_path)
 
         item = Gtk.MenuItem(label='')
         label = item.get_child()
-        label.set_markup(f'<i>{full_path}</i>')
+        full_path_display = GObject.markup_escape_text(full_path)
+        label.set_markup(f'<i>{full_path_display}</i>')
         item.set_sensitive(False)
         menu.append(item)
 
@@ -113,8 +97,7 @@ class FMetaTreeActionHandlers(TreeActionBridge):
             item.connect('activate', lambda menu_item: self.expand_all(tree_path))
             menu.append(item)
 
-            dirname = os.path.basename(full_path)
-            if re.fullmatch(DATE_REGEX, dirname):
+            if re.fullmatch(DATE_REGEX, file_name):
                 item = Gtk.MenuItem(label=f'Use EXIFTool on dir')
                 item.connect('activate', lambda menu_item: self.call_exiftool(full_path))
                 menu.append(item)
@@ -161,9 +144,11 @@ class FMetaTreeActionHandlers(TreeActionBridge):
 
         return False
 
-    # --- END of LISTENERS ---
+    # ⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝
+    # LISTENERS end
 
-    # --- ACTIONS ---
+    # ACTIONS begin
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
     def delete_single_file(self, file_path: str, tree_path: Gtk.TreePath):
         """ Param file_path must be an absolute path"""
@@ -309,4 +294,5 @@ class FMetaTreeActionHandlers(TreeActionBridge):
             logger.debug(f'Removing file: {file}')
             os.remove(file)
 
-    # --- END ACTIONS ---
+    # ⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝
+    # ACTIONS end
