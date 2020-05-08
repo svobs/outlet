@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Dict, List, Optional, Union, ValuesView
 
 import humanfriendly
@@ -115,6 +116,16 @@ class FMetaTree(SubtreeSnapshot):
         if errors > 0:
             raise RuntimeError(f'Category validation found {errors} errors')
 
+    def get_ancestor_identifiers_as_list(self, item) -> List[Identifier]:
+        relative_path = self.get_relative_path_for_item(item)
+        path_segments: List[str] = file_util.split_path(relative_path)
+        identifiers: List[Identifier] = []
+        path_so_far = self.root_path
+        for segment in path_segments[:-1]:
+            path_so_far = os.path.join(path_so_far, segment)
+            identifiers.append(LocalFsIdentifier(path_so_far))
+        return identifiers
+
     def get_all(self) -> ValuesView[FMeta]:
         """
         Gets the complete set of all unique FMetas from this FMetaTree.
@@ -142,9 +153,12 @@ class FMetaTree(SubtreeSnapshot):
     def get_for_md5(self, md5) -> List[FMeta]:
         return self._md5_dict.get(md5, [])
 
+    def get_relative_path_for_full_path(self, full_path: str):
+        assert full_path.startswith(self.root_path), f'Full path ({full_path}) does not contain root ({self.root_path})'
+        return file_util.strip_root(full_path, self.root_path)
+
     def get_relative_path_for_item(self, fmeta: FMeta):
-        assert fmeta.full_path.startswith(self.root_path), f'FMeta full path ({fmeta.full_path}) does not contain root ({self.root_path})'
-        return file_util.strip_root(fmeta.full_path, self.root_path)
+        return self.get_relative_path_for_full_path(fmeta.full_path)
 
     def remove(self, full_path, md5, remove_old_md5=False, ok_if_missing=False):
         """

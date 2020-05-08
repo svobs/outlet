@@ -75,8 +75,8 @@ class DirNode(DisplayNode):
     Represents a generic directory (i.e. not an FMeta or domain object)
     """
 
-    def __init__(self, full_path, category=Category.NA):
-        super().__init__(LogicalNodeIdentifier(full_path, category))
+    def __init__(self, identifier):
+        super().__init__(identifier)
         self.file_count = 0
         self._size_bytes = 0
 
@@ -117,8 +117,8 @@ class CategoryNode(DirNode):
     """
     Represents a category in the tree (however it can possibly be treated as the root dir)
     """
-    def __init__(self, full_path, category):
-        super().__init__(full_path, category)
+    def __init__(self, identifier):
+        super().__init__(identifier=identifier)
 
     def __repr__(self):
         return f'CategoryNode({self.category.name})'

@@ -423,6 +423,21 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         # TODO
         pass
 
+    def get_ancestor_identifiers_as_list(self, item) -> List[Identifier]:
+        identifiers = []
+        while item.uid != self.identifier.uid and item.parents:
+            if len(item.parents) > 1:
+                resolved_parents = [x for x in item.parents if self.get_for_id(x)]
+                if len(resolved_parents) > 1:
+                    logger.error(f'Found multiple valid parents for item: {item}: parents={resolved_parents}')
+                item = resolved_parents[0]
+            elif len(item.parents) == 1:
+                item = item.parents[0]
+
+            identifiers.append(item.identifier)
+
+        return identifiers
+
     def get_relative_path_for_item(self, goog_node: GoogNode):
         if goog_node.full_path:
             return file_util.strip_root(goog_node.full_path, self.root_path)

@@ -6,7 +6,7 @@ from typing import List, Optional
 
 import gi
 
-from constants import TreeDisplayMode
+from constants import LARGE_NUMBER_OF_CHILDREN, TreeDisplayMode
 from model.display_id import Identifier
 from model.subtree_snapshot import SubtreeSnapshot
 
@@ -163,6 +163,10 @@ class LazyDisplayStrategy:
     def _append_children(self, children: List[DisplayNode], parent_iter, parent_uid: Optional[str]):
         if children:
             logger.debug(f'Filling out display children: {len(children)}')
+            if len(children) > LARGE_NUMBER_OF_CHILDREN:
+                logger.error(f'Too many children to display! Count = {len(children)}')
+                self._append_empty_child(parent_iter, f'ERROR: too many items to display ({len(children):n})')
+                return
             # Append all underneath tree_iter
             for child in children:
                 if child.is_dir():
@@ -170,15 +174,15 @@ class LazyDisplayStrategy:
                 else:
                     self._append_file_node(parent_iter, parent_uid, child)
         elif self.use_empty_nodes:
-            self._append_empty_child(parent_iter)
+            self._append_empty_child(parent_iter, '(empty)')
 
-    def _append_empty_child(self, parent_node_iter):
+    def _append_empty_child(self, parent_node_iter, node_name):
         row_values = []
         if self.con.treeview_meta.editable:
             row_values.append(False)  # Checked
             row_values.append(False)  # Inconsistent
         row_values.append(None)  # Icon
-        row_values.append('(empty)')  # Name
+        row_values.append(node_name)  # Name
         if not self.con.treeview_meta.use_dir_tree:
             row_values.append(None)  # Directory
         row_values.append(None)  # Size

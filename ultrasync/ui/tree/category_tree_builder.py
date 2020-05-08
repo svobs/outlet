@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 from typing import Dict, List, Optional
@@ -35,7 +36,7 @@ class CategoryTreeBuilder(DisplayTreeBuilder):
         root_level_nodes = []
         for category in [Category.Added, Category.Deleted, Category.Moved,
                          Category.Updated, Category.Ignored]:
-            category_node = CategoryNode(self.tree.identifier.full_path, category)
+            category_node = _make_category_node(self.tree.identifier, category)
             root_level_nodes.append(category_node)
         return root_level_nodes
 
@@ -48,22 +49,28 @@ class CategoryTreeBuilder(DisplayTreeBuilder):
         category_tree: treelib.Tree = self._category_trees.get(parent_identifier.category, None)
         if not category_tree:
             category_stopwatch = Stopwatch()
-            category_node = CategoryNode(self.tree.identifier.full_path, parent_identifier.category)
+            category_node = _make_category_node(self.tree.identifier, parent_identifier.category)
             category_tree = _build_category_tree(self.tree, category_node)
             self._category_trees[parent_identifier.category] = category_tree
             logger.debug(f'{category_stopwatch} Tree constructed for "{parent_identifier.category.name}" (size {len(category_tree)})')
 
         try:
             # Need to get relative path for item:
-            relative_path = file_util.strip_root(parent_identifier.full_path, self.tree.identifier.full_path)
+            # relative_path = file_util.strip_root(parent_identifier.full_path, self.tree.identifier.full_path)
 
-            for child in category_tree.children(relative_path):
+            for child in category_tree.children(parent_identifier.uid):
                 children.append(child.data)
         except Exception:
             logger.debug(f'CategoryTree for "{self.tree.identifier}": ' + category_tree.show(stdout=False))
             raise
 
         return children
+
+
+def _make_category_node(tree_root_identifier, category):
+    cat_id: Identifier = copy.copy(tree_root_identifier)
+    cat_id.category = category
+    return CategoryNode(cat_id)
 
 
 def _build_category_tree(source_tree: SubtreeSnapshot, root_node: CategoryNode) -> treelib.Tree:
@@ -84,10 +91,9 @@ def _build_category_tree(source_tree: SubtreeSnapshot, root_node: CategoryNode) 
     set_len = len(cat_item_list)
 
     logger.debug(f'Building change trees for category {category.name} with {set_len} files...')
-    root_node_id = ''
 
     root: treelib.Node = change_tree.create_node(tag=f'{category.name} ({set_len} files)',
-                                                 identifier=root_node_id, data=root_node)  # root
+                                                 identifier=root_node.uid, data=root_node)  # root
     for item in cat_item_list:
         if item.is_dir():
             # Skip any actual directories we encounter. We won't use them for our display, because:
@@ -95,34 +101,30 @@ def _build_category_tree(source_tree: SubtreeSnapshot, root_node: CategoryNode) 
             # (2) there's nothing for us in these objects from a display perspective. The name can be inferred
             # from each file's path, and we don't want to display empty dirs when there's no file of that category
             continue
-        relative_path = item.get_relative_path(source_tree)
-        dirs_str, file_name = os.path.split(relative_path)
+        ancestor_identifiers = source_tree.get_ancestor_identifiers_as_list(root_node)
         # nid == Node ID == directory name
-        nid: str = root_node_id
         parent = root
         # logger.debug(f'Adding file "{relative_path}" to dir "{parent.data.full_path}"')
         parent.data.add_meta_emtrics(item)
 
-        if dirs_str != '':
+        if ancestor_identifiers:
             # Create a node for each ancestor dir (path segment)
-            path_segments: List[str] = file_util.split_path(dirs_str)
-            for dir_name in path_segments:
-                nid = os.path.join(nid, dir_name)
+            for identifier in ancestor_identifiers:
+                nid = identifier.uid
                 child: treelib.Node = change_tree.get_node(nid=nid)
                 if child is None:
-                    dir_full_path = os.path.join(source_tree.root_path, nid)
-                    # logger.debug(f'Creating dir node: nid={nid}')
-                    dir_node = DirNode(full_path=dir_full_path, category=category)
-                    child = change_tree.create_node(tag=dir_name, identifier=nid, parent=parent, data=dir_node)
+                    logger.debug(f'Creating dir node: nid={nid} full_path={identifier.full_path}')
+                    id_copy = copy.copy(identifier)
+                    id_copy.category = category
+                    dir_node = DirNode(identifier=id_copy)
+                    child = change_tree.create_node(identifier=nid, parent=parent, data=dir_node)
                 parent = child
                 # logger.debug(f'Adding file metrics from item="{item.full_path}" to dir {parent.data.full_path}"')
                 assert isinstance(parent.data, DirNode)
                 parent.data.add_meta_emtrics(item)
 
-        # Each node's ID will be a relative path from the root (category) which will also be the root of
-        # the underlying SubtreeSnapshot
-        nid = os.path.join(nid, file_name)
+        # Each node's ID will be either
         # logger.debug(f'Creating file node: nid={nid}')
-        change_tree.create_node(identifier=nid, tag=file_name, parent=parent, data=item)
+        change_tree.create_node(identifier=item.uid, parent=parent, data=item)
 
     return change_tree

@@ -42,6 +42,10 @@ class SubtreeSnapshot(ABC):
         pass
 
     @abstractmethod
+    def get_ancestor_identifiers_as_list(self, item) -> List[Identifier]:
+        pass
+
+    @abstractmethod
     def get_full_path_for_item(self, item) -> str:
         pass
 
