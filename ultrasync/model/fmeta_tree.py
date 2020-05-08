@@ -2,8 +2,6 @@ import logging
 import os
 from typing import Dict, List, Optional, Union, ValuesView
 
-import humanfriendly
-
 import file_util
 import format_util
 from model.category import Category
