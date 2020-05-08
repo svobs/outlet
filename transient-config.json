@@ -19,7 +19,7 @@
     },
     "right_tree": {
         "expanded_state": {
-            "Added": false,
+            "Added": true,
             "Deleted": true,
             "Ignored": false,
             "Moved": true,

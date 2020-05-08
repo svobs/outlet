@@ -62,10 +62,13 @@ class TreeActionBridge:
         logger.debug(f'Received signal: "{actions.ROOT_PATH_UPDATED}"')
 
         # Reload subtree and refresh display
-        if self.con.config.get('load_cache_when_tree_root_selected'):
+        if self.con.config.get('cache.load_cache_when_tree_root_selected'):
             logger.debug(f'Got new root. Reloading subtree for: {new_root}')
             # Loads from disk if necessary:
-            self.con.load()
+            self.con.reload(new_root)
+        else:
+            # Just wipe out the old root
+            self.con.set_tree(root=new_root)
 
     def _after_all_caches_loaded(self, sender):
         logger.debug(f'Received signal: "{actions.LOAD_ALL_CACHES_DONE}"')

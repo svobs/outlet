@@ -11,6 +11,12 @@ from model.display_node import DisplayNode
 from model.subtree_snapshot import SubtreeSnapshot
 from ui.dialog.base_dialog import BaseDialog
 
+
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import GLib
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -57,10 +63,13 @@ class TreePanelController:
     def load(self):
         self.display_strategy.populate_root()
 
-    def reload(self):
+    def reload(self, new_root=None):
         """Invalidate whatever cache the tree_builder built up, and re-populate the display tree"""
-        tree = self.tree_builder.get_tree()
-        self.set_tree(tree=tree)
+        if new_root:
+            self.set_tree(root=new_root)
+        else:
+            tree = self.tree_builder.get_tree()
+            self.set_tree(tree=tree)
         self.load()
 
     def get_single_selection(self):
@@ -95,6 +104,10 @@ class TreePanelController:
         return self.tree_builder.get_tree()
 
     def set_tree(self, root: Identifier = None, tree: SubtreeSnapshot = None):
+        # Clear old display (if any)
+        GLib.idle_add(self.display_store.clear_model)
+        # FIXME: likely need to clean up GTK listeners here
+
         if self.treeview_meta.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             tree_builder = CategoryTreeBuilder(controller=self, root=root, tree=tree)
         elif self.treeview_meta.tree_display_mode == TreeDisplayMode.ONE_TREE_ALL_ITEMS:
