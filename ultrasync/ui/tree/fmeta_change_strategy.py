@@ -50,8 +50,6 @@ class FMetaChangeTreeStrategy(LazyDisplayStrategy):
 
     def populate_root(self):
         logger.debug(f'Repopulating tree "{self.con.treeview_meta.tree_id}"')
-        if self.con.treeview_meta.tree_display_mode != TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
-            raise NotImplementedError('We cannot display file trees without categories yet')
 
         if self.con.treeview_meta.lazy_load:
             super().populate_root()

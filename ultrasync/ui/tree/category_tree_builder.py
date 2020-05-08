@@ -92,8 +92,7 @@ def _build_category_tree(source_tree: SubtreeSnapshot, root_node: CategoryNode) 
 
     logger.debug(f'Building change trees for category {category.name} with {set_len} files...')
 
-    root: treelib.Node = change_tree.create_node(tag=f'{category.name} ({set_len} files)',
-                                                 identifier=root_node.uid, data=root_node)  # root
+    root: treelib.Node = change_tree.create_node(identifier=root_node.uid, data=root_node)
     for item in cat_item_list:
         if item.is_dir():
             # Skip any actual directories we encounter. We won't use them for our display, because:

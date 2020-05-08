@@ -3,9 +3,9 @@ import logging
 
 from stopwatch import Stopwatch
 
-from constants import TreeDisplayMode
+from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, TreeDisplayMode
 from model.display_id import Identifier
-from ui.tree.all_items_tree_builder import AllItemsTreeBuilder
+from ui.tree.all_items_tree_builder import AllItemsGDriveTreeBuilder, AllItemsLocalFsTreeBuilder
 from ui.tree.category_tree_builder import CategoryTreeBuilder
 from model.display_node import DisplayNode
 from model.subtree_snapshot import SubtreeSnapshot
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 # CLASS TreePanelController
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
 
 class TreePanelController:
     """
@@ -94,13 +95,23 @@ class TreePanelController:
         GLib.idle_add(self.display_store.clear_model)
         # FIXME: likely need to clean up GTK listeners here
 
+        if root:
+            tree_type = root.tree_type
+        elif tree:
+            tree_type = tree.tree_type
+        else:
+            raise RuntimeError('"root" and "tree" are both empty!')
+
         if tree_display_mode:
             self.treeview_meta.tree_display_mode = tree_display_mode
 
         if self.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             tree_builder = CategoryTreeBuilder(controller=self, root=root, tree=tree)
         elif self.tree_display_mode == TreeDisplayMode.ONE_TREE_ALL_ITEMS:
-            tree_builder = AllItemsTreeBuilder(controller=self, root=root, tree=tree)
+            if tree_type == OBJ_TYPE_GDRIVE:
+                tree_builder = AllItemsGDriveTreeBuilder(controller=self, root=root, tree=tree)
+            elif tree_type == OBJ_TYPE_LOCAL_DISK:
+                tree_builder = AllItemsLocalFsTreeBuilder(controller=self, root=root, tree=tree)
         else:
             raise RuntimeError(f'Unrecognized value for tree_display_mode: "{self.treeview_meta.tree_display_mode}"')
 

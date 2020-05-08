@@ -81,9 +81,6 @@ class DirNode(DisplayNode):
         self._size_bytes = 0
 
     def add_meta_emtrics(self, fmeta):
-        if fmeta.category != self.category:
-            logger.error(f'BAD CATEGORY: expected={self.category} found={fmeta.category} path={fmeta.full_path}')
-        assert fmeta.category == self.category
         self.file_count += 1
         if fmeta.size_bytes:
             self._size_bytes += fmeta.size_bytes
