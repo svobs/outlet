@@ -49,10 +49,10 @@ class TreePanelController:
     def load(self):
         self.display_strategy.populate_root()
 
-    def reload(self, new_root=None):
+    def reload(self, new_root=None, tree_display_mode: TreeDisplayMode = None):
         """Invalidate whatever cache the tree_builder built up, and re-populate the display tree"""
         if new_root:
-            self.set_tree(root=new_root)
+            self.set_tree(root=new_root, tree_display_mode=tree_display_mode)
         else:
             tree = self.tree_builder.get_tree()
             self.set_tree(tree=tree)
@@ -89,10 +89,13 @@ class TreePanelController:
     def get_tree(self):
         return self.tree_builder.get_tree()
 
-    def set_tree(self, root: Identifier = None, tree: SubtreeSnapshot = None):
+    def set_tree(self, root: Identifier = None, tree: SubtreeSnapshot = None, tree_display_mode: TreeDisplayMode = None):
         # Clear old display (if any)
         GLib.idle_add(self.display_store.clear_model)
         # FIXME: likely need to clean up GTK listeners here
+
+        if tree_display_mode:
+            self.treeview_meta.tree_display_mode = tree_display_mode
 
         if self.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             tree_builder = CategoryTreeBuilder(controller=self, root=root, tree=tree)
@@ -103,7 +106,7 @@ class TreePanelController:
 
         self.tree_builder = tree_builder
 
-    # CONVENIENCE METHDOS
+    # CONVENIENCE METHODS
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
     @property

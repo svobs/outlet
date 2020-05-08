@@ -2,6 +2,7 @@ import logging
 
 import gi
 
+import constants
 from constants import TreeDisplayMode
 from model.display_id import Identifier
 from model.fmeta_tree import FMetaTree
@@ -236,9 +237,25 @@ def is_ignored_func(data_node):
 """
 
 
-def _build(parent_win, treeview_meta, display_strategy, action_handlers, root: Identifier = None, tree: SubtreeSnapshot = None):
+def _build(parent_win, treeview_meta, root: Identifier = None, tree: SubtreeSnapshot = None):
     """Builds a single instance of a tree panel, and configures all its components as specified."""
     logger.debug(f'Building controller for tree: {treeview_meta.tree_id}')
+
+    if root:
+        tree_type = root.tree_type
+    elif tree:
+        tree_type = tree.tree_type
+    else:
+        raise RuntimeError('"root" and "tree" are both empty!')
+
+    if tree_type == constants.OBJ_TYPE_GDRIVE:
+        display_strategy = LazyDisplayStrategy(config=parent_win.config)
+        action_handlers = GDriveActionHandlers(config=parent_win.config)
+    elif tree_type == constants.OBJ_TYPE_LOCAL_DISK:
+        display_strategy = FMetaChangeTreeStrategy(config=parent_win.config)
+        action_handlers = FMetaTreeActionHandlers(config=parent_win.config)
+    else:
+        raise RuntimeError(f'Unsupported tree type: {tree_type}')
 
     display_store = DisplayStore(treeview_meta)
 
@@ -249,8 +266,6 @@ def _build(parent_win, treeview_meta, display_strategy, action_handlers, root: I
         controller.set_tree(root=root)
     elif tree:
         controller.set_tree(tree=tree)
-    else:
-        raise RuntimeError('"root" and "tree" are both empty!')
 
     controller.tree_view = _build_treeview(display_store)
     controller.root_dir_panel = RootDirPanel(parent_win=parent_win, tree_id=treeview_meta.tree_id,
@@ -286,25 +301,16 @@ def build_gdrive(parent_win, tree_id, tree: SubtreeSnapshot):
                                  selection_mode=Gtk.SelectionMode.SINGLE,
                                  is_display_persisted=True, is_ignored_func=is_ignored_func)
 
-    display_strategy = LazyDisplayStrategy(config=parent_win.config)
-    action_handlers = GDriveActionHandlers(config=parent_win.config)
-
-    return _build(parent_win=parent_win, tree=tree, treeview_meta=treeview_meta, display_strategy=display_strategy,
-                  action_handlers=action_handlers)
+    return _build(parent_win=parent_win, tree=tree, treeview_meta=treeview_meta)
 
 
 def build_category_file_tree(parent_win, tree_id, root: Identifier = None, tree: SubtreeSnapshot = None):
     treeview_meta = TreeViewMeta(config=parent_win.config, tree_id=tree_id, editable=True,
-                                 tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY, lazy_load=True,
+                                 tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, lazy_load=True,
                                  selection_mode=Gtk.SelectionMode.MULTIPLE,
                                  is_display_persisted=True, is_ignored_func=is_ignored_func)
 
-    display_strategy = FMetaChangeTreeStrategy(config=parent_win.config)
-    action_handlers = FMetaTreeActionHandlers(config=parent_win.config)
-
-    con = _build(parent_win=parent_win, root=root, tree=tree, treeview_meta=treeview_meta,
-                 display_strategy=display_strategy, action_handlers=action_handlers)
-    return con
+    return _build(parent_win=parent_win, root=root, tree=tree, treeview_meta=treeview_meta)
 
 
 def build_static_category_file_tree(parent_win, tree_id, tree: FMetaTree):
@@ -314,9 +320,4 @@ def build_static_category_file_tree(parent_win, tree_id, tree: FMetaTree):
                                  selection_mode=Gtk.SelectionMode.SINGLE,
                                  is_display_persisted=False, is_ignored_func=is_ignored_func)
 
-    display_strategy = FMetaChangeTreeStrategy(config=parent_win.config)
-    action_handlers = FMetaTreeActionHandlers(config=parent_win.config)
-
-    con = _build(parent_win=parent_win, tree=tree, treeview_meta=treeview_meta, display_strategy=display_strategy,
-                 action_handlers=action_handlers)
-    return con
+    return _build(parent_win=parent_win, tree=tree, treeview_meta=treeview_meta)

@@ -46,6 +46,10 @@ class GDriveTree:
         self.first_parent_dict: Dict[str, List[GoogNode]] = {}
         """ Reverse lookup table: 'parent_id' -> list of child nodes """
 
+    @property
+    def tree_type(self) -> int:
+        return constants.OBJ_TYPE_GDRIVE
+
     @classmethod
     def get_root_constant_identifier(cls):
         return GDriveIdentifier(uid=constants.ROOT, full_path=constants.ROOT)

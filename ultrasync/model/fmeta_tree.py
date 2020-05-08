@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Dict, List, Optional, Union, ValuesView
 
+import constants
 import file_util
 import format_util
 from model.category import Category
@@ -68,6 +69,10 @@ class FMetaTree(SubtreeSnapshot):
                                                      }
         self._dup_md5_count = 0
         self._total_size_bytes = 0
+
+    @property
+    def tree_type(self):
+        return constants.OBJ_TYPE_LOCAL_DISK
 
     def create_identifier(self, full_path, category):
         return LocalFsIdentifier(full_path=full_path, category=category)

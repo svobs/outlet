@@ -11,6 +11,10 @@ class SubtreeSnapshot(ABC):
         super().__init__()
         self.identifier: Identifier = root_identifier
 
+    @property
+    def tree_type(self) -> int:
+        return 0
+
     @abstractmethod
     def create_empty_subtree(self, subtree_root_node):
         """Return a new empty subtree with the given root and which is of the same type of this tree"""
