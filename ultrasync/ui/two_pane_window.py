@@ -2,6 +2,9 @@ import logging
 
 import gi
 
+from constants import TreeDisplayMode
+from model.display_id import Identifier
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk
 
@@ -131,7 +134,12 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
         # Subscribe to signals:
         actions.connect(signal=actions.TOGGLE_UI_ENABLEMENT, handler=self.on_enable_ui_toggled)
-        actions.connect(signal=actions.DIFF_TREES_DONE, handler=self.after_diff_completed)
+        actions.connect(signal=actions.DIFF_TREES_DONE, handler=self._after_diff_completed)
+
+        # Need to add an extra listener to each tree, to reload when the other one's root changes
+        # if displaying the results of a diff
+        dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=actions.ID_LEFT_TREE)
+        dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=actions.ID_RIGHT_TREE)
 
         # Connect "resize" event. Lots of excess logic to determine approximately when the
         # window *stops* being resized, so we can persist the value semi-efficiently
@@ -149,6 +157,9 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
         # Kick off cache load now that we have a progress bar
         actions.get_dispatcher().send(actions.LOAD_ALL_CACHES, sender=self.win_id)
+
+    # GTK LISTENERS begin
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
     def _connect_resize_event(self):
         self._timer_id = None
@@ -208,9 +219,22 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             self.bottom_button_panel.pack_start(button, False, False, 0)
             button.show()
 
-    # ⬛⬛⬛⬛⬛⬛⬛ SIGNAL CALLBACKS ⬛⬛⬛⬛⬛⬛⬛
+    # SIGNAL LISTENERS begin
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
-    def after_diff_completed(self, sender, stopwatch):
+    def _on_root_path_updated(self, sender, new_root: Identifier):
+        if sender == actions.ID_RIGHT_TREE and self.tree_con_left.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
+            # If displaying a diff and right root changed, reload left display
+            # (note: right will update its own display)
+            logger.debug(f'Detected that {actions.ID_RIGHT_TREE} changed root. Reloading {actions.ID_LEFT_TREE}')
+            self.tree_con_left.reload()
+
+        elif sender == actions.ID_LEFT_TREE and self.tree_con_right.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
+            # Mirror of above:
+            logger.debug(f'Detected that {actions.ID_LEFT_TREE} changed root. Reloading {actions.ID_RIGHT_TREE}')
+            self.tree_con_right.reload()
+
+    def _after_diff_completed(self, sender, stopwatch):
         """
         Callback for DIFF_TREES_DONE global action
         """

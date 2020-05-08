@@ -162,7 +162,7 @@ class LazyDisplayStrategy:
 
     def _append_children(self, children: List[DisplayNode], parent_iter, parent_uid: Optional[str]):
         if children:
-            logger.debug(f'Filling out display children: {len(children)}')
+            logger.debug(f'Appending {len(children)} child display nodes')
             if len(children) > LARGE_NUMBER_OF_CHILDREN:
                 logger.error(f'Too many children to display! Count = {len(children)}')
                 self._append_empty_child(parent_iter, f'ERROR: too many items to display ({len(children):n})')

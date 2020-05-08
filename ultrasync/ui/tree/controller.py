@@ -20,6 +20,9 @@ from gi.repository import GLib
 logger = logging.getLogger(__name__)
 
 
+# CLASS TreePanelController
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
 class TreePanelController:
     """
     This class is mostly just a place to hold references in memory of all the disparate components
@@ -36,23 +39,6 @@ class TreePanelController:
         self.status_bar = None
         self.content_box = None
         self.action_handlers = None
-
-    @property
-    def cache_manager(self):
-        return self.parent_win.application.cache_manager
-
-    @property
-    def config(self):
-        """Convenience method. Retreives the tree_id from the parent_win"""
-        return self.parent_win.config
-
-    @property
-    def tree_id(self):
-        """Convenience method. Retreives the tree_id from the metastore"""
-        return self.treeview_meta.tree_id
-
-    def get_root_identifier(self):
-        return self.tree_builder.get_root_identifier()
 
     def init(self):
         """Should be called after all controller components have been wired together"""
@@ -108,11 +94,35 @@ class TreePanelController:
         GLib.idle_add(self.display_store.clear_model)
         # FIXME: likely need to clean up GTK listeners here
 
-        if self.treeview_meta.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
+        if self.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             tree_builder = CategoryTreeBuilder(controller=self, root=root, tree=tree)
-        elif self.treeview_meta.tree_display_mode == TreeDisplayMode.ONE_TREE_ALL_ITEMS:
+        elif self.tree_display_mode == TreeDisplayMode.ONE_TREE_ALL_ITEMS:
             tree_builder = AllItemsTreeBuilder(controller=self, root=root, tree=tree)
         else:
             raise RuntimeError(f'Unrecognized value for tree_display_mode: "{self.treeview_meta.tree_display_mode}"')
 
         self.tree_builder = tree_builder
+
+    # CONVENIENCE METHDOS
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
+    @property
+    def cache_manager(self):
+        return self.parent_win.application.cache_manager
+
+    @property
+    def config(self):
+        """Convenience method. Retreives the tree_id from the parent_win"""
+        return self.parent_win.config
+
+    @property
+    def tree_id(self):
+        """Convenience method. Retreives the tree_id from the metastore"""
+        return self.treeview_meta.tree_id
+
+    def get_root_identifier(self):
+        return self.tree_builder.get_root_identifier()
+
+    @property
+    def tree_display_mode(self):
+        return self.treeview_meta.tree_display_mode

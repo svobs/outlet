@@ -24,6 +24,7 @@ class TreeActionBridge:
     def __init__(self, config, controller):
         self.con = controller
         self.ui_enabled = True
+        self.connected_eids = []
         self.reload_tree_on_root_path_update = config.get('cache.load_cache_when_tree_root_selected')
 
     def init(self):
@@ -48,12 +49,21 @@ class TreeActionBridge:
         logger.debug(f'Listening for signals: Any={general_signals}, "{self.con.tree_id}"={targeted_signals}')
 
         # TreeView
-        self.con.tree_view.connect("row-activated", self._on_row_activated, self.con.tree_id)
-        self.con.tree_view.connect('button-press-event', self._on_tree_button_press, self.con.tree_id)
-        self.con.tree_view.connect('key-press-event', self._on_key_press, self.con.tree_id)
-        self.con.tree_view.connect('row-expanded', self._on_toggle_gtk_row_expanded_state, True)
-        self.con.tree_view.connect('row-collapsed', self._on_toggle_gtk_row_expanded_state, False)
+        eid = self.con.tree_view.connect("row-activated", self._on_row_activated, self.con.tree_id)
+        self.connected_eids.append(eid)
+        eid = self.con.tree_view.connect('button-press-event', self._on_tree_button_press, self.con.tree_id)
+        self.connected_eids.append(eid)
+        eid = self.con.tree_view.connect('key-press-event', self._on_key_press, self.con.tree_id)
+        self.connected_eids.append(eid)
+        eid = self.con.tree_view.connect('row-expanded', self._on_toggle_gtk_row_expanded_state, True)
+        self.connected_eids.append(eid)
+        eid = self.con.tree_view.connect('row-collapsed', self._on_toggle_gtk_row_expanded_state, False)
+        self.connected_eids.append(eid)
         # select.connect("changed", self._on_tree_selection_changed)
+
+    def disconnect_gtk_listeners(self):
+        for eid in self.connected_eids:
+            self.con.tree_view.disconnect(eid)
 
     # LISTENERS begin
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
