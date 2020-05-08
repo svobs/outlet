@@ -124,9 +124,7 @@ class GDriveMasterCache:
             if gdrive_meta:
                 logger.debug(f'{slice_timer} Sliced off {gdrive_meta}')
             else:
-                logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root}". '
-                            f'Returning an empty metastore')
-                return None
+                raise RuntimeError(f'Cannot load subtree because it does not exist: "{subtree_root}"')
         return gdrive_meta
 
     def download_all_gdrive_meta(self, tree_id):

@@ -87,7 +87,6 @@ class RootDirPanel:
         # Triggered when the user submits a root via the text entry box
         new_root_path: str = self.entry.get_text()
         logger.info(f'User entered root path: "{new_root_path}" for tree_id={tree_id}')
-        new_root = None
         try:
             identifiers = self.parent_win.application.cache_manager.get_all_for_path(new_root_path)
             assert len(identifiers) > 0, f'Got no identifiers (not even NULL) for path: {new_root_path}'
@@ -206,19 +205,19 @@ class RootDirPanel:
             pre = ''
             color = ''
             root_part_regular, root_part_bold = os.path.split(new_root.full_path)
-            root_part_regular = root_part_regular + '/'
             if len(self.alert_image_box.get_children()) > 0:
                 self.alert_image_box.remove(self.alert_image)
         else:
             # TODO: determine offensive parent
             root_part_regular, root_part_bold = os.path.split(new_root.full_path)
-            root_part_regular = root_part_regular + '/'
             if len(self.alert_image_box.get_children()) == 0:
                 self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
             color = f"foreground='gray'"
             pre = f"<span foreground='red' size='small'>Not found:  </span>"
             self.alert_image.show()
 
+        if root_part_regular != '/':
+            root_part_regular = root_part_regular + '/'
         self._set_label_markup(pre, color, root_part_regular, root_part_bold)
 
     def _set_label_markup(self, pre, color, root_part_regular, root_part_bold):

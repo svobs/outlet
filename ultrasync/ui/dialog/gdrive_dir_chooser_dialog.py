@@ -46,7 +46,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
 
     def on_ok_clicked(self, identifier: Identifier):
         # TODO: disallow selection of files
-        logger.info(f'User selected dir id="{identifier.uid}"')
+        logger.info(f'User selected dir "{identifier}"')
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root=identifier)
 
     def on_response(self, dialog, response_id):
@@ -59,7 +59,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
                 item: DisplayNode = self.tree_controller.get_single_selection()
                 assert item.identifier
                 # Ensure item has a full_path (not filled in by default in GDriveWholeTree)
-                item.identifier.full_path = self.tree_controller.tree.get_full_path_for_item(item)
+                item.identifier.full_path = self.tree_controller.get_tree().get_full_path_for_item(item)
                 self.on_ok_clicked(item.identifier)
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
