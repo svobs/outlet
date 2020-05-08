@@ -56,7 +56,7 @@ class TreePanelController:
             self.set_tree(root=new_root, tree_display_mode=tree_display_mode)
         else:
             tree = self.tree_builder.get_tree()
-            self.set_tree(tree=tree)
+            self.set_tree(tree=tree, tree_display_mode=tree_display_mode)
         self.load()
 
     def get_single_selection(self):
