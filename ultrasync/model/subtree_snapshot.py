@@ -12,7 +12,7 @@ class SubtreeSnapshot(ABC):
         self.identifier: Identifier = root_identifier
 
     @abstractmethod
-    def create_empty_subtree(self, subtree_root_identifier):
+    def create_empty_subtree(self, subtree_root_node):
         """Return a new empty subtree with the given root and which is of the same type of this tree"""
         return
 

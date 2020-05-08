@@ -60,7 +60,7 @@ class TreePanelController:
     def reload(self):
         """Invalidate whatever cache the tree_builder built up, and re-populate the display tree"""
         tree = self.tree_builder.get_tree()
-        self.set_tree(tree)
+        self.set_tree(tree=tree)
         self.load()
 
     def get_single_selection(self):

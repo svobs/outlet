@@ -76,8 +76,8 @@ class LazyDisplayStrategy:
         populate this tree. Includes file nodes only; does not include directory nodes."""
         assert self.con.treeview_meta.editable
         tree_iter = self.con.display_store.model.get_iter_first()
-        subtree_root: Identifier = self.con.display_store.get_node_data(tree_iter).identifier
-        subtree: SubtreeSnapshot = self.con.get_tree().create_empty_subtree(subtree_root)
+        subtree_root_node: DisplayNode = self.con.display_store.get_node_data(tree_iter)
+        subtree: SubtreeSnapshot = self.con.get_tree().create_empty_subtree(subtree_root_node)
 
         # Algorithm:
         # Iterate over metastore nodes. Start with top-level nodes.

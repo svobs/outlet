@@ -101,7 +101,7 @@ def _build_category_tree(source_tree: SubtreeSnapshot, root_node: CategoryNode) 
             # (2) there's nothing for us in these objects from a display perspective. The name can be inferred
             # from each file's path, and we don't want to display empty dirs when there's no file of that category
             continue
-        ancestor_identifiers = source_tree.get_ancestor_identifiers_as_list(root_node)
+        ancestor_identifiers = source_tree.get_ancestor_identifiers_as_list(item)
         # nid == Node ID == directory name
         parent = root
         # logger.debug(f'Adding file "{relative_path}" to dir "{parent.data.full_path}"')
@@ -113,7 +113,7 @@ def _build_category_tree(source_tree: SubtreeSnapshot, root_node: CategoryNode) 
                 nid = identifier.uid
                 child: treelib.Node = change_tree.get_node(nid=nid)
                 if child is None:
-                    logger.debug(f'Creating dir node: nid={nid} full_path={identifier.full_path}')
+                    # logger.debug(f'Creating dir node: nid={nid}')
                     id_copy = copy.copy(identifier)
                     id_copy.category = category
                     dir_node = DirNode(identifier=id_copy)

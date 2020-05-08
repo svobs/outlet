@@ -81,7 +81,11 @@ class GDriveIdentifier(Identifier):
         return self._uid
 
     def __repr__(self):
-        return f'[GD:{self.full_path}:{self._uid}]'
+        if self._uid == self.full_path:
+            uid_disp = 'Ξ'
+        else:
+            uid_disp = self._uid
+        return f'[GD:{self.full_path}:{uid_disp}]'
 
 
 """

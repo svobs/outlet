@@ -1,6 +1,6 @@
 import os
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import List, Optional
 
 from model.category import Category
 from model.display_id import Identifier
@@ -26,7 +26,7 @@ class FileDecoratorNode(PlanningNode, ABC):
         self.original_node = original_node
         # GoogNodes do not have a path built-in, so we must store them preemptively
         self._orig_full_path = orig_path
-        self._parent = None
+        self._parent_ids = None
         """Only used in Goog trees currently"""
 
     @property
@@ -85,27 +85,26 @@ class FileDecoratorNode(PlanningNode, ABC):
         return self.category.name
 
     @property
-    def parents(self):
-        if not self._parent:
+    def parent_ids(self) -> List[str]:
+        if not self._parent_ids:
             return []
-        if isinstance(self._parent, list):
-            return self._parent
-        return [self._parent]
+        if isinstance(self._parent_ids, list):
+            return self._parent_ids
+        return [self._parent_ids]
 
-    @parents.setter
-    def parents(self, parents):
+    @parent_ids.setter
+    def parent_ids(self, parent_ids):
         """Can be a list of GoogFolders, or a single instance, or None"""
-        if not parents:
-            self._parent = None
-        elif isinstance(parents, list):
-            if len(parents) == 0:
-                self._parent = None
-            elif len(parents) == 1:
-                self._parent = parents[0]
+        if not parent_ids:
+            self._parent_ids = None
+        elif isinstance(parent_ids, list):
+            if len(parent_ids) == 1:
+                assert isinstance(parent_ids[0], str)
+                self._parent_ids = parent_ids[0]
             else:
-                self._parent = parents
+                self._parent_ids = parent_ids
         else:
-            self._parent = parents
+            self._parent_ids = parent_ids
 
 
 class FileToAdd(FileDecoratorNode):

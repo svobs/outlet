@@ -57,11 +57,13 @@ class GDriveMasterCache:
         self.meta_master = meta
 
     def _slice_off_subtree_from_master(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveSubtree:
-        subtree_meta = GDriveSubtree(subtree_root)
-
         root: GoogNode = self.meta_master.get_for_id(subtree_root.uid)
         if not root:
             return None
+
+        # Fill in root if missing:
+        self.meta_master.get_full_path_for_item(root)
+        subtree_meta = GDriveSubtree(root)
 
         q = Queue()
         q.put(root)
@@ -139,6 +141,7 @@ class GDriveMasterCache:
         # TODO
         pass
 
+    # TODO: maybe delete this?
     def get_path_for_id(self, goog_id: str) -> Optional[str]:
         if not self.meta_master:
             logger.warning('Cannot look up item: caches have not been loaded!')
@@ -150,14 +153,14 @@ class GDriveMasterCache:
         path = ''
         while True:
             path = '/' + item.name + path
-            parents = item.parents
-            if not parents:
+            parent_ids: List[str] = item.parent_ids
+            if not parent_ids:
                 logger.debug(f'Mapped ID "{goog_id}" to path "{path}"')
                 return path
-            elif len(parents) > 1:
+            elif len(parent_ids) > 1:
                 logger.warning(f'Multiple parents found for {item.uid} ("{item.name}"). Picking the first one.')
                 # pass through
-            item = self.meta_master.get_for_id(parents[0])
+            item = self.meta_master.get_for_id(parent_ids[0])
 
     def get_all_for_path(self, path: str) -> List[Identifier]:
         return self.meta_master.get_all_ids_for_path(path)

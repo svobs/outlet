@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Optional, Union, ValuesView
 
 import constants
 import file_util
-from format_util import with_commas
 from index.two_level_dict import Md5BeforeUidDict
 from model.category import Category
 from model.display_id import GDriveIdentifier, Identifier
@@ -58,6 +57,7 @@ class GDriveTree:
         return self.first_parent_dict.get(parent_id, [])
 
     def get_for_id(self, goog_id) -> Optional[GoogNode]:
+        assert goog_id
         return self.id_dict.get(goog_id, None)
 
     def get_path_for_id(self, goog_id: str, stop_before_id: str = None) -> str:
@@ -77,22 +77,22 @@ class GDriveTree:
                 path = item.name
             else:
                 path = item.name + '/' + path
-            parents = item.parents
-            if parents:
-                if len(parents) > 1:
-                    resolved_parents = [x for x in parents if self.get_for_id(x)]
-                    if len(resolved_parents) > 1:
+            parent_ids: List[str] = item.parent_ids
+            if parent_ids:
+                if len(parent_ids) > 1:
+                    resolved_parent_ids = [x for x in parent_ids if self.get_for_id(x)]
+                    if len(resolved_parent_ids) > 1:
                         # If we see this, need to investigate
                         logger.warning(f'Multiple parents found for {item.uid} ("{item.name}"). Picking the first one.')
-                        for parent_num, p in enumerate(resolved_parents):
+                        for parent_num, p in enumerate(resolved_parent_ids):
                             logger.info(f'Parent {parent_num}: {p}')
                         # pass through
                     elif SUPER_DEBUG:
                         logger.debug(f'Found multiple parents for item but only one is valid: item={item.uid} ("{item.name}")')
-                    item = self.get_for_id(resolved_parents[0])
+                    item = self.get_for_id(resolved_parent_ids[0])
                     # pass through
                 else:
-                    item = self.get_for_id(parents[0])
+                    item = self.get_for_id(parent_ids[0])
 
                 if not item:
                     # Parent refs cannot be resolved == root of subtree
@@ -116,28 +116,28 @@ class GDriveTree:
             self.id_dict[item.uid] = item
 
         # build reverse dictionary
-        parents = item.parents
-        if len(parents) > 0:
-            for parent_id in parents:
+        parent_ids: List[str] = item.parent_ids
+        if len(parent_ids) > 0:
+            for parent_id in parent_ids:
                 self._add_to_parent_dict(parent_id, item)
 
         # This may not be the same object which came in
         return item
 
-    def _add_to_parent_dict(self, parent_id, item):
-        child_list = self.first_parent_dict.get(parent_id)
+    def _add_to_parent_dict(self, parent_id: str, item):
+        child_list: List[GoogNode] = self.first_parent_dict.get(parent_id)
         if not child_list:
-            child_list = []
+            child_list: List[GoogNode] = []
             self.first_parent_dict[parent_id] = child_list
         child_list.append(item)
 
 
 def _merge_items(existing_item: GoogNode, new_item: GoogNode):
     # Assume items are identical but each references a different parent (most likely flattened for SQL)
-    assert len(existing_item.parents) == 1 and len(
-        new_item.parents) == 1, f'Expected 1 parent each but found: {existing_item.parents} and {new_item.parents}'
+    assert len(existing_item.parent_ids) == 1 and len(
+        new_item.parent_ids) == 1, f'Expected 1 parent each but found: {existing_item.parent_ids} and {new_item.parent_ids}'
     # Just merge into the existing item
-    existing_item.parents = list(set(existing_item.parents) | set(new_item.parents))
+    existing_item.parent_ids = list(set(existing_item.parent_ids) | set(new_item.parent_ids))
 
 
 """
@@ -173,13 +173,16 @@ class GDriveWholeTree(GDriveTree):
             # Does item already have a full_path? Just return that (huge speed gain):
             return item.full_path
 
-        return self.get_path_for_id(item.uid)
+        # Set in the item for future use:
+        full_path = self.get_path_for_id(item.uid)
+        item.identifier.full_path = full_path
+        return full_path
 
     def add_item(self, item):
         """Called when adding from Google API, or when slicing a metastore"""
         added_item = super().add_item(item)
 
-        if added_item and len(added_item.parents) == 0:
+        if added_item and len(added_item.parent_ids) == 0:
             self.roots.append(item)
 
         return item
@@ -249,12 +252,10 @@ class GDriveWholeTree(GDriveTree):
 
 
 class GDriveSubtree(GDriveTree, SubtreeSnapshot):
-    def __init__(self, root_identifier: GDriveIdentifier):
+    def __init__(self, root_node: GoogNode):
         GDriveTree.__init__(self)
-        SubtreeSnapshot.__init__(self, root_identifier=root_identifier)
-        """Filesystem-like-path. Used for reference when comparing to FMetaTree"""
-
-        """GoogID for where to start"""
+        SubtreeSnapshot.__init__(self, root_identifier=root_node.identifier)
+        self.root_node = root_node
 
         self._md5_dict: Md5BeforeUidDict = Md5BeforeUidDict()
 
@@ -265,19 +266,19 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
                                                           Category.Updated: [],
                                                           }
 
-    def create_empty_subtree(self, subtree_root_identifier: GDriveIdentifier):
-        return GDriveSubtree(subtree_root_identifier)
+    def create_empty_subtree(self, subtree_root_node: GoogNode):
+        return GDriveSubtree(subtree_root_node)
 
     def create_identifier(self, full_path, category):
         return GDriveIdentifier(uid=full_path, full_path=full_path, category=category)
 
     @property
     def root_path(self):
-        return self.identifier.full_path
+        return self.root_node.full_path
 
     @property
     def root_id(self):
-        return self.identifier.uid
+        return self.root_node.uid
 
     def __eq__(self, other):
         if self.uid == constants.ROOT:
@@ -327,28 +328,29 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         """
         relative_path = file_util.strip_root(path, self.root_path)
         name_segments = file_util.split_path(relative_path)
-        current_id = self.root_id
-        current = None
+        current = self.root_node
         path_so_far = ''
         for name_seg in name_segments:
             path_so_far = os.path.join(path_so_far, name_seg)
-            children = self.get_children(current_id)
-            if not children:
-                raise RuntimeError(f'Item has no children: id="{current_id}" path_so_far="{path_so_far}"')
-            matches = [x for x in children if x.name == name_seg]
-            if len(matches) > 1:
-                logger.error(f'get_for_path(): Multiple child IDs ({len(matches)}) found for parent ID "{current_id}", '
-                             f'tree "{self.root_path}", path "{path_so_far}". Choosing the first found')
-                for num, match in enumerate(matches):
-                    logger.warning(f'Match {num}: {match}')
-            elif len(matches) == 0:
-                if SUPER_DEBUG:
-                    logger.debug(f'No match found for path: {path_so_far}')
-                return None
-            current = matches[0]
-            current_id = current.uid
+            children = self.get_children(current.uid)
+            if children:
+                matches = [x for x in children if x.name == name_seg]
+                if matches:
+                    if len(matches) > 1:
+                        logger.error(f'get_for_path(): Multiple child IDs ({len(matches)}) found for parent ID "{current.uid}", '
+                                     f'tree "{self.root_path}", path "{path_so_far}". Choosing the first found')
+                        for num, match in enumerate(matches):
+                            logger.warning(f'Match {num}: {match}')
+                    current = matches[0]
+                    continue
+                # fall through
+
+            if SUPER_DEBUG:
+                logger.debug(f'No match found for path: {path_so_far}')
+            return None
+
         if SUPER_DEBUG:
-            logger.debug(f'Found for path "{path}": {self.get_for_id(current_id)}')
+            logger.debug(f'Found for path "{path}": {current}')
         return current
 
     def add_item(self, item):
@@ -407,10 +409,10 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         for item_id, item in self.id_dict.items():
             if item_id != item.uid:
                 logger.error(f'[!!!] Item actual ID does not match its key in the ID dict ({item_id}): {item}')
-            if len(item.parents) > 1:
-                resolved_parents = [x for x in item.parents if self.get_for_id(x)]
-                if len(resolved_parents) > 1:
-                    logger.error(f'Found multiple valid parents for item: {item}: parents={resolved_parents}')
+            if len(item.parent_ids) > 1:
+                resolved_parent_ids = [x for x in item.parent_ids if self.get_for_id(x)]
+                if len(resolved_parent_ids) > 1:
+                    logger.error(f'Found multiple valid parent_ids for item: {item}: parent_ids={resolved_parent_ids}')
 
         logger.debug(f'Done validating GDriveSubtree "{self.root_path}"')
 
@@ -423,20 +425,23 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         # TODO
         pass
 
-    def get_ancestor_identifiers_as_list(self, item) -> List[Identifier]:
+    def get_ancestor_identifiers_as_list(self, item: GoogNode) -> List[Identifier]:
         identifiers = []
-        while item.uid != self.identifier.uid and item.parents:
-            if len(item.parents) > 1:
-                resolved_parents = [x for x in item.parents if self.get_for_id(x)]
-                if len(resolved_parents) > 1:
-                    logger.error(f'Found multiple valid parents for item: {item}: parents={resolved_parents}')
-                item = resolved_parents[0]
-            elif len(item.parents) == 1:
-                item = item.parents[0]
-
-            identifiers.append(item.identifier)
-
-        return identifiers
+        while True:
+            if item.parent_ids:
+                if len(item.parent_ids) > 1:
+                    resolved_parent_ids = [x for x in item.parent_ids if self.get_for_id(x)]
+                    if len(resolved_parent_ids) > 1:
+                        logger.error(f'Found multiple valid parents for item: {item}: parents={resolved_parent_ids}')
+                    assert len(resolved_parent_ids) == 1
+                    item = self.get_for_id(resolved_parent_ids[0])
+                else:
+                    item = self.get_for_id(item.parent_ids[0])
+                if item and item.uid != self.identifier.uid:
+                    identifiers.append(item.identifier)
+                    continue
+            identifiers.reverse()
+            return identifiers
 
     def get_relative_path_for_item(self, goog_node: GoogNode):
         if goog_node.full_path:
@@ -454,9 +459,9 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
                 folder_count += 1
         return f'{file_count:n} files and {folder_count:n} folders in subtree '
 
-    def categorize(self, item, category: Category):
+    def categorize(self, item: GoogNode, category: Category):
         assert category != Category.NA
-        # param fmeta should already be a member of this tree
+        # param item should already be a member of this tree
         assert self.get_for_id(goog_id=item.uid) == item
         item.identifier.category = category
         return self._cat_dict[category].append(item)
@@ -476,29 +481,29 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         name_segments = file_util.split_path(relative_path)
         # Skip last item (it's the file name)
         name_segments.pop()
-        current_id = self.root_id
-        path_so_far = ''
+        current: GoogNode = self.root_node
+        path_so_far = self.root_node.full_path
         for name_seg in name_segments:
             path_so_far = os.path.join(path_so_far, name_seg)
-            children = self.get_children(current_id)
+            children: List[GoogNode] = self.get_children(current.uid)
             if children:
                 matches = [x for x in children if x.name == name_seg]
                 if len(matches) > 1:
-                    logger.error(f'get_for_path(): Multiple child IDs ({len(matches)}) found for parent ID"{current_id}", '
+                    logger.error(f'get_for_path(): Multiple child IDs ({len(matches)}) found for parent ID"{current.uid}", '
                                  f'tree "{self.root_path}" Choosing the first found')
                     for num, match in enumerate(matches):
                         logger.info(f'Match {num}: {match}')
-                    current_id = matches[0].uid
+                    current = matches[0]
                     continue
                 elif len(matches) == 1:
-                    current_id = matches[0].uid
+                    current = matches[0]
                     continue
 
             if SUPER_DEBUG:
                 logger.debug(f'Creating new fake folder for: {path_so_far}')
-            new_folder = FolderToAdd(dest_path=path_so_far)
-            new_folder.parents = current_id
+            new_folder: FolderToAdd = FolderToAdd(dest_path=path_so_far)
+            new_folder.parent_ids = current.uid
             self.add_item(new_folder)
-            current_id = new_folder.uid
+            current = new_folder
 
-        item.parents = current_id
+        item.parent_ids = current.uid

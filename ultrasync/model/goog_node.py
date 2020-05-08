@@ -25,7 +25,7 @@ class GoogNode(DisplayNode, ABC):
     def __init__(self, item_id, item_name, trashed, drive_id, my_share, sync_ts, category=Category.NA):
         super().__init__(GDriveIdentifier(item_id, None, category))
 
-        self._parent:  Optional[Union[GoogNode, List[GoogNode]]] = None
+        self._parent_ids:  Optional[Union[str, List[str]]] = None
         """ Most items will have only one parent, so store that way for efficiency"""
 
         self._name = item_name
@@ -47,39 +47,39 @@ class GoogNode(DisplayNode, ABC):
         return self.sync_ts > other_folder.sync_ts
 
     @property
-    def parents(self):
-        if not self._parent:
+    def parent_ids(self) -> List[str]:
+        if not self._parent_ids:
             return []
-        if isinstance(self._parent, list):
-            return self._parent
-        return [self._parent]
+        if isinstance(self._parent_ids, list):
+            return self._parent_ids
+        return [self._parent_ids]
 
-    @parents.setter
-    def parents(self, parents):
+    @parent_ids.setter
+    def parent_ids(self, parent_ids):
         """Can be a list of GoogFolders, or a single instance, or None"""
-        if not parents:
-            self._parent = None
-        elif isinstance(parents, list):
-            if len(parents) == 0:
-                self._parent = None
-            elif len(parents) == 1:
-                self._parent = parents[0]
+        if not parent_ids:
+            self._parent_ids = None
+        elif isinstance(parent_ids, list):
+            if len(parent_ids) == 0:
+                self._parent_ids = None
+            elif len(parent_ids) == 1:
+                self._parent_ids = parent_ids[0]
             else:
-                self._parent = parents
+                self._parent_ids = parent_ids
         else:
-            self._parent = parents
+            self._parent_ids = parent_ids
 
-    def add_parent(self, parent):
-        current_parents = self.parents
-        if len(current_parents) == 0:
-            self.parents = parent
+    def add_parent(self, parent_id: str):
+        current_parent_ids: List[str] = self.parent_ids
+        if len(current_parent_ids) == 0:
+            self.parent_ids = parent_id
         else:
-            for current_parent in current_parents:
-                if current_parent.uid == parent.uid:
-                    logger.debug(f'Parent is already in list; skipping: {parent.uid}')
+            for current_parent_id in current_parent_ids:
+                if current_parent_id == parent_id:
+                    logger.debug(f'Parent is already in list; skipping: {parent_id}')
                     return
-            current_parents.append(parent)
-            self.parents = current_parents
+            current_parent_ids.append(parent_id)
+            self.parent_ids = current_parent_ids
 
     def get_icon(self):
         if self.trashed == NOT_TRASHED:
@@ -128,7 +128,7 @@ class GoogFolder(GoogNode):
 
     def __repr__(self):
         return f'Folder:(id="{self.uid}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
-               f'my_share={self.my_share} sync_ts={self.sync_ts} parents={self.parents} children_fetched={self.all_children_fetched} ]'
+               f'my_share={self.my_share} sync_ts={self.sync_ts} parent_ids={self.parent_ids} children_fetched={self.all_children_fetched} ]'
 
 
 
@@ -160,7 +160,7 @@ class GoogFile(GoogNode):
         return f'GoogFile(id="{self.uid}" name="{self.name}" trashed={self.trashed_str}  size={self.size_bytes} ' \
                f'md5="{self.md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
                f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
-               f'sync_ts={self.sync_ts} parents={self.parents})'
+               f'sync_ts={self.sync_ts} parent_ids={self.parent_ids})'
 
     def is_newer_than(self, other_folder):
         if self.modify_ts and other_folder.modify_ts:
@@ -191,7 +191,7 @@ class FolderToAdd(PlanningNode, GoogNode):
     def __init__(self, dest_path):
         GoogNode.__init__(self, item_id=dest_path, item_name=os.path.basename(dest_path), trashed=NOT_TRASHED, drive_id=None,
                           my_share=False, sync_ts=None, category=Category.ADDED)
-        self.dest_path = dest_path
+        self.identifier.full_path = dest_path
 
     def get_icon(self):
         # TODO: added folder
@@ -204,3 +204,6 @@ class FolderToAdd(PlanningNode, GoogNode):
     @classmethod
     def has_path(cls):
         return True
+
+    def __repr__(self):
+        return f'FolderToAdd(dest_path={self.full_path})'

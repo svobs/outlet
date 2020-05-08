@@ -183,7 +183,7 @@ class GDriveTreeLoader:
             item = GoogFolder(item_id=item_id, item_name=item_name,
                               trashed=item_trashed, drive_id=drive_id, my_share=my_share,
                               sync_ts=sync_ts, all_children_fetched=all_children_fetched)
-            item.parents = parent_id
+            item.parent_ids = parent_id
             meta.add_item(item)
 
         # FILES:
@@ -196,7 +196,7 @@ class GDriveTreeLoader:
                                  head_revision_id=head_revision_id, md5=md5,
                                  create_ts=int(create_ts), modify_ts=int(modify_ts), size_bytes=size_bytes,
                                  owner_id=owner_id, sync_ts=sync_ts)
-            file_node.parents = parent_id
+            file_node.parent_ids = parent_id
             meta.add_item(file_node)
 
         # MISC:

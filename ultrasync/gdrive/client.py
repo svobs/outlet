@@ -115,7 +115,7 @@ def convert_trashed(result):
         return NOT_TRASHED
 
 
-def convert_goog_folder(result, sync_ts):
+def convert_goog_folder(result, sync_ts) -> GoogFolder:
     # 'driveId' only populated for items which someone has shared with me
     # 'shared' only populated for items which are owned by me
     return GoogFolder(item_id=result['id'], item_name=result['name'], trashed=convert_trashed(result),
@@ -263,11 +263,11 @@ class GDriveClient:
                 if version:
                     version = int(version)
 
-                node = GoogFile(item_id=item['id'], item_name=item["name"], trashed=convert_trashed(item), drive_id=item.get('driveId', None),
+                node: GoogFile = GoogFile(item_id=item['id'], item_name=item["name"], trashed=convert_trashed(item), drive_id=item.get('driveId', None),
                                 version=version, head_revision_id=head_revision_id,
                                 md5=item.get('md5Checksum', None), my_share=item.get('shared', None), create_ts=create_ts,
                                 modify_ts=modify_ts, size_bytes=size, owner_id=owner_id, sync_ts=sync_ts)
-                node.parents = item.get('parents', [])
+                node.parent_ids = item.get('parents', [])
                 meta.add_item(node)
                 meta.mime_types[mime_type] = node
 
@@ -369,8 +369,8 @@ class GDriveClient:
                 actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             for item in items:
-                dir_node = convert_goog_folder(item, sync_ts)
-                dir_node.parents = item.get('parents', [])
+                dir_node: GoogFolder = convert_goog_folder(item, sync_ts)
+                dir_node.parent_ids = item.get('parents', [])
                 meta.add_item(dir_node)
                 item_count += 1
 

@@ -74,8 +74,8 @@ class FMetaTree(SubtreeSnapshot):
     def create_identifier(self, full_path, category):
         return LocalFsIdentifier(full_path=full_path, category=category)
 
-    def create_empty_subtree(self, subtree_root_identifier: Identifier):
-        return FMetaTree(subtree_root_identifier.full_path)
+    def create_empty_subtree(self, subtree_root_node: FMeta):
+        return FMetaTree(subtree_root_node.full_path)
 
     def categorize(self, fmeta, category: Category):
         """🢄🢄🢄 Convenience method to use when building the tree.
@@ -119,6 +119,7 @@ class FMetaTree(SubtreeSnapshot):
     def get_ancestor_identifiers_as_list(self, item) -> List[Identifier]:
         relative_path = self.get_relative_path_for_item(item)
         path_segments: List[str] = file_util.split_path(relative_path)
+
         identifiers: List[Identifier] = []
         path_so_far = self.root_path
         for segment in path_segments[:-1]:
