@@ -9,11 +9,11 @@ import treelib
 
 import file_util
 from constants import TreeDisplayMode
+from ui.tree.category_tree_builder import CategoryTreeBuilder
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib
 
-from pydispatch import dispatcher
 from fmeta.fmeta_tree_scanner import TreeMetaScanner
 
 from ui import actions
@@ -24,19 +24,19 @@ logger = logging.getLogger(__name__)
 
 
 class FMetaChangeTreeStrategy(LazyDisplayStrategy):
-    def __init__(self, controller=None):
-        super().__init__(controller)
+    def __init__(self, config, controller=None):
+        super().__init__(config, controller)
 
     def init(self):
         super().init()
 
-    def _append_category_tree_to_model(self, category_tree: treelib.Tree):
+    def _append_full_category_tree_to_model(self, category_tree: treelib.Tree):
         def append_recursively(parent_iter, parent_uid, node: treelib.Node):
             # Do a DFS of the change tree and populate the UI tree along the way
             if node.data.is_dir():
                 parent_iter = self._append_dir_node(parent_iter=parent_iter, parent_uid=parent_uid, node_data=node.data)
 
-                child_relative_path = file_util.strip_root(node.data.full_path, self.con.meta_store.get_root_identifier().full_path)
+                child_relative_path = file_util.strip_root(node.data.full_path, self.con.tree_builder.get_root_identifier().full_path)
 
                 for child in category_tree.children(child_relative_path):
                     append_recursively(parent_iter, parent_uid, child)
@@ -49,47 +49,48 @@ class FMetaChangeTreeStrategy(LazyDisplayStrategy):
             append_recursively(None, None, root_node)
 
     def populate_root(self):
-        logger.debug(f'Repopulating tree "{self.con.meta_store.tree_id}"')
+        logger.debug(f'Repopulating tree "{self.con.treeview_meta.tree_id}"')
         if self.con.treeview_meta.tree_display_mode != TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             raise NotImplementedError('We cannot display file trees without categories yet')
 
-        if self.con.meta_store.is_lazy():
+        if self.con.treeview_meta.lazy_load:
             super().populate_root()
         else:
             # All at once
             # KLUDGE! This is not even supported for GDrive
-            category_trees = self.con.meta_store.get_category_trees()
+            assert isinstance(self.con.tree_builder, CategoryTreeBuilder)
+            category_trees = self.con.tree_builder.get_category_trees_static()
 
             def update_ui():
                 # Wipe out existing items:
                 self.con.display_store.clear_model()
 
                 for category_tree in category_trees:
-                    self._append_category_tree_to_model(category_tree)
+                    self._append_full_category_tree_to_model(category_tree)
 
                 # Restore user prefs for expanded nodes:
                 self._set_expand_states_from_config()
-                logger.debug(f'Done repopulating diff tree "{self.con.meta_store.tree_id}"')
+                logger.debug(f'Done repopulating diff tree "{self.con.treeview_meta.tree_id}"')
 
             GLib.idle_add(update_ui)
 
         # Show tree summary:
-        actions.set_status(sender=self.con.meta_store.tree_id,
-                           status_msg=self.con.meta_store.get_model().get_summary())
+        actions.set_status(sender=self.con.treeview_meta.tree_id,
+                           status_msg=self.con.get_tree().get_summary())
 
     def resync_subtree(self, tree_path):
         # Construct a FMetaTree from the UI nodes: this is the 'stale' subtree.
         stale_tree = self.con.display_store.get_subtree_as_tree(tree_path)
         fresh_tree = None
         # Master tree contains all FMeta in this widget
-        master_tree = self.con.meta_store.get_model()
+        master_tree = self.con.get_tree()
 
         # If the path no longer exists at all, then it's simple: the entire stale_tree should be deleted.
         if os.path.exists(stale_tree.root_path):
             # But if there are still files present: use FMetaTreeLoader to re-scan subtree
             # and construct a FMetaTree from the 'fresh' data
             logger.debug(f'Scanning: {stale_tree.root_path}')
-            scanner = TreeMetaScanner(root_path=stale_tree.root_path, stale_tree=stale_tree, tree_id=self.con.meta_store.tree_id, track_changes=False)
+            scanner = TreeMetaScanner(root_path=stale_tree.root_path, stale_tree=stale_tree, tree_id=self.con.treeview_meta.tree_id, track_changes=False)
             fresh_tree = scanner.scan()
 
         # TODO: files in different categories are showing up as 'added' in the scan

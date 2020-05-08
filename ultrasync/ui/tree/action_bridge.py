@@ -6,6 +6,7 @@ from typing import List, Optional
 from pydispatch import dispatcher
 
 import ui.actions as actions
+from model.display_id import Identifier
 from model.display_node import DisplayNode
 from model.fmeta import FMeta
 
@@ -20,16 +21,31 @@ logger = logging.getLogger(__name__)
 
 
 class TreeActionBridge:
-    def __init__(self, controller):
+    def __init__(self, config, controller):
         self.con = controller
         self.ui_enabled = True
+        self.reload_tree_on_root_path_update = config.get('cache.load_cache_when_tree_root_selected')
 
     def init(self):
         actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
 
+        targeted_signals = []
+        general_signals = [actions.TOGGLE_UI_ENABLEMENT]
+
+        if self.reload_tree_on_root_path_update:
+            dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.tree_id)
+            targeted_signals.append(actions.ROOT_PATH_UPDATED)
+
+            if self.con.cache_manager.load_all_caches_on_startup:
+                # Need both options to be enabled for this tree to be loaded
+                actions.connect(signal=actions.LOAD_ALL_CACHES_DONE, handler=self._after_all_caches_loaded)
+                general_signals.append(actions.LOAD_ALL_CACHES_DONE)
+
         # Status bar
-        logger.debug(f'Status bar will listen for signals from sender: {self.con.tree_id}')
         actions.connect(signal=actions.SET_STATUS, handler=self._on_set_status, sender=self.con.tree_id)
+        targeted_signals.append(actions.SET_STATUS)
+
+        logger.debug(f'Listening for signals: Any={general_signals}, "{self.con.tree_id}"={targeted_signals}')
 
         # TreeView
         self.con.tree_view.connect("row-activated", self._on_row_activated, self.con.tree_id)
@@ -41,6 +57,25 @@ class TreeActionBridge:
 
     # LISTENERS begin
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
+    def _on_root_path_updated(self, sender, new_root: Identifier):
+        logger.debug(f'Received signal: "{actions.ROOT_PATH_UPDATED}"')
+
+        # Reload subtree and refresh display
+        if self.con.config.get('load_cache_when_tree_root_selected'):
+            logger.debug(f'Got new root. Reloading subtree for: {new_root}')
+            # Loads from disk if necessary:
+            self.con.load()
+
+    def _after_all_caches_loaded(self, sender):
+        logger.debug(f'Received signal: "{actions.LOAD_ALL_CACHES_DONE}"')
+
+        try:
+            # Reload subtree and refresh display
+            self.con.load()
+        except RuntimeError as err:
+            # TODO: custom exceptions
+            logger.warning(f'Failed to load cache for "{self.con.tree_id}": {repr(err)}')
 
     # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
     def _on_set_status(self, sender, status_msg):

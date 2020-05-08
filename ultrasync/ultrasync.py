@@ -19,6 +19,9 @@ import ui.assets
 
 logger = logging.getLogger(__name__)
 
+# CLASS UltrasyncApplication
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
 
 class UltrasyncApplication(Gtk.Application):
 
@@ -69,6 +72,9 @@ class UltrasyncApplication(Gtk.Application):
     def quit_callback(self, action, parameter):
         logger.info("You chose Quit")
         self.quit()
+
+# ENTRY POINT MAIN
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 
 def main():

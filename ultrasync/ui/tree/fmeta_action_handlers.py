@@ -22,8 +22,8 @@ DATE_REGEX = r'^[\d]{4}(\-[\d]{2})?(-[\d]{2})?'
 
 
 class FMetaTreeActionHandlers(TreeActionBridge):
-    def __init__(self, controller=None):
-        super().__init__(controller)
+    def __init__(self, config, controller=None):
+        super().__init__(config, controller)
 
     def init(self):
         super().init()
@@ -65,7 +65,7 @@ class FMetaTreeActionHandlers(TreeActionBridge):
             # TODO: better handling of GDrive paths
             full_path = node_data.original_full_path
         else:
-            full_path = self.con.meta_store.get_full_path_for_item(node_data)
+            full_path = self.con.get_tree().get_full_path_for_item(node_data)
         file_name = os.path.basename(full_path)
 
         is_category_node = type(node_data) == CategoryNode
@@ -184,7 +184,7 @@ class FMetaTreeActionHandlers(TreeActionBridge):
         dir_count = 0
 
         try:
-            root_path = self.con.meta_store.get_root_path()
+            root_path = self.con.get_tree().get_root_path()
             # We will populate this with files and directories we encounter
             # doing a DFS of the subtree root:
             path_list = []

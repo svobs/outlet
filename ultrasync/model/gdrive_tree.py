@@ -48,7 +48,7 @@ class GDriveTree:
         """ Reverse lookup table: 'parent_id' -> list of child nodes """
 
     @classmethod
-    def get_root_identifier(cls):
+    def get_root_constant_identifier(cls):
         return GDriveIdentifier(uid=constants.ROOT, full_path=constants.ROOT)
 
     def get_children(self, parent_id: Union[str, Identifier]) -> List[GoogNode]:
@@ -162,6 +162,10 @@ class GDriveWholeTree(GDriveTree):
         self.owner_dict = {}
         self.mime_types = {}
         self.shortcuts = {}
+
+    @property
+    def identifier(self):
+        return GDriveTree.get_root_constant_identifier()
 
     def get_full_path_for_item(self, item: GoogNode) -> str:
         """Gets the absolute path for the item"""

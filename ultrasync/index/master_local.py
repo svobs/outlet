@@ -10,7 +10,6 @@ import file_util
 from constants import OBJ_TYPE_LOCAL_DISK, ROOT
 from fmeta.fmeta_tree_scanner import TreeMetaScanner
 from index.cache_manager import PersistedCacheInfo
-from index.meta_store.local_lazy import LocalDiskSubtreeMS
 from index.sqlite.fmeta_db import FMetaDatabase
 from index.two_level_dict import FullPathDict, Md5BeforePathDict, ParentPathBeforeFileNameDict, Sha256BeforePathDict
 from model.display_id import Identifier, LocalFsIdentifier
@@ -18,9 +17,9 @@ from model.display_node import DisplayNode
 from model.fmeta import FMeta
 from model.fmeta_tree import FMetaTree
 from model.planning_node import PlanningNode
+from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
 from ui import actions
-from ui.tree.meta_store import BaseMetaStore, DummyMS
 
 logger = logging.getLogger(__name__)
 
@@ -160,25 +159,21 @@ class LocalDiskMasterCache:
 
         self._load_subtree(cache_info, tree_id)
 
-    def get_metastore_for_subtree(self, subtree_root: LocalFsIdentifier, tree_id: str) -> BaseMetaStore:
+    def load_subtree(self, subtree_root: LocalFsIdentifier, tree_id: str) -> SubtreeSnapshot:
         if not os.path.exists(subtree_root.full_path):
-            logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root.full_path}". Returning an empty metastore')
-            return DummyMS(tree_id, self.application.config, subtree_root)
+            logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root.full_path}"')
+            return None
 
         cache_man = self.application.cache_manager
         cache_info = cache_man.get_or_create_cache_info_entry(subtree_root)
         assert cache_info is not None
 
-        fmeta_tree = self._load_subtree(cache_info, tree_id)
+        return self._load_subtree(cache_info, tree_id)
 
-        ds = LocalDiskSubtreeMS(tree_id=tree_id, config=self.application.config, fmeta_tree=fmeta_tree)
-        return ds
-
-    def _load_subtree(self, cache_info: PersistedCacheInfo, tree_id):
+    def _load_subtree(self, cache_info: PersistedCacheInfo, tree_id) -> FMetaTree:
         assert cache_info
         stopwatch_total = Stopwatch()
         has_data_to_store_in_memory = False
-        fmeta_tree = None
 
         if cache_info.is_loaded:
             fmeta_tree = self._get_subtree_from_memory_only(cache_info.subtree_root)

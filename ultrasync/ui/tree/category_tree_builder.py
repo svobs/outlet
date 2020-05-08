@@ -1,18 +1,72 @@
 import logging
 import os
-from typing import List
+from typing import Dict, List, Optional
 
 import treelib
-from treelib import Tree
+
 import file_util
 from model.category import Category
+from model.display_id import Identifier
 from model.display_node import CategoryNode, DirNode, DisplayNode
 from model.subtree_snapshot import SubtreeSnapshot
+from stopwatch_sec import Stopwatch
+from ui.tree.display_tree_builder import DisplayTreeBuilder
 
 logger = logging.getLogger(__name__)
 
 
-def build_category_tree(source_tree: SubtreeSnapshot, root_node: CategoryNode) -> Tree:
+class CategoryTreeBuilder(DisplayTreeBuilder):
+    def __init__(self, controller, root: Identifier = None, tree: SubtreeSnapshot = None):
+        super().__init__(controller=controller, root=root, tree=tree)
+
+        self._category_trees: Dict[Category, treelib.Tree] = {}
+        """Each entry is lazy-loaded"""
+
+    def get_category_trees_static(self):
+        change_trees = []
+        category_nodes = self.get_children_for_root()
+        for cat_root in category_nodes:
+            change_tree = _build_category_tree(self.tree, cat_root)
+            change_trees.append(change_tree)
+        return change_trees
+
+    def get_children_for_root(self) -> Optional[List[DisplayNode]]:
+        # Root level: categories. For use by subclasses
+        root_level_nodes = []
+        for category in [Category.Added, Category.Deleted, Category.Moved,
+                         Category.Updated, Category.Ignored]:
+            category_node = CategoryNode(self.tree.identifier.full_path, category)
+            root_level_nodes.append(category_node)
+        return root_level_nodes
+
+    def get_children(self, parent_identifier: Identifier) -> Optional[List[DisplayNode]]:
+        """Gets and returns the children for the given parent_identifier, assuming we are displaying category trees.
+        If a category tree for the category of the given identifier has not been constructed yet, it will be constructed
+        and cached before being returned."""
+        assert parent_identifier.category != Category.NA
+        children = []
+        category_tree: treelib.Tree = self._category_trees.get(parent_identifier.category, None)
+        if not category_tree:
+            category_stopwatch = Stopwatch()
+            category_node = CategoryNode(self.tree.identifier.full_path, parent_identifier.category)
+            category_tree = _build_category_tree(self.tree, category_node)
+            self._category_trees[parent_identifier.category] = category_tree
+            logger.debug(f'{category_stopwatch} Tree constructed for "{parent_identifier.category.name}" (size {len(category_tree)})')
+
+        try:
+            # Need to get relative path for item:
+            relative_path = file_util.strip_root(parent_identifier.full_path, self.tree.identifier.full_path)
+
+            for child in category_tree.children(relative_path):
+                children.append(child.data)
+        except Exception:
+            logger.debug(f'CategoryTree for "{self.tree.identifier}": ' + category_tree.show(stdout=False))
+            raise
+
+        return children
+
+
+def _build_category_tree(source_tree: SubtreeSnapshot, root_node: CategoryNode) -> treelib.Tree:
     """
     Builds a tree out of the flat file set.
     Args:
@@ -23,7 +77,7 @@ def build_category_tree(source_tree: SubtreeSnapshot, root_node: CategoryNode) -
         change tree
     """
     # The change set in tree form
-    change_tree = Tree()  # from treelib
+    change_tree = treelib.Tree()
 
     category: Category = root_node.category
     cat_item_list: List[DisplayNode] = source_tree.get_for_cat(category)

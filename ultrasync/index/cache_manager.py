@@ -16,6 +16,7 @@ from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
 from model.display_id import GDriveIdentifier, Identifier, LocalFsIdentifier
 from model.goog_node import GoogNode
+from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
@@ -140,28 +141,30 @@ class CacheManager:
         elif cache_type == OBJ_TYPE_GDRIVE:
             self.gdrive_cache.init_subtree_gdrive_cache(existing_disk_cache, ID_GLOBAL_CACHE)
 
-    def get_metastore_for_subtree(self, identifier: Identifier, tree_id: str):
+    def load_subtree(self, identifier: Identifier, tree_id: str) -> SubtreeSnapshot:
         """
         Performs a read-through retreival of all the FMetas in the given subtree
         on the local filesystem.
         """
 
         if identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
-            return self.local_disk_cache.get_metastore_for_subtree(identifier, tree_id)
+            assert self.local_disk_cache
+            return self.local_disk_cache.load_subtree(identifier, tree_id)
         elif identifier.tree_type == OBJ_TYPE_GDRIVE:
-            return self.gdrive_cache.get_metastore_for_subtree(identifier, tree_id)
+            assert self.gdrive_cache
+            return self.gdrive_cache.load_subtree(identifier, tree_id)
         else:
             raise RuntimeError(f'Unrecognized tree type: {identifier.tree_type}')
 
-    def get_metastore_for_local_subtree(self, subtree_path, tree_id):
+    def load_local_subtree(self, subtree_path, tree_id) -> SubtreeSnapshot:
         """
         Performs a read-through retreival of all the FMetas in the given subtree
         on the local filesystem.
         """
-        return self.local_disk_cache.get_metastore_for_subtree(subtree_path, tree_id)
+        return self.local_disk_cache.load_subtree(subtree_path, tree_id)
 
-    def get_metastore_for_gdrive_subtree(self, subtree_path: GDriveIdentifier, tree_id):
-        return self.gdrive_cache.get_metastore_for_subtree(subtree_path, tree_id)
+    def load_gdrive_subtree(self, subtree_path: GDriveIdentifier, tree_id) -> SubtreeSnapshot:
+        return self.gdrive_cache.load_subtree(subtree_path, tree_id)
 
     def download_all_gdrive_meta(self, tree_id):
         return self.gdrive_cache.download_all_gdrive_meta(tree_id)

@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 class GDriveActionHandlers(TreeActionBridge):
-    def __init__(self, controller=None):
-        super().__init__(controller)
+    def __init__(self, config, controller=None):
+        super().__init__(config, controller)
 
     def init(self):
         super().init()
@@ -85,7 +85,7 @@ class GDriveActionHandlers(TreeActionBridge):
             else:
                 full_path_display = full_path
         else:
-            full_path = self.con.meta_store.get_full_path_for_item(node_data)
+            full_path = self.con.get_tree().get_full_path_for_item(node_data)
             if isinstance(node_data, GoogNode):
                 full_path_display = GDRIVE_PATH_PREFIX + full_path
             else:

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
 
-    def __init__(self, parent_win: BaseDialog, meta_store, tree_id: str):
+    def __init__(self, parent_win: BaseDialog, tree, tree_id: str):
         Gtk.Dialog.__init__(self, "Select GDrive Root", parent_win, 0)
         BaseDialog.__init__(self, application=parent_win.application)
         self.tree_id = tree_id
@@ -35,8 +35,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         self.content_box.add(label)
 
         # Prevent dialog from stepping on existing trees by giving it its own ID:
-        meta_store.tree_id = actions.ID_GDRIVE_DIR_SELECT
-        self.tree_controller = tree_factory.build_gdrive(parent_win=self, meta_store=meta_store)
+        self.tree_controller = tree_factory.build_gdrive(parent_win=self, tree_id=actions.ID_GDRIVE_DIR_SELECT, tree=tree)
 
         self.content_box.pack_start(self.tree_controller.content_box, True, True, 0)
 
@@ -60,7 +59,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
                 item: DisplayNode = self.tree_controller.get_single_selection()
                 assert item.identifier
                 # Ensure item has a full_path (not filled in by default in GDriveWholeTree)
-                item.identifier.full_path = self.tree_controller.meta_store.get_model().get_full_path_for_item(item)
+                item.identifier.full_path = self.tree_controller.tree.get_full_path_for_item(item)
                 self.on_ok_clicked(item.identifier)
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")

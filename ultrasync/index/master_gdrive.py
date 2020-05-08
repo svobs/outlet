@@ -12,11 +12,9 @@ from stopwatch_sec import Stopwatch
 from constants import NOT_TRASHED, OBJ_TYPE_GDRIVE, ROOT
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index.cache_manager import PersistedCacheInfo
-from index.meta_store.gdrive import GDriveMS
 from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
 from model.goog_node import GoogFolder, GoogNode
 from ui import actions
-from ui.tree.meta_store import DummyMS
 
 logger = logging.getLogger(__name__)
 
@@ -48,15 +46,15 @@ class GDriveMasterCache:
         stopwatch_total = Stopwatch()
 
         cache_path = cache_info.cache_location
-        tree_builder = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
+        tree_loader = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
 
-        meta = GDriveWholeTree()  # TODO
-        tree_builder.load_from_cache(meta)
+        meta = GDriveWholeTree()
+        tree_loader.load_from_cache(meta)
         self._update_in_memory_cache(meta)
         logger.info(f'{stopwatch_total} GDrive cache for {cache_info.subtree_root.full_path} loaded')
 
         cache_info.is_loaded = True
-        self.meta_master = meta  # TODO
+        self.meta_master = meta
 
     def _slice_off_subtree_from_master(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveSubtree:
         subtree_meta = GDriveSubtree(subtree_root)
@@ -98,10 +96,10 @@ class GDriveMasterCache:
 
         return subtree_meta
 
-    def get_metastore_for_subtree(self, subtree_root: GDriveIdentifier, tree_id: str):
+    def load_subtree(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveTree:
         if subtree_root == ROOT:
-            subtree_root = GDriveTree.get_root_identifier()
-        logger.debug(f'Getting metastore for subtree: "{subtree_root}"')
+            subtree_root = GDriveTree.get_root_constant_identifier()
+        logger.debug(f'Getting meta for subtree: "{subtree_root}"')
         cache_man = self.application.cache_manager
         # TODO: currently we will just load the root and use that.
         #       But in the future we should do on-demand retrieval of subtrees
@@ -117,25 +115,24 @@ class GDriveMasterCache:
             # Special case. GDrive does not have a single root (it treats shared drives as roots, for example).
             # We'll use this special token to represent "everything"
             gdrive_meta = self.meta_master
-            # TODO: this will not work
-            return GDriveMS(tree_id, self.application.config, gdrive_meta, subtree_root)
         else:
             slice_timer = Stopwatch()
+            # FIXME: do not slice off - use whole tree decorator
             gdrive_meta = self._slice_off_subtree_from_master(subtree_root, tree_id)
             if gdrive_meta:
                 logger.debug(f'{slice_timer} Sliced off {gdrive_meta}')
             else:
                 logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root}". '
                             f'Returning an empty metastore')
-                return DummyMS(tree_id, self.application.config, subtree_root)
-        return GDriveMS(tree_id, self.application.config, gdrive_meta, subtree_root)
+                return None
+        return gdrive_meta
 
     def download_all_gdrive_meta(self, tree_id):
         root_identifier = GDriveIdentifier(uid=ROOT, full_path=ROOT)
         cache_info = self.application.cache_manager.get_or_create_cache_info_entry(root_identifier)
         cache_path = cache_info.cache_info.cache_location
-        tree_builder = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
-        self.meta_master = tree_builder.load_all(invalidate_cache=False)
+        tree_loader = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
+        self.meta_master = tree_loader.load_all(invalidate_cache=False)
         logger.info('Replaced entire GDrive in-memory cache with downloaded meta')
 
     def _update_in_memory_cache(self, meta):

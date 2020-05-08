@@ -23,6 +23,9 @@ from ui import actions
 
 logger = logging.getLogger(__name__)
 
+#    CLASS LazyDisplayStrategy
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
 
 class LazyDisplayStrategy:
     """
@@ -39,17 +42,15 @@ class LazyDisplayStrategy:
 
     TODO: TBD: when does the number of display nodes start to slow down? -> add config for live node maximum
     """
-    def __init__(self, controller=None):
+    def __init__(self, config, controller=None):
         self.con = controller
         self.use_empty_nodes = True
 
     def populate_root(self):
         """Draws from the undelying data store as needed, to populate the display store."""
 
-        tree_display_mode = self.con.treeview_meta.tree_display_mode
-
         # This may be a long task
-        children = self.con.meta_store.get_children_for_root(tree_display_mode=tree_display_mode)
+        children = self.con.tree_builder.get_children_for_root()
 
         def update_ui():
             # Wipe out existing items:
@@ -67,8 +68,7 @@ class LazyDisplayStrategy:
         """Do post-wiring stuff like connect listeners."""
         self.use_empty_nodes = self.con.config.get('display.diff_tree.use_empty_nodes')
 
-        dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.meta_store.tree_id)
-        dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.con.meta_store.tree_id)
+        dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.con.treeview_meta.tree_id)
 
     def get_checked_rows_as_tree(self) -> SubtreeSnapshot:
         """Returns a SubtreeSnapshot which contains the DisplayNodes of the rows which are currently
@@ -77,7 +77,7 @@ class LazyDisplayStrategy:
         assert self.con.treeview_meta.editable
         tree_iter = self.con.display_store.model.get_iter_first()
         subtree_root: Identifier = self.con.display_store.get_node_data(tree_iter).identifier
-        subtree: SubtreeSnapshot = self.con.meta_store.get_model().create_empty_subtree(subtree_root)
+        subtree: SubtreeSnapshot = self.con.get_tree().create_empty_subtree(subtree_root)
 
         # Algorithm:
         # Iterate over metastore nodes. Start with top-level nodes.
@@ -87,8 +87,7 @@ class LazyDisplayStrategy:
         whitelist = Queue()
         secondary_screening = Queue()
 
-        tree_display_mode = self.con.treeview_meta.tree_display_mode
-        children = self.con.meta_store.get_children_for_root(tree_display_mode)
+        children = self.con.tree_builder.get_children_for_root()
         for child in children:
             if self.con.display_store.checked_rows.get(child.uid, None):
                 whitelist.put(child)
@@ -97,7 +96,7 @@ class LazyDisplayStrategy:
 
         while not secondary_screening.empty():
             parent: DisplayNode = secondary_screening.get()
-            children = self.con.meta_store.get_children(parent, tree_display_mode)
+            children = self.con.tree_builder.get_children(parent)
             for child in children:
                 if self.con.display_store.checked_rows.get(child.uid, None):
                     whitelist.put(child)
@@ -108,29 +107,26 @@ class LazyDisplayStrategy:
             chosen_node: DisplayNode = whitelist.get()
             if not chosen_node.is_dir():
                 subtree.add_item(chosen_node)
-            children = self.con.meta_store.get_children(chosen_node, tree_display_mode)
+            children = self.con.tree_builder.get_children(chosen_node)
             for child in children:
                 whitelist.put(child)
 
         return subtree
 
-    def _on_root_path_updated(self, sender, new_root: Identifier):
-        # Callback for actions.ROOT_PATH_UPDATED
-        # Get a new metastore from the cache manager:
-        cacheman = self.con.parent_win.application.cache_manager
-        self.con.meta_store = cacheman.get_metastore_for_subtree(new_root, self.con.meta_store.tree_id)
+    # LISTENERS begin
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
     def _on_node_expansion_toggled(self, sender: str, parent_iter, node_data: DisplayNode, is_expanded: bool):
         # Callback for actions.NODE_EXPANSION_TOGGLED:
         logger.debug(f'Node expansion toggled to {is_expanded} for cat={node_data.category} id="{node_data.uid}" tree_id={sender}')
 
-        if not self.con.meta_store.is_lazy():
+        if not self.con.treeview_meta.lazy_load:
             return
 
         def expand_or_contract():
             # Add children for node:
             if is_expanded:
-                children = self.con.meta_store.get_children(node_data.identifier, self.con.treeview_meta.tree_display_mode)
+                children = self.con.tree_builder.get_children(node_data.identifier)
                 self._append_children(children=children, parent_iter=parent_iter, parent_uid=node_data.uid)
                 # Remove Loading node:
                 self.con.display_store.remove_first_child(parent_iter)
@@ -140,6 +136,9 @@ class LazyDisplayStrategy:
                 # Always have at least a dummy node:
                 self._append_loading_child(parent_iter)
         GLib.idle_add(expand_or_contract)
+
+    # ⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝
+    # LISTENERS end
 
     def _set_expand_states_from_config(self):
         # Loop over top level. Find the category nodes and expand them appropriately
