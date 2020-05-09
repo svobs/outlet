@@ -294,5 +294,4 @@ class FMetaTree(SubtreeSnapshot):
         return summary_string
 
     def __repr__(self):
-        cats_string = self.get_category_summary_string()
-        return f'FMetaTree(Paths={len(self._path_dict)} MD5s={len(self._md5_dict)} Dup_MD5s={self._dup_md5_count} Root="{self.root_path}" cats=[{cats_string}])'
+        return f'FMetaTree(Paths={len(self._path_dict)} MD5s={len(self._md5_dict)} Dup_MD5s={self._dup_md5_count} Root="{self.root_path}"])'

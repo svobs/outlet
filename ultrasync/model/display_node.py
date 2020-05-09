@@ -5,6 +5,7 @@ from typing import Optional
 
 import humanfriendly
 
+import format_util
 from constants import ICON_GENERIC_DIR, ICON_GENERIC_FILE
 from model.display_id import Identifier
 
@@ -100,8 +101,10 @@ class DirNode(DisplayNode):
         return True
 
     def get_summary(self):
-        size = humanfriendly.format_size(self._size_bytes)
-        return f'{size} in {self.file_count} files'
+        if not self._size_bytes and not self.file_count:
+            return 'None'
+        size = format_util.humanfriendlier_size(self._size_bytes)
+        return f'{size} in {self.file_count:n} files'
 
     def __repr__(self):
         return f'DirNode({self.identifier} {self.get_summary()})'

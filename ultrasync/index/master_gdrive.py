@@ -9,7 +9,7 @@ from model.display_id import GDriveIdentifier, Identifier
 from model.gdrive_tree import GDriveSubtree, GDriveTree, GDriveWholeTree
 from stopwatch_sec import Stopwatch
 
-from constants import NOT_TRASHED, OBJ_TYPE_GDRIVE, ROOT
+from constants import OBJ_TYPE_GDRIVE, ROOT
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index.cache_manager import PersistedCacheInfo
 from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
@@ -60,6 +60,9 @@ class GDriveMasterCache:
         root: GoogNode = self.meta_master.get_for_id(subtree_root.uid)
         if not root:
             return None
+
+        # FIXME: *AFTER* we refactor the diff to create a separate tree, we can remove the MD5 dict and cat dict
+        # from the GDriveSubtree class. Then we won't need to slice at all
 
         # Fill in root if missing:
         self.meta_master.get_full_path_for_item(root)

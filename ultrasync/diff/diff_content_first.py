@@ -1,5 +1,5 @@
 """Content-first diff. See diff function below."""
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import file_util
 import os
@@ -11,11 +11,14 @@ from model.fmeta_tree import FMetaTree
 from model.planning_node import FileToAdd, FileToMove
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
+from ui.tree.category_display_tree import CategoryDisplayTree
 
 logger = logging.getLogger(__name__)
 
 
-def _compare_paths_for_same_md5(lefts, left_tree: SubtreeSnapshot, rights: Optional[List[DisplayNode]], right_tree: SubtreeSnapshot, fixer):
+def _compare_paths_for_same_md5(lefts: List[DisplayNode], left_tree: SubtreeSnapshot,
+                                rights: Optional[List[DisplayNode]], right_tree: SubtreeSnapshot, fixer) \
+        -> List[Tuple[Optional[DisplayNode], Optional[DisplayNode]]]:
     if lefts is None:
         lefts = []
     if rights is None:
@@ -25,23 +28,23 @@ def _compare_paths_for_same_md5(lefts, left_tree: SubtreeSnapshot, rights: Optio
     orphaned_right: List[DisplayNode] = []
 
     for left in lefts:
-        left_on_right = fixer.move_to_right(left)
-        match = right_tree.get_for_path(left_on_right)
+        left_on_right: str = fixer.move_to_right(left)
+        match: DisplayNode = right_tree.get_for_path(left_on_right)
         if not match:
             orphaned_left.append(left)
         # Else we matched path exactly: we can discard this entry
 
     for right in rights:
-        right_on_left = fixer.move_to_left(right)
-        match = left_tree.get_for_path(right_on_left)
+        right_on_left: str = fixer.move_to_left(right)
+        match: DisplayNode = left_tree.get_for_path(right_on_left)
         if not match:
             orphaned_right.append(right)
         # Else we matched path exactly: we can discard this entry
 
-    num_lefts = len(orphaned_left)
-    num_rights = len(orphaned_right)
+    num_lefts: int = len(orphaned_left)
+    num_rights: int = len(orphaned_right)
 
-    compare_result = []
+    compare_result: List[Tuple[Optional[DisplayNode], Optional[DisplayNode]]] = []
     i = 0
     while i < num_lefts and i < num_rights:
         compare_result.append((orphaned_left[i], orphaned_right[i]))
@@ -61,9 +64,12 @@ def _compare_paths_for_same_md5(lefts, left_tree: SubtreeSnapshot, rights: Optio
 
 
 class PathTransplanter:
-    def __init__(self, left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot):
+    def __init__(self, left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot,
+                 change_tree_left: CategoryDisplayTree, change_tree_right: CategoryDisplayTree):
         self.left_tree = left_tree
         self.right_tree = right_tree
+        self.change_tree_left = change_tree_left
+        self.change_tree_right = change_tree_right
 
     def move_to_right(self, left_item) -> str:
         left_rel_path = left_item.get_relative_path(self.left_tree)
@@ -79,7 +85,7 @@ class PathTransplanter:
         orig_path = self.right_tree.get_full_path_for_item(right_item)
         identifier = self.right_tree.create_identifier(full_path=dest_path, category=Category.Moved)
         move_right_to_right = FileToMove(identifier=identifier, orig_path=orig_path, original_node=right_item)
-        self.right_tree.add_item(move_right_to_right)
+        self.change_tree_right.add_item(move_right_to_right, Category.Moved, self.right_tree)
 
     def plan_rename_file_left(self, left_item, right_item):
         """Make a FileToMove node which will rename a file in the left tree to the name of the file on right"""
@@ -87,24 +93,25 @@ class PathTransplanter:
         orig_path = self.left_tree.get_full_path_for_item(left_item)
         identifier = self.left_tree.create_identifier(full_path=dest_path, category=Category.Moved)
         move_left_to_left = FileToMove(identifier=identifier, orig_path=orig_path, original_node=left_item)
-        self.left_tree.add_item(move_left_to_left)
+        self.change_tree_left.add_item(move_left_to_left, Category.Moved, self.left_tree)
 
     def plan_add_file_left_to_right(self, left_item):
         dest_path = self.move_to_right(left_item)
         orig_path = self.left_tree.get_full_path_for_item(left_item)
         identifier = self.right_tree.create_identifier(full_path=dest_path, category=Category.Added)
         file_to_add_to_right = FileToAdd(identifier=identifier, orig_path=orig_path, original_node=left_item)
-        self.right_tree.add_item(file_to_add_to_right)
+        self.change_tree_right.add_item(file_to_add_to_right, Category.Added, self.right_tree)
 
     def plan_add_file_right_to_left(self, right_item):
         dest_path = self.move_to_left(right_item)
         orig_path = self.right_tree.get_full_path_for_item(right_item)
         identifier = self.left_tree.create_identifier(full_path=dest_path, category=Category.Added)
         file_to_add_to_left = FileToAdd(identifier=identifier, orig_path=orig_path, original_node=right_item)
-        self.left_tree.add_item(file_to_add_to_left)
+        self.change_tree_left.add_item(file_to_add_to_left, Category.Added, self.left_tree)
 
 
-def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_also=False):
+def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_also=False) \
+        -> Tuple[CategoryDisplayTree, CategoryDisplayTree]:
     """Use this method if we mostly care about having the same unique files *somewhere* in
        each tree (in other words, we care about file contents, and care less about where each
        file is placed). If a file is found with the same signature on both sides but with
@@ -126,12 +133,9 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
     count_moved_pairs = 0
     count_updated_pairs = 0
 
-    # FIXME: return a completely new tree with only the changes! Use the code from CategoryTreeBuilder
-
-    fixer = PathTransplanter(left_tree, right_tree)
-
-    left_tree.clear_categories()
-    right_tree.clear_categories()
+    change_tree_left = CategoryDisplayTree(left_tree.identifier)
+    change_tree_right = CategoryDisplayTree(right_tree.identifier)
+    fixer = PathTransplanter(left_tree, right_tree, change_tree_left, change_tree_right)
 
     # the set of MD5s already processed
     md5_set_stopwatch = Stopwatch()
@@ -141,18 +145,18 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
     # List of lists of FMetas which do not have a matching md5 on the other side.
     # We will compare these by path.
     # Note: each list within this list contains duplicates (FMetas with the same md5)
-    orphaned_md5s_left = []
-    orphaned_md5s_right = []
+    orphaned_md5s_left: List[DisplayNode] = []
+    orphaned_md5s_right: List[DisplayNode] = []
 
     """Compares the two trees, and populates the change sets of both. The order of 'left' and which is 'right'
      is not important, because the changes are computed from each tree's perspective (e.g. a file which is in
      Left but not Right will be determined to be an 'added' file from the perspective of Left but a 'deleted'
      file from the perspective of Right)"""
     for md5 in md5_set:
-        right_items_dup_md5 = right_tree.get_for_md5(md5)
+        right_items_dup_md5: List[DisplayNode] = right_tree.get_for_md5(md5)
         if isinstance(right_items_dup_md5, dict):
             right_items_dup_md5 = right_items_dup_md5.values()
-        left_items_dup_md5 = left_tree.get_for_md5(md5)
+        left_items_dup_md5: List[DisplayNode] = left_tree.get_for_md5(md5)
         if isinstance(left_items_dup_md5, dict):
             left_items_dup_md5 = right_items_dup_md5.values()
 
@@ -169,8 +173,8 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
             (newer is assumed to be the rename destination), or for each side to assume it is the destination
             (similar to how we handle missing signatures above)"""
 
-            orphaned_left_dup_md5 = []
-            orphaned_right_dup_md5 = []
+            orphaned_left_dup_md5: List[DisplayNode] = []
+            orphaned_right_dup_md5: List[DisplayNode] = []
 
             compare_result = _compare_paths_for_same_md5(left_items_dup_md5, left_tree, right_items_dup_md5, right_tree, fixer)
             for (changed_left, changed_right) in compare_result:
@@ -209,8 +213,8 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
                     if logger.isEnabledFor(logging.DEBUG):
                         logger.debug(f'File updated: {left_item.md5} <- "{left_tree.get_full_path_for_item(left_item)}" -> {matching_right.md5}')
                     # Same path, different md5 -> Updated
-                    right_tree.categorize(matching_right, Category.Updated)
-                    left_tree.categorize(left_item, Category.Updated)
+                    change_tree_right.add_item(matching_right, Category.Updated, right_tree)
+                    change_tree_left.add_item(left_item, Category.Updated, left_tree)
                     count_updated_pairs += 1
                     continue
                 # No match? fall through
@@ -221,7 +225,7 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
 
             # TODO: rename 'Deleted' category to 'ToDelete'
             # Dead node walking:
-            left_tree.categorize(left_item, Category.Deleted)
+            change_tree_left.add_item(left_item, Category.Deleted, left_tree)
             count_add_delete_pairs += 1
 
     for item_duplicate_md5s_right in orphaned_md5s_right:
@@ -237,7 +241,7 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
             fixer.plan_add_file_right_to_left(right_item)
 
             # Dead node walking:
-            right_tree.categorize(right_item, Category.Deleted)
+            change_tree_right.add_item(right_item, Category.Deleted, right_tree)
             count_add_delete_pairs += 1
 
     logger.info(f'Done with diff (pairs: add/del={count_add_delete_pairs} upd={count_updated_pairs} moved={count_moved_pairs})'
@@ -249,7 +253,13 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
         logger.debug('Validating categories on Right...')
         right_tree.validate_categories()
 
-    return left_tree, right_tree
+    # Copy ignored items to change trees:
+    for item in left_tree.get_for_cat(Category.Ignored):
+        change_tree_left.add_item(item, Category.Ignored, left_tree)
+    for item in right_tree.get_for_cat(Category.Ignored):
+        change_tree_right.add_item(item, Category.Ignored, right_tree)
+
+    return change_tree_left, change_tree_right
 
 
 def merge_change_trees(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, check_for_conflicts=True):

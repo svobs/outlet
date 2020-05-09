@@ -72,9 +72,9 @@ class FMetaChangeTreeStrategy(LazyDisplayStrategy):
 
             GLib.idle_add(update_ui)
 
-        # Show tree summary:
-        actions.set_status(sender=self.con.treeview_meta.tree_id,
-                           status_msg=self.con.get_tree().get_summary())
+            # Show tree summary:
+            actions.set_status(sender=self.con.treeview_meta.tree_id,
+                               status_msg=self.con.get_tree().get_summary())
 
     def resync_subtree(self, tree_path):
         # Construct a FMetaTree from the UI nodes: this is the 'stale' subtree.

@@ -441,6 +441,38 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
 
     def get_ancestor_identifiers_as_list(self, item: GoogNode) -> List[Identifier]:
         identifiers = []
+
+        # kind of a kludge but I don't care right now
+        if isinstance(item, FileDecoratorNode) and not item.parent_ids:
+            relative_path = file_util.strip_root(item.dest_path, self.root_path)
+            name_segments = file_util.split_path(relative_path)
+            # Skip last item (it's the file name)
+            name_segments.pop()
+            current_identifier: Identifier = self.root_node.identifier
+            path_so_far = current_identifier.full_path
+            for name_seg in name_segments:
+                path_so_far = os.path.join(path_so_far, name_seg)
+                children: List[GoogNode] = self.get_children(current_identifier.uid)
+                if children:
+                    matches = [x for x in children if x.name == name_seg]
+                    if len(matches):
+                        if len(matches) > 1:
+                            logger.error(f'get_for_path(): Multiple child IDs ({len(matches)}) found for parent ID"{current_identifier.uid}", '
+                                         f'tree "{self.root_path}" Choosing the first found')
+                            for num, match in enumerate(matches):
+                                logger.info(f'Match {num}: {match}')
+
+                        current_identifier = matches[0].identifier
+                        identifiers.append(current_identifier)
+                        continue
+
+                if SUPER_DEBUG:
+                    logger.debug(f'Deriving new fake ancestor for: {path_so_far}')
+                current_identifier = GDriveIdentifier(uid=path_so_far, full_path=path_so_far, category=Category.Added)
+                identifiers.append(current_identifier)
+
+            return identifiers
+
         while True:
             if item.parent_ids:
                 if len(item.parent_ids) > 1:

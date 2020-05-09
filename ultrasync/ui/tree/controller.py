@@ -54,18 +54,21 @@ class TreePanelController:
     def load(self):
         self.display_strategy.populate_root()
 
-    def reload(self, new_root=None, tree_display_mode: TreeDisplayMode = None):
+    def reload(self, new_root=None, new_tree=None, tree_display_mode: TreeDisplayMode = None):
         """Invalidate whatever cache the tree_builder built up, and re-populate the display tree"""
         if new_root:
             logger.debug(f'reload() with new root: {new_root}')
             self.set_tree(root=new_root, tree_display_mode=tree_display_mode)
+        elif new_tree:
+            logger.debug(f'reload() with new tree')
+            self.set_tree(tree=new_tree, tree_display_mode=tree_display_mode)
         else:
             logger.debug(f'reload() with same tree')
             tree = self.tree_builder.get_tree()
             self.set_tree(tree=tree, tree_display_mode=tree_display_mode)
         self.load()
 
-    def rebuild_treeview_with_checkboxes(self, new_root=None, tree_display_mode: TreeDisplayMode = None):
+    def rebuild_treeview_with_checkboxes(self, new_root=None, new_tree=None, tree_display_mode: TreeDisplayMode = None):
         """Tear out half the guts here and swap it out, to add checkboxes..."""
         def rebuild_treeview():
             if not self.treeview_meta.has_checkboxes:
@@ -79,7 +82,7 @@ class TreePanelController:
                 self.tree_view = new_treeview
                 self.action_handlers.init()
 
-            self.reload(new_root=new_root, tree_display_mode=tree_display_mode)
+            self.reload(new_root=new_root, new_tree=new_tree, tree_display_mode=tree_display_mode)
 
         GLib.idle_add(rebuild_treeview)
 
@@ -117,7 +120,6 @@ class TreePanelController:
     def set_tree(self, root: Identifier = None, tree: SubtreeSnapshot = None, tree_display_mode: TreeDisplayMode = None):
         # Clear old display (if any)
         GLib.idle_add(self.display_store.clear_model)
-        # FIXME: likely need to clean up GTK listeners here
 
         if root:
             tree_type = root.tree_type
@@ -136,6 +138,8 @@ class TreePanelController:
                 tree_builder = AllItemsGDriveTreeBuilder(controller=self, root=root, tree=tree)
             elif tree_type == OBJ_TYPE_LOCAL_DISK:
                 tree_builder = AllItemsLocalFsTreeBuilder(controller=self, root=root, tree=tree)
+            else:
+                raise RuntimeError(f'Unrecognized tree type: {tree_type}')
         else:
             raise RuntimeError(f'Unrecognized value for tree_display_mode: "{self.treeview_meta.tree_display_mode}"')
 

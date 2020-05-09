@@ -256,7 +256,8 @@ class RootDirPanel:
         # the arguments are: title of the window, parent_window, action,
         # (buttons, response)"""
         logger.debug('Creating and displaying LocalRootDirChooserDialog')
-        open_dialog = LocalRootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, tree_id=self.tree_id, current_dir=self.current_root.full_path)
+        open_dialog = LocalRootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, tree_id=self.tree_id,
+                                                current_dir=self.current_root.full_path)
 
         # show the dialog
         open_dialog.show()

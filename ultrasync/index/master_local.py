@@ -202,10 +202,6 @@ class LocalDiskMasterCache:
 
         logger.info(f'{stopwatch_total} LocalFS cache for {cache_info.subtree_root.full_path} loaded')
 
-        # Display summary of tree in the status area (if any)
-        status = fmeta_tree.get_summary()
-        actions.set_status(sender=tree_id, status_msg=status)
-
         return fmeta_tree
 
     def _add_ancestors_to_tree(self, item_full_path):

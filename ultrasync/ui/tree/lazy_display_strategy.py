@@ -64,6 +64,10 @@ class LazyDisplayStrategy:
 
         GLib.idle_add(update_ui)
 
+        # Show tree summary:
+        actions.set_status(sender=self.con.treeview_meta.tree_id,
+                           status_msg=self.con.get_tree().get_summary())
+
     def init(self):
         """Do post-wiring stuff like connect listeners."""
         self.use_empty_nodes = self.con.config.get('display.diff_tree.use_empty_nodes')

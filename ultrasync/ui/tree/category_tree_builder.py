@@ -27,41 +27,15 @@ class CategoryTreeBuilder(DisplayTreeBuilder):
         change_trees = []
         category_nodes = self.get_children_for_root()
         for cat_root in category_nodes:
-            change_tree = _build_category_tree(self.tree, cat_root)
+            change_tree = self.tree.get_category_tree(cat_root.category)
             change_trees.append(change_tree)
         return change_trees
 
     def get_children_for_root(self) -> Optional[List[DisplayNode]]:
-        # Root level: categories. For use by subclasses
-        root_level_nodes = []
-        for category in [Category.Added, Category.Deleted, Category.Moved,
-                         Category.Updated, Category.Ignored]:
-            category_node = _make_category_node(self.tree.identifier, category)
-            root_level_nodes.append(category_node)
-        return root_level_nodes
+        return self.tree.get_children_for_root()
 
     def get_children(self, parent_identifier: Identifier) -> Optional[List[DisplayNode]]:
-        """Gets and returns the children for the given parent_identifier, assuming we are displaying category trees.
-        If a category tree for the category of the given identifier has not been constructed yet, it will be constructed
-        and cached before being returned."""
-        assert parent_identifier.category != Category.NA
-        children = []
-        category_tree: treelib.Tree = self._category_trees.get(parent_identifier.category, None)
-        if not category_tree:
-            category_stopwatch = Stopwatch()
-            category_node = _make_category_node(self.tree.identifier, parent_identifier.category)
-            category_tree = _build_category_tree(self.tree, category_node)
-            self._category_trees[parent_identifier.category] = category_tree
-            logger.debug(f'{category_stopwatch} Tree constructed for "{parent_identifier.category.name}" (size {len(category_tree)})')
-
-        try:
-            for child in category_tree.children(parent_identifier.uid):
-                children.append(child.data)
-        except Exception:
-            logger.debug(f'CategoryTree for "{self.tree.identifier}": ' + category_tree.show(stdout=False))
-            raise
-
-        return children
+        return self.tree.get_children(parent_identifier)
 
 
 def _make_category_node(tree_root_identifier: Identifier, category):
