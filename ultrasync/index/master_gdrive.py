@@ -68,21 +68,17 @@ class GDriveMasterCache:
         q = Queue()
         q.put(root)
 
-        count_trashed = 0
-        count_total = 0
-
         while not q.empty():
             item: GoogNode = q.get()
             subtree_meta.add_item(item)
-            count_total += 1
 
             child_list = self.meta_master.get_children(item.uid)
             if child_list:
                 for child in child_list:
                     q.put(child)
 
-        if logger.isEnabledFor(logging.DEBUG):
-            subtree_meta.validate()
+        # if logger.isEnabledFor(logging.DEBUG):
+        #     subtree_meta.validate()
 
         # Fill in full paths
         # Needs to be done AFTER all the nodes in the tree have been downloaded

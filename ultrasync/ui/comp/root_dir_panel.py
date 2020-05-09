@@ -23,8 +23,9 @@ logger = logging.getLogger(__name__)
 
 
 class RootDirPanel:
-    def __init__(self, parent_win, tree_id, current_root: Identifier, can_change_root):
+    def __init__(self, parent_win, controller, tree_id, current_root: Identifier, can_change_root):
         self.parent_win: BaseDialog = parent_win
+        self.con = controller
         assert type(tree_id) == str
         self.tree_id = tree_id
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
@@ -32,6 +33,12 @@ class RootDirPanel:
         self.can_change_root = can_change_root
         self.ui_enabled = can_change_root
         """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
+
+        if self.con.cache_manager.load_all_caches_on_startup and self.con.cache_manager.reload_tree_on_root_path_update:
+            self.needs_load = False
+        else:
+            self.needs_load = True
+            dispatcher.connect(signal=actions.LOAD_TREE_STARTED, sender=self.tree_id, receiver=self._on_load_started)
 
         self.path_icon = Gtk.Image()
         self.refresh_icon = Gtk.Image()
@@ -177,17 +184,18 @@ class RootDirPanel:
         self.label_event_box.add(self.label)
         self.label_event_box.show()
 
-        # Note: good example of toolbar here:
-        # https://github.com/kyleuckert/LaserTOF/blob/master/labTOF_main.app/Contents/Resources/lib/python2.7/matplotlib/backends/backend_gtk3.py
-        self.toolbar = Gtk.Toolbar()
-        self.toolbar.set_style(Gtk.ToolbarStyle.ICONS)
-        self.refresh_button = Gtk.ToolButton()
-        self.refresh_button.set_icon_widget(self.refresh_icon)
-        self.refresh_button.set_tooltip_text('Load meta for tree')
-        self.refresh_button.connect('clicked', self._on_refresh_button_clicked)
-        self.toolbar.insert(self.refresh_button, -1)
-        self.path_box.pack_end(self.toolbar, expand=False, fill=True, padding=5)
-        self.toolbar.show_all()
+        if self.needs_load:
+            # Note: good example of toolbar here:
+            # https://github.com/kyleuckert/LaserTOF/blob/master/labTOF_main.app/Contents/Resources/lib/python2.7/matplotlib/backends/backend_gtk3.py
+            self.toolbar = Gtk.Toolbar()
+            self.toolbar.set_style(Gtk.ToolbarStyle.ICONS)
+            self.refresh_button = Gtk.ToolButton()
+            self.refresh_button.set_icon_widget(self.refresh_icon)
+            self.refresh_button.set_tooltip_text('Load meta for tree')
+            self.refresh_button.connect('clicked', self._on_refresh_button_clicked)
+            self.toolbar.insert(self.refresh_button, -1)
+            self.path_box.pack_end(self.toolbar, expand=False, fill=True, padding=5)
+            self.toolbar.show_all()
 
         if self.can_change_root:
             self.label_event_box.connect('button_press_event', self._on_label_clicked)
@@ -233,10 +241,14 @@ class RootDirPanel:
         logger.debug(f'Received a new root: type={new_root.tree_type} path="{new_root.full_path}"')
         if not new_root or not new_root.full_path:
             raise RuntimeError(f'Root path cannot be empty! (tree_id={sender})')
-        self.current_root = new_root
 
-        # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html
-        GLib.idle_add(self._update_root_label, new_root)
+        if self.current_root != new_root:
+            self.current_root = new_root
+            if not self.con.cache_manager.reload_tree_on_root_path_update:
+                self.needs_load = True
+
+            # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html
+            GLib.idle_add(self._update_root_label, new_root)
 
     def _open_localfs_root_chooser_dialog(self, menu_item):
         """Creates and displays a LocalRootDirChooserDialog.
@@ -264,3 +276,11 @@ class RootDirPanel:
 
     def _on_refresh_button_clicked(self, widget):
         logger.debug('The Refresh button was clicked!')
+        self.needs_load = False
+        self.con.load()
+        GLib.idle_add(self._update_root_label, self.current_root)
+
+    def _on_load_started(self, sender):
+        if self.needs_load:
+            self.needs_load = False
+            GLib.idle_add(self._update_root_label, self.current_root)

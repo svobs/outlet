@@ -59,6 +59,7 @@ class CacheManager:
         self.enable_save_to_disk = application.config.get('cache.enable_cache_save')
         self.load_all_caches_on_startup = application.config.get('cache.load_all_caches_on_startup')
         self.sync_from_local_disk_on_cache_load = application.config.get('cache.sync_from_local_disk_on_cache_load')
+        self.reload_tree_on_root_path_update = application.config.get('cache.load_cache_when_tree_root_selected')
 
         if not self.load_all_caches_on_startup:
             logger.info('Configured not to fetch all caches on startup; will lazy load instead')
@@ -146,6 +147,8 @@ class CacheManager:
         Performs a read-through retreival of all the FMetas in the given subtree
         on the local filesystem.
         """
+
+        dispatcher.send(signal=actions.LOAD_TREE_STARTED, sender=tree_id)
 
         if identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
             assert self.local_disk_cache

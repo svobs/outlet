@@ -25,7 +25,6 @@ class TreeActionBridge:
         self.con = controller
         self.ui_enabled = True
         self.connected_eids = []
-        self.reload_tree_on_root_path_update = config.get('cache.load_cache_when_tree_root_selected')
 
     def init(self):
         actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
@@ -33,12 +32,12 @@ class TreeActionBridge:
         targeted_signals = []
         general_signals = [actions.TOGGLE_UI_ENABLEMENT]
 
-        if self.reload_tree_on_root_path_update:
+        if self.con.cache_manager.reload_tree_on_root_path_update:
             dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.tree_id)
             targeted_signals.append(actions.ROOT_PATH_UPDATED)
 
             if self.con.cache_manager.load_all_caches_on_startup:
-                # Need both options to be enabled for this tree to be loaded
+                # IMPORTANT: Need both options to be enabled for this tree to be loaded automatically!
                 actions.connect(signal=actions.LOAD_ALL_CACHES_DONE, handler=self._after_all_caches_loaded)
                 general_signals.append(actions.LOAD_ALL_CACHES_DONE)
 

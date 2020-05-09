@@ -110,6 +110,7 @@ class TreeFactory:
 
         controller.tree_view = tree_factory_templates.build_treeview(display_store)
         controller.root_dir_panel = RootDirPanel(parent_win=self.parent_win,
+                                                 controller=controller,
                                                  tree_id=treeview_meta.tree_id,
                                                  current_root=controller.get_root_identifier(),
                                                  can_change_root=treeview_meta.can_change_root)

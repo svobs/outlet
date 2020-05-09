@@ -11,6 +11,7 @@ DOWNLOAD_GDRIVE_META = 'download-gdrive-meta'
 GDRIVE_DOWNLOAD_COMPLETE = 'gdrive-download-complete'
 
 # --- Tree actions ---
+LOAD_TREE_STARTED = 'load-tree-started'
 NODE_EXPANSION_TOGGLED = 'node-expansion-toggled'
 ROOT_PATH_UPDATED = 'root-path-updated'
 
