@@ -68,6 +68,8 @@ class DisplayStore:
 
     def clear_model(self) -> TreeIter:
         self.model.clear()
+        self.checked_rows.clear()
+        self.inconsistent_rows.clear()
         return self.model.get_iter_first()
 
     def set_checked_state(self, tree_iter, is_checked, is_inconsistent):

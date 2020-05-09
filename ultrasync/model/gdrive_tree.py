@@ -379,7 +379,7 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         added_item = super().add_item(item)
 
         # Do this after any merging we do above
-        if isinstance(added_item, GoogFile) and added_item.md5:
+        if not added_item.is_dir() and added_item.md5:
             if file_util.is_target_type(added_item.name, constants.VALID_SUFFIXES):
                 previous = self._md5_dict.put(added_item)
                 if previous:
@@ -457,9 +457,10 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         file_count = 0
         folder_count = 0
         for item in self.id_dict.values():
-            if isinstance(item, GoogFile):
+            if item.is_dir():
+                folder_count += 1
+            else:
                 file_count += 1
-            elif isinstance(item, GoogFolder):
                 folder_count += 1
         return f'{file_count:n} files and {folder_count:n} folders in subtree '
 

@@ -10,6 +10,7 @@ from model.display_node import DisplayNode
 from model.fmeta_tree import FMetaTree
 from model.planning_node import FileToAdd, FileToMove
 from model.subtree_snapshot import SubtreeSnapshot
+from stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +132,9 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
     right_tree.clear_categories()
 
     # the set of MD5s already processed
+    md5_set_stopwatch = Stopwatch()
     md5_set = left_tree.get_md5_set() | right_tree.get_md5_set()
+    logger.info(f'{md5_set_stopwatch} Found {len(md5_set)} MD5s')
 
     # List of lists of FMetas which do not have a matching md5 on the other side.
     # We will compare these by path.

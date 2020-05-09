@@ -2,10 +2,12 @@ import os
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from model.category import Category
 from model.display_id import Identifier
 from model.display_node import DisplayNode
 
+
+# ABSTRACT CLASS PlanningNode
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 class PlanningNode(DisplayNode, ABC):
     """
@@ -19,6 +21,9 @@ class PlanningNode(DisplayNode, ABC):
     def __init__(self, identifier: Optional[Identifier]):
         super().__init__(identifier)
 
+
+# ABSTRACT CLASS FileDecoratorNode
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 class FileDecoratorNode(PlanningNode, ABC):
     def __init__(self, identifier, orig_path, original_node):
@@ -107,6 +112,9 @@ class FileDecoratorNode(PlanningNode, ABC):
             self._parent_ids = parent_ids
 
 
+# CLASS FileToAdd
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
 class FileToAdd(FileDecoratorNode):
     # NOTE: this decorates its enclosed FMeta, EXCEPT for pathname stuff!
     def __init__(self, identifier, orig_path, original_node):
@@ -115,6 +123,9 @@ class FileToAdd(FileDecoratorNode):
     def __repr__(self):
         return f'FileToAdd(original_path={self.original_full_path} dest_path={self.dest_path} md5={self.original_node.md5})'
 
+
+# CLASS FileToMove
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 class FileToMove(FileDecoratorNode):
     # NOTE: this decorates its enclosed FMeta, EXCEPT for pathname stuff!

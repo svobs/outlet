@@ -71,14 +71,22 @@ class FMetaTree(SubtreeSnapshot):
         self._total_size_bytes = 0
 
     @property
+    def root_node(self):
+        return self.create_identifier(full_path=self.root_path, category=Category.NA)
+
+    @property
     def tree_type(self):
         return constants.OBJ_TYPE_LOCAL_DISK
 
     def create_identifier(self, full_path, category):
         return LocalFsIdentifier(full_path=full_path, category=category)
 
-    def create_empty_subtree(self, subtree_root_node: FMeta):
-        return FMetaTree(subtree_root_node.full_path)
+    def create_empty_subtree(self, subtree_root: Union[str, Identifier, DisplayNode]):
+        if type(subtree_root) == str:
+            return FMetaTree(subtree_root)
+        else:
+            assert isinstance(subtree_root, Identifier) or isinstance(subtree_root, DisplayNode)
+            return FMetaTree(subtree_root.full_path)
 
     def categorize(self, fmeta, category: Category):
         """🢄🢄🢄 Convenience method to use when building the tree.

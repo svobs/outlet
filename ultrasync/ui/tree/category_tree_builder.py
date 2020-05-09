@@ -7,7 +7,7 @@ import treelib
 
 import file_util
 from model.category import Category
-from model.display_id import Identifier
+from model.display_id import Identifier, LogicalNodeIdentifier
 from model.display_node import CategoryNode, DirNode, DisplayNode
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
@@ -67,9 +67,10 @@ class CategoryTreeBuilder(DisplayTreeBuilder):
         return children
 
 
-def _make_category_node(tree_root_identifier, category):
-    cat_id: Identifier = copy.copy(tree_root_identifier)
-    cat_id.category = category
+def _make_category_node(tree_root_identifier: Identifier, category):
+    # uid must be unique within the tree
+    cat_id: LogicalNodeIdentifier = LogicalNodeIdentifier(uid=f'Category:{category.name}',
+                                                          full_path=tree_root_identifier.full_path, category=category)
     return CategoryNode(cat_id)
 
 

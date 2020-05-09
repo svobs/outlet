@@ -14,6 +14,13 @@ def ensure_category(val):
     return val
 
 
+"""
+◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+    ABSTRACT CLASS Identifier
+◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+"""
+
+
 class Identifier(ABC):
     """
     Represents a unique identifier that can be used across trees and tree types to identify a node.
@@ -36,7 +43,7 @@ class Identifier(ABC):
 
     def __repr__(self):
         # should never be displayed
-        return f'[XX:{self.category.name}:{self.full_path}]'
+        return f'∣∗∗∎{self.category.name}∎{self.full_path}∣'
 
     def __eq__(self, other):
         if isinstance(other, str):
@@ -47,17 +54,29 @@ class Identifier(ABC):
         return not self.__eq__(other)
 
 
+"""
+◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+    CLASS LogicalNodeIdentifier
+◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+"""
+
+
 class LogicalNodeIdentifier(Identifier):
-    def __init__(self, full_path: str, category: Category):
+    def __init__(self, uid: str, full_path: str, category: Category):
         """Object has a path, but does not represent a physical item"""
         super().__init__(full_path, category)
+        self._uid: str = uid
 
     @property
     def tree_type(self) -> int:
         return OBJ_TYPE_DISPLAY_ONLY
 
+    @property
+    def uid(self) -> str:
+        return self._uid
+
     def __repr__(self):
-        return f'[--:{self.full_path}]'
+        return f'∣--∎{self.full_path}⋕{self._uid}∣'
 
 
 """
@@ -82,10 +101,10 @@ class GDriveIdentifier(Identifier):
 
     def __repr__(self):
         if self._uid == self.full_path:
-            uid_disp = 'Ξ'
+            uid_disp = '≡'
         else:
             uid_disp = self._uid
-        return f'[GD:{self.full_path}:{uid_disp}]'
+        return f'∣GD∎{self.full_path}⋕{uid_disp}∣'
 
 
 """
@@ -104,7 +123,7 @@ class LocalFsIdentifier(Identifier):
         return OBJ_TYPE_LOCAL_DISK
 
     def __repr__(self):
-        return f'[FS:{self.full_path}]'
+        return f'∣FS∎{self.full_path}∣'
 
 
 def for_values(tree_type: int, full_path: str, uid: str = None, category=Category.NA):

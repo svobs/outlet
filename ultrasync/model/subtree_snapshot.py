@@ -16,7 +16,7 @@ class SubtreeSnapshot(ABC):
         return 0
 
     @abstractmethod
-    def create_empty_subtree(self, subtree_root_node):
+    def create_empty_subtree(self, subtree_root_node: DisplayNode):
         """Return a new empty subtree with the given root and which is of the same type of this tree"""
         return
 
