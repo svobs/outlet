@@ -54,7 +54,7 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
             for child in self.display_tree.children(parent_identifier.uid):
                 children.append(child.data)
         except Exception:
-            logger.debug(f'CategoryTree for "{self.tree.identifier}": ' + self.faux_tree.show(stdout=False))
+            logger.debug(f'CategoryTree for "{self.tree.identifier}": ' + self.display_tree.show(stdout=False))
             raise
 
         return children

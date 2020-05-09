@@ -126,6 +126,8 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
     count_moved_pairs = 0
     count_updated_pairs = 0
 
+    # FIXME: return a completely new tree with only the changes! Use the code from CategoryTreeBuilder
+
     fixer = PathTransplanter(left_tree, right_tree)
 
     left_tree.clear_categories()

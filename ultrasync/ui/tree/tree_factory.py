@@ -118,6 +118,8 @@ class TreeFactory:
                                                  can_change_root=treeview_meta.can_change_root,
                                                  is_loaded=already_loaded)
 
+        # FIXME: add toggle buttons to GDrive status bar: Show Trashed, Show Shared By Me, Show Shared With Me
+
         controller.status_bar, status_bar_container = tree_factory_templates.build_status_bar()
         controller.content_box = tree_factory_templates.build_content_box(controller.root_dir_panel.content_box, controller.tree_view, status_bar_container)
 
