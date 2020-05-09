@@ -55,9 +55,6 @@ class CategoryTreeBuilder(DisplayTreeBuilder):
             logger.debug(f'{category_stopwatch} Tree constructed for "{parent_identifier.category.name}" (size {len(category_tree)})')
 
         try:
-            # Need to get relative path for item:
-            # relative_path = file_util.strip_root(parent_identifier.full_path, self.tree.identifier.full_path)
-
             for child in category_tree.children(parent_identifier.uid):
                 children.append(child.data)
         except Exception:
@@ -104,7 +101,6 @@ def _build_category_tree(source_tree: SubtreeSnapshot, root_node: CategoryNode) 
         ancestor_identifiers = source_tree.get_ancestor_identifiers_as_list(item)
         # nid == Node ID == directory name
         parent = root
-        # logger.debug(f'Adding file "{relative_path}" to dir "{parent.data.full_path}"')
         parent.data.add_meta_emtrics(item)
 
         if ancestor_identifiers:
@@ -119,7 +115,6 @@ def _build_category_tree(source_tree: SubtreeSnapshot, root_node: CategoryNode) 
                     dir_node = DirNode(identifier=id_copy)
                     child = change_tree.create_node(identifier=nid, parent=parent, data=dir_node)
                 parent = child
-                # logger.debug(f'Adding file metrics from item="{item.full_path}" to dir {parent.data.full_path}"')
                 assert isinstance(parent.data, DirNode)
                 parent.data.add_meta_emtrics(item)
 

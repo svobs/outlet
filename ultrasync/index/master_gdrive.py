@@ -73,11 +73,7 @@ class GDriveMasterCache:
 
         while not q.empty():
             item: GoogNode = q.get()
-            # Filter out trashed items:
-            if item.trashed == NOT_TRASHED:
-                subtree_meta.add_item(item)
-            else:
-                count_trashed += 1
+            subtree_meta.add_item(item)
             count_total += 1
 
             child_list = self.meta_master.get_children(item.uid)

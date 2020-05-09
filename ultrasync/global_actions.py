@@ -115,14 +115,12 @@ class GlobalActions:
         try:
             left_id: Identifier = tree_con_left.get_root_identifier()
             right_id: Identifier = tree_con_right.get_root_identifier()
-            left_root = left_id.full_path
-            right_root = right_id.full_path
-            if left_id.tree_type == OBJ_TYPE_LOCAL_DISK and not os.path.exists(left_root):
-                logger.info(f'Skipping diff because the left path does not exist: "{left_root}"')
+            if left_id.tree_type == OBJ_TYPE_LOCAL_DISK and not os.path.exists(left_id.full_path):
+                logger.info(f'Skipping diff because the left path does not exist: "{left_id.full_path}"')
                 actions.enable_ui(sender=self)
                 return
-            elif right_id.tree_type == OBJ_TYPE_LOCAL_DISK and not os.path.exists(right_root):
-                logger.info(f'Skipping diff because the right path does not exist: "{right_root}"')
+            elif right_id.tree_type == OBJ_TYPE_LOCAL_DISK and not os.path.exists(right_id.full_path):
+                logger.info(f'Skipping diff because the right path does not exist: "{right_id.full_path}"')
                 actions.enable_ui(sender=self)
                 return
 
