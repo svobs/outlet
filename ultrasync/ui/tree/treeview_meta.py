@@ -7,11 +7,10 @@ from ui import actions
 
 
 class TreeViewMeta:
-    # def but_with_checkboxes(self):
-    #     assert not self.has_checkboxes
-    #     return TreeViewMeta(config=self.config, tree_id=self.tree_id, has_checkboxes=True, can_change_root=self.can_change_root,
-    #                         tree_display_mode=self.tree_display_mode, lazy_load=self.lazy_load, selection_mode=self.selection_mode,
-    #                         is_display_persisted=self.is_display_persisted, is_ignored_func=self.is_ignored_func)
+    def but_with_checkboxes(self):
+        return TreeViewMeta(config=self.config, tree_id=self.tree_id, has_checkboxes=True, can_change_root=self.can_change_root,
+                            tree_display_mode=self.tree_display_mode, lazy_load=self.lazy_load, selection_mode=self.selection_mode,
+                            is_display_persisted=self.is_display_persisted, is_ignored_func=self.is_ignored_func)
 
     def __init__(self, config: AppConfig, tree_id: str, has_checkboxes: bool, can_change_root: bool,
                  tree_display_mode: TreeDisplayMode, lazy_load: bool, selection_mode, is_display_persisted: bool, is_ignored_func):

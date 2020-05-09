@@ -5,6 +5,7 @@ from stopwatch import Stopwatch
 
 from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, TreeDisplayMode
 from model.display_id import Identifier
+from ui.tree import tree_factory_templates
 from ui.tree.all_items_tree_builder import AllItemsGDriveTreeBuilder, AllItemsLocalFsTreeBuilder
 from ui.tree.category_tree_builder import CategoryTreeBuilder
 from model.display_node import DisplayNode
@@ -13,6 +14,9 @@ from ui.dialog.base_dialog import BaseDialog
 
 
 import gi
+
+from ui.tree.display_store import DisplayStore
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib
 
@@ -53,11 +57,31 @@ class TreePanelController:
     def reload(self, new_root=None, tree_display_mode: TreeDisplayMode = None):
         """Invalidate whatever cache the tree_builder built up, and re-populate the display tree"""
         if new_root:
+            logger.debug(f'reload() with new root: {new_root}')
             self.set_tree(root=new_root, tree_display_mode=tree_display_mode)
         else:
+            logger.debug(f'reload() with same tree')
             tree = self.tree_builder.get_tree()
             self.set_tree(tree=tree, tree_display_mode=tree_display_mode)
         self.load()
+
+    def rebuild_treeview_with_checkboxes(self, new_root=None, tree_display_mode: TreeDisplayMode = None):
+        """Tear out half the guts here and swap it out, to add checkboxes..."""
+        def rebuild_treeview():
+            if not self.treeview_meta.has_checkboxes:
+                logger.info('Rebuilding treeview!')
+                self.action_handlers.disconnect_gtk_listeners()
+                self.treeview_meta = self.treeview_meta.but_with_checkboxes()
+                self.display_store = DisplayStore(self.treeview_meta)
+
+                new_treeview = tree_factory_templates.build_treeview(self.display_store)
+                tree_factory_templates.replace_widget(self.tree_view, new_treeview)
+                self.tree_view = new_treeview
+                self.action_handlers.init()
+
+            self.reload(new_root=new_root, tree_display_mode=tree_display_mode)
+
+        GLib.idle_add(rebuild_treeview)
 
     def get_single_selection(self):
         """Assumes that only one node can be selected at a given time"""
@@ -140,3 +164,4 @@ class TreePanelController:
     @property
     def tree_display_mode(self):
         return self.treeview_meta.tree_display_mode
+

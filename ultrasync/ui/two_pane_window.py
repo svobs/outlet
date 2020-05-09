@@ -118,7 +118,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         def on_diff_btn_clicked(widget):
             logger.debug('Diff btn clicked!')
             # Disable button bar immediately:
-            self.on_enable_ui_toggled(sender=self.win_id, enable=False)
+            self._on_enable_ui_toggled(sender=self.win_id, enable=False)
             dispatcher.send(signal=actions.START_DIFF_TREES, sender=self.win_id,
                             tree_con_left=self.tree_con_left, tree_con_right=self.tree_con_right)
         diff_action_btn = Gtk.Button(label="Diff (content-first)")
@@ -133,7 +133,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.replace_bottom_button_panel(diff_action_btn, gdrive_btn)
 
         # Subscribe to signals:
-        actions.connect(signal=actions.TOGGLE_UI_ENABLEMENT, handler=self.on_enable_ui_toggled)
+        actions.connect(signal=actions.TOGGLE_UI_ENABLEMENT, handler=self._on_enable_ui_toggled)
         actions.connect(signal=actions.DIFF_TREES_DONE, handler=self._after_diff_completed)
 
         # Need to add an extra listener to each tree, to reload when the other one's root changes
@@ -157,6 +157,14 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
         # Kick off cache load now that we have a progress bar
         actions.get_dispatcher().send(actions.LOAD_ALL_CACHES, sender=self.win_id)
+
+    def replace_bottom_button_panel(self, *buttons):
+        for child in self.bottom_button_panel.get_children():
+            self.bottom_button_panel.remove(child)
+
+        for button in buttons:
+            self.bottom_button_panel.pack_start(button, False, False, 0)
+            button.show()
 
     # GTK LISTENERS begin
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
@@ -211,45 +219,6 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # repeat timer
         return True
 
-    def replace_bottom_button_panel(self, *buttons):
-        for child in self.bottom_button_panel.get_children():
-            self.bottom_button_panel.remove(child)
-
-        for button in buttons:
-            self.bottom_button_panel.pack_start(button, False, False, 0)
-            button.show()
-
-    # SIGNAL LISTENERS begin
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
-
-    def _on_root_path_updated(self, sender, new_root: Identifier):
-        if sender == actions.ID_RIGHT_TREE and self.tree_con_left.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
-            # If displaying a diff and right root changed, reload left display
-            # (note: right will update its own display)
-            logger.debug(f'Detected that {actions.ID_RIGHT_TREE} changed root. Reloading {actions.ID_LEFT_TREE}')
-            self.tree_con_left.reload()
-
-        elif sender == actions.ID_LEFT_TREE and self.tree_con_right.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
-            # Mirror of above:
-            logger.debug(f'Detected that {actions.ID_LEFT_TREE} changed root. Reloading {actions.ID_RIGHT_TREE}')
-            self.tree_con_right.reload()
-
-    def _after_diff_completed(self, sender, stopwatch):
-        """
-        Callback for DIFF_TREES_DONE global action
-        """
-        def change_button_bar():
-            # Replace diff btn with merge buttons
-            merge_btn = Gtk.Button(label="Merge Selected...")
-            merge_btn.connect("clicked", self.on_merge_preview_btn_clicked)
-
-            # FIXME: this is causing the button bar to disappear. Fix layout!
-            self.replace_bottom_button_panel(merge_btn)
-
-            actions.enable_ui(sender=self)
-            logger.debug(f'Diff time + redraw: {stopwatch}')
-        GLib.idle_add(change_button_bar)
-
     def on_merge_preview_btn_clicked(self, widget):
         """
         1. Gets selected changes from both sides,
@@ -282,10 +251,41 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             self.show_error_ui('Merge preview failed due to unexpected error', repr(err))
             raise
 
-    def on_enable_ui_toggled(self, sender, enable):
+    # SIGNAL LISTENERS begin
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
+    def _on_enable_ui_toggled(self, sender, enable):
         """Callback for TOGGLE_UI_ENABLEMENT"""
         def toggle_ui():
             for button in self.bottom_button_panel.get_children():
                 button.set_sensitive(enable)
         GLib.idle_add(toggle_ui)
 
+    def _on_root_path_updated(self, sender, new_root: Identifier):
+        logger.debug(f'Received signal: "{actions.ROOT_PATH_UPDATED}"')
+
+        if sender == actions.ID_RIGHT_TREE and self.tree_con_left.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
+            # If displaying a diff and right root changed, reload left display
+            # (note: right will update its own display)
+            logger.debug(f'Detected that {actions.ID_RIGHT_TREE} changed root. Reloading {actions.ID_LEFT_TREE}')
+            self.tree_con_left.reload()
+
+        elif sender == actions.ID_LEFT_TREE and self.tree_con_right.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
+            # Mirror of above:
+            logger.debug(f'Detected that {actions.ID_LEFT_TREE} changed root. Reloading {actions.ID_RIGHT_TREE}')
+            self.tree_con_right.reload()
+
+    def _after_diff_completed(self, sender, stopwatch):
+        logger.debug(f'Received signal: "{actions.DIFF_TREES_DONE}"')
+
+        def change_button_bar():
+            # Replace diff btn with merge buttons
+            merge_btn = Gtk.Button(label="Merge Selected...")
+            merge_btn.connect("clicked", self.on_merge_preview_btn_clicked)
+
+            # FIXME: this is causing the button bar to disappear. Fix layout!
+            self.replace_bottom_button_panel(merge_btn)
+
+            actions.enable_ui(sender=self)
+            logger.debug(f'Diff time + redraw: {stopwatch}')
+        GLib.idle_add(change_button_bar)

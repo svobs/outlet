@@ -140,8 +140,9 @@ class GlobalActions:
             logger.info(f'{stopwatch_diff} Diff completed')
 
             actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, tx_id=tx_id, msg='Populating UI trees...')
-            tree_con_left.reload(tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
-            tree_con_right.reload(tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
+
+            tree_con_left.rebuild_treeview_with_checkboxes(tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
+            tree_con_right.rebuild_treeview_with_checkboxes(tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
 
             actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW, tx_id=tx_id)
             actions.get_dispatcher().send(signal=actions.DIFF_TREES_DONE, sender=sender, stopwatch=stopwatch_diff_total)
