@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 import gi
 
@@ -86,10 +87,10 @@ def _compare_data(model, row1, row2, args):
         return 0
 
 
-def _build_treeview(display_store):
+def _build_treeview(display_store: DisplayStore):
     """ Builds the GTK3 treeview widget"""
-    model = display_store.model
-    treeview_meta = display_store.treeview_meta
+    model: Gtk.TreeStore = display_store.model
+    treeview_meta: TreeViewMeta = display_store.treeview_meta
 
     treeview = Gtk.TreeView(model=model)
     treeview.set_level_indentation(treeview_meta.extra_indent)
@@ -107,7 +108,7 @@ def _build_treeview(display_store):
     px_column = Gtk.TreeViewColumn(treeview_meta.col_names[treeview_meta.col_num_name])
     px_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
 
-    if treeview_meta.editable:
+    if treeview_meta.has_checkboxes:
         renderer = Gtk.CellRendererToggle()
         renderer.connect("toggled", display_store.on_cell_checkbox_toggled)
         renderer.set_fixed_size(width=-1, height=treeview_meta.row_height)
@@ -237,56 +238,92 @@ def is_ignored_func(data_node):
 """
 
 
-def _build(parent_win, treeview_meta, root: Identifier = None, tree: SubtreeSnapshot = None):
-    """Builds a single instance of a tree panel, and configures all its components as specified."""
-    logger.debug(f'Building controller for tree: {treeview_meta.tree_id}')
+class TreeFactory:
+    def __init__(self,
+                 parent_win,
+                 tree_id: str,
+                 root: Optional[Identifier] = None,
+                 tree: Optional[SubtreeSnapshot] = None
+                 ):
+        self.parent_win = parent_win
 
-    if root:
-        tree_type = root.tree_type
-    elif tree:
-        tree_type = tree.tree_type
-    else:
-        raise RuntimeError('"root" and "tree" are both empty!')
+        self.root: Optional[Identifier] = root
+        self.tree: Optional[SubtreeSnapshot] = tree
+        """Choose one: tree or root"""
 
-    if tree_type == constants.OBJ_TYPE_GDRIVE:
-        display_strategy = LazyDisplayStrategy(config=parent_win.config)
-        action_handlers = GDriveActionHandlers(config=parent_win.config)
-    elif tree_type == constants.OBJ_TYPE_LOCAL_DISK:
-        display_strategy = FMetaChangeTreeStrategy(config=parent_win.config)
-        action_handlers = FMetaTreeActionHandlers(config=parent_win.config)
-    else:
-        raise RuntimeError(f'Unsupported tree type: {tree_type}')
+        self.tree_id: str = tree_id
+        self.has_checkboxes: bool = False
+        self.can_change_root: bool = False
+        self.lazy_load: bool = True
+        self.allow_multiple_selection: bool = False
+        self.display_persisted: bool = False
+        self.tree_display_mode: TreeDisplayMode = TreeDisplayMode.ONE_TREE_ALL_ITEMS
 
-    display_store = DisplayStore(treeview_meta)
+    def build(self):
+        """Builds a single instance of a tree panel, and configures all its components as specified."""
+        logger.debug(f'Building controller for tree: {self.tree_id}')
 
-    # The controller holds all the components in memory. Important for listeners especially,
-    # since they rely on weak references.
-    controller = TreePanelController(parent_win, display_store, treeview_meta)
-    if root:
-        controller.set_tree(root=root)
-    elif tree:
-        controller.set_tree(tree=tree)
+        if self.allow_multiple_selection:
+            gtk_selection_mode = Gtk.SelectionMode.MULTIPLE
+        else:
+            gtk_selection_mode = Gtk.SelectionMode.SINGLE
 
-    controller.tree_view = _build_treeview(display_store)
-    controller.root_dir_panel = RootDirPanel(parent_win=parent_win, tree_id=treeview_meta.tree_id,
-                                             current_root=controller.get_root_identifier(), editable=treeview_meta.editable)
-    controller.display_strategy = display_strategy
-    display_strategy.con = controller
-    controller.action_handlers = action_handlers
-    action_handlers.con = controller
+        treeview_meta = TreeViewMeta(config=self.parent_win.config,
+                                     tree_id=self.tree_id,
+                                     has_checkboxes=self.has_checkboxes,
+                                     can_change_root=self.can_change_root,
+                                     tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS,
+                                     lazy_load=self.lazy_load,
+                                     selection_mode=gtk_selection_mode,
+                                     is_display_persisted=self.display_persisted,
+                                     is_ignored_func=is_ignored_func)
 
-    controller.status_bar, status_bar_container = _build_status_bar()
-    controller.content_box = _build_content_box(controller.root_dir_panel.content_box, controller.tree_view, status_bar_container)
+        display_store = DisplayStore(treeview_meta)
 
-    # Line up the following between trees if we are displaying side-by-side trees:
-    if hasattr('parent_win', 'sizegroups'):
-        if parent_win.sizegroups.get('tree_status'):
-            parent_win.sizegroups['tree_status'].add_widget(status_bar_container)
-        if parent_win.sizegroups.get('root_paths'):
-            parent_win.sizegroups['root_paths'].add_widget(controller.root_dir_panel.content_box)
+        # The controller holds all the components in memory. Important for listeners especially,
+        # since they rely on weak references.
+        controller = TreePanelController(self.parent_win, display_store, treeview_meta)
 
-    controller.init()
-    return controller
+        if self.root:
+            tree_type = self.root.tree_type
+            controller.set_tree(root=self.root)
+        elif self.tree:
+            tree_type = self.tree.tree_type
+            controller.set_tree(tree=self.tree)
+        else:
+            raise RuntimeError('"root" and "tree" are both empty!')
+
+        if tree_type == constants.OBJ_TYPE_GDRIVE:
+            display_strategy = LazyDisplayStrategy(config=self.parent_win.config)
+            action_handlers = GDriveActionHandlers(config=self.parent_win.config)
+        elif tree_type == constants.OBJ_TYPE_LOCAL_DISK:
+            display_strategy = FMetaChangeTreeStrategy(config=self.parent_win.config)
+            action_handlers = FMetaTreeActionHandlers(config=self.parent_win.config)
+        else:
+            raise RuntimeError(f'Unsupported tree type: {tree_type}')
+        controller.display_strategy = display_strategy
+        display_strategy.con = controller
+        controller.action_handlers = action_handlers
+        action_handlers.con = controller
+
+        controller.tree_view = _build_treeview(display_store)
+        controller.root_dir_panel = RootDirPanel(parent_win=self.parent_win,
+                                                 tree_id=treeview_meta.tree_id,
+                                                 current_root=controller.get_root_identifier(),
+                                                 can_change_root=treeview_meta.can_change_root)
+
+        controller.status_bar, status_bar_container = _build_status_bar()
+        controller.content_box = _build_content_box(controller.root_dir_panel.content_box, controller.tree_view, status_bar_container)
+
+        # Line up the following between trees if we are displaying side-by-side trees:
+        if hasattr('parent_win', 'sizegroups'):
+            if self.parent_win.sizegroups.get('tree_status'):
+                self.parent_win.sizegroups['tree_status'].add_widget(status_bar_container)
+            if self.parent_win.sizegroups.get('root_paths'):
+                self.parent_win.sizegroups['root_paths'].add_widget(controller.root_dir_panel.content_box)
+
+        controller.init()
+        return controller
 
 
 """
@@ -294,30 +331,40 @@ def _build(parent_win, treeview_meta, root: Identifier = None, tree: SubtreeSnap
 """
 
 
-def build_gdrive(parent_win, tree_id, tree: SubtreeSnapshot):
+def build_gdrive(parent_win,
+                 tree_id,
+                 tree: SubtreeSnapshot):
     """Builds a tree panel for browsing a Google Drive tree, using lazy loading."""
-    treeview_meta = TreeViewMeta(config=parent_win.config, tree_id=tree_id, editable=False,
-                                 tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, lazy_load=True,
-                                 selection_mode=Gtk.SelectionMode.SINGLE,
-                                 is_display_persisted=True, is_ignored_func=is_ignored_func)
 
-    return _build(parent_win=parent_win, tree=tree, treeview_meta=treeview_meta)
-
-
-def build_category_file_tree(parent_win, tree_id, root: Identifier = None, tree: SubtreeSnapshot = None):
-    treeview_meta = TreeViewMeta(config=parent_win.config, tree_id=tree_id, editable=True,
-                                 tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, lazy_load=True,
-                                 selection_mode=Gtk.SelectionMode.MULTIPLE,
-                                 is_display_persisted=True, is_ignored_func=is_ignored_func)
-
-    return _build(parent_win=parent_win, root=root, tree=tree, treeview_meta=treeview_meta)
+    factory = TreeFactory(parent_win=parent_win, tree=tree, tree_id=tree_id)
+    factory.allow_multiple_selection = False
+    factory.display_persisted = False
+    factory.has_checkboxes = False
+    factory.can_change_root = False
+    return factory.build()
 
 
-def build_static_category_file_tree(parent_win, tree_id, tree: FMetaTree):
+def build_category_file_tree(parent_win,
+                             tree_id: str,
+                             root: Identifier = None,
+                             tree: SubtreeSnapshot = None):
+
+    factory = TreeFactory(parent_win=parent_win, root=root, tree=tree, tree_id=tree_id)
+    factory.has_checkboxes = False  # not initially
+    factory.can_change_root = True
+    factory.allow_multiple_selection = True
+    factory.display_persisted = True
+    return factory.build()
+
+
+def build_static_category_file_tree(parent_win, tree_id: str, tree: FMetaTree):
     # Whole tree is provided here
-    treeview_meta = TreeViewMeta(config=parent_win.config, tree_id=tree_id, editable=False,
-                                 tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY, lazy_load=False,
-                                 selection_mode=Gtk.SelectionMode.SINGLE,
-                                 is_display_persisted=False, is_ignored_func=is_ignored_func)
+    factory = TreeFactory(parent_win=parent_win, tree=tree, tree_id=tree_id)
+    factory.has_checkboxes = False
+    factory.can_change_root = False
+    factory.allow_multiple_selection = False
+    factory.display_persisted = False
+    factory.tree_display_mode = TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY
+    factory.lazy_load = False
+    return factory.build()
 
-    return _build(parent_win=parent_win, tree=tree, treeview_meta=treeview_meta)

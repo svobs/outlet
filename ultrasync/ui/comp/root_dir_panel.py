@@ -23,20 +23,20 @@ logger = logging.getLogger(__name__)
 
 
 class RootDirPanel:
-    def __init__(self, parent_win, tree_id, current_root: Identifier, editable):
+    def __init__(self, parent_win, tree_id, current_root: Identifier, can_change_root):
         self.parent_win: BaseDialog = parent_win
         assert type(tree_id) == str
         self.tree_id = tree_id
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.current_root: Identifier = current_root
-        self.editable = editable
-        self.ui_enabled = editable
+        self.can_change_root = can_change_root
+        self.ui_enabled = can_change_root
         """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
 
         self.path_icon = Gtk.Image()
         self.refresh_icon = Gtk.Image()
         self.refresh_icon.set_from_file(REFRESH_ICON_PATH)
-        if self.editable:
+        if self.can_change_root:
             self.change_btn = Gtk.MenuButton()
             self.change_btn.set_image(image=self.path_icon)
             self.content_box.pack_start(self.change_btn, expand=False, fill=False, padding=5)
@@ -142,7 +142,7 @@ class RootDirPanel:
 
     def _on_enable_ui_toggled(self, sender, enable):
         # Callback for actions.TOGGLE_UI_ENABLEMENT
-        if not self.editable:
+        if not self.can_change_root:
             self.ui_enabled = False
             return
 
@@ -189,7 +189,7 @@ class RootDirPanel:
         self.path_box.pack_end(self.toolbar, expand=False, fill=True, padding=5)
         self.toolbar.show_all()
 
-        if self.editable:
+        if self.can_change_root:
             self.label_event_box.connect('button_press_event', self._on_label_clicked)
 
         if new_root.tree_type == OBJ_TYPE_LOCAL_DISK:

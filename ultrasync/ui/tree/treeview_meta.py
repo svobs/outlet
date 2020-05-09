@@ -1,16 +1,26 @@
 from pydispatch import dispatcher
 
+from app_config import AppConfig
 from constants import TreeDisplayMode
 from model.display_node import CategoryNode
 from ui import actions
 
 
 class TreeViewMeta:
-    def __init__(self, config, tree_id, editable, tree_display_mode, lazy_load, selection_mode, is_display_persisted, is_ignored_func=None):
+    # def but_with_checkboxes(self):
+    #     assert not self.has_checkboxes
+    #     return TreeViewMeta(config=self.config, tree_id=self.tree_id, has_checkboxes=True, can_change_root=self.can_change_root,
+    #                         tree_display_mode=self.tree_display_mode, lazy_load=self.lazy_load, selection_mode=self.selection_mode,
+    #                         is_display_persisted=self.is_display_persisted, is_ignored_func=self.is_ignored_func)
+
+    def __init__(self, config: AppConfig, tree_id: str, has_checkboxes: bool, can_change_root: bool,
+                 tree_display_mode: TreeDisplayMode, lazy_load: bool, selection_mode, is_display_persisted: bool, is_ignored_func):
         self.config = config
         self.selection_mode = selection_mode
         self.tree_id = tree_id
-        self.editable = editable
+
+        self.has_checkboxes: bool = has_checkboxes
+        self.can_change_root: bool = can_change_root
         """If false, disable actions in UI"""
         self.is_display_persisted = is_display_persisted
         """If true, load and save aesthetic things like expanded state of some nodes"""
@@ -33,7 +43,7 @@ class TreeViewMeta:
         col_count = 0
         self.col_types = []
         self.col_names = []
-        if self.editable:
+        if self.has_checkboxes:
             self.col_num_checked = col_count
             self.col_names.append('Checked')
             self.col_types.append(bool)

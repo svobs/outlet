@@ -74,7 +74,7 @@ class LazyDisplayStrategy:
         """Returns a SubtreeSnapshot which contains the DisplayNodes of the rows which are currently
         checked by the user (including collapsed rows). This will be a subset of the SubtreeSnapshot which was used to
         populate this tree. Includes file nodes only; does not include directory nodes."""
-        assert self.con.treeview_meta.editable
+        assert self.con.treeview_meta.has_checkboxes
         # subtree root will be the same as the current subtree's
         subtree: SubtreeSnapshot = self.con.get_tree().create_empty_subtree(self.con.get_tree().root_node)
 
@@ -177,7 +177,7 @@ class LazyDisplayStrategy:
 
     def _append_empty_child(self, parent_node_iter, node_name):
         row_values = []
-        if self.con.treeview_meta.editable:
+        if self.con.treeview_meta.has_checkboxes:
             row_values.append(False)  # Checked
             row_values.append(False)  # Inconsistent
         row_values.append(None)  # Icon
@@ -193,7 +193,7 @@ class LazyDisplayStrategy:
 
     def _append_loading_child(self, parent_node_iter):
         row_values = []
-        if self.con.treeview_meta.editable:
+        if self.con.treeview_meta.has_checkboxes:
             row_values.append(False)  # Checked
             row_values.append(False)  # Inconsistent
         row_values.append(None)  # Icon
@@ -208,7 +208,7 @@ class LazyDisplayStrategy:
         return self.con.display_store.model.append(parent_node_iter, row_values)
 
     def _add_checked_columns(self, parent_uid: Optional[str], node_data: DisplayNode, row_values: List):
-        if self.con.treeview_meta.editable and node_data.has_path():
+        if self.con.treeview_meta.has_checkboxes and node_data.has_path():
             if parent_uid:
                 parent_checked = self.con.display_store.checked_rows.get(parent_uid, None)
                 if parent_checked:
