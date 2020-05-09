@@ -89,9 +89,11 @@ class TreeFactory:
         if self.root:
             tree_type = self.root.tree_type
             controller.set_tree(root=self.root)
+            already_loaded = False
         elif self.tree:
             tree_type = self.tree.tree_type
             controller.set_tree(tree=self.tree)
+            already_loaded = True
         else:
             raise RuntimeError('"root" and "tree" are both empty!')
 
@@ -113,7 +115,8 @@ class TreeFactory:
                                                  controller=controller,
                                                  tree_id=treeview_meta.tree_id,
                                                  current_root=controller.get_root_identifier(),
-                                                 can_change_root=treeview_meta.can_change_root)
+                                                 can_change_root=treeview_meta.can_change_root,
+                                                 is_loaded=already_loaded)
 
         controller.status_bar, status_bar_container = tree_factory_templates.build_status_bar()
         controller.content_box = tree_factory_templates.build_content_box(controller.root_dir_panel.content_box, controller.tree_view, status_bar_container)

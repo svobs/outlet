@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class RootDirPanel:
-    def __init__(self, parent_win, controller, tree_id, current_root: Identifier, can_change_root):
+    def __init__(self, parent_win, controller, tree_id, current_root: Identifier, can_change_root, is_loaded):
         self.parent_win: BaseDialog = parent_win
         self.con = controller
         assert type(tree_id) == str
@@ -34,7 +34,8 @@ class RootDirPanel:
         self.ui_enabled = can_change_root
         """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
 
-        if self.con.cache_manager.load_all_caches_on_startup and self.con.cache_manager.reload_tree_on_root_path_update:
+        if is_loaded or \
+                (self.con.cache_manager.load_all_caches_on_startup and self.con.cache_manager.reload_tree_on_root_path_update):
             self.needs_load = False
         else:
             self.needs_load = True
