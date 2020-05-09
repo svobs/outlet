@@ -1,13 +1,12 @@
-from abc import ABC, abstractmethod
+import logging
 import os
+from abc import ABC, abstractmethod
 from typing import Optional
 
 import humanfriendly
-import logging
 
 from constants import ICON_GENERIC_DIR, ICON_GENERIC_FILE
-from model.category import Category
-from model.display_id import ensure_category, Identifier, LogicalNodeIdentifier
+from model.display_id import Identifier
 
 logger = logging.getLogger(__name__)
 

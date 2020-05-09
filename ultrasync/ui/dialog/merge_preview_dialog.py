@@ -60,6 +60,8 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
                 self.on_apply_clicked()
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
+            elif response_id == -4:
+                logger.debug("Dialog was closed")
             else:
                 logger.debug(f'response_id: {response_id}')
         except FileNotFoundError as err:

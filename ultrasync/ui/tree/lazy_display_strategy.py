@@ -79,7 +79,7 @@ class LazyDisplayStrategy:
         subtree: SubtreeSnapshot = self.con.get_tree().create_empty_subtree(self.con.get_tree().root_node)
 
         # Algorithm:
-        # Iterate over metastore nodes. Start with top-level nodes.
+        # Iterate over display nodes. Start with top-level nodes.
         # - Add each checked row to DFS queue. It and all of its descendants will be added.
         # - Ignore each unchecked row
         # - Each inconsistent row needs to be drilled down into.
@@ -196,7 +196,7 @@ class LazyDisplayStrategy:
         if self.con.treeview_meta.editable:
             row_values.append(False)  # Checked
             row_values.append(False)  # Inconsistent
-        row_values.append('folder')  # Icon
+        row_values.append(None)  # Icon
         row_values.append('Loading...')  # Name
         if not self.con.treeview_meta.use_dir_tree:
             row_values.append(None)  # Directory
