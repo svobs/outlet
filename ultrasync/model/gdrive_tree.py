@@ -110,17 +110,18 @@ class GDriveTree:
     def add_item(self, item: GoogNode):
         """Called when adding from Google API, or when slicing a metastore"""
 
+        parent_ids: List[str] = item.parent_ids
+
         # Build forward dictionary
         existing_item = self.id_dict.get(item.uid, None)
         if existing_item:
             if SUPER_DEBUG:
                 logger.debug(f'add_item(): found existing item with same ID (will attempt to merge items): existing: {existing_item}; new={item}')
-            _merge_items(existing_item, item)
+            parent_ids = _merge_items(existing_item, item)
         else:
             self.id_dict[item.uid] = item
 
         # build reverse dictionary
-        parent_ids: List[str] = item.parent_ids
         if len(parent_ids) > 0:
             for parent_id in parent_ids:
                 self._add_to_parent_dict(parent_id, item)
@@ -136,12 +137,21 @@ class GDriveTree:
         child_list.append(item)
 
 
-def _merge_items(existing_item: GoogNode, new_item: GoogNode):
+def _merge_items(existing_item: GoogNode, new_item: GoogNode) -> List[str]:
     # Assume items are identical but each references a different parent (most likely flattened for SQL)
-    assert len(existing_item.parent_ids) == 1 and len(
+    assert len(existing_item.parent_ids) >= 1 and len(
         new_item.parent_ids) == 1, f'Expected 1 parent each but found: {existing_item.parent_ids} and {new_item.parent_ids}'
-    # Just merge into the existing item
-    existing_item.parent_ids = list(set(existing_item.parent_ids) | set(new_item.parent_ids))
+
+    new_parent_ids = []
+    for parent_id in new_item.parent_ids:
+        if parent_id not in existing_item.parent_ids:
+            new_parent_ids.append(parent_id)
+
+    # Merge into existing item:
+    existing_item.parent_ids = existing_item.parent_ids + new_parent_ids
+
+    # Need to return these so they can be added to reverse dict
+    return new_parent_ids
 
 
 """

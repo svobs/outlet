@@ -139,26 +139,5 @@ class GDriveMasterCache:
         # TODO
         pass
 
-    # TODO: maybe delete this?
-    def get_path_for_id(self, goog_id: str) -> Optional[str]:
-        if not self.meta_master:
-            logger.warning('Cannot look up item: caches have not been loaded!')
-            return None
-
-        item = self.meta_master.get_for_id(goog_id)
-        if not item:
-            raise RuntimeError(f'Item not found: id={goog_id}')
-        path = ''
-        while True:
-            path = '/' + item.name + path
-            parent_ids: List[str] = item.parent_ids
-            if not parent_ids:
-                logger.debug(f'Mapped ID "{goog_id}" to path "{path}"')
-                return path
-            elif len(parent_ids) > 1:
-                logger.warning(f'Multiple parents found for {item.uid} ("{item.name}"). Picking the first one.')
-                # pass through
-            item = self.meta_master.get_for_id(parent_ids[0])
-
     def get_all_for_path(self, path: str) -> List[Identifier]:
         return self.meta_master.get_all_ids_for_path(path)
