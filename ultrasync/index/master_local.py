@@ -130,7 +130,7 @@ class LocalDiskMasterCache:
                     fmeta_tree.add_item(change)
 
             # logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
-            logger.debug(f'{stopwatch_load} Loaded {fmeta_tree.get_stats_string()}')
+            logger.debug(f'{stopwatch_load} Loaded {fmeta_tree}')
 
             cache_info.is_loaded = True
             return fmeta_tree

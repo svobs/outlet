@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 from typing import Dict, List, Optional, Union, ValuesView
@@ -16,36 +17,6 @@ logger = logging.getLogger(__name__)
 
 """
 ━━━━━━━━━━━━━━━━━┛ ✠ ┗━━━━━━━━━━━━━━━━━
-                  FMetaList
-━━━━━━━━━━━━━━━━━┓ ✠ ┏━━━━━━━━━━━━━━━━━
-"""
-
-
-class FMetaList:
-    def __init__(self):
-        self.list: List[FMeta] = []
-        self._total_count: int = 0
-        self._total_size_bytes: int = 0
-
-    def add(self, item):
-        self.list.append(item)
-        if item.size_bytes:
-            self._total_size_bytes += item.size_bytes
-        # else:
-        #     logger.debug(f'Object has no size: {item}')
-        self._total_count += 1
-
-    @property
-    def size_bytes(self):
-        return self._total_size_bytes
-
-    @property
-    def file_count(self):
-        return self._total_count
-
-
-"""
-━━━━━━━━━━━━━━━━━┛ ✠ ┗━━━━━━━━━━━━━━━━━
                   FMetaTree
 ━━━━━━━━━━━━━━━━━┓ ✠ ┏━━━━━━━━━━━━━━━━━
 """
@@ -61,12 +32,7 @@ class FMetaTree(SubtreeSnapshot):
         self._path_dict: Dict[str, FMeta] = {}
         # Each item contains a list of entries
         self._md5_dict: Dict[str, List[FMeta]] = {}
-        self._cat_dict: Dict[Category, FMetaList] = {Category.Ignored: FMetaList(),
-                                                     Category.Added: FMetaList(),
-                                                     Category.Deleted: FMetaList(),
-                                                     Category.Moved: FMetaList(),
-                                                     Category.Updated: FMetaList(),
-                                                     }
+        self._ignored_items: List[FMeta] = []
         self._dup_md5_count = 0
         self._total_size_bytes = 0
 
@@ -78,56 +44,19 @@ class FMetaTree(SubtreeSnapshot):
     def tree_type(self):
         return constants.OBJ_TYPE_LOCAL_DISK
 
-    def create_identifier(self, full_path, category):
+    @classmethod
+    def create_identifier(cls, full_path, category) -> Identifier:
         return LocalFsIdentifier(full_path=full_path, category=category)
 
-    def create_empty_subtree(self, subtree_root: Union[str, Identifier, DisplayNode]):
+    @classmethod
+    def create_empty_subtree(cls, subtree_root: Union[str, Identifier, DisplayNode]) -> SubtreeSnapshot:
         if type(subtree_root) == str:
             return FMetaTree(subtree_root)
         else:
             assert isinstance(subtree_root, Identifier) or isinstance(subtree_root, DisplayNode)
             return FMetaTree(subtree_root.full_path)
 
-    def categorize(self, fmeta, category: Category):
-        """🢄🢄🢄 Convenience method to use when building the tree.
-        Changes the category of the given fmeta, then adds it to the category dict.
-        Important: this method assumes the fmeta has already been assigned to the md5_dict
-        and path_dict"""
-        assert category != Category.NA
-        # param fmeta should already be a member of this tree
-        assert self.get_for_path(path=fmeta.full_path, include_ignored=True) == fmeta
-        fmeta.identifier.category = category
-        return self._cat_dict[category].add(fmeta)
-
-    def clear_categories(self):
-        for cat, cat_list in self._cat_dict.items():
-            if cat != Category.Ignored:
-                cat_list.list.clear()
-
-    def validate_categories(self):
-        errors = 0
-        for cat, cat_list in self._cat_dict.items():
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f'Examining Category {cat.name}')
-            by_path = {}
-            for fmeta in cat_list.list:
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f'Examining FMeta path: {fmeta.full_path}')
-                if fmeta.category != cat:
-                    if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f'ERROR: BAD CATEGORY: found: {fmeta.category}')
-                    errors += 1
-                existing = by_path.get(fmeta.full_path, None)
-                if existing is None:
-                    by_path[fmeta.full_path] = fmeta
-                else:
-                    if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f'ERROR: DUP IN CATEGORY: {fmeta.category.name}')
-                    errors += 1
-        if errors > 0:
-            raise RuntimeError(f'Category validation found {errors} errors')
-
-    def get_ancestor_identifiers_as_list(self, item) -> List[Identifier]:
+    def get_ancestor_chain(self, item) -> List[Identifier]:
         relative_path = self.get_relative_path_for_item(item)
         path_segments: List[str] = file_util.split_path(relative_path)
 
@@ -145,8 +74,8 @@ class FMetaTree(SubtreeSnapshot):
         """
         return self._path_dict.values()
 
-    def get_for_cat(self, category: Category):
-        return self._cat_dict[category].list
+    def get_ignored_items(self):
+        return self._ignored_items
 
     def get_full_path_for_item(self, item: FMeta) -> str:
         # Trivial for FMetas
@@ -224,6 +153,7 @@ class FMetaTree(SubtreeSnapshot):
         if item.category == Category.Ignored:
             # ignored files may not have md5s
             logger.debug(f'Found ignored file: {item.full_path}')
+            self._ignored_items.append(item)
         elif not item.md5:
             logger.debug(f'File has no MD5: {item.full_path}')
         else:
@@ -252,22 +182,6 @@ class FMetaTree(SubtreeSnapshot):
 
         self._path_dict[item.full_path] = item
 
-        if item.category != Category.NA:
-            self._cat_dict[item.category].add(item)
-
-    def get_category_summary_string(self):
-        summary = []
-        for cat in self._cat_dict.keys():
-            length = len(self._cat_dict[cat].list)
-            summary.append(f'{cat.name}={length}')
-        return ' '.join(summary)
-
-    def get_stats_string(self):
-        """
-        For internal use only
-        """
-        return self.__repr__()
-
     def get_summary(self):
         """
         Returns: summary of the aggregate FMeta in this tree.
@@ -276,16 +190,16 @@ class FMetaTree(SubtreeSnapshot):
         'deleted' meta, as well as 'ignored' meta. We subtract that out here.
 
         """
-        ignored_count = self._cat_dict[Category.Ignored].file_count
-        ignored_size = self._cat_dict[Category.Ignored].size_bytes
+        ignored_count = len(self._ignored_items)
+        ignored_size = 0
+        for ignored in self._ignored_items:
+            if ignored.size_bytes:
+                ignored_size += ignored.size_bytes
 
-        deleted_count = self._cat_dict[Category.Deleted].file_count
-        deleted_size = self._cat_dict[Category.Deleted].size_bytes
-
-        total_size = self._total_size_bytes - ignored_size - deleted_size
+        total_size = self._total_size_bytes - ignored_size
         size_hf = format_util.humanfriendlier_size(total_size)
 
-        count = len(self._path_dict) - ignored_count - deleted_count
+        count = len(self._path_dict) - ignored_count
 
         summary_string = f'{size_hf} total in {format_util.with_commas(count)} files'
         if ignored_count > 0:

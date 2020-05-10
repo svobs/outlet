@@ -17,7 +17,6 @@ from model.fmeta import Category
 from ui.tree.lazy_display_strategy import LazyDisplayStrategy
 from ui.tree.fmeta_action_handlers import FMetaTreeActionHandlers
 from ui.tree.gdrive_action_handlers import GDriveActionHandlers
-from ui.tree.fmeta_change_strategy import FMetaChangeTreeStrategy
 from ui.comp.root_dir_panel import RootDirPanel
 
 from ui.tree.controller import TreePanelController
@@ -97,11 +96,11 @@ class TreeFactory:
         else:
             raise RuntimeError('"root" and "tree" are both empty!')
 
+        display_strategy = LazyDisplayStrategy(config=self.parent_win.config)
+
         if tree_type == constants.OBJ_TYPE_GDRIVE:
-            display_strategy = LazyDisplayStrategy(config=self.parent_win.config)
             action_handlers = GDriveActionHandlers(config=self.parent_win.config)
         elif tree_type == constants.OBJ_TYPE_LOCAL_DISK:
-            display_strategy = FMetaChangeTreeStrategy(config=self.parent_win.config)
             action_handlers = FMetaTreeActionHandlers(config=self.parent_win.config)
         else:
             raise RuntimeError(f'Unsupported tree type: {tree_type}')

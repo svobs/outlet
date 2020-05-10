@@ -1,5 +1,5 @@
 import copy
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 import logging
 
 import treelib
@@ -18,17 +18,20 @@ CATEGORIES = [Category.Added, Category.Deleted, Category.Moved, Category.Updated
 
 
 class CategoryDisplayTree:
-    def __init__(self, root_identifier: Identifier):
+    def __init__(self, root: Union[DisplayNode, Identifier]):
         self._category_trees: Dict[Category, treelib.Tree] = {}
         """One tree per category"""
 
-        self._root_identifier = root_identifier
+        if isinstance(root, DisplayNode):
+            self.identifier: Identifier = root.identifier
+        else:
+            self.identifier: Identifier = root
         self._roots: Dict[Category, treelib.Node] = {}
         """Don't know of an easy way to get the roots of each tree...just hold the refs here"""
 
         for category in CATEGORIES:
             # Make CategoryNode:
-            category_node = _make_category_node(root_identifier, category)
+            category_node = self._make_category_node(category)
 
             # Make treelib.Tree
             category_tree = treelib.Tree()
@@ -41,7 +44,30 @@ class CategoryDisplayTree:
 
     @property
     def tree_type(self) -> int:
-        return self._root_identifier.tree_type
+        return self.identifier.tree_type
+
+    @property
+    def root_path(self):
+        return self.identifier.full_path
+
+    @property
+    def uid(self):
+        return self.identifier.uid
+
+    @classmethod
+    def create_empty_subtree(cls, subtree_root: Union[str, Identifier, DisplayNode]):
+        if type(subtree_root) == str:
+            return CategoryDisplayTree(cls.create_identifier(subtree_root, Category.NA))
+        elif isinstance(subtree_root, Identifier):
+            return CategoryDisplayTree(subtree_root)
+        else:
+            assert isinstance(subtree_root, Identifier) or isinstance(subtree_root, DisplayNode)
+            return CategoryDisplayTree(subtree_root)
+
+    @classmethod
+    def create_identifier(cls, full_path: str, category: Category) -> Identifier:
+        """Create a new identifier of the type matching this tree"""
+        return LogicalNodeIdentifier(uid=full_path, full_path=full_path, category=category)
 
     def get_children_for_root(self) -> Iterable[DisplayNode]:
         return list(map(lambda x: x.data, self._roots.values()))
@@ -57,7 +83,7 @@ class CategoryDisplayTree:
                 for child in category_tree.children(parent_identifier.uid):
                     children.append(child.data)
             except Exception:
-                logger.debug(f'CategoryTree for "{self.tree.identifier}": ' + category_tree.show(stdout=False))
+                logger.debug(f'CategoryTree for "{self.identifier}": ' + category_tree.show(stdout=False))
                 raise
 
         return children
@@ -73,7 +99,7 @@ class CategoryDisplayTree:
             # from each file's path, and we don't want to display empty dirs when there's no file of that category
             logger.warning(f'Skipping dir node: {item}')
             return
-        ancestor_identifiers = source_tree.get_ancestor_identifiers_as_list(item)
+        ancestor_identifiers = source_tree.get_ancestor_chain(item)
         # nid == Node ID == directory name
         parent = root
         parent.data.add_meta_emtrics(item)
@@ -111,9 +137,8 @@ class CategoryDisplayTree:
             summary.append(f'{category.name}: {cat_node.get_summary()}')
         return ', '.join(summary)
 
-
-def _make_category_node(tree_root_identifier: Identifier, category):
-    # uid must be unique within the tree
-    cat_id: LogicalNodeIdentifier = LogicalNodeIdentifier(uid=f'Category:{category.name}',
-                                                          full_path=tree_root_identifier.full_path, category=category)
-    return CategoryNode(cat_id)
+    def _make_category_node(self, category: Category):
+        # uid must be unique within the tree
+        cat_id: LogicalNodeIdentifier = LogicalNodeIdentifier(uid=f'Category:{category.name}',
+                                                              full_path=self.identifier.full_path, category=category)
+        return CategoryNode(cat_id)

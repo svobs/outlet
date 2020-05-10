@@ -1,29 +1,24 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Union
 
-from model.category import Category
 from model.display_id import Identifier
 from model.display_node import DisplayNode
 
+
+# ABSTRACT CLASS SubtreeSnapshot
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 class SubtreeSnapshot(ABC):
     def __init__(self, root_identifier: Identifier):
         super().__init__()
         self.identifier: Identifier = root_identifier
 
+    # From the root identifier
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
     @property
     def tree_type(self) -> int:
-        return 0
-
-    @abstractmethod
-    def create_empty_subtree(self, subtree_root_node: DisplayNode):
-        """Return a new empty subtree with the given root and which is of the same type of this tree"""
-        return
-
-    @abstractmethod
-    def get_all(self) -> List[DisplayNode]:
-        """Returns the complete set of all unique items from this subtree."""
-        return []
+        return self.identifier.tree_type
 
     @property
     def root_path(self):
@@ -33,20 +28,35 @@ class SubtreeSnapshot(ABC):
     def uid(self):
         return self.identifier.uid
 
+    # Factory methods
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
+    @classmethod
     @abstractmethod
-    def categorize(self, item, category: Category):
+    def create_empty_subtree(cls, subtree_root_identifier: Identifier):
+        """Return a new empty subtree with the given root and which is of the same type of this tree"""
+        return
+
+    @classmethod
+    @abstractmethod
+    def create_identifier(cls, full_path, category) -> Identifier:
+        """Create a new identifier of the type matching this tree"""
         pass
 
-    @abstractmethod
-    def clear_categories(self):
-        pass
+    # Getters & search
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
     @abstractmethod
-    def validate_categories(self):
-        pass
+    def get_all(self) -> List[DisplayNode]:
+        """Returns the complete set of all unique items from this subtree."""
+        return []
 
     @abstractmethod
-    def get_ancestor_identifiers_as_list(self, item) -> List[Identifier]:
+    def get_ignored_items(self):
+        return []
+
+    @abstractmethod
+    def get_ancestor_chain(self, item) -> List[Identifier]:
         pass
 
     @abstractmethod
@@ -62,10 +72,6 @@ class SubtreeSnapshot(ABC):
         pass
 
     @abstractmethod
-    def get_for_cat(self, category: Category):
-        pass
-
-    @abstractmethod
     def get_md5_set(self):
         pass
 
@@ -73,19 +79,16 @@ class SubtreeSnapshot(ABC):
     def get_for_md5(self, md5) -> List[DisplayNode]:
         pass
 
+    # Setter
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
     @abstractmethod
     def add_item(self, item):
         pass
 
+    # Stats
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
     @abstractmethod
     def get_summary(self):
-        pass
-
-    @abstractmethod
-    def get_category_summary_string(self):
-        pass
-
-    @abstractmethod
-    def create_identifier(self, full_path, category):
-        """Create a new identifier of the type matching this tree"""
         pass

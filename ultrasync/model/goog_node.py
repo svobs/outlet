@@ -187,6 +187,13 @@ class GoogFile(GoogNode):
                 self.owner_id, self.drive_id, self.my_share, self.version, self.head_revision_id, self.sync_ts)
 
 
+"""
+◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+    CLASS FolderToAdd
+◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+"""
+
+
 class FolderToAdd(PlanningNode, GoogNode):
     def __init__(self, dest_path):
         GoogNode.__init__(self, item_id=dest_path, item_name=os.path.basename(dest_path), trashed=NOT_TRASHED, drive_id=None,

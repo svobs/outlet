@@ -86,7 +86,7 @@ def _build_display_tree(source_tree: SubtreeSnapshot, root_node) -> treelib.Tree
             # (2) there's nothing for us in these objects from a display perspective. The name can be inferred
             # from each file's path, and we don't want to display empty dirs when there's no file of that category
             continue
-        ancestor_identifiers = source_tree.get_ancestor_identifiers_as_list(item)
+        ancestor_identifiers = source_tree.get_ancestor_chain(item)
         # nid == Node ID == directory name
         parent = root
         parent.data.add_meta_emtrics(item)

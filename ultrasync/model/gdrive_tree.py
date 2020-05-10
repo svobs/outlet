@@ -60,15 +60,15 @@ class GDriveTree:
 
         return self.first_parent_dict.get(parent_id, [])
 
-    def get_for_id(self, goog_id) -> Optional[GoogNode]:
+    def get_item_for_id(self, goog_id: str) -> Optional[GoogNode]:
         assert goog_id
         return self.id_dict.get(goog_id, None)
 
-    def get_path_for_id(self, goog_id: str, stop_before_id: str = None) -> str:
+    def _get_path_for_id(self, goog_id: str, stop_before_id: str = None) -> str:
         """Gets the filesystem-like-path for the item with the given GoogID.
         If stop_before_id is given, treat it as the subtree root and stop before including it; otherwise continue
         until a parent cannot be found, or until the root of the tree is reached"""
-        item = self.get_for_id(goog_id)
+        item = self.get_item_for_id(goog_id)
         if not item:
             raise RuntimeError(f'Item not found: id={goog_id}')
 
@@ -84,7 +84,7 @@ class GDriveTree:
             parent_ids: List[str] = item.parent_ids
             if parent_ids:
                 if len(parent_ids) > 1:
-                    resolved_parent_ids = [x for x in parent_ids if self.get_for_id(x)]
+                    resolved_parent_ids = [x for x in parent_ids if self.get_item_for_id(x)]
                     if len(resolved_parent_ids) > 1:
                         # If we see this, need to investigate
                         logger.warning(f'Multiple parents found for {item.uid} ("{item.name}"). Picking the first one.')
@@ -93,10 +93,10 @@ class GDriveTree:
                         # pass through
                     elif SUPER_DEBUG:
                         logger.debug(f'Found multiple parents for item but only one is valid: item={item.uid} ("{item.name}")')
-                    item = self.get_for_id(resolved_parent_ids[0])
+                    item = self.get_item_for_id(resolved_parent_ids[0])
                     # pass through
                 else:
-                    item = self.get_for_id(parent_ids[0])
+                    item = self.get_item_for_id(parent_ids[0])
 
                 if not item:
                     # Parent refs cannot be resolved == root of subtree
@@ -188,7 +188,7 @@ class GDriveWholeTree(GDriveTree):
             return item.full_path
 
         # Set in the item for future use:
-        full_path = self.get_path_for_id(item.uid)
+        full_path = self._get_path_for_id(item.uid)
         item.identifier.full_path = full_path
         return full_path
 
@@ -196,7 +196,7 @@ class GDriveWholeTree(GDriveTree):
         """Called when adding from Google API, or when slicing a metastore"""
         added_item = super().add_item(item)
 
-        if added_item and len(added_item.parent_ids) == 0:
+        if added_item and not added_item.parent_ids:
             self.roots.append(item)
 
         return item
@@ -269,30 +269,33 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
     def __init__(self, root_node: GoogNode):
         GDriveTree.__init__(self)
         SubtreeSnapshot.__init__(self, root_identifier=root_node.identifier)
-        self.root_node = root_node
+        self._root_node = root_node
+        self._ignored_items: List[GoogNode] = []
 
         self._md5_dict: Md5BeforeUidDict = Md5BeforeUidDict()
 
-        self._cat_dict: Dict[Category, List[GoogNode]] = {Category.Ignored: [],
-                                                          Category.Added: [],
-                                                          Category.Deleted: [],
-                                                          Category.Moved: [],
-                                                          Category.Updated: [],
-                                                          }
+    @property
+    def root_node(self):
+        return self._root_node
 
-    def create_empty_subtree(self, subtree_root_node: GoogNode):
+    @classmethod
+    def create_empty_subtree(cls, subtree_root_node: GoogNode) -> SubtreeSnapshot:
         return GDriveSubtree(subtree_root_node)
 
-    def create_identifier(self, full_path, category):
+    @classmethod
+    def create_identifier(cls, full_path, category) -> Identifier:
         return GDriveIdentifier(uid=full_path, full_path=full_path, category=category)
 
     @property
     def root_path(self):
-        return self.root_node.full_path
+        return self._root_node.full_path
 
     @property
     def root_id(self):
-        return self.root_node.uid
+        return self._root_node.uid
+
+    def get_ignored_items(self):
+        return self._ignored_items
 
     def __eq__(self, other):
         if self.uid == constants.ROOT:
@@ -305,9 +308,6 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
     def __repr__(self):
         return f'GDriveSubtree(root_id={self.root_id} root_path="{self.root_path}" id_count={len(self.id_dict)} ' \
                f'parent_count={len(self.first_parent_dict)} md5_count={self._md5_dict.total_entries})'
-
-    def get_for_cat(self, category: Category):
-        return self._cat_dict[category]
 
     def get_for_md5(self, md5) -> Union[List[GoogNode], ValuesView[GoogNode]]:
         uid_dict = self._md5_dict.get_second_dict(md5)
@@ -328,7 +328,7 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
             # Does item already have a full_path? Just return that (huge speed gain):
             return item.full_path
 
-        rel_path = self.get_path_for_id(item.uid, self.root_id)
+        rel_path = self._get_path_for_id(item.uid, self.root_id)
         full_path = os.path.join(self.root_path, rel_path)
         # Set in the item for future use:
         item.identifier.full_path = full_path
@@ -342,7 +342,7 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         """
         relative_path = file_util.strip_root(path, self.root_path)
         name_segments = file_util.split_path(relative_path)
-        current = self.root_node
+        current = self._root_node
         path_so_far = ''
         for name_seg in name_segments:
             path_so_far = os.path.join(path_so_far, name_seg)
@@ -370,6 +370,7 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
     def add_item(self, item):
         """Called when adding from Google API, or when slicing a metastore"""
 
+        # FIXME: remove support for planning nodes here
         # Some extra validation here to be safe:
         is_planning_node = isinstance(item, PlanningNode)
         existing_item = self.id_dict.get(item.uid, None)
@@ -397,8 +398,8 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
             else:
                 added_item.identifier.category = Category.Ignored
 
-        if item.category != Category.NA:
-            self._cat_dict[item.category].append(item)
+        if item.category == Category.Ignored:
+            self._ignored_items.append(item)
 
     def validate(self):
         logger.debug(f'Validating GDriveSubtree "{self.root_path}"...')
@@ -408,11 +409,14 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         if not self.root_path:
             logger.error('No root path!')
 
+        if not self._root_node:
+            logger.error('No root node!')
+
         # Validate parent dict:
         for parent_id, children in self.first_parent_dict.items():
             unique_child_ids = {}
             for child in children:
-                if not self.get_for_id(child.uid):
+                if not self.get_item_for_id(child.uid):
                     logger.error(f'Child present in child list of parent {parent_id} but not found in id_dict: {child}')
                 duplicate_child = unique_child_ids.get(child.uid)
                 if duplicate_child:
@@ -424,22 +428,13 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
             if item_id != item.uid:
                 logger.error(f'[!!!] Item actual ID does not match its key in the ID dict ({item_id}): {item}')
             if len(item.parent_ids) > 1:
-                resolved_parent_ids = [x for x in item.parent_ids if self.get_for_id(x)]
+                resolved_parent_ids = [x for x in item.parent_ids if self.get_item_for_id(x)]
                 if len(resolved_parent_ids) > 1:
                     logger.error(f'Found multiple valid parent_ids for item: {item}: parent_ids={resolved_parent_ids}')
 
         logger.debug(f'Done validating GDriveSubtree "{self.root_path}"')
 
-    def clear_categories(self):
-        for cat, cat_list in self._cat_dict.items():
-            if cat != Category.Ignored:
-                cat_list.clear()
-
-    def validate_categories(self):
-        # TODO
-        pass
-
-    def get_ancestor_identifiers_as_list(self, item: GoogNode) -> List[Identifier]:
+    def get_ancestor_chain(self, item: GoogNode) -> List[Identifier]:
         identifiers = []
 
         # kind of a kludge but I don't care right now
@@ -448,7 +443,7 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
             name_segments = file_util.split_path(relative_path)
             # Skip last item (it's the file name)
             name_segments.pop()
-            current_identifier: Identifier = self.root_node.identifier
+            current_identifier: Identifier = self._root_node.identifier
             path_so_far = current_identifier.full_path
             for name_seg in name_segments:
                 path_so_far = os.path.join(path_so_far, name_seg)
@@ -476,13 +471,13 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         while True:
             if item.parent_ids:
                 if len(item.parent_ids) > 1:
-                    resolved_parent_ids = [x for x in item.parent_ids if self.get_for_id(x)]
+                    resolved_parent_ids = [x for x in item.parent_ids if self.get_item_for_id(x)]
                     if len(resolved_parent_ids) > 1:
                         logger.error(f'Found multiple valid parents for item: {item}: parents={resolved_parent_ids}')
                     assert len(resolved_parent_ids) == 1
-                    item = self.get_for_id(resolved_parent_ids[0])
+                    item = self.get_item_for_id(resolved_parent_ids[0])
                 else:
-                    item = self.get_for_id(item.parent_ids[0])
+                    item = self.get_item_for_id(item.parent_ids[0])
                 if item and item.uid != self.identifier.uid:
                     identifiers.append(item.identifier)
                     continue
@@ -493,7 +488,7 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         if goog_node.full_path:
             return file_util.strip_root(goog_node.full_path, self.root_path)
         # Get the path for the given ID, relative to the root of this subtree
-        return self.get_path_for_id(goog_node.uid, self.root_id)
+        return self._get_path_for_id(goog_node.uid, self.root_id)
 
     def get_summary(self):
         file_count = 0
@@ -506,20 +501,6 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
                 folder_count += 1
         return f'{file_count:n} files and {folder_count:n} folders in subtree '
 
-    def categorize(self, item: GoogNode, category: Category):
-        assert category != Category.NA
-        # param item should already be a member of this tree
-        assert self.get_for_id(goog_id=item.uid) == item
-        item.identifier.category = category
-        return self._cat_dict[category].append(item)
-
-    def get_category_summary_string(self):
-        summary = []
-        for cat in self._cat_dict.keys():
-            length = len(self._cat_dict[cat])
-            summary.append(f'{cat.name}={length}')
-        return ' '.join(summary)
-
     def make_parents_if_not_exist(self, item: FileDecoratorNode):
         """
         Compare this to get_for_path(). TODO: combine these
@@ -528,8 +509,8 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         name_segments = file_util.split_path(relative_path)
         # Skip last item (it's the file name)
         name_segments.pop()
-        current: GoogNode = self.root_node
-        path_so_far = self.root_node.full_path
+        current: GoogNode = self._root_node
+        path_so_far = self._root_node.full_path
         for name_seg in name_segments:
             path_so_far = os.path.join(path_so_far, name_seg)
             children: List[GoogNode] = self.get_children(current.uid)

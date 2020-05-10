@@ -107,12 +107,12 @@ class TreePanelController:
             items.append(item)
         return items
 
-    def get_checked_rows_as_tree(self) -> SubtreeSnapshot:
+    def get_checked_rows_as_list(self) -> List[DisplayNode]:
         timer = Stopwatch()
-        subtree: SubtreeSnapshot = self.display_strategy.get_checked_rows_as_tree()
-        logger.debug(f'{timer} Retreived checked rows: {subtree.get_summary()}')
+        checked_rows: List[DisplayNode] = self.display_strategy.get_checked_rows_as_list()
+        logger.debug(f'{timer} Retreived {len(checked_rows)} checked rows')
 
-        return subtree
+        return checked_rows
 
     def get_tree(self):
         return self.tree_builder.get_tree()

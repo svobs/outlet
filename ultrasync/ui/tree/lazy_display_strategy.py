@@ -72,15 +72,17 @@ class LazyDisplayStrategy:
         """Do post-wiring stuff like connect listeners."""
         self.use_empty_nodes = self.con.config.get('display.diff_tree.use_empty_nodes')
 
-        dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.con.treeview_meta.tree_id)
+        if self.con.treeview_meta.lazy_load:
+            dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled,
+                               sender=self.con.treeview_meta.tree_id)
 
-    def get_checked_rows_as_tree(self) -> SubtreeSnapshot:
-        """Returns a SubtreeSnapshot which contains the DisplayNodes of the rows which are currently
-        checked by the user (including collapsed rows). This will be a subset of the SubtreeSnapshot which was used to
+    def get_checked_rows_as_list(self) -> List[DisplayNode]:
+        """Returns a list which contains the DisplayNodes of the items which are currently checked by the user
+        (including collapsed rows). This will be a subset of the SubtreeSnapshot which was used to
         populate this tree. Includes file nodes only; does not include directory nodes."""
         assert self.con.treeview_meta.has_checkboxes
         # subtree root will be the same as the current subtree's
-        subtree: SubtreeSnapshot = self.con.get_tree().create_empty_subtree(self.con.get_tree().root_node)
+        checked_items: List[DisplayNode] = []
 
         # Algorithm:
         # Iterate over display nodes. Start with top-level nodes.
@@ -109,12 +111,12 @@ class LazyDisplayStrategy:
         while not whitelist.empty():
             chosen_node: DisplayNode = whitelist.get()
             if not chosen_node.is_dir():
-                subtree.add_item(chosen_node)
+                checked_items.append(chosen_node)
             children = self.con.tree_builder.get_children(chosen_node)
             for child in children:
                 whitelist.put(child)
 
-        return subtree
+        return checked_items
 
     # LISTENERS begin
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
@@ -122,9 +124,6 @@ class LazyDisplayStrategy:
     def _on_node_expansion_toggled(self, sender: str, parent_iter, node_data: DisplayNode, is_expanded: bool):
         # Callback for actions.NODE_EXPANSION_TOGGLED:
         logger.debug(f'Node expansion toggled to {is_expanded} for cat={node_data.category} id="{node_data.uid}" tree_id={sender}')
-
-        if not self.con.treeview_meta.lazy_load:
-            return
 
         def expand_or_contract():
             # Add children for node:

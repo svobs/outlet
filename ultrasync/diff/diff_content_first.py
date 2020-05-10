@@ -92,21 +92,21 @@ class PathTransplanter:
         dest_path = self.move_to_left(right_item)
         orig_path = self.left_tree.get_full_path_for_item(left_item)
         identifier = self.left_tree.create_identifier(full_path=dest_path, category=Category.Moved)
-        move_left_to_left = FileToMove(identifier=identifier, orig_path=orig_path, original_node=left_item)
+        move_left_to_left = FileToMove(identifier=identifier, original_node=left_item)
         self.change_tree_left.add_item(move_left_to_left, Category.Moved, self.left_tree)
 
     def plan_add_file_left_to_right(self, left_item):
         dest_path = self.move_to_right(left_item)
         orig_path = self.left_tree.get_full_path_for_item(left_item)
         identifier = self.right_tree.create_identifier(full_path=dest_path, category=Category.Added)
-        file_to_add_to_right = FileToAdd(identifier=identifier, orig_path=orig_path, original_node=left_item)
+        file_to_add_to_right = FileToAdd(identifier=identifier, original_node=left_item)
         self.change_tree_right.add_item(file_to_add_to_right, Category.Added, self.right_tree)
 
     def plan_add_file_right_to_left(self, right_item):
         dest_path = self.move_to_left(right_item)
         orig_path = self.right_tree.get_full_path_for_item(right_item)
         identifier = self.left_tree.create_identifier(full_path=dest_path, category=Category.Added)
-        file_to_add_to_left = FileToAdd(identifier=identifier, orig_path=orig_path, original_node=right_item)
+        file_to_add_to_left = FileToAdd(identifier=identifier, original_node=right_item)
         self.change_tree_left.add_item(file_to_add_to_left, Category.Added, self.left_tree)
 
 
@@ -245,24 +245,20 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
             count_add_delete_pairs += 1
 
     logger.info(f'Done with diff (pairs: add/del={count_add_delete_pairs} upd={count_updated_pairs} moved={count_moved_pairs})'
-                f' Left:[{left_tree.get_category_summary_string()}] Right:[{right_tree.get_category_summary_string()}]')
-
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.debug('Validating categories on Left...')
-        left_tree.validate_categories()
-        logger.debug('Validating categories on Right...')
-        right_tree.validate_categories()
+                f' Left:[{change_tree_left.get_summary()}] Right:[{change_tree_right.get_summary()}]')
 
     # Copy ignored items to change trees:
-    for item in left_tree.get_for_cat(Category.Ignored):
+    for item in left_tree.get_ignored_items():
         change_tree_left.add_item(item, Category.Ignored, left_tree)
-    for item in right_tree.get_for_cat(Category.Ignored):
+    for item in right_tree.get_ignored_items():
         change_tree_right.add_item(item, Category.Ignored, right_tree)
 
     return change_tree_left, change_tree_right
 
 
-def merge_change_trees(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, check_for_conflicts=True):
+def merge_change_trees(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot,
+                       left_selected_changes: List[DisplayNode], right_selected_changes: List[DisplayNode],
+                       check_for_conflicts=True):
     new_root_path = file_util.find_nearest_common_ancestor(left_tree.root_path, right_tree.root_path)
     merged_tree = FMetaTree(root_path=new_root_path)
 

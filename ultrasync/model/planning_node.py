@@ -26,17 +26,19 @@ class PlanningNode(DisplayNode, ABC):
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 class FileDecoratorNode(PlanningNode, ABC):
-    def __init__(self, identifier, orig_path, original_node):
+    """Decorates a previously existing DisplayNode."""
+    def __init__(self, identifier: Identifier, original_node: DisplayNode):
         super().__init__(identifier)
-        self.original_node = original_node
-        # GoogNodes do not have a path built-in, so we must store them preemptively
-        self._orig_full_path = orig_path
-        self._parent_ids = None
+
+        self.original_node: DisplayNode = original_node
+        """The original node (e.g., for a FileToAdd, this would be the "source node"""
+
+        self._parent_ids: Optional[List[str]] = None
         """Only used in Goog trees currently"""
 
     @property
     def original_full_path(self):
-        return self._orig_full_path
+        return self.original_node.full_path
 
     @property
     def dest_path(self):
@@ -91,11 +93,13 @@ class FileDecoratorNode(PlanningNode, ABC):
 
     @property
     def parent_ids(self) -> List[str]:
-        if not self._parent_ids:
-            return []
-        if isinstance(self._parent_ids, list):
-            return self._parent_ids
-        return [self._parent_ids]
+        if self._parent_ids:
+            if isinstance(self._parent_ids, list):
+                return self._parent_ids
+            elif isinstance(self._parent_ids, str):
+                return [self._parent_ids]
+            assert False
+        return []
 
     @parent_ids.setter
     def parent_ids(self, parent_ids):
@@ -116,9 +120,10 @@ class FileDecoratorNode(PlanningNode, ABC):
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 class FileToAdd(FileDecoratorNode):
-    # NOTE: this decorates its enclosed FMeta, EXCEPT for pathname stuff!
-    def __init__(self, identifier, orig_path, original_node):
-        super().__init__(identifier, orig_path, original_node)
+    """Decorates a previously existing DisplayNode ('original_node'). This node's identifier stores the
+     full path of the destination and the type of the destination tree."""
+    def __init__(self, identifier: Identifier, original_node: DisplayNode):
+        super().__init__(identifier, original_node)
 
     def __repr__(self):
         return f'FileToAdd(original_path={self.original_full_path} dest_path={self.dest_path} md5={self.original_node.md5})'
@@ -128,9 +133,9 @@ class FileToAdd(FileDecoratorNode):
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 class FileToMove(FileDecoratorNode):
-    # NOTE: this decorates its enclosed FMeta, EXCEPT for pathname stuff!
-    def __init__(self, identifier, orig_path, original_node):
-        super().__init__(identifier, orig_path, original_node)
+    """See notes for FileToAdd"""
+    def __init__(self, identifier: Identifier, original_node: DisplayNode):
+        super().__init__(identifier, original_node)
 
     def __repr__(self):
         return f'FileToMove(original_path={self.original_full_path} dest_path={self.dest_path} md5={self.original_node.md5})'

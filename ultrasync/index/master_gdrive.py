@@ -57,7 +57,7 @@ class GDriveMasterCache:
         self.meta_master = meta
 
     def _slice_off_subtree_from_master(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveSubtree:
-        root: GoogNode = self.meta_master.get_for_id(subtree_root.uid)
+        root: GoogNode = self.meta_master.get_item_for_id(subtree_root.uid)
         if not root:
             return None
 

@@ -1,9 +1,11 @@
 import logging
+from typing import List
 
 import gi
 
 from constants import TreeDisplayMode
 from model.display_id import Identifier
+from model.display_node import DisplayNode
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk
@@ -228,15 +230,13 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         logger.debug('Merge btn clicked')
 
         try:
-            left_selected_changes = self.tree_con_left.get_checked_rows_as_tree()
-            logger.info(f'Left changes: {left_selected_changes.get_summary()}')
-            right_selected_changes = self.tree_con_right.get_checked_rows_as_tree()
-            logger.info(f'Right changes: {right_selected_changes.get_summary()}')
-            if len(left_selected_changes.get_all()) == 0 and len(right_selected_changes.get_all()) == 0:
+            left_selected_changes: List[DisplayNode] = self.tree_con_left.get_checked_rows_as_list()
+            right_selected_changes: List[DisplayNode] = self.tree_con_right.get_checked_rows_as_list()
+            if len(left_selected_changes) == 0 and len(right_selected_changes) == 0:
                 self.show_error_msg('You must select change(s) first.')
                 return
 
-            merged_changes_tree, conflict_pairs = diff_content_first.merge_change_trees(left_selected_changes, right_selected_changes)
+            merged_changes_tree, conflict_pairs = diff_content_first.merge_change_trees(self.tree_con_left.get_tree(), self.tree_con_right.get_tree(), left_selected_changes, right_selected_changes)
             if conflict_pairs is not None:
                 # TODO: more informative error
                 self.show_error_msg('Cannot merge', f'{len(conflict_pairs)} conflicts found')
