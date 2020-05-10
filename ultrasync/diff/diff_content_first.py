@@ -5,7 +5,10 @@ import file_util
 import os
 import logging
 
+from constants import OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED, ROOT
+from model import display_id
 from model.category import Category
+from model.display_id import Identifier, LogicalNodeIdentifier
 from model.display_node import DisplayNode
 from model.fmeta_tree import FMetaTree
 from model.planning_node import FileToAdd, FileToMove
@@ -258,39 +261,24 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
 
 def merge_change_trees(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot,
                        left_selected_changes: List[DisplayNode], right_selected_changes: List[DisplayNode],
-                       check_for_conflicts=True):
-    new_root_path = file_util.find_nearest_common_ancestor(left_tree.root_path, right_tree.root_path)
-    merged_tree = FMetaTree(root_path=new_root_path)
-
-    md5_set = left_tree.get_md5_set() | right_tree.get_md5_set()
-
-    fixer = PathTransplanter(left_tree, right_tree)
-
-    conflict_pairs = []
-    for md5 in md5_set:
-        right_items_dup_md5 = right_tree.get_for_md5(md5)
-        left_items_dup_md5 = left_tree.get_for_md5(md5)
-
-        if check_for_conflicts and left_items_dup_md5 and right_items_dup_md5:
-            compare_result = _compare_paths_for_same_md5(left_items_dup_md5, left_tree, right_items_dup_md5, right_tree, fixer)
-            # Adds and deletes of the same file cancel each other out via the matching algo...
-            # Maybe just delete the conflict detection code because it will now never be hit.
-            for (left, right) in compare_result:
-                # Finding a pair here indicates a conflict
-                if left is not None and right is not None:
-                    conflict_pairs.append((left, right))
-                    logger.debug(f'CONFLICT: left={left.category.name}:{left_tree.get_full_path_for_item(left)} '
-                                 f'right={right.category.name}:{right_tree.get_full_path_for_item(right)}')
-        else:
-            if left_items_dup_md5:
-                for node in left_items_dup_md5:
-                    merged_tree.add_item(node)
-            if right_items_dup_md5:
-                for node in right_items_dup_md5:
-                    merged_tree.add_item(node)
-
-    if len(conflict_pairs) > 0:
-        logger.info(f'Number of conflicts found: {len(conflict_pairs)}')
-        return None, conflict_pairs
+                       check_for_conflicts=False) -> CategoryDisplayTree:
+    is_mixed_tree = left_tree.tree_type != right_tree.tree_type
+    if is_mixed_tree:
+        root = LogicalNodeIdentifier(uid=ROOT, full_path=ROOT, category=Category.NA, tree_type=OBJ_TYPE_MIXED)
     else:
-        return merged_tree, None
+        # FIXME: this needs support for GDrive<->GDrive
+        assert left_tree.tree_type == OBJ_TYPE_LOCAL_DISK
+        new_root_path = file_util.find_nearest_common_ancestor(left_tree.root_path, right_tree.root_path)
+        root: Identifier = display_id.for_values(tree_type=left_tree.tree_type, full_path=new_root_path, uid=new_root_path)
+
+    merged_tree = CategoryDisplayTree(root=root, extra_node_for_type=True)
+
+    for item in left_selected_changes:
+        merged_tree.add_item(item, item.category, left_tree)
+
+    for item in right_selected_changes:
+        merged_tree.add_item(item, item.category, right_tree)
+
+    # TODO: check for conflicts
+
+    return merged_tree

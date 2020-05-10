@@ -2,7 +2,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GdkPixbuf
 
-from constants import ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE
+from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_LOCAL_DISK, ICON_TRASHED_DIR, ICON_TRASHED_FILE
 
 from model.fmeta import Category
 
@@ -17,6 +17,9 @@ REFRESH_ICON_PATH = get_resource_path('resources/icons8-refresh-30.png')
 
 def _build_icons(icon_size):
     icons = dict()
+    # FIXME: need better icons for these two
+    icons[ICON_GDRIVE] = GdkPixbuf.Pixbuf.new_from_file(GDRIVE_ICON_PATH)
+    icons[ICON_LOCAL_DISK] = GdkPixbuf.Pixbuf.new_from_file(CHOOSE_ROOT_ICON_PATH)
     icons[ICON_GENERIC_FILE] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
     icons[ICON_GENERIC_DIR] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Folder-icon-{icon_size}px.png'))
     icons[ICON_TRASHED_DIR] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/recycle-bag-{icon_size}px.png'))

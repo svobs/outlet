@@ -6,7 +6,7 @@ from typing import Optional
 import humanfriendly
 
 import format_util
-from constants import ICON_GENERIC_DIR, ICON_GENERIC_FILE
+from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_LOCAL_DISK, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
 from model.display_id import Identifier
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ class DirNode(DisplayNode):
         self.file_count = 0
         self._size_bytes = 0
 
-    def add_meta_emtrics(self, fmeta):
+    def add_meta_metrics(self, fmeta):
         self.file_count += 1
         if fmeta.size_bytes:
             self._size_bytes += fmeta.size_bytes
@@ -107,7 +107,7 @@ class DirNode(DisplayNode):
         return f'{size} in {self.file_count:n} files'
 
     def __repr__(self):
-        return f'DirNode({self.identifier} {self.get_summary()})'
+        return f'DirNode({self.identifier} cat={self.category} {self.get_summary()})'
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
@@ -128,6 +128,25 @@ class CategoryNode(DirNode):
 
     def get_icon(self):
         return ICON_GENERIC_DIR
+
+
+class RootTypeNode(DirNode):
+    """
+    Represents a type of root in the tree (GDrive, local FS, etc.)
+    """
+    def __init__(self, identifier):
+        super().__init__(identifier=identifier)
+
+    def __repr__(self):
+        return f'RootTypeNode({self.name})'
+
+    def get_icon(self):
+        if self.identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
+            return ICON_LOCAL_DISK
+        elif self.identifier.tree_type == OBJ_TYPE_GDRIVE:
+            return ICON_GDRIVE
+        return ICON_GENERIC_DIR
+
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 

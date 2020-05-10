@@ -73,7 +73,7 @@ class TreeFactory:
                                      tree_id=self.tree_id,
                                      has_checkboxes=self.has_checkboxes,
                                      can_change_root=self.can_change_root,
-                                     tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS,
+                                     tree_display_mode=self.tree_display_mode,
                                      lazy_load=self.lazy_load,
                                      selection_mode=gtk_selection_mode,
                                      is_display_persisted=self.display_persisted,
@@ -101,6 +101,9 @@ class TreeFactory:
         if tree_type == constants.OBJ_TYPE_GDRIVE:
             action_handlers = GDriveActionHandlers(config=self.parent_win.config)
         elif tree_type == constants.OBJ_TYPE_LOCAL_DISK:
+            action_handlers = FMetaTreeActionHandlers(config=self.parent_win.config)
+        elif tree_type == constants.OBJ_TYPE_MIXED:
+            # TODO: mixed tree support
             action_handlers = FMetaTreeActionHandlers(config=self.parent_win.config)
         else:
             raise RuntimeError(f'Unsupported tree type: {tree_type}')

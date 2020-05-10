@@ -89,7 +89,7 @@ def _build_display_tree(source_tree: SubtreeSnapshot, root_node) -> treelib.Tree
         ancestor_identifiers = source_tree.get_ancestor_chain(item)
         # nid == Node ID == directory name
         parent = root
-        parent.data.add_meta_emtrics(item)
+        parent.data.add_meta_metrics(item)
 
         if ancestor_identifiers:
             # Create a node for each ancestor dir (path segment)
@@ -102,7 +102,7 @@ def _build_display_tree(source_tree: SubtreeSnapshot, root_node) -> treelib.Tree
                     child = display_tree.create_node(identifier=nid, parent=parent, data=dir_node)
                 parent = child
                 assert isinstance(parent.data, DirNode)
-                parent.data.add_meta_emtrics(item)
+                parent.data.add_meta_metrics(item)
 
         # Each node's ID will be either
         # logger.debug(f'Creating file node: nid={nid}')

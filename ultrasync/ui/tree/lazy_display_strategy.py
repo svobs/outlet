@@ -2,9 +2,10 @@ import logging
 import os
 from datetime import datetime
 from queue import Queue
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import gi
+import treelib
 
 from constants import LARGE_NUMBER_OF_CHILDREN, TreeDisplayMode
 from model.display_id import Identifier
@@ -46,17 +47,40 @@ class LazyDisplayStrategy:
         self.con = controller
         self.use_empty_nodes = True
 
+    def _populate_entire_tree(self, children: List[DisplayNode]):
+        def append_recursively(parent_iter, parent_uid, node: Union[treelib.Node, DisplayNode]):
+            if isinstance(node, treelib.Node):
+                node_data = node.data
+            else:
+                node_data = node
+            # Do a DFS of the change tree and populate the UI tree along the way
+            if node_data.is_dir():
+                parent_iter = self._append_dir_node(parent_iter=parent_iter, parent_uid=parent_uid, node_data=node_data)
+
+                for child in self.con.tree_builder.get_children(node_data.identifier):
+                    append_recursively(parent_iter, parent_uid, child)
+            else:
+                self._append_file_node(parent_iter, parent_uid, node_data)
+
+        for ch in children:
+            append_recursively(None, None, ch)
+
+        self.con.tree_view.expand_all()
+
     def populate_root(self):
         """Draws from the undelying data store as needed, to populate the display store."""
 
         # This may be a long task
-        children = self.con.tree_builder.get_children_for_root()
+        children: List[DisplayNode] = self.con.tree_builder.get_children_for_root()
 
         def update_ui():
             # Wipe out existing items:
             root_iter = self.con.display_store.clear_model()
 
-            self._append_children(children=children, parent_iter=root_iter, parent_uid=None)
+            if self.con.treeview_meta.lazy_load:
+                self._append_children(children=children, parent_iter=root_iter, parent_uid=None)
+            else:
+                self._populate_entire_tree(children)
 
             # This should fire expanded state listener to populate nodes as needed:
             if self.con.treeview_meta.is_display_persisted:
@@ -123,7 +147,7 @@ class LazyDisplayStrategy:
 
     def _on_node_expansion_toggled(self, sender: str, parent_iter, node_data: DisplayNode, is_expanded: bool):
         # Callback for actions.NODE_EXPANSION_TOGGLED:
-        logger.debug(f'Node expansion toggled to {is_expanded} for cat={node_data.category} id="{node_data.uid}" tree_id={sender}')
+        logger.debug(f'Node expansion toggled to {is_expanded} for {node_data.identifier}" tree_id={sender}')
 
         def expand_or_contract():
             # Add children for node:

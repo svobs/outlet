@@ -236,8 +236,13 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
                 self.show_error_msg('You must select change(s) first.')
                 return
 
-            merged_changes_tree, conflict_pairs = diff_content_first.merge_change_trees(self.tree_con_left.get_tree(), self.tree_con_right.get_tree(), left_selected_changes, right_selected_changes)
-            if conflict_pairs is not None:
+            merged_changes_tree = diff_content_first.merge_change_trees(self.tree_con_left.get_tree(),
+                                                                        self.tree_con_right.get_tree(),
+                                                                        left_selected_changes,
+                                                                        right_selected_changes)
+
+            conflict_pairs = []
+            if conflict_pairs:
                 # TODO: more informative error
                 self.show_error_msg('Cannot merge', f'{len(conflict_pairs)} conflicts found')
                 return

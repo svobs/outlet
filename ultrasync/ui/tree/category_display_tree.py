@@ -4,9 +4,11 @@ import logging
 
 import treelib
 
+from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
+from model import display_id
 from model.category import Category
 from model.display_id import Identifier, LogicalNodeIdentifier
-from model.display_node import CategoryNode, DirNode, DisplayNode
+from model.display_node import CategoryNode, DirNode, DisplayNode, RootTypeNode
 from model.subtree_snapshot import SubtreeSnapshot
 
 logger = logging.getLogger(__name__)
@@ -18,8 +20,9 @@ CATEGORIES = [Category.Added, Category.Deleted, Category.Moved, Category.Updated
 
 
 class CategoryDisplayTree:
-    def __init__(self, root: Union[DisplayNode, Identifier]):
+    def __init__(self, root: Union[DisplayNode, Identifier], extra_node_for_type=False):
         self._category_trees: Dict[Category, treelib.Tree] = {}
+        self.extra_node_for_type = extra_node_for_type
         """One tree per category"""
 
         if isinstance(root, DisplayNode):
@@ -55,28 +58,24 @@ class CategoryDisplayTree:
         return self.identifier.uid
 
     @classmethod
-    def create_empty_subtree(cls, subtree_root: Union[str, Identifier, DisplayNode]):
-        if type(subtree_root) == str:
-            return CategoryDisplayTree(cls.create_identifier(subtree_root, Category.NA))
-        elif isinstance(subtree_root, Identifier):
+    def create_empty_subtree(cls, subtree_root: Union[Identifier, DisplayNode]):
+        if isinstance(subtree_root, Identifier):
             return CategoryDisplayTree(subtree_root)
         else:
             assert isinstance(subtree_root, Identifier) or isinstance(subtree_root, DisplayNode)
             return CategoryDisplayTree(subtree_root)
 
-    @classmethod
-    def create_identifier(cls, full_path: str, category: Category) -> Identifier:
-        """Create a new identifier of the type matching this tree"""
-        return LogicalNodeIdentifier(uid=full_path, full_path=full_path, category=category)
-
     def get_children_for_root(self) -> Iterable[DisplayNode]:
         return list(map(lambda x: x.data, self._roots.values()))
 
-    def get_category_tree(self, category: Category):
+    def get_category_tree(self, category: Category) -> Optional[treelib.Tree]:
         return self._category_trees.get(category, None)
 
     def get_children(self, parent_identifier: Identifier) -> Optional[List[DisplayNode]]:
+        assert parent_identifier.category != Category.NA, f'For identifier {parent_identifier}'
         category_tree: treelib.Tree = self._category_trees.get(parent_identifier.category, None)
+        # logger.debug(f'CategoryTree for "{parent_identifier}": ' + category_tree.show(stdout=False))
+
         children = []
         if category_tree:
             try:
@@ -89,8 +88,11 @@ class CategoryDisplayTree:
         return children
 
     def add_item(self, item: DisplayNode, category: Category, source_tree: SubtreeSnapshot):
+        assert category != Category.NA, f'For item: {item}'
         category_tree: treelib.Tree = self._category_trees[category]
         root: treelib.Node = self._roots[category]
+
+        # FIXME: find an elegant way to display all the nodes going back to each root
 
         if item.is_dir():
             # Skip any actual directories we encounter. We won't use them for our display, because:
@@ -99,10 +101,28 @@ class CategoryDisplayTree:
             # from each file's path, and we don't want to display empty dirs when there's no file of that category
             logger.warning(f'Skipping dir node: {item}')
             return
-        ancestor_identifiers = source_tree.get_ancestor_chain(item)
-        # nid == Node ID == directory name
-        parent = root
-        parent.data.add_meta_emtrics(item)
+        ancestor_identifiers: List[Identifier] = source_tree.get_ancestor_chain(item)
+
+        if self.extra_node_for_type:
+            if item.identifier.tree_type == OBJ_TYPE_GDRIVE:
+                subroot = root.identifier + '/Google Drive'
+            elif item.identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
+                subroot = root.identifier + '/Local Disk'
+            else:
+                raise RuntimeError(f'bad: {item.identifier.tree_type}')
+
+            subroot_node: treelib.Node = category_tree.get_node(nid=subroot)
+            if not subroot_node:
+                identifier = display_id.for_values(tree_type=item.identifier.tree_type, full_path=subroot, uid=subroot, category=category)
+                subroot_node_data = RootTypeNode(identifier=identifier)
+                subroot_node = category_tree.create_node(identifier=subroot, parent=root, data=subroot_node_data)
+
+            root.data.add_meta_metrics(item)
+            parent = subroot_node
+        else:
+            parent = root
+
+        parent.data.add_meta_metrics(item)
 
         if ancestor_identifiers:
             # Create a node for each ancestor dir (path segment)
@@ -110,23 +130,50 @@ class CategoryDisplayTree:
                 nid = identifier.uid
                 child: treelib.Node = category_tree.get_node(nid=nid)
                 if child is None:
-                    # logger.debug(f'Creating dir node: nid={nid}')
-                    # id_copy = copy.copy(identifier)
-                    # id_copy.category = category
-                    dir_node = DirNode(identifier=identifier)
+                    # Need to copy the identifier so that we can ensure the category is correct for where it is
+                    # going in our tree. When get_children() is called, it uses the identifier's category to
+                    # determine which tree to look up. Need to brainstorm a more elegant solution!
+                    id_copy = copy.copy(identifier)
+                    id_copy.category = category
+                    dir_node = DirNode(identifier=id_copy)
                     child = category_tree.create_node(identifier=nid, parent=parent, data=dir_node)
                 parent = child
                 assert isinstance(parent.data, DirNode)
-                parent.data.add_meta_emtrics(item)
+                parent.data.add_meta_metrics(item)
 
         # Each node's ID will be either
         # logger.debug(f'Creating file node: nid={nid}')
         category_tree.create_node(identifier=item.uid, parent=parent, data=item)
 
+    def get_ancestor_chain(self, item: DisplayNode):
+        assert item.category != Category.NA
+        identifiers: List[Identifier] = []
+
+        category_tree: treelib.Tree = self._category_trees[item.category]
+        category_tree_root_uid: str = self._roots[item.category].data.uid
+        current_uid: str = item.uid
+
+        while True:
+            ancestor: treelib.Node = category_tree.parent(current_uid)
+            if ancestor:
+                if ancestor.data.uid == category_tree_root_uid:
+                    # Do not include root
+                    break
+                identifiers.append(ancestor.data.identifier)
+                current_uid = ancestor.data.uid
+            else:
+                break
+
+        identifiers.reverse()
+        return identifiers
+
     def get_full_path_for_item(self, item: DisplayNode) -> str:
         """Gets the absolute path for the item"""
         assert item.full_path
         return item.full_path
+
+    def __repr__(self):
+        return f'CategoryDisplayTree({self.get_summary()})'
 
     def get_summary(self) -> str:
         summary = []

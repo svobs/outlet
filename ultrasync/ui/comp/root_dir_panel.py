@@ -9,7 +9,7 @@ from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib, GObject
 
-from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
+from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED
 from model.display_id import GDriveIdentifier, Identifier, LocalFsIdentifier
 from ui.dialog.base_dialog import BaseDialog
 import ui.actions as actions
@@ -206,6 +206,9 @@ class RootDirPanel:
             root_exists = os.path.exists(new_root.full_path)
         elif new_root.tree_type == OBJ_TYPE_GDRIVE:
             self.path_icon.set_from_file(GDRIVE_ICON_PATH)
+            root_exists = new_root.uid != 'NULL'
+        elif new_root.tree_type == OBJ_TYPE_MIXED:
+            self.path_icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
             root_exists = new_root.uid != 'NULL'
         else:
             raise RuntimeError(f'Unrecognized tree type: {new_root.tree_type}')
