@@ -1,11 +1,12 @@
 """Content-first diff. See diff function below."""
-from typing import List, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 import file_util
 import os
 import logging
 
 from constants import OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED, ROOT
+from index.two_level_dict import TwoLevelDict
 from model import display_id
 from model.category import Category
 from model.display_id import Identifier, LogicalNodeIdentifier
@@ -19,8 +20,8 @@ from ui.tree.category_display_tree import CategoryDisplayTree
 logger = logging.getLogger(__name__)
 
 
-def _compare_paths_for_same_md5(lefts: List[DisplayNode], left_tree: SubtreeSnapshot,
-                                rights: Optional[List[DisplayNode]], right_tree: SubtreeSnapshot, fixer) \
+def _compare_paths_for_same_md5(lefts: Iterable[DisplayNode], left_tree: SubtreeSnapshot,
+                                rights: Iterable[DisplayNode], right_tree: SubtreeSnapshot, fixer) \
         -> List[Tuple[Optional[DisplayNode], Optional[DisplayNode]]]:
     if lefts is None:
         lefts = []
@@ -32,14 +33,14 @@ def _compare_paths_for_same_md5(lefts: List[DisplayNode], left_tree: SubtreeSnap
 
     for left in lefts:
         left_on_right: str = fixer.move_to_right(left)
-        match: DisplayNode = right_tree.get_for_path(left_on_right)
+        match: DisplayNode = right_tree.get_for_path(left_on_right, left.md5)
         if not match:
             orphaned_left.append(left)
         # Else we matched path exactly: we can discard this entry
 
     for right in rights:
         right_on_left: str = fixer.move_to_left(right)
-        match: DisplayNode = left_tree.get_for_path(right_on_left)
+        match: DisplayNode = left_tree.get_for_path(right_on_left, right.md5)
         if not match:
             orphaned_right.append(right)
         # Else we matched path exactly: we can discard this entry
@@ -87,7 +88,7 @@ class PathTransplanter:
         dest_path = self.move_to_right(left_item)
         orig_path = self.right_tree.get_full_path_for_item(right_item)
         identifier = self.right_tree.create_identifier(full_path=dest_path, category=Category.Moved)
-        move_right_to_right = FileToMove(identifier=identifier, orig_path=orig_path, original_node=right_item)
+        move_right_to_right = FileToMove(identifier=identifier, original_node=right_item)
         self.change_tree_right.add_item(move_right_to_right, Category.Moved, self.right_tree)
 
     def plan_rename_file_left(self, left_item, right_item):
@@ -142,26 +143,29 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
 
     # the set of MD5s already processed
     md5_set_stopwatch = Stopwatch()
-    md5_set = left_tree.get_md5_set() | right_tree.get_md5_set()
+    left_md5s: TwoLevelDict = left_tree.get_md5_dict()
+    right_md5s: TwoLevelDict = right_tree.get_md5_dict()
+    md5_set = left_md5s.keys() | right_md5s.keys()
     logger.info(f'{md5_set_stopwatch} Found {len(md5_set)} MD5s')
 
     # List of lists of FMetas which do not have a matching md5 on the other side.
     # We will compare these by path.
     # Note: each list within this list contains duplicates (FMetas with the same md5)
-    orphaned_md5s_left: List[DisplayNode] = []
-    orphaned_md5s_right: List[DisplayNode] = []
+    orphaned_md5s_left: List[Iterable[DisplayNode]] = []
+    orphaned_md5s_right: List[Iterable[DisplayNode]] = []
 
     """Compares the two trees, and populates the change sets of both. The order of 'left' and which is 'right'
      is not important, because the changes are computed from each tree's perspective (e.g. a file which is in
      Left but not Right will be determined to be an 'added' file from the perspective of Left but a 'deleted'
      file from the perspective of Right)"""
     for md5 in md5_set:
-        right_items_dup_md5: List[DisplayNode] = right_tree.get_for_md5(md5)
+        left_items_dup_md5: Iterable[DisplayNode] = left_md5s.get_second_dict(md5)
+        if isinstance(left_items_dup_md5, dict):
+            left_items_dup_md5 = left_items_dup_md5.values()
+
+        right_items_dup_md5: Iterable[DisplayNode] = right_md5s.get_second_dict(md5)
         if isinstance(right_items_dup_md5, dict):
             right_items_dup_md5 = right_items_dup_md5.values()
-        left_items_dup_md5: List[DisplayNode] = left_tree.get_for_md5(md5)
-        if isinstance(left_items_dup_md5, dict):
-            left_items_dup_md5 = right_items_dup_md5.values()
 
         if left_items_dup_md5 is None:
             orphaned_md5s_right.append(right_items_dup_md5)
@@ -210,7 +214,7 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
         for left_item in item_duplicate_md5s_left:
             if compare_paths_also:
                 left_on_right_path = fixer.move_to_right(left_item)
-                matching_right = right_tree.get_for_path(left_on_right_path)
+                matching_right = right_tree.get_for_path(left_on_right_path, left_item.md5)
                 if matching_right:
                     # UPDATED
                     if logger.isEnabledFor(logging.DEBUG):
@@ -235,7 +239,7 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
         for right_item in item_duplicate_md5s_right:
             if compare_paths_also:
                 right_on_left = fixer.move_to_left(right_item)
-                if left_tree.get_for_path(right_on_left):
+                if left_tree.get_for_path(right_on_left,right_item.md5):
                     # UPDATED. Logically this has already been covered (above) since our iteration is symmetrical:
                     continue
             # DUPLICATE ADDED on right + DELETED on left

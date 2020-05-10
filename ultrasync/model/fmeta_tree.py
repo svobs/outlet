@@ -1,4 +1,3 @@
-import functools
 import logging
 import os
 from typing import Dict, List, Optional, Union, ValuesView
@@ -6,12 +5,14 @@ from typing import Dict, List, Optional, Union, ValuesView
 import constants
 import file_util
 import format_util
+from index.two_level_dict import Md5BeforePathDict, Md5BeforeUidDict
 from model.category import Category
 from model.display_id import Identifier, LocalFsIdentifier
 from model.display_node import DisplayNode
 from model.fmeta import FMeta
 from model.planning_node import PlanningNode
 from model.subtree_snapshot import SubtreeSnapshot
+from stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +32,7 @@ class FMetaTree(SubtreeSnapshot):
         # Each item is an entry
         self._path_dict: Dict[str, FMeta] = {}
         # Each item contains a list of entries
-        self._md5_dict: Dict[str, List[FMeta]] = {}
         self._ignored_items: List[FMeta] = []
-        self._dup_md5_count = 0
         self._total_size_bytes = 0
 
     @property
@@ -81,18 +80,25 @@ class FMetaTree(SubtreeSnapshot):
         # Trivial for FMetas
         return item.full_path
 
-    def get_for_path(self, path, include_ignored=False) -> Optional[FMeta]:
+    def get_for_path(self, path, include_ignored=False, only_this_md5=None) -> Optional[FMeta]:
         fmeta = self._path_dict.get(path, None)
-        if fmeta is None or include_ignored:
-            return fmeta
-        elif fmeta.category != Category.Ignored:
+        if fmeta is None:
+            return None
+        if only_this_md5 and fmeta.md5 != only_this_md5:
+            return None
+        if include_ignored or fmeta.category != Category.Ignored:
             return fmeta
 
-    def get_md5_set(self):
-        return self._md5_dict.keys()
+    def get_md5_dict(self):
+        md5_set_stopwatch = Stopwatch()
 
-    def get_for_md5(self, md5) -> List[FMeta]:
-        return self._md5_dict.get(md5, [])
+        md5_dict: Md5BeforePathDict = Md5BeforePathDict()
+        for item in self._path_dict.values():
+            if item.md5:
+                md5_dict.put(item)
+
+        logger.info(f'{md5_set_stopwatch} Found {md5_dict.total_entries} MD5s')
+        return md5_dict
 
     def get_relative_path_for_full_path(self, full_path: str):
         assert full_path.startswith(self.root_path), f'Full path ({full_path}) does not contain root ({self.root_path})'
@@ -117,33 +123,6 @@ class FMetaTree(SubtreeSnapshot):
             else:
                 raise RuntimeError(f'Could not find FMeta for path: {full_path}')
 
-        if match.category == Category.Ignored:
-            # Will not be present in md5_dict
-            return match
-
-        if remove_old_md5:
-            md5_to_find = match.md5
-        else:
-            if logger.isEnabledFor(logging.DEBUG) and md5 is not None and md5 != match.md5:
-                logger.debug(f'Ignoring md5 ({match.md5}) from path match; removing specified md5 instead ({md5})')
-            md5_to_find = md5
-
-        matching_md5_list = self.get_for_md5(md5_to_find)
-        if matching_md5_list is None:
-            # This indicates a serious data problem
-            raise RuntimeError(f'FMeta found for path: {full_path} but not md5: {md5_to_find}')
-
-        path_matches = list(filter(lambda f: f.full_path == full_path, matching_md5_list))
-        path_matches_count = len(path_matches)
-        if path_matches_count == 0:
-            raise RuntimeError(f'FMeta found for path: {full_path} but not md5: {md5_to_find}')
-        elif path_matches_count > 1:
-            raise RuntimeError(f'Multiple FMeta ({path_matches}) found for path: {full_path} and md5: {md5_to_find}')
-        else:
-            matching_md5_list.remove(path_matches[0])
-
-        # (Don't worry about category list)
-
         return match
 
     def add_item(self, item: Union[FMeta, PlanningNode]):
@@ -151,19 +130,8 @@ class FMetaTree(SubtreeSnapshot):
                                                           f'{item.full_path}) is not under this tree ({self.root_path})'
 
         if item.category == Category.Ignored:
-            # ignored files may not have md5s
             logger.debug(f'Found ignored file: {item.full_path}')
             self._ignored_items.append(item)
-        elif not item.md5:
-            logger.debug(f'File has no MD5: {item.full_path}')
-        else:
-            set_matching_md5 = self._md5_dict.get(item.md5, None)
-            if set_matching_md5 is None:
-                set_matching_md5 = [item]
-                self._md5_dict[item.md5] = set_matching_md5
-            else:
-                set_matching_md5.append(item)
-                self._dup_md5_count += 1
 
         is_planning_node = isinstance(item, PlanningNode)
 
@@ -208,4 +176,4 @@ class FMetaTree(SubtreeSnapshot):
         return summary_string
 
     def __repr__(self):
-        return f'FMetaTree(Paths={len(self._path_dict)} MD5s={len(self._md5_dict)} Dup_MD5s={self._dup_md5_count} Root="{self.root_path}"])'
+        return f'FMetaTree(Paths={len(self._path_dict)} Root="{self.root_path}"])'

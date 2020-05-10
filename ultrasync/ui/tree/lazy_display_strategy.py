@@ -173,7 +173,7 @@ class LazyDisplayStrategy:
                 is_expand = self.con.treeview_meta.is_category_node_expanded(node_data)
                 if is_expand:
                     tree_path = self.con.display_store.model.get_path(tree_iter)
-                    logger.info(f'Expanding row: {node_data.name} in tree {self.con.tree_id}')
+                    logger.debug(f'Expanding row: {node_data.name} in tree {self.con.tree_id}')
                     self.con.tree_view.expand_row(path=tree_path, open_all=True)
                     # FIXME! Open-all not respected!
 

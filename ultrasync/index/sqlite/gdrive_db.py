@@ -67,7 +67,6 @@ class GDriveDatabase(MetaDatabase):
     def get_gdrive_dirs(self):
         dir_rows = self.get_all_rows(self.TABLE_GRDIVE_DIRS)
 
-        logger.debug(f'Retrieved {len(dir_rows)} dirs')
         return dir_rows
 
     # GDRIVE_FILES operations ---------------------
@@ -86,10 +85,7 @@ class GDriveDatabase(MetaDatabase):
         self.insert_many(self.TABLE_GRDIVE_FILES, file_list)
 
     def get_gdrive_files(self):
-        file_rows = self.get_all_rows(self.TABLE_GRDIVE_FILES)
-
-        logger.debug(f'Retrieved {len(file_rows)} file metas')
-        return file_rows
+        return self.get_all_rows(self.TABLE_GRDIVE_FILES)
 
     def insert_multiple_parent_mappings(self, ids_with_multiple_parents, overwrite=False):
         if self.is_table(self.TABLE_GRDIVE_MULTIPLE_PARENTS):

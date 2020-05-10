@@ -68,15 +68,11 @@ class SubtreeSnapshot(ABC):
         pass
 
     @abstractmethod
-    def get_for_path(self, path: str, include_ignored=False) -> Optional[DisplayNode]:
+    def get_for_path(self, path: str, include_ignored=False, only_this_md5=None) -> Optional[DisplayNode]:
         pass
 
     @abstractmethod
-    def get_md5_set(self):
-        pass
-
-    @abstractmethod
-    def get_for_md5(self, md5) -> List[DisplayNode]:
+    def get_md5_dict(self):
         pass
 
     # Setter

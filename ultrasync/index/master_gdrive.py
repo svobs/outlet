@@ -64,6 +64,17 @@ class GDriveMasterCache:
         meta = GDriveWholeTree()
         tree_loader.load_from_cache(meta)
         self._update_in_memory_cache(meta)
+
+        actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=tree_id, tx_id=None, msg=f'Calculating paths for GDrive nodes...')
+
+        # Fill in full paths
+        # Needs to be done AFTER all the nodes in the tree have been downloaded
+        full_path_stopwatch = Stopwatch()
+        for item in meta.id_dict.values():
+            meta.get_full_path_for_item(item)
+
+        logger.debug(f'{full_path_stopwatch} Full paths calculated for {len(meta.id_dict)} items')
+
         logger.info(f'{stopwatch_total} GDrive cache for {cache_info.subtree_root.full_path} loaded')
 
         cache_info.is_loaded = True
@@ -74,35 +85,7 @@ class GDriveMasterCache:
         if not root:
             return None
 
-        # FIXME: *AFTER* we refactor the diff to create a separate tree, we can remove the MD5 dict and cat dict
-        # from the GDriveSubtree class. Then we won't need to slice at all
-
-        # Fill in root if missing:
-        self.meta_master.get_full_path_for_item(root)
-        subtree_meta = GDriveSubtree(root)
-
-        q = Queue()
-        q.put(root)
-
-        while not q.empty():
-            item: GoogNode = q.get()
-            subtree_meta.add_item(item)
-
-            child_list = self.meta_master.get_children(item.uid)
-            if child_list:
-                for child in child_list:
-                    q.put(child)
-
-        # if logger.isEnabledFor(logging.DEBUG):
-        #     subtree_meta.validate()
-
-        # Fill in full paths
-        # Needs to be done AFTER all the nodes in the tree have been downloaded
-        full_path_stopwatch = Stopwatch()
-        for item in subtree_meta.id_dict.values():
-            subtree_meta.get_full_path_for_item(item)
-
-        logger.debug(f'{full_path_stopwatch} Full paths calculated for {len(subtree_meta.id_dict)} items')
+        subtree_meta = GDriveSubtree(whole_tree=self.meta_master, root_node=root)
 
         return subtree_meta
 
@@ -127,7 +110,6 @@ class GDriveMasterCache:
             gdrive_meta = self.meta_master
         else:
             slice_timer = Stopwatch()
-            # FIXME: do not slice off - use whole tree decorator
             gdrive_meta = self._slice_off_subtree_from_master(subtree_root, tree_id)
             if gdrive_meta:
                 logger.debug(f'{slice_timer} Sliced off {gdrive_meta}')

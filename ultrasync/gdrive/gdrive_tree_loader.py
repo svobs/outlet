@@ -139,6 +139,7 @@ class GDriveTreeLoader:
                 if self.tree_id:
                     msg = 'Saving to cache...'
                     actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=msg)
+                logger.debug('Saving to cache')
                 self.save_to_cache(meta=meta, overwrite=True)
 
             return meta
@@ -178,6 +179,7 @@ class GDriveTreeLoader:
 
         # DIRs:
         dir_rows = self.cache.get_gdrive_dirs()
+        actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=f'Retreived {len(dir_rows):n} dirs')
 
         for item_id, item_name, parent_id, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
             item = GoogFolder(item_id=item_id, item_name=item_name,
@@ -188,6 +190,7 @@ class GDriveTreeLoader:
 
         # FILES:
         file_rows = self.cache.get_gdrive_files()
+        actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=f'Retreived {len(file_rows):n} files')
         for item_id, item_name, parent_id, item_trashed, size_bytes_str, md5, create_ts, modify_ts, owner_id, drive_id, \
                 my_share, version, head_revision_id, sync_ts in file_rows:
             size_bytes = None if size_bytes_str is None else int(size_bytes_str)
