@@ -48,16 +48,12 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
             self.display_tree = _build_display_tree(self.tree, root_node)
         return self.get_children(parent_identifier=self.tree.identifier)
 
-    def get_children(self, parent_identifier: Identifier) -> Optional[List[DisplayNode]]:
-        children = []
+    def get_children(self, parent_identifier: Identifier) -> Optional[List[treelib.Node]]:
         try:
-            for child in self.display_tree.children(parent_identifier.uid):
-                children.append(child.data)
+            return self.display_tree.children(parent_identifier.uid)
         except Exception:
             logger.debug(f'CategoryTree for "{self.tree.identifier}": ' + self.display_tree.show(stdout=False))
             raise
-
-        return children
 
 
 def _build_display_tree(source_tree: SubtreeSnapshot, root_node) -> treelib.Tree:

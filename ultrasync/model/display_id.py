@@ -43,7 +43,7 @@ class Identifier(ABC):
 
     def __repr__(self):
         # should never be displayed
-        return f'∣✪✪∣{self.category.name}⚡{self.full_path}∣'
+        return f'∣✪✪∣{self.category.value}⚡{self.full_path}∣'
 
     def __eq__(self, other):
         if isinstance(other, str):
@@ -77,7 +77,7 @@ class LogicalNodeIdentifier(Identifier):
         return self._uid
 
     def __repr__(self):
-        return f'∣--∣{self.full_path}∤{self._uid}∣'
+        return f'∣--∣{self.category.value}⚡{self.full_path}∤{self._uid}∣'
 
 
 """
@@ -105,7 +105,7 @@ class GDriveIdentifier(Identifier):
             uid_disp = '≡'
         else:
             uid_disp = self._uid
-        return f'∣GD∣{self.full_path}∤{uid_disp}∣'
+        return f'∣GD∣{self.category.value}⚡{self.full_path}∤{uid_disp}∣'
 
 
 """
@@ -124,7 +124,7 @@ class LocalFsIdentifier(Identifier):
         return OBJ_TYPE_LOCAL_DISK
 
     def __repr__(self):
-        return f'∣FS∣{self.full_path}∣'
+        return f'∣FS∣{self.category.value}⚡{self.full_path}∣'
 
 
 def for_values(tree_type: int, full_path: str, uid: str = None, category=Category.NA):

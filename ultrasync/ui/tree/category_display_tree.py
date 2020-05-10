@@ -71,21 +71,17 @@ class CategoryDisplayTree:
     def get_category_tree(self, category: Category) -> Optional[treelib.Tree]:
         return self._category_trees.get(category, None)
 
-    def get_children(self, parent_identifier: Identifier) -> Optional[List[DisplayNode]]:
-        assert parent_identifier.category != Category.NA, f'For identifier {parent_identifier}'
-        category_tree: treelib.Tree = self._category_trees.get(parent_identifier.category, None)
-        # logger.debug(f'CategoryTree for "{parent_identifier}": ' + category_tree.show(stdout=False))
+    def get_children(self, parent_identifier: Identifier) -> List[treelib.Node]:
+        assert parent_identifier.category != Category.NA, f'For item: {parent_identifier}'
 
-        children = []
+        category_tree: treelib.Tree = self._category_trees[parent_identifier.category]
+
         if category_tree:
             try:
-                for child in category_tree.children(parent_identifier.uid):
-                    children.append(child.data)
+                return category_tree.children(parent_identifier.uid)
             except Exception:
                 logger.debug(f'CategoryTree for "{self.identifier}": ' + category_tree.show(stdout=False))
                 raise
-
-        return children
 
     def add_item(self, item: DisplayNode, category: Category, source_tree: SubtreeSnapshot):
         assert category != Category.NA, f'For item: {item}'
@@ -93,6 +89,8 @@ class CategoryDisplayTree:
         root: treelib.Node = self._roots[category]
 
         # FIXME: find an elegant way to display all the nodes going back to each root
+
+        # TODO: really, really need to get rid of one-tree-per-category
 
         if item.is_dir():
             # Skip any actual directories we encounter. We won't use them for our display, because:
@@ -141,9 +139,10 @@ class CategoryDisplayTree:
                 assert isinstance(parent.data, DirNode)
                 parent.data.add_meta_metrics(item)
 
-        # Each node's ID will be either
         # logger.debug(f'Creating file node: nid={nid}')
-        category_tree.create_node(identifier=item.uid, parent=parent, data=item)
+        categorized_item = copy.copy(item)
+        categorized_item.identifier.category = category
+        category_tree.create_node(identifier=item.uid, parent=parent, data=categorized_item)
 
     def get_ancestor_chain(self, item: DisplayNode):
         assert item.category != Category.NA

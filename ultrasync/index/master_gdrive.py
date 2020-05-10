@@ -18,9 +18,22 @@ from ui import actions
 
 logger = logging.getLogger(__name__)
 
-
+"""
 # CLASS GDriveMasterCache
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
+Some notes:
+- Need to create a store which can keep track of whether each parent has all children. If not we
+will have to make a request to retrieve all nodes with 'X' as parent and update the store before
+returning
+
+- GoogRemote >= GoogDiskStores >= GoogInMemoryStore >= DisplayStore
+
+- GoogDiskCache should try to download all dirs & files ASAP. But in the meantime, download level by level
+
+- Every time you expand a node, you should call to sync it from the GoogStore.
+- Every time you retrieve new data from G, you must perform sanity checks on it
+"""
 
 
 class GDriveMasterCache:

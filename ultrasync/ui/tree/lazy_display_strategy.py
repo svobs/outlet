@@ -30,18 +30,7 @@ logger = logging.getLogger(__name__)
 
 class LazyDisplayStrategy:
     """
-    - Need to create a store which can keep track of whether each parent has all children. If not we
-    will have to make a request to retrieve all nodes with 'X' as parent and update the store before
-    returning
-
-    - GoogRemote >= GoogDiskStores >= GoogInMemoryStore >= DisplayStore
-
-    - GoogDiskCache should try to download all dirs & files ASAP. But in the meantime, download level by level
-
-    - Every time you expand a node, you should call to sync it from the GoogStore.
-    - Every time you retrieve new data from G, you must perform sanity checks on it and proactively
-
-    TODO: TBD: when does the number of display nodes start to slow down? -> add config for live node maximum
+    TODO: when does the number of display nodes start to slow down? -> add config for live node maximum
     """
     def __init__(self, config, controller=None):
         self.con = controller
@@ -118,6 +107,9 @@ class LazyDisplayStrategy:
 
         children = self.con.tree_builder.get_children_for_root()
         for child in children:
+            if isinstance(child, treelib.Node):
+                child = child.data
+
             if self.con.display_store.checked_rows.get(child.uid, None):
                 whitelist.put(child)
             elif self.con.display_store.inconsistent_rows.get(child.uid, None):
@@ -127,6 +119,9 @@ class LazyDisplayStrategy:
             parent: DisplayNode = secondary_screening.get()
             children = self.con.tree_builder.get_children(parent)
             for child in children:
+                if isinstance(child, treelib.Node):
+                    child = child.data
+
                 if self.con.display_store.checked_rows.get(child.uid, None):
                     whitelist.put(child)
                 elif self.con.display_store.inconsistent_rows.get(child.uid, None):
@@ -138,6 +133,9 @@ class LazyDisplayStrategy:
                 checked_items.append(chosen_node)
             children = self.con.tree_builder.get_children(chosen_node)
             for child in children:
+                if isinstance(child, treelib.Node):
+                    child = child.data
+
                 whitelist.put(child)
 
         return checked_items
@@ -195,6 +193,8 @@ class LazyDisplayStrategy:
                 return
             # Append all underneath tree_iter
             for child in children:
+                if isinstance(child, treelib.Node):
+                    child = child.data
                 if child.is_dir():
                     self._append_dir_node_and_empty_child(parent_iter, parent_uid, child)
                 else:
