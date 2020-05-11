@@ -157,7 +157,7 @@ class GoogFile(GoogNode):
         self.owner_id = owner_id
 
     def __repr__(self):
-        return f'GoogFile(id="{self.uid}" name="{self.name}" trashed={self.trashed_str}  size={self.size_bytes} ' \
+        return f'GoogFile(id="{self.identifier}" name="{self.name}" trashed={self.trashed_str}  size={self.size_bytes} ' \
                f'md5="{self.md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
                f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
                f'sync_ts={self.sync_ts} parent_ids={self.parent_ids})'

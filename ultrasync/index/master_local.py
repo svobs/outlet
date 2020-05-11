@@ -123,10 +123,10 @@ class LocalDiskMasterCache:
             for change in db_file_changes:
                 existing = fmeta_tree.get_for_path(change.full_path)
                 # Overwrite older changes for the same path:
-                if existing is None:
+                if not existing:
                     fmeta_tree.add_item(change)
                     count_from_disk += 1
-                elif existing.sync_ts < change.sync_ts:
+                elif existing[0].sync_ts < change.sync_ts:
                     fmeta_tree.add_item(change)
 
             # logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')

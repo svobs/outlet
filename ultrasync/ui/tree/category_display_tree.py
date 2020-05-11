@@ -3,6 +3,7 @@ from typing import Dict, Iterable, List, Optional, Union
 import logging
 
 import treelib
+from treelib.exceptions import DuplicatedNodeIdError
 
 from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
 from model import display_id
@@ -139,10 +140,14 @@ class CategoryDisplayTree:
                 assert isinstance(parent.data, DirNode)
                 parent.data.add_meta_metrics(item)
 
-        # logger.debug(f'Creating file node: nid={nid}')
+        # logger.debug(f'Creating file node for item {item}')
         categorized_item = copy.copy(item)
         categorized_item.identifier.category = category
-        category_tree.create_node(identifier=item.uid, parent=parent, data=categorized_item)
+        try:
+            category_tree.create_node(identifier=item.uid, parent=parent, data=categorized_item)
+        except DuplicatedNodeIdError:
+            logger.error(f'Duplicate path for node {item}')
+            raise
 
     def get_ancestor_chain(self, item: DisplayNode):
         assert item.category != Category.NA

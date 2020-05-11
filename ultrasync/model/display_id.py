@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import List, Union
 
 from constants import OBJ_TYPE_DISPLAY_ONLY, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, ROOT
 
@@ -27,8 +28,9 @@ class Identifier(ABC):
     Still a work in progress and may change greatly.
     """
 
-    def __init__(self, full_path: str, category: Category):
+    def __init__(self, uid: str, full_path: str, category: Category):
         assert full_path is None or full_path.find('/') >= 0, f'full_path does not look like a path: {full_path}'
+        self.uid: str = uid
         self.full_path: str = full_path
         self.category: Category = ensure_category(category)
 
@@ -37,13 +39,9 @@ class Identifier(ABC):
     def tree_type(self) -> int:
         return OBJ_TYPE_DISPLAY_ONLY
 
-    @property
-    def uid(self) -> str:
-        return self.full_path
-
     def __repr__(self):
         # should never be displayed
-        return f'∣✪✪∣{self.category.value}⚡{self.full_path}∣'
+        return f'∣✪✪∣{self.category.value}⚡{self.full_path}∤{self.uid}∣'
 
     def __eq__(self, other):
         if isinstance(other, str):
@@ -64,20 +62,15 @@ class Identifier(ABC):
 class LogicalNodeIdentifier(Identifier):
     def __init__(self, uid: str, full_path: str, category: Category, tree_type=OBJ_TYPE_DISPLAY_ONLY):
         """Object has a path, but does not represent a physical item"""
-        super().__init__(full_path, category)
-        self._uid: str = uid
+        super().__init__(uid, full_path, category)
         self._tree_type = tree_type
 
     @property
     def tree_type(self) -> int:
         return self._tree_type
 
-    @property
-    def uid(self) -> str:
-        return self._uid
-
     def __repr__(self):
-        return f'∣--∣{self.category.value}⚡{self.full_path}∤{self._uid}∣'
+        return f'∣--∣{self.category.value}⚡{self.full_path}∤{self.uid}∣'
 
 
 """
@@ -89,22 +82,17 @@ class LogicalNodeIdentifier(Identifier):
 
 class GDriveIdentifier(Identifier):
     def __init__(self, uid: str, full_path: str, category: Category = Category.NA):
-        super().__init__(full_path, category)
-        self._uid: str = uid
+        super().__init__(uid, full_path, category)
 
     @property
     def tree_type(self) -> int:
         return OBJ_TYPE_GDRIVE
 
-    @property
-    def uid(self) -> str:
-        return self._uid
-
     def __repr__(self):
-        if self._uid == self.full_path:
+        if self.uid == self.full_path:
             uid_disp = '≡'
         else:
-            uid_disp = self._uid
+            uid_disp = self.uid
         return f'∣GD∣{self.category.value}⚡{self.full_path}∤{uid_disp}∣'
 
 
@@ -116,20 +104,26 @@ class GDriveIdentifier(Identifier):
 
 
 class LocalFsIdentifier(Identifier):
-    def __init__(self, full_path, category: Category = Category.NA):
-        super().__init__(full_path, category)
+    def __init__(self, full_path, uid=None, category: Category = Category.NA):
+        if not uid:
+            uid = full_path
+        super().__init__(uid, full_path, category)
 
     @property
     def tree_type(self) -> int:
         return OBJ_TYPE_LOCAL_DISK
 
     def __repr__(self):
-        return f'∣FS∣{self.category.value}⚡{self.full_path}∣'
+        if self.uid == self.full_path:
+            uid_disp = '≡'
+        else:
+            uid_disp = self.uid
+        return f'∣FS∣{self.category.value}⚡{self.full_path}∤{uid_disp}∣'
 
 
 def for_values(tree_type: int, full_path: str, uid: str = None, category=Category.NA):
     if tree_type == OBJ_TYPE_LOCAL_DISK:
-        return LocalFsIdentifier(full_path=full_path, category=category)
+        return LocalFsIdentifier(uid=uid, full_path=full_path, category=category)
     elif tree_type == OBJ_TYPE_GDRIVE:
         return GDriveIdentifier(uid=uid, full_path=full_path, category=category)
     else:

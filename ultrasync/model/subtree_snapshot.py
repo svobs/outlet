@@ -39,7 +39,7 @@ class SubtreeSnapshot(ABC):
 
     @classmethod
     @abstractmethod
-    def create_identifier(cls, full_path, category) -> Identifier:
+    def create_identifier(cls, full_path, uid, category) -> Identifier:
         """Create a new identifier of the type matching this tree"""
         pass
 
@@ -68,7 +68,7 @@ class SubtreeSnapshot(ABC):
         pass
 
     @abstractmethod
-    def get_for_path(self, path: str, include_ignored=False, only_this_md5=None) -> Optional[DisplayNode]:
+    def get_for_path(self, path: str, include_ignored=False) -> List[DisplayNode]:
         pass
 
     @abstractmethod

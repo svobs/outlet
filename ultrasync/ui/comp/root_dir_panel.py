@@ -134,7 +134,9 @@ class RootDirPanel:
         self.entry.set_text(path)
         self.entry.connect('activate', self._on_root_text_entry_submitted, self.tree_id)
         self.path_box.remove(self.label_event_box)
-        self.path_box.remove(self.toolbar)
+        if self.toolbar:
+            self.path_box.remove(self.toolbar)
+            self.toolbar = None
         self.path_box.pack_start(self.entry, expand=True, fill=True, padding=0)
 
         def cancel_edit(widget, event):
@@ -180,6 +182,7 @@ class RootDirPanel:
             self.label_event_box = None
         if self.toolbar:
             self.path_box.remove(self.toolbar)
+            self.toolbar = None
         self.label_event_box = Gtk.EventBox()
         self.path_box.pack_start(self.label_event_box, expand=True, fill=True, padding=0)
         self.label_event_box.add(self.label)

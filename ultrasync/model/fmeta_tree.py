@@ -28,7 +28,7 @@ class FMetaTree(SubtreeSnapshot):
     between trees, and should be cloned if needed"""
 
     def __init__(self, root_path: str):
-        super().__init__(LocalFsIdentifier(root_path))
+        super().__init__(LocalFsIdentifier(full_path=root_path))
         # Each item is an entry
         self._path_dict: Dict[str, FMeta] = {}
         # Each item contains a list of entries
@@ -37,15 +37,15 @@ class FMetaTree(SubtreeSnapshot):
 
     @property
     def root_node(self):
-        return self.create_identifier(full_path=self.root_path, category=Category.NA)
+        return self.create_identifier(full_path=self.root_path, uid=self.root_path, category=Category.NA)
 
     @property
     def tree_type(self):
         return constants.OBJ_TYPE_LOCAL_DISK
 
     @classmethod
-    def create_identifier(cls, full_path, category) -> Identifier:
-        return LocalFsIdentifier(full_path=full_path, category=category)
+    def create_identifier(cls, full_path, uid, category) -> Identifier:
+        return LocalFsIdentifier(full_path=full_path, uid=uid, category=category)
 
     @classmethod
     def create_empty_subtree(cls, subtree_root: Union[str, Identifier, DisplayNode]) -> SubtreeSnapshot:
@@ -63,7 +63,7 @@ class FMetaTree(SubtreeSnapshot):
         path_so_far = self.root_path
         for segment in path_segments[:-1]:
             path_so_far = os.path.join(path_so_far, segment)
-            identifiers.append(LocalFsIdentifier(path_so_far))
+            identifiers.append(LocalFsIdentifier(full_path=path_so_far))
         return identifiers
 
     def get_all(self) -> ValuesView[FMeta]:
@@ -80,14 +80,12 @@ class FMetaTree(SubtreeSnapshot):
         # Trivial for FMetas
         return item.full_path
 
-    def get_for_path(self, path, include_ignored=False, only_this_md5=None) -> Optional[FMeta]:
+    def get_for_path(self, path, include_ignored=False) -> List[FMeta]:
         fmeta = self._path_dict.get(path, None)
         if fmeta is None:
-            return None
-        if only_this_md5 and fmeta.md5 != only_this_md5:
-            return None
+            return []
         if include_ignored or fmeta.category != Category.Ignored:
-            return fmeta
+            return [fmeta]
 
     def get_md5_dict(self):
         md5_set_stopwatch = Stopwatch()

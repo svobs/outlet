@@ -2,6 +2,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
+from constants import OBJ_TYPE_GDRIVE
 from model.display_id import Identifier
 from model.display_node import DisplayNode
 
@@ -126,7 +127,7 @@ class FileToAdd(FileDecoratorNode):
         super().__init__(identifier, original_node)
 
     def __repr__(self):
-        return f'FileToAdd(original_path={self.original_full_path} dest_path={self.dest_path} md5={self.original_node.md5})'
+        return f'FileToAdd(identifier={self.identifier} original_node={self.original_node})'
 
 
 # CLASS FileToMove
@@ -138,4 +139,4 @@ class FileToMove(FileDecoratorNode):
         super().__init__(identifier, original_node)
 
     def __repr__(self):
-        return f'FileToMove(original_path={self.original_full_path} dest_path={self.dest_path} md5={self.original_node.md5})'
+        return f'FileToMove(identifier={self.identifier} original_node={self.original_node})'

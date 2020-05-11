@@ -2,7 +2,7 @@ import errno
 import logging
 import os
 from queue import Queue
-from typing import Any, Dict, List, Optional, Union, ValuesView
+from typing import Any, Dict, List, Optional, Tuple, Union, ValuesView
 
 import constants
 import file_util
@@ -81,16 +81,19 @@ class GDriveWholeTree(GDriveTree):
     def identifier(self):
         return GDriveTree.get_root_constant_identifier()
 
-    def get_full_path_for_item(self, item: GoogNode) -> str:
+    def get_full_paths_for_item(self, item: GoogNode) -> List[str]:
         """Gets the absolute path for the item"""
         if item.full_path:
             # Does item already have a full_path? Just return that (huge speed gain):
             return item.full_path
 
         # Set in the item for future use:
-        full_path = self.get_path_for_id(item.uid)
-        item.identifier.full_path = full_path
-        return full_path
+        full_paths: List[str] = self.get_all_paths_for_id(item.uid)
+        if len(full_paths) == 1:
+            item.identifier.full_path = full_paths[0]
+        else:
+            item.identifier.full_path = full_paths
+        return full_paths
 
     def add_item(self, item: GoogNode):
         """Called when adding from Google API"""
@@ -136,7 +139,8 @@ class GDriveWholeTree(GDriveTree):
         returns them all.
         NOTE: returns FileNotFoundError if not even one ID could be matched
         """
-        logger.debug(f'get_all_ids_for_path() requested for path: "{path}"')
+        if SUPER_DEBUG:
+            logger.debug(f'get_all_ids_for_path() requested for path: "{path}"')
         name_segments = file_util.split_path(path)
         if len(name_segments) == 0:
             raise RuntimeError(f'Bad path: "{path}"')
@@ -147,8 +151,8 @@ class GDriveWholeTree(GDriveTree):
             # Strip off root prefix if there is one
             seg = next(iter_name_segs)
         path_so_far = '/' + seg
-        current_seg_items: List = [x for x in self.roots if x.name.lower() == seg.lower()]
-        next_seg_items = []
+        current_seg_items: List[GoogNode] = [x for x in self.roots if x.name.lower() == seg.lower()]
+        next_seg_items: List[GoogNode] = []
         path_found = '/'
         if current_seg_items:
             path_found += current_seg_items[0].name
@@ -157,11 +161,11 @@ class GDriveWholeTree(GDriveTree):
             path_so_far = path_so_far + '/' + name_seg
             for current in current_seg_items:
                 current_id = current.uid
-                children = self.get_children(current_id)
+                children: List[GoogNode] = self.get_children(current_id)
                 if not children:
                     logger.debug(f'Item has no children: id="{current_id}" path_so_far="{path_so_far}"')
                     break
-                matches: List = [x for x in children if x.name.lower() == name_seg.lower()]
+                matches: List[GoogNode] = [x for x in children if x.name.lower() == name_seg.lower()]
                 if len(matches) > 1:
                     logger.info(f'get_all_ids_for_path(): Multiple child IDs ({len(matches)}) found for parent ID"'
                                 f'{current_id}", path_so_far "{path_so_far}"')
@@ -224,49 +228,58 @@ class GDriveWholeTree(GDriveTree):
         assert goog_id
         return self.id_dict.get(goog_id, None)
 
-    def get_path_for_id(self, goog_id: str, stop_before_id: str = None) -> str:
+    def get_all_paths_for_id(self, goog_id: str, stop_before_id: str = None) -> List[str]:
         """Gets the filesystem-like-path for the item with the given GoogID.
         If stop_before_id is given, treat it as the subtree root and stop before including it; otherwise continue
         until a parent cannot be found, or until the root of the tree is reached"""
-        item = self.get_item_for_id(goog_id)
-        if not item:
+        current_item: GoogNode = self.get_item_for_id(goog_id)
+        if not current_item:
             raise RuntimeError(f'Item not found: id={goog_id}')
 
+        path_list: List[str] = []
         # Iterate backwards (the given ID is the last segment in the path
-        path = ''
-        while True:
-            if item.uid == stop_before_id:
-                return path
-            if path == '':
-                path = item.name
-            else:
-                path = item.name + '/' + path
-            parent_ids: List[str] = item.parent_ids
-            if parent_ids:
-                if len(parent_ids) > 1:
-                    resolved_parent_ids = [x for x in parent_ids if self.get_item_for_id(x)]
-                    if len(resolved_parent_ids) > 1:
-                        if SUPER_DEBUG:
-                            # TODO: figure out how badly we need this info
-                            logger.warning(f'Multiple parents found for {item.uid} ("{item.name}"). Picking the first one.')
-                            for parent_num, p in enumerate(resolved_parent_ids):
-                                logger.info(f'Parent {parent_num}: {p}')
-                        # pass through
-                    elif SUPER_DEBUG:
-                        logger.debug(f'Found multiple parents for item but only one is valid: item={item.uid} ("{item.name}")')
-                    item = self.get_item_for_id(resolved_parent_ids[0])
-                    # pass through
-                else:
-                    item = self.get_item_for_id(parent_ids[0])
+        current_items: List[Tuple[GoogNode, str]] = [(current_item, '')]
+        next_segment_items: List[Tuple[GoogNode, str]] = []
+        while current_items:
+            for item, path_so_far in current_items:
+                if item.uid == stop_before_id:
+                    path_list.append(path_so_far)
+                    continue
 
-                if not item:
-                    # Parent refs cannot be resolved == root of subtree
-                    if SUPER_DEBUG:
-                        logger.debug(f'Mapped ID "{goog_id}" to subtree path "{path}"')
-                    return path
-            else:
-                # No parent refs. Root of Google Drive
-                return '/' + path
+                if path_so_far == '':
+                    path_so_far = item.name
+                else:
+                    path_so_far = item.name + '/' + path_so_far
+
+                parent_ids: List[str] = item.parent_ids
+                if parent_ids:
+                    if len(parent_ids) > 1:
+                        # Make sure they are not dead links:
+                        parent_ids = [x for x in parent_ids if self.get_item_for_id(x)]
+                        if len(parent_ids) > 1:
+                            if SUPER_DEBUG:
+                                logger.debug(f'Multiple parents found for {item.uid} ("{item.name}").')
+                                for parent_num, p in enumerate(parent_ids):
+                                    logger.info(f'Parent {parent_num}: {p}')
+                            # pass through
+                        elif SUPER_DEBUG:
+                            logger.debug(f'Found multiple parents for item but only one is valid: item={item.uid} ("{item.name}")')
+                    for parent_id in parent_ids:
+                        parent_item = self.get_item_for_id(parent_id)
+                        if parent_item:
+                            next_segment_items.append((parent_item, path_so_far))
+                        else:
+                            # Parent refs cannot be resolved == root of subtree
+                            if SUPER_DEBUG:
+                                logger.debug(f'Mapped ID "{goog_id}" to subtree path "{path_so_far}"')
+                            path_list.append(path_so_far)
+
+                else:
+                    # No parent refs. Root of Google Drive
+                    path_list.append('/' + path_so_far)
+            current_items = next_segment_items
+            next_segment_items = []
+        return path_list
 
     def get_summary(self):
         file_count = 0
@@ -324,8 +337,8 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         return GDriveSubtree(subtree_root_node)
 
     @classmethod
-    def create_identifier(cls, full_path, category) -> Identifier:
-        return GDriveIdentifier(uid=full_path, full_path=full_path, category=category)
+    def create_identifier(cls, full_path, uid, category) -> Identifier:
+        return GDriveIdentifier(uid=uid, full_path=full_path, category=category)
 
     @property
     def root_path(self):
@@ -408,30 +421,25 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         # Should remove this method from the parent class at some point
         raise RuntimeError('You should never do this for a GDriveSubtree!')
 
-    def get_full_path_for_item(self, item: GoogNode) -> str:
-        return self._whole_tree.get_full_path_for_item(item)
+    def get_full_path_for_item(self, item: GoogNode) -> List[str]:
+        return self._whole_tree.get_full_paths_for_item(item)
 
     def in_this_subtree(self, path: str):
         return path.startswith(self.root_path)
 
-    def get_for_path(self, path: str, include_ignored=False, only_this_md5: str = None) -> Optional[GoogNode]:
+    def get_for_path(self, path: str, include_ignored=False) -> List[GoogNode]:
         if not self.in_this_subtree(path):
             raise RuntimeError(f'Not in this tree: "{path}" (tree root: {self.root_path}')
         try:
             identifiers = self._whole_tree.get_all_ids_for_path(path)
         except FileNotFoundError:
-            return None
+            return []
 
-        if len(identifiers) > 1:
-            orig_count = len(identifiers)
-            if only_this_md5:
-                identifiers = list(filter(lambda x: x.md5 == only_this_md5, identifiers))
-                logger.debug(f'Filtered {orig_count} identifiers into {len(identifiers)} with matching MD5: {only_this_md5}')
-                if len(identifiers) == 0:
-                    return None
-            if len(identifiers) > 1:
-                logger.warning(f'Found {len(identifiers)} identifiers for path: "{path}"). Choosing the first one')
-        return self._whole_tree.get_item_for_id(identifiers[0].uid)
+        if len(identifiers) == 1:
+            return [self._whole_tree.get_item_for_id(identifiers[0].uid)]
+
+        logger.warning(f'Found {len(identifiers)} identifiers for path: "{path}"). Returning the whole list')
+        return list(map(lambda x: self._whole_tree.get_item_for_id(x.uid), identifiers))
 
     def add_item(self, item):
         raise RuntimeError('Cannot do this from a subtree!')
@@ -473,10 +481,14 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         while True:
             if item.parent_ids:
                 if len(item.parent_ids) > 1:
-                    resolved_parent_ids = [x for x in item.parent_ids if self._whole_tree.get_item_for_id(x)]
+                    resolved_parent_ids = []
+                    for par_id in item.parent_ids:
+                        par = self._whole_tree.get_item_for_id(par_id)
+                        if par and self.in_this_subtree(par.full_path):
+                            resolved_parent_ids.append(par_id)
                     if len(resolved_parent_ids) > 1:
                         logger.error(f'Found multiple valid parents for item: {item}: parents={resolved_parent_ids}')
-                    assert len(resolved_parent_ids) == 1
+                    # assert len(resolved_parent_ids) == 1
                     item = self._whole_tree.get_item_for_id(resolved_parent_ids[0])
                 else:
                     item = self._whole_tree.get_item_for_id(item.parent_ids[0])
@@ -488,10 +500,17 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
 
     def get_relative_path_for_item(self, goog_node: GoogNode):
         """Get the path for the given ID, relative to the root of this subtree"""
-        if goog_node.full_path:
-            return file_util.strip_root(goog_node.full_path, self.root_path)
-        raise RuntimeError("Don't do this ever")
-        # return self._whole_tree.get_path_for_id(goog_node.uid, self.root_id)
+        if not goog_node.full_path:
+            node_full_path = self._whole_tree.get_all_paths_for_id(goog_node.uid)
+        else:
+            node_full_path = goog_node.full_path
+        if isinstance(node_full_path, list):
+            # Use the first path we find which is under this subtree:
+            for full_path in node_full_path:
+                if self.in_this_subtree(full_path):
+                    return file_util.strip_root(full_path, self.root_path)
+            raise RuntimeError(f'Could not get relative path for {node_full_path} in "{self.root_path}"')
+        return file_util.strip_root(node_full_path, self.root_path)
 
     def get_summary(self):
         # FIXME

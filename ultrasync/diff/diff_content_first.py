@@ -1,4 +1,5 @@
 """Content-first diff. See diff function below."""
+import uuid
 from typing import Iterable, List, Optional, Tuple
 
 import file_util
@@ -11,7 +12,6 @@ from model import display_id
 from model.category import Category
 from model.display_id import Identifier, LogicalNodeIdentifier
 from model.display_node import DisplayNode
-from model.fmeta_tree import FMetaTree
 from model.planning_node import FileToAdd, FileToMove
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
@@ -33,15 +33,15 @@ def _compare_paths_for_same_md5(lefts: Iterable[DisplayNode], left_tree: Subtree
 
     for left in lefts:
         left_on_right: str = fixer.move_to_right(left)
-        match: DisplayNode = right_tree.get_for_path(left_on_right, left.md5)
-        if not match:
+        matches: List[DisplayNode] = right_tree.get_for_path(left_on_right)
+        if not matches:
             orphaned_left.append(left)
         # Else we matched path exactly: we can discard this entry
 
     for right in rights:
         right_on_left: str = fixer.move_to_left(right)
-        match: DisplayNode = left_tree.get_for_path(right_on_left, right.md5)
-        if not match:
+        matches: List[DisplayNode] = left_tree.get_for_path(right_on_left)
+        if not matches:
             orphaned_right.append(right)
         # Else we matched path exactly: we can discard this entry
 
@@ -87,7 +87,8 @@ class PathTransplanter:
         """Make a FileToMove node which will rename a file in the right tree to the name of the file on left"""
         dest_path = self.move_to_right(left_item)
         orig_path = self.right_tree.get_full_path_for_item(right_item)
-        identifier = self.right_tree.create_identifier(full_path=dest_path, category=Category.Moved)
+        new_uid = uuid.uuid1()
+        identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Moved)
         move_right_to_right = FileToMove(identifier=identifier, original_node=right_item)
         self.change_tree_right.add_item(move_right_to_right, Category.Moved, self.right_tree)
 
@@ -95,21 +96,24 @@ class PathTransplanter:
         """Make a FileToMove node which will rename a file in the left tree to the name of the file on right"""
         dest_path = self.move_to_left(right_item)
         orig_path = self.left_tree.get_full_path_for_item(left_item)
-        identifier = self.left_tree.create_identifier(full_path=dest_path, category=Category.Moved)
+        new_uid = uuid.uuid1()
+        identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Moved)
         move_left_to_left = FileToMove(identifier=identifier, original_node=left_item)
         self.change_tree_left.add_item(move_left_to_left, Category.Moved, self.left_tree)
 
     def plan_add_file_left_to_right(self, left_item):
         dest_path = self.move_to_right(left_item)
         orig_path = self.left_tree.get_full_path_for_item(left_item)
-        identifier = self.right_tree.create_identifier(full_path=dest_path, category=Category.Added)
+        new_uid = uuid.uuid1()
+        identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Added)
         file_to_add_to_right = FileToAdd(identifier=identifier, original_node=left_item)
         self.change_tree_right.add_item(file_to_add_to_right, Category.Added, self.right_tree)
 
     def plan_add_file_right_to_left(self, right_item):
         dest_path = self.move_to_left(right_item)
         orig_path = self.right_tree.get_full_path_for_item(right_item)
-        identifier = self.left_tree.create_identifier(full_path=dest_path, category=Category.Added)
+        new_uid = uuid.uuid1()
+        identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Added)
         file_to_add_to_left = FileToAdd(identifier=identifier, original_node=right_item)
         self.change_tree_left.add_item(file_to_add_to_left, Category.Added, self.left_tree)
 
@@ -214,13 +218,16 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
         for left_item in item_duplicate_md5s_left:
             if compare_paths_also:
                 left_on_right_path = fixer.move_to_right(left_item)
-                matching_right = right_tree.get_for_path(left_on_right_path, left_item.md5)
-                if matching_right:
+                path_matches_right: List[DisplayNode] = right_tree.get_for_path(left_on_right_path)
+                if path_matches_right:
+                    if len(path_matches_right) > 1:
+                        # If this ever happens it is a bug
+                        raise RuntimeError(f'More than one match for path: {left_on_right_path}')
                     # UPDATED
                     if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f'File updated: {left_item.md5} <- "{left_tree.get_full_path_for_item(left_item)}" -> {matching_right.md5}')
+                        logger.debug(f'File updated: {left_item.md5} <- "{left_tree.get_full_path_for_item(left_item)}" -> {path_matches_right[0].md5}')
                     # Same path, different md5 -> Updated
-                    change_tree_right.add_item(matching_right, Category.Updated, right_tree)
+                    change_tree_right.add_item(path_matches_right[0], Category.Updated, right_tree)
                     change_tree_left.add_item(left_item, Category.Updated, left_tree)
                     count_updated_pairs += 1
                     continue
@@ -239,7 +246,7 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
         for right_item in item_duplicate_md5s_right:
             if compare_paths_also:
                 right_on_left = fixer.move_to_left(right_item)
-                if left_tree.get_for_path(right_on_left,right_item.md5):
+                if left_tree.get_for_path(right_on_left):
                     # UPDATED. Logically this has already been covered (above) since our iteration is symmetrical:
                     continue
             # DUPLICATE ADDED on right + DELETED on left

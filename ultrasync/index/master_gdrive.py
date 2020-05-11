@@ -71,7 +71,7 @@ class GDriveMasterCache:
         # Needs to be done AFTER all the nodes in the tree have been downloaded
         full_path_stopwatch = Stopwatch()
         for item in meta.id_dict.values():
-            meta.get_full_path_for_item(item)
+            meta.get_full_paths_for_item(item)
 
         logger.debug(f'{full_path_stopwatch} Full paths calculated for {len(meta.id_dict)} items')
 
@@ -120,7 +120,7 @@ class GDriveMasterCache:
     def download_all_gdrive_meta(self, tree_id):
         root_identifier = GDriveIdentifier(uid=ROOT, full_path=ROOT)
         cache_info = self.application.cache_manager.get_or_create_cache_info_entry(root_identifier)
-        cache_path = cache_info.cache_info.cache_location
+        cache_path = cache_info.cache_location
         tree_loader = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
         self.meta_master = tree_loader.load_all(invalidate_cache=False)
         logger.info('Replaced entire GDrive in-memory cache with downloaded meta')

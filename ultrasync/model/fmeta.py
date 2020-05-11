@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 class FMeta(DisplayNode):
     def __init__(self, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, category=Category.NA):
-        super().__init__(LocalFsIdentifier(full_path, category))
+        super().__init__(LocalFsIdentifier(full_path=full_path, category=category))
         self.md5: Optional[str] = md5
         self.sha256: Optional[str] = sha256
         self._size_bytes: int = ensure_int(size_bytes)
