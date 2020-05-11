@@ -1,5 +1,5 @@
 import io
-from typing import List, Union
+from typing import List, Tuple, Union
 
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
@@ -11,13 +11,17 @@ import logging
 import time
 import humanfriendly
 from datetime import datetime
+
+from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from stopwatch_sec import Stopwatch
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
-from constants import EXPLICITLY_TRASHED, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, IMPLICITLY_TRASHED, NOT_TRASHED
-from model.gdrive_whole_tree import UserMeta
+from constants import EXPLICITLY_TRASHED, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, \
+    GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
+    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, IMPLICITLY_TRASHED, NOT_TRASHED
+from model.gdrive_whole_tree import GDriveWholeTree, UserMeta
 from model.goog_node import GoogFile, GoogFolder
 from ui import actions
 
@@ -90,9 +94,15 @@ def try_repeatedly(request_func):
         try:
             return request_func()
         except Exception as err:
-            if isinstance(err, HttpError) and err.resp.status == 403 or err.resp.status == 404:
-                # TODO: custom error class
-                raise
+            logger.info(f'Error type: {type(err)}')
+            if isinstance(err, HttpError):
+                try:
+                    if err.resp and err.resp.status == 403 or err.resp.status == 404:
+                        # TODO: custom error class
+                        raise
+                except AttributeError as err2:
+                    logger.error(f'Additional error: {err2}')
+
             if retries_remaining == 0:
                 raise
             # Typically a transport error (socket timeout, name server problem...)
@@ -173,7 +183,7 @@ class GDriveClient:
         logger.info(f'{used} of {total} used (including {drive_used} for Drive files; of which {drive_trash_used} is trash)')
         return user_meta
 
-    def get_my_drive_root(self, sync_ts):
+    def get_my_drive_root(self, sync_ts) -> GoogFolder:
         """
         Returns: a GoogFolder representing the user's GDrive root node.
         """
@@ -193,12 +203,17 @@ class GDriveClient:
         # TODO
         # query = f"and '{subtree_root_gd_id}' in parents"
 
-    def download_all_file_meta(self, meta, sync_ts):
+    def download_all_file_meta(self, meta: GDriveWholeTree, cache: GDriveDatabase, download: CurrentDownload):
+        assert download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
+
         fields = f'nextPageToken, incompleteSearch, files({FILE_FIELDS}, parents)'
         # Google Drive only; not app data or Google Photos:
         spaces = 'drive'
 
         logger.info('Getting list of ALL NON DIRS in Google Drive...')
+
+        if download.page_token:
+            logger.info('Found a page token. Attempting to resume previous download')
 
         def request():
             msg = f'Sending request for files, page {request.page_count}...'
@@ -208,23 +223,23 @@ class GDriveClient:
 
             # Call the Drive v3 API
             response = self.service.files().list(q=QUERY_NON_FOLDERS_ONLY, fields=fields, spaces=spaces, pageSize=self.page_size,
-                                                 pageToken=request.next_token).execute()
+                                                 pageToken=download.page_token).execute()
             request.page_count += 1
             return response
+
         request.page_count = 0
-        request.next_token = None
         item_count = 0
 
         stopwatch_retrieval = Stopwatch()
 
         while True:
-            results = try_repeatedly(request)
+            results: dict = try_repeatedly(request)
 
             if results.get('incompleteSearch', False):
                 # Not clear when this would happen, but fail fast if so
                 raise RuntimeError(f'Results are incomplete! (page {request.page_count})')
 
-            items = results.get('files', [])
+            items: list = results.get('files', [])
             if not items:
                 raise RuntimeError(f'No files returned from Drive API! (page {request.page_count})')
 
@@ -233,6 +248,8 @@ class GDriveClient:
             if self.tree_id:
                 actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
+            file_tuples: List[Tuple] = []
+            id_parent_mappings: List[Tuple] = []
             for item in items:
                 mime_type = item['mimeType']
                 owners = item['owners']
@@ -263,10 +280,11 @@ class GDriveClient:
                 if version:
                     version = int(version)
 
-                node: GoogFile = GoogFile(item_id=item['id'], item_name=item["name"], trashed=convert_trashed(item), drive_id=item.get('driveId', None),
-                                version=version, head_revision_id=head_revision_id,
-                                md5=item.get('md5Checksum', None), my_share=item.get('shared', None), create_ts=create_ts,
-                                modify_ts=modify_ts, size_bytes=size, owner_id=owner_id, sync_ts=sync_ts)
+                node: GoogFile = GoogFile(item_id=item['id'], item_name=item["name"], trashed=convert_trashed(item),
+                                          drive_id=item.get('driveId', None),
+                                          version=version, head_revision_id=head_revision_id,
+                                          md5=item.get('md5Checksum', None), my_share=item.get('shared', None), create_ts=create_ts,
+                                          modify_ts=modify_ts, size_bytes=size, owner_id=owner_id, sync_ts=download.update_ts)
                 node.parent_ids = item.get('parents', [])
                 meta.add_item(node)
                 meta.mime_types[mime_type] = node
@@ -296,10 +314,21 @@ class GDriveClient:
                             logger.debug(f'Found shortcut: id="{node.uid}" name="{node.name}" -> target_id="{target_id}"')
                             meta.shortcuts[node.uid] = target_id
 
+                file_tuples.append(node.to_tuple())
+                id_parent_mappings += node.parent_mappings_tuples()
                 item_count += 1
 
-            request.next_token = results.get('nextPageToken')
-            if not request.next_token:
+            download.page_token = results.get('nextPageToken')
+
+            if not download.page_token:
+                # done
+                assert download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
+                download.current_state = GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE
+                # fall through
+
+            cache.insert_gdrive_files_and_parents(file_list=file_tuples, parent_mappings=id_parent_mappings, current_download=download)
+
+            if not download.page_token:
                 logger.debug('Done!')
                 break
 
@@ -316,7 +345,7 @@ class GDriveClient:
 
         return meta
 
-    def download_directory_structure(self, meta, sync_ts):
+    def download_directory_structure(self, meta: GDriveWholeTree, cache: GDriveDatabase, download: CurrentDownload):
         """
         Downloads all of the directory nodes from the user's GDrive and puts them into a
         GDriveMeta object.
@@ -324,11 +353,7 @@ class GDriveClient:
         Assume 99.9% of items will have only one parent, and perhaps 0.001% will have no parent.
         he below solution optimizes with these assumptions.
         """
-
-        # Need to make a special call to get the root node 'My Drive'. This node will not be included
-        # in the "list files" call:
-        drive_root = self.get_my_drive_root(sync_ts)
-        meta.add_item(drive_root)
+        assert download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
 
         fields = f'nextPageToken, incompleteSearch, files({DIR_FIELDS}, parents)'
         # Google Drive only; not app data or Google Photos:
@@ -344,22 +369,27 @@ class GDriveClient:
 
             # Call the Drive v3 API
             response = self.service.files().list(q=QUERY_FOLDERS_ONLY, fields=fields, spaces=spaces, pageSize=self.page_size,
-                                                 pageToken=request.next_token).execute()
+                                                 pageToken=download.page_token).execute()
             request.page_count += 1
             return response
+
         request.page_count = 0
-        request.next_token = None
         item_count = 0
+
+        if download.page_token:
+            logger.info('Found a page token. Attempting to resume previous download')
 
         stopwatch_retrieval = Stopwatch()
 
         while True:
-            results = try_repeatedly(request)
+            results: dict = try_repeatedly(request)
+
+            # TODO: how will we know if the token is invalid?
 
             if results.get('incompleteSearch', False):
                 raise RuntimeError(f'Results are incomplete! (page {request.page_count})')
 
-            items = results.get('files', [])
+            items: list = results.get('files', [])
             if not items:
                 raise RuntimeError(f'No files returned from Drive API! (page {request.page_count})')
 
@@ -368,14 +398,27 @@ class GDriveClient:
             if self.tree_id:
                 actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
+            dir_tuples: List[Tuple] = []
+            id_parent_mappings: List[Tuple] = []
             for item in items:
-                dir_node: GoogFolder = convert_goog_folder(item, sync_ts)
+                dir_node: GoogFolder = convert_goog_folder(item, download.update_ts)
                 dir_node.parent_ids = item.get('parents', [])
                 meta.add_item(dir_node)
+                dir_tuples.append(dir_node.to_tuple())
+                id_parent_mappings += dir_node.parent_mappings_tuples()
                 item_count += 1
 
-            request.next_token = results.get('nextPageToken')
-            if not request.next_token:
+            download.page_token = results.get('nextPageToken')
+
+            if not download.page_token:
+                # done
+                assert download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
+                download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
+                # fall through
+
+            cache.insert_gdrive_dirs_and_parents(dir_list=dir_tuples, parent_mappings=id_parent_mappings, current_download=download)
+
+            if not download.page_token:
                 logger.debug('Done!')
                 break
 

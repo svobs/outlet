@@ -63,9 +63,6 @@ class GDriveWholeTree(GDriveTree):
         self.first_parent_dict: Dict[str, List[GoogNode]] = {}
         """ Reverse lookup table: 'parent_id' -> list of child nodes """
 
-        self.ids_with_multiple_parents: List[str] = []
-        """List of item_ids which have more than 1 parent"""
-
         self.me: Optional[UserMeta] = None
         self.path_dict = None
         self.owner_dict = {}

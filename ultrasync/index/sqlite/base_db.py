@@ -1,5 +1,6 @@
 import sqlite3
 import logging
+from typing import List, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class MetaDatabase:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    # Utility Functions ---------------------
+    # Utility Functions ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
     @staticmethod
     def build_insert(table):
@@ -38,6 +39,10 @@ class MetaDatabase:
     @staticmethod
     def build_select(table):
         return 'SELECT ' + ','.join(col[0] for col in table['cols']) + ' FROM ' + table['name']
+
+    @staticmethod
+    def build_update(table):
+        return 'UPDATE ' + table['name'] + ' SET ' + ','.join(col[0] + '=?' for col in table['cols'])
 
     @staticmethod
     def build_create_table(table):
@@ -50,12 +55,21 @@ class MetaDatabase:
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f'Closed database: {self.db_path}')
 
-    def get_all_rows(self, table):
+    def select(self, table, where_clause: str) -> List[Tuple]:
         cursor = self.conn.cursor()
-        sql = self.build_select(table)
+        sql = self.build_select(table) + where_clause
         cursor.execute(sql)
-        tuples = cursor.fetchall()
-        return tuples
+        return cursor.fetchall()
+
+    def get_all_rows(self, table) -> List[Tuple]:
+        return self.select(table, '')
+
+    def update(self, table, row_to_save: Tuple, where_clause: str, commit=True):
+        sql = self.build_update(table) + where_clause
+        cursor = self.conn.cursor()
+        cursor.execute(sql, row_to_save)
+        if commit:
+            self.conn.commit()
 
     def is_table(self, table):
         query = "SELECT name FROM sqlite_master WHERE type='table' AND name='" + table['name'] + "';"
@@ -63,33 +77,44 @@ class MetaDatabase:
         result = cursor.fetchone()
         return result is not None
 
-    def create_table_if_not_exist(self, table):
+    def create_table_if_not_exist(self, table, commit=True):
         if not self.is_table(table):
-            self.create_table(table)
+            self.create_table(table, commit)
 
-    def insert_many(self, table, tuples):
+    def insert_one(self, table, row: Tuple, commit=True):
+        sql = self.build_insert(table)
+        logger.debug(f"Inserting one tuple into table {table['name']}")
+        self.conn.execute(sql, row)
+        if commit:
+            self.conn.commit()
+
+    def insert_many(self, table, tuples, commit=True):
         sql = self.build_insert(table)
         logger.debug(f"Inserting {len(tuples)} tuples into table {table['name']}")
         self.conn.executemany(sql, tuples)
-        self.conn.commit()
+        if commit:
+            self.conn.commit()
 
-    def create_table(self, table):
+    def create_table(self, table, commit=True):
         sql = self.build_create_table(table)
         logger.debug('Executing SQL: ' + sql)
         self.conn.execute(sql)
-        self.conn.commit()
+        if commit:
+            self.conn.commit()
 
-    def truncate_table(self, table):
+    def truncate_table(self, table, commit=True):
         sql = f"DELETE FROM {table['name']}"
         logger.debug('Executing SQL: ' + sql)
         self.conn.execute(sql)
-        self.conn.commit()
+        if commit:
+            self.conn.commit()
 
-    def drop_table_if_exists(self, table):
+    def drop_table_if_exists(self, table, commit=True):
         sql = f"DROP TABLE IF EXISTS {table['name']}"
         logger.debug('Executing SQL: ' + sql)
         self.conn.execute(sql)
-        self.conn.commit()
+        if commit:
+            self.conn.commit()
 
     def has_rows(self, table):
         if not self.is_table(table):

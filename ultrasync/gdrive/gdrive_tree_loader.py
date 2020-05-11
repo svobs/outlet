@@ -2,90 +2,19 @@ import logging
 import os
 import time
 import uuid
-from queue import Queue
+from typing import List, Tuple
 
-from constants import EXPLICITLY_TRASHED, IMPLICITLY_TRASHED, ROOT
+from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
+    GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
+    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL
 from gdrive.client import GDriveClient
-from index.sqlite.gdrive_db import GDriveDatabase
+from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.goog_node import GoogFile, GoogFolder
+from stopwatch_sec import Stopwatch
 from ui import actions
 
 logger = logging.getLogger(__name__)
-
-
-#  Static functions
-# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
-
-def build_path_trees_by_id(meta: GDriveWholeTree):
-    # TODO DEAD CODE prob delete later
-    path_dict = {}
-
-    total_items = 0
-    count_shared = 0
-    count_explicit_trash = 0
-    count_implicit_trash = 0
-    count_no_md5 = 0
-    count_path_conflicts = 0
-    count_resolved_conflicts = 0
-
-    for root_node in meta.roots:
-
-        count_tree_items = 0
-        count_tree_files = 0
-        count_tree_dirs = 0
-        logger.debug(f'Building tree for GDrive root: [{root_node.uid}] {root_node.name}')
-        q = Queue()
-        q.put((root_node, root_node.uid))
-
-        while not q.empty():
-            item, parent_id = q.get()
-            path = os.path.join(parent_id, item.uid)
-            existing = path_dict.get(path, None)
-            if existing:
-                if item.uid == existing.uid:
-                    # dunno why these come through, but they seem to be harmless
-                    count_resolved_conflicts += 1
-                    continue
-                else:
-                    logger.error(f'Overwriting path "{path}":\n'
-                                 f'OLD: {existing}\n'
-                                 f'NEW: {item}')
-                    count_path_conflicts += 1
-            path_dict[path] = item
-            # logger.debug(f'path="{path}" {item}')
-            count_tree_items += 1
-            total_items += 1
-
-            # Collect stats
-            if item.my_share:
-                count_shared += 1
-            if not item.is_dir() and not item.md5:
-                count_no_md5 += 1
-
-            if item.trashed == EXPLICITLY_TRASHED:
-                count_explicit_trash += 1
-            elif item.trashed == IMPLICITLY_TRASHED:
-                count_implicit_trash += 1
-
-            child_list = meta.get_children(item.uid)
-            if item.is_dir():
-                count_tree_dirs += 1
-            else:
-                count_tree_files += 1
-                if child_list:
-                    logger.error(f'Item is marked as a FILE but has children! [{root_node.uid}] {root_node.name}')
-
-            if child_list:
-                for child in child_list:
-                    q.put((child, path))
-
-        logger.debug(f'"{root_node.name}" contains {count_tree_items} nodes ({count_tree_files} files, {count_tree_dirs} dirs)')
-
-    logger.info(f'Finished paths for {total_items} items under {len(meta.roots)} roots! Stats: shared_by_me={count_shared}, '
-                f'no_md5={count_no_md5}, user_trashed={count_explicit_trash}, also_trashed={count_implicit_trash}, '
-                f'path_conflicts={count_path_conflicts}, resolved={count_resolved_conflicts}')
-    return path_dict
 
 
 """
@@ -101,78 +30,151 @@ class GDriveTreeLoader:
         self.tree_id = tree_id
         self.tx_id = uuid.uuid1()
         self.cache_path = cache_path
-        if cache_path:
-            if not os.path.exists(cache_path):
-                raise FileNotFoundError(cache_path)
-            self.cache = GDriveDatabase(cache_path)
-        else:
-            self.cache = None
+        self.cache = None
         self.gdrive_client = GDriveClient(self.config, tree_id)
 
-    def load_all(self, invalidate_cache=False) -> GDriveWholeTree:
-        try:
-            if self.tree_id:
-                logger.debug(f'Sending START_PROGRESS_INDETERMINATE for tree_id: {self.tree_id}')
-                actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=self.tree_id, tx_id=self.tx_id)
+    def _get_previous_download_state(self, download_type: int):
+        for download in self.cache.get_current_downloads():
+            if download.download_type == download_type:
+                return download
+        return None
 
-            meta = GDriveWholeTree()
+    def _compile_full_paths(self, meta: GDriveWholeTree, sync_ts: int) -> List[Tuple]:
+        full_path_stopwatch = Stopwatch()
+        id_parent_path_tuples: List[Tuple] = []
 
-            meta.me = self.gdrive_client.get_about()
-            cache_has_data = self.cache.has_gdrive_dirs() or self.cache.has_gdrive_files()
-
-            # Load data from either cache or Google:
-            if self.cache and cache_has_data and not invalidate_cache:
-                if self.tree_id:
-                    msg = 'Reading cache...'
-                    actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=msg)
-
-                self.load_from_cache(meta)
-            else:
-                sync_ts = int(time.time())
-                self.gdrive_client.download_directory_structure(meta, sync_ts)
-                self.gdrive_client.download_all_file_meta(meta, sync_ts)
-                for goog_dir in meta.first_parent_dict.values():
-                    goog_dir.all_children_fetched = True
-
-            # Save to cache if configured:
-            if self.cache and (not cache_has_data or invalidate_cache):
-                if self.tree_id:
-                    msg = 'Saving to cache...'
-                    actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=msg)
-                logger.debug('Saving to cache')
-                self.save_to_cache(meta=meta, overwrite=True)
-
-            return meta
-        finally:
-            if self.tree_id:
-                logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
-                actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id, tx_id=self.tx_id)
-
-    def save_to_cache(self, meta, overwrite):
-        # Convert to tuples for insert into DB:
-        dir_rows = []
-        file_rows = []
-        for parent_id, item_list in meta.first_parent_dict.items():
-            for item in item_list:
-                if item.is_dir():
-                    dir_rows.append(item.make_tuple(parent_id))
+        for item in meta.id_dict.values():
+            full_paths: List[str] = meta.get_full_paths_for_item(item)
+            parent_ids: List[str] = item.parent_ids
+            if parent_ids:
+                if len(parent_ids) == 1 and len(full_paths) == 1:
+                    id_parent_path_tuples.append((item.uid, item.parent_ids[0], full_paths[0], sync_ts))
                 else:
-                    file_rows.append(item.make_tuple(parent_id))
+                    tuples: List[Tuple] = []
+                    for full_path in full_paths:
+                        matching_parent_id = self._find_matching_parent(meta, item, full_path)
+                        if matching_parent_id:
+                            tuples.append((item.uid, matching_parent_id, full_path, sync_ts))
+                        else:
+                            # Node is serving as a root
+                            tuples.append((item.uid, None, full_path, sync_ts))
+                    assert len(tuples) == len(full_paths)
+                    # this expression is beautiful
+                    assert len(parent_ids) == len(set(map(lambda x: x[1], [x for x in tuples if x[1]]))), \
+                        f'Failed to match each full_path to a unique parent! item={item} full_paths={full_paths} tuples={tuples}'
+                    id_parent_path_tuples += tuples
 
-        for item in meta.roots:
-            # Roots are stored with the other files and dirs:
-            if item.is_dir():
-                dir_rows.append(item.make_tuple(None))
             else:
-                file_rows.append(item.make_tuple(None))
+                if len(full_paths) > 1:
+                    logger.warning(f'It appears a root node has multiple paths somehow! Paths: {full_paths}, item: {item}')
+                for full_path in full_paths:
+                    id_parent_path_tuples.append((item.uid, None, full_path))
 
-        self.cache.insert_gdrive_dirs(dir_rows, overwrite)
+        logger.debug(f'{full_path_stopwatch} Full paths calculated for {len(meta.id_dict)} items')
+        return id_parent_path_tuples
 
-        self.cache.insert_gdrive_files(file_rows, overwrite)
+    def load_all(self, invalidate_cache=False) -> GDriveWholeTree:
+        if not invalidate_cache and not os.path.exists(self.cache_path):
+            raise FileNotFoundError(self.cache_path)
+        # This will create a new file if not found:
+        with GDriveDatabase(self.cache_path) as self.cache:
+            try:
+                # scroll down ⯆⯆⯆
+                return self._load_all(invalidate_cache)
+            finally:
+                if self.tree_id:
+                    logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
+                    actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id, tx_id=self.tx_id)
 
-        self.cache.insert_multiple_parent_mappings(meta.ids_with_multiple_parents, overwrite)
+    def _load_all(self, invalidate_cache=False) -> GDriveWholeTree:
+        if self.tree_id:
+            logger.debug(f'Sending START_PROGRESS_INDETERMINATE for tree_id: {self.tree_id}')
+            actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=self.tree_id, tx_id=self.tx_id)
 
-    def load_from_cache(self, meta: GDriveWholeTree):
+        meta: GDriveWholeTree = GDriveWholeTree()
+
+        meta.me = self.gdrive_client.get_about()
+
+        sync_ts: int = int(time.time())
+
+        download: CurrentDownload = self._get_previous_download_state(GDRIVE_DOWNLOAD_TYPE_LOAD_ALL)
+        if not download or invalidate_cache:
+            logger.info('Starting a new download of all Google Drive meta')
+            download = CurrentDownload(GDRIVE_DOWNLOAD_TYPE_LOAD_ALL, GDRIVE_DOWNLOAD_STATE_NOT_STARTED, None, sync_ts)
+            self.cache.create_or_update_download(download)
+
+        if download.current_state == GDRIVE_DOWNLOAD_STATE_COMPLETE:
+            logger.info('All meta already downloaded; loading from cache')
+            # Load all data
+            if self.tree_id:
+                msg = 'Reading cache...'
+                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=msg)
+
+            self._load_all_from_cache(meta)
+            return meta
+
+        state = 'Starting' if download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED else 'Resuming'
+        logger.info(f'{state} download of all Google Drive meta (state={download.current_state})')
+        if download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
+            # Need to make a special call to get the root node 'My Drive'. This node will not be included
+            # in the "list files" call:
+            download.update_ts = sync_ts
+            drive_root: GoogFolder = self.gdrive_client.get_my_drive_root(download.update_ts)
+            meta.add_item(drive_root)
+
+            download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
+            download.page_token = None
+            self.cache.insert_gdrive_dirs(dir_list=[drive_root.to_tuple()], commit=False)
+            self.cache.create_or_update_download(download=download)
+            # fall through
+        if download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
+            self.gdrive_client.download_directory_structure(meta, self.cache, download)
+            # fall through
+
+        if download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS:
+            self.gdrive_client.download_all_file_meta(meta, self.cache, download)
+
+        if download.current_state <= GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE:
+            id_parent_path_mappings = self._compile_full_paths(meta)
+            download.current_state = GDRIVE_DOWNLOAD_STATE_COMPLETE
+            # FIXME: after we confirm it works, update instead of insert
+            self.cache.insert_id_parent_mappings(id_parent_mappings=id_parent_path_mappings, commit=False)
+            self.cache.create_or_update_download(download=download)
+
+        # Save a copy of the entire cache:
+        for goog_dir in meta.first_parent_dict.values():
+            goog_dir.all_children_fetched = True
+
+        # Save to cache:
+        msg = 'Saving to cache...'
+        if self.tree_id:
+            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=msg)
+        logger.debug(msg)
+        self.save_all_to_cache(meta=meta, overwrite=True)
+
+        return meta
+
+    def save_all_to_cache(self, meta, overwrite):
+        logger.info('Saving to cache again')
+        self.cache.close()
+        self.cache = GDriveDatabase(self.cache_path + '.second.db')
+
+        # Convert to tuples for insert into DB:
+        dir_tuples: List[Tuple] = []
+        file_tuples: List[Tuple] = []
+        for item in meta.id_dict.values():
+            if item.is_dir():
+                dir_tuples.append(item.to_tuple())
+            else:
+                file_tuples.append(item.to_tuple())
+
+        id_parent_path_mappings = self._compile_full_paths(meta)
+
+        self.cache.insert_gdrive_dirs(dir_list=dir_tuples, overwrite=overwrite, commit=False)
+        self.cache.insert_gdrive_files(file_list=file_tuples, overwrite=overwrite, commit=False)
+        self.cache.insert_id_parent_mappings(id_parent_mappings=id_parent_path_mappings, overwrite=overwrite)
+
+    def _load_all_from_cache(self, meta: GDriveWholeTree):
 
         if not self.cache.has_gdrive_dirs() or not self.cache.has_gdrive_files():
             raise RuntimeError(f'Cache is corrupted: {self.cache_path}')
@@ -181,17 +183,16 @@ class GDriveTreeLoader:
         dir_rows = self.cache.get_gdrive_dirs()
         actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=f'Retreived {len(dir_rows):n} dirs')
 
-        for item_id, item_name, parent_id, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
+        for item_id, item_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
             item = GoogFolder(item_id=item_id, item_name=item_name,
                               trashed=item_trashed, drive_id=drive_id, my_share=my_share,
                               sync_ts=sync_ts, all_children_fetched=all_children_fetched)
-            item.parent_ids = parent_id
             meta.add_item(item)
 
         # FILES:
         file_rows = self.cache.get_gdrive_files()
         actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=f'Retreived {len(file_rows):n} files')
-        for item_id, item_name, parent_id, item_trashed, size_bytes_str, md5, create_ts, modify_ts, owner_id, drive_id, \
+        for item_id, item_name, item_trashed, size_bytes_str, md5, create_ts, modify_ts, owner_id, drive_id, \
                 my_share, version, head_revision_id, sync_ts in file_rows:
             size_bytes = None if size_bytes_str is None else int(size_bytes_str)
             file_node = GoogFile(item_id=item_id, item_name=item_name,
@@ -199,12 +200,21 @@ class GDriveTreeLoader:
                                  head_revision_id=head_revision_id, md5=md5,
                                  create_ts=int(create_ts), modify_ts=int(modify_ts), size_bytes=size_bytes,
                                  owner_id=owner_id, sync_ts=sync_ts)
-            file_node.parent_ids = parent_id
             meta.add_item(file_node)
 
-        # MISC:
-        # meta.ids_with_multiple_parents = self.cache.get_multiple_parent_ids()
+        # CHILD-PARENT MAPPINGS:
+        id_parent_mappings = self.cache.get_id_parent_mappings()
+        for item_id, parent_id, full_path in id_parent_mappings:
+            # FIXME
+            pass
 
-        # Finally, build the id tree:
-        # meta.path_dict = build_path_trees_by_id(meta)
 
+def _find_matching_parent(meta, item, full_path):
+    # The matching parent will have at least one path which matches the given full path (going up one path segment)
+    potential_parent_path = os.path.split(full_path)[0]
+    assert potential_parent_path and potential_parent_path != '/', f'For {potential_parent_path}'
+    for parent_id in item.parent_ids:
+        for parent_full_path in meta.get_full_paths_for_item(meta.get_item_for_id(parent_id)):
+            if potential_parent_path == parent_full_path:
+                return parent_id
+    return None

@@ -1,7 +1,7 @@
 import os
-from abc import ABC
+from abc import ABC, abstractmethod
 import logging
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 from constants import NOT_TRASHED, TRASHED_STATUS
 from model.category import Category
@@ -108,9 +108,15 @@ class GoogNode(DisplayNode, ABC):
             return ' '
         return TRASHED_STATUS[self.trashed]
 
-    def make_tuple(self, parent_id):
-        return self.uid, self.name, parent_id, self.trashed, self.drive_id, self.my_share, self.sync_ts
+    @abstractmethod
+    def to_tuple(self):
+        pass
 
+    def parent_mappings_tuples(self) -> List[Tuple[str, str, Optional[str], int]]:
+        tuples = []
+        for parent_id in self.parent_ids:
+            tuples.append((self.uid, parent_id, None, self.sync_ts))
+        return tuples
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
@@ -130,6 +136,8 @@ class GoogFolder(GoogNode):
         return f'Folder:(id="{self.uid}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
                f'my_share={self.my_share} sync_ts={self.sync_ts} parent_ids={self.parent_ids} children_fetched={self.all_children_fetched} ]'
 
+    def to_tuple(self):
+        return self.uid, self.name, self.trashed, self.drive_id, self.my_share, self.sync_ts, self.all_children_fetched
 
 
 """
@@ -182,8 +190,8 @@ class GoogFile(GoogNode):
             return ICON_TRASHED_FILE
         return ICON_GENERIC_FILE
 
-    def make_tuple(self, parent_id):
-        return (self.uid, self.name, parent_id, self.trashed, self._size_bytes, self.md5, self.create_ts, self.modify_ts,
+    def to_tuple(self):
+        return (self.uid, self.name, self.trashed, self._size_bytes, self.md5, self.create_ts, self.modify_ts,
                 self.owner_id, self.drive_id, self.my_share, self.version, self.head_revision_id, self.sync_ts)
 
 
@@ -214,3 +222,6 @@ class FolderToAdd(PlanningNode, GoogNode):
 
     def __repr__(self):
         return f'FolderToAdd(dest_path={self.full_path})'
+
+    def to_tuple(self):
+        pass
