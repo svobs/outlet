@@ -7,7 +7,7 @@ from queue import Queue
 from constants import EXPLICITLY_TRASHED, IMPLICITLY_TRASHED, ROOT
 from gdrive.client import GDriveClient
 from index.sqlite.gdrive_db import GDriveDatabase
-from model.gdrive_tree import GDriveWholeTree
+from model.gdrive_whole_tree import GDriveWholeTree
 from model.goog_node import GoogFile, GoogFolder
 from ui import actions
 

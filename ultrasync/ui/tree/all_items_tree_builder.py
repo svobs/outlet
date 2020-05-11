@@ -3,9 +3,10 @@ from typing import List, Optional
 
 import treelib
 
-from model.display_id import GDriveIdentifier, Identifier
+from model.display_id import Identifier
 from model.display_node import DirNode, DisplayNode
-from model.gdrive_tree import GDriveSubtree, GDriveTree, GDriveWholeTree
+from model.gdrive_subtree import GDriveSubtree
+from model.gdrive_whole_tree import GDriveTree, GDriveWholeTree
 from model.subtree_snapshot import SubtreeSnapshot
 from ui.tree.display_tree_builder import DisplayTreeBuilder
 

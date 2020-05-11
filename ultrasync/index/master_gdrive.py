@@ -1,19 +1,18 @@
 import logging
-from queue import Queue
-from typing import List, Optional
+from typing import List
 
 from pydispatch import dispatcher
-
-from model import display_id
-from model.display_id import GDriveIdentifier, Identifier
-from model.gdrive_tree import GDriveSubtree, GDriveTree, GDriveWholeTree
-from stopwatch_sec import Stopwatch
 
 from constants import OBJ_TYPE_GDRIVE, ROOT
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index.cache_manager import PersistedCacheInfo
 from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
-from model.goog_node import GoogFolder, GoogNode
+from model import display_id
+from model.display_id import GDriveIdentifier, Identifier
+from model.gdrive_subtree import GDriveSubtree
+from model.gdrive_whole_tree import GDriveTree, GDriveWholeTree
+from model.goog_node import GoogNode
+from stopwatch_sec import Stopwatch
 from ui import actions
 
 logger = logging.getLogger(__name__)

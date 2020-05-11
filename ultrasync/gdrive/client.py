@@ -17,7 +17,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
 from constants import EXPLICITLY_TRASHED, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, IMPLICITLY_TRASHED, NOT_TRASHED
-from model.gdrive_tree import UserMeta
+from model.gdrive_whole_tree import UserMeta
 from model.goog_node import GoogFile, GoogFolder
 from ui import actions
 

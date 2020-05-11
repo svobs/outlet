@@ -3,11 +3,11 @@ import os
 import threading
 import time
 import uuid
-from typing import Dict, List
+from typing import List
 
 from pydispatch import dispatcher
 
-from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, MAIN_REGISTRY_FILE_NAME, ROOT
+from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_PATH_PREFIX, MAIN_REGISTRY_FILE_NAME, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
 from file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
 from index.master_gdrive import GDriveMasterCache
@@ -15,7 +15,6 @@ from index.master_local import LocalDiskMasterCache
 from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
 from model.display_id import GDriveIdentifier, Identifier, LocalFsIdentifier
-from model.goog_node import GoogNode
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
 from ui import actions
@@ -32,6 +31,7 @@ def _ensure_cache_dir_path(config):
         logger.info(f'Cache directory does not exist; attempting to create: "{cache_dir_path}"')
     os.makedirs(name=cache_dir_path, exist_ok=True)
     return cache_dir_path
+
 
 #    CLASS CacheInfoByType
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
@@ -110,7 +110,7 @@ class CacheManager:
                     try:
                         info = PersistedCacheInfo(existing_disk_cache)
                         self.caches_by_type.put(info)
-                        logger.info(f'Init cache {(cache_num+1)}/{len(existing_caches)}: id={existing_disk_cache.subtree_root}')
+                        logger.info(f'Init cache {(cache_num + 1)}/{len(existing_caches)}: id={existing_disk_cache.subtree_root}')
                         self._init_existing_cache(info)
                     except Exception:
                         logger.exception(f'Failed to load cache: {existing_disk_cache.cache_location}')
@@ -194,8 +194,8 @@ class CacheManager:
         cache_location = os.path.join(self.cache_dir_path, mangled_file_name)
         now_ms = int(time.time())
         db_entry = CacheInfoEntry(cache_location=cache_location,
-                                        subtree_root=subtree_root, sync_ts=now_ms,
-                                        is_complete=True)
+                                  subtree_root=subtree_root, sync_ts=now_ms,
+                                  is_complete=True)
 
         with CacheRegistry(self.main_registry_path) as cache_registry_db:
             cache_registry_db.create_cache_registry_if_not_exist()
