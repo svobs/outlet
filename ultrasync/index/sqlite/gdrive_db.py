@@ -151,3 +151,9 @@ class GDriveDatabase(MetaDatabase):
 
         logger.debug(f'Retrieved {len(downloads)} current downloads')
         return downloads
+
+    def delete_all_gdrive_data(self):
+        # Not the downloads table though
+        self.drop_table_if_exists(self.TABLE_GRDIVE_FILES)
+        self.drop_table_if_exists(self.TABLE_GRDIVE_DIRS)
+        self.drop_table_if_exists(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS)

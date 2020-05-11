@@ -1,4 +1,5 @@
 import io
+import socket
 from typing import List, Tuple, Union
 
 from googleapiclient.errors import HttpError
@@ -94,19 +95,24 @@ def try_repeatedly(request_func):
         try:
             return request_func()
         except Exception as err:
-            logger.info(f'Error type: {type(err)}')
-            if isinstance(err, HttpError):
-                try:
-                    if err.resp and err.resp.status == 403 or err.resp.status == 404:
-                        # TODO: custom error class
-                        raise
-                except AttributeError as err2:
-                    logger.error(f'Additional error: {err2}')
+            logger.debug(f'Error type: {type(err)}')
+            if isinstance(err, socket.timeout):
+                if retries_remaining == 0:
+                    raise
+                logger.error(f'Request timed out: sleeping 3 secs (retries remaining: {retries_remaining})')
+            else:
+                if isinstance(err, HttpError):
+                    try:
+                        if err.resp and err.resp.status == 403 or err.resp.status == 404:
+                            # TODO: custom error class
+                            raise
+                    except AttributeError as err2:
+                        logger.error(f'Additional error: {err2}')
 
-            if retries_remaining == 0:
-                raise
-            # Typically a transport error (socket timeout, name server problem...)
-            logger.error(f'Request failed: {repr(err)}: sleeping 3 secs (retries remaining: {retries_remaining})')
+                if retries_remaining == 0:
+                    raise
+                # Typically a transport error (socket timeout, name server problem...)
+                logger.error(f'Request failed: {repr(err)}: sleeping 3 secs (retries remaining: {retries_remaining})')
             time.sleep(3)
             retries_remaining -= 1
 

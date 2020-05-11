@@ -52,7 +52,7 @@ class GDriveTreeLoader:
                 else:
                     tuples: List[Tuple] = []
                     for full_path in full_paths:
-                        matching_parent_id = self._find_matching_parent(meta, item, full_path)
+                        matching_parent_id = _find_matching_parent(meta, item, full_path)
                         if matching_parent_id:
                             tuples.append((item.uid, matching_parent_id, full_path, sync_ts))
                         else:
@@ -68,7 +68,7 @@ class GDriveTreeLoader:
                 if len(full_paths) > 1:
                     logger.warning(f'It appears a root node has multiple paths somehow! Paths: {full_paths}, item: {item}')
                 for full_path in full_paths:
-                    id_parent_path_tuples.append((item.uid, None, full_path))
+                    id_parent_path_tuples.append((item.uid, None, full_path, sync_ts))
 
         logger.debug(f'{full_path_stopwatch} Full paths calculated for {len(meta.id_dict)} items')
         return id_parent_path_tuples
@@ -115,7 +115,10 @@ class GDriveTreeLoader:
 
         state = 'Starting' if download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED else 'Resuming'
         logger.info(f'{state} download of all Google Drive meta (state={download.current_state})')
+
         if download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
+            self.cache.delete_all_gdrive_data()
+
             # Need to make a special call to get the root node 'My Drive'. This node will not be included
             # in the "list files" call:
             download.update_ts = sync_ts
@@ -127,6 +130,7 @@ class GDriveTreeLoader:
             self.cache.insert_gdrive_dirs(dir_list=[drive_root.to_tuple()], commit=False)
             self.cache.create_or_update_download(download=download)
             # fall through
+
         if download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
             self.gdrive_client.download_directory_structure(meta, self.cache, download)
             # fall through
@@ -135,7 +139,7 @@ class GDriveTreeLoader:
             self.gdrive_client.download_all_file_meta(meta, self.cache, download)
 
         if download.current_state <= GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE:
-            id_parent_path_mappings = self._compile_full_paths(meta)
+            id_parent_path_mappings = self._compile_full_paths(meta, sync_ts)
             download.current_state = GDRIVE_DOWNLOAD_STATE_COMPLETE
             # FIXME: after we confirm it works, update instead of insert
             self.cache.insert_id_parent_mappings(id_parent_mappings=id_parent_path_mappings, commit=False)
@@ -168,7 +172,8 @@ class GDriveTreeLoader:
             else:
                 file_tuples.append(item.to_tuple())
 
-        id_parent_path_mappings = self._compile_full_paths(meta)
+        sync_ts: int = int(time.time())
+        id_parent_path_mappings = self._compile_full_paths(meta, sync_ts)
 
         self.cache.insert_gdrive_dirs(dir_list=dir_tuples, overwrite=overwrite, commit=False)
         self.cache.insert_gdrive_files(file_list=file_tuples, overwrite=overwrite, commit=False)
