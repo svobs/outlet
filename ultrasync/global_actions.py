@@ -4,7 +4,8 @@ import uuid
 
 import gi
 
-from constants import OBJ_TYPE_LOCAL_DISK, ROOT, TreeDisplayMode
+from constants import OBJ_TYPE_LOCAL_DISK, TreeDisplayMode
+from model import display_id
 from model.display_id import Identifier
 from model.subtree_snapshot import SubtreeSnapshot
 
@@ -62,7 +63,8 @@ class GlobalActions:
         try:
             self.application.cache_manager.download_all_gdrive_meta(tree_id)
 
-            tree = self.application.cache_manager.load_gdrive_subtree(ROOT, tree_id)
+            root_identifier: Identifier = display_id.get_gdrive_root_constant_identifier()
+            tree = self.application.cache_manager.load_gdrive_subtree(root_identifier, tree_id)
             actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, tree=tree)
         except Exception as err:
             self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
@@ -74,7 +76,8 @@ class GlobalActions:
         """Executed by Task Runner. NOT UI thread"""
         actions.disable_ui(sender=tree_id)
         try:
-            tree = self.application.cache_manager.load_gdrive_subtree(ROOT, tree_id)
+            root_identifier: Identifier = display_id.get_gdrive_root_constant_identifier()
+            tree = self.application.cache_manager.load_gdrive_subtree(root_identifier, tree_id)
             actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, tree=tree)
         except Exception as err:
             self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))

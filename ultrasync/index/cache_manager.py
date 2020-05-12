@@ -8,7 +8,7 @@ from typing import List
 
 from pydispatch import dispatcher
 
-from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_PATH_PREFIX, MAIN_REGISTRY_FILE_NAME, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
+from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
 from file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
 from index.master_gdrive import GDriveMasterCache
@@ -91,10 +91,10 @@ class CacheManager:
             self.gdrive_cache = GDriveMasterCache(self.application)
 
             # First put into map, to eliminate possible duplicates
-            existing_caches = self._get_cache_info_from_registry()
+            existing_caches: List[CacheInfoEntry] = self._get_cache_info_from_registry()
             unique_cache_count = 0
             for existing_cache in existing_caches:
-                info = PersistedCacheInfo(existing_cache)
+                info: PersistedCacheInfo = PersistedCacheInfo(existing_cache)
                 duplicate = self.caches_by_type.get_single(info.subtree_root.tree_type, info.subtree_root.full_path)
                 if duplicate:
                     if duplicate.sync_ts < info.sync_ts:
@@ -175,7 +175,7 @@ class CacheManager:
         return self.gdrive_cache.download_all_gdrive_meta(tree_id)
 
     def get_cache_info_entry(self, subtree_root: Identifier) -> PersistedCacheInfo:
-        return self.caches_by_type.get_single(subtree_root.tree_type, subtree_root.full_path)
+        return self.caches_by_type.get_single(subtree_root.tree_type, subtree_root.uid)
 
     def get_or_create_cache_info_entry(self, subtree_root: Identifier) -> PersistedCacheInfo:
         existing = self.get_cache_info_entry(subtree_root)
@@ -192,7 +192,7 @@ class CacheManager:
         else:
             raise RuntimeError(f'Unrecognized tree type: {subtree_root.tree_type}')
 
-        mangled_file_name = prefix + subtree_root.uid.replace('/', '_') + '.db'
+        mangled_file_name = prefix + subtree_root.full_path.replace('/', '_') + '.db'
         cache_location = os.path.join(self.cache_dir_path, mangled_file_name)
         now_ms = int(time.time())
         db_entry = CacheInfoEntry(cache_location=cache_location,

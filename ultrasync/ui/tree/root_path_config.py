@@ -1,6 +1,7 @@
 from pydispatch import dispatcher
 import logging
 
+from constants import NULL_UID
 from model import display_id
 from model.display_id import Identifier
 from ui import actions
@@ -21,7 +22,7 @@ class RootPathConfigPersister:
         tree_type = self._config.get(self._tree_type_config_key)
         root_path = self._config.get(self._root_path_config_key)
         root_uid = self._config.get(self._root_uid_config_key)
-        if root_uid == 'NULL':
+        if root_uid == NULL_UID:
             root_uid = None
         self.root_identifier = display_id.for_values(tree_type=tree_type, full_path=root_path, uid=root_uid)
 

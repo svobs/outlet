@@ -1,9 +1,9 @@
 {
     "diff_win": {
-        "height": 696,
-        "width": 1398,
-        "x": 0,
-        "y": 0
+        "height": 748,
+        "width": 1200,
+        "x": 404,
+        "y": 1179
     },
     "left_tree": {
         "expanded_state": {
@@ -14,7 +14,7 @@
             "Updated": true
         },
         "root_path": "/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos",
-        "root_uid": "/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos",
+        "root_uid": 0,
         "tree_type": 1
     },
     "right_tree": {
@@ -25,8 +25,8 @@
             "Moved": true,
             "Updated": true
         },
-        "root_path": "/My Drive/Media/Svoboda-Family/Svoboda Family Photos",
-        "root_uid": "17Laq7U_w3ZXBmJD6ViLFgIs1FheFk40K",
+        "root_path": "/",
+        "root_uid": 1,
         "tree_type": 2
     }
 }

@@ -37,14 +37,14 @@ class FMetaTree(SubtreeSnapshot):
 
     @property
     def root_node(self):
-        return self.create_identifier(full_path=self.root_path, uid=self.root_path, category=Category.NA)
+        return self.create_identifier(full_path=self.root_path, uid=constants.NULL_UID, category=Category.NA)
 
     @property
     def tree_type(self):
         return constants.OBJ_TYPE_LOCAL_DISK
 
     @classmethod
-    def create_identifier(cls, full_path, uid, category) -> Identifier:
+    def create_identifier(cls, full_path: str, uid: int, category) -> Identifier:
         return LocalFsIdentifier(full_path=full_path, uid=uid, category=category)
 
     @classmethod

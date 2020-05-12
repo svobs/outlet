@@ -112,7 +112,8 @@ class CategoryDisplayTree:
 
             subroot_node: treelib.Node = category_tree.get_node(nid=subroot)
             if not subroot_node:
-                identifier = display_id.for_values(tree_type=item.identifier.tree_type, full_path=subroot, uid=subroot, category=category)
+                identifier = display_id.for_values(tree_type=item.identifier.tree_type, full_path=subroot,
+                                                   uid=source_tree.get_new_uid(), category=category)
                 subroot_node_data = RootTypeNode(identifier=identifier)
                 subroot_node = category_tree.create_node(identifier=subroot, parent=root, data=subroot_node_data)
 

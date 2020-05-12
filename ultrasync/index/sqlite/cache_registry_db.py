@@ -20,7 +20,7 @@ class CacheRegistry(MetaDatabase):
         'cols': (('cache_location', 'TEXT'),
                  ('cache_type', 'INTEGER'),
                  ('subtree_root_path', 'TEXT'),
-                 ('subtree_root_uid', 'TEXT'),
+                 ('subtree_root_uid', 'INTEGER'),
                  ('sync_ts', 'INTEGER'),
                  ('complete', 'INTEGER'))
     }
@@ -40,8 +40,8 @@ class CacheRegistry(MetaDatabase):
         entries = []
         for row in rows:
             cache_location, cache_type, subtree_root_path, subtree_root_uid, sync_ts, is_complete = row
-            identifier = display_id.for_values(cache_type, subtree_root_path, subtree_root_uid)
-            entries.append(CacheInfoEntry(cache_location, identifier, sync_ts, is_complete))
+            identifier = display_id.for_values(tree_type=cache_type, full_path=subtree_root_path, uid=ensure_int(subtree_root_uid))
+            entries.append(CacheInfoEntry(cache_location=cache_location, subtree_root=identifier, sync_ts=sync_ts, is_complete=is_complete))
         return entries
 
     # Takes a list of FMeta objects:

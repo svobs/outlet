@@ -7,13 +7,12 @@ import treelib
 from pydispatch import dispatcher
 
 import file_util
-from constants import OBJ_TYPE_LOCAL_DISK, ROOT
+from constants import ROOT_PATH, ROOT_UID
 from fmeta.fmeta_tree_scanner import TreeMetaScanner
 from index.cache_manager import PersistedCacheInfo
 from index.sqlite.fmeta_db import FMetaDatabase
 from index.two_level_dict import FullPathDict, Md5BeforePathDict, ParentPathBeforeFileNameDict, Sha256BeforePathDict
 from model.display_id import Identifier, LocalFsIdentifier
-from model.display_node import DisplayNode
 from model.fmeta import FMeta
 from model.fmeta_tree import FMetaTree
 from model.planning_node import PlanningNode
@@ -50,7 +49,7 @@ class LocalDiskMasterCache:
         self.parent_path_dict = ParentPathBeforeFileNameDict()
         # But we still need a dir tree to look up child dirs:
         self.dir_tree = treelib.Tree()
-        self.dir_tree.create_node(tag=ROOT, identifier=ROOT)
+        self.dir_tree.create_node(identifier=ROOT_PATH)
 
     def get_summary(self):
         if self.use_md5:
@@ -205,17 +204,17 @@ class LocalDiskMasterCache:
         return fmeta_tree
 
     def _add_ancestors_to_tree(self, item_full_path):
-        nid = ROOT
-        parent = self.dir_tree.get_node(nid)
+        nid: str = ROOT_PATH
+        parent: treelib.Node = self.dir_tree.get_node(nid)
         dirs_str = os.path.dirname(item_full_path)
         path_segments = file_util.split_path(dirs_str)
 
         for dir_name in path_segments:
-            nid = os.path.join(nid, dir_name)
-            child = self.dir_tree.get_node(nid=nid)
+            nid: str = os.path.join(nid, dir_name)
+            child: treelib.Node = self.dir_tree.get_node(nid=nid)
             if child is None:
                 # logger.debug(f'Creating dir node: nid={nid}')
-                child = self.dir_tree.create_node(tag=dir_name, identifier=nid, parent=parent)
+                child = self.dir_tree.create_node(identifier=nid, parent=parent)
             parent = child
 
     def _update_in_memory_cache(self, fresh_tree):

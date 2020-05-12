@@ -1,12 +1,11 @@
 """Content-first diff. See diff function below."""
-import uuid
 from typing import Iterable, List, Optional, Tuple
 
 import file_util
 import os
 import logging
 
-from constants import OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED, ROOT
+from constants import OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED, ROOT_PATH, ROOT_UID
 from index.two_level_dict import TwoLevelDict
 from model import display_id
 from model.category import Category
@@ -86,8 +85,7 @@ class PathTransplanter:
     def plan_rename_file_right(self, left_item, right_item):
         """Make a FileToMove node which will rename a file in the right tree to the name of the file on left"""
         dest_path = self.move_to_right(left_item)
-        orig_path = self.right_tree.get_full_path_for_item(right_item)
-        new_uid = uuid.uuid1()
+        new_uid = self.right_tree.get_new_uid()
         identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Moved)
         move_right_to_right = FileToMove(identifier=identifier, original_node=right_item)
         self.change_tree_right.add_item(move_right_to_right, Category.Moved, self.right_tree)
@@ -95,24 +93,21 @@ class PathTransplanter:
     def plan_rename_file_left(self, left_item, right_item):
         """Make a FileToMove node which will rename a file in the left tree to the name of the file on right"""
         dest_path = self.move_to_left(right_item)
-        orig_path = self.left_tree.get_full_path_for_item(left_item)
-        new_uid = uuid.uuid1()
+        new_uid = self.left_tree.get_new_uid()
         identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Moved)
         move_left_to_left = FileToMove(identifier=identifier, original_node=left_item)
         self.change_tree_left.add_item(move_left_to_left, Category.Moved, self.left_tree)
 
     def plan_add_file_left_to_right(self, left_item):
         dest_path = self.move_to_right(left_item)
-        orig_path = self.left_tree.get_full_path_for_item(left_item)
-        new_uid = uuid.uuid1()
+        new_uid = self.right_tree.get_new_uid()
         identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Added)
         file_to_add_to_right = FileToAdd(identifier=identifier, original_node=left_item)
         self.change_tree_right.add_item(file_to_add_to_right, Category.Added, self.right_tree)
 
     def plan_add_file_right_to_left(self, right_item):
         dest_path = self.move_to_left(right_item)
-        orig_path = self.right_tree.get_full_path_for_item(right_item)
-        new_uid = uuid.uuid1()
+        new_uid = self.left_tree.get_new_uid()
         identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Added)
         file_to_add_to_left = FileToAdd(identifier=identifier, original_node=right_item)
         self.change_tree_left.add_item(file_to_add_to_left, Category.Added, self.left_tree)
@@ -275,12 +270,13 @@ def merge_change_trees(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot,
                        check_for_conflicts=False) -> CategoryDisplayTree:
     is_mixed_tree = left_tree.tree_type != right_tree.tree_type
     if is_mixed_tree:
-        root = LogicalNodeIdentifier(uid=ROOT, full_path=ROOT, category=Category.NA, tree_type=OBJ_TYPE_MIXED)
+        root = LogicalNodeIdentifier(uid=ROOT_UID, full_path=ROOT_PATH, category=Category.NA, tree_type=OBJ_TYPE_MIXED)
     else:
         # FIXME: this needs support for GDrive<->GDrive
         assert left_tree.tree_type == OBJ_TYPE_LOCAL_DISK
+
         new_root_path = file_util.find_nearest_common_ancestor(left_tree.root_path, right_tree.root_path)
-        root: Identifier = display_id.for_values(tree_type=left_tree.tree_type, full_path=new_root_path, uid=new_root_path)
+        root: Identifier = display_id.for_values(tree_type=left_tree.tree_type, full_path=new_root_path, uid=left_tree.get_new_uid())
 
     merged_tree = CategoryDisplayTree(root=root, extra_node_for_type=True)
 

@@ -154,8 +154,9 @@ class RootDirPanel:
         self.path_box.pack_start(self.entry, expand=True, fill=True, padding=0)
 
         def cancel_edit(widget, event):
-            if self.entry:
+            if self.entry and self.entry_box_focus_eid:
                 self.entry.disconnect(self.entry_box_focus_eid)
+                self.entry_box_focus_eid = None
             logger.debug(f'Focus lost! Cancelling root path entry box')
             self._update_root_label(self.current_root)
 

@@ -7,7 +7,7 @@ from gi.repository import GLib, Gtk
 
 logger = logging.getLogger(__name__)
 
-PULSE_STEP = 0.00001
+PULSE_STEP = 0.0001
 MAX_MSG_LENGTH = 80
 
 

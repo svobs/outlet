@@ -58,12 +58,6 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
     def _build_display_tree(self) -> treelib.Tree:
         """
         Builds a tree out of the flat file set.
-        Args:
-            source_tree: source tree
-            root_node: a display node representing the category
-
-        Returns:
-            change tree
         """
         source_tree = self.tree
         root_node = DirNode(self.tree.identifier)

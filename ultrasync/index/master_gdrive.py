@@ -3,7 +3,7 @@ from typing import List
 
 from pydispatch import dispatcher
 
-from constants import OBJ_TYPE_GDRIVE, ROOT
+from constants import OBJ_TYPE_GDRIVE, ROOT_PATH, ROOT_UID
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index.cache_manager import PersistedCacheInfo
 from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
@@ -88,13 +88,13 @@ class GDriveMasterCache:
         return subtree_meta
 
     def load_subtree(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveSubtree:
-        if subtree_root.full_path == ROOT or subtree_root.uid == ROOT:
+        if subtree_root.full_path == ROOT_PATH or subtree_root.uid == ROOT_UID:
             subtree_root = display_id.get_gdrive_root_constant_identifier()
         logger.debug(f'Getting meta for subtree: "{subtree_root}"')
         cache_man = self.application.cache_manager
         # TODO: currently we will just load the root and use that.
         #       But in the future we should do on-demand retrieval of subtrees
-        root = display_id.for_values(tree_type=OBJ_TYPE_GDRIVE, full_path=ROOT)
+        root = display_id.get_gdrive_root_constant_identifier()
         cache_info = cache_man.get_or_create_cache_info_entry(root)
         if not cache_info.is_loaded:
             # Load from disk
@@ -102,7 +102,7 @@ class GDriveMasterCache:
             logger.debug(f'Cache is not loaded: {cache_info.cache_location}')
             self._load_gdrive_cache(cache_info, tree_id)
 
-        if subtree_root.uid == ROOT:
+        if subtree_root.uid == ROOT_UID:
             # Special case. GDrive does not have a single root (it treats shared drives as roots, for example).
             # We'll use this special token to represent "everything"
             gdrive_meta = self.meta_master
@@ -116,7 +116,7 @@ class GDriveMasterCache:
         return gdrive_meta
 
     def download_all_gdrive_meta(self, tree_id):
-        root_identifier = GDriveIdentifier(uid=ROOT, full_path=ROOT)
+        root_identifier = display_id.get_gdrive_root_constant_identifier()
         cache_info = self.application.cache_manager.get_or_create_cache_info_entry(root_identifier)
         cache_path = cache_info.cache_location
         tree_loader = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
