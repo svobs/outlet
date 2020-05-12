@@ -137,24 +137,30 @@ class GDriveTreeLoader:
         if not self.cache.has_gdrive_dirs() or not self.cache.has_gdrive_files():
             raise RuntimeError(f'Cache is corrupted: {self.cache_path}')
 
-        load_stopwatch = Stopwatch()
+        sw_total = Stopwatch()
 
         # DIRs:
+        sw = Stopwatch()
         dir_rows = self.cache.get_gdrive_dirs()
+        dir_count = len(dir_rows)
+
         actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=f'Retreived {len(dir_rows):n} dirs')
 
-        id_dict: Dict[str, GoogNode] = {}
-        first_parent_dict: Dict[str, List[GoogNode]] = {}
-        roots: List[GoogNode] = []
+        tree = GDriveWholeTree()
 
         for item_id, item_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
             item = GoogFolder(item_id=item_id, item_name=item_name,
                               trashed=item_trashed, drive_id=drive_id, my_share=my_share,
                               sync_ts=sync_ts, all_children_fetched=all_children_fetched)
-            id_dict[item_id] = item
+            tree.id_dict[item_id] = item
+
+        logger.debug(f'{sw} Loaded {dir_count} folders')
 
         # FILES:
+        sw = Stopwatch()
         file_rows = self.cache.get_gdrive_files()
+        file_count = len(file_rows)
+
         actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=f'Retreived {len(file_rows):n} files')
         for item_id, item_name, item_trashed, size_bytes_str, md5, create_ts, modify_ts, owner_id, drive_id, \
             my_share, version, head_revision_id, sync_ts in file_rows:
@@ -164,37 +170,39 @@ class GDriveTreeLoader:
                             head_revision_id=head_revision_id, md5=md5,
                             create_ts=int(create_ts), modify_ts=int(modify_ts), size_bytes=size_bytes,
                             owner_id=owner_id, sync_ts=sync_ts)
-            id_dict[item_id] = item
+            tree.id_dict[item_id] = item
+
+        logger.debug(f'{sw} Loaded {file_count} files')
 
         # CHILD-PARENT MAPPINGS:
+        sw = Stopwatch()
         id_parent_mappings = self.cache.get_id_parent_mappings()
+        mapping_count = len(id_parent_mappings)
+
         for item_id, parent_id, sync_ts in id_parent_mappings:
             if not item_id:
                 raise RuntimeError
-            item = id_dict.get(item_id)
+            item = tree.id_dict.get(item_id)
             if not item:
                 raise RuntimeError
 
-            child_list: List[GoogNode] = first_parent_dict.get(parent_id)
+            child_list: List[GoogNode] = tree.first_parent_dict.get(parent_id)
             if not child_list:
                 child_list: List[GoogNode] = []
-                first_parent_dict[parent_id] = child_list
+                tree.first_parent_dict[parent_id] = child_list
             child_list.append(item)
 
             item.add_parent(parent_id)
 
-        for item in id_dict.values():
+        logger.debug(f'{sw} Loaded {mapping_count} mappings')
+
+        for item in tree.id_dict.values():
             if not item.parent_ids:
-                roots.append(item)
+                tree.roots.append(item)
 
-        whole_tree = GDriveWholeTree()
-        whole_tree.id_dict = id_dict
-        whole_tree.first_parent_dict = first_parent_dict
-        whole_tree.roots = roots
-
-        logger.debug(f'{load_stopwatch} Loaded {len(id_dict)} items from {len(file_rows)} file rows and {len(dir_rows)} dir rows, '
-                     f'with {len(first_parent_dict)} mappings from {len(id_parent_mappings)} rows')
-        return whole_tree
+        logger.debug(f'{sw_total} Loaded {len(tree.id_dict):n} items from {file_count:n} file rows and {dir_count:n} dir rows, '
+                     f'with {len(tree.first_parent_dict):n} mappings from {mapping_count:n} rows')
+        return tree
 
 
 def _find_matching_parent(meta, item, full_path):
