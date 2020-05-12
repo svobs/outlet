@@ -21,11 +21,13 @@ class RootPathConfigPersister:
         tree_type = self._config.get(self._tree_type_config_key)
         root_path = self._config.get(self._root_path_config_key)
         root_uid = self._config.get(self._root_uid_config_key)
+        if root_uid == 'NULL':
+            root_uid = None
         self.root_identifier = display_id.for_values(tree_type=tree_type, full_path=root_path, uid=root_uid)
 
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=tree_id)
 
-    def _on_root_path_updated(self, sender: str, new_root: Identifier):
+    def _on_root_path_updated(self, sender: str, new_root: Identifier, err=None):
         logger.info(f'Received signal: "{actions.ROOT_PATH_UPDATED}" with root: {new_root}')
         if self.root_identifier != new_root:
             logger.debug(f'Root path changed. Saving root to config: {self._tree_type_config_key} '
@@ -34,6 +36,7 @@ class RootPathConfigPersister:
             # Root changed. Invalidate the current tree contents
             self._config.write(transient_path=self._tree_type_config_key, value=new_root.tree_type)
             self._config.write(transient_path=self._root_path_config_key, value=new_root.full_path)
-            self._config.write(transient_path=self._root_uid_config_key, value=new_root.uid)
+            if err:
+                self._config.write(transient_path=self._root_uid_config_key, value='NULL')
         # always, just to be safe
         self.root_identifier = new_root

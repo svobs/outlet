@@ -1,3 +1,4 @@
+import errno
 import logging
 import os
 import threading
@@ -14,6 +15,7 @@ from index.master_gdrive import GDriveMasterCache
 from index.master_local import LocalDiskMasterCache
 from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
+from model import display_id
 from model.display_id import GDriveIdentifier, Identifier, LocalFsIdentifier
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
@@ -208,17 +210,17 @@ class CacheManager:
 
         return cache_info
 
-    def get_all_for_path(self, path_string: str) -> List[Identifier]:
-        if path_string.startswith(GDRIVE_PATH_PREFIX):
+    def resolve_path(self, full_path: str = None, identifier: Identifier = None) -> List[Identifier]:
+        """Resolves the given path into either a local file, a set of Google Drive matches, or raises a GDriveItemNotFoundError"""
+        if not identifier:
+            identifier = display_id.for_values(full_path=full_path)
+        if identifier.tree_type == OBJ_TYPE_GDRIVE:
             # Need to wait until all caches are loaded:
             if not self.all_caches_loaded.wait(CACHE_LOAD_TIMEOUT_SEC):
                 logger.error('Timed out waiting for all caches to load!')
 
-            gdrive_path = path_string[len(GDRIVE_PATH_PREFIX):]
-            matches = self.gdrive_cache.get_all_for_path(gdrive_path)
-            if len(matches) == 0:
-                return [GDriveIdentifier('NULL', gdrive_path)]
-            else:
-                return matches
+            return self.gdrive_cache.get_all_for_path(identifier.full_path)
         else:
-            return [LocalFsIdentifier(full_path=path_string)]
+            if not os.path.exists(full_path):
+                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
+            return [LocalFsIdentifier(full_path=full_path)]

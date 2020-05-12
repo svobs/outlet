@@ -1,3 +1,4 @@
+import errno
 import logging
 import os
 import time
@@ -41,7 +42,7 @@ class GDriveTreeLoader:
 
     def load_all(self, invalidate_cache=False) -> GDriveWholeTree:
         if not invalidate_cache and not os.path.exists(self.cache_path):
-            raise FileNotFoundError(self.cache_path)
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.cache_path)
         # This will create a new file if not found:
         with GDriveDatabase(self.cache_path) as self.cache:
             try:

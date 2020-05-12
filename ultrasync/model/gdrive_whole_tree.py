@@ -1,10 +1,9 @@
-import errno
 import logging
-import os
 from typing import Dict, List, Optional, Tuple, Union, ValuesView
 
 import constants
 import file_util
+from model import display_id
 from model.display_id import GDriveIdentifier, Identifier
 from model.goog_node import GoogNode
 from model.planning_node import PlanningNode
@@ -12,6 +11,20 @@ from model.planning_node import PlanningNode
 logger = logging.getLogger(__name__)
 
 SUPER_DEBUG = False
+
+#    CLASS GDriveItemNotFoundError
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
+
+class GDriveItemNotFoundError(RuntimeError):
+    def __init__(self, identifier: Identifier, offending_path: str, msg: str = None):
+        if msg is None:
+            # Set some default useful error message
+            msg = f'Google Drive object not found: {offending_path}'
+        super(GDriveItemNotFoundError, self).__init__(msg)
+        self.identifier = identifier
+        self.offending_path = offending_path
+
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
@@ -138,10 +151,16 @@ class GDriveWholeTree(GDriveTree):
             raise RuntimeError(f'Bad path: "{path}"')
         # name_segments = list(map(lambda x: x.lower(), name_segments))
         iter_name_segs = iter(name_segments)
-        seg = next(iter_name_segs)
+        try:
+            seg = next(iter_name_segs)
+        except StopIteration:
+            seg = ''
         if seg == '/':
             # Strip off root prefix if there is one
-            seg = next(iter_name_segs)
+            try:
+                seg = next(iter_name_segs)
+            except StopIteration:
+                seg = ''
         path_so_far = '/' + seg
         current_seg_items: List[GoogNode] = [x for x in self.roots if x.name.lower() == seg.lower()]
         next_seg_items: List[GoogNode] = []
@@ -168,7 +187,8 @@ class GDriveWholeTree(GDriveTree):
             if len(next_seg_items) == 0:
                 if SUPER_DEBUG:
                     logger.debug(f'Segment not found: "{name_seg}" (target_path: "{path}"')
-                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path_so_far)
+                raise GDriveItemNotFoundError(identifier=display_id.for_values(tree_type=constants.OBJ_TYPE_GDRIVE, full_path=path),
+                                              offending_path=path_so_far)
             else:
                 path_found = path_found + '/' + next_seg_items[0].name
 
@@ -180,6 +200,9 @@ class GDriveWholeTree(GDriveTree):
             identifier.full_path = path_found
         if SUPER_DEBUG:
             logger.debug(f'Found for path "{path_so_far}": {matching_ids}')
+        if not matching_ids:
+            raise GDriveItemNotFoundError(identifier=display_id.for_values(tree_type=constants.OBJ_TYPE_GDRIVE, full_path=path),
+                                          offending_path=path_so_far)
         return matching_ids
 
     def validate(self):

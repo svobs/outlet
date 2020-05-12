@@ -67,11 +67,11 @@ class TreeActionBridge:
     # LISTENERS begin
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
-    def _on_root_path_updated(self, sender, new_root: Identifier):
+    def _on_root_path_updated(self, sender, new_root: Identifier, err=None):
         logger.debug(f'Received signal: "{actions.ROOT_PATH_UPDATED}"')
 
         # Reload subtree and refresh display
-        if self.con.config.get('cache.load_cache_when_tree_root_selected'):
+        if not err and self.con.config.get('cache.load_cache_when_tree_root_selected'):
             logger.debug(f'Got new root. Reloading subtree for: {new_root}')
             # Loads from disk if necessary:
             self.con.reload(new_root)

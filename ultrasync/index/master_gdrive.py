@@ -72,6 +72,8 @@ class GDriveMasterCache:
         self.meta_master = meta
 
     def _slice_off_subtree_from_master(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveSubtree:
+        if not subtree_root.uid or subtree_root.uid == 'NULL':
+            return None
         root: GoogNode = self.meta_master.get_item_for_id(subtree_root.uid)
         if not root:
             return None
@@ -87,7 +89,7 @@ class GDriveMasterCache:
         cache_man = self.application.cache_manager
         # TODO: currently we will just load the root and use that.
         #       But in the future we should do on-demand retrieval of subtrees
-        root = display_id.for_values(OBJ_TYPE_GDRIVE, ROOT, ROOT)
+        root = display_id.for_values(tree_type=OBJ_TYPE_GDRIVE, full_path=ROOT)
         cache_info = cache_man.get_or_create_cache_info_entry(root)
         if not cache_info.is_loaded:
             # Load from disk

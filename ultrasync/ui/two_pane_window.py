@@ -266,7 +266,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
                 button.set_sensitive(enable)
         GLib.idle_add(toggle_ui)
 
-    def _on_root_path_updated(self, sender, new_root: Identifier):
+    def _on_root_path_updated(self, sender, new_root: Identifier, err=None):
         logger.debug(f'Received signal: "{actions.ROOT_PATH_UPDATED}"')
 
         if sender == actions.ID_RIGHT_TREE and self.tree_con_left.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:

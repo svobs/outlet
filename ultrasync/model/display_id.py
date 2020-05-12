@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Union
 
-from constants import OBJ_TYPE_DISPLAY_ONLY, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, ROOT
+from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_DISPLAY_ONLY, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED, ROOT
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 from model.category import Category
@@ -121,10 +121,29 @@ class LocalFsIdentifier(Identifier):
         return f'∣FS∣{self.category.value}⚡{self.full_path}∤{uid_disp}∣'
 
 
-def for_values(tree_type: int, full_path: str, uid: str = None, category=Category.NA):
-    if tree_type == OBJ_TYPE_LOCAL_DISK:
+def for_values(tree_type: int = None,
+               full_path: str = None,
+               uid: str = None,
+               category: Category = Category.NA):
+    if not tree_type:
+        if full_path:
+            if full_path.startswith(GDRIVE_PATH_PREFIX):
+                gdrive_path = full_path[len(GDRIVE_PATH_PREFIX):]
+                if gdrive_path != '/' and gdrive_path.endswith('/'):
+                    gdrive_path = gdrive_path[:-1]
+                if not gdrive_path:
+                    # can happen if the use enters "gdrive:/"
+                    return GDriveIdentifier(uid=uid, full_path='/', category=category)
+                return GDriveIdentifier(uid=uid, full_path=gdrive_path, category=category)
+            else:
+                return LocalFsIdentifier(uid=uid, full_path=full_path, category=category)
+        else:
+            raise RuntimeError('no tree_type and no full_path supplied')
+    elif tree_type == OBJ_TYPE_LOCAL_DISK:
         return LocalFsIdentifier(uid=uid, full_path=full_path, category=category)
     elif tree_type == OBJ_TYPE_GDRIVE:
         return GDriveIdentifier(uid=uid, full_path=full_path, category=category)
-    else:
+    elif tree_type == OBJ_TYPE_MIXED or tree_type == OBJ_TYPE_DISPLAY_ONLY:
         return LogicalNodeIdentifier(full_path=full_path, category=category)
+    else:
+        raise RuntimeError('bad')
