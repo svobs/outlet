@@ -1,10 +1,13 @@
 import logging
 import logging
 import os
+from collections import deque
 from queue import Queue
 from typing import List, Union, ValuesView
 
 import file_util
+import format_util
+from constants import NOT_TRASHED
 from index.two_level_dict import Md5BeforeUidDict
 from model.category import Category
 from model.display_id import GDriveIdentifier, Identifier
@@ -21,8 +24,7 @@ SUPER_DEBUG = False
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
     CLASS GDriveSubtree
-    Represents a slice of the whole tree.
-    Has categories and MD5 for comparison
+    Represents a branch of the whole tree.
 ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
 """
 
@@ -35,6 +37,43 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
         self._whole_tree = whole_tree
         self._root_node = root_node
         self._ignored_items: List[GoogNode] = []
+
+        self.file_count = 0  # really a non-folder count
+        self.folder_count = 0
+        self.shared_by_me_count = 0
+        self.shared_with_me_count = 0
+        self.md5_count = 0
+        self.trashed_file_count = 0
+        self.size_bytes = 0
+        self.trashed_bytes = 0
+
+        queue = deque()
+        queue.append(self._root_node)
+
+        while len(queue) > 0:
+            item: GoogNode = queue.popleft()
+            if item.is_dir():
+                self.folder_count += 1
+            else:
+                self.file_count += 1
+                if item.md5:
+                    self.md5_count += 1
+                if item.trashed == NOT_TRASHED:
+                    if item.size_bytes:
+                        self.size_bytes += item.size_bytes
+                else:
+                    self.trashed_file_count += 1
+                    if item.size_bytes:
+                        self.trashed_bytes += item.size_bytes
+
+            if item.my_share:
+                self.shared_by_me_count += 1
+            elif item.drive_id:
+                self.shared_with_me_count += 1
+            children = self.get_children(item.uid)
+            if children:
+                for child in children:
+                    queue.append(child)
 
     @property
     def root_node(self):
@@ -58,18 +97,6 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
 
     def get_ignored_items(self):
         return self._ignored_items
-
-    def __repr__(self):
-        # FIXME
-        return 'WIP'
-        # return f'GDriveSubtree(root_id={self.root_id} root_path="{self.root_path}" id_count={len(self.id_dict)} ' \
-        #        f'parent_count={len(self.first_parent_dict)})'
-
-    def get_for_md5(self, md5) -> Union[List[GoogNode], ValuesView[GoogNode]]:
-        uid_dict = self._md5_dict.get_second_dict(md5)
-        if uid_dict:
-            return uid_dict.values()
-        return []
 
     def get_md5_dict(self):
         md5_set_stopwatch = Stopwatch()
@@ -212,14 +239,10 @@ class GDriveSubtree(GDriveTree, SubtreeSnapshot):
             raise RuntimeError(f'Could not get relative path for {node_full_path} in "{self.root_path}"')
         return file_util.strip_root(node_full_path, self.root_path)
 
+    def __repr__(self):
+        return f'GDriveSubtree(root_id={self.root_id} root_path="{self.root_path}" id_count={self.file_count + self.folder_count})'
+
     def get_summary(self):
-        # FIXME
-        file_count = 0
-        folder_count = 0
-        # for item in self.id_dict.values():
-        #     if item.is_dir():
-        #         folder_count += 1
-        #     else:
-        #         file_count += 1
-        #         folder_count += 1
-        return f'{file_count:n} files and {folder_count:n} folders in subtree '
+        size_hf = format_util.humanfriendlier_size(self.size_bytes)
+        trashed_size_hf = format_util.humanfriendlier_size(self.trashed_bytes)
+        return f'{size_hf} total in {self.file_count:n} items (including {trashed_size_hf} in {self.trashed_file_count:n} trashed)'

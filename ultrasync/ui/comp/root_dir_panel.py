@@ -56,13 +56,16 @@ class RootDirPanel:
                 if self.ui_enabled and event.keyval == Gdk.KEY_Escape and self.entry:
                     # cancel
                     logger.debug(f'Escape pressed! Cancelling root path entry box')
-                    self.entry.disconnect(self.entry_box_focus_eid)
+                    if self.entry and self.entry_box_focus_eid:
+                        self.entry.disconnect(self.entry_box_focus_eid)
+                        self.entry_box_focus_eid = None
                     self._update_root_label(self.current_root)
                     return True
                 return False
 
             # Connect Escape key listener to parent window so it can be heard everywhere
             self.parent_win.connect('key-press-event', on_key_pressed)
+            # TODO: remove listener when destroyed
         else:
             self.change_btn = None
             self.content_box.pack_start(self.path_icon, expand=False, fill=False, padding=0)
@@ -91,14 +94,22 @@ class RootDirPanel:
         GLib.idle_add(self._update_root_label, current_root)
 
     def _on_root_text_entry_submitted(self, widget, tree_id):
-        self.entry.disconnect(self.entry_box_focus_eid)
+        if self.entry and self.entry_box_focus_eid:
+                self.entry.disconnect(self.entry_box_focus_eid)
+                self.entry_box_focus_eid = None
         # Triggered when the user submits a root via the text entry box
         new_root_path: str = self.entry.get_text()
+        if new_root_path.endswith('/'):
+            new_root_path = new_root_path[:-1]
         logger.info(f'User entered root path: "{new_root_path}" for tree_id={tree_id}')
         try:
             identifiers = self.parent_win.application.cache_manager.get_all_for_path(new_root_path)
             assert len(identifiers) > 0, f'Got no identifiers (not even NULL) for path: {new_root_path}'
-            new_root = identifiers[0]
+            new_root: Identifier = identifiers[0]
+            if new_root == self.current_root:
+                logger.debug('No change to root')
+                self._update_root_label(self.current_root)
+                return
         except FileNotFoundError as err:
             # currently only GDrive does this.
             # TODO: create GDrive-specific exception class which strips out the gdrive prefix and returns offending dir
@@ -173,6 +184,9 @@ class RootDirPanel:
         self.label.set_xalign(0)
         self.label.set_line_wrap(True)
         if self.entry:
+            if self.entry_box_focus_eid:
+                self.entry.disconnect(self.entry_box_focus_eid)
+                self.entry_box_focus_eid = None
             # Remove entry box (we were probably called by it to do cleanup in fact)
             self.path_box.remove(self.entry)
             self.entry = None

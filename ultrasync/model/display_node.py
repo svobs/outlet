@@ -3,8 +3,6 @@ import os
 from abc import ABC, abstractmethod
 from typing import Optional
 
-import humanfriendly
-
 import format_util
 from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_LOCAL_DISK, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
 from model.display_id import Identifier

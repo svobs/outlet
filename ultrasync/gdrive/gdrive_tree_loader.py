@@ -3,7 +3,6 @@ import os
 import time
 import uuid
 from collections import deque
-from queue import Queue
 from typing import Dict, List, Tuple
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
@@ -74,7 +73,7 @@ class GDriveTreeLoader:
             if self.tree_id:
                 actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=msg)
 
-            meta: GDriveWholeTree = self._load_partial_data_from_cache()
+            meta: GDriveWholeTree = self._load_tree_from_cache()
         else:
             meta = GDriveWholeTree()
 
@@ -128,16 +127,17 @@ class GDriveTreeLoader:
 
         return meta
 
-    def _load_partial_data_from_cache(self) -> GDriveWholeTree:
+    def _load_tree_from_cache(self) -> GDriveWholeTree:
         """
-        Retrieves and reassembles (to the extent it was during the download) a partially downloaded GDrive tree.
-        Not as efficient as it could be if it was a completely downloaded tree.
+        Retrieves and reassembles (to the extent it was during the download) a partially or completely downloaded
+        GDrive tree.
         """
 
         if not self.cache.has_gdrive_dirs() or not self.cache.has_gdrive_files():
             raise RuntimeError(f'Cache is corrupted: {self.cache_path}')
 
         sw_total = Stopwatch()
+        tree = GDriveWholeTree()
 
         # DIRs:
         sw = Stopwatch()
@@ -145,8 +145,6 @@ class GDriveTreeLoader:
         dir_count = len(dir_rows)
 
         actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=f'Retreived {len(dir_rows):n} dirs')
-
-        tree = GDriveWholeTree()
 
         for item_id, item_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
             item = GoogFolder(item_id=item_id, item_name=item_name,
@@ -162,6 +160,7 @@ class GDriveTreeLoader:
         file_count = len(file_rows)
 
         actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=f'Retreived {len(file_rows):n} files')
+
         for item_id, item_name, item_trashed, size_bytes_str, md5, create_ts, modify_ts, owner_id, drive_id, \
             my_share, version, head_revision_id, sync_ts in file_rows:
             size_bytes = None if size_bytes_str is None else int(size_bytes_str)
