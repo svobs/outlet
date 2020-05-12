@@ -1,6 +1,6 @@
 import sqlite3
 import logging
-from typing import List, Tuple
+from typing import List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +41,13 @@ class MetaDatabase:
         return 'SELECT ' + ','.join(col[0] for col in table['cols']) + ' FROM ' + table['name']
 
     @staticmethod
-    def build_update(table):
-        return 'UPDATE ' + table['name'] + ' SET ' + ','.join(col[0] + '=?' for col in table['cols'])
+    def build_update(table, cols=None):
+        if not cols:
+            cols = table['cols']
+            col_setters = ','.join(col[0] + '=?' for col in cols)
+        else:
+            col_setters = ','.join(col + '=?' for col in cols)
+        return f"UPDATE {table['name']} SET {col_setters} "
 
     @staticmethod
     def build_create_table(table):
@@ -64,10 +69,16 @@ class MetaDatabase:
     def get_all_rows(self, table) -> List[Tuple]:
         return self.select(table, '')
 
-    def update(self, table, row_to_save: Tuple, where_clause: str, commit=True):
-        sql = self.build_update(table) + where_clause
+    def update(self, table, stmt_vars: Union[Tuple, List[Tuple]], cols: Optional[List[str]] = None,
+               where_clause: Optional[str] = '', commit: Optional[bool] = True):
+        sql = self.build_update(table=table, cols=cols) + where_clause
         cursor = self.conn.cursor()
-        cursor.execute(sql, row_to_save)
+        if type(stmt_vars) == list:
+            logger.debug('Executing batch SQL: ' + sql)
+            cursor.executemany(sql, stmt_vars)
+        else:
+            logger.debug('Executing SQL: ' + sql)
+            cursor.execute(sql, stmt_vars)
         if commit:
             self.conn.commit()
 

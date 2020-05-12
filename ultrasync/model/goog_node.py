@@ -115,7 +115,7 @@ class GoogNode(DisplayNode, ABC):
     def parent_mappings_tuples(self) -> List[Tuple[str, str, Optional[str], int]]:
         tuples = []
         for parent_id in self.parent_ids:
-            tuples.append((self.uid, parent_id, None, self.sync_ts))
+            tuples.append((self.uid, parent_id, self.sync_ts))
         return tuples
 
 """

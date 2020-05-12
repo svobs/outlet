@@ -42,7 +42,6 @@ class GDriveDatabase(MetaDatabase):
         'name': 'goog_id_parent_mappings',
         'cols': (('id', 'TEXT'),
                  ('parent_id', 'TEXT'),
-                 ('full_path', 'TEXT'),
                  ('sync_ts', 'INTEGER'))
     }
 
@@ -82,6 +81,9 @@ class GDriveDatabase(MetaDatabase):
 
     def get_gdrive_dirs(self):
         return self.get_all_rows(self.TABLE_GRDIVE_DIRS)
+
+    def update_dir_fetched_status(self, commit=True):
+        self.update(self.TABLE_GRDIVE_DIRS, stmt_vars=(True,), cols=['all_children_fetched'], commit=commit)
 
     # GDRIVE_FILES operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
@@ -137,7 +139,7 @@ class GDriveDatabase(MetaDatabase):
         rows = self.select(self.TABLE_GRDIVE_CURRENT_DOWNLOADS, f' WHERE download_type = {download_type}')
         row_to_save = download.to_tuple()
         if rows:
-            self.update(self.TABLE_GRDIVE_CURRENT_DOWNLOADS, row_to_save, f' WHERE download_type = {download_type}')
+            self.update(self.TABLE_GRDIVE_CURRENT_DOWNLOADS, stmt_vars=row_to_save, where_clause=f' WHERE download_type = {download_type}')
         else:
             self.insert_one(self.TABLE_GRDIVE_CURRENT_DOWNLOADS, row_to_save)
 

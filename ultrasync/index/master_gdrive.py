@@ -61,18 +61,10 @@ class GDriveMasterCache:
         cache_path = cache_info.cache_location
         tree_loader = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
 
-        meta: GDriveWholeTree() = tree_loader.load_all(invalidate_cache=True)
+        meta: GDriveWholeTree() = tree_loader.load_all(invalidate_cache=False)
         self._update_in_memory_cache(meta)
 
         actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=tree_id, tx_id=None, msg=f'Calculating paths for GDrive nodes...')
-
-        # Fill in full paths
-        # Needs to be done AFTER all the nodes in the tree have been downloaded
-        full_path_stopwatch = Stopwatch()
-        for item in meta.id_dict.values():
-            meta.get_full_paths_for_item(item)
-
-        logger.debug(f'{full_path_stopwatch} Full paths calculated for {len(meta.id_dict)} items')
 
         logger.info(f'{stopwatch_total} GDrive cache for {cache_info.subtree_root.full_path} loaded')
 
