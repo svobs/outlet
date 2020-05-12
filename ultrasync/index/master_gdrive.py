@@ -1,5 +1,4 @@
 import logging
-import os
 from typing import List
 
 from pydispatch import dispatcher
@@ -62,7 +61,6 @@ class GDriveMasterCache:
         tree_loader = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
 
         meta: GDriveWholeTree() = tree_loader.load_all(invalidate_cache=False)
-        self._update_in_memory_cache(meta)
 
         actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=tree_id, tx_id=None, msg=f'Calculating paths for GDrive nodes...')
 
@@ -124,10 +122,6 @@ class GDriveMasterCache:
         tree_loader = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
         self.meta_master = tree_loader.load_all(invalidate_cache=False)
         logger.info('Replaced entire GDrive in-memory cache with downloaded meta')
-
-    def _update_in_memory_cache(self, meta):
-        # TODO
-        pass
 
     def get_all_for_path(self, path: str) -> List[Identifier]:
         return self.meta_master.get_all_ids_for_path(path)

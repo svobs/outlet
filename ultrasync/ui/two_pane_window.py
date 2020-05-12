@@ -43,23 +43,30 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.set_icon_from_file(ui.assets.WINDOW_ICON_PATH)
         # Set minimum width and height
 
-        self.width_cfg_path = f'transient.{self.win_id}.width'
-        self.height_cfg_path = f'transient.{self.win_id}.height'
+        # Restore previous window location:
         self.x_loc_cfg_path = f'transient.{self.win_id}.x'
         self.y_loc_cfg_path = f'transient.{self.win_id}.y'
+        self.x_loc = self.application.config.get(self.x_loc_cfg_path, 50)
+        self.y_loc = self.application.config.get(self.y_loc_cfg_path, 50)
+        self.move(x=self.x_loc, y=self.y_loc)
 
-        x_loc = self.application.config.get(self.x_loc_cfg_path, 50)
-        y_loc = self.application.config.get(self.y_loc_cfg_path, 50)
+        self.set_hide_titlebar_when_maximized(True)
+
+        logger.warning(f'Maximized = {self.is_maximized()}')
+
+        # Restore previous width/height:
+        self.width_cfg_path = f'transient.{self.win_id}.width'
+        self.height_cfg_path = f'transient.{self.win_id}.height'
+
         width = self.application.config.get(self.width_cfg_path, 1200)
         height = self.application.config.get(self.height_cfg_path, 500)
         allocation = Gdk.Rectangle()
-        allocation.x = x_loc
-        allocation.y = y_loc
         allocation.width = width
         allocation.height = height
         self.size_allocate(allocation)
         # i.e. "minimum" window size allowed:
         self.set_size_request(1200, 500)
+
         self.set_border_width(10)
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
         self.add(self.content_box)
@@ -168,13 +175,13 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             self.bottom_button_panel.pack_start(button, False, False, 0)
             button.show()
 
-    # GTK LISTENERS begin
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
-
     def _connect_resize_event(self):
         self._timer_id = None
         eid = self.connect('size-allocate', self._on_size_allocated)
         self._event_id_size_allocate = eid
+
+    # GTK LISTENERS begin
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
     def _on_size_allocated(self, widget, alloc):
         # logger.debug('EVENT: GTK "size-allocate" fired')
@@ -205,9 +212,15 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
             self.application.config.write(self.width_cfg_path, curr.width)
             self.application.config.write(self.height_cfg_path, curr.height)
-            # does not work - we only get 0's
-            # self.application.config.write(self.x_loc_cfg_path, curr.x)
-            # self.application.config.write(self.y_loc_cfg_path, curr.y)
+
+            # Store position also
+            x, y = self.get_position()
+            if x != self.x_loc or y != self.y_loc:
+                # logger.debug(f'Win position changed to {x}, {y}')
+                self.application.config.write(self.x_loc_cfg_path, x)
+                self.application.config.write(self.y_loc_cfg_path, y)
+                self.x_loc = x
+                self.y_loc = y
 
             # reconnect the 'size-allocate' event
             self._connect_resize_event()
