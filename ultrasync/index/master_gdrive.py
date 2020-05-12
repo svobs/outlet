@@ -82,9 +82,9 @@ class GDriveMasterCache:
 
         return subtree_meta
 
-    def load_subtree(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveTree:
-        if subtree_root == ROOT:
-            subtree_root = GDriveTree.get_root_constant_identifier()
+    def load_subtree(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveSubtree:
+        if subtree_root.full_path == ROOT or subtree_root.uid == ROOT:
+            subtree_root = display_id.get_gdrive_root_constant_identifier()
         logger.debug(f'Getting meta for subtree: "{subtree_root}"')
         cache_man = self.application.cache_manager
         # TODO: currently we will just load the root and use that.

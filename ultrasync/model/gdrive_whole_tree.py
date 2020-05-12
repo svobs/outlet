@@ -52,11 +52,6 @@ class GDriveTree:
     def __init__(self):
         pass
 
-    @classmethod
-    def get_root_constant_identifier(cls):
-        return GDriveIdentifier(uid=constants.ROOT, full_path=constants.ROOT)
-
-
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
     CLASS GDriveWholeTree
@@ -65,7 +60,7 @@ class GDriveTree:
 """
 
 
-class GDriveWholeTree(GDriveTree):
+class GDriveWholeTree:
     def __init__(self):
         super().__init__()
         # Keep track of parentless nodes. These include the 'My Drive' item, as well as shared items.
@@ -84,7 +79,7 @@ class GDriveWholeTree(GDriveTree):
 
     @property
     def identifier(self):
-        return GDriveTree.get_root_constant_identifier()
+        return display_id.get_gdrive_root_constant_identifier()
 
     def get_full_paths_for_item(self, item: GoogNode) -> List[str]:
         """Gets the absolute path for the item"""
@@ -146,6 +141,8 @@ class GDriveWholeTree(GDriveTree):
         """
         if SUPER_DEBUG:
             logger.debug(f'get_all_ids_for_path() requested for path: "{path}"')
+        if path == constants.ROOT:
+            return [display_id.get_gdrive_root_constant_identifier()]
         name_segments = file_util.split_path(path)
         if len(name_segments) == 0:
             raise RuntimeError(f'Bad path: "{path}"')

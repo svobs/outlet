@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Union
 
+import constants
 from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_DISPLAY_ONLY, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED, ROOT
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
@@ -121,6 +122,10 @@ class LocalFsIdentifier(Identifier):
         return f'∣FS∣{self.category.value}⚡{self.full_path}∤{uid_disp}∣'
 
 
+def get_gdrive_root_constant_identifier():
+    return GDriveIdentifier(uid=constants.ROOT, full_path=constants.ROOT)
+
+
 def for_values(tree_type: int = None,
                full_path: str = None,
                uid: str = None,
@@ -132,8 +137,8 @@ def for_values(tree_type: int = None,
                 if gdrive_path != '/' and gdrive_path.endswith('/'):
                     gdrive_path = gdrive_path[:-1]
                 if not gdrive_path:
-                    # can happen if the use enters "gdrive:/"
-                    return GDriveIdentifier(uid=uid, full_path='/', category=category)
+                    # can happen if the use enters "gdrive:/". Just return the root
+                    return get_gdrive_root_constant_identifier()
                 return GDriveIdentifier(uid=uid, full_path=gdrive_path, category=category)
             else:
                 return LocalFsIdentifier(uid=uid, full_path=full_path, category=category)

@@ -29,9 +29,8 @@ SUPER_DEBUG = False
 """
 
 
-class GDriveSubtree(GDriveTree, SubtreeSnapshot):
+class GDriveSubtree(SubtreeSnapshot):
     def __init__(self, whole_tree: GDriveWholeTree, root_node: GoogNode):
-        GDriveTree.__init__(self)
         SubtreeSnapshot.__init__(self, root_identifier=root_node.identifier)
 
         self._whole_tree = whole_tree

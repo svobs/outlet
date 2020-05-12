@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 class AllItemsGDriveTreeBuilder(DisplayTreeBuilder):
+    """Works with either a GDriveWholeTree or a GDriveSubtree"""
     def __init__(self, controller, root: Identifier = None, tree: SubtreeSnapshot = None):
         super().__init__(controller=controller, root=root, tree=tree)
 
@@ -31,7 +32,6 @@ class AllItemsGDriveTreeBuilder(DisplayTreeBuilder):
             return self.tree.get_children(parent_id)
 
     def get_children(self, parent_identifier: Identifier) -> Optional[List[DisplayNode]]:
-        assert isinstance(self.tree, GDriveTree)
         return self.tree.get_children(parent_id=parent_identifier)
 
 
