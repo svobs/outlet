@@ -135,6 +135,14 @@ class CategoryDisplayTree:
                     # determine which tree to look up. Need to brainstorm a more elegant solution!
                     id_copy = copy.copy(identifier)
                     id_copy.category = category
+                    if type(id_copy.full_path) == list:
+                        # try to filter by whether the path is in the subtree. this won't always work
+                        filtered_list = [x for x in id_copy.full_path if source_tree.in_this_subtree(x)]
+                        if len(filtered_list) == 1:
+                            id_copy.full_path = filtered_list[0]
+                        else:
+                            assert len(filtered_list) > 0
+                            id_copy.full_path = filtered_list
                     # TODO: subclass this from treelib.Node! Then we don't have to allocate twice
                     # TODO: need to rename identifier to something else
                     dir_node = DirNode(identifier=id_copy)

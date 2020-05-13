@@ -11,7 +11,7 @@ from constants import NOT_TRASHED
 from index.two_level_dict import Md5BeforeUidDict
 from model.category import Category
 from model.display_id import GDriveIdentifier, Identifier
-from model.gdrive_whole_tree import GDriveTree, GDriveWholeTree
+from model.gdrive_whole_tree import GDriveItemNotFoundError, GDriveTree, GDriveWholeTree
 from model.goog_node import GoogNode
 from model.planning_node import FileDecoratorNode
 from model.subtree_snapshot import SubtreeSnapshot
@@ -127,20 +127,18 @@ class GDriveSubtree(SubtreeSnapshot):
     def get_full_path_for_item(self, item: GoogNode) -> List[str]:
         return self._whole_tree.get_full_path_for_item(item)
 
-    def in_this_subtree(self, path: str):
-        return path.startswith(self.root_path)
-
     def get_for_path(self, path: str, include_ignored=False) -> List[GoogNode]:
         if not self.in_this_subtree(path):
             raise RuntimeError(f'Not in this tree: "{path}" (tree root: {self.root_path}')
         try:
             identifiers = self._whole_tree.get_all_ids_for_path(path)
-        except FileNotFoundError:
+        except GDriveItemNotFoundError:
             return []
 
         if len(identifiers) == 1:
             return [self._whole_tree.get_item_for_id(identifiers[0].uid)]
 
+        # In Google Drive it is legal to have two different files with the same path
         logger.warning(f'Found {len(identifiers)} identifiers for path: "{path}"). Returning the whole list')
         return list(map(lambda x: self._whole_tree.get_item_for_id(x.uid), identifiers))
 

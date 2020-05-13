@@ -28,6 +28,9 @@ class SubtreeSnapshot(ABC):
     def uid(self):
         return self.identifier.uid
 
+    def in_this_subtree(self, path: str):
+        return path.startswith(self.root_path)
+
     # Factory methods
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 

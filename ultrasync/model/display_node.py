@@ -31,6 +31,7 @@ class DisplayNode(ABC):
 
     @property
     def name(self):
+        assert type(self.identifier.full_path) == str, f'Not a string: {self.identifier.full_path} (this={self})'
         return os.path.basename(self.identifier.full_path)
 
     @property
@@ -85,6 +86,12 @@ class DirNode(DisplayNode):
 
     def get_icon(self):
         return ICON_GENERIC_DIR
+
+    @property
+    def name(self):
+        if type(self.identifier.full_path) == list:
+            return os.path.basename(self.identifier.full_path[0])
+        return os.path.basename(self.identifier.full_path)
 
     @property
     def size_bytes(self):

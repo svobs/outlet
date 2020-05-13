@@ -204,8 +204,8 @@ class GDriveWholeTree:
                     logger.debug(f'Item has no children: id="{current_id}" path_so_far="{path_so_far}"')
                     break
                 matches: List[GoogNode] = [x for x in children if x.name.lower() == name_seg.lower()]
-                if len(matches) > 1:
-                    logger.info(f'get_all_ids_for_path(): Multiple child IDs ({len(matches)}) found for parent ID"'
+                if SUPER_DEBUG and len(matches) > 1:
+                    logger.info(f'get_all_ids_for_path(): Multiple child IDs ({len(matches)}) found for parent ID "'
                                 f'{current_id}", path_so_far "{path_so_far}"')
                     for num, match in enumerate(matches):
                         logger.info(f'Match {num}: {match}')

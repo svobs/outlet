@@ -35,6 +35,8 @@ def _compare_paths_for_same_md5(lefts: Iterable[DisplayNode], left_tree: Subtree
         matches: List[DisplayNode] = right_tree.get_for_path(left_on_right)
         if not matches:
             orphaned_left.append(left)
+        else:
+            assert left.md5 == matches[0].md5
         # Else we matched path exactly: we can discard this entry
 
     for right in rights:
