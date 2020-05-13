@@ -38,7 +38,7 @@ class RootPathConfigPersister:
             self._config.write(transient_path=self._tree_type_config_key, value=new_root.tree_type)
             self._config.write(transient_path=self._root_path_config_key, value=new_root.full_path)
             if err:
-                self._config.write(transient_path=self._root_uid_config_key, value='NULL')
+                self._config.write(transient_path=self._root_uid_config_key, value=NULL_UID)
             else:
                 self._config.write(transient_path=self._root_uid_config_key, value=new_root.uid)
         # always, just to be safe

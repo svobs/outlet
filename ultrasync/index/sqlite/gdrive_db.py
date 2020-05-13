@@ -1,6 +1,7 @@
 import logging
 from typing import List, Optional, Tuple
 
+from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE
 from index.sqlite.base_db import MetaDatabase
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,9 @@ class CurrentDownload:
     def to_tuple(self):
         return self.download_type, self.current_state, self.page_token, self.update_ts
 
+    def is_complete(self):
+        return self.current_state == GDRIVE_DOWNLOAD_STATE_COMPLETE
+
 
 class GDriveDatabase(MetaDatabase):
 
@@ -29,7 +33,8 @@ class GDriveDatabase(MetaDatabase):
 
     TABLE_GRDIVE_DIRS = {
         'name': 'goog_folder',
-        'cols': (('id', 'TEXT'),
+        'cols': (('uid', 'INTEGER PRIMARY KEY'),
+                 ('goog_id', 'TEXT'),
                  ('name', 'TEXT'),
                  ('trashed', 'INTEGER'),
                  ('drive_id', 'TEXT'),
@@ -40,14 +45,16 @@ class GDriveDatabase(MetaDatabase):
 
     TABLE_GRDIVE_ID_PARENT_MAPPINGS = {
         'name': 'goog_id_parent_mappings',
-        'cols': (('id', 'TEXT'),
-                 ('parent_id', 'TEXT'),
+        'cols': (('item_uid', 'INTEGER'),
+                 ('parent_uid', 'INTEGER'),
+                 ('parent_goog_id', 'TEXT'),
                  ('sync_ts', 'INTEGER'))
     }
 
     TABLE_GRDIVE_FILES = {
         'name': 'goog_file',
-        'cols': (('id', 'TEXT'),
+        'cols': (('uid', 'INTEGER PRIMARY KEY'),
+                 ('goog_id', 'TEXT'),
                  ('name', 'TEXT'),
                  ('trashed', 'INTEGER'),
                  ('size_bytes', 'INTEGER'),
@@ -93,7 +100,7 @@ class GDriveDatabase(MetaDatabase):
     def insert_gdrive_files(self, file_list: List[Tuple], overwrite=False, commit=True):
         if self.has_gdrive_files():
             if overwrite:
-                self.drop_table_if_exists(self.TABLE_GRDIVE_FILES)
+                self.drop_table_if_exists(self.TABLE_GRDIVE_FILES, commit=False)
 
         self.create_table_if_not_exist(self.TABLE_GRDIVE_FILES, commit=False)
         self.insert_many(self.TABLE_GRDIVE_FILES, file_list, commit=commit)
@@ -107,7 +114,7 @@ class GDriveDatabase(MetaDatabase):
     def insert_id_parent_mappings(self, id_parent_mappings: List[Tuple], overwrite=False, commit=True):
         if self.is_table(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS):
             if overwrite:
-                self.drop_table_if_exists(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS)
+                self.drop_table_if_exists(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS, commit=False)
 
         self.create_table_if_not_exist(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS, commit=False)
         self.insert_many(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS, id_parent_mappings, commit=commit)

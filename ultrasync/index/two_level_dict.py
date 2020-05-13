@@ -149,8 +149,6 @@ class TwoLevelDict:
         """If only one arg is provided, returns the entire dict which matches the first key.
         If two are provided, returns the item matching both keys, or None if not found"""
         assert key1, 'key1 is empty!'
-        if key2 is None:
-            print('TODO')
         assert key2, 'key2 is empty!'
         dict2 = self._dict.get(key1, None)
         if not dict2:

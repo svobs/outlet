@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Union
+from typing import List, Optional, Union
 
 import constants
 from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_DISPLAY_ONLY, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED
@@ -82,7 +82,7 @@ class LogicalNodeIdentifier(Identifier):
 
 
 class GDriveIdentifier(Identifier):
-    def __init__(self, uid: int, full_path: str, category: Category = Category.NA):
+    def __init__(self, uid: int, full_path: Optional[str], category: Category = Category.NA):
         super().__init__(uid, full_path, category)
 
     @property

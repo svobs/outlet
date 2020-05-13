@@ -52,8 +52,6 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
         self.set_hide_titlebar_when_maximized(True)
 
-        logger.warning(f'Maximized = {self.is_maximized()}')
-
         # Restore previous width/height:
         self.width_cfg_path = f'transient.{self.win_id}.width'
         self.height_cfg_path = f'transient.{self.win_id}.height'

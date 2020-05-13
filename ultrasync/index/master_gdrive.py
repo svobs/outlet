@@ -3,7 +3,7 @@ from typing import List
 
 from pydispatch import dispatcher
 
-from constants import OBJ_TYPE_GDRIVE, ROOT_PATH, ROOT_UID
+from constants import NULL_UID, OBJ_TYPE_GDRIVE, ROOT_PATH, ROOT_UID
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index.cache_manager import PersistedCacheInfo
 from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
@@ -75,7 +75,8 @@ class GDriveMasterCache:
         actions.set_status(sender=tree_id, status_msg=subtree_meta.get_summary())
 
     def _slice_off_subtree_from_master(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveSubtree:
-        if not subtree_root.uid or subtree_root.uid == 'NULL':
+        if not subtree_root.uid:
+            # TODO: raise something
             return None
         root: GoogNode = self.meta_master.get_item_for_id(subtree_root.uid)
         if not root:

@@ -46,7 +46,7 @@ class DisplayNode(ABC):
         return self.identifier.category
 
     @property
-    def uid(self) -> str:
+    def uid(self) -> int:
         return self.identifier.uid
 
     def get_relative_path(self, parent_tree):

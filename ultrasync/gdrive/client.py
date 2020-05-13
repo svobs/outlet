@@ -1,6 +1,6 @@
 import io
 import socket
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
@@ -131,11 +131,18 @@ def convert_trashed(result):
         return NOT_TRASHED
 
 
-def convert_goog_folder(result, sync_ts) -> GoogFolder:
+def convert_goog_folder(result, uid: int, sync_ts: int) -> GoogFolder:
     # 'driveId' only populated for items which someone has shared with me
     # 'shared' only populated for items which are owned by me
-    return GoogFolder(item_id=result['id'], item_name=result['name'], trashed=convert_trashed(result),
+    return GoogFolder(uid=uid, goog_id=result['id'], item_name=result['name'], trashed=convert_trashed(result),
                       drive_id=result.get('driveId', None), my_share=result.get('shared', None), sync_ts=sync_ts, all_children_fetched=False)
+
+
+def parent_mappings_tuples(item_uid: int, parent_goog_ids: List[str], sync_ts: int) -> List[Tuple[int, Optional[int], str, int]]:
+    tuples = []
+    for parent_id in parent_goog_ids:
+        tuples.append((item_uid, None, parent_id, sync_ts))
+    return tuples
 
 
 # CLASS GDriveClient
@@ -189,7 +196,7 @@ class GDriveClient:
         logger.info(f'{used} of {total} used (including {drive_used} for Drive files; of which {drive_trash_used} is trash)')
         return user_meta
 
-    def get_my_drive_root(self, sync_ts) -> GoogFolder:
+    def get_my_drive_root(self, uid: int, sync_ts) -> GoogFolder:
         """
         Returns: a GoogFolder representing the user's GDrive root node.
         """
@@ -200,7 +207,7 @@ class GDriveClient:
         fields = 'id, name, trashed, explicitlyTrashed, shared, driveId'
         result = try_repeatedly(request)
 
-        root_node = convert_goog_folder(result, sync_ts)
+        root_node = convert_goog_folder(result, uid, sync_ts)
         logger.debug(f'Drive root: {root_node}')
         return root_node
 
@@ -286,42 +293,42 @@ class GDriveClient:
                 if version:
                     version = int(version)
 
-                node: GoogFile = GoogFile(item_id=item['id'], item_name=item["name"], trashed=convert_trashed(item),
-                                          drive_id=item.get('driveId', None),
-                                          version=version, head_revision_id=head_revision_id,
-                                          md5=item.get('md5Checksum', None), my_share=item.get('shared', None), create_ts=create_ts,
-                                          modify_ts=modify_ts, size_bytes=size, owner_id=owner_id, sync_ts=download.update_ts)
-                node.parent_ids = item.get('parents', [])
-                meta.add_item(node)
-                meta.mime_types[mime_type] = node
+                goog_node: GoogFile = GoogFile(uid=meta.get_new_uid(), goog_id=item['id'], item_name=item["name"], trashed=convert_trashed(item),
+                                               drive_id=item.get('driveId', None),
+                                               version=version, head_revision_id=head_revision_id,
+                                               md5=item.get('md5Checksum', None), my_share=item.get('shared', None), create_ts=create_ts,
+                                               modify_ts=modify_ts, size_bytes=size, owner_id=owner_id, sync_ts=download.update_ts)
+                parent_google_ids = item.get('parents', [])
+                meta.id_dict[goog_node.uid] = goog_node
+                meta.mime_types[mime_type] = goog_node
 
                 # web_view_link = item.get('webViewLink', None)
                 # if web_view_link:
-                #     logger.debug(f'Found webViewLink: "{web_view_link}" for node: {node}')
+                #     logger.debug(f'Found webViewLink: "{web_view_link}" for goog_node: {goog_node}')
                 #
                 # web_content_link = item.get('webContentLink', None)
                 # if web_content_link:
-                #     logger.debug(f'Found webContentLink: "{web_content_link}" for node: {node}')
+                #     logger.debug(f'Found webContentLink: "{web_content_link}" for goog_node: {goog_node}')
 
                 sharing_user = item.get('sharingUser', None)
                 if sharing_user:
-                    logger.debug(f'Found sharingUser: "{sharing_user}" for node: {node}')
+                    logger.debug(f'Found sharingUser: "{sharing_user}" for goog_node: {goog_node}')
 
                 is_shortcut = mime_type == MIME_TYPE_SHORTCUT
                 if is_shortcut:
                     shortcut_details = item.get('shortcutDetails', None)
                     if not shortcut_details:
-                        logger.error(f'Shortcut is missing shortcutDetails: id="{node.uid}" name="{node.name}"')
+                        logger.error(f'Shortcut is missing shortcutDetails: id="{goog_node.uid}" name="{goog_node.name}"')
                     else:
                         target_id = shortcut_details.get('targetId')
                         if not target_id:
-                            logger.error(f'Shortcut is missing targetId: id="{node.uid}" name="{node.name}"')
+                            logger.error(f'Shortcut is missing targetId: id="{goog_node.uid}" name="{goog_node.name}"')
                         else:
-                            logger.debug(f'Found shortcut: id="{node.uid}" name="{node.name}" -> target_id="{target_id}"')
-                            meta.shortcuts[node.uid] = target_id
+                            logger.debug(f'Found shortcut: id="{goog_node.uid}" name="{goog_node.name}" -> target_id="{target_id}"')
+                            meta.shortcuts[goog_node.uid] = target_id
 
-                file_tuples.append(node.to_tuple())
-                id_parent_mappings += node.parent_mappings_tuples()
+                file_tuples.append(goog_node.to_tuple())
+                id_parent_mappings += parent_mappings_tuples(goog_node.uid, parent_google_ids, sync_ts=download.update_ts)
                 item_count += 1
 
             download.page_token = results.get('nextPageToken')
@@ -407,11 +414,12 @@ class GDriveClient:
             dir_tuples: List[Tuple] = []
             id_parent_mappings: List[Tuple] = []
             for item in items:
-                dir_node: GoogFolder = convert_goog_folder(item, download.update_ts)
-                dir_node.parent_ids = item.get('parents', [])
-                meta.add_item(dir_node)
-                dir_tuples.append(dir_node.to_tuple())
-                id_parent_mappings += dir_node.parent_mappings_tuples()
+                goog_node: GoogFolder = convert_goog_folder(item, meta.get_new_uid(), download.update_ts)
+                parent_google_ids = item.get('parents', [])
+                meta.id_dict[goog_node.uid] = goog_node
+                dir_tuples.append(goog_node.to_tuple())
+
+                id_parent_mappings += parent_mappings_tuples(goog_node.uid, parent_google_ids, sync_ts=download.update_ts)
                 item_count += 1
 
             download.page_token = results.get('nextPageToken')
