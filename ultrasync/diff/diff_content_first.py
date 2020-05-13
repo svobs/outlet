@@ -138,8 +138,8 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
     count_moved_pairs = 0
     count_updated_pairs = 0
 
-    change_tree_left = CategoryDisplayTree(left_tree.identifier)
-    change_tree_right = CategoryDisplayTree(right_tree.identifier)
+    change_tree_left = CategoryDisplayTree(left_tree)
+    change_tree_right = CategoryDisplayTree(right_tree)
     fixer = PathTransplanter(left_tree, right_tree, change_tree_left, change_tree_right)
 
     # the set of MD5s already processed
@@ -280,7 +280,8 @@ def merge_change_trees(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot,
         new_root_path = file_util.find_nearest_common_ancestor(left_tree.root_path, right_tree.root_path)
         root: Identifier = display_id.for_values(tree_type=left_tree.tree_type, full_path=new_root_path, uid=left_tree.get_new_uid())
 
-    merged_tree = CategoryDisplayTree(root=root, extra_node_for_type=True)
+    # just set source tree to left tree - we aren't using it for much anyway
+    merged_tree = CategoryDisplayTree(source_tree=left_tree, root=root, extra_node_for_type=True)
 
     for item in left_selected_changes:
         merged_tree.add_item(item, item.category, left_tree)

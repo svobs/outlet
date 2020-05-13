@@ -21,12 +21,16 @@ CATEGORIES = [Category.Added, Category.Deleted, Category.Moved, Category.Updated
 
 
 class CategoryDisplayTree:
-    def __init__(self, root: Union[DisplayNode, Identifier], extra_node_for_type=False):
+    def __init__(self, source_tree: SubtreeSnapshot, root: Union[DisplayNode, Identifier] = None, extra_node_for_type=False):
         self._category_trees: Dict[Category, treelib.Tree] = {}
         self.extra_node_for_type = extra_node_for_type
         """One tree per category"""
 
-        if isinstance(root, DisplayNode):
+        self.source_tree = source_tree
+
+        if not root:
+            self.identifier = self.source_tree.identifier
+        elif isinstance(root, DisplayNode):
             self.identifier: Identifier = root.identifier
         else:
             self.identifier: Identifier = root
@@ -58,14 +62,6 @@ class CategoryDisplayTree:
     def uid(self):
         return self.identifier.uid
 
-    @classmethod
-    def create_empty_subtree(cls, subtree_root: Union[Identifier, DisplayNode]):
-        if isinstance(subtree_root, Identifier):
-            return CategoryDisplayTree(subtree_root)
-        else:
-            assert isinstance(subtree_root, Identifier) or isinstance(subtree_root, DisplayNode)
-            return CategoryDisplayTree(subtree_root)
-
     def get_children_for_root(self) -> Iterable[DisplayNode]:
         return list(map(lambda x: x.data, self._roots.values()))
 
@@ -82,6 +78,7 @@ class CategoryDisplayTree:
                 return category_tree.children(parent_identifier.uid)
             except Exception:
                 logger.debug(f'CategoryTree for "{self.identifier}": ' + category_tree.show(stdout=False))
+                logger.debug(f'While retrieving children for: {parent_identifier}')
                 raise
 
     def add_item(self, item: DisplayNode, category: Category, source_tree: SubtreeSnapshot):
@@ -104,18 +101,18 @@ class CategoryDisplayTree:
 
         if self.extra_node_for_type:
             if item.identifier.tree_type == OBJ_TYPE_GDRIVE:
-                subroot = root.identifier + '/Google Drive'
+                subroot_nid = root.identifier + '/Google Drive'
             elif item.identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
-                subroot = root.identifier + '/Local Disk'
+                subroot_nid = root.identifier + '/Local Disk'
             else:
                 raise RuntimeError(f'bad: {item.identifier.tree_type}')
 
-            subroot_node: treelib.Node = category_tree.get_node(nid=subroot)
+            subroot_node: treelib.Node = category_tree.get_node(nid=subroot_nid)
             if not subroot_node:
-                identifier = display_id.for_values(tree_type=item.identifier.tree_type, full_path=subroot,
-                                                   uid=source_tree.get_new_uid(), category=category)
+                identifier = display_id.for_values(tree_type=item.identifier.tree_type, full_path=subroot_nid,
+                                                   uid=subroot_nid, category=category)
                 subroot_node_data = RootTypeNode(identifier=identifier)
-                subroot_node = category_tree.create_node(identifier=subroot, parent=root, data=subroot_node_data)
+                subroot_node = category_tree.create_node(identifier=subroot_nid, parent=root, data=subroot_node_data)
 
             root.data.add_meta_metrics(item)
             parent = subroot_node
@@ -189,6 +186,9 @@ class CategoryDisplayTree:
 
     def __repr__(self):
         return f'CategoryDisplayTree({self.get_summary()})'
+
+    def get_new_uid(self):
+        return self.source_tree.get_new_uid()
 
     def get_summary(self) -> str:
         summary = []
