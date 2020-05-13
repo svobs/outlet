@@ -3,6 +3,7 @@ import logging
 import gi
 from pydispatch import dispatcher
 
+from model import display_id
 from model.display_id import Identifier
 from model.display_node import DisplayNode
 from ui import actions
@@ -57,10 +58,10 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
             if response_id == Gtk.ResponseType.OK:
                 logger.debug("The OK button was clicked")
                 item: DisplayNode = self.tree_controller.get_single_selection()
-                assert item.identifier
-                # Ensure item has a full_path (not filled in by default in GDriveWholeTree)
-                item.identifier.full_path = self.tree_controller.get_tree().get_full_path_for_item(item)
-                self.on_ok_clicked(item.identifier)
+                if not item:
+                    self.on_ok_clicked(display_id.get_gdrive_root_constant_identifier())
+                else:
+                    self.on_ok_clicked(item.identifier)
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
             elif response_id == Gtk.ResponseType.CLOSE:

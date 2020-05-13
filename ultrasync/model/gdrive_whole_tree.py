@@ -94,7 +94,7 @@ class GDriveWholeTree:
     def identifier(self):
         return display_id.get_gdrive_root_constant_identifier()
 
-    def get_full_paths_for_item(self, item: GoogNode) -> List[str]:
+    def get_full_path_for_item(self, item: GoogNode) -> List[str]:
         """Gets the absolute path for the item"""
         if item.full_path:
             # Does item already have a full_path? Just return that (huge speed gain):

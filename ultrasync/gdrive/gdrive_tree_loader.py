@@ -195,10 +195,9 @@ class GDriveTreeLoader:
             mapping_count = len(id_parent_mappings)
 
             for mapping in id_parent_mappings:
-                item_uid = mapping[0]
                 parent_uid = mapping[1]
-
-                tree.add_parent_mapping(item_uid, parent_uid)
+                if parent_uid:
+                    tree.add_parent_mapping(mapping[0], parent_uid)
 
             logger.debug(f'{sw} Loaded {mapping_count} mappings')
 

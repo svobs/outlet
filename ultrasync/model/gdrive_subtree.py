@@ -116,7 +116,7 @@ class GDriveSubtree(SubtreeSnapshot):
         logger.info(f'{md5_set_stopwatch} Found {md5_dict.total_entries} MD5s')
         return md5_dict
 
-    def get_children(self, parent_id: Union[str, Identifier]) -> List[GoogNode]:
+    def get_children(self, parent_id: Union[int, Identifier]) -> List[GoogNode]:
         return self._whole_tree.get_children(parent_id=parent_id)
 
     def get_all(self) -> ValuesView[GoogNode]:
@@ -125,7 +125,7 @@ class GDriveSubtree(SubtreeSnapshot):
         raise RuntimeError('You should never do this for a GDriveSubtree!')
 
     def get_full_path_for_item(self, item: GoogNode) -> List[str]:
-        return self._whole_tree.get_full_paths_for_item(item)
+        return self._whole_tree.get_full_path_for_item(item)
 
     def in_this_subtree(self, path: str):
         return path.startswith(self.root_path)
@@ -216,7 +216,11 @@ class GDriveSubtree(SubtreeSnapshot):
         return file_util.strip_root(node_full_path, self.root_path)
 
     def __repr__(self):
-        return f'GDriveSubtree(root_id={self.root_id} root_path="{self.root_path}" id_count={self.file_count + self.folder_count})'
+        if self._stats_loaded:
+            id_count_str = f' id_count={self.file_count + self.folder_count}'
+        else:
+            id_count_str = ''
+        return f'GDriveSubtree(root_id={self.root_id} root_path="{self.root_path}"{id_count_str})'
 
     def refresh_stats(self):
         stats_sw = Stopwatch()
