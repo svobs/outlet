@@ -86,6 +86,10 @@ class GDriveWholeTree:
         self._next_uid += 1
         return uid
 
+    def set_next_uid(self, uid: int):
+        logger.debug(f'Set next_uid to {uid}')
+        self._next_uid = uid
+
     @property
     def identifier(self):
         return display_id.get_gdrive_root_constant_identifier()
@@ -126,6 +130,27 @@ class GDriveWholeTree:
 
         if not item.parent_ids:
             self.roots.append(item)
+
+        if item.uid >= self._next_uid:
+            # Try to avoid a UID conflict
+            self._next_uid = item.uid + 1
+
+    def add_parent_mapping(self, item_uid: int, parent_uid: int):
+        assert item_uid
+        assert parent_uid
+        item = self.id_dict.get(item_uid)
+        if not item:
+            raise RuntimeError(f'Item not found: {item_uid}')
+
+        # Add to dict:
+        child_list: List[GoogNode] = self.first_parent_dict.get(parent_uid)
+        if not child_list:
+            child_list: List[GoogNode] = []
+            self.first_parent_dict[parent_uid] = child_list
+        child_list.append(item)
+
+        # Add ref in item:
+        item.add_parent(parent_uid)
 
     def _add_to_parent_dict(self, parent_id: int, item):
         child_list: List[GoogNode] = self.first_parent_dict.get(parent_id)

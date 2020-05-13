@@ -8,6 +8,7 @@ from model.display_node import DirNode, DisplayNode
 from model.gdrive_subtree import GDriveSubtree
 from model.gdrive_whole_tree import GDriveTree, GDriveWholeTree
 from model.subtree_snapshot import SubtreeSnapshot
+from stopwatch_sec import Stopwatch
 from ui.tree.display_tree_builder import DisplayTreeBuilder
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,7 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
         """
         Builds a tree out of the flat file set.
         """
+        sw = Stopwatch()
         source_tree = self.tree
         root_node = DirNode(self.tree.identifier)
         # The change set in tree form
@@ -99,4 +101,5 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
             # logger.debug(f'Creating file node: nid={nid}')
             display_tree.create_node(identifier=item.uid, parent=parent, data=item)
 
+        logger.debug(f'{sw} Constructed display tree for {set_len} items')
         return display_tree

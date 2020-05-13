@@ -135,6 +135,8 @@ class CategoryDisplayTree:
                     # determine which tree to look up. Need to brainstorm a more elegant solution!
                     id_copy = copy.copy(identifier)
                     id_copy.category = category
+                    # TODO: subclass this from treelib.Node! Then we don't have to allocate twice
+                    # TODO: need to rename identifier to something else
                     dir_node = DirNode(identifier=id_copy)
                     child = category_tree.create_node(identifier=nid, parent=parent, data=dir_node)
                 parent = child

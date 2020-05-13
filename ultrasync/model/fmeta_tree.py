@@ -35,6 +35,14 @@ class FMetaTree(SubtreeSnapshot):
         self._ignored_items: List[FMeta] = []
         self._total_size_bytes = 0
 
+        self._next_uid = constants.ROOT_UID + 1
+
+    def get_new_uid(self):
+        """In the future, need to make this thread-safe"""
+        uid = self._next_uid
+        self._next_uid += 1
+        return uid
+
     @property
     def root_node(self):
         return self.create_identifier(full_path=self.root_path, uid=constants.NULL_UID, category=Category.NA)

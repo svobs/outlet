@@ -67,6 +67,8 @@ class LazyDisplayStrategy:
             root_iter = self.con.display_store.clear_model()
 
             if self.con.treeview_meta.lazy_load:
+                # Just append for the root level. Beyond that, we will only load more nodes when
+                # the expanded state is toggled
                 self._append_children(children=children, parent_iter=root_iter, parent_uid=None)
             else:
                 self._populate_entire_tree(children)

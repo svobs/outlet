@@ -153,6 +153,10 @@ class TreePanelController:
         return self.parent_win.application.cache_manager
 
     @property
+    def task_runner(self):
+        return self.parent_win.application.task_runner
+
+    @property
     def config(self):
         """Convenience method. Retreives the tree_id from the parent_win"""
         return self.parent_win.config

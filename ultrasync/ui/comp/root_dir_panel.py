@@ -303,7 +303,9 @@ class RootDirPanel:
     def _on_refresh_button_clicked(self, widget):
         logger.debug('The Refresh button was clicked!')
         self.needs_load = False
-        self.con.load()
+        # Launch in non-UI thread
+        self.con.task_runner.enqueue(self.con.load)
+        # Hide Refresh button
         GLib.idle_add(self._update_root_label, self.current_root)
 
     def _on_load_started(self, sender):

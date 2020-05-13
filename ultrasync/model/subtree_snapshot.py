@@ -31,6 +31,10 @@ class SubtreeSnapshot(ABC):
     # Factory methods
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
+    @abstractmethod
+    def get_new_uid(self):
+        pass
+
     @classmethod
     @abstractmethod
     def create_empty_subtree(cls, subtree_root_identifier: Identifier):

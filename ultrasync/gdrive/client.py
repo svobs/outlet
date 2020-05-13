@@ -298,8 +298,6 @@ class GDriveClient:
                                                version=version, head_revision_id=head_revision_id,
                                                md5=item.get('md5Checksum', None), my_share=item.get('shared', None), create_ts=create_ts,
                                                modify_ts=modify_ts, size_bytes=size, owner_id=owner_id, sync_ts=download.update_ts)
-                parent_google_ids = item.get('parents', [])
-                meta.id_dict[goog_node.uid] = goog_node
                 meta.mime_types[mime_type] = goog_node
 
                 # web_view_link = item.get('webViewLink', None)
@@ -327,7 +325,10 @@ class GDriveClient:
                             logger.debug(f'Found shortcut: id="{goog_node.uid}" name="{goog_node.name}" -> target_id="{target_id}"')
                             meta.shortcuts[goog_node.uid] = target_id
 
+                meta.id_dict[goog_node.uid] = goog_node
                 file_tuples.append(goog_node.to_tuple())
+
+                parent_google_ids = item.get('parents', [])
                 id_parent_mappings += parent_mappings_tuples(goog_node.uid, parent_google_ids, sync_ts=download.update_ts)
                 item_count += 1
 

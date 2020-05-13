@@ -1,4 +1,3 @@
-import errno
 import logging
 import os
 import time
@@ -8,7 +7,7 @@ from typing import Dict, List, Tuple
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
-    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL
+    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL, ROOT_UID
 from gdrive.client import GDriveClient
 from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from model.gdrive_whole_tree import GDriveWholeTree
@@ -126,11 +125,13 @@ class GDriveTreeLoader:
 
             # (2) Set UIDs for parents, and assemble parent dict:
             parent_mappings: List[Tuple] = self.cache.get_id_parent_mappings()
-            _translate_parent_ids(meta, parent_mappings)
+            parent_mappings = _translate_parent_ids(meta, parent_mappings)
             self.cache.insert_id_parent_mappings(parent_mappings, overwrite=True, commit=False)
+            logger.debug(f'Updated {len(parent_mappings)} id-parent mappings')
 
             # (3) mark download finished
             self.cache.create_or_update_download(download=download)
+            logger.debug('GDrive data download complete.')
 
             # fall through
 
@@ -196,28 +197,16 @@ class GDriveTreeLoader:
             for mapping in id_parent_mappings:
                 item_uid = mapping[0]
                 parent_uid = mapping[1]
-                if not item_uid:
-                    raise RuntimeError
-                item = tree.id_dict.get(item_uid)
-                if not item:
-                    raise RuntimeError
 
-                child_list: List[GoogNode] = tree.first_parent_dict.get(parent_uid)
-                if not child_list:
-                    child_list: List[GoogNode] = []
-                    tree.first_parent_dict[parent_uid] = child_list
-                child_list.append(item)
-
-                item.add_parent(parent_uid)
+                tree.add_parent_mapping(item_uid, parent_uid)
 
             logger.debug(f'{sw} Loaded {mapping_count} mappings')
 
-        logger.debug(f'{sw_total} Loaded {len(tree.id_dict):n} items from {file_count:n} file rows and {dir_count:n} dir rows, '
-                     f'with {len(tree.first_parent_dict):n} mappings from {mapping_count:n} rows')
+        logger.debug(f'{sw_total} Loaded {len(tree.id_dict):n} items from {file_count:n} file rows and {dir_count:n} dir rows')
         return tree
 
 
-def _translate_parent_ids(tree: GDriveWholeTree, id_parent_mappings: List[Tuple]):
+def _translate_parent_ids(tree: GDriveWholeTree, id_parent_mappings: List[Tuple]) -> List[Tuple]:
     sw = Stopwatch()
     logger.debug(f'Translating parent IDs for {len(tree.id_dict)} items...')
 
@@ -226,6 +215,8 @@ def _translate_parent_ids(tree: GDriveWholeTree, id_parent_mappings: List[Tuple]
     for item in tree.id_dict.values():
         goog_id_dict[item.goog_id] = item
 
+    unresolved_parents = []
+    new_mappings: List[Tuple] = []
     for mapping in id_parent_mappings:
         # [0]=item_uid, [1]=parent_uid, [2]=parent_goog_id, [3]=sync_ts
         assert not mapping[1]
@@ -233,24 +224,29 @@ def _translate_parent_ids(tree: GDriveWholeTree, id_parent_mappings: List[Tuple]
 
         # Add parent UID to tuple for later DB update:
         parent = goog_id_dict.get(parent_goog_id)
-        assert parent, f'For parent GoogID: {parent_goog_id}'
-        mapping = mapping[0], parent.uid, mapping[2], mapping[3]
-
-        # Update parent dict in in-memory tree as well:
-        child_list: List[GoogNode] = tree.first_parent_dict.get(parent.uid)
-        if not child_list:
-            child_list: List[GoogNode] = []
-            tree.first_parent_dict[parent.uid] = child_list
-        item = tree.id_dict.get(mapping[0])
-        child_list.append(item)
+        if not parent:
+            unresolved_parents.append(parent_goog_id)
+        else:
+            mapping = mapping[0], parent.uid, mapping[2], mapping[3]
+            tree.add_parent_mapping(mapping[0], parent.uid)
+        new_mappings.append(mapping)
 
     logger.debug(f'{sw} Filled in parent IDs')
+    if unresolved_parents:
+        logger.warning(f'{len(unresolved_parents)} parent IDs could not be resolved: {unresolved_parents}')
+    return new_mappings
 
 
 def _determine_roots(tree: GDriveWholeTree):
+    max_uid = ROOT_UID + 1
     for item in tree.id_dict.values():
         if not item.parent_ids:
             tree.roots.append(item)
+
+        if item.uid >= max_uid:
+            max_uid = item.uid
+
+    tree.set_next_uid(max_uid + 1)
 
 
 def _compile_full_paths(tree: GDriveWholeTree):

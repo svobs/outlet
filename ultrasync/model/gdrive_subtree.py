@@ -68,6 +68,9 @@ class GDriveSubtree(SubtreeSnapshot):
     def root_id(self):
         return self._root_node.uid
 
+    def get_new_uid(self):
+        return self._whole_tree.get_new_uid()
+
     def get_ignored_items(self):
         return self._ignored_items
 
