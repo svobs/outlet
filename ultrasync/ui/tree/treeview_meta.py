@@ -50,7 +50,7 @@ class TreeViewMeta:
         col_count_view = 0
         self.col_types = []
         self.col_names = []
-        if not self.has_checkboxes:
+        if self.has_checkboxes:
             self.col_num_checked = col_count_model
             self.col_names.append('Checked')
             self.col_types.append(bool)

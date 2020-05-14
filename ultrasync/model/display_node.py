@@ -37,6 +37,10 @@ class DisplayNode(ABC):
         return os.path.basename(self.identifier.full_path)
 
     @property
+    def etc(self):
+        return None
+
+    @property
     def size_bytes(self):
         return None
 
@@ -94,6 +98,10 @@ class DirNode(DisplayNode):
         if type(self.identifier.full_path) == list:
             return os.path.basename(self.identifier.full_path[0])
         return os.path.basename(self.identifier.full_path)
+
+    @property
+    def etc(self):
+        return f'{self.file_count} items'
 
     @property
     def size_bytes(self):

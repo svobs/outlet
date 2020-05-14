@@ -216,6 +216,7 @@ class LazyDisplayStrategy:
         if not self.con.treeview_meta.use_dir_tree:
             row_values.append(None)  # Directory
         row_values.append(None)  # Size
+        row_values.append(None)  # Etc
         row_values.append(None)  # Modify Date
         row_values.append(None)  # Meta Changed Date / Created Date
         row_values.append(EmptyNode())
@@ -232,6 +233,7 @@ class LazyDisplayStrategy:
         if not self.con.treeview_meta.use_dir_tree:
             row_values.append(None)  # Directory
         row_values.append(None)  # Size
+        row_values.append(None)  # Etc
         row_values.append(None)  # Modify Date
         row_values.append(None)  # Meta Changed Date / Created Date
         row_values.append(LoadingNode())
@@ -257,6 +259,8 @@ class LazyDisplayStrategy:
         else:
             num_bytes_formatted = humanfriendly.format_size(node_data.size_bytes)
         row_values.append(num_bytes_formatted)  # Size
+
+        row_values.append(node_data.etc)  # Etc
 
         row_values.append(None)  # Modify Date
 
@@ -294,6 +298,9 @@ class LazyDisplayStrategy:
         else:
             num_bytes_formatted = humanfriendly.format_size(node_data.size_bytes)
         row_values.append(num_bytes_formatted)  # Size
+
+        # etc
+        row_values.append(node_data.etc)  # Etc
 
         # Modify TS
         if node_data.modify_ts is None:
