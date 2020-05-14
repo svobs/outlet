@@ -38,23 +38,8 @@ def build_content_box(root_dir_panel, tree_view, status_bar_container):
     return content_box
 
 
-def build_treeview(display_store: DisplayStore) -> Gtk.TreeView:
-    """ Builds the GTK3 treeview widget"""
-    model: Gtk.TreeStore = display_store.model
-    treeview_meta: TreeViewMeta = display_store.treeview_meta
-
-    treeview = Gtk.TreeView(model=model)
-    treeview.set_level_indentation(treeview_meta.extra_indent)
-    treeview.set_show_expanders(True)
-    treeview.set_property('enable_grid_lines', True)
-    treeview.set_property('enable_tree_lines', True)
-    treeview.set_fixed_height_mode(True)
-    treeview.set_vscroll_policy(Gtk.ScrollablePolicy.NATURAL)
-    # Allow click+drag to select multiple items.
-    # May want to disable if using drag+drop
-    treeview.set_rubber_banding(True)
-
-    # 0 Checkbox + Icon + Name
+def add_checkbox_icon_name_column(treeview, treeview_meta):
+    # COLUMN: Checkbox + Icon + Name
     # See: https://stackoverflow.com/questions/27745585/show-icon-or-color-in-gtk-treeview-tree
     px_column = Gtk.TreeViewColumn(treeview_meta.col_names[treeview_meta.col_num_name])
     px_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
@@ -98,25 +83,31 @@ def build_treeview(display_store: DisplayStore) -> Gtk.TreeView:
     px_column.set_sort_column_id(treeview_meta.col_num_name)
     treeview.append_column(px_column)
 
-    if not treeview_meta.use_dir_tree:
-        # DIRECTORY COLUMN
-        renderer = Gtk.CellRendererText()
-        renderer.set_fixed_height_from_font(1)
-        renderer.set_fixed_size(width=-1, height=treeview_meta.row_height)
-        renderer.set_property('width-chars', 20)
-        column = Gtk.TreeViewColumn(treeview_meta.col_names[treeview_meta.col_num_dir], renderer, text=treeview_meta.col_num_dir)
-        column.set_sort_column_id(treeview_meta.col_num_dir)
 
-        column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
-        column.set_min_width(50)
-        # column.set_max_width(300)
-        column.set_expand(True)
-        column.set_resizable(True)
-        column.set_reorderable(True)
-        column.set_fixed_height_from_font(1)
-        treeview.append_column(column)
+def add_directory_column(treeview, treeview_meta):
+    """DIRECTORY COLUMN"""
+    if treeview_meta.use_dir_tree:
+        return
 
-    # SIZE COLUMN
+    renderer = Gtk.CellRendererText()
+    renderer.set_fixed_height_from_font(1)
+    renderer.set_fixed_size(width=-1, height=treeview_meta.row_height)
+    renderer.set_property('width-chars', 20)
+    column = Gtk.TreeViewColumn(treeview_meta.col_names[treeview_meta.col_num_dir], renderer, text=treeview_meta.col_num_dir)
+    column.set_sort_column_id(treeview_meta.col_num_dir)
+
+    column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
+    column.set_min_width(50)
+    # column.set_max_width(300)
+    column.set_expand(True)
+    column.set_resizable(True)
+    column.set_reorderable(True)
+    column.set_fixed_height_from_font(1)
+    treeview.append_column(column)
+
+
+def add_size_column(treeview, treeview_meta, model):
+    """SIZE COLUMN"""
     renderer = Gtk.CellRendererText()
     renderer.set_fixed_size(width=-1, height=treeview_meta.row_height)
     renderer.set_fixed_height_from_font(1)
@@ -136,6 +127,27 @@ def build_treeview(display_store: DisplayStore) -> Gtk.TreeView:
     # Need the original file sizes (in bytes) here, not the formatted one
     model.set_sort_func(treeview_meta.col_num_size, _compare_data, (treeview_meta, lambda f: f.size_bytes))
 
+
+def add_etc_column(treeview, treeview_meta, model):
+    """ETC COLUMN"""
+    renderer = Gtk.CellRendererText()
+    renderer.set_fixed_size(width=-1, height=treeview_meta.row_height)
+    renderer.set_fixed_height_from_font(1)
+    # renderer.set_property('width-chars', 15)
+    column = Gtk.TreeViewColumn(treeview_meta.col_names[treeview_meta.col_num_etc], renderer, text=treeview_meta.col_num_etc)
+    # column.set_sort_column_id(treeview_meta.col_num_etc)
+
+    column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
+    #  column.set_fixed_width(50)
+    column.set_min_width(90)
+    # column.set_max_width(300)
+    column.set_expand(False)
+    column.set_resizable(True)
+    column.set_reorderable(True)
+    treeview.append_column(column)
+
+
+def add_modify_ts_column(treeview, treeview_meta, model):
     # MODIFICATION TS COLUMN
     renderer = Gtk.CellRendererText()
     renderer.set_property('width-chars', 8)
@@ -155,26 +167,54 @@ def build_treeview(display_store: DisplayStore) -> Gtk.TreeView:
 
     model.set_sort_func(treeview_meta.col_num_modification_ts, _compare_data, (treeview_meta, lambda f: f.modify_ts))
 
-    if treeview_meta.show_change_ts:
-        # METADATA CHANGE TS COLUMN
-        renderer = Gtk.CellRendererText()
-        renderer.set_property('width-chars', 8)
-        renderer.set_fixed_size(width=-1, height=treeview_meta.row_height)
-        renderer.set_fixed_height_from_font(1)
-        column = Gtk.TreeViewColumn(treeview_meta.col_names[treeview_meta.col_num_change_ts], renderer, text=treeview_meta.col_num_change_ts)
-        column.set_sort_column_id(treeview_meta.col_num_change_ts)
 
-        column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
-        # column.set_fixed_width(50)
-        column.set_min_width(50)
-        # column.set_max_width(300)
-        column.set_expand(False)
-        column.set_resizable(True)
-        column.set_reorderable(True)
-        treeview.append_column(column)
+def add_change_ts_column(treeview, treeview_meta, model):
+    # METADATA CHANGE TS COLUMN
+    renderer = Gtk.CellRendererText()
+    renderer.set_property('width-chars', 8)
+    renderer.set_fixed_size(width=-1, height=treeview_meta.row_height)
+    renderer.set_fixed_height_from_font(1)
+    column = Gtk.TreeViewColumn(treeview_meta.col_names[treeview_meta.col_num_change_ts], renderer, text=treeview_meta.col_num_change_ts)
+    column.set_sort_column_id(treeview_meta.col_num_change_ts)
 
-        model.set_sort_func(treeview_meta.col_num_change_ts, _compare_data, (treeview_meta, lambda f: f.change_ts))
+    column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
+    # column.set_fixed_width(50)
+    column.set_min_width(50)
+    # column.set_max_width(300)
+    column.set_expand(False)
+    column.set_resizable(True)
+    column.set_reorderable(True)
+    treeview.append_column(column)
 
+    model.set_sort_func(treeview_meta.col_num_change_ts, _compare_data, (treeview_meta, lambda f: f.change_ts))
+
+
+def build_treeview(display_store: DisplayStore) -> Gtk.TreeView:
+    """ Builds the GTK3 treeview widget"""
+    model: Gtk.TreeStore = display_store.model
+    treeview_meta: TreeViewMeta = display_store.treeview_meta
+
+    treeview = Gtk.TreeView(model=model)
+    treeview.set_level_indentation(treeview_meta.extra_indent)
+    treeview.set_show_expanders(True)
+    treeview.set_property('enable_grid_lines', True)
+    treeview.set_property('enable_tree_lines', True)
+    treeview.set_fixed_height_mode(True)
+    treeview.set_vscroll_policy(Gtk.ScrollablePolicy.NATURAL)
+    # Allow click+drag to select multiple items.
+    # May want to disable if using drag+drop
+    treeview.set_rubber_banding(True)
+
+    # Search for "TREE_VIEW_COLUMNS":
+
+    add_checkbox_icon_name_column(treeview, treeview_meta)
+    add_directory_column(treeview, treeview_meta)
+    add_size_column(treeview, treeview_meta, model)
+    add_etc_column(treeview, treeview_meta, model)
+    add_modify_ts_column(treeview, treeview_meta, model)
+    add_change_ts_column(treeview, treeview_meta, model)
+
+    # Selection mode (single, multi):
     select = treeview.get_selection()
     select.set_mode(treeview_meta.selection_mode)
 

@@ -46,10 +46,18 @@ class TreePanelController:
         self.action_handlers = None
 
     def init(self):
+        self._set_column_visibilities()
+
         """Should be called after all controller components have been wired together"""
         self.treeview_meta.init()
         self.display_strategy.init()
         self.action_handlers.init()
+
+    def _set_column_visibilities(self):
+        # the columns stored in TreeViewMeta are 1
+        self.tree_view.get_column(self.treeview_meta.col_num_modify_ts_view).set_visible(self.treeview_meta.show_modify_ts_col)
+        self.tree_view.get_column(self.treeview_meta.col_num_change_ts_view).set_visible(self.treeview_meta.show_change_ts_col)
+        self.tree_view.get_column(self.treeview_meta.col_num_etc_view).set_visible(self.treeview_meta.show_etc_col)
 
     def load(self):
         self.display_strategy.populate_root()

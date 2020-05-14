@@ -204,6 +204,8 @@ class LazyDisplayStrategy:
         elif self.use_empty_nodes:
             self._append_empty_child(parent_iter, '(empty)')
 
+    # Search for "TREE_VIEW_COLUMNS":
+
     def _append_empty_child(self, parent_node_iter, node_name):
         row_values = []
         if self.con.treeview_meta.has_checkboxes:
@@ -215,7 +217,7 @@ class LazyDisplayStrategy:
             row_values.append(None)  # Directory
         row_values.append(None)  # Size
         row_values.append(None)  # Modify Date
-        row_values.append(None)  # Created Date
+        row_values.append(None)  # Meta Changed Date / Created Date
         row_values.append(EmptyNode())
 
         return self.con.display_store.model.append(parent_node_iter, row_values)
@@ -231,30 +233,10 @@ class LazyDisplayStrategy:
             row_values.append(None)  # Directory
         row_values.append(None)  # Size
         row_values.append(None)  # Modify Date
-        row_values.append(None)  # Created Date
+        row_values.append(None)  # Meta Changed Date / Created Date
         row_values.append(LoadingNode())
 
         return self.con.display_store.model.append(parent_node_iter, row_values)
-
-    def _add_checked_columns(self, parent_uid: Optional[str], node_data: DisplayNode, row_values: List):
-        if self.con.treeview_meta.has_checkboxes and node_data.has_path():
-            if parent_uid:
-                parent_checked = self.con.display_store.checked_rows.get(parent_uid, None)
-                if parent_checked:
-                    row_values.append(True)  # Checked
-                    row_values.append(False)  # Inconsistent
-                    return
-                parent_inconsistent = self.con.display_store.inconsistent_rows.get(parent_uid, None)
-                if not parent_inconsistent:
-                    row_values.append(False)  # Checked
-                    row_values.append(False)  # Inconsistent
-                    return
-                # Otherwise: inconsistent. Look up individual values below:
-            row_id = node_data.identifier.uid
-            checked = self.con.display_store.checked_rows.get(row_id, None)
-            inconsistent = self.con.display_store.inconsistent_rows.get(row_id, None)
-            row_values.append(checked)  # Checked
-            row_values.append(inconsistent)  # Inconsistent
 
     def _append_dir_node(self, parent_iter, parent_uid: Optional[str], node_data: DisplayNode) -> TreeIter:
         """Appends a dir-type node to the model"""
@@ -278,8 +260,7 @@ class LazyDisplayStrategy:
 
         row_values.append(None)  # Modify Date
 
-        if self.con.treeview_meta.show_change_ts:
-            row_values.append(None)  # Changed (UNIX) / Created (GOOG) Date
+        row_values.append(None)  # Changed (UNIX) / Created (GOOG) Date
 
         row_values.append(node_data)  # Data
 
@@ -323,15 +304,35 @@ class LazyDisplayStrategy:
             row_values.append(modify_formatted)
 
         # Change TS
-        if self.con.treeview_meta.show_change_ts:
-            try:
-                change_datetime = datetime.fromtimestamp(node_data.change_ts / 1000)
-                change_time = change_datetime.strftime(self.con.treeview_meta.datetime_format)
-                row_values.append(change_time)
-            except AttributeError:
-                row_values.append(None)
+        try:
+            change_datetime = datetime.fromtimestamp(node_data.change_ts / 1000)
+            change_time = change_datetime.strftime(self.con.treeview_meta.datetime_format)
+            row_values.append(change_time)
+        except AttributeError:
+            row_values.append(None)
 
         # Data (hidden)
         row_values.append(node_data)  # Data
 
         return self.con.display_store.model.append(parent_iter, row_values)
+
+    def _add_checked_columns(self, parent_uid: Optional[str], node_data: DisplayNode, row_values: List):
+        """Populates the checkbox and sets its state for a newly added row"""
+        if self.con.treeview_meta.has_checkboxes and node_data.has_path():
+            if parent_uid:
+                parent_checked = self.con.display_store.checked_rows.get(parent_uid, None)
+                if parent_checked:
+                    row_values.append(True)  # Checked
+                    row_values.append(False)  # Inconsistent
+                    return
+                parent_inconsistent = self.con.display_store.inconsistent_rows.get(parent_uid, None)
+                if not parent_inconsistent:
+                    row_values.append(False)  # Checked
+                    row_values.append(False)  # Inconsistent
+                    return
+                # Otherwise: inconsistent. Look up individual values below:
+            row_id = node_data.identifier.uid
+            checked = self.con.display_store.checked_rows.get(row_id, None)
+            inconsistent = self.con.display_store.inconsistent_rows.get(row_id, None)
+            row_values.append(checked)  # Checked
+            row_values.append(inconsistent)  # Inconsistent
