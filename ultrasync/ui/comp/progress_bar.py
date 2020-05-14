@@ -78,7 +78,7 @@ class ProgressBar:
         if self._start_request_count > self._stop_request_count:
             logger.debug('Discarding stop request because we have not received enough start requests yet')
             return
-        logger.debug(f'Stopped progress animation')
+        logger.debug(f'Requesting stop of progress animation')
         self._stop_requested = True
 
     def on_set_progress_text(self, sender, msg, tx_id=None):
@@ -104,13 +104,15 @@ class ProgressBar:
 
                 self.progressbar.set_fraction(new_value)
 
-        logger.debug('Starting')
+        logger.debug('Starting animation')
         while not self._stop_requested:
             time.sleep(PROGRESS_BAR_SLEEP_TIME_SEC)
             GLib.idle_add(throb)
 
-        self._stop_requested = False
-        # Stop looping
-        self.progressbar.hide()
-        logger.debug('Stopping')
+        def stop():
+            self._stop_requested = False
+            # Stop looping
+            self.progressbar.hide()
+            logger.debug('Stopped')
 
+        GLib.idle_add(stop)

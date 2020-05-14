@@ -5,6 +5,7 @@ from typing import Optional
 
 import format_util
 from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_LOCAL_DISK, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
+from model.category import Category
 from model.display_id import Identifier
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ def ensure_int(val):
 
 class DisplayNode(ABC):
     """Base class for nodes which are meant to be displayed in a UI tree"""
+
     def __init__(self, identifier: Optional[Identifier]):
         self.identifier = identifier
 
@@ -114,6 +116,7 @@ class DirNode(DisplayNode):
     def __repr__(self):
         return f'DirNode({self.identifier} cat={self.category} {self.get_summary()})'
 
+
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
 
@@ -121,6 +124,14 @@ class CategoryNode(DirNode):
     """
     Represents a category in the tree (however it can possibly be treated as the root dir)
     """
+    _display_names = {Category.Nada: 'NA',
+                      Category.Ignored: 'Ignored',
+                      Category.Added: 'To Add',
+                      Category.Deleted: 'To Delete',
+                      Category.Updated: 'To Update',
+                      Category.Moved: 'To Move',
+                      }
+
     def __init__(self, identifier):
         super().__init__(identifier=identifier)
 
@@ -129,7 +140,7 @@ class CategoryNode(DirNode):
 
     @property
     def name(self):
-        return self.category.name
+        return CategoryNode._display_names[self.category.value]
 
     def get_icon(self):
         return ICON_GENERIC_DIR
@@ -139,6 +150,7 @@ class RootTypeNode(DirNode):
     """
     Represents a type of root in the tree (GDrive, local FS, etc.)
     """
+
     def __init__(self, identifier):
         super().__init__(identifier=identifier)
 
@@ -191,6 +203,7 @@ class EphemeralNode(DisplayNode, ABC):
     def has_path(cls):
         return False
 
+
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
 
@@ -206,6 +219,7 @@ class LoadingNode(EphemeralNode):
     @property
     def name(self):
         return 'LoadingNode'
+
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 

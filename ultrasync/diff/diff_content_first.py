@@ -1,4 +1,5 @@
 """Content-first diff. See diff function below."""
+import time
 from typing import Iterable, List, Optional, Tuple
 
 import file_util
@@ -159,7 +160,12 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
      is not important, because the changes are computed from each tree's perspective (e.g. a file which is in
      Left but not Right will be determined to be an 'added' file from the perspective of Left but a 'deleted'
      file from the perspective of Right)"""
+
+    sw = Stopwatch()
     for md5 in md5_set:
+        # Grant just a tiny bit of time to other tasks in the CPython thread (e.g. progress bar):
+        time.sleep(0.00001)
+
         left_items_dup_md5: Iterable[DisplayNode] = left_md5s.get_second_dict(md5)
         if isinstance(left_items_dup_md5, dict):
             left_items_dup_md5 = left_items_dup_md5.values()
@@ -206,7 +212,9 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
                 orphaned_md5s_left.append(orphaned_left_dup_md5)
             if orphaned_right_dup_md5:
                 orphaned_md5s_right.append(orphaned_right_dup_md5)
+    logger.info(f'{sw} Finished first pass of MD5 set')
 
+    sw = Stopwatch()
     for item_duplicate_md5s_left in orphaned_md5s_left:
         # TODO: Duplicate content (options):
         #  - No special handling of duplicates / treat like other files [default]
@@ -238,7 +246,9 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
             # Dead node walking:
             change_tree_left.add_item(left_item, Category.Deleted, left_tree)
             count_add_delete_pairs += 1
+    logger.info(f'{sw} Finished path comparison for left tree')
 
+    sw = Stopwatch()
     for item_duplicate_md5s_right in orphaned_md5s_right:
         for right_item in item_duplicate_md5s_right:
             if compare_paths_also:
@@ -257,6 +267,7 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
 
     logger.info(f'Done with diff (pairs: add/del={count_add_delete_pairs} upd={count_updated_pairs} moved={count_moved_pairs})'
                 f' Left:[{change_tree_left.get_summary()}] Right:[{change_tree_right.get_summary()}]')
+    logger.info(f'{sw} Finished path comparison for right tree')
 
     # Copy ignored items to change trees:
     for item in left_tree.get_ignored_items():

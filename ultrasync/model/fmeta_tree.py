@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Union, ValuesView
 import constants
 import file_util
 import format_util
+from index.atomic_counter import AtomicCounter
 from index.two_level_dict import Md5BeforePathDict, Md5BeforeUidDict
 from model.category import Category
 from model.display_id import Identifier, LocalFsIdentifier
@@ -35,13 +36,14 @@ class FMetaTree(SubtreeSnapshot):
         self._ignored_items: List[FMeta] = []
         self._total_size_bytes = 0
 
-        self._next_uid = constants.ROOT_UID + 1
+        self._next_uid = AtomicCounter(constants.ROOT_UID + 1)
 
     def get_new_uid(self):
-        """In the future, need to make this thread-safe"""
-        uid = self._next_uid
-        self._next_uid += 1
-        return uid
+        return self._next_uid.increment()
+
+    def set_next_uid(self, uid: int):
+        new_val = self._next_uid.set_at_least(uid)
+        logger.debug(f'Set next_uid to {new_val}')
 
     @property
     def root_node(self):
