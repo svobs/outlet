@@ -43,7 +43,7 @@ class TreePanelController:
         self.display_strategy = None
         self.status_bar = None
         self.content_box = None
-        self.action_handlers = None
+        self.context_listeners = None
 
     def init(self):
         self._set_column_visibilities()
@@ -51,7 +51,7 @@ class TreePanelController:
         """Should be called after all controller components have been wired together"""
         self.treeview_meta.init()
         self.display_strategy.init()
-        self.action_handlers.init()
+        self.context_listeners.init()
 
     def _set_column_visibilities(self):
         # the columns stored in TreeViewMeta are 1
@@ -81,14 +81,14 @@ class TreePanelController:
         def rebuild_treeview():
             if not self.treeview_meta.has_checkboxes:
                 logger.info('Rebuilding treeview!')
-                self.action_handlers.disconnect_gtk_listeners()
+                self.context_listeners.disconnect_gtk_listeners()
                 self.treeview_meta = self.treeview_meta.but_with_checkboxes()
                 self.display_store = DisplayStore(self.treeview_meta)
 
                 new_treeview = tree_factory_templates.build_treeview(self.display_store)
                 tree_factory_templates.replace_widget(self.tree_view, new_treeview)
                 self.tree_view = new_treeview
-                self.action_handlers.init()
+                self.context_listeners.init()
 
             self.reload(new_root=new_root, new_tree=new_tree, tree_display_mode=tree_display_mode)
 

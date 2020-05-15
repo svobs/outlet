@@ -9,14 +9,13 @@ from model.display_id import Identifier
 from model.fmeta_tree import FMetaTree
 from model.subtree_snapshot import SubtreeSnapshot
 from ui.tree import tree_factory_templates
+from ui.tree.context_listeners import TreeContextListeners
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
 from model.fmeta import Category
 from ui.tree.lazy_display_strategy import LazyDisplayStrategy
-from ui.tree.fmeta_action_handlers import FMetaTreeActionHandlers
-from ui.tree.gdrive_action_handlers import GDriveActionHandlers
 from ui.comp.root_dir_panel import RootDirPanel
 
 from ui.tree.controller import TreePanelController
@@ -53,6 +52,7 @@ class TreeFactory:
         """Choose one: tree or root"""
 
         self.tree_id: str = tree_id
+        self.can_modify_tree = False
         self.has_checkboxes: bool = False
         self.can_change_root: bool = False
         self.lazy_load: bool = True
@@ -71,6 +71,7 @@ class TreeFactory:
 
         treeview_meta = TreeViewMeta(config=self.parent_win.config,
                                      tree_id=self.tree_id,
+                                     can_modify_tree=self.can_modify_tree,
                                      has_checkboxes=self.has_checkboxes,
                                      can_change_root=self.can_change_root,
                                      tree_display_mode=self.tree_display_mode,
@@ -98,19 +99,12 @@ class TreeFactory:
 
         display_strategy = LazyDisplayStrategy(config=self.parent_win.config)
 
-        if tree_type == constants.OBJ_TYPE_GDRIVE:
-            action_handlers = GDriveActionHandlers(config=self.parent_win.config)
-        elif tree_type == constants.OBJ_TYPE_LOCAL_DISK:
-            action_handlers = FMetaTreeActionHandlers(config=self.parent_win.config)
-        elif tree_type == constants.OBJ_TYPE_MIXED:
-            # TODO: mixed tree support
-            action_handlers = FMetaTreeActionHandlers(config=self.parent_win.config)
-        else:
-            raise RuntimeError(f'Unsupported tree type: {tree_type}')
+        context_listeners = TreeContextListeners(config=self.parent_win.config, controller=controller)
+
         controller.display_strategy = display_strategy
         display_strategy.con = controller
-        controller.action_handlers = action_handlers
-        action_handlers.con = controller
+        controller.context_listeners = context_listeners
+        context_listeners.con = controller
 
         controller.tree_view = tree_factory_templates.build_treeview(display_store)
 
@@ -124,7 +118,8 @@ class TreeFactory:
         # FIXME: add toggle buttons to GDrive status bar: Show Trashed, Show Shared By Me, Show Shared With Me
 
         controller.status_bar, status_bar_container = tree_factory_templates.build_status_bar()
-        controller.content_box = tree_factory_templates.build_content_box(controller.root_dir_panel.content_box, controller.tree_view, status_bar_container)
+        controller.content_box = tree_factory_templates.build_content_box(controller.root_dir_panel.content_box, controller.tree_view,
+                                                                          status_bar_container)
 
         # Line up the following between trees if we are displaying side-by-side trees:
         if hasattr('parent_win', 'sizegroups'):
@@ -145,23 +140,24 @@ class TreeFactory:
 def build_gdrive(parent_win,
                  tree_id,
                  tree: SubtreeSnapshot):
-    """Builds a tree panel for browsing a Google Drive tree, using lazy loading."""
+    """Builds a tree panel for browsing a Google Drive tree, using lazy loading. For the GDrive root chooser dialog"""
 
     factory = TreeFactory(parent_win=parent_win, tree=tree, tree_id=tree_id)
     factory.allow_multiple_selection = False
+    factory.can_modify_tree = False
     factory.display_persisted = False
     factory.has_checkboxes = False
     factory.can_change_root = False
     return factory.build()
 
 
-def build_category_file_tree(parent_win,
-                             tree_id: str,
-                             root: Identifier = None,
-                             tree: SubtreeSnapshot = None):
-
+def build_editor_tree(parent_win,
+                      tree_id: str,
+                      root: Identifier = None,
+                      tree: SubtreeSnapshot = None):
     factory = TreeFactory(parent_win=parent_win, root=root, tree=tree, tree_id=tree_id)
     factory.has_checkboxes = False  # not initially
+    factory.can_modify_tree = True
     factory.can_change_root = True
     factory.allow_multiple_selection = True
     factory.display_persisted = True
@@ -169,13 +165,13 @@ def build_category_file_tree(parent_win,
 
 
 def build_static_category_file_tree(parent_win, tree_id: str, tree: FMetaTree):
-    # Whole tree is provided here
+    # Whole tree is provided here. For Merge Preview dialog
     factory = TreeFactory(parent_win=parent_win, tree=tree, tree_id=tree_id)
     factory.has_checkboxes = False
     factory.can_change_root = False
+    factory.can_modify_tree = False
     factory.allow_multiple_selection = False
     factory.display_persisted = False
     factory.tree_display_mode = TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY
     factory.lazy_load = False
     return factory.build()
-

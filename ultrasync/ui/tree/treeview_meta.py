@@ -8,19 +8,21 @@ from ui import actions
 
 class TreeViewMeta:
     def but_with_checkboxes(self):
-        return TreeViewMeta(config=self.config, tree_id=self.tree_id, has_checkboxes=True, can_change_root=self.can_change_root,
+        return TreeViewMeta(config=self.config, tree_id=self.tree_id, can_modify_tree=self.can_modify_tree, has_checkboxes=True, can_change_root=self.can_change_root,
                             tree_display_mode=self.tree_display_mode, lazy_load=self.lazy_load, selection_mode=self.selection_mode,
                             is_display_persisted=self.is_display_persisted, is_ignored_func=self.is_ignored_func)
 
-    def __init__(self, config: AppConfig, tree_id: str, has_checkboxes: bool, can_change_root: bool,
+    def __init__(self, config: AppConfig, tree_id: str, can_modify_tree: bool, has_checkboxes: bool, can_change_root: bool,
                  tree_display_mode: TreeDisplayMode, lazy_load: bool, selection_mode, is_display_persisted: bool, is_ignored_func):
         self.config = config
         self.selection_mode = selection_mode
         self.tree_id = tree_id
 
+        self.can_modify_tree = can_modify_tree
+        """If true, can delete nodes, rename them, etc"""
         self.has_checkboxes: bool = has_checkboxes
         self.can_change_root: bool = can_change_root
-        """If false, disable actions in UI"""
+        """If false, make the root path display panel read-only"""
         self.is_display_persisted = is_display_persisted
         """If true, load and save aesthetic things like expanded state of some nodes"""
         self.is_ignored_func = is_ignored_func

@@ -6,25 +6,33 @@ from typing import List, Optional
 from pydispatch import dispatcher
 
 import ui.actions as actions
+from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED
 from model.display_id import Identifier
 from model.display_node import DisplayNode
 from model.fmeta import FMeta
 
 import gi
+
+from ui.tree.context_actions_gdrive import ContextActionsGDrive
+from ui.tree.context_actions_localdisk import ContextActionsLocaldisk
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gdk, Gtk
 
 logger = logging.getLogger(__name__)
 
-# CLASS TreeActionBridge
+# CLASS TreeContextListeners
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 
-class TreeActionBridge:
+class TreeContextListeners:
     def __init__(self, config, controller):
         self.con = controller
         self.ui_enabled = True
         self.connected_eids = []
+        self.context_handlers = {OBJ_TYPE_LOCAL_DISK: ContextActionsLocaldisk(self.con),
+                                 OBJ_TYPE_GDRIVE: ContextActionsGDrive(self.con),
+                                 OBJ_TYPE_MIXED: None}  # TODO: handle mixed
 
     def init(self):
         actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
@@ -160,12 +168,9 @@ class TreeActionBridge:
             mods.append('Alt')
         logger.debug(f'Key pressed: {Gdk.keyval_name(event.keyval)} ({event.keyval}), mods: {" ".join(mods)}')
 
-        if event.keyval == Gdk.KEY_Delete:
+        if event.keyval == Gdk.KEY_Delete and self.con.treeview_meta.can_modify_tree:
             logger.debug('DELETE key detected!')
-            # Get the TreeView selected row(s)
-            selection = tree_view.get_selection()
-            model, paths = selection.get_selected_rows()
-            if self.on_delete_key_pressed(selected_tree_paths=paths):
+            if self.on_delete_key_pressed():
                 return True
         return False
 
@@ -176,11 +181,16 @@ class TreeActionBridge:
             return False
 
         if event.button == 3:  # right click
-            tree_path, col, cell_x, cell_y = tree_view.get_path_at_pos(int(event.x), int(event.y))
-            node_data = self.con.display_store.get_node_data(tree_path)
+            path_at_pos = tree_view.get_path_at_pos(int(event.x), int(event.y))
+            if not path_at_pos:
+                logger.debug('Right-click but no node!')
+                return False
+
+            # tree_path, col, cell_x, cell_y = path_at_pos[0], path_at_pos[1], path_at_pos[2], path_at_pos[3]
+            node_data = self.con.display_store.get_node_data(path_at_pos[0])
             logger.debug(f'User right-clicked on {node_data}')
 
-            if self.on_row_right_clicked(event=event, tree_path=tree_path, node_data=node_data):
+            if self.on_row_right_clicked(event=event, tree_path=path_at_pos[0], node_data=node_data):
                 # Suppress selection event:
                 return True
         return False
@@ -196,33 +206,68 @@ class TreeActionBridge:
         return False
 
     def on_single_row_activated(self, tree_view, tree_iter, tree_path):
+        """Fired when an item is double-clicked or when an item is selected and Enter is pressed"""
+        node_data = self.con.display_store.get_node_data(tree_path)
+        if node_data.is_dir():
+            if tree_view.row_expanded(tree_path):
+                tree_view.collapse_row(tree_path)
+            else:
+                tree_view.expand_row(path=tree_path, open_all=False)
+            return True
         return False
 
     def on_multiple_rows_activated(self, tree_view, tree_iter):
+        # TODO: intelligent logic for multiple selected rows
+        logger.error('Multiple rows activated, but no logic implemented yet!')
         return False
 
-    def on_delete_key_pressed(self, selected_tree_paths):
+    def on_delete_key_pressed(self):
+        if self.con.treeview_meta.can_modify_tree:
+            selection = self.con.tree_view.get_selection()
+            model, tree_paths = selection.get_selected_rows()
+            if len(tree_paths) == 1:
+                item = self.con.display_store.get_node_data(tree_paths[0])
+                self.context_handlers[item.identifier.tree_type].delete_dir_tree(subtree_root=item.full_path, tree_path=tree_paths[0])
+                return True
+            elif len(tree_paths) > 1:
+                selected_items = []
+                for tree_path in tree_paths:
+                    item = self.con.display_store.get_node_data(tree_path)
+                    selected_items.append(item)
+                    if not self.context_handlers[item.identifier.tree_type].delete_dir_tree(subtree_root=item.full_path, tree_path=tree_path):
+                        # something went wrong if we got False. Stop.
+                        break
+
+                return True
         return False
 
     def on_row_right_clicked(self, event, tree_path, node_data: DisplayNode):
         id_clicked = node_data.uid
         selected_items: List[DisplayNode] = self.con.get_multiple_selection()
 
+        clicked_on_selection = False
+
         if len(selected_items) > 1:
             # Multiple selected items:
             for item in selected_items:
                 if item.uid == id_clicked:
-                    # User right-clicked on selection -> apply context menu to all selected items:
-                    context_menu = self.build_context_menu_multiple(selected_items)
-                    if context_menu:
-                        context_menu.popup_at_pointer(event)
-                        # Suppress selection event
-                        return True
-                    else:
-                        return False
+                    clicked_on_selection = True
+
+        if clicked_on_selection:
+            objs_type = _get_items_type(selected_items)
+
+            # User right-clicked on selection -> apply context menu to all selected items:
+            context_menu = self.build_context_menu_multiple(selected_items)####
+            self.context_handlers[objs_type].build_context_menu_multiple(selected_items)
+            if context_menu:
+                context_menu.popup_at_pointer(event)
+                # Suppress selection event
+                return True
+            else:
+                return False
 
         # Singular item, or singular selection (equivalent logic). Display context menu:
-        context_menu = self.build_context_menu(tree_path, node_data)
+        context_menu = self.context_handlers[node_data.identifier.tree_type].build_context_menu(tree_path, node_data)
         if context_menu:
             context_menu.popup_at_pointer(event)
             return True
@@ -239,3 +284,23 @@ class TreeActionBridge:
     def build_context_menu(self, tree_path: Gtk.TreePath, node_data: DisplayNode) -> Optional[Gtk.Menu]:
         """Create context menu for single item, or singular selection (equivalent logic)"""
         return None
+
+def _get_items_type(selected_items: List):
+    gdrive_count = 0
+    fmeta_count = 0
+
+    if len(selected_items) > 1:
+        # Multiple selected items:
+        for item in selected_items:
+            if item.identifier.tree_type == OBJ_TYPE_GDRIVE:
+                gdrive_count += 1
+            elif item.identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
+                fmeta_count += 1
+
+    # determine object types
+    if gdrive_count and fmeta_count:
+        return OBJ_TYPE_MIXED
+    elif gdrive_count:
+        return OBJ_TYPE_GDRIVE
+    else:
+        return OBJ_TYPE_LOCAL_DISK

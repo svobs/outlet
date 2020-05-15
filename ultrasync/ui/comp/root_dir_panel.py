@@ -275,7 +275,7 @@ class RootDirPanel:
             # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html
             GLib.idle_add(self._update_root_label, new_root, err)
 
-    def _open_localfs_root_chooser_dialog(self, menu_item):
+    def _open_localdisk_root_chooser_dialog(self, menu_item):
         """Creates and displays a LocalRootDirChooserDialog.
         # the arguments are: title of the window, parent_window, action,
         # (buttons, response)"""
@@ -292,7 +292,7 @@ class RootDirPanel:
     def _build_source_menu(self):
         source_menu = Gtk.Menu()
         item_select_local = Gtk.MenuItem(label="Local filesystem subtree...")
-        item_select_local.connect('activate', self._open_localfs_root_chooser_dialog)
+        item_select_local.connect('activate', self._open_localdisk_root_chooser_dialog)
         source_menu.append(item_select_local)
         item_gdrive = Gtk.MenuItem(label="Google Drive subtree...")
         source_menu.append(item_gdrive)

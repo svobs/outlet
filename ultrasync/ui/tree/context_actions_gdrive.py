@@ -2,71 +2,29 @@ import logging
 import os
 from typing import Optional
 
+import gi
+
 import file_util
 from constants import GDRIVE_PATH_PREFIX
 from gdrive.client import GDriveClient
 from model.display_node import CategoryNode, DisplayNode
 from model.goog_node import GoogFile, GoogNode
 from model.planning_node import FileDecoratorNode
-from ui.tree.action_bridge import TreeActionBridge
 
-import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, Gdk, GObject
+from gi.repository import Gtk, GObject
 
 logger = logging.getLogger(__name__)
 
-# CLASS GDriveActionHandlers
+DATE_REGEX = r'^[\d]{4}(\-[\d]{2})?(-[\d]{2})?'
+
+# CLASS ContextActionsGDrive
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 
-class GDriveActionHandlers(TreeActionBridge):
-    def __init__(self, config, controller=None):
-        super().__init__(config, controller)
-
-    def init(self):
-        super().init()
-
-    # LISTENERS begin
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
-
-    def on_single_row_activated(self, tree_view, tree_iter, tree_path):
-        """Fired when an item is double-clicked or when an item is selected and Enter is pressed"""
-        if tree_view.row_expanded(tree_path):
-            tree_view.collapse_row(tree_path)
-        else:
-            tree_view.expand_row(path=tree_path, open_all=False)
-        return True
-
-    # ⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝
-    # LISTENERS end
-
-    # ACTIONS begin
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
-    def download_file(self, node: GoogFile):
-        gdrive_client = GDriveClient(self.con.config)
-        cache_dir_path = file_util.get_resource_path(self.con.config.get('cache.cache_dir_path'))
-        dest_file = os.path.join(cache_dir_path, node.name)
-        try:
-            gdrive_client.download_file(node.uid, dest_file)
-        except Exception as err:
-            self.con.parent_win.show_error_msg('Download failed', repr(err))
-            raise
-
-    def delete_dir_tree(self, subtree_root: str, tree_path: Gtk.TreePath):
-        # TODO
-        pass
-
-    def delete_single_file(self, file_path: str, tree_path: Gtk.TreePath):
-        # TODO
-        pass
-
-    def expand_all(self, tree_path):
-        # TODO
-        pass
-
-    # ⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝
-    # ACTIONS end
+class ContextActionsGDrive:
+    def __init__(self, controller):
+        self.con = controller
 
     def build_context_menu(self, tree_path: Gtk.TreePath, node_data: DisplayNode) -> Optional[Gtk.Menu]:
         """Dynamic context menu (right-click on tree item)"""
@@ -134,3 +92,31 @@ class GDriveActionHandlers(TreeActionBridge):
 
         menu.show_all()
         return menu
+
+    # ACTIONS begin
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
+    def download_file(self, node: GoogFile):
+        gdrive_client = GDriveClient(self.con.config)
+        cache_dir_path = file_util.get_resource_path(self.con.config.get('cache.cache_dir_path'))
+        dest_file = os.path.join(cache_dir_path, node.name)
+        try:
+            gdrive_client.download_file(node.goog_id, dest_file)
+        except Exception as err:
+            self.con.parent_win.show_error_msg('Download failed', repr(err))
+            raise
+
+    def delete_dir_tree(self, subtree_root: str, tree_path: Gtk.TreePath):
+        # TODO
+        pass
+
+    def delete_single_file(self, file_path: str, tree_path: Gtk.TreePath):
+        # TODO
+        pass
+
+    def expand_all(self, tree_path):
+        # TODO
+        pass
+
+    # ⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝
+    # ACTIONS end

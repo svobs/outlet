@@ -1,15 +1,15 @@
-import os
 import logging
+import logging
+import os
 import re
 import subprocess
 from typing import List, Optional
 
-import ui.actions as actions
-from model.planning_node import FileDecoratorNode
-from ui.tree.action_bridge import TreeActionBridge
-from model.display_node import CategoryNode, DisplayNode
-
 import gi
+
+from model.display_node import CategoryNode, DisplayNode
+from model.planning_node import FileDecoratorNode
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GObject
 
@@ -17,30 +17,13 @@ logger = logging.getLogger(__name__)
 
 DATE_REGEX = r'^[\d]{4}(\-[\d]{2})?(-[\d]{2})?'
 
-# CLASS FMetaTreeActionHandlers
+# CLASS ContextActionsLocaldisk
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 
-class FMetaTreeActionHandlers(TreeActionBridge):
-    def __init__(self, config, controller=None):
-        super().__init__(config, controller)
-
-    def init(self):
-        super().init()
-        actions.connect(actions.NODE_EXPANSION_TOGGLED, self._on_node_expansion_toggled, sender=self.con.tree_id)
-
-    # LISTENERS begin
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
-
-    def on_multiple_rows_activated(self, tree_view, tree_iter):
-        # TODO: intelligent logic for multiple selected rows
-        logger.error('Multiple rows activated, but no logic implemented yet!')
-        pass
-
-    def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded,
-                                   expand_all=False):
-        """CB for NODE_EXPANSION_TOGGLED"""
-        return False
+class ContextActionsLocaldisk:
+    def __init__(self, controller):
+        self.con = controller
 
     def build_context_menu_multiple(self, selected_items: List[DisplayNode]) -> Optional[Gtk.Menu]:
         menu = Gtk.Menu()
@@ -113,39 +96,6 @@ class FMetaTreeActionHandlers(TreeActionBridge):
 
         menu.show_all()
         return menu
-
-    def on_delete_key_pressed(self, selected_tree_paths):
-        # Get the TreeIter instance for each path
-        for tree_path in selected_tree_paths:
-            # Delete the actual file:
-            node_data = self.con.display_store.get_node_data(tree_path)
-            if node_data is not None:
-                if not self.delete_dir_tree(subtree_root=node_data.full_path, tree_path=tree_path):
-                    # something went wrong if we got False. Stop.
-                    break
-
-    def on_row_right_clicked(self, event, tree_path, node_data: DisplayNode):
-        id_clicked = node_data.uid
-        selected_items: List[DisplayNode] = self.con.get_multiple_selection()
-
-        if len(selected_items) > 1:
-            # Multiple selected items:
-            for item in selected_items:
-                if item.uid == id_clicked:
-                    # User right-clicked on selection -> apply context menu to all selected items:
-                    context_menu = self.build_context_menu_multiple(selected_items)
-                    context_menu.popup_at_pointer(event)
-                    # Suppress selection event
-                    return True
-
-        # Singular item, or singular selection (equivalent logic). Display context menu:
-        context_menu = self.build_context_menu(tree_path, node_data)
-        context_menu.popup_at_pointer(event)
-
-        return False
-
-    # ⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝
-    # LISTENERS end
 
     # ACTIONS begin
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟

@@ -148,7 +148,7 @@ class LocalDiskMasterCache:
 
     # Load/save on-disk cache:
 
-    def init_subtree_localfs_cache(self, cache_info: PersistedCacheInfo, tree_id):
+    def init_subtree_localdisk_cache(self, cache_info: PersistedCacheInfo, tree_id):
         """Called at startup to handle a single subtree cache from a local fs"""
 
         if not os.path.exists(cache_info.subtree_root.full_path):

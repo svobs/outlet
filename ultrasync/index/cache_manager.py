@@ -140,7 +140,7 @@ class CacheManager:
             raise RuntimeError(f'Unrecognized tree type: {cache_type}')
 
         if cache_type == OBJ_TYPE_LOCAL_DISK:
-            self.local_disk_cache.init_subtree_localfs_cache(existing_disk_cache, ID_GLOBAL_CACHE)
+            self.local_disk_cache.init_subtree_localdisk_cache(existing_disk_cache, ID_GLOBAL_CACHE)
         elif cache_type == OBJ_TYPE_GDRIVE:
             self.gdrive_cache.init_subtree_gdrive_cache(existing_disk_cache, ID_GLOBAL_CACHE)
 
