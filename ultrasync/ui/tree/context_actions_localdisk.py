@@ -114,9 +114,8 @@ class ContextActionsLocaldisk:
         else:
             self.con.parent_win.show_error_msg('Could not delete file', f'Not found: {file_path}')
 
-    def expand_all(self, tree_path):
-        # TODO
-        pass
+    def expand_all(self, menu_item, tree_path):
+        self.con.display_strategy.display_all(tree_path)
 
     def delete_dir_tree(self, subtree_root: str, tree_path: Gtk.TreePath):
         """

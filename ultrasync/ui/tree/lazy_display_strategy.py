@@ -59,7 +59,22 @@ class LazyDisplayStrategy:
         node_count += 1
         return node_count
 
+    def expand_all(self, tree_path):
+        def expand_me(tree_iter):
+            path = self.con.display_store.model.get_path(tree_iter)
+            self.con.display_strategy.expand_subtree(path)
+
+        if not self.con.tree_view.row_expanded(tree_path):
+            self.con.display_strategy.expand_subtree(tree_path)
+        else:
+            self.con.display_store.do_for_descendants(tree_path=tree_path, action_func=expand_me)
+
     def expand_subtree(self, tree_path):
+        if not self.con.treeview_meta.lazy_load:
+            # no need to populate. just expand:
+            self.con.tree_view.expand_row(path=tree_path, open_all=True)
+            return
+
         if self.con.tree_view.row_expanded(tree_path):
             return
 

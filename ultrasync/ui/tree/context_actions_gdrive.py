@@ -1,5 +1,6 @@
 import logging
 import os
+import subprocess
 from typing import List, Optional
 
 import gi
@@ -18,6 +19,8 @@ from gi.repository import Gtk, GObject
 logger = logging.getLogger(__name__)
 
 DATE_REGEX = r'^[\d]{4}(\-[\d]{2})?(-[\d]{2})?'
+OPEN = 1
+SHOW = 2
 
 # CLASS ContextActionsGDrive
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
@@ -26,7 +29,8 @@ DATE_REGEX = r'^[\d]{4}(\-[\d]{2})?(-[\d]{2})?'
 class ContextActionsGDrive:
     def __init__(self, controller):
         self.con = controller
-        self.download_dir = self.con.config.get('download_dir', None)
+        self.download_dir = file_util.get_resource_path(self.con.config.get('download_dir'))
+        self.post_download_action = OPEN
 
     def build_context_menu(self, tree_path: Gtk.TreePath, node_data: DisplayNode) -> Optional[Gtk.Menu]:
         """Dynamic context menu (right-click on tree item)"""
@@ -90,7 +94,7 @@ class ContextActionsGDrive:
                 menu.append(item)
         elif file_exists:
             item = Gtk.MenuItem(label=f'Delete "{file_name}" from Google Drive')
-            item.connect('activate', lambda menu_item, abs_p: self.delete_single_file(abs_p, tree_path), full_path)
+            item.connect('activate', self.delete_single_file, full_path)
             menu.append(item)
 
         menu.show_all()
@@ -101,10 +105,15 @@ class ContextActionsGDrive:
 
     def download_file(self, menu_item, node: GoogFile):
         gdrive_client = GDriveClient(self.con.config)
-        cache_dir_path = file_util.get_resource_path(self.con.config.get('cache.cache_dir_path'))
-        dest_file = os.path.join(cache_dir_path, node.name)
+
+        os.makedirs(name=self.download_dir, exist_ok=True)
+        dest_file = os.path.join(self.download_dir, node.name)
         try:
             gdrive_client.download_file(node.goog_id, dest_file)
+            if self.post_download_action == OPEN:
+                self.call_xdg_open(dest_file)
+            elif self.post_download_action == SHOW:
+                self.show_in_nautilus(dest_file)
         except Exception as err:
             self.con.parent_win.show_error_msg('Download failed', repr(err))
             raise
@@ -118,14 +127,23 @@ class ContextActionsGDrive:
         pass
 
     def expand_all(self, menu_item, tree_path):
-        def expand_me(tree_iter):
-            path = self.con.display_store.model.get_path(tree_iter)
-            self.con.display_strategy.expand_subtree(path)
+        self.con.display_strategy.display_all(tree_path)
 
-        if not self.con.tree_view.row_expanded(tree_path):
-            self.con.display_strategy.expand_subtree(tree_path)
+    def call_xdg_open(self, file_path):
+        # TODO: put this in a shared file
+        if os.path.exists(file_path):
+            logger.info(f'Calling xdg-open for: {file_path}')
+            subprocess.check_call(["xdg-open", file_path])
         else:
-            self.con.display_store.do_for_descendants(tree_path=tree_path, action_func=expand_me)
+            self.con.parent_win.show_error_msg(f'Cannot open file', f'File not found: {file_path}')
+
+    def show_in_nautilus(self, file_path):
+        # TODO: put this in a shared file
+        if os.path.exists(file_path):
+            logger.info(f'Opening in Nautilus: {file_path}')
+            subprocess.check_call(["nautilus", "--browser", file_path])
+        else:
+            self.con.parent_win.show_error_msg('Cannot open file in Nautilus', f'File not found: {file_path}')
 
     # ⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝
     # ACTIONS end
