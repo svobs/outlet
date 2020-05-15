@@ -1,7 +1,7 @@
 from typing import List
 import logging
 
-from stopwatch import Stopwatch
+from stopwatch_sec import Stopwatch
 
 from constants import OBJ_TYPE_DISPLAY_ONLY, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, TreeDisplayMode
 from model.display_id import Identifier

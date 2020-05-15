@@ -2,9 +2,9 @@
 # Create a virtual environment within this directory ({project_name})
 following instructions from: https://docs.python.org/3/tutorial/venv.html)
 cd ..
-python3 -m venv {project_Name}
-(in a Bash shell):
-source {project_name}/bin/activate
+python3 -m venv {projectName}
+# (in a Bash shell):
+source {projectName}/bin/activate
 
 # Save required packages
 make freeze
