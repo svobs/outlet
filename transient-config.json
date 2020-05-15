@@ -1,13 +1,13 @@
 {
     "diff_win": {
-        "height": 748,
-        "width": 1200,
-        "x": 404,
-        "y": 1179
+        "height": 777,
+        "width": 1435,
+        "x": 112,
+        "y": 126
     },
     "left_tree": {
         "expanded_state": {
-            "Added": true,
+            "Added": false,
             "Deleted": true,
             "Ignored": false,
             "Moved": true,
@@ -19,14 +19,15 @@
     },
     "right_tree": {
         "expanded_state": {
-            "Added": true,
-            "Deleted": true,
+            "Added": false,
+            "Deleted": false,
             "Ignored": false,
             "Moved": true,
             "Updated": true
         },
-        "root_path": "/",
-        "root_uid": 1,
+        "root_path": "/My Drive",
+        "root_uid": 2,
         "tree_type": 2
     }
 }
+

@@ -35,26 +35,52 @@ class LazyDisplayStrategy:
     def __init__(self, config, controller=None):
         self.con = controller
         self.use_empty_nodes = True
+        self.auto_populate_enabled = True
 
-    def _populate_entire_tree(self, children: List[DisplayNode]):
-        def append_recursively(parent_iter, parent_uid, node: Union[treelib.Node, DisplayNode]):
-            if isinstance(node, treelib.Node):
-                node_data = node.data
-            else:
-                node_data = node
-            # Do a DFS of the change tree and populate the UI tree along the way
-            if node_data.is_dir():
-                parent_iter = self._append_dir_node(parent_iter=parent_iter, parent_uid=parent_uid, node_data=node_data)
+    def populate_recursively(self, parent_iter, parent_uid, node: Union[treelib.Node, DisplayNode]):
+        node_count = self._populate_recursively(parent_iter, parent_uid, node)
+        logger.debug(f'Populated {node_count} nodes')
 
-                for child in self.con.tree_builder.get_children(node_data.identifier):
-                    append_recursively(parent_iter, parent_uid, child)
-            else:
-                self._append_file_node(parent_iter, parent_uid, node_data)
+    def _populate_recursively(self, parent_iter, parent_uid, node: Union[treelib.Node, DisplayNode], node_count: int = 0) -> int:
+        total_expanded = 0
+        if isinstance(node, treelib.Node):
+            node_data = node.data
+        else:
+            node_data = node
+        # Do a DFS of the change tree and populate the UI tree along the way
+        if node_data.is_dir():
+            parent_iter = self._append_dir_node(parent_iter=parent_iter, parent_uid=parent_uid, node_data=node_data)
 
-        for ch in children:
-            append_recursively(None, None, ch)
+            for child in self.con.tree_builder.get_children(node_data.identifier):
+                node_count = self._populate_recursively(parent_iter, parent_uid, child, node_count)
+        else:
+            self._append_file_node(parent_iter, parent_uid, node_data)
 
-        self.con.tree_view.expand_all()
+        node_count += 1
+        return node_count
+
+    def expand_subtree(self, tree_path):
+        if self.con.tree_view.row_expanded(tree_path):
+            return
+
+        self.auto_populate_enabled = False
+
+        node = self.con.display_store.get_node_data(tree_path)
+        if isinstance(node, treelib.Node):
+            node_data = node.data
+        else:
+            node_data = node
+        parent_iter = self.con.display_store.model.get_iter(tree_path)
+        # Remove loading node:
+        self.con.display_store.remove_first_child(parent_iter)
+
+        children: List[DisplayNode] = self.con.tree_builder.get_children(node_data.identifier)
+        for child in children:
+            self.populate_recursively(parent_iter, node_data.uid, child)
+
+        self.con.tree_view.expand_row(path=tree_path, open_all=True)
+
+        self.auto_populate_enabled = True
 
     def populate_root(self):
         """Draws from the undelying data store as needed, to populate the display store."""
@@ -71,7 +97,10 @@ class LazyDisplayStrategy:
                 # the expanded state is toggled
                 self._append_children(children=children, parent_iter=root_iter, parent_uid=None)
             else:
-                self._populate_entire_tree(children)
+                for ch in children:
+                    self.populate_recursively(None, None, ch)
+
+                self.con.tree_view.expand_all()
 
             # This should fire expanded state listener to populate nodes as needed:
             if self.con.treeview_meta.is_display_persisted:
@@ -148,6 +177,10 @@ class LazyDisplayStrategy:
     def _on_node_expansion_toggled(self, sender: str, parent_iter, node_data: DisplayNode, is_expanded: bool):
         # Callback for actions.NODE_EXPANSION_TOGGLED:
         logger.debug(f'Node expansion toggled to {is_expanded} for {node_data.identifier}" tree_id={sender}')
+
+        if not self.auto_populate_enabled:
+            logger.debug('Auto-populate disabled')
+            return
 
         def expand_or_contract():
             # Add children for node:
