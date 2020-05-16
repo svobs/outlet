@@ -30,6 +30,8 @@ class UltrasyncApplication(Gtk.Application):
     def __init__(self, config):
         self.config = config
         Gtk.Application.__init__(self)
+        self.assets = ui.assets.Assets(config)
+
         self.window = None
 
         self.task_runner = CentralTaskRunner(self)
@@ -85,8 +87,6 @@ def main():
         config = AppConfig(sys.argv[1])
     else:
         config = AppConfig()
-
-    ui.assets.init(config)
 
     application = UltrasyncApplication(config)
     exit_status = application.run(sys.argv)

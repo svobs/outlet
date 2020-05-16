@@ -8,6 +8,7 @@ from constants import TreeDisplayMode
 from model.display_id import Identifier
 from model.fmeta_tree import FMetaTree
 from model.subtree_snapshot import SubtreeSnapshot
+from ui.dialog.base_dialog import BaseDialog
 from ui.tree import tree_factory_templates
 from ui.tree.context_listeners import TreeContextListeners
 
@@ -40,7 +41,7 @@ def is_ignored_func(data_node):
 
 class TreeFactory:
     def __init__(self,
-                 parent_win,
+                 parent_win: BaseDialog,
                  tree_id: str,
                  root: Optional[Identifier] = None,
                  tree: Optional[SubtreeSnapshot] = None
@@ -106,7 +107,8 @@ class TreeFactory:
         controller.context_listeners = context_listeners
         context_listeners.con = controller
 
-        controller.tree_view = tree_factory_templates.build_treeview(display_store)
+        assets = self.parent_win.application.assets
+        controller.tree_view = tree_factory_templates.build_treeview(display_store, assets)
 
         controller.root_dir_panel = RootDirPanel(parent_win=self.parent_win,
                                                  controller=controller,

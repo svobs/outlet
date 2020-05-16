@@ -1,13 +1,13 @@
 import logging
 
 import gi
+from gi.repository.Gtk import TreeView
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
 from ui.tree.treeview_meta import TreeViewMeta
 from ui.tree.display_store import DisplayStore
-import ui.assets
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +38,10 @@ def build_content_box(root_dir_panel, tree_view, status_bar_container):
     return content_box
 
 
-def add_checkbox_icon_name_column(treeview, treeview_meta):
+def add_checkbox_icon_name_column(treeview: TreeView, display_store: DisplayStore, assets):
     # COLUMN: Checkbox + Icon + Name
     # See: https://stackoverflow.com/questions/27745585/show-icon-or-color-in-gtk-treeview-tree
+    treeview_meta = display_store.treeview_meta
     px_column = Gtk.TreeViewColumn(treeview_meta.col_names[treeview_meta.col_num_name])
     px_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
 
@@ -65,10 +66,10 @@ def add_checkbox_icon_name_column(treeview, treeview_meta):
     # set data connector function/method
 
     # For displaying icons
-    def get_tree_cell_pixbuf(col, cell, model, iter, user_data):
-        cell.set_property('pixbuf', ui.assets.get_icon(model.get_value(iter, treeview_meta.col_num_icon)))
+    def get_tree_cell_pixbuf(col, cell, model, iter, user_data, assets):
+        cell.set_property('pixbuf', assets.get_icon(model.get_value(iter, treeview_meta.col_num_icon)))
 
-    px_column.set_cell_data_func(px_renderer, get_tree_cell_pixbuf)
+    px_column.set_cell_data_func(px_renderer, get_tree_cell_pixbuf, assets)
 
     # For displaying text next to icon
     def get_tree_cell_text(col, cell, model, iter, user_data):
@@ -189,7 +190,7 @@ def add_change_ts_column(treeview, treeview_meta, model):
     model.set_sort_func(treeview_meta.col_num_change_ts, _compare_data, (treeview_meta, lambda f: f.change_ts))
 
 
-def build_treeview(display_store: DisplayStore) -> Gtk.TreeView:
+def build_treeview(display_store: DisplayStore, assets) -> Gtk.TreeView:
     """ Builds the GTK3 treeview widget"""
     model: Gtk.TreeStore = display_store.model
     treeview_meta: TreeViewMeta = display_store.treeview_meta
@@ -207,7 +208,7 @@ def build_treeview(display_store: DisplayStore) -> Gtk.TreeView:
 
     # Search for "TREE_VIEW_COLUMNS":
 
-    add_checkbox_icon_name_column(treeview, treeview_meta)
+    add_checkbox_icon_name_column(treeview, display_store, assets)
     add_directory_column(treeview, treeview_meta)
     add_size_column(treeview, treeview_meta, model)
     add_etc_column(treeview, treeview_meta, model)

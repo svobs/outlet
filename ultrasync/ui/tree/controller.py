@@ -85,7 +85,8 @@ class TreePanelController:
                 self.treeview_meta = self.treeview_meta.but_with_checkboxes()
                 self.display_store = DisplayStore(self.treeview_meta)
 
-                new_treeview = tree_factory_templates.build_treeview(self.display_store)
+                assets = self.parent_win.application.assets
+                new_treeview = tree_factory_templates.build_treeview(self.display_store, assets)
                 tree_factory_templates.replace_widget(self.tree_view, new_treeview)
                 self.tree_view = new_treeview
                 self.context_listeners.init()
