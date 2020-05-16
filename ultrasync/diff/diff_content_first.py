@@ -242,7 +242,6 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
                 logger.debug(f'Left has new file: "{left_tree.get_full_path_for_item(left_item)}"')
             fixer.plan_add_file_left_to_right(left_item)
 
-            # TODO: rename 'Deleted' category to 'ToDelete'
             # Dead node walking:
             change_tree_left.add_item(left_item, Category.Deleted, left_tree)
             count_add_delete_pairs += 1
@@ -281,17 +280,16 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
 def merge_change_trees(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot,
                        left_selected_changes: List[DisplayNode], right_selected_changes: List[DisplayNode],
                        check_for_conflicts=False) -> CategoryDisplayTree:
+
+    # always root path, but tree type may differ
     is_mixed_tree = left_tree.tree_type != right_tree.tree_type
     if is_mixed_tree:
         root = LogicalNodeIdentifier(uid=ROOT_UID, full_path=ROOT_PATH, category=Category.NA, tree_type=OBJ_TYPE_MIXED)
     else:
-        # FIXME: this needs support for GDrive<->GDrive
-        assert left_tree.tree_type == OBJ_TYPE_LOCAL_DISK
-
-        new_root_path = file_util.find_nearest_common_ancestor(left_tree.root_path, right_tree.root_path)
-        root: Identifier = display_id.for_values(tree_type=left_tree.tree_type, full_path=new_root_path, uid=left_tree.get_new_uid())
+        root: Identifier = display_id.for_values(tree_type=left_tree.tree_type, full_path=ROOT_PATH, uid=ROOT_UID)
 
     # just set source tree to left tree - we aren't using it for much anyway
+    # FIXME: create new display tree class which starts from roots and is cleaner
     merged_tree = CategoryDisplayTree(source_tree=left_tree, root=root, extra_node_for_type=True)
 
     for item in left_selected_changes:

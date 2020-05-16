@@ -27,6 +27,10 @@ class DisplayNode(ABC):
         self.identifier = identifier
 
     @classmethod
+    def is_file(cls):
+        return False
+
+    @classmethod
     @abstractmethod
     def is_dir(cls):
         return False
@@ -69,10 +73,13 @@ class DisplayNode(ABC):
         return ICON_GENERIC_FILE
 
 
-# TODO
 class FileNode(DisplayNode):
     def __init__(self, identifier):
         super().__init__(identifier)
+
+    @classmethod
+    def is_file(cls):
+        return True
 
     @classmethod
     def is_dir(cls):
@@ -121,6 +128,10 @@ class DirNode(DisplayNode):
     @property
     def size_bytes(self):
         return self._size_bytes
+
+    @classmethod
+    def is_file(cls):
+        return False
 
     @classmethod
     def has_path(cls):
@@ -217,6 +228,10 @@ class EphemeralNode(DisplayNode, ABC):
     @property
     def category(self):
         raise RuntimeError
+
+    @classmethod
+    def is_file(cls):
+        return False
 
     @classmethod
     def is_dir(cls):

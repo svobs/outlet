@@ -92,8 +92,12 @@ class GoogNode(DisplayNode, ABC):
         return ICON_TRASHED_DIR
 
     @classmethod
+    def is_file(cls):
+        return False
+
+    @classmethod
     def is_dir(cls):
-        return True
+        return False
 
     @property
     def name(self):
@@ -138,6 +142,14 @@ class GoogFolder(GoogNode):
     def to_tuple(self):
         return self.uid, self.goog_id, self.name, self.trashed, self.drive_id, self.my_share, self.sync_ts, self.all_children_fetched
 
+    @classmethod
+    def is_file(cls):
+        return False
+
+    @classmethod
+    def is_dir(cls):
+        return True
+
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
@@ -181,6 +193,10 @@ class GoogFile(GoogNode):
         return self._size_bytes
 
     @classmethod
+    def is_file(cls):
+        return True
+
+    @classmethod
     def is_dir(cls):
         return False
 
@@ -210,6 +226,10 @@ class FolderToAdd(PlanningNode, GoogNode):
     def get_icon(self):
         # TODO: added folder
         return ICON_GENERIC_DIR
+
+    @classmethod
+    def is_file(cls):
+        return False
 
     @classmethod
     def is_dir(cls):

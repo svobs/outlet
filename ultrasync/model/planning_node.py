@@ -2,7 +2,6 @@ import os
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from constants import OBJ_TYPE_GDRIVE
 from model.display_id import Identifier
 from model.display_node import DisplayNode
 
@@ -79,6 +78,10 @@ class FileDecoratorNode(PlanningNode, ABC):
 
     @classmethod
     def has_path(cls):
+        return True
+
+    @classmethod
+    def is_file(cls):
         return True
 
     @classmethod

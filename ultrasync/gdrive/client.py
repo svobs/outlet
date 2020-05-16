@@ -326,10 +326,10 @@ class GDriveClient:
             logger.info('Found a page token. Attempting to resume previous download')
 
         def request():
-            msg = f'Sending request for files, page {request.page_count}...'
-            logger.debug(msg)
+            m = f'Sending request for files, page {request.page_count}...'
+            logger.debug(m)
             if self.tree_id:
-                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
 
             # Call the Drive v3 API
             response = self.service.files().list(q=query, fields=fields, spaces=spaces, pageSize=self.page_size,
@@ -453,10 +453,10 @@ class GDriveClient:
         logger.info('Getting list of ALL directories in Google Drive...')
 
         def request():
-            msg = f'Sending request for dirs, page {request.page_count}...'
-            logger.debug(msg)
+            m = f'Sending request for dirs, page {request.page_count}...'
+            logger.debug(m)
             if self.tree_id:
-                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
 
             # Call the Drive v3 API
             response = self.service.files().list(q=query, fields=fields, spaces=spaces, pageSize=self.page_size,
@@ -493,7 +493,7 @@ class GDriveClient:
             dir_tuples: List[Tuple] = []
             id_parent_mappings: List[Tuple] = []
             for item in items:
-                goog_node: GoogFolder = convert_goog_folder(item, uid_generator.get_new_uid(), sync_ts)
+                goog_node: GoogFolder = _convert_to_goog_folder(item, uid_generator.get_new_uid(), sync_ts)
 
                 observer.meta_received(goog_node, item)
                 item_count += 1

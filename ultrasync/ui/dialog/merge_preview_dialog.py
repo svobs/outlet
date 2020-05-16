@@ -3,9 +3,11 @@ import logging
 import gi
 from pydispatch import dispatcher
 
+from command import command_builder
 from model.fmeta_tree import FMetaTree
 from ui.actions import ID_MERGE_TREE
 from ui.tree import tree_factory
+from ui.tree.category_display_tree import CategoryDisplayTree
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -24,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
-    def __init__(self, parent, fmeta_tree):
+    def __init__(self, parent, tree):
         Gtk.Dialog.__init__(self, "Confirm Merge", parent, 0)
         BaseDialog.__init__(self, parent.application)
         self.parent_win = parent
@@ -33,7 +35,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
         self.set_default_size(700, 700)
 
-        self.fmeta_tree: FMetaTree = fmeta_tree
+        self.tree: CategoryDisplayTree = tree
 
         box = self.get_content_area()
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
@@ -42,8 +44,8 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         label = Gtk.Label(label="The following changes will be made:")
         self.content_box.add(label)
 
-        self.tree_con = tree_factory.build_static_category_file_tree(parent_win=self, tree_id=ID_MERGE_TREE, tree=self.fmeta_tree)
-        actions.set_status(sender=ID_MERGE_TREE, status_msg=self.fmeta_tree.get_summary())
+        self.tree_con = tree_factory.build_static_category_file_tree(parent_win=self, tree_id=ID_MERGE_TREE, tree=self.tree)
+        actions.set_status(sender=ID_MERGE_TREE, status_msg=self.tree.get_summary())
         self.content_box.pack_start(self.tree_con.content_box, True, True, 0)
         self.tree_con.load()
 
@@ -76,11 +78,13 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
             dialog.destroy()
 
     def on_apply_clicked(self):
+        command_list = command_builder.build_command_list(self.tree)
+
         staging_dir = STAGING_DIR_PATH
         # TODO: clear dir after use
 
         error_collection = []
-        fmeta.fmeta_file_util.apply_changes_atomically(tree_id=self.tree_con.tree_id, tree=self.fmeta_tree,
+        fmeta.fmeta_file_util.apply_changes_atomically(tree_id=self.tree_con.tree_id, tree=self.tree,
                                                        staging_dir=staging_dir, continue_on_error=True,
                                                        error_collector=error_collection)
 

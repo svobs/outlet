@@ -1,4 +1,5 @@
 import copy
+from collections import deque
 from typing import Dict, Iterable, List, Optional, Union
 import logging
 
@@ -80,6 +81,24 @@ class CategoryDisplayTree:
                 logger.debug(f'CategoryTree for "{self.identifier}": ' + category_tree.show(stdout=False))
                 logger.debug(f'While retrieving children for: {parent_identifier}')
                 raise
+
+    def get_all(self):
+        all_nodes = []
+        queue = deque()
+        nodes = self.get_children_for_root()
+        for node in nodes:
+            if node.is_dir():
+                queue.append(node)
+            elif node.is_file():
+                all_nodes.append(node)
+
+        while len(queue) > 0:
+            node: DisplayNode = queue.popleft()
+            for node in self.get_children(node.identifier):
+                if node.is_dir():
+                    queue.append(node)
+                elif node.is_file():
+                    all_nodes.append(node)
 
     def add_item(self, item: DisplayNode, category: Category, source_tree: SubtreeSnapshot):
         assert category != Category.NA, f'For item: {item}'

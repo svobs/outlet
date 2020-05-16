@@ -1,12 +1,12 @@
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import GdkPixbuf
 
 from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_LOCAL_DISK, ICON_TRASHED_DIR, ICON_TRASHED_FILE
 
 from model.fmeta import Category
 
 from file_util import get_resource_path
+from gi.repository import GdkPixbuf
 
 ALERT_ICON_PATH = get_resource_path("resources/dialog-error-icon-24px.png")
 CHOOSE_ROOT_ICON_PATH = get_resource_path("resources/Folder-tree-flat-40px.png")
@@ -41,17 +41,3 @@ class Assets:
 
     def get_icon(self, icon_name):
         return self._icons.get(icon_name, None)
-
-
-_assets = None
-
-
-def init(config):
-    global _assets
-    _assets = Assets(config)
-
-
-def get_icon(icon_name):
-    if not icon_name:
-        return None
-    return _assets.get_icon(icon_name)
