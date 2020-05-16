@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Tuple, Union, ValuesView
 import constants
 import file_util
 from index.atomic_counter import AtomicCounter
+from index.IdGenerator import AtomicIntIdGenerator, IdGenerator
 from model import display_id
 from model.display_id import Identifier
 from model.goog_node import GoogNode
@@ -61,11 +62,9 @@ class GDriveTree:
 """
 
 
-class GDriveWholeTree:
+class GDriveWholeTree(AtomicIntIdGenerator):
     def __init__(self):
         super().__init__()
-
-        self._next_uid = AtomicCounter(constants.ROOT_UID + 1)
 
         # Keep track of parentless nodes. These include the 'My Drive' item, as well as shared items.
         self.roots: List[GoogNode] = []
@@ -80,13 +79,6 @@ class GDriveWholeTree:
         self.owner_dict = {}
         self.mime_types = {}
         self.shortcuts = {}
-
-    def get_new_uid(self):
-        return self._next_uid.increment()
-
-    def set_next_uid(self, uid: int):
-        new_val = self._next_uid.set_at_least(uid)
-        logger.debug(f'Set next_uid to {new_val}')
 
     @property
     def identifier(self):

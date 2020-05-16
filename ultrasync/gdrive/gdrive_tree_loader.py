@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class DirMetaObserver(MetaObserver):
+    """Collect dir metas for mass insertion into database"""
     def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, cache):
         super().__init__()
         self.tree = tree
@@ -50,6 +51,7 @@ class DirMetaObserver(MetaObserver):
 
 
 class FileMetaObserver(MetaObserver):
+    """Collect file metas for mass insertion into database"""
     def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, cache):
         super().__init__()
         self.tree = tree
