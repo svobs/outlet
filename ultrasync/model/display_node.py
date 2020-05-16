@@ -69,6 +69,21 @@ class DisplayNode(ABC):
         return ICON_GENERIC_FILE
 
 
+# TODO
+class FileNode(DisplayNode):
+    def __init__(self, identifier):
+        super().__init__(identifier)
+
+    @classmethod
+    def is_dir(cls):
+        return False
+
+    @classmethod
+    def has_path(cls):
+        """If true, this node represents a physical path. If false, it is just a logical node"""
+        return True
+
+
 """
 ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 The following are model objects for use in the hidden 'data' column in the TreeStore, for when a domain object doesn't quite make sense.

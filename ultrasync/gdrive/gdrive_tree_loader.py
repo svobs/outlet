@@ -3,12 +3,12 @@ import os
 import time
 import uuid
 from collections import deque
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
     GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL, ROOT_UID
-from gdrive.client import GDriveClient
+from gdrive.client import GDriveClient, MetaObserver
 from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.goog_node import GoogFile, GoogFolder, GoogNode
@@ -16,6 +16,77 @@ from stopwatch_sec import Stopwatch
 from ui import actions
 
 logger = logging.getLogger(__name__)
+
+
+class DirMetaObserver(MetaObserver):
+    def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, cache):
+        super().__init__()
+        self.tree = tree
+        assert download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
+        self.download = download
+        self.cache = cache
+        self.dir_tuples: List[Tuple] = []
+        self.id_parent_mappings: List[Tuple] = []
+
+    def meta_received(self, goog_node, item):
+        parent_google_ids = item.get('parents', [])
+        self.tree.id_dict[goog_node.uid] = goog_node
+        self.dir_tuples.append(goog_node.to_tuple())
+
+        self.id_parent_mappings += parent_mappings_tuples(goog_node.uid, parent_google_ids, sync_ts=self.download.update_ts)
+
+    def end_of_page(self, next_page_token):
+        self.download.page_token = next_page_token
+        if next_page_token:
+            self.dir_tuples = []
+            self.id_parent_mappings = []
+        else:
+            # done
+            assert self.download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
+            self.download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
+            # fall through
+
+        self.cache.insert_gdrive_dirs_and_parents(dir_list=self.dir_tuples, parent_mappings=self.id_parent_mappings, current_download=self.download)
+
+
+class FileMetaObserver(MetaObserver):
+    def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, cache):
+        super().__init__()
+        self.tree = tree
+        assert download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
+        self.download = download
+        self.cache = cache
+        self.file_tuples: List[Tuple] = []
+        self.id_parent_mappings: List[Tuple] = []
+
+    def meta_received(self, goog_node, item):
+        parent_google_ids = item.get('parents', [])
+        self.tree.id_dict[goog_node.uid] = goog_node
+        self.file_tuples.append(goog_node.to_tuple())
+
+        self.id_parent_mappings += parent_mappings_tuples(goog_node.uid, parent_google_ids, sync_ts=self.download.update_ts)
+
+    def end_of_page(self, next_page_token):
+        self.download.page_token = next_page_token
+        if next_page_token:
+            self.file_tuples = []
+            self.id_parent_mappings = []
+        else:
+            # done
+            assert self.download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
+            self.download.current_state = GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE
+            # fall through
+
+        self.cache.insert_gdrive_files_and_parents(file_list=self.file_tuples, parent_mappings=self.id_parent_mappings,
+                                                   current_download=self.download)
+
+
+def parent_mappings_tuples(item_uid: int, parent_goog_ids: List[str], sync_ts: int) -> List[Tuple[int, Optional[int], str, int]]:
+    tuples = []
+    for parent_id in parent_goog_ids:
+        tuples.append((item_uid, None, parent_id, sync_ts))
+    return tuples
+
 
 """
 ▛▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝ ▜
@@ -91,7 +162,7 @@ class GDriveTreeLoader:
             # Need to make a special call to get the root node 'My Drive'. This node will not be included
             # in the "list files" call:
             download.update_ts = sync_ts
-            drive_root: GoogFolder = self.gdrive_client.get_my_drive_root(meta.get_new_uid(), download.update_ts)
+            drive_root: GoogFolder = self.gdrive_client.get_meta_my_drive_root(meta.get_new_uid(), download.update_ts)
             meta.id_dict[drive_root.uid] = drive_root
 
             download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
@@ -101,11 +172,13 @@ class GDriveTreeLoader:
             # fall through
 
         if download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
-            self.gdrive_client.download_directory_structure(meta, self.cache, download)
+            observer = DirMetaObserver(meta, download, self.cache)
+            self.gdrive_client.get_meta_all_directories(download.page_token, download.update_ts, meta, observer)
             # fall through
 
         if download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS:
-            self.gdrive_client.download_all_file_meta(meta, self.cache, download)
+            observer = FileMetaObserver(meta, download, self.cache)
+            self.gdrive_client.get_meta_all_files(download.page_token, download.update_ts, meta, observer)
             # fall through
 
         if download.current_state <= GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE:
