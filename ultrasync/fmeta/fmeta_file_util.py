@@ -2,6 +2,7 @@ import logging
 import os
 import uuid
 
+from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 from model.fmeta import Category
 import file_util
 from model.fmeta_tree import FMetaTree
@@ -9,8 +10,6 @@ from model.planning_node import FileToAdd, FileToMove
 from ui import actions
 
 logger = logging.getLogger(__name__)
-
-FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT = 100  # TODO: put in config
 
 
 class FMetaNoOp:

@@ -4,7 +4,6 @@ import gi
 from pydispatch import dispatcher
 
 from command import command_builder
-from model.fmeta_tree import FMetaTree
 from ui.actions import ID_MERGE_TREE
 from ui.tree import tree_factory
 from ui.tree.category_display_tree import CategoryDisplayTree

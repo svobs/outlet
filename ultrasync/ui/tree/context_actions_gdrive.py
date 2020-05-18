@@ -45,7 +45,7 @@ class ContextActionsGDrive:
         if isinstance(node_data, FileDecoratorNode):
             file_exists = False
             full_path = node_data.original_full_path
-            if isinstance(node_data.original_node, GoogNode):
+            if isinstance(node_data.src_node, GoogNode):
                 full_path_display = GDRIVE_PATH_PREFIX + full_path
             else:
                 full_path_display = full_path

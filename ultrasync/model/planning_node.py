@@ -27,10 +27,10 @@ class PlanningNode(DisplayNode, ABC):
 
 class FileDecoratorNode(PlanningNode, ABC):
     """Decorates a previously existing DisplayNode."""
-    def __init__(self, identifier: Identifier, original_node: DisplayNode):
+    def __init__(self, identifier: Identifier, src_node: DisplayNode):
         super().__init__(identifier)
 
-        self.original_node: DisplayNode = original_node
+        self.src_node: DisplayNode = src_node
         """The original node (e.g., for a FileToAdd, this would be the "source node"""
 
         self._parent_ids: Optional[List[str]] = None
@@ -38,7 +38,7 @@ class FileDecoratorNode(PlanningNode, ABC):
 
     @property
     def original_full_path(self):
-        return self.original_node.full_path
+        return self.src_node.full_path
 
     @property
     def dest_path(self):
@@ -54,27 +54,27 @@ class FileDecoratorNode(PlanningNode, ABC):
 
     @property
     def md5(self):
-        return self.original_node.md5
+        return self.src_node.md5
 
     @property
     def sha256(self):
-        return self.original_node.sha256
+        return self.src_node.sha256
 
     @property
     def size_bytes(self):
-        return self.original_node.size_bytes
+        return self.src_node.size_bytes
 
     @property
     def sync_ts(self):
-        return self.original_node.sync_ts
+        return self.src_node.sync_ts
 
     @property
     def modify_ts(self):
-        return self.original_node.modify_ts
+        return self.src_node.modify_ts
 
     @property
     def change_ts(self):
-        return self.original_node.change_ts
+        return self.src_node.change_ts
 
     @classmethod
     def has_path(cls):
@@ -124,13 +124,13 @@ class FileDecoratorNode(PlanningNode, ABC):
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 class FileToAdd(FileDecoratorNode):
-    """Decorates a previously existing DisplayNode ('original_node'). This node's identifier stores the
+    """Decorates a previously existing DisplayNode ('src_node'). This node's identifier stores the
      full path of the destination and the type of the destination tree."""
-    def __init__(self, identifier: Identifier, original_node: DisplayNode):
-        super().__init__(identifier, original_node)
+    def __init__(self, identifier: Identifier, src_node: DisplayNode):
+        super().__init__(identifier, src_node)
 
     def __repr__(self):
-        return f'FileToAdd(identifier={self.identifier} original_node={self.original_node})'
+        return f'FileToAdd(identifier={self.identifier} src_node={self.src_node})'
 
 
 # CLASS FileToMove
@@ -138,8 +138,22 @@ class FileToAdd(FileDecoratorNode):
 
 class FileToMove(FileDecoratorNode):
     """See notes for FileToAdd"""
-    def __init__(self, identifier: Identifier, original_node: DisplayNode):
-        super().__init__(identifier, original_node)
+    def __init__(self, identifier: Identifier, src_node: DisplayNode):
+        super().__init__(identifier, src_node)
 
     def __repr__(self):
-        return f'FileToMove(identifier={self.identifier} original_node={self.original_node})'
+        return f'FileToMove(identifier={self.identifier} src_node={self.src_node})'
+
+
+# CLASS FileToUpdate
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
+class FileToUpdate(FileDecoratorNode):
+    """Decorates a previously existing DisplayNode ('src_node'). This node's identifier stores the
+     full path of the destination and the type of the destination tree."""
+    def __init__(self, identifier: Identifier, src_node: DisplayNode, dst_node: DisplayNode):
+        super().__init__(identifier, src_node)
+        self.dst_node = dst_node
+
+    def __repr__(self):
+        return f'FileToUpdate(identifier={self.identifier} src_node={self.src_node} dst_node={self.dst_node})'

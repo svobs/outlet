@@ -12,7 +12,7 @@ from model import display_id
 from model.category import Category
 from model.display_id import Identifier, LogicalNodeIdentifier
 from model.display_node import DisplayNode
-from model.planning_node import FileToAdd, FileToMove
+from model.planning_node import FileToAdd, FileToMove, FileToUpdate
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
 from ui.tree.category_display_tree import CategoryDisplayTree
@@ -90,7 +90,7 @@ class PathTransplanter:
         dest_path = self.move_to_right(left_item)
         new_uid = self.right_tree.get_new_uid()
         identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Moved)
-        move_right_to_right = FileToMove(identifier=identifier, original_node=right_item)
+        move_right_to_right = FileToMove(identifier=identifier, src_node=right_item)
         self.change_tree_right.add_item(move_right_to_right, Category.Moved, self.right_tree)
 
     def plan_rename_file_left(self, left_item, right_item):
@@ -98,22 +98,36 @@ class PathTransplanter:
         dest_path = self.move_to_left(right_item)
         new_uid = self.left_tree.get_new_uid()
         identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Moved)
-        move_left_to_left = FileToMove(identifier=identifier, original_node=left_item)
+        move_left_to_left = FileToMove(identifier=identifier, src_node=left_item)
         self.change_tree_left.add_item(move_left_to_left, Category.Moved, self.left_tree)
 
     def plan_add_file_left_to_right(self, left_item):
         dest_path = self.move_to_right(left_item)
         new_uid = self.right_tree.get_new_uid()
         identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Added)
-        file_to_add_to_right = FileToAdd(identifier=identifier, original_node=left_item)
+        file_to_add_to_right = FileToAdd(identifier=identifier, src_node=left_item)
         self.change_tree_right.add_item(file_to_add_to_right, Category.Added, self.right_tree)
 
     def plan_add_file_right_to_left(self, right_item):
         dest_path = self.move_to_left(right_item)
         new_uid = self.left_tree.get_new_uid()
         identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Added)
-        file_to_add_to_left = FileToAdd(identifier=identifier, original_node=right_item)
+        file_to_add_to_left = FileToAdd(identifier=identifier, src_node=right_item)
         self.change_tree_left.add_item(file_to_add_to_left, Category.Added, self.left_tree)
+
+    def plan_update_file_left_to_right(self, left_item, right_item_to_overwrite):
+        dest_path = self.move_to_right(left_item)
+        new_uid = self.right_tree.get_new_uid()
+        identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Updated)
+        file_to_add_to_right = FileToUpdate(identifier=identifier, src_node=left_item, dst_node=right_item_to_overwrite)
+        self.change_tree_right.add_item(file_to_add_to_right, Category.Updated, self.right_tree)
+
+    def plan_update_file_right_to_left(self, right_item, left_item_to_overwrite):
+        dest_path = self.move_to_left(right_item)
+        new_uid = self.left_tree.get_new_uid()
+        identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Updated)
+        file_to_add_to_left = FileToUpdate(identifier=identifier, src_node=right_item, dst_node=left_item_to_overwrite)
+        self.change_tree_left.add_item(file_to_add_to_left, Category.Updated, self.left_tree)
 
 
 def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_also=False) \
@@ -232,8 +246,8 @@ def diff(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, compare_paths_
                     if logger.isEnabledFor(logging.DEBUG):
                         logger.debug(f'File updated: {left_item.md5} <- "{left_tree.get_full_path_for_item(left_item)}" -> {path_matches_right[0].md5}')
                     # Same path, different md5 -> Updated
-                    change_tree_right.add_item(path_matches_right[0], Category.Updated, right_tree)
-                    change_tree_left.add_item(left_item, Category.Updated, left_tree)
+                    fixer.plan_update_file_right_to_left(path_matches_right[0], left_item)
+                    fixer.plan_update_file_left_to_right(left_item, path_matches_right[0])
                     count_updated_pairs += 1
                     continue
                 # No match? fall through
