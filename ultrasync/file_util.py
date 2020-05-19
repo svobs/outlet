@@ -154,6 +154,7 @@ def move_file(src_path, dst_path):
 
     os.rename(src_path, dst_path)
 
+
 def _do_copy_to_staging(src_path, staging_path, dst_path, md5_src, verify):
     # (Staging) make parent directories if not exist
     staging_parent, staging_file = os.path.split(staging_path)
