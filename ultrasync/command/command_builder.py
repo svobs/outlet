@@ -7,7 +7,6 @@ from model.category import Category
 from model.planning_node import FileToAdd, FileToMove, FileToUpdate
 
 
-
 class CommandBuilder:
     def __init__(self, uid_generator):
         self._uid_generator = uid_generator
@@ -16,10 +15,10 @@ class CommandBuilder:
         cmd_list: CommandList = CommandList(self._uid_generator.get_new_uid())
 
         for node in tree.get_all():
-            tree_type = node.identifier.tree_type
+            tree_type: int = node.identifier.tree_type
             if node.category == Category.Added:
                 assert isinstance(node, FileToAdd)
-                orig_tree_type = node.src_node.identifier.tree_type
+                orig_tree_type: int = node.src_node.identifier.tree_type
                 if orig_tree_type == tree_type:
                     if tree_type == OBJ_TYPE_LOCAL_DISK:
                         cmd = CopyFileLocallyCommand(model_obj=node)
@@ -28,7 +27,6 @@ class CommandBuilder:
                     else:
                         raise RuntimeError(f'Bad tree type: {tree_type}')
                 elif orig_tree_type == OBJ_TYPE_LOCAL_DISK and tree_type == OBJ_TYPE_GDRIVE:
-                    # TODO: steps
                     cmd = UploadToGDriveCommand(model_obj=node)
                 elif orig_tree_type == OBJ_TYPE_GDRIVE and tree_type == OBJ_TYPE_LOCAL_DISK:
                     cmd = DownloadFromGDriveCommand(model_obj=node)
@@ -36,7 +34,7 @@ class CommandBuilder:
                     raise RuntimeError(f'Bad tree type(s): src={orig_tree_type},dst={tree_type}')
             elif node.category == Category.Moved:
                 assert isinstance(node, FileToMove)
-                orig_tree_type = node.src_node.identifier.tree_type
+                orig_tree_type: int = node.src_node.identifier.tree_type
                 if orig_tree_type == tree_type:
                     if tree_type == OBJ_TYPE_LOCAL_DISK:
                         cmd = MoveFileLocallyCommand(model_obj=node)

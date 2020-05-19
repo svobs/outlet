@@ -152,7 +152,7 @@ def move_file(src_path, dst_path):
         else:
             raise FileNotFoundError(errno.EEXIST, os.strerror(errno.EEXIST), dst_path)
 
-    os.rename(src_path, dst_path)
+    shutil.move(src_path, dst_path)
 
 
 def _do_copy_to_staging(src_path, staging_path, dst_path, md5_src, verify):
@@ -184,7 +184,7 @@ def _do_copy_to_staging(src_path, staging_path, dst_path, md5_src, verify):
                                f'src_md5={md5_src}, dst_path="{dst_path}", dst_md5={md5}')
 
 
-def _do_move_to_dest(staging_path, dst_path):
+def move_to_dst(staging_path: str, dst_path: str):
     try:
         # (Destination) make parent directories if not exist
         dst_parent, dst_file_name = os.path.split(dst_path)
@@ -213,7 +213,7 @@ def copy_file_new(src_path, staging_path, dst_path, md5_src, verify):
 
     _do_copy_to_staging(src_path, staging_path, dst_path, md5_src, verify)
 
-    _do_move_to_dest(staging_path, dst_path)
+    move_to_dst(staging_path, dst_path)
 
 
 def copy_file_update(src_path: str, md5_src: str, staging_path: str, md5_expected: str, dst_path: str, verify: bool):

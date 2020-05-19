@@ -35,6 +35,7 @@ ID_RIGHT_TREE = 'right_tree'
 ID_MERGE_TREE = 'merge_tree'
 ID_GDRIVE_DIR_SELECT = 'gdrive_dir_select'
 ID_GLOBAL_CACHE = 'global_cache'
+ID_COMMAND_EXECUTOR = 'command-executor'
 
 logger = logging.getLogger(__name__)
 

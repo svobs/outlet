@@ -154,6 +154,7 @@ class FileToUpdate(FileDecoratorNode):
     def __init__(self, identifier: Identifier, src_node: DisplayNode, dst_node: DisplayNode):
         super().__init__(identifier, src_node)
         self.dst_node = dst_node
+        """The node to overwrite"""
 
     def __repr__(self):
         return f'FileToUpdate(identifier={self.identifier} src_node={self.src_node} dst_node={self.dst_node})'

@@ -115,7 +115,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.bottom_panel.add(self.bottom_button_panel)
 
         listen_for = [actions.ID_LEFT_TREE, actions.ID_RIGHT_TREE,
-                      self.win_id, actions.ID_GLOBAL_CACHE]
+                      self.win_id, actions.ID_GLOBAL_CACHE, actions.ID_COMMAND_EXECUTOR]
         # Remember to hold a reference to this, for signals!
         self.proress_bar_component = ProgressBar(self.config, listen_for)
         self.bottom_panel.pack_start(self.proress_bar_component.progressbar, True, True, 0)

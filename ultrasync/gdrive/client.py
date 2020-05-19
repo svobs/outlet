@@ -291,7 +291,7 @@ class GDriveClient:
         # TODO
         # query = f"and '{subtree_root_gd_id}' in parents"
 
-    def get_existing_files(self, parent_goog_id: str, name: str):
+    def get_existing_files(self, parent_goog_id: str, name: str) -> SimpleNodeCollector:
         query = QUERY_NON_FOLDERS_ONLY + f" AND name='{name}' AND '{parent_goog_id}' in parents"
         fields = f'nextPageToken, incompleteSearch, files({FILE_FIELDS}, parents)'
 

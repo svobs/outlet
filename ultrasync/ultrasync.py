@@ -1,6 +1,8 @@
 import sys
 import gi
 
+from command.command_executor import CommandExecutor
+from index.IdGenerator import AtomicIntIdGenerator, GlobalIdGenerator
 from ui.actions import ID_DIFF_WINDOW
 
 gi.require_version("Gtk", "3.0")
@@ -35,6 +37,8 @@ class UltrasyncApplication(Gtk.Application):
         self.window = None
 
         self.task_runner = CentralTaskRunner(self)
+        self.uid_generator = GlobalIdGenerator()
+        self.command_executor = CommandExecutor(self)
         self.cache_manager = CacheManager(self)
         self.global_actions = GlobalActions(self)
         self.global_actions.init()
