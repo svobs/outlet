@@ -29,6 +29,7 @@ ICON_GENERIC_FILE = 'file'
 ICON_TRASHED_DIR = 'trash-dir'
 ICON_TRASHED_FILE = 'trash-file'
 ICON_GENERIC_DIR = 'folder'
+ICON_ADD_DIR = 'add-dir'
 ICON_GDRIVE = 'gdrive'
 ICON_LOCAL_DISK = 'local'
 

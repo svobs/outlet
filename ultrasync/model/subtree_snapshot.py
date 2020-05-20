@@ -29,6 +29,13 @@ class SubtreeSnapshot(ABC):
         return self.identifier.uid
 
     def in_this_subtree(self, path: str):
+        if isinstance(path, list):
+            for p in path:
+                # i.e. any
+                if p.startswith(self.root_path):
+                    return True
+            return False
+
         return path.startswith(self.root_path)
 
     # Factory methods
@@ -59,8 +66,16 @@ class SubtreeSnapshot(ABC):
         return []
 
     @abstractmethod
+    def get_item_for_identifier(self, identifer: Identifier) -> Optional[DisplayNode]:
+        return None
+
+    @abstractmethod
     def get_ignored_items(self):
         return []
+
+    @abstractmethod
+    def get_parent_for_item(self, item) -> Optional[DisplayNode]:
+        pass
 
     @abstractmethod
     def get_ancestor_chain(self, item) -> List[Identifier]:

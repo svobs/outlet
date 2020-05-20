@@ -1,6 +1,6 @@
 import copy
 from collections import deque
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Deque, Dict, Iterable, List, Optional, Union
 import logging
 
 import treelib
@@ -30,6 +30,7 @@ class CategoryDisplayTree:
         self.source_tree = source_tree
 
         if not root:
+            # If root is not set, set it to the root of the source tree:
             self.identifier = self.source_tree.identifier
         elif isinstance(root, DisplayNode):
             self.identifier: Identifier = root.identifier
@@ -100,7 +101,7 @@ class CategoryDisplayTree:
                 elif node.is_file():
                     all_nodes.append(node)
 
-    def add_item(self, item: DisplayNode, category: Category, source_tree: SubtreeSnapshot):
+    def add_item(self, item: DisplayNode, category: Category):
         assert category != Category.NA, f'For item: {item}'
         category_tree: treelib.Tree = self._category_trees[category]
         root: treelib.Node = self._roots[category]
@@ -108,15 +109,6 @@ class CategoryDisplayTree:
         # FIXME: find an elegant way to display all the nodes going back to each root
 
         # TODO: really, really need to get rid of one-tree-per-category
-
-        if item.is_dir():
-            # Skip any actual directories we encounter. We won't use them for our display, because:
-            # (1) each category has a logically different dir with the same ID, and let's not get confused, and
-            # (2) there's nothing for us in these objects from a display perspective. The name can be inferred
-            # from each file's path, and we don't want to display empty dirs when there's no file of that category
-            logger.warning(f'Skipping dir node: {item}')
-            return
-        ancestor_identifiers: List[Identifier] = source_tree.get_ancestor_chain(item)
 
         if self.extra_node_for_type:
             if item.identifier.tree_type == OBJ_TYPE_GDRIVE:
@@ -140,32 +132,49 @@ class CategoryDisplayTree:
 
         parent.data.add_meta_metrics(item)
 
-        if ancestor_identifiers:
-            # Create a node for each ancestor dir (path segment)
-            for identifier in ancestor_identifiers:
-                nid = identifier.uid
-                child: treelib.Node = category_tree.get_node(nid=nid)
-                if child is None:
-                    # Need to copy the identifier so that we can ensure the category is correct for where it is
-                    # going in our tree. When get_children() is called, it uses the identifier's category to
-                    # determine which tree to look up. Need to brainstorm a more elegant solution!
-                    id_copy = copy.copy(identifier)
-                    id_copy.category = category
-                    if type(id_copy.full_path) == list:
-                        # try to filter by whether the path is in the subtree. this won't always work
-                        filtered_list = [x for x in id_copy.full_path if source_tree.in_this_subtree(x)]
-                        if len(filtered_list) == 1:
-                            id_copy.full_path = filtered_list[0]
-                        else:
-                            assert len(filtered_list) > 0
-                            id_copy.full_path = filtered_list
-                    # TODO: subclass this from treelib.Node! Then we don't have to allocate twice
-                    # TODO: need to rename identifier to something else
-                    dir_node = DirNode(identifier=id_copy)
-                    child = category_tree.create_node(identifier=nid, parent=parent, data=dir_node)
-                parent = child
-                assert isinstance(parent.data, DirNode)
-                parent.data.add_meta_metrics(item)
+        ancestor_identifiers: Deque[Identifier] = deque()
+        if item.parent_ids:
+            ancestor = item
+            while ancestor and ancestor.parent_ids:
+                # In this tree already? Saves us work, and allow us to use nodes not in the parent tree (e.g. FolderToAdds)
+                node: treelib.Node = category_tree.get_node(nid=ancestor.parent_ids[0])
+                if node:
+                    parent = node
+                    break
+                ancestor = self.source_tree.get_item_for_identifier(ancestor.parent_ids[0])
+                if ancestor:
+                    if ancestor.uid == self.source_tree.uid:
+                        # do not include root node
+                        break
+                    ancestor_identifiers.appendleft(ancestor.identifier)
+        else:
+            ancestor_identifiers = self.source_tree.get_ancestor_chain(item)
+
+        # Create a node for each ancestor dir (path segment)
+        for identifier in ancestor_identifiers:
+            nid = identifier.uid
+            child: treelib.Node = category_tree.get_node(nid=nid)
+            if child is None:
+                # Need to copy the identifier so that we can ensure the category is correct for where it is
+                # going in our tree. When get_children() is called, it uses the identifier's category to
+                # determine which tree to look up. Need to brainstorm a more elegant solution!
+                id_copy = copy.copy(identifier)
+                id_copy.category = category
+                if type(id_copy.full_path) == list:
+                    # try to filter by whether the path is in the subtree. this won't always work
+                    filtered_list = [x for x in id_copy.full_path if self.source_tree.in_this_subtree(x)]
+                    if len(filtered_list) == 1:
+                        id_copy.full_path = filtered_list[0]
+                    else:
+                        assert len(filtered_list) > 0
+                        id_copy.full_path = filtered_list
+                # TODO: subclass this from treelib.Node! Then we don't have to allocate twice
+                # TODO: need to rename identifier to something else
+                dir_node = DirNode(identifier=id_copy)
+                child = category_tree.create_node(identifier=nid, parent=parent, data=dir_node)
+            parent = child
+            assert isinstance(parent.data, DirNode)
+            parent.data.add_meta_metrics(item)
 
         # logger.debug(f'Creating file node for item {item}')
         categorized_item = copy.copy(item)

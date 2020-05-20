@@ -3,7 +3,7 @@ import logging
 import os
 from collections import deque
 from queue import Queue
-from typing import List, Union, ValuesView
+from typing import List, Optional, Union, ValuesView
 
 import file_util
 import format_util
@@ -145,7 +145,37 @@ class GDriveSubtree(SubtreeSnapshot):
     def add_item(self, item):
         raise RuntimeError('Cannot do this from a subtree!')
 
+    def get_parent_for_item(self, item) -> Optional[GoogNode]:
+        if item and self.in_this_subtree(item.full_path):
+            if len(item.parent_ids) > 1:
+                resolved_parent_ids = []
+                for par_id in item.parent_ids:
+                    par = self._whole_tree.get_item_for_id(par_id)
+                    if par and self.in_this_subtree(par.full_path):
+                        resolved_parent_ids.append(par_id)
+                if len(resolved_parent_ids) > 1:
+                    logger.error(f'Found multiple valid parents for item: {item}: parents={resolved_parent_ids}')
+                # assert len(resolved_parent_ids) == 1
+                return self._whole_tree.get_item_for_id(resolved_parent_ids[0])
+        return None
+
+    def get_item_for_identifier(self, identifer: Identifier) -> Optional[GoogNode]:
+        if isinstance(identifer, int):
+            item = self._whole_tree.get_item_for_id(identifer)
+            if item and self.in_this_subtree(item.full_path):
+                return item
+        elif identifer.uid:
+            item = self._whole_tree.get_item_for_id(identifer.uid)
+            if item and self.in_this_subtree(item.full_path):
+                return item
+        elif identifer.full_path:
+            # TODO: not sure if we wanna pursue this
+            pass
+            # item_list = self._whole_tree.get_all_ids_for_path(identifer.full_path)
+        return None
+
     def get_ancestor_chain(self, item: GoogNode) -> List[Identifier]:
+        # FIXME: go up the given path, using get_for_path() instead
         identifiers = []
 
         # kind of a kludge but I don't care right now

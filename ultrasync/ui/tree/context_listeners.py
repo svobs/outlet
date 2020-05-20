@@ -6,7 +6,7 @@ from typing import List, Optional
 from pydispatch import dispatcher
 
 import ui.actions as actions
-from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED
+from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED, TreeDisplayMode
 from model.display_id import Identifier
 from model.display_node import DisplayNode
 from model.fmeta import FMeta
@@ -82,7 +82,7 @@ class TreeContextListeners:
         if not err and self.con.config.get('cache.load_cache_when_tree_root_selected'):
             logger.debug(f'Got new root. Reloading subtree for: {new_root}')
             # Loads from disk if necessary:
-            self.con.reload(new_root)
+            self.con.reload(new_root, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
         else:
             # Just wipe out the old root
             self.con.set_tree(root=new_root)

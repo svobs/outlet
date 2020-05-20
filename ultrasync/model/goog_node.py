@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import logging
 from typing import List, Optional, Tuple, Union
 
-from constants import NOT_TRASHED, TRASHED_STATUS
+from constants import ICON_ADD_DIR, NOT_TRASHED, TRASHED_STATUS
 from model.category import Category
 from model.display_id import GDriveIdentifier
 from model.display_node import DisplayNode, ensure_int
@@ -203,7 +203,7 @@ class GoogFile(GoogNode):
     def get_icon(self):
         if self.trashed != NOT_TRASHED:
             return ICON_TRASHED_FILE
-        return ICON_GENERIC_FILE
+        return self.category.name
 
     def to_tuple(self):
         return (self.uid, self.goog_id, self.name, self.trashed, self._size_bytes, self.md5, self.create_ts, self.modify_ts,
@@ -224,8 +224,7 @@ class FolderToAdd(PlanningNode, GoogNode):
         self.identifier.full_path = dest_path
 
     def get_icon(self):
-        # TODO: added folder
-        return ICON_GENERIC_DIR
+        return ICON_ADD_DIR
 
     @classmethod
     def is_file(cls):
@@ -240,7 +239,7 @@ class FolderToAdd(PlanningNode, GoogNode):
         return True
 
     def __repr__(self):
-        return f'FolderToAdd(dest_path={self.full_path})'
+        return f'FolderToAdd(dest_path={self.full_path} parent_ids={self.parent_ids})'
 
     def to_tuple(self):
         pass

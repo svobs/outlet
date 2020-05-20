@@ -1,7 +1,7 @@
 import gi
 gi.require_version("Gtk", "3.0")
 
-from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_LOCAL_DISK, ICON_TRASHED_DIR, ICON_TRASHED_FILE
+from constants import ICON_ADD_DIR, ICON_GDRIVE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_LOCAL_DISK, ICON_TRASHED_DIR, ICON_TRASHED_FILE
 
 from model.fmeta import Category
 
@@ -22,6 +22,7 @@ def _build_icons(icon_size):
     icons[ICON_LOCAL_DISK] = GdkPixbuf.Pixbuf.new_from_file(CHOOSE_ROOT_ICON_PATH)
     icons[ICON_GENERIC_FILE] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
     icons[ICON_GENERIC_DIR] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Folder-icon-{icon_size}px.png'))
+    icons[ICON_ADD_DIR] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Folder_add_{icon_size}px.png'))
     icons[ICON_TRASHED_DIR] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/recycle-bag-{icon_size}px.png'))
     icons[ICON_TRASHED_FILE] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/icons8-paper-waste-{icon_size}px.png'))
     icons[Category.Nada.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-icon-{icon_size}px.png'))

@@ -5,6 +5,7 @@ import uuid
 import gi
 
 from constants import OBJ_TYPE_LOCAL_DISK, TreeDisplayMode
+from diff.diff_content_first import ContentFirstDiffer
 from model import display_id
 from model.display_id import Identifier
 from model.subtree_snapshot import SubtreeSnapshot
@@ -137,7 +138,8 @@ class GlobalActions:
             actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, tx_id=tx_id, msg=msg)
 
             stopwatch_diff = Stopwatch()
-            change_tree_left, change_tree_right, = diff_content_first.diff(left_fmeta_tree, right_fmeta_tree, compare_paths_also=True)
+            differ = ContentFirstDiffer(left_fmeta_tree, right_fmeta_tree)
+            change_tree_left, change_tree_right, = differ.diff(compare_paths_also=True)
             logger.info(f'{stopwatch_diff} Diff completed')
 
             actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, tx_id=tx_id, msg='Populating UI trees...')

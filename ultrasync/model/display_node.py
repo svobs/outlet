@@ -53,6 +53,10 @@ class DisplayNode(ABC):
         return self.identifier.full_path
 
     @property
+    def parent_ids(self):
+        return None
+
+    @property
     def category(self):
         return self.identifier.category
 

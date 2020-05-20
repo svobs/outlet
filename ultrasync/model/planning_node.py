@@ -96,11 +96,12 @@ class FileDecoratorNode(PlanningNode, ABC):
         return self.category.name
 
     @property
-    def parent_ids(self) -> List[str]:
+    def parent_ids(self) -> List[int]:
+        # TODO: have UIDs use their own type which extends int
         if self._parent_ids:
             if isinstance(self._parent_ids, list):
                 return self._parent_ids
-            elif isinstance(self._parent_ids, str):
+            elif isinstance(self._parent_ids, int):
                 return [self._parent_ids]
             assert False
         return []
@@ -112,7 +113,7 @@ class FileDecoratorNode(PlanningNode, ABC):
             self._parent_ids = None
         elif isinstance(parent_ids, list):
             if len(parent_ids) == 1:
-                assert isinstance(parent_ids[0], str)
+                assert isinstance(parent_ids[0], int), f'Found instead: {parent_ids[0]}, type={type(parent_ids[0])}'
                 self._parent_ids = parent_ids[0]
             else:
                 self._parent_ids = parent_ids

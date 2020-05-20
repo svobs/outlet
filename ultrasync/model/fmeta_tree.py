@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 from typing import Dict, List, Optional, Union, ValuesView
 
 import constants
@@ -9,7 +10,7 @@ from index.atomic_counter import AtomicCounter
 from index.two_level_dict import Md5BeforePathDict, Md5BeforeUidDict
 from model.category import Category
 from model.display_id import Identifier, LocalFsIdentifier
-from model.display_node import DisplayNode
+from model.display_node import DirNode, DisplayNode
 from model.fmeta import FMeta
 from model.planning_node import PlanningNode
 from model.subtree_snapshot import SubtreeSnapshot
@@ -64,6 +65,19 @@ class FMetaTree(SubtreeSnapshot):
         else:
             assert isinstance(subtree_root, Identifier) or isinstance(subtree_root, DisplayNode)
             return FMetaTree(subtree_root.full_path)
+
+    def get_item_for_identifier(self, identifer: Identifier) -> FMeta:
+        if identifer.full_path:
+            return self.get_for_path(identifer.full_path)
+        return None
+
+    def get_parent_for_item(self, item) -> Optional[DisplayNode]:
+        # FIXME: add support for storing dir metadata in FMetaTree. Ditch this fake stuff
+        parent = str(pathlib.Path(item.full_path).parent)
+        if parent.startswith(self.root_path):
+            identifer = LocalFsIdentifier(full_path=parent)
+            return DirNode(identifer)
+        return None
 
     def get_ancestor_chain(self, item) -> List[Identifier]:
         relative_path = self.get_relative_path_for_item(item)

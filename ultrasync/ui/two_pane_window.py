@@ -284,12 +284,12 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             # If displaying a diff and right root changed, reload left display
             # (note: right will update its own display)
             logger.debug(f'Detected that {actions.ID_RIGHT_TREE} changed root. Reloading {actions.ID_LEFT_TREE}')
-            self.tree_con_left.reload()
+            self.tree_con_left.reload(tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
 
         elif sender == actions.ID_LEFT_TREE and self.tree_con_right.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             # Mirror of above:
             logger.debug(f'Detected that {actions.ID_LEFT_TREE} changed root. Reloading {actions.ID_RIGHT_TREE}')
-            self.tree_con_right.reload()
+            self.tree_con_right.reload(tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
 
     def _after_diff_completed(self, sender, stopwatch):
         logger.debug(f'Received signal: "{actions.DIFF_TREES_DONE}"')
