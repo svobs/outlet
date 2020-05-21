@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Union
 
-from model.display_id import Identifier
+from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
 
 
@@ -9,24 +9,24 @@ from model.display_node import DisplayNode
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 class SubtreeSnapshot(ABC):
-    def __init__(self, root_identifier: Identifier):
+    def __init__(self, root_identifier: NodeIdentifier):
         super().__init__()
-        self.identifier: Identifier = root_identifier
+        self.node_identifier: NodeIdentifier = root_identifier
 
-    # From the root identifier
+    # From the root node_identifier
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
     @property
     def tree_type(self) -> int:
-        return self.identifier.tree_type
+        return self.node_identifier.tree_type
 
     @property
     def root_path(self):
-        return self.identifier.full_path
+        return self.node_identifier.full_path
 
     @property
     def uid(self):
-        return self.identifier.uid
+        return self.node_identifier.uid
 
     def in_this_subtree(self, path: str):
         if isinstance(path, list):
@@ -47,14 +47,14 @@ class SubtreeSnapshot(ABC):
 
     @classmethod
     @abstractmethod
-    def create_empty_subtree(cls, subtree_root_identifier: Identifier):
+    def create_empty_subtree(cls, subtree_root_identifier: NodeIdentifier):
         """Return a new empty subtree with the given root and which is of the same type of this tree"""
         return
 
     @classmethod
     @abstractmethod
-    def create_identifier(cls, full_path, uid, category) -> Identifier:
-        """Create a new identifier of the type matching this tree"""
+    def create_identifier(cls, full_path, uid, category) -> NodeIdentifier:
+        """Create a new node_identifier of the type matching this tree"""
         pass
 
     # Getters & search
@@ -66,7 +66,7 @@ class SubtreeSnapshot(ABC):
         return []
 
     @abstractmethod
-    def get_item_for_identifier(self, identifer: Identifier) -> Optional[DisplayNode]:
+    def get_item_for_identifier(self, identifer: NodeIdentifier) -> Optional[DisplayNode]:
         return None
 
     @abstractmethod
@@ -78,7 +78,7 @@ class SubtreeSnapshot(ABC):
         pass
 
     @abstractmethod
-    def get_ancestor_chain(self, item) -> List[Identifier]:
+    def get_ancestor_chain(self, item) -> List[NodeIdentifier]:
         pass
 
     @abstractmethod

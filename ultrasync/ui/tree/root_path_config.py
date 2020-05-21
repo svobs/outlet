@@ -2,8 +2,7 @@ from pydispatch import dispatcher
 import logging
 
 from constants import NULL_UID
-from model import display_id
-from model.display_id import Identifier
+from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from ui import actions
 
 logger = logging.getLogger(__name__)
@@ -24,11 +23,11 @@ class RootPathConfigPersister:
         root_uid = self._config.get(self._root_uid_config_key)
         if root_uid == NULL_UID:
             root_uid = None
-        self.root_identifier = display_id.for_values(tree_type=tree_type, full_path=root_path, uid=root_uid)
+        self.root_identifier = NodeIdentifierFactory.for_values(tree_type=tree_type, full_path=root_path, uid=root_uid)
 
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=tree_id)
 
-    def _on_root_path_updated(self, sender: str, new_root: Identifier, err=None):
+    def _on_root_path_updated(self, sender: str, new_root: NodeIdentifier, err=None):
         logger.info(f'Received signal: "{actions.ROOT_PATH_UPDATED}" with root: {new_root}')
         if self.root_identifier != new_root:
             logger.debug(f'Root path changed. Saving root to config: {self._tree_type_config_key} '

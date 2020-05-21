@@ -5,7 +5,7 @@ from pydispatch import dispatcher
 import gi
 
 import file_util
-from model import display_id
+from model import node_identifier
 from model.gdrive_whole_tree import GDriveItemNotFoundError
 from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 
@@ -13,7 +13,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib, GObject
 
 from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED
-from model.display_id import GDriveIdentifier, Identifier, LocalFsIdentifier
+from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from ui.dialog.base_dialog import BaseDialog
 import ui.actions as actions
 from ui.assets import ALERT_ICON_PATH, CHOOSE_ROOT_ICON_PATH, GDRIVE_ICON_PATH, REFRESH_ICON_PATH
@@ -26,13 +26,13 @@ logger = logging.getLogger(__name__)
 
 
 class RootDirPanel:
-    def __init__(self, parent_win, controller, tree_id, current_root: Identifier, can_change_root, is_loaded):
+    def __init__(self, parent_win, controller, tree_id, current_root: NodeIdentifier, can_change_root, is_loaded):
         self.parent_win: BaseDialog = parent_win
         self.con = controller
         assert type(tree_id) == str
         self.tree_id = tree_id
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
-        self.current_root: Identifier = current_root
+        self.current_root: NodeIdentifier = current_root
         self.can_change_root = can_change_root
         self.ui_enabled = can_change_root
         """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
@@ -107,16 +107,16 @@ class RootDirPanel:
         try:
             identifiers = self.parent_win.application.cache_manager.resolve_path(new_root_path)
             assert len(identifiers) > 0, f'Got no identifiers (not even NULL) for path: {new_root_path}'
-            new_root: Identifier = identifiers[0]
+            new_root: NodeIdentifier = identifiers[0]
             if new_root == self.current_root:
                 logger.debug('No change to root')
                 self._update_root_label(self.current_root)
                 return
         except GDriveItemNotFoundError as ginf:
-            new_root = ginf.identifier
+            new_root = ginf.node_identifier
             err = ginf
         except FileNotFoundError as fnf:
-            new_root = display_id.for_values(full_path=new_root_path)
+            new_root = NodeIdentifierFactory.for_values(full_path=new_root_path)
             err = fnf
 
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root, err=err)
@@ -178,7 +178,7 @@ class RootDirPanel:
             self.change_btn.set_sensitive(enable)
         GLib.idle_add(change_button)
 
-    def _update_root_label(self, new_root: Identifier, err=None):
+    def _update_root_label(self, new_root: NodeIdentifier, err=None):
         """Updates the UI to reflect the new root and tree type.
         Expected to be called from the UI thread.
         """
@@ -261,7 +261,7 @@ class RootDirPanel:
         self.label.show()
         self.label_event_box.show()
 
-    def _on_root_path_updated(self, sender, new_root: Identifier, err=None):
+    def _on_root_path_updated(self, sender, new_root: NodeIdentifier, err=None):
         """Callback for actions.ROOT_PATH_UPDATED"""
         logger.debug(f'Received a new root: type={new_root.tree_type} path="{new_root.full_path}"')
         if not new_root or not new_root.full_path:

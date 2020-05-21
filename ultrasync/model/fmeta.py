@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 
 from model.category import Category
-from model.display_id import LocalFsIdentifier
+from model.node_identifier import LocalFsIdentifier
 from model.display_node import DisplayNode, ensure_int
 
 logger = logging.getLogger(__name__)
@@ -62,4 +62,4 @@ class FMeta(DisplayNode):
         return self.is_content_equal(other_entry) and self.is_meta_equal(other_entry)
 
     def __repr__(self):
-        return f'FMeta({self.identifier} md5={self.md5} sha256={self.sha256} modify_ts={self.modify_ts})'
+        return f'FMeta({self.node_identifier} md5={self.md5} sha256={self.sha256} modify_ts={self.modify_ts})'

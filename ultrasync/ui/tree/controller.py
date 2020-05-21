@@ -4,7 +4,7 @@ import logging
 from stopwatch_sec import Stopwatch
 
 from constants import OBJ_TYPE_DISPLAY_ONLY, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, TreeDisplayMode
-from model.display_id import Identifier
+from model.node_identifier import NodeIdentifier
 from ui.tree import tree_factory_templates
 from ui.tree.all_items_tree_builder import AllItemsGDriveTreeBuilder, AllItemsLocalFsTreeBuilder
 from ui.tree.category_tree_builder import CategoryTreeBuilder
@@ -126,7 +126,7 @@ class TreePanelController:
     def get_tree(self):
         return self.tree_builder.get_tree()
 
-    def set_tree(self, root: Identifier = None, tree: SubtreeSnapshot = None, tree_display_mode: TreeDisplayMode = None):
+    def set_tree(self, root: NodeIdentifier = None, tree: SubtreeSnapshot = None, tree_display_mode: TreeDisplayMode = None):
         # Clear old display (if any)
         GLib.idle_add(self.display_store.clear_model)
 

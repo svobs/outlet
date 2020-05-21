@@ -3,7 +3,7 @@ from typing import List
 
 from index.cache_info import CacheInfoEntry
 from index.sqlite.base_db import MetaDatabase
-from model import display_id
+from model.node_identifier import NodeIdentifierFactory
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +40,8 @@ class CacheRegistry(MetaDatabase):
         entries = []
         for row in rows:
             cache_location, cache_type, subtree_root_path, subtree_root_uid, sync_ts, is_complete = row
-            identifier = display_id.for_values(tree_type=cache_type, full_path=subtree_root_path, uid=ensure_int(subtree_root_uid))
-            entries.append(CacheInfoEntry(cache_location=cache_location, subtree_root=identifier, sync_ts=sync_ts, is_complete=is_complete))
+            node_identifier = NodeIdentifierFactory.for_values(tree_type=cache_type, full_path=subtree_root_path, uid=ensure_int(subtree_root_uid))
+            entries.append(CacheInfoEntry(cache_location=cache_location, subtree_root=node_identifier, sync_ts=sync_ts, is_complete=is_complete))
         return entries
 
     # Takes a list of FMeta objects:

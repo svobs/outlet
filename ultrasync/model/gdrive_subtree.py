@@ -10,7 +10,7 @@ import format_util
 from constants import NOT_TRASHED
 from index.two_level_dict import Md5BeforeUidDict
 from model.category import Category
-from model.display_id import GDriveIdentifier, Identifier
+from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.gdrive_whole_tree import GDriveItemNotFoundError, GDriveTree, GDriveWholeTree
 from model.goog_node import GoogNode
 from model.planning_node import FileDecoratorNode
@@ -31,7 +31,7 @@ SUPER_DEBUG = False
 
 class GDriveSubtree(SubtreeSnapshot):
     def __init__(self, whole_tree: GDriveWholeTree, root_node: GoogNode):
-        SubtreeSnapshot.__init__(self, root_identifier=root_node.identifier)
+        SubtreeSnapshot.__init__(self, root_identifier=root_node.node_identifier)
 
         self._whole_tree = whole_tree
         self._root_node = root_node
@@ -57,7 +57,7 @@ class GDriveSubtree(SubtreeSnapshot):
         return GDriveSubtree(subtree_root_node)
 
     @classmethod
-    def create_identifier(cls, full_path, uid, category) -> Identifier:
+    def create_identifier(cls, full_path, uid, category) -> NodeIdentifier:
         return GDriveIdentifier(uid=uid, full_path=full_path, category=category)
 
     @property
@@ -116,7 +116,7 @@ class GDriveSubtree(SubtreeSnapshot):
         logger.info(f'{md5_set_stopwatch} Found {md5_dict.total_entries} MD5s')
         return md5_dict
 
-    def get_children(self, parent_id: Union[int, Identifier]) -> List[GoogNode]:
+    def get_children(self, parent_id: Union[int, NodeIdentifier]) -> List[GoogNode]:
         return self._whole_tree.get_children(parent_id=parent_id)
 
     def get_all(self) -> ValuesView[GoogNode]:
@@ -159,7 +159,7 @@ class GDriveSubtree(SubtreeSnapshot):
                 return self._whole_tree.get_item_for_id(resolved_parent_ids[0])
         return None
 
-    def get_item_for_identifier(self, identifer: Identifier) -> Optional[GoogNode]:
+    def get_item_for_identifier(self, identifer: NodeIdentifier) -> Optional[GoogNode]:
         if isinstance(identifer, int):
             item = self._whole_tree.get_item_for_id(identifer)
             if item and self.in_this_subtree(item.full_path):
@@ -174,7 +174,7 @@ class GDriveSubtree(SubtreeSnapshot):
             # item_list = self._whole_tree.get_all_ids_for_path(identifer.full_path)
         return None
 
-    def get_ancestor_chain(self, item: GoogNode) -> List[Identifier]:
+    def get_ancestor_chain(self, item: GoogNode) -> List[NodeIdentifier]:
         # FIXME: go up the given path, using get_for_path() instead
         identifiers = []
 
@@ -184,7 +184,7 @@ class GDriveSubtree(SubtreeSnapshot):
             name_segments = file_util.split_path(relative_path)
             # Skip last item (it's the file name)
             name_segments.pop()
-            current_identifier: Identifier = self._root_node.identifier
+            current_identifier: NodeIdentifier = self._root_node.node_identifier
             path_so_far = current_identifier.full_path
             for name_seg in name_segments:
                 path_so_far = os.path.join(path_so_far, name_seg)
@@ -198,7 +198,7 @@ class GDriveSubtree(SubtreeSnapshot):
                             for num, match in enumerate(matches):
                                 logger.info(f'Match {num}: {match}')
 
-                        current_identifier = matches[0].identifier
+                        current_identifier = matches[0].node_identifier
                         identifiers.append(current_identifier)
                         continue
 
@@ -223,8 +223,8 @@ class GDriveSubtree(SubtreeSnapshot):
                     item = self._whole_tree.get_item_for_id(resolved_parent_ids[0])
                 else:
                     item = self._whole_tree.get_item_for_id(item.parent_ids[0])
-                if item and item.uid != self.identifier.uid:
-                    identifiers.append(item.identifier)
+                if item and item.uid != self.node_identifier.uid:
+                    identifiers.append(item.node_identifier)
                     continue
             identifiers.reverse()
             return identifiers

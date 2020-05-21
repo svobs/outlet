@@ -331,7 +331,7 @@ def _compile_full_paths(tree: GDriveWholeTree):
 
     queue = deque()
     for root in tree.roots:
-        root.identifier.full_path = '/' + root.name
+        root.node_identifier.full_path = '/' + root.name
         queue.append(root)
         item_count += 1
         path_count += 1
@@ -358,9 +358,9 @@ def _compile_full_paths(tree: GDriveWholeTree):
                     path_count += 1
 
                 if len(existing_child_paths) == 1:
-                    child.identifier.full_path = existing_child_paths[0]
+                    child.node_identifier.full_path = existing_child_paths[0]
                 else:
-                    child.identifier.full_path = existing_child_paths
+                    child.node_identifier.full_path = existing_child_paths
 
                 item_count += 1
 

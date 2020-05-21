@@ -3,8 +3,7 @@ import logging
 import gi
 from pydispatch import dispatcher
 
-from model import display_id
-from model.display_id import Identifier
+from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from model.display_node import DisplayNode
 from ui import actions
 from ui.tree import tree_factory
@@ -45,10 +44,10 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         self.connect("response", self.on_response)
         self.show_all()
 
-    def on_ok_clicked(self, identifier: Identifier):
+    def on_ok_clicked(self, node_identifier: NodeIdentifier):
         # TODO: disallow selection of files
-        logger.info(f'User selected dir "{identifier}"')
-        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root=identifier)
+        logger.info(f'User selected dir "{node_identifier}"')
+        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root=node_identifier)
 
     def on_response(self, dialog, response_id):
         # destroy the widget (the dialog) when the function on_response() is called
@@ -59,9 +58,9 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
                 logger.debug("The OK button was clicked")
                 item: DisplayNode = self.tree_controller.get_single_selection()
                 if not item:
-                    self.on_ok_clicked(display_id.get_gdrive_root_constant_identifier())
+                    self.on_ok_clicked(NodeIdentifierFactory.get_gdrive_root_constant_identifier())
                 else:
-                    self.on_ok_clicked(item.identifier)
+                    self.on_ok_clicked(item.node_identifier)
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
             elif response_id == Gtk.ResponseType.CLOSE:

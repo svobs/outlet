@@ -6,7 +6,7 @@ from typing import Optional
 import format_util
 from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_LOCAL_DISK, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
 from model.category import Category
-from model.display_id import Identifier
+from model.node_identifier import NodeIdentifier
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,8 @@ def ensure_int(val):
 class DisplayNode(ABC):
     """Base class for nodes which are meant to be displayed in a UI tree"""
 
-    def __init__(self, identifier: Optional[Identifier]):
-        self.identifier = identifier
+    def __init__(self, node_identifier: Optional[NodeIdentifier]):
+        self.node_identifier = node_identifier
 
     @classmethod
     def is_file(cls):
@@ -37,8 +37,8 @@ class DisplayNode(ABC):
 
     @property
     def name(self):
-        assert type(self.identifier.full_path) == str, f'Not a string: {self.identifier.full_path} (this={self})'
-        return os.path.basename(self.identifier.full_path)
+        assert type(self.node_identifier.full_path) == str, f'Not a string: {self.node_identifier.full_path} (this={self})'
+        return os.path.basename(self.node_identifier.full_path)
 
     @property
     def etc(self):
@@ -50,7 +50,7 @@ class DisplayNode(ABC):
 
     @property
     def full_path(self):
-        return self.identifier.full_path
+        return self.node_identifier.full_path
 
     @property
     def parent_ids(self):
@@ -58,11 +58,11 @@ class DisplayNode(ABC):
 
     @property
     def category(self):
-        return self.identifier.category
+        return self.node_identifier.category
 
     @property
     def uid(self) -> int:
-        return self.identifier.uid
+        return self.node_identifier.uid
 
     def get_relative_path(self, parent_tree):
         return parent_tree.get_relative_path_for_item(self)
@@ -78,8 +78,8 @@ class DisplayNode(ABC):
 
 
 class FileNode(DisplayNode):
-    def __init__(self, identifier):
-        super().__init__(identifier)
+    def __init__(self, node_identifier):
+        super().__init__(node_identifier)
 
     @classmethod
     def is_file(cls):
@@ -106,8 +106,8 @@ class DirNode(DisplayNode):
     Represents a generic directory (i.e. not an FMeta or domain object)
     """
 
-    def __init__(self, identifier):
-        super().__init__(identifier)
+    def __init__(self, node_identifier):
+        super().__init__(node_identifier)
         self.file_count = 0
         self._size_bytes = 0
 
@@ -121,9 +121,9 @@ class DirNode(DisplayNode):
 
     @property
     def name(self):
-        if type(self.identifier.full_path) == list:
-            return os.path.basename(self.identifier.full_path[0])
-        return os.path.basename(self.identifier.full_path)
+        if type(self.node_identifier.full_path) == list:
+            return os.path.basename(self.node_identifier.full_path[0])
+        return os.path.basename(self.node_identifier.full_path)
 
     @property
     def etc(self):
@@ -152,7 +152,7 @@ class DirNode(DisplayNode):
         return f'{size} in {self.file_count:n} files'
 
     def __repr__(self):
-        return f'DirNode({self.identifier} cat={self.category} {self.get_summary()})'
+        return f'DirNode({self.node_identifier} cat={self.category} {self.get_summary()})'
 
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
@@ -170,8 +170,8 @@ class CategoryNode(DirNode):
                       Category.Moved: 'To Move',
                       }
 
-    def __init__(self, identifier):
-        super().__init__(identifier=identifier)
+    def __init__(self, node_identifier):
+        super().__init__(node_identifier=node_identifier)
 
     def __repr__(self):
         return f'CategoryNode({self.category.name})'
@@ -189,16 +189,16 @@ class RootTypeNode(DirNode):
     Represents a type of root in the tree (GDrive, local FS, etc.)
     """
 
-    def __init__(self, identifier):
-        super().__init__(identifier=identifier)
+    def __init__(self, node_identifier):
+        super().__init__(node_identifier=node_identifier)
 
     def __repr__(self):
         return f'RootTypeNode({self.name})'
 
     def get_icon(self):
-        if self.identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
+        if self.node_identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
             return ICON_LOCAL_DISK
-        elif self.identifier.tree_type == OBJ_TYPE_GDRIVE:
+        elif self.node_identifier.tree_type == OBJ_TYPE_GDRIVE:
             return ICON_GDRIVE
         return ICON_GENERIC_DIR
 

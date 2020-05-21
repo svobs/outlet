@@ -1,4 +1,4 @@
-from model.display_id import Identifier
+from model.node_identifier import NodeIdentifier
 from model.display_node import ensure_int
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
@@ -7,9 +7,9 @@ from model.display_node import ensure_int
 
 
 class CacheInfoEntry:
-    def __init__(self, cache_location, subtree_root: Identifier, sync_ts, is_complete):
+    def __init__(self, cache_location, subtree_root: NodeIdentifier, sync_ts, is_complete):
         self.cache_location: str = cache_location
-        self.subtree_root: Identifier = subtree_root
+        self.subtree_root: NodeIdentifier = subtree_root
         self.sync_ts = ensure_int(sync_ts)
         self.is_complete = is_complete
 

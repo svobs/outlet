@@ -10,9 +10,9 @@ import logging
 
 from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED, ROOT_PATH, ROOT_UID
 from index.two_level_dict import TwoLevelDict
-from model import display_id
+from model import node_identifier
 from model.category import Category
-from model.display_id import Identifier, LogicalNodeIdentifier
+from model.node_identifier import NodeIdentifier, LogicalNodeIdentifier, NodeIdentifierFactory
 from model.display_node import DisplayNode
 from model.goog_node import FolderToAdd
 from model.planning_node import FileDecoratorNode, FileToAdd, FileToMove, FileToUpdate
@@ -44,7 +44,7 @@ class ContentFirstDiffer:
 
     def _add_items_and_missing_parents(self, change_tree: CategoryDisplayTree, added_folders_dict: Dict[str, FolderToAdd] , new_item: FileDecoratorNode):
         # This only applies to GoogNodes. Just a no-op for regular files at present because we don't yet care about local dirs very much
-        if new_item.identifier.tree_type != OBJ_TYPE_GDRIVE:
+        if new_item.node_identifier.tree_type != OBJ_TYPE_GDRIVE:
             change_tree.add_item(new_item, new_item.category)
             return
         path = new_item.full_path
@@ -83,48 +83,48 @@ class ContentFirstDiffer:
         the file on the left"""
         dest_path = self.move_to_right(left_item)
         new_uid = self.right_tree.get_new_uid()
-        identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Moved)
-        move_right_to_right = FileToMove(identifier=identifier, src_node=right_item)
+        node_identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Moved)
+        move_right_to_right = FileToMove(node_identifier=node_identifier, src_node=right_item)
         self._add_items_and_missing_parents(self.change_tree_right, self.added_folders_right, move_right_to_right)
 
     def add_rename_left(self, left_item, right_item):
         """Make a FileToMove node which will rename a file within the left tree to match the relative path of the file on right"""
         dest_path = self.move_to_left(right_item)
         new_uid = self.left_tree.get_new_uid()
-        identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Moved)
-        move_left_to_left = FileToMove(identifier=identifier, src_node=left_item)
+        node_identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Moved)
+        move_left_to_left = FileToMove(node_identifier=node_identifier, src_node=left_item)
         self._add_items_and_missing_parents(self.change_tree_left, self.added_folders_left, move_left_to_left)
 
     def add_filetoadd_left_to_right(self, left_item):
         """ADD - Left -> Right"""
         dest_path = self.move_to_right(left_item)
         new_uid = self.right_tree.get_new_uid()
-        identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Added)
-        file_to_add_to_right = FileToAdd(identifier=identifier, src_node=left_item)
+        node_identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Added)
+        file_to_add_to_right = FileToAdd(node_identifier=node_identifier, src_node=left_item)
         self._add_items_and_missing_parents(self.change_tree_right, self.added_folders_right, file_to_add_to_right)
 
     def add_filetoadd_right_to_left(self, right_item):
         """ADD - Left <- Right"""
         dest_path = self.move_to_left(right_item)
         new_uid = self.left_tree.get_new_uid()
-        identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Added)
-        file_to_add_to_left = FileToAdd(identifier=identifier, src_node=right_item)
+        node_identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Added)
+        file_to_add_to_left = FileToAdd(node_identifier=node_identifier, src_node=right_item)
         self._add_items_and_missing_parents(self.change_tree_left, self.added_folders_left, file_to_add_to_left)
 
     def add_fileupdate_left_to_right(self, left_item, right_item_to_overwrite):
         """UPDATE - Left -> Right"""
         dest_path = self.move_to_right(left_item)
         new_uid = self.right_tree.get_new_uid()
-        identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Updated)
-        file_to_add_to_right = FileToUpdate(identifier=identifier, src_node=left_item, dst_node=right_item_to_overwrite)
+        node_identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Updated)
+        file_to_add_to_right = FileToUpdate(node_identifier=node_identifier, src_node=left_item, dst_node=right_item_to_overwrite)
         self._add_items_and_missing_parents(self.change_tree_right, self.added_folders_right, file_to_add_to_right)
 
     def add_fileupdate_right_to_left(self, right_item, left_item_to_overwrite):
         """ADD - Left <- Right"""
         dest_path = self.move_to_left(right_item)
         new_uid = self.left_tree.get_new_uid()
-        identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Updated)
-        file_to_add_to_left = FileToUpdate(identifier=identifier, src_node=right_item, dst_node=left_item_to_overwrite)
+        node_identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Updated)
+        file_to_add_to_left = FileToUpdate(node_identifier=node_identifier, src_node=right_item, dst_node=left_item_to_overwrite)
         self._add_items_and_missing_parents(self.change_tree_left, self.added_folders_left, file_to_add_to_left)
 
     def _compare_paths_for_same_md5(self, lefts: Iterable[DisplayNode], rights: Iterable[DisplayNode]) \
@@ -341,7 +341,7 @@ def merge_change_trees(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot,
     if is_mixed_tree:
         root = LogicalNodeIdentifier(uid=ROOT_UID, full_path=ROOT_PATH, category=Category.NA, tree_type=OBJ_TYPE_MIXED)
     else:
-        root: Identifier = display_id.for_values(tree_type=left_tree.tree_type, full_path=ROOT_PATH, uid=ROOT_UID)
+        root: NodeIdentifier = NodeIdentifierFactory.for_values(tree_type=left_tree.tree_type, full_path=ROOT_PATH, uid=ROOT_UID)
 
     # just set source tree to left tree - we aren't using it for much anyway
     # FIXME: create new display tree class which starts from roots and is cleaner

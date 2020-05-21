@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
-from model.display_id import LocalFsIdentifier
+from model.node_identifier import LocalFsIdentifier
 import ui.actions as actions
 
 logger = logging.getLogger(__name__)
@@ -19,8 +19,8 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
     if response_id == Gtk.ResponseType.OK:
         filename = open_dialog.get_filename()
         logger.info(f'User selected dir: {filename}')
-        identifier = LocalFsIdentifier(full_path=filename)
-        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.tree_id, new_root=identifier)
+        node_identifier = LocalFsIdentifier(full_path=filename)
+        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.tree_id, new_root=node_identifier)
     # if response is "CANCEL" (the button "Cancel" has been clicked)
     elif response_id == Gtk.ResponseType.CANCEL:
         logger.debug("Cancelled: LocalRootDirChooserDialog")

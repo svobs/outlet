@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple, Union
 
 from constants import ICON_ADD_DIR, NOT_TRASHED, TRASHED_STATUS
 from model.category import Category
-from model.display_id import GDriveIdentifier
+from model.node_identifier import GDriveIdentifier
 from model.display_node import DisplayNode, ensure_int
 from model.planning_node import PlanningNode
 from constants import ICON_GENERIC_DIR, ICON_TRASHED_DIR, ICON_TRASHED_FILE
@@ -176,7 +176,7 @@ class GoogFile(GoogNode):
         self.owner_id = owner_id
 
     def __repr__(self):
-        return f'GoogFile(id={self.identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str}  size={self.size_bytes} ' \
+        return f'GoogFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str}  size={self.size_bytes} ' \
                f'md5="{self.md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
                f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
                f'sync_ts={self.sync_ts} parent_ids={self.parent_ids})'
@@ -221,7 +221,7 @@ class FolderToAdd(PlanningNode, GoogNode):
     def __init__(self, uid: int, dest_path: str):
         GoogNode.__init__(self, uid=uid, goog_id=None, item_name=os.path.basename(dest_path), trashed=NOT_TRASHED,
                           drive_id=None, my_share=False, sync_ts=None, category=Category.ADDED)
-        self.identifier.full_path = dest_path
+        self.node_identifier.full_path = dest_path
 
     def get_icon(self):
         return ICON_ADD_DIR

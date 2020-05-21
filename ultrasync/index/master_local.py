@@ -12,7 +12,7 @@ from fmeta.fmeta_tree_scanner import TreeMetaScanner
 from index.cache_manager import PersistedCacheInfo
 from index.sqlite.fmeta_db import FMetaDatabase
 from index.two_level_dict import FullPathDict, Md5BeforePathDict, ParentPathBeforeFileNameDict, Sha256BeforePathDict
-from model.display_id import Identifier, LocalFsIdentifier
+from model.node_identifier import NodeIdentifier, LocalFsIdentifier
 from model.fmeta import FMeta
 from model.fmeta_tree import FMetaTree
 from model.planning_node import PlanningNode
@@ -68,7 +68,7 @@ class LocalDiskMasterCache:
         self.parent_path_dict.put(item, existing)
         self._add_ancestors_to_tree(item.full_path)
 
-    def _get_subtree_from_memory_only(self, subtree_path: Identifier):
+    def _get_subtree_from_memory_only(self, subtree_path: NodeIdentifier):
         stopwatch = Stopwatch()
         logger.debug(f'Getting items from in-memory cache for subtree: {subtree_path}')
         fmeta_tree = FMetaTree(root_path=subtree_path.full_path)
@@ -87,7 +87,7 @@ class LocalDiskMasterCache:
                 count_added_from_cache += 1
             if self.dir_tree.get_node(dir_path):
                 for child_dir in self.dir_tree.children(dir_path):
-                    q.put(child_dir.identifier)
+                    q.put(child_dir.node_identifier)
 
         logger.debug(f'{stopwatch} Got {count_added_from_cache} items from in-memory cache (from {count_dirs} dirs)')
         return fmeta_tree
@@ -136,7 +136,7 @@ class LocalDiskMasterCache:
 
     def _save_subtree_disk_cache(self, fmeta_tree: FMetaTree):
         # Get existing cache location if available. We will overwrite it.
-        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(fmeta_tree.identifier)
+        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(fmeta_tree.node_identifier)
         to_insert = fmeta_tree.get_all()
 
         stopwatch_write_cache = Stopwatch()

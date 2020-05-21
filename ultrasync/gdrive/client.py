@@ -510,7 +510,7 @@ class GDriveClient:
 
     def download_file(self, file_id: str, dest_path: str):
         """Download a single file based on Google ID and destination path"""
-        # logger.debug(f'Downloading file: "{file.identifier}" to "{dest_path}"')
+        # logger.debug(f'Downloading file: "{file.node_identifier}" to "{dest_path}"')
         download_abusive_file = False
 
         def download():

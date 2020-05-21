@@ -4,7 +4,7 @@ from typing import List
 import gi
 
 from constants import TreeDisplayMode
-from model.display_id import Identifier
+from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
 
 gi.require_version("Gtk", "3.0")
@@ -277,7 +277,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
                 button.set_sensitive(enable)
         GLib.idle_add(toggle_ui)
 
-    def _on_root_path_updated(self, sender, new_root: Identifier, err=None):
+    def _on_root_path_updated(self, sender, new_root: NodeIdentifier, err=None):
         logger.debug(f'Received signal: "{actions.ROOT_PATH_UPDATED}"')
 
         if sender == actions.ID_RIGHT_TREE and self.tree_con_left.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:

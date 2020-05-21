@@ -6,8 +6,8 @@ import gi
 
 from constants import OBJ_TYPE_LOCAL_DISK, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
-from model import display_id
-from model.display_id import Identifier
+from model import node_identifier
+from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from model.subtree_snapshot import SubtreeSnapshot
 
 gi.require_version("Gtk", "3.0")
@@ -64,7 +64,7 @@ class GlobalActions:
         try:
             self.application.cache_manager.download_all_gdrive_meta(tree_id)
 
-            root_identifier: Identifier = display_id.get_gdrive_root_constant_identifier()
+            root_identifier: NodeIdentifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
             tree = self.application.cache_manager.load_gdrive_subtree(root_identifier, tree_id)
             actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, tree=tree)
         except Exception as err:
@@ -77,7 +77,7 @@ class GlobalActions:
         """Executed by Task Runner. NOT UI thread"""
         actions.disable_ui(sender=tree_id)
         try:
-            root_identifier: Identifier = display_id.get_gdrive_root_constant_identifier()
+            root_identifier: NodeIdentifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
             tree = self.application.cache_manager.load_gdrive_subtree(root_identifier, tree_id)
             actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, tree=tree)
         except Exception as err:
@@ -117,8 +117,8 @@ class GlobalActions:
         tx_id = uuid.uuid1()
         actions.disable_ui(sender=sender)
         try:
-            left_id: Identifier = tree_con_left.get_root_identifier()
-            right_id: Identifier = tree_con_right.get_root_identifier()
+            left_id: NodeIdentifier = tree_con_left.get_root_identifier()
+            right_id: NodeIdentifier = tree_con_right.get_root_identifier()
             if left_id.tree_type == OBJ_TYPE_LOCAL_DISK and not os.path.exists(left_id.full_path):
                 logger.info(f'Skipping diff because the left path does not exist: "{left_id.full_path}"')
                 actions.enable_ui(sender=self)

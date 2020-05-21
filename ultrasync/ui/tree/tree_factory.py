@@ -5,7 +5,7 @@ import gi
 
 import constants
 from constants import TreeDisplayMode
-from model.display_id import Identifier
+from model.node_identifier import NodeIdentifier
 from model.fmeta_tree import FMetaTree
 from model.subtree_snapshot import SubtreeSnapshot
 from ui.dialog.base_dialog import BaseDialog
@@ -43,12 +43,12 @@ class TreeFactory:
     def __init__(self,
                  parent_win: BaseDialog,
                  tree_id: str,
-                 root: Optional[Identifier] = None,
+                 root: Optional[NodeIdentifier] = None,
                  tree: Optional[SubtreeSnapshot] = None
                  ):
         self.parent_win = parent_win
 
-        self.root: Optional[Identifier] = root
+        self.root: Optional[NodeIdentifier] = root
         self.tree: Optional[SubtreeSnapshot] = tree
         """Choose one: tree or root"""
 
@@ -155,7 +155,7 @@ def build_gdrive(parent_win,
 
 def build_editor_tree(parent_win,
                       tree_id: str,
-                      root: Identifier = None,
+                      root: NodeIdentifier = None,
                       tree: SubtreeSnapshot = None):
     factory = TreeFactory(parent_win=parent_win, root=root, tree=tree, tree_id=tree_id)
     factory.has_checkboxes = False  # not initially

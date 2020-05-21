@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from model.display_id import Identifier
+from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
 from model.subtree_snapshot import SubtreeSnapshot
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class DisplayTreeBuilder(ABC):
     """Abstract base class. Subclasses can implement different strategies for how to group and organize the underlying data tree"""
-    def __init__(self, controller, root: Identifier = None, tree: SubtreeSnapshot = None):
+    def __init__(self, controller, root: NodeIdentifier = None, tree: SubtreeSnapshot = None):
         self.con = controller
         self._loaded = False
         self._root = root
@@ -30,9 +30,9 @@ class DisplayTreeBuilder(ABC):
             self._tree = self.con.cache_manager.load_subtree(self._root, self.con.tree_id)
             self._loaded = True
 
-    def get_root_identifier(self) -> Identifier:
+    def get_root_identifier(self) -> NodeIdentifier:
         if self._tree:
-            return self._tree.identifier
+            return self._tree.node_identifier
         return self._root
 
     def get_tree(self):
@@ -48,7 +48,7 @@ class DisplayTreeBuilder(ABC):
         pass
 
     @abstractmethod
-    def get_children(self, parent_identifier: Identifier) -> Optional[List[DisplayNode]]:
+    def get_children(self, parent_identifier: NodeIdentifier) -> Optional[List[DisplayNode]]:
         """Return the children for the given parent_id.
         The children of the given node can look very different depending on value of 'tree_display_mode'"""
         return None

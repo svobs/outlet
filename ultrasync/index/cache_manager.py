@@ -15,8 +15,8 @@ from index.master_gdrive import GDriveMasterCache
 from index.master_local import LocalDiskMasterCache
 from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
-from model import display_id
-from model.display_id import GDriveIdentifier, Identifier, LocalFsIdentifier
+from model import node_identifier
+from model.node_identifier import GDriveIdentifier, NodeIdentifier, LocalFsIdentifier, NodeIdentifierFactory
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
 from ui import actions
@@ -144,7 +144,7 @@ class CacheManager:
         elif cache_type == OBJ_TYPE_GDRIVE:
             self.gdrive_cache.init_subtree_gdrive_cache(existing_disk_cache, ID_GLOBAL_CACHE)
 
-    def load_subtree(self, identifier: Identifier, tree_id: str) -> SubtreeSnapshot:
+    def load_subtree(self, node_identifier: NodeIdentifier, tree_id: str) -> SubtreeSnapshot:
         """
         Performs a read-through retreival of all the FMetas in the given subtree
         on the local filesystem.
@@ -152,14 +152,14 @@ class CacheManager:
 
         dispatcher.send(signal=actions.LOAD_TREE_STARTED, sender=tree_id)
 
-        if identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
+        if node_identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
             assert self.local_disk_cache
-            return self.local_disk_cache.load_subtree(identifier, tree_id)
-        elif identifier.tree_type == OBJ_TYPE_GDRIVE:
+            return self.local_disk_cache.load_subtree(node_identifier, tree_id)
+        elif node_identifier.tree_type == OBJ_TYPE_GDRIVE:
             assert self.gdrive_cache
-            return self.gdrive_cache.load_subtree(identifier, tree_id)
+            return self.gdrive_cache.load_subtree(node_identifier, tree_id)
         else:
-            raise RuntimeError(f'Unrecognized tree type: {identifier.tree_type}')
+            raise RuntimeError(f'Unrecognized tree type: {node_identifier.tree_type}')
 
     def load_local_subtree(self, subtree_path, tree_id) -> SubtreeSnapshot:
         """
@@ -174,10 +174,10 @@ class CacheManager:
     def download_all_gdrive_meta(self, tree_id):
         return self.gdrive_cache.download_all_gdrive_meta(tree_id)
 
-    def get_cache_info_entry(self, subtree_root: Identifier) -> PersistedCacheInfo:
+    def get_cache_info_entry(self, subtree_root: NodeIdentifier) -> PersistedCacheInfo:
         return self.caches_by_type.get_single(subtree_root.tree_type, subtree_root.uid)
 
-    def get_or_create_cache_info_entry(self, subtree_root: Identifier) -> PersistedCacheInfo:
+    def get_or_create_cache_info_entry(self, subtree_root: NodeIdentifier) -> PersistedCacheInfo:
         existing = self.get_cache_info_entry(subtree_root)
         if existing:
             logger.debug(f'Found existing cache for type={subtree_root.tree_type} subtree="{subtree_root.uid}"')
@@ -210,16 +210,16 @@ class CacheManager:
 
         return cache_info
 
-    def resolve_path(self, full_path: str = None, identifier: Identifier = None) -> List[Identifier]:
+    def resolve_path(self, full_path: str = None, node_identifier: NodeIdentifier = None) -> List[NodeIdentifier]:
         """Resolves the given path into either a local file, a set of Google Drive matches, or raises a GDriveItemNotFoundError"""
-        if not identifier:
-            identifier = display_id.for_values(full_path=full_path)
-        if identifier.tree_type == OBJ_TYPE_GDRIVE:
+        if not node_identifier:
+            node_identifier = NodeIdentifierFactory.for_values(full_path=full_path)
+        if node_identifier.tree_type == OBJ_TYPE_GDRIVE:
             # Need to wait until all caches are loaded:
             if not self.all_caches_loaded.wait(CACHE_LOAD_TIMEOUT_SEC):
                 logger.error('Timed out waiting for all caches to load!')
 
-            return self.gdrive_cache.get_all_for_path(identifier.full_path)
+            return self.gdrive_cache.get_all_for_path(node_identifier.full_path)
         else:
             if not os.path.exists(full_path):
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)

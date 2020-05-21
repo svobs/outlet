@@ -9,7 +9,7 @@ import format_util
 from index.atomic_counter import AtomicCounter
 from index.two_level_dict import Md5BeforePathDict, Md5BeforeUidDict
 from model.category import Category
-from model.display_id import Identifier, LocalFsIdentifier
+from model.node_identifier import NodeIdentifier, LocalFsIdentifier
 from model.display_node import DirNode, DisplayNode
 from model.fmeta import FMeta
 from model.planning_node import PlanningNode
@@ -55,18 +55,18 @@ class FMetaTree(SubtreeSnapshot):
         return constants.OBJ_TYPE_LOCAL_DISK
 
     @classmethod
-    def create_identifier(cls, full_path: str, uid: int, category) -> Identifier:
+    def create_identifier(cls, full_path: str, uid: int, category) -> NodeIdentifier:
         return LocalFsIdentifier(full_path=full_path, uid=uid, category=category)
 
     @classmethod
-    def create_empty_subtree(cls, subtree_root: Union[str, Identifier, DisplayNode]) -> SubtreeSnapshot:
+    def create_empty_subtree(cls, subtree_root: Union[str, NodeIdentifier, DisplayNode]) -> SubtreeSnapshot:
         if type(subtree_root) == str:
             return FMetaTree(subtree_root)
         else:
-            assert isinstance(subtree_root, Identifier) or isinstance(subtree_root, DisplayNode)
+            assert isinstance(subtree_root, NodeIdentifier) or isinstance(subtree_root, DisplayNode)
             return FMetaTree(subtree_root.full_path)
 
-    def get_item_for_identifier(self, identifer: Identifier) -> FMeta:
+    def get_item_for_identifier(self, identifer: NodeIdentifier) -> FMeta:
         if identifer.full_path:
             return self.get_for_path(identifer.full_path)
         return None
@@ -79,11 +79,11 @@ class FMetaTree(SubtreeSnapshot):
             return DirNode(identifer)
         return None
 
-    def get_ancestor_chain(self, item) -> List[Identifier]:
+    def get_ancestor_chain(self, item) -> List[NodeIdentifier]:
         relative_path = self.get_relative_path_for_item(item)
         path_segments: List[str] = file_util.split_path(relative_path)
 
-        identifiers: List[Identifier] = []
+        identifiers: List[NodeIdentifier] = []
         path_so_far = self.root_path
         for segment in path_segments[:-1]:
             path_so_far = os.path.join(path_so_far, segment)

@@ -7,7 +7,7 @@ from pydispatch import dispatcher
 
 import ui.actions as actions
 from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED, TreeDisplayMode
-from model.display_id import Identifier
+from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
 from model.fmeta import FMeta
 
@@ -75,7 +75,7 @@ class TreeContextListeners:
     # LISTENERS begin
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
-    def _on_root_path_updated(self, sender, new_root: Identifier, err=None):
+    def _on_root_path_updated(self, sender, new_root: NodeIdentifier, err=None):
         logger.debug(f'Received signal: "{actions.ROOT_PATH_UPDATED}"')
 
         # Reload subtree and refresh display
@@ -227,14 +227,14 @@ class TreeContextListeners:
             model, tree_paths = selection.get_selected_rows()
             if len(tree_paths) == 1:
                 item = self.con.display_store.get_node_data(tree_paths[0])
-                self.context_handlers[item.identifier.tree_type].delete_dir_tree(subtree_root=item.full_path, tree_path=tree_paths[0])
+                self.context_handlers[item.node_identifier.tree_type].delete_dir_tree(subtree_root=item.full_path, tree_path=tree_paths[0])
                 return True
             elif len(tree_paths) > 1:
                 selected_items = []
                 for tree_path in tree_paths:
                     item = self.con.display_store.get_node_data(tree_path)
                     selected_items.append(item)
-                    if not self.context_handlers[item.identifier.tree_type].delete_dir_tree(subtree_root=item.full_path, tree_path=tree_path):
+                    if not self.context_handlers[item.node_identifier.tree_type].delete_dir_tree(subtree_root=item.full_path, tree_path=tree_path):
                         # something went wrong if we got False. Stop.
                         break
 
@@ -267,7 +267,7 @@ class TreeContextListeners:
                 return False
 
         # Singular item, or singular selection (equivalent logic). Display context menu:
-        context_menu = self.context_handlers[node_data.identifier.tree_type].build_context_menu(tree_path, node_data)
+        context_menu = self.context_handlers[node_data.node_identifier.tree_type].build_context_menu(tree_path, node_data)
         if context_menu:
             context_menu.popup_at_pointer(event)
             return True
@@ -292,9 +292,9 @@ def _get_items_type(selected_items: List):
     if len(selected_items) > 1:
         # Multiple selected items:
         for item in selected_items:
-            if item.identifier.tree_type == OBJ_TYPE_GDRIVE:
+            if item.node_identifier.tree_type == OBJ_TYPE_GDRIVE:
                 gdrive_count += 1
-            elif item.identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
+            elif item.node_identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
                 fmeta_count += 1
 
     # determine object types

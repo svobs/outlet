@@ -3,7 +3,7 @@ from typing import List, Optional
 
 import treelib
 
-from model.display_id import Identifier
+from model.node_identifier import NodeIdentifier
 from model.display_node import DirNode, DisplayNode
 from model.gdrive_subtree import GDriveSubtree
 from model.gdrive_whole_tree import GDriveTree, GDriveWholeTree
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class AllItemsGDriveTreeBuilder(DisplayTreeBuilder):
     """Works with either a GDriveWholeTree or a GDriveSubtree"""
-    def __init__(self, controller, root: Identifier = None, tree: SubtreeSnapshot = None):
+    def __init__(self, controller, root: NodeIdentifier = None, tree: SubtreeSnapshot = None):
         super().__init__(controller=controller, root=root, tree=tree)
 
     def get_children_for_root(self) -> Optional[List[DisplayNode]]:
@@ -32,7 +32,7 @@ class AllItemsGDriveTreeBuilder(DisplayTreeBuilder):
             parent_id = self.tree.root_id
             return self.tree.get_children(parent_id)
 
-    def get_children(self, parent_identifier: Identifier) -> Optional[List[DisplayNode]]:
+    def get_children(self, parent_identifier: NodeIdentifier) -> Optional[List[DisplayNode]]:
         return self.tree.get_children(parent_id=parent_identifier)
 
 
@@ -40,20 +40,20 @@ class AllItemsGDriveTreeBuilder(DisplayTreeBuilder):
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
-    def __init__(self, controller, root: Identifier = None, tree: SubtreeSnapshot = None):
+    def __init__(self, controller, root: NodeIdentifier = None, tree: SubtreeSnapshot = None):
         super().__init__(controller=controller, root=root, tree=tree)
         self.display_tree = None
 
     def get_children_for_root(self) -> Optional[List[DisplayNode]]:
         if not self.display_tree:
             self.display_tree = self._build_display_tree()
-        return self.get_children(parent_identifier=self.tree.identifier)
+        return self.get_children(parent_identifier=self.tree.node_identifier)
 
-    def get_children(self, parent_identifier: Identifier) -> Optional[List[treelib.Node]]:
+    def get_children(self, parent_identifier: NodeIdentifier) -> Optional[List[treelib.Node]]:
         try:
             return self.display_tree.children(parent_identifier.uid)
         except Exception:
-            logger.debug(f'CategoryTree for "{self.tree.identifier}": ' + self.display_tree.show(stdout=False))
+            logger.debug(f'CategoryTree for "{self.tree.node_identifier}": ' + self.display_tree.show(stdout=False))
             raise
 
     def _build_display_tree(self) -> treelib.Tree:
@@ -62,7 +62,7 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
         """
         sw = Stopwatch()
         source_tree = self.tree
-        root_node = DirNode(self.tree.identifier)
+        root_node = DirNode(self.tree.node_identifier)
         # The change set in tree form
         display_tree = treelib.Tree()
 
@@ -86,12 +86,12 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
 
             if ancestor_identifiers:
                 # Create a node for each ancestor dir (path segment)
-                for identifier in ancestor_identifiers:
-                    nid = identifier.uid
+                for node_identifier in ancestor_identifiers:
+                    nid = node_identifier.uid
                     child: treelib.Node = display_tree.get_node(nid=nid)
                     if child is None:
                         # logger.debug(f'Creating dir node: nid={nid}')
-                        dir_node = DirNode(identifier=identifier)
+                        dir_node = DirNode(node_identifier=node_identifier)
                         child = display_tree.create_node(identifier=nid, parent=parent, data=dir_node)
                     parent = child
                     assert isinstance(parent.data, DirNode)

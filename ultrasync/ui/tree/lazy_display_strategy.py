@@ -8,7 +8,7 @@ import gi
 import treelib
 
 from constants import LARGE_NUMBER_OF_CHILDREN, TreeDisplayMode
-from model.display_id import Identifier
+from model.node_identifier import NodeIdentifier
 from model.subtree_snapshot import SubtreeSnapshot
 
 gi.require_version("Gtk", "3.0")
@@ -54,7 +54,7 @@ class LazyDisplayStrategy:
         if node_data.is_dir():
             parent_iter = self._append_dir_node(parent_iter=parent_iter, parent_uid=parent_uid, node_data=node_data)
 
-            for child in self.con.tree_builder.get_children(node_data.identifier):
+            for child in self.con.tree_builder.get_children(node_data.node_identifier):
                 node_count = self._populate_recursively(parent_iter, parent_uid, child, node_count)
         else:
             self._append_file_node(parent_iter, parent_uid, node_data)
@@ -92,7 +92,7 @@ class LazyDisplayStrategy:
         # Remove loading node:
         self.con.display_store.remove_first_child(parent_iter)
 
-        children: List[DisplayNode] = self.con.tree_builder.get_children(node_data.identifier)
+        children: List[DisplayNode] = self.con.tree_builder.get_children(node_data.node_identifier)
         for child in children:
             self.populate_recursively(parent_iter, node_data.uid, child)
 
@@ -194,7 +194,7 @@ class LazyDisplayStrategy:
 
     def _on_node_expansion_toggled(self, sender: str, parent_iter, node_data: DisplayNode, is_expanded: bool):
         # Callback for actions.NODE_EXPANSION_TOGGLED:
-        logger.debug(f'Node expansion toggled to {is_expanded} for {node_data.identifier}" tree_id={sender}')
+        logger.debug(f'Node expansion toggled to {is_expanded} for {node_data.node_identifier}" tree_id={sender}')
 
         if not self.auto_populate_enabled:
             logger.debug('Auto-populate disabled')
@@ -203,7 +203,7 @@ class LazyDisplayStrategy:
         def expand_or_contract():
             # Add children for node:
             if is_expanded:
-                children = self.con.tree_builder.get_children(node_data.identifier)
+                children = self.con.tree_builder.get_children(node_data.node_identifier)
                 self._append_children(children=children, parent_iter=parent_iter, parent_uid=node_data.uid)
                 # Remove Loading node:
                 self.con.display_store.remove_first_child(parent_iter)
@@ -389,7 +389,7 @@ class LazyDisplayStrategy:
                     row_values.append(False)  # Inconsistent
                     return
                 # Otherwise: inconsistent. Look up individual values below:
-            row_id = node_data.identifier.uid
+            row_id = node_data.node_identifier.uid
             checked = self.con.display_store.checked_rows.get(row_id, None)
             inconsistent = self.con.display_store.inconsistent_rows.get(row_id, None)
             row_values.append(checked)  # Checked
