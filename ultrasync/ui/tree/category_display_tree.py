@@ -1,12 +1,14 @@
 import copy
 from collections import deque
-from typing import Deque, Dict, Iterable, List, Optional, Union
+from typing import Deque, Dict, Iterable, List, Optional, Tuple, Union
 import logging
 
 import treelib
 from treelib.exceptions import DuplicatedNodeIdError
 
+import file_util
 from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
+from index.uid_generator import UID
 from model.category import Category
 from model.node_identifier import NodeIdentifier, LogicalNodeIdentifier, NodeIdentifierFactory
 from model.display_node import CategoryNode, DirNode, DisplayNode, RootTypeNode
@@ -22,11 +24,10 @@ CATEGORIES = [Category.Added, Category.Deleted, Category.Moved, Category.Updated
 
 class CategoryDisplayTree:
     def __init__(self, source_tree: SubtreeSnapshot, root: Union[DisplayNode, NodeIdentifier] = None, extra_node_for_type=False):
-        self._category_trees: Dict[Category, treelib.Tree] = {}
-        self.extra_node_for_type = extra_node_for_type
-        """One tree per category"""
-
-        self.source_tree = source_tree
+        self._category_tree: treelib.Tree = treelib.Tree()
+        self.root = self._category_tree.create_node(identifier='//', parent=None, data=None)
+        self.extra_node_for_type: bool = extra_node_for_type
+        self.source_tree: SubtreeSnapshot = source_tree
 
         if not root:
             # If root is not set, set it to the root of the source tree:
@@ -35,21 +36,7 @@ class CategoryDisplayTree:
             self.node_identifier: NodeIdentifier = root.node_identifier
         else:
             self.node_identifier: NodeIdentifier = root
-        self._roots: Dict[Category, treelib.Node] = {}
         """Don't know of an easy way to get the roots of each tree...just hold the refs here"""
-
-        for category in CATEGORIES:
-            # Make CategoryNode:
-            category_node = self._make_category_node(category)
-
-            # Make treelib.Tree
-            category_tree = treelib.Tree()
-            self._category_trees[category] = category_tree
-
-            # Make treelib root:
-            root = category_tree.create_node(identifier=category_node.uid, data=category_node)
-
-            self._roots[category] = root
 
     @property
     def tree_type(self) -> int:
@@ -63,39 +50,32 @@ class CategoryDisplayTree:
     def uid(self):
         return self.node_identifier.uid
 
-    def get_children_for_root(self) -> Iterable[DisplayNode]:
-        return list(map(lambda x: x.data, self._roots.values()))
-
-    def get_category_tree(self, category: Category) -> Optional[treelib.Tree]:
-        return self._category_trees.get(category, None)
+    def get_children_for_root(self) -> Iterable[treelib.Node]:
+        return self._category_tree.children(self.root.identifier)
 
     def get_children(self, parent_identifier: NodeIdentifier) -> List[treelib.Node]:
         assert parent_identifier.category != Category.NA, f'For item: {parent_identifier}'
 
-        category_tree: treelib.Tree = self._category_trees[parent_identifier.category]
+        try:
+            # Bit of a kludge here to fit in the fact that we're modifying the NIDs of some nodes and not others...
+            # why is this being so difficult??
+            if str(parent_identifier.uid).startswith(self.root.identifier):
+                nid = parent_identifier.uid
+            else:
+                subroot_nid, cat_nid = self._get_useful_nids(parent_identifier, parent_identifier.category)
+                nid = f'{cat_nid}/{parent_identifier.uid}'
 
-        if category_tree:
-            try:
-                return category_tree.children(parent_identifier.uid)
-            except Exception:
-                logger.debug(f'CategoryTree for "{self.node_identifier}": ' + category_tree.show(stdout=False))
-                logger.debug(f'While retrieving children for: {parent_identifier}')
-                raise
+            return self._category_tree.children(nid)
+        except Exception:
+            logger.debug(f'CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))
+            logger.debug(f'While retrieving children for: {parent_identifier}')
+            raise
 
+    # TODO: refactor signature: this is UID, not NodeIdentifer
     def get_item_for_identifier(self, identifer: NodeIdentifier) -> Optional[DisplayNode]:
-        # FIXME
-        if isinstance(identifer, int):
-            # TODO: search each tree...? Eww
-            pass
-        elif identifer.uid:
-            pass
-            # item = self._whole_tree.get_item_for_id(identifer.uid)
-            # if item and self.in_this_subtree(item.full_path):
-            #     return item
-        elif identifer.full_path:
-            # TODO: not sure if we wanna pursue this
-            pass
-            # item_list = self._whole_tree.get_all_ids_for_path(identifer.full_path)
+        node = self._category_tree.get_node(identifer)
+        if node:
+            return node.data
         return None
 
     def get_all(self):
@@ -116,34 +96,80 @@ class CategoryDisplayTree:
                 elif node.is_file():
                     all_nodes.append(node)
 
-    def add_item(self, item: DisplayNode, category: Category):
-        assert category != Category.NA, f'For item: {item}'
-        category_tree: treelib.Tree = self._category_trees[category]
-        root: treelib.Node = self._roots[category]
+    def _get_useful_nids(self, node_identifier: NodeIdentifier, category: Category):
+        subroot_nid = None
+        if self.extra_node_for_type:
+            if node_identifier.tree_type == OBJ_TYPE_GDRIVE:
+                subroot_nid = f'{self.root.identifier}GD'
+            elif node_identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
+                subroot_nid = f'{self.root.identifier}LO'
+            else:
+                raise RuntimeError(f'bad: {node_identifier.tree_type}')
 
-        # FIXME: find an elegant way to display all the nodes going back to each root
+            cat_nid = f'{subroot_nid}/{category.name}'
+        else:
+            cat_nid = f'{self.root.identifier}{category.name}'
+        return subroot_nid, cat_nid
 
-        # TODO: really, really need to get rid of one-tree-per-category
+    def _get_or_create_pre_ancestors(self, item: DisplayNode, category: Category) -> Tuple[str, treelib.Node]:
+        subroot_nid, cat_nid = self._get_useful_nids(item.node_identifier, category)
+
+        last_pre_ancestor_nid = f'{cat_nid}/{self.node_identifier.uid}'
+
+        # FIXME: we have an extraneous root node
+        last_pre_ancestor: treelib.Node = self._category_tree.get_node(last_pre_ancestor_nid)
+        if last_pre_ancestor:
+            return cat_nid, last_pre_ancestor
+
+        # else we need to create pre-ancestors...
 
         if self.extra_node_for_type:
-            if item.node_identifier.tree_type == OBJ_TYPE_GDRIVE:
-                subroot_nid = root.identifier + '/Google Drive'
-            elif item.node_identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
-                subroot_nid = root.identifier + '/Local Disk'
-            else:
-                raise RuntimeError(f'bad: {item.node_identifier.tree_type}')
-
-            subroot_node: treelib.Node = category_tree.get_node(nid=subroot_nid)
+            # Create sub-root (i.e. 'GDrive' or 'Local Disk')
+            subroot_node: treelib.Node = self._category_tree.get_node(subroot_nid)
             if not subroot_node:
-                node_identifier = NodeIdentifierFactory.for_values(tree_type=item.node_identifier.tree_type, full_path=subroot_nid,
-                                                        uid=subroot_nid, category=category)
+                node_identifier = NodeIdentifierFactory.for_values(tree_type=item.node_identifier.tree_type,
+                                                                   uid=subroot_nid, category=category)
                 subroot_node_data = RootTypeNode(node_identifier=node_identifier)
-                subroot_node = category_tree.create_node(identifier=subroot_nid, parent=root, data=subroot_node_data)
-
-            root.data.add_meta_metrics(item)
-            parent = subroot_node
+                subroot_node = self._category_tree.create_node(identifier=subroot_nid, parent=self.root, data=subroot_node_data)
+            parent_node = subroot_node
         else:
-            parent = root
+            # no sub-root used
+            parent_node = self.root
+
+        cat_node: treelib.Node = self._category_tree.get_node(cat_nid)
+        if not cat_node:
+            # Create category display node
+            cat_identifier: LogicalNodeIdentifier = LogicalNodeIdentifier(uid=cat_nid, full_path=None, category=category)
+            cat_node_data = CategoryNode(node_identifier=cat_identifier)
+            cat_node = self._category_tree.create_node(identifier=cat_nid, parent=parent_node, data=cat_node_data)
+        parent_node = cat_node
+
+        tree_type: int = self.node_identifier.tree_type
+
+        if self.extra_node_for_type:
+            # Create remaining pre-ancestors:
+            path_segments: List[str] = file_util.split_path(self.node_identifier.full_path)
+            path_so_far = ''
+            for path in path_segments[:-1]:
+                path_so_far += path
+                # being stingy with node identifiers - just using path instead here. we never access this stuff anyway
+                dir_uid = f'{cat_nid}/{path_so_far}'
+                node_identifier = NodeIdentifierFactory.for_values(tree_type=tree_type, full_path=path_so_far, uid=dir_uid, category=category)
+                dir_node_data = DirNode(node_identifier=node_identifier)
+                parent_node = self._category_tree.create_node(identifier=dir_node_data.uid, parent=parent_node, data=dir_node_data)
+
+        # last pre-ancestor:
+        node_identifier = NodeIdentifierFactory.for_values(tree_type=tree_type, full_path=self.node_identifier.full_path,
+                                                           uid=self.node_identifier.uid, category=category)
+        dir_node_data = DirNode(node_identifier=node_identifier)
+        last_pre_ancestor = self._category_tree.create_node(identifier=last_pre_ancestor_nid, parent=parent_node, data=dir_node_data)
+
+        return cat_nid, last_pre_ancestor
+
+    def add_item(self, item: DisplayNode, category: Category):
+        assert category != Category.NA, f'For item: {item}'
+
+        cat_nid, parent = self._get_or_create_pre_ancestors(item, category)
 
         parent.data.add_meta_metrics(item)
 
@@ -152,7 +178,8 @@ class CategoryDisplayTree:
             ancestor = item
             while ancestor and ancestor.parent_ids:
                 # In this tree already? Saves us work, and allow us to use nodes not in the parent tree (e.g. FolderToAdds)
-                node: treelib.Node = category_tree.get_node(nid=ancestor.parent_ids[0])
+                nid = f'{cat_nid}/{ancestor.parent_ids[0]}'
+                node: treelib.Node = self._category_tree.get_node(nid=nid)
                 if node:
                     parent = node
                     break
@@ -168,26 +195,17 @@ class CategoryDisplayTree:
 
         # Create a node for each ancestor dir (path segment)
         for node_identifier in ancestor_identifiers:
-            nid = node_identifier.uid
-            child: treelib.Node = category_tree.get_node(nid=nid)
+            nid = f'{cat_nid}/{node_identifier.uid}'
+            child: treelib.Node = self._category_tree.get_node(nid=nid)
             if child is None:
                 # Need to copy the node_identifier so that we can ensure the category is correct for where it is
                 # going in our tree. When get_children() is called, it uses the node_identifier's category to
                 # determine which tree to look up. Need to brainstorm a more elegant solution!
-                id_copy = copy.copy(node_identifier)
-                id_copy.category = category
-                if type(id_copy.full_path) == list:
-                    # try to filter by whether the path is in the subtree. this won't always work
-                    filtered_list = [x for x in id_copy.full_path if self.source_tree.in_this_subtree(x)]
-                    if len(filtered_list) == 1:
-                        id_copy.full_path = filtered_list[0]
-                    else:
-                        assert len(filtered_list) > 0
-                        id_copy.full_path = filtered_list
+                new_identifier = NodeIdentifierFactory.for_values(tree_type=node_identifier.tree_type, full_path=node_identifier.full_path,
+                                                                  uid=node_identifier.uid, category=category)
                 # TODO: subclass this from treelib.Node! Then we don't have to allocate twice
-                # TODO: need to rename node_identifier to something else
-                dir_node = DirNode(node_identifier=id_copy)
-                child = category_tree.create_node(identifier=nid, parent=parent, data=dir_node)
+                dir_node = DirNode(node_identifier=new_identifier)
+                child = self._category_tree.create_node(identifier=nid, parent=parent, data=dir_node)
             parent = child
             assert isinstance(parent.data, DirNode)
             parent.data.add_meta_metrics(item)
@@ -196,7 +214,8 @@ class CategoryDisplayTree:
         categorized_item = copy.copy(item)
         categorized_item.node_identifier.category = category
         try:
-            category_tree.create_node(identifier=item.uid, parent=parent, data=categorized_item)
+            nid = f'{cat_nid}/{item.uid}'
+            self._category_tree.create_node(identifier=nid, parent=parent, data=categorized_item)
         except DuplicatedNodeIdError:
             logger.error(f'Duplicate path for node {item}')
             raise
@@ -205,14 +224,13 @@ class CategoryDisplayTree:
         assert item.category != Category.NA
         identifiers: List[NodeIdentifier] = []
 
-        category_tree: treelib.Tree = self._category_trees[item.category]
-        category_tree_root_uid: str = self._roots[item.category].data.uid
-        current_uid: str = item.uid
+        subroot_nid, cat_nid = self._get_useful_nids(item.node_identifier, item.category)
+        current_uid: UID = item.uid
 
         while True:
-            ancestor: treelib.Node = category_tree.parent(current_uid)
+            ancestor: treelib.Node = self._category_tree.parent(current_uid)
             if ancestor:
-                if ancestor.data.uid == category_tree_root_uid:
+                if ancestor.data.uid == cat_nid:
                     # Do not include root
                     break
                 identifiers.append(ancestor.data.node_identifier)
@@ -231,20 +249,10 @@ class CategoryDisplayTree:
     def __repr__(self):
         return f'CategoryDisplayTree({self.get_summary()})'
 
-    def get_new_uid(self):
-        return self.source_tree.get_new_uid()
-
     def get_summary(self) -> str:
         summary = []
-        for category, tree in self._category_trees.items():
-            length = len(tree)
-            root = self._roots[category]
-            cat_node: CategoryNode = root.data
-            summary.append(f'{category.name}: {cat_node.get_summary()}')
+        for child in self._category_tree.children(self.root.identifier):
+            if isinstance(child.data, CategoryNode):
+                cat_node: CategoryNode = child.data
+                summary.append(f'{cat_node.name}: {cat_node.get_summary()}')
         return ', '.join(summary)
-
-    def _make_category_node(self, category: Category):
-        # uid must be unique within the tree
-        cat_id: LogicalNodeIdentifier = LogicalNodeIdentifier(uid=f'Category:{category.name}',
-                                                              full_path=self.node_identifier.full_path, category=category)
-        return CategoryNode(cat_id)

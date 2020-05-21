@@ -32,7 +32,7 @@ class NodeIdentifier(ABC):
     """
 
     def __init__(self, uid: UID, full_path: str, category: Category):
-        assert full_path is None or (type(full_path) == str and full_path.find('/') >= 0), f'full_path does not look like a path: {full_path}'
+        # assert full_path is None or (type(full_path) == str and full_path.find('/') >= 0), f'full_path does not look like a path: {full_path}'
         self.uid: UID = uid
         self.full_path: str = full_path
         self.category: Category = ensure_category(category)

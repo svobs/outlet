@@ -66,7 +66,7 @@ class PersistentAtomicIntUidGenerator(AtomicIntUidGenerator):
 
     def get_new_uid(self) -> UID:
         new_uid = super().get_new_uid()
-        self._config.write(CONFIG_KEY, new_uid)
+        #TODO self._config.write(CONFIG_KEY, new_uid)
         return new_uid
 
     def set_next_uid(self, uid: int):

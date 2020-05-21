@@ -266,6 +266,7 @@ class TreeContextListeners:
             else:
                 return False
 
+        # FIXME: what about logical nodes?
         # Singular item, or singular selection (equivalent logic). Display context menu:
         context_menu = self.context_handlers[node_data.node_identifier.tree_type].build_context_menu(tree_path, node_data)
         if context_menu:
@@ -284,6 +285,7 @@ class TreeContextListeners:
     def build_context_menu(self, tree_path: Gtk.TreePath, node_data: DisplayNode) -> Optional[Gtk.Menu]:
         """Create context menu for single item, or singular selection (equivalent logic)"""
         return None
+
 
 def _get_items_type(selected_items: List):
     gdrive_count = 0

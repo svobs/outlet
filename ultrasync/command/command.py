@@ -59,8 +59,8 @@ class Command(ABC):
     def has_dependencies(self) -> bool:
         return self.get_dependencies() is not None
 
-    def get_dependencies(self) -> List[int]:
-        """Returns a list of UIDs"""
+    def get_dependencies(self) -> List:
+        """Returns a list of Commands"""
         return []
 
     def get_model(self) -> DisplayNode:
