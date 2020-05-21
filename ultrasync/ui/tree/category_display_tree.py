@@ -83,6 +83,22 @@ class CategoryDisplayTree:
                 logger.debug(f'While retrieving children for: {parent_identifier}')
                 raise
 
+    def get_item_for_identifier(self, identifer: Identifier) -> Optional[DisplayNode]:
+        # FIXME
+        if isinstance(identifer, int):
+            # TODO: search each tree...? Eww
+            pass
+        elif identifer.uid:
+            pass
+            # item = self._whole_tree.get_item_for_id(identifer.uid)
+            # if item and self.in_this_subtree(item.full_path):
+            #     return item
+        elif identifer.full_path:
+            # TODO: not sure if we wanna pursue this
+            pass
+            # item_list = self._whole_tree.get_all_ids_for_path(identifer.full_path)
+        return None
+
     def get_all(self):
         all_nodes = []
         queue = deque()
@@ -148,6 +164,7 @@ class CategoryDisplayTree:
                         break
                     ancestor_identifiers.appendleft(ancestor.identifier)
         else:
+            # TODO: get rid of this
             ancestor_identifiers = self.source_tree.get_ancestor_chain(item)
 
         # Create a node for each ancestor dir (path segment)

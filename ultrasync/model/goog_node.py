@@ -8,7 +8,7 @@ from model.category import Category
 from model.display_id import GDriveIdentifier
 from model.display_node import DisplayNode, ensure_int
 from model.planning_node import PlanningNode
-from ui.assets import ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE
+from constants import ICON_GENERIC_DIR, ICON_TRASHED_DIR, ICON_TRASHED_FILE
 
 logger = logging.getLogger(__name__)
 
