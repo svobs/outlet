@@ -61,18 +61,18 @@ class ProgressBar:
         thread = threading.Thread(target=self.run_thread, daemon=True)
         thread.start()
 
-    def on_start_progress_indeterminate(self, tx_id, sender):
+    def on_start_progress_indeterminate(self, sender):
         self._indeterminate = True
         self._start_animaion()
 
-    def on_start_progress(self, sender, tx_id, total):
+    def on_start_progress(self, sender, total):
         self._indeterminate = False
         self._start_animaion(total=total)
 
-    def on_progress_made(self, sender, tx_id, progress):
+    def on_progress_made(self, sender, progress):
         self._progress += progress
 
-    def on_stop_progress(self, tx_id, sender):
+    def on_stop_progress(self, sender):
         self._stop_request_count += 1
         logger.debug(f'StopProress(): Starts: {self._start_request_count}, Stops: {self._stop_request_count}')
         if self._start_request_count > self._stop_request_count:
@@ -81,7 +81,7 @@ class ProgressBar:
         logger.debug(f'Requesting stop of progress animation')
         self._stop_requested = True
 
-    def on_set_progress_text(self, sender, msg, tx_id=None):
+    def on_set_progress_text(self, sender, msg):
         if len(msg) > PROGRESS_BAR_MAX_MSG_LENGTH:
             msg = msg[:(PROGRESS_BAR_MAX_MSG_LENGTH-3)] + '...'
 

@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Tuple, Union, ValuesView
 
 import constants
 import file_util
-from index.uid_generator import AtomicIntIdGenerator, UID
+from index.uid_generator import AtomicIntUidGenerator, UID, UidGenerator
 from model import node_identifier
 from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from model.goog_node import GoogNode
@@ -61,7 +61,7 @@ class GDriveTree:
 """
 
 
-class GDriveWholeTree(AtomicIntIdGenerator):
+class GDriveWholeTree:
     def __init__(self):
         super().__init__()
 
@@ -119,10 +119,6 @@ class GDriveWholeTree(AtomicIntIdGenerator):
 
         if not item.parent_ids:
             self.roots.append(item)
-
-        if item.uid >= self._next_uid:
-            # Try to avoid a UID conflict
-            self._next_uid = item.uid + 1
 
     def add_parent_mapping(self, item_uid: UID, parent_uid: UID):
         assert item_uid

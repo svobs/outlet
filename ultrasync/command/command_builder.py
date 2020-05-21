@@ -1,22 +1,27 @@
-from command.command import CommandList, CopyFileLocallyCommand, DeleteGDriveFileCommand, DeleteLocalFileCommand, DownloadFromGDriveCommand, \
+from command.command import CommandList, CopyFileLocallyCommand, CreateGDriveFolderCommand, DeleteGDriveFileCommand, DeleteLocalFileCommand, \
+    DownloadFromGDriveCommand, \
     MoveFileGDriveCommand, \
     MoveFileLocallyCommand, \
     UploadToGDriveCommand
 from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
 from model.category import Category
+from model.goog_node import FolderToAdd
 from model.planning_node import FileToAdd, FileToMove, FileToUpdate
+from ui.tree.category_display_tree import CategoryDisplayTree
 
 
 class CommandBuilder:
     def __init__(self, uid_generator):
         self._uid_generator = uid_generator
 
-    def build_command_list(self, tree):
+    def build_command_list(self, tree: CategoryDisplayTree):
         cmd_list: CommandList = CommandList(self._uid_generator.get_new_uid())
 
         for node in tree.get_all():
             tree_type: int = node.node_identifier.tree_type
             if node.category == Category.Added:
+                if isinstance(node, FolderToAdd):
+                    cmd = CreateGDriveFolderCommand(node, parent_goog_ids=parent_goog_ids)
                 assert isinstance(node, FileToAdd)
                 orig_tree_type: int = node.src_node.node_identifier.tree_type
                 if orig_tree_type == tree_type:

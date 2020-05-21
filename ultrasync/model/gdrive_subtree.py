@@ -11,7 +11,7 @@ from constants import NOT_TRASHED
 from index.two_level_dict import Md5BeforeUidDict
 from model.category import Category
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
-from model.gdrive_whole_tree import GDriveItemNotFoundError, GDriveTree, GDriveWholeTree
+from model.gdrive_whole_tree import GDriveItemNotFoundError, GDriveWholeTree
 from model.goog_node import GoogNode
 from model.planning_node import FileDecoratorNode
 from model.subtree_snapshot import SubtreeSnapshot

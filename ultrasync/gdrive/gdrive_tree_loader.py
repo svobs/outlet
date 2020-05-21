@@ -100,10 +100,10 @@ def parent_mappings_tuples(item_uid: UID, parent_goog_ids: List[str], sync_ts: i
 
 
 class GDriveTreeLoader:
-    def __init__(self, config, cache_path, tree_id=None):
-        self.config = config
+    def __init__(self, application, cache_path, tree_id=None):
+        self.uid_generator = application.uid_generator
+        self.config = application.config
         self.tree_id = tree_id
-        self.tx_id = uuid.uuid1()
         self.cache_path = cache_path
         self.cache = None
         self.gdrive_client = GDriveClient(self.config, tree_id)
@@ -123,12 +123,12 @@ class GDriveTreeLoader:
             finally:
                 if self.tree_id:
                     logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
-                    actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id, tx_id=self.tx_id)
+                    actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id)
 
     def _load_all(self, invalidate_cache: bool) -> GDriveWholeTree:
         if self.tree_id:
             logger.debug(f'Sending START_PROGRESS_INDETERMINATE for tree_id: {self.tree_id}')
-            actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=self.tree_id, tx_id=self.tx_id)
+            actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=self.tree_id)
 
         sync_ts: int = int(time.time())
 
@@ -147,7 +147,7 @@ class GDriveTreeLoader:
             logger.info(msg)
 
             if self.tree_id:
-                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=msg)
+                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             meta: GDriveWholeTree = self._load_tree_from_cache(download.is_complete())
 
@@ -166,7 +166,8 @@ class GDriveTreeLoader:
             # Need to make a special call to get the root node 'My Drive'. This node will not be included
             # in the "list files" call:
             download.update_ts = sync_ts
-            drive_root: GoogFolder = self.gdrive_client.get_meta_my_drive_root(meta.get_new_uid(), download.update_ts)
+            new_uid = self.uid_generator.get_new_uid()
+            drive_root: GoogFolder = self.gdrive_client.get_meta_my_drive_root(new_uid, download.update_ts)
             meta.id_dict[drive_root.uid] = drive_root
 
             download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
@@ -213,7 +214,7 @@ class GDriveTreeLoader:
             # fall through
 
         # Still need to compute this in memory:
-        _determine_roots(meta)
+        self._determine_roots(meta)
         _compile_full_paths(meta)
 
         return meta
@@ -235,7 +236,7 @@ class GDriveTreeLoader:
         dir_rows = self.cache.get_gdrive_dirs()
         dir_count = len(dir_rows)
 
-        actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=f'Retreived {len(dir_rows):n} dirs')
+        actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=f'Retreived {len(dir_rows):n} dirs')
 
         for uid_int, goog_id, item_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
             uid = UID(uid_int)
@@ -251,7 +252,7 @@ class GDriveTreeLoader:
         file_rows = self.cache.get_gdrive_files()
         file_count = len(file_rows)
 
-        actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=f'Retreived {len(file_rows):n} files')
+        actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=f'Retreived {len(file_rows):n} files')
 
         for uid_int, goog_id, item_name, item_trashed, size_bytes_str, md5, create_ts, modify_ts, owner_id, drive_id, \
                 my_share, version, head_revision_id, sync_ts in file_rows:
@@ -284,6 +285,17 @@ class GDriveTreeLoader:
         logger.debug(f'{sw_total} Loaded {len(tree.id_dict):n} items from {file_count:n} file rows and {dir_count:n} dir rows')
         return tree
 
+    def _determine_roots(self, tree: GDriveWholeTree):
+        max_uid = uid_generator.ROOT_UID + 1
+        for item in tree.id_dict.values():
+            if not item.parent_ids:
+                tree.roots.append(item)
+
+            if item.uid >= max_uid:
+                max_uid = item.uid
+
+        self.uid_generator.set_next_uid(max_uid + 1)
+
 
 def _translate_parent_ids(tree: GDriveWholeTree, id_parent_mappings: List[Tuple]) -> List[Tuple]:
     sw = Stopwatch()
@@ -314,18 +326,6 @@ def _translate_parent_ids(tree: GDriveWholeTree, id_parent_mappings: List[Tuple]
     if unresolved_parents:
         logger.warning(f'{len(unresolved_parents)} parent IDs could not be resolved: {unresolved_parents}')
     return new_mappings
-
-
-def _determine_roots(tree: GDriveWholeTree):
-    max_uid = uid_generator.ROOT_UID + 1
-    for item in tree.id_dict.values():
-        if not item.parent_ids:
-            tree.roots.append(item)
-
-        if item.uid >= max_uid:
-            max_uid = item.uid
-
-    tree.set_next_uid(max_uid + 1)
 
 
 def _compile_full_paths(tree: GDriveWholeTree):

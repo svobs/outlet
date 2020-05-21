@@ -83,8 +83,7 @@ class CacheManager:
         logger.debug(f'CacheManager.load_all_caches() initiated by {sender}')
         logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {ID_GLOBAL_CACHE}')
         stopwatch = Stopwatch()
-        tx_id = uuid.uuid1()
-        dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=ID_GLOBAL_CACHE, tx_id=tx_id)
+        dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=ID_GLOBAL_CACHE)
 
         try:
             self.local_disk_cache = LocalDiskMasterCache(self.application)
@@ -120,7 +119,7 @@ class CacheManager:
             else:
                 logger.info(f'{stopwatch} Found {unique_cache_count} existing caches but configured not to load on startup')
         finally:
-            dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE, tx_id=tx_id)
+            dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
             self.all_caches_loaded.set()
             dispatcher.send(signal=actions.LOAD_ALL_CACHES_DONE, sender=ID_GLOBAL_CACHE)
 

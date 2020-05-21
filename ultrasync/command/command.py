@@ -12,7 +12,7 @@ from gdrive.client import GDriveClient
 from index.uid_generator import UID
 from model.display_node import DisplayNode
 from model.fmeta import FMeta
-from model.goog_node import GoogFile
+from model.goog_node import FolderToAdd, GoogFile
 from model.planning_node import FileDecoratorNode, FileToAdd, FileToMove, FileToUpdate
 
 
@@ -278,6 +278,28 @@ class DownloadFromGDriveCommand(Command):
         except Exception as err:
             logger.error(f'While downloading file from GDrive: dest_path="{self._model.dest_path}", '
                          f'src_goog_id="{self._model.src_node.goog_id}": {repr(err)}')
+            self._status = CommandStatus.STOPPED_ON_ERROR
+            self._error = err
+
+
+class CreateGDriveFolderCommand(Command):
+    def __init__(self, model_obj: FolderToAdd, parent_goog_ids: List[str]):
+        super().__init__(model_obj)
+        self.parent_goog_ids = parent_goog_ids
+
+    def get_total_work(self) -> int:
+        return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
+
+    def needs_gdrive(self):
+        return True
+
+    def execute(self, context: CommandContext):
+        try:
+            new_folder_id = context.gdrive_client.create_folder(name=self._model.name, parents=self.parent_goog_ids)
+            # TODO: update cache appropriately
+        except Exception as err:
+            logger.error(f'While creating folder on GDrive: name="{self._model.name}", '
+                         f'parent_goog_ids="{self.parent_goog_ids}": {repr(err)}')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 

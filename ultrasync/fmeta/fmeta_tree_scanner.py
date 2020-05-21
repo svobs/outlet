@@ -99,7 +99,6 @@ class TreeMetaScanner(FileTreeRecurser):
         # Note: this tree will be useless after we are done with it
         self.root_path = root_path
         self.stale_tree = stale_tree
-        self.tx_id = uuid.uuid1()
         self.progress = 0
         self.total = 0
         self.tree_id = tree_id  # For sending progress updates
@@ -172,10 +171,10 @@ class TreeMetaScanner(FileTreeRecurser):
 
         self.fresh_tree.add_item(meta)
         if self.tree_id:
-            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=self.tree_id, tx_id=self.tx_id, progress=1)
+            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=self.tree_id, progress=1)
             self.progress += 1
             msg = f'Scanning file {self.progress} of {self.total}'
-            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=msg)
+            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
     def handle_target_file_type(self, file_path):
         self.handle_file(file_path, Category.NA)
@@ -194,7 +193,7 @@ class TreeMetaScanner(FileTreeRecurser):
         self.total = self._find_total_files_to_scan()
         if self.tree_id:
             logger.debug(f'Sending START_PROGRESS for tree_id: {self.tree_id}')
-            actions.get_dispatcher().send(actions.START_PROGRESS, sender=self.tree_id, tx_id=self.tx_id, total=self.total)
+            actions.get_dispatcher().send(actions.START_PROGRESS, sender=self.tree_id, total=self.total)
 
         self.recurse_through_dir_tree()
 
@@ -206,7 +205,7 @@ class TreeMetaScanner(FileTreeRecurser):
                     self._add_tracked_copy(stale_fmeta, Category.Deleted)
 
         logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
-        actions.get_dispatcher().send(actions.STOP_PROGRESS, tx_id=self.tx_id, sender=self.tree_id)
+        actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id)
         logger.info(f'Result: {self.added_count} new, {self.updated_count} updated, {self.deleted_count} deleted, '
                     f'and {self.unchanged_count} unchanged from cache')
 

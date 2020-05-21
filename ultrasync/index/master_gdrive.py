@@ -59,11 +59,11 @@ class GDriveMasterCache:
         stopwatch_total = Stopwatch()
 
         cache_path = cache_info.cache_location
-        tree_loader = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
+        tree_loader = GDriveTreeLoader(application=self.application, cache_path=cache_path, tree_id=tree_id)
 
-        meta: GDriveWholeTree() = tree_loader.load_all(invalidate_cache=False)
+        meta: GDriveWholeTree = tree_loader.load_all(invalidate_cache=False)
 
-        actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=tree_id, tx_id=None, msg=f'Calculating paths for GDrive nodes...')
+        actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=f'Calculating paths for GDrive nodes...')
 
         logger.info(f'{stopwatch_total} GDrive cache for {cache_info.subtree_root.full_path} loaded')
 

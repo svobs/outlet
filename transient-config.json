@@ -1,9 +1,12 @@
 {
     "diff_win": {
-        "height": 777,
-        "width": 1435,
-        "x": 112,
-        "y": 126
+        "height": 726,
+        "width": 1440,
+        "x": 151,
+        "y": 56
+    },
+    "global": {
+        "last_uid": 607204
     },
     "left_tree": {
         "expanded_state": {
@@ -13,8 +16,8 @@
             "Moved": true,
             "Updated": true
         },
-        "root_path": "/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos",
-        "root_uid": 0,
+        "root_path": "/home/msvoboda/LocalDevel/ultrasync/test/BiDirMerge/Sen Mitsuji Left",
+        "root_uid": "/home/msvoboda/LocalDevel/ultrasync/test/BiDirMerge/Sen Mitsuji Left",
         "tree_type": 1
     },
     "right_tree": {
@@ -25,9 +28,8 @@
             "Moved": true,
             "Updated": true
         },
-        "root_path": "/My Drive",
-        "root_uid": 2,
+        "root_path": "/My Drive/Media/Svoboda-Family/Svoboda Family Photos",
+        "root_uid": 65692,
         "tree_type": 2
     }
 }
-

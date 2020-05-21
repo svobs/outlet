@@ -4,6 +4,7 @@ import logging
 from index.atomic_counter import AtomicCounter
 
 logger = logging.getLogger(__name__)
+CONFIG_KEY = 'transient.global.last_uid'
 
 
 class UID(int):
@@ -44,7 +45,7 @@ class NullUidGenerator(UidGenerator):
         pass
 
 
-class AtomicIntIdGenerator(UidGenerator):
+class AtomicIntUidGenerator(UidGenerator):
     def __init__(self):
         super().__init__()
         self._counter = AtomicCounter(ROOT_UID + 1)
@@ -57,13 +58,16 @@ class AtomicIntIdGenerator(UidGenerator):
         logger.debug(f'Set next_uid to {new_val}')
 
 
-class ApplicationUidGenerator(UidGenerator):
-    def __init__(self):
+class PersistentAtomicIntUidGenerator(AtomicIntUidGenerator):
+    def __init__(self, config):
         super().__init__()
-        self._counter = AtomicCounter(ROOT_UID + 1)
+        self._config = config
+        self.set_next_uid(self._config.get(CONFIG_KEY, ROOT_UID + 1))
 
-    def get_new_uid(self) -> AUID:
-        return AUID(self._counter.increment())
+    def get_new_uid(self) -> UID:
+        new_uid = super().get_new_uid()
+        self._config.write(CONFIG_KEY, new_uid)
+        return new_uid
 
     def set_next_uid(self, uid: int):
         new_val = self._counter.set_at_least(uid)

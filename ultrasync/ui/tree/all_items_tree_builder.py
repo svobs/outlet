@@ -6,7 +6,7 @@ import treelib
 from model.node_identifier import NodeIdentifier
 from model.display_node import DirNode, DisplayNode
 from model.gdrive_subtree import GDriveSubtree
-from model.gdrive_whole_tree import GDriveTree, GDriveWholeTree
+from model.gdrive_whole_tree import GDriveWholeTree
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
 from ui.tree.display_tree_builder import DisplayTreeBuilder

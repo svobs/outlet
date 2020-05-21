@@ -114,7 +114,6 @@ class GlobalActions:
 
     def do_tree_diff(self, sender, tree_con_left, tree_con_right):
         stopwatch_diff_total = Stopwatch()
-        tx_id = uuid.uuid1()
         actions.disable_ui(sender=sender)
         try:
             left_id: NodeIdentifier = tree_con_left.get_root_identifier()
@@ -133,27 +132,27 @@ class GlobalActions:
             right_fmeta_tree = tree_con_right.get_tree()
 
             logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {actions.ID_DIFF_WINDOW}')
-            actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=actions.ID_DIFF_WINDOW, tx_id=tx_id)
+            actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=actions.ID_DIFF_WINDOW)
             msg = 'Computing bidrectional content-first diff...'
-            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, tx_id=tx_id, msg=msg)
+            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, msg=msg)
 
             stopwatch_diff = Stopwatch()
-            differ = ContentFirstDiffer(left_fmeta_tree, right_fmeta_tree)
+            differ = ContentFirstDiffer(left_fmeta_tree, right_fmeta_tree, self.application)
             change_tree_left, change_tree_right, = differ.diff(compare_paths_also=True)
             logger.info(f'{stopwatch_diff} Diff completed')
 
-            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, tx_id=tx_id, msg='Populating UI trees...')
+            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, msg='Populating UI trees...')
 
             tree_con_left.rebuild_treeview_with_checkboxes(new_tree=change_tree_left,
                                                            tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
             tree_con_right.rebuild_treeview_with_checkboxes(new_tree=change_tree_right,
                                                             tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
 
-            actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW, tx_id=tx_id)
+            actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW)
             actions.get_dispatcher().send(signal=actions.DIFF_TREES_DONE, sender=sender, stopwatch=stopwatch_diff_total)
         except Exception as err:
             # Clean up progress bar:
-            actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW, tx_id=tx_id)
+            actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW)
             actions.enable_ui(sender=self)
             self.show_error_ui('Diff task failed due to unexpected error', repr(err))
             logger.exception(err)
