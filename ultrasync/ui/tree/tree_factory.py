@@ -139,7 +139,7 @@ class TreeFactory:
 """
 
 
-def build_gdrive(parent_win,
+def build_gdrive_root_chooser(parent_win,
                  tree_id,
                  tree: SubtreeSnapshot):
     """Builds a tree panel for browsing a Google Drive tree, using lazy loading. For the GDrive root chooser dialog"""

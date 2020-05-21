@@ -96,20 +96,24 @@ class CategoryDisplayTree:
                 elif node.is_file():
                     all_nodes.append(node)
 
-    def _get_useful_nids(self, node_identifier: NodeIdentifier, category: Category):
-        subroot_nid = None
+    def _get_subtroot_nid(self, node_identifier: NodeIdentifier) -> Optional[str]:
         if self.extra_node_for_type:
             if node_identifier.tree_type == OBJ_TYPE_GDRIVE:
-                subroot_nid = f'{self.root.identifier}GD'
+                return f'{self.root.identifier}GD'
             elif node_identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
-                subroot_nid = f'{self.root.identifier}LO'
+                return f'{self.root.identifier}LO'
             else:
                 raise RuntimeError(f'bad: {node_identifier.tree_type}')
+        return None
 
+    def _get_useful_nids(self, node_identifier: NodeIdentifier, category: Category):
+        if self.extra_node_for_type:
+            subroot_nid = self._get_subtroot_nid(node_identifier)
             cat_nid = f'{subroot_nid}/{category.name}'
+            return subroot_nid, cat_nid
         else:
             cat_nid = f'{self.root.identifier}{category.name}'
-        return subroot_nid, cat_nid
+            return None, cat_nid
 
     def _get_or_create_pre_ancestors(self, item: DisplayNode, category: Category) -> Tuple[str, treelib.Node]:
         subroot_nid, cat_nid = self._get_useful_nids(item.node_identifier, category)
@@ -136,15 +140,17 @@ class CategoryDisplayTree:
             # no sub-root used
             parent_node = self.root
 
+        tree_type: int = self.node_identifier.tree_type
+
         cat_node: treelib.Node = self._category_tree.get_node(cat_nid)
         if not cat_node:
             # Create category display node
-            cat_identifier: LogicalNodeIdentifier = LogicalNodeIdentifier(uid=cat_nid, full_path=None, category=category)
-            cat_node_data = CategoryNode(node_identifier=cat_identifier)
-            cat_node = self._category_tree.create_node(identifier=cat_nid, parent=parent_node, data=cat_node_data)
-        parent_node = cat_node
 
-        tree_type: int = self.node_identifier.tree_type
+            node_identifier = NodeIdentifierFactory.for_values(tree_type=tree_type, full_path=self.node_identifier.full_path,
+                                                               uid=self.node_identifier.uid, category=category)
+            cat_node_data = CategoryNode(node_identifier=node_identifier)
+            cat_node = self._category_tree.create_node(identifier=last_pre_ancestor_nid, parent=parent_node, data=cat_node_data)
+        parent_node = cat_node
 
         if self.extra_node_for_type:
             # Create remaining pre-ancestors:
@@ -157,14 +163,10 @@ class CategoryDisplayTree:
                 node_identifier = NodeIdentifierFactory.for_values(tree_type=tree_type, full_path=path_so_far, uid=dir_uid, category=category)
                 dir_node_data = DirNode(node_identifier=node_identifier)
                 parent_node = self._category_tree.create_node(identifier=dir_node_data.uid, parent=parent_node, data=dir_node_data)
-
-        # last pre-ancestor:
-        node_identifier = NodeIdentifierFactory.for_values(tree_type=tree_type, full_path=self.node_identifier.full_path,
-                                                           uid=self.node_identifier.uid, category=category)
-        dir_node_data = DirNode(node_identifier=node_identifier)
-        last_pre_ancestor = self._category_tree.create_node(identifier=last_pre_ancestor_nid, parent=parent_node, data=dir_node_data)
-
-        return cat_nid, last_pre_ancestor
+            return cat_nid, parent_node
+        else:
+            # last pre-ancestor:
+            return cat_nid, cat_node
 
     def add_item(self, item: DisplayNode, category: Category):
         assert category != Category.NA, f'For item: {item}'

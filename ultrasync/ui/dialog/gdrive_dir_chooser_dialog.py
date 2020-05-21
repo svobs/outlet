@@ -35,7 +35,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         self.content_box.add(label)
 
         # Prevent dialog from stepping on existing trees by giving it its own ID:
-        self.tree_controller = tree_factory.build_gdrive(parent_win=self, tree_id=actions.ID_GDRIVE_DIR_SELECT, tree=tree)
+        self.tree_controller = tree_factory.build_gdrive_root_chooser(parent_win=self, tree_id=actions.ID_GDRIVE_DIR_SELECT, tree=tree)
 
         self.content_box.pack_start(self.tree_controller.content_box, True, True, 0)
 

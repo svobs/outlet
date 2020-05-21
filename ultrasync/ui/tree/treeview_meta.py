@@ -2,7 +2,7 @@ from pydispatch import dispatcher
 
 from app_config import AppConfig
 from constants import TreeDisplayMode
-from model.display_node import CategoryNode
+from model.display_node import CategoryNode, DisplayNode
 from ui import actions
 
 
@@ -120,21 +120,14 @@ class TreeViewMeta:
         if self.is_display_persisted:
             dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.tree_id)
 
-    def _on_node_expansion_toggled(self, sender, parent_iter, node_data, is_expanded, expand_all=False):
+    def _on_node_expansion_toggled(self, sender, parent_iter, node_data: DisplayNode, is_expanded: bool, expand_all=False):
         if type(node_data) == CategoryNode:
-            if self.is_ignored_func and self.is_ignored_func(node_data):
-                # Do not expand if ignored:
-                return False
             cfg_path = f'transient.{self.tree_id}.expanded_state.{node_data.category.name}'
             self.config.write(cfg_path, is_expanded)
         # Allow other listeners to handle this also:
         return False
 
-    def is_category_node_expanded(self, node):
-        if self.is_ignored_func and self.is_ignored_func(node):
-            # Do not expand if ignored:
-            return False
-
+    def is_category_node_expanded(self, node: DisplayNode):
         if self.is_display_persisted:
             cfg_path = f'transient.{self.tree_id}.expanded_state.{node.category.name}'
             return self.config.get(cfg_path, True)

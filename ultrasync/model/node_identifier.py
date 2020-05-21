@@ -160,6 +160,6 @@ class NodeIdentifierFactory:
                 full_path = constants.ROOT_PATH
             return GDriveIdentifier(uid=uid, full_path=full_path, category=category)
         elif tree_type == OBJ_TYPE_MIXED or tree_type == OBJ_TYPE_DISPLAY_ONLY:
-            return LogicalNodeIdentifier(full_path=full_path, category=category)
+            return LogicalNodeIdentifier(full_path=full_path, uid=uid, category=category)
         else:
             raise RuntimeError('bad')
