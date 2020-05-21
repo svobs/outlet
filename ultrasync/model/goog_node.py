@@ -4,6 +4,7 @@ import logging
 from typing import List, Optional, Tuple, Union
 
 from constants import ICON_ADD_DIR, NOT_TRASHED, TRASHED_STATUS
+from index.uid_generator import UID
 from model.category import Category
 from model.node_identifier import GDriveIdentifier
 from model.display_node import DisplayNode, ensure_int
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 class GoogNode(DisplayNode, ABC):
 
-    def __init__(self, uid: int, goog_id: Optional[str], item_name: str, trashed: int, drive_id: Optional[str],
+    def __init__(self, uid: UID, goog_id: Optional[str], item_name: str, trashed: int, drive_id: Optional[str],
                  my_share: bool, sync_ts: Optional[int], category: Category = Category.NA):
         super().__init__(GDriveIdentifier(uid, None, category))
 
@@ -30,7 +31,7 @@ class GoogNode(DisplayNode, ABC):
         """The Google ID - long string. Need this for syncing with Google Drive,
         although the (int) uid will be used internally."""
 
-        self._parent_ids:  Optional[Union[int, List[int]]] = None
+        self._parent_ids:  Optional[Union[UID, List[UID]]] = None
         """ Most items will have only one parent, so store that way for efficiency"""
 
         self._name = item_name
@@ -52,7 +53,7 @@ class GoogNode(DisplayNode, ABC):
         return self.sync_ts > other_folder.sync_ts
 
     @property
-    def parent_ids(self) -> List[int]:
+    def parent_ids(self) -> List[UID]:
         if not self._parent_ids:
             return []
         if isinstance(self._parent_ids, list):
@@ -60,7 +61,7 @@ class GoogNode(DisplayNode, ABC):
         return [self._parent_ids]
 
     @parent_ids.setter
-    def parent_ids(self, parent_ids: Optional[Union[int, List[int]]]):
+    def parent_ids(self, parent_ids: Optional[Union[UID, List[UID]]]):
         """Can be a list of GoogFolders, or a single instance, or None"""
         if not parent_ids:
             self._parent_ids = None
@@ -74,8 +75,8 @@ class GoogNode(DisplayNode, ABC):
         else:
             self._parent_ids = parent_ids
 
-    def add_parent(self, parent_id: int):
-        current_parent_ids: List[int] = self.parent_ids
+    def add_parent(self, parent_id: UID):
+        current_parent_ids: List[UID] = self.parent_ids
         if len(current_parent_ids) == 0:
             self.parent_ids = parent_id
         else:
@@ -218,7 +219,7 @@ class GoogFile(GoogNode):
 
 
 class FolderToAdd(PlanningNode, GoogNode):
-    def __init__(self, uid: int, dest_path: str):
+    def __init__(self, uid: UID, dest_path: str):
         GoogNode.__init__(self, uid=uid, goog_id=None, item_name=os.path.basename(dest_path), trashed=NOT_TRASHED,
                           drive_id=None, my_share=False, sync_ts=None, category=Category.ADDED)
         self.node_identifier.full_path = dest_path

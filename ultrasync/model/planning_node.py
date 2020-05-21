@@ -2,6 +2,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
+from index.uid_generator import UID
 from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
 
@@ -33,7 +34,7 @@ class FileDecoratorNode(PlanningNode, ABC):
         self.src_node: DisplayNode = src_node
         """The original node (e.g., for a FileToAdd, this would be the "source node"""
 
-        self._parent_ids: Optional[List[str]] = None
+        self._parent_ids: Optional[List[UID]] = None
         """Only used in Goog trees currently"""
 
     @property
@@ -96,24 +97,23 @@ class FileDecoratorNode(PlanningNode, ABC):
         return self.category.name
 
     @property
-    def parent_ids(self) -> List[int]:
-        # TODO: have UIDs use their own type which extends int
+    def parent_ids(self) -> List[UID]:
         if self._parent_ids:
             if isinstance(self._parent_ids, list):
                 return self._parent_ids
-            elif isinstance(self._parent_ids, int):
+            elif isinstance(self._parent_ids, UID):
                 return [self._parent_ids]
             assert False
         return []
 
     @parent_ids.setter
     def parent_ids(self, parent_ids):
-        """Can be a list of GoogFolders, or a single instance, or None"""
+        """Can be a list of GoogFolders' UIDs, or a single UID, or None"""
         if not parent_ids:
             self._parent_ids = None
         elif isinstance(parent_ids, list):
             if len(parent_ids) == 1:
-                assert isinstance(parent_ids[0], int), f'Found instead: {parent_ids[0]}, type={type(parent_ids[0])}'
+                assert isinstance(parent_ids[0], UID), f'Found instead: {parent_ids[0]}, type={type(parent_ids[0])}'
                 self._parent_ids = parent_ids[0]
             else:
                 self._parent_ids = parent_ids

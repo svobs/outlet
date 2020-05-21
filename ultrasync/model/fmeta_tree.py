@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Union, ValuesView
 import constants
 import file_util
 import format_util
+from index import uid_generator
 from index.atomic_counter import AtomicCounter
 from index.two_level_dict import Md5BeforePathDict, Md5BeforeUidDict
 from model.category import Category
@@ -37,7 +38,7 @@ class FMetaTree(SubtreeSnapshot):
         self._ignored_items: List[FMeta] = []
         self._total_size_bytes = 0
 
-        self._next_uid = AtomicCounter(constants.ROOT_UID + 1)
+        self._next_uid = AtomicCounter(uid_generator.ROOT_UID + 1)
 
     def get_new_uid(self):
         return self._next_uid.increment()
@@ -48,7 +49,7 @@ class FMetaTree(SubtreeSnapshot):
 
     @property
     def root_node(self):
-        return self.create_identifier(full_path=self.root_path, uid=constants.NULL_UID, category=Category.NA)
+        return self.create_identifier(full_path=self.root_path, uid=uid_generator.NULL_UID, category=Category.NA)
 
     @property
     def tree_type(self):

@@ -1,7 +1,7 @@
 from pydispatch import dispatcher
 import logging
 
-from constants import NULL_UID
+from index.uid_generator import NULL_UID
 from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from ui import actions
 

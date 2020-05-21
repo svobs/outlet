@@ -7,7 +7,7 @@ import treelib
 from pydispatch import dispatcher
 
 import file_util
-from constants import ROOT_PATH, ROOT_UID
+from constants import ROOT_PATH
 from fmeta.fmeta_tree_scanner import TreeMetaScanner
 from index.cache_manager import PersistedCacheInfo
 from index.sqlite.fmeta_db import FMetaDatabase

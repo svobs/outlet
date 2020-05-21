@@ -19,7 +19,7 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 import file_util
 from app_config import AppConfig
 from constants import EXPLICITLY_TRASHED, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, IMPLICITLY_TRASHED, NOT_TRASHED
-from index.IdGenerator import IdGenerator, NullIdGenerator
+from index.uid_generator import UID, UidGenerator, NullUidGenerator
 from model.gdrive_whole_tree import GDriveWholeTree, UserMeta
 from model.goog_node import GoogFile, GoogFolder, GoogNode
 from stopwatch_sec import Stopwatch
@@ -159,14 +159,14 @@ def _convert_trashed(result):
         return NOT_TRASHED
 
 
-def _convert_to_goog_folder(result, uid: int, sync_ts: int) -> GoogFolder:
+def _convert_to_goog_folder(result, uid: UID, sync_ts: int) -> GoogFolder:
     # 'driveId' only populated for items which someone has shared with me
     # 'shared' only populated for items which are owned by me
     return GoogFolder(uid=uid, goog_id=result['id'], item_name=result['name'], trashed=_convert_trashed(result),
                       drive_id=result.get('driveId', None), my_share=result.get('shared', None), sync_ts=sync_ts, all_children_fetched=False)
 
 
-def _convert_to_goog_file(item, uid: int, sync_ts: int = 0) -> GoogFile:
+def _convert_to_goog_file(item, uid: UID, sync_ts: int = 0) -> GoogFile:
     if not sync_ts:
         sync_ts = int(time.time())
 
@@ -298,7 +298,7 @@ class GDriveClient:
         logger.debug(f'Getting existing files named "{name}" with parent "{parent_goog_id}"')
 
         sync_ts = int(time.time())
-        id_generator = NullIdGenerator()
+        id_generator = NullUidGenerator()
         observer = SimpleNodeCollector()
         self._get_meta_for_files(query, fields, None, sync_ts, id_generator, observer)
 
@@ -316,7 +316,7 @@ class GDriveClient:
 
     def _get_meta_for_files(self, query: str, fields: str,
                             initial_page_token: Optional[str], sync_ts: int,
-                            id_generator: IdGenerator, observer: MetaObserver):
+                            id_generator: UidGenerator, observer: MetaObserver):
         """Generic version"""
 
         # Google Drive only; not app data or Google Photos:
@@ -445,7 +445,7 @@ class GDriveClient:
 
     def _get_meta_for_dirs(self, query: str, fields: str,
                            initial_page_token: Optional[str], sync_ts: int,
-                           uid_generator: IdGenerator, observer: MetaObserver):
+                           uid_generator: UidGenerator, observer: MetaObserver):
 
         # Google Drive only; not app data or Google Photos:
         spaces = 'drive'

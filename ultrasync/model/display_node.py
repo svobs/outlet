@@ -1,10 +1,11 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import List, Optional
 
 import format_util
 from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_LOCAL_DISK, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
+from index.uid_generator import UID
 from model.category import Category
 from model.node_identifier import NodeIdentifier
 
@@ -53,15 +54,15 @@ class DisplayNode(ABC):
         return self.node_identifier.full_path
 
     @property
-    def parent_ids(self):
-        return None
+    def parent_ids(self) -> List[UID]:
+        return []
 
     @property
     def category(self):
         return self.node_identifier.category
 
     @property
-    def uid(self) -> int:
+    def uid(self) -> UID:
         return self.node_identifier.uid
 
     def get_relative_path(self, parent_tree):

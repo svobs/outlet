@@ -7,9 +7,11 @@ from typing import Dict, List, Optional, Tuple
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
-    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL, ROOT_UID
+    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL
 from gdrive.client import GDriveClient, MetaObserver
+from index import uid_generator
 from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
+from index.uid_generator import UID
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.goog_node import GoogFile, GoogFolder, GoogNode
 from stopwatch_sec import Stopwatch
@@ -83,10 +85,10 @@ class FileMetaObserver(MetaObserver):
                                                    current_download=self.download)
 
 
-def parent_mappings_tuples(item_uid: int, parent_goog_ids: List[str], sync_ts: int) -> List[Tuple[int, Optional[int], str, int]]:
+def parent_mappings_tuples(item_uid: UID, parent_goog_ids: List[str], sync_ts: int) -> List[Tuple[UID, Optional[UID], str, int]]:
     tuples = []
-    for parent_id in parent_goog_ids:
-        tuples.append((item_uid, None, parent_id, sync_ts))
+    for parent_goog_id in parent_goog_ids:
+        tuples.append((item_uid, None, parent_goog_id, sync_ts))
     return tuples
 
 
@@ -235,7 +237,8 @@ class GDriveTreeLoader:
 
         actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=f'Retreived {len(dir_rows):n} dirs')
 
-        for uid, goog_id, item_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
+        for uid_int, goog_id, item_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
+            uid = UID(uid_int)
             item = GoogFolder(uid=uid, goog_id=goog_id, item_name=item_name,
                               trashed=item_trashed, drive_id=drive_id, my_share=my_share,
                               sync_ts=sync_ts, all_children_fetched=all_children_fetched)
@@ -250,9 +253,10 @@ class GDriveTreeLoader:
 
         actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, tx_id=self.tx_id, msg=f'Retreived {len(file_rows):n} files')
 
-        for uid, goog_id, item_name, item_trashed, size_bytes_str, md5, create_ts, modify_ts, owner_id, drive_id, \
+        for uid_int, goog_id, item_name, item_trashed, size_bytes_str, md5, create_ts, modify_ts, owner_id, drive_id, \
                 my_share, version, head_revision_id, sync_ts in file_rows:
             size_bytes = None if size_bytes_str is None else int(size_bytes_str)
+            uid = UID(uid_int)
             item = GoogFile(uid=uid, goog_id=goog_id, item_name=item_name,
                             trashed=item_trashed, drive_id=drive_id, my_share=my_share, version=int(version),
                             head_revision_id=head_revision_id, md5=md5,
@@ -270,9 +274,10 @@ class GDriveTreeLoader:
             mapping_count = len(id_parent_mappings)
 
             for mapping in id_parent_mappings:
+                item_uid = mapping[0]
                 parent_uid = mapping[1]
                 if parent_uid:
-                    tree.add_parent_mapping(mapping[0], parent_uid)
+                    tree.add_parent_mapping(UID(item_uid), UID(parent_uid))
 
             logger.debug(f'{sw} Loaded {mapping_count} mappings')
 
@@ -294,7 +299,7 @@ def _translate_parent_ids(tree: GDriveWholeTree, id_parent_mappings: List[Tuple]
     for mapping in id_parent_mappings:
         # [0]=item_uid, [1]=parent_uid, [2]=parent_goog_id, [3]=sync_ts
         assert not mapping[1]
-        parent_goog_id = mapping[2]
+        parent_goog_id: str = mapping[2]
 
         # Add parent UID to tuple for later DB update:
         parent = goog_id_dict.get(parent_goog_id)
@@ -312,7 +317,7 @@ def _translate_parent_ids(tree: GDriveWholeTree, id_parent_mappings: List[Tuple]
 
 
 def _determine_roots(tree: GDriveWholeTree):
-    max_uid = ROOT_UID + 1
+    max_uid = uid_generator.ROOT_UID + 1
     for item in tree.id_dict.values():
         if not item.parent_ids:
             tree.roots.append(item)

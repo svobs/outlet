@@ -9,6 +9,7 @@ import file_util
 import fmeta.content_hasher
 from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 from gdrive.client import GDriveClient
+from index.uid_generator import UID
 from model.display_node import DisplayNode
 from model.fmeta import FMeta
 from model.goog_node import GoogFile
@@ -71,8 +72,8 @@ class Command(ABC):
 
 
 class CommandList:
-    def __init__(self, uid: int):
-        self.uid: int = uid
+    def __init__(self, uid: UID):
+        self.uid: UID = uid
         self.create_ts = int(time.time())
         self._cmds: List[Command] = []
 

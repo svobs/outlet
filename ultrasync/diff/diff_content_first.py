@@ -8,7 +8,8 @@ import file_util
 import os
 import logging
 
-from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED, ROOT_PATH, ROOT_UID
+from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED, ROOT_PATH
+from index import uid_generator
 from index.two_level_dict import TwoLevelDict
 from model import node_identifier
 from model.category import Category
@@ -339,9 +340,9 @@ def merge_change_trees(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot,
     # always root path, but tree type may differ
     is_mixed_tree = left_tree.tree_type != right_tree.tree_type
     if is_mixed_tree:
-        root = LogicalNodeIdentifier(uid=ROOT_UID, full_path=ROOT_PATH, category=Category.NA, tree_type=OBJ_TYPE_MIXED)
+        root = LogicalNodeIdentifier(uid=uid_generator.ROOT_UID, full_path=ROOT_PATH, category=Category.NA, tree_type=OBJ_TYPE_MIXED)
     else:
-        root: NodeIdentifier = NodeIdentifierFactory.for_values(tree_type=left_tree.tree_type, full_path=ROOT_PATH, uid=ROOT_UID)
+        root: NodeIdentifier = NodeIdentifierFactory.for_values(tree_type=left_tree.tree_type, full_path=ROOT_PATH, uid=uid_generator.ROOT_UID)
 
     # just set source tree to left tree - we aren't using it for much anyway
     # FIXME: create new display tree class which starts from roots and is cleaner
