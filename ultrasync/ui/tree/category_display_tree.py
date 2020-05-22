@@ -23,10 +23,10 @@ CATEGORIES = [Category.Added, Category.Deleted, Category.Moved, Category.Updated
 
 
 class CategoryDisplayTree:
-    def __init__(self, source_tree: SubtreeSnapshot, root: Union[DisplayNode, NodeIdentifier] = None, extra_node_for_type=False):
+    def __init__(self, source_tree: SubtreeSnapshot, root: Union[DisplayNode, NodeIdentifier] = None, show_whole_forest=False):
         self._category_tree: treelib.Tree = treelib.Tree()
         self.root = self._category_tree.create_node(identifier='//', parent=None, data=None)
-        self.extra_node_for_type: bool = extra_node_for_type
+        self.show_whole_forest: bool = show_whole_forest
         self.source_tree: SubtreeSnapshot = source_tree
 
         if not root:
@@ -97,7 +97,7 @@ class CategoryDisplayTree:
                     all_nodes.append(node)
 
     def _get_subtroot_nid(self, node_identifier: NodeIdentifier) -> Optional[str]:
-        if self.extra_node_for_type:
+        if self.show_whole_forest:
             if node_identifier.tree_type == OBJ_TYPE_GDRIVE:
                 return f'{self.root.identifier}GD'
             elif node_identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
@@ -107,7 +107,7 @@ class CategoryDisplayTree:
         return None
 
     def _get_useful_nids(self, node_identifier: NodeIdentifier, category: Category):
-        if self.extra_node_for_type:
+        if self.show_whole_forest:
             subroot_nid = self._get_subtroot_nid(node_identifier)
             cat_nid = f'{subroot_nid}/{category.name}'
             return subroot_nid, cat_nid
@@ -127,7 +127,7 @@ class CategoryDisplayTree:
 
         # else we need to create pre-ancestors...
 
-        if self.extra_node_for_type:
+        if self.show_whole_forest:
             # Create sub-root (i.e. 'GDrive' or 'Local Disk')
             subroot_node: treelib.Node = self._category_tree.get_node(subroot_nid)
             if not subroot_node:
@@ -152,7 +152,7 @@ class CategoryDisplayTree:
             cat_node = self._category_tree.create_node(identifier=last_pre_ancestor_nid, parent=parent_node, data=cat_node_data)
         parent_node = cat_node
 
-        if self.extra_node_for_type:
+        if self.show_whole_forest:
             # Create remaining pre-ancestors:
             path_segments: List[str] = file_util.split_path(self.node_identifier.full_path)
             path_so_far = ''
@@ -168,34 +168,54 @@ class CategoryDisplayTree:
             # last pre-ancestor:
             return cat_nid, cat_node
 
+    def get_ancestor_identifiers(self, item: DisplayNode, cat_nid) -> Tuple[Optional[treelib.Node], Deque[NodeIdentifier]]:
+        ancestor_identifiers: Deque[NodeIdentifier] = deque()
+
+        # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
+        # been added to this tree, or the root of the source tree
+        ancestor = item
+        while ancestor:
+            if ancestor.parent_ids:
+                assert item.node_identifier.tree_type == OBJ_TYPE_GDRIVE
+                # In this tree already? Saves us work, and more importantly,
+                # allow us to use nodes not in the parent tree (e.g. FolderToAdds)
+                for parent_uid in ancestor.parent_ids:
+                    nid = f'{cat_nid}/{parent_uid}'
+                    node: treelib.Node = self._category_tree.get_node(nid=nid)
+                    if node:
+                        parent = node
+                        # Found: existing node in this tree. This should happen on the first iteration or not at all
+                        return parent, ancestor_identifiers
+            ancestor = self.source_tree.get_parent_for_item(ancestor)
+            if ancestor:
+                if ancestor.uid == self.source_tree.uid:
+                    # do not include source tree's root node; that is already covered by the CategoryNode
+                    # (in pre-ancestors)
+                    return None, ancestor_identifiers
+                ancestor_identifiers.appendleft(ancestor.node_identifier)
+
+        return None, ancestor_identifiers
+
     def add_item(self, item: DisplayNode, category: Category):
+        """When we add the item, we add any necessary ancestors for it as well.
+        1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't
+        backed by any actual data nodes. This includes possibly tree-type nodes, category nodes, and ancestors
+        which aren't in the source tree.
+        2. Create and add "ancestors": dir nodes from the source tree for display, and possibly any FolderToAdd nodes
+        3. Add a node for the item iteself
+        """
         assert category != Category.NA, f'For item: {item}'
 
         cat_nid, parent = self._get_or_create_pre_ancestors(item, category)
 
         parent.data.add_meta_metrics(item)
 
-        ancestor_identifiers: Deque[NodeIdentifier] = deque()
-        if item.parent_ids:
-            ancestor = item
-            while ancestor and ancestor.parent_ids:
-                # In this tree already? Saves us work, and allow us to use nodes not in the parent tree (e.g. FolderToAdds)
-                nid = f'{cat_nid}/{ancestor.parent_ids[0]}'
-                node: treelib.Node = self._category_tree.get_node(nid=nid)
-                if node:
-                    parent = node
-                    break
-                ancestor = self.source_tree.get_item_for_identifier(ancestor.parent_ids[0])
-                if ancestor:
-                    if ancestor.uid == self.source_tree.uid:
-                        # do not include root node
-                        break
-                    ancestor_identifiers.appendleft(ancestor.node_identifier)
-        else:
-            # TODO: get rid of this
-            ancestor_identifiers = self.source_tree.get_ancestor_chain(item)
+        # Walk up the source tree and compose a list of ancestors:
+        new_parent, ancestor_identifiers = self.get_ancestor_identifiers(item, cat_nid)
+        if new_parent:
+            parent = new_parent
 
-        # Create a node for each ancestor dir (path segment)
+        # Walk down the ancestor list and create a node for each ancestor dir:
         for node_identifier in ancestor_identifiers:
             nid = f'{cat_nid}/{node_identifier.uid}'
             child: treelib.Node = self._category_tree.get_node(nid=nid)

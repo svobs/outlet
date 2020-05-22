@@ -347,7 +347,7 @@ def merge_change_trees(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot,
 
     # just set source tree to left tree - we aren't using it for much anyway
     # FIXME: create new display tree class which starts from roots and is cleaner
-    merged_tree = CategoryDisplayTree(source_tree=left_tree, root=root, extra_node_for_type=True)
+    merged_tree = CategoryDisplayTree(source_tree=left_tree, root=root, show_whole_forest=True)
 
     for item in left_selected_changes:
         merged_tree.add_item(item, item.category)

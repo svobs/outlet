@@ -147,16 +147,17 @@ class GDriveSubtree(SubtreeSnapshot):
 
     def get_parent_for_item(self, item) -> Optional[GoogNode]:
         if item and self.in_this_subtree(item.full_path):
-            if len(item.parent_ids) > 1:
-                resolved_parent_ids = []
+            parent_ids = item.parent_ids
+            if parent_ids:
+                resolved_parents = []
                 for par_id in item.parent_ids:
-                    par = self._whole_tree.get_item_for_id(par_id)
-                    if par and self.in_this_subtree(par.full_path):
-                        resolved_parent_ids.append(par_id)
-                if len(resolved_parent_ids) > 1:
-                    logger.error(f'Found multiple valid parents for item: {item}: parents={resolved_parent_ids}')
+                    parent = self._whole_tree.get_item_for_id(par_id)
+                    if parent and self.in_this_subtree(parent.full_path):
+                        resolved_parents.append(parent)
+                if len(resolved_parents) > 1:
+                    logger.error(f'Found multiple valid parents for item: {item}: parents={resolved_parents}')
                 # assert len(resolved_parent_ids) == 1
-                return self._whole_tree.get_item_for_id(resolved_parent_ids[0])
+                return resolved_parents[0]
         return None
 
     def get_item_for_identifier(self, identifer: NodeIdentifier) -> Optional[GoogNode]:
