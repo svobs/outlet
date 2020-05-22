@@ -60,29 +60,21 @@ class TreePanelController:
         self.tree_view.get_column(self.treeview_meta.col_num_etc_view).set_visible(self.treeview_meta.show_etc_col)
 
     def load(self):
+        """Just populates the tree with nodes"""
         self.display_strategy.populate_root()
 
-    def reload(self, new_root=None, new_tree=None, tree_display_mode: TreeDisplayMode = None):
+    def reload(self, new_root=None, new_tree=None, tree_display_mode: TreeDisplayMode = None,
+               show_checkboxes: bool = False, hide_checkboxes: bool = False):
         """Invalidate whatever cache the tree_builder built up, and re-populate the display tree"""
-        if new_root:
-            logger.debug(f'reload() with new root: {new_root}')
-            self.set_tree(root=new_root, tree_display_mode=tree_display_mode)
-        elif new_tree:
-            logger.debug(f'reload() with new tree')
-            self.set_tree(tree=new_tree, tree_display_mode=tree_display_mode)
-        else:
-            logger.debug(f'reload() with same tree')
-            tree = self.tree_builder.get_tree()
-            self.set_tree(tree=tree, tree_display_mode=tree_display_mode)
-        self.load()
+        def _reload():
 
-    def rebuild_treeview_with_checkboxes(self, new_root=None, new_tree=None, tree_display_mode: TreeDisplayMode = None):
-        """Tear out half the guts here and swap it out, to add checkboxes..."""
-        def rebuild_treeview():
-            if not self.treeview_meta.has_checkboxes:
+            checkboxes_visible = self.treeview_meta.has_checkboxes
+            if (show_checkboxes and not checkboxes_visible) or (hide_checkboxes and checkboxes_visible):
+                # Change in checkbox visibility means tearing out half the guts here and swapping them out...
                 logger.info('Rebuilding treeview!')
+                checkboxes_visible = not checkboxes_visible
                 self.context_listeners.disconnect_gtk_listeners()
-                self.treeview_meta = self.treeview_meta.but_with_checkboxes()
+                self.treeview_meta = self.treeview_meta.but_with_checkboxes(checkboxes_visible)
                 self.display_store = DisplayStore(self.treeview_meta)
 
                 assets = self.parent_win.application.assets
@@ -92,9 +84,19 @@ class TreePanelController:
                 self.context_listeners.init()
                 self.treeview_meta.init()
 
-            self.reload(new_root=new_root, new_tree=new_tree, tree_display_mode=tree_display_mode)
+            if new_root:
+                logger.debug(f'reload() with new root: {new_root}')
+                self.set_tree(root=new_root, tree_display_mode=tree_display_mode)
+            elif new_tree:
+                logger.debug(f'reload() with new tree')
+                self.set_tree(tree=new_tree, tree_display_mode=tree_display_mode)
+            else:
+                logger.debug(f'reload() with same tree')
+                tree = self.tree_builder.get_tree()
+                self.set_tree(tree=tree, tree_display_mode=tree_display_mode)
+            self.load()
 
-        GLib.idle_add(rebuild_treeview)
+        GLib.idle_add(_reload)
 
     def get_single_selection(self):
         """Assumes that only one node can be selected at a given time"""
@@ -124,7 +126,7 @@ class TreePanelController:
 
         return checked_rows
 
-    def get_tree(self):
+    def get_tree(self) -> SubtreeSnapshot:
         return self.tree_builder.get_tree()
 
     def set_tree(self, root: NodeIdentifier = None, tree: SubtreeSnapshot = None, tree_display_mode: TreeDisplayMode = None):

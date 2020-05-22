@@ -9,8 +9,12 @@ logger = logging.getLogger(__name__)
 
 
 def ensure_int(val):
-    if type(val) == str:
-        return int(val)
+    try:
+        if type(val) == str:
+            return int(val)
+    except ValueError:
+        # just kidding! (need to support UIDs for local files which use strings instead)
+        pass
     return val
 
 

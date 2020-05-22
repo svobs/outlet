@@ -143,10 +143,10 @@ class GlobalActions:
 
             actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, msg='Populating UI trees...')
 
-            tree_con_left.rebuild_treeview_with_checkboxes(new_tree=change_tree_left,
-                                                           tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
-            tree_con_right.rebuild_treeview_with_checkboxes(new_tree=change_tree_right,
-                                                            tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
+            tree_con_left.reload(new_tree=change_tree_left, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY,
+                                 show_checkboxes=True)
+            tree_con_right.reload(new_tree=change_tree_right, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY,
+                                  show_checkboxes=True)
 
             actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW)
             actions.get_dispatcher().send(signal=actions.DIFF_TREES_DONE, sender=sender, stopwatch=stopwatch_diff_total)

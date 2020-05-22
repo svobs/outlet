@@ -35,11 +35,11 @@ class DisplayTreeBuilder(ABC):
             return self._tree.node_identifier
         return self._root
 
-    def get_tree(self):
+    def get_tree(self) -> SubtreeSnapshot:
         return self.tree
 
     @property
-    def tree(self):
+    def tree(self) -> SubtreeSnapshot:
         self._ensure_is_loaded()
         return self._tree
 

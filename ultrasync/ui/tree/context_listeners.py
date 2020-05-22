@@ -82,9 +82,9 @@ class TreeContextListeners:
         if not err and self.con.config.get('cache.load_cache_when_tree_root_selected'):
             logger.debug(f'Got new root. Reloading subtree for: {new_root}')
             # Loads from disk if necessary:
-            self.con.reload(new_root, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
+            self.con.reload(new_root, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, hide_checkboxes=True)
         else:
-            # Just wipe out the old root
+            # Just wipe out the old root and clear the tree
             self.con.set_tree(root=new_root)
 
     def _after_all_caches_loaded(self, sender):

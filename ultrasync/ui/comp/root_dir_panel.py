@@ -5,7 +5,6 @@ from pydispatch import dispatcher
 import gi
 
 import file_util
-from model import node_identifier
 from model.gdrive_whole_tree import GDriveItemNotFoundError
 from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 

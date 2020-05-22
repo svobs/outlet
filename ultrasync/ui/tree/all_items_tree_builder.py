@@ -1,5 +1,6 @@
 import logging
-from typing import List, Optional
+from collections import deque
+from typing import Deque, Iterable, List, Optional, Tuple
 
 import treelib
 
@@ -56,17 +57,33 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
             logger.debug(f'CategoryTree for "{self.tree.node_identifier}": ' + self.display_tree.show(stdout=False))
             raise
 
+    def _get_ancestors(self, item: DisplayNode) -> Deque[DisplayNode]:
+        ancestors: Deque[DisplayNode] = deque()
+
+        # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
+        # been added to this tree, or the root of the source tree
+        ancestor = item
+        while ancestor:
+            ancestor = self.tree.get_parent_for_item(ancestor)
+            if ancestor:
+                if ancestor.uid == self.tree.uid:
+                    # do not include source tree's root node; that is already covered by the CategoryNode
+                    # (in pre-ancestors)
+                    return ancestors
+                ancestors.appendleft(ancestor)
+
+        return ancestors
+
     def _build_display_tree(self) -> treelib.Tree:
         """
         Builds a tree out of the flat file set.
         """
         sw = Stopwatch()
-        source_tree = self.tree
         root_node = DirNode(self.tree.node_identifier)
         # The change set in tree form
         display_tree = treelib.Tree()
 
-        item_list: List[DisplayNode] = source_tree.get_all()
+        item_list: List[DisplayNode] = self.tree.get_all()
         set_len = len(item_list)
 
         logger.debug(f'Building display tree for {set_len} files...')
@@ -79,20 +96,19 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
                 # (2) there's nothing for us in these objects from a display perspective. The name can be inferred
                 # from each file's path, and we don't want to display empty dirs when there's no file of that category
                 continue
-            ancestor_identifiers = source_tree.get_ancestor_chain(item)
+            ancestors: Iterable[DisplayNode] = self._get_ancestors(item)
             # nid == Node ID == directory name
             parent = root
             parent.data.add_meta_metrics(item)
 
-            if ancestor_identifiers:
+            if ancestors:
                 # Create a node for each ancestor dir (path segment)
-                for node_identifier in ancestor_identifiers:
-                    nid = node_identifier.uid
+                for ancestor in ancestors:
+                    nid = ancestor.uid
                     child: treelib.Node = display_tree.get_node(nid=nid)
                     if child is None:
                         # logger.debug(f'Creating dir node: nid={nid}')
-                        dir_node = DirNode(node_identifier=node_identifier)
-                        child = display_tree.create_node(identifier=nid, parent=parent, data=dir_node)
+                        child = display_tree.create_node(identifier=nid, parent=parent, data=ancestor)
                     parent = child
                     assert isinstance(parent.data, DirNode)
                     parent.data.add_meta_metrics(item)
