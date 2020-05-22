@@ -70,6 +70,6 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
             dialog.destroy()
 
     def on_apply_clicked(self):
-        builder = CommandBuilder(self.parent_win.application.uid_generator)
+        builder = CommandBuilder(self.parent_win.application)
         command_list = builder.build_command_list(self.tree)
         self.parent_win.application.command_executor.enqueue(command_list)

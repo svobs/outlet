@@ -1,10 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Union
+from typing import Optional
 
-import constants
-from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED
+from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED, ROOT_PATH
 
-# ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 from index import uid_generator
 from index.uid_generator import UID
 from model.category import Category
@@ -48,7 +46,7 @@ class NodeIdentifier(ABC):
 
     def __eq__(self, other):
         if isinstance(other, str):
-            return other == constants.ROOT_PATH and self.uid == uid_generator.ROOT_UID
+            return other == ROOT_PATH and self.uid == uid_generator.ROOT_UID
         return self.full_path == other.full_path and self.uid == other.uid and self.tree_type == other.tree_type
 
     def __ne__(self, other):
@@ -130,7 +128,7 @@ class NodeIdentifierFactory:
 
     @staticmethod
     def get_gdrive_root_constant_identifier() -> GDriveIdentifier:
-        return GDriveIdentifier(uid=uid_generator.ROOT_UID, full_path=constants.ROOT_PATH)
+        return GDriveIdentifier(uid=uid_generator.ROOT_UID, full_path=ROOT_PATH)
 
     @staticmethod
     def for_values(tree_type: int = None,
@@ -154,10 +152,10 @@ class NodeIdentifierFactory:
         elif tree_type == OBJ_TYPE_LOCAL_DISK:
             return LocalFsIdentifier(uid=uid, full_path=full_path, category=category)
         elif tree_type == OBJ_TYPE_GDRIVE:
-            if full_path == constants.ROOT_PATH and not uid:
+            if full_path == ROOT_PATH and not uid:
                 uid = uid_generator.ROOT_UID
             elif uid == uid_generator.ROOT_UID and not full_path:
-                full_path = constants.ROOT_PATH
+                full_path = ROOT_PATH
             return GDriveIdentifier(uid=uid, full_path=full_path, category=category)
         elif tree_type == OBJ_TYPE_MIXED:
             return LogicalNodeIdentifier(full_path=full_path, uid=uid, tree_type=tree_type, category=category)

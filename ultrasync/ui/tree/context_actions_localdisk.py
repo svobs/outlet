@@ -80,7 +80,8 @@ class ContextActionsLocaldisk:
             item.connect('activate', lambda menu_item: self.expand_all(tree_path))
             menu.append(item)
 
-            if re.fullmatch(DATE_REGEX, file_name):
+            match = re.match(DATE_REGEX, file_name)
+            if match:
                 item = Gtk.MenuItem(label=f'Use EXIFTool on dir')
                 item.connect('activate', lambda menu_item: self.call_exiftool(full_path))
                 menu.append(item)

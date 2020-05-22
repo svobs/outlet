@@ -257,8 +257,7 @@ class TreeContextListeners:
             objs_type = _get_items_type(selected_items)
 
             # User right-clicked on selection -> apply context menu to all selected items:
-            context_menu = self.build_context_menu_multiple(selected_items)####
-            self.context_handlers[objs_type].build_context_menu_multiple(selected_items)
+            context_menu = self.context_handlers[objs_type].build_context_menu_multiple(selected_items)
             if context_menu:
                 context_menu.popup_at_pointer(event)
                 # Suppress selection event
@@ -277,14 +276,6 @@ class TreeContextListeners:
 
     # ⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝
     # ACTIONS end
-
-    def build_context_menu_multiple(self, selected_items: List[DisplayNode]) -> Optional[Gtk.Menu]:
-        """Create context menu for multiple selected items"""
-        return None
-
-    def build_context_menu(self, tree_path: Gtk.TreePath, node_data: DisplayNode) -> Optional[Gtk.Menu]:
-        """Create context menu for single item, or singular selection (equivalent logic)"""
-        return None
 
 
 def _get_items_type(selected_items: List):
