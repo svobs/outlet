@@ -9,7 +9,7 @@ import file_util
 import format_util
 from constants import NOT_TRASHED
 from index.two_level_dict import Md5BeforeUidDict
-from model.category import Category
+from model.display_node import DisplayNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.gdrive_whole_tree import GDriveItemNotFoundError, GDriveWholeTree
 from model.goog_node import GoogNode
@@ -145,7 +145,7 @@ class GDriveSubtree(SubtreeSnapshot):
     def add_item(self, item):
         raise RuntimeError('Cannot do this from a subtree!')
 
-    def get_parent_for_item(self, item) -> Optional[GoogNode]:
+    def get_parent_for_item(self, item: DisplayNode) -> Optional[GoogNode]:
         if item and self.in_this_subtree(item.full_path):
             parent_ids = item.parent_ids
             if parent_ids:
@@ -159,76 +159,6 @@ class GDriveSubtree(SubtreeSnapshot):
                 # assert len(resolved_parent_ids) == 1
                 return resolved_parents[0]
         return None
-
-    def get_item_for_identifier(self, identifer: NodeIdentifier) -> Optional[GoogNode]:
-        if isinstance(identifer, int):
-            item = self._whole_tree.get_item_for_id(identifer)
-            if item and self.in_this_subtree(item.full_path):
-                return item
-        elif identifer.uid:
-            item = self._whole_tree.get_item_for_id(identifer.uid)
-            if item and self.in_this_subtree(item.full_path):
-                return item
-        elif identifer.full_path:
-            # TODO: not sure if we wanna pursue this
-            pass
-            # item_list = self._whole_tree.get_all_ids_for_path(identifer.full_path)
-        return None
-
-    def get_ancestor_chain(self, item: GoogNode) -> List[NodeIdentifier]:
-        # FIXME: go up the given path, using get_for_path() instead
-        identifiers = []
-
-        # kind of a kludge but I don't care right now
-        if isinstance(item, FileDecoratorNode) and not item.parent_ids:
-            relative_path = file_util.strip_root(item.dest_path, self.root_path)
-            name_segments = file_util.split_path(relative_path)
-            # Skip last item (it's the file name)
-            name_segments.pop()
-            current_identifier: NodeIdentifier = self._root_node.node_identifier
-            path_so_far = current_identifier.full_path
-            for name_seg in name_segments:
-                path_so_far = os.path.join(path_so_far, name_seg)
-                children: List[GoogNode] = self._whole_tree.get_children(current_identifier.uid)
-                if children:
-                    matches = [x for x in children if x.name == name_seg]
-                    if len(matches):
-                        if len(matches) > 1:
-                            logger.error(f'get_ancestor_chain(): Multiple child IDs ({len(matches)}) found for parent ID"{current_identifier.uid}", '
-                                         f'tree "{self.root_path}" Choosing the first found')
-                            for num, match in enumerate(matches):
-                                logger.info(f'Match {num}: {match}')
-
-                        current_identifier = matches[0].node_identifier
-                        identifiers.append(current_identifier)
-                        continue
-
-                if SUPER_DEBUG:
-                    logger.debug(f'Deriving new fake ancestor for: {path_so_far}')
-                current_identifier = GDriveIdentifier(uid=path_so_far, full_path=path_so_far, category=Category.Added)
-                identifiers.append(current_identifier)
-
-            return identifiers
-
-        while True:
-            if item.parent_ids:
-                if len(item.parent_ids) > 1:
-                    resolved_parent_ids = []
-                    for par_id in item.parent_ids:
-                        par = self._whole_tree.get_item_for_id(par_id)
-                        if par and self.in_this_subtree(par.full_path):
-                            resolved_parent_ids.append(par_id)
-                    if len(resolved_parent_ids) > 1:
-                        logger.error(f'Found multiple valid parents for item: {item}: parents={resolved_parent_ids}')
-                    # assert len(resolved_parent_ids) == 1
-                    item = self._whole_tree.get_item_for_id(resolved_parent_ids[0])
-                else:
-                    item = self._whole_tree.get_item_for_id(item.parent_ids[0])
-                if item and item.uid != self.node_identifier.uid:
-                    identifiers.append(item.node_identifier)
-                    continue
-            identifiers.reverse()
-            return identifiers
 
     def get_relative_path_for_item(self, goog_node: GoogNode):
         """Get the path for the given ID, relative to the root of this subtree"""

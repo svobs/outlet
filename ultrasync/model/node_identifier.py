@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Union
 
 import constants
-from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_DISPLAY_ONLY, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED
+from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 from index import uid_generator
@@ -40,11 +40,11 @@ class NodeIdentifier(ABC):
     @property
     @abstractmethod
     def tree_type(self) -> int:
-        return OBJ_TYPE_DISPLAY_ONLY
+        return 0
 
     def __repr__(self):
         # should never be displayed
-        return f'∣✪✪∣{self.category.value}⚡{self.full_path}∤{self.uid}∣'
+        return f'∣✪✪∣{self.category.name[0]}⚡{self.full_path}⩨{self.uid}∣'
 
     def __eq__(self, other):
         if isinstance(other, str):
@@ -63,7 +63,7 @@ class NodeIdentifier(ABC):
 
 
 class LogicalNodeIdentifier(NodeIdentifier):
-    def __init__(self, uid: UID, full_path: str, category: Category, tree_type=OBJ_TYPE_DISPLAY_ONLY):
+    def __init__(self, uid: UID, full_path: str, category: Category, tree_type: int):
         """Object has a path, but does not represent a physical item"""
         super().__init__(uid, full_path, category)
         self._tree_type = tree_type
@@ -73,7 +73,7 @@ class LogicalNodeIdentifier(NodeIdentifier):
         return self._tree_type
 
     def __repr__(self):
-        return f'∣--∣{self.category.value}⚡{self.full_path}∤{self.uid}∣'
+        return f'∣--∣{self.category.name[0]}⚡{self.full_path}⩨{self.uid}∣'
 
 
 """
@@ -96,7 +96,7 @@ class GDriveIdentifier(NodeIdentifier):
             uid_disp = '≡'
         else:
             uid_disp = str(self.uid)
-        return f'∣GD∣{self.category.value}⚡{self.full_path}∤{uid_disp}∣'
+        return f'∣GD∣{self.category.name[0]}⚡{self.full_path}⩨{uid_disp}∣'
 
 
 """
@@ -121,7 +121,7 @@ class LocalFsIdentifier(NodeIdentifier):
             uid_disp = '≡'
         else:
             uid_disp = self.uid
-        return f'∣FS∣{self.category.value}⚡{self.full_path}∤{uid_disp}∣'
+        return f'∣FS∣{self.category.name[0]}⚡{self.full_path}⩨{uid_disp}∣'
 
 
 class NodeIdentifierFactory:
@@ -159,7 +159,7 @@ class NodeIdentifierFactory:
             elif uid == uid_generator.ROOT_UID and not full_path:
                 full_path = constants.ROOT_PATH
             return GDriveIdentifier(uid=uid, full_path=full_path, category=category)
-        elif tree_type == OBJ_TYPE_MIXED or tree_type == OBJ_TYPE_DISPLAY_ONLY:
-            return LogicalNodeIdentifier(full_path=full_path, uid=uid, category=category)
+        elif tree_type == OBJ_TYPE_MIXED:
+            return LogicalNodeIdentifier(full_path=full_path, uid=uid, tree_type=tree_type, category=category)
         else:
             raise RuntimeError('bad')

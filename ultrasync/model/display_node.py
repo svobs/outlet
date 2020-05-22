@@ -124,6 +124,7 @@ class DirNode(DisplayNode):
     def name(self):
         if type(self.node_identifier.full_path) == list:
             return os.path.basename(self.node_identifier.full_path[0])
+        assert self.node_identifier.full_path, f'For {type(self)}, uid={self.uid}'
         return os.path.basename(self.node_identifier.full_path)
 
     @property
@@ -175,7 +176,7 @@ class CategoryNode(DirNode):
         super().__init__(node_identifier=node_identifier)
 
     def __repr__(self):
-        return f'CategoryNode({self.category.name})'
+        return f'CategoryNode(cat={self.category.name}, identifier={self.node_identifier})'
 
     @property
     def name(self):
@@ -192,6 +193,14 @@ class RootTypeNode(DirNode):
 
     def __init__(self, node_identifier):
         super().__init__(node_identifier=node_identifier)
+
+    @property
+    def name(self):
+        if self.node_identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
+            return 'Local Disk'
+        elif self.node_identifier.tree_type == OBJ_TYPE_GDRIVE:
+            return 'Google Drive'
+        return 'Unknown'
 
     def __repr__(self):
         return f'RootTypeNode({self.name})'

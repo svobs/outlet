@@ -62,19 +62,11 @@ class SubtreeSnapshot(ABC):
         return []
 
     @abstractmethod
-    def get_item_for_identifier(self, identifer: NodeIdentifier) -> Optional[DisplayNode]:
-        return None
-
-    @abstractmethod
     def get_ignored_items(self):
         return []
 
     @abstractmethod
     def get_parent_for_item(self, item) -> Optional[DisplayNode]:
-        pass
-
-    @abstractmethod
-    def get_ancestor_chain(self, item) -> List[NodeIdentifier]:
         pass
 
     @abstractmethod

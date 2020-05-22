@@ -7,9 +7,7 @@ from typing import List, Optional, Union
 import gi
 import treelib
 
-from constants import LARGE_NUMBER_OF_CHILDREN, TreeDisplayMode
-from model.node_identifier import NodeIdentifier
-from model.subtree_snapshot import SubtreeSnapshot
+from constants import LARGE_NUMBER_OF_CHILDREN
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib
@@ -40,9 +38,17 @@ class LazyDisplayStrategy:
         self.use_empty_nodes = True
         self.auto_populate_enabled = True
 
+    def init(self):
+        """Do post-wiring stuff like connect listeners."""
+        self.use_empty_nodes = self.con.config.get('display.diff_tree.use_empty_nodes')
+
+        if self.con.treeview_meta.lazy_load:
+            dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled,
+                               sender=self.con.treeview_meta.tree_id)
+
     def populate_recursively(self, parent_iter, parent_uid, node: Union[treelib.Node, DisplayNode]):
         node_count = self._populate_recursively(parent_iter, parent_uid, node)
-        logger.debug(f'Populated {node_count} nodes')
+        logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
 
     def _populate_recursively(self, parent_iter, parent_uid, node: Union[treelib.Node, DisplayNode], node_count: int = 0) -> int:
         total_expanded = 0
@@ -130,14 +136,6 @@ class LazyDisplayStrategy:
         actions.set_status(sender=self.con.treeview_meta.tree_id,
                            status_msg=self.con.get_tree().get_summary())
 
-    def init(self):
-        """Do post-wiring stuff like connect listeners."""
-        self.use_empty_nodes = self.con.config.get('display.diff_tree.use_empty_nodes')
-
-        if self.con.treeview_meta.lazy_load:
-            dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled,
-                               sender=self.con.treeview_meta.tree_id)
-
     def get_checked_rows_as_list(self) -> List[DisplayNode]:
         """Returns a list which contains the DisplayNodes of the items which are currently checked by the user
         (including collapsed rows). This will be a subset of the SubtreeSnapshot which was used to
@@ -194,7 +192,7 @@ class LazyDisplayStrategy:
 
     def _on_node_expansion_toggled(self, sender: str, parent_iter, node_data: DisplayNode, is_expanded: bool):
         # Callback for actions.NODE_EXPANSION_TOGGLED:
-        logger.debug(f'Node expansion toggled to {is_expanded} for {node_data.node_identifier}" tree_id={sender}')
+        logger.debug(f'[{sender}] Node expansion toggled to {is_expanded} for {node_data.node_identifier}"')
 
         if not self.auto_populate_enabled:
             logger.debug('Auto-populate disabled')
@@ -239,9 +237,9 @@ class LazyDisplayStrategy:
 
     def _append_children(self, children: List[DisplayNode], parent_iter, parent_uid: Optional[str]):
         if children:
-            logger.debug(f'Appending {len(children)} child display nodes')
+            logger.debug(f'[{self.con.tree_id}] Appending {len(children)} child display nodes')
             if len(children) > LARGE_NUMBER_OF_CHILDREN:
-                logger.error(f'Too many children to display! Count = {len(children)}')
+                logger.error(f'[{self.con.tree_id}] Too many children to display! Count = {len(children)}')
                 self._append_empty_child(parent_iter, f'ERROR: too many items to display ({len(children):n})')
                 return
             # Append all underneath tree_iter

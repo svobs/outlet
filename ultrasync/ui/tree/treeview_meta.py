@@ -1,9 +1,12 @@
 from pydispatch import dispatcher
+import logging
 
 from app_config import AppConfig
 from constants import TreeDisplayMode
 from model.display_node import CategoryNode, DisplayNode
 from ui import actions
+
+logger = logging.getLogger(__name__)
 
 
 class TreeViewMeta:
@@ -116,12 +119,14 @@ class TreeViewMeta:
         col_count_model += 1
 
     def init(self):
+        logger.debug(f'[{self.tree_id}] TreeViewMeta init is_persisted={self.is_display_persisted}')
         # Hook up persistence of expanded state (if configured):
         if self.is_display_persisted:
             dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.tree_id)
 
-    def _on_node_expansion_toggled(self, sender, parent_iter, node_data: DisplayNode, is_expanded: bool, expand_all=False):
+    def _on_node_expansion_toggled(self, sender: str, parent_iter, node_data: DisplayNode, is_expanded: bool):
         if type(node_data) == CategoryNode:
+            logger.debug(f'[{self.tree_id}] Detected node expansion toggle: {node_data.category.name} = {is_expanded}')
             cfg_path = f'transient.{self.tree_id}.expanded_state.{node_data.category.name}'
             self.config.write(cfg_path, is_expanded)
         # Allow other listeners to handle this also:

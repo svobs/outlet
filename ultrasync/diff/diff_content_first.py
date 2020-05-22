@@ -29,8 +29,8 @@ class ContentFirstDiffer:
         self.right_tree = right_tree
         self.uid_generator = application.uid_generator
 
-        self.change_tree_left: CategoryDisplayTree = CategoryDisplayTree(self.left_tree)
-        self.change_tree_right: CategoryDisplayTree = CategoryDisplayTree(self.right_tree)
+        self.change_tree_left: CategoryDisplayTree = CategoryDisplayTree(self.left_tree, self.uid_generator)
+        self.change_tree_right: CategoryDisplayTree = CategoryDisplayTree(self.right_tree, self.uid_generator)
 
         self.added_folders_left: Dict[str, FolderToAdd] = {}
         self.added_folders_right: Dict[str, FolderToAdd] = {}
@@ -56,10 +56,12 @@ class ContentFirstDiffer:
         while True:
             path = str(pathlib.Path(path).parent)
 
+            # AddedFolder already known and created?
             parents = added_folders_dict.get(path, None)
             if parents:
                 break
 
+            # Folder already existed in original tree?
             parents = change_tree.source_tree.get_for_path(path)
             if parents:
                 break
@@ -333,28 +335,27 @@ class ContentFirstDiffer:
 
         return self.change_tree_left, self.change_tree_right
 
+    def merge_change_trees(self, left_selected_changes: List[DisplayNode], right_selected_changes: List[DisplayNode],
+                           check_for_conflicts=False) -> CategoryDisplayTree:
 
-def merge_change_trees(left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot,
-                       left_selected_changes: List[DisplayNode], right_selected_changes: List[DisplayNode],
-                       check_for_conflicts=False) -> CategoryDisplayTree:
+        # always root path, but tree type may differ
+        is_mixed_tree = self.left_tree.tree_type != self.right_tree.tree_type
+        if is_mixed_tree:
+            root = LogicalNodeIdentifier(uid=uid_generator.ROOT_UID, full_path=ROOT_PATH, category=Category.NA, tree_type=OBJ_TYPE_MIXED)
+        else:
+            root: NodeIdentifier = NodeIdentifierFactory.for_values(tree_type=self.left_tree.tree_type,
+                                                                    full_path=ROOT_PATH, uid=uid_generator.ROOT_UID)
 
-    # always root path, but tree type may differ
-    is_mixed_tree = left_tree.tree_type != right_tree.tree_type
-    if is_mixed_tree:
-        root = LogicalNodeIdentifier(uid=uid_generator.ROOT_UID, full_path=ROOT_PATH, category=Category.NA, tree_type=OBJ_TYPE_MIXED)
-    else:
-        root: NodeIdentifier = NodeIdentifierFactory.for_values(tree_type=left_tree.tree_type, full_path=ROOT_PATH, uid=uid_generator.ROOT_UID)
+        # just set source tree to left tree - we aren't using it for much anyway
+        merged_tree = CategoryDisplayTree(source_tree=self.left_tree, root=root, show_whole_forest=True,
+                                          uid_generator=self.uid_generator)
 
-    # just set source tree to left tree - we aren't using it for much anyway
-    # FIXME: create new display tree class which starts from roots and is cleaner
-    merged_tree = CategoryDisplayTree(source_tree=left_tree, root=root, show_whole_forest=True)
+        for item in left_selected_changes:
+            merged_tree.add_item(item, item.category)
 
-    for item in left_selected_changes:
-        merged_tree.add_item(item, item.category)
+        for item in right_selected_changes:
+            merged_tree.add_item(item, item.category)
 
-    for item in right_selected_changes:
-        merged_tree.add_item(item, item.category)
+        # TODO: check for conflicts
 
-    # TODO: check for conflicts
-
-    return merged_tree
+        return merged_tree

@@ -58,11 +58,6 @@ class FMetaTree(SubtreeSnapshot):
             assert isinstance(subtree_root, NodeIdentifier) or isinstance(subtree_root, DisplayNode)
             return FMetaTree(subtree_root.full_path)
 
-    def get_item_for_identifier(self, identifer: NodeIdentifier) -> FMeta:
-        if identifer.full_path:
-            return self.get_for_path(identifer.full_path)
-        return None
-
     def get_parent_for_item(self, item) -> Optional[DisplayNode]:
         # FIXME: add support for storing dir metadata in FMetaTree. Ditch this fake stuff
         parent = str(pathlib.Path(item.full_path).parent)
@@ -70,17 +65,6 @@ class FMetaTree(SubtreeSnapshot):
             identifer = LocalFsIdentifier(full_path=parent)
             return DirNode(identifer)
         return None
-
-    def get_ancestor_chain(self, item) -> List[NodeIdentifier]:
-        relative_path = self.get_relative_path_for_item(item)
-        path_segments: List[str] = file_util.split_path(relative_path)
-
-        identifiers: List[NodeIdentifier] = []
-        path_so_far = self.root_path
-        for segment in path_segments[:-1]:
-            path_so_far = os.path.join(path_so_far, segment)
-            identifiers.append(LocalFsIdentifier(full_path=path_so_far))
-        return identifiers
 
     def get_all(self) -> ValuesView[FMeta]:
         """

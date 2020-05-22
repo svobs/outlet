@@ -131,7 +131,7 @@ class FileToAdd(FileDecoratorNode):
         super().__init__(node_identifier, src_node)
 
     def __repr__(self):
-        return f'FileToAdd(node_identifier={self.node_identifier} src_node={self.src_node})'
+        return f'FileToAdd(node_identifier={self.node_identifier} parent_uids={self.parent_ids} src_node={self.src_node})'
 
 
 # CLASS FileToMove
@@ -143,7 +143,7 @@ class FileToMove(FileDecoratorNode):
         super().__init__(node_identifier, src_node)
 
     def __repr__(self):
-        return f'FileToMove(node_identifier={self.node_identifier} src_node={self.src_node})'
+        return f'FileToMove(node_identifier={self.node_identifier} parent_uids={self.parent_ids} src_node={self.src_node})'
 
 
 # CLASS FileToUpdate
@@ -158,4 +158,4 @@ class FileToUpdate(FileDecoratorNode):
         """The node to overwrite"""
 
     def __repr__(self):
-        return f'FileToUpdate(node_identifier={self.node_identifier} src_node={self.src_node} dst_node={self.dst_node})'
+        return f'FileToUpdate(node_identifier={self.node_identifier} parent_uids={self.parent_ids} src_node={self.src_node} dst_node={self.dst_node})'

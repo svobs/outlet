@@ -3,7 +3,7 @@ import logging
 
 from stopwatch_sec import Stopwatch
 
-from constants import OBJ_TYPE_DISPLAY_ONLY, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, TreeDisplayMode
+from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, TreeDisplayMode
 from model.node_identifier import NodeIdentifier
 from ui.tree import tree_factory_templates
 from ui.tree.all_items_tree_builder import AllItemsGDriveTreeBuilder, AllItemsLocalFsTreeBuilder
@@ -90,6 +90,7 @@ class TreePanelController:
                 tree_factory_templates.replace_widget(self.tree_view, new_treeview)
                 self.tree_view = new_treeview
                 self.context_listeners.init()
+                self.treeview_meta.init()
 
             self.reload(new_root=new_root, new_tree=new_tree, tree_display_mode=tree_display_mode)
 
