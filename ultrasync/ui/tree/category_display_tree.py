@@ -8,9 +8,8 @@ from treelib.exceptions import DuplicatedNodeIdError
 
 import file_util
 from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED
-from index.uid_generator import UID
 from model.category import Category
-from model.node_identifier import NodeIdentifier, LogicalNodeIdentifier, NodeIdentifierFactory
+from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from model.display_node import CategoryNode, DirNode, DisplayNode, RootTypeNode
 from model.subtree_snapshot import SubtreeSnapshot
 
@@ -185,9 +184,9 @@ class CategoryDisplayTree:
             # cat node is last pre-ancestor:
             return cat_node
 
-    def _get_ancestor_identifiers(self, item: DisplayNode, cat_nid_prefix: str, source_tree: SubtreeSnapshot) \
-            -> Tuple[Optional[treelib.Node], Deque[NodeIdentifier]]:
-        ancestor_identifiers: Deque[NodeIdentifier] = deque()
+    def _get_ancestors(self, item: DisplayNode, cat_nid_prefix: str, source_tree: SubtreeSnapshot) \
+            -> Tuple[Optional[treelib.Node], Deque[DisplayNode]]:
+        ancestors: Deque[DisplayNode] = deque()
 
         # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
         # been added to this tree, or the root of the source tree
@@ -203,16 +202,16 @@ class CategoryDisplayTree:
                     if node:
                         parent = node
                         # Found: existing node in this tree. This should happen on the first iteration or not at all
-                        return parent, ancestor_identifiers
+                        return parent, ancestors
             ancestor = source_tree.get_parent_for_item(ancestor)
             if ancestor:
                 if ancestor.uid == source_tree.uid:
                     # do not include source tree's root node; that is already covered by the CategoryNode
                     # (in pre-ancestors)
-                    return None, ancestor_identifiers
-                ancestor_identifiers.appendleft(ancestor.node_identifier)
+                    return None, ancestors
+                ancestors.appendleft(ancestor)
 
-        return None, ancestor_identifiers
+        return None, ancestors
 
     def add_item(self, item: DisplayNode, category: Category, source_tree: SubtreeSnapshot):
         """When we add the item, we add any necessary ancestors for it as well.
@@ -230,26 +229,26 @@ class CategoryDisplayTree:
         parent.data.add_meta_metrics(item)
 
         # Walk up the source tree and compose a list of ancestors:
-        new_parent, ancestor_identifiers = self._get_ancestor_identifiers(item, cat_nid_prefix, source_tree)
+        new_parent, ancestors = self._get_ancestors(item, cat_nid_prefix, source_tree)
         if new_parent:
             parent = new_parent
 
         # Walk down the ancestor list and create a node for each ancestor dir:
-        for node_identifier in ancestor_identifiers:
-            nid = f'{cat_nid_prefix}/{node_identifier.uid}'
-            child: treelib.Node = self._category_tree.get_node(nid=nid)
-            if child is None:
+        for ancestor in ancestors:
+            nid = f'{cat_nid_prefix}/{ancestor.uid}'
+            existing_node: treelib.Node = self._category_tree.get_node(nid=nid)
+            if existing_node is None:
                 # Need to copy the node_identifier so that we can ensure the category is correct for where it is
                 # going in our tree. When get_children() is called, it uses the node_identifier's category to
                 # determine which tree to look up. Need to brainstorm a more elegant solution!
-                new_identifier = NodeIdentifierFactory.for_values(tree_type=node_identifier.tree_type, full_path=node_identifier.full_path,
-                                                                  uid=node_identifier.uid, category=category)
+                new_ancestor = copy.copy(ancestor)
+                new_ancestor.node_identifier.category = category
                 # TODO: subclass this from treelib.Node! Then we don't have to allocate twice
-                dir_node = DirNode(node_identifier=new_identifier)
-                child = self._category_tree.create_node(identifier=nid, parent=parent, data=dir_node)
-            parent = child
-            assert isinstance(parent.data, DirNode)
-            parent.data.add_meta_metrics(item)
+                existing_node = self._category_tree.create_node(identifier=nid, parent=parent, data=new_ancestor)
+            parent = existing_node
+            # This will most often be a DirNode, but may occasionally be a FolderToAdd.
+            if isinstance(parent.data, DirNode):
+                parent.data.add_meta_metrics(item)
 
         # logger.debug(f'Creating file node for item {item}')
         categorized_item = copy.copy(item)
