@@ -23,21 +23,13 @@ CATEGORIES = [Category.Added, Category.Deleted, Category.Moved, Category.Updated
 
 
 class CategoryDisplayTree:
-    def __init__(self, source_tree: SubtreeSnapshot, uid_generator,
-                 root: Union[DisplayNode, NodeIdentifier] = None, show_whole_forest=False):
+    def __init__(self, uid_generator, root_node_identifier: NodeIdentifier, show_whole_forest=False):
         self._category_tree: treelib.Tree = treelib.Tree()
         self.uid_generator = uid_generator
         self.root = self._category_tree.create_node(identifier='//', parent=None, data=None)
         self.show_whole_forest: bool = show_whole_forest
-        self.source_tree: SubtreeSnapshot = source_tree
 
-        if not root:
-            # If root is not set, set it to the root of the source tree:
-            self.node_identifier = self.source_tree.node_identifier
-        elif isinstance(root, DisplayNode):
-            self.node_identifier: NodeIdentifier = root.node_identifier
-        else:
-            self.node_identifier: NodeIdentifier = root
+        self.node_identifier = root_node_identifier
         """Don't know of an easy way to get the roots of each tree...just hold the refs here"""
 
     @property
@@ -116,11 +108,12 @@ class CategoryDisplayTree:
             cat_nid_prefix = f'{self.root.identifier}{category.name}'
         return cat_nid_prefix
 
-    def _get_or_create_pre_ancestors(self, item: DisplayNode, category: Category) -> Tuple[str, treelib.Node]:
-        """Last pre-ancestor is easily derived and its prescence indicates whether its ancestors were already created"""
-        cat_nid_prefix = self._get_cat_nid_prefix(item.node_identifier, category)
+    def _get_or_create_pre_ancestors(self, item: DisplayNode, category: Category, source_tree: SubtreeSnapshot,
+                                     cat_nid_prefix: str) -> treelib.Node:
+        """Pre-ancestors are those nodes (either logical or pointing to real data) which are higher up than the source tree.
+        Last pre-ancestor is easily derived and its prescence indicates whether its ancestors were already created"""
 
-        last_pre_ancestor_uid = self.source_tree.node_identifier.uid
+        last_pre_ancestor_uid = source_tree.node_identifier.uid
         last_pre_ancestor_nid = f'{cat_nid_prefix}/{last_pre_ancestor_uid}'
 
         tree_type: int = item.node_identifier.tree_type
@@ -128,7 +121,7 @@ class CategoryDisplayTree:
 
         last_pre_ancestor: treelib.Node = self._category_tree.get_node(last_pre_ancestor_nid)
         if last_pre_ancestor:
-            return cat_nid_prefix, last_pre_ancestor
+            return last_pre_ancestor
 
         # else we need to create pre-ancestors...
 
@@ -166,7 +159,7 @@ class CategoryDisplayTree:
 
         if self.show_whole_forest:
             # Create remaining pre-ancestors:
-            full_path = self.source_tree.node_identifier.full_path
+            full_path = source_tree.node_identifier.full_path
             path_segments: List[str] = file_util.split_path(full_path)
             path_so_far = ''
             # Skip first (already covered by CategoryNode) and last (covered by the last_pre_ancestor_nid)
@@ -187,12 +180,13 @@ class CategoryDisplayTree:
             logger.debug(f'Creating last pre-ancestor node: {last_pre_ancestor_nid}')
             last_pre_ancestor = self._category_tree.create_node(identifier=last_pre_ancestor_nid, parent=parent_node, data=dir_node_data)
 
-            return cat_nid_prefix, last_pre_ancestor
+            return last_pre_ancestor
         else:
             # cat node is last pre-ancestor:
-            return cat_nid_prefix, cat_node
+            return cat_node
 
-    def _get_ancestor_identifiers(self, item: DisplayNode, cat_nid) -> Tuple[Optional[treelib.Node], Deque[NodeIdentifier]]:
+    def _get_ancestor_identifiers(self, item: DisplayNode, cat_nid_prefix: str, source_tree: SubtreeSnapshot) \
+            -> Tuple[Optional[treelib.Node], Deque[NodeIdentifier]]:
         ancestor_identifiers: Deque[NodeIdentifier] = deque()
 
         # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
@@ -204,15 +198,15 @@ class CategoryDisplayTree:
                 # In this tree already? Saves us work, and more importantly,
                 # allow us to use nodes not in the parent tree (e.g. FolderToAdds)
                 for parent_uid in ancestor.parent_ids:
-                    nid = f'{cat_nid}/{parent_uid}'
+                    nid = f'{cat_nid_prefix}/{parent_uid}'
                     node: treelib.Node = self._category_tree.get_node(nid=nid)
                     if node:
                         parent = node
                         # Found: existing node in this tree. This should happen on the first iteration or not at all
                         return parent, ancestor_identifiers
-            ancestor = self.source_tree.get_parent_for_item(ancestor)
+            ancestor = source_tree.get_parent_for_item(ancestor)
             if ancestor:
-                if ancestor.uid == self.source_tree.uid:
+                if ancestor.uid == source_tree.uid:
                     # do not include source tree's root node; that is already covered by the CategoryNode
                     # (in pre-ancestors)
                     return None, ancestor_identifiers
@@ -220,7 +214,7 @@ class CategoryDisplayTree:
 
         return None, ancestor_identifiers
 
-    def add_item(self, item: DisplayNode, category: Category):
+    def add_item(self, item: DisplayNode, category: Category, source_tree: SubtreeSnapshot):
         """When we add the item, we add any necessary ancestors for it as well.
         1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't
         backed by any actual data nodes. This includes possibly tree-type nodes, category nodes, and ancestors
@@ -230,12 +224,13 @@ class CategoryDisplayTree:
         """
         assert category != Category.NA, f'For item: {item}'
 
-        cat_nid_prefix, parent = self._get_or_create_pre_ancestors(item, category)
+        cat_nid_prefix = self._get_cat_nid_prefix(item.node_identifier, category)
+        parent = self._get_or_create_pre_ancestors(item, category, source_tree, cat_nid_prefix)
 
         parent.data.add_meta_metrics(item)
 
         # Walk up the source tree and compose a list of ancestors:
-        new_parent, ancestor_identifiers = self._get_ancestor_identifiers(item, cat_nid_prefix)
+        new_parent, ancestor_identifiers = self._get_ancestor_identifiers(item, cat_nid_prefix, source_tree)
         if new_parent:
             parent = new_parent
 

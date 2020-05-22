@@ -4,7 +4,6 @@ import time
 from collections import deque
 from typing import Dict, Iterable, List, Optional, Tuple
 
-import file_util
 import os
 import logging
 
@@ -29,8 +28,8 @@ class ContentFirstDiffer:
         self.right_tree = right_tree
         self.uid_generator = application.uid_generator
 
-        self.change_tree_left: CategoryDisplayTree = CategoryDisplayTree(self.left_tree, self.uid_generator)
-        self.change_tree_right: CategoryDisplayTree = CategoryDisplayTree(self.right_tree, self.uid_generator)
+        self.change_tree_left: CategoryDisplayTree = CategoryDisplayTree(self.uid_generator, self.left_tree.node_identifier)
+        self.change_tree_right: CategoryDisplayTree = CategoryDisplayTree(self.uid_generator, self.right_tree.node_identifier)
 
         self.added_folders_left: Dict[str, FolderToAdd] = {}
         self.added_folders_right: Dict[str, FolderToAdd] = {}
@@ -43,10 +42,11 @@ class ContentFirstDiffer:
         right_rel_path = right_item.get_relative_path(self.right_tree)
         return os.path.join(self.left_tree.root_path, right_rel_path)
 
-    def _add_items_and_missing_parents(self, change_tree: CategoryDisplayTree, added_folders_dict: Dict[str, FolderToAdd] , new_item: FileDecoratorNode):
+    def _add_items_and_missing_parents(self, change_tree: CategoryDisplayTree, source_tree: SubtreeSnapshot,
+                                       added_folders_dict: Dict[str, FolderToAdd] , new_item: FileDecoratorNode):
         # This only applies to GoogNodes. Just a no-op for regular files at present because we don't yet care about local dirs very much
         if new_item.node_identifier.tree_type != OBJ_TYPE_GDRIVE:
-            change_tree.add_item(new_item, new_item.category)
+            change_tree.add_item(new_item, new_item.category, source_tree)
             return
         path = new_item.full_path
         queue = deque()
@@ -62,7 +62,7 @@ class ContentFirstDiffer:
                 break
 
             # Folder already existed in original tree?
-            parents = change_tree.source_tree.get_for_path(path)
+            parents = source_tree.get_for_path(path)
             if parents:
                 break
 
@@ -79,7 +79,7 @@ class ContentFirstDiffer:
             else:
                 assert isinstance(parents, DisplayNode), f'Found instead: {type(parents)}'
                 item.parent_ids = parents.uid
-            change_tree.add_item(item, item.category)
+            change_tree.add_item(item, item.category, source_tree)
             parents = [item]
 
     def add_rename_right(self, left_item, right_item):
@@ -88,48 +88,48 @@ class ContentFirstDiffer:
         dest_path = self.move_to_right(left_item)
         new_uid = self.uid_generator.get_new_uid()
         node_identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Moved)
-        move_right_to_right = FileToMove(node_identifier=node_identifier, src_node=right_item)
-        self._add_items_and_missing_parents(self.change_tree_right, self.added_folders_right, move_right_to_right)
+        node = FileToMove(node_identifier=node_identifier, src_node=right_item)
+        self._add_items_and_missing_parents(self.change_tree_right, self.right_tree, self.added_folders_right, node)
 
     def add_rename_left(self, left_item, right_item):
         """Make a FileToMove node which will rename a file within the left tree to match the relative path of the file on right"""
         dest_path = self.move_to_left(right_item)
         new_uid = self.uid_generator.get_new_uid()
         node_identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Moved)
-        move_left_to_left = FileToMove(node_identifier=node_identifier, src_node=left_item)
-        self._add_items_and_missing_parents(self.change_tree_left, self.added_folders_left, move_left_to_left)
+        node = FileToMove(node_identifier=node_identifier, src_node=left_item)
+        self._add_items_and_missing_parents(self.change_tree_left, self.left_tree, self.added_folders_left, node)
 
     def add_filetoadd_left_to_right(self, left_item):
         """ADD - Left -> Right"""
         dest_path = self.move_to_right(left_item)
         new_uid = self.uid_generator.get_new_uid()
         node_identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Added)
-        file_to_add_to_right = FileToAdd(node_identifier=node_identifier, src_node=left_item)
-        self._add_items_and_missing_parents(self.change_tree_right, self.added_folders_right, file_to_add_to_right)
+        node = FileToAdd(node_identifier=node_identifier, src_node=left_item)
+        self._add_items_and_missing_parents(self.change_tree_right, self.right_tree, self.added_folders_right, node)
 
     def add_filetoadd_right_to_left(self, right_item):
         """ADD - Left <- Right"""
         dest_path = self.move_to_left(right_item)
         new_uid = self.uid_generator.get_new_uid()
         node_identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Added)
-        file_to_add_to_left = FileToAdd(node_identifier=node_identifier, src_node=right_item)
-        self._add_items_and_missing_parents(self.change_tree_left, self.added_folders_left, file_to_add_to_left)
+        node = FileToAdd(node_identifier=node_identifier, src_node=right_item)
+        self._add_items_and_missing_parents(self.change_tree_left, self.left_tree, self.added_folders_left, node)
 
     def add_fileupdate_left_to_right(self, left_item, right_item_to_overwrite):
         """UPDATE - Left -> Right"""
         dest_path = self.move_to_right(left_item)
         new_uid = self.uid_generator.get_new_uid()
         node_identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Updated)
-        file_to_add_to_right = FileToUpdate(node_identifier=node_identifier, src_node=left_item, dst_node=right_item_to_overwrite)
-        self._add_items_and_missing_parents(self.change_tree_right, self.added_folders_right, file_to_add_to_right)
+        node = FileToUpdate(node_identifier=node_identifier, src_node=left_item, dst_node=right_item_to_overwrite)
+        self._add_items_and_missing_parents(self.change_tree_right, self.left_tree, self.added_folders_right, node)
 
     def add_fileupdate_right_to_left(self, right_item, left_item_to_overwrite):
         """ADD - Left <- Right"""
         dest_path = self.move_to_left(right_item)
         new_uid = self.uid_generator.get_new_uid()
         node_identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Updated)
-        file_to_add_to_left = FileToUpdate(node_identifier=node_identifier, src_node=right_item, dst_node=left_item_to_overwrite)
-        self._add_items_and_missing_parents(self.change_tree_left, self.added_folders_left, file_to_add_to_left)
+        node = FileToUpdate(node_identifier=node_identifier, src_node=right_item, dst_node=left_item_to_overwrite)
+        self._add_items_and_missing_parents(self.change_tree_left, self.left_tree, self.added_folders_left, node)
 
     def _compare_paths_for_same_md5(self, lefts: Iterable[DisplayNode], rights: Iterable[DisplayNode]) \
             -> List[Tuple[Optional[DisplayNode], Optional[DisplayNode]]]:
@@ -302,7 +302,7 @@ class ContentFirstDiffer:
                 self.add_filetoadd_left_to_right(left_item)
 
                 # Dead node walking:
-                self.change_tree_left.add_item(left_item, Category.Deleted)
+                self.change_tree_left.add_item(left_item, Category.Deleted, self.left_tree)
                 count_add_delete_pairs += 1
         logger.info(f'{sw} Finished path comparison for left tree')
 
@@ -320,7 +320,7 @@ class ContentFirstDiffer:
                 self.add_filetoadd_right_to_left(right_item)
 
                 # Dead node walking:
-                self.change_tree_right.add_item(right_item, Category.Deleted)
+                self.change_tree_right.add_item(right_item, Category.Deleted, self.right_tree)
                 count_add_delete_pairs += 1
 
         logger.info(f'Done with diff (pairs: add/del={count_add_delete_pairs} upd={count_updated_pairs} moved={count_moved_pairs})'
@@ -329,9 +329,9 @@ class ContentFirstDiffer:
 
         # Copy ignored items to change trees:
         for item in self.left_tree.get_ignored_items():
-            self.change_tree_left.add_item(item, Category.Ignored)
+            self.change_tree_left.add_item(item, Category.Ignored, self.left_tree)
         for item in self.right_tree.get_ignored_items():
-            self.change_tree_right.add_item(item, Category.Ignored)
+            self.change_tree_right.add_item(item, Category.Ignored, self.right_tree)
 
         return self.change_tree_left, self.change_tree_right
 
@@ -347,14 +347,14 @@ class ContentFirstDiffer:
                                                                     full_path=ROOT_PATH, uid=uid_generator.ROOT_UID)
 
         # just set source tree to left tree - we aren't using it for much anyway
-        merged_tree = CategoryDisplayTree(source_tree=self.left_tree, root=root, show_whole_forest=True,
+        merged_tree = CategoryDisplayTree(root_node_identifier=self.left_tree.node_identifier, show_whole_forest=True,
                                           uid_generator=self.uid_generator)
 
         for item in left_selected_changes:
-            merged_tree.add_item(item, item.category)
+            merged_tree.add_item(item, item.category, self.left_tree)
 
         for item in right_selected_changes:
-            merged_tree.add_item(item, item.category)
+            merged_tree.add_item(item, item.category, self.right_tree)
 
         # TODO: check for conflicts
 
