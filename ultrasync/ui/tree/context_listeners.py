@@ -79,7 +79,7 @@ class TreeContextListeners:
         logger.debug(f'Received signal: "{actions.ROOT_PATH_UPDATED}"')
 
         # Reload subtree and refresh display
-        if not err and self.con.config.get('cache.load_cache_when_tree_root_selected'):
+        if not err and self.con.cache_manager.reload_tree_on_root_path_update:
             logger.debug(f'Got new root. Reloading subtree for: {new_root}')
             # Loads from disk if necessary:
             self.con.reload(new_root, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, hide_checkboxes=True)

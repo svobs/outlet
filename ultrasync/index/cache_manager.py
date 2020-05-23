@@ -3,7 +3,6 @@ import logging
 import os
 import threading
 import time
-import uuid
 from typing import List, Optional
 
 from pydispatch import dispatcher
@@ -15,11 +14,9 @@ from index.master_gdrive import GDriveMasterCache
 from index.master_local import LocalDiskMasterCache
 from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
-from model import node_identifier
 from model.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveWholeTree
-from model.goog_node import GoogNode
-from model.node_identifier import GDriveIdentifier, NodeIdentifier, LocalFsIdentifier, NodeIdentifierFactory
+from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier, NodeIdentifierFactory
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
 from ui import actions

@@ -3,18 +3,18 @@ from typing import List, Optional
 
 from pydispatch import dispatcher
 
-from constants import OBJ_TYPE_GDRIVE, ROOT_PATH
+from constants import ROOT_PATH
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index import uid_generator
 from index.cache_manager import PersistedCacheInfo
+from index.error import CacheNotLoadedError, GDriveItemNotFoundError
 from index.sqlite.gdrive_db import GDriveDatabase
 from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
-from model import node_identifier
 from model.display_node import DisplayNode
-from model.node_identifier import GDriveIdentifier, NodeIdentifier, NodeIdentifierFactory
 from model.gdrive_subtree import GDriveSubtree
-from model.gdrive_whole_tree import GDriveTree, GDriveWholeTree
+from model.gdrive_whole_tree import GDriveWholeTree
 from model.goog_node import GoogNode
+from model.node_identifier import GDriveIdentifier, NodeIdentifier, NodeIdentifierFactory
 from stopwatch_sec import Stopwatch
 from ui import actions
 
@@ -116,7 +116,9 @@ class GDriveMasterCache:
             if gdrive_meta:
                 logger.debug(f'{slice_timer} Sliced off {gdrive_meta}')
             else:
-                raise RuntimeError(f'Cannot load subtree because it does not exist: "{subtree_root}"')
+                raise GDriveItemNotFoundError(node_identifier=subtree_root,
+                                              msg=f'Cannot load subtree because it does not exist: "{subtree_root}"',
+                                              offending_path=subtree_root.full_path)
         return gdrive_meta
 
     def add_node(self, node: DisplayNode):
@@ -173,4 +175,6 @@ class GDriveMasterCache:
         logger.info('Replaced entire GDrive in-memory cache with downloaded meta')
 
     def get_all_for_path(self, path: str) -> List[NodeIdentifier]:
+        if not self.meta_master:
+            raise CacheNotLoadedError()
         return self.meta_master.get_all_ids_for_path(path)

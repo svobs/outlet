@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Tuple, Union, ValuesView
 
 import constants
 import file_util
+from index.error import GDriveItemNotFoundError
 from index.uid_generator import AtomicIntUidGenerator, UID, UidGenerator
 from model import node_identifier
 from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
@@ -12,19 +13,6 @@ from model.planning_node import PlanningNode
 logger = logging.getLogger(__name__)
 
 SUPER_DEBUG = False
-
-#    CLASS GDriveItemNotFoundError
-# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
-
-
-class GDriveItemNotFoundError(RuntimeError):
-    def __init__(self, node_identifier: NodeIdentifier, offending_path: str, msg: str = None):
-        if msg is None:
-            # Set some default useful error message
-            msg = f'Google Drive object not found: {offending_path}'
-        super(GDriveItemNotFoundError, self).__init__(msg)
-        self.node_identifier = node_identifier
-        self.offending_path = offending_path
 
 
 """

@@ -1,3 +1,4 @@
+import errno
 import logging
 import os
 from pydispatch import dispatcher
@@ -5,7 +6,8 @@ from pydispatch import dispatcher
 import gi
 
 import file_util
-from model.gdrive_whole_tree import GDriveItemNotFoundError
+from index.error import CacheNotLoadedError, GDriveItemNotFoundError
+from index.uid_generator import NULL_UID
 from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 
 gi.require_version("Gtk", "3.0")
@@ -61,7 +63,7 @@ class RootDirPanel:
                     if self.entry and self.entry_box_focus_eid:
                         self.entry.disconnect(self.entry_box_focus_eid)
                         self.entry_box_focus_eid = None
-                    self._update_root_label(self.current_root)
+                    self._update_root_label(self.current_root, self.err)
                     return True
                 return False
 
@@ -93,12 +95,18 @@ class RootDirPanel:
 
         # Need to call this to do the initial UI draw:
         logger.debug(f'Building panel: {self.tree_id} with current root {self.current_root}')
-        GLib.idle_add(self._update_root_label, current_root)
+
+        if self.current_root.tree_type == OBJ_TYPE_LOCAL_DISK and not os.path.exists(self.current_root.full_path):
+            self.err = FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.current_root.full_path)
+        else:
+            self.err = None
+
+        GLib.idle_add(self._update_root_label, current_root, self.err)
 
     def _on_root_text_entry_submitted(self, widget, tree_id):
         if self.entry and self.entry_box_focus_eid:
-                self.entry.disconnect(self.entry_box_focus_eid)
-                self.entry_box_focus_eid = None
+            self.entry.disconnect(self.entry_box_focus_eid)
+            self.entry_box_focus_eid = None
         # Triggered when the user submits a root via the text entry box
         new_root_path: str = self.entry.get_text()
         logger.info(f'User entered root path: "{new_root_path}" for tree_id={tree_id}')
@@ -107,16 +115,21 @@ class RootDirPanel:
             identifiers = self.parent_win.application.cache_manager.resolve_path(new_root_path)
             assert len(identifiers) > 0, f'Got no identifiers (not even NULL) for path: {new_root_path}'
             new_root: NodeIdentifier = identifiers[0]
-            if new_root == self.current_root:
-                logger.debug('No change to root')
-                self._update_root_label(self.current_root)
-                return
+            self.err = None
         except GDriveItemNotFoundError as ginf:
             new_root = ginf.node_identifier
-            err = ginf
+            self.err = ginf
         except FileNotFoundError as fnf:
             new_root = NodeIdentifierFactory.for_values(full_path=new_root_path)
-            err = fnf
+            self.err = fnf
+        except CacheNotLoadedError as cnlf:
+            self.err = cnlf
+            new_root = NodeIdentifierFactory.for_values(full_path=new_root_path, uid=NULL_UID)
+
+        if new_root == self.current_root:
+            logger.debug('No change to root')
+            self._update_root_label(self.current_root, err=self.err)
+            return
 
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root, err=err)
 
@@ -157,7 +170,7 @@ class RootDirPanel:
                 self.entry.disconnect(self.entry_box_focus_eid)
                 self.entry_box_focus_eid = None
             logger.debug(f'Focus lost! Cancelling root path entry box')
-            self._update_root_label(self.current_root)
+            self._update_root_label(self.current_root, self.err)
 
         self.entry_box_focus_eid = self.entry.connect('focus-out-event', cancel_edit)
         self.entry.show()
@@ -305,9 +318,10 @@ class RootDirPanel:
         # Launch in non-UI thread
         self.con.task_runner.enqueue(self.con.load)
         # Hide Refresh button
-        GLib.idle_add(self._update_root_label, self.current_root)
+        GLib.idle_add(self._update_root_label, self.current_root, self.err)
 
     def _on_load_started(self, sender):
         if self.needs_load:
             self.needs_load = False
-            GLib.idle_add(self._update_root_label, self.current_root)
+            # Hide Refresh button
+            GLib.idle_add(self._update_root_label, self.current_root, self.err)
