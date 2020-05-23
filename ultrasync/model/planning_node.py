@@ -22,6 +22,9 @@ class PlanningNode(DisplayNode, ABC):
     def __init__(self, node_identifier: Optional[NodeIdentifier]):
         super().__init__(node_identifier)
 
+    def is_just_fluff(self) -> bool:
+        return False
+
 
 # ABSTRACT CLASS FileDecoratorNode
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
@@ -97,7 +100,7 @@ class FileDecoratorNode(PlanningNode, ABC):
         return self.category.name
 
     @property
-    def parent_ids(self) -> List[UID]:
+    def parent_uids(self) -> List[UID]:
         if self._parent_ids:
             if isinstance(self._parent_ids, list):
                 return self._parent_ids
@@ -106,19 +109,19 @@ class FileDecoratorNode(PlanningNode, ABC):
             assert False
         return []
 
-    @parent_ids.setter
-    def parent_ids(self, parent_ids):
+    @parent_uids.setter
+    def parent_uids(self, parent_uids):
         """Can be a list of GoogFolders' UIDs, or a single UID, or None"""
-        if not parent_ids:
+        if not parent_uids:
             self._parent_ids = None
-        elif isinstance(parent_ids, list):
-            if len(parent_ids) == 1:
-                assert isinstance(parent_ids[0], UID), f'Found instead: {parent_ids[0]}, type={type(parent_ids[0])}'
-                self._parent_ids = parent_ids[0]
+        elif isinstance(parent_uids, list):
+            if len(parent_uids) == 1:
+                assert isinstance(parent_uids[0], UID), f'Found instead: {parent_uids[0]}, type={type(parent_uids[0])}'
+                self._parent_ids = parent_uids[0]
             else:
-                self._parent_ids = parent_ids
+                self._parent_ids = parent_uids
         else:
-            self._parent_ids = parent_ids
+            self._parent_ids = parent_uids
 
 
 # CLASS FileToAdd
@@ -131,7 +134,7 @@ class FileToAdd(FileDecoratorNode):
         super().__init__(node_identifier, src_node)
 
     def __repr__(self):
-        return f'FileToAdd(node_identifier={self.node_identifier} parent_uids={self.parent_ids} src_node={self.src_node})'
+        return f'FileToAdd(node_identifier={self.node_identifier} parent_uids={self.parent_uids} src_node={self.src_node})'
 
 
 # CLASS FileToMove
@@ -143,7 +146,7 @@ class FileToMove(FileDecoratorNode):
         super().__init__(node_identifier, src_node)
 
     def __repr__(self):
-        return f'FileToMove(node_identifier={self.node_identifier} parent_uids={self.parent_ids} src_node={self.src_node})'
+        return f'FileToMove(node_identifier={self.node_identifier} parent_uids={self.parent_uids} src_node={self.src_node})'
 
 
 # CLASS FileToUpdate
@@ -158,4 +161,4 @@ class FileToUpdate(FileDecoratorNode):
         """The node to overwrite"""
 
     def __repr__(self):
-        return f'FileToUpdate(node_identifier={self.node_identifier} parent_uids={self.parent_ids} src_node={self.src_node} dst_node={self.dst_node})'
+        return f'FileToUpdate(node_identifier={self.node_identifier} parent_uids={self.parent_uids} src_node={self.src_node} dst_node={self.dst_node})'

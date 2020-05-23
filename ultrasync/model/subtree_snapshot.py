@@ -43,12 +43,6 @@ class SubtreeSnapshot(ABC):
 
     @classmethod
     @abstractmethod
-    def create_empty_subtree(cls, subtree_root_identifier: NodeIdentifier):
-        """Return a new empty subtree with the given root and which is of the same type of this tree"""
-        return
-
-    @classmethod
-    @abstractmethod
     def create_identifier(cls, full_path, uid, category) -> NodeIdentifier:
         """Create a new node_identifier of the type matching this tree"""
         pass

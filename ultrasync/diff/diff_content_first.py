@@ -75,10 +75,10 @@ class ContentFirstDiffer:
         while len(queue) > 0:
             item = queue.pop()
             if isinstance(parents, list):
-                item.parent_ids = list(map(lambda x: x.uid, parents))
+                item.parent_uids = list(map(lambda x: x.uid, parents))
             else:
                 assert isinstance(parents, DisplayNode), f'Found instead: {type(parents)}'
-                item.parent_ids = parents.uid
+                item.parent_uids = parents.uid
             change_tree.add_item(item, item.category, source_tree)
             parents = [item]
 

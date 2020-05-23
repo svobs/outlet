@@ -288,7 +288,7 @@ class GDriveTreeLoader:
     def _determine_roots(self, tree: GDriveWholeTree):
         max_uid = uid_generator.ROOT_UID + 1
         for item in tree.id_dict.values():
-            if not item.parent_ids:
+            if not item.parent_uids:
                 tree.roots.append(item)
 
             if item.uid >= max_uid:

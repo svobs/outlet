@@ -30,11 +30,11 @@ class AllItemsGDriveTreeBuilder(DisplayTreeBuilder):
         else:
             # Subtree? -> return the subtree root
             assert isinstance(self.tree, GDriveSubtree)
-            parent_id = self.tree.root_id
-            return self.tree.get_children(parent_id)
+            parent_uid = self.tree.root_id
+            return self.tree.get_children(parent_uid)
 
     def get_children(self, parent_identifier: NodeIdentifier) -> Optional[List[DisplayNode]]:
-        return self.tree.get_children(parent_id=parent_identifier)
+        return self.tree.get_children(parent_uid=parent_identifier)
 
 
 # CLASS AllItemsLocalFsTreeBuilder

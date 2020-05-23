@@ -64,8 +64,7 @@ class GlobalActions:
         try:
             self.application.cache_manager.download_all_gdrive_meta(tree_id)
 
-            root_identifier: NodeIdentifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
-            tree = self.application.cache_manager.load_gdrive_subtree(root_identifier, tree_id)
+            tree = self.application.cache_manager.get_gdrive_whole_tree(tree_id)
             actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, tree=tree)
         except Exception as err:
             self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
@@ -77,8 +76,7 @@ class GlobalActions:
         """Executed by Task Runner. NOT UI thread"""
         actions.disable_ui(sender=tree_id)
         try:
-            root_identifier: NodeIdentifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
-            tree = self.application.cache_manager.load_gdrive_subtree(root_identifier, tree_id)
+            tree = self.application.cache_manager.get_gdrive_whole_tree(tree_id)
             actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, tree=tree)
         except Exception as err:
             self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))

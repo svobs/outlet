@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Optional
 
 from pydispatch import dispatcher
 
@@ -7,8 +7,10 @@ from constants import OBJ_TYPE_GDRIVE, ROOT_PATH
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index import uid_generator
 from index.cache_manager import PersistedCacheInfo
+from index.sqlite.gdrive_db import GDriveDatabase
 from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
 from model import node_identifier
+from model.display_node import DisplayNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier, NodeIdentifierFactory
 from model.gdrive_subtree import GDriveSubtree
 from model.gdrive_whole_tree import GDriveTree, GDriveWholeTree
@@ -42,7 +44,7 @@ class GDriveMasterCache:
         self.application = application
         self.full_path_dict = FullPathBeforeUidDict()
         self.md5_dict = Md5BeforeUidDict()
-        self.meta_master: GDriveWholeTree = None
+        self.meta_master: Optional[GDriveWholeTree] = None
 
     def init_subtree_gdrive_cache(self, info: PersistedCacheInfo, tree_id: str):
         self._load_gdrive_cache(info, tree_id)
@@ -117,11 +119,56 @@ class GDriveMasterCache:
                 raise RuntimeError(f'Cannot load subtree because it does not exist: "{subtree_root}"')
         return gdrive_meta
 
+    def add_node(self, node: DisplayNode):
+        # try to prevent cache corruption by doing some sanity checks
+        if not node:
+            raise RuntimeError(f'No node supplied!')
+        if not node.uid:
+            raise RuntimeError(f'Node is missing UID: {node}')
+        if not isinstance(node, GoogNode):
+            raise RuntimeError(f'Unrecognized node type: {node}')
+        if not node.goog_id:
+            raise RuntimeError(f'Node is missing Google ID: {node}')
+        if not node.parent_uids:
+            # Adding a new root is currently not allowed (which is fine because there should be no way to do this
+            # via the UI)
+            raise RuntimeError(f'Node is missing parent UIDs: {node}')
+
+        # Prepare data for insertion to disk cache:
+        if not self.meta_master:
+            # TODO: give more thought to lifecycle
+            raise RuntimeError('GDriveWholeTree not loaded!')
+        parent_goog_ids = self.meta_master.resolve_uids_to_goog_ids(node.parent_uids)
+        parent_mappings = []
+        assert len(node.parent_uids) == len(parent_goog_ids)
+        for parent_uid, parent_goog_id in zip(node.parent_uids, parent_goog_ids):
+            parent_mappings.append((node.uid, parent_uid, parent_goog_id, node.sync_ts))
+        node_tuple = node.to_tuple()
+
+        # Open master database...
+        root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
+        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(root)
+        cache_path = cache_info.cache_location
+
+        # Write new values:
+        with GDriveDatabase(cache_path) as cache:
+            logger.debug(f'Writing id-parent mappings to the GDrive master cache: {parent_mappings}')
+            cache.insert_id_parent_mappings(parent_mappings, commit=False)
+            if node.is_dir():
+                logger.debug(f'Writing folder node to the GDrive master cache: {node}')
+                cache.insert_gdrive_dirs([node_tuple])
+            else:
+                logger.debug(f'Writing file node to the GDrive master cache: {node}')
+                cache.insert_gdrive_files([node_tuple])
+
+        # Finally, update in-memory cache (tree):
+        self.meta_master.add_item(node)
+
     def download_all_gdrive_meta(self, tree_id):
         root_identifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         cache_info = self.application.cache_manager.get_or_create_cache_info_entry(root_identifier)
         cache_path = cache_info.cache_location
-        tree_loader = GDriveTreeLoader(config=self.application.config, cache_path=cache_path, tree_id=tree_id)
+        tree_loader = GDriveTreeLoader(application=self.application, cache_path=cache_path, tree_id=tree_id)
         self.meta_master = tree_loader.load_all(invalidate_cache=False)
         logger.info('Replaced entire GDrive in-memory cache with downloaded meta')
 

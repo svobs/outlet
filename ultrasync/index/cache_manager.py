@@ -4,7 +4,7 @@ import os
 import threading
 import time
 import uuid
-from typing import List
+from typing import List, Optional
 
 from pydispatch import dispatcher
 
@@ -16,6 +16,9 @@ from index.master_local import LocalDiskMasterCache
 from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
 from model import node_identifier
+from model.display_node import DisplayNode
+from model.gdrive_whole_tree import GDriveWholeTree
+from model.goog_node import GoogNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier, LocalFsIdentifier, NodeIdentifierFactory
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
@@ -170,6 +173,20 @@ class CacheManager:
     def load_gdrive_subtree(self, subtree_path: GDriveIdentifier, tree_id) -> SubtreeSnapshot:
         return self.gdrive_cache.load_subtree(subtree_path, tree_id)
 
+    def get_gdrive_whole_tree(self, tree_id) -> GDriveWholeTree:
+        """Will load if necessary"""
+        root_identifier: NodeIdentifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
+        return self.gdrive_cache.load_subtree(root_identifier, tree_id)
+
+    def add_node(self, node: DisplayNode):
+        tree_type = node.node_identifier.tree_type
+        if tree_type == OBJ_TYPE_GDRIVE:
+            self.gdrive_cache.add_node(node)
+        elif tree_type == OBJ_TYPE_LOCAL_DISK:
+            self.local_disk_cache.add_node(node)
+        else:
+            raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
+
     def download_all_gdrive_meta(self, tree_id):
         return self.gdrive_cache.download_all_gdrive_meta(tree_id)
 
@@ -209,7 +226,7 @@ class CacheManager:
 
         return cache_info
 
-    def resolve_path(self, full_path: str = None, node_identifier: NodeIdentifier = None) -> List[NodeIdentifier]:
+    def resolve_path(self, full_path: str = None, node_identifier: Optional[NodeIdentifier] = None) -> List[NodeIdentifier]:
         """Resolves the given path into either a local file, a set of Google Drive matches, or raises a GDriveItemNotFoundError"""
         if not node_identifier:
             node_identifier = NodeIdentifierFactory.for_values(full_path=full_path)

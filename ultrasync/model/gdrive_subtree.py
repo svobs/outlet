@@ -7,6 +7,7 @@ import file_util
 import format_util
 from constants import NOT_TRASHED
 from index.two_level_dict import Md5BeforeUidDict
+from index.uid_generator import UID
 from model.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveItemNotFoundError, GDriveWholeTree
 from model.goog_node import GoogNode
@@ -50,10 +51,6 @@ class GDriveSubtree(SubtreeSnapshot):
         return self._root_node
 
     @classmethod
-    def create_empty_subtree(cls, subtree_root_node: GoogNode) -> SubtreeSnapshot:
-        return GDriveSubtree(subtree_root_node)
-
-    @classmethod
     def create_identifier(cls, full_path, uid, category) -> NodeIdentifier:
         return GDriveIdentifier(uid=uid, full_path=full_path, category=category)
 
@@ -64,9 +61,6 @@ class GDriveSubtree(SubtreeSnapshot):
     @property
     def root_id(self):
         return self._root_node.uid
-
-    def get_new_uid(self):
-        return self._whole_tree.get_new_uid()
 
     def get_ignored_items(self):
         return self._ignored_items
@@ -113,8 +107,8 @@ class GDriveSubtree(SubtreeSnapshot):
         logger.info(f'{md5_set_stopwatch} Found {md5_dict.total_entries} MD5s')
         return md5_dict
 
-    def get_children(self, parent_id: Union[int, NodeIdentifier]) -> List[GoogNode]:
-        return self._whole_tree.get_children(parent_id=parent_id)
+    def get_children(self, parent_uid: Union[UID, NodeIdentifier]) -> List[GoogNode]:
+        return self._whole_tree.get_children(parent_uid=parent_uid)
 
     def get_all(self) -> ValuesView[GoogNode]:
         """Returns the complete set of all unique items from this subtree."""
@@ -144,10 +138,10 @@ class GDriveSubtree(SubtreeSnapshot):
 
     def get_parent_for_item(self, item: DisplayNode) -> Optional[GoogNode]:
         if item and self.in_this_subtree(item.full_path):
-            parent_ids = item.parent_ids
-            if parent_ids:
+            parent_uids = item.parent_uids
+            if parent_uids:
                 resolved_parents = []
-                for par_id in item.parent_ids:
+                for par_id in item.parent_uids:
                     parent = self._whole_tree.get_item_for_id(par_id)
                     if parent and self.in_this_subtree(parent.full_path):
                         resolved_parents.append(parent)

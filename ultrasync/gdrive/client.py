@@ -490,8 +490,6 @@ class GDriveClient:
             if self.tree_id:
                 actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
-            dir_tuples: List[Tuple] = []
-            id_parent_mappings: List[Tuple] = []
             for item in items:
                 goog_node: GoogFolder = _convert_to_goog_folder(item, uid_generator.get_new_uid(), sync_ts)
 
@@ -530,26 +528,25 @@ class GDriveClient:
 
         _try_repeatedly(download)
 
-    def upload_new_file(self, local_full_path: str, parents: Union[str, List[str]]) -> GoogFile:
+    def upload_new_file(self, local_full_path: str, parent_goog_ids: Union[str, List[str]], uid: UID) -> GoogFile:
         """Upload a single file based on its path. If successful, returns the newly created Google ID"""
         if not local_full_path:
             raise RuntimeError(f'No path specified for file!')
 
-        if isinstance(parents, str):
-            parents = [parents]
+        if isinstance(parent_goog_ids, str):
+            parent_goog_ids = [parent_goog_ids]
 
         parent_path, file_name = os.path.split(local_full_path)
-        file_metadata = {'name': file_name, 'parents': parents}
+        file_metadata = {'name': file_name, 'parents': parent_goog_ids}
         media = MediaFileUpload(filename=local_full_path, resumable=True)
 
         def request():
-            logger.debug(f'Uploading local file: "{local_full_path}" to parents: {parents}')
+            logger.debug(f'Uploading local file: "{local_full_path}" to parents: {parent_goog_ids}')
 
             response = self.service.files().create(body=file_metadata, media_body=media, fields=FILE_FIELDS).execute()
             return response
 
         file_meta = _try_repeatedly(request)
-        uid = 0
         goog_file = _convert_to_goog_file(file_meta, uid)
 
         logger.debug(f'File uploaded successfully) Returned id={goog_file.goog_id}')
@@ -579,27 +576,27 @@ class GDriveClient:
 
         return goog_file
 
-    def create_folder(self, name: str, parents: Union[str, List[str]]) -> str:
+    def create_folder(self, name: str, parent_goog_ids: List[str], uid_generator, sync_ts) -> GoogFolder:
         """Create a folder with the given name. If successful, returns a new Google ID for the created folder"""
         if not name:
             raise RuntimeError(f'No name specified for folder!')
 
-        file_metadata = {'name': name, 'parents': parents, 'mimeType': MIME_TYPE_FOLDER}
+        file_metadata = {'name': name, 'parents': parent_goog_ids, 'mimeType': MIME_TYPE_FOLDER}
 
         def request():
             logger.debug(f'Creating folder: {name}')
 
-            response = self.service.files().create(body=file_metadata, fields='id').execute()
+            response = self.service.files().create(body=file_metadata, fields=DIR_FIELDS).execute()
             return response
 
-        result = _try_repeatedly(request)
+        item = _try_repeatedly(request)
 
-        new_folder_id = result.get('id', None)
-        if not new_folder_id:
+        goog_node: GoogFolder = _convert_to_goog_folder(item, uid_generator.get_new_uid(), sync_ts)
+        if not goog_node.goog_id:
             raise RuntimeError(f'Folder creation failed (no ID returned)!')
 
-        logger.debug(f'Folder created successfully) Returned id={new_folder_id}')
-        return new_folder_id
+        logger.debug(f'Folder created successfully) Returned id={goog_node.goog_id}')
+        return goog_node
 
     def move_file(self, file_id: str, dest_parent_id: str):
         # TODO
@@ -621,9 +618,9 @@ def main():
 
     client = GDriveClient(config)
 
-    parent_id = '1f2oIc2KkCAOyYDisJdsxv081W8IzZ5go'
+    parent_uid = '1f2oIc2KkCAOyYDisJdsxv081W8IzZ5go'
     local_file_path = '/home/msvoboda/Downloads/matt-test.jpg'
-    existing = client.get_existing_files(parent_goog_id=parent_id, name='matt-test.jpg')
+    existing = client.get_existing_files(parent_goog_id=parent_uid, name='matt-test.jpg')
 
     logger.info(f'Found {len(existing.raw_items)} existing files')
 
@@ -631,7 +628,7 @@ def main():
         updated_file = client.update_existing_file(existing.raw_items[0], local_file_path)
     else:
         # upload to Documents folder
-        new_file = client.upload_new_file(local_file_path, parents=[parent_id])
+        new_file = client.upload_new_file(local_file_path, parents=[parent_uid])
 
     logger.info('Done!')
 

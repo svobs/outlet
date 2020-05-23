@@ -71,5 +71,5 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
     def on_apply_clicked(self):
         builder = CommandBuilder(self.parent_win.application)
-        command_list = builder.build_command_list(self.tree)
-        self.parent_win.application.command_executor.enqueue(command_list)
+        command_plan = builder.build_command_plan(self.tree)
+        self.parent_win.application.command_executor.enqueue(command_plan)

@@ -36,6 +36,9 @@ class DisplayNode(ABC):
     def is_dir(cls):
         return False
 
+    def is_just_fluff(self) -> bool:
+        return True
+
     @property
     def name(self):
         assert type(self.node_identifier.full_path) == str, f'Not a string: {self.node_identifier.full_path} (this={self})'
@@ -54,7 +57,7 @@ class DisplayNode(ABC):
         return self.node_identifier.full_path
 
     @property
-    def parent_ids(self) -> List[UID]:
+    def parent_uids(self) -> List[UID]:
         return []
 
     @property
@@ -134,6 +137,9 @@ class DirNode(DisplayNode):
     @property
     def size_bytes(self):
         return self._size_bytes
+
+    def is_just_fluff(self) -> bool:
+        return True
 
     @classmethod
     def is_file(cls):

@@ -53,44 +53,47 @@ class GoogNode(DisplayNode, ABC):
         return self.sync_ts > other_folder.sync_ts
 
     @property
-    def parent_ids(self) -> List[UID]:
+    def parent_uids(self) -> List[UID]:
         if not self._parent_ids:
             return []
         if isinstance(self._parent_ids, list):
             return self._parent_ids
         return [self._parent_ids]
 
-    @parent_ids.setter
-    def parent_ids(self, parent_ids: Optional[Union[UID, List[UID]]]):
+    @parent_uids.setter
+    def parent_uids(self, parent_uids: Optional[Union[UID, List[UID]]]):
         """Can be a list of GoogFolders, or a single instance, or None"""
-        if not parent_ids:
+        if not parent_uids:
             self._parent_ids = None
-        elif isinstance(parent_ids, list):
-            if len(parent_ids) == 0:
+        elif isinstance(parent_uids, list):
+            if len(parent_uids) == 0:
                 self._parent_ids = None
-            elif len(parent_ids) == 1:
-                self._parent_ids = parent_ids[0]
+            elif len(parent_uids) == 1:
+                self._parent_ids = parent_uids[0]
             else:
-                self._parent_ids = parent_ids
+                self._parent_ids = parent_uids
         else:
-            self._parent_ids = parent_ids
+            self._parent_ids = parent_uids
 
-    def add_parent(self, parent_id: UID):
-        current_parent_ids: List[UID] = self.parent_ids
+    def add_parent(self, parent_uid: UID):
+        current_parent_ids: List[UID] = self.parent_uids
         if len(current_parent_ids) == 0:
-            self.parent_ids = parent_id
+            self.parent_uids = parent_uid
         else:
             for current_parent_id in current_parent_ids:
-                if current_parent_id == parent_id:
-                    logger.debug(f'Parent is already in list; skipping: {parent_id}')
+                if current_parent_id == parent_uid:
+                    logger.debug(f'Parent is already in list; skipping: {parent_uid}')
                     return
-            current_parent_ids.append(parent_id)
-            self.parent_ids = current_parent_ids
+            current_parent_ids.append(parent_uid)
+            self.parent_uids = current_parent_ids
 
     def get_icon(self):
         if self.trashed == NOT_TRASHED:
             return ICON_GENERIC_DIR
         return ICON_TRASHED_DIR
+
+    def is_just_fluff(self) -> bool:
+        return False
 
     @classmethod
     def is_file(cls):
@@ -138,7 +141,7 @@ class GoogFolder(GoogNode):
 
     def __repr__(self):
         return f'Folder:(uid="{self.uid}" goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
-               f'my_share={self.my_share} sync_ts={self.sync_ts} parent_ids={self.parent_ids} children_fetched={self.all_children_fetched} ]'
+               f'my_share={self.my_share} sync_ts={self.sync_ts} parent_uids={self.parent_uids} children_fetched={self.all_children_fetched} ]'
 
     def to_tuple(self):
         return self.uid, self.goog_id, self.name, self.trashed, self.drive_id, self.my_share, self.sync_ts, self.all_children_fetched
@@ -180,7 +183,7 @@ class GoogFile(GoogNode):
         return f'GoogFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str}  size={self.size_bytes} ' \
                f'md5="{self.md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
                f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
-               f'sync_ts={self.sync_ts} parent_ids={self.parent_ids})'
+               f'sync_ts={self.sync_ts} parent_uids={self.parent_uids})'
 
     def is_newer_than(self, other_file):
         if self.modify_ts and other_file.modify_ts:
@@ -240,7 +243,7 @@ class FolderToAdd(PlanningNode, GoogNode):
         return True
 
     def __repr__(self):
-        return f'FolderToAdd(dest_path={self.full_path} parent_ids={self.parent_ids})'
+        return f'FolderToAdd(dest_path={self.full_path} parent_uids={self.parent_uids})'
 
     def to_tuple(self):
         pass

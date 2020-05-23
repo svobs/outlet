@@ -192,11 +192,11 @@ class CategoryDisplayTree:
         # been added to this tree, or the root of the source tree
         ancestor = item
         while ancestor:
-            if ancestor.parent_ids:
+            if ancestor.parent_uids:
                 assert item.node_identifier.tree_type == OBJ_TYPE_GDRIVE
                 # In this tree already? Saves us work, and more importantly,
                 # allow us to use nodes not in the parent tree (e.g. FolderToAdds)
-                for parent_uid in ancestor.parent_ids:
+                for parent_uid in ancestor.parent_uids:
                     nid = f'{cat_nid_prefix}/{parent_uid}'
                     node: treelib.Node = self._category_tree.get_node(nid=nid)
                     if node:

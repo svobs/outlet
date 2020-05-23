@@ -9,6 +9,7 @@ import format_util
 from index import uid_generator
 from index.atomic_counter import AtomicCounter
 from index.two_level_dict import Md5BeforePathDict, Md5BeforeUidDict
+from index.uid_generator import UID
 from model.category import Category
 from model.node_identifier import NodeIdentifier, LocalFsIdentifier
 from model.display_node import DirNode, DisplayNode
@@ -47,16 +48,8 @@ class FMetaTree(SubtreeSnapshot):
         return constants.OBJ_TYPE_LOCAL_DISK
 
     @classmethod
-    def create_identifier(cls, full_path: str, uid: int, category) -> NodeIdentifier:
+    def create_identifier(cls, full_path: str, uid: UID, category) -> NodeIdentifier:
         return LocalFsIdentifier(full_path=full_path, uid=uid, category=category)
-
-    @classmethod
-    def create_empty_subtree(cls, subtree_root: Union[str, NodeIdentifier, DisplayNode]) -> SubtreeSnapshot:
-        if type(subtree_root) == str:
-            return FMetaTree(subtree_root)
-        else:
-            assert isinstance(subtree_root, NodeIdentifier) or isinstance(subtree_root, DisplayNode)
-            return FMetaTree(subtree_root.full_path)
 
     def get_parent_for_item(self, item) -> Optional[DisplayNode]:
         # FIXME: add support for storing dir metadata in FMetaTree. Ditch this fake stuff

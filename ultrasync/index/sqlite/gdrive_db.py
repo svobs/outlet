@@ -120,9 +120,9 @@ class GDriveDatabase(MetaDatabase):
         self.insert_many(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS, id_parent_mappings, commit=commit)
 
     def get_id_parent_mappings(self):
-        parent_ids = self.get_all_rows(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS)
-        logger.debug(f'Retrieved {len(parent_ids)} id-parent mappings')
-        return parent_ids
+        parent_uids = self.get_all_rows(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS)
+        logger.debug(f'Retrieved {len(parent_uids)} id-parent mappings')
+        return parent_uids
 
     def insert_gdrive_files_and_parents(self, file_list: List[Tuple], parent_mappings: List[Tuple], current_download: CurrentDownload):
         self.insert_gdrive_files(file_list=file_list, commit=False)

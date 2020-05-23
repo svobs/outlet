@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 from enum import IntEnum
 from typing import List
 
+import treelib
+
 import file_util
 import fmeta.content_hasher
 from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -12,9 +14,9 @@ from gdrive.client import GDriveClient
 from index.uid_generator import UID
 from model.display_node import DisplayNode
 from model.fmeta import FMeta
+from model.gdrive_whole_tree import GDriveWholeTree
 from model.goog_node import FolderToAdd, GoogFile
 from model.planning_node import FileDecoratorNode, FileToAdd, FileToMove, FileToUpdate
-
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +30,14 @@ class CommandStatus(IntEnum):
 
 
 class CommandContext:
-    def __init__(self, staging_dir: str, config, tree_id, needs_gdrive: bool):
+    def __init__(self, staging_dir: str, application, tree_id: str, needs_gdrive: bool):
         self.staging_dir = staging_dir
-        self.config = config
+        self.config = application.config
+        self.cache_manager = application.cache_manager
+        self.uid_generator = application.uid_generator
         if needs_gdrive:
             self.gdrive_client = GDriveClient(config=self.config, tree_id=tree_id)
+            self.gdrive_tree: GDriveWholeTree = self.cache_manager.get_gdrive_whole_tree(tree_id=tree_id)
 
 
 class Command(ABC):
@@ -53,6 +58,9 @@ class Command(ABC):
     def needs_gdrive(self):
         return False
 
+    def completed_ok(self):
+        return self._status == CommandStatus.COMPLETED_OK
+
     def status(self) -> CommandStatus:
         return self._status
 
@@ -71,25 +79,29 @@ class Command(ABC):
         self._status = CommandStatus.STOPPED_ON_ERROR
 
 
-class CommandList:
-    def __init__(self, uid: UID):
+class CommandPlan:
+    def __init__(self, uid: UID, cmd_tree):
         self.uid: UID = uid
         self.create_ts = int(time.time())
-        self._cmds: List[Command] = []
-
-    def append(self, command: Command):
-        self._cmds.append(command)
+        self.tree: treelib.Tree = cmd_tree
 
     def __iter__(self):
-        return self._cmds.__iter__()
+        tree_iter = self.tree.expand_tree(mode=treelib.Tree.WIDTH, sorting=False)
+        try:
+            # discard root
+            next(tree_iter)
+        except StopIteration:
+            pass
+        return tree_iter
 
     def __len__(self):
-        return self._cmds.__len__()
+        return self.tree.__len__()
 
-    def get_total_succeeded(self):
-        total_succeeded = 0
-        for command in self._cmds:
-            if command.status() == CommandStatus.COMPLETED_OK:
+    def get_total_succeeded(self) -> int:
+        """Returns the number of commands which executed successfully"""
+        total_succeeded: int = 0
+        for cmd_node in self.tree.expand_tree(mode=treelib.Tree.WIDTH, sorting=False):
+            if cmd_node.data.status() == CommandStatus.COMPLETED_OK:
                 total_succeeded += 1
         return total_succeeded
 
@@ -135,6 +147,9 @@ class CopyFileLocallyCommand(Command):
 
 
 class DeleteLocalFileCommand(Command):
+    """
+    Delete Local
+    """
     def __init__(self, model_obj: DisplayNode, to_trash=True):
         super().__init__(model_obj)
         self.to_trash = to_trash
@@ -154,6 +169,9 @@ class DeleteLocalFileCommand(Command):
 
 
 class MoveFileLocallyCommand(Command):
+    """
+    Move/Rename Local -> Local
+    """
     def __init__(self, model_obj: DisplayNode):
         super().__init__(model_obj)
 
@@ -175,6 +193,9 @@ class MoveFileLocallyCommand(Command):
 
 
 class UploadToGDriveCommand(Command):
+    """
+    Copy Local -> GDrive
+    """
     def __init__(self, model_obj: FileDecoratorNode, overwrite: bool = False):
         super().__init__(model_obj)
         self._overwrite = overwrite
@@ -186,25 +207,21 @@ class UploadToGDriveCommand(Command):
         return True
 
     def execute(self, context: CommandContext):
-        parent_id = '1f2oIc2KkCAOyYDisJdsxv081W8IzZ5go' # FIXME
         try:
             assert isinstance(self._model, FileDecoratorNode), f'For {self._model}'
+            # this requires that any parents have been created and added to the in-memory cache (and will fail otherwise)
+            parent_goog_ids: List[str] = context.gdrive_tree.resolve_uids_to_goog_ids(self._model.parent_uids)
+            if len(parent_goog_ids) == 0:
+                raise RuntimeError(f'No parent Google IDs for: {self._model}')
+            if len(parent_goog_ids) > 1:
+                # not supported at this time
+                raise RuntimeError(f'Too many parent Google IDs for: {self._model}')
+            parent_goog_id: str = parent_goog_ids[0]
             src_file_path = self._model.original_full_path
             name = self._model.src_node.name
-            existing = context.gdrive_client.get_existing_files(parent_goog_id=parent_id, name=name)
-            logger.debug(f'Found {len(existing.nodes)} existing files')
-            if not self._overwrite:
-                assert isinstance(self._model, FileToAdd)
-
-                if len(existing.nodes) > 0:
-                    self._error = f'While trying to add: found unexpected item(s) with the same name and parent: {existing.nodes}'
-                    self._status = CommandStatus.STOPPED_ON_ERROR
-                    return
-                else:
-                    context.gdrive_client.upload_new_file(src_file_path, parents=[parent_id])
-                    self._status = CommandStatus.COMPLETED_OK
-                    return
-            else:
+            existing = context.gdrive_client.get_existing_files(parent_goog_id=parent_goog_id, name=name)
+            logger.debug(f'Found {len(existing.nodes)} existing files with parent={parent_goog_id} and name={name}')
+            if self._overwrite:
                 assert isinstance(self._model, FileToUpdate)
 
                 assert isinstance(self._model.src_node, FMeta), f'For {self._model.src_node}'
@@ -233,15 +250,36 @@ class UploadToGDriveCommand(Command):
                     self._error = f'While trying to update item in Google Drive: could not find item with matching meta!'
                     self._status = CommandStatus.STOPPED_ON_ERROR
                     return
+            else:
+                assert isinstance(self._model, FileToAdd)
+
+                if len(existing.nodes) > 0:
+                    # Google will allow this, but it makes no sense when uploading a file from local disk
+                    # (really, does it ever seem like a good idea?)
+                    self._error = f'While trying to add: found unexpected item(s) with the same name and parent: {existing.nodes}'
+                    self._status = CommandStatus.STOPPED_ON_ERROR
+                    return
+                else:
+                    # Note that we will reuse the FileToAdd's UID
+                    new_file = context.gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id, uid=self._model.uid)
+
+                    # Add node to disk & in-memory caches:
+                    context.cache_manager.add_node(new_file)
+
+                    self._status = CommandStatus.COMPLETED_OK
+                    return
 
         except Exception as err:
-            logger.error(f'While uploading file to GDrive: dest_parent_id="{parent_id}", '
+            logger.error(f'While uploading file to GDrive: dest_parent_ids="{self._model.parent_uids}", '
                          f'src_path="{self._model.original_full_path}": {repr(err)}')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 
 
 class DownloadFromGDriveCommand(Command):
+    """
+    Copy GDrive -> Local
+    """
     def __init__(self, model_obj: FileDecoratorNode, overwrite: bool = False):
         super().__init__(model_obj)
         self._overwrite = overwrite
@@ -283,9 +321,12 @@ class DownloadFromGDriveCommand(Command):
 
 
 class CreateGDriveFolderCommand(Command):
-    def __init__(self, model_obj: FolderToAdd, parent_goog_ids: List[str]):
+    """
+    Create GDrive FOLDER (sometimes a prerequisite to uploading a file)
+    """
+    def __init__(self, model_obj: FolderToAdd):
         super().__init__(model_obj)
-        self.parent_goog_ids = parent_goog_ids
+        assert isinstance(self._model, FolderToAdd) and model_obj.parent_uids, f'For {self._model}'
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -295,16 +336,28 @@ class CreateGDriveFolderCommand(Command):
 
     def execute(self, context: CommandContext):
         try:
-            new_folder_id = context.gdrive_client.create_folder(name=self._model.name, parents=self.parent_goog_ids)
-            # TODO: update cache appropriately
+            parent_uids: List[UID] = self._model.parent_uids
+            if not parent_uids:
+                raise RuntimeError(f'Parents are required but item has no parents: {self._model}')
+
+            parent_goog_ids: List[str] = context.gdrive_tree.resolve_uids_to_goog_ids(parent_uids)
+
+            sync_ts = int(time.time())
+            goog_node = context.gdrive_client.create_folder(name=self._model.name, parent_goog_ids=parent_goog_ids,
+                                                            uid_generator=context.uid_generator, sync_ts=sync_ts)
+            # Add node to disk & in-memory caches:
+            context.cache_manager.add_node(goog_node)
         except Exception as err:
             logger.error(f'While creating folder on GDrive: name="{self._model.name}", '
-                         f'parent_goog_ids="{self.parent_goog_ids}": {repr(err)}')
+                         f'parent_uids="{self._model.parent_uids}": {repr(err)}')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 
 
 class MoveFileGDriveCommand(Command):
+    """
+    Move GDrive -> GDrive
+    """
     def __init__(self, model_obj: DisplayNode):
         super().__init__(model_obj)
 
@@ -315,11 +368,15 @@ class MoveFileGDriveCommand(Command):
         return True
 
     def execute(self, context: CommandContext):
-        pass
+        raise RuntimeError()
+
         # TODO
 
 
 class DeleteGDriveFileCommand(Command):
+    """
+    Delete GDrive
+    """
     def __init__(self, model_obj: DisplayNode, to_trash=True):
         super().__init__(model_obj)
         self.to_trash = to_trash
