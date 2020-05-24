@@ -40,7 +40,7 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
         super().__init__(controller=controller, root=root, tree=tree)
         self.display_tree = None
 
-    def get_children_for_root(self) -> Optional[List[DisplayNode]]:
+    def get_children_for_root(self) -> List[DisplayNode]:
         if not self.display_tree:
             self.display_tree = self._build_display_tree()
         return self.get_children(parent_identifier=self.tree.node_identifier)

@@ -3,10 +3,8 @@ import os
 import errno
 import copy
 import time
-import uuid
 from pathlib import Path
 
-from constants import VALID_SUFFIXES
 from index.uid_generator import UID
 from model.fmeta import FMeta, Category
 from fmeta.file_tree_recurser import FileTreeRecurser
@@ -16,6 +14,9 @@ from model.fmeta_tree import FMetaTree
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 
 logger = logging.getLogger(__name__)
+
+# disabled:
+VALID_SUFFIXES = None
 
 
 def build_fmeta(full_path: str, uid: UID, category=Category.NA):
@@ -117,7 +118,7 @@ class TreeMetaScanner(FileTreeRecurser):
             # Keep track of what's actually changed.
             # This is effectively a diff of stale & fresh trees.
             # Don't need it yet, but have a feeling it will be handy in the future.
-            self.change_tree: FMetaTree = FMetaTree(root_identifier=self.root_path, application=application)
+            self.change_tree: FMetaTree = FMetaTree(root_identifier=self.root_node_identifier, application=application)
         else:
             self.change_tree = None
 

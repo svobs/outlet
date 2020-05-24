@@ -17,6 +17,7 @@ from index.uid_generator import UID
 from model.node_identifier import NodeIdentifier, LocalFsIdentifier
 from model.fmeta import FMeta
 from model.fmeta_tree import FMetaTree
+from model.null_subtree import NullSubtree
 from model.planning_node import PlanningNode
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
@@ -175,7 +176,7 @@ class LocalDiskMasterCache:
     def load_subtree(self, subtree_root: LocalFsIdentifier, tree_id: str) -> SubtreeSnapshot:
         if not os.path.exists(subtree_root.full_path):
             logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root.full_path}"')
-            return None
+            return NullSubtree(subtree_root)
 
         cache_man = self.application.cache_manager
         cache_info = cache_man.get_or_create_cache_info_entry(subtree_root)
