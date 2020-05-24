@@ -19,7 +19,7 @@ class PlanningNode(DisplayNode, ABC):
     Note also that this node should think of itself as 'living' in its destination tree - thus
     properties like 'full_path' return the destination path, not the source.
     """
-    def __init__(self, node_identifier: Optional[NodeIdentifier]):
+    def __init__(self, node_identifier: NodeIdentifier):
         super().__init__(node_identifier)
 
     def is_just_fluff(self) -> bool:

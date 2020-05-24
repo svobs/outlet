@@ -40,8 +40,9 @@ class CommandContext:
             self.gdrive_tree: GDriveWholeTree = self.cache_manager.get_gdrive_whole_tree(tree_id=tree_id)
 
 
-class Command(ABC):
-    def __init__(self, model_obj: DisplayNode = None):
+class Command(treelib.Node, ABC):
+    def __init__(self, uid, model_obj: DisplayNode = None):
+        treelib.Node.__init__(self, identifier=uid)
         self._model = model_obj
         self._status = CommandStatus.NOT_STARTED
         self._error = None
@@ -101,15 +102,15 @@ class CommandPlan:
         """Returns the number of commands which executed successfully"""
         total_succeeded: int = 0
         for cmd_node in self.tree.expand_tree(mode=treelib.Tree.WIDTH, sorting=False):
-            if cmd_node.data.status() == CommandStatus.COMPLETED_OK:
+            if cmd_node.status() == CommandStatus.COMPLETED_OK:
                 total_succeeded += 1
         return total_succeeded
 
 
 class CopyFileLocallyCommand(Command):
     """Local-to-local add or update"""
-    def __init__(self, model_obj: DisplayNode, overwrite: bool = False):
-        super().__init__(model_obj)
+    def __init__(self, uid, model_obj: DisplayNode, overwrite: bool = False):
+        super().__init__(uid, model_obj)
         self._overwrite = overwrite
 
     def get_total_work(self) -> int:
@@ -150,8 +151,8 @@ class DeleteLocalFileCommand(Command):
     """
     Delete Local
     """
-    def __init__(self, model_obj: DisplayNode, to_trash=True):
-        super().__init__(model_obj)
+    def __init__(self, uid, model_obj: DisplayNode, to_trash=True):
+        super().__init__(uid, model_obj)
         self.to_trash = to_trash
 
     def get_total_work(self) -> int:
@@ -172,8 +173,8 @@ class MoveFileLocallyCommand(Command):
     """
     Move/Rename Local -> Local
     """
-    def __init__(self, model_obj: DisplayNode):
-        super().__init__(model_obj)
+    def __init__(self, uid, model_obj: DisplayNode):
+        super().__init__(uid, model_obj)
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -196,8 +197,8 @@ class UploadToGDriveCommand(Command):
     """
     Copy Local -> GDrive
     """
-    def __init__(self, model_obj: FileDecoratorNode, overwrite: bool = False):
-        super().__init__(model_obj)
+    def __init__(self, uid, model_obj: FileDecoratorNode, overwrite: bool = False):
+        super().__init__(uid, model_obj)
         self._overwrite = overwrite
 
     def get_total_work(self) -> int:
@@ -280,8 +281,8 @@ class DownloadFromGDriveCommand(Command):
     """
     Copy GDrive -> Local
     """
-    def __init__(self, model_obj: FileDecoratorNode, overwrite: bool = False):
-        super().__init__(model_obj)
+    def __init__(self, uid, model_obj: FileDecoratorNode, overwrite: bool = False):
+        super().__init__(uid, model_obj)
         self._overwrite = overwrite
 
     def get_total_work(self) -> int:
@@ -324,8 +325,8 @@ class CreateGDriveFolderCommand(Command):
     """
     Create GDrive FOLDER (sometimes a prerequisite to uploading a file)
     """
-    def __init__(self, model_obj: FolderToAdd):
-        super().__init__(model_obj)
+    def __init__(self, uid, model_obj: FolderToAdd):
+        super().__init__(uid, model_obj)
         assert isinstance(self._model, FolderToAdd) and model_obj.parent_uids, f'For {self._model}'
 
     def get_total_work(self) -> int:
@@ -358,8 +359,8 @@ class MoveFileGDriveCommand(Command):
     """
     Move GDrive -> GDrive
     """
-    def __init__(self, model_obj: DisplayNode):
-        super().__init__(model_obj)
+    def __init__(self, uid, model_obj: DisplayNode):
+        super().__init__(uid, model_obj)
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -377,8 +378,8 @@ class DeleteGDriveFileCommand(Command):
     """
     Delete GDrive
     """
-    def __init__(self, model_obj: DisplayNode, to_trash=True):
-        super().__init__(model_obj)
+    def __init__(self, uid, model_obj: DisplayNode, to_trash=True):
+        super().__init__(uid, model_obj)
         self.to_trash = to_trash
 
     def get_total_work(self) -> int:

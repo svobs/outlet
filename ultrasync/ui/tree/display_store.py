@@ -6,6 +6,7 @@ import gi
 from gi.repository.Gtk import TreeIter, TreePath
 
 from fmeta.fmeta_tree_scanner import TreeMetaScanner
+from index.uid_generator import UID
 from model.display_node import DisplayNode
 from model.fmeta_tree import FMetaTree
 from model.goog_node import GoogFile
@@ -41,8 +42,8 @@ class DisplayStore:
         #   thus, having a parent which is either checked or unchecked overrides any presence in either of these two lists.
         # - At the same time as an item is checked, the checked & inconsistent state of its all ancestors must be recorded.
         # - The 'inconsistent_rows' list is needed for display purposes.
-        self.checked_rows: Dict[str, DisplayNode] = {}
-        self.inconsistent_rows: Dict[str, DisplayNode] = {}
+        self.checked_rows: Dict[UID, DisplayNode] = {}
+        self.inconsistent_rows: Dict[UID, DisplayNode] = {}
 
     def get_node_data(self, tree_path: Union[TreeIter, TreePath]) -> DisplayNode:
         """
@@ -261,7 +262,7 @@ class DisplayStore:
             # But if there are still files present: use FMetaTreeLoader to re-scan subtree
             # and construct a FMetaTree from the 'fresh' data
             logger.debug(f'Scanning: {stale_tree.root_path}')
-            scanner = TreeMetaScanner(root_path=stale_tree.root_path, stale_tree=stale_tree, tree_id=self.con.treeview_meta.tree_id, track_changes=False)
+            scanner = TreeMetaScanner(root_node_identifer=stale_tree.node_identifier, stale_tree=stale_tree, tree_id=self.con.treeview_meta.tree_id, track_changes=False)
             fresh_tree = scanner.scan()
 
         # TODO: files in different categories are showing up as 'added' in the scan

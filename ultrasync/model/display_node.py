@@ -3,11 +3,13 @@ import os
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
+from treelib import Node
+
 import format_util
 from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_LOCAL_DISK, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
-from index.uid_generator import UID
+from index.uid_generator import NULL_UID, UID
 from model.category import Category
-from model.node_identifier import NodeIdentifier
+from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +23,12 @@ def ensure_int(val):
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
 
-class DisplayNode(ABC):
+class DisplayNode(Node, ABC):
     """Base class for nodes which are meant to be displayed in a UI tree"""
 
-    def __init__(self, node_identifier: Optional[NodeIdentifier]):
+    def __init__(self, node_identifier: NodeIdentifier):
+        # Look at this next line, It is very important.
+        Node.__init__(self, identifier=node_identifier.uid)
         self.node_identifier = node_identifier
 
     @classmethod
@@ -66,7 +70,7 @@ class DisplayNode(ABC):
 
     @property
     def uid(self) -> UID:
-        return self.node_identifier.uid
+        return self.identifier
 
     def get_relative_path(self, parent_tree):
         return parent_tree.get_relative_path_for_item(self)
@@ -82,7 +86,7 @@ class DisplayNode(ABC):
 
 
 class FileNode(DisplayNode):
-    def __init__(self, node_identifier):
+    def __init__(self, node_identifier: NodeIdentifier):
         super().__init__(node_identifier)
 
     @classmethod
@@ -110,7 +114,7 @@ class DirNode(DisplayNode):
     Represents a generic directory (i.e. not an FMeta or domain object)
     """
 
-    def __init__(self, node_identifier):
+    def __init__(self, node_identifier: NodeIdentifier):
         super().__init__(node_identifier)
         self.file_count = 0
         self._size_bytes = 0
@@ -178,7 +182,7 @@ class CategoryNode(DirNode):
                       Category.Moved: 'To Move',
                       }
 
-    def __init__(self, node_identifier):
+    def __init__(self, node_identifier: NodeIdentifier):
         super().__init__(node_identifier=node_identifier)
 
     def __repr__(self):
@@ -197,7 +201,7 @@ class RootTypeNode(DirNode):
     Represents a type of root in the tree (GDrive, local FS, etc.)
     """
 
-    def __init__(self, node_identifier):
+    def __init__(self, node_identifier: NodeIdentifier):
         super().__init__(node_identifier=node_identifier)
 
     @property
@@ -223,8 +227,9 @@ class RootTypeNode(DirNode):
 
 
 class EphemeralNode(DisplayNode, ABC):
+    """Does not have an identifier - should not be inserted into a treelib.Tree!"""
     def __init__(self):
-        super().__init__(None)
+        super().__init__(LogicalNodeIdentifier(full_path=None, uid=NULL_UID, tree_type=None, category=Category.Nada))
 
     def __repr__(self):
         return self.name

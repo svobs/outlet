@@ -24,8 +24,7 @@ class CommandExecutor:
 
         logger.debug(f'Executing command plan uid="{command_plan.uid}": ' + command_plan.tree.show(stdout=False))
 
-        for cmd_node in command_plan:
-            command: Command = cmd_node.data
+        for command in command_plan:
             total += command.get_total_work()
             if command.needs_gdrive():
                 needs_gdrive = True
@@ -34,15 +33,14 @@ class CommandExecutor:
         try:
             context = CommandContext(self.staging_dir, self.application, actions.ID_COMMAND_EXECUTOR, needs_gdrive)
 
-            for command_num, cmd_node in enumerate(command_plan):
-                command: Command = cmd_node.data
+            for command_num, command in enumerate(command_plan):
 
                 if command.status() != CommandStatus.NOT_STARTED:
                     logger.info(f'Skipping command: {command}')
                 else:
-                    par_node = command_plan.tree.parent(nid=cmd_node.identifier)
-                    if par_node and not par_node.data.completed_ok():
-                        logger.info(f'Skipping execution of command {cmd_node}: parent did not complete ({par_node.data})')
+                    parent_cmd = command_plan.tree.parent(nid=command.identifier)
+                    if parent_cmd and not parent_cmd.completed_ok():
+                        logger.info(f'Skipping execution of command {command}: parent did not complete ({parent_cmd})')
                     else:
                         try:
                             logger.info(f'Executing command {command_num} of {len(command_plan)}')

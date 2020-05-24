@@ -70,6 +70,7 @@ class GDriveSubtree(SubtreeSnapshot):
 
         md5_dict: Md5BeforeUidDict = Md5BeforeUidDict()
 
+        # TODO: replace Queue with deque
         q = Queue()
         q.put(self.root_node)
 
@@ -108,7 +109,7 @@ class GDriveSubtree(SubtreeSnapshot):
         return md5_dict
 
     def get_children_for_root(self) -> List[GoogNode]:
-        return self.get_children(self.root_node.node_identifier)
+        return self.get_children(self.root_node.uid)
 
     def get_children(self, parent_uid: Union[UID, NodeIdentifier]) -> List[GoogNode]:
         return self._whole_tree.get_children(parent_uid=parent_uid)

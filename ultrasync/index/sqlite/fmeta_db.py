@@ -1,6 +1,7 @@
 import logging
 
 from index.sqlite.base_db import MetaDatabase
+from index.uid_generator import UidGenerator
 from model.fmeta import FMeta
 from model.planning_node import PlanningNode
 
@@ -20,8 +21,9 @@ class FMetaDatabase(MetaDatabase):
                  ('category', 'TEXT'))
     }
 
-    def __init__(self, db_path):
+    def __init__(self, db_path, uid_gen):
         super().__init__(db_path)
+        self.uid_generator: UidGenerator = uid_gen
 
     # FILE_LOG operations ---------------------
 
@@ -33,7 +35,8 @@ class FMetaDatabase(MetaDatabase):
         rows = self.get_all_rows(self.TABLE_LOCAL_FILE)
         entries = []
         for row in rows:
-            entries.append(FMeta(*row))
+            uid = self.uid_generator.get_new_uid()
+            entries.append(FMeta(uid, *row))
         return entries
 
     def insert_local_files(self, entries, overwrite):

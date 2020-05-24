@@ -9,7 +9,7 @@ import format_util
 from index import uid_generator
 from index.atomic_counter import AtomicCounter
 from index.two_level_dict import Md5BeforePathDict, Md5BeforeUidDict
-from index.uid_generator import UID
+from index.uid_generator import UID, UidGenerator
 from model.category import Category
 from model.node_identifier import NodeIdentifier, LocalFsIdentifier
 from model.display_node import DirNode, DisplayNode
@@ -31,21 +31,15 @@ class FMetaTree(SubtreeSnapshot):
     """🢄🢄🢄 Note: each FMeta object should be unique within its tree. Each FMeta should not be shared
     between trees, and should be cloned if needed"""
 
-    def __init__(self, root_path: str):
-        super().__init__(LocalFsIdentifier(full_path=root_path))
+    def __init__(self, root_identifier: LocalFsIdentifier, uid_gen: UidGenerator):
+        assert isinstance(root_identifier, LocalFsIdentifier)
+        super().__init__(root_identifier)
+        self.uid_generator = uid_gen
         # Each item is an entry
         self._path_dict: Dict[str, FMeta] = {}
         # Each item contains a list of entries
         self._ignored_items: List[FMeta] = []
         self._total_size_bytes = 0
-
-    @property
-    def root_node(self):
-        return self.create_identifier(full_path=self.root_path, uid=uid_generator.NULL_UID, category=Category.NA)
-
-    @property
-    def tree_type(self):
-        return constants.OBJ_TYPE_LOCAL_DISK
 
     @classmethod
     def create_identifier(cls, full_path: str, uid: UID, category) -> NodeIdentifier:
@@ -55,7 +49,7 @@ class FMetaTree(SubtreeSnapshot):
         # FIXME: add support for storing dir metadata in FMetaTree. Ditch this fake stuff
         parent = str(pathlib.Path(item.full_path).parent)
         if parent.startswith(self.root_path):
-            identifer = LocalFsIdentifier(full_path=parent)
+            identifer = LocalFsIdentifier(full_path=parent, uid=self.uid_generator.get_new_uid())
             return DirNode(identifer)
         return None
 
@@ -167,4 +161,4 @@ class FMetaTree(SubtreeSnapshot):
         return summary_string
 
     def __repr__(self):
-        return f'FMetaTree(Paths={len(self._path_dict)} Root="{self.root_path}"])'
+        return f'FMetaTree(Paths={len(self._path_dict)} Root="{self.node_identifier}"])'

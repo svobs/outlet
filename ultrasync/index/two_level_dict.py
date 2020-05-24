@@ -105,7 +105,7 @@ class OneLevelDict:
 class TwoLevelDict:
     def __init__(self, key_func1: Callable[[Any], Union[str, int]],
                  key_func2: Callable[[Any], Union[str, int]],
-                 should_overwrite: Callable[[Any, Any], bool]):
+                 should_overwrite: Optional[Callable[[Any, Any], bool]]):
         """
         Args:
             key_func1: Takes 'item' as single arg, and returns a key value for the
@@ -115,12 +115,12 @@ class TwoLevelDict:
             should_overwrite: function which takes 'old' and 'new' as args,
                 and returns True if new should replace old; False if not.
                 Will only be called if put() finds an existing item with matching
-                keys.
+                keys. If this funtion is None, then never overwrite.
         """
         self._dict: Dict[Union[str, int], Dict[Union[str, int], Any]] = {}
         self._key_func1 = key_func1
         self._key_func2 = key_func2
-        self._should_overwrite = should_overwrite
+        self._should_overwrite: Optional[Callable[[Any, Any], bool]] = should_overwrite
         self.total_entries = 0
 
     def put(self, item, expected_existing=None) -> Optional[Any]:
@@ -144,7 +144,7 @@ class TwoLevelDict:
                 logger.error(f'Replacing a different entry ({existing}) than expected ({expected_existing})!')
             # Overwrite either way...
             dict2[key2] = item
-        elif self._should_overwrite(existing, item):
+        elif self._should_overwrite is not None and self._should_overwrite(existing, item):
             dict2[key2] = item
         return existing
 

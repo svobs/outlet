@@ -45,7 +45,7 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
             self.display_tree = self._build_display_tree()
         return self.get_children(parent_identifier=self.tree.node_identifier)
 
-    def get_children(self, parent_identifier: NodeIdentifier) -> Optional[List[treelib.Node]]:
+    def get_children(self, parent_identifier: NodeIdentifier) -> Optional[List[DisplayNode]]:
         try:
             return self.display_tree.children(parent_identifier.uid)
         except Exception:
@@ -59,7 +59,7 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
         # been added to this tree, or the root of the source tree
         ancestor = item
         while ancestor:
-            ancestor = self.tree.get_parent_for_item(ancestor)
+            ancestor: DisplayNode = self.tree.get_parent_for_item(ancestor)
             if ancestor:
                 if ancestor.uid == self.tree.uid:
                     # do not include source tree's root node; that is already covered by the CategoryNode
@@ -83,7 +83,7 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
 
         logger.debug(f'Building display tree for {set_len} files...')
 
-        root: treelib.Node = display_tree.create_node(identifier=root_node.uid, data=root_node)  # root
+        display_tree.add_node(node=root_node, parent=None)  # root
         for item in item_list:
             if item.is_dir():
                 # Skip any actual directories we encounter. We won't use them for our display, because:
@@ -93,24 +93,24 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
                 continue
             ancestors: Iterable[DisplayNode] = self._get_ancestors(item)
             # nid == Node ID == directory name
-            parent = root
-            parent.data.add_meta_metrics(item)
+            parent = root_node
+            parent.add_meta_metrics(item)
 
             if ancestors:
                 # Create a node for each ancestor dir (path segment)
                 for ancestor in ancestors:
-                    nid = ancestor.uid
-                    child: treelib.Node = display_tree.get_node(nid=nid)
-                    if child is None:
+                    child: treelib.Node = display_tree.get_node(nid=ancestor.uid)
+                    if not child:
                         # logger.debug(f'Creating dir node: nid={nid}')
-                        child = display_tree.create_node(identifier=nid, parent=parent, data=ancestor)
+                        display_tree.add_node(node=ancestor, parent=parent)
+                        child = ancestor
                     parent = child
-                    assert isinstance(parent.data, DirNode)
-                    parent.data.add_meta_metrics(item)
+                    assert isinstance(parent, DirNode), f'was instead {type(parent)}, obj={parent}'
+                    parent.add_meta_metrics(item)
 
             # Each node's ID will be either
             # logger.debug(f'Creating file node: nid={nid}')
-            display_tree.create_node(identifier=item.uid, parent=parent, data=item)
+            display_tree.add_node(node=item, parent=parent)
 
         logger.debug(f'{sw} Constructed display tree for {set_len} items')
         return display_tree

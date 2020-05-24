@@ -104,7 +104,7 @@ class LocalDiskMasterCache:
         stopwatch_load = Stopwatch()
 
         # Load cache from file, and update with any local FS changes found:
-        with FMetaDatabase(cache_info.cache_location) as fmeta_disk_cache:
+        with FMetaDatabase(cache_info.cache_location, self.application.uid_generator) as fmeta_disk_cache:
             if not fmeta_disk_cache.has_local_files():
                 logger.debug('No meta found in cache')
                 return None
@@ -113,7 +113,9 @@ class LocalDiskMasterCache:
             logger.debug(status)
             dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
 
-            fmeta_tree = FMetaTree(cache_info.subtree_root.full_path)
+            uid = self.application.uid_generator
+            root_identifier = LocalFsIdentifier(full_path=cache_info.subtree_root.full_path, uid=uid)
+            fmeta_tree = FMetaTree(root_identifier, self.application.uid_generator)
 
             db_file_changes: List[FMeta] = fmeta_disk_cache.get_local_files()
             if len(db_file_changes) == 0:
@@ -141,7 +143,7 @@ class LocalDiskMasterCache:
         to_insert = fmeta_tree.get_all()
 
         stopwatch_write_cache = Stopwatch()
-        with FMetaDatabase(cache_info.cache_location) as fmeta_disk_cache:
+        with FMetaDatabase(cache_info.cache_location, self.application.uid_generator) as fmeta_disk_cache:
             # Update cache:
             fmeta_disk_cache.insert_local_files(to_insert, overwrite=True)
 
@@ -183,7 +185,9 @@ class LocalDiskMasterCache:
             if fmeta_tree:
                 has_data_to_store_in_memory = True
             else:
-                fmeta_tree = FMetaTree(cache_info.subtree_root.full_path)
+                uid = self.application.uid_generator.get_new_uid()
+                root_identifier = LocalFsIdentifier(full_path=cache_info.subtree_root.full_path, uid=uid)
+                fmeta_tree = FMetaTree(root_identifier, self.application.uid_generator)
 
         if cache_info.is_loaded and not \
                 self.application.cache_manager.sync_from_local_disk_on_cache_load:
@@ -230,7 +234,8 @@ class LocalDiskMasterCache:
     def _resync_with_file_system(self, stale_tree: FMetaTree, tree_id: str):
         # Scan directory tree and update where needed.
         logger.debug(f'Scanning filesystem subtree: {stale_tree.root_path}')
-        scanner = TreeMetaScanner(root_path=stale_tree.root_path, stale_tree=stale_tree, tree_id=tree_id, track_changes=False)
+        scanner = TreeMetaScanner(application=self.application, root_node_identifer=stale_tree.node_identifier, stale_tree=stale_tree,
+                                  tree_id=tree_id, track_changes=False)
         scanner.scan()
         fresh_tree = scanner.fresh_tree
 

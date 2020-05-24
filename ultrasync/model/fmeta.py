@@ -1,6 +1,7 @@
 import logging
 from typing import Optional
 
+from index.uid_generator import UID
 from model.category import Category
 from model.node_identifier import LocalFsIdentifier
 from model.display_node import DisplayNode, ensure_int
@@ -11,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 class FMeta(DisplayNode):
-    def __init__(self, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, category=Category.NA):
-        super().__init__(LocalFsIdentifier(full_path=full_path, category=category))
+    def __init__(self, uid: UID, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path: str, category=Category.NA):
+        super().__init__(LocalFsIdentifier(full_path=full_path, uid=uid, category=category))
         self.md5: Optional[str] = md5
         self.sha256: Optional[str] = sha256
         self._size_bytes: int = ensure_int(size_bytes)
