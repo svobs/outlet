@@ -56,14 +56,15 @@ class CategoryDisplayTree:
     def uid(self):
         return self.node_identifier.uid
 
-    def get_children_for_root(self) -> Iterable[treelib.Node]:
+    def get_children_for_root(self) -> Iterable[DisplayNode]:
         return self._category_tree.children(self.root.identifier)
 
-    def get_children(self, parent_identifier: NodeIdentifier) -> List[treelib.Node]:
-        assert parent_identifier.category != Category.NA, f'For item: {parent_identifier}'
+    def get_children(self, parent_identifier: NodeIdentifier) -> Iterable[DisplayNode]:
+        if isinstance(parent_identifier, NodeIdentifier):
+            parent_identifier = parent_identifier.uid
 
         try:
-            return self._category_tree.children(parent_identifier.uid)
+            return self._category_tree.children(parent_identifier)
         except Exception:
             logger.debug(f'CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))
             logger.debug(f'While retrieving children for: {parent_identifier}')
@@ -231,6 +232,7 @@ class CategoryDisplayTree:
         return f'CategoryDisplayTree({self.get_summary()})'
 
     def get_summary(self) -> str:
+        # FIXME: dis broke
         total_summary = []
         for child in self._category_tree.children(self.root.identifier):
             if self.show_whole_forest:

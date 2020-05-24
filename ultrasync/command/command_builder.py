@@ -1,5 +1,5 @@
 import collections
-from typing import Deque, Tuple
+from typing import Deque, Iterable, List, Tuple
 
 import treelib
 
@@ -9,7 +9,7 @@ from command.command import Command, CommandPlan, CopyFileLocallyCommand, Create
     MoveFileGDriveCommand, \
     MoveFileLocallyCommand, \
     UploadToGDriveCommand
-from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
+from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, ROOT_PATH
 from model.category import Category
 from model.display_node import DisplayNode
 from model.goog_node import FolderToAdd
@@ -24,28 +24,28 @@ class CommandBuilder:
 
     def build_command_plan(self, change_tree: CategoryDisplayTree) -> CommandPlan:
         command_tree = treelib.Tree()
-        cmd_root = command_tree.create_node(identifier='', parent=None, data=None)
+        # As usual, root is not used for much:
+        cmd_root = command_tree.create_node(identifier=ROOT_PATH, parent=None, data=None)
 
-        stack: Deque[Tuple[treelib.Node, treelib.Node]] = collections.deque()
-        src_children = change_tree.get_children_for_root()
+        stack: Deque[Tuple[treelib.Node, DisplayNode]] = collections.deque()
+        src_children: Iterable[DisplayNode] = change_tree.get_children_for_root()
         for child in src_children:
             stack.append((cmd_root, child))
 
         while len(stack) > 0:
             dst_parent, src_node = stack.popleft()
-            src_node_data: DisplayNode = src_node.data
 
             # Don't even bother to create commands for display-only nodes such as DirNodes, etc
-            if not src_node_data.is_just_fluff():
-                cmd: Command = _make_command(src_node_data, self._uid_generator)
+            if not src_node.is_just_fluff():
+                cmd: Command = _make_command(src_node, self._uid_generator)
                 assert cmd is not None
-                cmd_node: treelib.Node = command_tree.create_node(identifier=src_node.identifier, parent=dst_parent, data=cmd)
+                command_tree.add_node(node=cmd, parent=dst_parent)
 
                 if isinstance(cmd, CreateGDriveFolderCommand):
                     # added GDrive folder creates extra level of dependency:
-                    dst_parent = cmd_node
+                    dst_parent = cmd
 
-            src_children = change_tree.get_children(src_node_data.node_identifier)
+            src_children = change_tree.get_children(src_node.identifier)
             for child in src_children:
                 stack.append((dst_parent, child))
 

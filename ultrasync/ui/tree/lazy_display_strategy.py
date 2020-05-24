@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime
 from queue import Queue
-from typing import Deque, List, Optional, Union
+from typing import Deque, Iterable, List, Optional, Union
 
 import gi
 import treelib
@@ -147,7 +147,7 @@ class LazyDisplayStrategy:
         whitelist: Deque[DisplayNode] = collections.deque()
         secondary_screening: Deque[DisplayNode] = collections.deque()
 
-        children = self.con.tree_builder.get_children_for_root()
+        children: Iterable[DisplayNode] = self.con.tree_builder.get_children_for_root()
         for child in children:
 
             if self.con.display_store.checked_rows.get(child.uid, None):
@@ -161,7 +161,7 @@ class LazyDisplayStrategy:
                 # Even an inconsistent FolderToAdd must be included as a checked item:
                 checked_items.append(parent)
 
-            children = self.con.tree_builder.get_children(parent)
+            children: Iterable[DisplayNode] = self.con.tree_builder.get_children(parent.node_identifier)
 
             for child in children:
                 if self.con.display_store.checked_rows.get(child.uid, None):
@@ -174,7 +174,7 @@ class LazyDisplayStrategy:
             if not chosen_node.is_dir() or isinstance(chosen_node, FolderToAdd):
                 checked_items.append(chosen_node)
 
-            children = self.con.tree_builder.get_children(chosen_node)
+            children: Iterable[DisplayNode] = self.con.tree_builder.get_children(chosen_node.node_identifier)
             for child in children:
                 whitelist.append(child)
 
