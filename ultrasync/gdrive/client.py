@@ -79,6 +79,9 @@ class SimpleNodeCollector(MetaObserver):
     def end_of_page(self, next_page_token: str):
         pass
 
+    def __repr__(self):
+        return f'SimpleNodeCollector(nodes={len(self.nodes)} raw_items={len(self.raw_items)}'
+
 
 class MemoryCache:
     """
@@ -159,9 +162,13 @@ def _convert_trashed(result):
         return NOT_TRASHED
 
 
-def _convert_to_goog_folder(result, uid: UID, sync_ts: int) -> GoogFolder:
+def _convert_to_goog_folder(result, uid: UID, sync_ts: int = 0) -> GoogFolder:
     # 'driveId' only populated for items which someone has shared with me
     # 'shared' only populated for items which are owned by me
+
+    if not sync_ts:
+        sync_ts = int(time.time())
+
     return GoogFolder(uid=uid, goog_id=result['id'], item_name=result['name'], trashed=_convert_trashed(result),
                       drive_id=result.get('driveId', None), my_share=result.get('shared', None), sync_ts=sync_ts, all_children_fetched=False)
 
@@ -254,7 +261,7 @@ class GDriveClient:
         logger.info(f'{used} of {total} used (including {drive_used} for Drive files; of which {drive_trash_used} is trash)')
         return user_meta
 
-    def get_meta_my_drive_root(self, uid_to_assign: int, sync_ts: int) -> GoogFolder:
+    def get_meta_my_drive_root(self, uid_to_assign: UID, sync_ts: int) -> GoogFolder:
         """
         Returns: a GoogFolder representing the user's GDrive root node.
         """
@@ -270,7 +277,7 @@ class GDriveClient:
         logger.debug(f'Drive root: {root_node}')
         return root_node
 
-    def get_meta_single_item_by_id(self, goog_id: str, uid_to_assign: int, sync_ts: int) -> GoogFolder:
+    def get_meta_single_item_by_id(self, goog_id: str, uid_to_assign: UID, sync_ts: int) -> GoogFolder:
         """
         Returns: a GoogNode representing the user's GDrive root node.
         """
@@ -286,37 +293,42 @@ class GDriveClient:
         logger.debug(f'Drive root: {root_node}')
         return root_node
 
-    def get_meta_children_of_parent(self):
-        pass
-        # TODO
-        # query = f"and '{subtree_root_gd_id}' in parents"
+    def get_existing_folder_with_parent_and_name(self, parent_goog_id: str, name: str) -> SimpleNodeCollector:
+        query = f"{QUERY_FOLDERS_ONLY} AND name='{name}' AND '{parent_goog_id}' in parents"
+        fields = f'nextPageToken, incompleteSearch, files({DIR_FIELDS}, parents)'
 
-    def get_existing_files(self, parent_goog_id: str, name: str) -> SimpleNodeCollector:
-        query = QUERY_NON_FOLDERS_ONLY + f" AND name='{name}' AND '{parent_goog_id}' in parents"
+        sync_ts = int(time.time())
+        uid_generator = NullUidGenerator()
+        observer = SimpleNodeCollector()
+        self._get_meta_for_dirs(query, fields, None, sync_ts, uid_generator, observer)
+        return observer
+
+    def get_existing_file_with_parent_and_name(self, parent_goog_id: str, name: str) -> SimpleNodeCollector:
+        query = f"{QUERY_NON_FOLDERS_ONLY} AND name='{name}' AND '{parent_goog_id}' in parents"
         fields = f'nextPageToken, incompleteSearch, files({FILE_FIELDS}, parents)'
 
         logger.debug(f'Getting existing files named "{name}" with parent "{parent_goog_id}"')
 
         sync_ts = int(time.time())
-        id_generator = NullUidGenerator()
+        uid_generator = NullUidGenerator()
         observer = SimpleNodeCollector()
-        self._get_meta_for_files(query, fields, None, sync_ts, id_generator, observer)
+        self._get_meta_for_files(query, fields, None, sync_ts, uid_generator, observer)
 
         return observer
 
     def get_meta_all_files(self, initial_page_token: Optional[str], sync_ts: int,
-                           meta: GDriveWholeTree, observer: MetaObserver):
+                           uid_generator: UidGenerator, observer: MetaObserver):
 
         query = QUERY_NON_FOLDERS_ONLY
         fields = f'nextPageToken, incompleteSearch, files({FILE_FIELDS}, parents)'
 
         logger.info('Getting list of ALL NON DIRS in Google Drive...')
 
-        return self._get_meta_for_files(query, fields, initial_page_token, sync_ts, meta, observer)
+        return self._get_meta_for_files(query, fields, initial_page_token, sync_ts, uid_generator, observer)
 
     def _get_meta_for_files(self, query: str, fields: str,
                             initial_page_token: Optional[str], sync_ts: int,
-                            id_generator: UidGenerator, observer: MetaObserver):
+                            uid_generator: UidGenerator, observer: MetaObserver):
         """Generic version"""
 
         # Google Drive only; not app data or Google Photos:
@@ -356,7 +368,8 @@ class GDriveClient:
 
             items: list = results.get('files', [])
             if not items:
-                raise RuntimeError(f'No files returned from Drive API! (page {request.page_count})')
+                logger.debug('Request returned no files')
+                break
 
             msg = f'Received {len(items)} items'
             logger.debug(msg)
@@ -375,7 +388,7 @@ class GDriveClient:
                     owner_is_me = owner.get('me', None)
                     owner_dict[owner_id] = (owner_name, owner_email, owner_photo_link, owner_is_me)
 
-                goog_node: GoogFile = _convert_to_goog_file(item, uid=id_generator.get_new_uid(), sync_ts=sync_ts)
+                goog_node: GoogFile = _convert_to_goog_file(item, uid=uid_generator.get_new_uid(), sync_ts=sync_ts)
 
                 # Collect MIME types
                 mime_type = item['mimeType']
@@ -430,8 +443,11 @@ class GDriveClient:
 
         # TODO: save MIME types, owners, shortcuts
 
+    # DIRECTORIES (folders)
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
     def get_meta_all_directories(self, initial_page_token: Optional[str], sync_ts: int,
-                                 meta: GDriveWholeTree, observer: MetaObserver):
+                                 uid_generator: UidGenerator, observer: MetaObserver):
         """
         Downloads all of the directory nodes from the user's GDrive and puts them into a
         GDriveMeta object.
@@ -441,7 +457,7 @@ class GDriveClient:
         """
         fields = f'nextPageToken, incompleteSearch, files({DIR_FIELDS}, parents)'
 
-        return self._get_meta_for_dirs(QUERY_FOLDERS_ONLY, fields, initial_page_token, sync_ts, meta, observer)
+        self._get_meta_for_dirs(QUERY_FOLDERS_ONLY, fields, initial_page_token, sync_ts, uid_generator, observer)
 
     def _get_meta_for_dirs(self, query: str, fields: str,
                            initial_page_token: Optional[str], sync_ts: int,
@@ -506,9 +522,14 @@ class GDriveClient:
 
         logger.info(f'{stopwatch_retrieval} Query returned {item_count} directories')
 
+    # BINARIES
+    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
     def download_file(self, file_id: str, dest_path: str):
         """Download a single file based on Google ID and destination path"""
         # logger.debug(f'Downloading file: "{file.node_identifier}" to "{dest_path}"')
+
+        # only set this to True if you need to. Otherwise it will cause the download to fail...
         download_abusive_file = False
 
         def download():
@@ -553,7 +574,7 @@ class GDriveClient:
 
         return goog_file
 
-    def update_existing_file(self, raw_item, local_full_path: str) -> GoogFile:
+    def update_existing_file(self, raw_item, local_full_path: str, uid: UID) -> GoogFile:
         if not local_full_path:
             raise RuntimeError(f'No path specified for file!')
 
@@ -568,15 +589,13 @@ class GDriveClient:
             return self.service.files().update(fileId=raw_item['id'], body=file_meta, media_body=media, fields=FILE_FIELDS).execute()
 
         updated_file_meta = _try_repeatedly(request)
-        uid = 0
-        sync_ts = int(time.time())
-        goog_file: GoogFile = _convert_to_goog_file(updated_file_meta, uid, sync_ts)
+        goog_file: GoogFile = _convert_to_goog_file(updated_file_meta, uid)
 
         logger.debug(f'File uploaded successfully) Returned version={goog_file.version} for id={goog_file.goog_id}')
 
         return goog_file
 
-    def create_folder(self, name: str, parent_goog_ids: List[str], uid_generator, sync_ts) -> GoogFolder:
+    def create_folder(self, name: str, parent_goog_ids: List[str], uid) -> GoogFolder:
         """Create a folder with the given name. If successful, returns a new Google ID for the created folder"""
         if not name:
             raise RuntimeError(f'No name specified for folder!')
@@ -591,7 +610,7 @@ class GDriveClient:
 
         item = _try_repeatedly(request)
 
-        goog_node: GoogFolder = _convert_to_goog_folder(item, uid_generator.get_new_uid(), sync_ts)
+        goog_node: GoogFolder = _convert_to_goog_folder(item, uid)
         if not goog_node.goog_id:
             raise RuntimeError(f'Folder creation failed (no ID returned)!')
 

@@ -178,12 +178,12 @@ class GDriveTreeLoader:
 
         if download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
             observer = DirMetaObserver(meta, download, self.cache)
-            self.gdrive_client.get_meta_all_directories(download.page_token, download.update_ts, meta, observer)
+            self.gdrive_client.get_meta_all_directories(download.page_token, download.update_ts, self.uid_generator, observer)
             # fall through
 
         if download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS:
             observer = FileMetaObserver(meta, download, self.cache)
-            self.gdrive_client.get_meta_all_files(download.page_token, download.update_ts, meta, observer)
+            self.gdrive_client.get_meta_all_files(download.page_token, download.update_ts, self.uid_generator, observer)
             # fall through
 
         if download.current_state <= GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE:

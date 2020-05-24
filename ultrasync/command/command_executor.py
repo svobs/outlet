@@ -24,7 +24,9 @@ class CommandExecutor:
 
         logger.debug(f'Executing command plan uid="{command_plan.uid}": ' + command_plan.tree.show(stdout=False))
 
-        for command in command_plan:
+        for uid in command_plan:
+            # TODO: how to map a generator?
+            command = command_plan.get_item_for_uid(uid)
             total += command.get_total_work()
             if command.needs_gdrive():
                 needs_gdrive = True
@@ -33,12 +35,13 @@ class CommandExecutor:
         try:
             context = CommandContext(self.staging_dir, self.application, actions.ID_COMMAND_EXECUTOR, needs_gdrive)
 
-            for command_num, command in enumerate(command_plan):
+            for command_num, uid in enumerate(command_plan):
+                command = command_plan.get_item_for_uid(uid)
 
                 if command.status() != CommandStatus.NOT_STARTED:
                     logger.info(f'Skipping command: {command}')
                 else:
-                    parent_cmd = command_plan.tree.parent(nid=command.identifier)
+                    parent_cmd = command_plan.get_parent(command.identifier)
                     if parent_cmd and not parent_cmd.completed_ok():
                         logger.info(f'Skipping execution of command {command}: parent did not complete ({parent_cmd})')
                     else:

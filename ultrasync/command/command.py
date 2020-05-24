@@ -3,7 +3,7 @@ import time
 import logging
 from abc import ABC, abstractmethod
 from enum import IntEnum
-from typing import List
+from typing import List, Optional
 
 import treelib
 
@@ -15,10 +15,14 @@ from index.uid_generator import UID
 from model.display_node import DisplayNode
 from model.fmeta import FMeta
 from model.gdrive_whole_tree import GDriveWholeTree
-from model.goog_node import FolderToAdd, GoogFile
+from model.goog_node import FolderToAdd, GoogFile, GoogFolder, GoogNode
 from model.planning_node import FileDecoratorNode, FileToAdd, FileToMove, FileToUpdate
 
 logger = logging.getLogger(__name__)
+
+"""
+# ENUM CommandStatus
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟"""
 
 
 class CommandStatus(IntEnum):
@@ -27,6 +31,11 @@ class CommandStatus(IntEnum):
     STOPPED_ON_ERROR = 8
     COMPLETED_NO_OP = 9
     COMPLETED_OK = 10
+
+
+"""
+# CLASS CommandContext
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟"""
 
 
 class CommandContext:
@@ -38,6 +47,11 @@ class CommandContext:
         if needs_gdrive:
             self.gdrive_client = GDriveClient(config=self.config, tree_id=tree_id)
             self.gdrive_tree: GDriveWholeTree = self.cache_manager.get_gdrive_whole_tree(tree_id=tree_id)
+
+
+""" 
+CLASS Command
+⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟"""
 
 
 class Command(treelib.Node, ABC):
@@ -65,19 +79,17 @@ class Command(treelib.Node, ABC):
     def status(self) -> CommandStatus:
         return self._status
 
-    def has_dependencies(self) -> bool:
-        return self.get_dependencies() is not None
-
-    def get_dependencies(self) -> List:
-        """Returns a list of Commands"""
-        return []
-
     def get_model(self) -> DisplayNode:
         return self._model
 
     def set_error(self, err):
         self._error = err
         self._status = CommandStatus.STOPPED_ON_ERROR
+
+
+""" 
+CLASS CommandPlan
+⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟"""
 
 
 class CommandPlan:
@@ -98,6 +110,9 @@ class CommandPlan:
     def __len__(self):
         return self.tree.__len__()
 
+    def get_item_for_uid(self, uid: UID) -> Command:
+        return self.tree.get_node(uid)
+
     def get_total_succeeded(self) -> int:
         """Returns the number of commands which executed successfully"""
         total_succeeded: int = 0
@@ -105,6 +120,16 @@ class CommandPlan:
             if cmd_node.status() == CommandStatus.COMPLETED_OK:
                 total_succeeded += 1
         return total_succeeded
+
+    def get_parent(self, uid: UID) -> Optional[Command]:
+        parent = self.tree.parent(nid=uid)
+        if parent and isinstance(parent, Command):
+            return parent
+        return None
+
+
+# LOCAL COMMANDS begin
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 
 class CopyFileLocallyCommand(Command):
@@ -136,6 +161,9 @@ class CopyFileLocallyCommand(Command):
             else:
                 assert isinstance(self._model, FileToAdd)
                 file_util.copy_file_new(src_path=src_path, staging_path=staging_path, dst_path=dst_path, md5_src=self._model.md5, verify=True)
+
+            # TODO: update cache
+
             self._status = CommandStatus.COMPLETED_OK
         except file_util.IdenticalFileExistsError:
             # Not a real error. Note and proceed
@@ -185,12 +213,21 @@ class MoveFileLocallyCommand(Command):
             logger.debug(f'MV: src={self._model.original_full_path}')
             logger.debug(f'    dst={self._model.dest_path}')
             file_util.move_file(self._model.original_full_path, self._model.dest_path)
+
+            # TODO: update cache
             self._status = CommandStatus.COMPLETED_OK
         except Exception as err:
             logger.error(f'While moving file: dest_path="{self._model.dest_path}", '
                          f'orig_path="{self._model.original_full_path}": {repr(err)}')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
+
+# ⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝
+# LOCAL COMMANDS end
+
+
+# GOOGLE DRIVE COMMANDS begin
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
 
 class UploadToGDriveCommand(Command):
@@ -220,7 +257,7 @@ class UploadToGDriveCommand(Command):
             parent_goog_id: str = parent_goog_ids[0]
             src_file_path = self._model.original_full_path
             name = self._model.src_node.name
-            existing = context.gdrive_client.get_existing_files(parent_goog_id=parent_goog_id, name=name)
+            existing = context.gdrive_client.get_existing_file_with_parent_and_name(parent_goog_id=parent_goog_id, name=name)
             logger.debug(f'Found {len(existing.nodes)} existing files with parent={parent_goog_id} and name={name}')
             if self._overwrite:
                 assert isinstance(self._model, FileToUpdate)
@@ -244,7 +281,10 @@ class UploadToGDriveCommand(Command):
                             self._status = CommandStatus.COMPLETED_NO_OP
                             return
                 if data_to_update:
-                    context.gdrive_client.update_existing_file(data_to_update, src_file_path)
+                    goog_node: GoogNode = context.gdrive_client.update_existing_file(raw_item=data_to_update, local_full_path=src_file_path,
+                                                                                     uid=self._model.uid)
+
+                    # TODO: update cache
                     self._status = CommandStatus.COMPLETED_OK
                     return
                 else:
@@ -263,6 +303,8 @@ class UploadToGDriveCommand(Command):
                 else:
                     # Note that we will reuse the FileToAdd's UID
                     new_file = context.gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id, uid=self._model.uid)
+                    # Need to add these in (GDrive client cannot resolve them):
+                    new_file.parent_uids = self._model.parent_uids
 
                     # Add node to disk & in-memory caches:
                     context.cache_manager.add_node(new_file)
@@ -313,6 +355,8 @@ class DownloadFromGDriveCommand(Command):
 
             # This will overwrite if the file already exists:
             file_util.move_to_dst(staging_path=staging_path, dst_path=dst_path)
+
+            # TODO: update cache
             self._status = CommandStatus.COMPLETED_OK
         except Exception as err:
             logger.error(f'While downloading file from GDrive: dest_path="{self._model.dest_path}", '
@@ -341,11 +385,29 @@ class CreateGDriveFolderCommand(Command):
             if not parent_uids:
                 raise RuntimeError(f'Parents are required but item has no parents: {self._model}')
 
+            # This will raise an exception if it cannot resolve:
             parent_goog_ids: List[str] = context.gdrive_tree.resolve_uids_to_goog_ids(parent_uids)
 
-            sync_ts = int(time.time())
-            goog_node = context.gdrive_client.create_folder(name=self._model.name, parent_goog_ids=parent_goog_ids,
-                                                            uid_generator=context.uid_generator, sync_ts=sync_ts)
+            if len(parent_goog_ids) == 0:
+                raise RuntimeError(f'No parent Google IDs for: {self._model}')
+            if len(parent_goog_ids) > 1:
+                # not supported at this time
+                raise RuntimeError(f'Too many parent Google IDs for: {self._model}')
+
+            parent_goog_id: str = parent_goog_ids[0]
+            name = self._model.name
+            existing = context.gdrive_client.get_existing_folder_with_parent_and_name(parent_goog_id=parent_goog_id, name=name)
+            if len(existing.nodes) > 0:
+                logger.info(f'Found {len(existing.nodes)} existing folders with parent={parent_goog_id} and name="{name}". '
+                            f'Will use first found instead of creating a new folder.')
+                goog_node: GoogNode = existing.nodes[0]
+                goog_node.uid = self._model.uid
+            else:
+                goog_node = context.gdrive_client.create_folder(name=self._model.name, parent_goog_ids=parent_goog_ids, uid=self._model.uid)
+
+            assert goog_node.is_dir()
+            # Need to add these manually:
+            goog_node.parent_uids = parent_uids
             # Add node to disk & in-memory caches:
             context.cache_manager.add_node(goog_node)
         except Exception as err:
@@ -392,8 +454,6 @@ class DeleteGDriveFileCommand(Command):
         pass
         # TODO
 
-
-
-
-
+# ⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝
+# GOOGLE DRIVE COMMANDS end
 

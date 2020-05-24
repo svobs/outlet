@@ -72,6 +72,11 @@ class DisplayNode(Node, ABC):
     def uid(self) -> UID:
         return self.identifier
 
+    @uid.setter
+    def uid(self, uid: UID):
+        self.node_identifier.uid = uid
+        self.identifier = uid
+
     def get_relative_path(self, parent_tree):
         return parent_tree.get_relative_path_for_item(self)
 
