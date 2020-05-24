@@ -22,16 +22,11 @@ class AllItemsGDriveTreeBuilder(DisplayTreeBuilder):
     """Works with either a GDriveWholeTree or a GDriveSubtree"""
     def __init__(self, controller, root: NodeIdentifier = None, tree: SubtreeSnapshot = None):
         super().__init__(controller=controller, root=root, tree=tree)
+        assert tree is None or isinstance(tree, GDriveWholeTree) or isinstance(tree, GDriveSubtree), f'For {tree}'
+        logger.debug('AllItemsGDriveTreeBuilder init')
 
     def get_children_for_root(self) -> Optional[List[DisplayNode]]:
-        if isinstance(self.tree, GDriveWholeTree):
-            # Whole tree? -> return the root nodes
-            return self.tree.roots
-        else:
-            # Subtree? -> return the subtree root
-            assert isinstance(self.tree, GDriveSubtree)
-            parent_uid = self.tree.root_id
-            return self.tree.get_children(parent_uid)
+        return self.tree.get_children_for_root()
 
     def get_children(self, parent_identifier: NodeIdentifier) -> Optional[List[DisplayNode]]:
         return self.tree.get_children(parent_uid=parent_identifier)

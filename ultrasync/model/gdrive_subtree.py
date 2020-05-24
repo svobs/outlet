@@ -59,7 +59,7 @@ class GDriveSubtree(SubtreeSnapshot):
         return self._root_node.full_path
 
     @property
-    def root_id(self):
+    def root_uid(self):
         return self._root_node.uid
 
     def get_ignored_items(self):
@@ -107,6 +107,9 @@ class GDriveSubtree(SubtreeSnapshot):
         logger.info(f'{md5_set_stopwatch} Found {md5_dict.total_entries} MD5s')
         return md5_dict
 
+    def get_children_for_root(self) -> List[GoogNode]:
+        return self.get_children(self.root_node.node_identifier)
+
     def get_children(self, parent_uid: Union[UID, NodeIdentifier]) -> List[GoogNode]:
         return self._whole_tree.get_children(parent_uid=parent_uid)
 
@@ -147,8 +150,8 @@ class GDriveSubtree(SubtreeSnapshot):
                         resolved_parents.append(parent)
                 if len(resolved_parents) > 1:
                     logger.error(f'Found multiple valid parents for item: {item}: parents={resolved_parents}')
-                # assert len(resolved_parent_ids) == 1
-                return resolved_parents[0]
+                if len(resolved_parents) == 1:
+                    return resolved_parents[0]
         return None
 
     def get_relative_path_for_item(self, goog_node: GoogNode):
@@ -170,7 +173,7 @@ class GDriveSubtree(SubtreeSnapshot):
             id_count_str = f' id_count={self.file_count + self.folder_count}'
         else:
             id_count_str = ''
-        return f'GDriveSubtree(root_id={self.root_id} root_path="{self.root_path}"{id_count_str})'
+        return f'GDriveSubtree(root_uid={self.root_uid} root_path="{self.root_path}"{id_count_str})'
 
     def refresh_stats(self):
         stats_sw = Stopwatch()

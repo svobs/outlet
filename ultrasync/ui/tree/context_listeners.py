@@ -71,6 +71,7 @@ class TreeContextListeners:
     def disconnect_gtk_listeners(self):
         for eid in self.connected_eids:
             self.con.tree_view.disconnect(eid)
+        self.connected_eids.clear()
 
     # LISTENERS begin
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟

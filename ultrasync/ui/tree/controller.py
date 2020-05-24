@@ -71,7 +71,7 @@ class TreePanelController:
             checkboxes_visible = self.treeview_meta.has_checkboxes
             if (show_checkboxes and not checkboxes_visible) or (hide_checkboxes and checkboxes_visible):
                 # Change in checkbox visibility means tearing out half the guts here and swapping them out...
-                logger.info('Rebuilding treeview!')
+                logger.info(f'[{self.tree_id}] Rebuilding treeview!')
                 checkboxes_visible = not checkboxes_visible
                 self.context_listeners.disconnect_gtk_listeners()
                 self.treeview_meta = self.treeview_meta.but_with_checkboxes(checkboxes_visible)
@@ -85,13 +85,13 @@ class TreePanelController:
                 self.treeview_meta.init()
 
             if new_root:
-                logger.debug(f'reload() with new root: {new_root}')
+                logger.info(f'[{self.tree_id}] reload() with new root: {new_root}')
                 self.set_tree(root=new_root, tree_display_mode=tree_display_mode)
             elif new_tree:
-                logger.debug(f'reload() with new tree')
+                logger.info(f'[{self.tree_id}] reload() with new tree: {new_tree}')
                 self.set_tree(tree=new_tree, tree_display_mode=tree_display_mode)
             else:
-                logger.debug(f'reload() with same tree')
+                logger.info(f'[{self.tree_id}] reload() with same tree')
                 tree = self.tree_builder.get_tree()
                 self.set_tree(tree=tree, tree_display_mode=tree_display_mode)
             self.load()
@@ -143,6 +143,7 @@ class TreePanelController:
         if tree_display_mode:
             self.treeview_meta.tree_display_mode = tree_display_mode
 
+            logger.debug(f'Setting TreeDisplayMode={tree_display_mode.name} for root={root}, tree={tree}')
         if self.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             tree_builder = CategoryTreeBuilder(controller=self, root=root, tree=tree)
         elif self.tree_display_mode == TreeDisplayMode.ONE_TREE_ALL_ITEMS:

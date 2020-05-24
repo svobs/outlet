@@ -1,3 +1,4 @@
+import datetime
 import os
 from typing import Any, Callable, Dict, List, Optional, Union
 import logging
@@ -34,10 +35,18 @@ def get_file_name(item):
     return os.path.basename(item.full_path)
 
 
+def fmt_ts(ts):
+    return datetime.datetime.utcfromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+
+
 def overwrite_newer_ts(old, new) -> bool:
-    if old.is_newer_than(new):
-        logger.error('Existing item is newer than new item - will not overwrite in cache')
-        return False
+    if old.sync_ts and new.sync_ts:
+        # TODO: combine caches which have overlapping trees
+        if new.sync_ts - old.sync_ts < 0:
+            logger.warning(f'Existing item is newer than new item - will not overwrite in cache: \n'
+                           f'old_sync_ts={old.sync_ts} ({fmt_ts(old.sync_ts)}), old={old}\n'
+                           f'new_sync_ts={new.sync_ts} ({fmt_ts(new.sync_ts)}), new={new}')
+            return False
     return True
 
 

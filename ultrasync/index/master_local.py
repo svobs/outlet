@@ -1,7 +1,8 @@
 import logging
 import os
+from collections import deque
 from queue import Queue
-from typing import Dict, List, Optional, Union
+from typing import Deque, Dict, List, Optional, Union
 
 import treelib
 from pydispatch import dispatcher
@@ -76,10 +77,10 @@ class LocalDiskMasterCache:
         count_added_from_cache = 0
 
         # Loop over all the descendants dirs, and add all of the files in each:
-        q = Queue()
-        q.put(subtree_path.full_path)
-        while not q.empty():
-            dir_path = q.get()
+        q: Deque[str] = deque()
+        q.append(subtree_path.full_path)
+        while len(q) > 0:
+            dir_path = q.popleft()
             count_dirs += 1
             files_in_dir: Dict[str, Union[FMeta, PlanningNode]] = self.parent_path_dict.get_second_dict(dir_path)
             for file_name, fmeta in files_in_dir.items():
@@ -87,7 +88,7 @@ class LocalDiskMasterCache:
                 count_added_from_cache += 1
             if self.dir_tree.get_node(dir_path):
                 for child_dir in self.dir_tree.children(dir_path):
-                    q.put(child_dir.node_identifier)
+                    q.append(child_dir.identifier)
 
         logger.debug(f'{stopwatch} Got {count_added_from_cache} items from in-memory cache (from {count_dirs} dirs)')
         return fmeta_tree

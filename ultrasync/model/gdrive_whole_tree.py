@@ -232,6 +232,9 @@ class GDriveWholeTree:
     def tree_type(self) -> int:
         return constants.OBJ_TYPE_GDRIVE
 
+    def get_children_for_root(self) -> List[GoogNode]:
+        return self.roots
+
     def get_children(self, parent_uid: Union[UID, NodeIdentifier]) -> List[GoogNode]:
         if isinstance(parent_uid, NodeIdentifier):
             parent_uid: UID = parent_uid.uid

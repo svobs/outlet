@@ -48,10 +48,6 @@ class GoogNode(DisplayNode, ABC):
 
         self.sync_ts = sync_ts
 
-    # TODO: rewrite this as compare_to()
-    def is_newer_than(self, other_folder):
-        return self.sync_ts > other_folder.sync_ts
-
     @property
     def parent_uids(self) -> List[UID]:
         if not self._parent_ids:
@@ -184,13 +180,6 @@ class GoogFile(GoogNode):
                f'md5="{self.md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
                f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
                f'sync_ts={self.sync_ts} parent_uids={self.parent_uids})'
-
-    def is_newer_than(self, other_file):
-        if self.modify_ts and other_file.modify_ts:
-            delta = self.modify_ts - other_file.modify_ts
-            if delta != 0:
-                return delta
-        return self.sync_ts > other_file.sync_ts
 
     @property
     def size_bytes(self):

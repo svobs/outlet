@@ -287,7 +287,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             tree = self.tree_con_left.get_tree()
             root_identifier = tree.node_identifier
             self.tree_con_left.reload(new_root=root_identifier,
-                                      tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY,
+                                      tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS,
                                       hide_checkboxes=True)
 
         elif sender == actions.ID_LEFT_TREE and self.tree_con_right.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
@@ -296,7 +296,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             tree = self.tree_con_right.get_tree()
             root_identifier = tree.node_identifier
             self.tree_con_right.reload(new_root=root_identifier,
-                                       tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY,
+                                       tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS,
                                        hide_checkboxes=True)
 
     def _after_diff_completed(self, sender, stopwatch):
