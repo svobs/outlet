@@ -13,6 +13,7 @@ from fmeta.fmeta_tree_scanner import TreeMetaScanner
 from index.cache_manager import PersistedCacheInfo
 from index.sqlite.fmeta_db import FMetaDatabase
 from index.two_level_dict import FullPathDict, Md5BeforePathDict, ParentPathBeforeFileNameDict, Sha256BeforePathDict
+from index.uid_generator import UID
 from model.node_identifier import NodeIdentifier, LocalFsIdentifier
 from model.fmeta import FMeta
 from model.fmeta_tree import FMetaTree
@@ -39,6 +40,8 @@ class LocalDiskMasterCache:
         else:
             self.md5_dict = None
 
+        self._full_path_uid_dict: Dict[str, UID] = {}
+
         self.use_sha256 = application.config.get('cache.enable_sha256_lookup')
         if self.use_sha256:
             self.sha256_dict = Sha256BeforePathDict()
@@ -51,6 +54,14 @@ class LocalDiskMasterCache:
         # But we still need a dir tree to look up child dirs:
         self.dir_tree = treelib.Tree()
         self.dir_tree.create_node(identifier=ROOT_PATH)
+
+    def get_uid_for_path(self, path: str) -> UID:
+        assert path and path.startswith('/')
+        uid = self._full_path_uid_dict.get(path, None)
+        if not uid:
+            uid = self.application.uid_generator.get_new_uid()
+            self._full_path_uid_dict[path] = uid
+        return uid
 
     def get_summary(self):
         if self.use_md5:
@@ -69,10 +80,10 @@ class LocalDiskMasterCache:
         self.parent_path_dict.put(item, existing)
         self._add_ancestors_to_tree(item.full_path)
 
-    def _get_subtree_from_memory_only(self, subtree_path: NodeIdentifier):
+    def _get_subtree_from_memory_only(self, subtree_path: LocalFsIdentifier):
         stopwatch = Stopwatch()
         logger.debug(f'Getting items from in-memory cache for subtree: {subtree_path}')
-        fmeta_tree = FMetaTree(root_path=subtree_path.full_path)
+        fmeta_tree = FMetaTree(root_identifier=subtree_path, application=self.application)
         count_dirs = 0
         count_added_from_cache = 0
 
@@ -104,7 +115,7 @@ class LocalDiskMasterCache:
         stopwatch_load = Stopwatch()
 
         # Load cache from file, and update with any local FS changes found:
-        with FMetaDatabase(cache_info.cache_location, self.application.uid_generator) as fmeta_disk_cache:
+        with FMetaDatabase(cache_info.cache_location, self.application) as fmeta_disk_cache:
             if not fmeta_disk_cache.has_local_files():
                 logger.debug('No meta found in cache')
                 return None
@@ -113,9 +124,9 @@ class LocalDiskMasterCache:
             logger.debug(status)
             dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
 
-            uid = self.application.uid_generator
+            uid = self.get_uid_for_path(cache_info.subtree_root.full_path)
             root_identifier = LocalFsIdentifier(full_path=cache_info.subtree_root.full_path, uid=uid)
-            fmeta_tree = FMetaTree(root_identifier, self.application.uid_generator)
+            fmeta_tree = FMetaTree(root_identifier=root_identifier, application=self.application)
 
             db_file_changes: List[FMeta] = fmeta_disk_cache.get_local_files()
             if len(db_file_changes) == 0:
@@ -143,7 +154,7 @@ class LocalDiskMasterCache:
         to_insert = fmeta_tree.get_all()
 
         stopwatch_write_cache = Stopwatch()
-        with FMetaDatabase(cache_info.cache_location, self.application.uid_generator) as fmeta_disk_cache:
+        with FMetaDatabase(cache_info.cache_location, self.application) as fmeta_disk_cache:
             # Update cache:
             fmeta_disk_cache.insert_local_files(to_insert, overwrite=True)
 
@@ -185,9 +196,9 @@ class LocalDiskMasterCache:
             if fmeta_tree:
                 has_data_to_store_in_memory = True
             else:
-                uid = self.application.uid_generator.get_new_uid()
+                uid = self.get_uid_for_path(cache_info.subtree_root.full_path)
                 root_identifier = LocalFsIdentifier(full_path=cache_info.subtree_root.full_path, uid=uid)
-                fmeta_tree = FMetaTree(root_identifier, self.application.uid_generator)
+                fmeta_tree = FMetaTree(root_identifier=root_identifier, application=self.application)
 
         if cache_info.is_loaded and not \
                 self.application.cache_manager.sync_from_local_disk_on_cache_load:

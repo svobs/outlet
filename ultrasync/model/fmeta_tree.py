@@ -31,10 +31,10 @@ class FMetaTree(SubtreeSnapshot):
     """🢄🢄🢄 Note: each FMeta object should be unique within its tree. Each FMeta should not be shared
     between trees, and should be cloned if needed"""
 
-    def __init__(self, root_identifier: LocalFsIdentifier, uid_gen: UidGenerator):
+    def __init__(self, root_identifier: LocalFsIdentifier, application):
         assert isinstance(root_identifier, LocalFsIdentifier)
         super().__init__(root_identifier)
-        self.uid_generator = uid_gen
+        self.cache_manager = application.cache_manager
         # Each item is an entry
         self._path_dict: Dict[str, FMeta] = {}
         # Each item contains a list of entries
@@ -49,7 +49,7 @@ class FMetaTree(SubtreeSnapshot):
         # FIXME: add support for storing dir metadata in FMetaTree. Ditch this fake stuff
         parent = str(pathlib.Path(item.full_path).parent)
         if parent.startswith(self.root_path):
-            identifer = LocalFsIdentifier(full_path=parent, uid=self.uid_generator.get_new_uid())
+            identifer = LocalFsIdentifier(full_path=parent, uid=self.cache_manager.get_uid_for_path(parent))
             return DirNode(identifer)
         return None
 

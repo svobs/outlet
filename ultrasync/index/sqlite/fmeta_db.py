@@ -21,9 +21,9 @@ class FMetaDatabase(MetaDatabase):
                  ('category', 'TEXT'))
     }
 
-    def __init__(self, db_path, uid_gen):
+    def __init__(self, db_path, application):
         super().__init__(db_path)
-        self.uid_generator: UidGenerator = uid_gen
+        self.cache_manager = application.cache_manager
 
     # FILE_LOG operations ---------------------
 
@@ -35,7 +35,8 @@ class FMetaDatabase(MetaDatabase):
         rows = self.get_all_rows(self.TABLE_LOCAL_FILE)
         entries = []
         for row in rows:
-            uid = self.uid_generator.get_new_uid()
+            path = row[6]
+            uid = self.cache_manager.get_uid_for_path(path)
             entries.append(FMeta(uid, *row))
         return entries
 

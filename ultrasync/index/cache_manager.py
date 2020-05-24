@@ -14,6 +14,7 @@ from index.master_gdrive import GDriveMasterCache
 from index.master_local import LocalDiskMasterCache
 from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
+from index.uid_generator import UID
 from model.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier, NodeIdentifierFactory
@@ -237,3 +238,6 @@ class CacheManager:
             if not os.path.exists(full_path):
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
             return [LocalFsIdentifier(full_path=full_path)]
+
+    def get_uid_for_path(self, path: str) -> UID:
+        return self.local_disk_cache.get_uid_for_path(path)

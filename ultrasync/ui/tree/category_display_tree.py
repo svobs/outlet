@@ -70,7 +70,7 @@ class CategoryDisplayTree:
             raise
 
     def _get_subroot_node(self, node_identifier: NodeIdentifier) -> Optional[DirNode]:
-        for child in self._category_tree.children(self.root.uid):
+        for child in self._category_tree.children(self.root.identifier):
             if child.node_identifier.tree_type == node_identifier.tree_type:
                 return child
         return None
@@ -104,7 +104,7 @@ class CategoryDisplayTree:
             parent_node = self.root
 
         cat_node = None
-        for child in self._category_tree.children(parent_node.uid):
+        for child in self._category_tree.children(parent_node.identifier):
             if child.category == item.category:
                 cat_node = child
                 break
@@ -180,9 +180,10 @@ class CategoryDisplayTree:
         item = copy.copy(item)
         item.node_identifier.category = category
 
-        parent: DirNode = self._get_or_create_pre_ancestors(item, source_tree)
+        parent: DisplayNode = self._get_or_create_pre_ancestors(item, source_tree)
 
-        parent.add_meta_metrics(item)
+        if isinstance(parent, DirNode):
+            parent.add_meta_metrics(item)
 
         # Walk up the source tree and compose a list of ancestors:
         new_parent, ancestors = self._get_ancestors(item, source_tree)
@@ -191,18 +192,20 @@ class CategoryDisplayTree:
 
         # Walk down the ancestor list and create a node for each ancestor dir:
         for ancestor in ancestors:
-            existing_node: DirNode = self._category_tree.get_node(nid=ancestor.uid)
+            existing_node: DisplayNode = self._category_tree.get_node(nid=ancestor.uid)
             if existing_node is None:
                 # TODO: review whether we still need to set category so rabidly, or whether we can avoid cloning
                 new_ancestor = copy.copy(ancestor)
                 new_ancestor.node_identifier.category = category
-                existing_node = self._category_tree.add_node(node=new_ancestor, parent=parent)
+                self._category_tree.add_node(node=new_ancestor, parent=parent)
+                existing_node = new_ancestor
             parent = existing_node
             # This will most often be a DirNode, but may occasionally be a FolderToAdd.
             if isinstance(parent, DirNode):
                 parent.add_meta_metrics(item)
 
         try:
+            # Finally add the item itself:
             self._category_tree.add_node(node=item, parent=parent)
         except DuplicatedNodeIdError:
             logger.error(f'Duplicate path for node {item}')

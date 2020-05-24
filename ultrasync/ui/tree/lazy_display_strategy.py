@@ -1,14 +1,16 @@
+import collections
 import logging
 import os
 from datetime import datetime
 from queue import Queue
-from typing import List, Optional, Union
+from typing import Deque, List, Optional, Union
 
 import gi
 import treelib
 
 from constants import LARGE_NUMBER_OF_CHILDREN
 from index.uid_generator import UID
+from model.goog_node import FolderToAdd
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib
@@ -132,7 +134,7 @@ class LazyDisplayStrategy:
     def get_checked_rows_as_list(self) -> List[DisplayNode]:
         """Returns a list which contains the DisplayNodes of the items which are currently checked by the user
         (including collapsed rows). This will be a subset of the SubtreeSnapshot which was used to
-        populate this tree. Includes file nodes only; does not include directory nodes."""
+        populate this tree. Includes file nodes only, with the exception of GDrive FolderToAdd."""
         assert self.con.treeview_meta.has_checkboxes
         # subtree root will be the same as the current subtree's
         checked_items: List[DisplayNode] = []
@@ -142,35 +144,39 @@ class LazyDisplayStrategy:
         # - Add each checked row to DFS queue. It and all of its descendants will be added.
         # - Ignore each unchecked row
         # - Each inconsistent row needs to be drilled down into.
-        whitelist = Queue()
-        secondary_screening = Queue()
+        whitelist: Deque[DisplayNode] = collections.deque()
+        secondary_screening: Deque[DisplayNode] = collections.deque()
 
         children = self.con.tree_builder.get_children_for_root()
         for child in children:
 
             if self.con.display_store.checked_rows.get(child.uid, None):
-                whitelist.put(child)
+                whitelist.append(child)
             elif self.con.display_store.inconsistent_rows.get(child.uid, None):
-                secondary_screening.put(child)
+                secondary_screening.append(child)
 
-        while not secondary_screening.empty():
-            parent: DisplayNode = secondary_screening.get()
+        while len(secondary_screening) > 0:
+            parent: DisplayNode = secondary_screening.popleft()
+            if isinstance(parent, FolderToAdd):
+                # Even an inconsistent FolderToAdd must be included as a checked item:
+                checked_items.append(parent)
+
             children = self.con.tree_builder.get_children(parent)
 
             for child in children:
                 if self.con.display_store.checked_rows.get(child.uid, None):
-                    whitelist.put(child)
+                    whitelist.append(child)
                 elif self.con.display_store.inconsistent_rows.get(child.uid, None):
-                    secondary_screening.put(child)
+                    secondary_screening.append(child)
 
-        while not whitelist.empty():
-            chosen_node: DisplayNode = whitelist.get()
-            if not chosen_node.is_dir():
+        while len(whitelist) > 0:
+            chosen_node: DisplayNode = whitelist.popleft()
+            if not chosen_node.is_dir() or isinstance(chosen_node, FolderToAdd):
                 checked_items.append(chosen_node)
 
             children = self.con.tree_builder.get_children(chosen_node)
             for child in children:
-                whitelist.put(child)
+                whitelist.append(child)
 
         return checked_items
 

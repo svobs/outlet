@@ -39,7 +39,7 @@ def build_fmeta(full_path: str, uid: UID, category=Category.NA):
     change_ts = int(stat.st_ctime * 1000)
     assert change_ts > 1000000000000, f'change_ts too small: {change_ts}'
 
-    return FMeta(md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, uid, category)
+    return FMeta(uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, category)
 
 
 def meta_matches(file_path, fmeta: FMeta):
@@ -99,7 +99,7 @@ class TreeMetaScanner(FileTreeRecurser):
     def __init__(self, application, root_node_identifer: NodeIdentifier, stale_tree=None, tree_id=None, track_changes=False):
         FileTreeRecurser.__init__(self, Path(stale_tree.root_path), valid_suffixes=VALID_SUFFIXES)
         # Note: this tree will be useless after we are done with it
-        self.uid_generator = application.uid_generator
+        self.cache_manager = application.cache_manager
         assert isinstance(root_node_identifer, LocalFsIdentifier), f'type={type(root_node_identifer)}, for {root_node_identifer}'
         self.root_node_identifier: LocalFsIdentifier = root_node_identifer
         self.stale_tree: FMetaTree = stale_tree
@@ -111,13 +111,13 @@ class TreeMetaScanner(FileTreeRecurser):
         self.deleted_count = 0
         self.unchanged_count = 0
         # When done, this will contain an up-to-date tree.
-        self.fresh_tree = FMetaTree(self.root_node_identifier, self.uid_generator)
+        self.fresh_tree = FMetaTree(root_identifier=self.root_node_identifier, application=application)
         self._track_changes = track_changes
         if self._track_changes:
             # Keep track of what's actually changed.
             # This is effectively a diff of stale & fresh trees.
             # Don't need it yet, but have a feeling it will be handy in the future.
-            self.change_tree: FMetaTree = FMetaTree(self.root_path, self.uid_generator)
+            self.change_tree: FMetaTree = FMetaTree(root_identifier=self.root_path, application=application)
         else:
             self.change_tree = None
 
@@ -163,7 +163,7 @@ class TreeMetaScanner(FileTreeRecurser):
             cache_diff_status = Category.Added
 
         if rebuild_fmeta:
-            uid = self.uid_generator.get_new_uid()
+            uid = self.cache_manager.get_uid_for_path(file_path)
             meta = build_fmeta(full_path=file_path, uid=uid, category=category)
         else:
             meta = stale_meta
