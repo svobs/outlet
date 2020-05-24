@@ -150,6 +150,16 @@ class GoogFolder(GoogNode):
     def is_dir(cls):
         return True
 
+    def __eq__(self, other):
+        if not isinstance(other, GoogFolder):
+            return False
+
+        return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name and other.trashed == self.trashed \
+            and other.drive_id == self.drive_id and other.my_share == self.my_share and other.all_children_fetched == self.all_children_fetched
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
@@ -180,6 +190,18 @@ class GoogFile(GoogNode):
                f'md5="{self.md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
                f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
                f'sync_ts={self.sync_ts} parent_uids={self.parent_uids})'
+
+    def __eq__(self, other):
+        if not isinstance(other, GoogFile):
+            return False
+
+        return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name and other.md5 == self.md5 and \
+            other.trashed == self.trashed and other.drive_id == self.drive_id and other.version == self.version and \
+            other.head_revision_id == self.head_revision_id and other.my_share == self.my_share and other.size_bytes == self.size_bytes \
+            and other.create_ts == self.create_ts and other.modify_ts == self.modify_ts
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     @property
     def size_bytes(self):

@@ -42,11 +42,11 @@ class CommandExecutor:
                     logger.info(f'Skipping command: {command}')
                 else:
                     parent_cmd = command_plan.get_parent(command.identifier)
-                    if parent_cmd and not parent_cmd.completed_ok():
+                    if parent_cmd and not parent_cmd.completed_without_error():
                         logger.info(f'Skipping execution of command {command}: parent did not complete ({parent_cmd})')
                     else:
                         try:
-                            logger.info(f'Executing command {command_num} of {len(command_plan)}')
+                            logger.info(f'Executing command {(command_num + 1)} of {len(command_plan)}')
                             command.execute(context)
                         except Exception as err:
                             # If caught here, it indicates a hole in our command logic
@@ -58,6 +58,4 @@ class CommandExecutor:
         finally:
             dispatcher.send(signal=actions.STOP_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR)
 
-        logger.info(f'{command_plan.get_total_succeeded()} out of {len(command_plan)} succeeded')
-
-        # TODO: ummm...update UI
+        logger.info(f'{command_plan.get_total_completed()} out of {len(command_plan)} completed')

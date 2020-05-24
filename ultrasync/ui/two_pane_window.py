@@ -70,27 +70,6 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
         self.add(self.content_box)
 
-        # Checkboxes: TODO
-        # self.checkbox_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
-        #
-        # # check for the following...
-        # self.button1 = Gtk.CheckButton(label="Empty dirs")
-        # self.checkbox_panel.pack_start(self.button1, True, True, 0)
-        # self.button1.set_sensitive(False)
-        # self.button2 = Gtk.CheckButton(label="Zero-length files")
-        # self.checkbox_panel.pack_start(self.button2, True, True, 0)
-        # self.button2.set_sensitive(False)
-        # self.button3= Gtk.CheckButton(label="Duplicate files")
-        # self.checkbox_panel.pack_start(self.button3, True, True, 0)
-        # self.button3.set_sensitive(False) # disable
-        # self.button4= Gtk.CheckButton(label="Unrecognized suffixes")
-        # self.checkbox_panel.pack_start(self.button4, True, True, 0)
-        # self.button4.set_sensitive(False)  # disable
-        # self.button5= Gtk.CheckButton(label="Relative paths or file names differ")
-        # self.checkbox_panel.pack_start(self.button5, True, True, 0)
-        # self.button5.set_sensitive(False) # disable
-        # self.content_box.add(self.checkbox_panel)
-
         diff_tree_panes = Gtk.HPaned()
         self.content_box.add(diff_tree_panes)
 

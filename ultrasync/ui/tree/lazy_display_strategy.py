@@ -49,6 +49,9 @@ class LazyDisplayStrategy:
             dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled,
                                sender=self.con.treeview_meta.tree_id)
 
+        dispatcher.connect(signal=actions.NODE_ADDED, receiver=self._on_node_added_to_cache)
+        dispatcher.connect(signal=actions.NODE_UPDATED, receiver=self._on_node_updated_in_cache)
+
     def populate_recursively(self, parent_iter, parent_uid: Optional[UID], node: DisplayNode):
         node_count = self._populate_recursively(parent_iter, parent_uid, node)
         logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
@@ -204,6 +207,14 @@ class LazyDisplayStrategy:
                 # Always have at least a dummy node:
                 self._append_loading_child(parent_iter)
         GLib.idle_add(expand_or_contract)
+
+    def _on_node_added_to_cache(self, sender: str, node: DisplayNode):
+        logger.debug(f'Received signal {actions.NODE_ADDED} with node {node.node_identifier}')
+        # TODO
+
+    def _on_node_updated_in_cache(self, sender: str, node: DisplayNode):
+        logger.debug(f'Received signal {actions.NODE_UPDATED} with node {node.node_identifier}')
+        # TODO
 
     # ⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝
     # LISTENERS end

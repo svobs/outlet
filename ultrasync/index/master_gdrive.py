@@ -17,6 +17,7 @@ from model.goog_node import GoogNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier, NodeIdentifierFactory
 from stopwatch_sec import Stopwatch
 from ui import actions
+from ui.actions import ID_GLOBAL_CACHE
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +148,18 @@ class GDriveMasterCache:
             parent_mappings.append((node.uid, parent_uid, parent_goog_id, node.sync_ts))
         node_tuple = node.to_tuple()
 
+        # Detect whether it's already in the cache
+        is_update = False
+        existing_node = self.meta_master.get_item_for_id(node.uid)
+        if existing_node:
+            if existing_node.goog_id != node.goog_id:
+                raise RuntimeError(f'Serious error: cache already contains UID {node.uid} but Google ID does not match '
+                                   f'(existing={existing_node.goog_id}; new={node.goog_id})')
+            if existing_node == node:
+                logger.info(f'Item being added (uid={node.uid}) is identical to item already in the cache; ignoring')
+                return
+            is_update = True
+
         # Open master database...
         root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         cache_info = self.application.cache_manager.get_or_create_cache_info_entry(root)
@@ -155,7 +168,10 @@ class GDriveMasterCache:
         # Write new values:
         with GDriveDatabase(cache_path) as cache:
             logger.debug(f'Writing id-parent mappings to the GDrive master cache: {parent_mappings}')
-            cache.insert_id_parent_mappings(parent_mappings, commit=False)
+            if is_update:
+                cache.update_parent_mappings_for_id(parent_mappings, commit=False)
+            else:
+                cache.insert_id_parent_mappings(parent_mappings, commit=False)
             if node.is_dir():
                 logger.debug(f'Writing folder node to the GDrive master cache: {node}')
                 cache.insert_gdrive_dirs([node_tuple])
@@ -165,6 +181,13 @@ class GDriveMasterCache:
 
         # Finally, update in-memory cache (tree):
         self.meta_master.add_item(node)
+
+        if is_update:
+            logger.debug(f'Sending signal: {actions.NODE_UPDATED}')
+            dispatcher.send(signal=actions.NODE_UPDATED, sender=ID_GLOBAL_CACHE, node=node)
+        else:
+            logger.debug(f'Sending signal: {actions.NODE_ADDED}')
+            dispatcher.send(signal=actions.NODE_ADDED, sender=ID_GLOBAL_CACHE, node=node)
 
     def download_all_gdrive_meta(self, tree_id):
         root_identifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()

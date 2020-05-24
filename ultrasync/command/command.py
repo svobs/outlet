@@ -73,8 +73,8 @@ class Command(treelib.Node, ABC):
     def needs_gdrive(self):
         return False
 
-    def completed_ok(self):
-        return self._status == CommandStatus.COMPLETED_OK
+    def completed_without_error(self):
+        return self._status == CommandStatus.COMPLETED_OK or self._status == CommandStatus.COMPLETED_NO_OP
 
     def status(self) -> CommandStatus:
         return self._status
@@ -86,6 +86,8 @@ class Command(treelib.Node, ABC):
         self._error = err
         self._status = CommandStatus.STOPPED_ON_ERROR
 
+    def __repr__(self):
+        return f'{self.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self._status}, model={self._model}'
 
 """ 
 CLASS CommandPlan
@@ -108,16 +110,18 @@ class CommandPlan:
         return tree_iter
 
     def __len__(self):
-        return self.tree.__len__()
+        # subtract root node
+        return self.tree.__len__() - 1
 
     def get_item_for_uid(self, uid: UID) -> Command:
         return self.tree.get_node(uid)
 
-    def get_total_succeeded(self) -> int:
+    def get_total_completed(self) -> int:
         """Returns the number of commands which executed successfully"""
         total_succeeded: int = 0
-        for cmd_node in self.tree.expand_tree(mode=treelib.Tree.WIDTH, sorting=False):
-            if cmd_node.status() == CommandStatus.COMPLETED_OK:
+        for uid in iter(self):
+            command = self.get_item_for_uid(uid)
+            if command.completed_without_error():
                 total_succeeded += 1
         return total_succeeded
 
@@ -307,7 +311,7 @@ class UploadToGDriveCommand(Command):
                     new_file.parent_uids = self._model.parent_uids
 
                     # Add node to disk & in-memory caches:
-                    context.cache_manager.add_node(new_file)
+                    context.cache_manager.add_or_update_node(new_file)
 
                     self._status = CommandStatus.COMPLETED_OK
                     return
@@ -409,7 +413,7 @@ class CreateGDriveFolderCommand(Command):
             # Need to add these manually:
             goog_node.parent_uids = parent_uids
             # Add node to disk & in-memory caches:
-            context.cache_manager.add_node(goog_node)
+            context.cache_manager.add_or_update_node(goog_node)
         except Exception as err:
             logger.error(f'While creating folder on GDrive: name="{self._model.name}", '
                          f'parent_uids="{self._model.parent_uids}": {repr(err)}')

@@ -176,7 +176,7 @@ class CacheManager:
         root_identifier: NodeIdentifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         return self.gdrive_cache.load_subtree(root_identifier, tree_id)
 
-    def add_node(self, node: DisplayNode):
+    def add_or_update_node(self, node: DisplayNode):
         tree_type = node.node_identifier.tree_type
         if tree_type == OBJ_TYPE_GDRIVE:
             self.gdrive_cache.add_node(node)

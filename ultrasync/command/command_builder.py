@@ -9,7 +9,8 @@ from command.command import Command, CommandPlan, CopyFileLocallyCommand, Create
     MoveFileGDriveCommand, \
     MoveFileLocallyCommand, \
     UploadToGDriveCommand
-from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, ROOT_PATH
+from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
+from index.uid_generator import ROOT_UID
 from model.category import Category
 from model.display_node import DisplayNode
 from model.goog_node import FolderToAdd
@@ -25,7 +26,7 @@ class CommandBuilder:
     def build_command_plan(self, change_tree: CategoryDisplayTree) -> CommandPlan:
         command_tree = treelib.Tree()
         # As usual, root is not used for much:
-        cmd_root = command_tree.create_node(identifier=ROOT_PATH, parent=None, data=None)
+        cmd_root = command_tree.create_node(identifier=ROOT_UID, parent=None, data=None)
 
         stack: Deque[Tuple[treelib.Node, DisplayNode]] = collections.deque()
         src_children: Iterable[DisplayNode] = change_tree.get_children_for_root()
