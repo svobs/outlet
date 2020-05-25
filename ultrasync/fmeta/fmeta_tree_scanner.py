@@ -5,6 +5,8 @@ import copy
 import time
 from pathlib import Path
 
+from pydispatch import dispatcher
+
 from index.uid_generator import UID
 from model.fmeta import FMeta, Category
 from fmeta.file_tree_recurser import FileTreeRecurser
@@ -198,8 +200,8 @@ class TreeMetaScanner(FileTreeRecurser):
 
         self.total = self._find_total_files_to_scan()
         if self.tree_id:
-            logger.debug(f'Sending START_PROGRESS for tree_id: {self.tree_id}')
-            actions.get_dispatcher().send(actions.START_PROGRESS, sender=self.tree_id, total=self.total)
+            logger.debug(f'Sending START_PROGRESS with total={self.total} for tree_id: {self.tree_id}')
+            dispatcher.send(signal=actions.START_PROGRESS, sender=self.tree_id, total=self.total)
 
         self.recurse_through_dir_tree()
 

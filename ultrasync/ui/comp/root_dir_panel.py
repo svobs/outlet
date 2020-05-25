@@ -120,11 +120,11 @@ class RootDirPanel:
             new_root = ginf.node_identifier
             self.err = ginf
         except FileNotFoundError as fnf:
-            new_root = NodeIdentifierFactory.for_values(full_path=new_root_path)
+            new_root = self.parent_win.application.node_identifier_factory.for_values(full_path=new_root_path)
             self.err = fnf
         except CacheNotLoadedError as cnlf:
             self.err = cnlf
-            new_root = NodeIdentifierFactory.for_values(full_path=new_root_path, uid=NULL_UID)
+            new_root = self.parent_win.application.node_identifier_factory.for_values(full_path=new_root_path, uid=NULL_UID)
 
         if new_root == self.current_root:
             logger.debug('No change to root')

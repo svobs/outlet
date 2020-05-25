@@ -41,9 +41,9 @@ class ProgressBar:
             actions.connect(signal=actions.STOP_PROGRESS, handler=self.on_stop_progress, sender=sender)
             actions.connect(signal=actions.SET_PROGRESS_TEXT, handler=self.on_set_progress_text, sender=sender)
 
-    def _start_animaion(self, total=None):
+    def _start_animation(self, total=None):
         self._start_request_count += 1
-        logger.debug(f'StartProgress(): Starts: {self._start_request_count}, Stops: {self._stop_request_count}')
+        logger.debug(f'StartProgress() total={total}: Starts: {self._start_request_count}, Stops: {self._stop_request_count}')
         if self._start_request_count != self._stop_request_count + 1:
             logger.debug('Discarding start request because we have not received enough stop requests yet')
             return
@@ -63,11 +63,11 @@ class ProgressBar:
 
     def on_start_progress_indeterminate(self, sender):
         self._indeterminate = True
-        self._start_animaion()
+        self._start_animation()
 
     def on_start_progress(self, sender, total):
         self._indeterminate = False
-        self._start_animaion(total=total)
+        self._start_animation(total=total)
 
     def on_progress_made(self, sender, progress):
         self._progress += progress

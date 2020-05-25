@@ -3,6 +3,7 @@ import gi
 
 from command.command_executor import CommandExecutor
 from index.uid_generator import AtomicIntUidGenerator, PersistentAtomicIntUidGenerator
+from model.node_identifier import NodeIdentifierFactory
 from ui.actions import ID_DIFF_WINDOW
 
 gi.require_version("Gtk", "3.0")
@@ -38,6 +39,7 @@ class UltrasyncApplication(Gtk.Application):
 
         self.task_runner = CentralTaskRunner(self)
         self.uid_generator = PersistentAtomicIntUidGenerator(self.config)
+        self.node_identifier_factory = NodeIdentifierFactory(self)
         self.command_executor = CommandExecutor(self)
         self.cache_manager = CacheManager(self)
         self.global_actions = GlobalActions(self)

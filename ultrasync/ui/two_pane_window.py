@@ -77,13 +77,13 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Tree Left:
-        self.root_path_persister_left = RootPathConfigPersister(config=self.config, tree_id=actions.ID_LEFT_TREE)
+        self.root_path_persister_left = RootPathConfigPersister(application=self.application, tree_id=actions.ID_LEFT_TREE)
         saved_root_left = self.root_path_persister_left.root_identifier
         self.tree_con_left = tree_factory.build_editor_tree(parent_win=self, tree_id=actions.ID_LEFT_TREE, root=saved_root_left)
         diff_tree_panes.pack1(self.tree_con_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
-        self.root_path_persister_right = RootPathConfigPersister(config=self.config, tree_id=actions.ID_RIGHT_TREE)
+        self.root_path_persister_right = RootPathConfigPersister(application=self.application, tree_id=actions.ID_RIGHT_TREE)
         saved_root_right = self.root_path_persister_right.root_identifier
         self.tree_con_right = tree_factory.build_editor_tree(parent_win=self, tree_id=actions.ID_RIGHT_TREE, root=saved_root_right)
         diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)

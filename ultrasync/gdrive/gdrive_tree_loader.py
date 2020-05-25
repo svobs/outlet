@@ -102,6 +102,7 @@ def parent_mappings_tuples(item_uid: UID, parent_goog_ids: List[str], sync_ts: i
 class GDriveTreeLoader:
     def __init__(self, application, cache_path, tree_id=None):
         self.uid_generator = application.uid_generator
+        self.node_identifier_factory = application.node_identifier_factory
         self.config = application.config
         self.tree_id = tree_id
         self.cache_path = cache_path
@@ -140,7 +141,7 @@ class GDriveTreeLoader:
 
         if download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             # completely fresh tree
-            meta = GDriveWholeTree()
+            meta = GDriveWholeTree(self.node_identifier_factory)
         else:
             # Start/resume: read cache
             msg = 'Reading cache...'
@@ -229,7 +230,7 @@ class GDriveTreeLoader:
             raise RuntimeError(f'Cache is corrupted: {self.cache_path}')
 
         sw_total = Stopwatch()
-        tree = GDriveWholeTree()
+        tree = GDriveWholeTree(self.node_identifier_factory)
 
         # DIRs:
         sw = Stopwatch()

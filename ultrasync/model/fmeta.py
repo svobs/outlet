@@ -3,8 +3,8 @@ from typing import Optional
 
 from index.uid_generator import UID
 from model.category import Category
-from model.node_identifier import LocalFsIdentifier
-from model.display_node import DisplayNode, ensure_int
+from model.node_identifier import ensure_int, LocalFsIdentifier
+from model.display_node import DisplayNode
 
 logger = logging.getLogger(__name__)
 

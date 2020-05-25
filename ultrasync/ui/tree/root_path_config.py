@@ -13,17 +13,16 @@ class RootPathConfigPersister:
     Listens for signals to stay up-to-date. Configure this class, add it to its
     parent's instance variables, and then forget about it."""
 
-    def __init__(self, config, tree_id):
+    def __init__(self, application, tree_id):
         self._tree_type_config_key = f'transient.{tree_id}.tree_type'
         self._root_path_config_key = f'transient.{tree_id}.root_path'
         self._root_uid_config_key = f'transient.{tree_id}.root_uid'
-        self._config = config
+        self._config = application.config
+        self.node_identifier_factory = application.node_identifier_factory
         tree_type = self._config.get(self._tree_type_config_key)
         root_path = self._config.get(self._root_path_config_key)
         root_uid = self._config.get(self._root_uid_config_key)
-        if root_uid == NULL_UID:
-            root_uid = None
-        self.root_identifier = NodeIdentifierFactory.for_values(tree_type=tree_type, full_path=root_path, uid=root_uid)
+        self.root_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=root_path, uid=root_uid)
 
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=tree_id)
 

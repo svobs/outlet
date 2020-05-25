@@ -26,10 +26,11 @@ class ContentFirstDiffer:
     def __init__(self, left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, application):
         self.left_tree = left_tree
         self.right_tree = right_tree
+        self.application = application
         self.uid_generator = application.uid_generator
 
-        self.change_tree_left: CategoryDisplayTree = CategoryDisplayTree(self.uid_generator, self.left_tree.node_identifier)
-        self.change_tree_right: CategoryDisplayTree = CategoryDisplayTree(self.uid_generator, self.right_tree.node_identifier)
+        self.change_tree_left: CategoryDisplayTree = CategoryDisplayTree(application, self.left_tree.node_identifier)
+        self.change_tree_right: CategoryDisplayTree = CategoryDisplayTree(application, self.right_tree.node_identifier)
 
         self.added_folders_left: Dict[str, FolderToAdd] = {}
         self.added_folders_right: Dict[str, FolderToAdd] = {}
@@ -341,14 +342,14 @@ class ContentFirstDiffer:
         # always root path, but tree type may differ
         is_mixed_tree = self.left_tree.tree_type != self.right_tree.tree_type
         if is_mixed_tree:
-            root = LogicalNodeIdentifier(uid=uid_generator.ROOT_UID, full_path=ROOT_PATH, category=Category.NA, tree_type=OBJ_TYPE_MIXED)
+            root_node_identifier = LogicalNodeIdentifier(uid=uid_generator.ROOT_UID, full_path=ROOT_PATH, category=Category.NA,
+                                                         tree_type=OBJ_TYPE_MIXED)
         else:
-            root: NodeIdentifier = NodeIdentifierFactory.for_values(tree_type=self.left_tree.tree_type,
-                                                                    full_path=ROOT_PATH, uid=uid_generator.ROOT_UID)
+            root_node_identifier: NodeIdentifier = self.application.node_identifier_factory.for_values(tree_type=self.left_tree.tree_type,
+                                                                                           full_path=ROOT_PATH, uid=uid_generator.ROOT_UID)
 
-        # just set source tree to left tree - we aren't using it for much anyway
-        merged_tree = CategoryDisplayTree(root_node_identifier=self.left_tree.node_identifier, show_whole_forest=True,
-                                          uid_generator=self.uid_generator)
+        merged_tree = CategoryDisplayTree(root_node_identifier=root_node_identifier, show_whole_forest=True,
+                                          application=self.application)
 
         for item in left_selected_changes:
             merged_tree.add_item(item, item.category, self.left_tree)

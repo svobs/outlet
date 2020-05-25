@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Optional
+import logging
 
 from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED, ROOT_PATH
 
@@ -7,12 +8,23 @@ from index import uid_generator
 from index.uid_generator import UID
 from model.category import Category
 
+logger = logging.getLogger(__name__)
+
 
 def ensure_category(val):
     if type(val) == str:
         return Category(int(val))
     elif type(val) == int:
         return Category(val)
+    return val
+
+
+def ensure_int(val):
+    try:
+        if type(val) == str:
+            return int(val)
+    except ValueError:
+        logger.debug(f'Bad value: {val}')
     return val
 
 
@@ -31,6 +43,8 @@ class NodeIdentifier(ABC):
 
     def __init__(self, uid: UID, full_path: str, category: Category):
         # assert full_path is None or (type(full_path) == str and full_path.find('/') >= 0), f'full_path does not look like a path: {full_path}'
+        if not isinstance(uid, UID):
+            uid = ensure_int(uid)
         self.uid: UID = uid
         self.full_path: str = full_path
         self.category: Category = ensure_category(category)
@@ -105,9 +119,7 @@ class GDriveIdentifier(NodeIdentifier):
 
 
 class LocalFsIdentifier(NodeIdentifier):
-    def __init__(self, full_path: str, uid: UID = None, category: Category = Category.NA):
-        if not uid:
-            uid = full_path
+    def __init__(self, full_path: str, uid: UID, category: Category = Category.NA):
         super().__init__(uid, full_path, category)
 
     @property
@@ -123,15 +135,14 @@ class LocalFsIdentifier(NodeIdentifier):
 
 
 class NodeIdentifierFactory:
-    def __init__(self):
-        pass
+    def __init__(self, application):
+        self.application = application
 
     @staticmethod
     def get_gdrive_root_constant_identifier() -> GDriveIdentifier:
         return GDriveIdentifier(uid=uid_generator.ROOT_UID, full_path=ROOT_PATH)
 
-    @staticmethod
-    def for_values(tree_type: int = None,
+    def for_values(self, tree_type: int = None,
                    full_path: str = None,
                    uid: UID = None,
                    category: Category = Category.NA):
@@ -146,10 +157,14 @@ class NodeIdentifierFactory:
                         return NodeIdentifierFactory.get_gdrive_root_constant_identifier()
                     return GDriveIdentifier(uid=uid, full_path=gdrive_path, category=category)
                 else:
+                    if not uid:
+                        uid = self.application.cache_manager.get_uid_for_path(full_path)
                     return LocalFsIdentifier(uid=uid, full_path=full_path, category=category)
             else:
                 raise RuntimeError('no tree_type and no full_path supplied')
         elif tree_type == OBJ_TYPE_LOCAL_DISK:
+            if not uid:
+                uid = self.application.cache_manager.get_uid_for_path(full_path)
             return LocalFsIdentifier(uid=uid, full_path=full_path, category=category)
         elif tree_type == OBJ_TYPE_GDRIVE:
             if full_path == ROOT_PATH and not uid:

@@ -14,12 +14,6 @@ from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 logger = logging.getLogger(__name__)
 
 
-def ensure_int(val):
-    if type(val) == str:
-        return int(val)
-    return val
-
-
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
 
@@ -179,7 +173,7 @@ class CategoryNode(DirNode):
     """
     Represents a category in the tree (however it can possibly be treated as the root dir)
     """
-    _display_names = {Category.Nada: 'NA',
+    display_names = {Category.Nada: 'NA',
                       Category.Ignored: 'Ignored',
                       Category.Added: 'To Add',
                       Category.Deleted: 'To Delete',
@@ -195,7 +189,7 @@ class CategoryNode(DirNode):
 
     @property
     def name(self):
-        return CategoryNode._display_names[self.category.value]
+        return CategoryNode.display_names[self.category.value]
 
     def get_icon(self):
         return ICON_GENERIC_DIR

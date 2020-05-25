@@ -125,7 +125,7 @@ class CacheManager:
             dispatcher.send(signal=actions.LOAD_ALL_CACHES_DONE, sender=ID_GLOBAL_CACHE)
 
     def _get_cache_info_from_registry(self) -> List[CacheInfoEntry]:
-        with CacheRegistry(self.main_registry_path) as cache_registry_db:
+        with CacheRegistry(self.main_registry_path, self.application.node_identifier_factory) as cache_registry_db:
             if cache_registry_db.has_cache_info():
                 exisiting_caches = cache_registry_db.get_cache_info()
                 logger.debug(f'Found {len(exisiting_caches)} caches listed in registry')
@@ -213,7 +213,7 @@ class CacheManager:
                                   subtree_root=subtree_root, sync_ts=now_ms,
                                   is_complete=True)
 
-        with CacheRegistry(self.main_registry_path) as cache_registry_db:
+        with CacheRegistry(self.main_registry_path, self.application.node_identifier_factory) as cache_registry_db:
             cache_registry_db.create_cache_registry_if_not_exist()
             cache_registry_db.insert_cache_info(db_entry, append=True, overwrite=False)
 
@@ -227,7 +227,7 @@ class CacheManager:
     def resolve_path(self, full_path: str = None, node_identifier: Optional[NodeIdentifier] = None) -> List[NodeIdentifier]:
         """Resolves the given path into either a local file, a set of Google Drive matches, or raises a GDriveItemNotFoundError"""
         if not node_identifier:
-            node_identifier = NodeIdentifierFactory.for_values(full_path=full_path)
+            node_identifier = self.application.node_identifier_factory.for_values(full_path=full_path)
         if node_identifier.tree_type == OBJ_TYPE_GDRIVE:
             # Need to wait until all caches are loaded:
             if not self.all_caches_loaded.wait(CACHE_LOAD_TIMEOUT_SEC):
@@ -237,7 +237,8 @@ class CacheManager:
         else:
             if not os.path.exists(full_path):
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
-            return [LocalFsIdentifier(full_path=full_path)]
+            uid = self.get_uid_for_path(full_path)
+            return [LocalFsIdentifier(full_path=full_path, uid=uid)]
 
     def get_uid_for_path(self, path: str) -> UID:
         return self.local_disk_cache.get_uid_for_path(path)

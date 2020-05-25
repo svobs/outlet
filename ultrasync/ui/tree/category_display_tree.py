@@ -32,9 +32,10 @@ class TreeTypeBeforeCategoryDict(TwoLevelDict):
 
 
 class CategoryDisplayTree:
-    def __init__(self, uid_generator, root_node_identifier: NodeIdentifier, show_whole_forest=False):
+    def __init__(self, application, root_node_identifier: NodeIdentifier, show_whole_forest=False):
         self._category_tree: treelib.Tree = treelib.Tree()
-        self.uid_generator = uid_generator
+        self.uid_generator = application.uid_generator
+        self.node_identifier_factory = application.node_identifier_factory
         # Root node will never be displayed in the UI:
         self.root = self._category_tree.create_node(identifier=self.uid_generator.get_new_uid(), parent=None, data=None)
         self.show_whole_forest: bool = show_whole_forest
@@ -42,7 +43,6 @@ class CategoryDisplayTree:
         self._pre_ancestor_dict: TreeTypeBeforeCategoryDict = TreeTypeBeforeCategoryDict()
 
         self.node_identifier = root_node_identifier
-        """Don't know of an easy way to get the roots of each tree...just hold the refs here"""
 
     @property
     def tree_type(self) -> int:
@@ -95,7 +95,7 @@ class CategoryDisplayTree:
             subroot_node = self._get_subroot_node(item.node_identifier)
             if not subroot_node:
                 uid = self.uid_generator.get_new_uid()
-                node_identifier = NodeIdentifierFactory.for_values(tree_type=item.node_identifier.tree_type, uid=uid, category=item.category)
+                node_identifier = self.node_identifier_factory.for_values(tree_type=item.node_identifier.tree_type, uid=uid, category=item.category)
                 subroot_node = RootTypeNode(node_identifier=node_identifier)
                 logger.debug(f'Creating pre-ancestor RootType node: uid={uid}')
                 self._category_tree.add_node(node=subroot_node, parent=self.root)
@@ -114,7 +114,7 @@ class CategoryDisplayTree:
             # Create category display node. This may be the "last pre-ancestor"
             uid = self.uid_generator.get_new_uid()
 
-            node_identifier = NodeIdentifierFactory.for_values(tree_type=tree_type, full_path=self.node_identifier.full_path,
+            node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=self.node_identifier.full_path,
                                                                uid=uid, category=item.category)
             cat_node = CategoryNode(node_identifier=node_identifier)
             logger.debug(f'Creating pre-ancestor CAT node: uid={uid}')
@@ -131,7 +131,7 @@ class CategoryDisplayTree:
                 path_so_far += '/' + path
 
                 uid = self.uid_generator.get_new_uid()
-                node_identifier = NodeIdentifierFactory.for_values(tree_type=tree_type, full_path=path_so_far, uid=uid, category=item.category)
+                node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=uid, category=item.category)
                 dir_node = DirNode(node_identifier=node_identifier)
                 logger.debug(f'Creating pre-ancestor DIR node: {uid}')
                 self._category_tree.add_node(node=dir_node, parent=parent_node)
@@ -232,21 +232,45 @@ class CategoryDisplayTree:
         return f'CategoryDisplayTree({self.get_summary()})'
 
     def get_summary(self) -> str:
-        # FIXME: dis broke
-        total_summary = []
-        for child in self._category_tree.children(self.root.identifier):
-            if self.show_whole_forest:
-                summary = []
+        def make_cat_map():
+            cm = {}
+            for c in Category.Added, Category.Updated, Category.Moved, Category.Deleted, Category.Ignored:
+                cm[c] = f'{CategoryNode.display_names[c]}: 0'
+            return cm
+
+        cat_count = 0
+        if self.show_whole_forest:
+            # need to preserve ordering...
+            summaries = []
+            type_map = {}
+            for child in self._category_tree.children(self.root.identifier):
+                assert isinstance(child, RootTypeNode), f'For {child}'
+                cat_map = make_cat_map()
                 for grandchild in self._category_tree.children(child.identifier):
                     assert isinstance(grandchild, CategoryNode), f'For {grandchild}'
-                    summary.append(f'{grandchild.name}: {grandchild.get_summary()}')
-                assert isinstance(child, RootTypeNode), f'For {child}'
-                total_summary.append(f'{child.name}: {", ".join(summary)}')
-            else:
-                assert isinstance(child, CategoryNode), f'For {child}'
-                total_summary.append(f'{child.name}: {child.get_summary()}')
-
-        if self.show_whole_forest:
-            return '; '.join(total_summary)
+                    cat_count += 1
+                    cat_map[grandchild.category] = f'{grandchild.name}: {grandchild.get_summary()}'
+                type_map[child.node_identifier.tree_type] = cat_map
+            if cat_count == 0:
+                return 'Contents are identical'
+            for tree_type, tree_type_name in (OBJ_TYPE_LOCAL_DISK, 'Local Disk'), (OBJ_TYPE_GDRIVE, 'Google Drive'):
+                cat_map = type_map.get(tree_type, None)
+                if cat_map:
+                    cat_summaries = []
+                    for cat in Category.Added, Category.Updated, Category.Moved, Category.Deleted, Category.Ignored:
+                        cat_summaries.append(cat_map[cat])
+                    summaries.append(f'{tree_type_name}: {",".join(cat_summaries)}')
+            return ';'.join(summaries)
         else:
-            return ', '.join(total_summary)
+            cat_map = make_cat_map()
+            for child in self._category_tree.children(self.root.identifier):
+                assert isinstance(child, CategoryNode), f'For {child}'
+                cat_count += 1
+                cat_map[child.category] = f'{child.name}: {child.get_summary()}'
+            if cat_count == 0:
+                return 'Contents are identical'
+            cat_summaries = []
+            for cat in Category.Added, Category.Updated, Category.Moved, Category.Deleted, Category.Ignored:
+                cat_summaries.append(cat_map[cat])
+            return ','.join(cat_summaries)
+

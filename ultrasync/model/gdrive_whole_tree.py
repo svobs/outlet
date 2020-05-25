@@ -4,8 +4,7 @@ from typing import Dict, List, Optional, Tuple, Union, ValuesView
 import constants
 import file_util
 from index.error import GDriveItemNotFoundError
-from index.uid_generator import AtomicIntUidGenerator, UID, UidGenerator
-from model import node_identifier
+from index.uid_generator import UID
 from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from model.goog_node import GoogNode
 from model.planning_node import PlanningNode
@@ -32,17 +31,6 @@ class UserMeta:
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    CLASS GDriveTree
-◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
-"""
-
-
-class GDriveTree:
-    def __init__(self):
-        pass
-
-"""
-◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
     CLASS GDriveWholeTree
     Represents the entire GDrive tree
 ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
@@ -50,8 +38,9 @@ class GDriveTree:
 
 
 class GDriveWholeTree:
-    def __init__(self):
+    def __init__(self, node_identifier_factory):
         super().__init__()
+        self.node_identifier_factory = node_identifier_factory
 
         # Keep track of parentless nodes. These include the 'My Drive' item, as well as shared items.
         self.roots: List[GoogNode] = []
@@ -69,7 +58,7 @@ class GDriveWholeTree:
 
     @property
     def node_identifier(self):
-        return NodeIdentifierFactory.get_gdrive_root_constant_identifier()
+        return self.node_identifier_factory.get_gdrive_root_constant_identifier()
 
     def get_full_path_for_item(self, item: GoogNode) -> List[str]:
         """Gets the absolute path for the item"""
@@ -186,7 +175,8 @@ class GDriveWholeTree:
             if len(next_seg_items) == 0:
                 if SUPER_DEBUG:
                     logger.debug(f'Segment not found: "{name_seg}" (target_path: "{path}"')
-                raise GDriveItemNotFoundError(node_identifier=NodeIdentifierFactory.for_values(tree_type=constants.OBJ_TYPE_GDRIVE, full_path=path),
+                raise GDriveItemNotFoundError(node_identifier=self.node_identifier_factory.for_values(
+                    tree_type=constants.OBJ_TYPE_GDRIVE, full_path=path),
                                               offending_path=path_so_far)
             else:
                 path_found = path_found + '/' + next_seg_items[0].name
@@ -194,14 +184,14 @@ class GDriveWholeTree:
             current_seg_items = next_seg_items
             next_seg_items = []
         matching_ids = list(map(lambda x: x.node_identifier, current_seg_items))
-        for node_identifier in matching_ids:
+        for node_id in matching_ids:
             # Needs to be filled in:
-            node_identifier.full_path = path_found
+            node_id.full_path = path_found
         if SUPER_DEBUG:
             logger.debug(f'Found for path "{path_so_far}": {matching_ids}')
         if not matching_ids:
-            raise GDriveItemNotFoundError(node_identifier=NodeIdentifierFactory.for_values(tree_type=constants.OBJ_TYPE_GDRIVE, full_path=path),
-                                          offending_path=path_so_far)
+            raise GDriveItemNotFoundError(node_identifier=self.node_identifier_factory.for_values(
+                tree_type=constants.OBJ_TYPE_GDRIVE, full_path=path), offending_path=path_so_far)
         return matching_ids
 
     def validate(self):

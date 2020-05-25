@@ -1,5 +1,4 @@
-from model.node_identifier import NodeIdentifier
-from model.display_node import ensure_int
+from model.node_identifier import ensure_int, NodeIdentifier
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 # CLASS CacheInfoEntry

@@ -29,8 +29,9 @@ class CacheRegistry(MetaDatabase):
                  ('complete', 'INTEGER'))
     }
 
-    def __init__(self, main_registry_path):
+    def __init__(self, main_registry_path, node_identifier_factory):
         super().__init__(main_registry_path)
+        self.node_identifier_factory = node_identifier_factory
 
     def has_cache_info(self):
         return self.has_rows(self.TABLE_CACHE_REGISTRY)
@@ -44,7 +45,8 @@ class CacheRegistry(MetaDatabase):
         entries = []
         for row in rows:
             cache_location, cache_type, subtree_root_path, subtree_root_uid, sync_ts, is_complete = row
-            node_identifier = NodeIdentifierFactory.for_values(tree_type=cache_type, full_path=subtree_root_path, uid=ensure_int(subtree_root_uid))
+            node_identifier = self.node_identifier_factory.for_values(tree_type=cache_type, full_path=subtree_root_path,
+                                                                      uid=ensure_int(subtree_root_uid))
             entries.append(CacheInfoEntry(cache_location=cache_location, subtree_root=node_identifier, sync_ts=sync_ts, is_complete=is_complete))
         return entries
 

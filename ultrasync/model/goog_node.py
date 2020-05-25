@@ -6,8 +6,8 @@ from typing import List, Optional, Tuple, Union
 from constants import ICON_ADD_DIR, NOT_TRASHED, TRASHED_STATUS
 from index.uid_generator import UID
 from model.category import Category
-from model.node_identifier import GDriveIdentifier
-from model.display_node import DisplayNode, ensure_int
+from model.node_identifier import ensure_int, GDriveIdentifier
+from model.display_node import DisplayNode
 from model.planning_node import PlanningNode
 from constants import ICON_GENERIC_DIR, ICON_TRASHED_DIR, ICON_TRASHED_FILE
 
