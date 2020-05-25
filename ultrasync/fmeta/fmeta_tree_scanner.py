@@ -4,10 +4,12 @@ import errno
 import copy
 import time
 from pathlib import Path
+from typing import List, Optional
 
 from pydispatch import dispatcher
 
 from index.uid_generator import UID
+from model.display_node import DisplayNode
 from model.fmeta import FMeta, Category
 from fmeta.file_tree_recurser import FileTreeRecurser
 import fmeta.content_hasher
@@ -27,10 +29,20 @@ def build_fmeta(full_path: str, uid: UID, category=Category.NA):
         md5 = None
         sha256 = None
     else:
-        # Open,close, read file and calculate hash of its contents
-        md5 = fmeta.content_hasher.md5(full_path)
-        # sha256 = fmeta.content_hasher.dropbox_hash(full_path)
-        sha256 = None
+        try:
+            # Open,close, read file and calculate hash of its contents
+            md5 = fmeta.content_hasher.md5(full_path)
+            # sha256 = fmeta.content_hasher.dropbox_hash(full_path)
+            sha256 = None
+        except FileNotFoundError:
+            if os.path.islink(full_path):
+                target = os.readlink(full_path)
+                logger.error(f'Broken link, skipping: "{full_path}" -> "{target}"')
+            else:
+                # can this actually happen?
+                logger.error(f'File not found; skipping: {full_path}')
+            # Return None. Will be assumed to be a deleted file
+            return None
 
     # Get "now" in UNIX time:
     sync_ts = int(time.time())
@@ -38,9 +50,9 @@ def build_fmeta(full_path: str, uid: UID, category=Category.NA):
     stat = os.stat(full_path)
     size_bytes = int(stat.st_size)
     modify_ts = int(stat.st_mtime * 1000)
-    assert modify_ts > 1000000000000, f'modify_ts too small: {modify_ts}'
+    assert modify_ts > 100000000000, f'modify_ts too small: {modify_ts} for path: {full_path}'
     change_ts = int(stat.st_ctime * 1000)
-    assert change_ts > 1000000000000, f'change_ts too small: {change_ts}'
+    assert change_ts > 100000000000, f'change_ts too small: {change_ts} for path: {full_path}'
 
     return FMeta(uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, category)
 
@@ -140,13 +152,14 @@ class TreeMetaScanner(FileTreeRecurser):
         The item can be one of: unchanged, added/new, deleted, or updated
         """
         cache_diff_status = None
-        stale_meta = None
-        rebuild_fmeta = True
+        stale_meta_list: List[FMeta] = []
+        stale_meta: Optional[FMeta] = None
+        meta: Optional[FMeta] = None
         if self.stale_tree:
-            stale_meta = self.stale_tree.get_for_path(file_path, include_ignored=True)
+            stale_meta_list = self.stale_tree.get_for_path(file_path, include_ignored=True)
 
-        if stale_meta:
-            stale_meta = stale_meta[0]
+        if stale_meta_list:
+            stale_meta: FMeta = stale_meta_list[0]
             # Either unchanged, or updated. Either way, remove from stale tree.
             # (note: set remove_old_md5=True because the md5 will have changed if the file was updated)
             stale_meta = self.stale_tree.remove(full_path=stale_meta.full_path, md5=stale_meta.md5, remove_old_md5=True, ok_if_missing=False)
@@ -155,21 +168,29 @@ class TreeMetaScanner(FileTreeRecurser):
                 # Found in cache.
                 self.unchanged_count += 1
                 cache_diff_status = Category.NA
-                rebuild_fmeta = False
             else:
-                self.updated_count += 1
-                cache_diff_status = Category.Updated
+                uid = self.cache_manager.get_uid_for_path(file_path)
+                # this can fail...
+                meta: FMeta = build_fmeta(full_path=file_path, uid=uid, category=category)
+                if meta:
+                    self.updated_count += 1
+                    cache_diff_status = Category.Updated
 
         else:
             # Uncached (or no cache)
-            self.added_count += 1
-            cache_diff_status = Category.Added
+            if not meta:
+                uid = self.cache_manager.get_uid_for_path(file_path)
+                meta: FMeta = build_fmeta(full_path=file_path, uid=uid, category=category)
+            if meta:
+                self.added_count += 1
+                cache_diff_status = Category.Added
 
-        if rebuild_fmeta:
-            uid = self.cache_manager.get_uid_for_path(file_path)
-            meta = build_fmeta(full_path=file_path, uid=uid, category=category)
-        else:
+        if not meta and stale_meta:
             meta = stale_meta
+
+        if not meta:
+            # no stale meta, but error occurred which prevented the new meta from being read:
+            return
 
         if logger.isEnabledFor(logging.DEBUG) and cache_diff_status == Category.Updated:
             _check_update_sanity(stale_meta, meta)

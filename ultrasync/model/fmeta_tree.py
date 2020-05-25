@@ -92,7 +92,7 @@ class FMetaTree(SubtreeSnapshot):
     def get_relative_path_for_item(self, fmeta: FMeta):
         return self.get_relative_path_for_full_path(fmeta.full_path)
 
-    def remove(self, full_path, md5, remove_old_md5=False, ok_if_missing=False):
+    def remove(self, full_path, md5, remove_old_md5=False, ok_if_missing=False) -> Optional[FMeta]:
         """
         🢂 Removes from this FMetaTree the FMeta which matches the given file path and md5.
         Does sanity checks and raises exceptions if internal state is found to have problems.
@@ -111,8 +111,11 @@ class FMetaTree(SubtreeSnapshot):
         return match
 
     def add_item(self, item: Union[FMeta, PlanningNode]):
-        assert item.full_path.startswith(self.root_path), f'FMeta (cat={item.category.name}) full path (' \
-                                                          f'{item.full_path}) is not under this tree ({self.root_path})'
+        try:
+            assert item.full_path.startswith(self.root_path), f'FMeta (cat={item.category.name}) full path (' \
+                                                              f'{item.full_path}) is not under this tree ({self.root_path})'
+        except Exception:
+            print('uh oh') # TODO
 
         if item.category == Category.Ignored:
             logger.debug(f'Found ignored file: {item.full_path}')

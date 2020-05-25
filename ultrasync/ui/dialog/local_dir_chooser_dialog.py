@@ -19,7 +19,8 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
     if response_id == Gtk.ResponseType.OK:
         filename = open_dialog.get_filename()
         logger.info(f'User selected dir: {filename}')
-        node_identifier = LocalFsIdentifier(full_path=filename)
+        uid = open_dialog.parent_win.application.cache_manager.get_uid_for_path(filename)
+        node_identifier = LocalFsIdentifier(full_path=filename, uid=uid)
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.tree_id, new_root=node_identifier)
     # if response is "CANCEL" (the button "Cancel" has been clicked)
     elif response_id == Gtk.ResponseType.CANCEL:
@@ -42,6 +43,7 @@ class LocalRootDirChooserDialog(Gtk.FileChooserDialog):
     def __init__(self, title, parent_win, tree_id, current_dir):
         Gtk.FileChooserDialog.__init__(self, title=title, parent=parent_win, action=Gtk.FileChooserAction.SELECT_FOLDER)
         self.tree_id = tree_id
+        self.parent_win = parent_win
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
 

@@ -28,6 +28,7 @@ class ProgressBar:
         self._stop_requested = False
         self._stop_request_count = 0
         self._start_request_count = 0
+        self._lock = threading.Lock()
 
         self.progressbar.set_pulse_step(PROGRESS_BAR_PULSE_STEP)
         self.progressbar.hide()
@@ -44,13 +45,14 @@ class ProgressBar:
     def _start_animation(self, total=None):
         self._start_request_count += 1
         logger.debug(f'StartProgress() total={total}: Starts: {self._start_request_count}, Stops: {self._stop_request_count}')
+
+        # FIXME: trying to use the same progress bar for multiple concurrent operations is madness
+        if total:
+            self._total += total
+
         if self._start_request_count != self._stop_request_count + 1:
             logger.debug('Discarding start request because we have not received enough stop requests yet')
             return
-
-        if total:
-            self._total = total
-            self._progress = 0
 
         def start_animation():
             self.progressbar.show()
@@ -62,24 +64,29 @@ class ProgressBar:
         thread.start()
 
     def on_start_progress_indeterminate(self, sender):
-        self._indeterminate = True
-        self._start_animation()
+        with self._lock:
+            self._indeterminate = True
+            self._start_animation()
 
     def on_start_progress(self, sender, total):
-        self._indeterminate = False
-        self._start_animation(total=total)
+        logger.debug(f'Received {actions.START_PROGRESS} signal from {sender}')
+
+        with self._lock:
+            self._indeterminate = False
+            self._start_animation(total=total)
 
     def on_progress_made(self, sender, progress):
         self._progress += progress
 
     def on_stop_progress(self, sender):
-        self._stop_request_count += 1
-        logger.debug(f'StopProress(): Starts: {self._start_request_count}, Stops: {self._stop_request_count}')
-        if self._start_request_count > self._stop_request_count:
-            logger.debug('Discarding stop request because we have not received enough start requests yet')
-            return
-        logger.debug(f'Requesting stop of progress animation')
-        self._stop_requested = True
+        with self._lock:
+            self._stop_request_count += 1
+            logger.debug(f'StopProress(): Starts: {self._start_request_count}, Stops: {self._stop_request_count}')
+            if self._start_request_count > self._stop_request_count:
+                logger.debug('Discarding stop request because we have not received enough start requests yet')
+                return
+            logger.debug(f'Requesting stop of progress animation')
+            self._stop_requested = True
 
     def on_set_progress_text(self, sender, msg):
         if len(msg) > PROGRESS_BAR_MAX_MSG_LENGTH:
@@ -113,9 +120,12 @@ class ProgressBar:
             GLib.idle_add(throb)
 
         def stop():
-            self._stop_requested = False
-            # Stop looping
-            self.progressbar.hide()
-            logger.debug('Stopped')
+            with self._lock:
+                self._stop_requested = False
+                self._total = 0
+                self._progress = 0
+                # Stop looping
+                self.progressbar.hide()
+                logger.debug('Stopped')
 
         GLib.idle_add(stop)
