@@ -1,5 +1,6 @@
 import logging
 import os
+import threading
 from collections import deque
 from queue import Queue
 from typing import Deque, Dict, List, Optional, Union
@@ -49,6 +50,7 @@ class LocalDiskMasterCache:
         else:
             self.sha256_dict = None
         self.full_path_dict = FullPathDict()
+        self._lock = threading.Lock()
 
         # Each item inserted here will have an entry created for its dir.
         self.parent_path_dict = ParentPathBeforeFileNameDict()
@@ -57,10 +59,17 @@ class LocalDiskMasterCache:
         self.dir_tree.create_node(identifier=ROOT_PATH)
 
     def get_uid_for_path(self, path: str) -> UID:
+        with self._lock:
+            return self._get_uid_for_path(path, None)
+
+    def _get_uid_for_path(self, path: str, uid_suggestion: Optional[UID]) -> UID:
         assert path and path.startswith('/')
         uid = self._full_path_uid_dict.get(path, None)
         if not uid:
-            uid = self.application.uid_generator.get_new_uid()
+            if uid_suggestion:
+                self._full_path_uid_dict[path] = uid_suggestion
+            else:
+                uid = self.application.uid_generator.get_new_uid()
             self._full_path_uid_dict[path] = uid
         return uid
 
@@ -71,15 +80,19 @@ class LocalDiskMasterCache:
             md5 = 'disabled'
         return f'LocalDiskMasterCache size: full_path={self.full_path_dict.total_entries} parent_path={self.parent_path_dict.total_entries} md5={md5}'
 
-    def add_or_update_item(self, item: FMeta):
-        """TODO: Need to make this atomic"""
-        existing = self.full_path_dict.put(item)
-        if self.use_md5 and item.md5:
-            self.md5_dict.put(item, existing)
-        if self.use_sha256 and item.sha256:
-            self.sha256_dict.put(item, existing)
-        self.parent_path_dict.put(item, existing)
-        self._add_ancestors_to_tree(item.full_path)
+    def add_or_update_fmeta(self, item: FMeta):
+        assert not self.parent_path_dict.get_single(os.path.dirname(item.full_path), os.path.basename(item.full_path)), f'Conflict for item {item}'
+        with self._lock:
+            uid = self._get_uid_for_path(item.full_path, item.uid)
+            assert (not item.uid) or (uid == item.uid)
+            item.uid = uid
+            existing = self.full_path_dict.put(item)
+            if self.use_md5 and item.md5:
+                self.md5_dict.put(item, existing)
+            if self.use_sha256 and item.sha256:
+                self.sha256_dict.put(item, existing)
+            self.parent_path_dict.put(item, existing)
+            self._add_ancestors_to_tree(item.full_path)
 
     def _get_subtree_from_memory_only(self, subtree_path: LocalFsIdentifier):
         stopwatch = Stopwatch()
@@ -237,7 +250,7 @@ class LocalDiskMasterCache:
     def _update_in_memory_cache(self, fresh_tree):
         for item in fresh_tree.get_all():
             if not isinstance(item, PlanningNode):  # Planning nodes should not be cached, and should remain in their trees
-                self.add_or_update_item(item)
+                self.add_or_update_fmeta(item)
                 # FIXME: need to enable track changes, and handle deletes, etc
                 # FIXME FIXME FIXME
 

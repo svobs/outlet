@@ -110,7 +110,12 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
 
             # Each node's ID will be either
             # logger.debug(f'Creating file node: nid={nid}')
-            display_tree.add_node(node=item, parent=parent)
+            try:
+                display_tree.add_node(node=item, parent=parent)
+            except Exception:
+                logger.error(f'Error while adding item: {item} to parent {parent}')
+                logger.debug(f'CategoryTree for "{self.tree.node_identifier}": ' + display_tree.show(stdout=False))
+                raise
 
         logger.debug(f'{sw} Constructed display tree for {set_len} items')
         return display_tree

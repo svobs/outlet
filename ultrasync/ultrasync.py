@@ -2,7 +2,7 @@ import sys
 import gi
 
 from command.command_executor import CommandExecutor
-from index.uid_generator import AtomicIntUidGenerator, PersistentAtomicIntUidGenerator
+from index.uid_generator import PersistentAtomicIntUidGenerator
 from model.node_identifier import NodeIdentifierFactory
 from ui.actions import ID_DIFF_WINDOW
 

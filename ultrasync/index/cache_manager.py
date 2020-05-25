@@ -41,8 +41,9 @@ def _ensure_cache_dir_path(config):
 
 
 class CacheInfoByType(TwoLevelDict):
+    """Holds CacheInfo objects"""
     def __init__(self):
-        super().__init__(lambda x: x.subtree_root.tree_type, lambda x: x.subtree_root.uid, lambda x, y: True)
+        super().__init__(lambda x: x.subtree_root.tree_type, lambda x: x.subtree_root.full_path, lambda x, y: True)
 
 
 #    CLASS CacheManager
@@ -107,7 +108,10 @@ class CacheManager:
                 self.caches_by_type.put(info)
 
             if self.load_all_caches_on_startup:
-                existing_caches = self.caches_by_type.get_all()
+                # MUST read GDrive first, because currently we assign incrementing integer UIDs for local files dynamically,
+                # and we won't know which are reserved until we have read in all the existing GDrive caches
+                existing_caches = list(self.caches_by_type.get_second_dict(OBJ_TYPE_GDRIVE).values())
+                existing_caches += list(self.caches_by_type.get_second_dict(OBJ_TYPE_LOCAL_DISK).values())
                 for cache_num, existing_disk_cache in enumerate(existing_caches):
                     try:
                         info = PersistedCacheInfo(existing_disk_cache)
@@ -179,9 +183,9 @@ class CacheManager:
     def add_or_update_node(self, node: DisplayNode):
         tree_type = node.node_identifier.tree_type
         if tree_type == OBJ_TYPE_GDRIVE:
-            self.gdrive_cache.add_node(node)
+            self.gdrive_cache.add_or_update_goog_node(node)
         elif tree_type == OBJ_TYPE_LOCAL_DISK:
-            self.local_disk_cache.add_node(node)
+            self.local_disk_cache.add_or_update_fmeta(node)
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
@@ -189,7 +193,7 @@ class CacheManager:
         return self.gdrive_cache.download_all_gdrive_meta(tree_id)
 
     def get_cache_info_entry(self, subtree_root: NodeIdentifier) -> PersistedCacheInfo:
-        return self.caches_by_type.get_single(subtree_root.tree_type, subtree_root.uid)
+        return self.caches_by_type.get_single(subtree_root.tree_type, subtree_root.full_path)
 
     def get_or_create_cache_info_entry(self, subtree_root: NodeIdentifier) -> PersistedCacheInfo:
         existing = self.get_cache_info_entry(subtree_root)
@@ -200,7 +204,7 @@ class CacheManager:
             logger.debug(f'No existing cache found for type={subtree_root.tree_type} subtree="{subtree_root.uid}"')
 
         if subtree_root.tree_type == OBJ_TYPE_LOCAL_DISK:
-            prefix = 'FS'
+            prefix = 'LO'
         elif subtree_root.tree_type == OBJ_TYPE_GDRIVE:
             prefix = 'GD'
         else:

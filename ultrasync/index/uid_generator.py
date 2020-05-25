@@ -1,3 +1,4 @@
+import threading
 from abc import ABC, abstractmethod
 
 import logging
@@ -5,6 +6,7 @@ from index.atomic_counter import AtomicCounter
 
 logger = logging.getLogger(__name__)
 CONFIG_KEY = 'transient.global.last_uid'
+WRITE_OUT_UID_EVERY_N = 1000
 
 
 class UID(int):
@@ -45,30 +47,27 @@ class NullUidGenerator(UidGenerator):
         pass
 
 
-class AtomicIntUidGenerator(UidGenerator):
-    def __init__(self):
-        super().__init__()
-        self._counter = AtomicCounter(ROOT_UID + 1)
-
-    def get_new_uid(self) -> UID:
-        return UID(self._counter.increment())
-
-    def set_next_uid(self, uid: int):
-        new_val = self._counter.set_at_least(uid)
-        logger.debug(f'Set next_uid to {new_val}')
-
-
-class PersistentAtomicIntUidGenerator(AtomicIntUidGenerator):
+class PersistentAtomicIntUidGenerator(UidGenerator):
     def __init__(self, config):
         super().__init__()
         self._config = config
-        self.set_next_uid(self._config.get(CONFIG_KEY, ROOT_UID + 1))
+        self._last_uid_written = self._config.get(CONFIG_KEY, ROOT_UID + 1)
+        self._value = self._last_uid_written + 1
+        self._lock = threading.Lock()
+
+    def _set(self, new_value):
+        self._value = new_value
+        if self._value > self._last_uid_written:
+            # skip ahead and write a larger number. This will cause us to burn through numbers quicker, but will really speed things up
+            self._last_uid_written = self._value + WRITE_OUT_UID_EVERY_N
+            self._config.write(CONFIG_KEY, self._last_uid_written)
+        return self._value
 
     def get_new_uid(self) -> UID:
-        new_uid = super().get_new_uid()
-        #TODO self._config.write(CONFIG_KEY, new_uid)
-        return new_uid
+        with self._lock:
+            return UID(self._set(self._value + 1))
 
     def set_next_uid(self, uid: int):
-        new_val = self._counter.set_at_least(uid)
+        with self._lock:
+            new_val = self._set(uid)
         logger.debug(f'Set next_uid to {new_val}')

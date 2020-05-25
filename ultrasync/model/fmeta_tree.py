@@ -111,11 +111,8 @@ class FMetaTree(SubtreeSnapshot):
         return match
 
     def add_item(self, item: Union[FMeta, PlanningNode]):
-        try:
-            assert item.full_path.startswith(self.root_path), f'FMeta (cat={item.category.name}) full path (' \
-                                                              f'{item.full_path}) is not under this tree ({self.root_path})'
-        except Exception:
-            print('uh oh') # TODO
+        assert item.full_path.startswith(self.root_path), f'FMeta (cat={item.category.name}) full path (' \
+                                                          f'{item.full_path}) is not under this tree ({self.root_path})'
 
         if item.category == Category.Ignored:
             logger.debug(f'Found ignored file: {item.full_path}')
