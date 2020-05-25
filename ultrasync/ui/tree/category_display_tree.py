@@ -241,7 +241,7 @@ class CategoryDisplayTree:
         cat_count = 0
         if self.show_whole_forest:
             # need to preserve ordering...
-            summaries = []
+            type_summaries = []
             type_map = {}
             for child in self._category_tree.children(self.root.identifier):
                 assert isinstance(child, RootTypeNode), f'For {child}'
@@ -259,8 +259,8 @@ class CategoryDisplayTree:
                     cat_summaries = []
                     for cat in Category.Added, Category.Updated, Category.Moved, Category.Deleted, Category.Ignored:
                         cat_summaries.append(cat_map[cat])
-                    summaries.append(f'{tree_type_name}: {",".join(cat_summaries)}')
-            return ';'.join(summaries)
+                    type_summaries.append(f'{tree_type_name}: {",".join(cat_summaries)}')
+            return ';'.join(type_summaries)
         else:
             cat_map = make_cat_map()
             for child in self._category_tree.children(self.root.identifier):
