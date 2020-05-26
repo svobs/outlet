@@ -162,7 +162,7 @@ class TreeMetaScanner(FileTreeRecurser):
             stale_meta: FMeta = stale_meta_list[0]
             # Either unchanged, or updated. Either way, remove from stale tree.
             # (note: set remove_old_md5=True because the md5 will have changed if the file was updated)
-            stale_meta = self.stale_tree.remove(full_path=stale_meta.full_path, md5=stale_meta.md5, remove_old_md5=True, ok_if_missing=False)
+            stale_meta = self.stale_tree.remove(full_path=stale_meta.full_path, ok_if_missing=False)
 
             if meta_matches(file_path, stale_meta):
                 # Found in cache.

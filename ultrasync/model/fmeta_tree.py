@@ -92,13 +92,11 @@ class FMetaTree(SubtreeSnapshot):
     def get_relative_path_for_item(self, fmeta: FMeta):
         return self.get_relative_path_for_full_path(fmeta.full_path)
 
-    def remove(self, full_path, md5, remove_old_md5=False, ok_if_missing=False) -> Optional[FMeta]:
+    def remove(self, full_path: str, ok_if_missing=False) -> Optional[FMeta]:
         """
-        🢂 Removes from this FMetaTree the FMeta which matches the given file path and md5.
+        🢂 Removes from this FMetaTree the FMeta which matches the given file path.
         Does sanity checks and raises exceptions if internal state is found to have problems.
         If match not found: returns None if ok_if_missing=True; raises exception otherwise.
-        If remove_old_md5=True: ignore the value of 'md5' and instead remove the one found from the path search
-        If match found for both file path and md5, it is removed and the removed element is returned.
         """
         match = self._path_dict.pop(full_path, None)
         if match is None:

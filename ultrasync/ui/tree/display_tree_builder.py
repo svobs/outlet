@@ -17,7 +17,7 @@ class DisplayTreeBuilder(ABC):
     def __init__(self, controller, root: NodeIdentifier = None, tree: SubtreeSnapshot = None):
         self.con = controller
         self._loaded = False
-        self._root = root
+        self._root: NodeIdentifier = root
         if tree:
             self._tree = tree
             self._loaded = True

@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Union
 
 from index.cache_info import CacheInfoEntry
 from index.sqlite.base_db import MetaDatabase
@@ -51,7 +51,7 @@ class CacheRegistry(MetaDatabase):
         return entries
 
     # Takes a list of FMeta objects:
-    def insert_cache_info(self, entries, append, overwrite):
+    def insert_cache_info(self, entries: Union[CacheInfoEntry, List[CacheInfoEntry]], append: bool, overwrite: bool):
         rows = []
         if type(entries) == list:
             for entry in entries:
@@ -62,9 +62,9 @@ class CacheRegistry(MetaDatabase):
         has_existing = self.has_cache_info()
         if has_existing:
             if overwrite:
-                self.drop_table_if_exists(self.TABLE_CACHE_REGISTRY)
+                self.drop_table_if_exists(self.TABLE_CACHE_REGISTRY, commit=False)
             elif not append:
                 raise RuntimeError('Cannot insert CacheInfo into a non-empty table (overwrite=False, append=False)')
 
-        self.create_table_if_not_exist(self.TABLE_CACHE_REGISTRY)
+        self.create_table_if_not_exist(self.TABLE_CACHE_REGISTRY, commit=False)
         self.insert_many(self.TABLE_CACHE_REGISTRY, rows)

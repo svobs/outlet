@@ -66,8 +66,9 @@ class CategoryDisplayTree:
         try:
             return self._category_tree.children(parent_identifier)
         except Exception:
-            logger.debug(f'CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))
-            logger.debug(f'While retrieving children for: {parent_identifier}')
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f'CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))
+            logger.error(f'While retrieving children for: {parent_identifier}')
             raise
 
     def _get_subroot_node(self, node_identifier: NodeIdentifier) -> Optional[DirNode]:

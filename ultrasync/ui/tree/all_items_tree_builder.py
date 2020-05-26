@@ -49,7 +49,8 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
         try:
             return self.display_tree.children(parent_identifier.uid)
         except Exception:
-            logger.debug(f'CategoryTree for "{self.tree.node_identifier}": ' + self.display_tree.show(stdout=False))
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f'CategoryTree for "{self.tree.node_identifier}": ' + self.display_tree.show(stdout=False))
             raise
 
     def _get_ancestors(self, item: DisplayNode) -> Deque[DisplayNode]:
@@ -114,7 +115,8 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
                 display_tree.add_node(node=item, parent=parent)
             except Exception:
                 logger.error(f'Error while adding item: {item} to parent {parent}')
-                logger.debug(f'CategoryTree for "{self.tree.node_identifier}": ' + display_tree.show(stdout=False))
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f'CategoryTree for "{self.tree.node_identifier}": ' + display_tree.show(stdout=False))
                 raise
 
         logger.debug(f'{sw} Constructed display tree for {set_len} items')

@@ -123,10 +123,15 @@ def creation_date(path_to_file):
 
 
 def delete_file(tgt_path, to_trash=False):
+    if not os.path.exists(tgt_path):
+        logger.info(f'Cannot not delete file: file does not exist: {tgt_path}')
+        return
+
     if to_trash:
         # TODO
         pass
     else:
+        logger.debug(f'Deleting file: {tgt_path}')
         os.remove(tgt_path)
 
 

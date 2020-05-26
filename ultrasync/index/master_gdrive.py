@@ -47,10 +47,7 @@ class GDriveMasterCache:
         self.md5_dict = Md5BeforeUidDict()
         self.meta_master: Optional[GDriveWholeTree] = None
 
-    def init_subtree_gdrive_cache(self, info: PersistedCacheInfo, tree_id: str):
-        self._load_gdrive_cache(info, tree_id)
-
-    def _load_gdrive_cache(self, cache_info: PersistedCacheInfo, tree_id: str):
+    def load_gdrive_cache(self, cache_info: PersistedCacheInfo, tree_id: str):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
         if not self.application.cache_manager.enable_load_from_disk:
             logger.debug('Skipping cache load because cache.enable_cache_load is False')
@@ -92,7 +89,7 @@ class GDriveMasterCache:
 
         return subtree_meta
 
-    def load_subtree(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveSubtree:
+    def load_gdrive_subtree(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveSubtree:
         if subtree_root.full_path == ROOT_PATH or subtree_root.uid == uid_generator.ROOT_UID:
             subtree_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         logger.debug(f'Getting meta for subtree: "{subtree_root}"')
@@ -105,7 +102,7 @@ class GDriveMasterCache:
             # Load from disk
             # TODO: this will fail if the cache does not exist. Need the above!
             logger.debug(f'Cache is not loaded: {cache_info.cache_location}')
-            self._load_gdrive_cache(cache_info, tree_id)
+            self.load_gdrive_cache(cache_info, tree_id)
 
         if subtree_root.uid == uid_generator.ROOT_UID:
             # Special case. GDrive does not have a single root (it treats shared drives as roots, for example).

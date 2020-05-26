@@ -2,11 +2,10 @@ import threading
 from abc import ABC, abstractmethod
 
 import logging
-from index.atomic_counter import AtomicCounter
 
 logger = logging.getLogger(__name__)
 CONFIG_KEY = 'transient.global.last_uid'
-WRITE_OUT_UID_EVERY_N = 1000
+WRITE_OUT_UID_EVERY_N = 10000
 
 
 class UID(int):
