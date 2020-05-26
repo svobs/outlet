@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 import logging
 
 logger = logging.getLogger(__name__)
+
+ENABLE_PERSISTENCE = False
 CONFIG_KEY = 'transient.global.last_uid'
 WRITE_OUT_UID_EVERY_N = 10000
 
@@ -50,13 +52,16 @@ class PersistentAtomicIntUidGenerator(UidGenerator):
     def __init__(self, config):
         super().__init__()
         self._config = config
-        self._last_uid_written = self._config.get(CONFIG_KEY, ROOT_UID + 1)
+        if ENABLE_PERSISTENCE:
+            self._last_uid_written = self._config.get(CONFIG_KEY, ROOT_UID + 1)
+        else:
+            self._last_uid_written = ROOT_UID + 1
         self._value = self._last_uid_written + 1
         self._lock = threading.Lock()
 
     def _set(self, new_value):
         self._value = new_value
-        if self._value > self._last_uid_written:
+        if ENABLE_PERSISTENCE and self._value > self._last_uid_written:
             # skip ahead and write a larger number. This will cause us to burn through numbers quicker, but will really speed things up
             self._last_uid_written = self._value + WRITE_OUT_UID_EVERY_N
             self._config.write(CONFIG_KEY, self._last_uid_written)
@@ -68,5 +73,8 @@ class PersistentAtomicIntUidGenerator(UidGenerator):
 
     def set_next_uid(self, uid: int):
         with self._lock:
-            new_val = self._set(uid)
-        logger.debug(f'Set next_uid to {new_val}')
+            if uid > self._value:
+                new_val = self._set(uid)
+                logger.debug(f'Set next_uid to {new_val}')
+            else:
+                logger.debug(f'Ignoring request to set next_uid ({uid}); it is smaller than the present value ({self._value})')

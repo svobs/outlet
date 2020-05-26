@@ -14,6 +14,8 @@ from ui.tree.display_tree_builder import DisplayTreeBuilder
 
 logger = logging.getLogger(__name__)
 
+SUPER_DEBUG = False
+
 
 # CLASS AllItemsGDriveTreeBuilder
 # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
@@ -82,18 +84,12 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
         item_list: List[DisplayNode] = self.tree.get_all()
         set_len = len(item_list)
 
-        logger.debug(f'Building display tree for {set_len} files...')
+        logger.debug(f'Building display tree for {set_len} files for subtree {self.tree.node_identifier}..')
 
         display_tree.add_node(node=root_node, parent=None)  # root
         for item in item_list:
-            if item.is_dir():
-                # Skip any actual directories we encounter. We won't use them for our display, because:
-                # (1) each category has a logically different dir with the same ID, and let's not get confused, and
-                # (2) there's nothing for us in these objects from a display perspective. The name can be inferred
-                # from each file's path, and we don't want to display empty dirs when there's no file of that category
-                continue
+            assert not item.is_dir()
             ancestors: Iterable[DisplayNode] = self._get_ancestors(item)
-            # nid == Node ID == directory name
             parent = root_node
             parent.add_meta_metrics(item)
 
@@ -102,16 +98,17 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
                 for ancestor in ancestors:
                     child: treelib.Node = display_tree.get_node(nid=ancestor.uid)
                     if not child:
-                        # logger.debug(f'Creating dir node: nid={nid}')
+                        if SUPER_DEBUG:
+                            logger.debug(f'Adding ancestor node: type={type(ancestor)}, id={ancestor.node_identifier}')
                         display_tree.add_node(node=ancestor, parent=parent)
                         child = ancestor
                     parent = child
                     assert isinstance(parent, DirNode), f'was instead {type(parent)}, obj={parent}'
                     parent.add_meta_metrics(item)
 
-            # Each node's ID will be either
-            # logger.debug(f'Creating file node: nid={nid}')
             try:
+                if SUPER_DEBUG:
+                    logger.debug(f'Adding item node: type={type(item)}, id={item.node_identifier}')
                 display_tree.add_node(node=item, parent=parent)
             except Exception:
                 logger.error(f'Error while adding item: {item} to parent {parent}')

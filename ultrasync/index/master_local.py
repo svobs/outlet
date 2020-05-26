@@ -58,11 +58,11 @@ class LocalDiskMasterCache:
         self.dir_tree = treelib.Tree()
         self.dir_tree.create_node(identifier=ROOT_PATH)
 
-    def get_uid_for_path(self, path: str) -> UID:
+    def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
         with self._lock:
             return self._get_uid_for_path(path, None)
 
-    def _get_uid_for_path(self, path: str, uid_suggestion: Optional[UID]) -> UID:
+    def _get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
         assert path and path.startswith('/')
         uid = self._full_path_uid_dict.get(path, None)
         if not uid:
@@ -84,6 +84,7 @@ class LocalDiskMasterCache:
         assert not self.parent_path_dict.get_single(os.path.dirname(item.full_path), os.path.basename(item.full_path)), f'Conflict for item {item}'
         with self._lock:
             uid = self._get_uid_for_path(item.full_path, item.uid)
+            # logger.debug(f'ID: {uid}, path: {item.full_path}')
             assert (not item.uid) or (uid == item.uid)
             item.uid = uid
             existing = self.full_path_dict.put(item)
@@ -138,7 +139,7 @@ class LocalDiskMasterCache:
             logger.debug(status)
             dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
 
-            uid = self.get_uid_for_path(cache_info.subtree_root.full_path)
+            uid = self.get_uid_for_path(cache_info.subtree_root.full_path, cache_info.subtree_root.uid)
             root_identifier = LocalFsIdentifier(full_path=cache_info.subtree_root.full_path, uid=uid)
             fmeta_tree = FMetaTree(root_identifier=root_identifier, application=self.application)
 
@@ -196,7 +197,7 @@ class LocalDiskMasterCache:
                 if fmeta_tree:
                     has_data_to_store_in_memory = True
                 else:
-                    uid = self.get_uid_for_path(cache_info.subtree_root.full_path)
+                    uid = self.get_uid_for_path(cache_info.subtree_root.full_path, cache_info.subtree_root.uid)
                     root_identifier = LocalFsIdentifier(full_path=cache_info.subtree_root.full_path, uid=uid)
                     fmeta_tree = FMetaTree(root_identifier=root_identifier, application=self.application)
 

@@ -115,6 +115,12 @@ class CacheManager:
                     skipped_count += 1
                 else:
                     unique_cache_count += 1
+
+                # Special handling to local-type caches: ignore any UID we find in the registry and bring it in line with what's in memory:
+                if info.subtree_root.tree_type == OBJ_TYPE_LOCAL_DISK:
+                    new_uid = self._local_disk_cache.get_uid_for_path(info.subtree_root.full_path)
+                    info.subtree_root.uid = new_uid
+
                 self.caches_by_type.put(info)
 
             if self.application.cache_manager.enable_load_from_disk and self.load_all_caches_on_startup:
