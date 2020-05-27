@@ -1,26 +1,26 @@
 import logging
 import os
 import threading
+import time
 from collections import deque
-from queue import Queue
 from typing import Deque, Dict, List, Optional, Union
 
 import treelib
 from pydispatch import dispatcher
 
 import file_util
+import fmeta.content_hasher
 from constants import ROOT_PATH
 from fmeta.fmeta_tree_scanner import TreeMetaScanner
 from index.cache_manager import PersistedCacheInfo
 from index.sqlite.fmeta_db import FMetaDatabase
 from index.two_level_dict import FullPathDict, Md5BeforePathDict, ParentPathBeforeFileNameDict, Sha256BeforePathDict
 from index.uid_generator import UID
-from model.node_identifier import NodeIdentifier, LocalFsIdentifier
+from model.category import Category
 from model.fmeta import FMeta
 from model.fmeta_tree import FMetaTree
-from model.null_subtree import NullSubtree
+from model.node_identifier import LocalFsIdentifier
 from model.planning_node import PlanningNode
-from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
 from ui import actions
 
@@ -60,7 +60,7 @@ class LocalDiskMasterCache:
 
     def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
         with self._lock:
-            return self._get_uid_for_path(path, None)
+            return self._get_uid_for_path(path, uid_suggestion)
 
     def _get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
         assert path and path.startswith('/')
@@ -94,6 +94,21 @@ class LocalDiskMasterCache:
                 self.sha256_dict.put(item, existing)
             self.parent_path_dict.put(item, existing)
             self._add_ancestors_to_tree(item.full_path)
+
+    def remove_fmeta(self, item: FMeta):
+        with self._lock:
+            self.full_path_dict.remove(item)
+            dirpath, name = os.path.split(item.full_path)
+            self.parent_path_dict.remove(dirpath, name)
+
+            if self.use_md5 and item.md5:
+                self.md5_dict.remove(item.md5, item.full_path)
+            if self.use_sha256 and item.sha256:
+                self.sha256_dict.remove(item.sha256, item.full_path)
+
+            if self.dir_tree.get_node(item.full_path):
+                count_removed = self.dir_tree.remove_node(item.full_path)
+                assert count_removed <= 1, f'Deleted {count_removed} nodes at {item.full_path}'
 
     # Loading stuff
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
@@ -258,3 +273,46 @@ class LocalDiskMasterCache:
             logger.debug('Skipping cache save because it is disabled')
 
         return fresh_tree
+
+    def build_fmeta(self, full_path: str, category=Category.NA, staging_path=None) -> Optional[FMeta]:
+        uid = self.get_uid_for_path(full_path)
+
+        if category == Category.Ignored:
+            # Do not scan ignored files for content (optimization)
+            md5 = None
+            sha256 = None
+        else:
+            try:
+                # Open,close, read file and calculate hash of its contents
+                if staging_path:
+                    md5 = fmeta.content_hasher.md5(staging_path)
+                else:
+                    md5 = fmeta.content_hasher.md5(full_path)
+                # sha256 = fmeta.content_hasher.dropbox_hash(full_path)
+                sha256 = None
+            except FileNotFoundError:
+                if os.path.islink(full_path):
+                    target = os.readlink(full_path)
+                    logger.error(f'Broken link, skipping: "{full_path}" -> "{target}"')
+                else:
+                    # can this actually happen?
+                    logger.error(f'File not found; skipping: {full_path}')
+                # Return None. Will be assumed to be a deleted file
+                return None
+
+        # Get "now" in UNIX time:
+        sync_ts = int(time.time())
+
+        if staging_path:
+            path = staging_path
+        else:
+            path = full_path
+
+        stat = os.stat(path)
+        size_bytes = int(stat.st_size)
+        modify_ts = int(stat.st_mtime * 1000)
+        assert modify_ts > 100000000000, f'modify_ts too small: {modify_ts} for path: {path}'
+        change_ts = int(stat.st_ctime * 1000)
+        assert change_ts > 100000000000, f'change_ts too small: {change_ts} for path: {path}'
+
+        return FMeta(uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, category)

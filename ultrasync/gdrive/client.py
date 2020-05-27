@@ -578,7 +578,7 @@ class GDriveClient:
         if not local_full_path:
             raise RuntimeError(f'No path specified for file!')
 
-        file_meta = {'name': raw_item['name'], 'mimeType': raw_item['mimeType']}
+        file_metadata = {'name': raw_item['name'], 'mimeType': raw_item['mimeType']}
 
         media = MediaFileUpload(filename=local_full_path, resumable=True)
 
@@ -586,7 +586,7 @@ class GDriveClient:
             logger.debug(f'Updating node "{raw_item["id"]}" with local file: "{local_full_path}"')
 
             # Send the request to the API.
-            return self.service.files().update(fileId=raw_item['id'], body=file_meta, media_body=media, fields=FILE_FIELDS).execute()
+            return self.service.files().update(fileId=raw_item['id'], body=file_metadata, media_body=media, fields=FILE_FIELDS).execute()
 
         updated_file_meta = _try_repeatedly(request)
         goog_file: GoogFile = _convert_to_goog_file(updated_file_meta, uid)

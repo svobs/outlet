@@ -186,6 +186,11 @@ class GDriveMasterCache:
             logger.debug(f'Sending signal: {actions.NODE_ADDED}')
             dispatcher.send(signal=actions.NODE_ADDED, sender=ID_GLOBAL_CACHE, node=node)
 
+    def remove_goog_node(self, node: DisplayNode, to_trash):
+        # TODO
+        pass
+
+
     def download_all_gdrive_meta(self, tree_id):
         root_identifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         cache_info = self.application.cache_manager.get_or_create_cache_info_entry(root_identifier)

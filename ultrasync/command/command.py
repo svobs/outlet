@@ -89,6 +89,7 @@ class Command(treelib.Node, ABC):
     def __repr__(self):
         return f'{self.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self._status}, model={self._model}'
 
+
 """ 
 CLASS CommandPlan
 ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟"""
@@ -166,7 +167,9 @@ class CopyFileLocallyCommand(Command):
                 assert isinstance(self._model, FileToAdd)
                 file_util.copy_file_new(src_path=src_path, staging_path=staging_path, dst_path=dst_path, md5_src=self._model.md5, verify=True)
 
-            # TODO: update cache
+            # update cache:
+            local_node = context.cache_manager.build_fmeta(full_path=self._model.dest_path)
+            context.cache_manager.add_or_update_node(local_node)
 
             self._status = CommandStatus.COMPLETED_OK
         except file_util.IdenticalFileExistsError:
@@ -194,6 +197,9 @@ class DeleteLocalFileCommand(Command):
         try:
             logger.debug(f'RM: tgt={self._model.full_path}')
             file_util.delete_file(self._model.full_path, self.to_trash)
+
+            context.cache_manager.remove_node(self._model)
+
             self._status = CommandStatus.COMPLETED_OK
         except Exception as err:
             logger.error(f'While deleting file: path={self._model.full_path}: {repr(err)}, to_trash={self.to_trash}')
@@ -218,7 +224,9 @@ class MoveFileLocallyCommand(Command):
             logger.debug(f'    dst={self._model.dest_path}')
             file_util.move_file(self._model.original_full_path, self._model.dest_path)
 
-            # TODO: update cache
+            # Add to cache:
+            local_node = context.cache_manager.build_fmeta(full_path=self._model.dest_path)
+            context.cache_manager.add_or_update_node(local_node)
             self._status = CommandStatus.COMPLETED_OK
         except Exception as err:
             logger.error(f'While moving file: dest_path="{self._model.dest_path}", '
@@ -287,10 +295,9 @@ class UploadToGDriveCommand(Command):
                 if data_to_update:
                     goog_node: GoogNode = context.gdrive_client.update_existing_file(raw_item=data_to_update, local_full_path=src_file_path,
                                                                                      uid=self._model.uid)
+                    # Need to add these in (GDrive client cannot resolve them):
+                    goog_node.parent_uids = self._model.parent_uids
 
-                    # TODO: update cache
-                    self._status = CommandStatus.COMPLETED_OK
-                    return
                 else:
                     self._error = f'While trying to update item in Google Drive: could not find item with matching meta!'
                     self._status = CommandStatus.STOPPED_ON_ERROR
@@ -306,15 +313,13 @@ class UploadToGDriveCommand(Command):
                     return
                 else:
                     # Note that we will reuse the FileToAdd's UID
-                    new_file = context.gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id, uid=self._model.uid)
+                    goog_node: GoogNode = context.gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id, uid=self._model.uid)
                     # Need to add these in (GDrive client cannot resolve them):
-                    new_file.parent_uids = self._model.parent_uids
+                    goog_node.parent_uids = self._model.parent_uids
 
-                    # Add node to disk & in-memory caches:
-                    context.cache_manager.add_or_update_node(new_file)
-
-                    self._status = CommandStatus.COMPLETED_OK
-                    return
+            # Add node to disk & in-memory caches:
+            context.cache_manager.add_or_update_node(goog_node)
+            self._status = CommandStatus.COMPLETED_OK
 
         except Exception as err:
             logger.error(f'While uploading file to GDrive: dest_parent_ids="{self._model.parent_uids}", '
@@ -352,15 +357,17 @@ class DownloadFromGDriveCommand(Command):
                 raise RuntimeError(f'Trying to update a local file which does not exist: {dst_path}')
 
             context.gdrive_client.download_file(file_id=src_goog_id, dest_path=staging_path)
+
             # verify contents:
-            downloaded_md5 = fmeta.content_hasher.md5(staging_path)
-            if downloaded_md5 != self._model.src_node.md5:
-                raise RuntimeError(f'Downloaded MD5 ({downloaded_md5}) does not matched expected ({self._model.src_node.md5})!')
+            item: FMeta = context.cache_manager.build_fmeta(full_path=dst_path, staging_path=staging_path)
+            if item.md5 != self._model.src_node.md5:
+                raise RuntimeError(f'Downloaded MD5 ({item.md5}) does not matched expected ({self._model.src_node.md5})!')
 
             # This will overwrite if the file already exists:
             file_util.move_to_dst(staging_path=staging_path, dst_path=dst_path)
 
-            # TODO: update cache
+            context.cache_manager.add_or_update_node(item)
+
             self._status = CommandStatus.COMPLETED_OK
         except Exception as err:
             logger.error(f'While downloading file from GDrive: dest_path="{self._model.dest_path}", '

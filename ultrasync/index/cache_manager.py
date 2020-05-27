@@ -16,6 +16,7 @@ from index.master_local import LocalDiskMasterCache
 from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
 from index.uid_generator import UID
+from model.category import Category
 from model.display_node import DisplayNode
 from model.fmeta_tree import FMetaTree
 from model.gdrive_whole_tree import GDriveWholeTree
@@ -265,12 +266,24 @@ class CacheManager:
         root_identifier: NodeIdentifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         return self._gdrive_cache.load_gdrive_subtree(root_identifier, tree_id)
 
+    def build_fmeta(self, full_path: str, category=Category.NA):
+        return self._local_disk_cache.build_fmeta(full_path, category)
+
     def add_or_update_node(self, node: DisplayNode):
         tree_type = node.node_identifier.tree_type
         if tree_type == OBJ_TYPE_GDRIVE:
             self._gdrive_cache.add_or_update_goog_node(node)
         elif tree_type == OBJ_TYPE_LOCAL_DISK:
             self._local_disk_cache.add_or_update_fmeta(node)
+        else:
+            raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
+
+    def remove_node(self, node: DisplayNode, to_trash):
+        tree_type = node.node_identifier.tree_type
+        if tree_type == OBJ_TYPE_GDRIVE:
+            self._gdrive_cache.remove_goog_node(node, to_trash)
+        elif tree_type == OBJ_TYPE_LOCAL_DISK:
+            self._local_disk_cache.remove_fmeta(node)
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
