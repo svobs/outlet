@@ -277,7 +277,7 @@ class GDriveClient:
         logger.debug(f'Drive root: {root_node}')
         return root_node
 
-    def get_meta_single_item_by_id(self, goog_id: str, uid_to_assign: UID, sync_ts: int) -> GoogFolder:
+    def get_meta_single_item_by_id(self, goog_id: str, uid_to_assign: UID, sync_ts: int = 0) -> Tuple[GoogNode, List[str]]:
         """
         Returns: a GoogNode representing the user's GDrive root node.
         """
@@ -288,10 +288,15 @@ class GDriveClient:
         fields = f'files({FILE_FIELDS}, parents'
 
         result = _try_repeatedly(request)
+        parent_google_ids = result.get('parents', [])
 
-        root_node = _convert_to_goog_folder(result, uid_to_assign, sync_ts)
-        logger.debug(f'Drive root: {root_node}')
-        return root_node
+        mime_type = result['mimeType']
+        if mime_type == MIME_TYPE_FOLDER:
+            goog_node = _convert_to_goog_folder(result, uid_to_assign, sync_ts)
+        else:
+            goog_node = _convert_to_goog_file(result, uid_to_assign, sync_ts)
+        logger.debug(f'Got meta for single item: {goog_node}, with parents={parent_google_ids}')
+        return goog_node, parent_google_ids
 
     def get_existing_folder_with_parent_and_name(self, parent_goog_id: str, name: str) -> SimpleNodeCollector:
         query = f"{QUERY_FOLDERS_ONLY} AND name='{name}' AND '{parent_goog_id}' in parents"
@@ -617,16 +622,47 @@ class GDriveClient:
         logger.debug(f'Folder created successfully) Returned id={goog_node.goog_id}')
         return goog_node
 
-    def move_file(self, file_id: str, dest_parent_id: str):
-        # TODO
-        def request():
-            # Retrieve the existing parents to remove
-            file = self.service.files().get(fileId=file_id, fields='parents').execute()
-            previous_parents = ",".join(file.get('parents'))
+    def modify_meta(self, goog_id: str, remove_parents: List[str], add_parents: List[str], uid: UID, name: str = None):
+        assert isinstance(add_parents, list), f'For goog_id={goog_id}: {add_parents}'
+        assert isinstance(remove_parents, list), f'For goog_id={goog_id}: {remove_parents}'
 
+        if name:
+            meta = None
+        else:
+            meta = {'name': name}
+
+        def request():
             # Move the file to the new folder
-            file = self.service.files().update(fileId=file_id, addParents=dest_parent_id,
-                                               removeParents=previous_parents, fields='id, parents').execute()
+            file = self.service.files().update(fileId=goog_id, body=meta, addParents=add_parents,
+                                               removeParents=remove_parents, fields=FILE_FIELDS).execute()
+            return file
+
+        item = _try_repeatedly(request)
+
+        mime_type = item['mimeType']
+        if mime_type == MIME_TYPE_FOLDER:
+            goog_node = _convert_to_goog_folder(item, uid, 0)
+        else:
+            goog_node = _convert_to_goog_file(item, uid, 0)
+        return goog_node
+
+    def trash(self, goog_id: str):
+        def request():
+            # Put the given file in the trash
+            file = self.service.files().trash(fileId=goog_id).execute()
+            return file
+
+        _try_repeatedly(request)
+        logger.debug(f'Successfully trashed Goog node: {goog_id}')
+
+    def hard_delete(self, goog_id: str):
+        def request():
+            # Delete the item from Google Drive. Skips the trash
+            file = self.service.files().delete(fileId=goog_id).execute()
+            return file
+
+        _try_repeatedly(request)
+        logger.debug(f'Successfully deleted Goog node: {goog_id}')
 
 
 def main():

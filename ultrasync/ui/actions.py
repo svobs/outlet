@@ -16,6 +16,7 @@ NODE_EXPANSION_TOGGLED = 'node-expansion-toggled'
 ROOT_PATH_UPDATED = 'root-path-updated'
 NODE_UPDATED = 'node-updated'
 NODE_ADDED = 'node-added'
+NODE_REMOVED = 'node-removed'
 
 # All components should listen for this
 TOGGLE_UI_ENABLEMENT = 'toggle-ui-enablement'

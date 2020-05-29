@@ -1,3 +1,4 @@
+import copy
 import os
 import time
 import logging
@@ -9,7 +10,7 @@ import treelib
 
 import file_util
 import fmeta.content_hasher
-from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
+from constants import EXPLICITLY_TRASHED, FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, NOT_TRASHED
 from gdrive.client import GDriveClient
 from index.uid_generator import UID
 from model.display_node import DisplayNode
@@ -47,6 +48,23 @@ class CommandContext:
         if needs_gdrive:
             self.gdrive_client = GDriveClient(config=self.config, tree_id=tree_id)
             self.gdrive_tree: GDriveWholeTree = self.cache_manager.get_gdrive_whole_tree(tree_id=tree_id)
+
+    def resolve_parent_ids_to_goog_ids(self, node: DisplayNode) -> str:
+        parent_uids: List[UID] = node.parent_uids
+        if not parent_uids:
+            raise RuntimeError(f'Parents are required but item has no parents: {node}')
+
+        # This will raise an exception if it cannot resolve:
+        parent_goog_ids: List[str] = self.gdrive_tree.resolve_uids_to_goog_ids(parent_uids)
+
+        if len(parent_goog_ids) == 0:
+            raise RuntimeError(f'No parent Google IDs for: {node}')
+        if len(parent_goog_ids) > 1:
+            # not supported at this time
+            raise RuntimeError(f'Too many parent Google IDs for: {node}')
+
+        parent_goog_id: str = parent_goog_ids[0]
+        return parent_goog_id
 
 
 """ 
@@ -198,7 +216,7 @@ class DeleteLocalFileCommand(Command):
             logger.debug(f'RM: tgt={self._model.full_path}')
             file_util.delete_file(self._model.full_path, self.to_trash)
 
-            context.cache_manager.remove_node(self._model)
+            context.cache_manager.remove_node(self._model, self.to_trash)
 
             self._status = CommandStatus.COMPLETED_OK
         except Exception as err:
@@ -260,13 +278,7 @@ class UploadToGDriveCommand(Command):
         try:
             assert isinstance(self._model, FileDecoratorNode), f'For {self._model}'
             # this requires that any parents have been created and added to the in-memory cache (and will fail otherwise)
-            parent_goog_ids: List[str] = context.gdrive_tree.resolve_uids_to_goog_ids(self._model.parent_uids)
-            if len(parent_goog_ids) == 0:
-                raise RuntimeError(f'No parent Google IDs for: {self._model}')
-            if len(parent_goog_ids) > 1:
-                # not supported at this time
-                raise RuntimeError(f'Too many parent Google IDs for: {self._model}')
-            parent_goog_id: str = parent_goog_ids[0]
+            parent_goog_id: str = context.resolve_parent_ids_to_goog_ids(self._model)
             src_file_path = self._model.original_full_path
             name = self._model.src_node.name
             existing = context.gdrive_client.get_existing_file_with_parent_and_name(parent_goog_id=parent_goog_id, name=name)
@@ -392,20 +404,7 @@ class CreateGDriveFolderCommand(Command):
 
     def execute(self, context: CommandContext):
         try:
-            parent_uids: List[UID] = self._model.parent_uids
-            if not parent_uids:
-                raise RuntimeError(f'Parents are required but item has no parents: {self._model}')
-
-            # This will raise an exception if it cannot resolve:
-            parent_goog_ids: List[str] = context.gdrive_tree.resolve_uids_to_goog_ids(parent_uids)
-
-            if len(parent_goog_ids) == 0:
-                raise RuntimeError(f'No parent Google IDs for: {self._model}')
-            if len(parent_goog_ids) > 1:
-                # not supported at this time
-                raise RuntimeError(f'Too many parent Google IDs for: {self._model}')
-
-            parent_goog_id: str = parent_goog_ids[0]
+            parent_goog_id: str = context.resolve_parent_ids_to_goog_ids(self._model)
             name = self._model.name
             existing = context.gdrive_client.get_existing_folder_with_parent_and_name(parent_goog_id=parent_goog_id, name=name)
             if len(existing.nodes) > 0:
@@ -414,16 +413,15 @@ class CreateGDriveFolderCommand(Command):
                 goog_node: GoogNode = existing.nodes[0]
                 goog_node.uid = self._model.uid
             else:
-                goog_node = context.gdrive_client.create_folder(name=self._model.name, parent_goog_ids=parent_goog_ids, uid=self._model.uid)
+                goog_node = context.gdrive_client.create_folder(name=self._model.name, parent_goog_ids=[parent_goog_id], uid=self._model.uid)
 
             assert goog_node.is_dir()
             # Need to add these manually:
-            goog_node.parent_uids = parent_uids
+            goog_node.parent_uids = [parent_goog_id]
             # Add node to disk & in-memory caches:
             context.cache_manager.add_or_update_node(goog_node)
         except Exception as err:
-            logger.error(f'While creating folder on GDrive: name="{self._model.name}", '
-                         f'parent_uids="{self._model.parent_uids}": {repr(err)}')
+            logger.error(f'While creating folder on GDrive: name="{self._model.name}", parent_uids="{self._model.parent_uids}": {repr(err)}')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 
@@ -442,9 +440,66 @@ class MoveFileGDriveCommand(Command):
         return True
 
     def execute(self, context: CommandContext):
-        raise RuntimeError()
+        try:
+            assert isinstance(self._model, FileToMove), f'For {self._model}'
+            assert isinstance(self._model.src_node, GoogFile)
+            # this requires that any parents have been created and added to the in-memory cache (and will fail otherwise)
+            dst_parent_goog_id: str = context.resolve_parent_ids_to_goog_ids(self._model)
+            src_parent_goog_id: str = context.resolve_parent_ids_to_goog_ids(self._model.src_node)
+            src_name = self._model.src_node.name
+            dst_name = self._model.name
 
-        # TODO
+            # Err...should have just done a single lookup by ID. Well, code's written. Prob fix later
+
+            existing = context.gdrive_client.get_existing_file_with_parent_and_name(parent_goog_id=src_parent_goog_id, name=src_name)
+            logger.debug(f'Found {len(existing.nodes)} matching src files with parent={src_parent_goog_id} and name={src_name}')
+
+            src_node_found = None
+            if len(existing.nodes) > 0:
+                for existing_data, existing_node in zip(existing.raw_items, existing.nodes):
+                    assert isinstance(existing_node, GoogFile)
+                    if existing_node.goog_id == self._model.src_node.goog_id:
+                        src_node_found = existing_data
+                        break
+
+            if src_node_found:
+                context.gdrive_client.modify_meta(goog_id=self._model.src_node.goog_id, uid=self._model.uid,
+                                                  remove_parents=[src_parent_goog_id],
+                                                  add_parents=[dst_parent_goog_id], name=dst_name)
+
+                goog_node = copy.copy(self._model.src_node)
+                goog_node.name = self._model.name
+                goog_node.parent_uids = self._model.parent_uids
+
+                # Add node to disk & in-memory caches:
+                context.cache_manager.add_or_update_node(goog_node)
+                self._status = CommandStatus.COMPLETED_OK
+                return
+            else:
+                # did not find the target file; see if our operation was already completed
+                dest = context.gdrive_client.get_existing_file_with_parent_and_name(parent_goog_id=dst_parent_goog_id, name=dst_name)
+                logger.debug(f'Found {len(dest.nodes)} matching dest files with parent={dst_parent_goog_id} and name={dst_name}')
+
+                dst_node_found = None
+                if len(existing.nodes) > 0:
+                    for existing_data, existing_node in zip(existing.raw_items, existing.nodes):
+                        assert isinstance(existing_node, GoogFile)
+                        if existing_node.goog_id == self._model.src_node.goog_id:
+                            dst_node_found = existing_data
+                            break
+                if dst_node_found:
+                    logger.info(f'Identical already exists in Google Drive; will not update (goog_id={dst_node_found})')
+                    self._status = CommandStatus.COMPLETED_NO_OP
+                    return
+                else:
+                    raise RuntimeError(f'Could not find expected node in source or dest locations. Looks like the model is out of date '
+                                       f'(goog_id={self._model.src_node.goog_id})')
+
+        except Exception as err:
+            logger.error(f'While moving file within GDrive: dest_parent_ids="{self._model.parent_uids}", '
+                         f'src_node="{self._model.src_node}": {repr(err)}')
+            self._status = CommandStatus.STOPPED_ON_ERROR
+            self._error = err
 
 
 class DeleteGDriveFileCommand(Command):
@@ -462,8 +517,29 @@ class DeleteGDriveFileCommand(Command):
         return True
 
     def execute(self, context: CommandContext):
-        pass
-        # TODO
+        try:
+            assert isinstance(self._model, GoogFile)
+            existing_node, existing_parents = context.gdrive_client.get_meta_single_item_by_id(self._model.goog_id, self._model.uid)
+            if not existing_node:
+                raise RuntimeError('Cannot delete: not found in GDrive!')
+
+            if self.to_trash and existing_node.trashed != NOT_TRASHED:
+                logger.info(f'Item is already trashed: {existing_node}')
+                self._status = CommandStatus.COMPLETED_NO_OP
+                return
+
+            if self.to_trash:
+                context.gdrive_client.trash(self._model.goog_id)
+            else:
+                context.gdrive_client.hard_delete(self._model.goog_id)
+
+            context.cache_manager.remove_node(self._model, self.to_trash)
+
+        except Exception as err:
+            logger.error(f'While deleting from GDrive (to_trash={self.to_trash}, node={self._model}": {repr(err)}')
+            self._status = CommandStatus.STOPPED_ON_ERROR
+            self._error = err
+
 
 # ⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝
 # GOOGLE DRIVE COMMANDS end

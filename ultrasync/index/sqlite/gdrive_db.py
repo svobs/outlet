@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE
 from index.sqlite.base_db import MetaDatabase
+from index.uid_generator import UID
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +93,12 @@ class GDriveDatabase(MetaDatabase):
     def update_dir_fetched_status(self, commit=True):
         self.update(self.TABLE_GRDIVE_DIRS, stmt_vars=(True,), cols=['all_children_fetched'], commit=commit)
 
+    def delete_gdrive_dir_with_uid(self, uid: UID, commit=True):
+        sql = self.build_delete(self.TABLE_GRDIVE_DIRS) + f' WHERE uid = ?'
+        self.conn.execute(sql, (uid,))
+        if commit:
+            self.conn.commit()
+
     # GDRIVE_FILES operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
     def has_gdrive_files(self):
@@ -108,6 +115,12 @@ class GDriveDatabase(MetaDatabase):
     def get_gdrive_files(self):
         return self.get_all_rows(self.TABLE_GRDIVE_FILES)
 
+    def delete_gdrive_file_with_uid(self, uid: UID, commit=True):
+        sql = self.build_delete(self.TABLE_GRDIVE_FILES) + f' WHERE uid = ?'
+        self.conn.execute(sql, (uid,))
+        if commit:
+            self.conn.commit()
+
     # TABLE goog_id_parent_mappings
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
@@ -118,6 +131,13 @@ class GDriveDatabase(MetaDatabase):
 
         self.create_table_if_not_exist(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS, commit=False)
         self.insert_many(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS, id_parent_mappings, commit=commit)
+
+    def update_parent_mappings_for_id(self, id_parent_mappings: List[Tuple], uid: UID, commit=True):
+        logger.debug(f'Deleting id-parent mappings for {uid}')
+        # just do this the easy way for now
+        self.delete_parent_mappings_for_uid(uid=uid, commit=False)
+        logger.debug(f'Inserting {len(id_parent_mappings)} id-parent mappings for {uid}')
+        self.insert_id_parent_mappings(id_parent_mappings, commit)
 
     def get_id_parent_mappings(self):
         parent_uids = self.get_all_rows(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS)
@@ -133,6 +153,13 @@ class GDriveDatabase(MetaDatabase):
         self.insert_gdrive_dirs(dir_list=dir_list, commit=False)
         self.insert_id_parent_mappings(parent_mappings, commit=False)
         self.create_or_update_download(current_download)
+
+    def delete_parent_mappings_for_uid(self, uid: UID, commit=True):
+        logger.debug(f'Deleting id-parent mappings for {uid}')
+        sql = self.build_delete(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS) + f' WHERE uid = ?'
+        self.conn.execute(sql, (uid,))
+        if commit:
+            self.conn.commit()
 
     # TABLE current_downloads
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟

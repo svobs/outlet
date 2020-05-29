@@ -44,14 +44,16 @@ class ContentFirstDiffer:
         return os.path.join(self.left_tree.root_path, right_rel_path)
 
     def _add_items_and_missing_parents(self, change_tree: CategoryDisplayTree, source_tree: SubtreeSnapshot,
-                                       added_folders_dict: Dict[str, FolderToAdd] , new_item: FileDecoratorNode):
+                                       added_folders_dict: Dict[str, FolderToAdd], new_item: FileDecoratorNode):
         # This only applies to GoogNodes. Just a no-op for regular files at present because we don't yet care about local dirs very much
         if new_item.node_identifier.tree_type != OBJ_TYPE_GDRIVE:
             change_tree.add_item(new_item, new_item.category, source_tree)
             return
         path = new_item.full_path
-        queue = deque()
-        queue.append(new_item)
+
+        # Lowest item in the stack will always be orig item. Stack size > 1 iff need to add parent folders
+        stack = deque()
+        stack.append(new_item)
 
         parents = None
         while True:
@@ -71,10 +73,10 @@ class ContentFirstDiffer:
             new_uid = self.uid_generator.get_new_uid()
             new_folder = FolderToAdd(new_uid, path)
             added_folders_dict[path] = new_folder
-            queue.append(new_folder)
+            stack.append(new_folder)
 
-        while len(queue) > 0:
-            item = queue.pop()
+        while len(stack) > 0:
+            item = stack.pop()
             if isinstance(parents, list):
                 item.parent_uids = list(map(lambda x: x.uid, parents))
             else:
@@ -101,7 +103,7 @@ class ContentFirstDiffer:
         self._add_items_and_missing_parents(self.change_tree_left, self.left_tree, self.added_folders_left, node)
 
     def add_filetoadd_left_to_right(self, left_item):
-        """ADD - Left -> Right"""
+        """ADD: Left -> Right"""
         dest_path = self.move_to_right(left_item)
         new_uid = self.uid_generator.get_new_uid()
         node_identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Added)
@@ -109,7 +111,7 @@ class ContentFirstDiffer:
         self._add_items_and_missing_parents(self.change_tree_right, self.right_tree, self.added_folders_right, node)
 
     def add_filetoadd_right_to_left(self, right_item):
-        """ADD - Left <- Right"""
+        """ADD: Left <- Right"""
         dest_path = self.move_to_left(right_item)
         new_uid = self.uid_generator.get_new_uid()
         node_identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Added)
@@ -117,7 +119,7 @@ class ContentFirstDiffer:
         self._add_items_and_missing_parents(self.change_tree_left, self.left_tree, self.added_folders_left, node)
 
     def add_fileupdate_left_to_right(self, left_item, right_item_to_overwrite):
-        """UPDATE - Left -> Right"""
+        """UPDATE: Left -> Right"""
         dest_path = self.move_to_right(left_item)
         new_uid = self.uid_generator.get_new_uid()
         node_identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Updated)
@@ -125,7 +127,7 @@ class ContentFirstDiffer:
         self._add_items_and_missing_parents(self.change_tree_right, self.left_tree, self.added_folders_right, node)
 
     def add_fileupdate_right_to_left(self, right_item, left_item_to_overwrite):
-        """ADD - Left <- Right"""
+        """UPDATE: Left <- Right"""
         dest_path = self.move_to_left(right_item)
         new_uid = self.uid_generator.get_new_uid()
         node_identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Updated)

@@ -41,6 +41,10 @@ class MetaDatabase:
         return 'SELECT ' + ','.join(col[0] for col in table['cols']) + ' FROM ' + table['name']
 
     @staticmethod
+    def build_delete(table):
+        return f"DELETE FROM {table['name']} "
+
+    @staticmethod
     def build_update(table, cols=None):
         if not cols:
             cols = table['cols']

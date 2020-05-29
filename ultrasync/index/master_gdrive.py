@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from pydispatch import dispatcher
 
-from constants import ROOT_PATH
+from constants import NOT_TRASHED, ROOT_PATH
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index import uid_generator
 from index.cache_manager import PersistedCacheInfo
@@ -157,16 +157,13 @@ class GDriveMasterCache:
                 return
             is_update = True
 
-        # Open master database...
-        root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
-        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(root)
-        cache_path = cache_info.cache_location
+        cache_path = self._get_cache_path_for_master()
 
         # Write new values:
         with GDriveDatabase(cache_path) as cache:
             logger.debug(f'Writing id-parent mappings to the GDrive master cache: {parent_mappings}')
             if is_update:
-                cache.update_parent_mappings_for_id(parent_mappings, commit=False)
+                cache.update_parent_mappings_for_id(parent_mappings, node.uid, commit=False)
             else:
                 cache.insert_id_parent_mappings(parent_mappings, commit=False)
             if node.is_dir():
@@ -187,9 +184,29 @@ class GDriveMasterCache:
             dispatcher.send(signal=actions.NODE_ADDED, sender=ID_GLOBAL_CACHE, node=node)
 
     def remove_goog_node(self, node: DisplayNode, to_trash):
-        # TODO
-        pass
+        assert isinstance(node, GoogNode), f'For node: {node}'
+        if to_trash:
+            if node.trashed == NOT_TRASHED:
+                raise RuntimeError(f'Trying to trash Google node which is not marked as trashed: {node}')
+            # this is actually an update
+            self.add_or_update_goog_node(node)
+        else:
+            cache_path = self._get_cache_path_for_master()
+            with GDriveDatabase(cache_path) as cache:
+                cache.delete_parent_mappings_for_uid(node.uid, commit=False)
+                if node.is_dir():
+                    cache.delete_gdrive_dir_with_uid(node.uid)
+                else:
+                    cache.delete_gdrive_file_with_uid(node.uid)
 
+            dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
+
+    def _get_cache_path_for_master(self):
+        # Open master database...
+        root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
+        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(root)
+        cache_path = cache_info.cache_location
+        return cache_path
 
     def download_all_gdrive_meta(self, tree_id):
         root_identifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
