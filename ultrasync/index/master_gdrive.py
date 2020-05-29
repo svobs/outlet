@@ -185,6 +185,9 @@ class GDriveMasterCache:
 
     def remove_goog_node(self, node: DisplayNode, to_trash):
         assert isinstance(node, GoogNode), f'For node: {node}'
+
+        assert not node.is_dir(), 'FIXME! Add folder support!'  # FIXME
+
         if to_trash:
             if node.trashed == NOT_TRASHED:
                 raise RuntimeError(f'Trying to trash Google node which is not marked as trashed: {node}')
@@ -199,7 +202,7 @@ class GDriveMasterCache:
                 else:
                     cache.delete_gdrive_file_with_uid(node.uid)
 
-            dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
+        dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
 
     def _get_cache_path_for_master(self):
         # Open master database...

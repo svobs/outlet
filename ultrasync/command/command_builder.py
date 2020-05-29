@@ -54,6 +54,7 @@ class CommandBuilder:
 
 
 def _make_command(node: DisplayNode, uid_generator):
+    # FIXME: support directories and folders!
     tree_type: int = node.node_identifier.tree_type
     if node.category == Category.Added:
         if isinstance(node, FolderToAdd):

@@ -530,6 +530,7 @@ class DeleteGDriveFileCommand(Command):
 
             if self.to_trash:
                 context.gdrive_client.trash(self._model.goog_id)
+                self._model.trashed = EXPLICITLY_TRASHED
             else:
                 context.gdrive_client.hard_delete(self._model.goog_id)
 
