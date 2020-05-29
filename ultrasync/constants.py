@@ -47,6 +47,7 @@ GDRIVE_DOWNLOAD_STATE_COMPLETE = 10
 
 TRASHED_STATUS = ['No', 'UserTrashed', 'Trashed']
 
+
 class TreeDisplayMode(IntEnum):
     ONE_TREE_ALL_ITEMS = 1
     CHANGES_ONE_TREE_PER_CATEGORY = 2

@@ -23,6 +23,7 @@ from model.node_identifier import LocalFsIdentifier
 from model.planning_node import PlanningNode
 from stopwatch_sec import Stopwatch
 from ui import actions
+from ui.actions import ID_GLOBAL_CACHE
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ class LocalDiskMasterCache:
         else:
             self.md5_dict = None
 
+        # Every unique path must map to one unique UID
         self._full_path_uid_dict: Dict[str, UID] = {}
 
         self.use_sha256 = application.config.get('cache.enable_sha256_lookup')
@@ -95,6 +97,12 @@ class LocalDiskMasterCache:
             self.parent_path_dict.put(item, existing)
             self._add_ancestors_to_tree(item.full_path)
 
+            if existing is not None:
+                signal = actions.NODE_UPDATED
+            else:
+                signal = actions.NODE_ADDED
+            dispatcher.send(signal=signal, sender=ID_GLOBAL_CACHE, node=item)
+
     def remove_fmeta(self, item: FMeta):
         with self._lock:
             self.full_path_dict.remove(item)
@@ -109,6 +117,8 @@ class LocalDiskMasterCache:
             if self.dir_tree.get_node(item.full_path):
                 count_removed = self.dir_tree.remove_node(item.full_path)
                 assert count_removed <= 1, f'Deleted {count_removed} nodes at {item.full_path}'
+
+        dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=item)
 
     # Loading stuff
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
