@@ -13,7 +13,7 @@ from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib, GObject
 
-from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED
+from constants import GDRIVE_PATH_PREFIX, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from ui.dialog.base_dialog import BaseDialog
 import ui.actions as actions
@@ -96,7 +96,7 @@ class RootDirPanel:
         # Need to call this to do the initial UI draw:
         logger.debug(f'Building panel: {self.tree_id} with current root {self.current_root}')
 
-        if self.current_root.tree_type == OBJ_TYPE_LOCAL_DISK and not os.path.exists(self.current_root.full_path):
+        if self.current_root.tree_type == TREE_TYPE_LOCAL_DISK and not os.path.exists(self.current_root.full_path):
             self.err = FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.current_root.full_path)
         else:
             self.err = None
@@ -155,7 +155,7 @@ class RootDirPanel:
         self.entry = Gtk.Entry()
 
         path = self.current_root.full_path
-        if self.current_root.tree_type == OBJ_TYPE_GDRIVE:
+        if self.current_root.tree_type == TREE_TYPE_GDRIVE:
             path = GDRIVE_PATH_PREFIX + path
         self.entry.set_text(path)
         self.entry.connect('activate', self._on_root_text_entry_submitted, self.tree_id)
@@ -234,11 +234,11 @@ class RootDirPanel:
         if self.can_change_root:
             self.label_event_box.connect('button_press_event', self._on_label_clicked)
 
-        if new_root.tree_type == OBJ_TYPE_LOCAL_DISK:
+        if new_root.tree_type == TREE_TYPE_LOCAL_DISK:
             self.path_icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
-        elif new_root.tree_type == OBJ_TYPE_GDRIVE:
+        elif new_root.tree_type == TREE_TYPE_GDRIVE:
             self.path_icon.set_from_file(GDRIVE_ICON_PATH)
-        elif new_root.tree_type == OBJ_TYPE_MIXED:
+        elif new_root.tree_type == TREE_TYPE_MIXED:
             self.path_icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
         else:
             raise RuntimeError(f'Unrecognized tree type: {new_root.tree_type}')

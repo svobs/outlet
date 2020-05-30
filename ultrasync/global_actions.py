@@ -4,7 +4,7 @@ import uuid
 
 import gi
 
-from constants import OBJ_TYPE_LOCAL_DISK, TreeDisplayMode
+from constants import TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
 from model import node_identifier
 from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
@@ -116,11 +116,11 @@ class GlobalActions:
         try:
             left_id: NodeIdentifier = tree_con_left.get_root_identifier()
             right_id: NodeIdentifier = tree_con_right.get_root_identifier()
-            if left_id.tree_type == OBJ_TYPE_LOCAL_DISK and not os.path.exists(left_id.full_path):
+            if left_id.tree_type == TREE_TYPE_LOCAL_DISK and not os.path.exists(left_id.full_path):
                 logger.info(f'Skipping diff because the left path does not exist: "{left_id.full_path}"')
                 actions.enable_ui(sender=self)
                 return
-            elif right_id.tree_type == OBJ_TYPE_LOCAL_DISK and not os.path.exists(right_id.full_path):
+            elif right_id.tree_type == TREE_TYPE_LOCAL_DISK and not os.path.exists(right_id.full_path):
                 logger.info(f'Skipping diff because the right path does not exist: "{right_id.full_path}"')
                 actions.enable_ui(sender=self)
                 return

@@ -1,7 +1,7 @@
+import collections
 import logging
 from collections import deque
-from queue import Queue
-from typing import List, Optional, Union, ValuesView
+from typing import Deque, List, Optional, Union, ValuesView
 
 import file_util
 import format_util
@@ -70,38 +70,16 @@ class GDriveSubtree(SubtreeSnapshot):
 
         md5_dict: Md5BeforeUidDict = Md5BeforeUidDict()
 
-        # TODO: replace Queue with deque
-        q = Queue()
-        q.put(self.root_node)
+        queue: Deque[GoogNode] = collections.deque()
+        queue.append(self.root_node)
 
-        while not q.empty():
-            item: GoogNode = q.get()
+        while len(queue) > 0:
+            item: GoogNode = queue.popleft()
             if item.is_dir():
                 child_list = self._whole_tree.get_children(item.uid)
                 if child_list:
                     for child in child_list:
-                        q.put(child)
-            elif item.md5:
-                md5_dict.put(item)
-
-        logger.info(f'{md5_set_stopwatch} Found {md5_dict.total_entries} MD5s')
-        return md5_dict
-
-    def get_md5_set(self):
-        md5_set_stopwatch = Stopwatch()
-
-        md5_dict: Md5BeforeUidDict = Md5BeforeUidDict()
-
-        q = Queue()
-        q.put(self.root_node)
-
-        while not q.empty():
-            item: GoogNode = q.get()
-            if item.is_dir():
-                child_list = self._whole_tree.get_children(item.uid)
-                if child_list:
-                    for child in child_list:
-                        q.put(child)
+                        queue.append(child)
             elif item.md5:
                 md5_dict.put(item)
 

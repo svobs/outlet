@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class FMeta(DisplayNode):
     def __init__(self, uid: UID, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path: str, category=Category.NA):
         super().__init__(LocalFsIdentifier(full_path=full_path, uid=uid, category=category))
-        self.md5: Optional[str] = md5
+        self._md5: Optional[str] = md5
         self.sha256: Optional[str] = sha256
         self._size_bytes: int = ensure_int(size_bytes)
         self.sync_ts: int = ensure_int(sync_ts)
@@ -35,7 +35,15 @@ class FMeta(DisplayNode):
     @property
     def size_bytes(self):
         return self._size_bytes
-    
+
+    @property
+    def md5(self):
+        return self._md5
+
+    @md5.setter
+    def md5(self, md5):
+        self._md5 = md5
+
     @property
     def modify_ts(self):
         return self._modify_ts
@@ -59,7 +67,7 @@ class FMeta(DisplayNode):
     def is_content_equal(self, other_entry):
         assert isinstance(other_entry, FMeta)
         return self.sha256 == other_entry.sha256 \
-            and self.md5 == other_entry.md5 and self._size_bytes == other_entry._size_bytes
+            and self._md5 == other_entry._md5 and self._size_bytes == other_entry._size_bytes
 
     def is_meta_equal(self, other_entry):
         assert isinstance(other_entry, FMeta)
@@ -70,4 +78,4 @@ class FMeta(DisplayNode):
         return self.is_content_equal(other_entry) and self.is_meta_equal(other_entry)
 
     def __repr__(self):
-        return f'FMeta({self.node_identifier} md5={self.md5} sha256={self.sha256} modify_ts={self._modify_ts})'
+        return f'FMeta({self.node_identifier} md5={self._md5} sha256={self.sha256} modify_ts={self._modify_ts})'

@@ -7,7 +7,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 import os
 import logging
 
-from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED, ROOT_PATH
+from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, ROOT_PATH
 from index import uid_generator
 from index.two_level_dict import TwoLevelDict
 from model.category import Category
@@ -46,7 +46,7 @@ class ContentFirstDiffer:
     def _add_items_and_missing_parents(self, change_tree: CategoryDisplayTree, source_tree: SubtreeSnapshot,
                                        added_folders_dict: Dict[str, FolderToAdd], new_item: FileDecoratorNode):
         # This only applies to GoogNodes. Just a no-op for regular files at present because we don't yet care about local dirs very much
-        if new_item.node_identifier.tree_type != OBJ_TYPE_GDRIVE:
+        if new_item.node_identifier.tree_type != TREE_TYPE_GDRIVE:
             change_tree.add_item(new_item, new_item.category, source_tree)
             return
         path = new_item.full_path
@@ -345,7 +345,7 @@ class ContentFirstDiffer:
         is_mixed_tree = self.left_tree.tree_type != self.right_tree.tree_type
         if is_mixed_tree:
             root_node_identifier = LogicalNodeIdentifier(uid=uid_generator.ROOT_UID, full_path=ROOT_PATH, category=Category.NA,
-                                                         tree_type=OBJ_TYPE_MIXED)
+                                                         tree_type=TREE_TYPE_MIXED)
         else:
             root_node_identifier: NodeIdentifier = self.application.node_identifier_factory.for_values(tree_type=self.left_tree.tree_type,
                                                                                            full_path=ROOT_PATH, uid=uid_generator.ROOT_UID)

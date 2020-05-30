@@ -7,7 +7,7 @@ import treelib
 from treelib.exceptions import DuplicatedNodeIdError
 
 import file_util
-from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED
+from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from index.two_level_dict import TwoLevelDict
 from model.category import Category
 from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
@@ -82,7 +82,7 @@ class CategoryDisplayTree:
         Last pre-ancestor is easily derived and its prescence indicates whether its ancestors were already created"""
 
         tree_type: int = item.node_identifier.tree_type
-        assert tree_type != OBJ_TYPE_MIXED, f'For {item.node_identifier}'
+        assert tree_type != TREE_TYPE_MIXED, f'For {item.node_identifier}'
         assert item.category != Category.NA, f'For {item.node_identifier}'
 
         last_pre_ancestor = self._pre_ancestor_dict.get_single(tree_type, item.category)
@@ -162,7 +162,7 @@ class CategoryDisplayTree:
 
         def stop_before(_ancestor) -> bool:
             if _ancestor.parent_uids:
-                assert item.node_identifier.tree_type == OBJ_TYPE_GDRIVE
+                assert item.node_identifier.tree_type == TREE_TYPE_GDRIVE
                 # In this tree already? Saves us work, and more importantly,
                 # allow us to use nodes not in the parent tree (e.g. FolderToAdds)
                 for parent_uid in _ancestor.parent_uids:
@@ -241,7 +241,7 @@ class CategoryDisplayTree:
                 type_map[child.node_identifier.tree_type] = cat_map
             if cat_count == 0:
                 return 'Contents are identical'
-            for tree_type, tree_type_name in (OBJ_TYPE_LOCAL_DISK, 'Local Disk'), (OBJ_TYPE_GDRIVE, 'Google Drive'):
+            for tree_type, tree_type_name in (TREE_TYPE_LOCAL_DISK, 'Local Disk'), (TREE_TYPE_GDRIVE, 'Google Drive'):
                 cat_map = type_map.get(tree_type, None)
                 if cat_map:
                     cat_summaries = []

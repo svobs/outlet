@@ -6,7 +6,7 @@ from typing import List, Optional
 from pydispatch import dispatcher
 
 import ui.actions as actions
-from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED, TreeDisplayMode
+from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
 from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
 from model.fmeta import FMeta
@@ -30,9 +30,9 @@ class TreeContextListeners:
         self.con = controller
         self.ui_enabled = True
         self.connected_eids = []
-        self.context_handlers = {OBJ_TYPE_LOCAL_DISK: ContextActionsLocaldisk(self.con),
-                                 OBJ_TYPE_GDRIVE: ContextActionsGDrive(self.con),
-                                 OBJ_TYPE_MIXED: None}  # TODO: handle mixed
+        self.context_handlers = {TREE_TYPE_LOCAL_DISK: ContextActionsLocaldisk(self.con),
+                                 TREE_TYPE_GDRIVE: ContextActionsGDrive(self.con),
+                                 TREE_TYPE_MIXED: None}  # TODO: handle mixed
 
     def init(self):
         actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
@@ -286,15 +286,15 @@ def _get_items_type(selected_items: List):
     if len(selected_items) > 1:
         # Multiple selected items:
         for item in selected_items:
-            if item.node_identifier.tree_type == OBJ_TYPE_GDRIVE:
+            if item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
                 gdrive_count += 1
-            elif item.node_identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
+            elif item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
                 fmeta_count += 1
 
     # determine object types
     if gdrive_count and fmeta_count:
-        return OBJ_TYPE_MIXED
+        return TREE_TYPE_MIXED
     elif gdrive_count:
-        return OBJ_TYPE_GDRIVE
+        return TREE_TYPE_GDRIVE
     else:
-        return OBJ_TYPE_LOCAL_DISK
+        return TREE_TYPE_LOCAL_DISK

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 import logging
 
-from constants import GDRIVE_PATH_PREFIX, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, OBJ_TYPE_MIXED, ROOT_PATH
+from constants import GDRIVE_PATH_PREFIX, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, ROOT_PATH
 
 from index import uid_generator
 from index.uid_generator import UID
@@ -44,7 +44,7 @@ class NodeIdentifier(ABC):
     def __init__(self, uid: UID, full_path: str, category: Category):
         # assert full_path is None or (type(full_path) == str and full_path.find('/') >= 0), f'full_path does not look like a path: {full_path}'
         if not isinstance(uid, UID):
-            uid = ensure_int(uid)
+            uid = UID(ensure_int(uid))
         self.uid: UID = uid
         self.full_path: str = full_path
         self.category: Category = ensure_category(category)
@@ -101,7 +101,7 @@ class GDriveIdentifier(NodeIdentifier):
 
     @property
     def tree_type(self) -> int:
-        return OBJ_TYPE_GDRIVE
+        return TREE_TYPE_GDRIVE
 
     def __repr__(self):
         if self.uid == self.full_path:
@@ -124,7 +124,7 @@ class LocalFsIdentifier(NodeIdentifier):
 
     @property
     def tree_type(self) -> int:
-        return OBJ_TYPE_LOCAL_DISK
+        return TREE_TYPE_LOCAL_DISK
 
     def __repr__(self):
         if self.uid == self.full_path:
@@ -162,17 +162,17 @@ class NodeIdentifierFactory:
                     return LocalFsIdentifier(uid=uid, full_path=full_path, category=category)
             else:
                 raise RuntimeError('no tree_type and no full_path supplied')
-        elif tree_type == OBJ_TYPE_LOCAL_DISK:
+        elif tree_type == TREE_TYPE_LOCAL_DISK:
             if not uid:
                 uid = self.application.cache_manager.get_uid_for_path(full_path)
             return LocalFsIdentifier(uid=uid, full_path=full_path, category=category)
-        elif tree_type == OBJ_TYPE_GDRIVE:
+        elif tree_type == TREE_TYPE_GDRIVE:
             if full_path == ROOT_PATH and not uid:
                 uid = uid_generator.ROOT_UID
             elif uid == uid_generator.ROOT_UID and not full_path:
                 full_path = ROOT_PATH
             return GDriveIdentifier(uid=uid, full_path=full_path, category=category)
-        elif tree_type == OBJ_TYPE_MIXED:
+        elif tree_type == TREE_TYPE_MIXED:
             return LogicalNodeIdentifier(full_path=full_path, uid=uid, tree_type=tree_type, category=category)
         else:
             raise RuntimeError('bad')

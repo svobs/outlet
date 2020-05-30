@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple
 from pydispatch import dispatcher
 
 import file_util
-from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
+from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
 from index.master_gdrive import GDriveMasterCache
@@ -118,7 +118,7 @@ class CacheManager:
                     unique_cache_count += 1
 
                 # Special handling to local-type caches: ignore any UID we find in the registry and bring it in line with what's in memory:
-                if info.subtree_root.tree_type == OBJ_TYPE_LOCAL_DISK:
+                if info.subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
                     new_uid = self._local_disk_cache.get_uid_for_path(info.subtree_root.full_path)
                     info.subtree_root.uid = new_uid
 
@@ -127,7 +127,7 @@ class CacheManager:
             if self.application.cache_manager.enable_load_from_disk and self.load_all_caches_on_startup:
                 # MUST read GDrive first, because currently we assign incrementing integer UIDs for local files dynamically,
                 # and we won't know which are reserved until we have read in all the existing GDrive caches
-                existing_caches = list(self.caches_by_type.get_second_dict(OBJ_TYPE_GDRIVE).values())
+                existing_caches = list(self.caches_by_type.get_second_dict(TREE_TYPE_GDRIVE).values())
                 assert len(existing_caches) <= 1
 
                 consolidated_local_caches, registry_needs_update = self._consolidate_local_caches()
@@ -153,7 +153,7 @@ class CacheManager:
             dispatcher.send(signal=actions.LOAD_ALL_CACHES_DONE, sender=ID_GLOBAL_CACHE)
 
     def _consolidate_local_caches(self) -> Tuple[List[PersistedCacheInfo], bool]:
-        local_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(OBJ_TYPE_LOCAL_DISK).values())
+        local_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_LOCAL_DISK).values())
 
         supertree_sets: List[Tuple[PersistedCacheInfo, PersistedCacheInfo]] = []
 
@@ -218,16 +218,16 @@ class CacheManager:
 
     def _init_existing_cache(self, existing_disk_cache: PersistedCacheInfo):
         cache_type = existing_disk_cache.subtree_root.tree_type
-        if cache_type != OBJ_TYPE_LOCAL_DISK and cache_type != OBJ_TYPE_GDRIVE:
+        if cache_type != TREE_TYPE_LOCAL_DISK and cache_type != TREE_TYPE_GDRIVE:
             raise RuntimeError(f'Unrecognized tree type: {cache_type}')
 
-        if cache_type == OBJ_TYPE_LOCAL_DISK:
+        if cache_type == TREE_TYPE_LOCAL_DISK:
             if not os.path.exists(existing_disk_cache.subtree_root.full_path):
                 logger.info(f'Subtree not found; will defer loading: "{existing_disk_cache.subtree_root}"')
                 existing_disk_cache.needs_refresh = True
             else:
                 self._load_local_subtree(existing_disk_cache.subtree_root, ID_GLOBAL_CACHE)
-        elif cache_type == OBJ_TYPE_GDRIVE:
+        elif cache_type == TREE_TYPE_GDRIVE:
             self._gdrive_cache.load_gdrive_cache(existing_disk_cache, ID_GLOBAL_CACHE)
 
     def load_subtree(self, node_identifier: NodeIdentifier, tree_id: str) -> SubtreeSnapshot:
@@ -238,9 +238,9 @@ class CacheManager:
 
         dispatcher.send(signal=actions.LOAD_TREE_STARTED, sender=tree_id)
 
-        if node_identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
+        if node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
             return self._load_local_subtree(node_identifier, tree_id)
-        elif node_identifier.tree_type == OBJ_TYPE_GDRIVE:
+        elif node_identifier.tree_type == TREE_TYPE_GDRIVE:
             assert self._gdrive_cache
             return self._gdrive_cache.load_gdrive_subtree(node_identifier, tree_id)
         else:
@@ -271,18 +271,18 @@ class CacheManager:
 
     def add_or_update_node(self, node: DisplayNode):
         tree_type = node.node_identifier.tree_type
-        if tree_type == OBJ_TYPE_GDRIVE:
+        if tree_type == TREE_TYPE_GDRIVE:
             self._gdrive_cache.add_or_update_goog_node(node)
-        elif tree_type == OBJ_TYPE_LOCAL_DISK:
+        elif tree_type == TREE_TYPE_LOCAL_DISK:
             self._local_disk_cache.add_or_update_fmeta(node)
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
     def remove_node(self, node: DisplayNode, to_trash):
         tree_type = node.node_identifier.tree_type
-        if tree_type == OBJ_TYPE_GDRIVE:
+        if tree_type == TREE_TYPE_GDRIVE:
             self._gdrive_cache.remove_goog_node(node, to_trash)
-        elif tree_type == OBJ_TYPE_LOCAL_DISK:
+        elif tree_type == TREE_TYPE_LOCAL_DISK:
             self._local_disk_cache.remove_fmeta(node)
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
@@ -301,9 +301,9 @@ class CacheManager:
         else:
             logger.debug(f'No existing cache found for type={subtree_root.tree_type} subtree="{subtree_root.full_path}"')
 
-        if subtree_root.tree_type == OBJ_TYPE_LOCAL_DISK:
+        if subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
             prefix = 'LO'
-        elif subtree_root.tree_type == OBJ_TYPE_GDRIVE:
+        elif subtree_root.tree_type == TREE_TYPE_GDRIVE:
             prefix = 'GD'
         else:
             raise RuntimeError(f'Unrecognized tree type: {subtree_root.tree_type}')
@@ -329,7 +329,7 @@ class CacheManager:
         """Resolves the given path into either a local file, a set of Google Drive matches, or raises a GDriveItemNotFoundError"""
         if not node_identifier:
             node_identifier = self.application.node_identifier_factory.for_values(full_path=full_path)
-        if node_identifier.tree_type == OBJ_TYPE_GDRIVE:
+        if node_identifier.tree_type == TREE_TYPE_GDRIVE:
             # Need to wait until all caches are loaded:
             if not self.all_caches_loaded.wait(CACHE_LOAD_TIMEOUT_SEC):
                 logger.error('Timed out waiting for all caches to load!')

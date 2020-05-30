@@ -176,7 +176,7 @@ class GDriveWholeTree:
                 if SUPER_DEBUG:
                     logger.debug(f'Segment not found: "{name_seg}" (target_path: "{path}"')
                 raise GDriveItemNotFoundError(node_identifier=self.node_identifier_factory.for_values(
-                    tree_type=constants.OBJ_TYPE_GDRIVE, full_path=path),
+                    tree_type=constants.TREE_TYPE_GDRIVE, full_path=path),
                                               offending_path=path_so_far)
             else:
                 path_found = path_found + '/' + next_seg_items[0].name
@@ -191,7 +191,7 @@ class GDriveWholeTree:
             logger.debug(f'Found for path "{path_so_far}": {matching_ids}')
         if not matching_ids:
             raise GDriveItemNotFoundError(node_identifier=self.node_identifier_factory.for_values(
-                tree_type=constants.OBJ_TYPE_GDRIVE, full_path=path), offending_path=path_so_far)
+                tree_type=constants.TREE_TYPE_GDRIVE, full_path=path), offending_path=path_so_far)
         return matching_ids
 
     def validate(self):
@@ -220,7 +220,7 @@ class GDriveWholeTree:
 
     @property
     def tree_type(self) -> int:
-        return constants.OBJ_TYPE_GDRIVE
+        return constants.TREE_TYPE_GDRIVE
 
     def get_children_for_root(self) -> List[GoogNode]:
         return self.roots

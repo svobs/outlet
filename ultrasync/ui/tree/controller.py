@@ -3,7 +3,7 @@ import logging
 
 from stopwatch_sec import Stopwatch
 
-from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK, TreeDisplayMode
+from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from model.node_identifier import NodeIdentifier
 from ui.tree import tree_factory_templates
 from ui.tree.all_items_tree_builder import AllItemsGDriveTreeBuilder, AllItemsLocalFsTreeBuilder
@@ -147,9 +147,9 @@ class TreePanelController:
         if self.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             tree_builder = CategoryTreeBuilder(controller=self, root=root, tree=tree)
         elif self.tree_display_mode == TreeDisplayMode.ONE_TREE_ALL_ITEMS:
-            if tree_type == OBJ_TYPE_GDRIVE:
+            if tree_type == TREE_TYPE_GDRIVE:
                 tree_builder = AllItemsGDriveTreeBuilder(controller=self, root=root, tree=tree)
-            elif tree_type == OBJ_TYPE_LOCAL_DISK:
+            elif tree_type == TREE_TYPE_LOCAL_DISK:
                 tree_builder = AllItemsLocalFsTreeBuilder(controller=self, root=root, tree=tree)
             else:
                 raise RuntimeError(f'Unrecognized tree type: {tree_type}')

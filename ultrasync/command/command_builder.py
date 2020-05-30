@@ -9,7 +9,7 @@ from command.command import Command, CommandPlan, CopyFileLocallyCommand, Create
     MoveFileGDriveCommand, \
     MoveFileLocallyCommand, \
     UploadToGDriveCommand
-from constants import OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
+from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from index.uid_generator import ROOT_UID
 from model.category import Category
 from model.display_node import DisplayNode
@@ -62,15 +62,15 @@ def _make_command(node: DisplayNode, uid_generator):
         assert isinstance(node, FileToAdd)
         orig_tree_type: int = node.src_node.node_identifier.tree_type
         if orig_tree_type == tree_type:
-            if tree_type == OBJ_TYPE_LOCAL_DISK:
+            if tree_type == TREE_TYPE_LOCAL_DISK:
                 return CopyFileLocallyCommand(model_obj=node, uid=uid_generator.get_new_uid())
-            elif tree_type == OBJ_TYPE_GDRIVE:
+            elif tree_type == TREE_TYPE_GDRIVE:
                 raise RuntimeError(f'Bad tree type: {tree_type}')
             else:
                 raise RuntimeError(f'Bad tree type: {tree_type}')
-        elif orig_tree_type == OBJ_TYPE_LOCAL_DISK and tree_type == OBJ_TYPE_GDRIVE:
+        elif orig_tree_type == TREE_TYPE_LOCAL_DISK and tree_type == TREE_TYPE_GDRIVE:
             return UploadToGDriveCommand(model_obj=node, uid=uid_generator.get_new_uid())
-        elif orig_tree_type == OBJ_TYPE_GDRIVE and tree_type == OBJ_TYPE_LOCAL_DISK:
+        elif orig_tree_type == TREE_TYPE_GDRIVE and tree_type == TREE_TYPE_LOCAL_DISK:
             return DownloadFromGDriveCommand(model_obj=node, uid=uid_generator.get_new_uid())
         else:
             raise RuntimeError(f'Bad tree type(s): src={orig_tree_type},dst={tree_type}')
@@ -78,22 +78,22 @@ def _make_command(node: DisplayNode, uid_generator):
         assert isinstance(node, FileToMove)
         orig_tree_type: int = node.src_node.node_identifier.tree_type
         if orig_tree_type == tree_type:
-            if tree_type == OBJ_TYPE_LOCAL_DISK:
+            if tree_type == TREE_TYPE_LOCAL_DISK:
                 return MoveFileLocallyCommand(model_obj=node, uid=uid_generator.get_new_uid())
-            elif tree_type == OBJ_TYPE_GDRIVE:
+            elif tree_type == TREE_TYPE_GDRIVE:
                 return MoveFileGDriveCommand(model_obj=node, uid=uid_generator.get_new_uid())
             else:
                 raise RuntimeError(f'Bad tree type: {tree_type}')
-        elif orig_tree_type == OBJ_TYPE_LOCAL_DISK and tree_type == OBJ_TYPE_GDRIVE:
+        elif orig_tree_type == TREE_TYPE_LOCAL_DISK and tree_type == TREE_TYPE_GDRIVE:
             return UploadToGDriveCommand(model_obj=node, uid=uid_generator.get_new_uid())
-        elif orig_tree_type == OBJ_TYPE_GDRIVE and tree_type == OBJ_TYPE_LOCAL_DISK:
+        elif orig_tree_type == TREE_TYPE_GDRIVE and tree_type == TREE_TYPE_LOCAL_DISK:
             return DownloadFromGDriveCommand(model_obj=node, uid=uid_generator.get_new_uid())
         else:
             raise RuntimeError(f'Bad tree type(s): src={orig_tree_type}, dst={tree_type}')
     elif node.category == Category.Deleted:
-        if tree_type == OBJ_TYPE_LOCAL_DISK:
+        if tree_type == TREE_TYPE_LOCAL_DISK:
             return DeleteLocalFileCommand(model_obj=node, uid=uid_generator.get_new_uid())
-        elif tree_type == OBJ_TYPE_GDRIVE:
+        elif tree_type == TREE_TYPE_GDRIVE:
             return DeleteGDriveFileCommand(model_obj=node, uid=uid_generator.get_new_uid())
         else:
             raise RuntimeError(f'Bad tree type: {tree_type}')
@@ -101,15 +101,15 @@ def _make_command(node: DisplayNode, uid_generator):
         assert isinstance(node, FileToUpdate)
         orig_tree_type = node.src_node.node_identifier.tree_type
         if orig_tree_type == tree_type:
-            if tree_type == OBJ_TYPE_LOCAL_DISK:
+            if tree_type == TREE_TYPE_LOCAL_DISK:
                 return CopyFileLocallyCommand(model_obj=node, uid=uid_generator.get_new_uid(), overwrite=True)
-            elif tree_type == OBJ_TYPE_GDRIVE:
+            elif tree_type == TREE_TYPE_GDRIVE:
                 raise RuntimeError(f'Bad tree type: {tree_type}')
             else:
                 raise RuntimeError(f'Bad tree type: {tree_type}')
-        elif orig_tree_type == OBJ_TYPE_LOCAL_DISK and tree_type == OBJ_TYPE_GDRIVE:
+        elif orig_tree_type == TREE_TYPE_LOCAL_DISK and tree_type == TREE_TYPE_GDRIVE:
             return UploadToGDriveCommand(model_obj=node, uid=uid_generator.get_new_uid(), overwrite=True)
-        elif orig_tree_type == OBJ_TYPE_GDRIVE and tree_type == OBJ_TYPE_LOCAL_DISK:
+        elif orig_tree_type == TREE_TYPE_GDRIVE and tree_type == TREE_TYPE_LOCAL_DISK:
             return DownloadFromGDriveCommand(model_obj=node, uid=uid_generator.get_new_uid(), overwrite=True)
         else:
             raise RuntimeError(f'Bad tree type(s): src={orig_tree_type},dst={tree_type}')

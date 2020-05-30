@@ -6,7 +6,7 @@ from typing import List, Optional
 from treelib import Node
 
 import format_util
-from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_LOCAL_DISK, OBJ_TYPE_GDRIVE, OBJ_TYPE_LOCAL_DISK
+from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_LOCAL_DISK, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_NA
 from index.uid_generator import NULL_UID, UID
 from model.category import Category
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
@@ -49,6 +49,10 @@ class DisplayNode(Node, ABC):
 
     @property
     def etc(self):
+        return None
+
+    @property
+    def md5(self):
         return None
 
     @property
@@ -223,9 +227,9 @@ class RootTypeNode(DirNode):
 
     @property
     def name(self):
-        if self.node_identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
+        if self.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
             return 'Local Disk'
-        elif self.node_identifier.tree_type == OBJ_TYPE_GDRIVE:
+        elif self.node_identifier.tree_type == TREE_TYPE_GDRIVE:
             return 'Google Drive'
         return 'Unknown'
 
@@ -233,9 +237,9 @@ class RootTypeNode(DirNode):
         return f'RootTypeNode({self.name})'
 
     def get_icon(self):
-        if self.node_identifier.tree_type == OBJ_TYPE_LOCAL_DISK:
+        if self.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
             return ICON_LOCAL_DISK
-        elif self.node_identifier.tree_type == OBJ_TYPE_GDRIVE:
+        elif self.node_identifier.tree_type == TREE_TYPE_GDRIVE:
             return ICON_GDRIVE
         return ICON_GENERIC_DIR
 
@@ -246,7 +250,7 @@ class RootTypeNode(DirNode):
 class EphemeralNode(DisplayNode, ABC):
     """Does not have an identifier - should not be inserted into a treelib.Tree!"""
     def __init__(self):
-        super().__init__(LogicalNodeIdentifier(full_path=None, uid=NULL_UID, tree_type=None, category=Category.Nada))
+        super().__init__(LogicalNodeIdentifier(full_path=None, uid=NULL_UID, tree_type=TREE_TYPE_NA, category=Category.Nada))
 
     def __repr__(self):
         return self.name

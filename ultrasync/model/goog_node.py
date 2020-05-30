@@ -179,7 +179,7 @@ class GoogFile(GoogNode):
                          drive_id=drive_id, my_share=my_share, sync_ts=sync_ts)
         self.version = version
         self.head_revision_id = head_revision_id
-        self.md5 = md5
+        self._md5 = md5
         self.my_share = my_share
         self.create_ts = ensure_int(create_ts)
         self._modify_ts = ensure_int(modify_ts)
@@ -188,7 +188,7 @@ class GoogFile(GoogNode):
 
     def __repr__(self):
         return f'GoogFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str}  size={self.size_bytes} ' \
-               f'md5="{self.md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
+               f'md5="{self._md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
                f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
                f'sync_ts={self.sync_ts} parent_uids={self.parent_uids})'
 
@@ -196,13 +196,21 @@ class GoogFile(GoogNode):
         if not isinstance(other, GoogFile):
             return False
 
-        return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name and other.md5 == self.md5 and \
+        return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name and other.md5 == self._md5 and \
             other.trashed == self.trashed and other.drive_id == self.drive_id and other.version == self.version and \
             other.head_revision_id == self.head_revision_id and other.my_share == self.my_share and other.size_bytes == self.size_bytes \
             and other.create_ts == self.create_ts and other.modify_ts == self.modify_ts
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    @property
+    def md5(self):
+        return self._md5
+
+    @md5.setter
+    def md5(self, md5):
+        self._md5 = md5
 
     @property
     def modify_ts(self):
@@ -230,7 +238,7 @@ class GoogFile(GoogNode):
         return self.category.name
 
     def to_tuple(self):
-        return (self.uid, self.goog_id, self.name, self.trashed, self._size_bytes, self.md5, self.create_ts, self.modify_ts,
+        return (self.uid, self.goog_id, self.name, self.trashed, self._size_bytes, self._md5, self.create_ts, self.modify_ts,
                 self.owner_id, self.drive_id, self.my_share, self.version, self.head_revision_id, self.sync_ts)
 
 
