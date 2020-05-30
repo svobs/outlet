@@ -208,7 +208,7 @@ class ContentFirstDiffer:
         left_md5s: TwoLevelDict = self.left_tree.get_md5_dict()
         right_md5s: TwoLevelDict = self.right_tree.get_md5_dict()
         md5_set = left_md5s.keys() | right_md5s.keys()
-        logger.info(f'{md5_set_stopwatch} Found {len(md5_set)} combined MD5s')
+        logger.debug(f'{md5_set_stopwatch} Found {len(md5_set)} combined MD5s')
 
         # List of lists of FMetas which do not have a matching md5 on the other side.
         # We will compare these by path.
@@ -273,7 +273,7 @@ class ContentFirstDiffer:
                     md5s_left_only.append(orphaned_left_dup_md5)
                 if orphaned_right_dup_md5:
                     md5s_right_only.append(orphaned_right_dup_md5)
-        logger.info(f'{sw} Finished first pass of MD5 set')
+        logger.debug(f'{sw} Finished first pass of MD5 set')
 
         sw = Stopwatch()
         # Each is a list of duplicate MD5s (but different paths) on left side only:

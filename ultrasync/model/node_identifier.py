@@ -43,7 +43,7 @@ class NodeIdentifier(ABC):
 
     def __init__(self, uid: UID, full_path: str, category: Category):
         # assert full_path is None or (type(full_path) == str and full_path.find('/') >= 0), f'full_path does not look like a path: {full_path}'
-        if not isinstance(uid, UID):
+        if uid and not isinstance(uid, UID):
             uid = UID(ensure_int(uid))
         self.uid: UID = uid
         self.full_path: str = full_path

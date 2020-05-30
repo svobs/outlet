@@ -5,6 +5,7 @@ import gi
 
 import constants
 from constants import TreeDisplayMode
+from model.display_node import DisplayNode
 from model.node_identifier import NodeIdentifier
 from model.fmeta_tree import FMetaTree
 from model.subtree_snapshot import SubtreeSnapshot
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 """
 
 
-def is_ignored_func(data_node):
+def is_ignored_func(data_node: DisplayNode) -> bool:
     return data_node.category == Category.Ignored
 
 

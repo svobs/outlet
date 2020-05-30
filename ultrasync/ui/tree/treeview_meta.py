@@ -1,3 +1,5 @@
+from typing import Callable
+
 from pydispatch import dispatcher
 import logging
 
@@ -29,7 +31,7 @@ class TreeViewMeta:
         """If false, make the root path display panel read-only"""
         self.is_display_persisted = is_display_persisted
         """If true, load and save aesthetic things like expanded state of some nodes"""
-        self.is_ignored_func = is_ignored_func
+        self.is_ignored_func: Callable[[DisplayNode], bool] = is_ignored_func
         """This is a function pointer which accepts a data node arg and returns true if it is considered ignored"""
 
         self.tree_display_mode: TreeDisplayMode = tree_display_mode
@@ -41,13 +43,13 @@ class TreeViewMeta:
            If false, create a second column which shows the parent path. """
         self.use_dir_tree = config.get('display.diff_tree.use_dir_tree')
 
-        self.show_modify_ts_col = config.get('display.diff_tree.show_modify_ts_col')
-        self.show_change_ts_col = config.get('display.diff_tree.show_change_ts_col')
-        self.show_etc_col = config.get('display.diff_tree.show_etc_col')
+        self.show_modify_ts_col: bool = config.get('display.diff_tree.show_modify_ts_col')
+        self.show_change_ts_col: bool = config.get('display.diff_tree.show_change_ts_col')
+        self.show_etc_col: bool = config.get('display.diff_tree.show_etc_col')
 
         self.datetime_format = config.get('display.diff_tree.datetime_format')
-        self.extra_indent = config.get('display.diff_tree.extra_indent')
-        self.row_height = config.get('display.diff_tree.row_height')
+        self.extra_indent: int = config.get('display.diff_tree.extra_indent')
+        self.row_height: int = config.get('display.diff_tree.row_height')
 
         # Search for "TREE_VIEW_COLUMNS":
 

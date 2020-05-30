@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import deque
-from typing import Any, Deque, List, Optional, Union
+from typing import Any, Callable, Deque, List, Optional, Union
 
 from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
@@ -80,7 +80,7 @@ class SubtreeSnapshot(ABC):
     def get_md5_dict(self):
         pass
 
-    def get_ancestors(self, item: DisplayNode, stop_before_func = None) -> Deque[DisplayNode]:
+    def get_ancestors(self, item: DisplayNode, stop_before_func: Callable[[DisplayNode], bool] = None) -> Deque[DisplayNode]:
         ancestors: Deque[DisplayNode] = deque()
 
         # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
@@ -97,7 +97,6 @@ class SubtreeSnapshot(ABC):
                 ancestors.appendleft(ancestor)
 
         return ancestors
-
 
     # Setter
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟

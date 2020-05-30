@@ -1,6 +1,6 @@
 import copy
 from collections import deque
-from typing import Deque, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Callable, Deque, Dict, Iterable, List, Optional, Tuple, Union
 import logging
 
 import treelib
@@ -70,6 +70,24 @@ class CategoryDisplayTree:
                 logger.debug(f'CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))
             logger.error(f'While retrieving children for: {parent_identifier}')
             raise
+
+    def get_ancestors(self, item: DisplayNode, stop_before_func: Callable[[DisplayNode], bool] = None) -> Deque[DisplayNode]:
+        ancestors: Deque[DisplayNode] = deque()
+
+        # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
+        # been added to this tree, or the root of the source tree
+        ancestor = item
+        while ancestor:
+            if stop_before_func is not None and stop_before_func(ancestor):
+                return ancestors
+            ancestor = self.get_parent_for_item(ancestor)
+            if ancestor:
+                if ancestor.uid == self.uid:
+                    # do not include source tree's root node:
+                    return ancestors
+                ancestors.appendleft(ancestor)
+
+        return ancestors
 
     def _get_subroot_node(self, node_identifier: NodeIdentifier) -> Optional[DirNode]:
         for child in self._category_tree.children(self.root.identifier):
