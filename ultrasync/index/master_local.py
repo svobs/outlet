@@ -15,8 +15,9 @@ from fmeta.fmeta_tree_scanner import TreeMetaScanner
 from index.cache_manager import PersistedCacheInfo
 from index.sqlite.fmeta_db import FMetaDatabase
 from index.two_level_dict import FullPathDict, Md5BeforePathDict, ParentPathBeforeFileNameDict, Sha256BeforePathDict
-from index.uid_generator import UID
+from index.uid_generator import ROOT_UID, UID
 from model.category import Category
+from model.display_node import DirNode, DisplayNode, RootTypeNode
 from model.fmeta import FMeta
 from model.fmeta_tree import FMetaTree
 from model.node_identifier import LocalFsIdentifier
@@ -37,28 +38,30 @@ class LocalDiskMasterCache:
     def __init__(self, application):
         """Singleton in-memory cache for local filesystem"""
         self.application = application
+
+        self._lock = threading.Lock()
+
         self.use_md5 = application.config.get('cache.enable_md5_lookup')
         if self.use_md5:
             self.md5_dict = Md5BeforePathDict()
         else:
             self.md5_dict = None
 
-        # Every unique path must map to one unique UID
-        self._full_path_uid_dict: Dict[str, UID] = {}
-
         self.use_sha256 = application.config.get('cache.enable_sha256_lookup')
         if self.use_sha256:
             self.sha256_dict = Sha256BeforePathDict()
         else:
             self.sha256_dict = None
-        self.full_path_dict = FullPathDict()
-        self._lock = threading.Lock()
+
+        # Every unique path must map to one unique UID
+        self._full_path_uid_dict: Dict[str, UID] = {ROOT_PATH: ROOT_UID}
 
         # Each item inserted here will have an entry created for its dir.
-        self.parent_path_dict = ParentPathBeforeFileNameDict()
+        # self.parent_path_dict = ParentPathBeforeFileNameDict()
         # But we still need a dir tree to look up child dirs:
         self.dir_tree = treelib.Tree()
-        self.dir_tree.create_node(identifier=ROOT_PATH)
+        root_node = RootTypeNode(node_identifier=LocalFsIdentifier(full_path=ROOT_PATH, uid=ROOT_UID))
+        self.dir_tree.add_node(node=root_node, parent=None)
 
     def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
         with self._lock:
@@ -75,29 +78,29 @@ class LocalDiskMasterCache:
             self._full_path_uid_dict[path] = uid
         return uid
 
+    def get_children(self, uid: UID):
+        return self.dir_tree.children(uid)
+
     def get_summary(self):
         if self.use_md5:
             md5 = str(self.md5_dict.total_entries)
         else:
             md5 = 'disabled'
-        return f'LocalDiskMasterCache size: full_path={self.full_path_dict.total_entries} parent_path={self.parent_path_dict.total_entries} md5={md5}'
+        return f'LocalDiskMasterCache tree_size={len(self.dir_tree):n} md5={md5}'
 
     def add_or_update_fmeta(self, item: FMeta, fire_listeners=True):
-        assert not self.parent_path_dict.get_single(os.path.dirname(item.full_path), os.path.basename(item.full_path)), f'Conflict for item {item}'
-
         existing = None
         with self._lock:
             uid = self._get_uid_for_path(item.full_path, item.uid)
             # logger.debug(f'ID: {uid}, path: {item.full_path}')
             assert (not item.uid) or (uid == item.uid)
             item.uid = uid
-            existing = self.full_path_dict.put(item)
             if self.use_md5 and item.md5:
                 self.md5_dict.put(item, existing)
             if self.use_sha256 and item.sha256:
                 self.sha256_dict.put(item, existing)
-            self.parent_path_dict.put(item, existing)
-            self._add_ancestors_to_tree(item.full_path)
+
+            self._add_to_master_tree(item)
 
         if fire_listeners:
             if existing is not None:
@@ -108,17 +111,15 @@ class LocalDiskMasterCache:
 
     def remove_fmeta(self, item: FMeta, fire_listeners=True):
         with self._lock:
-            self.full_path_dict.remove(item)
-            dirpath, name = os.path.split(item.full_path)
-            self.parent_path_dict.remove(dirpath, name)
+            assert item.uid == self._full_path_uid_dict.get(item.full_path, None), f'For item: {item}'
 
             if self.use_md5 and item.md5:
                 self.md5_dict.remove(item.md5, item.full_path)
             if self.use_sha256 and item.sha256:
                 self.sha256_dict.remove(item.sha256, item.full_path)
 
-            if self.dir_tree.get_node(item.full_path):
-                count_removed = self.dir_tree.remove_node(item.full_path)
+            if self.dir_tree.get_node(item.uid):
+                count_removed = self.dir_tree.remove_node(item.uid)
                 assert count_removed <= 1, f'Deleted {count_removed} nodes at {item.full_path}'
 
         if fire_listeners:
@@ -134,19 +135,19 @@ class LocalDiskMasterCache:
         count_dirs = 0
         count_added_from_cache = 0
 
-        # Loop over all the descendants dirs, and add all of the files in each:
-        q: Deque[str] = deque()
-        q.append(subtree_path.full_path)
-        while len(q) > 0:
-            dir_path = q.popleft()
-            count_dirs += 1
-            files_in_dir: Dict[str, Union[FMeta, PlanningNode]] = self.parent_path_dict.get_second_dict(dir_path)
-            for file_name, fmeta in files_in_dir.items():
-                fmeta_tree.add_item(fmeta)
+        queue: Deque[DisplayNode] = deque()
+        node = self.dir_tree.get_node(nid=subtree_path.uid)
+        queue.append(node)
+        while len(queue) > 0:
+            node = queue.popleft()
+            if node.is_dir():
+                count_dirs += 1
+                for child in self.dir_tree.children(node.uid):
+                    queue.append(child)
+            else:
+                assert isinstance(node, FMeta)
+                fmeta_tree.add_item(node)
                 count_added_from_cache += 1
-            if self.dir_tree.get_node(dir_path):
-                for child_dir in self.dir_tree.children(dir_path):
-                    q.append(child_dir.identifier)
 
         logger.debug(f'{stopwatch} Got {count_added_from_cache} items from in-memory cache (from {count_dirs} dirs)')
         return fmeta_tree
@@ -248,21 +249,27 @@ class LocalDiskMasterCache:
 
         return fmeta_tree
 
-    def _add_ancestors_to_tree(self, item_full_path):
-        nid: str = ROOT_PATH
-        parent: treelib.Node = self.dir_tree.get_node(nid)
-        dirs_str = os.path.dirname(item_full_path)
-        path_segments = file_util.split_path(dirs_str)
+    def _add_to_master_tree(self, item: FMeta):
+        path_so_far: str = ROOT_PATH
+        parent: DisplayNode = self.dir_tree.get_node(ROOT_UID)
+        path_segments = file_util.split_path(os.path.dirname(item.full_path))
 
         for dir_name in path_segments:
-            nid: str = os.path.join(nid, dir_name)
-            child: treelib.Node = self.dir_tree.get_node(nid=nid)
-            if child is None:
-                # logger.debug(f'Creating dir node: nid={nid}')
-                child = self.dir_tree.create_node(identifier=nid, parent=parent)
+            path_so_far: str = os.path.join(path_so_far, dir_name)
+            uid = self._get_uid_for_path(path_so_far)
+            child: DisplayNode = self.dir_tree.get_node(nid=uid)
+            if not child:
+                # logger.debug(f'Creating dir node: nid={uid}')
+                child = DirNode(node_identifier=LocalFsIdentifier(full_path=path_so_far, uid=uid))
+                self.dir_tree.add_node(node=child, parent=parent)
             parent = child
 
-    def _update_in_memory_cache(self, fresh_tree):
+        # Finally, add the node itself:
+        child: DisplayNode = self.dir_tree.get_node(nid=item.uid)
+        if not child:
+            self.dir_tree.add_node(node=item, parent=parent)
+
+    def _update_in_memory_cache(self, fresh_tree: FMetaTree):
         for item in fresh_tree.get_all():
             self.add_or_update_fmeta(item, fire_listeners=False)
 
