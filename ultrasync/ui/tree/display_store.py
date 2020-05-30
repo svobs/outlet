@@ -169,7 +169,7 @@ class DisplayStore:
 
     def _found_func(self, tree_iter, target_uid: UID):
         node = self.get_node_data(tree_iter)
-        return not node.is_just_fluff() and node.uid == target_uid
+        return not node.is_ephemereal() and node.uid == target_uid
 
     def find_in_tree(self, target_uid: UID, tree_iter=None):
         """Recurses over entire tree and visits every node until is_found_func() returns True, then returns the data at that node"""
@@ -219,9 +219,11 @@ class DisplayStore:
         self.recurse_over_tree(tree_iter, action_func)
 
     def append_node(self, parent_node_iter, row_values: list):
-        data = row_values[self.treeview_meta.col_num_data]
-        if not data.is_just_fluff():
+        data: DisplayNode = row_values[self.treeview_meta.col_num_data]
+
+        if not data.is_ephemereal():
             self.displayed_rows[data.uid] = data
+
         return self.model.append(parent_node_iter, row_values)
 
     def remove_first_child(self, parent_iter):
@@ -232,7 +234,8 @@ class DisplayStore:
         child_data = self.get_node_data(first_child_iter)
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f'Removing child: {child_data}')
-        if not child_data.is_just_fluff():
+
+        if not child_data.is_ephemereal():
             self.displayed_rows.pop(child_data.uid)
 
         # remove the first child

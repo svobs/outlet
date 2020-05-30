@@ -34,7 +34,12 @@ class DisplayNode(Node, ABC):
     def is_dir(cls):
         return False
 
-    def is_just_fluff(self) -> bool:
+    @classmethod
+    def is_ephemereal(cls) -> bool:
+        return False
+
+    @classmethod
+    def is_just_fluff(cls) -> bool:
         return True
 
     @property
@@ -149,7 +154,12 @@ class DirNode(DisplayNode):
     def size_bytes(self):
         return self._size_bytes
 
-    def is_just_fluff(self) -> bool:
+    @classmethod
+    def is_ephemereal(cls) -> bool:
+        return False
+
+    @classmethod
+    def is_just_fluff(cls) -> bool:
         return True
 
     @classmethod
@@ -260,6 +270,14 @@ class EphemeralNode(DisplayNode, ABC):
     @property
     def category(self):
         raise RuntimeError
+
+    @classmethod
+    def is_ephemereal(cls) -> bool:
+        return True
+
+    @classmethod
+    def is_just_fluff(cls) -> bool:
+        return True
 
     @classmethod
     def is_file(cls):

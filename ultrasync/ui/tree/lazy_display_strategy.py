@@ -197,7 +197,7 @@ class LazyDisplayStrategy:
 
     def _on_node_expansion_toggled(self, sender: str, parent_iter, node_data: DisplayNode, is_expanded: bool):
         # Callback for actions.NODE_EXPANSION_TOGGLED:
-        logger.debug(f'[{sender}] Node expansion toggled to {is_expanded} for {node_data.node_identifier}"')
+        logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node_data.node_identifier}"')
 
         if not self._enable_state_listeners:
             logger.debug('Auto-populate disabled')
@@ -221,7 +221,7 @@ class LazyDisplayStrategy:
         if not self._enable_state_listeners:
             return
 
-        logger.debug(f'Received signal {actions.NODE_ADDED} with node {node.node_identifier}')
+        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_ADDED} with node {node.node_identifier}')
 
         # TODO: this can be optimized to search only the paths of the ancestors
         parent = self.con.get_tree().get_parent_for_item(node)
@@ -239,7 +239,7 @@ class LazyDisplayStrategy:
         if not self._enable_state_listeners:
             return
 
-        logger.debug(f'Received signal {actions.NODE_UPDATED} with node {node.node_identifier}')
+        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_UPDATED} with node {node.node_identifier}')
         if not self.con.display_store.displayed_rows.get(node.uid, None):
             return
 
@@ -259,7 +259,7 @@ class LazyDisplayStrategy:
         if not self._enable_state_listeners:
             return
 
-        logger.debug(f'Received signal {actions.NODE_REMOVED} with node {node.node_identifier}')
+        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_REMOVED} with node {node.node_identifier}')
         if not self.con.display_store.displayed_rows.get(node.uid, None):
             return
 
@@ -282,7 +282,7 @@ class LazyDisplayStrategy:
                 is_expand = self.con.treeview_meta.is_category_node_expanded(node_data)
                 if is_expand:
                     tree_path = self.con.display_store.model.get_path(tree_iter)
-                    logger.debug(f'Expanding row: {node_data.name} in tree {self.con.tree_id}')
+                    logger.debug(f'[{self.con.tree_id}] Expanding row: {node_data.name} in tree {self.con.tree_id}')
                     self.con.tree_view.expand_row(path=tree_path, open_all=True)
                     # FIXME! Open-all not respected!
 

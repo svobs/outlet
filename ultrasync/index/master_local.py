@@ -164,7 +164,7 @@ class LocalDiskMasterCache:
                 logger.debug('No meta found in cache')
                 return None
 
-            status = f'Loading meta for "{cache_info.subtree_root}" from cache: "{cache_info.cache_location}"'
+            status = f'[{tree_id}] Loading meta for "{cache_info.subtree_root}" from cache: "{cache_info.cache_location}"'
             logger.debug(status)
             dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
 
@@ -187,7 +187,7 @@ class LocalDiskMasterCache:
                     fmeta_tree.add_item(change)
 
             # logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
-            logger.debug(f'{stopwatch_load} Loaded {fmeta_tree}')
+            logger.debug(f'{stopwatch_load} [{tree_id}] Finished loading {fmeta_tree}')
 
             cache_info.is_loaded = True
             return fmeta_tree
