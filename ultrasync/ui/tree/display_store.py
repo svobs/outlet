@@ -44,6 +44,7 @@ class DisplayStore:
         # - The 'inconsistent_rows' list is needed for display purposes.
         self.checked_rows: Dict[UID, DisplayNode] = {}
         self.inconsistent_rows: Dict[UID, DisplayNode] = {}
+        self.displayed_rows: Dict[UID, DisplayNode] = {}
 
     def get_node_data(self, tree_path: Union[TreeIter, TreePath]) -> DisplayNode:
         """
@@ -73,6 +74,7 @@ class DisplayStore:
         self.model.clear()
         self.checked_rows.clear()
         self.inconsistent_rows.clear()
+        self.displayed_rows.clear()
         return self.model.get_iter_first()
 
     def set_checked_state(self, tree_iter, is_checked, is_inconsistent):
@@ -165,6 +167,24 @@ class DisplayStore:
 
     # --- Tree searching & iteration (utility functions) --- #
 
+    def _found_func(self, tree_iter, target_uid: UID):
+        node = self.get_node_data(tree_iter)
+        return not node.is_just_fluff() and node.uid == target_uid
+
+    def find_in_tree(self, target_uid: UID, tree_iter=None):
+        """Recurses over entire tree and visits every node until is_found_func() returns True, then returns the data at that node"""
+        if not tree_iter:
+            tree_iter = self.model.get_iter_first()
+
+        while tree_iter is not None:
+            if self._found_func(tree_iter, target_uid):
+                return tree_iter
+            if self.model.iter_has_child(tree_iter):
+                child_iter = self.model.iter_children(tree_iter)
+                self.find_in_tree(target_uid, child_iter)
+            tree_iter = self.model.iter_next(tree_iter)
+        return None
+
     def recurse_over_tree(self, tree_iter, action_func):
         """
         Performs the action_func on the node at this tree_iter AND all of its following
@@ -198,14 +218,23 @@ class DisplayStore:
         tree_iter = self.model.get_iter(tree_path)
         self.recurse_over_tree(tree_iter, action_func)
 
+    def append_node(self, parent_node_iter, row_values: list):
+        data = row_values[self.treeview_meta.col_num_data]
+        if not data.is_just_fluff():
+            self.displayed_rows[data.uid] = data
+        return self.model.append(parent_node_iter, row_values)
+
     def remove_first_child(self, parent_iter):
         first_child_iter = self.model.iter_children(parent_iter)
         if not first_child_iter:
             return False
 
+        child_data = self.get_node_data(first_child_iter)
         if logger.isEnabledFor(logging.DEBUG):
-            child_data = self.get_node_data(first_child_iter)
             logger.debug(f'Removing child: {child_data}')
+        if not child_data.is_just_fluff():
+            self.displayed_rows.pop(child_data.uid)
+
         # remove the first child
         self.model.remove(first_child_iter)
         return True

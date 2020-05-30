@@ -39,7 +39,11 @@ class LazyDisplayStrategy:
     def __init__(self, config, controller=None):
         self.con = controller
         self.use_empty_nodes = True
-        self.auto_populate_enabled = True
+
+        self._enable_state_listeners = False
+        """When true, listen and automatically update the display when a node is added, expanded, etc.
+        Needs to be set to false when modifying the model with certain operations, because leaving enabled would
+        result in an infinite loop"""
 
     def init(self):
         """Do post-wiring stuff like connect listeners."""
@@ -51,6 +55,7 @@ class LazyDisplayStrategy:
 
         dispatcher.connect(signal=actions.NODE_ADDED, receiver=self._on_node_added_to_cache)
         dispatcher.connect(signal=actions.NODE_UPDATED, receiver=self._on_node_updated_in_cache)
+        dispatcher.connect(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
 
     def populate_recursively(self, parent_iter, parent_uid: Optional[UID], node: DisplayNode):
         node_count = self._populate_recursively(parent_iter, parent_uid, node)
@@ -60,7 +65,7 @@ class LazyDisplayStrategy:
         total_expanded = 0
         # Do a DFS of the change tree and populate the UI tree along the way
         if node.is_dir():
-            parent_iter = self._append_dir_node(parent_iter=parent_iter, parent_uid=parent_uid, node_data=node)
+            parent_iter = self._append_dir_node(parent_iter=parent_iter, parent_uid=parent_uid, node=node)
 
             for child in self.con.tree_builder.get_children(node.node_identifier):
                 node_count = self._populate_recursively(parent_iter, parent_uid, child, node_count)
@@ -89,7 +94,7 @@ class LazyDisplayStrategy:
         if self.con.tree_view.row_expanded(tree_path):
             return
 
-        self.auto_populate_enabled = False
+        self._enable_state_listeners = False
 
         node = self.con.display_store.get_node_data(tree_path)
         parent_iter = self.con.display_store.model.get_iter(tree_path)
@@ -102,10 +107,12 @@ class LazyDisplayStrategy:
 
         self.con.tree_view.expand_row(path=tree_path, open_all=True)
 
-        self.auto_populate_enabled = True
+        self._enable_state_listeners = True
 
     def populate_root(self):
         """Draws from the undelying data store as needed, to populate the display store."""
+
+        self._enable_state_listeners = False
 
         # This may be a long task
         children: List[DisplayNode] = self.con.tree_builder.get_children_for_root()
@@ -123,6 +130,8 @@ class LazyDisplayStrategy:
                     self.populate_recursively(None, None, ch)
 
                 self.con.tree_view.expand_all()
+
+            self._enable_state_listeners = True
 
             # This should fire expanded state listener to populate nodes as needed:
             if self.con.treeview_meta.is_display_persisted:
@@ -190,7 +199,7 @@ class LazyDisplayStrategy:
         # Callback for actions.NODE_EXPANSION_TOGGLED:
         logger.debug(f'[{sender}] Node expansion toggled to {is_expanded} for {node_data.node_identifier}"')
 
-        if not self.auto_populate_enabled:
+        if not self._enable_state_listeners:
             logger.debug('Auto-populate disabled')
             return
 
@@ -209,12 +218,57 @@ class LazyDisplayStrategy:
         GLib.idle_add(expand_or_contract)
 
     def _on_node_added_to_cache(self, sender: str, node: DisplayNode):
+        if not self._enable_state_listeners:
+            return
+
         logger.debug(f'Received signal {actions.NODE_ADDED} with node {node.node_identifier}')
-        # TODO
+
+        # TODO: this can be optimized to search only the paths of the ancestors
+        parent = self.con.get_tree().get_parent_for_item(node)
+        parent_uid = parent.uid
+        parent_iter = self.con.display_store.find_in_tree(target_uid=parent_uid)
+        if not parent_iter:
+            raise RuntimeError(f'Cannot add node: Could not find parent node in display tree: {parent}')
+
+        if node.is_dir():
+            self._append_dir_node(parent_iter, parent_uid, node)
+        else:
+            self._append_file_node(parent_iter, parent_uid, node)
 
     def _on_node_updated_in_cache(self, sender: str, node: DisplayNode):
+        if not self._enable_state_listeners:
+            return
+
         logger.debug(f'Received signal {actions.NODE_UPDATED} with node {node.node_identifier}')
-        # TODO
+        if not self.con.display_store.displayed_rows.get(node.uid, None):
+            return
+
+        # TODO: this can be optimized to search only the paths of the ancestors
+        tree_iter = self.con.display_store.find_in_tree(target_uid=node.uid)
+        if not tree_iter:
+            raise RuntimeError(f'Cannot update node: Could not find node in display tree: {node}')
+
+        parent = self.con.get_tree().get_parent_for_item(node)
+        parent_uid = parent.uid
+
+        display_vals: list = self._generate_display_cols(parent_uid, node)
+        for col, val in enumerate(display_vals):
+            self.con.display_store.model.set_value(tree_iter, col, val)
+
+    def _on_node_removed_from_cache(self, sender: str, node: DisplayNode):
+        if not self._enable_state_listeners:
+            return
+
+        logger.debug(f'Received signal {actions.NODE_REMOVED} with node {node.node_identifier}')
+        if not self.con.display_store.displayed_rows.get(node.uid, None):
+            return
+
+        # TODO: this can be optimized to search only the paths of the ancestors
+        tree_iter = self.con.display_store.find_in_tree(target_uid=node.uid)
+        if not tree_iter:
+            raise RuntimeError(f'Cannot remove node: Could not find node in display tree: {node}')
+
+        self.con.display_store.model.remove(tree_iter)
 
     # ⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝⮝
     # LISTENERS end
@@ -272,7 +326,7 @@ class LazyDisplayStrategy:
         row_values.append(None)  # Meta Changed Date / Created Date
         row_values.append(EmptyNode())
 
-        return self.con.display_store.model.append(parent_node_iter, row_values)
+        return self.con.display_store.append_node(parent_node_iter, row_values)
 
     def _append_loading_child(self, parent_node_iter):
         row_values = []
@@ -289,42 +343,11 @@ class LazyDisplayStrategy:
         row_values.append(None)  # Meta Changed Date / Created Date
         row_values.append(LoadingNode())
 
-        return self.con.display_store.model.append(parent_node_iter, row_values)
+        return self.con.display_store.append_node(parent_node_iter, row_values)
 
-    def _append_dir_node(self, parent_iter, parent_uid: Optional[str], node_data: DisplayNode) -> TreeIter:
-        """Appends a dir-type node to the model"""
+    def _generate_display_cols(self, parent_uid: Optional[UID], node: DisplayNode):
         row_values = []
 
-        self._add_checked_columns(parent_uid, node_data, row_values)
-
-        # Icon
-        row_values.append(node_data.get_icon())
-
-        row_values.append(node_data.name)  # Name
-
-        if not self.con.treeview_meta.use_dir_tree:
-            row_values.append(None)  # Directory
-
-        if not node_data.size_bytes:
-            num_bytes_formatted = None
-        else:
-            num_bytes_formatted = humanfriendly.format_size(node_data.size_bytes)
-        row_values.append(num_bytes_formatted)  # Size
-
-        row_values.append(node_data.etc)  # Etc
-
-        row_values.append(None)  # Modify Date
-
-        row_values.append(None)  # Changed (UNIX) / Created (GOOG) Date
-
-        row_values.append(node_data)  # Data
-
-        return self.con.display_store.model.append(parent_iter, row_values)
-
-    def _append_file_node(self, parent_iter, parent_uid: Optional[UID], node: DisplayNode):
-        row_values = []
-
-        # Checked State
         self._add_checked_columns(parent_uid, node, row_values)
 
         # Icon
@@ -354,25 +377,39 @@ class LazyDisplayStrategy:
         row_values.append(node.etc)  # Etc
 
         # Modify TS
-        if node.modify_ts is None:
+        try:
+            if not node.modify_ts:
+                row_values.append(None)
+            else:
+                modify_datetime = datetime.fromtimestamp(node.modify_ts / 1000)
+                modify_formatted = modify_datetime.strftime(self.con.treeview_meta.datetime_format)
+                row_values.append(modify_formatted)
+        except AttributeError:
             row_values.append(None)
-        else:
-            modify_datetime = datetime.fromtimestamp(node.modify_ts / 1000)
-            modify_formatted = modify_datetime.strftime(self.con.treeview_meta.datetime_format)
-            row_values.append(modify_formatted)
 
         # Change TS
         try:
-            change_datetime = datetime.fromtimestamp(node.change_ts / 1000)
-            change_time = change_datetime.strftime(self.con.treeview_meta.datetime_format)
-            row_values.append(change_time)
+            if not node.change_ts:
+                row_values.append(None)
+            else:
+                change_datetime = datetime.fromtimestamp(node.change_ts / 1000)
+                change_time = change_datetime.strftime(self.con.treeview_meta.datetime_format)
+                row_values.append(change_time)
         except AttributeError:
             row_values.append(None)
 
         # Data (hidden)
         row_values.append(node)  # Data
 
-        return self.con.display_store.model.append(parent_iter, row_values)
+        return row_values
+
+    def _append_dir_node(self, parent_iter, parent_uid: Optional[str], node: DisplayNode) -> TreeIter:
+        row_values = self._generate_display_cols(parent_uid, node)
+        return self.con.display_store.append_node(parent_iter, row_values)
+
+    def _append_file_node(self, parent_iter, parent_uid: Optional[UID], node: DisplayNode):
+        row_values = self._generate_display_cols(parent_uid, node)
+        return self.con.display_store.append_node(parent_iter, row_values)
 
     def _add_checked_columns(self, parent_uid: Optional[UID], node: DisplayNode, row_values: List):
         """Populates the checkbox and sets its state for a newly added row"""

@@ -6,9 +6,12 @@ import subprocess
 from typing import List, Optional
 
 import gi
+from pydispatch import dispatcher
 
 from model.display_node import CategoryNode, DisplayNode
 from model.planning_node import FileDecoratorNode
+from ui import actions
+from ui.actions import ID_GLOBAL_CACHE
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GObject
@@ -62,6 +65,10 @@ class ContextActionsLocaldisk:
         menu.append(item)
 
         item = Gtk.SeparatorMenuItem()
+        menu.append(item)
+
+        item = Gtk.MenuItem(label='Test Remove Node')
+        item.connect('activate', lambda menu_item, n: dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=n), node_data)
         menu.append(item)
 
         if file_exists:

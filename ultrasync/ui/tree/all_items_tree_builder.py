@@ -55,23 +55,6 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
                 logger.debug(f'CategoryTree for "{self.tree.node_identifier}": ' + self.display_tree.show(stdout=False))
             raise
 
-    def _get_ancestors(self, item: DisplayNode) -> Deque[DisplayNode]:
-        ancestors: Deque[DisplayNode] = deque()
-
-        # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
-        # been added to this tree, or the root of the source tree
-        ancestor = item
-        while ancestor:
-            ancestor: DisplayNode = self.tree.get_parent_for_item(ancestor)
-            if ancestor:
-                if ancestor.uid == self.tree.uid:
-                    # do not include source tree's root node; that is already covered by the CategoryNode
-                    # (in pre-ancestors)
-                    return ancestors
-                ancestors.appendleft(ancestor)
-
-        return ancestors
-
     def _build_display_tree(self) -> treelib.Tree:
         """
         Builds a tree out of the flat file set.
@@ -89,7 +72,7 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
         display_tree.add_node(node=root_node, parent=None)  # root
         for item in item_list:
             assert not item.is_dir()
-            ancestors: Iterable[DisplayNode] = self._get_ancestors(item)
+            ancestors: Iterable[DisplayNode] = self.tree.get_ancestors(item)
             parent = root_node
             parent.add_meta_metrics(item)
 

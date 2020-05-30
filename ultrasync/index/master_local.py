@@ -82,8 +82,10 @@ class LocalDiskMasterCache:
             md5 = 'disabled'
         return f'LocalDiskMasterCache size: full_path={self.full_path_dict.total_entries} parent_path={self.parent_path_dict.total_entries} md5={md5}'
 
-    def add_or_update_fmeta(self, item: FMeta):
+    def add_or_update_fmeta(self, item: FMeta, fire_listeners=True):
         assert not self.parent_path_dict.get_single(os.path.dirname(item.full_path), os.path.basename(item.full_path)), f'Conflict for item {item}'
+
+        existing = None
         with self._lock:
             uid = self._get_uid_for_path(item.full_path, item.uid)
             # logger.debug(f'ID: {uid}, path: {item.full_path}')
@@ -97,13 +99,14 @@ class LocalDiskMasterCache:
             self.parent_path_dict.put(item, existing)
             self._add_ancestors_to_tree(item.full_path)
 
+        if fire_listeners:
             if existing is not None:
                 signal = actions.NODE_UPDATED
             else:
                 signal = actions.NODE_ADDED
             dispatcher.send(signal=signal, sender=ID_GLOBAL_CACHE, node=item)
 
-    def remove_fmeta(self, item: FMeta):
+    def remove_fmeta(self, item: FMeta, fire_listeners=True):
         with self._lock:
             self.full_path_dict.remove(item)
             dirpath, name = os.path.split(item.full_path)
@@ -118,7 +121,8 @@ class LocalDiskMasterCache:
                 count_removed = self.dir_tree.remove_node(item.full_path)
                 assert count_removed <= 1, f'Deleted {count_removed} nodes at {item.full_path}'
 
-        dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=item)
+        if fire_listeners:
+            dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=item)
 
     # Loading stuff
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
@@ -260,10 +264,7 @@ class LocalDiskMasterCache:
 
     def _update_in_memory_cache(self, fresh_tree):
         for item in fresh_tree.get_all():
-            if not isinstance(item, PlanningNode):  # Planning nodes should not be cached, and should remain in their trees
-                self.add_or_update_fmeta(item)
-                # FIXME: need to enable track changes, and handle deletes, etc
-                # FIXME FIXME FIXME
+            self.add_or_update_fmeta(item, fire_listeners=False)
 
         logger.debug(f'Updated in-memory cache: {self.get_summary()}')
 

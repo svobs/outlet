@@ -5,6 +5,7 @@ from typing import List, Optional
 
 import gi
 import treelib
+from pydispatch import dispatcher
 
 import file_util
 from constants import GDRIVE_PATH_PREFIX
@@ -12,6 +13,8 @@ from gdrive.client import GDriveClient
 from model.display_node import CategoryNode, DisplayNode, EphemeralNode
 from model.goog_node import GoogFile, GoogNode
 from model.planning_node import FileDecoratorNode
+from ui import actions
+from ui.actions import ID_GLOBAL_CACHE
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GObject
@@ -66,6 +69,10 @@ class ContextActionsGDrive:
         full_path_display = GObject.markup_escape_text(full_path_display)
         label.set_markup(f'<i>{full_path_display}</i>')
         item.set_sensitive(False)
+        menu.append(item)
+
+        item = Gtk.MenuItem(label='Test Remove Node')
+        item.connect('activate', lambda menu_item, n: dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=n), node_data)
         menu.append(item)
 
         if file_exists and not is_dir:

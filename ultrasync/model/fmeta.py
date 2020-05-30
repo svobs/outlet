@@ -18,8 +18,8 @@ class FMeta(DisplayNode):
         self.sha256: Optional[str] = sha256
         self._size_bytes: int = ensure_int(size_bytes)
         self.sync_ts: int = ensure_int(sync_ts)
-        self.modify_ts: int = ensure_int(modify_ts)
-        self.change_ts: int = ensure_int(change_ts)
+        self._modify_ts: int = ensure_int(modify_ts)
+        self._change_ts: int = ensure_int(change_ts)
 
     @classmethod
     def has_path(cls):
@@ -35,6 +35,22 @@ class FMeta(DisplayNode):
     @property
     def size_bytes(self):
         return self._size_bytes
+    
+    @property
+    def modify_ts(self):
+        return self._modify_ts
+
+    @modify_ts.setter
+    def modify_ts(self, modify_ts):
+        self._modify_ts = modify_ts
+
+    @property
+    def change_ts(self):
+        return self._change_ts
+
+    @change_ts.setter
+    def change_ts(self, change_ts):
+        self._change_ts = change_ts
 
     @classmethod
     def is_ignored(cls):
@@ -48,10 +64,10 @@ class FMeta(DisplayNode):
     def is_meta_equal(self, other_entry):
         assert isinstance(other_entry, FMeta)
         return self.full_path == other_entry.full_path and \
-            self.modify_ts == other_entry.modify_ts and self.change_ts == other_entry.change_ts
+            self._modify_ts == other_entry._modify_ts and self._change_ts == other_entry._change_ts
 
     def matches(self, other_entry):
         return self.is_content_equal(other_entry) and self.is_meta_equal(other_entry)
 
     def __repr__(self):
-        return f'FMeta({self.node_identifier} md5={self.md5} sha256={self.sha256} modify_ts={self.modify_ts})'
+        return f'FMeta({self.node_identifier} md5={self.md5} sha256={self.sha256} modify_ts={self._modify_ts})'

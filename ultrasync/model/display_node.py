@@ -51,6 +51,14 @@ class DisplayNode(Node, ABC):
         return None
 
     @property
+    def modify_ts(self):
+        return None
+
+    @property
+    def change_ts(self):
+        return None
+
+    @property
     def full_path(self):
         return self.node_identifier.full_path
 

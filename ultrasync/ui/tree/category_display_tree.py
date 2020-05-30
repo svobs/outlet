@@ -142,33 +142,6 @@ class CategoryDisplayTree:
         self._pre_ancestor_dict.put(parent_node)
         return parent_node
 
-    def _get_ancestors(self, item: DisplayNode, source_tree: SubtreeSnapshot) -> Tuple[Optional[DirNode], Deque[DisplayNode]]:
-        ancestors: Deque[DisplayNode] = deque()
-
-        # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
-        # been added to this tree, or the root of the source tree
-        ancestor = item
-        while ancestor:
-            if ancestor.parent_uids:
-                assert item.node_identifier.tree_type == OBJ_TYPE_GDRIVE
-                # In this tree already? Saves us work, and more importantly,
-                # allow us to use nodes not in the parent tree (e.g. FolderToAdds)
-                for parent_uid in ancestor.parent_uids:
-                    node: DirNode = self._category_tree.get_node(nid=parent_uid)
-                    if node:
-                        parent = node
-                        # Found: existing node in this tree. This should happen on the first iteration or not at all
-                        return parent, ancestors
-            ancestor = source_tree.get_parent_for_item(ancestor)
-            if ancestor:
-                if ancestor.uid == source_tree.uid:
-                    # do not include source tree's root node; that is already covered by the CategoryNode
-                    # (in pre-ancestors)
-                    return None, ancestors
-                ancestors.appendleft(ancestor)
-
-        return None, ancestors
-
     def add_item(self, item: DisplayNode, category: Category, source_tree: SubtreeSnapshot):
         """When we add the item, we add any necessary ancestors for it as well.
         1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't
@@ -187,10 +160,24 @@ class CategoryDisplayTree:
         if isinstance(parent, DirNode):
             parent.add_meta_metrics(item)
 
+        def stop_before(_ancestor) -> bool:
+            if _ancestor.parent_uids:
+                assert item.node_identifier.tree_type == OBJ_TYPE_GDRIVE
+                # In this tree already? Saves us work, and more importantly,
+                # allow us to use nodes not in the parent tree (e.g. FolderToAdds)
+                for parent_uid in _ancestor.parent_uids:
+                    node: DirNode = self._category_tree.get_node(nid=parent_uid)
+                    if node:
+                        stop_before.parent = node
+                        # Found: existing node in this tree. This should happen on the first iteration or not at all
+                        return True
+
+        stop_before.parent = None
+
         # Walk up the source tree and compose a list of ancestors:
-        new_parent, ancestors = self._get_ancestors(item, source_tree)
-        if new_parent:
-            parent = new_parent
+        ancestors: Iterable[DisplayNode] = source_tree.get_ancestors(item, stop_before)
+        if stop_before.parent:
+            parent = stop_before.parent
 
         # Walk down the ancestor list and create a node for each ancestor dir:
         for ancestor in ancestors:

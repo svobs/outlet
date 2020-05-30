@@ -121,6 +121,7 @@ class GoogNode(DisplayNode, ABC):
     def to_tuple(self):
         pass
 
+
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
     CLASS GoogFolder
@@ -181,7 +182,7 @@ class GoogFile(GoogNode):
         self.md5 = md5
         self.my_share = my_share
         self.create_ts = ensure_int(create_ts)
-        self.modify_ts = ensure_int(modify_ts)
+        self._modify_ts = ensure_int(modify_ts)
         self._size_bytes = ensure_int(size_bytes)
         self.owner_id = owner_id
 
@@ -202,6 +203,14 @@ class GoogFile(GoogNode):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    @property
+    def modify_ts(self):
+        return self._modify_ts
+
+    @modify_ts.setter
+    def modify_ts(self, modify_ts):
+        self._modify_ts = modify_ts
 
     @property
     def size_bytes(self):
