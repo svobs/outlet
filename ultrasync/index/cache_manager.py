@@ -173,7 +173,7 @@ class CacheManager:
                 file_util.delete_file(subtree_cache.cache_location)
             else:
                 logger.info(f'Cache for subtree (root={subtree_cache.subtree_root.full_path}, ts={subtree_cache.sync_ts}) is newer '
-                            f'than for supertree (root={supertree_cache.subtree_root.full_path}, ts={supertree_cache.sync_ts}): it will be merged'
+                            f'than for supertree (root={supertree_cache.subtree_root.full_path}, ts={supertree_cache.sync_ts}): it will be merged '
                             f'into supertree')
 
                 # 1. Load super-tree into memory
@@ -186,7 +186,7 @@ class CacheManager:
                         super_tree.remove(full_path=supertree_path)
 
                 # 3. Load sub-tree into memory
-                sub_tree = self._local_disk_cache.load_subtree_from_disk(supertree_cache, ID_GLOBAL_CACHE)
+                sub_tree = self._local_disk_cache.load_subtree_from_disk(subtree_cache, ID_GLOBAL_CACHE)
                 # 4. Add contents of sub-tree into super-tree:
                 for item in sub_tree.get_all():
                     super_tree.add_item(item)
@@ -283,7 +283,7 @@ class CacheManager:
         if tree_type == TREE_TYPE_GDRIVE:
             self._gdrive_cache.remove_goog_node(node, to_trash)
         elif tree_type == TREE_TYPE_LOCAL_DISK:
-            self._local_disk_cache.remove_fmeta(node)
+            self._local_disk_cache.remove_fmeta(node, to_trash)
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
@@ -343,6 +343,10 @@ class CacheManager:
 
     def get_uid_for_path(self, path: str) -> UID:
         return self._local_disk_cache.get_uid_for_path(path)
+
+    def get_for_local_path(self, path: str):
+        uid = self.get_uid_for_path(path)
+        return self._local_disk_cache.get_item(uid)
 
     def get_children(self, parent_identifier: NodeIdentifier):
         if parent_identifier.tree_type == TREE_TYPE_GDRIVE:

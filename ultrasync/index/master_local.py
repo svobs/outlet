@@ -7,6 +7,7 @@ from typing import Deque, Dict, List, Optional, Union
 
 import treelib
 from pydispatch import dispatcher
+from treelib.exceptions import NodeIDAbsentError
 
 import file_util
 import fmeta.content_hasher
@@ -86,11 +87,20 @@ class LocalDiskMasterCache:
             parent_identifier = parent_identifier.uid
         return self.dir_tree.children(parent_identifier)
 
+    def get_item(self, uid: UID) -> DisplayNode:
+        return self.dir_tree.get_node(uid)
+
     def get_parent_for_item(self, item: DisplayNode, required_subtree_path: str = None):
-        parent: DisplayNode = self.dir_tree.parent(nid=item.uid)
-        if parent.full_path.startswith(required_subtree_path):
-            return parent
-        return None
+        try:
+            parent: DisplayNode = self.dir_tree.parent(nid=item.uid)
+            if not required_subtree_path or parent.full_path.startswith(required_subtree_path):
+                return parent
+            return None
+        except NodeIDAbsentError:
+            return None
+        except Exception:
+            logger.error(f'Error getting parent for item: {item}, required_path: {required_subtree_path}')
+            raise
 
     def get_summary(self):
         if self.use_md5:
@@ -120,7 +130,7 @@ class LocalDiskMasterCache:
                 signal = actions.NODE_ADDED
             dispatcher.send(signal=signal, sender=ID_GLOBAL_CACHE, node=item)
 
-    def remove_fmeta(self, item: FMeta, fire_listeners=True):
+    def remove_fmeta(self, item: FMeta, to_trash=False, fire_listeners=True):
         with self._lock:
             assert item.uid == self._full_path_uid_dict.get(item.full_path, None), f'For item: {item}'
 
