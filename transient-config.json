@@ -2,8 +2,8 @@
     "diff_win": {
         "height": 726,
         "width": 1440,
-        "x": 151,
-        "y": 56
+        "x": 208,
+        "y": 95
     },
     "global": {
         "last_uid": 607204
@@ -17,7 +17,7 @@
             "Updated": true
         },
         "root_path": "/home/msvoboda/LocalDevel/ultrasync/test/BiDirMerge/Sen Mitsuji Left",
-        "root_uid": "/home/msvoboda/LocalDevel/ultrasync/test/BiDirMerge/Sen Mitsuji Left",
+        "root_uid": 9000,
         "tree_type": 1
     },
     "right_tree": {

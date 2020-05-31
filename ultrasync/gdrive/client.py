@@ -1,3 +1,4 @@
+import errno
 import io
 import logging
 import os.path
@@ -44,9 +45,6 @@ FILE_FIELDS = 'id, name, trashed, explicitlyTrashed, driveId, shared, version, c
               'modifiedTime, owners, md5Checksum, size, headRevisionId, shortcutDetails, mimeType, sharingUser'
 
 ISO_8601_FMT = '%Y-%m-%dT%H:%M:%S.%f%z'
-
-TOKEN_FILE_PATH = file_util.get_resource_path('token.pickle')
-CREDENTIALS_FILE_PATH = file_util.get_resource_path('credentials.json')
 
 logger = logging.getLogger(__name__)
 
@@ -97,23 +95,27 @@ class MemoryCache:
         MemoryCache._CACHE[url] = content
 
 
-def _load_google_client_service():
+def _load_google_client_service(config):
     creds = None
     # The file token.pickle stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
     # time.
-    if os.path.exists(TOKEN_FILE_PATH):
-        with open(TOKEN_FILE_PATH, 'rb') as token:
+    token_file_path = file_util.get_resource_path(config.get('auth.token_file_path'))
+    if os.path.exists(token_file_path):
+        with open(token_file_path, 'rb') as token:
             creds = pickle.load(token)
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE_PATH, SCOPES)
+            creds_path = file_util.get_resource_path(config.get('auth.credentials_file_path'))
+            if not os.path.exists(creds_path):
+                raise RuntimeError(f'Could not find credentials file at the specified path ({creds_path})! This file is required to run.')
+            flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
             creds = flow.run_local_server(port=0)
         # Save the credentials for the next run
-        with open(TOKEN_FILE_PATH, 'wb') as token:
+        with open(token_file_path, 'wb') as token:
             pickle.dump(creds, token)
 
     service = build('drive', 'v3', credentials=creds, cache=MemoryCache())
@@ -216,10 +218,10 @@ def _convert_to_goog_file(item, uid: UID, sync_ts: int = 0) -> GoogFile:
 
 class GDriveClient:
     def __init__(self, config, tree_id=None):
-        self.service = _load_google_client_service()
         self.config = config
         self.tree_id = tree_id
         self.page_size = config.get('gdrive.page_size')
+        self.service = _load_google_client_service(self.config)
 
     def get_about(self) -> UserMeta:
         """
