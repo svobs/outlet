@@ -1,7 +1,7 @@
 import logging
 import os
 import pathlib
-from typing import Dict, List, Optional, Union, ValuesView
+from typing import Dict, Iterable, List, Optional, Union, ValuesView
 
 import constants
 import file_util
@@ -45,12 +45,10 @@ class FMetaTree(SubtreeSnapshot):
     def create_identifier(cls, full_path: str, uid: UID, category) -> NodeIdentifier:
         return LocalFsIdentifier(full_path=full_path, uid=uid, category=category)
 
-    def get_parent_for_item(self, item) -> Optional[DisplayNode]:
-        # FIXME: add support for storing dir metadata in FMetaTree. Ditch this fake stuff
+    def get_parent_for_item(self, item: FMeta) -> Optional[DisplayNode]:
         parent = str(pathlib.Path(item.full_path).parent)
         if parent.startswith(self.root_path):
-            identifer = LocalFsIdentifier(full_path=parent, uid=self.cache_manager.get_uid_for_path(parent))
-            return DirNode(identifer)
+            return self.cache_manager.get_parent(item)
         return None
 
     def get_all(self) -> ValuesView[FMeta]:
@@ -59,6 +57,13 @@ class FMetaTree(SubtreeSnapshot):
         Returns: List of FMetas from list of unique paths
         """
         return self._path_dict.values()
+
+    def get_children_for_root(self) -> Iterable[DisplayNode]:
+        return self.cache_manager.get_children(self.node_identifier)
+
+    def get_children(self, parent_identifier: NodeIdentifier) -> Iterable[DisplayNode]:
+        assert parent_identifier.tree_type == constants.TREE_TYPE_LOCAL_DISK, f'For: {parent_identifier}'
+        return self.cache_manager.get_children(parent_identifier)
 
     def get_ignored_items(self):
         return self._ignored_items

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import deque
-from typing import Any, Callable, Deque, List, Optional, Union
+from typing import Any, Callable, Deque, Iterable, List, Optional, Union
 
 from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
@@ -55,6 +55,14 @@ class SubtreeSnapshot(ABC):
     def get_all(self) -> List[DisplayNode]:
         """Returns the complete set of all unique items from this subtree."""
         return []
+
+    @abstractmethod
+    def get_children_for_root(self) -> Iterable[DisplayNode]:
+        pass
+
+    @abstractmethod
+    def get_children(self, parent_identifier: NodeIdentifier) -> Iterable[DisplayNode]:
+        pass
 
     @abstractmethod
     def get_ignored_items(self):

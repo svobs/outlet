@@ -211,6 +211,12 @@ class GDriveMasterCache:
         cache_path = cache_info.cache_location
         return cache_path
 
+    def get_children(self, parent_identifier: NodeIdentifier):
+        return self.meta_master.get_children(parent_identifier.uid)
+
+    def get_parent_for_item(self, item: DisplayNode, required_subtree_path: str = None):
+        return self.meta_master.get_parent_for_item(item, required_subtree_path)
+
     def download_all_gdrive_meta(self, tree_id):
         root_identifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         cache_info = self.application.cache_manager.get_or_create_cache_info_entry(root_identifier)

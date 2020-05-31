@@ -119,19 +119,7 @@ class GDriveSubtree(SubtreeSnapshot):
         raise RuntimeError('Cannot do this from a subtree!')
 
     def get_parent_for_item(self, item: DisplayNode) -> Optional[GoogNode]:
-        if item and self.in_this_subtree(item.full_path):
-            parent_uids = item.parent_uids
-            if parent_uids:
-                resolved_parents = []
-                for par_id in item.parent_uids:
-                    parent = self._whole_tree.get_item_for_id(par_id)
-                    if parent and self.in_this_subtree(parent.full_path):
-                        resolved_parents.append(parent)
-                if len(resolved_parents) > 1:
-                    logger.error(f'Found multiple valid parents for item: {item}: parents={resolved_parents}')
-                if len(resolved_parents) == 1:
-                    return resolved_parents[0]
-        return None
+        return self._whole_tree.get_parent_for_item(item, self.root_path)
 
     def get_relative_path_for_item(self, goog_node: GoogNode):
         """Get the path for the given ID, relative to the root of this subtree"""

@@ -20,7 +20,7 @@ from model.category import Category
 from model.display_node import DirNode, DisplayNode, RootTypeNode
 from model.fmeta import FMeta
 from model.fmeta_tree import FMetaTree
-from model.node_identifier import LocalFsIdentifier
+from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from model.planning_node import PlanningNode
 from stopwatch_sec import Stopwatch
 from ui import actions
@@ -80,6 +80,17 @@ class LocalDiskMasterCache:
 
     def get_children(self, uid: UID):
         return self.dir_tree.children(uid)
+
+    def get_children(self, parent_identifier: NodeIdentifier):
+        if isinstance(parent_identifier, NodeIdentifier):
+            parent_identifier = parent_identifier.uid
+        return self.dir_tree.children(parent_identifier)
+
+    def get_parent_for_item(self, item: DisplayNode, required_subtree_path: str = None):
+        parent: DisplayNode = self.dir_tree.parent(nid=item.uid)
+        if parent.full_path.startswith(required_subtree_path):
+            return parent
+        return None
 
     def get_summary(self):
         if self.use_md5:

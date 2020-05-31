@@ -5,6 +5,7 @@ import constants
 import file_util
 from index.error import GDriveItemNotFoundError
 from index.uid_generator import UID
+from model.display_node import DisplayNode
 from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from model.goog_node import GoogNode
 from model.planning_node import PlanningNode
@@ -193,6 +194,30 @@ class GDriveWholeTree:
             raise GDriveItemNotFoundError(node_identifier=self.node_identifier_factory.for_values(
                 tree_type=constants.TREE_TYPE_GDRIVE, full_path=path), offending_path=path_so_far)
         return matching_ids
+
+    def is_in_subtree(self, path: str, subtree_root_path: str):
+        if isinstance(path, list):
+            for p in path:
+                # i.e. any
+                if p.startswith(subtree_root_path):
+                    return True
+            return False
+
+        return path.startswith(subtree_root_path)
+
+    def get_parent_for_item(self, item: DisplayNode, required_subtree_path: str = None) -> Optional[GoogNode]:
+        parent_uids = item.parent_uids
+        if parent_uids:
+            resolved_parents = []
+            for par_id in item.parent_uids:
+                parent = self.get_item_for_id(par_id)
+                if parent and (not required_subtree_path or self.is_in_subtree(parent.full_path, required_subtree_path)):
+                    resolved_parents.append(parent)
+            if len(resolved_parents) > 1:
+                logger.error(f'Found multiple valid parents for item: {item}: parents={resolved_parents}')
+            if len(resolved_parents) == 1:
+                return resolved_parents[0]
+        return None
 
     def validate(self):
         logger.debug(f'Validating GDriveWholeTree')
