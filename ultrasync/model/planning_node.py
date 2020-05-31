@@ -2,6 +2,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
+from constants import ICON_ADD_DIR
 from index.uid_generator import UID
 from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
@@ -162,3 +163,33 @@ class FileToUpdate(FileDecoratorNode):
 
     def __repr__(self):
         return f'FileToUpdate(node_identifier={self.node_identifier} parent_uids={self.parent_uids} src_node={self.src_node} dst_node={self.dst_node})'
+
+
+# CLASS LocalDirToAdd
+# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+
+
+class LocalDirToAdd(PlanningNode):
+    def __init__(self, node_identifier: NodeIdentifier):
+        super().__init__(node_identifier)
+
+    def get_icon(self):
+        return ICON_ADD_DIR
+
+    @classmethod
+    def is_file(cls):
+        return False
+
+    @classmethod
+    def is_dir(cls):
+        return True
+
+    @classmethod
+    def has_path(cls):
+        return True
+
+    def __repr__(self):
+        return f'LocalDirToAdd(node_identifier={self.node_identifier})'
+
+    def to_tuple(self):
+        pass

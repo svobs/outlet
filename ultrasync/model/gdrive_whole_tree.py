@@ -250,11 +250,11 @@ class GDriveWholeTree:
     def get_children_for_root(self) -> List[GoogNode]:
         return self.roots
 
-    def get_children(self, parent_uid: Union[UID, NodeIdentifier]) -> List[GoogNode]:
-        if isinstance(parent_uid, NodeIdentifier):
-            parent_uid: UID = parent_uid.uid
+    def get_children(self, parent_identifier: Union[UID, NodeIdentifier]) -> List[GoogNode]:
+        if isinstance(parent_identifier, NodeIdentifier):
+            parent_identifier: UID = parent_identifier.uid
 
-        return self.first_parent_dict.get(parent_uid, [])
+        return self.first_parent_dict.get(parent_identifier, [])
 
     def get_item_for_id(self, uid: UID) -> Optional[GoogNode]:
         assert uid
