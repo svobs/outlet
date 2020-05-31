@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 from model.display_node import DisplayNode
 from model.node_identifier import NodeIdentifier
@@ -14,6 +14,12 @@ class NullSubtree(SubtreeSnapshot):
         raise RuntimeError('Should not do this')
 
     def get_all(self) -> List[DisplayNode]:
+        return []
+
+    def get_children_for_root(self) -> Iterable[DisplayNode]:
+        return []
+
+    def get_children(self, parent_identifier: NodeIdentifier) -> Iterable[DisplayNode]:
         return []
 
     def get_ignored_items(self):
