@@ -88,6 +88,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.tree_con_right = tree_factory.build_editor_tree(parent_win=self, tree_id=actions.ID_RIGHT_TREE, root=saved_root_right)
         diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)
 
+        # Bottom panel: buttons and progress bar
         self.bottom_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.content_box.add(self.bottom_panel)
         # Bottom button panel:

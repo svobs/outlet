@@ -1,7 +1,8 @@
 from pydispatch import dispatcher
 import logging
 
-from index.uid_generator import NULL_UID
+from constants import TREE_TYPE_LOCAL_DISK
+from index.uid_generator import NULL_UID, ROOT_UID
 from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from ui import actions
 
@@ -22,6 +23,12 @@ class RootPathConfigPersister:
         tree_type = self._config.get(self._tree_type_config_key)
         root_path = self._config.get(self._root_path_config_key)
         root_uid = self._config.get(self._root_uid_config_key)
+        try:
+            if not isinstance(root_uid, int):
+                root_uid = int(root_uid)
+        except ValueError:
+            raise RuntimeError(f"Invalid value for tree's UID (expected integer): '{root_uid}'")
+
         self.root_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=root_path, uid=root_uid)
 
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=tree_id)
