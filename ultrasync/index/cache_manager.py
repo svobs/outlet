@@ -250,6 +250,19 @@ class CacheManager:
         else:
             raise RuntimeError(f'Unrecognized tree type: {node_identifier.tree_type}')
 
+    def _find_existing_supertree_for_subtree(self, subtree_root: NodeIdentifier, tree_id: str):
+        existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(subtree_root.tree_type).values())
+
+        for existing_cache in existing_caches:
+            if existing_cache.subtree_root.full_path.startswith(subtree_root.full_path):
+                if existing_cache.subtree_root.full_path == subtree_root.full_path:
+                    # Exact match exists: just return from here and allow exact match logic to work
+                    return None
+                else:
+                    return existing_cache
+        # Nothing in the cache contains subtree
+        return None
+
     def _load_local_subtree(self, subtree_root: NodeIdentifier, tree_id) -> SubtreeSnapshot:
         """
         Performs a read-through retreival of all the FMetas in the given subtree
@@ -259,6 +272,16 @@ class CacheManager:
             logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root.full_path}"')
             return NullSubtree(subtree_root)
 
+        # If we have already loaded this subtree as part of a larger cache, use that:
+        supertree = self._find_existing_supertree_for_subtree(subtree_root, tree_id)
+        if supertree:
+            logger.debug(f'Subtree ({subtree_root.full_path}) is part of existing cached supertree ({supertree.subtree_root.full_path})')
+            if not supertree.is_loaded:
+                # load into in-memory cache
+                self._local_disk_cache.load_subtree(supertree, tree_id)
+            return self._local_disk_cache.get_subtree_from_memory_only(subtree_root)
+
+        # no supertree found in cache. use exact match logic:
         cache_info = self.get_or_create_cache_info_entry(subtree_root)
         assert cache_info is not None
 
