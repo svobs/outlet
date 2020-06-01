@@ -148,6 +148,14 @@ class TwoLevelDict:
             dict2[key2] = item
         return existing
 
+    def get_all(self):
+        all_list = []
+        for d1 in self._dict.values():
+            for d2 in d1.values():
+                all_list.append(d2)
+
+        return all_list
+
     def get_second_dict(self, key1: Union[str, int]) -> Dict[Union[str, int], Any]:
         dict2 = self._dict.get(key1, None)
         if dict2:

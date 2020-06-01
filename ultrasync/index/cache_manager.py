@@ -105,13 +105,13 @@ class CacheManager:
                     logger.info(f'Skipping non-existent cache info entry: {info.cache_location} (for subtree: {info.subtree_root})')
                     skipped_count += 1
                     continue
-                duplicate = self.caches_by_type.get_single(info.subtree_root.tree_type, info.subtree_root.full_path)
-                if duplicate:
-                    if info.sync_ts < duplicate.sync_ts:
-                        logger.info(f'Skipping duplicate cache info entry: {duplicate.subtree_root}')
+                existing = self.caches_by_type.get_single(info.subtree_root.tree_type, info.subtree_root.full_path)
+                if existing:
+                    if info.sync_ts < existing.sync_ts:
+                        logger.info(f'Skipping duplicate cache info entry: {existing.subtree_root}')
                         continue
                     else:
-                        logger.info(f'Overwriting older duplicate cache info entry: {duplicate.subtree_root}')
+                        logger.info(f'Overwriting older duplicate cache info entry: {existing.subtree_root}')
 
                     skipped_count += 1
                 else:
@@ -123,6 +123,10 @@ class CacheManager:
                     info.subtree_root.uid = new_uid
 
                 self.caches_by_type.put(info)
+
+            if skipped_count > 0:
+                caches = self.caches_by_type.get_all()
+                self._overwrite_all_caches_in_registry(caches)
 
             if self.application.cache_manager.enable_load_from_disk and self.load_all_caches_on_startup:
                 # MUST read GDrive first, because currently we assign incrementing integer UIDs for local files dynamically,
@@ -316,6 +320,7 @@ class CacheManager:
                                   is_complete=True)
 
         with CacheRegistry(self.main_registry_path, self.application.node_identifier_factory) as cache_registry_db:
+            logger.info(f'Inserting new cache info into registry: {subtree_root}')
             cache_registry_db.insert_cache_info(db_entry, append=True, overwrite=False)
 
         cache_info = PersistedCacheInfo(db_entry)

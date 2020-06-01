@@ -7,7 +7,7 @@ import socket
 import sys
 import time
 from abc import ABC, abstractmethod
-from datetime import datetime
+import dateutil.parser
 from typing import Dict, List, Optional, Tuple, Union
 
 import humanfriendly
@@ -43,8 +43,6 @@ WEB_CONTENT_LINK = 'https://drive.google.com/uc?id={id}&export=download'
 DIR_FIELDS = 'id, name, trashed, explicitlyTrashed, driveId, shared'
 FILE_FIELDS = 'id, name, trashed, explicitlyTrashed, driveId, shared, version, createdTime, ' \
               'modifiedTime, owners, md5Checksum, size, headRevisionId, shortcutDetails, mimeType, sharingUser'
-
-ISO_8601_FMT = '%Y-%m-%dT%H:%M:%S.%f%z'
 
 logger = logging.getLogger(__name__)
 
@@ -188,12 +186,12 @@ def _convert_to_goog_file(item, uid: UID, sync_ts: int = 0) -> GoogFile:
 
     create_ts = item.get('createdTime', None)
     if create_ts:
-        create_ts = datetime.strptime(create_ts, ISO_8601_FMT)
+        create_ts = dateutil.parser.parse(create_ts)
         create_ts = int(create_ts.timestamp() * 1000)
 
     modify_ts = item.get('modifiedTime', None)
     if modify_ts:
-        modify_ts = datetime.strptime(modify_ts, ISO_8601_FMT)
+        modify_ts = dateutil.parser.parse(modify_ts)
         modify_ts = int(modify_ts.timestamp() * 1000)
 
     head_revision_id = item.get('headRevisionId', None)

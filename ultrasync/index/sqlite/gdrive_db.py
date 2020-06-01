@@ -88,6 +88,9 @@ class GDriveDatabase(MetaDatabase):
         self.insert_many(self.TABLE_GRDIVE_DIRS, dir_list, commit=commit)
 
     def get_gdrive_dirs(self):
+        if not self.has_gdrive_dirs():
+            logger.debug('No GDrive dirs in DB. Returning empty list')
+            return []
         return self.get_all_rows(self.TABLE_GRDIVE_DIRS)
 
     def update_dir_fetched_status(self, commit=True):
@@ -113,6 +116,9 @@ class GDriveDatabase(MetaDatabase):
         self.insert_many(self.TABLE_GRDIVE_FILES, file_list, commit=commit)
 
     def get_gdrive_files(self):
+        if not self.has_gdrive_files():
+            logger.debug('No GDrive files in DB. Returning empty list')
+            return []
         return self.get_all_rows(self.TABLE_GRDIVE_FILES)
 
     def delete_gdrive_file_with_uid(self, uid: UID, commit=True):

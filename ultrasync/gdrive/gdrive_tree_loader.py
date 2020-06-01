@@ -225,10 +225,6 @@ class GDriveTreeLoader:
         Retrieves and reassembles (to the extent it was during the download) a partially or completely downloaded
         GDrive tree.
         """
-
-        if not self.cache.has_gdrive_dirs() or not self.cache.has_gdrive_files():
-            raise RuntimeError(f'Cache is corrupted: {self.cache_path}')
-
         sw_total = Stopwatch()
         tree = GDriveWholeTree(self.node_identifier_factory)
 
