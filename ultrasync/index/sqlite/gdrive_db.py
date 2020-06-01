@@ -21,6 +21,9 @@ class CurrentDownload:
     def is_complete(self):
         return self.current_state == GDRIVE_DOWNLOAD_STATE_COMPLETE
 
+    def __repr__(self):
+        return f'CurrentDownload(type={self.download_type}, state={self.current_state}, page_token={self.page_token}, update_ts={self.update_ts})'
+
 
 class GDriveDatabase(MetaDatabase):
 
@@ -85,6 +88,7 @@ class GDriveDatabase(MetaDatabase):
                 self.drop_table_if_exists(self.TABLE_GRDIVE_DIRS)
 
         self.create_table_if_not_exist(self.TABLE_GRDIVE_DIRS, commit=False)
+        logger.debug(f'Inserting {len(dir_list)} dirs into DB, commit={commit}')
         self.insert_many(self.TABLE_GRDIVE_DIRS, dir_list, commit=commit)
 
     def get_gdrive_dirs(self):
@@ -100,6 +104,7 @@ class GDriveDatabase(MetaDatabase):
         sql = self.build_delete(self.TABLE_GRDIVE_DIRS) + f' WHERE uid = ?'
         self.conn.execute(sql, (uid,))
         if commit:
+            logger.debug('Committing!')
             self.conn.commit()
 
     # GDRIVE_FILES operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
@@ -125,6 +130,7 @@ class GDriveDatabase(MetaDatabase):
         sql = self.build_delete(self.TABLE_GRDIVE_FILES) + f' WHERE uid = ?'
         self.conn.execute(sql, (uid,))
         if commit:
+            logger.debug('Committing!')
             self.conn.commit()
 
     # TABLE goog_id_parent_mappings
@@ -136,6 +142,7 @@ class GDriveDatabase(MetaDatabase):
                 self.drop_table_if_exists(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS, commit=False)
 
         self.create_table_if_not_exist(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS, commit=False)
+        logger.debug(f'Inserting {len(id_parent_mappings)} id-par mappings into DB, commit={commit}')
         self.insert_many(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS, id_parent_mappings, commit=commit)
 
     def update_parent_mappings_for_id(self, id_parent_mappings: List[Tuple], uid: UID, commit=True):
@@ -165,6 +172,7 @@ class GDriveDatabase(MetaDatabase):
         sql = self.build_delete(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS) + f' WHERE uid = ?'
         self.conn.execute(sql, (uid,))
         if commit:
+            logger.debug('Committing!')
             self.conn.commit()
 
     # TABLE current_downloads
@@ -179,8 +187,10 @@ class GDriveDatabase(MetaDatabase):
         rows = self.select(self.TABLE_GRDIVE_CURRENT_DOWNLOADS, f' WHERE download_type = {download_type}')
         row_to_save = download.to_tuple()
         if rows:
+            logger.debug(f'Updating download in DB: {download}')
             self.update(self.TABLE_GRDIVE_CURRENT_DOWNLOADS, stmt_vars=row_to_save, where_clause=f' WHERE download_type = {download_type}')
         else:
+            logger.debug(f'Inserting download in DB: {download}')
             self.insert_one(self.TABLE_GRDIVE_CURRENT_DOWNLOADS, row_to_save)
 
     def get_current_downloads(self) -> List[CurrentDownload]:

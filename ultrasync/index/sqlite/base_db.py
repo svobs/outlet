@@ -84,6 +84,7 @@ class MetaDatabase:
             logger.debug('Executing SQL: ' + sql)
             cursor.execute(sql, stmt_vars)
         if commit:
+            logger.debug('Committing!')
             self.conn.commit()
 
     def is_table(self, table):
@@ -101,6 +102,7 @@ class MetaDatabase:
         logger.debug(f"Inserting one tuple into table {table['name']}")
         self.conn.execute(sql, row)
         if commit:
+            logger.debug('Committing!')
             self.conn.commit()
 
     def insert_many(self, table, tuples, commit=True):
@@ -108,6 +110,7 @@ class MetaDatabase:
         logger.debug(f"Inserting {len(tuples)} tuples into table {table['name']}")
         self.conn.executemany(sql, tuples)
         if commit:
+            logger.debug('Committing!')
             self.conn.commit()
 
     def create_table(self, table, commit=True):
@@ -115,6 +118,7 @@ class MetaDatabase:
         logger.debug('Executing SQL: ' + sql)
         self.conn.execute(sql)
         if commit:
+            logger.debug('Committing!')
             self.conn.commit()
 
     def truncate_table(self, table, commit=True):
@@ -122,6 +126,7 @@ class MetaDatabase:
         logger.debug('Executing SQL: ' + sql)
         self.conn.execute(sql)
         if commit:
+            logger.debug('Committing!')
             self.conn.commit()
 
     def drop_table_if_exists(self, table, commit=True):
@@ -129,6 +134,7 @@ class MetaDatabase:
         logger.debug('Executing SQL: ' + sql)
         self.conn.execute(sql)
         if commit:
+            logger.debug('Committing!')
             self.conn.commit()
 
     def has_rows(self, table):
