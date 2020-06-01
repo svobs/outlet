@@ -12,6 +12,10 @@ make freeze
 # Install required packages:
 make init
 
+# (Mac only): for UTF-8 display
+Need to install the Symbola font found here:
+https://fontlibrary.org/assets/downloads/symbola/cf81aeb303c13ce765877d31571dc5c7/symbola.zip
+
 # Install UI prereqs
 sudo apt install libgirepository1.0-dev gcc libcairo2-dev pkg-config python3-dev gir1.2-gtk-3.0
 pip3 install pycairo

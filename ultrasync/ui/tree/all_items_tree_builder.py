@@ -14,7 +14,7 @@ SUPER_DEBUG = False
 
 
 # CLASS AllItemsGDriveTreeBuilder
-# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class AllItemsGDriveTreeBuilder(DisplayTreeBuilder):
     """Works with either a GDriveWholeTree or a GDriveSubtree"""
@@ -31,7 +31,7 @@ class AllItemsGDriveTreeBuilder(DisplayTreeBuilder):
 
 
 # CLASS AllItemsLocalFsTreeBuilder
-# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
     def __init__(self, controller, root: NodeIdentifier = None, tree: SubtreeSnapshot = None):

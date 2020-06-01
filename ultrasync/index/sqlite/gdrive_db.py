@@ -134,7 +134,7 @@ class GDriveDatabase(MetaDatabase):
             self.conn.commit()
 
     # TABLE goog_id_parent_mappings
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def insert_id_parent_mappings(self, id_parent_mappings: List[Tuple], overwrite=False, commit=True):
         if self.is_table(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS):
@@ -176,7 +176,7 @@ class GDriveDatabase(MetaDatabase):
             self.conn.commit()
 
     # TABLE current_downloads
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def create_or_update_download(self, download: CurrentDownload):
         self.create_table_if_not_exist(self.TABLE_GRDIVE_CURRENT_DOWNLOADS)

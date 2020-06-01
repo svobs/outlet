@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 # ABSTRACT CLASS DisplayTreeBuilder
-# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class DisplayTreeBuilder(ABC):
     """Abstract base class. Subclasses can implement different strategies for how to group and organize the underlying data tree"""

@@ -160,7 +160,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self._event_id_size_allocate = eid
 
     # GTK LISTENERS begin
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def _on_size_allocated(self, widget, alloc):
         # logger.debug('EVENT: GTK "size-allocate" fired')
@@ -247,7 +247,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             raise
 
     # SIGNAL LISTENERS begin
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def _on_enable_ui_toggled(self, sender, enable):
         """Callback for TOGGLE_UI_ENABLEMENT"""

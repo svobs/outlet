@@ -211,7 +211,7 @@ def _convert_to_goog_file(item, uid: UID, sync_ts: int = 0) -> GoogFile:
     return goog_node
 
 # CLASS GDriveClient
-# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 
 class GDriveClient:
@@ -449,7 +449,7 @@ class GDriveClient:
         # TODO: save MIME types, owners, shortcuts
 
     # DIRECTORIES (folders)
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def get_meta_all_directories(self, initial_page_token: Optional[str], sync_ts: int,
                                  uid_generator: UidGenerator, observer: MetaObserver):
@@ -528,7 +528,7 @@ class GDriveClient:
         logger.info(f'{stopwatch_retrieval} Query returned {item_count} directories')
 
     # BINARIES
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def download_file(self, file_id: str, dest_path: str):
         """Download a single file based on Google ID and destination path"""

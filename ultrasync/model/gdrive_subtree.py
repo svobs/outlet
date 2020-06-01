@@ -89,8 +89,8 @@ class GDriveSubtree(SubtreeSnapshot):
     def get_children_for_root(self) -> List[GoogNode]:
         return self.get_children(self.root_node.uid)
 
-    def get_children(self, parent_uid: Union[UID, NodeIdentifier]) -> List[GoogNode]:
-        return self._whole_tree.get_children(parent_uid=parent_uid)
+    def get_children(self, parent_identifier: Union[UID, NodeIdentifier]) -> List[GoogNode]:
+        return self._whole_tree.get_children(parent_identifier=parent_identifier)
 
     def get_all(self) -> ValuesView[GoogNode]:
         """Returns the complete set of all unique items from this subtree."""

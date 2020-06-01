@@ -7,7 +7,7 @@ from model.display_node import DisplayNode
 
 
 # ABSTRACT CLASS SubtreeSnapshot
-# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class SubtreeSnapshot(ABC):
     def __init__(self, root_identifier: NodeIdentifier):
@@ -15,7 +15,7 @@ class SubtreeSnapshot(ABC):
         self.node_identifier: NodeIdentifier = root_identifier
 
     # From the root node_identifier
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     @property
     def tree_type(self) -> int:
@@ -40,7 +40,7 @@ class SubtreeSnapshot(ABC):
         return path.startswith(self.root_path)
 
     # Factory methods
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     @classmethod
     @abstractmethod
@@ -49,7 +49,7 @@ class SubtreeSnapshot(ABC):
         pass
 
     # Getters & search
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     @abstractmethod
     def get_all(self) -> List[DisplayNode]:
@@ -107,14 +107,14 @@ class SubtreeSnapshot(ABC):
         return ancestors
 
     # Setter
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     @abstractmethod
     def add_item(self, item):
         pass
 
     # Stats
-    # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     @abstractmethod
     def get_summary(self):
