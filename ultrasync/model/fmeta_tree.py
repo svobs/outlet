@@ -6,11 +6,8 @@ from typing import Dict, Iterable, List, Optional, Union, ValuesView
 import constants
 import file_util
 import format_util
-from index import uid_generator
-from index.atomic_counter import AtomicCounter
 from index.two_level_dict import Md5BeforePathDict, Md5BeforeUidDict
 from index.uid_generator import UID, UidGenerator
-from model.category import Category
 from model.node_identifier import NodeIdentifier, LocalFsIdentifier
 from model.display_node import DirNode, DisplayNode
 from model.fmeta import FMeta
@@ -22,24 +19,18 @@ logger = logging.getLogger(__name__)
 
 """
 ━━━━━━━━━━━━━━━━━┛ ✠ ┗━━━━━━━━━━━━━━━━━
-                  FMetaTree
+              FMetaTree
 ━━━━━━━━━━━━━━━━━┓ ✠ ┏━━━━━━━━━━━━━━━━━
 """
 
 
 class FMetaTree(SubtreeSnapshot):
-    """🢄🢄🢄 Note: each FMeta object should be unique within its tree. Each FMeta should not be shared
-    between trees, and should be cloned if needed"""
+    """🢄 Just a shell of its former self!"""
 
     def __init__(self, root_identifier: LocalFsIdentifier, application):
         assert isinstance(root_identifier, LocalFsIdentifier)
         super().__init__(root_identifier)
         self.cache_manager = application.cache_manager
-        # Each item is an entry
-        self._path_dict: Dict[str, FMeta] = {}
-        # Each item contains a list of entries
-        self._ignored_items: List[FMeta] = []
-        self._total_size_bytes = 0
 
     @classmethod
     def create_identifier(cls, full_path: str, uid: UID, category) -> NodeIdentifier:
@@ -48,15 +39,15 @@ class FMetaTree(SubtreeSnapshot):
     def get_parent_for_item(self, item: FMeta) -> Optional[DisplayNode]:
         parent = str(pathlib.Path(item.full_path).parent)
         if parent.startswith(self.root_path):
-            return self.cache_manager.get_parent(item)
+            return self.cache_manager.get_parent_for_item(item)
         return None
 
-    def get_all(self) -> ValuesView[FMeta]:
+    def get_all(self) -> List[FMeta]:
         """
         Gets the complete set of all unique FMetas from this FMetaTree.
         Returns: List of FMetas from list of unique paths
         """
-        return self._path_dict.values()
+        return self.cache_manager.get_all_files_for_subtree(self.node_identifier)
 
     def get_children_for_root(self) -> Iterable[DisplayNode]:
         return self.cache_manager.get_children(self.node_identifier)
@@ -65,29 +56,26 @@ class FMetaTree(SubtreeSnapshot):
         assert parent_identifier.tree_type == constants.TREE_TYPE_LOCAL_DISK, f'For: {parent_identifier}'
         return self.cache_manager.get_children(parent_identifier)
 
-    def get_ignored_items(self):
-        return self._ignored_items
-
     def get_full_path_for_item(self, item: FMeta) -> str:
         # Trivial for FMetas
         return item.full_path
 
-    def get_for_path(self, path, include_ignored=False) -> List[FMeta]:
-        fmeta = self._path_dict.get(path, None)
-        if fmeta is None:
-            return []
-        if include_ignored or fmeta.category != Category.Ignored:
-            return [fmeta]
+    def get_for_path(self, path: str, include_ignored=False) -> List[FMeta]:
+        item = self.cache_manager.get_for_local_path(path)
+        if item:
+            if item.full_path.startswith(self.root_path):
+                return [item]
+        return []
 
     def get_md5_dict(self):
         md5_set_stopwatch = Stopwatch()
 
         md5_dict: Md5BeforePathDict = Md5BeforePathDict()
-        for item in self._path_dict.values():
+        for item in self.get_all():
             if item.md5:
                 md5_dict.put(item)
 
-        logger.info(f'{md5_set_stopwatch} Found {md5_dict.total_entries} MD5s')
+        logger.info(f'{md5_set_stopwatch} Found {md5_dict.total_entries} MD5s in {self.root_path}')
         return md5_dict
 
     def get_relative_path_for_full_path(self, full_path: str):
@@ -97,71 +85,24 @@ class FMetaTree(SubtreeSnapshot):
     def get_relative_path_for_item(self, fmeta: FMeta):
         return self.get_relative_path_for_full_path(fmeta.full_path)
 
-    def remove(self, full_path: str, ok_if_missing=False) -> Optional[FMeta]:
-        """
-        🢂 Removes from this FMetaTree the FMeta which matches the given file path.
-        Does sanity checks and raises exceptions if internal state is found to have problems.
-        If match not found: returns None if ok_if_missing=True; raises exception otherwise.
-        """
-        match = self._path_dict.pop(full_path, None)
-        if match is None:
-            if ok_if_missing:
-                logger.debug(f'Did not remove because not found in path dict: {full_path}')
-                return None
-            else:
-                raise RuntimeError(f'Could not find FMeta for path: {full_path}')
-
-        return match
+    def remove(self, node: FMeta):
+        raise RuntimeError('Can no longer do this in FMetaTree!')
 
     def add_item(self, item: Union[FMeta, PlanningNode]):
-        assert item.full_path.startswith(self.root_path), f'FMeta (cat={item.category.name}) full path (' \
-                                                          f'{item.full_path}) is not under this tree ({self.root_path})'
-
-        if item.category == Category.Ignored:
-            logger.debug(f'Found ignored file: {item.full_path}')
-            self._ignored_items.append(item)
-
-        is_planning_node = isinstance(item, PlanningNode)
-
-        item_matching_path = self._path_dict.get(item.full_path, None)
-        if item_matching_path is not None:
-            if is_planning_node:
-                if not isinstance(item_matching_path, PlanningNode):
-                    raise RuntimeError(f'Attempt to overwrite type {type(item_matching_path)} with PlanningNode! '
-                                       f'Orig={item_matching_path}; New={item}')
-            else:
-                self._total_size_bytes -= item_matching_path.size_bytes
-            logger.warning(f'Overwriting path: {item.full_path}')
-
-        if not is_planning_node:
-            self._total_size_bytes += item.size_bytes
-
-        self._path_dict[item.full_path] = item
+        raise RuntimeError('Can no longer do this in FMetaTree!')
 
     def get_summary(self):
         """
         Returns: summary of the aggregate FMeta in this tree.
-
-        Remember: path dict contains ALL file meta, including faux-meta such as
-        'deleted' meta, as well as 'ignored' meta. We subtract that out here.
-
         """
-        ignored_count = len(self._ignored_items)
-        ignored_size = 0
-        for ignored in self._ignored_items:
-            if ignored.size_bytes:
-                ignored_size += ignored.size_bytes
 
-        total_size = self._total_size_bytes - ignored_size
+        total_size = 0  # TODO!
         size_hf = format_util.humanfriendlier_size(total_size)
 
-        count = len(self._path_dict) - ignored_count
+        count = 0  # TODO!
 
         summary_string = f'{size_hf} total in {format_util.with_commas(count)} files'
-        if ignored_count > 0:
-            ignored_size_hf = format_util.humanfriendlier_size(ignored_size)
-            summary_string += f' (+{ignored_size_hf} in {ignored_count} ignored files)'
         return summary_string
 
     def __repr__(self):
-        return f'FMetaTree(Paths={len(self._path_dict)} Root="{self.node_identifier}"])'
+        return f'FMetaTree(root="{self.node_identifier}"])'

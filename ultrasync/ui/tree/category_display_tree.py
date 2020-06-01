@@ -34,6 +34,7 @@ class TreeTypeBeforeCategoryDict(TwoLevelDict):
 class CategoryDisplayTree:
     def __init__(self, application, root_node_identifier: NodeIdentifier, show_whole_forest=False):
         self._category_tree: treelib.Tree = treelib.Tree()
+        self.cache_manager = application.cache_manager
         self.uid_generator = application.uid_generator
         self.node_identifier_factory = application.node_identifier_factory
         # Root node will never be displayed in the UI:
@@ -116,7 +117,7 @@ class CategoryDisplayTree:
                 uid = self.uid_generator.get_new_uid()
                 node_identifier = self.node_identifier_factory.for_values(tree_type=item.node_identifier.tree_type, uid=uid, category=item.category)
                 subroot_node = RootTypeNode(node_identifier=node_identifier)
-                logger.debug(f'Creating pre-ancestor RootType node: uid={uid}')
+                logger.debug(f'Creating pre-ancestor RootType node: {node_identifier}')
                 self._category_tree.add_node(node=subroot_node, parent=self.root)
             parent_node = subroot_node
         else:
@@ -134,9 +135,9 @@ class CategoryDisplayTree:
             uid = self.uid_generator.get_new_uid()
 
             node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=self.node_identifier.full_path,
-                                                               uid=uid, category=item.category)
+                                                                      uid=uid, category=item.category)
             cat_node = CategoryNode(node_identifier=node_identifier)
-            logger.debug(f'Creating pre-ancestor CAT node: uid={uid}')
+            logger.debug(f'Creating pre-ancestor CAT node: {node_identifier}')
             self._category_tree.add_node(node=cat_node, parent=parent_node)
         parent_node = cat_node
 
@@ -152,7 +153,7 @@ class CategoryDisplayTree:
                 uid = self.uid_generator.get_new_uid()
                 node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=uid, category=item.category)
                 dir_node = DirNode(node_identifier=node_identifier)
-                logger.debug(f'Creating pre-ancestor DIR node: {uid}')
+                logger.debug(f'Creating pre-ancestor DIR node: {node_identifier}')
                 self._category_tree.add_node(node=dir_node, parent=parent_node)
                 parent_node = dir_node
 
@@ -178,7 +179,7 @@ class CategoryDisplayTree:
         if isinstance(parent, DirNode):
             parent.add_meta_metrics(item)
 
-        def stop_before(_ancestor) -> bool:
+        def stop_before(_ancestor: DisplayNode) -> bool:
             if _ancestor.parent_uids:
                 assert item.node_identifier.tree_type == TREE_TYPE_GDRIVE
                 # In this tree already? Saves us work, and more importantly,
@@ -189,6 +190,13 @@ class CategoryDisplayTree:
                         stop_before.parent = node
                         # Found: existing node in this tree. This should happen on the first iteration or not at all
                         return True
+            else:
+                parent_uid = self.cache_manager.get_uid_for_path(_ancestor.full_path)
+                node: DirNode = self._category_tree.get_node(nid=parent_uid)
+                if node:
+                    stop_before.parent = node
+                    # Found: existing node in this tree. This should happen on the first iteration or not at all
+                    return True
 
         stop_before.parent = None
 

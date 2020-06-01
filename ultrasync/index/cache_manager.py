@@ -5,6 +5,7 @@ import threading
 import time
 from typing import List, Optional, Tuple
 
+import treelib
 from pydispatch import dispatcher
 
 import file_util
@@ -18,6 +19,7 @@ from index.two_level_dict import TwoLevelDict
 from index.uid_generator import UID
 from model.category import Category
 from model.display_node import DisplayNode
+from model.fmeta import FMeta
 from model.fmeta_tree import FMetaTree
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier, NodeIdentifierFactory
@@ -181,24 +183,19 @@ class CacheManager:
                             f'into supertree')
 
                 # 1. Load super-tree into memory
-                super_tree: FMetaTree = self._local_disk_cache.load_subtree_from_disk(supertree_cache, ID_GLOBAL_CACHE)
-                supertree_paths: List[str] = list(map(lambda x: x.full_path, super_tree.get_all()))
-                subtree_root: str = subtree_cache.subtree_root.full_path
+                super_tree: treelib.Tree = self._local_disk_cache.load_subtree_from_disk(supertree_cache, ID_GLOBAL_CACHE)
                 # 2. Discard all paths from super-tree which fall under sub-tree:
-                for supertree_path in supertree_paths:
-                    if supertree_path.startswith(subtree_root):
-                        super_tree.remove(full_path=supertree_path)
 
                 # 3. Load sub-tree into memory
-                sub_tree = self._local_disk_cache.load_subtree_from_disk(subtree_cache, ID_GLOBAL_CACHE)
-                # 4. Add contents of sub-tree into super-tree:
-                for item in sub_tree.get_all():
-                    super_tree.add_item(item)
-                sub_tree = None
+                sub_tree: treelib.Tree = self._local_disk_cache.load_subtree_from_disk(subtree_cache, ID_GLOBAL_CACHE)
+                if sub_tree:
+                    # 4. Add contents of sub-tree into super-tree:
+                    self._local_disk_cache.replace_subtree(super_tree=super_tree, sub_tree=sub_tree)
+
                 # 5. We already loaded it into memory; add it to the in-memory cache:
-                self._local_disk_cache.load_subtree(supertree_cache, ID_GLOBAL_CACHE, super_tree)
+                self._local_disk_cache.replace_subtree(self._local_disk_cache.dir_tree, super_tree)
                 if self.enable_save_to_disk:
-                    self._local_disk_cache.save_subtree_disk_cache(super_tree)
+                    self._local_disk_cache.save_subtree_disk_cache(supertree_cache.subtree_root)
                 else:
                     logger.debug('Skipping cache update because save to disk is disabled')
 
@@ -372,7 +369,7 @@ class CacheManager:
     def get_uid_for_path(self, path: str) -> UID:
         return self._local_disk_cache.get_uid_for_path(path)
 
-    def get_for_local_path(self, path: str):
+    def get_for_local_path(self, path: str) -> DisplayNode:
         uid = self.get_uid_for_path(path)
         return self._local_disk_cache.get_item(uid)
 
@@ -391,3 +388,11 @@ class CacheManager:
             return self._local_disk_cache.get_parent_for_item(item)
         else:
             raise RuntimeError(f'Unknown tree type: {item.node_identifier.tree_type} for {item}')
+
+    def get_all_files_for_subtree(self, subtree_root: NodeIdentifier) -> List[DisplayNode]:
+        if subtree_root.tree_type == TREE_TYPE_GDRIVE:
+            return self._gdrive_cache.get_all_files_for_subtree(subtree_root)
+        elif subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
+            return self._local_disk_cache.get_all_fmetas_for_subtree(subtree_root)
+        else:
+            raise RuntimeError(f'Unknown tree type: {subtree_root.tree_type} for {subtree_root}')

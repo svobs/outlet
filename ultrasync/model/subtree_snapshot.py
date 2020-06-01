@@ -65,10 +65,6 @@ class SubtreeSnapshot(ABC):
         pass
 
     @abstractmethod
-    def get_ignored_items(self):
-        return []
-
-    @abstractmethod
     def get_parent_for_item(self, item) -> Optional[DisplayNode]:
         pass
 

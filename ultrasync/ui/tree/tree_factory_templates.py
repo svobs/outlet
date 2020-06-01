@@ -256,8 +256,6 @@ def replace_widget(old, new):
     parent = old.get_parent()
 
     children = parent.get_children()
-    # parent.remove(old)
-    # parent.add(new)
 
     for child in children:
         if child == old:

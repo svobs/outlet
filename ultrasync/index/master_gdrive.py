@@ -13,7 +13,7 @@ from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
 from model.display_node import DisplayNode
 from model.gdrive_subtree import GDriveSubtree
 from model.gdrive_whole_tree import GDriveWholeTree
-from model.goog_node import GoogNode
+from model.goog_node import GoogFile, GoogNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier, NodeIdentifierFactory
 from stopwatch_sec import Stopwatch
 from ui import actions
@@ -229,3 +229,7 @@ class GDriveMasterCache:
         if not self.meta_master:
             raise CacheNotLoadedError()
         return self.meta_master.get_all_ids_for_path(path)
+
+    def get_all_goog_files_for_subtree(self, subtree_root: GDriveIdentifier) -> List[GoogFile]:
+        # TODO
+        raise NotImplementedError

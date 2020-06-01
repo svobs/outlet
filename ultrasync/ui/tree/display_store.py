@@ -1,21 +1,14 @@
 import logging
-import os
 from typing import Dict, Union
 
 import gi
 from gi.repository.Gtk import TreeIter, TreePath
 
-from fmeta.fmeta_tree_scanner import TreeMetaScanner
 from index.uid_generator import UID
 from model.display_node import DisplayNode
-from model.fmeta_tree import FMetaTree
-from model.goog_node import GoogFile
-from model.planning_node import PlanningNode
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
-
-from model.fmeta import FMeta
 
 logger = logging.getLogger(__name__)
 
@@ -247,83 +240,3 @@ class DisplayStore:
         while self.remove_first_child(parent_iter):
             removed_count += 1
         logger.debug(f'Removed {removed_count} children')
-
-    def get_subtree_as_tree(self, tree_path, include_following_siblings=False, checked_only=False):
-        """
-        FIXME: DEAD CODE. Needs complete rewrite
-        Constructs a new FMetaTree out of the data nodes of the subtree referenced
-        by tree_path. NOTE: currently the FMeta objects are reused in the new tree,
-        for efficiency.
-        Args:
-            tree_path: root of the subtree, as a GTK3 TreePath
-            include_following_siblings: if False, include only the root node and its children
-            (filtered by checked state if checked_only is True)
-            checked_only: if True, include only rows which are checked
-                          if False, include all rows in the subtree
-        Returns:
-            A new FMetaTree which consists of a subset of the current UI tree
-        """
-        subtree_root = self.get_node_data(tree_path).full_path
-        subtree = FMetaTree(subtree_root)
-
-        def action_func(t_iter):
-            if not action_func.checked_only or self.is_node_checked(t_iter):
-                data_node: DisplayNode = self.get_node_data(t_iter)
-                if isinstance(data_node, FMeta) or isinstance(data_node, GoogFile) or isinstance(data_node, PlanningNode):
-                    subtree.add_item(data_node)
-
-        # FIXME this is broken for GDrive
-        action_func.checked_only = checked_only
-
-        if include_following_siblings:
-            self.do_for_subtree_and_following_sibling_subtrees(tree_path, action_func)
-        else:
-            self.do_for_self_and_descendants(tree_path, action_func)
-
-        return subtree
-
-    def resync_subtree_dead_code_dont_use(self, tree_path):
-        # Construct a FMetaTree from the UI nodes: this is the 'stale' subtree.
-        stale_tree = self.get_subtree_as_tree(tree_path)
-        fresh_tree = None
-        # Master tree contains all FMeta in this widget
-        master_tree = self.con.get_tree()
-
-        # If the path no longer exists at all, then it's simple: the entire stale_tree should be deleted.
-        if os.path.exists(stale_tree.root_path):
-            # But if there are still files present: use FMetaTreeLoader to re-scan subtree
-            # and construct a FMetaTree from the 'fresh' data
-            logger.debug(f'Scanning: {stale_tree.root_path}')
-            scanner = TreeMetaScanner(root_node_identifer=stale_tree.node_identifier, stale_tree=stale_tree, tree_id=self.con.treeview_meta.tree_id, track_changes=False)
-            fresh_tree = scanner.scan()
-
-        # TODO: files in different categories are showing up as 'added' in the scan
-        # TODO: should just be removed then added below, but brainstorm how to optimize this
-
-        for fmeta in stale_tree.get_all():
-            # Anything left in the stale tree no longer exists. Delete it from master tree
-            # NOTE: stale tree will contain old FMeta which is from the master tree, and
-            # thus does need to have its file path adjusted.
-            # This seems awfully fragile...
-            old = master_tree.remove(file_path=fmeta.full_path, md5=fmeta.md5, ok_if_missing=False)
-            if old:
-                logger.debug(f'Deleted from master tree: md5={old.md5} path={old.full_path}')
-            else:
-                logger.warning(f'Could not delete "stale" from master (not found): md5={fmeta.md5} path={fmeta.full_path}')
-
-        if fresh_tree:
-            for fmeta in fresh_tree.get_all():
-                # Anything in the fresh tree needs to be either added or updated in the master tree.
-                # For the 'updated' case, remove the old FMeta from the file mapping and any old signatures.
-                old = master_tree.remove(file_path=fmeta.full_path, md5=fmeta.md5, remove_old_md5=True, ok_if_missing=True)
-                if old:
-                    logger.debug(f'Removed from master tree: md5={old.md5} path={old.full_path}')
-                else:
-                    logger.debug(f'Could not delete "fresh" from master (not found): md5={fmeta.md5} path={fmeta.full_path}')
-                master_tree.add(fmeta)
-                logger.debug(f'Added to master tree: md5={fmeta.md5} path={fmeta.full_path}')
-
-        # 3. Then re-diff and re-populate
-
-        # TODO: Need to introduce a signalling mechanism for the other tree
-        logger.info('TODO: re-diff and re-populate!')

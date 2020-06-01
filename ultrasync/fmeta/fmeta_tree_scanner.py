@@ -2,14 +2,14 @@ import logging
 import os
 import errno
 import copy
-import time
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
+import treelib
 from pydispatch import dispatcher
 
-from index.uid_generator import UID
-from model.display_node import DisplayNode
+import file_util
+from model.display_node import DirNode, DisplayNode
 from model.fmeta import FMeta, Category
 from fmeta.file_tree_recurser import FileTreeRecurser
 import ui.actions as actions
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 VALID_SUFFIXES = None
 
 
-def meta_matches(file_path, fmeta: FMeta):
+def meta_matches(file_path: str, fmeta: FMeta):
     stat = os.stat(file_path)
     size_bytes = int(stat.st_size)
     modify_ts = int(stat.st_mtime * 1000)
@@ -60,7 +60,7 @@ class FileCounter(FileTreeRecurser):
     """
 
     def __init__(self, root_path):
-        FileTreeRecurser.__init__(self, root_path, valid_suffixes=VALID_SUFFIXES)
+        FileTreeRecurser.__init__(self, root_path, valid_suffixes=None)
         self.files_to_scan = 0
 
     def handle_target_file_type(self, file_path):
@@ -70,36 +70,29 @@ class FileCounter(FileTreeRecurser):
         self.files_to_scan += 1
 
 
-class TreeMetaScanner(FileTreeRecurser):
+class FMetaDiskScanner(FileTreeRecurser):
     """
     Walks the filesystem for a subtree (FMetaTree), using a cache if configured,
-    to generate an up-to-date FMetaTree.
+    to generate an up-to-date list of FMetas.
     """
 
-    def __init__(self, application, root_node_identifer: NodeIdentifier, stale_tree=None, tree_id=None, track_changes=False):
-        FileTreeRecurser.__init__(self, Path(stale_tree.root_path), valid_suffixes=VALID_SUFFIXES)
-        # Note: this tree will be useless after we are done with it
-        self.cache_manager = application.cache_manager
+    def __init__(self, application, root_node_identifer: NodeIdentifier, tree_id=None):
+        FileTreeRecurser.__init__(self, Path(root_node_identifer.full_path), valid_suffixes=None)
         assert isinstance(root_node_identifer, LocalFsIdentifier), f'type={type(root_node_identifer)}, for {root_node_identifer}'
+        self.cache_manager = application.cache_manager
         self.root_node_identifier: LocalFsIdentifier = root_node_identifer
-        self.stale_tree: FMetaTree = stale_tree
+        self.tree_id = tree_id  # For sending progress updates
         self.progress = 0
         self.total = 0
-        self.tree_id = tree_id  # For sending progress updates
+
+        self.dir_tree: treelib.Tree = treelib.Tree()
+        root_node = DirNode(node_identifier=root_node_identifer)
+        self.dir_tree.add_node(node=root_node, parent=None)
+
         self.added_count = 0
         self.updated_count = 0
         self.deleted_count = 0
         self.unchanged_count = 0
-        # When done, this will contain an up-to-date tree.
-        self.fresh_tree = FMetaTree(root_identifier=self.root_node_identifier, application=application)
-        self._track_changes = track_changes
-        if self._track_changes:
-            # Keep track of what's actually changed.
-            # This is effectively a diff of stale & fresh trees.
-            # Don't need it yet, but have a feeling it will be handy in the future.
-            self.change_tree: FMetaTree = FMetaTree(root_identifier=self.root_node_identifier, application=application)
-        else:
-            self.change_tree = None
 
     def _find_total_files_to_scan(self):
         # First survey our local files:
@@ -111,57 +104,53 @@ class TreeMetaScanner(FileTreeRecurser):
         logger.debug(f'Found {total} files to scan.')
         return total
 
-    def handle_file(self, file_path, category):
-        """
-        We compare against the cache (aka 'stale tree') using the file_path as a key.
-        The item can be one of: unchanged, added/new, deleted, or updated
-        """
-        cache_diff_status = None
-        stale_meta_list: List[FMeta] = []
-        stale_meta: Optional[FMeta] = None
-        meta: Optional[FMeta] = None
-        if self.stale_tree:
-            stale_meta_list = self.stale_tree.get_for_path(file_path, include_ignored=True)
+    def _add_to_tree(self, item: FMeta):
+        path_so_far: str = self.root_node_identifier.full_path
+        parent: DisplayNode = self.dir_tree.get_node(self.root_node_identifier.uid)
 
-        if stale_meta_list:
-            stale_meta: FMeta = stale_meta_list[0]
-            # Either unchanged, or updated. Either way, remove from stale tree.
-            # (note: set remove_old_md5=True because the md5 will have changed if the file was updated)
-            stale_meta = self.stale_tree.remove(full_path=stale_meta.full_path, ok_if_missing=False)
+        item_rel_path = file_util.strip_root(item.full_path, self.root_node_identifier.full_path)
+        path_segments = file_util.split_path(os.path.dirname(item_rel_path))
 
-            if meta_matches(file_path, stale_meta):
-                # Found in cache.
+        for dir_name in path_segments:
+            path_so_far: str = os.path.join(path_so_far, dir_name)
+            uid = self.cache_manager.get_uid_for_path(path_so_far)
+            child: DisplayNode = self.dir_tree.get_node(nid=uid)
+            if not child:
+                # logger.debug(f'Creating dir node: nid={uid}')
+                child = DirNode(node_identifier=LocalFsIdentifier(full_path=path_so_far, uid=uid))
+                self.dir_tree.add_node(node=child, parent=parent)
+            parent = child
+
+        # Finally, add the node itself:
+        child: DisplayNode = self.dir_tree.get_node(nid=item.uid)
+        assert not child, f'For old={child}, new={item}'
+        if not child:
+            self.dir_tree.add_node(node=item, parent=parent)
+
+    def handle_file(self, file_path: str, category):
+        stale_fmeta: FMeta = self.cache_manager.get_for_local_path(file_path)
+
+        if stale_fmeta:
+            if meta_matches(file_path, stale_fmeta):
+                # No change from cache
                 self.unchanged_count += 1
-                cache_diff_status = Category.NA
+                target_fmeta = stale_fmeta
             else:
-                # this can fail...
-                meta: FMeta = self.cache_manager.build_fmeta(full_path=file_path, category=category)
-                if meta:
+                # this can fail (e.g. broken symlink). If it does, we'll treat it like a deleted file
+                target_fmeta = self.cache_manager.build_fmeta(full_path=file_path, category=category)
+                if target_fmeta:
                     self.updated_count += 1
-                    cache_diff_status = Category.Updated
-
+                    if logger.isEnabledFor(logging.DEBUG):
+                        _check_update_sanity(stale_fmeta, target_fmeta)
         else:
-            # Uncached (or no cache)
-            if not meta:
-                meta: FMeta = self.cache_manager.build_fmeta(full_path=file_path, category=category)
-            if meta:
+            # Not in cache (i.e. new):
+            target_fmeta = self.cache_manager.build_fmeta(full_path=file_path, category=category)
+            if target_fmeta:
                 self.added_count += 1
-                cache_diff_status = Category.Added
 
-        if not meta and stale_meta:
-            meta = stale_meta
+        if target_fmeta:
+            self._add_to_tree(target_fmeta)
 
-        if not meta:
-            # no stale meta, but error occurred which prevented the new meta from being read:
-            return
-
-        if logger.isEnabledFor(logging.DEBUG) and cache_diff_status == Category.Updated:
-            _check_update_sanity(stale_meta, meta)
-
-        if self._track_changes:
-            self._add_tracked_copy(meta, cache_diff_status)
-
-        self.fresh_tree.add_item(meta)
         if self.tree_id:
             actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=self.tree_id, progress=1)
             self.progress += 1
@@ -174,7 +163,7 @@ class TreeMetaScanner(FileTreeRecurser):
     def handle_non_target_file(self, file_path):
         self.handle_file(file_path, Category.Ignored)
 
-    def scan(self):
+    def scan(self) -> treelib.Tree:
         """Recurse over disk tree. Gather current stats for each file, and compare to the stale tree.
         For each current file found, remove from the stale tree.
         When recursion is complete, what's left in the stale tree will be deleted/moved files"""
@@ -182,29 +171,18 @@ class TreeMetaScanner(FileTreeRecurser):
         if not os.path.exists(self.root_path):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.root_path)
 
-        self.total = self._find_total_files_to_scan()
         if self.tree_id:
+            self.total = self._find_total_files_to_scan()
             logger.debug(f'Sending START_PROGRESS with total={self.total} for tree_id: {self.tree_id}')
             dispatcher.send(signal=actions.START_PROGRESS, sender=self.tree_id, total=self.total)
+        try:
+            self.recurse_through_dir_tree()
 
-        self.recurse_through_dir_tree()
+            logger.info(f'Result: {self.added_count} new, {self.updated_count} updated, {self.deleted_count} deleted, '
+                        f'and {self.unchanged_count} unchanged from cache')
 
-        if self.stale_tree is not None:
-            self.deleted_count += len(self.stale_tree.get_all())
-            if self._track_changes:
-                # All remaining fmetas in the stale tree represent deleted
-                for stale_fmeta in self.stale_tree.get_all():
-                    self._add_tracked_copy(stale_fmeta, Category.Deleted)
-
-        logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
-        actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id)
-        logger.info(f'Result: {self.added_count} new, {self.updated_count} updated, {self.deleted_count} deleted, '
-                    f'and {self.unchanged_count} unchanged from cache')
-
-        return self.fresh_tree
-
-    def _add_tracked_copy(self, fmeta, new_category):
-        meta_copy = copy.deepcopy(fmeta)
-        if fmeta.category != Category.Ignored:
-            meta_copy.category = new_category
-        self.change_tree.add(meta_copy)
+            return self.dir_tree
+        finally:
+            if self.tree_id:
+                logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
+                actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id)

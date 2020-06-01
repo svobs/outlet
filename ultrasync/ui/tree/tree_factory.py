@@ -3,11 +3,9 @@ from typing import Optional, Tuple
 
 import gi
 
-import constants
 from constants import TreeDisplayMode
 from model.display_node import DisplayNode
 from model.node_identifier import NodeIdentifier
-from model.fmeta_tree import FMetaTree
 from model.subtree_snapshot import SubtreeSnapshot
 from ui.dialog.base_dialog import BaseDialog
 from ui.tree import tree_factory_templates
@@ -167,7 +165,7 @@ def build_editor_tree(parent_win,
     return factory.build()
 
 
-def build_static_category_file_tree(parent_win, tree_id: str, tree: FMetaTree):
+def build_static_category_file_tree(parent_win, tree_id: str, tree: SubtreeSnapshot):
     # Whole tree is provided here. For Merge Preview dialog
     factory = TreeFactory(parent_win=parent_win, tree=tree, tree_id=tree_id)
     factory.has_checkboxes = False

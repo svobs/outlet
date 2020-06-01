@@ -11,10 +11,10 @@ from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, R
 from index import uid_generator
 from index.two_level_dict import TwoLevelDict
 from model.category import Category
-from model.node_identifier import NodeIdentifier, LogicalNodeIdentifier, NodeIdentifierFactory
+from model.node_identifier import LocalFsIdentifier, NodeIdentifier, LogicalNodeIdentifier, NodeIdentifierFactory
 from model.display_node import DisplayNode
 from model.goog_node import FolderToAdd
-from model.planning_node import FileDecoratorNode, FileToAdd, FileToMove, FileToUpdate
+from model.planning_node import FileDecoratorNode, FileToAdd, FileToMove, FileToUpdate, LocalDirToAdd, PlanningNode
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
 from ui.tree.category_display_tree import CategoryDisplayTree
@@ -32,8 +32,8 @@ class ContentFirstDiffer:
         self.change_tree_left: CategoryDisplayTree = CategoryDisplayTree(application, self.left_tree.node_identifier)
         self.change_tree_right: CategoryDisplayTree = CategoryDisplayTree(application, self.right_tree.node_identifier)
 
-        self.added_folders_left: Dict[str, FolderToAdd] = {}
-        self.added_folders_right: Dict[str, FolderToAdd] = {}
+        self.added_folders_left: Dict[str, PlanningNode] = {}
+        self.added_folders_right: Dict[str, PlanningNode] = {}
 
     def move_to_right(self, left_item) -> str:
         left_rel_path = left_item.get_relative_path(self.left_tree)
@@ -44,18 +44,15 @@ class ContentFirstDiffer:
         return os.path.join(self.left_tree.root_path, right_rel_path)
 
     def _add_items_and_missing_parents(self, change_tree: CategoryDisplayTree, source_tree: SubtreeSnapshot,
-                                       added_folders_dict: Dict[str, FolderToAdd], new_item: FileDecoratorNode):
-        # This only applies to GoogNodes. Just a no-op for regular files at present because we don't yet care about local dirs very much
-        if new_item.node_identifier.tree_type != TREE_TYPE_GDRIVE:
-            change_tree.add_item(new_item, new_item.category, source_tree)
-            return
-        path = new_item.full_path
+                                       added_folders_dict: Dict[str, PlanningNode], new_item: FileDecoratorNode):
+        tree_type: int = new_item.node_identifier.tree_type
 
         # Lowest item in the stack will always be orig item. Stack size > 1 iff need to add parent folders
         stack = deque()
         stack.append(new_item)
 
         parents = None
+        path = new_item.full_path
         while True:
             path = str(pathlib.Path(path).parent)
 
@@ -69,19 +66,30 @@ class ContentFirstDiffer:
             if parents:
                 break
 
-            logger.debug(f'Adding new GoogFolder for {path}')
-            new_uid = self.uid_generator.get_new_uid()
-            new_folder = FolderToAdd(new_uid, path)
+            if tree_type == TREE_TYPE_GDRIVE:
+                logger.debug(f'Adding new GoogFolder for {path}')
+                new_uid = self.uid_generator.get_new_uid()
+                new_folder = FolderToAdd(new_uid, path)
+            elif tree_type == TREE_TYPE_LOCAL_DISK:
+                logger.debug(f'Adding new LocalDirToAdd for {path}')
+                new_uid = self.application.cache_manager.get_uid_for_path(path)
+                node_identifier = LocalFsIdentifier(path, new_uid, Category.Added)
+                new_folder = LocalDirToAdd(node_identifier)
+            else:
+                raise RuntimeError(f'Invalid tree type: {tree_type} for item {new_item}')
+
             added_folders_dict[path] = new_folder
             stack.append(new_folder)
 
         while len(stack) > 0:
             item = stack.pop()
-            if isinstance(parents, list):
-                item.parent_uids = list(map(lambda x: x.uid, parents))
-            else:
-                assert isinstance(parents, DisplayNode), f'Found instead: {type(parents)}'
-                item.parent_uids = parents.uid
+            if tree_type == TREE_TYPE_GDRIVE:
+                # Attach parents list to the child (GDrive only):
+                if isinstance(parents, list):
+                    item.parent_uids = list(map(lambda x: x.uid, parents))
+                else:
+                    assert isinstance(parents, DisplayNode), f'Found instead: {type(parents)}'
+                    item.parent_uids = parents.uid
             change_tree.add_item(item, item.category, source_tree)
             parents = [item]
 

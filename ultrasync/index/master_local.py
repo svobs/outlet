@@ -12,7 +12,7 @@ from treelib.exceptions import NodeIDAbsentError
 import file_util
 import fmeta.content_hasher
 from constants import ROOT_PATH
-from fmeta.fmeta_tree_scanner import TreeMetaScanner
+from fmeta.fmeta_tree_scanner import FMetaDiskScanner
 from index.cache_manager import PersistedCacheInfo
 from index.sqlite.fmeta_db import FMetaDatabase
 from index.two_level_dict import FullPathDict, Md5BeforePathDict, ParentPathBeforeFileNameDict, Sha256BeforePathDict
@@ -78,9 +78,6 @@ class LocalDiskMasterCache:
                 uid = self.application.uid_generator.get_new_uid()
             self._full_path_uid_dict[path] = uid
         return uid
-
-    def get_children(self, uid: UID):
-        return self.dir_tree.children(uid)
 
     def get_children(self, parent_identifier: NodeIdentifier):
         if isinstance(parent_identifier, NodeIdentifier):
@@ -149,15 +146,15 @@ class LocalDiskMasterCache:
     # Loading stuff
     # ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
 
-    def _get_subtree_from_memory_only(self, subtree_path: LocalFsIdentifier):
+    def get_all_fmetas_for_subtree(self, subtree_root: LocalFsIdentifier) -> List[FMeta]:
         stopwatch = Stopwatch()
-        logger.debug(f'Getting items from in-memory cache for subtree: {subtree_path}')
-        fmeta_tree = FMetaTree(root_identifier=subtree_path, application=self.application)
+        logger.debug(f'Getting items from in-memory cache for subtree: {subtree_root}')
         count_dirs = 0
         count_added_from_cache = 0
 
+        fmeta_list: List[FMeta] = []
         queue: Deque[DisplayNode] = deque()
-        node = self.dir_tree.get_node(nid=subtree_path.uid)
+        node = self.dir_tree.get_node(nid=subtree_root.uid)
         queue.append(node)
         while len(queue) > 0:
             node = queue.popleft()
@@ -167,15 +164,49 @@ class LocalDiskMasterCache:
                     queue.append(child)
             else:
                 assert isinstance(node, FMeta)
-                fmeta_tree.add_item(node)
+                fmeta_list.append(node)
                 count_added_from_cache += 1
 
-        logger.debug(f'{stopwatch} Got {count_added_from_cache} items from in-memory cache (from {count_dirs} dirs)')
-        return fmeta_tree
+        logger.debug(f'{stopwatch} Cut subtree ({subtree_root.full_path}) with {count_added_from_cache} items from in-memory cache '
+                     f'(from {count_dirs} dirs)')
+        return fmeta_list
+
+    def get_subtree_from_memory_only(self, subtree_path: LocalFsIdentifier) -> FMetaTree:
+        return FMetaTree(root_identifier=subtree_path, application=self.application)
 
     # Load/save on-disk cache:
 
-    def load_subtree_from_disk(self, cache_info: PersistedCacheInfo, tree_id) -> Optional[FMetaTree]:
+    def _add_to_tree(self, item: DisplayNode, tree: treelib.Tree):
+        # TODO: put this and related functions into a new Tree class
+        root_node: DisplayNode = tree.get_node(tree.root)
+        root_node_identifier: NodeIdentifier = root_node.node_identifier
+        path_so_far: str = root_node_identifier.full_path
+        parent: DisplayNode = tree.get_node(root_node_identifier.uid)
+
+        item_rel_path = file_util.strip_root(item.full_path, root_node_identifier.full_path)
+        path_segments = file_util.split_path(os.path.dirname(item_rel_path))
+
+        for dir_name in path_segments:
+            path_so_far: str = os.path.join(path_so_far, dir_name)
+            uid = self.application.cache_manager.get_uid_for_path(path_so_far)
+            child: DisplayNode = tree.get_node(nid=uid)
+            if not child:
+                # logger.debug(f'Creating dir node: nid={uid}')
+                child = DirNode(node_identifier=LocalFsIdentifier(full_path=path_so_far, uid=uid))
+                try:
+                    tree.add_node(node=child, parent=parent)
+                except Exception:
+                    logger.error(f'Error occurred while adding node: {child} to parent: {parent}')
+                    raise
+            parent = child
+
+        # Finally, add the node itself:
+        child: DisplayNode = tree.get_node(nid=item.uid)
+        assert not child, f'For old={child}, new={item}'
+        if not child:
+            tree.add_node(node=item, parent=parent)
+
+    def load_subtree_from_disk(self, cache_info: PersistedCacheInfo, tree_id) -> Optional[treelib.Tree]:
         """Loads the given subtree disk cache from disk."""
 
         stopwatch_load = Stopwatch()
@@ -183,7 +214,7 @@ class LocalDiskMasterCache:
         # Load cache from file, and update with any local FS changes found:
         with FMetaDatabase(cache_info.cache_location, self.application) as fmeta_disk_cache:
             if not fmeta_disk_cache.has_local_files():
-                logger.debug('No meta found in cache')
+                logger.debug(f'No meta found in cache ({cache_info.cache_location}) - will skip loading it')
                 return None
 
             status = f'[{tree_id}] Loading meta for "{cache_info.subtree_root}" from cache: "{cache_info.cache_location}"'
@@ -191,8 +222,11 @@ class LocalDiskMasterCache:
             dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
 
             uid = self.get_uid_for_path(cache_info.subtree_root.full_path, cache_info.subtree_root.uid)
-            root_identifier = LocalFsIdentifier(full_path=cache_info.subtree_root.full_path, uid=uid)
-            fmeta_tree = FMetaTree(root_identifier=root_identifier, application=self.application)
+
+            root_node_identifer = LocalFsIdentifier(full_path=cache_info.subtree_root.full_path, uid=uid)
+            tree: treelib.Tree = treelib.Tree()
+            root_node = DirNode(node_identifier=root_node_identifer)
+            tree.add_node(node=root_node, parent=None)
 
             db_file_changes: List[FMeta] = fmeta_disk_cache.get_local_files()
             if len(db_file_changes) == 0:
@@ -200,24 +234,25 @@ class LocalDiskMasterCache:
 
             count_from_disk = 0
             for change in db_file_changes:
-                existing = fmeta_tree.get_for_path(change.full_path)
+                existing = tree.get_node(change.identifier)
                 # Overwrite older changes for the same path:
                 if not existing:
-                    fmeta_tree.add_item(change)
+                    self._add_to_tree(change, tree)
                     count_from_disk += 1
                 elif existing[0].sync_ts < change.sync_ts:
-                    fmeta_tree.add_item(change)
+                    tree.remove_node(change.identifier)
+                    self._add_to_tree(change, tree)
 
             # logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
-            logger.debug(f'{stopwatch_load} [{tree_id}] Finished loading {fmeta_tree}')
+            logger.debug(f'{stopwatch_load} [{tree_id}] Finished loading {count_from_disk} items')
 
             cache_info.is_loaded = True
-            return fmeta_tree
+            return tree
 
-    def save_subtree_disk_cache(self, fmeta_tree: FMetaTree):
+    def save_subtree_disk_cache(self, subtree_root: LocalFsIdentifier):
         # Get existing cache location if available. We will overwrite it.
-        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(fmeta_tree.node_identifier)
-        to_insert = fmeta_tree.get_all()
+        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(subtree_root)
+        to_insert: List[FMeta] = self.get_all_fmetas_for_subtree(subtree_root)
 
         stopwatch_write_cache = Stopwatch()
         with FMetaDatabase(cache_info.cache_location, self.application) as fmeta_disk_cache:
@@ -228,29 +263,26 @@ class LocalDiskMasterCache:
 
     # Load/save on-disk cache:
 
-    def load_subtree(self, cache_info: PersistedCacheInfo, tree_id, fmeta_tree: Optional[FMetaTree] = None) -> FMetaTree:
+    def load_subtree(self, cache_info: PersistedCacheInfo, tree_id) -> FMetaTree:
         assert cache_info
         stopwatch_total = Stopwatch()
-        has_data_to_store_in_memory = False
 
-        if not fmeta_tree:
-            if cache_info.is_loaded:
-                fmeta_tree = self._get_subtree_from_memory_only(cache_info.subtree_root)
+        uid = self.get_uid_for_path(cache_info.subtree_root.full_path, cache_info.subtree_root.uid)
+        root_identifier = LocalFsIdentifier(full_path=cache_info.subtree_root.full_path, uid=uid)
+
+        if cache_info.is_loaded:
+            fmeta_tree = self.get_subtree_from_memory_only(root_identifier)
+        else:
+            # Load from disk
+            if self.application.cache_manager.enable_load_from_disk:
+                tree = self.load_subtree_from_disk(cache_info, tree_id)
+                if tree:
+                    self.replace_subtree(self.dir_tree, tree)
+                    logger.debug(f'Updated in-memory cache: {self.get_summary()}')
             else:
-                # Load from disk
+                logger.debug('Skipping cache disk load because cache.enable_load_from_disk is false')
 
-                fmeta_tree: Optional[FMetaTree] = None
-                if self.application.cache_manager.enable_load_from_disk:
-                    fmeta_tree = self.load_subtree_from_disk(cache_info, tree_id)
-                else:
-                    logger.debug('Skipping cache load because cache.enable_cache_load is false')
-
-                if fmeta_tree:
-                    has_data_to_store_in_memory = True
-                else:
-                    uid = self.get_uid_for_path(cache_info.subtree_root.full_path, cache_info.subtree_root.uid)
-                    root_identifier = LocalFsIdentifier(full_path=cache_info.subtree_root.full_path, uid=uid)
-                    fmeta_tree = FMetaTree(root_identifier=root_identifier, application=self.application)
+            fmeta_tree = FMetaTree(root_identifier=root_identifier, application=self.application)
 
         if cache_info.is_loaded and not self.application.cache_manager.sync_from_local_disk_on_cache_load:
             logger.debug('Skipping filesystem sync because it is disabled for cache loads')
@@ -258,13 +290,8 @@ class LocalDiskMasterCache:
             logger.debug(f'Skipping filesystem sync because the cache is still fresh for path: {cache_info.subtree_root}')
         else:
             # Update from the file system, and optionally save any changes back to cache:
-            fmeta_tree = self._resync_with_file_system(fmeta_tree, tree_id)
+            self._resync_with_file_system(root_identifier, tree_id)
             cache_info.needs_refresh = False
-            has_data_to_store_in_memory = True
-
-        # Save the updates back to in-memory cache:
-        if has_data_to_store_in_memory:
-            self._update_in_memory_cache(fmeta_tree)
 
         logger.info(f'{stopwatch_total} LocalFS cache for {cache_info.subtree_root.full_path} loaded')
 
@@ -290,28 +317,60 @@ class LocalDiskMasterCache:
         if not child:
             self.dir_tree.add_node(node=item, parent=parent)
 
-    def _update_in_memory_cache(self, fresh_tree: FMetaTree):
-        for item in fresh_tree.get_all():
-            self.add_or_update_fmeta(item, fire_listeners=False)
+    def get_all_fmetas_for_subtree_any(self, tree: treelib.Tree, subtree_root: LocalFsIdentifier) -> List[FMeta]:
+        # TODO: put this and related functions into a new Tree class
+        stopwatch = Stopwatch()
+        logger.debug(f'Getting items from in-memory cache for subtree: {subtree_root}')
+        count_dirs = 0
+        count_added_from_cache = 0
 
-        logger.debug(f'Updated in-memory cache: {self.get_summary()}')
+        fmeta_list: List[FMeta] = []
+        queue: Deque[DisplayNode] = deque()
+        node = tree.get_node(nid=subtree_root.uid)
+        queue.append(node)
+        while len(queue) > 0:
+            node = queue.popleft()
+            if node.is_dir():
+                count_dirs += 1
+                for child in tree.children(node.uid):
+                    queue.append(child)
+            else:
+                assert isinstance(node, FMeta)
+                fmeta_list.append(node)
+                count_added_from_cache += 1
 
-    def _resync_with_file_system(self, stale_tree: FMetaTree, tree_id: str):
+        logger.debug(f'{stopwatch} Cut subtree ({subtree_root.full_path}) with {count_added_from_cache} items from in-memory cache '
+                     f'(from {count_dirs} dirs)')
+        return fmeta_list
+
+    def replace_subtree(self, super_tree: treelib.Tree, sub_tree: treelib.Tree):
+        # TODO: put this and related functions into a new Tree class
+
+        if not super_tree.contains(sub_tree.root):
+            # quick and dirty way to add any missing parents:
+            sub_tree_root_node: DisplayNode = sub_tree.get_node(sub_tree.root)
+            logger.debug(f'Super-tree does not contain sub-tree root ({sub_tree_root_node.node_identifier}): it and its ancestors will be added')
+            self._add_to_tree(sub_tree_root_node, super_tree)
+
+        parent_of_subtree: DisplayNode = super_tree.parent(sub_tree.root)
+        count_removed = super_tree.remove_node(sub_tree.root)
+        logger.debug(f'Removed {count_removed} nodes from super-tree, to be replaced with {len(sub_tree)} nodes')
+        super_tree.paste(nid=parent_of_subtree.uid, new_tree=sub_tree)
+
+    def _resync_with_file_system(self, subtree_root: LocalFsIdentifier, tree_id: str):
         # Scan directory tree and update where needed.
-        logger.debug(f'Scanning filesystem subtree: {stale_tree.root_path}')
-        scanner = TreeMetaScanner(application=self.application, root_node_identifer=stale_tree.node_identifier, stale_tree=stale_tree,
-                                  tree_id=tree_id, track_changes=False)
-        scanner.scan()
-        fresh_tree = scanner.fresh_tree
+        logger.debug(f'Scanning filesystem subtree: {subtree_root}')
+        scanner = FMetaDiskScanner(application=self.application, root_node_identifer=subtree_root, tree_id=tree_id)
+        fresh_tree: treelib.Tree = scanner.scan()
+
+        self.replace_subtree(super_tree=self.dir_tree, sub_tree=fresh_tree)
 
         # Save the updates back to local disk cache:
         cache_man = self.application.cache_manager
         if cache_man.enable_save_to_disk:
-            self.save_subtree_disk_cache(fresh_tree)
+            self.save_subtree_disk_cache(subtree_root)
         else:
             logger.debug('Skipping cache save because it is disabled')
-
-        return fresh_tree
 
     def build_fmeta(self, full_path: str, category=Category.NA, staging_path=None) -> Optional[FMeta]:
         uid = self.get_uid_for_path(full_path)
