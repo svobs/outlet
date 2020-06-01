@@ -36,7 +36,7 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
 
 
 #    CLASS LocalRootDirChooserDialog
-# ⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟⮟
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 
 class LocalRootDirChooserDialog(Gtk.FileChooserDialog):
