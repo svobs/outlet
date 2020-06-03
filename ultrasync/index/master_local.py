@@ -2,8 +2,7 @@ import logging
 import os
 import threading
 import time
-from collections import deque
-from typing import Deque, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import treelib
 from pydispatch import dispatcher
@@ -206,6 +205,7 @@ class LocalDiskMasterCache:
             # Update cache:
             fmeta_disk_cache.insert_local_files(to_insert, overwrite=True)
 
+        cache_info.needs_save = False
         logger.info(f'{stopwatch_write_cache} Wrote {str(len(to_insert))} FMetas to "{cache_info.cache_location}"')
 
     def load_subtree(self, cache_info: PersistedCacheInfo, tree_id, requested_subtree_root: LocalFsIdentifier = None) -> FMetaTree:
@@ -235,17 +235,17 @@ class LocalDiskMasterCache:
             else:
                 logger.debug('Skipping cache disk load because cache.enable_load_from_disk is false')
 
-        fmeta_tree = FMetaTree(root_identifier=requested_subtree_root, application=self.application)
-
         # FS SYNC
-        if not cache_info.is_loaded or self.application.cache_manager.sync_from_local_disk_on_cache_load or cache_info.needs_refresh:
+        if not cache_info.is_loaded and cache_info.needs_refresh and self.application.cache_manager.sync_from_local_disk_on_cache_load:
+            logger.debug(f'Will resync with file system (is_loaded={cache_info.is_loaded}, sync_on_cache_load='
+                         f'{self.application.cache_manager.sync_from_local_disk_on_cache_load}, needs_refresh={cache_info.needs_refresh})')
             # Update from the file system, and optionally save any changes back to cache:
             self._resync_with_file_system(requested_subtree_root, tree_id)
             cache_info.needs_refresh = False
             cache_info.needs_save = True
-        elif cache_info.is_loaded and not self.application.cache_manager.sync_from_local_disk_on_cache_load:
+        elif not self.application.cache_manager.sync_from_local_disk_on_cache_load:
             logger.debug('Skipping filesystem sync because it is disabled for cache loads')
-        elif cache_info.is_loaded and not cache_info.needs_refresh:
+        elif not cache_info.needs_refresh:
             logger.debug(f'Skipping filesystem sync because the cache is still fresh for path: {cache_info.subtree_root}')
 
         # SAVE
@@ -256,8 +256,8 @@ class LocalDiskMasterCache:
             else:
                 logger.debug('Skipping cache save because it is disabled')
 
-        logger.info(f'{stopwatch_total} LocalFS cache for {cache_info.subtree_root.full_path} loaded')
-
+        fmeta_tree = FMetaTree(root_identifier=requested_subtree_root, application=self.application)
+        logger.info(f'{stopwatch_total} Load complete. Returning subtree for {fmeta_tree.node_identifier.full_path}')
         return fmeta_tree
 
     def _resync_with_file_system(self, subtree_root: LocalFsIdentifier, tree_id: str):

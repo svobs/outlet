@@ -168,7 +168,7 @@ class CacheManager:
             dispatcher.send(signal=actions.LOAD_ALL_CACHES_DONE, sender=ID_GLOBAL_CACHE)
 
     def _overwrite_all_caches_in_registry(self, cache_info_list: List[CacheInfoEntry]):
-        logger.info(f'Overwriting all cache entries in registry with {len(cache_info_list)} entries')
+        logger.info(f'Overwriting all cache entries in persisted registry with {len(cache_info_list)} entries')
         with CacheRegistry(self.main_registry_path, self.application.node_identifier_factory) as cache_registry_db:
             cache_registry_db.insert_cache_info(cache_info_list, append=False, overwrite=True)
 
@@ -242,14 +242,14 @@ class CacheManager:
         existing_uid = subtree_root.uid
         new_uid = self._local_disk_cache.get_uid_for_path(subtree_root.full_path)
         if existing_uid != new_uid:
-            logger.warning(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
+            logger.debug(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
         subtree_root.uid = new_uid
 
         # If we have already loaded this subtree as part of a larger cache, use that:
         supertree_cache: Optional[PersistedCacheInfo] = self._find_existing_supertree_for_subtree(subtree_root, tree_id)
         if supertree_cache:
             logger.debug(f'Subtree ({subtree_root.full_path}) is part of existing cached supertree ({supertree_cache.subtree_root.full_path})')
-            self._local_disk_cache.load_subtree(supertree_cache, tree_id, subtree_root)
+            return self._local_disk_cache.load_subtree(supertree_cache, tree_id, subtree_root)
         else:
             # no supertree found in cache. use exact match logic:
             cache_info = self.get_or_create_cache_info_entry(subtree_root)

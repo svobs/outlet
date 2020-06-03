@@ -63,8 +63,6 @@ class LocalDiskTree(treelib.Tree):
         self.paste(nid=parent_of_subtree.uid, new_tree=sub_tree)
 
     def get_all_files_for_subtree(self, subtree_root: LocalFsIdentifier) -> List[FMeta]:
-        stopwatch = Stopwatch()
-        logger.debug(f'Getting items from in-memory cache for subtree: {subtree_root}')
         count_dirs = 0
         count_added_from_cache = 0
 
@@ -83,6 +81,4 @@ class LocalDiskTree(treelib.Tree):
                 fmeta_list.append(node)
                 count_added_from_cache += 1
 
-        logger.debug(f'{stopwatch} Cut subtree ({subtree_root.full_path}) with {count_added_from_cache} items from in-memory cache '
-                     f'(from {count_dirs} dirs)')
         return fmeta_list
