@@ -22,6 +22,7 @@ from model.display_node import DisplayNode
 from model.fmeta import FMeta
 from model.fmeta_tree import FMetaTree
 from model.gdrive_whole_tree import GDriveWholeTree
+from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier, NodeIdentifierFactory
 from model.null_subtree import NullSubtree
 from model.subtree_snapshot import SubtreeSnapshot
@@ -136,6 +137,7 @@ class CacheManager:
                 existing_caches = list(self.caches_by_type.get_second_dict(TREE_TYPE_GDRIVE).values())
                 assert len(existing_caches) <= 1
 
+                # FIXME: this will cause a local cache to be loaded before GDrive cache. Handle global UIDs better
                 consolidated_local_caches, registry_needs_update = self._consolidate_local_caches()
                 existing_caches += consolidated_local_caches
 
@@ -183,19 +185,21 @@ class CacheManager:
                             f'into supertree')
 
                 # 1. Load super-tree into memory
-                super_tree: treelib.Tree = self._local_disk_cache.load_subtree_from_disk(supertree_cache, ID_GLOBAL_CACHE)
+                super_tree: LocalDiskTree = self._local_disk_cache.load_subtree_from_disk(supertree_cache, ID_GLOBAL_CACHE)
                 # 2. Discard all paths from super-tree which fall under sub-tree:
 
                 # 3. Load sub-tree into memory
-                sub_tree: treelib.Tree = self._local_disk_cache.load_subtree_from_disk(subtree_cache, ID_GLOBAL_CACHE)
+                sub_tree: LocalDiskTree = self._local_disk_cache.load_subtree_from_disk(subtree_cache, ID_GLOBAL_CACHE)
                 if sub_tree:
                     # 4. Add contents of sub-tree into super-tree:
-                    self._local_disk_cache.replace_subtree(super_tree=super_tree, sub_tree=sub_tree)
+                    super_tree.replace_subtree(sub_tree=sub_tree)
 
                 # 5. We already loaded it into memory; add it to the in-memory cache:
-                self._local_disk_cache.replace_subtree(self._local_disk_cache.dir_tree, super_tree)
+                self._local_disk_cache.dir_tree.replace_subtree(super_tree)
                 if self.enable_save_to_disk:
                     self._local_disk_cache.save_subtree_disk_cache(supertree_cache.subtree_root)
+                    # Now it is safe to delete the subtree cache:
+                    file_util.delete_file(subtree_cache.cache_location)
                 else:
                     logger.debug('Skipping cache update because save to disk is disabled')
 

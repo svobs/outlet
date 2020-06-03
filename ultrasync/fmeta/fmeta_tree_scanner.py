@@ -1,19 +1,15 @@
+import errno
 import logging
 import os
-import errno
-import copy
 from pathlib import Path
-from typing import Dict, List, Optional
 
-import treelib
 from pydispatch import dispatcher
 
-import file_util
-from model.display_node import DirNode, DisplayNode
-from model.fmeta import FMeta, Category
-from fmeta.file_tree_recurser import FileTreeRecurser
 import ui.actions as actions
-from model.fmeta_tree import FMetaTree
+from fmeta.file_tree_recurser import FileTreeRecurser
+from model.display_node import DirNode
+from model.fmeta import Category, FMeta
+from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 
 logger = logging.getLogger(__name__)
@@ -85,7 +81,7 @@ class FMetaDiskScanner(FileTreeRecurser):
         self.progress = 0
         self.total = 0
 
-        self.dir_tree: treelib.Tree = treelib.Tree()
+        self.dir_tree: LocalDiskTree = LocalDiskTree(application)
         root_node = DirNode(node_identifier=root_node_identifer)
         self.dir_tree.add_node(node=root_node, parent=None)
 
@@ -103,29 +99,6 @@ class FMetaDiskScanner(FileTreeRecurser):
         total = file_counter.files_to_scan
         logger.debug(f'Found {total} files to scan.')
         return total
-
-    def _add_to_tree(self, item: FMeta):
-        path_so_far: str = self.root_node_identifier.full_path
-        parent: DisplayNode = self.dir_tree.get_node(self.root_node_identifier.uid)
-
-        item_rel_path = file_util.strip_root(item.full_path, self.root_node_identifier.full_path)
-        path_segments = file_util.split_path(os.path.dirname(item_rel_path))
-
-        for dir_name in path_segments:
-            path_so_far: str = os.path.join(path_so_far, dir_name)
-            uid = self.cache_manager.get_uid_for_path(path_so_far)
-            child: DisplayNode = self.dir_tree.get_node(nid=uid)
-            if not child:
-                # logger.debug(f'Creating dir node: nid={uid}')
-                child = DirNode(node_identifier=LocalFsIdentifier(full_path=path_so_far, uid=uid))
-                self.dir_tree.add_node(node=child, parent=parent)
-            parent = child
-
-        # Finally, add the node itself:
-        child: DisplayNode = self.dir_tree.get_node(nid=item.uid)
-        assert not child, f'For old={child}, new={item}'
-        if not child:
-            self.dir_tree.add_node(node=item, parent=parent)
 
     def handle_file(self, file_path: str, category):
         stale_fmeta: FMeta = self.cache_manager.get_for_local_path(file_path)
@@ -149,7 +122,7 @@ class FMetaDiskScanner(FileTreeRecurser):
                 self.added_count += 1
 
         if target_fmeta:
-            self._add_to_tree(target_fmeta)
+            self.dir_tree.add_to_tree(target_fmeta)
 
         if self.tree_id:
             actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=self.tree_id, progress=1)
@@ -163,7 +136,7 @@ class FMetaDiskScanner(FileTreeRecurser):
     def handle_non_target_file(self, file_path):
         self.handle_file(file_path, Category.Ignored)
 
-    def scan(self) -> treelib.Tree:
+    def scan(self) -> LocalDiskTree:
         """Recurse over disk tree. Gather current stats for each file, and compare to the stale tree.
         For each current file found, remove from the stale tree.
         When recursion is complete, what's left in the stale tree will be deleted/moved files"""
