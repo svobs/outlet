@@ -208,11 +208,8 @@ class CategoryDisplayTree:
         for ancestor in ancestors:
             existing_node: DisplayNode = self._category_tree.get_node(nid=ancestor.uid)
             if existing_node is None:
-                # TODO: review whether we still need to set category so rabidly, or whether we can avoid cloning
-                new_ancestor = copy.copy(ancestor)
-                new_ancestor.node_identifier.category = category
-                self._category_tree.add_node(node=new_ancestor, parent=parent)
-                existing_node = new_ancestor
+                self._category_tree.add_node(node=ancestor, parent=parent)
+                existing_node = ancestor
             parent = existing_node
             # This will most often be a DirNode, but may occasionally be a FolderToAdd.
             if isinstance(parent, DirNode):
