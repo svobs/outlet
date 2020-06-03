@@ -338,12 +338,6 @@ class ContentFirstDiffer:
                     f' Left:[{self.change_tree_left.get_summary()}] Right:[{self.change_tree_right.get_summary()}]')
         logger.info(f'{sw} Finished path comparison for right tree')
 
-        # Copy ignored items to change trees:
-        for item in self.left_tree.get_ignored_items():
-            self.change_tree_left.add_item(item, Category.Ignored, self.left_tree)
-        for item in self.right_tree.get_ignored_items():
-            self.change_tree_right.add_item(item, Category.Ignored, self.right_tree)
-
         return self.change_tree_left, self.change_tree_right
 
     def merge_change_trees(self, left_selected_changes: List[DisplayNode], right_selected_changes: List[DisplayNode],
