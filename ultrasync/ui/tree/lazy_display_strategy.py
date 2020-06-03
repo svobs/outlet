@@ -225,6 +225,10 @@ class LazyDisplayStrategy:
 
         # TODO: this can be optimized to search only the paths of the ancestors
         parent = self.con.get_tree().get_parent_for_item(node)
+        if not parent:
+            logger.debug(f'[{self.con.tree_id}] Ignoring added node because its parent does not appear to be in this tree')
+            return
+
         parent_uid = parent.uid
         parent_iter = self.con.display_store.find_in_tree(target_uid=parent_uid)
         if not parent_iter:

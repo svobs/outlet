@@ -261,8 +261,8 @@ class CacheManager:
         root_identifier: NodeIdentifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         return self._gdrive_cache.load_gdrive_subtree(root_identifier, tree_id)
 
-    def build_fmeta(self, full_path: str, category=Category.NA):
-        return self._local_disk_cache.build_fmeta(full_path, category)
+    def build_fmeta(self, full_path: str, category=Category.NA, staging_path=None) -> Optional[FMeta]:
+        return self._local_disk_cache.build_fmeta(full_path, category, staging_path)
 
     def add_or_update_node(self, node: DisplayNode):
         tree_type = node.node_identifier.tree_type

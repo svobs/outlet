@@ -531,7 +531,7 @@ class GDriveClient:
 
     def download_file(self, file_id: str, dest_path: str):
         """Download a single file based on Google ID and destination path"""
-        # logger.debug(f'Downloading file: "{file.node_identifier}" to "{dest_path}"')
+        logger.debug(f'Downloading GDrive file_id="{file_id}" to "{dest_path}"')
 
         # only set this to True if you need to. Otherwise it will cause the download to fail...
         download_abusive_file = False
@@ -549,7 +549,7 @@ class GDriveClient:
                 fh.seek(0)
                 f.write(fh.read())
 
-            logger.info(f'Download complete: "{dest_path}"')
+            logger.debug(f'Download complete: "{dest_path}"')
 
         _try_repeatedly(download)
 

@@ -195,7 +195,7 @@ class CopyFileLocallyCommand(Command):
             self._status = CommandStatus.COMPLETED_NO_OP
         except Exception as err:
             # Try to log helpful info
-            logger.error(f'While copying file: src_path="{self._model.original_full_path}", dst_path="{self._model.dest_path}", : {repr(err)}')
+            logger.exception(f'While copying file: src_path="{self._model.original_full_path}", dst_path="{self._model.dest_path}"')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 
@@ -220,7 +220,7 @@ class DeleteLocalFileCommand(Command):
 
             self._status = CommandStatus.COMPLETED_OK
         except Exception as err:
-            logger.error(f'While deleting file: path={self._model.full_path}: {repr(err)}, to_trash={self.to_trash}')
+            logger.exception(f'While deleting file: path={self._model.full_path}: {repr(err)}, to_trash={self.to_trash}')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 
@@ -247,8 +247,7 @@ class MoveFileLocallyCommand(Command):
             context.cache_manager.add_or_update_node(local_node)
             self._status = CommandStatus.COMPLETED_OK
         except Exception as err:
-            logger.error(f'While moving file: dest_path="{self._model.dest_path}", '
-                         f'orig_path="{self._model.original_full_path}": {repr(err)}')
+            logger.exception(f'While moving file: dest_path="{self._model.dest_path}", orig_path="{self._model.original_full_path}"')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 
@@ -334,8 +333,8 @@ class UploadToGDriveCommand(Command):
             self._status = CommandStatus.COMPLETED_OK
 
         except Exception as err:
-            logger.error(f'While uploading file to GDrive: dest_parent_ids="{self._model.parent_uids}", '
-                         f'src_path="{self._model.original_full_path}": {repr(err)}')
+            logger.exception(f'While uploading file to GDrive: dest_parent_ids="{self._model.parent_uids}", '
+                             f'src_path="{self._model.original_full_path}"')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 
@@ -361,12 +360,35 @@ class DownloadFromGDriveCommand(Command):
             assert isinstance(self._model.src_node, GoogFile), f'For {self._model.src_node}'
             src_goog_id = self._model.src_node.goog_id
             dst_path = self._model.dest_path
+
+            if os.path.exists(dst_path):
+                item: FMeta = context.cache_manager.build_fmeta(full_path=dst_path)
+                if item and item.md5 == self._model.src_node.md5:
+                    context.cache_manager.add_or_update_node(item)
+                    self._status = CommandStatus.COMPLETED_NO_OP
+                    return
+                elif not self._overwrite:
+                    raise RuntimeError(f'A different item already exists at the destination path: {dst_path}')
+            elif self._overwrite:
+                logger.warning(f'Doing an "update" for a local file which does not exist: {dst_path}')
+
+            try:
+                os.makedirs(name=context.staging_dir, exist_ok=True)
+            except Exception:
+                logger.error(f'Exception while making staging dir: {context.staging_dir}')
+                raise
             staging_path = os.path.join(context.staging_dir, self._model.md5)
-            file_exists = os.path.exists(dst_path)
-            if file_exists and not self._overwrite:
-                raise RuntimeError(f'Cannot "add" a file downloaded from Google Drive: dest file already exists: "{dst_path}"')
-            elif not file_exists and self._overwrite:
-                raise RuntimeError(f'Trying to update a local file which does not exist: {dst_path}')
+
+            if os.path.exists(staging_path):
+                item: FMeta = context.cache_manager.build_fmeta(full_path=dst_path)
+                if item and item.md5 == self._model.src_node.md5:
+                    file_util.move_to_dst(staging_path=staging_path, dst_path=dst_path)
+                    context.cache_manager.add_or_update_node(item)
+                    self._status = CommandStatus.COMPLETED_OK
+                    return
+                else:
+                    logger.debug(f'Found unknown file in the staging dir; removing: {staging_path}')
+                    os.remove(staging_path)
 
             context.gdrive_client.download_file(file_id=src_goog_id, dest_path=staging_path)
 
@@ -382,8 +404,8 @@ class DownloadFromGDriveCommand(Command):
 
             self._status = CommandStatus.COMPLETED_OK
         except Exception as err:
-            logger.error(f'While downloading file from GDrive: dest_path="{self._model.dest_path}", '
-                         f'src_goog_id="{self._model.src_node.goog_id}": {repr(err)}')
+            logger.exception(f'While downloading file from GDrive: dest_path="{self._model.dest_path}", '
+                             f'src_goog_id="{self._model.src_node.goog_id}"')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 
@@ -421,7 +443,7 @@ class CreateGDriveFolderCommand(Command):
             # Add node to disk & in-memory caches:
             context.cache_manager.add_or_update_node(goog_node)
         except Exception as err:
-            logger.error(f'While creating folder on GDrive: name="{self._model.name}", parent_uids="{self._model.parent_uids}": {repr(err)}')
+            logger.exception(f'While creating folder on GDrive: name="{self._model.name}", parent_uids="{self._model.parent_uids}"')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 
@@ -496,8 +518,8 @@ class MoveFileGDriveCommand(Command):
                                        f'(goog_id={self._model.src_node.goog_id})')
 
         except Exception as err:
-            logger.error(f'While moving file within GDrive: dest_parent_ids="{self._model.parent_uids}", '
-                         f'src_node="{self._model.src_node}": {repr(err)}')
+            logger.exception(f'While moving file within GDrive: dest_parent_ids="{self._model.parent_uids}", '
+                             f'src_node="{self._model.src_node}"')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 
@@ -537,7 +559,7 @@ class DeleteGDriveFileCommand(Command):
             context.cache_manager.remove_node(self._model, self.to_trash)
 
         except Exception as err:
-            logger.error(f'While deleting from GDrive (to_trash={self.to_trash}, node={self._model}": {repr(err)}')
+            logger.exception(f'While deleting from GDrive (to_trash={self.to_trash}, node={self._model}"')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 

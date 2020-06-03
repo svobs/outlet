@@ -39,7 +39,8 @@ class LocalDiskMasterCache:
         """Singleton in-memory cache for local filesystem"""
         self.application = application
 
-        self._lock = threading.Lock()
+        self._uid_lock = threading.Lock()
+        self._struct_lock = threading.Lock()
 
         self.use_md5 = application.config.get('cache.enable_md5_lookup')
         if self.use_md5:
@@ -64,7 +65,7 @@ class LocalDiskMasterCache:
         self.dir_tree.add_node(node=root_node, parent=None)
 
     def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
-        with self._lock:
+        with self._uid_lock:
             return self._get_uid_for_path(path, uid_suggestion)
 
     def _get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
@@ -110,7 +111,7 @@ class LocalDiskMasterCache:
 
     def add_or_update_fmeta(self, item: FMeta, fire_listeners=True):
         existing = None
-        with self._lock:
+        with self._struct_lock:
             uid = self._get_uid_for_path(item.full_path, item.uid)
             # logger.debug(f'ID: {uid}, path: {item.full_path}')
             assert (not item.uid) or (uid == item.uid)
@@ -130,7 +131,7 @@ class LocalDiskMasterCache:
             dispatcher.send(signal=signal, sender=ID_GLOBAL_CACHE, node=item)
 
     def remove_fmeta(self, item: FMeta, to_trash=False, fire_listeners=True):
-        with self._lock:
+        with self._struct_lock:
             assert item.uid == self._full_path_uid_dict.get(item.full_path, None), f'For item: {item}'
 
             if self.use_md5 and item.md5:
@@ -333,8 +334,7 @@ class LocalDiskMasterCache:
                     target = os.readlink(full_path)
                     logger.error(f'Broken link, skipping: "{full_path}" -> "{target}"')
                 else:
-                    # can this actually happen?
-                    logger.error(f'File not found; skipping: {full_path}')
+                    logger.error(f'While building FMeta: file not found; skipping: {full_path}')
                 # Return None. Will be assumed to be a deleted file
                 return None
 
