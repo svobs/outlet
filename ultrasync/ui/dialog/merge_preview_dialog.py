@@ -27,8 +27,6 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
         self.set_default_size(700, 700)
 
-        self.tree: CategoryDisplayTree = tree
-
         box = self.get_content_area()
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
         box.add(self.content_box)
@@ -36,6 +34,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         label = Gtk.Label(label="The following changes will be made:")
         self.content_box.add(label)
 
+        self.tree: CategoryDisplayTree = tree
         self.tree_con = tree_factory.build_static_category_file_tree(parent_win=self, tree_id=ID_MERGE_TREE, tree=self.tree)
         actions.set_status(sender=ID_MERGE_TREE, status_msg=self.tree.get_summary())
         self.content_box.pack_start(self.tree_con.content_box, True, True, 0)
@@ -67,6 +66,10 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
             self.show_error_ui('Diff task failed due to unexpected error', detail)
             raise
         finally:
+            # Clean up:
+            self.tree_con.destroy()
+            self.tree_con = None
+            self.tree = None
             dialog.destroy()
 
     def on_apply_clicked(self):

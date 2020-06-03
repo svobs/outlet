@@ -116,12 +116,32 @@ class LocalDiskMasterCache:
             # logger.debug(f'ID: {uid}, path: {item.full_path}')
             assert (not item.uid) or (uid == item.uid)
             item.uid = uid
+            existing = self.dir_tree.get_node(item.uid)
             if self.use_md5 and item.md5:
                 self.md5_dict.put(item, existing)
             if self.use_sha256 and item.sha256:
                 self.sha256_dict.put(item, existing)
 
+            if existing:
+                self.dir_tree.remove_node(existing)
             self.dir_tree.add_to_tree(item)
+
+        if not item.is_dir():   # we don't save dir meta at present
+            cache_man = self.application.cache_manager
+            cache_info = cache_man.find_existing_supertree_for_subtree(item.node_identifier, ID_GLOBAL_CACHE)
+            if cache_info:
+                if cache_man.enable_save_to_disk:
+                    # Write new values:
+                    with FMetaDatabase(cache_info.cache_location, self.application) as cache:
+                        if existing:
+                            logger.debug(f'Updating DB entry for: {item.full_path}')
+                            cache.update_local_file(item)
+                        else:
+                            logger.debug(f'Inserting DB entry for: {item.full_path}')
+                            cache.insert_local_file(item)
+
+            else:
+                logger.error(f'Could not find a cache associated with file path: {item.full_path}')
 
         if fire_listeners:
             if existing is not None:
@@ -148,11 +168,6 @@ class LocalDiskMasterCache:
 
     # Loading stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-    def get_subtree_from_memory_only(self, subtree_path: LocalFsIdentifier) -> FMetaTree:
-        return FMetaTree(root_identifier=subtree_path, application=self.application)
-
-    # Load/save on-disk cache:
 
     def _load_subtree_from_disk(self, cache_info: PersistedCacheInfo, tree_id) -> Optional[LocalDiskTree]:
         """Loads the given subtree disk cache from disk."""

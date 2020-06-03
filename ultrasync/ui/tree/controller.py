@@ -53,6 +53,17 @@ class TreePanelController:
         self.display_strategy.init()
         self.context_listeners.init()
 
+    def destroy(self):
+        self.context_listeners.disconnect_gtk_listeners()
+        self.context_listeners = None
+        self.treeview_meta = None
+        self.display_strategy = None
+
+        self.tree_builder = None
+        self.display_store = None
+        self.root_dir_panel = None
+        self.tree_view = None
+
     def _set_column_visibilities(self):
         # the columns stored in TreeViewMeta are 1
         self.tree_view.get_column(self.treeview_meta.col_num_modify_ts_view).set_visible(self.treeview_meta.show_modify_ts_col)

@@ -45,7 +45,7 @@ class FMetaDatabase(MetaDatabase):
         to_insert = []
         for e in entries:
             if not isinstance(e, PlanningNode):
-                e_tuple = (e.md5, e.sha256, e.size_bytes, e.sync_ts, e.modify_ts, e.change_ts, e.full_path, e.category)
+                e_tuple = _make_tuple(e)
                 to_insert.append(e_tuple)
 
         if overwrite:
@@ -57,3 +57,13 @@ class FMetaDatabase(MetaDatabase):
 
     def truncate_local_files(self):
         self.truncate_table(self.TABLE_LOCAL_FILE)
+
+    def insert_local_file(self, item, commit=True):
+        self.insert_one(self.TABLE_LOCAL_FILE, _make_tuple(item), commit=commit)
+
+    def update_local_file(self, item, commit=True):
+        self.update(self.TABLE_LOCAL_FILE, stmt_vars=(item.full_path,), commit=commit)
+
+
+def _make_tuple(e):
+    return e.md5, e.sha256, e.size_bytes, e.sync_ts, e.modify_ts, e.change_ts, e.full_path, e.category

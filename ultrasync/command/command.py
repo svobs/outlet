@@ -364,6 +364,7 @@ class DownloadFromGDriveCommand(Command):
             if os.path.exists(dst_path):
                 item: FMeta = context.cache_manager.build_fmeta(full_path=dst_path)
                 if item and item.md5 == self._model.src_node.md5:
+                    logger.debug(f'Item already exists and appears valid: skipping download; will update cache and return ({dst_path})')
                     context.cache_manager.add_or_update_node(item)
                     self._status = CommandStatus.COMPLETED_NO_OP
                     return
@@ -382,6 +383,7 @@ class DownloadFromGDriveCommand(Command):
             if os.path.exists(staging_path):
                 item: FMeta = context.cache_manager.build_fmeta(full_path=dst_path)
                 if item and item.md5 == self._model.src_node.md5:
+                    logger.debug(f'Found target item in staging dir; will move: ({staging_path} -> {dst_path})')
                     file_util.move_to_dst(staging_path=staging_path, dst_path=dst_path)
                     context.cache_manager.add_or_update_node(item)
                     self._status = CommandStatus.COMPLETED_OK

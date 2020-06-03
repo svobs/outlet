@@ -213,7 +213,7 @@ class CacheManager:
         else:
             raise RuntimeError(f'Unrecognized tree type: {node_identifier.tree_type}')
 
-    def _find_existing_supertree_for_subtree(self, subtree_root: NodeIdentifier, tree_id: str) -> Optional[PersistedCacheInfo]:
+    def find_existing_supertree_for_subtree(self, subtree_root: NodeIdentifier, tree_id: str) -> Optional[PersistedCacheInfo]:
         existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(subtree_root.tree_type).values())
 
         for existing_cache in existing_caches:
@@ -246,7 +246,7 @@ class CacheManager:
         subtree_root.uid = new_uid
 
         # If we have already loaded this subtree as part of a larger cache, use that:
-        supertree_cache: Optional[PersistedCacheInfo] = self._find_existing_supertree_for_subtree(subtree_root, tree_id)
+        supertree_cache: Optional[PersistedCacheInfo] = self.find_existing_supertree_for_subtree(subtree_root, tree_id)
         if supertree_cache:
             logger.debug(f'Subtree ({subtree_root.full_path}) is part of existing cached supertree ({supertree_cache.subtree_root.full_path})')
             return self._local_disk_cache.load_subtree(supertree_cache, tree_id, subtree_root)
