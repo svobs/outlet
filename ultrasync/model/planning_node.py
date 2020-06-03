@@ -39,7 +39,6 @@ class FileDecoratorNode(PlanningNode, ABC):
         """The original node (e.g., for a FileToAdd, this would be the "source node"""
 
         self._parent_ids: Optional[List[UID]] = None
-        """Only used in Goog trees currently"""
 
     @property
     def original_full_path(self):
@@ -172,6 +171,7 @@ class FileToUpdate(FileDecoratorNode):
 class LocalDirToAdd(PlanningNode):
     def __init__(self, node_identifier: NodeIdentifier):
         super().__init__(node_identifier)
+        self._parent_ids: Optional[List[UID]] = None
 
     def get_icon(self):
         return ICON_ADD_DIR
@@ -189,7 +189,31 @@ class LocalDirToAdd(PlanningNode):
         return True
 
     def __repr__(self):
-        return f'LocalDirToAdd(node_identifier={self.node_identifier})'
+        return f'LocalDirToAdd(node_identifier={self.node_identifier} parent_uids={self.parent_uids})'
 
     def to_tuple(self):
         pass
+
+    @property
+    def parent_uids(self) -> List[UID]:
+        if self._parent_ids:
+            if isinstance(self._parent_ids, list):
+                return self._parent_ids
+            elif isinstance(self._parent_ids, UID):
+                return [self._parent_ids]
+            assert False
+        return []
+
+    @parent_uids.setter
+    def parent_uids(self, parent_uids):
+        """Can be a list of dir UIDs, or a single UID, or None"""
+        if not parent_uids:
+            self._parent_ids = None
+        elif isinstance(parent_uids, list):
+            if len(parent_uids) == 1:
+                assert isinstance(parent_uids[0], UID), f'Found instead: {parent_uids[0]}, type={type(parent_uids[0])}'
+                self._parent_ids = parent_uids[0]
+            else:
+                self._parent_ids = parent_uids
+        else:
+            self._parent_ids = parent_uids

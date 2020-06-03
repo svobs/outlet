@@ -181,7 +181,6 @@ class CategoryDisplayTree:
 
         def stop_before(_ancestor: DisplayNode) -> bool:
             if _ancestor.parent_uids:
-                assert item.node_identifier.tree_type == TREE_TYPE_GDRIVE
                 # In this tree already? Saves us work, and more importantly,
                 # allow us to use nodes not in the parent tree (e.g. FolderToAdds)
                 for parent_uid in _ancestor.parent_uids:

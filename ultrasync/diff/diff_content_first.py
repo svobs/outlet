@@ -83,13 +83,12 @@ class ContentFirstDiffer:
 
         while len(stack) > 0:
             item = stack.pop()
-            if tree_type == TREE_TYPE_GDRIVE:
-                # Attach parents list to the child (GDrive only):
-                if isinstance(parents, list):
-                    item.parent_uids = list(map(lambda x: x.uid, parents))
-                else:
-                    assert isinstance(parents, DisplayNode), f'Found instead: {type(parents)}'
-                    item.parent_uids = parents.uid
+            # Attach parents list to the child:
+            if isinstance(parents, list):
+                item.parent_uids = list(map(lambda x: x.uid, parents))
+            else:
+                assert isinstance(parents, DisplayNode), f'Found instead: {type(parents)}'
+                item.parent_uids = parents.uid
             change_tree.add_item(item, item.category, source_tree)
             parents = [item]
 
