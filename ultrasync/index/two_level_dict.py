@@ -179,17 +179,21 @@ class TwoLevelDict:
         dict2 = self._dict.get(key1, None)
         if dict2 is None:
             return None
-        return dict2.pop(key2, None)
+        entry = dict2.pop(key2, None)
+        if entry:
+            self.total_entries -= 1
+        return entry
 
     def keys(self):
         return self._dict.keys()
 
-    def get_all(self) -> List[Any]:
-        all_vals = []
-        for d in self._dict.values():
-            if d:
-                all_vals += d.values()
-        return all_vals
+    def clear(self):
+        self._dict.clear()
+        self.total_entries = 0
+
+    def __len__(self):
+        return self.total_entries
+
 
 """
 🡻🡻🡻 ③ Parameterized classes 🡻🡻🡻

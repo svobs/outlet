@@ -9,6 +9,7 @@ from model.display_node import DisplayNode
 logger = logging.getLogger(__name__)
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
+SUPER_DEBUG = False
 
 
 class FMeta(DisplayNode):
@@ -20,6 +21,8 @@ class FMeta(DisplayNode):
         self.sync_ts: int = ensure_int(sync_ts)
         self._modify_ts: int = ensure_int(modify_ts)
         self._change_ts: int = ensure_int(change_ts)
+
+        self.tag = full_path
 
     @classmethod
     def has_path(cls):

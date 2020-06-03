@@ -48,7 +48,7 @@ def _ensure_cache_dir_path(config):
 
 
 class CacheInfoByType(TwoLevelDict):
-    """Holds CacheInfo objects"""
+    """Holds PersistedCacheInfo objects"""
     def __init__(self):
         super().__init__(lambda x: x.subtree_root.tree_type, lambda x: x.subtree_root.full_path, lambda x, y: True)
 
@@ -134,22 +134,29 @@ class CacheManager:
             if self.application.cache_manager.enable_load_from_disk and self.load_all_caches_on_startup:
                 # MUST read GDrive first, because currently we assign incrementing integer UIDs for local files dynamically,
                 # and we won't know which are reserved until we have read in all the existing GDrive caches
-                existing_caches = list(self.caches_by_type.get_second_dict(TREE_TYPE_GDRIVE).values())
+                existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_GDRIVE).values())
                 assert len(existing_caches) <= 1
 
                 # FIXME: this will cause a local cache to be loaded before GDrive cache. Handle global UIDs better
-                consolidated_local_caches, registry_needs_update = self._consolidate_local_caches()
+                local_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_LOCAL_DISK).values())
+                consolidated_local_caches, registry_needs_update = self._local_disk_cache.consolidate_local_caches(local_caches, ID_GLOBAL_CACHE)
                 existing_caches += consolidated_local_caches
 
                 if registry_needs_update and self.enable_save_to_disk:
                     self._overwrite_all_caches_in_registry(existing_caches)
+                    logger.debug(f'Overwriting in-memory list ({len(self.caches_by_type)}) with {len(existing_caches)} entries')
+                    self.caches_by_type.clear()
+                    for cache in existing_caches:
+                        self.caches_by_type.put(cache)
 
                 for cache_num, existing_disk_cache in enumerate(existing_caches):
                     try:
-                        info = PersistedCacheInfo(existing_disk_cache)
-                        self.caches_by_type.put(info)
+                        self.caches_by_type.put(existing_disk_cache)
                         logger.info(f'Init cache {(cache_num + 1)}/{len(existing_caches)}: id={existing_disk_cache.subtree_root}')
-                        self._init_existing_cache(info)
+                        if existing_disk_cache.is_loaded:
+                            logger.debug('Cache is already loaded; skipping')
+                        else:
+                            self._init_existing_cache(existing_disk_cache)
                     except Exception:
                         logger.exception(f'Failed to load cache: {existing_disk_cache.cache_location}')
                 logger.info(f'{stopwatch} Load All Caches complete')
@@ -159,52 +166,6 @@ class CacheManager:
             dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
             self.all_caches_loaded.set()
             dispatcher.send(signal=actions.LOAD_ALL_CACHES_DONE, sender=ID_GLOBAL_CACHE)
-
-    def _consolidate_local_caches(self) -> Tuple[List[PersistedCacheInfo], bool]:
-        local_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_LOCAL_DISK).values())
-
-        supertree_sets: List[Tuple[PersistedCacheInfo, PersistedCacheInfo]] = []
-
-        for cache in local_caches:
-            for other_cache in local_caches:
-                if other_cache.subtree_root.full_path.startswith(cache.subtree_root.full_path) and \
-                        not cache.subtree_root.full_path == other_cache.subtree_root.full_path:
-                    # cache is a super-tree of other_cache
-                    supertree_sets.append((cache, other_cache))
-
-        for supertree_cache, subtree_cache in supertree_sets:
-            local_caches.remove(subtree_cache)
-
-            if supertree_cache.sync_ts > subtree_cache.sync_ts:
-                logger.info(f'Cache for supertree (root={supertree_cache.subtree_root.full_path}, ts={supertree_cache.sync_ts}) is newer '
-                            f'than for subtree (root={subtree_cache.subtree_root.full_path}, ts={subtree_cache.sync_ts}): it will be deleted')
-                file_util.delete_file(subtree_cache.cache_location)
-            else:
-                logger.info(f'Cache for subtree (root={subtree_cache.subtree_root.full_path}, ts={subtree_cache.sync_ts}) is newer '
-                            f'than for supertree (root={supertree_cache.subtree_root.full_path}, ts={supertree_cache.sync_ts}): it will be merged '
-                            f'into supertree')
-
-                # 1. Load super-tree into memory
-                super_tree: LocalDiskTree = self._local_disk_cache.load_subtree_from_disk(supertree_cache, ID_GLOBAL_CACHE)
-                # 2. Discard all paths from super-tree which fall under sub-tree:
-
-                # 3. Load sub-tree into memory
-                sub_tree: LocalDiskTree = self._local_disk_cache.load_subtree_from_disk(subtree_cache, ID_GLOBAL_CACHE)
-                if sub_tree:
-                    # 4. Add contents of sub-tree into super-tree:
-                    super_tree.replace_subtree(sub_tree=sub_tree)
-
-                # 5. We already loaded it into memory; add it to the in-memory cache:
-                self._local_disk_cache.dir_tree.replace_subtree(super_tree)
-                if self.enable_save_to_disk:
-                    self._local_disk_cache.save_subtree_disk_cache(supertree_cache.subtree_root)
-                    # Now it is safe to delete the subtree cache:
-                    file_util.delete_file(subtree_cache.cache_location)
-                else:
-                    logger.debug('Skipping cache update because save to disk is disabled')
-
-        registry_needs_update = len(supertree_sets) > 0
-        return local_caches, registry_needs_update
 
     def _overwrite_all_caches_in_registry(self, cache_info_list: List[CacheInfoEntry]):
         logger.info(f'Overwriting all cache entries in registry with {len(cache_info_list)} entries')
@@ -240,6 +201,7 @@ class CacheManager:
         Performs a read-through retreival of all the FMetas in the given subtree
         on the local filesystem.
         """
+        logger.debug(f'Got request to load subtree: {node_identifier}')
 
         dispatcher.send(signal=actions.LOAD_TREE_STARTED, sender=tree_id)
 
@@ -251,11 +213,12 @@ class CacheManager:
         else:
             raise RuntimeError(f'Unrecognized tree type: {node_identifier.tree_type}')
 
-    def _find_existing_supertree_for_subtree(self, subtree_root: NodeIdentifier, tree_id: str):
+    def _find_existing_supertree_for_subtree(self, subtree_root: NodeIdentifier, tree_id: str) -> Optional[PersistedCacheInfo]:
         existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(subtree_root.tree_type).values())
 
         for existing_cache in existing_caches:
-            if existing_cache.subtree_root.full_path.startswith(subtree_root.full_path):
+            # Is existing_cache an ancestor of target tree?
+            if subtree_root.full_path.startswith(existing_cache.subtree_root.full_path):
                 if existing_cache.subtree_root.full_path == subtree_root.full_path:
                     # Exact match exists: just return from here and allow exact match logic to work
                     return None
@@ -269,25 +232,29 @@ class CacheManager:
         Performs a read-through retreival of all the FMetas in the given subtree
         on the local filesystem.
         """
+        assert self._local_disk_cache
+
         if not os.path.exists(subtree_root.full_path):
             logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root.full_path}"')
             return NullSubtree(subtree_root)
 
+        # NOTE: because UIDs for local files change each time the app loads, we need to overwrite any stale UID which may be requested.
+        existing_uid = subtree_root.uid
+        new_uid = self._local_disk_cache.get_uid_for_path(subtree_root.full_path)
+        if existing_uid != new_uid:
+            logger.warning(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
+        subtree_root.uid = new_uid
+
         # If we have already loaded this subtree as part of a larger cache, use that:
-        supertree = self._find_existing_supertree_for_subtree(subtree_root, tree_id)
-        if supertree:
-            logger.debug(f'Subtree ({subtree_root.full_path}) is part of existing cached supertree ({supertree.subtree_root.full_path})')
-            if not supertree.is_loaded:
-                # load into in-memory cache
-                self._local_disk_cache.load_subtree(supertree, tree_id)
-            return self._local_disk_cache.get_subtree_from_memory_only(subtree_root)
-
-        # no supertree found in cache. use exact match logic:
-        cache_info = self.get_or_create_cache_info_entry(subtree_root)
-        assert cache_info is not None
-
-        assert self._local_disk_cache
-        return self._local_disk_cache.load_subtree(cache_info, tree_id)
+        supertree_cache: Optional[PersistedCacheInfo] = self._find_existing_supertree_for_subtree(subtree_root, tree_id)
+        if supertree_cache:
+            logger.debug(f'Subtree ({subtree_root.full_path}) is part of existing cached supertree ({supertree_cache.subtree_root.full_path})')
+            self._local_disk_cache.load_subtree(supertree_cache, tree_id, subtree_root)
+        else:
+            # no supertree found in cache. use exact match logic:
+            cache_info = self.get_or_create_cache_info_entry(subtree_root)
+            assert cache_info is not None
+            return self._local_disk_cache.load_subtree(cache_info, tree_id)
 
     def get_gdrive_whole_tree(self, tree_id) -> GDriveWholeTree:
         """Will load if necessary"""
@@ -324,10 +291,10 @@ class CacheManager:
     def get_or_create_cache_info_entry(self, subtree_root: NodeIdentifier) -> PersistedCacheInfo:
         existing = self.get_cache_info_entry(subtree_root)
         if existing:
-            logger.debug(f'Found existing cache for type={subtree_root.tree_type} subtree="{subtree_root.full_path}"')
+            logger.debug(f'Found existing cache entry for type={subtree_root.tree_type} subtree="{subtree_root.full_path}"')
             return existing
         else:
-            logger.debug(f'No existing cache found for type={subtree_root.tree_type} subtree="{subtree_root.full_path}"')
+            logger.debug(f'No existing cache entry found for type={subtree_root.tree_type} subtree="{subtree_root.full_path}"')
 
         if subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
             prefix = 'LO'

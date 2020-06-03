@@ -106,7 +106,7 @@ class ProgressBar:
                 self.progressbar.pulse()
             else:
                 if self._total == 0:
-                    logger.error('Cannot calculate progress %: total is zero!')
+                    logger.debug('Cannot calculate progress %: total is zero!')
                     return
                 new_value = self._progress / self._total
                 if new_value > 1:

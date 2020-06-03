@@ -250,7 +250,7 @@ class GDriveTreeLoader:
             if item.uid >= max_uid:
                 max_uid = item.uid
 
-        logger.debug(f'{sw} Loaded {dir_count} folders')
+        logger.debug(f'{sw} Loaded {dir_count} Google Drive folders')
 
         # FILES:
         sw = Stopwatch()
@@ -273,7 +273,7 @@ class GDriveTreeLoader:
             if item.uid >= max_uid:
                 max_uid = item.uid
 
-        logger.debug(f'{sw} Loaded {file_count} files')
+        logger.debug(f'{sw} Loaded {file_count} Google Drive files')
 
         if is_complete:
 
@@ -288,7 +288,7 @@ class GDriveTreeLoader:
                 if parent_uid:
                     tree.add_parent_mapping(UID(item_uid), UID(parent_uid))
 
-            logger.debug(f'{sw} Loaded {mapping_count} mappings')
+            logger.debug(f'{sw} Loaded {mapping_count} file-folder mappings')
 
         logger.debug(f'{sw_total} Loaded {len(tree.id_dict):n} items from {file_count:n} file rows and {dir_count:n} dir rows')
 

@@ -135,6 +135,8 @@ class DirNode(DisplayNode):
         self.file_count = 0
         self._size_bytes = 0
 
+        self.tag = self.node_identifier.full_path
+
     def add_meta_metrics(self, fmeta):
         self.file_count += 1
         if fmeta.size_bytes:

@@ -26,21 +26,23 @@ class LocalDiskTree(treelib.Tree):
         parent: DisplayNode = self.get_node(root_node_identifier.uid)
 
         item_rel_path = file_util.strip_root(item.full_path, root_node_identifier.full_path)
+        # this can return '' if there is no parent:
         path_segments = file_util.split_path(os.path.dirname(item_rel_path))
 
-        for dir_name in path_segments:
-            path_so_far: str = os.path.join(path_so_far, dir_name)
-            uid = self.application.cache_manager.get_uid_for_path(path_so_far)
-            child: DisplayNode = self.get_node(nid=uid)
-            if not child:
-                # logger.debug(f'Creating dir node: nid={uid}')
-                child = DirNode(node_identifier=LocalFsIdentifier(full_path=path_so_far, uid=uid))
-                try:
-                    self.add_node(node=child, parent=parent)
-                except Exception:
-                    logger.error(f'Error occurred while adding node: {child} to parent: {parent}')
-                    raise
-            parent = child
+        if path_segments:
+            for dir_name in path_segments:
+                path_so_far: str = os.path.join(path_so_far, dir_name)
+                uid = self.application.cache_manager.get_uid_for_path(path_so_far)
+                child: DisplayNode = self.get_node(nid=uid)
+                if not child:
+                    # logger.debug(f'Creating dir node: nid={uid}')
+                    child = DirNode(node_identifier=LocalFsIdentifier(full_path=path_so_far, uid=uid))
+                    try:
+                        self.add_node(node=child, parent=parent)
+                    except Exception:
+                        logger.error(f'Error occurred while adding node: {child} to parent: {parent}')
+                        raise
+                parent = child
 
         # Finally, add the node itself:
         child: DisplayNode = self.get_node(nid=item.uid)
