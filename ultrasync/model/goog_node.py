@@ -6,8 +6,8 @@ from typing import List, Optional, Tuple, Union
 from constants import ICON_ADD_DIR, NOT_TRASHED, TRASHED_STATUS
 from index.uid_generator import UID
 from model.category import Category
+from model.display_node import DisplayNodeWithParents
 from model.node_identifier import ensure_int, GDriveIdentifier
-from model.display_node import DisplayNode
 from model.planning_node import PlanningNode
 from constants import ICON_GENERIC_DIR, ICON_TRASHED_DIR, ICON_TRASHED_FILE
 
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 """
 
 
-class GoogNode(DisplayNode, ABC):
+class GoogNode(DisplayNodeWithParents, ABC):
 
     def __init__(self, uid: UID, goog_id: Optional[str], item_name: str, trashed: int, drive_id: Optional[str],
                  my_share: bool, sync_ts: Optional[int], category: Category = Category.NA):
@@ -30,9 +30,6 @@ class GoogNode(DisplayNode, ABC):
         self.goog_id: str = goog_id
         """The Google ID - long string. Need this for syncing with Google Drive,
         although the (int) uid will be used internally."""
-
-        self._parent_ids:  Optional[Union[UID, List[UID]]] = None
-        """ Most items will have only one parent, so store that way for efficiency"""
 
         self._name = item_name
 
@@ -47,29 +44,6 @@ class GoogNode(DisplayNode, ABC):
         """If true, I own it but I have shared it with other users"""
 
         self.sync_ts = sync_ts
-
-    @property
-    def parent_uids(self) -> List[UID]:
-        if not self._parent_ids:
-            return []
-        if isinstance(self._parent_ids, list):
-            return self._parent_ids
-        return [self._parent_ids]
-
-    @parent_uids.setter
-    def parent_uids(self, parent_uids: Optional[Union[UID, List[UID]]]):
-        """Can be a list of GoogFolders, or a single instance, or None"""
-        if not parent_uids:
-            self._parent_ids = None
-        elif isinstance(parent_uids, list):
-            if len(parent_uids) == 0:
-                self._parent_ids = None
-            elif len(parent_uids) == 1:
-                self._parent_ids = parent_uids[0]
-            else:
-                self._parent_ids = parent_uids
-        else:
-            self._parent_ids = parent_uids
 
     def add_parent(self, parent_uid: UID):
         current_parent_ids: List[UID] = self.parent_uids

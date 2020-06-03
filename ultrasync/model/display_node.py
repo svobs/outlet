@@ -101,22 +101,37 @@ class DisplayNode(Node, ABC):
         return ICON_GENERIC_FILE
 
 
-class FileNode(DisplayNode):
-    def __init__(self, node_identifier: NodeIdentifier):
+# ABSTRACT CLASS DisplayNodeWithParents
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class DisplayNodeWithParents(DisplayNode, ABC):
+    def __init__(self, node_identifier: NodeIdentifier, parent_uids: Optional[List[UID]] = None):
         super().__init__(node_identifier)
+        self._parent_uids: Optional[List[UID]] = parent_uids
 
-    @classmethod
-    def is_file(cls):
-        return True
+    @property
+    def parent_uids(self) -> List[UID]:
+        if self._parent_uids:
+            if isinstance(self._parent_uids, list):
+                return self._parent_uids
+            elif isinstance(self._parent_uids, UID):
+                return [self._parent_uids]
+            assert False
+        return []
 
-    @classmethod
-    def is_dir(cls):
-        return False
-
-    @classmethod
-    def has_path(cls):
-        """If true, this node represents a physical path. If false, it is just a logical node"""
-        return True
+    @parent_uids.setter
+    def parent_uids(self, parent_uids):
+        """Can be a list of GoogFolders' UIDs, or a single UID, or None"""
+        if not parent_uids:
+            self._parent_uids = None
+        elif isinstance(parent_uids, list):
+            if len(parent_uids) == 1:
+                assert isinstance(parent_uids[0], UID), f'Found instead: {parent_uids[0]}, type={type(parent_uids[0])}'
+                self._parent_uids = parent_uids[0]
+            else:
+                self._parent_uids = parent_uids
+        else:
+            self._parent_uids = parent_uids
 
 
 """
