@@ -238,7 +238,7 @@ class GDriveTreeLoader:
         dir_rows = self.cache.get_gdrive_dirs()
         dir_count = len(dir_rows)
 
-        actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=f'Retrieved {len(dir_rows):n} dirs')
+        actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=f'Retrieved {len(dir_rows):n} Google Drive dirs')
 
         for uid_int, goog_id, item_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
             uid = UID(uid_int)
@@ -257,7 +257,7 @@ class GDriveTreeLoader:
         file_rows = self.cache.get_gdrive_files()
         file_count = len(file_rows)
 
-        actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=f'Retreived {len(file_rows):n} files')
+        actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=f'Retreived {len(file_rows):n} Google Drive files')
 
         for uid_int, goog_id, item_name, item_trashed, size_bytes_str, md5, create_ts, modify_ts, owner_id, drive_id, \
                 my_share, version, head_revision_id, sync_ts in file_rows:
@@ -288,7 +288,7 @@ class GDriveTreeLoader:
                 if parent_uid:
                     tree.add_parent_mapping(UID(item_uid), UID(parent_uid))
 
-            logger.debug(f'{sw} Loaded {mapping_count} file-folder mappings')
+            logger.debug(f'{sw} Loaded {mapping_count} Google Drive file-folder mappings')
 
         logger.debug(f'{sw_total} Loaded {len(tree.id_dict):n} items from {file_count:n} file rows and {dir_count:n} dir rows')
 

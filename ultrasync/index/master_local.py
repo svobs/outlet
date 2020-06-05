@@ -212,7 +212,8 @@ class LocalDiskMasterCache:
 
     def _save_subtree_to_disk(self, cache_info: PersistedCacheInfo, tree_id):
         assert isinstance(cache_info.subtree_root, LocalFsIdentifier)
-        to_insert: List[FMeta] = self.dir_tree.get_all_files_for_subtree(cache_info.subtree_root)
+        with self._struct_lock:
+            to_insert: List[FMeta] = self.dir_tree.get_all_files_for_subtree(cache_info.subtree_root)
 
         stopwatch_write_cache = Stopwatch()
         with FMetaDatabase(cache_info.cache_location, self.application) as fmeta_disk_cache:
@@ -244,8 +245,9 @@ class LocalDiskMasterCache:
             if self.application.cache_manager.enable_load_from_disk:
                 tree = self._load_subtree_from_disk(cache_info, tree_id)
                 if tree:
-                    self.dir_tree.replace_subtree(tree)
-                    logger.debug(f'[{tree_id}] Updated in-memory cache: {self.get_summary()}')
+                    with self._struct_lock:
+                        self.dir_tree.replace_subtree(tree)
+                        logger.debug(f'[{tree_id}] Updated in-memory cache: {self.get_summary()}')
             else:
                 logger.debug(f'[{tree_id}] Skipping cache disk load because cache.enable_load_from_disk is false')
 
@@ -280,7 +282,8 @@ class LocalDiskMasterCache:
         scanner = FMetaDiskScanner(application=self.application, root_node_identifer=subtree_root, tree_id=tree_id)
         fresh_tree: treelib.Tree = scanner.scan()
 
-        self.dir_tree.replace_subtree(sub_tree=fresh_tree)
+        with self._struct_lock:
+            self.dir_tree.replace_subtree(sub_tree=fresh_tree)
 
     def consolidate_local_caches(self, local_caches: List[PersistedCacheInfo], tree_id) -> Tuple[List[PersistedCacheInfo], bool]:
         supertree_sets: List[Tuple[PersistedCacheInfo, PersistedCacheInfo]] = []
@@ -315,7 +318,8 @@ class LocalDiskMasterCache:
                     super_tree.replace_subtree(sub_tree=sub_tree)
 
                 # 5. We already loaded it into memory; add it to the in-memory cache:
-                self.dir_tree.replace_subtree(super_tree)
+                with self._struct_lock:
+                    self.dir_tree.replace_subtree(super_tree)
 
                 # this will resync with file system and/or save if configured
                 supertree_cache.needs_save = True

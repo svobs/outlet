@@ -1,6 +1,7 @@
 import logging
 from typing import List, Union
 
+import file_util
 from index.cache_info import CacheInfoEntry
 from index.sqlite.base_db import MetaDatabase
 from model.node_identifier import NodeIdentifierFactory
@@ -45,6 +46,7 @@ class CacheRegistry(MetaDatabase):
         entries = []
         for row in rows:
             cache_location, cache_type, subtree_root_path, subtree_root_uid, sync_ts, is_complete = row
+            subtree_root_path = file_util.normalize_path(subtree_root_path)
             node_identifier = self.node_identifier_factory.for_values(tree_type=cache_type, full_path=subtree_root_path,
                                                                       uid=ensure_int(subtree_root_uid))
             entries.append(CacheInfoEntry(cache_location=cache_location, subtree_root=node_identifier, sync_ts=sync_ts, is_complete=is_complete))

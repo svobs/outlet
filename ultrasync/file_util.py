@@ -8,6 +8,7 @@ import logging
 from typing import List, Tuple
 
 import fmeta.content_hasher
+from constants import ROOT_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,17 @@ def is_target_type(file_path: str, valid_suffixes: Tuple[str]):
         if fnmatch.fnmatch(file_path_lower, regex):
             return True
     return False
+
+
+def normalize_path(path: str):
+    if path != ROOT_PATH and path.endswith('/'):
+        # directories ending in '/' are logically equivalent and should be treated as such
+        return path[:-1]
+    return path
+
+
+def is_normalized(path: str):
+    return path == ROOT_PATH or not path.endswith('/')
 
 
 def get_resource_path(rel_path: str, resolve_symlinks=False):

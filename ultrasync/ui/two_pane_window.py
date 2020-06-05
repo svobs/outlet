@@ -103,22 +103,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # Give progress bar exactly half of the window width:
         self.bottom_panel.set_homogeneous(True)
 
-        def on_diff_btn_clicked(widget):
-            logger.debug('Diff btn clicked!')
-            # Disable button bar immediately:
-            self._on_enable_ui_toggled(sender=self.win_id, enable=False)
-            dispatcher.send(signal=actions.START_DIFF_TREES, sender=self.win_id,
-                            tree_con_left=self.tree_con_left, tree_con_right=self.tree_con_right)
-        diff_action_btn = Gtk.Button(label="Diff (content-first)")
-        diff_action_btn.connect("clicked", on_diff_btn_clicked)
-
-        def on_goog_btn_clicked(widget):
-            logger.debug('DownloadGDrive btn clicked!')
-            actions.send_signal(signal=actions.DOWNLOAD_GDRIVE_META, sender=self.win_id)
-        gdrive_btn = Gtk.Button(label="Download Google Drive Meta")
-        gdrive_btn.connect("clicked", on_goog_btn_clicked)
-
-        self.replace_bottom_button_panel(diff_action_btn, gdrive_btn)
+        self._set_default_button_bar()
 
         # Subscribe to signals:
         actions.connect(signal=actions.TOGGLE_UI_ENABLEMENT, handler=self._on_enable_ui_toggled)
@@ -129,7 +114,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=actions.ID_LEFT_TREE)
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=actions.ID_RIGHT_TREE)
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=actions.ID_RIGHT_TREE)
-        dispatcher.connect(signal=actions.DIFF_CANCELLED, receiver=self._on_diff_cancelled, sender=Any)
+        dispatcher.connect(signal=actions.DIFF_CANCELLED, receiver=self._on_merge_complete, sender=Any)
 
         # Connect "resize" event. Lots of excess logic to determine approximately when the
         # window *stops* being resized, so we can persist the value semi-efficiently
@@ -160,6 +145,24 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self._timer_id = None
         eid = self.connect('size-allocate', self._on_size_allocated)
         self._event_id_size_allocate = eid
+
+    def _set_default_button_bar(self):
+        def on_diff_btn_clicked(widget):
+            logger.debug('Diff btn clicked!')
+            # Disable button bar immediately:
+            self._on_enable_ui_toggled(sender=self.win_id, enable=False)
+            dispatcher.send(signal=actions.START_DIFF_TREES, sender=self.win_id,
+                            tree_con_left=self.tree_con_left, tree_con_right=self.tree_con_right)
+        diff_action_btn = Gtk.Button(label="Diff (content-first)")
+        diff_action_btn.connect("clicked", on_diff_btn_clicked)
+
+        def on_goog_btn_clicked(widget):
+            logger.debug('DownloadGDrive btn clicked!')
+            actions.send_signal(signal=actions.DOWNLOAD_GDRIVE_META, sender=self.win_id)
+        gdrive_btn = Gtk.Button(label="Download Google Drive Meta")
+        gdrive_btn.connect("clicked", on_goog_btn_clicked)
+
+        self.replace_bottom_button_panel(diff_action_btn, gdrive_btn)
 
     # GTK LISTENERS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -272,10 +275,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             logger.debug(f'Detected that {actions.ID_LEFT_TREE} changed root. Reloading {actions.ID_RIGHT_TREE}')
             _reload_tree(self.tree_con_right)
 
-    def _on_diff_cancelled(self):
-        logger.debug('Received signal that diff exited. Reloading both trees')
-        _reload_tree(self.tree_con_left)
-        _reload_tree(self.tree_con_right)
+        GLib.idle_add(self._set_default_button_bar)
 
     def _after_diff_completed(self, sender, stopwatch):
         logger.debug(f'Received signal: "{actions.DIFF_TREES_DONE}"')
@@ -291,6 +291,13 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             actions.enable_ui(sender=self)
             logger.debug(f'Diff time + redraw: {stopwatch}')
         GLib.idle_add(change_button_bar)
+
+    def _on_merge_complete(self):
+        logger.debug('Received signal that merge completed. Reloading both trees')
+        _reload_tree(self.tree_con_left)
+        _reload_tree(self.tree_con_right)
+
+        GLib.idle_add(self._set_default_button_bar)
 
 
 def _reload_tree(tree_con):

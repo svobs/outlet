@@ -9,7 +9,6 @@ import file_util
 from model.display_node import DirNode, DisplayNode
 from model.fmeta import FMeta
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
-from stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +24,13 @@ class LocalDiskTree(treelib.Tree):
         path_so_far: str = root_node_identifier.full_path
         parent: DisplayNode = self.get_node(root_node_identifier.uid)
 
+        # A trailing '/' will really screw us up:
+        assert file_util.is_normalized(root_node_identifier.full_path), f'Path: {root_node_identifier.full_path}'
         item_rel_path = file_util.strip_root(item.full_path, root_node_identifier.full_path)
-        # this can return '' if there is no parent:
-        path_segments = file_util.split_path(os.path.dirname(item_rel_path))
+        path_segments = file_util.split_path(item_rel_path)
+        if path_segments:
+            # strip off last item (i.e. the target item)
+            path_segments.pop()
 
         if path_segments:
             for dir_name in path_segments:
@@ -46,7 +49,7 @@ class LocalDiskTree(treelib.Tree):
 
         # Finally, add the node itself:
         child: DisplayNode = self.get_node(nid=item.uid)
-        assert not child, f'For old={child}, new={item}'
+        assert not child, f'For old={child}, new={item}, path_segments={path_segments}'
         if not child:
             self.add_node(node=item, parent=parent)
 
