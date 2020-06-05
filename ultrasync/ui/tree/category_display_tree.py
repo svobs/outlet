@@ -166,8 +166,8 @@ class CategoryDisplayTree:
         1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't
         backed by any actual data nodes. This includes possibly tree-type nodes, category nodes, and ancestors
         which aren't in the source tree.
-        2. Create and add "ancestors": dir nodes from the source tree for display, and possibly any FolderToAdd nodes
-        3. Add a node for the item iteself
+        2. Create and add "ancestors": dir nodes from the source tree for display, and possibly any FolderToAdd nodes.
+        3. Add a node for the item itself
         """
         assert category != Category.NA, f'For item: {item}'
         # Clone the item so as not to mutate the source tree

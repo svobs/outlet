@@ -169,7 +169,9 @@ class LazyDisplayStrategy:
 
         while len(secondary_screening) > 0:
             parent: DisplayNode = secondary_screening.popleft()
-            if isinstance(parent, FolderToAdd):
+            assert parent.is_dir(), f'Expected a dir-type node: {parent}'
+
+            if not parent.is_just_fluff():
                 # Even an inconsistent FolderToAdd must be included as a checked item:
                 checked_items.append(parent)
 
@@ -183,7 +185,7 @@ class LazyDisplayStrategy:
 
         while len(whitelist) > 0:
             chosen_node: DisplayNode = whitelist.popleft()
-            if not chosen_node.is_dir() or isinstance(chosen_node, FolderToAdd):
+            if not chosen_node.is_dir() or not chosen_node.is_just_fluff():
                 checked_items.append(chosen_node)
 
             children: Iterable[DisplayNode] = self.con.tree_builder.get_children(chosen_node.node_identifier)
