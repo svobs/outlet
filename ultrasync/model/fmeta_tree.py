@@ -1,16 +1,15 @@
 import logging
-import os
 import pathlib
-from typing import Dict, Iterable, List, Optional, Union, ValuesView
+from typing import Iterable, List, Optional, Union
 
 import constants
 import file_util
 import format_util
-from index.two_level_dict import Md5BeforePathDict, Md5BeforeUidDict
-from index.uid_generator import UID, UidGenerator
-from model.node_identifier import NodeIdentifier, LocalFsIdentifier
-from model.display_node import DirNode, DisplayNode
+from index.two_level_dict import Md5BeforePathDict
+from index.uid_generator import UID
+from model.display_node import DisplayNode
 from model.fmeta import FMeta
+from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from model.planning_node import PlanningNode
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
@@ -37,9 +36,9 @@ class FMetaTree(SubtreeSnapshot):
         return LocalFsIdentifier(full_path=full_path, uid=uid, category=category)
 
     def get_parent_for_item(self, item: FMeta) -> Optional[DisplayNode]:
-        parent = str(pathlib.Path(item.full_path).parent)
-        if parent.startswith(self.root_path):
-            return self.cache_manager.get_parent_for_item(item)
+        parent_path: str = str(pathlib.Path(item.full_path).parent)
+        if parent_path.startswith(self.root_path):
+            return self.cache_manager.get_for_local_path(parent_path)
         return None
 
     def get_all(self) -> List[FMeta]:
