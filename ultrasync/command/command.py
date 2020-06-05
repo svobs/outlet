@@ -13,11 +13,11 @@ import fmeta.content_hasher
 from constants import EXPLICITLY_TRASHED, FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, NOT_TRASHED
 from gdrive.client import GDriveClient
 from index.uid_generator import UID
-from model.display_node import DisplayNode
+from model.display_node import DirNode, DisplayNode
 from model.fmeta import FMeta
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.goog_node import FolderToAdd, GoogFile, GoogFolder, GoogNode
-from model.planning_node import FileDecoratorNode, FileToAdd, FileToMove, FileToUpdate
+from model.planning_node import FileDecoratorNode, FileToAdd, FileToMove, FileToUpdate, LocalDirToAdd
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +248,33 @@ class MoveFileLocallyCommand(Command):
             self._status = CommandStatus.COMPLETED_OK
         except Exception as err:
             logger.exception(f'While moving file: dest_path="{self._model.dest_path}", orig_path="{self._model.original_full_path}"')
+            self._status = CommandStatus.STOPPED_ON_ERROR
+            self._error = err
+
+
+class CreatLocalDirCommand(Command):
+    """
+    Create Local dir
+    """
+
+    def __init__(self, uid, model_obj: DisplayNode):
+        super().__init__(uid, model_obj)
+
+    def get_total_work(self) -> int:
+        return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
+
+    def execute(self, context: CommandContext):
+        try:
+            assert isinstance(self._model, LocalDirToAdd)
+            logger.debug(f'MKDIR: dst={self._model.full_path}')
+            os.makedirs(name=self._model.full_path, exist_ok=True)
+
+            # Add to cache:
+            local_node = DirNode(self._model.node_identifier)
+            context.cache_manager.add_or_update_node(local_node)
+            self._status = CommandStatus.COMPLETED_OK
+        except Exception as err:
+            logger.exception(f'While making local dir: dest_path="{self._model.full_path}"')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 

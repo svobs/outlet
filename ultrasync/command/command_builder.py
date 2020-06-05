@@ -4,7 +4,7 @@ from typing import Deque, Iterable, List, Tuple
 import treelib
 
 from command.command import Command, CommandPlan, CopyFileLocallyCommand, CreateGDriveFolderCommand, \
-    DeleteGDriveFileCommand, DeleteLocalFileCommand, \
+    CreatLocalDirCommand, DeleteGDriveFileCommand, DeleteLocalFileCommand, \
     DownloadFromGDriveCommand, \
     MoveFileGDriveCommand, \
     MoveFileLocallyCommand, \
@@ -14,7 +14,7 @@ from index.uid_generator import ROOT_UID
 from model.category import Category
 from model.display_node import DisplayNode
 from model.goog_node import FolderToAdd
-from model.planning_node import FileToAdd, FileToMove, FileToUpdate
+from model.planning_node import FileToAdd, FileToMove, FileToUpdate, LocalDirToAdd
 from ui.tree.category_display_tree import CategoryDisplayTree
 
 
@@ -54,11 +54,12 @@ class CommandBuilder:
 
 
 def _make_command(node: DisplayNode, uid_generator):
-    # FIXME: support directories and folders!
     tree_type: int = node.node_identifier.tree_type
     if node.category == Category.Added:
         if isinstance(node, FolderToAdd):
             return CreateGDriveFolderCommand(model_obj=node, uid=uid_generator.get_new_uid())
+        if isinstance(node, LocalDirToAdd):
+            return CreatLocalDirCommand(model_obj=node, uid=uid_generator.get_new_uid())
         assert isinstance(node, FileToAdd)
         orig_tree_type: int = node.src_node.node_identifier.tree_type
         if orig_tree_type == tree_type:
