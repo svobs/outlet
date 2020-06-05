@@ -59,10 +59,13 @@ class FMetaDatabase(MetaDatabase):
         self.truncate_table(self.TABLE_LOCAL_FILE)
 
     def insert_local_file(self, item, commit=True):
+        logger.debug(f'Inserting DB entry for: {item.full_path}')
         self.insert_one(self.TABLE_LOCAL_FILE, _make_tuple(item), commit=commit)
 
     def update_local_file(self, item, commit=True):
-        self.update(self.TABLE_LOCAL_FILE, stmt_vars=(item.full_path,), commit=commit)
+        # We just add another row with the same full_path, which will implicitly overwrite the previous version
+        logger.debug(f'Inserting updated DB entry for: {item.full_path}')
+        self.insert_one(self.TABLE_LOCAL_FILE, _make_tuple(item), commit=commit)
 
 
 def _make_tuple(e):

@@ -20,9 +20,7 @@ from index.uid_generator import UID
 from model.category import Category
 from model.display_node import DisplayNode
 from model.fmeta import FMeta
-from model.fmeta_tree import FMetaTree
 from model.gdrive_whole_tree import GDriveWholeTree
-from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier, NodeIdentifierFactory
 from model.null_subtree import NullSubtree
 from model.subtree_snapshot import SubtreeSnapshot

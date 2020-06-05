@@ -1,6 +1,8 @@
 import logging
 
 import gi
+from pydispatch import dispatcher
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -10,7 +12,6 @@ from ui.tree import tree_factory
 from ui.tree.category_display_tree import CategoryDisplayTree
 
 from ui import actions
-from file_util import get_resource_path
 from ui.dialog.base_dialog import BaseDialog
 
 logger = logging.getLogger(__name__)
@@ -76,3 +77,4 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         builder = CommandBuilder(self.parent_win.application)
         command_plan = builder.build_command_plan(self.tree)
         self.parent_win.application.command_executor.enqueue(command_plan)
+        dispatcher.send(signal=actions.DIFF_CANCELLED, sender=actions.ID_MERGE_TREE)

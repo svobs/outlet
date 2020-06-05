@@ -134,10 +134,8 @@ class LocalDiskMasterCache:
                     # Write new values:
                     with FMetaDatabase(cache_info.cache_location, self.application) as cache:
                         if existing:
-                            logger.debug(f'Updating DB entry for: {item.full_path}')
                             cache.update_local_file(item)
                         else:
-                            logger.debug(f'Inserting DB entry for: {item.full_path}')
                             cache.insert_local_file(item)
 
             else:

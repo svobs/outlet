@@ -17,6 +17,7 @@ ROOT_PATH_UPDATED = 'root-path-updated'
 NODE_UPDATED = 'node-updated'
 NODE_ADDED = 'node-added'
 NODE_REMOVED = 'node-removed'
+DIFF_CANCELLED = 'diff-cancelled'
 
 # All components should listen for this
 TOGGLE_UI_ENABLEMENT = 'toggle-ui-enablement'
