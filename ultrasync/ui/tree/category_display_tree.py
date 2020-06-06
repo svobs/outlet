@@ -9,6 +9,7 @@ from treelib.exceptions import DuplicatedNodeIdError
 import file_util
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from index.two_level_dict import TwoLevelDict
+from index.uid_generator import UID
 from model.category import Category
 from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from model.display_node import CategoryNode, DirNode, DisplayNode, RootTypeNode
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 CATEGORIES = [Category.Added, Category.Deleted, Category.Moved, Category.Updated, Category.Ignored]
 
-SUPER_DEBUG = False
+SUPER_DEBUG = True
 
 
 # CLASS TreeTypeBeforeCategoryDict
@@ -60,18 +61,15 @@ class CategoryDisplayTree:
         return self.node_identifier.uid
 
     def get_children_for_root(self) -> Iterable[DisplayNode]:
-        return self._category_tree.children(self.root.identifier)
+        return self.get_children(self.root)
 
-    def get_children(self, parent_identifier: NodeIdentifier) -> Iterable[DisplayNode]:
-        if isinstance(parent_identifier, NodeIdentifier):
-            parent_identifier = parent_identifier.uid
-
+    def get_children(self, parent: DisplayNode) -> Iterable[DisplayNode]:
         try:
-            return self._category_tree.children(parent_identifier)
+            return self._category_tree.children(parent.identifier)
         except Exception:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f'[{self.tree_id}] CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))
-            logger.error(f'[{self.tree_id}] While retrieving children for: {parent_identifier}')
+            logger.error(f'[{self.tree_id}] While retrieving children for: {parent.identifier}')
             raise
 
     def get_ancestors(self, item: DisplayNode, stop_before_func: Callable[[DisplayNode], bool] = None) -> Deque[DisplayNode]:
@@ -176,7 +174,7 @@ class CategoryDisplayTree:
         item_clone = copy.copy(item)
         item_clone.node_identifier = copy.copy(item.node_identifier)
         item_clone.node_identifier.category = category
-        item_clone.uid = f'{category.name}-{item.node_identifier.uid}'
+        item_clone.identifier = _uid_cat(item, category)
         item = item_clone
 
         parent: DisplayNode = self._get_or_create_pre_ancestors(item, source_tree)
@@ -192,7 +190,7 @@ class CategoryDisplayTree:
                     node: DirNode = self._category_tree.get_node(nid=parent_uid)
                     if not node:
                         # try both
-                        node = self._category_tree.get_node(nid=f'{category.name}-{parent_uid}')
+                        node = self._category_tree.get_node(_uid_cat(parent, category))
                     if node:
                         if SUPER_DEBUG:
                             logger.info(f'Found parent to stop at: {node.node_identifier}')
@@ -201,7 +199,7 @@ class CategoryDisplayTree:
                         return True
             else:
                 parent_uid = self.cache_manager.get_uid_for_path(_ancestor.full_path)
-                node: DirNode = self._category_tree.get_node(nid=f'{category.name}-{parent_uid}')
+                node: DirNode = self._category_tree.get_node(nid=_uid_cat(parent_uid, category))
                 if node:
                     stop_before.parent = node
                     # Found: existing node in this tree. This should happen on the first iteration or not at all
@@ -216,20 +214,19 @@ class CategoryDisplayTree:
 
         # Walk down the ancestor list and create a node for each ancestor dir:
         for ancestor in ancestors:
-            ancestor_uid = f'{category.name}-{ancestor.uid}'
-            existing_node: DisplayNode = self._category_tree.get_node(nid=ancestor_uid)
+            ancestor_identifier = _uid_cat(ancestor, category)
+            existing_node: DisplayNode = self._category_tree.get_node(nid=ancestor_identifier)
             if existing_node is None:
-
-                new_node_identifier = copy.copy(ancestor.node_identifier)
-                new_node_identifier.uid = ancestor_uid
 
                 # Create new inst. Cannot copy.copy the node outright, because we do not want to copy parent/child info
                 assert isinstance(ancestor, DirNode)
-                ancestor_clone = DirNode(new_node_identifier)
+                ancestor_clone = DirNode(ancestor.node_identifier)
+                ancestor_clone.identifier = ancestor_identifier
 
                 self._category_tree.add_node(node=ancestor_clone, parent=parent)
                 if SUPER_DEBUG:
-                    logger.info(f'[{self.tree_id}] Adding node: {ancestor_clone.node_identifier} to parent: {parent.node_identifier}')
+                    logger.info(f'[{self.tree_id}] Adding node: {ancestor_clone.node_identifier} ({ancestor_clone.identifier}) '
+                                f'to parent: {parent.node_identifier} ({parent.identifier})')
                 existing_node = ancestor_clone
 
             parent = existing_node
@@ -241,7 +238,8 @@ class CategoryDisplayTree:
             # Finally add the item itself:
 
             if SUPER_DEBUG:
-                logger.info(f'[{self.tree_id}] Adding node: {item.node_identifier} to parent: {parent.node_identifier}')
+                logger.info(f'[{self.tree_id}] Adding node: {item.node_identifier} ({item.identifier}) '
+                            f'to parent: {parent.node_identifier} ({parent.identifier})')
             self._category_tree.add_node(node=item, parent=parent)
         except DuplicatedNodeIdError:
             logger.error(f'[{self.tree_id}] Duplicate path for node {item}')
@@ -312,3 +310,8 @@ class CategoryDisplayTree:
                 cat_summaries.append(cat_map[cat])
             return ','.join(cat_summaries)
 
+
+def _uid_cat(item, category):
+    if isinstance(item, UID):
+        return f'{item}-{category.name}'
+    return f'{item.uid}-{category.name}'

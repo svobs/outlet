@@ -82,10 +82,8 @@ class LocalDiskMasterCache:
             self._full_path_uid_dict[path] = uid
         return uid
 
-    def get_children(self, parent_identifier: NodeIdentifier):
-        if isinstance(parent_identifier, NodeIdentifier):
-            parent_identifier = parent_identifier.uid
-        return self.dir_tree.children(parent_identifier)
+    def get_children(self, node: DisplayNode):
+        return self.dir_tree.children(node.identifier)
 
     def get_item(self, uid: UID) -> DisplayNode:
         return self.dir_tree.get_node(uid)
@@ -272,7 +270,8 @@ class LocalDiskMasterCache:
             else:
                 logger.debug(f'[{tree_id}] Skipping cache save because it is disabled')
 
-        fmeta_tree = FMetaTree(root_identifier=requested_subtree_root, application=self.application)
+        root_node = self.dir_tree.get_node(requested_subtree_root.uid)
+        fmeta_tree = FMetaTree(root_node=root_node, application=self.application)
         logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {fmeta_tree.node_identifier.full_path}')
         return fmeta_tree
 

@@ -46,7 +46,7 @@ class CommandBuilder:
                     # added GDrive folder creates extra level of dependency:
                     dst_parent = cmd
 
-            src_children = change_tree.get_children(src_node.identifier)
+            src_children = change_tree.get_children(src_node)
             for child in src_children:
                 stack.append((dst_parent, child))
 

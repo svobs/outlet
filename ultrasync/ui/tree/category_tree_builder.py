@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 from model.display_node import DisplayNode
 from model.node_identifier import NodeIdentifier
@@ -16,8 +16,8 @@ class CategoryTreeBuilder(DisplayTreeBuilder):
         assert tree is None or isinstance(tree, CategoryDisplayTree), f'For {tree}'
         logger.debug('CategoryTreeBuilder init')
 
-    def get_children_for_root(self) -> Optional[List[DisplayNode]]:
+    def get_children_for_root(self) -> Iterable[DisplayNode]:
         return self.tree.get_children_for_root()
 
-    def get_children(self, parent_identifier: NodeIdentifier) -> Optional[List[DisplayNode]]:
-        return self.tree.get_children(parent_identifier)
+    def get_children(self, node: DisplayNode) -> Iterable[DisplayNode]:
+        return self.tree.get_children(node)

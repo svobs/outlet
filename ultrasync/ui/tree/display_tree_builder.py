@@ -48,7 +48,7 @@ class DisplayTreeBuilder(ABC):
         pass
 
     @abstractmethod
-    def get_children(self, parent_identifier: NodeIdentifier) -> Optional[List[DisplayNode]]:
+    def get_children(self, node: DisplayNode) -> Optional[List[DisplayNode]]:
         """Return the children for the given parent_uid.
         The children of the given node can look very different depending on value of 'tree_display_mode'"""
         return None

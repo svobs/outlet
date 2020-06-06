@@ -7,7 +7,7 @@ import file_util
 import format_util
 from index.two_level_dict import Md5BeforePathDict
 from index.uid_generator import UID
-from model.display_node import DisplayNode
+from model.display_node import DirNode, DisplayNode
 from model.fmeta import FMeta
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from model.planning_node import PlanningNode
@@ -26,9 +26,10 @@ logger = logging.getLogger(__name__)
 class FMetaTree(SubtreeSnapshot):
     """🢄 Just a shell of its former self!"""
 
-    def __init__(self, root_identifier: LocalFsIdentifier, application):
-        assert isinstance(root_identifier, LocalFsIdentifier)
-        super().__init__(root_identifier)
+    def __init__(self, root_node: DirNode, application):
+        assert isinstance(root_node.node_identifier, LocalFsIdentifier)
+        super().__init__(root_node.node_identifier)
+        self.root_node = root_node
         self.cache_manager = application.cache_manager
 
     @classmethod
@@ -49,11 +50,11 @@ class FMetaTree(SubtreeSnapshot):
         return self.cache_manager.get_all_files_for_subtree(self.node_identifier)
 
     def get_children_for_root(self) -> Iterable[DisplayNode]:
-        return self.cache_manager.get_children(self.node_identifier)
+        return self.cache_manager.get_children(self.root_node)
 
-    def get_children(self, parent_identifier: NodeIdentifier) -> Iterable[DisplayNode]:
-        assert parent_identifier.tree_type == constants.TREE_TYPE_LOCAL_DISK, f'For: {parent_identifier}'
-        return self.cache_manager.get_children(parent_identifier)
+    def get_children(self, node: DisplayNode) -> Iterable[DisplayNode]:
+        assert node.node_identifier.tree_type == constants.TREE_TYPE_LOCAL_DISK, f'For: {node.node_identifier}'
+        return self.cache_manager.get_children(node)
 
     def get_full_path_for_item(self, item: FMeta) -> str:
         # Trivial for FMetas

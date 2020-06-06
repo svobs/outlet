@@ -76,7 +76,7 @@ class GDriveSubtree(SubtreeSnapshot):
         while len(queue) > 0:
             item: GoogNode = queue.popleft()
             if item.is_dir():
-                child_list = self._whole_tree.get_children(item.uid)
+                child_list = self._whole_tree.get_children(item)
                 if child_list:
                     for child in child_list:
                         queue.append(child)
@@ -87,10 +87,10 @@ class GDriveSubtree(SubtreeSnapshot):
         return md5_dict
 
     def get_children_for_root(self) -> List[GoogNode]:
-        return self.get_children(self.root_node.uid)
+        return self.get_children(self.root_node)
 
-    def get_children(self, parent_identifier: Union[UID, NodeIdentifier]) -> List[GoogNode]:
-        return self._whole_tree.get_children(parent_identifier=parent_identifier)
+    def get_children(self, node: GoogNode) -> List[GoogNode]:
+        return self._whole_tree.get_children(node=node)
 
     def get_all(self) -> ValuesView[GoogNode]:
         """Returns the complete set of all unique items from this subtree."""
@@ -167,7 +167,7 @@ class GDriveSubtree(SubtreeSnapshot):
                 self.shared_by_me_count += 1
             elif item.drive_id:
                 self.shared_with_me_count += 1
-            children = self.get_children(item.uid)
+            children = self.get_children(item)
             if children:
                 for child in children:
                     queue.append(child)

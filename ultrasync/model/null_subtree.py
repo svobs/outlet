@@ -19,7 +19,7 @@ class NullSubtree(SubtreeSnapshot):
     def get_children_for_root(self) -> Iterable[DisplayNode]:
         return []
 
-    def get_children(self, parent_identifier: NodeIdentifier) -> Iterable[DisplayNode]:
+    def get_children(self, node: DisplayNode) -> Iterable[DisplayNode]:
         return []
 
     def get_ignored_items(self):

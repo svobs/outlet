@@ -161,7 +161,7 @@ class GDriveWholeTree:
             path_so_far = path_so_far + '/' + name_seg
             for current in current_seg_items:
                 current_id: UID = current.uid
-                children: List[GoogNode] = self.get_children(current_id)
+                children: List[GoogNode] = self.get_children(current)
                 if not children:
                     logger.debug(f'Item has no children: id="{current_id}" path_so_far="{path_so_far}"')
                     break
@@ -250,11 +250,8 @@ class GDriveWholeTree:
     def get_children_for_root(self) -> List[GoogNode]:
         return self.roots
 
-    def get_children(self, parent_identifier: Union[UID, NodeIdentifier]) -> List[GoogNode]:
-        if isinstance(parent_identifier, NodeIdentifier):
-            parent_identifier: UID = parent_identifier.uid
-
-        return self.first_parent_dict.get(parent_identifier, [])
+    def get_children(self, node: DisplayNode) -> List[GoogNode]:
+        return self.first_parent_dict.get(node.uid, [])
 
     def get_item_for_id(self, uid: UID) -> Optional[GoogNode]:
         assert uid

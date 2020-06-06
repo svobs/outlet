@@ -26,8 +26,8 @@ class AllItemsGDriveTreeBuilder(DisplayTreeBuilder):
     def get_children_for_root(self) -> Iterable[DisplayNode]:
         return self.tree.get_children_for_root()
 
-    def get_children(self, parent_identifier: NodeIdentifier) -> Iterable[DisplayNode]:
-        return self.tree.get_children(parent_identifier=parent_identifier)
+    def get_children(self, node: DisplayNode) -> Iterable[DisplayNode]:
+        return self.tree.get_children(node=node)
 
 
 # CLASS AllItemsLocalFsTreeBuilder
@@ -38,7 +38,7 @@ class AllItemsLocalFsTreeBuilder(DisplayTreeBuilder):
         super().__init__(controller=controller, root=root, tree=tree)
 
     def get_children_for_root(self) -> Iterable[DisplayNode]:
-        return self.get_children(parent_identifier=self.tree.node_identifier)
+        return self.tree.get_children_for_root()
 
-    def get_children(self, parent_identifier: NodeIdentifier) -> Iterable[DisplayNode]:
-        return self.tree.get_children(parent_identifier)
+    def get_children(self, node: DisplayNode) -> Iterable[DisplayNode]:
+        return self.tree.get_children(node=node)

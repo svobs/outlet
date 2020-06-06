@@ -61,7 +61,7 @@ class SubtreeSnapshot(ABC):
         pass
 
     @abstractmethod
-    def get_children(self, parent_identifier: NodeIdentifier) -> Iterable[DisplayNode]:
+    def get_children(self, node: DisplayNode) -> Iterable[DisplayNode]:
         pass
 
     @abstractmethod

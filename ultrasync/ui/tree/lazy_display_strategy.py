@@ -67,7 +67,7 @@ class LazyDisplayStrategy:
         if node.is_dir():
             parent_iter = self._append_dir_node(parent_iter=parent_iter, parent_uid=parent_uid, node=node)
 
-            for child in self.con.tree_builder.get_children(node.node_identifier):
+            for child in self.con.tree_builder.get_children(node):
                 node_count = self._populate_recursively(parent_iter, parent_uid, child, node_count)
         else:
             self._append_file_node(parent_iter, parent_uid, node)
@@ -101,7 +101,7 @@ class LazyDisplayStrategy:
         # Remove loading node:
         self.con.display_store.remove_first_child(parent_iter)
 
-        children: List[DisplayNode] = self.con.tree_builder.get_children(node.node_identifier)
+        children: List[DisplayNode] = self.con.tree_builder.get_children(node)
         for child in children:
             self.populate_recursively(parent_iter, node.uid, child)
 
@@ -175,7 +175,7 @@ class LazyDisplayStrategy:
                 # Even an inconsistent FolderToAdd must be included as a checked item:
                 checked_items.append(parent)
 
-            children: Iterable[DisplayNode] = self.con.tree_builder.get_children(parent.node_identifier)
+            children: Iterable[DisplayNode] = self.con.tree_builder.get_children(parent)
 
             for child in children:
                 if self.con.display_store.checked_rows.get(child.uid, None):
@@ -188,7 +188,7 @@ class LazyDisplayStrategy:
             if not chosen_node.is_dir() or not chosen_node.is_just_fluff():
                 checked_items.append(chosen_node)
 
-            children: Iterable[DisplayNode] = self.con.tree_builder.get_children(chosen_node.node_identifier)
+            children: Iterable[DisplayNode] = self.con.tree_builder.get_children(chosen_node)
             for child in children:
                 whitelist.append(child)
 
@@ -199,7 +199,7 @@ class LazyDisplayStrategy:
 
     def _on_node_expansion_toggled(self, sender: str, parent_iter, node_data: DisplayNode, is_expanded: bool):
         # Callback for actions.NODE_EXPANSION_TOGGLED:
-        logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node_data.node_identifier}"')
+        logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node_data}"')
 
         if not self._enable_state_listeners:
             logger.debug('Auto-populate disabled')
@@ -208,7 +208,7 @@ class LazyDisplayStrategy:
         def expand_or_contract():
             # Add children for node:
             if is_expanded:
-                children = self.con.tree_builder.get_children(node_data.node_identifier)
+                children = self.con.tree_builder.get_children(node_data)
                 self._append_children(children=children, parent_iter=parent_iter, parent_uid=node_data.uid)
                 # Remove Loading node:
                 self.con.display_store.remove_first_child(parent_iter)
