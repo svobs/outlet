@@ -153,7 +153,7 @@ class LazyDisplayStrategy:
 
         # Algorithm:
         # Iterate over display nodes. Start with top-level nodes.
-        # - Add each checked row to DFS queue. It and all of its descendants will be added.
+        # - Add each checked row to DFS queue (whitelist). It and all of its descendants will be added
         # - Ignore each unchecked row
         # - Each inconsistent row needs to be drilled down into.
         whitelist: Deque[DisplayNode] = collections.deque()
@@ -355,10 +355,10 @@ class LazyDisplayStrategy:
 
         return self.con.display_store.append_node(parent_node_iter, row_values)
 
-    def _generate_display_cols(self, parent_uid: Optional[UID], node: DisplayNode):
+    def _generate_display_cols(self, parent_iter, parent_uid: Optional[UID], node: DisplayNode):
         row_values = []
 
-        self._add_checked_columns(parent_uid, node, row_values)
+        self._add_checked_columns(parent_iter, parent_uid, node, row_values)
 
         # Icon
         row_values.append(node.get_icon())
@@ -414,23 +414,23 @@ class LazyDisplayStrategy:
         return row_values
 
     def _append_dir_node(self, parent_iter, parent_uid: Optional[str], node: DisplayNode) -> TreeIter:
-        row_values = self._generate_display_cols(parent_uid, node)
+        row_values = self._generate_display_cols(parent_iter, parent_uid, node)
         return self.con.display_store.append_node(parent_iter, row_values)
 
     def _append_file_node(self, parent_iter, parent_uid: Optional[UID], node: DisplayNode):
-        row_values = self._generate_display_cols(parent_uid, node)
+        row_values = self._generate_display_cols(parent_iter, parent_uid, node)
         return self.con.display_store.append_node(parent_iter, row_values)
 
-    def _add_checked_columns(self, parent_uid: Optional[UID], node: DisplayNode, row_values: List):
+    def _add_checked_columns(self, parent_iter, parent_uid: Optional[UID], node: DisplayNode, row_values: List):
         """Populates the checkbox and sets its state for a newly added row"""
         if self.con.treeview_meta.has_checkboxes and node.has_path():
-            if parent_uid:
-                parent_checked = self.con.display_store.checked_rows.get(parent_uid, None)
+            if parent_iter:
+                parent_checked = self.con.display_store.is_node_checked(parent_iter)
                 if parent_checked:
                     row_values.append(True)  # Checked
                     row_values.append(False)  # Inconsistent
                     return
-                parent_inconsistent = self.con.display_store.inconsistent_rows.get(parent_uid, None)
+                parent_inconsistent = self.con.display_store.is_inconsistent(parent_iter)
                 if not parent_inconsistent:
                     row_values.append(False)  # Checked
                     row_values.append(False)  # Inconsistent

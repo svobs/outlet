@@ -17,6 +17,7 @@ from model.goog_node import FolderToAdd
 from model.planning_node import FileDecoratorNode, FileToAdd, FileToMove, FileToUpdate, LocalDirToAdd, PlanningNode
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
+from ui.actions import ID_LEFT_TREE, ID_MERGE_TREE, ID_RIGHT_TREE
 from ui.tree.category_display_tree import CategoryDisplayTree
 
 logger = logging.getLogger(__name__)
@@ -35,8 +36,8 @@ class ContentFirstDiffer:
         self.application = application
         self.uid_generator = application.uid_generator
 
-        self.change_tree_left: CategoryDisplayTree = CategoryDisplayTree(application, self.left_tree.node_identifier)
-        self.change_tree_right: CategoryDisplayTree = CategoryDisplayTree(application, self.right_tree.node_identifier)
+        self.change_tree_left: CategoryDisplayTree = CategoryDisplayTree(application, self.left_tree.node_identifier, ID_LEFT_TREE)
+        self.change_tree_right: CategoryDisplayTree = CategoryDisplayTree(application, self.right_tree.node_identifier, ID_RIGHT_TREE)
 
         self.added_folders_left: Dict[str, PlanningNode] = {}
         self.added_folders_right: Dict[str, PlanningNode] = {}
@@ -357,7 +358,7 @@ class ContentFirstDiffer:
                                                                                            full_path=ROOT_PATH, uid=uid_generator.ROOT_UID)
 
         merged_tree = CategoryDisplayTree(root_node_identifier=root_node_identifier, show_whole_forest=True,
-                                          application=self.application)
+                                          application=self.application, tree_id=ID_MERGE_TREE)
 
         for item in left_selected_changes:
             merged_tree.add_item(item, item.category, self.left_tree)

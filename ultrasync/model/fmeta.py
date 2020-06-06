@@ -22,8 +22,6 @@ class FMeta(DisplayNode):
         self._modify_ts: int = ensure_int(modify_ts)
         self._change_ts: int = ensure_int(change_ts)
 
-        self.tag = full_path
-
     @classmethod
     def has_path(cls):
         return True

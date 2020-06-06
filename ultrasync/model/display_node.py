@@ -25,6 +25,11 @@ class DisplayNode(Node, ABC):
         Node.__init__(self, identifier=node_identifier.uid)
         self.node_identifier = node_identifier
 
+        self.set_tag()
+
+    def set_tag(self):
+        self.tag = f'{self.node_identifier}: "{self.identifier}"'
+
     @classmethod
     def is_file(cls):
         return False
@@ -87,6 +92,7 @@ class DisplayNode(Node, ABC):
     def uid(self, uid: UID):
         self.node_identifier.uid = uid
         self.identifier = uid
+        self.set_tag()
 
     def get_relative_path(self, parent_tree):
         return parent_tree.get_relative_path_for_item(self)
@@ -149,8 +155,6 @@ class DirNode(DisplayNode):
         super().__init__(node_identifier)
         self.file_count = 0
         self._size_bytes = 0
-
-        self.tag = self.node_identifier.full_path
 
     def add_meta_metrics(self, fmeta):
         self.file_count += 1
