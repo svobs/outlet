@@ -57,7 +57,7 @@ def overwrite_newer_ts(old, new) -> bool:
 
 class OneLevelDict:
     def __init__(self, key_func1: Callable[[Any], str],
-                 should_overwrite: Callable[[Any, Any], bool]):
+                 should_overwrite: Optional[Callable[[Any, Any], bool]] = None):
         """
         Args:
             key_func1: Takes 'item' as single arg, and returns a key value for the
@@ -86,7 +86,7 @@ class OneLevelDict:
                 logger.error(f'Replacing a different entry ({existing}) than expected ({expected_existing})!')
             # Overwrite either way...
             self._dict[key1] = item
-        elif self._should_overwrite(existing, item):
+        elif self._should_overwrite is not None and self._should_overwrite(existing, item):
             self._dict[key1] = item
         return existing
 
@@ -105,7 +105,7 @@ class OneLevelDict:
 class TwoLevelDict:
     def __init__(self, key_func1: Callable[[Any], Union[str, int]],
                  key_func2: Callable[[Any], Union[str, int]],
-                 should_overwrite: Optional[Callable[[Any, Any], bool]]):
+                 should_overwrite: Optional[Callable[[Any, Any], bool]] = None):
         """
         Args:
             key_func1: Takes 'item' as single arg, and returns a key value for the

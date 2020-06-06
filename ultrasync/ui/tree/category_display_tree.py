@@ -8,10 +8,9 @@ from treelib.exceptions import DuplicatedNodeIdError
 
 import file_util
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
-from index.two_level_dict import TwoLevelDict
 from index.uid_generator import UID
 from model.category import Category
-from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
+from model.node_identifier import NodeIdentifier
 from model.display_node import CategoryNode, DirNode, DisplayNode, RootTypeNode
 from model.subtree_snapshot import SubtreeSnapshot
 
@@ -19,15 +18,27 @@ logger = logging.getLogger(__name__)
 
 CATEGORIES = [Category.Added, Category.Deleted, Category.Moved, Category.Updated, Category.Ignored]
 
-SUPER_DEBUG = True
+SUPER_DEBUG = False
 
 
 # CLASS TreeTypeBeforeCategoryDict
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class TreeTypeBeforeCategoryDict(TwoLevelDict):
+class PreAncestorDict:
     def __init__(self):
-        super().__init__(lambda x: x.node_identifier.tree_type, lambda x: x.category, None)
+        self._dict: Dict[str, DirNode] = {}
+
+    @classmethod
+    def _generate_key(cls, source_tree: SubtreeSnapshot, category: Category):
+        return f'{source_tree.tree_type}:{source_tree.root_path}:{category.name}'
+
+    def get_for(self, source_tree: SubtreeSnapshot, category: Category) -> Optional[DirNode]:
+        key = PreAncestorDict._generate_key(source_tree, category)
+        return self._dict.get(key, None)
+
+    def put_for(self, source_tree: SubtreeSnapshot, category: Category, item: DirNode):
+        key = PreAncestorDict._generate_key(source_tree, category)
+        self._dict[key] = item
 
 
 # CLASS CategoryDisplayTree
@@ -44,7 +55,7 @@ class CategoryDisplayTree:
         self.root = self._category_tree.create_node(identifier=self.uid_generator.get_new_uid(), parent=None, data=None)
         self.show_whole_forest: bool = show_whole_forest
         # saved in a nice dict for easy reference:
-        self._pre_ancestor_dict: TreeTypeBeforeCategoryDict = TreeTypeBeforeCategoryDict()
+        self._pre_ancestor_dict: PreAncestorDict = PreAncestorDict()
 
         self.node_identifier = root_node_identifier
 
@@ -104,7 +115,7 @@ class CategoryDisplayTree:
         assert tree_type != TREE_TYPE_MIXED, f'For {item.node_identifier}'
         assert item.category != Category.NA, f'For {item.node_identifier}'
 
-        last_pre_ancestor = self._pre_ancestor_dict.get_single(tree_type, item.category)
+        last_pre_ancestor = self._pre_ancestor_dict.get_for(source_tree, item.category)
         if last_pre_ancestor:
             return last_pre_ancestor
 
@@ -150,15 +161,23 @@ class CategoryDisplayTree:
             for path in path_segments[1:]:
                 path_so_far += '/' + path
 
-                uid = self.uid_generator.get_new_uid()
-                node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=uid, category=item.category)
-                dir_node = DirNode(node_identifier=node_identifier)
-                logger.debug(f'[{self.tree_id}] Creating pre-ancestor DIR node: {node_identifier}')
-                self._category_tree.add_node(node=dir_node, parent=parent_node)
-                parent_node = dir_node
+                child_node = None
+                for child in self._category_tree.children(parent_node.identifier):
+                    if child.full_path == path_so_far:
+                        child_node = child
+                        break
 
-        # this is the last pre-ancestor:
-        self._pre_ancestor_dict.put(parent_node)
+                if not child_node:
+                    uid = self.uid_generator.get_new_uid()
+                    node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=uid,
+                                                                              category=item.category)
+                    child_node = DirNode(node_identifier=node_identifier)
+                    logger.debug(f'[{self.tree_id}] Creating pre-ancestor DIR node: {node_identifier}')
+                    self._category_tree.add_node(node=child_node, parent=parent_node)
+                parent_node = child_node
+
+        # this is the last pre-ancestor. Cache it:
+        self._pre_ancestor_dict.put_for(source_tree, item.category, parent_node)
         return parent_node
 
     def add_item(self, item: DisplayNode, category: Category, source_tree: SubtreeSnapshot):
@@ -167,6 +186,9 @@ class CategoryDisplayTree:
         backed by any actual data nodes. This includes possibly tree-type nodes, category nodes, and ancestors
         which aren't in the source tree.
         2. Create and add "ancestors": dir nodes from the source tree for display, and possibly any FolderToAdd nodes.
+        The "ancestors" are duplicated for each category, so we need to generate a separate unique identifier which includes the category.
+        For this, we take advantage of the fact that each node has a separate "identifier" field which is nominally identical to its UID,
+        but in this case it will be a string which includes the category name.
         3. Add a node for the item itself
         """
         assert category != Category.NA, f'For item: {item}'
@@ -249,14 +271,14 @@ class CategoryDisplayTree:
             logger.debug(f'[{self.tree_id}] CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))
 
     def get_parent_for_item(self, item: DisplayNode) -> Optional[DisplayNode]:
-        if not self._category_tree.get_node(item.uid):
+        if not self._category_tree.get_node(item.identifier):
             return None
 
-        ancestor: DirNode = self._category_tree.parent(item.uid)
+        ancestor: DirNode = self._category_tree.parent(item.identifier)
         if ancestor:
             # Do not include CategoryNode and above
             if not isinstance(ancestor, CategoryNode):
-                return ancestor.data
+                return ancestor
         return None
 
     def get_full_path_for_item(self, item: DisplayNode) -> str:

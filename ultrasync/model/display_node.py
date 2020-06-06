@@ -86,7 +86,7 @@ class DisplayNode(Node, ABC):
 
     @property
     def uid(self) -> UID:
-        return self.identifier
+        return self.node_identifier.uid
 
     @uid.setter
     def uid(self, uid: UID):
