@@ -2,15 +2,12 @@ import collections
 import logging
 import os
 from datetime import datetime
-from queue import Queue
-from typing import Deque, Iterable, List, Optional, Union
+from typing import Deque, Iterable, List, Optional
 
 import gi
-import treelib
 
 from constants import LARGE_NUMBER_OF_CHILDREN
 from index.uid_generator import UID
-from model.goog_node import FolderToAdd
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib

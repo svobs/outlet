@@ -1,4 +1,5 @@
 import copy
+import pathlib
 from collections import deque
 from typing import Callable, Deque, Dict, Iterable, List, Optional, Tuple, Union
 import logging
@@ -10,7 +11,8 @@ import file_util
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from index.uid_generator import UID
 from model.category import Category
-from model.node_identifier import NodeIdentifier
+from model.goog_node import GoogFolder
+from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 from model.display_node import CategoryNode, DirNode, DisplayNode, RootTypeNode
 from model.subtree_snapshot import SubtreeSnapshot
 
@@ -30,7 +32,7 @@ class PreAncestorDict:
 
     @classmethod
     def _generate_key(cls, source_tree: SubtreeSnapshot, category: Category):
-        return f'{source_tree.tree_type}:{source_tree.root_path}:{category.name}'
+        return f'{source_tree.tree_type}:{source_tree.uid}:{category.name}'
 
     def get_for(self, source_tree: SubtreeSnapshot, category: Category) -> Optional[DirNode]:
         key = PreAncestorDict._generate_key(source_tree, category)
@@ -143,11 +145,13 @@ class CategoryDisplayTree:
 
         if not cat_node:
             # Create category display node. This may be the "last pre-ancestor"
-            uid = self.uid_generator.get_new_uid()
+            uid = self.cache_manager.get_uid_for_path(self.root_path)
+            nid = self._nid(uid, item.node_identifier.tree_type, item.category)
 
-            node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=self.node_identifier.full_path,
+            node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=self.root_path,
                                                                       uid=uid, category=item.category)
             cat_node = CategoryNode(node_identifier=node_identifier)
+            cat_node.identifier = nid
             logger.debug(f'Creating pre-ancestor CAT node: {node_identifier}')
             self._category_tree.add_node(node=cat_node, parent=parent_node)
         parent_node = cat_node
@@ -168,10 +172,12 @@ class CategoryDisplayTree:
                         break
 
                 if not child_node:
-                    uid = self.uid_generator.get_new_uid()
+                    uid = self.cache_manager.get_uid_for_path(path_so_far)
+                    nid = self._nid(uid, item.node_identifier.tree_type, item.category)
                     node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=uid,
                                                                               category=item.category)
                     child_node = DirNode(node_identifier=node_identifier)
+                    child_node.identifier = nid
                     logger.debug(f'[{self.tree_id}] Creating pre-ancestor DIR node: {node_identifier}')
                     self._category_tree.add_node(node=child_node, parent=parent_node)
                 parent_node = child_node
@@ -179,6 +185,13 @@ class CategoryDisplayTree:
         # this is the last pre-ancestor. Cache it:
         self._pre_ancestor_dict.put_for(source_tree, item.category, parent_node)
         return parent_node
+
+    def get_relative_path_for_full_path(self, full_path: str):
+        assert full_path.startswith(self.root_path), f'Full path ({full_path}) does not contain root ({self.root_path})'
+        return file_util.strip_root(full_path, self.root_path)
+
+    def _nid(self, uid, tree_type, category):
+        return f'{uid}-{category.name}-{tree_type}'
 
     def add_item(self, item: DisplayNode, category: Category, source_tree: SubtreeSnapshot):
         """When we add the item, we add any necessary ancestors for it as well.
@@ -196,7 +209,9 @@ class CategoryDisplayTree:
         item_clone = copy.copy(item)
         item_clone.node_identifier = copy.copy(item.node_identifier)
         item_clone.node_identifier.category = category
-        item_clone.identifier = _uid_cat(item, category)
+        uid = self.cache_manager.get_uid_for_path(item.full_path)
+        nid = self._nid(uid, item.node_identifier.tree_type, category)
+        item_clone.identifier = nid
         item = item_clone
 
         parent: DisplayNode = self._get_or_create_pre_ancestors(item, source_tree)
@@ -204,57 +219,34 @@ class CategoryDisplayTree:
         if isinstance(parent, DirNode):
             parent.add_meta_metrics(item)
 
-        def stop_before(_ancestor: DisplayNode) -> bool:
-            if _ancestor.parent_uids:
-                # In this tree already? Saves us work, and more importantly,
-                # allow us to use nodes not in the parent tree (e.g. FolderToAdds)
-                for parent_uid in _ancestor.parent_uids:
-                    node: DirNode = self._category_tree.get_node(nid=parent_uid)
-                    if not node:
-                        # try both
-                        node = self._category_tree.get_node(_uid_cat(parent, category))
-                    if node:
-                        if SUPER_DEBUG:
-                            logger.info(f'Found parent to stop at: {node.node_identifier}')
-                        stop_before.parent = node
-                        # Found: existing node in this tree. This should happen on the first iteration or not at all
-                        return True
-            else:
-                parent_uid = self.cache_manager.get_uid_for_path(_ancestor.full_path)
-                node: DirNode = self._category_tree.get_node(nid=_uid_cat(parent_uid, category))
-                if node:
-                    stop_before.parent = node
-                    # Found: existing node in this tree. This should happen on the first iteration or not at all
-                    return True
-
-        stop_before.parent = None
-
+        stack: Deque = deque()
+        full_path = item.full_path
         # Walk up the source tree and compose a list of ancestors:
-        ancestors: Iterable[DisplayNode] = source_tree.get_ancestors(item, stop_before)
-        if stop_before.parent:
-            parent = stop_before.parent
+        while True:
+            assert full_path.startswith(self.root_path)
+            # Go up one dir:
+            full_path: str = str(pathlib.Path(full_path).parent)
+            # Get standard UID for path:
+            uid = self.cache_manager.get_uid_for_path(full_path)
+            nid = self._nid(uid, item.node_identifier.tree_type, category)
+            parent = self._category_tree.get_node(nid=nid)
+            if parent:
+                break
+            else:
+                node_identifier = LogicalNodeIdentifier(uid, full_path, category, item.node_identifier.tree_type)
+                dir_node = DirNode(node_identifier)
+                dir_node.identifier = nid
+                stack.append(dir_node)
 
         # Walk down the ancestor list and create a node for each ancestor dir:
-        for ancestor in ancestors:
-            ancestor_identifier = _uid_cat(ancestor, category)
-            existing_node: DisplayNode = self._category_tree.get_node(nid=ancestor_identifier)
-            if existing_node is None:
-
-                # Create new inst. Cannot copy.copy the node outright, because we do not want to copy parent/child info
-                assert isinstance(ancestor, DirNode)
-                ancestor_clone = DirNode(ancestor.node_identifier)
-                ancestor_clone.identifier = ancestor_identifier
-
-                self._category_tree.add_node(node=ancestor_clone, parent=parent)
-                if SUPER_DEBUG:
-                    logger.info(f'[{self.tree_id}] Adding node: {ancestor_clone.node_identifier} ({ancestor_clone.identifier}) '
-                                f'to parent: {parent.node_identifier} ({parent.identifier})')
-                existing_node = ancestor_clone
-
-            parent = existing_node
-            # This will most often be a DirNode, but may occasionally be a FolderToAdd.
-            if isinstance(parent, DirNode):
-                parent.add_meta_metrics(item)
+        assert parent
+        while len(stack) > 0:
+            ancestor = stack.pop()
+            if SUPER_DEBUG:
+                logger.info(f'[{self.tree_id}] Adding dir node: {ancestor.node_identifier} ({ancestor.identifier}) '
+                            f'to parent: {parent.node_identifier} ({parent.identifier})')
+            self._category_tree.add_node(node=ancestor, parent=parent)
+            parent = ancestor
 
         try:
             # Finally add the item itself:
@@ -332,8 +324,3 @@ class CategoryDisplayTree:
                 cat_summaries.append(cat_map[cat])
             return ','.join(cat_summaries)
 
-
-def _uid_cat(item, category):
-    if isinstance(item, UID):
-        return f'{item}-{category.name}'
-    return f'{item.uid}-{category.name}'

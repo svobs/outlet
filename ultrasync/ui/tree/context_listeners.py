@@ -243,6 +243,9 @@ class TreeContextListeners:
         return False
 
     def on_row_right_clicked(self, event, tree_path, node_data: DisplayNode):
+        if node_data.is_ephemereal():
+            logger.debug('User right-clicked on ephemereal node. Ignoring')
+            return
         id_clicked = node_data.uid
         selected_items: List[DisplayNode] = self.con.get_multiple_selection()
 

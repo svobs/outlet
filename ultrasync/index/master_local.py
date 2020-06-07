@@ -69,7 +69,6 @@ class LocalDiskMasterCache:
             return self._get_uid_for_path(path, uid_suggestion)
 
     def _get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
-        assert path and path.startswith('/')
         if path is not ROOT_PATH and path.endswith('/'):
             # directories ending in '/' are logically equivalent and should be treated as such
             path = path[:-1]

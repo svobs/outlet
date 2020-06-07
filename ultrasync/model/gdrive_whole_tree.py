@@ -163,7 +163,8 @@ class GDriveWholeTree:
                 current_id: UID = current.uid
                 children: List[GoogNode] = self.get_children(current)
                 if not children:
-                    logger.debug(f'Item has no children: id="{current_id}" path_so_far="{path_so_far}"')
+                    if SUPER_DEBUG:
+                        logger.debug(f'Item has no children: id="{current_id}" path_so_far="{path_so_far}"')
                     break
                 matches: List[GoogNode] = [x for x in children if x.name.lower() == name_seg.lower()]
                 if SUPER_DEBUG and len(matches) > 1:

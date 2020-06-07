@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 from abc import ABC, abstractmethod
@@ -207,6 +208,9 @@ class DirNode(DisplayNode):
 
     def __repr__(self):
         return f'DirNode({self.node_identifier} cat={self.category} {self.get_summary()})'
+
+    def clone(self):
+        return DirNode(self.node_identifier)
 
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
