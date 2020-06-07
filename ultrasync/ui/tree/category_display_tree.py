@@ -256,11 +256,15 @@ class CategoryDisplayTree:
                             f'to parent: {parent.node_identifier} ({parent.identifier})')
             self._category_tree.add_node(node=item, parent=parent)
         except DuplicatedNodeIdError:
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f'[{self.tree_id}] CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))
-            logger.error(f'[{self.tree_id}] Duplicate path for node {item}')
-            logger.error(f'[{self.tree_id}] The duplicate appears to be: {self._category_tree.get_node(item.identifier)}')
-            raise
+            # TODO: configurable handling of conflicts. Google Drive allows items with the same path and name, which is not allowed on local FS
+            conflict_node = self._category_tree.get_node(item.identifier)
+            if conflict_node.md5 == item.md5:
+                logger.warning(f'[{self.tree_id}] Duplicate nodes for the same path! However, items have same MD5, so we will just ignore the new '
+                               f'item: existing={conflict_node} new={item}')
+                return
+            else:
+                logger.error(f'[{self.tree_id}] Duplicate nodes for the same path and different content: existing={conflict_node} new={item}')
+                # raise
 
         if SUPER_DEBUG:
             logger.debug(f'[{self.tree_id}] CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))

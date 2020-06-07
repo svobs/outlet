@@ -131,7 +131,7 @@ class LocalFsIdentifier(NodeIdentifier):
             uid_disp = '≡'
         else:
             uid_disp = self.uid
-        return f'∣FS∣{self.category.name[0]}⚡{self.full_path}⩨{uid_disp}∣'
+        return f'∣LO∣{self.category.name[0]}⚡{self.full_path}⩨{uid_disp}∣'
 
 
 class NodeIdentifierFactory:
