@@ -180,7 +180,7 @@ class DirNode(DisplayNode):
 
     @property
     def etc(self):
-        return f'{self.file_count} items'
+        return f'{self.file_count:n} files'
 
     def zero_out_stats(self):
         self._size_bytes = 0

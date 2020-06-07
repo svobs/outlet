@@ -220,11 +220,6 @@ class LocalDiskMasterCache:
         cache_info.needs_save = False
         logger.info(f'[{tree_id}] {stopwatch_write_cache} Wrote {str(len(to_insert))} FMetas to "{cache_info.cache_location}"')
 
-    def load_local_subtree_stats(self, subtree_meta: FMetaTree, tree_id: str):
-        subtree_meta.refresh_stats()
-
-        actions.set_status(sender=tree_id, status_msg=subtree_meta.get_summary())
-
     def load_subtree(self, cache_info: PersistedCacheInfo, tree_id, requested_subtree_root: LocalFsIdentifier = None) -> FMetaTree:
         """requested_subtree_root, if present, is a subset of the cache_info's subtree and it will be used. Otherwise cache_info's will be used"""
         assert cache_info

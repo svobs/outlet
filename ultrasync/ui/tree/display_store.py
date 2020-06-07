@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Union
+from typing import Any, Callable, Dict, Union
 
 import gi
 from gi.repository.Gtk import TreeIter, TreePath
@@ -178,11 +178,14 @@ class DisplayStore:
             tree_iter = self.model.iter_next(tree_iter)
         return None
 
-    def recurse_over_tree(self, tree_iter, action_func):
+    def recurse_over_tree(self, tree_iter: Gtk.TreeIter = None, action_func: Callable[[Gtk.TreeIter], None] = None):
         """
         Performs the action_func on the node at this tree_iter AND all of its following
         siblings, and all of their descendants
         """
+        if not tree_iter:
+            tree_iter = self.model.get_iter_first()
+
         while tree_iter is not None:
             action_func(tree_iter)
             if self.model.iter_has_child(tree_iter):

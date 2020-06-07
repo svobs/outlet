@@ -205,13 +205,14 @@ class CacheManager:
 
         if node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
             subtree = self._load_local_subtree(node_identifier, tree_id)
-            self.application.task_runner.enqueue(self._local_disk_cache.load_local_subtree_stats, subtree, tree_id)
-            return subtree
         elif node_identifier.tree_type == TREE_TYPE_GDRIVE:
             assert self._gdrive_cache
-            return self._gdrive_cache.load_gdrive_subtree(node_identifier, tree_id)
+            subtree = self._gdrive_cache.load_gdrive_subtree(node_identifier, tree_id)
         else:
             raise RuntimeError(f'Unrecognized tree type: {node_identifier.tree_type}')
+
+        self.application.task_runner.enqueue(_load_subtree_stats, subtree, tree_id)
+        return subtree
 
     def find_existing_supertree_for_subtree(self, subtree_root: NodeIdentifier, tree_id: str) -> Optional[PersistedCacheInfo]:
         existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(subtree_root.tree_type).values())
@@ -368,3 +369,10 @@ class CacheManager:
             return self._local_disk_cache.dir_tree.get_all_files_for_subtree(subtree_root)
         else:
             raise RuntimeError(f'Unknown tree type: {subtree_root.tree_type} for {subtree_root}')
+
+
+def _load_subtree_stats(subtree_meta: SubtreeSnapshot, tree_id: str):
+    subtree_meta.refresh_stats()
+
+    actions.set_status(sender=tree_id, status_msg=subtree_meta.get_summary())
+    dispatcher.send(signal=actions.REFRESH_ALL_NODE_STATS, sender=tree_id)

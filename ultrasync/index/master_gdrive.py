@@ -70,11 +70,6 @@ class GDriveMasterCache:
         cache_info.is_loaded = True
         self.meta_master = meta
 
-    def _load_gdrive_subtree_stats(self, subtree_meta: GDriveSubtree, tree_id: str):
-        subtree_meta.refresh_stats()
-
-        actions.set_status(sender=tree_id, status_msg=subtree_meta.get_summary())
-
     def _slice_off_subtree_from_master(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveSubtree:
         if not subtree_root.uid:
             # TODO: raise something
@@ -84,8 +79,6 @@ class GDriveMasterCache:
             return None
 
         subtree_meta: GDriveSubtree = GDriveSubtree(whole_tree=self.meta_master, root_node=root)
-
-        self.application.task_runner.enqueue(self._load_gdrive_subtree_stats, subtree_meta, tree_id)
 
         return subtree_meta
 

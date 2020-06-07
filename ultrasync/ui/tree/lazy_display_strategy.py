@@ -7,7 +7,6 @@ from typing import Deque, Iterable, List, Optional
 import gi
 
 from constants import LARGE_NUMBER_OF_CHILDREN
-from index.uid_generator import UID
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib
@@ -53,6 +52,7 @@ class LazyDisplayStrategy:
         dispatcher.connect(signal=actions.NODE_ADDED, receiver=self._on_node_added_to_cache)
         dispatcher.connect(signal=actions.NODE_UPDATED, receiver=self._on_node_updated_in_cache)
         dispatcher.connect(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
+        dispatcher.connect(signal=actions.REFRESH_ALL_NODE_STATS, receiver=self._on_refresh_all_node_stats)
 
     def populate_recursively(self, parent_iter, node: DisplayNode):
         node_count = self._populate_recursively(parent_iter, node)
@@ -274,6 +274,15 @@ class LazyDisplayStrategy:
 
         self.con.display_store.model.remove(tree_iter)
 
+    def _on_refresh_all_node_stats(self, sender: str):
+        def refresh_node(tree_iter):
+            ds = self.con.display_store
+            data: DisplayNode = ds.get_node_data(tree_iter)
+            ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(data)
+            ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = data.etc
+
+        self.con.display_store.recurse_over_tree(action_func=refresh_node)
+
     # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
     # LISTENERS end
 
@@ -373,11 +382,8 @@ class LazyDisplayStrategy:
             row_values.append(directory)  # Directory
 
         # Size Bytes
-        if not node.size_bytes:
-            num_bytes_formatted = None
-        else:
-            num_bytes_formatted = humanfriendly.format_size(node.size_bytes)
-        row_values.append(num_bytes_formatted)  # Size
+
+        row_values.append(_format_size_bytes(node))  # Size
 
         # etc
         row_values.append(node.etc)  # Etc
@@ -437,3 +443,10 @@ class LazyDisplayStrategy:
             inconsistent = self.con.display_store.inconsistent_rows.get(row_id, None)
             row_values.append(checked)  # Checked
             row_values.append(inconsistent)  # Inconsistent
+
+
+def _format_size_bytes(node: DisplayNode):
+    if not node.size_bytes:
+        return None
+    else:
+        return humanfriendly.format_size(node.size_bytes)
