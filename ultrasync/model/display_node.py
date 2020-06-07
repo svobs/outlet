@@ -158,6 +158,11 @@ class DirNode(DisplayNode):
         self.dir_count = 0
         self._size_bytes = 0
 
+    def zero_out_stats(self):
+        self._size_bytes = 0
+        self.file_count = 0
+        self.dir_count = 0
+
     def add_meta_metrics(self, child_node):
         if child_node.is_dir():
             self.dir_count += child_node.dir_count + 1
@@ -168,6 +173,20 @@ class DirNode(DisplayNode):
         if child_node.size_bytes:
             self._size_bytes += child_node.size_bytes
 
+    def get_summary(self):
+        if not self._size_bytes and not self.file_count:
+            return '0 items'
+        size = format_util.humanfriendlier_size(self._size_bytes)
+        return f'{size} in {self.file_count:n} files and {self.dir_count:n} dirs'
+
+    @property
+    def size_bytes(self):
+        return self._size_bytes
+
+    @property
+    def etc(self):
+        return f'{self.file_count:n} files'
+
     def get_icon(self):
         return ICON_GENERIC_DIR
 
@@ -177,19 +196,6 @@ class DirNode(DisplayNode):
             return os.path.basename(self.node_identifier.full_path[0])
         assert self.node_identifier.full_path, f'For {type(self)}, uid={self.uid}'
         return os.path.basename(self.node_identifier.full_path)
-
-    @property
-    def etc(self):
-        return f'{self.file_count:n} files'
-
-    def zero_out_stats(self):
-        self._size_bytes = 0
-        self.file_count = 0
-        self.dir_count = 0
-
-    @property
-    def size_bytes(self):
-        return self._size_bytes
 
     @classmethod
     def is_ephemereal(cls) -> bool:
@@ -211,12 +217,6 @@ class DirNode(DisplayNode):
     def is_dir(cls):
         return True
 
-    def get_summary(self):
-        if not self._size_bytes and not self.file_count:
-            return '0 items'
-        size = format_util.humanfriendlier_size(self._size_bytes)
-        return f'{size} in {self.file_count:n} files and {self.dir_count:n} dirs'
-
     def __repr__(self):
         return f'DirNode({self.node_identifier} cat="{self.category.name[0]}" {self.get_summary()})'
 
@@ -232,12 +232,12 @@ class CategoryNode(DirNode):
     Represents a category in the tree (however it can possibly be treated as the root dir)
     """
     display_names = {Category.Nada: 'NA',
-                      Category.Ignored: 'Ignored',
-                      Category.Added: 'To Add',
-                      Category.Deleted: 'To Delete',
-                      Category.Updated: 'To Update',
-                      Category.Moved: 'To Move',
-                      }
+                     Category.Ignored: 'Ignored',
+                     Category.Added: 'To Add',
+                     Category.Deleted: 'To Delete',
+                     Category.Updated: 'To Update',
+                     Category.Moved: 'To Move',
+                     }
 
     def __init__(self, node_identifier: NodeIdentifier):
         super().__init__(node_identifier=node_identifier)
@@ -285,6 +285,7 @@ class RootTypeNode(DirNode):
 
 class EphemeralNode(DisplayNode, ABC):
     """Does not have an identifier - should not be inserted into a treelib.Tree!"""
+
     def __init__(self):
         super().__init__(LogicalNodeIdentifier(full_path=None, uid=NULL_UID, tree_type=TREE_TYPE_NA, category=Category.Nada))
 

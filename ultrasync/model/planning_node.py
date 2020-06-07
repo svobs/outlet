@@ -1,6 +1,7 @@
 import os
 from abc import ABC
 
+import format_util
 from constants import ICON_ADD_DIR
 from model.display_node import DisplayNode, DisplayNodeWithParents
 from model.node_identifier import NodeIdentifier
@@ -143,6 +144,39 @@ class FileToUpdate(FileDecoratorNode):
 class LocalDirToAdd(PlanningNode):
     def __init__(self, node_identifier: NodeIdentifier):
         super().__init__(node_identifier)
+
+        self.file_count = 0
+        self.dir_count = 0
+        self._size_bytes = 0
+
+    def zero_out_stats(self):
+        self._size_bytes = 0
+        self.file_count = 0
+        self.dir_count = 0
+
+    def add_meta_metrics(self, child_node):
+        if child_node.is_dir():
+            self.dir_count += child_node.dir_count + 1
+            self.file_count += child_node.file_count
+        else:
+            self.file_count += 1
+
+        if child_node.size_bytes:
+            self._size_bytes += child_node.size_bytes
+
+    def get_summary(self):
+        if not self._size_bytes and not self.file_count:
+            return '0 items'
+        size = format_util.humanfriendlier_size(self._size_bytes)
+        return f'{size} in {self.file_count:n} files and {self.dir_count:n} dirs'
+
+    @property
+    def size_bytes(self):
+        return self._size_bytes
+
+    @property
+    def etc(self):
+        return f'{self.file_count:n} files'
 
     def get_icon(self):
         return ICON_ADD_DIR

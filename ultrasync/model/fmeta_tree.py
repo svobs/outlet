@@ -96,25 +96,25 @@ class FMetaTree(SubtreeSnapshot):
 
     def refresh_stats(self):
         stats_sw = Stopwatch()
-        first_stack = deque()
-        second_stack = deque()
-        first_stack.append(self.root_node)
-        second_stack.append(self.root_node)
+        queue = deque()
+        stack = deque()
+        queue.append(self.root_node)
+        stack.append(self.root_node)
 
         # Loop over all dirs in the tree and zero out their stats. Also create a stack
-        while len(first_stack) > 0:
-            item = first_stack.popleft()
+        while len(queue) > 0:
+            item = queue.popleft()
             item.zero_out_stats()
 
             children = self.get_children(item)
             if children:
                 for child in children:
                     if child.is_dir():
-                        first_stack.append(child)
-                        second_stack.append(child)
+                        queue.append(child)
+                        stack.append(child)
 
-        while len(second_stack) > 0:
-            item = second_stack.pop()
+        while len(stack) > 0:
+            item = stack.pop()
             assert item.is_dir()
 
             children = self.get_children(item)

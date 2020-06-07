@@ -7,10 +7,9 @@ import file_util
 import format_util
 from constants import NOT_TRASHED
 from index.two_level_dict import Md5BeforeUidDict
-from index.uid_generator import UID
 from model.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveItemNotFoundError, GDriveWholeTree
-from model.goog_node import GoogNode
+from model.goog_node import GoogFolder, GoogNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
@@ -28,23 +27,15 @@ SUPER_DEBUG = False
 
 
 class GDriveSubtree(SubtreeSnapshot):
-    def __init__(self, whole_tree: GDriveWholeTree, root_node: GoogNode):
+    def __init__(self, whole_tree: GDriveWholeTree, root_node: GoogFolder):
         SubtreeSnapshot.__init__(self, root_identifier=root_node.node_identifier)
 
         self._whole_tree = whole_tree
-        self._root_node = root_node
+        self._root_node: GoogFolder = root_node
         self._ignored_items: List[GoogNode] = []
 
         # See refresh_stats() for the following
         self._stats_loaded = False
-        self.file_count = 0  # really a non-folder count
-        self.folder_count = 0
-        self.shared_by_me_count = 0
-        self.shared_with_me_count = 0
-        self.md5_count = 0
-        self.trashed_file_count = 0
-        self.size_bytes = 0
-        self.trashed_bytes = 0
 
     @property
     def root_node(self):
@@ -137,48 +128,47 @@ class GDriveSubtree(SubtreeSnapshot):
 
     def __repr__(self):
         if self._stats_loaded:
-            id_count_str = f' id_count={self.file_count + self.folder_count}'
+            id_count_str = f' id_count={self._root_node.file_count + self._root_node.dir_count}'
         else:
             id_count_str = ''
         return f'GDriveSubtree(root_uid={self.root_uid} root_path="{self.root_path}"{id_count_str})'
 
     def refresh_stats(self):
         stats_sw = Stopwatch()
-        queue = deque()
-        queue.append(self._root_node)
+        queue: Deque[GoogFolder] = deque()
+        stack: Deque[GoogFolder] = deque()
+        queue.append(self.root_node)
+        stack.append(self.root_node)
 
         while len(queue) > 0:
-            item: GoogNode = queue.popleft()
-            if item.is_dir():
-                self.folder_count += 1
-            else:
-                self.file_count += 1
-                if item.md5:
-                    self.md5_count += 1
-                if item.trashed == NOT_TRASHED:
-                    if item.size_bytes:
-                        self.size_bytes += item.size_bytes
-                else:
-                    self.trashed_file_count += 1
-                    if item.size_bytes:
-                        self.trashed_bytes += item.size_bytes
+            item: GoogFolder = queue.popleft()
+            item.zero_out_stats()
 
-            if item.my_share:
-                self.shared_by_me_count += 1
-            elif item.drive_id:
-                self.shared_with_me_count += 1
             children = self.get_children(item)
             if children:
                 for child in children:
-                    queue.append(child)
+                    if child.is_dir():
+                        assert isinstance(child, GoogFolder)
+                        queue.append(child)
+                        stack.append(child)
+
+        while len(stack) > 0:
+            item = stack.pop()
+            assert item.is_dir()
+
+            children = self.get_children(item)
+            if children:
+                for child in children:
+                    item.add_meta_metrics(child)
 
         self._stats_loaded = True
         logger.debug(f'{stats_sw} Refreshed stats')
 
     def get_summary(self):
         if self._stats_loaded:
-            size_hf = format_util.humanfriendlier_size(self.size_bytes)
-            trashed_size_hf = format_util.humanfriendlier_size(self.trashed_bytes)
-            return f'{size_hf} total in {self.file_count:n} items (including {trashed_size_hf} in {self.trashed_file_count:n} trashed)'
+            size_hf = format_util.humanfriendlier_size(self._root_node.size_bytes)
+            trashed_size_hf = format_util.humanfriendlier_size(self._root_node.trashed_bytes)
+            return f'{size_hf} total in {self._root_node.file_count:n} items (including {trashed_size_hf} in ' \
+                   f'{self._root_node.trashed_file_count:n} trashed)'
         else:
             return 'Loading stats...'

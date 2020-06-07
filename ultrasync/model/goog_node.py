@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import logging
 from typing import List, Optional, Tuple, Union
 
+import format_util
 from constants import ICON_ADD_DIR, NOT_TRASHED, TRASHED_STATUS
 from index.uid_generator import UID
 from model.category import Category
@@ -110,6 +111,13 @@ class GoogFolder(GoogNode):
         self.all_children_fetched = all_children_fetched
         """If true, all its children have been fetched from Google"""
 
+        self.file_count = 0
+        self.trashed_file_count = 0
+        self.trashed_dir_count = 0
+        self.dir_count = 0
+        self.trashed_bytes = 0
+        self._size_bytes = 0
+
     def __repr__(self):
         return f'Folder:(uid="{self.uid}" goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
                f'my_share={self.my_share} sync_ts={self.sync_ts} parent_uids={self.parent_uids} children_fetched={self.all_children_fetched} ]'
@@ -124,6 +132,53 @@ class GoogFolder(GoogNode):
     @classmethod
     def is_dir(cls):
         return True
+
+    def zero_out_stats(self):
+        self._size_bytes = 0
+        self.trashed_bytes = 0
+        self.file_count = 0
+        self.trashed_dir_count = 0
+        self.trashed_file_count = 0
+        self.dir_count = 0
+
+    def add_meta_metrics(self, child_node):
+        if child_node.trashed == NOT_TRASHED and self.trashed == NOT_TRASHED:
+            # not trashed:
+            if child_node.size_bytes:
+                self._size_bytes += child_node.size_bytes
+
+            if child_node.is_dir():
+                self.dir_count += child_node.dir_count + 1
+                self.file_count += child_node.file_count
+            else:
+                self.file_count += 1
+        else:
+            # trashed:
+            if child_node.is_dir():
+                if child_node.size_bytes:
+                    self.trashed_bytes += child_node.size_bytes
+                if child_node.trashed_bytes:
+                    self.trashed_bytes += child_node.trashed_bytes
+                self.trashed_dir_count += child_node.dir_count + child_node.trashed_dir_count + 1
+                self.trashed_file_count += child_node.file_count + child_node.trashed_file_count
+            else:
+                self.trashed_file_count += 1
+                if child_node.size_bytes:
+                    self.trashed_bytes += child_node.size_bytes
+
+    @property
+    def etc(self):
+        return f'{self.file_count:n} files'
+
+    @property
+    def size_bytes(self):
+        return self._size_bytes
+
+    def get_summary(self):
+        if not self._size_bytes and not self.file_count and not self.dir_count:
+            return '0 items'
+        size = format_util.humanfriendlier_size(self._size_bytes)
+        return f'{size} in {self.file_count:n} files and {self.dir_count:n} folders'
 
     def __eq__(self, other):
         if not isinstance(other, GoogFolder):
@@ -232,6 +287,13 @@ class FolderToAdd(PlanningNode, GoogNode):
                           drive_id=None, my_share=False, sync_ts=None, category=Category.ADDED)
         self.node_identifier.full_path = dest_path
 
+        self.file_count = 0
+        self.trashed_file_count = 0
+        self.trashed_dir_count = 0
+        self.dir_count = 0
+        self.trashed_bytes = 0
+        self._size_bytes = 0
+
     def get_icon(self):
         return ICON_ADD_DIR
 
@@ -252,3 +314,50 @@ class FolderToAdd(PlanningNode, GoogNode):
 
     def to_tuple(self):
         pass
+
+    def zero_out_stats(self):
+        self._size_bytes = 0
+        self.trashed_bytes = 0
+        self.file_count = 0
+        self.trashed_dir_count = 0
+        self.trashed_file_count = 0
+        self.dir_count = 0
+
+    def add_meta_metrics(self, child_node):
+        if child_node.trashed == NOT_TRASHED and self.trashed == NOT_TRASHED:
+            # not trashed:
+            if child_node.size_bytes:
+                self._size_bytes += child_node.size_bytes
+
+            if child_node.is_dir():
+                self.dir_count += child_node.dir_count + 1
+                self.file_count += child_node.file_count
+            else:
+                self.file_count += 1
+        else:
+            # trashed:
+            if child_node.is_dir():
+                if child_node.size_bytes:
+                    self.trashed_bytes += child_node.size_bytes
+                if child_node.trashed_bytes:
+                    self.trashed_bytes += child_node.trashed_bytes
+                self.trashed_dir_count += child_node.dir_count + child_node.trashed_dir_count + 1
+                self.trashed_file_count += child_node.file_count + child_node.trashed_file_count
+            else:
+                self.trashed_file_count += 1
+                if child_node.size_bytes:
+                    self.trashed_bytes += child_node.size_bytes
+
+    @property
+    def etc(self):
+        return f'{self.file_count:n} files'
+
+    @property
+    def size_bytes(self):
+        return self._size_bytes
+
+    def get_summary(self):
+        if not self._size_bytes and not self.file_count and not self.dir_count:
+            return '0 items'
+        size = format_util.humanfriendlier_size(self._size_bytes)
+        return f'{size} in {self.file_count:n} files and {self.dir_count:n} folders'
