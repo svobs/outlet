@@ -20,6 +20,7 @@ class DisplayTreeBuilder(ABC):
         self._root: NodeIdentifier = root
         if tree:
             self._tree = tree
+            self.con.parent_win.application.task_runner.enqueue(self._tree.refresh_stats, self.con.tree_id)
             self._loaded = True
         else:
             self._tree = None
@@ -28,6 +29,7 @@ class DisplayTreeBuilder(ABC):
         if not self._loaded:
             logger.debug(f'Tree was requested. Loading: {self._root}')
             self._tree = self.con.cache_manager.load_subtree(self._root, self.con.tree_id)
+            self.con.parent_win.application.task_runner.enqueue(self._tree.refresh_stats, self.con.tree_id)
             self._loaded = True
 
     def get_root_identifier(self) -> NodeIdentifier:

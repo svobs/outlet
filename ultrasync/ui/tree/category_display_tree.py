@@ -1,19 +1,17 @@
 import copy
+import logging
 import pathlib
 from collections import deque
-from typing import Callable, Deque, Dict, Iterable, List, Optional, Tuple, Union
-import logging
+from typing import Callable, Deque, Dict, Iterable, List, Optional
 
 import treelib
 from treelib.exceptions import DuplicatedNodeIdError
 
 import file_util
-from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
-from index.uid_generator import UID
+from constants import ROOT_PATH, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from model.category import Category
-from model.goog_node import GoogFolder
-from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 from model.display_node import CategoryNode, DirNode, DisplayNode, RootTypeNode
+from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 from model.subtree_snapshot import SubtreeSnapshot
 
 logger = logging.getLogger(__name__)
@@ -46,38 +44,30 @@ class PreAncestorDict:
 # CLASS CategoryDisplayTree
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class CategoryDisplayTree:
+class CategoryDisplayTree(SubtreeSnapshot):
+    """Note: this doesn't completely map to SubtreeSnapshot, but it's close enough for it to be useful to
+    inherit its functionality"""
     def __init__(self, application, root_node_identifier: NodeIdentifier, tree_id: str, show_whole_forest=False):
-        self._category_tree: treelib.Tree = treelib.Tree()
+        # Root node will never be displayed in the UI, but treelib requires a root node, as does parent class
+        super().__init__(DirNode(root_node_identifier))
+
         self.tree_id = tree_id
         self.cache_manager = application.cache_manager
         self.uid_generator = application.uid_generator
         self.node_identifier_factory = application.node_identifier_factory
-        # Root node will never be displayed in the UI:
-        self.root = self._category_tree.create_node(identifier=self.uid_generator.get_new_uid(), parent=None, data=None)
+
+        self._category_tree: treelib.Tree = treelib.Tree()
+        self._category_tree.add_node(self.root_node, parent=None)
+
         self.show_whole_forest: bool = show_whole_forest
         # saved in a nice dict for easy reference:
         self._pre_ancestor_dict: PreAncestorDict = PreAncestorDict()
 
-        self.node_identifier = root_node_identifier
-
         self.count_conflict_warnings = 0
         self.count_conflict_errors = 0
 
-    @property
-    def tree_type(self) -> int:
-        return self.node_identifier.tree_type
-
-    @property
-    def root_path(self):
-        return self.node_identifier.full_path
-
-    @property
-    def uid(self):
-        return self.node_identifier.uid
-
     def get_children_for_root(self) -> Iterable[DisplayNode]:
-        return self.get_children(self.root)
+        return self.get_children(self.root_node)
 
     def get_children(self, parent: DisplayNode) -> Iterable[DisplayNode]:
         try:
@@ -107,7 +97,7 @@ class CategoryDisplayTree:
         return ancestors
 
     def _get_subroot_node(self, node_identifier: NodeIdentifier) -> Optional[DirNode]:
-        for child in self._category_tree.children(self.root.identifier):
+        for child in self._category_tree.children(self.root_node.identifier):
             if child.node_identifier.tree_type == node_identifier.tree_type:
                 return child
         return None
@@ -134,11 +124,11 @@ class CategoryDisplayTree:
                 node_identifier = self.node_identifier_factory.for_values(tree_type=item.node_identifier.tree_type, uid=uid, category=item.category)
                 subroot_node = RootTypeNode(node_identifier=node_identifier)
                 logger.debug(f'[{self.tree_id}] Creating pre-ancestor RootType node: {node_identifier}')
-                self._category_tree.add_node(node=subroot_node, parent=self.root)
+                self._category_tree.add_node(node=subroot_node, parent=self.root_node)
             parent_node = subroot_node
         else:
             # no sub-root used
-            parent_node = self.root
+            parent_node = self.root_node
 
         cat_node = None
         for child in self._category_tree.children(parent_node.identifier):
@@ -294,6 +284,22 @@ class CategoryDisplayTree:
     def __repr__(self):
         return f'CategoryDisplayTree(tree_id=[{self.tree_id}], {self.get_summary()})'
 
+    @classmethod
+    def create_identifier(cls, full_path, uid, category) -> NodeIdentifier:
+        raise NotImplementedError
+
+    def get_all(self) -> List[DisplayNode]:
+        raise NotImplementedError
+
+    def get_relative_path_for_item(self, item):
+        raise NotImplementedError
+
+    def get_for_path(self, path: str, include_ignored=False) -> List[DisplayNode]:
+        raise NotImplementedError
+
+    def get_md5_dict(self):
+        raise NotImplementedError
+
     def get_summary(self) -> str:
         def make_cat_map():
             cm = {}
@@ -306,7 +312,7 @@ class CategoryDisplayTree:
             # need to preserve ordering...
             type_summaries = []
             type_map = {}
-            for child in self._category_tree.children(self.root.identifier):
+            for child in self._category_tree.children(self.root_node.identifier):
                 assert isinstance(child, RootTypeNode), f'For {child}'
                 cat_map = make_cat_map()
                 for grandchild in self._category_tree.children(child.identifier):
@@ -326,7 +332,7 @@ class CategoryDisplayTree:
             return ';'.join(type_summaries)
         else:
             cat_map = make_cat_map()
-            for child in self._category_tree.children(self.root.identifier):
+            for child in self._category_tree.children(self.root_node.identifier):
                 assert isinstance(child, CategoryNode), f'For {child}'
                 cat_count += 1
                 cat_map[child.category] = f'{child.name}: {child.get_summary()}'

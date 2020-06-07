@@ -94,38 +94,6 @@ class FMetaTree(SubtreeSnapshot):
     def add_item(self, item: Union[FMeta, PlanningNode]):
         raise RuntimeError('Can no longer do this in FMetaTree!')
 
-    def refresh_stats(self):
-        stats_sw = Stopwatch()
-        queue = deque()
-        stack = deque()
-        queue.append(self.root_node)
-        stack.append(self.root_node)
-
-        # Loop over all dirs in the tree and zero out their stats. Also create a stack
-        while len(queue) > 0:
-            item = queue.popleft()
-            item.zero_out_stats()
-
-            children = self.get_children(item)
-            if children:
-                for child in children:
-                    if child.is_dir():
-                        queue.append(child)
-                        stack.append(child)
-
-        while len(stack) > 0:
-            item = stack.pop()
-            assert item.is_dir()
-
-            children = self.get_children(item)
-            if children:
-                for child in children:
-                    item.add_meta_metrics(child)
-
-        self._stats_loaded = True
-
-        logger.debug(f'{stats_sw} Refreshed stats for FMetaTree')
-
     def get_summary(self):
         if self._stats_loaded:
             size_hf = format_util.humanfriendlier_size(self.root_node.size_bytes)

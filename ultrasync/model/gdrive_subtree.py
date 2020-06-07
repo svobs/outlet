@@ -1,11 +1,9 @@
 import collections
 import logging
-from collections import deque
 from typing import Deque, List, Optional, Union, ValuesView
 
 import file_util
 import format_util
-from constants import NOT_TRASHED
 from index.two_level_dict import Md5BeforeUidDict
 from model.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveItemNotFoundError, GDriveWholeTree
@@ -28,7 +26,7 @@ SUPER_DEBUG = False
 
 class GDriveSubtree(SubtreeSnapshot):
     def __init__(self, whole_tree: GDriveWholeTree, root_node: GoogFolder):
-        SubtreeSnapshot.__init__(self, root_identifier=root_node.node_identifier)
+        SubtreeSnapshot.__init__(self, root_node=root_node)
 
         self._whole_tree = whole_tree
         self._root_node: GoogFolder = root_node
@@ -37,21 +35,9 @@ class GDriveSubtree(SubtreeSnapshot):
         # See refresh_stats() for the following
         self._stats_loaded = False
 
-    @property
-    def root_node(self):
-        return self._root_node
-
     @classmethod
     def create_identifier(cls, full_path, uid, category) -> NodeIdentifier:
         return GDriveIdentifier(uid=uid, full_path=full_path, category=category)
-
-    @property
-    def root_path(self):
-        return self._root_node.full_path
-
-    @property
-    def root_uid(self):
-        return self._root_node.uid
 
     def get_ignored_items(self):
         return self._ignored_items
@@ -132,37 +118,6 @@ class GDriveSubtree(SubtreeSnapshot):
         else:
             id_count_str = ''
         return f'GDriveSubtree(root_uid={self.root_uid} root_path="{self.root_path}"{id_count_str})'
-
-    def refresh_stats(self):
-        stats_sw = Stopwatch()
-        queue: Deque[GoogFolder] = deque()
-        stack: Deque[GoogFolder] = deque()
-        queue.append(self.root_node)
-        stack.append(self.root_node)
-
-        while len(queue) > 0:
-            item: GoogFolder = queue.popleft()
-            item.zero_out_stats()
-
-            children = self.get_children(item)
-            if children:
-                for child in children:
-                    if child.is_dir():
-                        assert isinstance(child, GoogFolder)
-                        queue.append(child)
-                        stack.append(child)
-
-        while len(stack) > 0:
-            item = stack.pop()
-            assert item.is_dir()
-
-            children = self.get_children(item)
-            if children:
-                for child in children:
-                    item.add_meta_metrics(child)
-
-        self._stats_loaded = True
-        logger.debug(f'{stats_sw} Refreshed stats')
 
     def get_summary(self):
         if self._stats_loaded:

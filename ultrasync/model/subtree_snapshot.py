@@ -1,33 +1,50 @@
 from abc import ABC, abstractmethod
 from collections import deque
+import logging
 from typing import Any, Callable, Deque, Iterable, List, Optional, Union
+
+from pydispatch import dispatcher
 
 from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
+from ui import actions
 
+logger = logging.getLogger(__name__)
 
 # ABSTRACT CLASS SubtreeSnapshot
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+from stopwatch_sec import Stopwatch
+
 
 class SubtreeSnapshot(ABC):
-    def __init__(self, root_identifier: NodeIdentifier):
+    def __init__(self, root_node: DisplayNode):
         super().__init__()
-        self.node_identifier: NodeIdentifier = root_identifier
+        self.root_node: DisplayNode = root_node
+
+        self._stats_loaded = False
 
     # From the root node_identifier
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     @property
+    def node_identifier(self):
+        return self.root_node.node_identifier
+
+    @property
     def tree_type(self) -> int:
-        return self.node_identifier.tree_type
+        return self.root_node.node_identifier.tree_type
 
     @property
     def root_path(self):
-        return self.node_identifier.full_path
+        return self.root_node.node_identifier.full_path
+
+    @property
+    def root_uid(self):
+        return self.uid
 
     @property
     def uid(self):
-        return self.node_identifier.uid
+        return self.root_node.node_identifier.uid
 
     def in_this_subtree(self, path: str):
         if isinstance(path, list):
@@ -106,7 +123,7 @@ class SubtreeSnapshot(ABC):
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     @abstractmethod
-    def add_item(self, item):
+    def add_item(self, item: DisplayNode):
         pass
 
     # Stats
@@ -116,6 +133,35 @@ class SubtreeSnapshot(ABC):
     def get_summary(self):
         pass
 
-    @abstractmethod
-    def refresh_stats(self):
-        pass
+    def refresh_stats(self, tree_id):
+        stats_sw = Stopwatch()
+        queue: Deque[DisplayNode] = deque()
+        stack: Deque[DisplayNode] = deque()
+        queue.append(self.root_node)
+        stack.append(self.root_node)
+
+        while len(queue) > 0:
+            item: DisplayNode = queue.popleft()
+            item.zero_out_stats()
+
+            children = self.get_children(item)
+            if children:
+                for child in children:
+                    if child.is_dir():
+                        assert isinstance(child, DisplayNode)
+                        queue.append(child)
+                        stack.append(child)
+
+        while len(stack) > 0:
+            item = stack.pop()
+            assert item.is_dir()
+
+            children = self.get_children(item)
+            if children:
+                for child in children:
+                    item.add_meta_metrics(child)
+
+        self._stats_loaded = True
+        actions.set_status(sender=tree_id, status_msg=self.get_summary())
+        dispatcher.send(signal=actions.REFRESH_ALL_NODE_STATS, sender=tree_id)
+        logger.debug(f'{stats_sw} Refreshed stats for tree')

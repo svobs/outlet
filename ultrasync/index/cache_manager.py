@@ -211,7 +211,6 @@ class CacheManager:
         else:
             raise RuntimeError(f'Unrecognized tree type: {node_identifier.tree_type}')
 
-        self.application.task_runner.enqueue(_load_subtree_stats, subtree, tree_id)
         return subtree
 
     def find_existing_supertree_for_subtree(self, subtree_root: NodeIdentifier, tree_id: str) -> Optional[PersistedCacheInfo]:
@@ -369,10 +368,3 @@ class CacheManager:
             return self._local_disk_cache.dir_tree.get_all_files_for_subtree(subtree_root)
         else:
             raise RuntimeError(f'Unknown tree type: {subtree_root.tree_type} for {subtree_root}')
-
-
-def _load_subtree_stats(subtree_meta: SubtreeSnapshot, tree_id: str):
-    subtree_meta.refresh_stats()
-
-    actions.set_status(sender=tree_id, status_msg=subtree_meta.get_summary())
-    dispatcher.send(signal=actions.REFRESH_ALL_NODE_STATS, sender=tree_id)

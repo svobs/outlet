@@ -357,6 +357,7 @@ class ContentFirstDiffer:
             root_node_identifier: NodeIdentifier = self.application.node_identifier_factory.for_values(tree_type=self.left_tree.tree_type,
                                                                                            full_path=ROOT_PATH, uid=uid_generator.ROOT_UID)
 
+
         merged_tree = CategoryDisplayTree(root_node_identifier=root_node_identifier, show_whole_forest=True,
                                           application=self.application, tree_id=ID_MERGE_TREE)
 

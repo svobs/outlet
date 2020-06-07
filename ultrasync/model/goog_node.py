@@ -324,18 +324,13 @@ class FolderToAdd(PlanningNode, GoogNode):
         self.dir_count = 0
 
     def add_meta_metrics(self, child_node):
-        if child_node.trashed == NOT_TRASHED and self.trashed == NOT_TRASHED:
-            # not trashed:
-            if child_node.size_bytes:
-                self._size_bytes += child_node.size_bytes
+        trashed: bool = self.trashed != NOT_TRASHED
+        try:
+            trashed = trashed or (child_node.trashed != NOT_TRASHED)
+        except AttributeError:
+            trashed = False
 
-            if child_node.is_dir():
-                self.dir_count += child_node.dir_count + 1
-                self.file_count += child_node.file_count
-            else:
-                self.file_count += 1
-        else:
-            # trashed:
+        if trashed:
             if child_node.is_dir():
                 if child_node.size_bytes:
                     self.trashed_bytes += child_node.size_bytes
@@ -347,6 +342,16 @@ class FolderToAdd(PlanningNode, GoogNode):
                 self.trashed_file_count += 1
                 if child_node.size_bytes:
                     self.trashed_bytes += child_node.size_bytes
+        else:
+            # not trashed:
+            if child_node.size_bytes:
+                self._size_bytes += child_node.size_bytes
+
+            if child_node.is_dir():
+                self.dir_count += child_node.dir_count + 1
+                self.file_count += child_node.file_count
+            else:
+                self.file_count += 1
 
     @property
     def etc(self):
