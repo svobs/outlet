@@ -1,6 +1,7 @@
 import logging
 import pathlib
-from typing import Iterable, List, Optional, Union
+from collections import deque
+from typing import Iterable, List, Optional, Tuple, Union
 
 import constants
 import file_util
@@ -31,6 +32,8 @@ class FMetaTree(SubtreeSnapshot):
         super().__init__(root_node.node_identifier)
         self.root_node = root_node
         self.cache_manager = application.cache_manager
+
+        self._stats_loaded = False
 
     @classmethod
     def create_identifier(cls, full_path: str, uid: UID, category) -> NodeIdentifier:
@@ -91,18 +94,44 @@ class FMetaTree(SubtreeSnapshot):
     def add_item(self, item: Union[FMeta, PlanningNode]):
         raise RuntimeError('Can no longer do this in FMetaTree!')
 
+    def refresh_stats(self):
+        stats_sw = Stopwatch()
+        first_stack = deque()
+        second_stack = deque()
+        first_stack.append(self.root_node)
+        second_stack.append(self.root_node)
+
+        # Loop over all dirs in the tree and zero out their stats. Also create a stack
+        while len(first_stack) > 0:
+            item = first_stack.popleft()
+            item.zero_out_stats()
+
+            children = self.get_children(item)
+            if children:
+                for child in children:
+                    if child.is_dir():
+                        first_stack.append(child)
+                        second_stack.append(child)
+
+        while len(second_stack) > 0:
+            item = second_stack.pop()
+            assert item.is_dir()
+
+            children = self.get_children(item)
+            if children:
+                for child in children:
+                    item.add_meta_metrics(child)
+
+        self._stats_loaded = True
+
+        logger.debug(f'{stats_sw} Refreshed stats for FMetaTree')
+
     def get_summary(self):
-        """
-        Returns: summary of the aggregate FMeta in this tree.
-        """
-
-        total_size = 0  # TODO!
-        size_hf = format_util.humanfriendlier_size(total_size)
-
-        count = 0  # TODO!
-
-        summary_string = f'{size_hf} total in {format_util.with_commas(count)} files'
-        return summary_string
+        if self._stats_loaded:
+            size_hf = format_util.humanfriendlier_size(self.root_node.size_bytes)
+            return f'{size_hf} total in {self.root_node.file_count:n} files and {self.root_node.dir_count:n} dirs'
+        else:
+            return 'Loading stats...'
 
     def __repr__(self):
         return f'FMetaTree(root="{self.node_identifier}"])'

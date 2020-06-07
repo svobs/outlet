@@ -115,3 +115,7 @@ class SubtreeSnapshot(ABC):
     @abstractmethod
     def get_summary(self):
         pass
+
+    @abstractmethod
+    def refresh_stats(self):
+        pass

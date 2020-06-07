@@ -204,7 +204,9 @@ class CacheManager:
         dispatcher.send(signal=actions.LOAD_TREE_STARTED, sender=tree_id)
 
         if node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-            return self._load_local_subtree(node_identifier, tree_id)
+            subtree = self._load_local_subtree(node_identifier, tree_id)
+            self.application.task_runner.enqueue(self._local_disk_cache.load_local_subtree_stats, subtree, tree_id)
+            return subtree
         elif node_identifier.tree_type == TREE_TYPE_GDRIVE:
             assert self._gdrive_cache
             return self._gdrive_cache.load_gdrive_subtree(node_identifier, tree_id)

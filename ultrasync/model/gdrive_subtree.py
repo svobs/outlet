@@ -171,8 +171,8 @@ class GDriveSubtree(SubtreeSnapshot):
             if children:
                 for child in children:
                     queue.append(child)
-            self._stats_loaded = True
 
+        self._stats_loaded = True
         logger.debug(f'{stats_sw} Refreshed stats')
 
     def get_summary(self):

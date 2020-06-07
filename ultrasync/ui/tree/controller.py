@@ -90,11 +90,11 @@ class TreePanelController:
 
                 assets = self.parent_win.application.assets
                 new_treeview = tree_factory_templates.build_treeview(self.display_store, assets)
-                self._set_column_visibilities()
                 tree_factory_templates.replace_widget(self.tree_view, new_treeview)
                 self.tree_view = new_treeview
                 self.context_listeners.init()
                 self.treeview_meta.init()
+                self._set_column_visibilities()
 
             if new_root:
                 logger.info(f'[{self.tree_id}] reload() with new root: {new_root}')

@@ -61,6 +61,9 @@ class CategoryDisplayTree:
 
         self.node_identifier = root_node_identifier
 
+        self.count_conflict_warnings = 0
+        self.count_conflict_errors = 0
+
     @property
     def tree_type(self) -> int:
         return self.node_identifier.tree_type
@@ -259,11 +262,14 @@ class CategoryDisplayTree:
             # TODO: configurable handling of conflicts. Google Drive allows items with the same path and name, which is not allowed on local FS
             conflict_node = self._category_tree.get_node(item.identifier)
             if conflict_node.md5 == item.md5:
-                logger.warning(f'[{self.tree_id}] Duplicate nodes for the same path! However, items have same MD5, so we will just ignore the new '
-                               f'item: existing={conflict_node} new={item}')
-                return
+                self.count_conflict_warnings += 1
+                if SUPER_DEBUG:
+                    logger.warning(f'[{self.tree_id}] Duplicate nodes for the same path! However, items have same MD5, so we will just ignore the new'
+                                   f' item: existing={conflict_node} new={item}')
             else:
-                logger.error(f'[{self.tree_id}] Duplicate nodes for the same path and different content: existing={conflict_node} new={item}')
+                self.count_conflict_errors += 1
+                if SUPER_DEBUG:
+                    logger.error(f'[{self.tree_id}] Duplicate nodes for the same path and different content: existing={conflict_node} new={item}')
                 # raise
 
         if SUPER_DEBUG:

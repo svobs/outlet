@@ -155,12 +155,18 @@ class DirNode(DisplayNode):
     def __init__(self, node_identifier: NodeIdentifier):
         super().__init__(node_identifier)
         self.file_count = 0
+        self.dir_count = 0
         self._size_bytes = 0
 
-    def add_meta_metrics(self, fmeta):
-        self.file_count += 1
-        if fmeta.size_bytes:
-            self._size_bytes += fmeta.size_bytes
+    def add_meta_metrics(self, child_node):
+        if child_node.is_dir():
+            self.dir_count += child_node.dir_count + 1
+            self.file_count += child_node.file_count
+        else:
+            self.file_count += 1
+
+        if child_node.size_bytes:
+            self._size_bytes += child_node.size_bytes
 
     def get_icon(self):
         return ICON_GENERIC_DIR
@@ -175,6 +181,11 @@ class DirNode(DisplayNode):
     @property
     def etc(self):
         return f'{self.file_count} items'
+
+    def zero_out_stats(self):
+        self._size_bytes = 0
+        self.file_count = 0
+        self.dir_count = 0
 
     @property
     def size_bytes(self):
@@ -202,12 +213,12 @@ class DirNode(DisplayNode):
 
     def get_summary(self):
         if not self._size_bytes and not self.file_count:
-            return 'None'
+            return '0 items'
         size = format_util.humanfriendlier_size(self._size_bytes)
-        return f'{size} in {self.file_count:n} files'
+        return f'{size} in {self.file_count:n} files and {self.dir_count:n} dirs'
 
     def __repr__(self):
-        return f'DirNode({self.node_identifier} cat={self.category} {self.get_summary()})'
+        return f'DirNode({self.node_identifier} cat="{self.category.name[0]}" {self.get_summary()})'
 
     def clone(self):
         return DirNode(self.node_identifier)
