@@ -85,7 +85,7 @@ class DisplayStore:
         self.update_checked_state_tracking(node_data, is_checked, is_inconsistent)
 
     def update_checked_state_tracking(self, node_data: DisplayNode, is_checked: bool, is_inconsistent: bool):
-        row_id = node_data.uid
+        row_id = node_data.identifier
         if is_checked:
             self.checked_rows[row_id] = node_data
         else:

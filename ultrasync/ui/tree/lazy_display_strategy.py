@@ -54,20 +54,20 @@ class LazyDisplayStrategy:
         dispatcher.connect(signal=actions.NODE_UPDATED, receiver=self._on_node_updated_in_cache)
         dispatcher.connect(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
 
-    def populate_recursively(self, parent_iter, parent_uid: Optional[UID], node: DisplayNode):
-        node_count = self._populate_recursively(parent_iter, parent_uid, node)
+    def populate_recursively(self, parent_iter, node: DisplayNode):
+        node_count = self._populate_recursively(parent_iter, node)
         logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
 
-    def _populate_recursively(self, parent_iter, parent_uid: Optional[UID], node: DisplayNode, node_count: int = 0) -> int:
+    def _populate_recursively(self, parent_iter, node: DisplayNode, node_count: int = 0) -> int:
         total_expanded = 0
         # Do a DFS of the change tree and populate the UI tree along the way
         if node.is_dir():
-            parent_iter = self._append_dir_node(parent_iter=parent_iter, parent_uid=parent_uid, node=node)
+            parent_iter = self._append_dir_node(parent_iter=parent_iter, node=node)
 
             for child in self.con.tree_builder.get_children(node):
-                node_count = self._populate_recursively(parent_iter, parent_uid, child, node_count)
+                node_count = self._populate_recursively(parent_iter, child, node_count)
         else:
-            self._append_file_node(parent_iter, parent_uid, node)
+            self._append_file_node(parent_iter, node)
 
         node_count += 1
         return node_count
@@ -100,7 +100,7 @@ class LazyDisplayStrategy:
 
         children: List[DisplayNode] = self.con.tree_builder.get_children(node)
         for child in children:
-            self.populate_recursively(parent_iter, node.uid, child)
+            self.populate_recursively(parent_iter, child)
 
         self.con.tree_view.expand_row(path=tree_path, open_all=True)
 
@@ -121,10 +121,10 @@ class LazyDisplayStrategy:
             if self.con.treeview_meta.lazy_load:
                 # Just append for the root level. Beyond that, we will only load more nodes when
                 # the expanded state is toggled
-                self._append_children(children=children, parent_iter=root_iter, parent_uid=None)
+                self._append_children(children=children, parent_iter=root_iter)
             else:
                 for ch in children:
-                    self.populate_recursively(None, None, ch)
+                    self.populate_recursively(None, ch)
 
                 self.con.tree_view.expand_all()
 
@@ -159,9 +159,9 @@ class LazyDisplayStrategy:
         children: Iterable[DisplayNode] = self.con.tree_builder.get_children_for_root()
         for child in children:
 
-            if self.con.display_store.checked_rows.get(child.uid, None):
+            if self.con.display_store.checked_rows.get(child.identifier, None):
                 whitelist.append(child)
-            elif self.con.display_store.inconsistent_rows.get(child.uid, None):
+            elif self.con.display_store.inconsistent_rows.get(child.identifier, None):
                 secondary_screening.append(child)
 
         while len(secondary_screening) > 0:
@@ -175,9 +175,9 @@ class LazyDisplayStrategy:
             children: Iterable[DisplayNode] = self.con.tree_builder.get_children(parent)
 
             for child in children:
-                if self.con.display_store.checked_rows.get(child.uid, None):
+                if self.con.display_store.checked_rows.get(child.identifier, None):
                     whitelist.append(child)
-                elif self.con.display_store.inconsistent_rows.get(child.uid, None):
+                elif self.con.display_store.inconsistent_rows.get(child.identifier, None):
                     secondary_screening.append(child)
 
         while len(whitelist) > 0:
@@ -206,7 +206,7 @@ class LazyDisplayStrategy:
             # Add children for node:
             if is_expanded:
                 children = self.con.tree_builder.get_children(node_data)
-                self._append_children(children=children, parent_iter=parent_iter, parent_uid=node_data.uid)
+                self._append_children(children=children, parent_iter=parent_iter)
                 # Remove Loading node:
                 self.con.display_store.remove_first_child(parent_iter)
             else:
@@ -236,9 +236,9 @@ class LazyDisplayStrategy:
             raise RuntimeError(f'Cannot add node: Could not find parent node in display tree: {parent}')
 
         if node.is_dir():
-            self._append_dir_node(parent_iter, parent_uid, node)
+            self._append_dir_node(parent_iter, node)
         else:
-            self._append_file_node(parent_iter, parent_uid, node)
+            self._append_file_node(parent_iter, node)
 
     def _on_node_updated_in_cache(self, sender: str, node: DisplayNode):
         if not self._enable_state_listeners:
@@ -253,10 +253,9 @@ class LazyDisplayStrategy:
         if not tree_iter:
             raise RuntimeError(f'Cannot update node: Could not find node in display tree: {node}')
 
-        parent = self.con.get_tree().get_parent_for_item(node)
-        parent_uid = parent.uid
+        parent_iter = self.con.display_store.model.iter_parent(tree_iter)
 
-        display_vals: list = self._generate_display_cols(parent_uid, node)
+        display_vals: list = self._generate_display_cols(parent_iter, node)
         for col, val in enumerate(display_vals):
             self.con.display_store.model.set_value(tree_iter, col, val)
 
@@ -295,12 +294,12 @@ class LazyDisplayStrategy:
 
         logger.debug(f'Displayed rows count: {len(self.con.display_store.displayed_rows)}')
 
-    def _append_dir_node_and_empty_child(self, parent_iter, parent_uid: Optional[UID], node_data: DisplayNode):
-        dir_node_iter = self._append_dir_node(parent_iter, parent_uid, node_data)
+    def _append_dir_node_and_empty_child(self, parent_iter, node_data: DisplayNode):
+        dir_node_iter = self._append_dir_node(parent_iter, node_data)
         self._append_loading_child(dir_node_iter)
         return dir_node_iter
 
-    def _append_children(self, children: List[DisplayNode], parent_iter, parent_uid: Optional[UID]):
+    def _append_children(self, children: List[DisplayNode], parent_iter):
         if children:
             logger.debug(f'[{self.con.tree_id}] Appending {len(children)} child display nodes')
             if len(children) > LARGE_NUMBER_OF_CHILDREN:
@@ -310,9 +309,9 @@ class LazyDisplayStrategy:
             # Append all underneath tree_iter
             for child in children:
                 if child.is_dir():
-                    self._append_dir_node_and_empty_child(parent_iter, parent_uid, child)
+                    self._append_dir_node_and_empty_child(parent_iter, child)
                 else:
-                    self._append_file_node(parent_iter, parent_uid, child)
+                    self._append_file_node(parent_iter, child)
         elif self.use_empty_nodes:
             self._append_empty_child(parent_iter, '(empty)')
 
@@ -352,10 +351,10 @@ class LazyDisplayStrategy:
 
         return self.con.display_store.append_node(parent_node_iter, row_values)
 
-    def _generate_display_cols(self, parent_iter, parent_uid: Optional[UID], node: DisplayNode):
+    def _generate_display_cols(self, parent_iter, node: DisplayNode):
         row_values = []
 
-        self._add_checked_columns(parent_iter, parent_uid, node, row_values)
+        self._add_checked_columns(parent_iter, node, row_values)
 
         # Icon
         row_values.append(node.get_icon())
@@ -410,15 +409,15 @@ class LazyDisplayStrategy:
 
         return row_values
 
-    def _append_dir_node(self, parent_iter, parent_uid: Optional[str], node: DisplayNode) -> TreeIter:
-        row_values = self._generate_display_cols(parent_iter, parent_uid, node)
+    def _append_dir_node(self, parent_iter, node: DisplayNode) -> TreeIter:
+        row_values = self._generate_display_cols(parent_iter, node)
         return self.con.display_store.append_node(parent_iter, row_values)
 
-    def _append_file_node(self, parent_iter, parent_uid: Optional[UID], node: DisplayNode):
-        row_values = self._generate_display_cols(parent_iter, parent_uid, node)
+    def _append_file_node(self, parent_iter, node: DisplayNode):
+        row_values = self._generate_display_cols(parent_iter, node)
         return self.con.display_store.append_node(parent_iter, row_values)
 
-    def _add_checked_columns(self, parent_iter, parent_uid: Optional[UID], node: DisplayNode, row_values: List):
+    def _add_checked_columns(self, parent_iter, node: DisplayNode, row_values: List):
         """Populates the checkbox and sets its state for a newly added row"""
         if self.con.treeview_meta.has_checkboxes and node.has_path():
             if parent_iter:
