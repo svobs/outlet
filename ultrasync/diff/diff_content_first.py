@@ -138,7 +138,7 @@ class ContentFirstDiffer:
         new_uid = self.uid_generator.get_new_uid()
         node_identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Updated)
         node = FileToUpdate(node_identifier=node_identifier, src_node=left_item, dst_node=right_item_to_overwrite)
-        self._add_items_and_missing_parents(self.change_tree_right, self.left_tree, self.added_folders_right, node)
+        self._add_items_and_missing_parents(self.change_tree_right, self.right_tree, self.added_folders_right, node)
 
     def add_fileupdate_right_to_left(self, right_item, left_item_to_overwrite):
         """UPDATE: Left <- Right"""

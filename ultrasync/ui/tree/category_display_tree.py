@@ -223,7 +223,7 @@ class CategoryDisplayTree:
         full_path = item.full_path
         # Walk up the source tree and compose a list of ancestors:
         while True:
-            assert full_path.startswith(self.root_path)
+            assert full_path.startswith(self.root_path), f'FullPath="{full_path}", RootPath="{self.root_path}"'
             # Go up one dir:
             full_path: str = str(pathlib.Path(full_path).parent)
             # Get standard UID for path:
@@ -256,7 +256,10 @@ class CategoryDisplayTree:
                             f'to parent: {parent.node_identifier} ({parent.identifier})')
             self._category_tree.add_node(node=item, parent=parent)
         except DuplicatedNodeIdError:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f'[{self.tree_id}] CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))
             logger.error(f'[{self.tree_id}] Duplicate path for node {item}')
+            logger.error(f'[{self.tree_id}] The duplicate appears to be: {self._category_tree.get_node(item.identifier)}')
             raise
 
         if SUPER_DEBUG:
