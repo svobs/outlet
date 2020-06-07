@@ -503,7 +503,9 @@ class GDriveClient:
 
             items: list = results.get('files', [])
             if not items:
-                raise RuntimeError(f'No files returned from Drive API! (page {request.page_count})')
+                if not items:
+                    logger.debug('Request returned no folders')
+                    break
 
             msg = f'Received {len(items)} items'
             logger.debug(msg)
@@ -524,7 +526,7 @@ class GDriveClient:
                 logger.debug('Done!')
                 break
 
-        logger.info(f'{stopwatch_retrieval} Query returned {item_count} directories')
+        logger.info(f'{stopwatch_retrieval} Query returned {item_count} folders')
 
     # BINARIES
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

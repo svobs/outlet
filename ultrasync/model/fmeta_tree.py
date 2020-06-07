@@ -40,6 +40,7 @@ class FMetaTree(SubtreeSnapshot):
         return LocalFsIdentifier(full_path=full_path, uid=uid, category=category)
 
     def get_parent_for_item(self, item: FMeta) -> Optional[DisplayNode]:
+        assert item.full_path, f'No full_path for item: {item}'
         parent_path: str = str(pathlib.Path(item.full_path).parent)
         if parent_path.startswith(self.root_path):
             return self.cache_manager.get_for_local_path(parent_path)

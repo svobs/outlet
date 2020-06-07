@@ -62,7 +62,7 @@ class GDriveWholeTree:
         return self.node_identifier_factory.get_gdrive_root_constant_identifier()
 
     def get_full_path_for_item(self, item: GoogNode) -> List[str]:
-        """Gets the absolute path for the item"""
+        """Gets the absolute path for the item. Also sets its 'full_path' attribute for future use"""
         if item.full_path:
             # Does item already have a full_path? Just return that (huge speed gain):
             return item.full_path
@@ -276,6 +276,8 @@ class GDriveWholeTree:
         current_item: GoogNode = self.get_item_for_id(uid)
         if not current_item:
             raise RuntimeError(f'Item not found: id={uid}')
+
+        # TODO: it's possible to optimize this by using the parent paths, if available
 
         path_list: List[str] = []
         # Iterate backwards (the given ID is the last segment in the path

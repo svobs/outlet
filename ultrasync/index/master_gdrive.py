@@ -169,6 +169,9 @@ class GDriveMasterCache:
         # Finally, update in-memory cache (tree):
         self.meta_master.add_item(node)
 
+        # Generate full_path for item, if not already done (we assume this is a newly created node)
+        self.meta_master.get_full_path_for_item(node)
+
         if is_update:
             logger.debug(f'Sending signal: {actions.NODE_UPDATED}')
             dispatcher.send(signal=actions.NODE_UPDATED, sender=ID_GLOBAL_CACHE, node=node)

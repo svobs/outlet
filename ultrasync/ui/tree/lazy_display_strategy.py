@@ -219,6 +219,7 @@ class LazyDisplayStrategy:
         GLib.idle_add(expand_or_contract)
 
     def _on_node_added_to_cache(self, sender: str, node: DisplayNode):
+        assert node is not None
         if not self._enable_state_listeners:
             return
 

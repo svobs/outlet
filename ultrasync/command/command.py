@@ -78,6 +78,7 @@ class Command(treelib.Node, ABC):
         self._model = model_obj
         self._status = CommandStatus.NOT_STARTED
         self._error = None
+        self.tag = f'{__class__.__name__}(uid={self.identifier})'
 
     @abstractmethod
     def execute(self, context: CommandContext):
@@ -105,7 +106,7 @@ class Command(treelib.Node, ABC):
         self._status = CommandStatus.STOPPED_ON_ERROR
 
     def __repr__(self):
-        return f'{self.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self._status}, model={self._model}'
+        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self._status}, model={self._model}'
 
 
 """ 
@@ -468,7 +469,8 @@ class CreateGDriveFolderCommand(Command):
 
             assert goog_node.is_dir()
             # Need to add these manually:
-            goog_node.parent_uids = [parent_goog_id]
+            goog_node.parent_uids = self._model.parent_uids
+            assert goog_node.parent_uids, f'Expected some parent_uids for: {goog_node}'
             # Add node to disk & in-memory caches:
             context.cache_manager.add_or_update_node(goog_node)
         except Exception as err:
