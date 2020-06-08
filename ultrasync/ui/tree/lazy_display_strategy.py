@@ -256,7 +256,7 @@ class LazyDisplayStrategy:
 
         parent_iter = self.con.display_store.model.iter_parent(tree_iter)
 
-        display_vals: list = self._generate_display_cols(parent_iter, node)
+        display_vals: list = self.generate_display_cols(parent_iter, node)
         for col, val in enumerate(display_vals):
             self.con.display_store.model.set_value(tree_iter, col, val)
 
@@ -362,7 +362,7 @@ class LazyDisplayStrategy:
 
         return self.con.display_store.append_node(parent_node_iter, row_values)
 
-    def _generate_display_cols(self, parent_iter, node: DisplayNode):
+    def generate_display_cols(self, parent_iter, node: DisplayNode):
         row_values = []
 
         self._add_checked_columns(parent_iter, node, row_values)
@@ -418,11 +418,11 @@ class LazyDisplayStrategy:
         return row_values
 
     def _append_dir_node(self, parent_iter, node: DisplayNode) -> TreeIter:
-        row_values = self._generate_display_cols(parent_iter, node)
+        row_values = self.generate_display_cols(parent_iter, node)
         return self.con.display_store.append_node(parent_iter, row_values)
 
     def _append_file_node(self, parent_iter, node: DisplayNode):
-        row_values = self._generate_display_cols(parent_iter, node)
+        row_values = self.generate_display_cols(parent_iter, node)
         return self.con.display_store.append_node(parent_iter, row_values)
 
     def _add_checked_columns(self, parent_iter, node: DisplayNode, row_values: List):

@@ -2,12 +2,13 @@
 # Copyright 2005 Joe Wreschnig, Michael Urman
 #           2012 Christoph Reiter
 #           2016-17 Nick Boultbee
-#
+ #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
 # published by the Free Software Foundation
 #
 # https://github.com/quodlibet/quodlibet/blob/release-3.9.1/quodlibet/quodlibet/qltk/views.py#L966
+# https://kevinmehall.net/2010/pygtk_multi_select_drag_drop
 
 import contextlib
 import logging

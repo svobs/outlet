@@ -1,6 +1,7 @@
 
 
 import logging
+import pathlib
 from typing import List, Optional
 
 from pydispatch import dispatcher
@@ -131,21 +132,26 @@ class TreeContextListeners:
 
     def _check_drop(self):
         # Check UID of the dragged data against the UID of the dropped data. If they match, then we are the target.
-        if self.drop_data and self.drag_data and self.drop_data[0] == self.drag_data.dd_uid:
-            logger.info(f'{self.con.tree_id}] We received a drop of {len(self.drag_data.nodes)} nodes!')
+        if not self.drop_data or not self.drag_data or self.drop_data[0] != self.drag_data.dd_uid:
+            return
 
-            dd_uid, drop_info = self.drop_data
-            if not drop_info:
-                logger.debug('No drop info!')
-                return
+        logger.info(f'{self.con.tree_id}] We received a drop of {len(self.drag_data.nodes)} nodes!')
 
-            tree_path, drop_position = drop_info
-            model = self.con.display_store.model
-            sibling_iter = model.get_iter(tree_path)
+        dd_uid, drop_info = self.drop_data
+        if not drop_info:
+            logger.debug('No drop info!')
+            return
+
+        tree_path, drop_position = drop_info
+        model = self.con.display_store.model
+        sibling_iter = model.get_iter(tree_path)
+        if self.con.tree_id == self.drag_data.src_tree_id and self._is_dropping_on_itself(sibling_iter, self.drag_data.nodes):
+            logger.debug('Cancelling drop: nodes were dropped in same location in the tree')
+        else:
             parent_iter = model.iter_parent(sibling_iter)
             row_data_list: List[List] = []
             for node in self.drag_data.nodes:
-                row_data_list.append(self.con.display_strategy._generate_display_cols(parent_iter, node))
+                row_data_list.append(self.con.display_strategy.generate_display_cols(parent_iter, node))
             if drop_position == Gtk.TreeViewDropPosition.BEFORE or drop_position == Gtk.TreeViewDropPosition.INTO_OR_BEFORE:
                 for row_data in row_data_list:
                     model.insert_before(parent_iter, sibling_iter, row_data)
@@ -153,9 +159,20 @@ class TreeContextListeners:
                 for row_data in row_data_list:
                     model.insert_after(parent_iter, sibling_iter, row_data)
 
-            # try to aid garbage collection
-            self.drag_data = None
-            self.drop_data = None
+        # try to aid garbage collection
+        self.drag_data = None
+        self.drop_data = None
+
+    def _is_dropping_on_itself(self, dest_iter, nodes):
+        dest_node = self.con.display_store.get_node_data(dest_iter)
+        assert dest_node.full_path
+        dest_parent_path = str(pathlib.Path(dest_node.full_path).parent)
+        for node in nodes:
+            parent_path = str(pathlib.Path(node.full_path).parent)
+            logger.debug(f'DestParentPath="{dest_parent_path}", NodeParentPath="{parent_path}"')
+            if parent_path == dest_parent_path:
+                return True
+        return False
 
     def _on_root_path_updated(self, sender, new_root: NodeIdentifier, err=None):
         logger.debug(f'Received signal: "{actions.ROOT_PATH_UPDATED}"')
