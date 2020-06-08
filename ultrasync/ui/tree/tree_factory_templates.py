@@ -3,6 +3,8 @@ import logging
 import gi
 from gi.repository.Gtk import TreeView
 
+from ui.tree.multi_drag_tree_view import MultiDragTreeView
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -195,7 +197,7 @@ def build_treeview(display_store: DisplayStore, assets) -> Gtk.TreeView:
     model: Gtk.TreeStore = display_store.model
     treeview_meta: TreeViewMeta = display_store.treeview_meta
 
-    treeview = Gtk.TreeView(model=model)
+    treeview = MultiDragTreeView(model=model)
     treeview.set_level_indentation(treeview_meta.extra_indent)
     treeview.set_show_expanders(True)
     treeview.set_property('enable_grid_lines', True)
