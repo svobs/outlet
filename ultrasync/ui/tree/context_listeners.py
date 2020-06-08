@@ -7,7 +7,8 @@ from pydispatch import dispatcher
 
 import ui.actions as actions
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
-from model.node_identifier import NodeIdentifier
+from index.uid_generator import UID
+from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from model.display_node import DisplayNode
 from model.fmeta import FMeta
 
@@ -21,14 +22,26 @@ from gi.repository import GLib, Gdk, Gtk
 
 logger = logging.getLogger(__name__)
 
-# CLASS TreeContextListeners
+
+# CLASS DragAndDropData
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
+class DragAndDropData:
+    def __init__(self, dd_uid: UID, src_tree_id: str, nodes: List[DisplayNode]):
+        self.dd_uid = dd_uid
+        self.src_tree_id: str = src_tree_id
+        self.nodes: List[DisplayNode] = nodes
+
+
+# CLASS TreeContextListeners
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class TreeContextListeners:
     def __init__(self, config, controller):
         self.con = controller
         self.ui_enabled = True
+        self.drag_data: Optional[DragAndDropData] = None
+        self.drop_data = None
         self.connected_eids = []
         self.context_handlers = {TREE_TYPE_LOCAL_DISK: ContextActionsLocaldisk(self.con),
                                  TREE_TYPE_GDRIVE: ContextActionsGDrive(self.con),
@@ -68,6 +81,20 @@ class TreeContextListeners:
         self.connected_eids.append(eid)
         # select.connect("changed", self._on_tree_selection_changed)
 
+        if self.con.treeview_meta.can_modify_tree:
+            action_mask = Gdk.DragAction.DEFAULT | Gdk.DragAction.MOVE | Gdk.DragAction.COPY
+            self.con.tree_view.enable_model_drag_source(Gdk.ModifierType.BUTTON1_MASK, [], action_mask)
+            self.con.tree_view.enable_model_drag_dest([], action_mask)
+            # Text targets:
+            self.con.tree_view.drag_dest_set_target_list(None)
+            self.con.tree_view.drag_source_set_target_list(None)
+            self.con.tree_view.drag_dest_add_text_targets()
+            self.con.tree_view.drag_source_add_text_targets()
+            self.con.tree_view.connect("drag-data-received", self._drag_data_received)
+            self.con.tree_view.connect("drag-data-get", self._drag_data_get)
+
+            dispatcher.connect(signal=actions.DRAG_AND_DROP, receiver=self._receive_drag_data_signal)
+
     def disconnect_gtk_listeners(self):
         for eid in self.connected_eids:
             self.con.tree_view.disconnect(eid)
@@ -75,6 +102,60 @@ class TreeContextListeners:
 
     # LISTENERS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    def _drag_data_get(self, treeview, drag_context, selection_data, target_id, etime):
+        selected_nodes: List[DisplayNode] = self.con.get_multiple_selection()
+        if selected_nodes:
+            # Avoid complicated, undocumented GTK3 garbage by just sending a UID along with needed data via the dispatcher. See _check_drop()
+            dd_uid = self.con.parent_win.application.uid_generator.get_new_uid()
+            action = drag_context.get_selected_action()
+            drag_data = DragAndDropData(dd_uid, self.con.tree_id, selected_nodes)
+            dispatcher.send(signal=actions.DRAG_AND_DROP, sender=self.con.tree_id, data=drag_data)
+            selection_data.set_text(str(dd_uid), -1)
+        else:
+            selection_data.set_text('', -1)
+
+    def _receive_drag_data_signal(self, sender, data: DragAndDropData):
+        logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.DRAG_AND_DROP}"')
+        self.drag_data = data
+        self._check_drop()
+
+    def _drag_data_received(self, treeview, context, x, y, selection: Gtk.SelectionData, info, etime):
+        text: str = selection.get_text()
+        if not text:
+            return
+        dd_uid = UID(text)
+
+        drop_info = treeview.get_dest_row_at_pos(x, y)
+        self.drop_data = dd_uid, drop_info
+        self._check_drop()
+
+    def _check_drop(self):
+        # Check UID of the dragged data against the UID of the dropped data. If they match, then we are the target.
+        if self.drop_data and self.drag_data and self.drop_data[0] == self.drag_data.dd_uid:
+            logger.info(f'{self.con.tree_id}] We received a drop of {len(self.drag_data.nodes)} nodes!')
+
+            dd_uid, drop_info = self.drop_data
+            if not drop_info:
+                logger.debug('No drop info!')
+                return
+
+            tree_path, drop_position = drop_info
+            model = self.con.display_store.model
+            sibling_iter = model.get_iter(tree_path)
+            parent_iter = model.iter_parent(sibling_iter)
+            row_data_list: List[List] = []
+            for node in self.drag_data.nodes:
+                row_data_list.append(self.con.display_strategy._generate_display_cols(parent_iter, node))
+            if drop_position == Gtk.TreeViewDropPosition.BEFORE or drop_position == Gtk.TreeViewDropPosition.INTO_OR_BEFORE:
+                for row_data in row_data_list:
+                    model.insert_before(parent_iter, sibling_iter, row_data)
+            else:
+                for row_data in row_data_list:
+                    model.insert_after(parent_iter, sibling_iter, row_data)
+
+            # try to aid garbage collection
+            self.drag_data = None
+            self.drop_data = None
 
     def _on_root_path_updated(self, sender, new_root: NodeIdentifier, err=None):
         logger.debug(f'Received signal: "{actions.ROOT_PATH_UPDATED}"')

@@ -11,7 +11,7 @@ import file_util
 from constants import ROOT_PATH, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from model.category import Category
 from model.display_node import CategoryNode, DirNode, DisplayNode, RootTypeNode
-from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
+from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier, NodeIdentifierFactory
 from model.subtree_snapshot import SubtreeSnapshot
 
 logger = logging.getLogger(__name__)
@@ -139,7 +139,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
         if not cat_node:
             # Create category display node. This may be the "last pre-ancestor"
             uid = self.cache_manager.get_uid_for_path(self.root_path)
-            nid = self._nid(uid, item.node_identifier.tree_type, item.category)
+            nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, item.category)
 
             node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=self.root_path,
                                                                       uid=uid, category=item.category)
@@ -166,7 +166,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
 
                 if not child_node:
                     uid = self.cache_manager.get_uid_for_path(path_so_far)
-                    nid = self._nid(uid, item.node_identifier.tree_type, item.category)
+                    nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, item.category)
                     node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=uid,
                                                                               category=item.category)
                     child_node = DirNode(node_identifier=node_identifier)
@@ -182,9 +182,6 @@ class CategoryDisplayTree(SubtreeSnapshot):
     def get_relative_path_for_full_path(self, full_path: str):
         assert full_path.startswith(self.root_path), f'Full path ({full_path}) does not contain root ({self.root_path})'
         return file_util.strip_root(full_path, self.root_path)
-
-    def _nid(self, uid, tree_type, category):
-        return f'{uid}-{category.name}-{tree_type}'
 
     def add_item(self, item: DisplayNode, category: Category, source_tree: SubtreeSnapshot):
         """When we add the item, we add any necessary ancestors for it as well.
@@ -203,7 +200,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
         item_clone.node_identifier = copy.copy(item.node_identifier)
         item_clone.node_identifier.category = category
         uid = self.cache_manager.get_uid_for_path(item.full_path)
-        nid = self._nid(uid, item.node_identifier.tree_type, category)
+        nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, category)
         item_clone.identifier = nid
         item = item_clone
 
@@ -221,7 +218,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
             full_path: str = str(pathlib.Path(full_path).parent)
             # Get standard UID for path:
             uid = self.cache_manager.get_uid_for_path(full_path)
-            nid = self._nid(uid, item.node_identifier.tree_type, category)
+            nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, category)
             parent = self._category_tree.get_node(nid=nid)
             if parent:
                 break

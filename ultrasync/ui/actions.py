@@ -19,6 +19,7 @@ NODE_ADDED = 'node-added'
 NODE_REMOVED = 'node-removed'
 DIFF_CANCELLED = 'diff-cancelled'
 REFRESH_ALL_NODE_STATS = 'refresh-all-node-stats'
+DRAG_AND_DROP = 'drag-and-drop'
 
 # All components should listen for this
 TOGGLE_UI_ENABLEMENT = 'toggle-ui-enablement'

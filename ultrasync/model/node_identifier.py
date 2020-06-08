@@ -66,7 +66,6 @@ class NodeIdentifier(ABC):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
     CLASS LogicalNodeIdentifier
@@ -137,6 +136,28 @@ class LocalFsIdentifier(NodeIdentifier):
 class NodeIdentifierFactory:
     def __init__(self, application):
         self.application = application
+
+    @staticmethod
+    def nid(uid, tree_type, category=Category.NA):
+        if category == Category.NA:
+            return f'{tree_type}-{uid}'
+        return f'{tree_type}-{uid}-{category.value}'
+
+    @staticmethod
+    def parse_nid(nid: str) -> NodeIdentifier:
+        assert nid
+        parsed = nid.split('-')
+        if len(parsed) > 2:
+            category = Category(parsed[2])
+        else:
+            category = Category.NA
+        tree_type = int(parsed[0])
+        if tree_type == TREE_TYPE_LOCAL_DISK:
+            return LocalFsIdentifier(uid=UID(parsed[1]), full_path=None, category=category)
+        elif tree_type == TREE_TYPE_GDRIVE:
+            return GDriveIdentifier(uid=UID(parsed[1]), full_path=None, category=category)
+        else:
+            return LogicalNodeIdentifier(uid=UID(parsed[1]), full_path=None, category=category)
 
     @staticmethod
     def get_gdrive_root_constant_identifier() -> GDriveIdentifier:
