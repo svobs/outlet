@@ -150,6 +150,8 @@ class TreeContextListeners:
         else:
             parent_iter = model.iter_parent(sibling_iter)
             row_data_list: List[List] = []
+            # TODO: first get parent of dest. Then resolve each node (e.g. folders represent sub-trees) and convert to commands and put them in the
+            # command queue. The command queue should fire listeners which ultimately populate the tree
             for node in self.drag_data.nodes:
                 row_data_list.append(self.con.display_strategy.generate_display_cols(parent_iter, node))
             if drop_position == Gtk.TreeViewDropPosition.BEFORE or drop_position == Gtk.TreeViewDropPosition.INTO_OR_BEFORE:

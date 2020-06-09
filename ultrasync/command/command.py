@@ -1,10 +1,11 @@
+import collections
 import copy
 import os
 import time
 import logging
 from abc import ABC, abstractmethod
 from enum import IntEnum
-from typing import List, Optional
+from typing import Deque, List, Optional
 
 import treelib
 
@@ -120,14 +121,22 @@ class CommandPlan:
         self.create_ts = int(time.time())
         self.tree: treelib.Tree = cmd_tree
 
-    def __iter__(self):
-        tree_iter = self.tree.expand_tree(mode=treelib.Tree.WIDTH, sorting=False)
-        try:
-            # discard root
-            next(tree_iter)
-        except StopIteration:
-            pass
-        return tree_iter
+    def get_breadth_first_list(self):
+        """Returns the command tree as a list, in breadth-first order"""
+        blist: List[Command] = []
+
+        queue: Deque[Command] = collections.deque()
+        # skip root:
+        for child in self.tree.children(self.tree.root):
+            queue.append(child)
+
+        while len(queue) > 0:
+            item: Command = queue.popleft()
+            blist.append(item)
+            for child in self.tree.children(item.identifier):
+                queue.append(child)
+
+        return blist
 
     def __len__(self):
         # subtract root node
@@ -139,8 +148,7 @@ class CommandPlan:
     def get_total_completed(self) -> int:
         """Returns the number of commands which executed successfully"""
         total_succeeded: int = 0
-        for uid in iter(self):
-            command = self.get_item_for_uid(uid)
+        for command in self.get_breadth_first_list():
             if command.completed_without_error():
                 total_succeeded += 1
         return total_succeeded

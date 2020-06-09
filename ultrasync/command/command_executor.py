@@ -24,9 +24,7 @@ class CommandExecutor:
 
         logger.debug(f'Executing command plan uid="{command_plan.uid}": ' + command_plan.tree.show(stdout=False))
 
-        for uid in command_plan:
-            # TODO: how to map a generator?
-            command = command_plan.get_item_for_uid(uid)
+        for command in command_plan.get_breadth_first_list():
             total += command.get_total_work()
             if command.needs_gdrive():
                 needs_gdrive = True
