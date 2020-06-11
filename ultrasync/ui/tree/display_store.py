@@ -182,6 +182,15 @@ class DisplayStore:
             tree_iter = self.model.iter_next(tree_iter)
         return None
 
+    def find_in_top_level(self, target_uid: UID):
+        """Searches the children of the given parent_iter for the given UID, then returns the data at that node"""
+        tree_iter = self.model.get_iter_first()
+        while tree_iter is not None:
+            if self._found_func(tree_iter, target_uid):
+                return tree_iter
+            tree_iter = self.model.iter_next(tree_iter)
+        return None
+
     def find_in_children(self, target_uid: UID, parent_iter):
         """Searches the children of the given parent_iter for the given UID, then returns the data at that node"""
         if self.model.iter_has_child(parent_iter):

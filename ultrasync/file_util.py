@@ -67,11 +67,13 @@ def strip_root(full_path: str, root_path: str) -> str:
         a relative path
     """
     assert full_path.find(root_path) >= 0, f'Did not find root_path ({root_path}) in full path ({full_path})'
-    if full_path.endswith('/'):
-        file_path = full_path[:-1]
     if root_path.endswith('/'):
+        # strip off trailing '/' from root:
         root_path = root_path[:-1]
     rel_path = re.sub(root_path, '', full_path, count=1)
+    if rel_path.endswith('/'):
+        # strip off trailing '/'
+        rel_path = rel_path[:-1]
     if len(rel_path) < len(full_path) and rel_path.startswith('/'):
         rel_path = rel_path[1:]
     return rel_path

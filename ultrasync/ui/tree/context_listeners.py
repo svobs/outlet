@@ -161,20 +161,13 @@ class TreeContextListeners:
         else:
             is_into = False
 
+        dest_node = self.con.display_store.get_node_data(drop_dest_iter)
         if is_into:
-            dest_node = self.con.display_store.get_node_data(drop_dest_iter)
             if dest_node and not dest_node.is_dir():
                 # cannot drop into a file; just use parent in this case
-                parent_iter = model.iter_parent(drop_dest_iter)
-                dest_node = self.con.display_store.get_node_data(parent_iter)
+                dest_node = self.con.cache_manager.get_parent_for_item(dest_node)
         else:
-            parent_iter = model.iter_parent(drop_dest_iter)
-            if parent_iter:
-                dest_node = self.con.display_store.get_node_data(parent_iter)
-            else:
-                # maybe the parent is the root node. try cache manager:
-                child_of_dest_node = self.con.display_store.get_node_data(drop_dest_iter)
-                dest_node = self.con.cache_manager.get_parent_for_item(child_of_dest_node)
+            dest_node = self.con.cache_manager.get_parent_for_item(dest_node)
 
         if not dest_node:
             logger.error('Cancelling drop: no parent node for dropped location!')

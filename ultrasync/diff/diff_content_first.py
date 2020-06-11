@@ -7,6 +7,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 import os
 import logging
 
+import file_util
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, ROOT_PATH
 from index import uid_generator
 from index.two_level_dict import TwoLevelDict
@@ -59,15 +60,18 @@ class ChangeMaker:
                 # Need to look things up in the central cache. We will focus on copying files, and add prerequisite parent dirs
                 # as needed
                 subtree_files: List[DisplayNode] = self.application.cache_manager.get_all_files_for_subtree(src_node.node_identifier)
+                src_path_minus_dirname = str(pathlib.Path(src_node.full_path).parent)
                 logger.debug(f'Preparing subtree with {len(subtree_files)} items for copy...')
                 for node in subtree_files:
-                    self._copy_single_node_left_to_right(node, dst_parent_path)
+                    dst_rel_path = file_util.strip_root(node.full_path, src_path_minus_dirname)
+                    self._copy_single_node_left_to_right(node, dst_parent_path, dst_rel_path)
             else:
-                self._copy_single_node_left_to_right(src_node, dst_parent_path)
+                file_name = os.path.basename(src_node.full_path)
+                self._copy_single_node_left_to_right(src_node, dst_parent_path, file_name)
 
-    def _copy_single_node_left_to_right(self, src_node: DisplayNode, dst_parent_path: str):
-        file_name = os.path.basename(src_node.full_path)
-        new_path = os.path.join(dst_parent_path, file_name)
+    def _copy_single_node_left_to_right(self, src_node: DisplayNode, dst_parent_path: str, dst_rel_path: str):
+        new_path = os.path.join(dst_parent_path, dst_rel_path)
+        logger.debug(f'New path for copied item: {new_path}')
         tree_type = self.right_tree.tree_type
         if tree_type == TREE_TYPE_LOCAL_DISK:
             uid = self.application.cache_manager.get_uid_for_path(new_path)

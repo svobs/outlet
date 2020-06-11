@@ -231,26 +231,37 @@ class LazyDisplayStrategy:
             return
 
         parent_uid = parent.uid
-        parent_iter = self.con.display_store.find_in_tree(target_uid=parent_uid)
-        if not parent_iter:
-            # FIXME: this breaks for root-level nodes
-            raise RuntimeError(f'[{self.con.tree_id}] Cannot add node: Could not find parent node in display tree: {parent}')
 
-        # Check whether the "added node" already exists:
-        child_iter = self.con.display_store.find_in_children(node.uid, parent_iter)
-        if child_iter:
-            existing_node: DisplayNode = self.con.display_store.get_node_data(child_iter)
-            if existing_node:
-                logger.debug(f'[{self.con.tree_id}] Node already exists in tree (uid={node.uid}): doing an update instead')
-                display_vals: list = self.generate_display_cols(parent_iter, node)
-                for col, val in enumerate(display_vals):
-                    self.con.display_store.model.set_value(child_iter, col, val)
-                return
+        existing_node: Optional[DisplayNode] = None
 
-        if node.is_dir():
-            self._append_dir_node(parent_iter, node)
+        if self.con.get_tree().root_uid == parent_uid:
+            # Top level? Special case. There will be no parent iter
+            parent_iter = None
+            child_iter = self.con.display_store.find_in_top_level(node.uid)
+            if child_iter:
+                existing_node = self.con.display_store.get_node_data(child_iter)
         else:
-            self._append_file_node(parent_iter, node)
+            parent_iter = self.con.display_store.find_in_tree(target_uid=parent_uid)
+            if not parent_iter:
+                raise RuntimeError(f'[{self.con.tree_id}] Cannot add node: Could not find parent node in display tree: {parent}')
+
+            # Check whether the "added node" already exists:
+            child_iter = self.con.display_store.find_in_children(node.uid, parent_iter)
+            if child_iter:
+                existing_node = self.con.display_store.get_node_data(child_iter)
+
+        if existing_node:
+            logger.debug(f'[{self.con.tree_id}] Node already exists in tree (uid={node.uid}): doing an update instead')
+            display_vals: list = self.generate_display_cols(parent_iter, node)
+            for col, val in enumerate(display_vals):
+                self.con.display_store.model.set_value(child_iter, col, val)
+            return
+        else:
+            # New node
+            if node.is_dir():
+                self._append_dir_node(parent_iter, node)
+            else:
+                self._append_file_node(parent_iter, node)
 
     def _on_node_removed_from_cache(self, sender: str, node: DisplayNode):
         if not self._enable_state_listeners:

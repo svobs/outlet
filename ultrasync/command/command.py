@@ -211,6 +211,10 @@ class CopyFileLocallyCommand(Command):
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 
+    def __repr__(self):
+        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, overwrite={self._overwrite}, ' \
+               f'status={self._status}, model={self._model}'
+
 
 class DeleteLocalFileCommand(Command):
     """
@@ -235,6 +239,10 @@ class DeleteLocalFileCommand(Command):
             logger.exception(f'While deleting file: path={self._model.full_path}: {repr(err)}, to_trash={self.to_trash}')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
+
+    def __repr__(self):
+        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, to_trash={self.to_trash}, ' \
+               f'status={self._status}, model={self._model}'
 
 
 class MoveFileLocallyCommand(Command):
@@ -263,6 +271,10 @@ class MoveFileLocallyCommand(Command):
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 
+    def __repr__(self):
+        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, ' \
+               f'status={self._status}, model={self._model}'
+
 
 class CreatLocalDirCommand(Command):
     """
@@ -289,6 +301,10 @@ class CreatLocalDirCommand(Command):
             logger.exception(f'While making local dir: dest_path="{self._model.full_path}"')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
+
+    def __repr__(self):
+        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, ' \
+               f'status={self._status}, model={self._model}'
 
 # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 # LOCAL COMMANDS end
@@ -381,6 +397,10 @@ class UploadToGDriveCommand(Command):
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 
+    def __repr__(self):
+        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, overwrite={self._overwrite}, ' \
+               f'status={self._status}, model={self._model}'
+
 
 class DownloadFromGDriveCommand(Command):
     """
@@ -454,6 +474,10 @@ class DownloadFromGDriveCommand(Command):
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 
+    def __repr__(self):
+        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, overwrite={self._overwrite}, ' \
+               f'status={self._status}, model={self._model}'
+
 
 class CreateGDriveFolderCommand(Command):
     """
@@ -492,6 +516,10 @@ class CreateGDriveFolderCommand(Command):
             logger.exception(f'While creating folder on GDrive: name="{self._model.name}", parent_uids="{self._model.parent_uids}"')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
+
+    def __repr__(self):
+        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, ' \
+               f'status={self._status}, model={self._model}'
 
 
 class MoveFileGDriveCommand(Command):
@@ -573,6 +601,10 @@ class MoveFileGDriveCommand(Command):
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
 
+    def __repr__(self):
+        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, ' \
+               f'status={self._status}, model={self._model}'
+
 
 class DeleteGDriveFileCommand(Command):
     """
@@ -612,6 +644,10 @@ class DeleteGDriveFileCommand(Command):
             logger.exception(f'While deleting from GDrive (to_trash={self.to_trash}, node={self._model}"')
             self._status = CommandStatus.STOPPED_ON_ERROR
             self._error = err
+
+    def __repr__(self):
+        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, ' \
+               f'status={self._status}, model={self._model}'
 
 
 # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲

@@ -47,7 +47,7 @@ class CommandExecutor:
                         logger.info(f'Skipping execution of command {command}: parent did not complete ({parent_cmd})')
                     else:
                         try:
-                            logger.info(f'Executing command {(command_num + 1)} of {len(command_plan)}')
+                            logger.info(f'Executing command {(command_num + 1)} of {len(command_plan)}: {repr(command)}')
                             command.execute(context)
                         except Exception as err:
                             # If caught here, it indicates a hole in our command logic
