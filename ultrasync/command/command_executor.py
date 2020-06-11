@@ -22,20 +22,23 @@ class CommandExecutor:
         total = 0
         needs_gdrive = False
 
-        logger.debug(f'Executing command plan uid="{command_plan.uid}": ' + command_plan.tree.show(stdout=False))
+        logger.debug(f'Executing command plan uid="{command_plan.uid}", size={len(command_plan)}: ' + command_plan.tree.show(stdout=False))
 
-        for command in command_plan.get_breadth_first_list():
+        command_list = command_plan.get_breadth_first_list()
+
+        for command in command_list:
             total += command.get_total_work()
             if command.needs_gdrive():
                 needs_gdrive = True
+
+            # Fire events so that trees can display the planning nodes
+            dispatcher.send(signal=actions.NODE_ADDED, sender=actions.ID_COMMAND_EXECUTOR, node=command.get_model())
 
         dispatcher.send(signal=actions.START_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR, total=total)
         try:
             context = CommandContext(self.staging_dir, self.application, actions.ID_COMMAND_EXECUTOR, needs_gdrive)
 
-            for command_num, uid in enumerate(command_plan):
-                command = command_plan.get_item_for_uid(uid)
-
+            for command_num, command in enumerate(command_list):
                 if command.status() != CommandStatus.NOT_STARTED:
                     logger.info(f'Skipping command: {command}')
                 else:

@@ -29,7 +29,7 @@ class DisplayNodePair:
         self.right: Optional[DisplayNode] = None
 
 
-class ContentFirstDiffer:
+class ChangeMaker:
     def __init__(self, left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, application):
         self.left_tree = left_tree
         self.right_tree = right_tree
@@ -42,13 +42,61 @@ class ContentFirstDiffer:
         self.added_folders_left: Dict[str, PlanningNode] = {}
         self.added_folders_right: Dict[str, PlanningNode] = {}
 
-    def move_to_right(self, left_item) -> str:
-        left_rel_path = left_item.get_relative_path(self.left_tree)
-        return os.path.join(self.right_tree.root_path, left_rel_path)
+    def copy_nodes_left_to_right(self, src_node_list: List[DisplayNode], dst_parent: DisplayNode):
+        """Populates the destination parent in "change_tree_right" with the given source nodes."""
+        assert dst_parent.is_dir()
+        dst_parent_path = dst_parent.full_path
 
-    def move_to_left(self, right_item) -> str:
+        # We won't deal with update logic here. A node being copied will be treated as an "add"
+        # unless an item exists at the given path, in which case the conflict strategy determines whether it's
+        # it's an update or something else
+
+        logger.debug(f'Preparing {len(src_node_list)} items for copy...')
+
+        for src_node in src_node_list:
+            if src_node.is_dir():
+                # Add all its descendants. Assume that we came from a display tree which may not have all its children.
+                # Need to look things up in the central cache. We will focus on copying files, and add prerequisite parent dirs
+                # as needed
+                subtree_files: List[DisplayNode] = self.application.cache_manager.get_all_files_for_subtree(src_node.node_identifier)
+                logger.debug(f'Preparing subtree with {len(subtree_files)} items for copy...')
+                for node in subtree_files:
+                    self._copy_single_node_left_to_right(node, dst_parent_path)
+            else:
+                self._copy_single_node_left_to_right(src_node, dst_parent_path)
+
+    def _copy_single_node_left_to_right(self, src_node: DisplayNode, dst_parent_path: str):
+        file_name = os.path.basename(src_node.full_path)
+        new_path = os.path.join(dst_parent_path, file_name)
+        tree_type = self.right_tree.tree_type
+        if tree_type == TREE_TYPE_LOCAL_DISK:
+            uid = self.application.cache_manager.get_uid_for_path(new_path)
+        else:
+            uid = self.application.uid_generator.get_new_uid()
+        node_identifier = self.application.node_identifier_factory.for_values(tree_type=tree_type, full_path=new_path,
+                                                                              uid=uid, category=Category.Added)
+        node = FileToAdd(node_identifier=node_identifier, src_node=src_node)
+        self._add_items_and_missing_parents(self.change_tree_right, self.right_tree, self.added_folders_right, node)
+
+    def move_to_right(self, left_item) -> NodeIdentifier:
+        left_rel_path = left_item.get_relative_path(self.left_tree)
+        path = os.path.join(self.right_tree.root_path, left_rel_path)
+        tree_type = self.right_tree.tree_type
+        if tree_type == TREE_TYPE_LOCAL_DISK:
+            uid = self.application.cache_manager.get_uid_for_path(path)
+        else:
+            uid = self.application.uid_generator.get_new_uid()
+        return self.application.node_identifier_factory.for_values(tree_type=tree_type, full_path=path, uid=uid)
+
+    def move_to_left(self, right_item) -> NodeIdentifier:
         right_rel_path = right_item.get_relative_path(self.right_tree)
-        return os.path.join(self.left_tree.root_path, right_rel_path)
+        path = os.path.join(self.left_tree.root_path, right_rel_path)
+        tree_type = self.left_tree.tree_type
+        if tree_type == TREE_TYPE_LOCAL_DISK:
+            uid = self.application.cache_manager.get_uid_for_path(path)
+        else:
+            uid = self.application.uid_generator.get_new_uid()
+        return self.application.node_identifier_factory.for_values(tree_type=tree_type, full_path=path, uid=uid)
 
     def _add_items_and_missing_parents(self, change_tree: CategoryDisplayTree, source_tree: SubtreeSnapshot,
                                        added_folders_dict: Dict[str, PlanningNode], new_item: FileDecoratorNode):
@@ -74,11 +122,11 @@ class ContentFirstDiffer:
                 break
 
             if tree_type == TREE_TYPE_GDRIVE:
-                logger.debug(f'Adding new GoogFolder for {path}')
+                logger.debug(f'Creating GoogFolderToAdd for {path}')
                 new_uid = self.uid_generator.get_new_uid()
                 new_folder = FolderToAdd(new_uid, path)
             elif tree_type == TREE_TYPE_LOCAL_DISK:
-                logger.debug(f'Adding new LocalDirToAdd for {path}')
+                logger.debug(f'Creating LocalDirToAdd for {path}')
                 new_uid = self.application.cache_manager.get_uid_for_path(path)
                 node_identifier = LocalFsIdentifier(path, new_uid, Category.Added)
                 new_folder = LocalDirToAdd(node_identifier)
@@ -102,51 +150,50 @@ class ContentFirstDiffer:
     def add_rename_right(self, left_item, right_item):
         """Make a FileToMove node which will rename a file within the right tree to match the relative path of
         the file on the left"""
-        dest_path = self.move_to_right(left_item)
-        new_uid = self.uid_generator.get_new_uid()
-        node_identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Moved)
+        node_identifier = self.move_to_right(left_item)
+        node_identifier.category = Category.Moved
         node = FileToMove(node_identifier=node_identifier, src_node=right_item)
         self._add_items_and_missing_parents(self.change_tree_right, self.right_tree, self.added_folders_right, node)
 
     def add_rename_left(self, left_item, right_item):
         """Make a FileToMove node which will rename a file within the left tree to match the relative path of the file on right"""
-        dest_path = self.move_to_left(right_item)
-        new_uid = self.uid_generator.get_new_uid()
-        node_identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Moved)
+        node_identifier = self.move_to_left(right_item)
+        node_identifier.category = Category.Moved
         node = FileToMove(node_identifier=node_identifier, src_node=left_item)
         self._add_items_and_missing_parents(self.change_tree_left, self.left_tree, self.added_folders_left, node)
 
     def add_filetoadd_left_to_right(self, left_item):
         """ADD: Left -> Right"""
-        dest_path = self.move_to_right(left_item)
-        new_uid = self.uid_generator.get_new_uid()
-        node_identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Added)
+        node_identifier = self.move_to_right(left_item)
+        node_identifier.category = Category.Added
         node = FileToAdd(node_identifier=node_identifier, src_node=left_item)
         self._add_items_and_missing_parents(self.change_tree_right, self.right_tree, self.added_folders_right, node)
 
     def add_filetoadd_right_to_left(self, right_item):
         """ADD: Left <- Right"""
-        dest_path = self.move_to_left(right_item)
-        new_uid = self.uid_generator.get_new_uid()
-        node_identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Added)
+        node_identifier = self.move_to_left(right_item)
+        node_identifier.category = Category.Added
         node = FileToAdd(node_identifier=node_identifier, src_node=right_item)
         self._add_items_and_missing_parents(self.change_tree_left, self.left_tree, self.added_folders_left, node)
 
     def add_fileupdate_left_to_right(self, left_item, right_item_to_overwrite):
         """UPDATE: Left -> Right"""
-        dest_path = self.move_to_right(left_item)
-        new_uid = self.uid_generator.get_new_uid()
-        node_identifier = self.right_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Updated)
+        node_identifier = self.move_to_right(left_item)
+        node_identifier.category = Category.Updated
         node = FileToUpdate(node_identifier=node_identifier, src_node=left_item, dst_node=right_item_to_overwrite)
         self._add_items_and_missing_parents(self.change_tree_right, self.right_tree, self.added_folders_right, node)
 
     def add_fileupdate_right_to_left(self, right_item, left_item_to_overwrite):
         """UPDATE: Left <- Right"""
-        dest_path = self.move_to_left(right_item)
-        new_uid = self.uid_generator.get_new_uid()
-        node_identifier = self.left_tree.create_identifier(full_path=dest_path, uid=new_uid, category=Category.Updated)
+        node_identifier = self.move_to_left(right_item)
+        node_identifier.category = Category.Updated
         node = FileToUpdate(node_identifier=node_identifier, src_node=right_item, dst_node=left_item_to_overwrite)
         self._add_items_and_missing_parents(self.change_tree_left, self.left_tree, self.added_folders_left, node)
+
+
+class ContentFirstDiffer(ChangeMaker):
+    def __init__(self, left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, application):
+        super().__init__(left_tree, right_tree, application)
 
     def _compare_paths_for_same_md5(self, lefts: Iterable[DisplayNode], rights: Iterable[DisplayNode]) -> Iterable[DisplayNodePair]:
         compare_result: List[DisplayNodePair] = []
@@ -305,7 +352,8 @@ class ContentFirstDiffer:
                             raise RuntimeError(f'More than one match for path: {left_on_right_path}')
                         # UPDATED
                         if logger.isEnabledFor(logging.DEBUG):
-                            logger.debug(f'File updated: {left_item.md5} <- "{self.left_tree.get_full_path_for_item(left_item)}" -> {path_matches_right[0].md5}')
+                            left_path = self.left_tree.get_full_path_for_item(left_item)
+                            logger.debug(f'File updated: {left_item.md5} <- "{left_path}" -> {path_matches_right[0].md5}')
                         # Same path, different md5 -> Updated
                         self.add_fileupdate_right_to_left(path_matches_right[0], left_item)
                         self.add_fileupdate_left_to_right(left_item, path_matches_right[0])
@@ -354,9 +402,8 @@ class ContentFirstDiffer:
             root_node_identifier = LogicalNodeIdentifier(uid=uid_generator.ROOT_UID, full_path=ROOT_PATH, category=Category.NA,
                                                          tree_type=TREE_TYPE_MIXED)
         else:
-            root_node_identifier: NodeIdentifier = self.application.node_identifier_factory.for_values(tree_type=self.left_tree.tree_type,
-                                                                                           full_path=ROOT_PATH, uid=uid_generator.ROOT_UID)
-
+            root_node_identifier: NodeIdentifier = self.application.node_identifier_factory.for_values(
+                tree_type=self.left_tree.tree_type, full_path=ROOT_PATH, uid=uid_generator.ROOT_UID)
 
         merged_tree = CategoryDisplayTree(root_node_identifier=root_node_identifier, show_whole_forest=True,
                                           application=self.application, tree_id=ID_MERGE_TREE)

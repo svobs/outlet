@@ -15,7 +15,7 @@ from model.category import Category
 from model.display_node import DisplayNode
 from model.goog_node import FolderToAdd
 from model.planning_node import FileToAdd, FileToMove, FileToUpdate, LocalDirToAdd
-from ui.tree.category_display_tree import CategoryDisplayTree
+from model.subtree_snapshot import SubtreeSnapshot
 
 
 class CommandBuilder:
@@ -23,9 +23,9 @@ class CommandBuilder:
         self._uid_generator = application.uid_generator
         self._cache_manager = application.cache_manager
 
-    def build_command_plan(self, change_tree: CategoryDisplayTree) -> CommandPlan:
+    def build_command_plan(self, change_tree: SubtreeSnapshot) -> CommandPlan:
         command_tree = treelib.Tree()
-        # As usual, root is not used for much:
+        # As usual, root is not used for much. All children of root have no dependencies:
         cmd_root = command_tree.create_node(identifier=ROOT_UID, parent=None, data=None)
 
         stack: Deque[Tuple[treelib.Node, DisplayNode]] = collections.deque()
@@ -42,8 +42,8 @@ class CommandBuilder:
                 assert cmd is not None
                 command_tree.add_node(node=cmd, parent=dst_parent)
 
-                if isinstance(cmd, CreateGDriveFolderCommand):
-                    # added GDrive folder creates extra level of dependency:
+                if isinstance(cmd, CreateGDriveFolderCommand) or isinstance(cmd, CreatLocalDirCommand):
+                    # added folder creates extra level of dependency:
                     dst_parent = cmd
 
             src_children = change_tree.get_children(src_node)

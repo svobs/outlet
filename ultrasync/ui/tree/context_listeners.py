@@ -7,7 +7,9 @@ from typing import List, Optional
 from pydispatch import dispatcher
 
 import ui.actions as actions
+from command.command_builder import CommandBuilder
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
+from diff.diff_content_first import ChangeMaker
 from index.uid_generator import UID
 from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from model.display_node import DisplayNode
@@ -28,9 +30,9 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class DragAndDropData:
-    def __init__(self, dd_uid: UID, src_tree_id: str, nodes: List[DisplayNode]):
+    def __init__(self, dd_uid: UID, src_tree_controller, nodes: List[DisplayNode]):
         self.dd_uid = dd_uid
-        self.src_tree_id: str = src_tree_id
+        self.src_tree_controller: str = src_tree_controller
         self.nodes: List[DisplayNode] = nodes
 
 
@@ -104,23 +106,26 @@ class TreeContextListeners:
     # LISTENERS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     def _drag_data_get(self, treeview, drag_context, selection_data, target_id, etime):
+        """Drag & Drop 1/4: collect and send data and signal from source"""
         selected_nodes: List[DisplayNode] = self.con.get_multiple_selection()
         if selected_nodes:
             # Avoid complicated, undocumented GTK3 garbage by just sending a UID along with needed data via the dispatcher. See _check_drop()
             dd_uid = self.con.parent_win.application.uid_generator.get_new_uid()
             action = drag_context.get_selected_action()
-            drag_data = DragAndDropData(dd_uid, self.con.tree_id, selected_nodes)
+            drag_data = DragAndDropData(dd_uid, self.con, selected_nodes)
             dispatcher.send(signal=actions.DRAG_AND_DROP, sender=self.con.tree_id, data=drag_data)
             selection_data.set_text(str(dd_uid), -1)
         else:
             selection_data.set_text('', -1)
 
     def _receive_drag_data_signal(self, sender, data: DragAndDropData):
+        """Drag & Drop 2 or 3 /4: receive drag data at dest"""
         logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.DRAG_AND_DROP}"')
         self.drag_data = data
         self._check_drop()
 
     def _drag_data_received(self, treeview, context, x, y, selection: Gtk.SelectionData, info, etime):
+        """Drag & Drop 2 or 3 /4: receive drop GTK signal"""
         text: str = selection.get_text()
         if not text:
             return
@@ -131,7 +136,8 @@ class TreeContextListeners:
         self._check_drop()
 
     def _check_drop(self):
-        # Check UID of the dragged data against the UID of the dropped data. If they match, then we are the target.
+        """Drag & Drop 4/4: Check UID of the dragged data against the UID of the dropped data.
+        If they match, then we are the target."""
         if not self.drop_data or not self.drag_data or self.drop_data[0] != self.drag_data.dd_uid:
             return
 
@@ -145,21 +151,22 @@ class TreeContextListeners:
         tree_path, drop_position = drop_info
         model = self.con.display_store.model
         sibling_iter = model.get_iter(tree_path)
-        if self.con.tree_id == self.drag_data.src_tree_id and self._is_dropping_on_itself(sibling_iter, self.drag_data.nodes):
+        if self.con.tree_id == self.drag_data.src_tree_controller.tree_id and self._is_dropping_on_itself(sibling_iter, self.drag_data.nodes):
             logger.debug('Cancelling drop: nodes were dropped in same location in the tree')
         else:
             parent_iter = model.iter_parent(sibling_iter)
-            row_data_list: List[List] = []
-            # TODO: first get parent of dest. Then resolve each node (e.g. folders represent sub-trees) and convert to commands and put them in the
-            # command queue. The command queue should fire listeners which ultimately populate the tree
-            for node in self.drag_data.nodes:
-                row_data_list.append(self.con.display_strategy.generate_display_cols(parent_iter, node))
-            if drop_position == Gtk.TreeViewDropPosition.BEFORE or drop_position == Gtk.TreeViewDropPosition.INTO_OR_BEFORE:
-                for row_data in row_data_list:
-                    model.insert_before(parent_iter, sibling_iter, row_data)
+            parent_node = self.con.display_store.get_node_data(parent_iter)
+            if not parent_node:
+                logger.error('Cancelling drop: no parent node for dropped location!')
             else:
-                for row_data in row_data_list:
-                    model.insert_after(parent_iter, sibling_iter, row_data)
+                # "Left tree" here is the source tree, and "right tree" is the dst tree:
+                change_maker = ChangeMaker(left_tree=self.drag_data.src_tree_controller.get_tree(), right_tree=self.con.get_tree(),
+                                           application=self.con.parent_win.application)
+                change_maker.copy_nodes_left_to_right(self.drag_data.nodes, parent_node)
+                builder = CommandBuilder(self.con.parent_win.application)
+                command_plan = builder.build_command_plan(change_tree=change_maker.change_tree_right)
+                # This should fire listeners which ultimately populate the tree:
+                self.con.parent_win.application.command_executor.enqueue(command_plan)
 
         # try to aid garbage collection
         self.drag_data = None

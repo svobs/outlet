@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 import gi
 from gi.repository.Gtk import TreeIter, TreePath
@@ -164,7 +164,7 @@ class DisplayStore:
         node = self.get_node_data(tree_iter)
         return not node.is_ephemereal() and node.uid == target_uid
 
-    def find_in_tree(self, target_uid: UID, tree_iter=None):
+    def find_in_tree(self, target_uid: UID, tree_iter: Optional[Gtk.TreeIter] = None) -> Optional[Gtk.TreeIter]:
         """Recurses over entire tree and visits every node until is_found_func() returns True, then returns the data at that node"""
         if not tree_iter:
             tree_iter = self.model.get_iter_first()
@@ -176,6 +176,16 @@ class DisplayStore:
                 child_iter = self.model.iter_children(tree_iter)
                 self.find_in_tree(target_uid, child_iter)
             tree_iter = self.model.iter_next(tree_iter)
+        return None
+
+    def find_in_children(self, target_uid: UID, parent_iter):
+        """Searches the children of the given parent_iter for the given UID, then returns the data at that node"""
+        if self.model.iter_has_child(parent_iter):
+            child_iter = self.model.iter_children(parent_iter)
+            while child_iter is not None:
+                if self._found_func(child_iter, target_uid):
+                    return child_iter
+                child_iter = self.model.iter_next(child_iter)
         return None
 
     def recurse_over_tree(self, tree_iter: Gtk.TreeIter = None, action_func: Callable[[Gtk.TreeIter], None] = None):

@@ -19,6 +19,7 @@ from stopwatch_sec import Stopwatch
 class SubtreeSnapshot(ABC):
     def __init__(self, root_node: DisplayNode):
         super().__init__()
+        assert isinstance(root_node, DisplayNode)
         self.root_node: DisplayNode = root_node
 
         self._stats_loaded = False

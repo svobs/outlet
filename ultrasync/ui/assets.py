@@ -8,7 +8,7 @@ from model.fmeta import Category
 
 from file_util import get_resource_path
 
-ALERT_ICON_PATH = get_resource_path("resources/dialog-error-icon-24px.png")
+ALERT_ICON_PATH = get_resource_path("resources/Dialog-error-icon-24px.png")
 GDRIVE_ICON_PATH = get_resource_path("resources/google-drive-logo-48px-scaled.png")
 LOCAL_DISK_PATH = get_resource_path("resources/Filesystems-hd-linux-icon-48px.png")
 CHOOSE_ROOT_ICON_PATH = LOCAL_DISK_PATH  # get_resource_path("resources/Folder-tree-flat-40px.png")
