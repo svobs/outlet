@@ -32,7 +32,7 @@ class CommandExecutor:
                 needs_gdrive = True
 
             # Fire events so that trees can display the planning nodes
-            dispatcher.send(signal=actions.NODE_ADDED, sender=actions.ID_COMMAND_EXECUTOR, node=command.get_model())
+            dispatcher.send(signal=actions.NODE_ADDED_OR_UPDATED, sender=actions.ID_COMMAND_EXECUTOR, node=command.get_model())
 
         dispatcher.send(signal=actions.START_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR, total=total)
         try:

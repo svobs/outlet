@@ -49,8 +49,7 @@ class LazyDisplayStrategy:
             dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled,
                                sender=self.con.treeview_meta.tree_id)
 
-        dispatcher.connect(signal=actions.NODE_ADDED, receiver=self._on_node_added_to_cache)
-        dispatcher.connect(signal=actions.NODE_UPDATED, receiver=self._on_node_updated_in_cache)
+        dispatcher.connect(signal=actions.NODE_ADDED_OR_UPDATED, receiver=self._on_node_added_or_updated_in_cache)
         dispatcher.connect(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
         dispatcher.connect(signal=actions.REFRESH_ALL_NODE_STATS, receiver=self._on_refresh_all_node_stats)
 
@@ -218,12 +217,12 @@ class LazyDisplayStrategy:
             logger.debug(f'Displayed rows count: {len(self.con.display_store.displayed_rows)}')
         GLib.idle_add(expand_or_contract)
 
-    def _on_node_added_to_cache(self, sender: str, node: DisplayNode):
+    def _on_node_added_or_updated_in_cache(self, sender: str, node: DisplayNode):
         assert node is not None
         if not self._enable_state_listeners:
             return
 
-        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_ADDED} with node {node.node_identifier}')
+        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_ADDED_OR_UPDATED} with node {node.node_identifier}')
 
         # TODO: this can be optimized to search only the paths of the ancestors
         parent = self.con.get_tree().get_parent_for_item(node)
@@ -252,25 +251,6 @@ class LazyDisplayStrategy:
             self._append_dir_node(parent_iter, node)
         else:
             self._append_file_node(parent_iter, node)
-
-    def _on_node_updated_in_cache(self, sender: str, node: DisplayNode):
-        if not self._enable_state_listeners:
-            return
-
-        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_UPDATED} with node {node.node_identifier}')
-        if not self.con.display_store.displayed_rows.get(node.uid, None):
-            return
-
-        # TODO: this can be optimized to search only the paths of the ancestors
-        tree_iter = self.con.display_store.find_in_tree(target_uid=node.uid)
-        if not tree_iter:
-            raise RuntimeError(f'Cannot update node: Could not find node in display tree: {node}')
-
-        parent_iter = self.con.display_store.model.iter_parent(tree_iter)
-
-        display_vals: list = self.generate_display_cols(parent_iter, node)
-        for col, val in enumerate(display_vals):
-            self.con.display_store.model.set_value(tree_iter, col, val)
 
     def _on_node_removed_from_cache(self, sender: str, node: DisplayNode):
         if not self._enable_state_listeners:
