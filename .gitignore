@@ -7,6 +7,8 @@ pyvenv.cfg
 token.pickle
 credentials.json
 __pycache__
+Pipfile
+Pipfile.lock
 
 *.db
 *.log

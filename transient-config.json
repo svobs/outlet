@@ -16,8 +16,8 @@
             "Moved": false,
             "Updated": true
         },
-        "root_path": "/home/msvoboda/GoogleDrive/Development",
-        "root_uid": 6,
+        "root_path": "/home/msvoboda/LocalDevel/ultrasync/test/BiDirMerge/Sen Mitsuji Left",
+        "root_uid": 4,
         "tree_type": 1
     },
     "right_tree": {
@@ -28,8 +28,8 @@
             "Moved": true,
             "Updated": true
         },
-        "root_path": "/My Drive/Development",
-        "root_uid": 161605,
-        "tree_type": 2
+        "root_path": "/home/msvoboda/LocalDevel/ultrasync/test/BiDirMerge/Sen Mitsuji Right",
+        "root_uid": 5,
+        "tree_type": 1
     }
 }
