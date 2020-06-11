@@ -200,7 +200,10 @@ class CopyFileLocallyCommand(Command):
 
             self._status = CommandStatus.COMPLETED_OK
         except file_util.IdenticalFileExistsError:
-            # Not a real error. Note and proceed
+            # Not a real error. Nothing to do.
+            # However make sure we still keep the cache manager in the loop - it's likely out of date:
+            local_node = context.cache_manager.build_fmeta(full_path=self._model.dest_path)
+            context.cache_manager.add_or_update_node(local_node)
             self._status = CommandStatus.COMPLETED_NO_OP
         except Exception as err:
             # Try to log helpful info
@@ -338,6 +341,10 @@ class UploadToGDriveCommand(Command):
                         elif existing_node.md5 == new_md5 and existing_node.size_bytes == new_size:
                             logger.info(f'Identical already exists in Google Drive; will not update (md5={new_md5}, size={new_size})')
                             self._status = CommandStatus.COMPLETED_NO_OP
+                            # Update cache manager - it's likely out of date:
+                            existing_node.uid = self._model.uid
+                            existing_node.parent_uids = self._model.parent_uids
+                            context.cache_manager.add_or_update_node(existing_node)
                             return
                 if data_to_update:
                     goog_node: GoogNode = context.gdrive_client.update_existing_file(raw_item=data_to_update, local_full_path=src_file_path,
@@ -550,6 +557,10 @@ class MoveFileGDriveCommand(Command):
                             break
                 if dst_node_found:
                     logger.info(f'Identical already exists in Google Drive; will not update (goog_id={dst_node_found})')
+                    # Update cache manager as it's likely out of date:
+                    dst_node_found.uid = self._model.uid
+                    dst_node_found.parent_uids = self._model.parent_uids
+                    context.cache_manager.add_or_update_node(dst_node_found)
                     self._status = CommandStatus.COMPLETED_NO_OP
                     return
                 else:

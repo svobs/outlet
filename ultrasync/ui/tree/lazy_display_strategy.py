@@ -234,6 +234,7 @@ class LazyDisplayStrategy:
         parent_uid = parent.uid
         parent_iter = self.con.display_store.find_in_tree(target_uid=parent_uid)
         if not parent_iter:
+            # FIXME: this breaks for root-level nodes
             raise RuntimeError(f'[{self.con.tree_id}] Cannot add node: Could not find parent node in display tree: {parent}')
 
         # Check whether the "added node" already exists:

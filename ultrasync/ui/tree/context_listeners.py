@@ -95,6 +95,7 @@ class TreeContextListeners:
             self.con.tree_view.drag_source_add_text_targets()
             self.con.tree_view.connect("drag-data-received", self._drag_data_received)
             self.con.tree_view.connect("drag-data-get", self._drag_data_get)
+            self.con.tree_view.connect('drag-motion', self._on_drag_motion)
 
             dispatcher.connect(signal=actions.DRAG_AND_DROP, receiver=self._receive_drag_data_signal)
 
@@ -105,6 +106,10 @@ class TreeContextListeners:
 
     # LISTENERS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    def _on_drag_motion(self, treeview, drag_context, c, d, e):
+        pass
+
+
     def _drag_data_get(self, treeview, drag_context, selection_data, target_id, etime):
         """Drag & Drop 1/4: collect and send data and signal from source"""
         selected_nodes: List[DisplayNode] = self.con.get_multiple_selection()
@@ -150,36 +155,53 @@ class TreeContextListeners:
 
         tree_path, drop_position = drop_info
         model = self.con.display_store.model
-        sibling_iter = model.get_iter(tree_path)
-        if self.con.tree_id == self.drag_data.src_tree_controller.tree_id and self._is_dropping_on_itself(sibling_iter, self.drag_data.nodes):
+        drop_dest_iter = model.get_iter(tree_path)
+        if drop_position == Gtk.TreeViewDropPosition.INTO_OR_BEFORE or drop_position == Gtk.TreeViewDropPosition.INTO_OR_AFTER:
+            is_into = True
+        else:
+            is_into = False
+
+        if is_into:
+            dest_node = self.con.display_store.get_node_data(drop_dest_iter)
+            if dest_node and not dest_node.is_dir():
+                # cannot drop into a file; just use parent in this case
+                parent_iter = model.iter_parent(drop_dest_iter)
+                dest_node = self.con.display_store.get_node_data(parent_iter)
+        else:
+            parent_iter = model.iter_parent(drop_dest_iter)
+            if parent_iter:
+                dest_node = self.con.display_store.get_node_data(parent_iter)
+            else:
+                # maybe the parent is the root node. try cache manager:
+                child_of_dest_node = self.con.display_store.get_node_data(drop_dest_iter)
+                dest_node = self.con.cache_manager.get_parent_for_item(child_of_dest_node)
+
+        if not dest_node:
+            logger.error('Cancelling drop: no parent node for dropped location!')
+        elif self.con.tree_id == self.drag_data.src_tree_controller.tree_id and self._is_dropping_on_itself(dest_node,
+                                                                                                            self.drag_data.nodes):
             logger.debug('Cancelling drop: nodes were dropped in same location in the tree')
         else:
-            parent_iter = model.iter_parent(sibling_iter)
-            parent_node = self.con.display_store.get_node_data(parent_iter)
-            if not parent_node:
-                logger.error('Cancelling drop: no parent node for dropped location!')
-            else:
-                # "Left tree" here is the source tree, and "right tree" is the dst tree:
-                change_maker = ChangeMaker(left_tree=self.drag_data.src_tree_controller.get_tree(), right_tree=self.con.get_tree(),
-                                           application=self.con.parent_win.application)
-                change_maker.copy_nodes_left_to_right(self.drag_data.nodes, parent_node)
-                builder = CommandBuilder(self.con.parent_win.application)
-                command_plan = builder.build_command_plan(change_tree=change_maker.change_tree_right)
-                # This should fire listeners which ultimately populate the tree:
-                self.con.parent_win.application.command_executor.enqueue(command_plan)
+            logger.debug(f'Dropping into dest: {dest_node.node_identifier}')
+            # "Left tree" here is the source tree, and "right tree" is the dst tree:
+            change_maker = ChangeMaker(left_tree=self.drag_data.src_tree_controller.get_tree(), right_tree=self.con.get_tree(),
+                                       application=self.con.parent_win.application)
+            change_maker.copy_nodes_left_to_right(self.drag_data.nodes, dest_node)
+            builder = CommandBuilder(self.con.parent_win.application)
+            command_plan = builder.build_command_plan(change_tree=change_maker.change_tree_right)
+            # This should fire listeners which ultimately populate the tree:
+            self.con.parent_win.application.command_executor.enqueue(command_plan)
 
         # try to aid garbage collection
         self.drag_data = None
         self.drop_data = None
 
-    def _is_dropping_on_itself(self, dest_iter, nodes):
-        dest_node = self.con.display_store.get_node_data(dest_iter)
+    def _is_dropping_on_itself(self, dest_node, nodes: List[DisplayNode]):
         assert dest_node.full_path
-        dest_parent_path = str(pathlib.Path(dest_node.full_path).parent)
         for node in nodes:
             parent_path = str(pathlib.Path(node.full_path).parent)
-            logger.debug(f'DestParentPath="{dest_parent_path}", NodeParentPath="{parent_path}"')
-            if parent_path == dest_parent_path:
+            logger.debug(f'DestNodePath="{dest_node.full_path}", NodeParentPath="{parent_path}"')
+            if parent_path == dest_node.full_path:
                 return True
         return False
 

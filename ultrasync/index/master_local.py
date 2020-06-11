@@ -113,14 +113,14 @@ class LocalDiskMasterCache:
             # logger.debug(f'ID: {uid}, path: {item.full_path}')
             assert (not item.uid) or (uid == item.uid)
             item.uid = uid
-            existing = self.dir_tree.get_node(item.uid)
+            existing: DisplayNode = self.dir_tree.get_node(item.uid)
             if self.use_md5 and item.md5:
                 self.md5_dict.put(item, existing)
             if self.use_sha256 and item.sha256:
                 self.sha256_dict.put(item, existing)
 
             if existing:
-                self.dir_tree.remove_node(existing)
+                self.dir_tree.remove_node(existing.identifier)
             self.dir_tree.add_to_tree(item)
 
         if not item.is_dir():   # we don't save dir meta at present
@@ -197,7 +197,7 @@ class LocalDiskMasterCache:
                 if not existing:
                     tree.add_to_tree(change)
                     count_from_disk += 1
-                elif existing[0].sync_ts < change.sync_ts:
+                elif existing.sync_ts < change.sync_ts:
                     tree.remove_node(change.identifier)
                     tree.add_to_tree(change)
 

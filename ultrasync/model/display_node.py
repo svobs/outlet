@@ -305,7 +305,7 @@ class EphemeralNode(DisplayNode, ABC):
 
     @property
     def uid(self):
-        raise RuntimeError
+        raise RuntimeError(f'Cannot call uid() for {self}')
 
     @property
     def category(self):

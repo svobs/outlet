@@ -160,8 +160,10 @@ class DisplayStore:
 
     # --- Tree searching & iteration (utility functions) --- #
 
-    def _found_func(self, tree_iter, target_uid: UID):
+    def _found_func(self, tree_iter, target_uid: UID) -> bool:
         node = self.get_node_data(tree_iter)
+        # if logger.isEnabledFor(logging.DEBUG) and not node.is_ephemereal():
+        #     logger.debug(f'Examining node uid={node.uid} (looking for: {target_uid})')
         return not node.is_ephemereal() and node.uid == target_uid
 
     def find_in_tree(self, target_uid: UID, tree_iter: Optional[Gtk.TreeIter] = None) -> Optional[Gtk.TreeIter]:
@@ -174,7 +176,9 @@ class DisplayStore:
                 return tree_iter
             if self.model.iter_has_child(tree_iter):
                 child_iter = self.model.iter_children(tree_iter)
-                self.find_in_tree(target_uid, child_iter)
+                ret_iter = self.find_in_tree(target_uid, child_iter)
+                if ret_iter:
+                    return ret_iter
             tree_iter = self.model.iter_next(tree_iter)
         return None
 
