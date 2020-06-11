@@ -29,7 +29,7 @@ class FMetaTree(SubtreeSnapshot):
 
     def __init__(self, root_node: DirNode, application):
         assert isinstance(root_node.node_identifier, LocalFsIdentifier)
-        super().__init__(root_node.node_identifier)
+        super().__init__(root_node)
         self.root_node = root_node
         self.cache_manager = application.cache_manager
 

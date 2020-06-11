@@ -5,10 +5,8 @@ import threading
 import time
 from typing import List, Optional, Tuple
 
-import treelib
 from pydispatch import dispatcher
 
-import file_util
 from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
@@ -18,7 +16,7 @@ from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
 from index.uid_generator import UID
 from model.category import Category
-from model.display_node import DisplayNode
+from model.display_node import DirNode, DisplayNode
 from model.fmeta import FMeta
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier, NodeIdentifierFactory
@@ -236,7 +234,8 @@ class CacheManager:
 
         if not os.path.exists(subtree_root.full_path):
             logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root.full_path}"')
-            return NullSubtree(subtree_root)
+            root_node = DirNode(subtree_root)
+            return NullSubtree(root_node)
 
         # NOTE: because UIDs for local files change each time the app loads, we need to overwrite any stale UID which may be requested.
         existing_uid = subtree_root.uid
