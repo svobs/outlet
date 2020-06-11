@@ -32,16 +32,18 @@ class RootDirPanel:
         self.con = controller
         assert type(tree_id) == str
         self.tree_id = tree_id
+        self.cache_manager = self.con.cache_manager
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.current_root: NodeIdentifier = current_root
         self.can_change_root = can_change_root
         self.ui_enabled = can_change_root
         """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
 
-        if is_loaded or \
-                (self.con.cache_manager.load_all_caches_on_startup and self.con.cache_manager.reload_tree_on_root_path_update):
+        if is_loaded or self.cache_manager.load_all_caches_on_startup or self.cache_manager.load_caches_for_displayed_trees_at_startup:
+            # the actual load will be handled in TreeContextListeners:
             self.needs_load = False
         else:
+            # Manual load:
             self.needs_load = True
             dispatcher.connect(signal=actions.LOAD_TREE_STARTED, sender=self.tree_id, receiver=self._on_load_started)
 
@@ -112,7 +114,7 @@ class RootDirPanel:
         logger.info(f'User entered root path: "{new_root_path}" for tree_id={tree_id}')
         err = None
         try:
-            identifiers = self.parent_win.application.cache_manager.resolve_path(new_root_path)
+            identifiers = self.cache_manager.resolve_path(new_root_path)
             assert len(identifiers) > 0, f'Got no identifiers (not even NULL) for path: {new_root_path}'
             new_root: NodeIdentifier = identifiers[0]
             self.err = None
@@ -281,7 +283,7 @@ class RootDirPanel:
 
         if self.current_root != new_root:
             self.current_root = new_root
-            if not err and not self.con.cache_manager.reload_tree_on_root_path_update:
+            if not err and not self.cache_manager.reload_tree_on_root_path_update:
                 self.needs_load = True
 
             # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html

@@ -60,10 +60,12 @@ class TreeContextListeners:
             dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.tree_id)
             targeted_signals.append(actions.ROOT_PATH_UPDATED)
 
-            if self.con.cache_manager.load_all_caches_on_startup:
-                # IMPORTANT: Need both options to be enabled for this tree to be loaded automatically!
-                actions.connect(signal=actions.LOAD_ALL_CACHES_DONE, handler=self._after_all_caches_loaded)
-                general_signals.append(actions.LOAD_ALL_CACHES_DONE)
+        if self.con.cache_manager.load_all_caches_on_startup or self.con.cache_manager.load_caches_for_displayed_trees_at_startup:
+            logger.debug(f'LoadAllAtStartup={self.con.cache_manager.load_all_caches_on_startup}, '
+                         f'LoadDisplayedAtStartup={self.con.cache_manager.load_caches_for_displayed_trees_at_startup}')
+            # Either enabled for this tree to be loaded automatically
+            actions.connect(signal=actions.LOAD_ALL_CACHES_DONE, handler=self._after_all_caches_loaded)
+            general_signals.append(actions.LOAD_ALL_CACHES_DONE)
 
         # Status bar
         actions.connect(signal=actions.SET_STATUS, handler=self._on_set_status, sender=self.con.tree_id)

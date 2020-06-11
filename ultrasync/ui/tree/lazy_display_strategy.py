@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 """
 #    CLASS LazyDisplayStrategy
-# SubtreeSnapshot --> TreeBuilder --> treelib.Tree  --> LazyDisplayStrategy --> DisplayStore (TreeModel)
+#  Cache Manager --> TreeBuilder --> SubtreeSnapshot --> LazyDisplayStrategy --> DisplayStore (TreeModel)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 """
 

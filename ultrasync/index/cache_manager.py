@@ -65,6 +65,7 @@ class CacheManager:
         self.enable_load_from_disk = application.config.get(CFG_ENABLE_LOAD_FROM_DISK)
         self.enable_save_to_disk = application.config.get('cache.enable_cache_save')
         self.load_all_caches_on_startup = application.config.get('cache.load_all_caches_on_startup')
+        self.load_caches_for_displayed_trees_at_startup = application.config.get('cache.load_caches_for_displayed_trees_on_startup')
         self.sync_from_local_disk_on_cache_load = application.config.get('cache.sync_from_local_disk_on_cache_load')
         self.reload_tree_on_root_path_update = application.config.get('cache.load_cache_when_tree_root_selected')
 
