@@ -9,7 +9,7 @@ from pydispatch import dispatcher
 import ui.actions as actions
 from command.command_builder import CommandBuilder
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
-from diff.diff_content_first import ChangeMaker
+from diff.change_maker import ChangeMaker
 from index.uid_generator import UID
 from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from model.display_node import DisplayNode
