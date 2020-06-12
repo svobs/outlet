@@ -5,6 +5,7 @@ import subprocess
 from typing import Optional
 
 import gi
+from pydispatch import dispatcher
 
 import file_util
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
@@ -12,6 +13,7 @@ from gdrive.client import GDriveClient
 from model.display_node import CategoryNode, DisplayNode
 from model.goog_node import GoogFile
 from model.planning_node import FileDecoratorNode
+from ui import actions
 from ui.tree.context_actions_localdisk import ContextActions
 
 gi.require_version("Gtk", "3.0")
@@ -58,6 +60,10 @@ class ContextActionsGDrive:
             menu.append(item)
 
         if is_dir:
+            item = Gtk.MenuItem(label=f'Go into "{file_name}"')
+            item.connect('activate', self._set_as_tree_root, node)
+            menu.append(item)
+
             if node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
                 match = re.match(DATE_REGEX, file_name)
                 if match:
@@ -135,6 +141,9 @@ class ContextActionsGDrive:
 
     # ACTIONS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def _set_as_tree_root(self, menu_item, node):
+        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.con.tree_id, new_root=node.node_identifier)
 
     def _download_file_from_gdrive(self, menu_item, node: GoogFile):
         gdrive_client = GDriveClient(self.con.config)
