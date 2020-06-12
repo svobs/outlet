@@ -18,11 +18,17 @@ from ui.tree.category_display_tree import CategoryDisplayTree
 logger = logging.getLogger(__name__)
 
 
+#    CLASS DisplayNodePair
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class DisplayNodePair:
     def __init__(self, left: DisplayNode = None, right: DisplayNode = None):
         self.left: Optional[DisplayNode] = left
         self.right: Optional[DisplayNode] = right
 
+
+#    CLASS ContentFirstDiffer
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class ContentFirstDiffer(ChangeMaker):
     def __init__(self, left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, application):

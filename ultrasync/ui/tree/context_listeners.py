@@ -97,7 +97,8 @@ class TreeContextListeners:
             self.con.tree_view.drag_source_add_text_targets()
             self.con.tree_view.connect("drag-data-received", self._drag_data_received)
             self.con.tree_view.connect("drag-data-get", self._drag_data_get)
-            self.con.tree_view.connect('drag-motion', self._on_drag_motion)
+            # FIXME Want to remove highlight when dropping in non-dir rows. But this is not the correct way to do this.
+            # self.con.tree_view.connect('drag-motion', self._on_drag_motion)
 
             dispatcher.connect(signal=actions.DRAG_AND_DROP, receiver=self._receive_drag_data_signal)
 
@@ -108,9 +109,27 @@ class TreeContextListeners:
 
     # LISTENERS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    def _on_drag_motion(self, treeview, drag_context, c, d, e):
-        pass
+    def _on_drag_motion(self, treeview, drag_context, x, y, time):
+        # FIXME see above
+        tree_path, col, cellx, celly = treeview.get_path_at_pos(x, y)
+        node = treeview.get_model()[tree_path][self.con.treeview_meta.col_num_data]
+        logger.debug(f'Node: {node}')
 
+        drop_info = treeview.get_dest_row_at_pos(x, y)
+        if drop_info:
+            tree_path, drop_position = drop_info
+
+            if drop_position == Gtk.TreeViewDropPosition.INTO_OR_BEFORE or drop_position == Gtk.TreeViewDropPosition.INTO_OR_AFTER:
+                is_into = True
+            else:
+                is_into = False
+
+            logger.debug(f'IsInto: {is_into}, IsDir: {node.is_dir()}')
+            if node:
+                if is_into and not node.is_dir():
+                    return True
+        # False == allow drop
+        return False
 
     def _drag_data_get(self, treeview, drag_context, selection_data, target_id, etime):
         """Drag & Drop 1/4: collect and send data and signal from source"""

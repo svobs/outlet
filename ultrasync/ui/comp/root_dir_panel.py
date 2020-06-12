@@ -62,9 +62,9 @@ class RootDirPanel:
                 if self.ui_enabled and event.keyval == Gdk.KEY_Escape and self.entry:
                     # cancel
                     logger.debug(f'Escape pressed! Cancelling root path entry box')
-                    if self.entry and self.entry_box_focus_eid:
-                        self.entry.disconnect(self.entry_box_focus_eid)
-                        self.entry_box_focus_eid = None
+                    # if self.entry and self.entry_box_focus_eid:
+                    #     self.entry.disconnect(self.entry_box_focus_eid)
+                    #     self.entry_box_focus_eid = None
                     self._update_root_label(self.current_root, self.err)
                     return True
                 return False
@@ -196,11 +196,6 @@ class RootDirPanel:
         """Updates the UI to reflect the new root and tree type.
         Expected to be called from the UI thread.
         """
-
-        self.label = Gtk.Label(label='')
-        self.label.set_justify(Gtk.Justification.LEFT)
-        self.label.set_xalign(0)
-        self.label.set_line_wrap(True)
         if self.entry:
             if self.entry_box_focus_eid:
                 self.entry.disconnect(self.entry_box_focus_eid)
@@ -215,8 +210,14 @@ class RootDirPanel:
         if self.toolbar:
             self.path_box.remove(self.toolbar)
             self.toolbar = None
+
         self.label_event_box = Gtk.EventBox()
         self.path_box.pack_start(self.label_event_box, expand=True, fill=True, padding=0)
+
+        self.label = Gtk.Label(label='')
+        self.label.set_justify(Gtk.Justification.LEFT)
+        self.label.set_xalign(0)
+        self.label.set_line_wrap(True)
         self.label_event_box.add(self.label)
         self.label_event_box.show()
 
@@ -277,7 +278,7 @@ class RootDirPanel:
 
     def _on_root_path_updated(self, sender, new_root: NodeIdentifier, err=None):
         """Callback for actions.ROOT_PATH_UPDATED"""
-        logger.debug(f'Received a new root: type={new_root.tree_type} path="{new_root.full_path}"')
+        logger.debug(f'[{sender}] Received signal "{actions.ROOT_PATH_UPDATED}": type={new_root.tree_type} path="{new_root.full_path}"')
         if not new_root or not new_root.full_path:
             raise RuntimeError(f'Root path cannot be empty! (tree_id={sender})')
 

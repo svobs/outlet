@@ -282,6 +282,10 @@ class LazyDisplayStrategy:
         def refresh_node(tree_iter):
             ds = self.con.display_store
             data: DisplayNode = ds.get_node_data(tree_iter)
+            if not data:
+                par = ds.model.iter_parent(tree_iter)
+                data: DisplayNode = ds.get_node_data(par)
+                logger.error(f'No data for child of {data}')
             assert data, f'For tree_id="{sender} and row={self.con.display_store.model[tree_iter]}'
             ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(data)
             ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = data.etc
