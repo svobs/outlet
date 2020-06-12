@@ -124,7 +124,7 @@ class ContextActionsLocaldisk:
         full_path = node.full_path
         is_category_node = type(node) == CategoryNode
         file_exists = ContextActions.file_exists(node)
-        is_dir = os.path.isdir(full_path)
+        is_dir = node.is_dir()
         file_name = os.path.basename(full_path)
         is_gdrive = node.node_identifier.tree_type == TREE_TYPE_GDRIVE
 
