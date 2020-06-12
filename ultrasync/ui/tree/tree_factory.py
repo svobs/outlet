@@ -87,11 +87,9 @@ class TreeFactory:
         controller = TreePanelController(self.parent_win, display_store, treeview_meta)
 
         if self.root:
-            tree_type = self.root.tree_type
             controller.set_tree(root=self.root)
             already_loaded = False
         elif self.tree:
-            tree_type = self.tree.tree_type
             controller.set_tree(tree=self.tree)
             already_loaded = True
         else:

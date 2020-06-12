@@ -1,14 +1,20 @@
 import logging
-from typing import Dict, List, Optional, Tuple, Union, ValuesView
+from collections import deque
+from typing import Deque, Dict, List, Optional, Tuple, Union, ValuesView
+
+from pydispatch import dispatcher
 
 import constants
 import file_util
+import format_util
 from index.error import GDriveItemNotFoundError
 from index.uid_generator import UID
 from model.display_node import DisplayNode
 from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from model.goog_node import GoogNode
 from model.planning_node import PlanningNode
+from stopwatch_sec import Stopwatch
+from ui import actions
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +48,8 @@ class GDriveWholeTree:
     def __init__(self, node_identifier_factory):
         super().__init__()
         self.node_identifier_factory = node_identifier_factory
+
+        self._stats_loaded = False
 
         # Keep track of parentless nodes. These include the 'My Drive' item, as well as shared items.
         self.roots: List[GoogNode] = []
@@ -325,14 +333,85 @@ class GDriveWholeTree:
         return path_list
 
     def get_summary(self):
-        file_count = 0
-        folder_count = 0
-        for item in self.id_dict.values():
-            if item.is_dir():
-                folder_count += 1
-            else:
-                file_count += 1
-        return f'{file_count:n} files and {folder_count:n} folders in Google Drive '
+        if self._stats_loaded:
+            size_bytes = 0
+            trashed_bytes = 0
+            file_count = 0
+            dir_count = 0
+            trashed_file_count = 0
+            trashed_dir_count = 0
+            for root in self.roots:
+                if root.trashed == constants.NOT_TRASHED:
+                    if root.size_bytes:
+                        size_bytes += root.size_bytes
+
+                        if root.is_dir():
+                            dir_count += root.dir_count + 1
+                            file_count += root.file_count
+                        else:
+                            file_count += 1
+                else:
+                    # trashed:
+                    if root.is_dir():
+                        if root.size_bytes:
+                            trashed_bytes += root.size_bytes
+                        if root.trashed_bytes:
+                            trashed_bytes += root.trashed_bytes
+                        trashed_dir_count += root.dir_count + root.trashed_dir_count + 1
+                        trashed_file_count += root.file_count + root.trashed_file_count
+                    else:
+                        self.trashed_file_count += 1
+                        if root.size_bytes:
+                            self.trashed_bytes += root.size_bytes
+
+                if root.is_dir():
+                    trashed_bytes += root.trashed_bytes
+                    file_count += root.file_count
+                else:
+                    file_count += 1
+
+            size_hf = format_util.humanfriendlier_size(size_bytes)
+            trashed_size_hf = format_util.humanfriendlier_size(trashed_bytes)
+            return f'{size_hf} total in {file_count:n} files & {dir_count:n} folders (including {trashed_size_hf} in ' \
+                   f'{trashed_file_count:n} files & {trashed_dir_count:n} folders trashed) in Google Drive'
+        else:
+            return 'Loading stats...'
+
+    def refresh_stats(self, tree_id):
+        # Calculates the stats for all the directories
+        stats_sw = Stopwatch()
+        queue: Deque[DisplayNode] = deque()
+        stack: Deque[DisplayNode] = deque()
+        for root in self.roots:
+            if root.is_dir():
+                queue.append(root)
+                stack.append(root)
+
+        while len(queue) > 0:
+            item: DisplayNode = queue.popleft()
+            item.zero_out_stats()
+
+            children = self.get_children(item)
+            if children:
+                for child in children:
+                    if child.is_dir():
+                        assert isinstance(child, DisplayNode)
+                        queue.append(child)
+                        stack.append(child)
+
+        while len(stack) > 0:
+            item = stack.pop()
+            assert item.is_dir()
+
+            children = self.get_children(item)
+            if children:
+                for child in children:
+                    item.add_meta_metrics(child)
+
+        self._stats_loaded = True
+        actions.set_status(sender=tree_id, status_msg=self.get_summary())
+        dispatcher.send(signal=actions.REFRESH_ALL_NODE_STATS, sender=tree_id)
+        logger.debug(f'{stats_sw} Refreshed stats for tree')
 
 
 def _merge_items(existing_item: GoogNode, new_item: GoogNode) -> List[UID]:
