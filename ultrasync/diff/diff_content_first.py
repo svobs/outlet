@@ -183,12 +183,12 @@ class ContentFirstDiffer(ChangeMaker):
             #  - For each unique, compare only the best match on each side and ignore the rest
             for left_item in list_of_left_items_for_given_md5:
                 if compare_paths_also:
-                    left_on_right_path = self.move_to_right(left_item)
-                    path_matches_right: List[DisplayNode] = self.right_tree.get_for_path(left_on_right_path)
+                    left_on_right_identifier: NodeIdentifier = self.move_to_right(left_item)
+                    path_matches_right: List[DisplayNode] = self.right_tree.get_for_path(left_on_right_identifier.full_path)
                     if path_matches_right:
                         if len(path_matches_right) > 1:
                             # If this ever happens it is a bug
-                            raise RuntimeError(f'More than one match for path: {left_on_right_path}')
+                            raise RuntimeError(f'More than one match for path: {left_on_right_identifier.full_path}')
                         # UPDATED
                         if logger.isEnabledFor(logging.DEBUG):
                             left_path = self.left_tree.get_full_path_for_item(left_item)
@@ -213,8 +213,8 @@ class ContentFirstDiffer(ChangeMaker):
         for dup_md5s_right in list_of_lists_of_right_items_for_given_md5:
             for right_item in dup_md5s_right:
                 if compare_paths_also:
-                    right_on_left = self.move_to_left(right_item)
-                    if self.left_tree.get_for_path(right_on_left):
+                    right_on_left_identifier: NodeIdentifier = self.move_to_left(right_item)
+                    if self.left_tree.get_for_path(right_on_left_identifier.full_path):
                         # UPDATED. Logically this has already been covered (above) since our iteration is symmetrical:
                         continue
                 # DUPLICATE ADDED on right + DELETED on left

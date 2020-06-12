@@ -129,6 +129,7 @@ class FileToUpdate(FileDecoratorNode):
     """Decorates a previously existing DisplayNode ('src_node'). This node's node_identifier stores the
      full path of the destination and the type of the destination tree."""
     def __init__(self, node_identifier: NodeIdentifier, src_node: DisplayNode, dst_node: DisplayNode):
+        assert node_identifier == dst_node.node_identifier
         super().__init__(node_identifier, src_node)
         self.dst_node = dst_node
         """The node to overwrite"""
