@@ -1,6 +1,7 @@
 import collections
 import logging
 import os
+import threading
 from datetime import datetime
 from typing import Deque, Iterable, List, Optional
 
@@ -35,6 +36,7 @@ class LazyDisplayStrategy:
     def __init__(self, config, controller=None):
         self.con = controller
         self.use_empty_nodes = True
+        self._lock = threading.Lock()
 
         self._enable_state_listeners = False
         """When true, listen and automatically update the display when a node is added, expanded, etc.
@@ -53,12 +55,7 @@ class LazyDisplayStrategy:
         dispatcher.connect(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
         dispatcher.connect(signal=actions.REFRESH_ALL_NODE_STATS, receiver=self._on_refresh_all_node_stats)
 
-    def populate_recursively(self, parent_iter, node: DisplayNode):
-        node_count = self._populate_recursively(parent_iter, node)
-        logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
-
     def _populate_recursively(self, parent_iter, node: DisplayNode, node_count: int = 0) -> int:
-        total_expanded = 0
         # Do a DFS of the change tree and populate the UI tree along the way
         if node.is_dir():
             parent_iter = self._append_dir_node(parent_iter=parent_iter, node=node)
@@ -76,10 +73,11 @@ class LazyDisplayStrategy:
             path = self.con.display_store.model.get_path(tree_iter)
             self.con.display_strategy.expand_subtree(path)
 
-        if not self.con.tree_view.row_expanded(tree_path):
-            self.con.display_strategy.expand_subtree(tree_path)
-        else:
-            self.con.display_store.do_for_descendants(tree_path=tree_path, action_func=expand_me)
+        with self._lock:
+            if not self.con.tree_view.row_expanded(tree_path):
+                self.con.display_strategy.expand_subtree(tree_path)
+            else:
+                self.con.display_store.do_for_descendants(tree_path=tree_path, action_func=expand_me)
 
     def expand_subtree(self, tree_path):
         if not self.con.treeview_meta.lazy_load:
@@ -92,14 +90,17 @@ class LazyDisplayStrategy:
 
         self._enable_state_listeners = False
 
-        node = self.con.display_store.get_node_data(tree_path)
-        parent_iter = self.con.display_store.model.get_iter(tree_path)
-        # Remove loading node:
-        self.con.display_store.remove_first_child(parent_iter)
+        with self._lock:
+            node = self.con.display_store.get_node_data(tree_path)
+            parent_iter = self.con.display_store.model.get_iter(tree_path)
+            # Remove loading node:
+            self.con.display_store.remove_first_child(parent_iter)
 
-        children: List[DisplayNode] = self.con.tree_builder.get_children(node)
-        for child in children:
-            self.populate_recursively(parent_iter, child)
+            children: List[DisplayNode] = self.con.tree_builder.get_children(node)
+            node_count = 0
+            for child in children:
+                node_count = self._populate_recursively(parent_iter, child, node_count)
+            logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
 
         self.con.tree_view.expand_row(path=tree_path, open_all=True)
 
@@ -114,24 +115,29 @@ class LazyDisplayStrategy:
         children: List[DisplayNode] = self.con.tree_builder.get_children_for_root()
 
         def update_ui():
-            # Wipe out existing items:
-            root_iter = self.con.display_store.clear_model()
+            with self._lock:
+                # Wipe out existing items:
+                root_iter = self.con.display_store.clear_model()
 
-            if self.con.treeview_meta.lazy_load:
-                # Just append for the root level. Beyond that, we will only load more nodes when
-                # the expanded state is toggled
-                self._append_children(children=children, parent_iter=root_iter)
-            else:
-                for ch in children:
-                    self.populate_recursively(None, ch)
+                if self.con.treeview_meta.lazy_load:
+                    # Just append for the root level. Beyond that, we will only load more nodes when
+                    # the expanded state is toggled
+                    self._append_children(children=children, parent_iter=root_iter)
+                else:
+                    node_count = 0
+                    for ch in children:
+                        node_count = self._populate_recursively(None, ch, node_count)
 
-                self.con.tree_view.expand_all()
+                    logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
+
+                    self.con.tree_view.expand_all()
 
             self._enable_state_listeners = True
 
-            # This should fire expanded state listener to populate nodes as needed:
-            if self.con.treeview_meta.is_display_persisted:
-                self._set_expand_states_from_config()
+            with self._lock:
+                # This should fire expanded state listener to populate nodes as needed:
+                if self.con.treeview_meta.is_display_persisted:
+                    self._set_expand_states_from_config()
 
         GLib.idle_add(update_ui)
 
@@ -202,19 +208,20 @@ class LazyDisplayStrategy:
             return
 
         def expand_or_contract():
-            # Add children for node:
-            if is_expanded:
-                children = self.con.tree_builder.get_children(node_data)
-                self._append_children(children=children, parent_iter=parent_iter)
-                # Remove Loading node:
-                self.con.display_store.remove_first_child(parent_iter)
-            else:
-                # Collapsed:
-                self.con.display_store.remove_all_children(parent_iter)
-                # Always have at least a dummy node:
-                self._append_loading_child(parent_iter)
+            with self._lock:
+                # Add children for node:
+                if is_expanded:
+                    children = self.con.tree_builder.get_children(node_data)
+                    self._append_children(children=children, parent_iter=parent_iter)
+                    # Remove Loading node:
+                    self.con.display_store.remove_first_child(parent_iter)
+                else:
+                    # Collapsed:
+                    self.con.display_store.remove_all_children(parent_iter)
+                    # Always have at least a dummy node:
+                    self._append_loading_child(parent_iter)
 
-            logger.debug(f'Displayed rows count: {len(self.con.display_store.displayed_rows)}')
+                logger.debug(f'Displayed rows count: {len(self.con.display_store.displayed_rows)}')
         GLib.idle_add(expand_or_contract)
 
     def _on_node_added_or_updated_in_cache(self, sender: str, node: DisplayNode):
@@ -222,61 +229,76 @@ class LazyDisplayStrategy:
         if not self._enable_state_listeners:
             return
 
-        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_ADDED_OR_UPDATED} with node {node.node_identifier}')
-
         # TODO: this can be optimized to search only the paths of the ancestors
         parent = self.con.get_tree().get_parent_for_item(node)
+
+        if logger.isEnabledFor(logging.DEBUG):
+            if parent:
+                text = ''
+            else:
+                text = '; Ignoring because its parent does not appear to be in this tree'
+            logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_ADDED_OR_UPDATED} with node {node.node_identifier}{text}')
+
         if not parent:
-            logger.debug(f'[{self.con.tree_id}] Ignoring added node because its parent does not appear to be in this tree')
             return
 
         parent_uid = parent.uid
 
         existing_node: Optional[DisplayNode] = None
 
-        if self.con.get_tree().root_uid == parent_uid:
-            # Top level? Special case. There will be no parent iter
-            parent_iter = None
-            child_iter = self.con.display_store.find_in_top_level(node.uid)
-            if child_iter:
-                existing_node = self.con.display_store.get_node_data(child_iter)
-        else:
-            parent_iter = self.con.display_store.find_in_tree(target_uid=parent_uid)
-            if not parent_iter:
-                raise RuntimeError(f'[{self.con.tree_id}] Cannot add node: Could not find parent node in display tree: {parent}')
+        with self._lock:
 
-            # Check whether the "added node" already exists:
-            child_iter = self.con.display_store.find_in_children(node.uid, parent_iter)
-            if child_iter:
-                existing_node = self.con.display_store.get_node_data(child_iter)
-
-        if existing_node:
-            logger.debug(f'[{self.con.tree_id}] Node already exists in tree (uid={node.uid}): doing an update instead')
-            display_vals: list = self.generate_display_cols(parent_iter, node)
-            for col, val in enumerate(display_vals):
-                self.con.display_store.model.set_value(child_iter, col, val)
-            return
-        else:
-            # New node
-            if node.is_dir():
-                self._append_dir_node(parent_iter, node)
+            if self.con.get_tree().root_uid == parent_uid:
+                # Top level? Special case. There will be no parent iter
+                parent_iter = None
+                child_iter = self.con.display_store.find_in_top_level(node.uid)
+                if child_iter:
+                    existing_node = self.con.display_store.get_node_data(child_iter)
             else:
-                self._append_file_node(parent_iter, node)
+                parent_iter = self.con.display_store.find_in_tree(target_uid=parent_uid)
+                if not parent_iter:
+                    raise RuntimeError(f'[{self.con.tree_id}] Cannot add node: Could not find parent node in display tree: {parent}')
+
+                # Check whether the "added node" already exists:
+                child_iter = self.con.display_store.find_in_children(node.uid, parent_iter)
+                if child_iter:
+                    existing_node = self.con.display_store.get_node_data(child_iter)
+
+            if existing_node:
+                logger.debug(f'[{self.con.tree_id}] Node already exists in tree (uid={node.uid}): doing an update instead')
+                display_vals: list = self.generate_display_cols(parent_iter, node)
+                for col, val in enumerate(display_vals):
+                    self.con.display_store.model.set_value(child_iter, col, val)
+                return
+            else:
+                # New node
+                if node.is_dir():
+                    self._append_dir_node(parent_iter, node)
+                else:
+                    self._append_file_node(parent_iter, node)
 
     def _on_node_removed_from_cache(self, sender: str, node: DisplayNode):
         if not self._enable_state_listeners:
             return
 
-        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_REMOVED} with node {node.node_identifier}')
-        if not self.con.display_store.displayed_rows.get(node.uid, None):
+        in_this_tree = self.con.display_store.displayed_rows.get(node.uid, None)
+        if logger.isEnabledFor(logging.DEBUG):
+            if in_this_tree:
+                text = ''
+            else:
+                text = '; Ignoring because node does not appear to be in this tree'
+            logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_REMOVED} with node {node.node_identifier}{text}')
+
+        if not in_this_tree:
             return
 
-        # TODO: this can be optimized to search only the paths of the ancestors
-        tree_iter = self.con.display_store.find_in_tree(target_uid=node.uid)
-        if not tree_iter:
-            raise RuntimeError(f'Cannot remove node: Could not find node in display tree: {node}')
+        with self._lock:
+            # TODO: this can be optimized to search only the paths of the ancestors
+            tree_iter = self.con.display_store.find_in_tree(target_uid=node.uid)
+            if not tree_iter:
+                raise RuntimeError(f'Cannot remove node: Could not find node in display tree: {node}')
 
-        self.con.display_store.model.remove(tree_iter)
+            self.con.display_store.model.remove(tree_iter)
 
     def _on_refresh_all_node_stats(self, sender: str):
         def refresh_node(tree_iter):
@@ -290,7 +312,11 @@ class LazyDisplayStrategy:
             ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(data)
             ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = data.etc
 
-        self.con.display_store.recurse_over_tree(action_func=refresh_node)
+        def do_in_ui():
+            with self._lock:
+                self.con.display_store.recurse_over_tree(action_func=refresh_node)
+
+        GLib.idle_add(do_in_ui)
 
     # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
     # LISTENERS end

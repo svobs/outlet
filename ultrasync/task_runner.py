@@ -19,7 +19,7 @@ class Task:
         try:
             self.task_func(*self.args)
         except Exception as err:
-            msg = 'Task failed during execution'
+            msg = f'Task "{self.task_func.__name__}" failed during execution'
             logger.exception(msg)
             self.application.window.show_error_ui(msg, repr(err))
             raise

@@ -33,8 +33,12 @@ class ContextActions:
         if node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
             return os.path.exists(node.full_path)
         elif node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
-            assert isinstance(node, GoogNode)
-            return node.goog_id and True
+            try:
+                # We assume that the node exists in GDrive if a Google ID has been assigned
+                return node.goog_id and True
+            except AttributeError:
+                # Probably a PlanningNode, in which case the destination node def doesn't exist
+                return False
 
     @staticmethod
     def build_full_path_display_item(menu: Gtk.Menu, preamble: str, node: DisplayNode) -> Gtk.MenuItem:

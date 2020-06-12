@@ -169,7 +169,7 @@ class ContextActionsGDrive:
         pass
 
     def expand_all(self, menu_item, tree_path):
-        self.con.display_strategy.display_all(tree_path)
+        self.con.display_strategy.expand_all(tree_path)
 
     def call_xdg_open(self, file_path):
         # TODO: put this in a shared file
