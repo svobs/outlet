@@ -66,6 +66,7 @@ class NodeIdentifier(ABC):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
     CLASS LogicalNodeIdentifier
@@ -194,6 +195,7 @@ class NodeIdentifierFactory:
                 full_path = ROOT_PATH
             return GDriveIdentifier(uid=uid, full_path=full_path, category=category)
         elif tree_type == TREE_TYPE_MIXED:
+            logger.warning(f'Creating a node identifier of type MIXED for uid={uid}, full_path={full_path}, category={category}')
             return LogicalNodeIdentifier(full_path=full_path, uid=uid, tree_type=tree_type, category=category)
         else:
             raise RuntimeError('bad')

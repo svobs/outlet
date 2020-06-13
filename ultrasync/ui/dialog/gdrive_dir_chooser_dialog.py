@@ -78,4 +78,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
             self.show_error_ui('Diff task failed due to unexpected error', detail)
             raise
         finally:
+            # Clean up:
+            self.tree_controller.destroy()
+            self.tree_controller = None
             dialog.destroy()

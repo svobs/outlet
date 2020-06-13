@@ -15,6 +15,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+from pydispatch import dispatcher
 
 import file_util
 from app_config import AppConfig
@@ -345,7 +346,7 @@ class GDriveClient:
             m = f'Sending request for files, page {request.page_count}...'
             logger.debug(m)
             if self.tree_id:
-                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
+                dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
 
             # Call the Drive v3 API
             response = self.service.files().list(q=query, fields=fields, spaces=spaces, pageSize=self.page_size,
@@ -620,7 +621,7 @@ class GDriveClient:
         if not goog_node.goog_id:
             raise RuntimeError(f'Folder creation failed (no ID returned)!')
 
-        logger.debug(f'Folder created successfully) Returned id={goog_node.goog_id}')
+        logger.debug(f'Folder "{name}" created successfully! Returned id={goog_node.goog_id}')
         return goog_node
 
     def modify_meta(self, goog_id: str, remove_parents: List[str], add_parents: List[str], uid: UID, name: str = None):

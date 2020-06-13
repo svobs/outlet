@@ -505,13 +505,13 @@ class CreateGDriveFolderCommand(Command):
                 goog_node.uid = self._model.uid
             else:
                 goog_node = context.gdrive_client.create_folder(name=self._model.name, parent_goog_ids=[parent_goog_id], uid=self._model.uid)
-
             assert goog_node.is_dir()
             # Need to add these manually:
             goog_node.parent_uids = self._model.parent_uids
             assert goog_node.parent_uids, f'Expected some parent_uids for: {goog_node}'
             # Add node to disk & in-memory caches:
             context.cache_manager.add_or_update_node(goog_node)
+            self._status = CommandStatus.COMPLETED_OK
         except Exception as err:
             logger.exception(f'While creating folder on GDrive: name="{self._model.name}", parent_uids="{self._model.parent_uids}"')
             self._status = CommandStatus.STOPPED_ON_ERROR

@@ -57,7 +57,7 @@ class TreePanelController:
         self.context_listeners.disconnect_gtk_listeners()
         self.context_listeners = None
         self.treeview_meta = None
-        self.display_strategy = None
+        del self.display_strategy  # really kill those listeners
 
         self.tree_builder = None
         self.display_store = None

@@ -32,6 +32,8 @@ class CommandExecutor:
                 needs_gdrive = True
 
             # Fire events so that trees can display the planning nodes
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f'Sending signal "{actions.NODE_ADDED_OR_UPDATED}" to display preview for node: {command.get_model()}')
             dispatcher.send(signal=actions.NODE_ADDED_OR_UPDATED, sender=actions.ID_COMMAND_EXECUTOR, node=command.get_model())
 
         dispatcher.send(signal=actions.START_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR, total=total)
@@ -47,7 +49,9 @@ class CommandExecutor:
                         logger.info(f'Skipping execution of command {command}: parent did not complete ({parent_cmd})')
                     else:
                         try:
-                            logger.info(f'Executing command {(command_num + 1)} of {len(command_plan)}: {repr(command)}')
+                            status = f'Executing command {(command_num + 1)} of {len(command_plan)}'
+                            dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=actions.ID_COMMAND_EXECUTOR, msg=status)
+                            logger.info(f'{status}: {repr(command)}')
                             command.execute(context)
                         except Exception as err:
                             # If caught here, it indicates a hole in our command logic

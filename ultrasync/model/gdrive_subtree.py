@@ -48,6 +48,7 @@ class GDriveSubtree(SubtreeSnapshot):
         md5_dict: Md5BeforeUidDict = Md5BeforeUidDict()
 
         queue: Deque[GoogNode] = collections.deque()
+        assert isinstance(self.root_node, GoogFolder)
         queue.append(self.root_node)
 
         while len(queue) > 0:
@@ -64,6 +65,7 @@ class GDriveSubtree(SubtreeSnapshot):
         return md5_dict
 
     def get_children_for_root(self) -> List[GoogNode]:
+        assert isinstance(self.root_node, GoogFolder)
         return self.get_children(self.root_node)
 
     def get_children(self, node: GoogNode) -> List[GoogNode]:

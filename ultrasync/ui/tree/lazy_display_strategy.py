@@ -51,9 +51,11 @@ class LazyDisplayStrategy:
             dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled,
                                sender=self.con.treeview_meta.tree_id)
 
-        dispatcher.connect(signal=actions.NODE_ADDED_OR_UPDATED, receiver=self._on_node_added_or_updated_in_cache)
-        dispatcher.connect(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
         dispatcher.connect(signal=actions.REFRESH_ALL_NODE_STATS, receiver=self._on_refresh_all_node_stats)
+
+        if self.con.treeview_meta.can_modify_tree:
+            dispatcher.connect(signal=actions.NODE_ADDED_OR_UPDATED, receiver=self._on_node_added_or_updated_in_cache)
+            dispatcher.connect(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
 
     def _populate_recursively(self, parent_iter, node: DisplayNode, node_count: int = 0) -> int:
         # Do a DFS of the change tree and populate the UI tree along the way
@@ -237,7 +239,7 @@ class LazyDisplayStrategy:
                 text = ''
             else:
                 text = '; Ignoring because its parent does not appear to be in this tree'
-            logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_ADDED_OR_UPDATED} with node {node.node_identifier}{text}')
+            logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_ADDED_OR_UPDATED} with node {node}{text}')
 
         if not parent:
             return
@@ -247,7 +249,6 @@ class LazyDisplayStrategy:
         existing_node: Optional[DisplayNode] = None
 
         with self._lock:
-
             if self.con.get_tree().root_uid == parent_uid:
                 # Top level? Special case. There will be no parent iter
                 parent_iter = None
@@ -257,7 +258,7 @@ class LazyDisplayStrategy:
             else:
                 parent_iter = self.con.display_store.find_in_tree(target_uid=parent_uid)
                 if not parent_iter:
-                    raise RuntimeError(f'[{self.con.tree_id}] Cannot add node: Could not find parent node in display tree: {parent}')
+                    raise RuntimeError(f'[{self.con.tree_id}] Cannot add/update node: Could not find parent node in display tree: {parent}')
 
                 # Check whether the "added node" already exists:
                 child_iter = self.con.display_store.find_in_children(node.uid, parent_iter)
