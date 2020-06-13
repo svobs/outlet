@@ -1,7 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 import logging
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional
 
 import format_util
 from constants import ICON_ADD_DIR, NOT_TRASHED, TRASHED_STATUS
@@ -116,7 +116,7 @@ class GoogFolder(GoogNode):
         self.trashed_dir_count = 0
         self.dir_count = 0
         self.trashed_bytes = 0
-        self._size_bytes = 0
+        self._size_bytes = None
 
     def __repr__(self):
         return f'Folder:(uid="{self.uid}" goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
@@ -134,7 +134,7 @@ class GoogFolder(GoogNode):
         return True
 
     def zero_out_stats(self):
-        self._size_bytes = 0
+        self._size_bytes = None
         self.trashed_bytes = 0
         self.file_count = 0
         self.trashed_dir_count = 0
@@ -142,6 +142,8 @@ class GoogFolder(GoogNode):
         self.dir_count = 0
 
     def add_meta_metrics(self, child_node):
+        if self._size_bytes is None:
+            self._size_bytes = 0
         if child_node.trashed == NOT_TRASHED and self.trashed == NOT_TRASHED:
             # not trashed:
             if child_node.size_bytes:
@@ -168,7 +170,23 @@ class GoogFolder(GoogNode):
 
     @property
     def etc(self):
-        return f'{self.file_count:n} files'
+        if self._size_bytes is None:
+            return ''
+        files = self.file_count + self.trashed_file_count
+        folders = self.trashed_dir_count + self.dir_count
+        if folders:
+            if folders == 1:
+                multi = ''
+            else:
+                multi = 's'
+            folders_str = f', {folders:n} folder{multi}'
+        else:
+            folders_str = ''
+        if files == 1:
+            multi = ''
+        else:
+            multi = 's'
+        return f'{files:n} file{multi}{folders_str}'
 
     @property
     def size_bytes(self):
@@ -316,7 +334,7 @@ class FolderToAdd(PlanningNode, GoogNode):
         pass
 
     def zero_out_stats(self):
-        self._size_bytes = 0
+        self._size_bytes = None
         self.trashed_bytes = 0
         self.file_count = 0
         self.trashed_dir_count = 0
@@ -324,6 +342,9 @@ class FolderToAdd(PlanningNode, GoogNode):
         self.dir_count = 0
 
     def add_meta_metrics(self, child_node):
+        if self._size_bytes is None:
+            self._size_bytes = 0
+
         trashed: bool = self.trashed != NOT_TRASHED
         try:
             trashed = trashed or (child_node.trashed != NOT_TRASHED)
@@ -355,7 +376,23 @@ class FolderToAdd(PlanningNode, GoogNode):
 
     @property
     def etc(self):
-        return f'{self.file_count:n} files'
+        if self._size_bytes is None:
+            return ''
+        files = self.file_count + self.trashed_file_count
+        folders = self.trashed_dir_count + self.dir_count
+        if folders:
+            if folders == 1:
+                multi = ''
+            else:
+                multi = 's'
+            folders_str = f', {folders:n} folder{multi}'
+        else:
+            folders_str = ''
+        if files == 1:
+            multi = ''
+        else:
+            multi = 's'
+        return f'{files:n} file{multi}{folders_str}'
 
     @property
     def size_bytes(self):

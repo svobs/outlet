@@ -155,14 +155,18 @@ class DirNode(DisplayNode):
         super().__init__(node_identifier)
         self.file_count = 0
         self.dir_count = 0
-        self._size_bytes = 0
+        # Set this to None to signify that stats are not yet calculated
+        self._size_bytes = None
 
     def zero_out_stats(self):
-        self._size_bytes = 0
+        self._size_bytes = None
         self.file_count = 0
         self.dir_count = 0
 
     def add_meta_metrics(self, child_node):
+        if self._size_bytes is None:
+            self._size_bytes = 0
+
         if child_node.is_dir():
             self.dir_count += child_node.dir_count + 1
             self.file_count += child_node.file_count
@@ -173,6 +177,8 @@ class DirNode(DisplayNode):
             self._size_bytes += child_node.size_bytes
 
     def get_summary(self):
+        if self._size_bytes is None:
+            return ''
         if not self._size_bytes and not self.file_count:
             return '0 items'
         size = format_util.humanfriendlier_size(self._size_bytes)
@@ -184,7 +190,19 @@ class DirNode(DisplayNode):
 
     @property
     def etc(self):
-        return f'{self.file_count:n} files'
+        if self._size_bytes is None:
+            return ''
+        if self.dir_count:
+            folders_str = f', {self.dir_count:n} dir'
+            if self.dir_count != 1:
+                folders_str += 's'
+        else:
+            folders_str = ''
+        if self.file_count == 1:
+            f_str = 'file'
+        else:
+            f_str = 'files'
+        return f'{self.file_count:n} {f_str}{folders_str}'
 
     def get_icon(self):
         return ICON_GENERIC_DIR
