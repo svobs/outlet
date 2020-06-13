@@ -106,6 +106,7 @@ class TreeFactory:
 
         assets = self.parent_win.application.assets
         controller.tree_view = tree_factory_templates.build_treeview(display_store, assets)
+        controller.tree_view.set_can_focus(True)
 
         controller.root_dir_panel = RootDirPanel(parent_win=self.parent_win,
                                                  controller=controller,
@@ -136,9 +137,7 @@ class TreeFactory:
 """
 
 
-def build_gdrive_root_chooser(parent_win,
-                 tree_id,
-                 tree: SubtreeSnapshot):
+def build_gdrive_root_chooser(parent_win, tree_id, tree: SubtreeSnapshot):
     """Builds a tree panel for browsing a Google Drive tree, using lazy loading. For the GDrive root chooser dialog"""
 
     factory = TreeFactory(parent_win=parent_win, tree=tree, tree_id=tree_id)

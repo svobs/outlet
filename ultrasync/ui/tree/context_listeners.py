@@ -265,18 +265,19 @@ class TreeContextListeners:
             # Allow it to propagate down the chain:
             return False
         selection = tree_view.get_selection()
-        model, treeiter = selection.get_selected_rows()
-        if not treeiter:
+        model, tree_paths = selection.get_selected_rows()
+        if not tree_paths:
             logger.error('Row somehow activated with no selection!')
             return False
         else:
-            logger.debug(f'User activated {len(treeiter)} rows')
+            logger.debug(f'User activated {len(tree_paths)} rows')
 
-        if len(treeiter) == 1:
-            if self.on_single_row_activated(tree_view=tree_view, tree_iter=treeiter, tree_path=tree_path):
+        # FIXME: GTK3's mutliple item activation is terrible - find a way around it
+        if len(tree_paths) == 1:
+            if self.on_single_row_activated(tree_view=tree_view, tree_path=tree_path):
                 return True
         else:
-            if self.on_multiple_rows_activated(tree_view=tree_view, tree_iter=treeiter):
+            if self.on_multiple_rows_activated(tree_view=tree_view, tree_paths=tree_paths):
                 return True
         return False
 
@@ -349,21 +350,30 @@ class TreeContextListeners:
     def on_selection_changed(self, treeiter):
         return False
 
-    def on_single_row_activated(self, tree_view, tree_iter, tree_path):
+    def on_single_row_activated(self, tree_view, tree_path):
         """Fired when an item is double-clicked or when an item is selected and Enter is pressed"""
-        node_data = self.con.display_store.get_node_data(tree_path)
-        if node_data.is_dir():
+        item = self.con.display_store.get_node_data(tree_path)
+        if item.is_dir():
+            # Expand/collapse row:
             if tree_view.row_expanded(tree_path):
                 tree_view.collapse_row(tree_path)
             else:
                 tree_view.expand_row(path=tree_path, open_all=False)
             return True
+        else:
+            if item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+                self.context_handlers[TREE_TYPE_LOCAL_DISK].call_xdg_open(file_path=item.full_path)
+                return True
         return False
 
-    def on_multiple_rows_activated(self, tree_view, tree_iter):
-        # TODO: intelligent logic for multiple selected rows
-        logger.error('Multiple rows activated, but no logic implemented yet!')
-        return False
+    def on_multiple_rows_activated(self, tree_view, tree_paths):
+        """Fired when multiple items are selected and Enter is pressed"""
+        if len(tree_paths) > 20:
+            self.con.parent_win.show_error_msg(f'Too many items selected', f'You selected {len(tree_paths)} items, which is too many for you.\n\n'
+                                               f'Try selecting less items first. This message exists for your protection. You child.')
+        for tree_path in tree_paths:
+            self.on_single_row_activated(tree_view, tree_path)
+        return True
 
     def on_delete_key_pressed(self):
         if self.con.treeview_meta.can_modify_tree:
