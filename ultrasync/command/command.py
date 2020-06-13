@@ -639,7 +639,7 @@ class DeleteGDriveFileCommand(Command):
                 context.gdrive_client.hard_delete(self._model.goog_id)
 
             context.cache_manager.remove_node(self._model, self.to_trash)
-
+            self._status = CommandStatus.COMPLETED_OK
         except Exception as err:
             logger.exception(f'While deleting from GDrive (to_trash={self.to_trash}, node={self._model}"')
             self._status = CommandStatus.STOPPED_ON_ERROR
