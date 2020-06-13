@@ -8,7 +8,6 @@ def configure_logging(config):
     root_logger.setLevel(logging.DEBUG)
 
     # DEBUG LOG FILE
-    debug_file_handler = None
     debug_log_enabled = config.get('logging.debug_log.enable')
     if debug_log_enabled:
         debug_log_path = config.get('logging.debug_log.full_path')
@@ -25,7 +24,6 @@ def configure_logging(config):
         root_logger.addHandler(debug_file_handler)
 
     # CONSOLE
-    console_handler = None
     console_enabled = config.get('logging.console.enable')
     if console_enabled:
         console_fmt = config.get('logging.debug_log.format')
@@ -40,7 +38,6 @@ def configure_logging(config):
         # add console output to all loggers
         root_logger.addHandler(console_handler)
 
-    # TODO: figure out how to externalize these
     info_loggers = config.get('logging.loglevel_info')
     for logger_name in info_loggers:
         logging.getLogger(logger_name).setLevel(logging.INFO)

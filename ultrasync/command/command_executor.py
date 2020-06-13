@@ -21,8 +21,13 @@ class CommandExecutor:
     def _execute_all(self, command_plan: CommandPlan):
         total = 0
         needs_gdrive = False
+        count_commands = len(command_plan)
 
-        logger.debug(f'Executing command plan uid="{command_plan.uid}", size={len(command_plan)}: ' + command_plan.tree.show(stdout=False))
+        if count_commands == 0:
+            logger.error(f'Command plan (uid="{command_plan.uid}") is empty!')
+            return
+
+        logger.debug(f'Executing command plan uid="{command_plan.uid}", size={count_commands}: ' + command_plan.tree.show(stdout=False))
 
         command_list = command_plan.get_breadth_first_list()
 

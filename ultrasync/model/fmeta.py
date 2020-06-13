@@ -33,6 +33,10 @@ class FMeta(DisplayNode):
     def is_dir(cls):
         return False
 
+    @classmethod
+    def is_just_fluff(cls) -> bool:
+        return False
+
     @property
     def size_bytes(self):
         return self._size_bytes

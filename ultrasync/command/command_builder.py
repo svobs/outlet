@@ -1,7 +1,9 @@
 import collections
+import logging
 from typing import Deque, Iterable, List, Tuple
 
 import treelib
+logger = logging.getLogger(__name__)
 
 from command.command import Command, CommandPlan, CopyFileLocallyCommand, CreateGDriveFolderCommand, \
     CreatLocalDirCommand, DeleteGDriveFileCommand, DeleteLocalFileCommand, \
@@ -54,6 +56,9 @@ class CommandBuilder:
 
 
 def _make_command(node: DisplayNode, uid_generator):
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(f'Building command for node: {node}')
+
     tree_type: int = node.node_identifier.tree_type
     if node.category == Category.Added:
         if isinstance(node, FolderToAdd):
@@ -93,9 +98,9 @@ def _make_command(node: DisplayNode, uid_generator):
             raise RuntimeError(f'Bad tree type(s): src={orig_tree_type}, dst={tree_type}')
     elif node.category == Category.Deleted:
         if tree_type == TREE_TYPE_LOCAL_DISK:
-            return DeleteLocalFileCommand(model_obj=node, uid=uid_generator.get_new_uid())
+            return DeleteLocalFileCommand(model_obj=node, uid=uid_generator.get_new_uid(), to_trash=False, delete_empty_parent=True)
         elif tree_type == TREE_TYPE_GDRIVE:
-            return DeleteGDriveFileCommand(model_obj=node, uid=uid_generator.get_new_uid())
+            return DeleteGDriveFileCommand(model_obj=node, uid=uid_generator.get_new_uid(), to_trash=True, delete_empty_parent=False)
         else:
             raise RuntimeError(f'Bad tree type: {tree_type}')
     elif node.category == Category.Updated:

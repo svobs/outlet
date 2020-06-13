@@ -143,6 +143,7 @@ def delete_file(tgt_path, to_trash=False):
 
     if to_trash:
         # TODO
+        logger.warning(f'Moving to trash not implemented! Skipping: {tgt_path}')
         pass
     else:
         logger.debug(f'Deleting file: {tgt_path}')

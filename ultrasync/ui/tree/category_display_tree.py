@@ -326,7 +326,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
                     for cat in Category.Added, Category.Updated, Category.Moved, Category.Deleted, Category.Ignored:
                         cat_summaries.append(cat_map[cat])
                     type_summaries.append(f'{tree_type_name}: {",".join(cat_summaries)}')
-            return ';'.join(type_summaries)
+            return '; '.join(type_summaries)
         else:
             cat_map = make_cat_map()
             for child in self._category_tree.children(self.root_node.identifier):
@@ -338,5 +338,5 @@ class CategoryDisplayTree(SubtreeSnapshot):
             cat_summaries = []
             for cat in Category.Added, Category.Updated, Category.Moved, Category.Deleted, Category.Ignored:
                 cat_summaries.append(cat_map[cat])
-            return ','.join(cat_summaries)
+            return ', '.join(cat_summaries)
 

@@ -22,7 +22,8 @@ class PlanningNode(DisplayNodeWithParents, ABC):
     def __init__(self, node_identifier: NodeIdentifier):
         super().__init__(node_identifier)
 
-    def is_just_fluff(self) -> bool:
+    @classmethod
+    def is_just_fluff(cls) -> bool:
         return False
 
 

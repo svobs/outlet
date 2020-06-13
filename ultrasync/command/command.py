@@ -1,6 +1,7 @@
 import collections
 import copy
 import os
+import pathlib
 import time
 import logging
 from abc import ABC, abstractmethod
@@ -220,9 +221,10 @@ class DeleteLocalFileCommand(Command):
     """
     Delete Local
     """
-    def __init__(self, uid, model_obj: DisplayNode, to_trash=True):
+    def __init__(self, uid, model_obj: DisplayNode, to_trash=True, delete_empty_parent=False):
         super().__init__(uid, model_obj)
         self.to_trash = to_trash
+        self.delete_empty_parent = delete_empty_parent
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -231,6 +233,15 @@ class DeleteLocalFileCommand(Command):
         try:
             logger.debug(f'RM: tgt={self._model.full_path}')
             file_util.delete_file(self._model.full_path, self.to_trash)
+
+            if self.delete_empty_parent:
+                parent_dir_path: str = str(pathlib.Path(self._model.full_path).parent)
+                if os.path.isdir(parent_dir_path) and len(os.listdir(parent_dir_path)) == 0:
+                    if self.to_trash:
+                        logger.warning(f'MoveEmptyDirToTrash not implemented!')
+                    else:
+                        os.rmdir(parent_dir_path)
+                        logger.info(f'Removed empty dir: "{parent_dir_path}"')
 
             context.cache_manager.remove_node(self._model, self.to_trash)
 
@@ -242,7 +253,7 @@ class DeleteLocalFileCommand(Command):
 
     def __repr__(self):
         return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, to_trash={self.to_trash}, ' \
-               f'status={self._status}, model={self._model}'
+               f'delete_empty_parent={self.delete_empty_parent}, status={self._status}, model={self._model}'
 
 
 class MoveFileLocallyCommand(Command):
@@ -610,9 +621,10 @@ class DeleteGDriveFileCommand(Command):
     """
     Delete GDrive
     """
-    def __init__(self, uid, model_obj: DisplayNode, to_trash=True):
+    def __init__(self, uid, model_obj: DisplayNode, to_trash=True, delete_empty_parent=False):
         super().__init__(uid, model_obj)
         self.to_trash = to_trash
+        self.delete_empty_parent = delete_empty_parent
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -626,6 +638,10 @@ class DeleteGDriveFileCommand(Command):
             existing_node, existing_parents = context.gdrive_client.get_meta_single_item_by_id(self._model.goog_id, self._model.uid)
             if not existing_node:
                 raise RuntimeError('Cannot delete: not found in GDrive!')
+
+            if self.delete_empty_parent:
+                # TODO
+                logger.error('delete_empty_parent is not implemented!')
 
             if self.to_trash and existing_node.trashed != NOT_TRASHED:
                 logger.info(f'Item is already trashed: {existing_node}')
