@@ -72,7 +72,7 @@ class DisplayStore:
         self.displayed_rows.clear()
         return self.model.get_iter_first()
 
-    def set_checked_state(self, tree_iter, is_checked, is_inconsistent):
+    def _set_checked_state(self, tree_iter, is_checked, is_inconsistent):
         assert not (is_checked and is_inconsistent)
         node_data: DisplayNode = self.get_node_data(tree_iter)
 
@@ -84,9 +84,9 @@ class DisplayStore:
         row[self.treeview_meta.col_num_checked] = is_checked
         row[self.treeview_meta.col_num_inconsistent] = is_inconsistent
 
-        self.update_checked_state_tracking(node_data, is_checked, is_inconsistent)
+        self._update_checked_state_tracking(node_data, is_checked, is_inconsistent)
 
-    def update_checked_state_tracking(self, node_data: DisplayNode, is_checked: bool, is_inconsistent: bool):
+    def _update_checked_state_tracking(self, node_data: DisplayNode, is_checked: bool, is_inconsistent: bool):
         row_id = node_data.identifier
         if is_checked:
             self.checked_rows[row_id] = node_data
@@ -99,7 +99,7 @@ class DisplayStore:
             if row_id in self.inconsistent_rows: del self.inconsistent_rows[row_id]
 
     def on_cell_checkbox_toggled(self, widget, path):
-        """Called when checkbox in treeview is toggled"""
+        """LISTENER/CALLBACK: Called when checkbox in treeview is toggled"""
         data_node: DisplayNode = self.get_node_data(path)
         if not data_node.has_path():
             logger.debug('Disallowing checkbox toggle because node is ephemereal')
@@ -122,13 +122,13 @@ class DisplayStore:
                 child_checked = self.model[child_iter][self.treeview_meta.col_num_checked]
                 child_inconsistent = self.model[child_iter][self.treeview_meta.col_num_inconsistent]
 
-                self.update_checked_state_tracking(child_data, child_checked, child_inconsistent)
+                self._update_checked_state_tracking(child_data, child_checked, child_inconsistent)
 
                 child_iter = self.model.iter_next(child_iter)
 
         # Update all of the node's children to match its check state:
         def update_checked_state(t_iter):
-            self.set_checked_state(t_iter, checked_value, False)
+            self._set_checked_state(t_iter, checked_value, False)
 
         self.do_for_self_and_descendants(path, update_checked_state)
 
@@ -158,7 +158,7 @@ class DisplayStore:
                     child_iter = self.model.iter_next(child_iter)
                 is_checked = has_checked and not has_unchecked and not has_inconsistent
                 is_inconsistent = has_inconsistent or (has_checked and has_unchecked)
-                self.set_checked_state(tree_iter, is_checked, is_inconsistent)
+                self._set_checked_state(tree_iter, is_checked, is_inconsistent)
 
     # --- Tree searching & iteration (utility functions) --- #
 

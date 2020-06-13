@@ -24,13 +24,13 @@ from ui import actions
 logger = logging.getLogger(__name__)
 
 """
-#    CLASS LazyDisplayStrategy
-#  Cache Manager --> TreeBuilder --> SubtreeSnapshot --> LazyDisplayStrategy --> DisplayStore (TreeModel)
+#    CLASS DisplayMutator
+#  Cache Manager --> TreeBuilder --> SubtreeSnapshot --> DisplayMutator --> DisplayStore (TreeModel)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 """
 
 
-class LazyDisplayStrategy:
+class DisplayMutator:
     """
     TODO: when does the number of display nodes start to slow down? -> add config for live node maximum
     """

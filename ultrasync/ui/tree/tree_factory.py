@@ -9,13 +9,13 @@ from model.node_identifier import NodeIdentifier
 from model.subtree_snapshot import SubtreeSnapshot
 from ui.dialog.base_dialog import BaseDialog
 from ui.tree import tree_factory_templates
-from ui.tree.context_listeners import TreeContextListeners
+from ui.tree.context_listeners import TreeInputHandlers
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
 from model.fmeta import Category
-from ui.tree.lazy_display_strategy import LazyDisplayStrategy
+from ui.tree.display_mutator import DisplayMutator
 from ui.comp.root_dir_panel import RootDirPanel
 
 from ui.tree.controller import TreePanelController
@@ -95,12 +95,12 @@ class TreeFactory:
         else:
             raise RuntimeError('"root" and "tree" are both empty!')
 
-        display_strategy = LazyDisplayStrategy(config=self.parent_win.config)
+        display_mutator = DisplayMutator(config=self.parent_win.config)
 
-        context_listeners = TreeContextListeners(config=self.parent_win.config, controller=controller)
+        context_listeners = TreeInputHandlers(config=self.parent_win.config, controller=controller)
 
-        controller.display_strategy = display_strategy
-        display_strategy.con = controller
+        controller.display_mutator = display_mutator
+        display_mutator.con = controller
         controller.context_listeners = context_listeners
         context_listeners.con = controller
 

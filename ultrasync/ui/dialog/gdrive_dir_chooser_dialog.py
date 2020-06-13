@@ -42,7 +42,8 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
 
         self.tree_controller.load()
         if current_selection.tree_type == TREE_TYPE_GDRIVE:
-            self.tree_controller.display_strategy.expand_and_select_node(current_selection)
+            # TODO: turn this into an action
+            self.tree_controller.display_mutator.expand_and_select_node(current_selection)
 
         self.connect("response", self.on_response)
         self.show_all()

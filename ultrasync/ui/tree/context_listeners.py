@@ -11,14 +11,14 @@ from command.command_builder import CommandBuilder
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
 from diff.change_maker import ChangeMaker
 from index.uid_generator import UID
-from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
+from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
 from model.fmeta import FMeta
 
 import gi
 
 from ui.tree.context_actions_gdrive import ContextActionsGDrive
-from ui.tree.context_actions_localdisk import ContextActionsLocaldisk
+from ui.tree.context_actions_localdisk import ContextActionsLocalDisk
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gdk, Gtk
@@ -36,17 +36,17 @@ class DragAndDropData:
         self.nodes: List[DisplayNode] = nodes
 
 
-# CLASS TreeContextListeners
+# CLASS TreeInputHandlers
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class TreeContextListeners:
+class TreeInputHandlers:
     def __init__(self, config, controller):
         self.con = controller
-        self.ui_enabled = True
-        self.drag_data: Optional[DragAndDropData] = None
-        self.drop_data = None
-        self.connected_eids = []
-        self.context_handlers = {TREE_TYPE_LOCAL_DISK: ContextActionsLocaldisk(self.con),
+        self._ui_enabled = True
+        self._drag_data: Optional[DragAndDropData] = None
+        self._drop_data = None
+        self._connected_eids = []
+        self._context_actions = {TREE_TYPE_LOCAL_DISK: ContextActionsLocalDisk(self.con),
                                  TREE_TYPE_GDRIVE: ContextActionsGDrive(self.con),
                                  TREE_TYPE_MIXED: None}  # TODO: handle mixed
 
@@ -75,15 +75,15 @@ class TreeContextListeners:
 
         # TreeView
         eid = self.con.tree_view.connect("row-activated", self._on_row_activated, self.con.tree_id)
-        self.connected_eids.append(eid)
+        self._connected_eids.append(eid)
         eid = self.con.tree_view.connect('button-press-event', self._on_tree_button_press, self.con.tree_id)
-        self.connected_eids.append(eid)
+        self._connected_eids.append(eid)
         eid = self.con.tree_view.connect('key-press-event', self._on_key_press, self.con.tree_id)
-        self.connected_eids.append(eid)
+        self._connected_eids.append(eid)
         eid = self.con.tree_view.connect('row-expanded', self._on_toggle_gtk_row_expanded_state, True)
-        self.connected_eids.append(eid)
+        self._connected_eids.append(eid)
         eid = self.con.tree_view.connect('row-collapsed', self._on_toggle_gtk_row_expanded_state, False)
-        self.connected_eids.append(eid)
+        self._connected_eids.append(eid)
         # select.connect("changed", self._on_tree_selection_changed)
 
         if self.con.treeview_meta.can_modify_tree:
@@ -103,9 +103,9 @@ class TreeContextListeners:
             dispatcher.connect(signal=actions.DRAG_AND_DROP, receiver=self._receive_drag_data_signal)
 
     def disconnect_gtk_listeners(self):
-        for eid in self.connected_eids:
+        for eid in self._connected_eids:
             self.con.tree_view.disconnect(eid)
-        self.connected_eids.clear()
+        self._connected_eids.clear()
 
     # LISTENERS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -138,8 +138,8 @@ class TreeContextListeners:
             # Avoid complicated, undocumented GTK3 garbage by just sending a UID along with needed data via the dispatcher. See _check_drop()
             dd_uid = self.con.parent_win.application.uid_generator.get_new_uid()
             action = drag_context.get_selected_action()
-            drag_data = DragAndDropData(dd_uid, self.con, selected_nodes)
-            dispatcher.send(signal=actions.DRAG_AND_DROP, sender=self.con.tree_id, data=drag_data)
+            _drag_data = DragAndDropData(dd_uid, self.con, selected_nodes)
+            dispatcher.send(signal=actions.DRAG_AND_DROP, sender=self.con.tree_id, data=_drag_data)
             selection_data.set_text(str(dd_uid), -1)
         else:
             selection_data.set_text('', -1)
@@ -147,7 +147,7 @@ class TreeContextListeners:
     def _receive_drag_data_signal(self, sender, data: DragAndDropData):
         """Drag & Drop 2 or 3 /4: receive drag data at dest"""
         logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.DRAG_AND_DROP}"')
-        self.drag_data = data
+        self._drag_data = data
         self._check_drop()
 
     def _drag_data_received(self, treeview, context, x, y, selection: Gtk.SelectionData, info, etime):
@@ -158,18 +158,18 @@ class TreeContextListeners:
         dd_uid = UID(text)
 
         drop_info = treeview.get_dest_row_at_pos(x, y)
-        self.drop_data = dd_uid, drop_info
+        self._drop_data = dd_uid, drop_info
         self._check_drop()
 
     def _check_drop(self):
         """Drag & Drop 4/4: Check UID of the dragged data against the UID of the dropped data.
         If they match, then we are the target."""
-        if not self.drop_data or not self.drag_data or self.drop_data[0] != self.drag_data.dd_uid:
+        if not self._drop_data or not self._drag_data or self._drop_data[0] != self._drag_data.dd_uid:
             return
 
-        logger.info(f'{self.con.tree_id}] We received a drop of {len(self.drag_data.nodes)} nodes!')
+        logger.info(f'{self.con.tree_id}] We received a drop of {len(self._drag_data.nodes)} nodes!')
 
-        dd_uid, drop_info = self.drop_data
+        dd_uid, drop_info = self._drop_data
         if not drop_info:
             logger.debug('No drop info!')
             return
@@ -192,23 +192,23 @@ class TreeContextListeners:
 
         if not dest_node:
             logger.error('Cancelling drop: no parent node for dropped location!')
-        elif self.con.tree_id == self.drag_data.src_tree_controller.tree_id and self._is_dropping_on_itself(dest_node,
-                                                                                                            self.drag_data.nodes):
+        elif self.con.tree_id == self._drag_data.src_tree_controller.tree_id and self._is_dropping_on_itself(dest_node,
+                                                                                                            self._drag_data.nodes):
             logger.debug('Cancelling drop: nodes were dropped in same location in the tree')
         else:
             logger.debug(f'Dropping into dest: {dest_node.node_identifier}')
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
-            change_maker = ChangeMaker(left_tree=self.drag_data.src_tree_controller.get_tree(), right_tree=self.con.get_tree(),
+            change_maker = ChangeMaker(left_tree=self._drag_data.src_tree_controller.get_tree(), right_tree=self.con.get_tree(),
                                        application=self.con.parent_win.application)
-            change_maker.copy_nodes_left_to_right(self.drag_data.nodes, dest_node)
+            change_maker.copy_nodes_left_to_right(self._drag_data.nodes, dest_node)
             builder = CommandBuilder(self.con.parent_win.application)
             command_plan = builder.build_command_plan(change_tree=change_maker.change_tree_right)
             # This should fire listeners which ultimately populate the tree:
             self.con.parent_win.application.command_executor.enqueue(command_plan)
 
         # try to aid garbage collection
-        self.drag_data = None
-        self.drop_data = None
+        self._drag_data = None
+        self._drop_data = None
 
     def _is_dropping_on_itself(self, dest_node, nodes: List[DisplayNode]):
         assert dest_node.full_path
@@ -247,7 +247,7 @@ class TreeContextListeners:
 
     def _on_enable_ui_toggled(self, sender, enable):
         # Enable/disable listeners:
-        self.ui_enabled = enable
+        self._ui_enabled = enable
 
     def _on_tree_selection_changed(self, selection):
         model, treeiter = selection.get_selected_rows()
@@ -260,7 +260,7 @@ class TreeContextListeners:
         return self.on_selection_changed(treeiter)
 
     def _on_row_activated(self, tree_view, tree_path, col, tree_id):
-        if not self.ui_enabled:
+        if not self._ui_enabled:
             logger.debug('Ignoring row activation - UI is disabled')
             # Allow it to propagate down the chain:
             return False
@@ -272,7 +272,7 @@ class TreeContextListeners:
         else:
             logger.debug(f'User activated {len(tree_paths)} rows')
 
-        # FIXME: GTK3's mutliple item activation is terrible - find a way around it
+        # FIXME: GTK3's multiple item activation is terrible - find a way around it
         if len(tree_paths) == 1:
             if self.on_single_row_activated(tree_view=tree_view, tree_path=tree_path):
                 return True
@@ -294,7 +294,7 @@ class TreeContextListeners:
 
     def _on_key_press(self, tree_view, event, tree_id):
         """Fired when a key is pressed"""
-        if not self.ui_enabled:
+        if not self._ui_enabled:
             logger.debug('Ignoring key press - UI is disabled')
             return False
 
@@ -321,7 +321,7 @@ class TreeContextListeners:
 
     def _on_tree_button_press(self, tree_view, event, tree_id):
         """Used for displaying context menu on right click"""
-        if not self.ui_enabled:
+        if not self._ui_enabled:
             logger.debug('Ignoring button press - UI is disabled')
             return False
 
@@ -362,7 +362,7 @@ class TreeContextListeners:
             return True
         else:
             if item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-                self.context_handlers[TREE_TYPE_LOCAL_DISK].call_xdg_open(file_path=item.full_path)
+                self._context_actions[TREE_TYPE_LOCAL_DISK].call_xdg_open(file_path=item.full_path)
                 return True
         return False
 
@@ -381,14 +381,14 @@ class TreeContextListeners:
             model, tree_paths = selection.get_selected_rows()
             if len(tree_paths) == 1:
                 item = self.con.display_store.get_node_data(tree_paths[0])
-                self.context_handlers[item.node_identifier.tree_type].delete_dir_tree(subtree_root=item.full_path, tree_path=tree_paths[0])
+                self._context_actions[item.node_identifier.tree_type].delete_dir_tree(subtree_root=item.full_path, tree_path=tree_paths[0])
                 return True
             elif len(tree_paths) > 1:
                 selected_items = []
                 for tree_path in tree_paths:
                     item = self.con.display_store.get_node_data(tree_path)
                     selected_items.append(item)
-                    if not self.context_handlers[item.node_identifier.tree_type].delete_dir_tree(subtree_root=item.full_path, tree_path=tree_path):
+                    if not self._context_actions[item.node_identifier.tree_type].delete_dir_tree(subtree_root=item.full_path, tree_path=tree_path):
                         # something went wrong if we got False. Stop.
                         break
 
@@ -414,7 +414,7 @@ class TreeContextListeners:
             objs_type = _get_items_type(selected_items)
 
             # User right-clicked on selection -> apply context menu to all selected items:
-            context_menu = self.context_handlers[objs_type].build_context_menu_multiple(selected_items)
+            context_menu = self._context_actions[objs_type].build_context_menu_multiple(selected_items)
             if context_menu:
                 context_menu.popup_at_pointer(event)
                 # Suppress selection event
@@ -424,7 +424,7 @@ class TreeContextListeners:
 
         # FIXME: what about logical nodes?
         # Singular item, or singular selection (equivalent logic). Display context menu:
-        context_menu = self.context_handlers[node_data.node_identifier.tree_type].build_context_menu(tree_path, node_data)
+        context_menu = self._context_actions[node_data.node_identifier.tree_type].build_context_menu(tree_path, node_data)
         if context_menu:
             context_menu.popup_at_pointer(event)
             return True

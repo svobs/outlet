@@ -1,5 +1,4 @@
 import logging
-import logging
 import os
 import re
 import subprocess
@@ -104,11 +103,11 @@ class ContextActions:
             os.remove(file)
 
 
-# CLASS ContextActionsLocaldisk
+# CLASS ContextActionsLocalDisk
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 
-class ContextActionsLocaldisk:
+class ContextActionsLocalDisk:
     def __init__(self, controller):
         self.con = controller
         self.download_dir = file_util.get_resource_path(self.con.config.get('download_dir'))
@@ -264,7 +263,7 @@ class ContextActionsLocaldisk:
             self.con.parent_win.show_error_msg('Could not delete file', f'Not found: {file_path}')
 
     def expand_all(self, menu_item, tree_path):
-        self.con.display_strategy.expand_all(tree_path)
+        self.con.display_mutator.expand_all(tree_path)
 
     def delete_dir_tree(self, subtree_root: str, tree_path: Gtk.TreePath):
         """

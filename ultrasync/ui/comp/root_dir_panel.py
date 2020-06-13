@@ -36,11 +36,11 @@ class RootDirPanel:
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.current_root: NodeIdentifier = current_root
         self.can_change_root = can_change_root
-        self.ui_enabled = can_change_root
+        self._ui_enabled = can_change_root
         """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
 
         if is_loaded or self.cache_manager.load_all_caches_on_startup or self.cache_manager.load_caches_for_displayed_trees_at_startup:
-            # the actual load will be handled in TreeContextListeners:
+            # the actual load will be handled in TreeInputHandlers:
             self.needs_load = False
         else:
             # Manual load:
@@ -59,7 +59,7 @@ class RootDirPanel:
             self.change_btn.set_popup(self.source_menu)
 
             def on_key_pressed(widget, event):
-                if self.ui_enabled and event.keyval == Gdk.KEY_Escape and self.entry:
+                if self._ui_enabled and event.keyval == Gdk.KEY_Escape and self.entry:
                     # cancel
                     logger.debug(f'Escape pressed! Cancelling root path entry box')
                     # if self.entry and self.entry_box_focus_eid:
@@ -136,13 +136,13 @@ class RootDirPanel:
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root, err=err)
 
     def _on_change_btn_clicked(self, widget):
-        if self.ui_enabled:
+        if self._ui_enabled:
             self.source_menu.popup_at_widget(widget, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, None)
         return True
 
     def _on_label_clicked(self, widget, event):
         """User clicked on the root label: toggle it to show the text entry box"""
-        if not self.ui_enabled:
+        if not self._ui_enabled:
             logger.debug('Ignoring button press - UI is disabled')
             return False
 
@@ -182,10 +182,10 @@ class RootDirPanel:
     def _on_enable_ui_toggled(self, sender, enable):
         # Callback for actions.TOGGLE_UI_ENABLEMENT
         if not self.can_change_root:
-            self.ui_enabled = False
+            self._ui_enabled = False
             return
 
-        self.ui_enabled = enable
+        self._ui_enabled = enable
         # TODO: what if root text entry is showing?
 
         def change_button():

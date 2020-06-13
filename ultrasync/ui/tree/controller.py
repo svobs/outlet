@@ -40,7 +40,7 @@ class TreePanelController:
         self.treeview_meta = treeview_meta
         self.tree_view = None
         self.root_dir_panel = None
-        self.display_strategy = None
+        self.display_mutator = None
         self.status_bar = None
         self.content_box = None
         self.context_listeners = None
@@ -50,14 +50,14 @@ class TreePanelController:
 
         """Should be called after all controller components have been wired together"""
         self.treeview_meta.init()
-        self.display_strategy.init()
+        self.display_mutator.init()
         self.context_listeners.init()
 
     def destroy(self):
         self.context_listeners.disconnect_gtk_listeners()
         self.context_listeners = None
         self.treeview_meta = None
-        del self.display_strategy  # really kill those listeners
+        del self.display_mutator  # really kill those listeners
 
         self.tree_builder = None
         self.display_store = None
@@ -72,7 +72,8 @@ class TreePanelController:
 
     def load(self):
         """Just populates the tree with nodes"""
-        self.display_strategy.populate_root()
+        # TODO: convert this to an action
+        self.display_mutator.populate_root()
 
     def reload(self, new_root=None, new_tree=None, tree_display_mode: TreeDisplayMode = None,
                show_checkboxes: bool = False, hide_checkboxes: bool = False):
@@ -133,7 +134,7 @@ class TreePanelController:
 
     def get_checked_rows_as_list(self) -> List[DisplayNode]:
         timer = Stopwatch()
-        checked_rows: List[DisplayNode] = self.display_strategy.get_checked_rows_as_list()
+        checked_rows: List[DisplayNode] = self.display_mutator.get_checked_rows_as_list()
         logger.debug(f'{timer} Retreived {len(checked_rows)} checked rows')
 
         return checked_rows
