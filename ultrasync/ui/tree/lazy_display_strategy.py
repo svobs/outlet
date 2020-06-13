@@ -232,7 +232,7 @@ class LazyDisplayStrategy:
                     # Always have at least a dummy node:
                     self._append_loading_child(parent_iter)
 
-                logger.debug(f'Displayed rows count: {len(self.con.display_store.displayed_rows)}')
+                logger.debug(f'[{self.con.tree_id}] Displayed rows count: {len(self.con.display_store.displayed_rows)}')
         GLib.idle_add(expand_or_contract)
 
     def _on_node_added_or_updated_in_cache(self, sender: str, node: DisplayNode):
@@ -342,11 +342,10 @@ class LazyDisplayStrategy:
                     tree_path = self.con.display_store.model.get_path(tree_iter)
                     logger.debug(f'[{self.con.tree_id}] Expanding row: {node_data.name} in tree {self.con.tree_id}')
                     self.con.tree_view.expand_row(path=tree_path, open_all=True)
-                    # FIXME! Open-all not respected!
 
             tree_iter = self.con.display_store.model.iter_next(tree_iter)
 
-        logger.debug(f'Displayed rows count: {len(self.con.display_store.displayed_rows)}')
+        logger.debug(f'[{self.con.tree_id}]Displayed rows count: {len(self.con.display_store.displayed_rows)}')
 
     def _append_dir_node_and_empty_child(self, parent_iter, node_data: DisplayNode):
         dir_node_iter = self._append_dir_node(parent_iter, node_data)

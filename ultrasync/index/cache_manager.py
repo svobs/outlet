@@ -7,6 +7,7 @@ from typing import List, Optional, Tuple
 
 from pydispatch import dispatcher
 
+import file_util
 from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
@@ -200,6 +201,10 @@ class CacheManager:
         """
         logger.debug(f'Got request to load subtree: {node_identifier}')
 
+        if not file_util.is_normalized(node_identifier.full_path):
+            node_identifier.full_path = file_util.normalize_path(node_identifier.full_path)
+            logger.debug(f'Normalized path: {node_identifier.full_path}')
+
         dispatcher.send(signal=actions.LOAD_TREE_STARTED, sender=tree_id)
 
         if node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
@@ -323,6 +328,7 @@ class CacheManager:
 
     def resolve_path(self, full_path: str = None, node_identifier: Optional[NodeIdentifier] = None) -> List[NodeIdentifier]:
         """Resolves the given path into either a local file, a set of Google Drive matches, or raises a GDriveItemNotFoundError"""
+        full_path = file_util.normalize_path(full_path)
         if not node_identifier:
             node_identifier = self.application.node_identifier_factory.for_values(full_path=full_path)
         if node_identifier.tree_type == TREE_TYPE_GDRIVE:
