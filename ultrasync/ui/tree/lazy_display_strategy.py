@@ -95,8 +95,10 @@ class LazyDisplayStrategy:
                     logger.error(f'Could not find node in tree for: {selection}')
                     return
                 tree_view_selection: Gtk.TreeSelection = self.con.tree_view.get_selection()
-                tree_view_selection.unselect_all()
+                # tree_view_selection.unselect_all()
                 tree_view_selection.select_iter(tree_iter)
+                tree_path = self.con.display_store.model.get_path(tree_iter)
+                self.con.tree_view.scroll_to_cell(path=tree_path, column=None, use_align=True, row_align=0.5, col_align=0)
 
         GLib.idle_add(do_in_ui)
 
