@@ -3,6 +3,7 @@ import logging
 import gi
 from pydispatch import dispatcher
 
+from constants import TREE_TYPE_GDRIVE
 from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
 from model.display_node import DisplayNode
 from ui import actions
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
 
-    def __init__(self, parent_win: BaseDialog, tree, tree_id: str):
+    def __init__(self, parent_win: BaseDialog, tree, tree_id: str, current_selection: NodeIdentifier):
         Gtk.Dialog.__init__(self, "Select GDrive Root", parent_win, 0)
         BaseDialog.__init__(self, application=parent_win.application)
         self.tree_id = tree_id
@@ -40,6 +41,8 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         self.content_box.pack_start(self.tree_controller.content_box, True, True, 0)
 
         self.tree_controller.load()
+        if current_selection.tree_type == TREE_TYPE_GDRIVE:
+            self.tree_controller.display_strategy.expand_and_select_node(current_selection)
 
         self.connect("response", self.on_response)
         self.show_all()

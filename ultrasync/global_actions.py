@@ -3,6 +3,7 @@ import os
 import uuid
 
 import gi
+from pydispatch import dispatcher
 
 from constants import TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
@@ -72,30 +73,30 @@ class GlobalActions:
         finally:
             actions.enable_ui(sender=tree_id)
 
-    def load_gdrive_root_meta(self, tree_id):
+    def load_gdrive_root_meta(self, tree_id: str, current_selection: NodeIdentifier):
         """Executed by Task Runner. NOT UI thread"""
         actions.disable_ui(sender=tree_id)
         try:
             tree = self.application.cache_manager.get_gdrive_whole_tree(tree_id)
-            actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, tree=tree)
+            dispatcher.send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, tree=tree, current_selection=current_selection)
         except Exception as err:
             self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
             logger.exception(err)
         finally:
             actions.enable_ui(sender=tree_id)
 
-    def on_gdrive_root_dialog_requested(self, sender):
+    def on_gdrive_root_dialog_requested(self, sender, current_selection: NodeIdentifier):
         logger.debug(f'Received signal: "{actions.SHOW_GDRIVE_ROOT_DIALOG}"')
-        self.application.task_runner.enqueue(self.load_gdrive_root_meta, sender)
+        self.application.task_runner.enqueue(self.load_gdrive_root_meta, sender, current_selection)
 
-    def on_gdrive_download_complete(self, sender, tree: SubtreeSnapshot):
+    def on_gdrive_download_complete(self, sender, tree: SubtreeSnapshot, current_selection: NodeIdentifier):
         logger.debug(f'Received signal: "{actions.GDRIVE_DOWNLOAD_COMPLETE}"')
         assert type(sender) == str
 
         def open_dialog():
             try:
                 # Preview changes in UI pop-up. Change tree_id so that listeners don't step on existing trees
-                dialog = GDriveDirChooserDialog(self.application.window, tree, sender)
+                dialog = GDriveDirChooserDialog(self.application.window, tree, sender, current_selection)
                 response_id = dialog.run()
                 if response_id == Gtk.ResponseType.OK:
                     logger.debug('User clicked OK!')

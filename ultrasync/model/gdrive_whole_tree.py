@@ -1,6 +1,6 @@
 import logging
 from collections import deque
-from typing import Deque, Dict, List, Optional, Tuple, Union, ValuesView
+from typing import Callable, Deque, Dict, List, Optional, Tuple, Union, ValuesView
 
 from pydispatch import dispatcher
 
@@ -227,6 +227,21 @@ class GDriveWholeTree:
             if len(resolved_parents) == 1:
                 return resolved_parents[0]
         return None
+
+    def get_ancestors(self, item: DisplayNode, stop_before_func: Callable[[DisplayNode], bool] = None) -> Deque[DisplayNode]:
+        ancestors: Deque[DisplayNode] = deque()
+
+        # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
+        # been added to this tree, or the root of the source tree
+        ancestor = item
+        while ancestor:
+            if stop_before_func is not None and stop_before_func(ancestor):
+                return ancestors
+            ancestor = self.get_parent_for_item(ancestor)
+            if ancestor:
+                ancestors.appendleft(ancestor)
+
+        return ancestors
 
     def validate(self):
         logger.debug(f'Validating GDriveWholeTree')

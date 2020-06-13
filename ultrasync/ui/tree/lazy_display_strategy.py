@@ -8,6 +8,7 @@ from typing import Deque, Iterable, List, Optional
 import gi
 
 from constants import LARGE_NUMBER_OF_CHILDREN
+from model.node_identifier import NodeIdentifier
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
@@ -70,71 +71,102 @@ class LazyDisplayStrategy:
         node_count += 1
         return node_count
 
+    def expand_and_select_node(self, selection: NodeIdentifier):
+        def do_in_ui():
+            with self._lock:
+                item = self.con.parent_win.application.cache_manager.get_item_for_uid(selection.uid, selection.tree_type)
+                ancestor_list: Iterable[DisplayNode] = self.con.get_tree().get_ancestors(item)
+
+                tree_iter = None
+                for ancestor in ancestor_list:
+                    if tree_iter is None:
+                        tree_iter = self.con.display_store.find_in_top_level(target_uid=ancestor.uid)
+                    else:
+                        tree_iter = self.con.display_store.find_in_children(target_uid=ancestor.uid, parent_iter=tree_iter)
+                    if not tree_iter:
+                        logger.error(f'Could not find node in tree for: {ancestor}')
+                        return
+                    tree_path = self.con.display_store.model.get_path(tree_iter)
+                    if not self.con.tree_view.row_expanded(tree_path):
+                        self._expand_subtree(tree_path, expand_all=False)
+
+                tree_iter = self.con.display_store.find_in_children(target_uid=selection.uid, parent_iter=tree_iter)
+                if not tree_iter:
+                    logger.error(f'Could not find node in tree for: {selection}')
+                    return
+                tree_view_selection: Gtk.TreeSelection = self.con.tree_view.get_selection()
+                tree_view_selection.unselect_all()
+                tree_view_selection.select_iter(tree_iter)
+
+        GLib.idle_add(do_in_ui)
+
     def expand_all(self, tree_path):
         def expand_me(tree_iter):
             path = self.con.display_store.model.get_path(tree_iter)
-            self._expand_subtree(path)
+            self._expand_subtree(path, expand_all=True)
 
         with self._lock:
             if not self.con.tree_view.row_expanded(tree_path):
-                self._expand_subtree(tree_path)
+                self._expand_subtree(tree_path, expand_all=True)
             else:
                 self.con.display_store.do_for_descendants(tree_path=tree_path, action_func=expand_me)
 
-    def _expand_subtree(self, tree_path):
+    def _expand_subtree(self, tree_path: Gtk.TreePath, expand_all: bool):
         if not self.con.treeview_meta.lazy_load:
             # no need to populate. just expand:
-            self.con.tree_view.expand_row(path=tree_path, open_all=True)
+            self.con.tree_view.expand_row(path=tree_path, open_all=expand_all)
             return
 
         if self.con.tree_view.row_expanded(tree_path):
             return
 
         self._enable_state_listeners = False
-
-        with self._lock:
+        try:
             node = self.con.display_store.get_node_data(tree_path)
             parent_iter = self.con.display_store.model.get_iter(tree_path)
             # Remove loading node:
             self.con.display_store.remove_first_child(parent_iter)
-
             children: List[DisplayNode] = self.con.tree_builder.get_children(node)
-            node_count = 0
-            for child in children:
-                node_count = self._populate_recursively(parent_iter, child, node_count)
-            logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
 
-        self.con.tree_view.expand_row(path=tree_path, open_all=True)
+            if expand_all:
+                node_count = 0
+                for child in children:
+                    node_count = self._populate_recursively(parent_iter, child, node_count)
+                logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
+            else:
+                self._append_children(children=children, parent_iter=parent_iter)
 
-        self._enable_state_listeners = True
+            self.con.tree_view.expand_row(path=tree_path, open_all=expand_all)
+        finally:
+            self._enable_state_listeners = True
 
     def populate_root(self):
         """Draws from the undelying data store as needed, to populate the display store."""
-
-        self._enable_state_listeners = False
 
         # This may be a long task
         children: List[DisplayNode] = self.con.tree_builder.get_children_for_root()
 
         def update_ui():
-            with self._lock:
-                # Wipe out existing items:
-                root_iter = self.con.display_store.clear_model()
+            self._enable_state_listeners = False
+            try:
+                with self._lock:
+                    # Wipe out existing items:
+                    root_iter = self.con.display_store.clear_model()
 
-                if self.con.treeview_meta.lazy_load:
-                    # Just append for the root level. Beyond that, we will only load more nodes when
-                    # the expanded state is toggled
-                    self._append_children(children=children, parent_iter=root_iter)
-                else:
-                    node_count = 0
-                    for ch in children:
-                        node_count = self._populate_recursively(None, ch, node_count)
+                    if self.con.treeview_meta.lazy_load:
+                        # Just append for the root level. Beyond that, we will only load more nodes when
+                        # the expanded state is toggled
+                        self._append_children(children=children, parent_iter=root_iter)
+                    else:
+                        node_count = 0
+                        for ch in children:
+                            node_count = self._populate_recursively(None, ch, node_count)
 
-                    logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
+                        logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
 
-                    self.con.tree_view.expand_all()
-
-            self._enable_state_listeners = True
+                        self.con.tree_view.expand_all()
+            finally:
+                self._enable_state_listeners = True
 
             with self._lock:
                 # This should fire expanded state listener to populate nodes as needed:
@@ -341,7 +373,7 @@ class LazyDisplayStrategy:
                 if is_expand:
                     tree_path = self.con.display_store.model.get_path(tree_iter)
                     logger.debug(f'[{self.con.tree_id}] Expanding row: {node_data.name} in tree {self.con.tree_id}')
-                    self.con.tree_view.expand_row(path=tree_path, open_all=True)
+                    self.con.tree_view.expand_row(path=tree_path, open_all=False)
 
             tree_iter = self.con.display_store.model.iter_next(tree_iter)
 

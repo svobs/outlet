@@ -203,6 +203,9 @@ class GDriveMasterCache:
         cache_path = cache_info.cache_location
         return cache_path
 
+    def get_item_for_uid(self, uid):
+        return self.meta_master.get_item_for_id(uid)
+
     def get_children(self, node: DisplayNode):
         return self.meta_master.get_children(node)
 

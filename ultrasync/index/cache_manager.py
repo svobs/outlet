@@ -350,6 +350,14 @@ class CacheManager:
         uid = self.get_uid_for_path(path)
         return self._local_disk_cache.get_item(uid)
 
+    def get_item_for_uid(self, uid: UID, tree_type):
+        if tree_type == TREE_TYPE_GDRIVE:
+            return self._gdrive_cache.get_item_for_uid(uid)
+        elif tree_type == TREE_TYPE_LOCAL_DISK:
+            return self._local_disk_cache.get_item(uid)
+        else:
+            raise RuntimeError(f'Unknown tree type: {tree_type} for UID {uid}')
+
     def get_children(self, node: DisplayNode):
         tree_type: int = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
