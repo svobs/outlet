@@ -17,8 +17,7 @@ from model.fmeta import FMeta
 
 import gi
 
-from ui.tree.context_actions_gdrive import ContextActionsGDrive
-from ui.tree.context_actions_localdisk import ContextActionsLocalDisk
+from ui.tree.context_menu import TreeContextMenu
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gdk, Gtk
@@ -46,8 +45,8 @@ class TreeInputHandlers:
         self._drag_data: Optional[DragAndDropData] = None
         self._drop_data = None
         self._connected_eids = []
-        self._context_actions = {TREE_TYPE_LOCAL_DISK: ContextActionsLocalDisk(self.con),
-                                 TREE_TYPE_GDRIVE: ContextActionsGDrive(self.con),
+        self._context_menus_by_type = {TREE_TYPE_LOCAL_DISK: TreeContextMenu(self.con),
+                                 TREE_TYPE_GDRIVE: TreeContextMenu(self.con),
                                  TREE_TYPE_MIXED: None}  # TODO: handle mixed
 
     def init(self):
@@ -362,7 +361,7 @@ class TreeInputHandlers:
             return True
         else:
             if item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-                self._context_actions[TREE_TYPE_LOCAL_DISK].call_xdg_open(file_path=item.full_path)
+                self._context_menus_by_type[TREE_TYPE_LOCAL_DISK].call_xdg_open(file_path=item.full_path)
                 return True
         return False
 
@@ -380,18 +379,17 @@ class TreeInputHandlers:
             selection = self.con.tree_view.get_selection()
             model, tree_paths = selection.get_selected_rows()
             if len(tree_paths) == 1:
-                item = self.con.display_store.get_node_data(tree_paths[0])
-                self._context_actions[item.node_identifier.tree_type].delete_dir_tree(subtree_root=item.full_path, tree_path=tree_paths[0])
+                item: DisplayNode = self.con.display_store.get_node_data(tree_paths[0])
+                self._context_menus_by_type[item.node_identifier.tree_type].delete_dir_tree(item)
                 return True
             elif len(tree_paths) > 1:
                 selected_items = []
                 for tree_path in tree_paths:
-                    item = self.con.display_store.get_node_data(tree_path)
+                    item: DisplayNode = self.con.display_store.get_node_data(tree_path)
                     selected_items.append(item)
-                    if not self._context_actions[item.node_identifier.tree_type].delete_dir_tree(subtree_root=item.full_path, tree_path=tree_path):
+                    if not self._context_menus_by_type[item.node_identifier.tree_type].delete_dir_tree(item):
                         # something went wrong if we got False. Stop.
                         break
-
                 return True
         return False
 
@@ -414,7 +412,7 @@ class TreeInputHandlers:
             objs_type = _get_items_type(selected_items)
 
             # User right-clicked on selection -> apply context menu to all selected items:
-            context_menu = self._context_actions[objs_type].build_context_menu_multiple(selected_items)
+            context_menu = self._context_menus_by_type[objs_type].build_context_menu_multiple(selected_items)
             if context_menu:
                 context_menu.popup_at_pointer(event)
                 # Suppress selection event
@@ -424,7 +422,7 @@ class TreeInputHandlers:
 
         # FIXME: what about logical nodes?
         # Singular item, or singular selection (equivalent logic). Display context menu:
-        context_menu = self._context_actions[node_data.node_identifier.tree_type].build_context_menu(tree_path, node_data)
+        context_menu = self._context_menus_by_type[node_data.node_identifier.tree_type].build_context_menu(tree_path, node_data)
         if context_menu:
             context_menu.popup_at_pointer(event)
             return True
