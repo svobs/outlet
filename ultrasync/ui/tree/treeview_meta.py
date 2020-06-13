@@ -127,7 +127,7 @@ class TreeViewMeta:
         if self.is_display_persisted:
             dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.tree_id)
 
-    def _on_node_expansion_toggled(self, sender: str, parent_iter, node_data: DisplayNode, is_expanded: bool):
+    def _on_node_expansion_toggled(self, sender: str, parent_iter, parent_path, node_data: DisplayNode, is_expanded: bool):
         if type(node_data) == CategoryNode:
             logger.debug(f'[{self.tree_id}] Detected node expansion toggle: {node_data.category.name} = {is_expanded}')
             cfg_path = f'transient.{self.tree_id}.expanded_state.{node_data.category.name}'

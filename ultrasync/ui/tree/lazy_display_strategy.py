@@ -10,7 +10,7 @@ import gi
 from constants import LARGE_NUMBER_OF_CHILDREN
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib
+from gi.repository import GLib, Gtk
 from gi.repository.Gtk import TreeIter
 from pydispatch import dispatcher
 import humanfriendly
@@ -73,15 +73,15 @@ class LazyDisplayStrategy:
     def expand_all(self, tree_path):
         def expand_me(tree_iter):
             path = self.con.display_store.model.get_path(tree_iter)
-            self.con.display_strategy.expand_subtree(path)
+            self._expand_subtree(path)
 
         with self._lock:
             if not self.con.tree_view.row_expanded(tree_path):
-                self.con.display_strategy.expand_subtree(tree_path)
+                self._expand_subtree(tree_path)
             else:
                 self.con.display_store.do_for_descendants(tree_path=tree_path, action_func=expand_me)
 
-    def expand_subtree(self, tree_path):
+    def _expand_subtree(self, tree_path):
         if not self.con.treeview_meta.lazy_load:
             # no need to populate. just expand:
             self.con.tree_view.expand_row(path=tree_path, open_all=True)
@@ -201,7 +201,7 @@ class LazyDisplayStrategy:
     # LISTENERS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def _on_node_expansion_toggled(self, sender: str, parent_iter, node_data: DisplayNode, is_expanded: bool):
+    def _on_node_expansion_toggled(self, sender: str, parent_iter: Gtk.TreeIter, parent_path, node_data: DisplayNode, is_expanded: bool):
         # Callback for actions.NODE_EXPANSION_TOGGLED:
         logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node_data}"')
 
@@ -213,10 +213,19 @@ class LazyDisplayStrategy:
             with self._lock:
                 # Add children for node:
                 if is_expanded:
-                    children = self.con.tree_builder.get_children(node_data)
-                    self._append_children(children=children, parent_iter=parent_iter)
                     # Remove Loading node:
                     self.con.display_store.remove_first_child(parent_iter)
+
+                    children = self.con.tree_builder.get_children(node_data)
+                    self._append_children(children=children, parent_iter=parent_iter)
+
+                    # Need to call this because removing the Loading node leaves the parent with no children,
+                    # and due to a deficiency in GTK this causes the parent to become collapsed again.
+                    # So we must wait until after the children have been added, and then disable listeners from firing
+                    # and set it to expanded again.
+                    self._enable_state_listeners = False
+                    self.con.tree_view.expand_row(path=parent_path, open_all=False)
+                    self._enable_state_listeners = True
                 else:
                     # Collapsed:
                     self.con.display_store.remove_all_children(parent_iter)
@@ -344,7 +353,7 @@ class LazyDisplayStrategy:
         self._append_loading_child(dir_node_iter)
         return dir_node_iter
 
-    def _append_children(self, children: List[DisplayNode], parent_iter):
+    def _append_children(self, children: List[DisplayNode], parent_iter: Gtk.TreeIter):
         if children:
             logger.debug(f'[{self.con.tree_id}] Appending {len(children)} child display nodes')
             if len(children) > LARGE_NUMBER_OF_CHILDREN:
@@ -357,6 +366,7 @@ class LazyDisplayStrategy:
                     self._append_dir_node_and_empty_child(parent_iter, child)
                 else:
                     self._append_file_node(parent_iter, child)
+
         elif self.use_empty_nodes:
             self._append_empty_child(parent_iter, '(empty)')
 

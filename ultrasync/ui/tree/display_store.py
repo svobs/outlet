@@ -24,6 +24,8 @@ class DisplayStore:
         self.treeview_meta = treeview_meta
         self.model = Gtk.TreeStore()
         self.model.set_column_types(self.treeview_meta.col_types)
+        # Sort by name column at program launch:
+        self.model.set_sort_column_id(self.treeview_meta.col_num_name, Gtk.SortType.ASCENDING)
 
         # Track the checkbox states here. For increased speed and to accommodate lazy loading strategies,
         # we employ the following heuristic:
