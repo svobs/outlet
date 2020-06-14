@@ -82,7 +82,7 @@ class TreeActions:
         if comment_to_set:
             args.append(f'-Comment="{comment_to_set}"')
         args.append(full_path)
-        subprocess.check_call(args)
+        subprocess.run(args)
 
         list_original_files = [f.path for f in os.scandir(full_path) if not f.is_dir() and f.path.endswith('.jpg_original')]
         for file in list_original_files:
@@ -107,14 +107,14 @@ class TreeActions:
     def _call_xdg_open(self, sender, full_path):
         if os.path.exists(full_path):
             logger.info(f'Calling xdg-open for: {full_path}')
-            subprocess.check_call(["xdg-open", full_path])
+            subprocess.run(["xdg-open", full_path])
         else:
             self.con.parent_win.show_error_msg(f'Cannot open file', f'File not found: {full_path}')
 
     def _show_in_nautilus(self, sender, full_path):
         if os.path.exists(full_path):
             logger.info(f'Opening in Nautilus: {full_path}')
-            subprocess.check_call(["nautilus", "--browser", full_path])
+            subprocess.run(["nautilus", "--browser", full_path])
         else:
             self.con.parent_win.show_error_msg('Cannot open file in Nautilus', f'File not found: {full_path}')
 
