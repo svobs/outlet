@@ -22,6 +22,8 @@ from model.fmeta import FMeta
 from model.fmeta_tree import FMetaTree
 from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
+from model.null_subtree import NullSubtree
+from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
@@ -64,100 +66,7 @@ class LocalDiskMasterCache:
         root_node = RootTypeNode(node_identifier=LocalFsIdentifier(full_path=ROOT_PATH, uid=ROOT_UID))
         self.dir_tree.add_node(node=root_node, parent=None)
 
-    def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
-        with self._uid_lock:
-            return self._get_uid_for_path(path, uid_suggestion)
-
-    def _get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
-        if path is not ROOT_PATH and path.endswith('/'):
-            # directories ending in '/' are logically equivalent and should be treated as such
-            path = path[:-1]
-        uid = self._full_path_uid_dict.get(path, None)
-        if not uid:
-            if uid_suggestion:
-                self._full_path_uid_dict[path] = uid_suggestion
-            else:
-                uid = self.application.uid_generator.get_new_uid()
-            self._full_path_uid_dict[path] = uid
-        return uid
-
-    def get_children(self, node: DisplayNode):
-        return self.dir_tree.children(node.identifier)
-
-    def get_item(self, uid: UID) -> DisplayNode:
-        return self.dir_tree.get_node(uid)
-
-    def get_parent_for_item(self, item: DisplayNode, required_subtree_path: str = None):
-        try:
-            parent: DisplayNode = self.dir_tree.parent(nid=item.uid)
-            if not required_subtree_path or parent.full_path.startswith(required_subtree_path):
-                return parent
-            return None
-        except NodeIDAbsentError:
-            return None
-        except Exception:
-            logger.error(f'Error getting parent for item: {item}, required_path: {required_subtree_path}')
-            raise
-
-    def get_summary(self):
-        if self.use_md5:
-            md5 = str(self.md5_dict.total_entries)
-        else:
-            md5 = 'disabled'
-        return f'LocalDiskMasterCache tree_size={len(self.dir_tree):n} md5={md5}'
-
-    def add_or_update_fmeta(self, item: FMeta, fire_listeners=True):
-        existing = None
-        with self._struct_lock:
-            uid = self._get_uid_for_path(item.full_path, item.uid)
-            # logger.debug(f'ID: {uid}, path: {item.full_path}')
-            assert (not item.uid) or (uid == item.uid)
-            item.uid = uid
-            existing: DisplayNode = self.dir_tree.get_node(item.uid)
-            if self.use_md5 and item.md5:
-                self.md5_dict.put(item, existing)
-            if self.use_sha256 and item.sha256:
-                self.sha256_dict.put(item, existing)
-
-            if existing:
-                self.dir_tree.remove_node(existing.identifier)
-            self.dir_tree.add_to_tree(item)
-
-        if not item.is_dir():   # we don't save dir meta at present
-            cache_man = self.application.cache_manager
-            cache_info = cache_man.find_existing_supertree_for_subtree(item.node_identifier, ID_GLOBAL_CACHE)
-            if cache_info:
-                if cache_man.enable_save_to_disk:
-                    # Write new values:
-                    with FMetaDatabase(cache_info.cache_location, self.application) as cache:
-                        if existing:
-                            cache.update_local_file(item)
-                        else:
-                            cache.insert_local_file(item)
-
-            else:
-                logger.error(f'Could not find a cache associated with file path: {item.full_path}')
-
-        if fire_listeners:
-            dispatcher.send(signal=actions.NODE_ADDED_OR_UPDATED, sender=ID_GLOBAL_CACHE, node=item)
-
-    def remove_fmeta(self, item: FMeta, to_trash=False, fire_listeners=True):
-        with self._struct_lock:
-            assert item.uid == self._full_path_uid_dict.get(item.full_path, None), f'For item: {item}'
-
-            if self.use_md5 and item.md5:
-                self.md5_dict.remove(item.md5, item.full_path)
-            if self.use_sha256 and item.sha256:
-                self.sha256_dict.remove(item.sha256, item.full_path)
-
-            if self.dir_tree.get_node(item.uid):
-                count_removed = self.dir_tree.remove_node(item.uid)
-                assert count_removed <= 1, f'Deleted {count_removed} nodes at {item.full_path}'
-
-        if fire_listeners:
-            dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=item)
-
-    # Loading stuff
+    # Disk access
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def _load_subtree_from_disk(self, cache_info: PersistedCacheInfo, tree_id) -> Optional[LocalDiskTree]:
@@ -216,7 +125,50 @@ class LocalDiskMasterCache:
         cache_info.needs_save = False
         logger.info(f'[{tree_id}] {stopwatch_write_cache} Wrote {str(len(to_insert))} FMetas to "{cache_info.cache_location}"')
 
-    def load_subtree(self, cache_info: PersistedCacheInfo, tree_id, requested_subtree_root: LocalFsIdentifier = None) -> FMetaTree:
+    def _resync_with_file_system(self, subtree_root: LocalFsIdentifier, tree_id: str):
+        # Scan directory tree and update where needed.
+        logger.debug(f'[{tree_id}] Scanning filesystem subtree: {subtree_root}')
+        scanner = FMetaDiskScanner(application=self.application, root_node_identifer=subtree_root, tree_id=tree_id)
+        fresh_tree: treelib.Tree = scanner.scan()
+
+        with self._struct_lock:
+            self.dir_tree.replace_subtree(sub_tree=fresh_tree)
+
+    # Subtree-level methods
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def load_local_subtree(self, subtree_root: NodeIdentifier, tree_id) -> SubtreeSnapshot:
+        """
+        Performs a read-through retreival of all the FMetas in the given subtree
+        on the local filesystem.
+        """
+
+        if not os.path.exists(subtree_root.full_path):
+            logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root.full_path}"')
+            root_node = DirNode(subtree_root)
+            return NullSubtree(root_node)
+
+        # NOTE: because UIDs for local files change each time the app loads, we need to overwrite any stale UID which may be requested.
+        existing_uid = subtree_root.uid
+        new_uid = self.get_uid_for_path(subtree_root.full_path)
+        if existing_uid != new_uid:
+            logger.debug(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
+        subtree_root.uid = new_uid
+
+        # If we have already loaded this subtree as part of a larger cache, use that:
+        cache_man = self.application.cache_manager
+        supertree_cache: Optional[PersistedCacheInfo] = cache_man.find_existing_supertree_for_subtree(subtree_root, tree_id)
+        if supertree_cache:
+            logger.debug(f'Subtree ({subtree_root.full_path}) is part of existing cached supertree ({supertree_cache.subtree_root.full_path})')
+            assert isinstance(subtree_root, LocalFsIdentifier)
+            return self._load_subtree(supertree_cache, tree_id, subtree_root)
+        else:
+            # no supertree found in cache. use exact match logic:
+            cache_info = cache_man.get_or_create_cache_info_entry(subtree_root)
+            assert cache_info is not None
+            return self._load_subtree(cache_info, tree_id)
+
+    def _load_subtree(self, cache_info: PersistedCacheInfo, tree_id, requested_subtree_root: LocalFsIdentifier = None) -> FMetaTree:
         """requested_subtree_root, if present, is a subset of the cache_info's subtree and it will be used. Otherwise cache_info's will be used"""
         assert cache_info
         stopwatch_total = Stopwatch()
@@ -270,15 +222,6 @@ class LocalDiskMasterCache:
         logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {fmeta_tree.node_identifier.full_path}')
         return fmeta_tree
 
-    def _resync_with_file_system(self, subtree_root: LocalFsIdentifier, tree_id: str):
-        # Scan directory tree and update where needed.
-        logger.debug(f'[{tree_id}] Scanning filesystem subtree: {subtree_root}')
-        scanner = FMetaDiskScanner(application=self.application, root_node_identifer=subtree_root, tree_id=tree_id)
-        fresh_tree: treelib.Tree = scanner.scan()
-
-        with self._struct_lock:
-            self.dir_tree.replace_subtree(sub_tree=fresh_tree)
-
     def consolidate_local_caches(self, local_caches: List[PersistedCacheInfo], tree_id) -> Tuple[List[PersistedCacheInfo], bool]:
         supertree_sets: List[Tuple[PersistedCacheInfo, PersistedCacheInfo]] = []
 
@@ -317,12 +260,110 @@ class LocalDiskMasterCache:
 
                 # this will resync with file system and/or save if configured
                 supertree_cache.needs_save = True
-                self.load_subtree(supertree_cache, tree_id)
+                self._load_subtree(supertree_cache, tree_id)
                 # Now it is safe to delete the subtree cache:
                 file_util.delete_file(subtree_cache.cache_location)
 
         registry_needs_update = len(supertree_sets) > 0
         return local_caches, registry_needs_update
+
+    # Individual item updates
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def add_or_update_fmeta(self, item: FMeta, fire_listeners=True):
+        with self._struct_lock:
+            uid = self._get_uid_for_path(item.full_path, item.uid)
+            # logger.debug(f'ID: {uid}, path: {item.full_path}')
+            assert (not item.uid) or (uid == item.uid)
+            item.uid = uid
+            existing: DisplayNode = self.dir_tree.get_node(item.uid)
+            if self.use_md5 and item.md5:
+                self.md5_dict.put(item, existing)
+            if self.use_sha256 and item.sha256:
+                self.sha256_dict.put(item, existing)
+
+            if existing:
+                self.dir_tree.remove_node(existing.identifier)
+            self.dir_tree.add_to_tree(item)
+
+        if not item.is_dir():   # we don't save dir meta at present
+            cache_man = self.application.cache_manager
+            cache_info = cache_man.find_existing_supertree_for_subtree(item.node_identifier, ID_GLOBAL_CACHE)
+            if cache_info:
+                if cache_man.enable_save_to_disk:
+                    # Write new values:
+                    with FMetaDatabase(cache_info.cache_location, self.application) as cache:
+                        if existing:
+                            cache.update_local_file(item)
+                        else:
+                            cache.insert_local_file(item)
+
+            else:
+                logger.error(f'Could not find a cache associated with file path: {item.full_path}')
+
+        if fire_listeners:
+            dispatcher.send(signal=actions.NODE_ADDED_OR_UPDATED, sender=ID_GLOBAL_CACHE, node=item)
+
+    def remove_fmeta(self, item: FMeta, to_trash=False, fire_listeners=True):
+        with self._struct_lock:
+            assert item.uid == self._full_path_uid_dict.get(item.full_path, None), f'For item: {item}'
+
+            if self.use_md5 and item.md5:
+                self.md5_dict.remove(item.md5, item.full_path)
+            if self.use_sha256 and item.sha256:
+                self.sha256_dict.remove(item.sha256, item.full_path)
+
+            if self.dir_tree.get_node(item.uid):
+                count_removed = self.dir_tree.remove_node(item.uid)
+                assert count_removed <= 1, f'Deleted {count_removed} nodes at {item.full_path}'
+
+        if fire_listeners:
+            dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=item)
+
+    # Various public getters
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
+        with self._uid_lock:
+            return self._get_uid_for_path(path, uid_suggestion)
+
+    def _get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
+        if path is not ROOT_PATH and path.endswith('/'):
+            # directories ending in '/' are logically equivalent and should be treated as such
+            path = path[:-1]
+        uid = self._full_path_uid_dict.get(path, None)
+        if not uid:
+            if uid_suggestion:
+                self._full_path_uid_dict[path] = uid_suggestion
+            else:
+                uid = self.application.uid_generator.get_new_uid()
+            self._full_path_uid_dict[path] = uid
+        return uid
+
+    def get_children(self, node: DisplayNode):
+        return self.dir_tree.children(node.identifier)
+
+    def get_item(self, uid: UID) -> DisplayNode:
+        return self.dir_tree.get_node(uid)
+
+    def get_parent_for_item(self, item: DisplayNode, required_subtree_path: str = None):
+        try:
+            parent: DisplayNode = self.dir_tree.parent(nid=item.uid)
+            if not required_subtree_path or parent.full_path.startswith(required_subtree_path):
+                return parent
+            return None
+        except NodeIDAbsentError:
+            return None
+        except Exception:
+            logger.error(f'Error getting parent for item: {item}, required_path: {required_subtree_path}')
+            raise
+
+    def get_summary(self):
+        if self.use_md5:
+            md5 = str(self.md5_dict.total_entries)
+        else:
+            md5 = 'disabled'
+        return f'LocalDiskMasterCache tree_size={len(self.dir_tree):n} md5={md5}'
 
     def build_fmeta(self, full_path: str, category=Category.NA, staging_path=None) -> Optional[FMeta]:
         uid = self.get_uid_for_path(full_path)

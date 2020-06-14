@@ -24,7 +24,7 @@ def ensure_int(val):
         if type(val) == str:
             return int(val)
     except ValueError:
-        logger.debug(f'Bad value: {val}')
+        logger.error(f'Bad value: {val}')
     return val
 
 
