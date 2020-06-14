@@ -40,7 +40,7 @@ class RootDirPanel:
         """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
 
         if is_loaded or self.cache_manager.load_all_caches_on_startup or self.cache_manager.load_caches_for_displayed_trees_at_startup:
-            # the actual load will be handled in TreeInputHandlers:
+            # the actual load will be handled in TreeUserInputListeners:
             self.needs_load = False
         else:
             # Manual load:

@@ -11,7 +11,6 @@ from typing import Deque, List, Optional
 import treelib
 
 import file_util
-import fmeta.content_hasher
 from constants import EXPLICITLY_TRASHED, FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, NOT_TRASHED
 from gdrive.client import GDriveClient
 from index.uid_generator import UID

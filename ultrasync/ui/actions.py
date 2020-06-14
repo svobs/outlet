@@ -20,6 +20,15 @@ DIFF_CANCELLED = 'diff-cancelled'
 REFRESH_ALL_NODE_STATS = 'refresh-all-node-stats'
 DRAG_AND_DROP = 'drag-and-drop'
 
+CALL_EXIFTOOL = 'call-exiftool'
+CALL_EXIFTOOL_LIST = 'call-exiftool-list'
+SHOW_IN_NAUTILUS = 'show-in-nautilus'
+CALL_XDG_OPEN = 'call-xdg-open'
+EXPAND_ALL = 'expand-all'
+DOWNLOAD_FROM_GDRIVE = 'download-from-gdrive'
+DELETE_SINGLE_FILE = 'delete-single-file'
+DELETE_SUBTREE = 'delete-subtree'
+
 # All components should listen for this
 TOGGLE_UI_ENABLEMENT = 'toggle-ui-enablement'
 

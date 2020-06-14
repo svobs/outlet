@@ -1,5 +1,4 @@
 
-
 import logging
 import pathlib
 from typing import List, Optional
@@ -35,10 +34,10 @@ class DragAndDropData:
         self.nodes: List[DisplayNode] = nodes
 
 
-# CLASS TreeInputHandlers
+# CLASS TreeUserInputListeners
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class TreeInputHandlers:
+class TreeUserInputListeners:
     def __init__(self, config, controller):
         self.con = controller
         self._ui_enabled = True
@@ -46,8 +45,8 @@ class TreeInputHandlers:
         self._drop_data = None
         self._connected_eids = []
         self._context_menus_by_type = {TREE_TYPE_LOCAL_DISK: TreeContextMenu(self.con),
-                                 TREE_TYPE_GDRIVE: TreeContextMenu(self.con),
-                                 TREE_TYPE_MIXED: None}  # TODO: handle mixed
+                                       TREE_TYPE_GDRIVE: TreeContextMenu(self.con),
+                                       TREE_TYPE_MIXED: None}  # TODO: handle mixed
 
     def init(self):
         actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
@@ -73,12 +72,16 @@ class TreeInputHandlers:
         logger.debug(f'Listening for signals: Any={general_signals}, "{self.con.tree_id}"={targeted_signals}')
 
         # TreeView
+        # double-click or enter key:
         eid = self.con.tree_view.connect("row-activated", self._on_row_activated, self.con.tree_id)
         self._connected_eids.append(eid)
+        # right-click:
         eid = self.con.tree_view.connect('button-press-event', self._on_tree_button_press, self.con.tree_id)
         self._connected_eids.append(eid)
+        # other keys like 'Del'
         eid = self.con.tree_view.connect('key-press-event', self._on_key_press, self.con.tree_id)
         self._connected_eids.append(eid)
+        # user clicked on the expand
         eid = self.con.tree_view.connect('row-expanded', self._on_toggle_gtk_row_expanded_state, True)
         self._connected_eids.append(eid)
         eid = self.con.tree_view.connect('row-collapsed', self._on_toggle_gtk_row_expanded_state, False)

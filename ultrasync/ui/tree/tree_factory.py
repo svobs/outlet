@@ -9,7 +9,8 @@ from model.node_identifier import NodeIdentifier
 from model.subtree_snapshot import SubtreeSnapshot
 from ui.dialog.base_dialog import BaseDialog
 from ui.tree import tree_factory_templates
-from ui.tree.context_listeners import TreeInputHandlers
+from ui.tree.tree_actions import TreeActions
+from ui.tree.user_input_listeners import TreeUserInputListeners
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -95,14 +96,11 @@ class TreeFactory:
         else:
             raise RuntimeError('"root" and "tree" are both empty!')
 
-        display_mutator = DisplayMutator(config=self.parent_win.config)
+        controller.display_mutator = DisplayMutator(config=self.parent_win.config, controller=controller)
 
-        context_listeners = TreeInputHandlers(config=self.parent_win.config, controller=controller)
+        controller.user_input_listeners = TreeUserInputListeners(config=self.parent_win.config, controller=controller)
 
-        controller.display_mutator = display_mutator
-        display_mutator.con = controller
-        controller.context_listeners = context_listeners
-        context_listeners.con = controller
+        controller.tree_actions = TreeActions(controller=controller)
 
         assets = self.parent_win.application.assets
         controller.tree_view = tree_factory_templates.build_treeview(display_store, assets)

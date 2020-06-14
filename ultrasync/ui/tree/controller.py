@@ -43,7 +43,8 @@ class TreePanelController:
         self.display_mutator = None
         self.status_bar = None
         self.content_box = None
-        self.context_listeners = None
+        self.user_input_listeners = None
+        self.tree_actions = None
 
     def init(self):
         self._set_column_visibilities()
@@ -51,11 +52,13 @@ class TreePanelController:
         """Should be called after all controller components have been wired together"""
         self.treeview_meta.init()
         self.display_mutator.init()
-        self.context_listeners.init()
+        self.user_input_listeners.init()
+        self.tree_actions.init()
 
     def destroy(self):
-        self.context_listeners.disconnect_gtk_listeners()
-        self.context_listeners = None
+        self.user_input_listeners.disconnect_gtk_listeners()
+        self.user_input_listeners = None
+        self.tree_actions = None
         self.treeview_meta = None
         del self.display_mutator  # really kill those listeners
 
@@ -85,7 +88,7 @@ class TreePanelController:
                 # Change in checkbox visibility means tearing out half the guts here and swapping them out...
                 logger.info(f'[{self.tree_id}] Rebuilding treeview!')
                 checkboxes_visible = not checkboxes_visible
-                self.context_listeners.disconnect_gtk_listeners()
+                self.user_input_listeners.disconnect_gtk_listeners()
                 self.treeview_meta = self.treeview_meta.but_with_checkboxes(checkboxes_visible)
                 self.display_store = DisplayStore(self.treeview_meta)
 
@@ -93,7 +96,7 @@ class TreePanelController:
                 new_treeview = tree_factory_templates.build_treeview(self.display_store, assets)
                 tree_factory_templates.replace_widget(self.tree_view, new_treeview)
                 self.tree_view = new_treeview
-                self.context_listeners.init()
+                self.user_input_listeners.init()
                 self.treeview_meta.init()
                 self._set_column_visibilities()
 
