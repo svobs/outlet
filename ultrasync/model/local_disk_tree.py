@@ -66,9 +66,6 @@ class LocalDiskTree(treelib.Tree):
         self.paste(nid=parent_of_subtree.uid, new_tree=sub_tree)
 
     def get_all_files_for_subtree(self, subtree_root: LocalFsIdentifier) -> List[FMeta]:
-        count_dirs = 0
-        count_added_from_cache = 0
-
         fmeta_list: List[FMeta] = []
         queue: Deque[DisplayNode] = deque()
         node = self.get_node(nid=subtree_root.uid)
@@ -76,12 +73,10 @@ class LocalDiskTree(treelib.Tree):
         while len(queue) > 0:
             node = queue.popleft()
             if node.is_dir():
-                count_dirs += 1
                 for child in self.children(node.uid):
                     queue.append(child)
             else:
                 assert isinstance(node, FMeta)
                 fmeta_list.append(node)
-                count_added_from_cache += 1
 
         return fmeta_list

@@ -74,7 +74,7 @@ class GDriveMasterCache:
         if not subtree_root.uid:
             # TODO: raise something
             return None
-        root: GoogNode = self.meta_master.get_item_for_id(subtree_root.uid)
+        root: GoogNode = self.meta_master.get_item_for_uid(subtree_root.uid)
         if not root:
             return None
 
@@ -140,7 +140,7 @@ class GDriveMasterCache:
 
         # Detect whether it's already in the cache
         is_update = False
-        existing_node = self.meta_master.get_item_for_id(node.uid)
+        existing_node = self.meta_master.get_item_for_uid(node.uid)
         if existing_node:
             if existing_node.goog_id != node.goog_id:
                 raise RuntimeError(f'Serious error: cache already contains UID {node.uid} but Google ID does not match '
@@ -204,7 +204,7 @@ class GDriveMasterCache:
         return cache_path
 
     def get_item_for_uid(self, uid):
-        return self.meta_master.get_item_for_id(uid)
+        return self.meta_master.get_item_for_uid(uid)
 
     def get_children(self, node: DisplayNode):
         return self.meta_master.get_children(node)
@@ -226,5 +226,4 @@ class GDriveMasterCache:
         return self.meta_master.get_all_ids_for_path(path)
 
     def get_all_goog_files_for_subtree(self, subtree_root: GDriveIdentifier) -> List[GoogFile]:
-        # TODO
-        raise NotImplementedError
+        return self.meta_master.get_all_files_for_subtree(subtree_root)

@@ -88,11 +88,11 @@ class GDriveSubtree(SubtreeSnapshot):
             return []
 
         if len(identifiers) == 1:
-            return [self._whole_tree.get_item_for_id(identifiers[0].uid)]
+            return [self._whole_tree.get_item_for_uid(identifiers[0].uid)]
 
         # In Google Drive it is legal to have two different files with the same path
         logger.warning(f'Found {len(identifiers)} identifiers for path: "{path}"). Returning the whole list')
-        return list(map(lambda x: self._whole_tree.get_item_for_id(x.uid), identifiers))
+        return list(map(lambda x: self._whole_tree.get_item_for_uid(x.uid), identifiers))
 
     def add_item(self, item):
         raise RuntimeError('Cannot do this from a subtree!')
