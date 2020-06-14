@@ -364,7 +364,10 @@ class TreeUserInputListeners:
             return True
         else:
             if item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-                self._context_menus_by_type[TREE_TYPE_LOCAL_DISK].call_xdg_open(file_path=item.full_path)
+                dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, full_path=item.full_path)
+                return True
+            elif item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
+                dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=item)
                 return True
         return False
 
@@ -379,20 +382,10 @@ class TreeUserInputListeners:
 
     def on_delete_key_pressed(self):
         if self.con.treeview_meta.can_modify_tree:
-            selection = self.con.tree_view.get_selection()
-            model, tree_paths = selection.get_selected_rows()
-            if len(tree_paths) == 1:
-                item: DisplayNode = self.con.display_store.get_node_data(tree_paths[0])
-                self._context_menus_by_type[item.node_identifier.tree_type].delete_dir_tree(item)
-                return True
-            elif len(tree_paths) > 1:
-                selected_items = []
-                for tree_path in tree_paths:
-                    item: DisplayNode = self.con.display_store.get_node_data(tree_path)
-                    selected_items.append(item)
-                    if not self._context_menus_by_type[item.node_identifier.tree_type].delete_dir_tree(item):
-                        # something went wrong if we got False. Stop.
-                        break
+            selected_node_list: List[DisplayNode] = self.con.get_multiple_selection()
+            if selected_node_list:
+                for selected_node in selected_node_list:
+                    dispatcher.send(signal=actions.DELETE_SUBTREE, sender=self.con.tree_id, node=selected_node)
                 return True
         return False
 
