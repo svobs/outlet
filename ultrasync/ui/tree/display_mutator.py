@@ -274,24 +274,25 @@ class DisplayMutator:
         if not self._enable_state_listeners:
             return
 
-        # TODO: this can be optimized to search only the paths of the ancestors
-        parent = self.con.get_tree().get_parent_for_item(node)
-
-        if logger.isEnabledFor(logging.DEBUG):
-            if parent:
-                text = ''
-            else:
-                text = '; Ignoring because its parent does not appear to be in this tree'
-            logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_ADDED_OR_UPDATED} with node {node}{text}')
-
-        if not parent:
-            return
-
-        parent_uid = parent.uid
-
-        existing_node: Optional[DisplayNode] = None
-
         with self._lock:
+
+            # TODO: this can be optimized to search only the paths of the ancestors
+            parent = self.con.get_tree().get_parent_for_item(node)
+
+            if logger.isEnabledFor(logging.DEBUG):
+                if parent:
+                    text = 'Received'
+                else:
+                    text = 'Ignoring'
+                logger.debug(f'[{self.con.tree_id}] {text} signal {actions.NODE_ADDED_OR_UPDATED} with node {node}')
+
+            if not parent:
+                return
+
+            parent_uid = parent.uid
+
+            existing_node: Optional[DisplayNode] = None
+
             if self.con.get_tree().root_uid == parent_uid:
                 # Top level? Special case. There will be no parent iter
                 parent_iter = None
@@ -301,7 +302,11 @@ class DisplayMutator:
             else:
                 parent_iter = self.con.display_store.find_in_tree(target_uid=parent_uid)
                 if not parent_iter:
-                    raise RuntimeError(f'[{self.con.tree_id}] Cannot add/update node: Could not find parent node in display tree: {parent}')
+                    # Probably node isn't expanded. Just skip
+                    assert parent_uid not in self.con.display_store.displayed_rows, \
+                        f'DisplayedRows ({self.con.display_store.displayed_rows}) contains UID ({parent_uid})!'
+                    logger.debug(f'[{self.con.tree_id}] Will not add/update node: Could not find parent node in display tree: {parent}')
+                    return
 
                 # Check whether the "added node" already exists:
                 child_iter = self.con.display_store.find_in_children(node.uid, parent_iter)
@@ -325,24 +330,26 @@ class DisplayMutator:
         if not self._enable_state_listeners:
             return
 
-        in_this_tree = self.con.display_store.displayed_rows.get(node.uid, None)
-        if logger.isEnabledFor(logging.DEBUG):
-            if in_this_tree:
-                text = ''
-            else:
-                text = '; Ignoring because node does not appear to be in this tree'
-            logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_REMOVED} with node {node.node_identifier}{text}')
-
-        if not in_this_tree:
-            return
-
         with self._lock:
+            in_this_tree = self.con.display_store.displayed_rows.get(node.uid, None)
+            if logger.isEnabledFor(logging.DEBUG):
+                if in_this_tree:
+                    text = 'Received'
+                else:
+                    text = 'Ignoring'
+                logger.debug(f'[{self.con.tree_id}] {text} signal {actions.NODE_REMOVED} with node {node.node_identifier}')
+
+            if not in_this_tree:
+                return
+
             # TODO: this can be optimized to search only the paths of the ancestors
             tree_iter = self.con.display_store.find_in_tree(target_uid=node.uid)
             if not tree_iter:
-                raise RuntimeError(f'Cannot remove node: Could not find node in display tree: {node}')
+                raise RuntimeError(f'[{self.con.tree_id}] Cannot remove node: Could not find node in display tree: {node}')
 
+            logger.debug(f'[{self.con.tree_id}] Removing node from display store: {node.uid}')
             self.con.display_store.model.remove(tree_iter)
+            logger.debug(f'[{self.con.tree_id}] Node removed: {node.uid}')
 
     def _on_refresh_all_node_stats(self, sender: str):
         def refresh_node(tree_iter):
@@ -373,8 +380,8 @@ class DisplayMutator:
             if type(node_data) == CategoryNode:
                 is_expand = self.con.treeview_meta.is_category_node_expanded(node_data)
                 if is_expand:
-                    tree_path = self.con.display_store.model.get_path(tree_iter)
                     logger.debug(f'[{self.con.tree_id}] Expanding row: {node_data.name} in tree {self.con.tree_id}')
+                    tree_path = self.con.display_store.model.get_path(tree_iter)
                     self.con.tree_view.expand_row(path=tree_path, open_all=False)
 
             tree_iter = self.con.display_store.model.iter_next(tree_iter)

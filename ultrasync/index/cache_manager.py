@@ -53,8 +53,10 @@ class CacheInfoByType(TwoLevelDict):
 #    CLASS CacheManager
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-# -> only the "rea1" nodes should go in the cache. Other nodes (e.g. 'planning nodes') should not
 class CacheManager:
+    """
+    This is the central source of truth for the application (or attempts to be as much as possible).
+    """
     def __init__(self, application):
         self.application = application
 

@@ -6,9 +6,7 @@ from typing import List, Optional
 import gi
 from pydispatch import dispatcher
 
-import file_util
 from constants import GDRIVE_PATH_PREFIX, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from gdrive.client import GDriveClient
 from model.display_node import CategoryNode, DisplayNode
 from model.goog_node import GoogFile, GoogNode
 from model.planning_node import FileDecoratorNode
@@ -36,12 +34,31 @@ class TreeContextMenu:
         label = item.get_child()
         display = GObject.markup_escape_text(f'{len(selected_items)} items selected')
         label.set_markup(f'<i>{display}</i>')
+        item.set_sensitive(False)
         menu.append(item)
 
         is_localdisk = len(selected_items) > 0 and selected_items[0].node_identifier.tree_type == TREE_TYPE_LOCAL_DISK
         if is_localdisk:
             item = Gtk.MenuItem(label=f'Use EXIFTool on dirs')
-            item.connect('activate', self.send_signal, signal=actions.CALL_EXIFTOOL_LIST, node_list=selected_items)
+            item.connect('activate', self.send_signal, actions.CALL_EXIFTOOL_LIST, {'node_list': selected_items})
+            menu.append(item)
+
+        items_to_delete_local: List[DisplayNode] = []
+        items_to_delete_gdrive: List[DisplayNode] = []
+        for selected_item in selected_items:
+            if selected_item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK and TreeContextMenu.file_exists(selected_item):
+                items_to_delete_local.append(selected_item)
+            elif selected_item.node_identifier.tree_type == TREE_TYPE_GDRIVE and TreeContextMenu.file_exists(selected_item):
+                items_to_delete_gdrive.append(selected_item)
+
+        if len(items_to_delete_local) > 0:
+            item = Gtk.MenuItem(label=f'Delete {len(items_to_delete_local)} items from local disk')
+            item.connect('activate', self.send_signal, actions.DELETE_SUBTREE, {'node_list': items_to_delete_local})
+            menu.append(item)
+
+        if len(items_to_delete_gdrive) > 0:
+            item = Gtk.MenuItem(label=f'Delete {len(items_to_delete_gdrive)} items from Google Drive')
+            item.connect('activate', self.send_signal, actions.DELETE_SUBTREE, {'node_list': items_to_delete_gdrive})
             menu.append(item)
 
         menu.show_all()

@@ -16,6 +16,10 @@ class CommandExecutor:
         # TODO: clean staging dir at startup
 
     def enqueue(self, command_plan: CommandPlan):
+        # TODO: expand this framework
+
+        # At any given time... TODO
+
         self.application.task_runner.enqueue(self._execute_all, command_plan)
 
     def _execute_all(self, command_plan: CommandPlan):

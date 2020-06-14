@@ -124,20 +124,31 @@ class TreeActions:
     def _delete_single_file(self, sender, node: DisplayNode):
         self._delete_subtree(sender, node)
 
-    def _delete_subtree(self, sender, node: DisplayNode):
-        logger.debug(f'Setting up delete for node: {node.node_identifier}')
+    def _delete_subtree(self, sender, node: DisplayNode = None, node_list: List[DisplayNode] = None):
+        if not node_list and node:
+            node_list = [node]
+        logger.debug(f'Setting up delete for {len(node_list)} nodes')
 
-        if node.is_dir():
-            # Add all its descendants. Assume that we came from a display tree which may not have all its children.
-            # Need to look things up in the central cache. We will focus on deleting files, and will delete empty parent dirs as needed.
-            subtree_file_list: List[DisplayNode] = self.con.parent_win.application.cache_manager.get_all_files_for_subtree(node.node_identifier)
-            for file in subtree_file_list:
-                # mark for deletion
-                file.node_identifier.category = Category.Deleted
-        else:
-            node.node_identifier.category = Category.Deleted
-            subtree_file_list = [node]
+        file_dict = {}
+        for node_to_delete in node_list:
+            if node_to_delete.is_dir():
+                # Add all its descendants. Assume that we came from a display tree which may not have all its children.
+                # Need to look things up in the central cache. We will focus on deleting files, and will delete empty parent dirs as needed.
+                subtree_file_list: List[DisplayNode] = self.con.parent_win.application.cache_manager.get_all_files_for_subtree(
+                    node_to_delete.node_identifier)
+                for file in subtree_file_list:
+                    # mark for deletion
+                    file.node_identifier.category = Category.Deleted
+            else:
+                node_to_delete.node_identifier.category = Category.Deleted
+                subtree_file_list = [node_to_delete]
+
+            # remove duplicates
+            for f in subtree_file_list:
+                file_dict[f.uid] = f
+
+        total_list = list(file_dict.values())
         builder = CommandBuilder(self.con.parent_win.application)
-        command_plan = builder.build_command_plan(delete_list=subtree_file_list)
+        command_plan = builder.build_command_plan(delete_list=total_list)
         # This should fire listeners which ultimately populate the tree:
         self.con.parent_win.application.command_executor.enqueue(command_plan)

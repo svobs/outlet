@@ -230,19 +230,28 @@ class DeleteLocalFileCommand(Command):
 
     def execute(self, context: CommandContext):
         try:
+            deleted_nodes_list = []
             logger.debug(f'RM: tgt={self._model.full_path}')
             file_util.delete_file(self._model.full_path, self.to_trash)
+            deleted_nodes_list.append(self._model)
 
             if self.delete_empty_parent:
                 parent_dir_path: str = str(pathlib.Path(self._model.full_path).parent)
-                if os.path.isdir(parent_dir_path) and len(os.listdir(parent_dir_path)) == 0:
+                # keep going up the dir tree, deleting empty parents
+                while os.path.isdir(parent_dir_path) and len(os.listdir(parent_dir_path)) == 0:
                     if self.to_trash:
                         logger.warning(f'MoveEmptyDirToTrash not implemented!')
                     else:
                         os.rmdir(parent_dir_path)
                         logger.info(f'Removed empty dir: "{parent_dir_path}"')
+                        dir_node = context.cache_manager.get_for_local_path(parent_dir_path)
+                        if dir_node:
+                            deleted_nodes_list.append(dir_node)
+                    parent_dir_path = str(pathlib.Path(parent_dir_path).parent)
 
-            context.cache_manager.remove_node(self._model, self.to_trash)
+            logger.debug(f'Deleted {len(deleted_nodes_list)} nodes: notifying cacheman')
+            for deleted_node in deleted_nodes_list:
+                context.cache_manager.remove_node(deleted_node, self.to_trash)
 
             self._status = CommandStatus.COMPLETED_OK
         except Exception as err:
