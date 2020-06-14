@@ -151,14 +151,14 @@ class GDriveWholeTree:
 
         return node_list
 
-    def get_all_ids_for_path(self, path: str) -> List[NodeIdentifier]:
+    def get_all_identifiers_for_path(self, path: str) -> List[NodeIdentifier]:
         """Try to match the given file-system-like path, mapping the root of this tree to the first segment of the path.
         Since GDrive allows for multiple parents per child, it is possible for multiple matches to occur. This
         returns them all.
         NOTE: returns FileNotFoundError if not even one ID could be matched
         """
         if SUPER_DEBUG:
-            logger.debug(f'get_all_ids_for_path() requested for path: "{path}"')
+            logger.debug(f'get_all_identifiers_for_path() requested for path: "{path}"')
         if path == constants.ROOT_PATH:
             return [NodeIdentifierFactory.get_gdrive_root_constant_identifier()]
         name_segments = file_util.split_path(path)
@@ -194,7 +194,7 @@ class GDriveWholeTree:
                     break
                 matches: List[GoogNode] = [x for x in children if x.name.lower() == name_seg.lower()]
                 if SUPER_DEBUG and len(matches) > 1:
-                    logger.info(f'get_all_ids_for_path(): Multiple child IDs ({len(matches)}) found for parent ID "'
+                    logger.info(f'get_all_identifiers_for_path(): Multiple child IDs ({len(matches)}) found for parent ID "'
                                 f'{current_id}", path_so_far "{path_so_far}"')
                     for num, match in enumerate(matches):
                         logger.info(f'Match {num}: {match}')

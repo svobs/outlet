@@ -6,7 +6,9 @@ import subprocess
 from pydispatch import dispatcher
 
 import file_util
+from command.command_builder import CommandBuilder
 from gdrive.client import GDriveClient
+from model.category import Category
 from model.display_node import DisplayNode
 from model.goog_node import GoogFile
 from ui import actions
@@ -42,7 +44,7 @@ class TreeActions:
 
     def _call_exiftool_list(self, sender, node_list: List[DisplayNode]):
         for item in node_list:
-            self._call_exiftool(item.full_path)
+            self._call_exiftool(sender, item.full_path)
 
     def _call_exiftool(self, sender, full_path):
         """exiftool -AllDates="2001:01:01 12:00:00" *
@@ -120,15 +122,22 @@ class TreeActions:
         self.con.display_mutator.expand_all(tree_path)
 
     def _delete_single_file(self, sender, node: DisplayNode):
-        logger.debug(f'Deleting single file: {node.node_identifier}')
-        # # "Left tree" here is the source tree, and "right tree" is the dst tree:
-        # change_maker = ChangeMaker(left_tree=self.con.get_tree(), right_tree=self.con.get_tree(),
-        #                            application=self.con.parent_win.application)
-        # change_maker.copy_nodes_left_to_right(self._drag_data.nodes, dest_node)
-        # builder = CommandBuilder(self.con.parent_win.application)
-        # command_plan = builder.build_command_plan(change_tree=change_maker.change_tree_right)
-        # # This should fire listeners which ultimately populate the tree:
-        # self.con.parent_win.application.command_executor.enqueue(command_plan)
+        self._delete_subtree(sender, node)
 
     def _delete_subtree(self, sender, node: DisplayNode):
-        pass
+        logger.debug(f'Setting up delete for node: {node.node_identifier}')
+
+        if node.is_dir():
+            # Add all its descendants. Assume that we came from a display tree which may not have all its children.
+            # Need to look things up in the central cache. We will focus on deleting files, and will delete empty parent dirs as needed.
+            subtree_file_list: List[DisplayNode] = self.con.parent_win.application.cache_manager.get_all_files_for_subtree(node.node_identifier)
+            for file in subtree_file_list:
+                # mark for deletion
+                file.node_identifier.category = Category.Deleted
+        else:
+            node.node_identifier.category = Category.Deleted
+            subtree_file_list = [node]
+        builder = CommandBuilder(self.con.parent_win.application)
+        command_plan = builder.build_command_plan(delete_list=subtree_file_list)
+        # This should fire listeners which ultimately populate the tree:
+        self.con.parent_win.application.command_executor.enqueue(command_plan)

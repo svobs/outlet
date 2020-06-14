@@ -16,7 +16,7 @@ from index.uid_generator import ROOT_UID
 from model.category import Category
 from model.display_node import DisplayNode
 from model.goog_node import FolderToAdd
-from model.planning_node import FileToAdd, FileToMove, FileToUpdate, LocalDirToAdd
+from model.planning_node import FileToAdd, FileToMove, FileToUpdate, LocalDirToAdd, PlanningNode
 from model.subtree_snapshot import SubtreeSnapshot
 
 
@@ -25,32 +25,45 @@ class CommandBuilder:
         self._uid_generator = application.uid_generator
         self._cache_manager = application.cache_manager
 
-    def build_command_plan(self, change_tree: SubtreeSnapshot) -> CommandPlan:
+    def build_command_plan(self, change_tree: SubtreeSnapshot = None, delete_list: List[DisplayNode] = None) -> CommandPlan:
+        """Builds a dependency tree consisting of commands, each of which correspond to one of the relevant nodes in the
+        change tree, or alternatively, the delete_list"""
         command_tree = treelib.Tree()
         # As usual, root is not used for much. All children of root have no dependencies:
         cmd_root = command_tree.create_node(identifier=ROOT_UID, parent=None, data=None)
 
-        stack: Deque[Tuple[treelib.Node, DisplayNode]] = collections.deque()
-        src_children: Iterable[DisplayNode] = change_tree.get_children_for_root()
-        for child in src_children:
-            stack.append((cmd_root, child))
-
-        while len(stack) > 0:
-            dst_parent, src_node = stack.popleft()
-
-            # Don't even bother to create commands for display-only nodes such as DirNodes, etc
-            if not src_node.is_just_fluff():
-                cmd: Command = _make_command(src_node, self._uid_generator)
-                assert cmd is not None
-                command_tree.add_node(node=cmd, parent=dst_parent)
-
-                if isinstance(cmd, CreateGDriveFolderCommand) or isinstance(cmd, CreatLocalDirCommand):
-                    # added folder creates extra level of dependency:
-                    dst_parent = cmd
-
-            src_children = change_tree.get_children(src_node)
+        if change_tree:
+            stack: Deque[Tuple[treelib.Node, DisplayNode]] = collections.deque()
+            src_children: Iterable[DisplayNode] = change_tree.get_children_for_root()
             for child in src_children:
-                stack.append((dst_parent, child))
+                stack.append((cmd_root, child))
+
+            while len(stack) > 0:
+                dst_parent, src_node = stack.popleft()
+
+                # Don't even bother to create commands for display-only nodes such as DirNodes, etc
+                if not src_node.is_just_fluff():
+                    cmd: Command = _make_command(src_node, self._uid_generator)
+                    assert cmd is not None
+                    command_tree.add_node(node=cmd, parent=dst_parent)
+
+                    if isinstance(cmd, CreateGDriveFolderCommand) or isinstance(cmd, CreatLocalDirCommand):
+                        # added folder creates extra level of dependency:
+                        dst_parent = cmd
+
+                src_children = change_tree.get_children(src_node)
+                for child in src_children:
+                    stack.append((dst_parent, child))
+        elif delete_list:
+            logger.debug(f'Building command plan from delete_list of size {len(delete_list)}')
+            # Deletes are much simpler than other change types. We delete files one by one, with no dependencies needed
+            for node in delete_list:
+                assert not node.is_just_fluff() and not isinstance(node, PlanningNode) and node.category == Category.Deleted
+                cmd: Command = _make_command(node, self._uid_generator)
+                assert cmd is not None
+                command_tree.add_node(node=cmd, parent=cmd_root)
+        else:
+            raise RuntimeError('Neither change_tree nor delete_list specified!')
 
         return CommandPlan(self._uid_generator.get_new_uid(), command_tree)
 

@@ -83,7 +83,7 @@ class GDriveSubtree(SubtreeSnapshot):
         if not self.in_this_subtree(path):
             raise RuntimeError(f'Not in this tree: "{path}" (tree root: {self.root_path}')
         try:
-            identifiers = self._whole_tree.get_all_ids_for_path(path)
+            identifiers = self._whole_tree.get_all_identifiers_for_path(path)
         except GDriveItemNotFoundError:
             return []
 

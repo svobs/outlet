@@ -223,7 +223,7 @@ class GDriveMasterCache:
     def get_all_for_path(self, path: str) -> List[NodeIdentifier]:
         if not self.meta_master:
             raise CacheNotLoadedError()
-        return self.meta_master.get_all_ids_for_path(path)
+        return self.meta_master.get_all_identifiers_for_path(path)
 
     def get_all_goog_files_for_subtree(self, subtree_root: GDriveIdentifier) -> List[GoogFile]:
         return self.meta_master.get_all_files_for_subtree(subtree_root)
