@@ -437,7 +437,7 @@ class GDriveClient:
 
         logger.debug(f'{stopwatch_retrieval} Query returned {item_count} files')
 
-        if logger.isEnabledFor(logging.DEBUG):
+        if logger.isEnabledFor(logging.DEBUG) and item_count > 0:
             logger.debug(f'Found {len(owner_dict)} distinct owners')
             for owner_id, owner in owner_dict.items():
                 logger.debug(f'Found owner: id={owner_id} name={owner[0]} email={owner[1]} is_me={owner[2]}')
@@ -467,11 +467,10 @@ class GDriveClient:
     def _get_meta_for_dirs(self, query: str, fields: str,
                            initial_page_token: Optional[str], sync_ts: int,
                            uid_generator: UidGenerator, observer: MetaObserver):
+        """Generic version of request for GoogFolders"""
 
         # Google Drive only; not app data or Google Photos:
         spaces = 'drive'
-
-        logger.info('Getting list of ALL directories in Google Drive...')
 
         def request():
             m = f'Sending request for dirs, page {request.page_count}...'
@@ -534,7 +533,7 @@ class GDriveClient:
 
     def download_file(self, file_id: str, dest_path: str):
         """Download a single file based on Google ID and destination path"""
-        logger.debug(f'Downloading GDrive file_id="{file_id}" to "{dest_path}"')
+        logger.debug(f'Downloading GDrive goog_id="{file_id}" to "{dest_path}"')
 
         # only set this to True if you need to. Otherwise it will cause the download to fail...
         download_abusive_file = False
@@ -552,7 +551,7 @@ class GDriveClient:
                 fh.seek(0)
                 f.write(fh.read())
 
-            logger.debug(f'Download complete: "{dest_path}"')
+            logger.info(f'GDrive download successful: dest="{dest_path}"')
 
         _try_repeatedly(download)
 
@@ -577,7 +576,7 @@ class GDriveClient:
         file_meta = _try_repeatedly(request)
         goog_file = _convert_to_goog_file(file_meta, uid)
 
-        logger.debug(f'File uploaded successfully) Returned id={goog_file.goog_id}')
+        logger.info(f'File uploaded successfully) Returned name="{goog_file.name}", version="{goog_file.version}", goog_id="{goog_file.goog_id}",')
 
         return goog_file
 
@@ -598,7 +597,7 @@ class GDriveClient:
         updated_file_meta = _try_repeatedly(request)
         goog_file: GoogFile = _convert_to_goog_file(updated_file_meta, uid)
 
-        logger.debug(f'File uploaded successfully) Returned version={goog_file.version} for id={goog_file.goog_id}')
+        logger.info(f'File update uploaded successfully) Returned name="{goog_file.name}", version="{goog_file.version}", goog_id="{goog_file.goog_id}",')
 
         return goog_file
 

@@ -524,6 +524,7 @@ class CreateGDriveFolderCommand(Command):
                 goog_node.uid = self._model.uid
             else:
                 goog_node = context.gdrive_client.create_folder(name=self._model.name, parent_goog_ids=[parent_goog_id], uid=self._model.uid)
+                logger.info(f'Created GDrive folder successfully: uid={goog_node.uid} name="{goog_node.name}", goog_id="{goog_node.goog_id}"')
             assert goog_node.is_dir()
             # Need to add these manually:
             goog_node.parent_uids = self._model.parent_uids
