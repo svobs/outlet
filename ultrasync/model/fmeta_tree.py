@@ -43,15 +43,8 @@ class FMetaTree(SubtreeSnapshot):
         assert item.full_path, f'No full_path for item: {item}'
         parent_path: str = str(pathlib.Path(item.full_path).parent)
         if parent_path.startswith(self.root_path):
-            return self.cache_manager.get_for_local_path(parent_path)
+            return self.cache_manager.get_node_for_local_path(parent_path)
         return None
-
-    def get_all(self) -> List[FMeta]:
-        """
-        Gets the complete set of all unique FMetas from this FMetaTree.
-        Returns: List of FMetas from list of unique paths
-        """
-        return self.cache_manager.get_all_files_for_subtree(self.node_identifier)
 
     def get_children_for_root(self) -> Iterable[DisplayNode]:
         return self.cache_manager.get_children(self.root_node)
@@ -65,7 +58,7 @@ class FMetaTree(SubtreeSnapshot):
         return item.full_path
 
     def get_for_path(self, path: str, include_ignored=False) -> List[FMeta]:
-        item = self.cache_manager.get_for_local_path(path)
+        item = self.cache_manager.get_node_for_local_path(path)
         if item:
             if item.full_path.startswith(self.root_path):
                 return [item]
@@ -75,7 +68,8 @@ class FMetaTree(SubtreeSnapshot):
         md5_set_stopwatch = Stopwatch()
 
         md5_dict: Md5BeforePathDict = Md5BeforePathDict()
-        for item in self.get_all():
+        files_list, dir_list = self.cache_manager.get_all_files_and_dirs_for_subtree(self.node_identifier)
+        for item in files_list:
             if item.md5:
                 md5_dict.put(item)
 

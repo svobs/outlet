@@ -3,7 +3,7 @@ import logging
 import os
 import threading
 import time
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from pydispatch import dispatcher
 
@@ -130,8 +130,13 @@ class CacheManager:
                     unique_cache_count += 1
 
                 # Special handling to local-type caches: ignore any UID we find in the registry and bring it in line with what's in memory:
+                # TODO: delete this once we are stable enough to assume this won't be necessary. It doesn't really buy us anything
+                # (except to tell us we did something wrong)
                 if info.subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
-                    new_uid = self._local_disk_cache.get_uid_for_path(info.subtree_root.full_path)
+                    new_uid = self._local_disk_cache.get_uid_for_path(info.subtree_root.full_path, info.subtree_root.uid)
+                    if new_uid != info.subtree_root.uid:
+                        logger.warning(f'Requested UID "{info.subtree_root.uid}" is invalid for given path "{info.subtree_root.full_path}";'
+                                       f' changing it to "{new_uid}"')
                     info.subtree_root.uid = new_uid
 
                 self.caches_by_type.put(info)
@@ -146,7 +151,6 @@ class CacheManager:
                 existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_GDRIVE).values())
                 assert len(existing_caches) <= 1
 
-                # FIXME: this will cause a local cache to be loaded before GDrive cache. Handle global UIDs better
                 local_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_LOCAL_DISK).values())
                 consolidated_local_caches, registry_needs_update = self._local_disk_cache.consolidate_local_caches(local_caches, ID_GLOBAL_CACHE)
                 existing_caches += consolidated_local_caches
@@ -337,7 +341,7 @@ class CacheManager:
     def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
         return self._local_disk_cache.get_uid_for_path(path, uid_suggestion)
 
-    def get_for_local_path(self, path: str) -> DisplayNode:
+    def get_node_for_local_path(self, path: str) -> DisplayNode:
         uid = self.get_uid_for_path(path)
         return self._local_disk_cache.get_item(uid)
 
@@ -366,10 +370,10 @@ class CacheManager:
         else:
             raise RuntimeError(f'Unknown tree type: {item.node_identifier.tree_type} for {item}')
 
-    def get_all_files_for_subtree(self, subtree_root: NodeIdentifier) -> List[DisplayNode]:
+    def get_all_files_and_dirs_for_subtree(self, subtree_root: NodeIdentifier) -> Tuple[List[DisplayNode], List[DisplayNode]]:
         if subtree_root.tree_type == TREE_TYPE_GDRIVE:
-            return self._gdrive_cache.get_all_goog_files_for_subtree(subtree_root)
+            return self._gdrive_cache.get_all_goog_files_and_folders_for_subtree(subtree_root)
         elif subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
-            return self._local_disk_cache.dir_tree.get_all_files_for_subtree(subtree_root)
+            return self._local_disk_cache.dir_tree.get_all_files_and_dirs_for_subtree(subtree_root)
         else:
             raise RuntimeError(f'Unknown tree type: {subtree_root.tree_type} for {subtree_root}')

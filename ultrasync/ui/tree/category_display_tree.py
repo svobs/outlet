@@ -285,9 +285,6 @@ class CategoryDisplayTree(SubtreeSnapshot):
     def create_identifier(cls, full_path, uid, category) -> NodeIdentifier:
         raise NotImplementedError
 
-    def get_all(self) -> List[DisplayNode]:
-        raise NotImplementedError
-
     def get_relative_path_for_item(self, item):
         raise NotImplementedError
 

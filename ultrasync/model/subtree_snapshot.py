@@ -70,11 +70,6 @@ class SubtreeSnapshot(ABC):
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     @abstractmethod
-    def get_all(self) -> List[DisplayNode]:
-        """Returns the complete set of all unique items from this subtree."""
-        return []
-
-    @abstractmethod
     def get_children_for_root(self) -> Iterable[DisplayNode]:
         pass
 

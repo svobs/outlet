@@ -11,7 +11,7 @@ from index.error import GDriveItemNotFoundError
 from index.uid_generator import UID
 from model.display_node import DisplayNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier, NodeIdentifierFactory
-from model.goog_node import GoogFile, GoogNode
+from model.goog_node import GoogFile, GoogFolder, GoogNode
 from model.planning_node import PlanningNode
 from stopwatch_sec import Stopwatch
 from ui import actions
@@ -129,12 +129,9 @@ class GDriveWholeTree:
             self.first_parent_dict[parent_uid] = child_list
         child_list.append(item)
 
-    def get_all(self) -> ValuesView[GoogNode]:
-        """Returns the complete set of all unique items from this subtree."""
-        return self.id_dict.values()
-
-    def get_all_files_for_subtree(self, subtree_root: GDriveIdentifier) -> List[GoogFile]:
-        node_list: List[GoogFile] = []
+    def get_all_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GoogFile], List[GoogFolder]]:
+        file_list: List[GoogFile] = []
+        folder_list: List[GoogFolder] = []
         queue: Deque[GoogNode] = deque()
         node = self.get_item_for_uid(uid=subtree_root.uid)
         if node:
@@ -143,13 +140,15 @@ class GDriveWholeTree:
         while len(queue) > 0:
             node: GoogNode = queue.popleft()
             if node.is_dir():
+                assert isinstance(node, GoogFolder)
+                folder_list.append(node)
                 for child in self.get_children(node):
                     queue.append(child)
             else:
                 assert isinstance(node, GoogFile)
-                node_list.append(node)
+                file_list.append(node)
 
-        return node_list
+        return file_list, folder_list
 
     def get_all_identifiers_for_path(self, path: str) -> List[NodeIdentifier]:
         """Try to match the given file-system-like path, mapping the root of this tree to the first segment of the path.

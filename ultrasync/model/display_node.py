@@ -220,6 +220,7 @@ class DirNode(DisplayNode):
 
     @classmethod
     def is_just_fluff(cls) -> bool:
+        # FIXME
         return True
 
     @classmethod

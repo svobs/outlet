@@ -102,6 +102,14 @@ class MetaDatabase:
         if not self.is_table(table):
             self.create_table(table, commit)
 
+    def upsert_one(self, table, row: Tuple, commit=True):
+        sql = self.build_upsert(table)
+        logger.debug(f"Upserting one tuple into table {table['name']}")
+        self.conn.execute(sql, row)
+        if commit:
+            logger.debug('Committing!')
+            self.conn.commit()
+
     def insert_one(self, table, row: Tuple, commit=True):
         sql = self.build_insert(table)
         logger.debug(f"Inserting one tuple into table {table['name']}")

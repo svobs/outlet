@@ -101,7 +101,7 @@ class FMetaDiskScanner(FileTreeRecurser):
         return total
 
     def handle_file(self, file_path: str, category):
-        stale_fmeta: FMeta = self.cache_manager.get_for_local_path(file_path)
+        stale_fmeta: FMeta = self.cache_manager.get_node_for_local_path(file_path)
 
         if stale_fmeta:
             if meta_matches(file_path, stale_fmeta):

@@ -71,11 +71,6 @@ class GDriveSubtree(SubtreeSnapshot):
     def get_children(self, node: GoogNode) -> List[GoogNode]:
         return self._whole_tree.get_children(node=node)
 
-    def get_all(self) -> ValuesView[GoogNode]:
-        """Returns the complete set of all unique items from this subtree."""
-        # Should remove this method from the parent class at some point
-        raise RuntimeError('You should never do this for a GDriveSubtree!')
-
     def get_full_path_for_item(self, item: GoogNode) -> List[str]:
         return self._whole_tree.get_full_path_for_item(item)
 

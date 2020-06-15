@@ -134,8 +134,9 @@ class TreeActions:
             if node_to_delete.is_dir():
                 # Add all its descendants. Assume that we came from a display tree which may not have all its children.
                 # Need to look things up in the central cache. We will focus on deleting files, and will delete empty parent dirs as needed.
-                subtree_file_list: List[DisplayNode] = self.con.parent_win.application.cache_manager.get_all_files_for_subtree(
+                subtree_file_list, dir_list = self.con.parent_win.application.cache_manager.get_all_files_and_dirs_for_subtree(
                     node_to_delete.node_identifier)
+                # FIXME: we need to incorporate directories into delete. This means building a tree and changing everything...
                 for file in subtree_file_list:
                     # mark for deletion
                     file.node_identifier.category = Category.Deleted

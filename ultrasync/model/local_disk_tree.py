@@ -1,6 +1,6 @@
 import os
 from collections import deque
-from typing import Deque, List
+from typing import Deque, List, Tuple
 import logging
 
 import treelib
@@ -65,18 +65,22 @@ class LocalDiskTree(treelib.Tree):
         logger.debug(f'Removed {count_removed} nodes from super-tree, to be replaced with {len(sub_tree)} nodes')
         self.paste(nid=parent_of_subtree.uid, new_tree=sub_tree)
 
-    def get_all_files_for_subtree(self, subtree_root: LocalFsIdentifier) -> List[FMeta]:
-        fmeta_list: List[FMeta] = []
+    def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalFsIdentifier) -> Tuple[List[FMeta], List[DirNode]]:
+        file_list: List[FMeta] = []
+        dir_list: List[DirNode] = []
         queue: Deque[DisplayNode] = deque()
         node = self.get_node(nid=subtree_root.uid)
         queue.append(node)
         while len(queue) > 0:
             node = queue.popleft()
             if node.is_dir():
+                assert isinstance(node, DirNode)
+                dir_list.append(node)
                 for child in self.children(node.uid):
                     queue.append(child)
             else:
                 assert isinstance(node, FMeta)
-                fmeta_list.append(node)
+                file_list.append(node)
 
-        return fmeta_list
+        logger.debug(f'Returning {len(file_list)} files and {len(dir_list)} dirs')
+        return file_list, dir_list

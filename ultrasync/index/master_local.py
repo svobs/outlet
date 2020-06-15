@@ -76,7 +76,7 @@ class LocalDiskMasterCache:
 
         # Load cache from file, and update with any local FS changes found:
         with FMetaDatabase(cache_info.cache_location, self.application) as fmeta_disk_cache:
-            if not fmeta_disk_cache.has_local_files():
+            if not fmeta_disk_cache.has_local_files() and not fmeta_disk_cache.has_local_dirs():
                 logger.debug(f'No meta found in cache ({cache_info.cache_location}) - will skip loading it')
                 return None
 
@@ -91,23 +91,34 @@ class LocalDiskMasterCache:
             root_node = DirNode(node_identifier=root_node_identifer)
             tree.add_node(node=root_node, parent=None)
 
-            db_file_changes: List[FMeta] = fmeta_disk_cache.get_local_files()
-            if len(db_file_changes) == 0:
-                logger.debug('No data found in disk cache')
+            dir_list: List[DirNode] = fmeta_disk_cache.get_local_dirs()
+            if len(dir_list) == 0:
+                logger.debug('No dirs found in disk cache')
 
-            count_from_disk = 0
-            for change in db_file_changes:
+            # Dirs first
+            for dir_node in dir_list:
+                existing = tree.get_node(dir_node.identifier)
+                # Overwrite older changes for the same path:
+                if not existing:
+                    tree.add_to_tree(dir_node)
+                else:
+                    assert existing.full_path == dir_node.full_path, f'Existing={existing}, New={dir_node}'
+
+            file_list: List[FMeta] = fmeta_disk_cache.get_local_files()
+            if len(file_list) == 0:
+                logger.debug('No files found in disk cache')
+
+            for change in file_list:
                 existing = tree.get_node(change.identifier)
                 # Overwrite older changes for the same path:
                 if not existing:
                     tree.add_to_tree(change)
-                    count_from_disk += 1
                 elif existing.sync_ts < change.sync_ts:
                     tree.remove_node(change.identifier)
                     tree.add_to_tree(change)
 
             # logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
-            logger.debug(f'{stopwatch_load} [{tree_id}] Finished loading {count_from_disk} items')
+            logger.debug(f'{stopwatch_load} [{tree_id}] Finished loading {len(file_list)} files and {len(dir_list)} dirs from disk')
 
             cache_info.is_loaded = True
             return tree
@@ -115,15 +126,16 @@ class LocalDiskMasterCache:
     def _save_subtree_to_disk(self, cache_info: PersistedCacheInfo, tree_id):
         assert isinstance(cache_info.subtree_root, LocalFsIdentifier)
         with self._struct_lock:
-            to_insert: List[FMeta] = self.dir_tree.get_all_files_for_subtree(cache_info.subtree_root)
+            file_list, dir_list = self.dir_tree.get_all_files_and_dirs_for_subtree(cache_info.subtree_root)
 
         stopwatch_write_cache = Stopwatch()
         with FMetaDatabase(cache_info.cache_location, self.application) as fmeta_disk_cache:
             # Update cache:
-            fmeta_disk_cache.insert_local_files(to_insert, overwrite=True)
+            fmeta_disk_cache.insert_local_files(file_list, overwrite=True, commit=False)
+            fmeta_disk_cache.insert_local_dirs(dir_list, overwrite=True, commit=True)
 
         cache_info.needs_save = False
-        logger.info(f'[{tree_id}] {stopwatch_write_cache} Wrote {str(len(to_insert))} FMetas to "{cache_info.cache_location}"')
+        logger.info(f'[{tree_id}] {stopwatch_write_cache} Wrote {len(file_list)} files and {len(dir_list)} dirs to "{cache_info.cache_location}"')
 
     def _resync_with_file_system(self, subtree_root: LocalFsIdentifier, tree_id: str):
         # Scan directory tree and update where needed.
@@ -148,11 +160,10 @@ class LocalDiskMasterCache:
             root_node = DirNode(subtree_root)
             return NullSubtree(root_node)
 
-        # NOTE: because UIDs for local files change each time the app loads, we need to overwrite any stale UID which may be requested.
         existing_uid = subtree_root.uid
-        new_uid = self.get_uid_for_path(subtree_root.full_path)
+        new_uid = self.get_uid_for_path(subtree_root.full_path, existing_uid)
         if existing_uid != new_uid:
-            logger.debug(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
+            logger.warning(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
         subtree_root.uid = new_uid
 
         # If we have already loaded this subtree as part of a larger cache, use that:
@@ -175,6 +186,8 @@ class LocalDiskMasterCache:
 
         # Update UID, assuming this is a new run and it has gone stale
         uid = self.get_uid_for_path(cache_info.subtree_root.full_path, cache_info.subtree_root.uid)
+        if cache_info.subtree_root.uid != uid:
+            logger.warning(f'Requested UID "{cache_info.subtree_root.uid}" is invalid for given path; changing it to "{uid}"')
         cache_info.subtree_root.uid = uid
 
         assert isinstance(cache_info.subtree_root, LocalFsIdentifier)
@@ -325,16 +338,15 @@ class LocalDiskMasterCache:
             return self._get_uid_for_path(path, uid_suggestion)
 
     def _get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
-        if path is not ROOT_PATH and path.endswith('/'):
-            # directories ending in '/' are logically equivalent and should be treated as such
-            path = path[:-1]
+        path = file_util.normalize_path(path)
         uid = self._full_path_uid_dict.get(path, None)
         if not uid:
             if uid_suggestion:
                 self._full_path_uid_dict[path] = uid_suggestion
+                uid = uid_suggestion
             else:
                 uid = self.application.uid_generator.get_new_uid()
-            self._full_path_uid_dict[path] = uid
+                self._full_path_uid_dict[path] = uid
         return uid
 
     def get_children(self, node: DisplayNode):

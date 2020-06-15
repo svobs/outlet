@@ -244,7 +244,7 @@ class DeleteLocalFileCommand(Command):
                     else:
                         os.rmdir(parent_dir_path)
                         logger.info(f'Removed empty dir: "{parent_dir_path}"')
-                        dir_node = context.cache_manager.get_for_local_path(parent_dir_path)
+                        dir_node = context.cache_manager.get_node_for_local_path(parent_dir_path)
                         if dir_node:
                             deleted_nodes_list.append(dir_node)
                     parent_dir_path = str(pathlib.Path(parent_dir_path).parent)

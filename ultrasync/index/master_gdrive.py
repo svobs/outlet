@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from pydispatch import dispatcher
 
@@ -13,7 +13,7 @@ from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
 from model.display_node import DisplayNode
 from model.gdrive_subtree import GDriveSubtree
 from model.gdrive_whole_tree import GDriveWholeTree
-from model.goog_node import GoogFile, GoogNode
+from model.goog_node import GoogFile, GoogFolder, GoogNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier, NodeIdentifierFactory
 from stopwatch_sec import Stopwatch
 from ui import actions
@@ -222,5 +222,5 @@ class GDriveMasterCache:
             raise CacheNotLoadedError()
         return self.meta_master.get_all_identifiers_for_path(path)
 
-    def get_all_goog_files_for_subtree(self, subtree_root: GDriveIdentifier) -> List[GoogFile]:
-        return self.meta_master.get_all_files_for_subtree(subtree_root)
+    def get_all_goog_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GoogFile], List[GoogFolder]]:
+        return self.meta_master.get_all_files_and_folders_for_subtree(subtree_root)

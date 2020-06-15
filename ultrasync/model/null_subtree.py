@@ -13,16 +13,10 @@ class NullSubtree(SubtreeSnapshot):
     def create_identifier(cls, full_path, uid, category) -> NodeIdentifier:
         raise RuntimeError('Should not do this')
 
-    def get_all(self) -> List[DisplayNode]:
-        return []
-
     def get_children_for_root(self) -> Iterable[DisplayNode]:
         return []
 
     def get_children(self, node: DisplayNode) -> Iterable[DisplayNode]:
-        return []
-
-    def get_ignored_items(self):
         return []
 
     def get_parent_for_item(self, item) -> Optional[DisplayNode]:

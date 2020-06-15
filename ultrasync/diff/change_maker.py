@@ -50,7 +50,7 @@ class ChangeMaker:
                 # Add all its descendants. Assume that we came from a display tree which may not have all its children.
                 # Need to look things up in the central cache. We will focus on copying files, and add prerequisite parent dirs
                 # as needed
-                subtree_files: List[DisplayNode] = self.application.cache_manager.get_all_files_for_subtree(src_node.node_identifier)
+                subtree_files, subtree_dirs = self.application.cache_manager.get_all_files_and_dirs_for_subtree(src_node.node_identifier)
                 src_path_minus_dirname = str(pathlib.Path(src_node.full_path).parent)
                 logger.debug(f'Preparing subtree with {len(subtree_files)} items for copy...')
                 for node in subtree_files:
