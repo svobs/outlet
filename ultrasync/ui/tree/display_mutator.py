@@ -240,7 +240,7 @@ class DisplayMutator:
         logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node_data}"')
 
         if not self._enable_state_listeners:
-            logger.debug('Auto-populate disabled')
+            logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_EXPANSION_TOGGLED}: listeners disabled"')
             return
 
         def expand_or_contract():
@@ -272,6 +272,8 @@ class DisplayMutator:
     def _on_node_added_or_updated_in_cache(self, sender: str, node: DisplayNode):
         assert node is not None
         if not self._enable_state_listeners:
+            # TODO: is this still necessary here now that we use a lock?
+            logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_ADDED_OR_UPDATED}: listeners disabled"')
             return
 
         def update_ui():
@@ -330,6 +332,8 @@ class DisplayMutator:
 
     def _on_node_removed_from_cache(self, sender: str, node: DisplayNode):
         if not self._enable_state_listeners:
+            # TODO: is this still necessary here now that we use a lock?
+            logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_REMOVED}: listeners disabled"')
             return
 
         def update_ui():
@@ -344,6 +348,8 @@ class DisplayMutator:
 
                 if not in_this_tree:
                     return
+
+                self.con.display_store.remove_from_lists(node.uid)
 
                 # TODO: this can be optimized to search only the paths of the ancestors
                 tree_iter = self.con.display_store.find_in_tree(target_uid=node.uid)

@@ -247,6 +247,11 @@ class DisplayStore:
 
         return self.model.append(parent_node_iter, row_values)
 
+    def remove_from_lists(self, uid: UID):
+        if uid in self.checked_rows: del self.checked_rows[uid]
+        if uid in self.inconsistent_rows: del self.inconsistent_rows[uid]
+        if uid in self.displayed_rows: del self.displayed_rows[uid]
+
     def remove_first_child(self, parent_iter):
         first_child_iter = self.model.iter_children(parent_iter)
         if not first_child_iter:

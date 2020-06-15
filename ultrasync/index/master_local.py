@@ -85,6 +85,9 @@ class LocalDiskMasterCache:
             dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
 
             uid = self.get_uid_for_path(cache_info.subtree_root.full_path, cache_info.subtree_root.uid)
+            if cache_info.subtree_root.uid != uid:
+                logger.warning(f'Requested UID "{cache_info.subtree_root.uid}" is invalid for given path; changing it to "{uid}"')
+            cache_info.subtree_root.uid = uid
 
             root_node_identifer = LocalFsIdentifier(full_path=cache_info.subtree_root.full_path, uid=uid)
             tree: LocalDiskTree = LocalDiskTree(self.application)
@@ -196,6 +199,9 @@ class LocalDiskMasterCache:
         else:
             # Update UID, assuming this is a new run and it has gone stale
             uid = self.get_uid_for_path(requested_subtree_root.full_path, requested_subtree_root.uid)
+            if requested_subtree_root.uid != uid:
+                logger.warning(f'Requested UID "{requested_subtree_root.uid}" is invalid for path "{requested_subtree_root.full_path}";'
+                               f' changing it to "{uid}"')
             requested_subtree_root.uid = uid
 
         # LOAD
