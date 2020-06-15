@@ -338,7 +338,9 @@ class DisplayMutator:
 
         def update_ui():
             with self._lock:
-                in_this_tree = self.con.display_store.displayed_rows.get(node.uid, None)
+                displayed_item = self.con.display_store.displayed_rows.get(node.uid, None)
+                displayed_src_item = self.con.display_store.displayed_decorated_rows.get(node.uid, None)
+                in_this_tree = displayed_item or displayed_src_item
                 if logger.isEnabledFor(logging.DEBUG):
                     if in_this_tree:
                         text = 'Received'
@@ -351,14 +353,19 @@ class DisplayMutator:
 
                 self.con.display_store.remove_from_lists(node.uid)
 
-                # TODO: this can be optimized to search only the paths of the ancestors
-                tree_iter = self.con.display_store.find_in_tree(target_uid=node.uid)
-                if not tree_iter:
-                    raise RuntimeError(f'[{self.con.tree_id}] Cannot remove node: Could not find node in display tree: {node}')
+                if displayed_src_item:
+                    # this is actually the one we want to delete
+                    self.con.display_store.remove_from_lists(displayed_src_item.uid)
+                    displayed_item = displayed_src_item
 
-                logger.debug(f'[{self.con.tree_id}] Removing node from display store: {node.uid}')
+                # TODO: this can be optimized to search only the paths of the ancestors
+                tree_iter = self.con.display_store.find_in_tree(target_uid=displayed_item.uid)
+                if not tree_iter:
+                    raise RuntimeError(f'[{self.con.tree_id}] Cannot remove node: Could not find node in display tree: {displayed_item}')
+
+                logger.debug(f'[{self.con.tree_id}] Removing node from display store: {displayed_item.uid}')
                 self.con.display_store.model.remove(tree_iter)
-                logger.debug(f'[{self.con.tree_id}] Node removed: {node.uid}')
+                logger.debug(f'[{self.con.tree_id}] Node removed: {displayed_item.uid}')
 
         GLib.idle_add(update_ui)
 

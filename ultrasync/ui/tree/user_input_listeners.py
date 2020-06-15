@@ -16,6 +16,7 @@ from model.fmeta import FMeta
 
 import gi
 
+from model.planning_node import FileDecoratorNode
 from ui.tree.context_menu import TreeContextMenu
 
 gi.require_version("Gtk", "3.0")
@@ -363,12 +364,25 @@ class TreeUserInputListeners:
                 tree_view.expand_row(path=tree_path, open_all=False)
             return True
         else:
-            if item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-                dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, full_path=item.full_path)
-                return True
-            elif item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
-                dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=item)
-                return True
+            # Attempt to open it no matter where it is.
+            # In the future, we should enhance this so that it will find the most convenient copy anywhere and open that
+            if TreeContextMenu.file_exists(item):
+                if item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+                    dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, full_path=item.full_path)
+                    return True
+                elif item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
+                    dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=item)
+                    return True
+            elif isinstance(item, FileDecoratorNode):
+                # if it references a source node, maybe that is accessible instead?
+                item = item.src_node
+                if TreeContextMenu.file_exists(item):
+                    if item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+                        dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, full_path=item.full_path)
+                        return True
+                    elif item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
+                        dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=item)
+                        return True
         return False
 
     def on_multiple_rows_activated(self, tree_view, tree_paths):

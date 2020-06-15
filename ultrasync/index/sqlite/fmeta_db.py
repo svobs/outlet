@@ -91,7 +91,7 @@ class FMetaDatabase(MetaDatabase):
         for row in rows:
             full_path = row[1]
             uid = self.cache_manager.get_uid_for_path(full_path, row[0])
-            assert uid != row[0], f'UID conflict! Got {uid} but read {row}'
+            assert uid == row[0], f'UID conflict! Got {uid} but read {row}'
             entries.append(DirNode(LocalFsIdentifier(uid=uid, full_path=full_path)))
         return entries
 

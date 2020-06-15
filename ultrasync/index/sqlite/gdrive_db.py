@@ -177,7 +177,7 @@ class GDriveDatabase(MetaDatabase):
 
     def delete_parent_mappings_for_uid(self, uid: UID, commit=True):
         logger.debug(f'Deleting id-parent mappings for {uid}')
-        sql = self.build_delete(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS) + f' WHERE uid = ?'
+        sql = self.build_delete(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS) + f' WHERE item_uid = ?'
         self.conn.execute(sql, (uid,))
         if commit:
             logger.debug('Committing!')

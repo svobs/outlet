@@ -72,20 +72,26 @@ class TreeContextMenu:
         file_name = os.path.basename(full_path)
         is_gdrive = node.node_identifier.tree_type == TREE_TYPE_GDRIVE
 
-        if file_exists:
+        if file_exists and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
             item = Gtk.MenuItem(label='Show in Nautilus')
             item.connect('activate', self.send_signal, actions.SHOW_IN_NAUTILUS, {'full_path': full_path})
             menu.append(item)
-        else:
+
+        if file_exists and not is_dir:
+            if is_gdrive:
+                item = Gtk.MenuItem(label=f'Download from Google Drive')
+                item.connect('activate', self.send_signal, actions.DOWNLOAD_FROM_GDRIVE, {'node': node})
+                menu.append(item)
+            elif node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+                item = Gtk.MenuItem(label=f'Open with default application')
+                item.connect('activate', self.send_signal, actions.CALL_XDG_OPEN, {'node': node})
+                menu.append(item)
+
+        if not file_exists:
             item = Gtk.MenuItem(label='')
             label = item.get_child()
             label.set_markup(f'<i>Path not found</i>')
             item.set_sensitive(False)
-            menu.append(item)
-
-        if node.node_identifier.tree_type == TREE_TYPE_GDRIVE and file_exists and not is_dir:
-            item = Gtk.MenuItem(label=f'Download from Google Drive')
-            item.connect('activate', self.send_signal, actions.DOWNLOAD_FROM_GDRIVE, {'node' : node})
             menu.append(item)
 
         if is_dir:
@@ -93,22 +99,23 @@ class TreeContextMenu:
             item.connect('activate', self.send_signal, actions.ROOT_PATH_UPDATED, {'new_root' : node.node_identifier})
             menu.append(item)
 
-            if node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-                match = re.match(DATE_REGEX, file_name)
-                if match:
-                    item = Gtk.MenuItem(label=f'Use EXIFTool on dir')
-                    item.connect('activate', self.send_signal, actions.CALL_EXIFTOOL, {'full_path': full_path})
-                    menu.append(item)
-
-            if not is_category_node and file_exists:
-                label = f'Delete tree "{file_name}"'
-                if is_gdrive:
-                    label += ' from Google Drive'
-                item = Gtk.MenuItem(label=label)
-                node = self.con.display_store.get_node_data(tree_path)
-                item.connect('activate', self.send_signal, actions.DELETE_SUBTREE, {'node': node})
+        if file_exists and is_dir and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+            match = re.match(DATE_REGEX, file_name)
+            if match:
+                item = Gtk.MenuItem(label=f'Use EXIFTool on dir')
+                item.connect('activate', self.send_signal, actions.CALL_EXIFTOOL, {'full_path': full_path})
                 menu.append(item)
-        elif file_exists:
+
+        if file_exists and is_dir and not is_category_node:
+            label = f'Delete tree "{file_name}"'
+            if is_gdrive:
+                label += ' from Google Drive'
+            item = Gtk.MenuItem(label=label)
+            node = self.con.display_store.get_node_data(tree_path)
+            item.connect('activate', self.send_signal, actions.DELETE_SUBTREE, {'node': node})
+            menu.append(item)
+
+        if file_exists and not is_dir:
             label = f'Delete "{file_name}"'
             if is_gdrive:
                 label += ' from Google Drive'
@@ -129,23 +136,27 @@ class TreeContextMenu:
         if isinstance(node, FileDecoratorNode):
             # Source:
             item = TreeContextMenu.build_full_path_display_item(menu, 'Src: ', node.src_node)
-            src_submenu = Gtk.Menu()
-            item.set_submenu(src_submenu)
+            if TreeContextMenu.file_exists(node.src_node):
+                src_submenu = Gtk.Menu()
+                item.set_submenu(src_submenu)
+                self._build_menu_items_for_single_node(src_submenu, tree_path, node.src_node)
+            else:
+                item.set_sensitive(False)
 
             item = Gtk.SeparatorMenuItem()
             menu.append(item)
-
-            self._build_menu_items_for_single_node(src_submenu, tree_path, node.src_node)
 
             # Destination:
             item = TreeContextMenu.build_full_path_display_item(menu, 'Dst: ', node)
-            dst_submenu = Gtk.Menu()
-            item.set_submenu(dst_submenu)
+            if TreeContextMenu.file_exists(node):
+                dst_submenu = Gtk.Menu()
+                item.set_submenu(dst_submenu)
+                self._build_menu_items_for_single_node(dst_submenu, tree_path, node)
+            else:
+                item.set_sensitive(False)
 
             item = Gtk.SeparatorMenuItem()
             menu.append(item)
-
-            self._build_menu_items_for_single_node(dst_submenu, tree_path, node)
         else:
             # Single item
             item = TreeContextMenu.build_full_path_display_item(menu, '', node)

@@ -435,7 +435,7 @@ class GDriveClient:
                 logger.debug('Done!')
                 break
 
-        logger.info(f'{stopwatch_retrieval} Query returned {item_count} files')
+        logger.debug(f'{stopwatch_retrieval} Query returned {item_count} files')
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f'Found {len(owner_dict)} distinct owners')
@@ -527,7 +527,7 @@ class GDriveClient:
                 logger.debug('Done!')
                 break
 
-        logger.info(f'{stopwatch_retrieval} Query returned {item_count} folders')
+        logger.debug(f'{stopwatch_retrieval} Query returned {item_count} folders')
 
     # BINARIES
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
