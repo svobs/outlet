@@ -5,7 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-ENABLE_PERSISTENCE = False
+ENABLE_PERSISTENCE = True
 CONFIG_KEY = 'transient.global.last_uid'
 WRITE_OUT_UID_EVERY_N = 10000
 

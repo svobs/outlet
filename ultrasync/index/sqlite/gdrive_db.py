@@ -88,8 +88,11 @@ class GDriveDatabase(MetaDatabase):
                 self.drop_table_if_exists(self.TABLE_GRDIVE_DIRS)
 
         self.create_table_if_not_exist(self.TABLE_GRDIVE_DIRS, commit=False)
-        logger.debug(f'Inserting {len(dir_list)} dirs into DB, commit={commit}')
         self.insert_many(self.TABLE_GRDIVE_DIRS, dir_list, commit=commit)
+
+    def upsert_gdrive_dirs(self, dir_list: List[Tuple], commit=True):
+        self.create_table_if_not_exist(self.TABLE_GRDIVE_DIRS, commit=False)
+        self.upsert_many(self.TABLE_GRDIVE_DIRS, dir_list, commit=commit)
 
     def get_gdrive_dirs(self):
         if not self.has_gdrive_dirs():
@@ -120,6 +123,10 @@ class GDriveDatabase(MetaDatabase):
         self.create_table_if_not_exist(self.TABLE_GRDIVE_FILES, commit=False)
         self.insert_many(self.TABLE_GRDIVE_FILES, file_list, commit=commit)
 
+    def upsert_gdrive_files(self, file_list: List[Tuple], commit=True):
+        self.create_table_if_not_exist(self.TABLE_GRDIVE_FILES, commit=False)
+        self.upsert_many(self.TABLE_GRDIVE_FILES, file_list, commit=commit)
+
     def get_gdrive_files(self):
         if not self.has_gdrive_files():
             logger.debug('No GDrive files in DB. Returning empty list')
@@ -145,10 +152,11 @@ class GDriveDatabase(MetaDatabase):
         logger.debug(f'Inserting {len(id_parent_mappings)} id-par mappings into DB, commit={commit}')
         self.insert_many(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS, id_parent_mappings, commit=commit)
 
-    def update_parent_mappings_for_id(self, id_parent_mappings: List[Tuple], uid: UID, commit=True):
+    def upsert_parent_mappings_for_id(self, id_parent_mappings: List[Tuple], uid: UID, commit=True):
         logger.debug(f'Deleting id-parent mappings for {uid}')
-        # just do this the easy way for now
+        # just do this the easy way for now. Need to replace all mappings for this UID
         self.delete_parent_mappings_for_uid(uid=uid, commit=False)
+
         logger.debug(f'Inserting {len(id_parent_mappings)} id-parent mappings for {uid}')
         self.insert_id_parent_mappings(id_parent_mappings, commit)
 
@@ -209,3 +217,4 @@ class GDriveDatabase(MetaDatabase):
         self.drop_table_if_exists(self.TABLE_GRDIVE_FILES)
         self.drop_table_if_exists(self.TABLE_GRDIVE_DIRS)
         self.drop_table_if_exists(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS)
+        self.drop_table_if_exists(self.TABLE_GRDIVE_CURRENT_DOWNLOADS)

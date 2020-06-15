@@ -1,7 +1,6 @@
 import logging
 
 from index.sqlite.base_db import MetaDatabase
-from index.uid_generator import UidGenerator
 from model.fmeta import FMeta
 from model.planning_node import PlanningNode
 
@@ -11,14 +10,14 @@ logger = logging.getLogger(__name__)
 class FMetaDatabase(MetaDatabase):
     TABLE_LOCAL_FILE = {
         'name': 'local_file',
-        'cols': (('md5', 'TEXT'),
+        'cols': (('uid', 'INTEGER PRIMARY KEY'),
+                 ('md5', 'TEXT'),
                  ('sha256', 'TEXT'),
                  ('size_bytes', 'INTEGER'),
                  ('sync_ts', 'INTEGER'),
                  ('modify_ts', 'INTEGER'),
                  ('change_ts', 'INTEGER'),
-                 ('full_path', 'TEXT'),
-                 ('category', 'TEXT'))
+                 ('full_path', 'TEXT'))
     }
 
     def __init__(self, db_path, application):
@@ -35,9 +34,10 @@ class FMetaDatabase(MetaDatabase):
         rows = self.get_all_rows(self.TABLE_LOCAL_FILE)
         entries = []
         for row in rows:
-            path = row[6]
-            uid = self.cache_manager.get_uid_for_path(path)
-            entries.append(FMeta(uid, *row))
+            full_path = row[6]
+            uid = self.cache_manager.get_uid_for_path(full_path, row[0])
+            assert uid != row[0], f'UID conflict! Got {uid} but read {row}'
+            entries.append(FMeta(uid, *row[1:]))
         return entries
 
     def insert_local_files(self, entries, overwrite):
@@ -58,15 +58,13 @@ class FMetaDatabase(MetaDatabase):
     def truncate_local_files(self):
         self.truncate_table(self.TABLE_LOCAL_FILE)
 
-    def insert_local_file(self, item, commit=True):
-        logger.debug(f'Inserting DB entry for: {item.full_path}')
+    def upsert_local_file(self, item, commit=True):
         self.insert_one(self.TABLE_LOCAL_FILE, _make_tuple(item), commit=commit)
 
     def update_local_file(self, item, commit=True):
         # We just add another row with the same full_path, which will implicitly overwrite the previous version
-        logger.debug(f'Inserting updated DB entry for: {item.full_path}')
         self.insert_one(self.TABLE_LOCAL_FILE, _make_tuple(item), commit=commit)
 
 
 def _make_tuple(e):
-    return e.md5, e.sha256, e.size_bytes, e.sync_ts, e.modify_ts, e.change_ts, e.full_path, e.category
+    return e.uid, e.md5, e.sha256, e.size_bytes, e.sync_ts, e.modify_ts, e.change_ts, e.full_path

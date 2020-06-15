@@ -155,16 +155,13 @@ class GDriveMasterCache:
         # Write new values:
         with GDriveDatabase(cache_path) as cache:
             logger.debug(f'Writing id-parent mappings to the GDrive master cache: {parent_mappings}')
-            if is_update:
-                cache.update_parent_mappings_for_id(parent_mappings, node.uid, commit=False)
-            else:
-                cache.insert_id_parent_mappings(parent_mappings, commit=False)
+            cache.upsert_parent_mappings_for_id(parent_mappings, node.uid, commit=False)
             if node.is_dir():
                 logger.debug(f'Writing folder node to the GDrive master cache: {node}')
-                cache.insert_gdrive_dirs([node_tuple])
+                cache.upsert_gdrive_dirs([node_tuple])
             else:
                 logger.debug(f'Writing file node to the GDrive master cache: {node}')
-                cache.insert_gdrive_files([node_tuple])
+                cache.upsert_gdrive_files([node_tuple])
 
         # Finally, update in-memory cache (tree):
         self.meta_master.add_item(node)

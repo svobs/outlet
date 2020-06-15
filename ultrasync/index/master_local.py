@@ -293,10 +293,7 @@ class LocalDiskMasterCache:
                 if cache_man.enable_save_to_disk:
                     # Write new values:
                     with FMetaDatabase(cache_info.cache_location, self.application) as cache:
-                        if existing:
-                            cache.update_local_file(item)
-                        else:
-                            cache.insert_local_file(item)
+                        cache.upsert_local_file(item)
 
             else:
                 logger.error(f'Could not find a cache associated with file path: {item.full_path}')

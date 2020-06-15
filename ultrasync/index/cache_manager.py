@@ -76,7 +76,13 @@ class CacheManager:
             logger.info('Configured not to fetch all caches on startup; will lazy load instead')
 
         self._local_disk_cache = None
+        """Sub-module of Cache Manager which manages local disk caches"""
+
         self._gdrive_cache = None
+        """Sub-module of Cache Manager which manages Google Drive caches"""
+
+        self._command_ledger = None
+        """Sub-module of Cache Manager which manages commands which have yet to execute"""
 
         # Create an Event object.
         self.all_caches_loaded = threading.Event()
@@ -328,8 +334,8 @@ class CacheManager:
             uid = self.get_uid_for_path(full_path)
             return [LocalFsIdentifier(full_path=full_path, uid=uid)]
 
-    def get_uid_for_path(self, path: str) -> UID:
-        return self._local_disk_cache.get_uid_for_path(path)
+    def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
+        return self._local_disk_cache.get_uid_for_path(path, uid_suggestion)
 
     def get_for_local_path(self, path: str) -> DisplayNode:
         uid = self.get_uid_for_path(path)

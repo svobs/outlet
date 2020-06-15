@@ -56,7 +56,7 @@ class NodeIdentifier(ABC):
 
     def __repr__(self):
         # should never be displayed
-        return f'∣✪-{self.uid}∣Ⓒ{self.category.name[0]}⩨{self.full_path}∣'
+        return f'∣✪-{self.uid}∣{self.category.name[0]}⩨{self.full_path}∣'
 
     def __eq__(self, other):
         if isinstance(other, str):
@@ -85,7 +85,7 @@ class LogicalNodeIdentifier(NodeIdentifier):
         return self._tree_type
 
     def __repr__(self):
-        return f'∣∅-{self.uid}∣Ⓒ{self.category.name[0]}⩨{self.full_path}∣'
+        return f'∣∅-{self.uid}∣{self.category.name[0]}⩨{self.full_path}∣'
 
 
 """
@@ -104,7 +104,7 @@ class GDriveIdentifier(NodeIdentifier):
         return TREE_TYPE_GDRIVE
 
     def __repr__(self):
-        return f'∣G-{self.uid}∣Ⓒ{self.category.name[0]}⩨{self.full_path}∣'
+        return f'∣G-{self.uid}∣{self.category.name[0]}⩨{self.full_path}∣'
 
 
 """
@@ -123,7 +123,7 @@ class LocalFsIdentifier(NodeIdentifier):
         return TREE_TYPE_LOCAL_DISK
 
     def __repr__(self):
-        return f'∣L-{self.uid}∣Ⓒ{self.category.name[0]}⩨{self.full_path}∣'
+        return f'∣L-{self.uid}∣{self.category.name[0]}⩨{self.full_path}∣'
 
 
 class NodeIdentifierFactory:

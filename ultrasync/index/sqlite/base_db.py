@@ -37,6 +37,11 @@ class MetaDatabase:
                ') VALUES (' + ','.join('?' for col in table['cols']) + ')'
 
     @staticmethod
+    def build_upsert(table):
+        return 'INSERT OR REPLACE INTO ' + table['name'] + '(' + ','.join(col[0] for col in table['cols']) + \
+               ') VALUES (' + ','.join('?' for col in table['cols']) + ')'
+
+    @staticmethod
     def build_select(table):
         return 'SELECT ' + ','.join(col[0] for col in table['cols']) + ' FROM ' + table['name']
 
@@ -108,6 +113,14 @@ class MetaDatabase:
     def insert_many(self, table, tuples, commit=True):
         sql = self.build_insert(table)
         logger.debug(f"Inserting {len(tuples)} tuples into table {table['name']}")
+        self.conn.executemany(sql, tuples)
+        if commit:
+            logger.debug('Committing!')
+            self.conn.commit()
+
+    def upsert_many(self, table, tuples, commit=True):
+        sql = self.build_upsert(table)
+        logger.debug(f"Upserting {len(tuples)} tuples into table {table['name']}")
         self.conn.executemany(sql, tuples)
         if commit:
             logger.debug('Committing!')

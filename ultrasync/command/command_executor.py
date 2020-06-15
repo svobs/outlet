@@ -19,6 +19,7 @@ class CommandExecutor:
         # TODO: expand this framework
 
         # At any given time... TODO
+        # self.cache_manager.add_to_command_queue(command_plan)
 
         self.application.task_runner.enqueue(self._execute_all, command_plan)
 
@@ -40,6 +41,7 @@ class CommandExecutor:
             if command.needs_gdrive():
                 needs_gdrive = True
 
+            # TODO: put this in command queue
             # Fire events so that trees can display the planning nodes
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f'Sending signal "{actions.NODE_ADDED_OR_UPDATED}" to display preview for node: {command.get_model()}')
