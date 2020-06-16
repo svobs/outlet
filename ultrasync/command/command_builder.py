@@ -3,8 +3,6 @@ import logging
 from typing import Deque, Iterable, List, Tuple
 
 import treelib
-logger = logging.getLogger(__name__)
-
 from command.command_interface import Command, CommandBatch
 from command.command_impl import CopyFileLocallyCommand, CreateGDriveFolderCommand, \
     CreatLocalDirCommand, DeleteGDriveFileCommand, DeleteLocalFileCommand, \
@@ -19,6 +17,8 @@ from model.display_node import DisplayNode
 from model.goog_node import FolderToAdd
 from model.planning_node import FileToAdd, FileToMove, FileToUpdate, LocalDirToAdd, PlanningNode
 from model.subtree_snapshot import SubtreeSnapshot
+
+logger = logging.getLogger(__name__)
 
 
 # CLASS CommandBuilder

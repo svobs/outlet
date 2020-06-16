@@ -14,10 +14,9 @@ from model.gdrive_whole_tree import GDriveWholeTree
 
 logger = logging.getLogger(__name__)
 
-"""
-# ENUM CommandStatus
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼"""
 
+# ENUM CommandStatus
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class CommandStatus(IntEnum):
     NOT_STARTED = 1
@@ -27,10 +26,8 @@ class CommandStatus(IntEnum):
     COMPLETED_OK = 10
 
 
-"""
 # CLASS CommandContext
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼"""
-
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class CommandContext:
     def __init__(self, staging_dir: str, application, tree_id: str, needs_gdrive: bool):
@@ -60,10 +57,8 @@ class CommandContext:
         return parent_goog_id
 
 
-""" 
-CLASS Command
-▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼"""
-
+# CLASS Command
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class Command(treelib.Node, ABC):
     def __init__(self, uid, model_obj: DisplayNode = None):
@@ -102,10 +97,8 @@ class Command(treelib.Node, ABC):
         return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self._status}, model={self._model}'
 
 
-""" 
-CLASS CommandBatch
-▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼"""
-
+# CLASS CommandBatch
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class CommandBatch:
     def __init__(self, uid: UID, cmd_tree):

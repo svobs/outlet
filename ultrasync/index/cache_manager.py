@@ -17,11 +17,10 @@ from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
 from index.uid_generator import UID
 from model.category import Category
-from model.display_node import DirNode, DisplayNode
+from model.display_node import DisplayNode
 from model.fmeta import FMeta
 from model.gdrive_whole_tree import GDriveWholeTree
-from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier, NodeIdentifierFactory
-from model.null_subtree import NullSubtree
+from model.node_identifier import LocalFsIdentifier, NodeIdentifier, NodeIdentifierFactory
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
 from ui import actions
