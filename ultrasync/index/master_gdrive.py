@@ -123,8 +123,7 @@ class GDriveMasterCache:
         if not node.goog_id:
             raise RuntimeError(f'Node is missing Google ID: {node}')
         if not node.parent_uids:
-            # Adding a new root is currently not allowed (which is fine because there should be no way to do this
-            # via the UI)
+            # Adding a new root is currently not allowed (which is fine because there should be no way to do this via the UI)
             raise RuntimeError(f'Node is missing parent UIDs: {node}')
 
         # Prepare data for insertion to disk cache:
@@ -146,11 +145,12 @@ class GDriveMasterCache:
                 raise RuntimeError(f'Serious error: cache already contains UID {node.uid} but Google ID does not match '
                                    f'(existing={existing_node.goog_id}; new={node.goog_id})')
             if existing_node == node:
+                # FIXME: it's not clear that we have implemented __eq__ for all necessary items
                 logger.info(f'Item being added (uid={node.uid}) is identical to item already in the cache; ignoring')
                 return
             is_update = True
 
-        cache_path = self._get_cache_path_for_master()
+        cache_path: str = self._get_cache_path_for_master()
 
         # Write new values:
         with GDriveDatabase(cache_path) as cache:
@@ -183,7 +183,7 @@ class GDriveMasterCache:
             # this is actually an update
             self.add_or_update_goog_node(node)
         else:
-            cache_path = self._get_cache_path_for_master()
+            cache_path: str = self._get_cache_path_for_master()
             with GDriveDatabase(cache_path) as cache:
                 cache.delete_parent_mappings_for_uid(node.uid, commit=False)
                 if node.is_dir():
@@ -193,7 +193,7 @@ class GDriveMasterCache:
 
         dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
 
-    def _get_cache_path_for_master(self):
+    def _get_cache_path_for_master(self) -> str:
         # Open master database...
         root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         cache_info = self.application.cache_manager.get_or_create_cache_info_entry(root)

@@ -42,6 +42,7 @@ class LocalDiskMasterCache:
         self.application = application
 
         self._uid_lock = threading.Lock()
+        # TODO: put struct lock in CacheManager, cover Goog and Command
         self._struct_lock = threading.Lock()
 
         self.use_md5 = application.config.get('cache.enable_md5_lookup')
@@ -62,9 +63,10 @@ class LocalDiskMasterCache:
         # Each item inserted here will have an entry created for its dir.
         # self.parent_path_dict = ParentPathBeforeFileNameDict()
         # But we still need a dir tree to look up child dirs:
-        self.dir_tree = LocalDiskTree(self.application)
-        root_node = RootTypeNode(node_identifier=LocalFsIdentifier(full_path=ROOT_PATH, uid=ROOT_UID))
-        self.dir_tree.add_node(node=root_node, parent=None)
+        with self._struct_lock:
+            self.dir_tree = LocalDiskTree(self.application)
+            root_node = RootTypeNode(node_identifier=LocalFsIdentifier(full_path=ROOT_PATH, uid=ROOT_UID))
+            self.dir_tree.add_node(node=root_node, parent=None)
 
     # Disk access
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -356,17 +358,20 @@ class LocalDiskMasterCache:
         return uid
 
     def get_children(self, node: DisplayNode):
-        return self.dir_tree.children(node.identifier)
+        with self._uid_lock:
+            return self.dir_tree.children(node.identifier)
 
     def get_item(self, uid: UID) -> DisplayNode:
-        return self.dir_tree.get_node(uid)
+        with self._uid_lock:
+            return self.dir_tree.get_node(uid)
 
     def get_parent_for_item(self, item: DisplayNode, required_subtree_path: str = None):
         try:
-            parent: DisplayNode = self.dir_tree.parent(nid=item.uid)
-            if not required_subtree_path or parent.full_path.startswith(required_subtree_path):
-                return parent
-            return None
+            with self._uid_lock:
+                parent: DisplayNode = self.dir_tree.parent(nid=item.uid)
+                if not required_subtree_path or parent.full_path.startswith(required_subtree_path):
+                    return parent
+                return None
         except NodeIDAbsentError:
             return None
         except Exception:

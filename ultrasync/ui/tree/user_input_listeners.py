@@ -207,7 +207,7 @@ class TreeUserInputListeners:
             builder = CommandBuilder(self.con.parent_win.application)
             command_batch = builder.build_command_batch(change_tree=change_maker.change_tree_right)
             # This should fire listeners which ultimately populate the tree:
-            self.con.parent_win.application.command_executor.enqueue(command_batch)
+            self.con.parent_win.application.cache_manager.add_command_batch(command_batch)
 
         # try to aid garbage collection
         self._drag_data = None

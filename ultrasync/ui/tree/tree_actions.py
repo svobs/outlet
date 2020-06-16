@@ -152,4 +152,4 @@ class TreeActions:
         builder = CommandBuilder(self.con.parent_win.application)
         command_batch = builder.build_command_batch(delete_list=total_list)
         # This should fire listeners which ultimately populate the tree:
-        self.con.parent_win.application.command_executor.enqueue(command_batch)
+        self.con.parent_win.application.cache_manager.add_command_batch(command_batch)

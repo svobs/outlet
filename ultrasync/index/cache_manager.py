@@ -8,9 +8,11 @@ from typing import List, Optional, Tuple
 from pydispatch import dispatcher
 
 import file_util
+from command.command_interface import CommandBatch
 from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
+from index.CommandLedger import CommandLedger
 from index.master_gdrive import GDriveMasterCache
 from index.master_local import LocalDiskMasterCache
 from index.sqlite.cache_registry_db import CacheRegistry
@@ -105,6 +107,7 @@ class CacheManager:
         try:
             self._local_disk_cache = LocalDiskMasterCache(self.application)
             self._gdrive_cache = GDriveMasterCache(self.application)
+            self._command_ledger = CommandLedger(self.application)
 
             # First put into map, to eliminate possible duplicates
             caches_from_registry: List[CacheInfoEntry] = self._get_cache_info_from_registry()
@@ -308,6 +311,10 @@ class CacheManager:
 
     # Various public methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def add_command_batch(self, command_batch: CommandBatch):
+        # TODO: lock
+        self._command_ledger.add_command_batch(command_batch)
 
     def download_all_gdrive_meta(self, tree_id):
         return self._gdrive_cache.download_all_gdrive_meta(tree_id)

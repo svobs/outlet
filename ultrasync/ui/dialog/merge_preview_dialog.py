@@ -79,5 +79,5 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         builder = CommandBuilder(self.parent_win.application)
         command_batch: CommandBatch = builder.build_command_batch(self.tree)
         logger.debug(f'Built a CommandBatch with {len(command_batch)} commands')
-        self.parent_win.application.command_executor.enqueue(command_batch)
+        self.parent_win.application.cache_manager.add_command_batch(command_batch)
         dispatcher.send(signal=actions.DIFF_CANCELLED, sender=actions.ID_MERGE_TREE)

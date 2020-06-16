@@ -9,6 +9,7 @@ DIFF_TREES_DONE = 'tree-diff_done'
 SHOW_GDRIVE_ROOT_DIALOG = 'show-gdrive-root-dialog'
 DOWNLOAD_GDRIVE_META = 'download-gdrive-meta'
 GDRIVE_DOWNLOAD_COMPLETE = 'gdrive-download-complete'
+COMMAND_BATCH_COMPLETE = 'command-batch-complete'
 
 # --- Tree actions ---
 LOAD_TREE_STARTED = 'load-tree-started'
