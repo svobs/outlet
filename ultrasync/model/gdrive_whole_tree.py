@@ -87,8 +87,6 @@ class GDriveWholeTree:
         """Adds an item. Assumes that the item has all necessary parent info filled in already,
         and does the heavy lifting and populates all data structures appropriately."""
 
-        assert not item.is_planning_node()
-
         parent_uids: List[UID] = item.parent_uids
 
         # Build forward dictionary

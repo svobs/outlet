@@ -37,6 +37,8 @@ class TreeContextMenu:
         item.set_sensitive(False)
         menu.append(item)
 
+        # TODO: checkbox selection
+
         is_localdisk = len(selected_items) > 0 and selected_items[0].node_identifier.tree_type == TREE_TYPE_LOCAL_DISK
         if is_localdisk:
             item = Gtk.MenuItem(label=f'Use EXIFTool on dirs')

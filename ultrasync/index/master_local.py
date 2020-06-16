@@ -307,15 +307,17 @@ class LocalDiskMasterCache:
                 self.dir_tree.remove_node(existing.identifier)
             self.dir_tree.add_to_tree(item)
 
-        if not item.is_dir():   # we don't save dir meta at present
+        if not item.is_planning_node():
+            # Update disk cache:
             cache_man = self.application.cache_manager
             cache_info = cache_man.find_existing_supertree_for_subtree(item.node_identifier, ID_GLOBAL_CACHE)
             if cache_info:
                 if cache_man.enable_save_to_disk:
-                    # Write new values:
                     with FMetaDatabase(cache_info.cache_location, self.application) as cache:
-                        cache.upsert_local_file(item)
-
+                        if item.is_dir():
+                            cache.upsert_local_dir(item)
+                        else:
+                            cache.upsert_local_file(item)
             else:
                 logger.error(f'Could not find a cache associated with file path: {item.full_path}')
 

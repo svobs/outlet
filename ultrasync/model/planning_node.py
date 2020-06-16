@@ -2,7 +2,7 @@ import os
 from abc import ABC
 
 import format_util
-from constants import ICON_ADD_DIR
+from constants import ICON_ADD_DIR, NOT_TRASHED
 from model.display_node import DisplayNode, DisplayNodeWithParents
 from model.node_identifier import NodeIdentifier
 
@@ -29,6 +29,10 @@ class PlanningNode(DisplayNodeWithParents, ABC):
     @classmethod
     def is_planning_node(cls) -> bool:
         return True
+
+    @property
+    def trashed(self):
+        return NOT_TRASHED
 
 
 # ABSTRACT CLASS FileDecoratorNode
