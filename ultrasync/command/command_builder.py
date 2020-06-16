@@ -46,6 +46,7 @@ class CommandBuilder:
                 dst_parent, src_node = stack.popleft()
 
                 # Don't even bother to create commands for display-only nodes such as DirNodes, etc
+                # TODO: refactor to create commands for DirNodes for better control
                 if not src_node.is_just_fluff():
                     cmd: Command = _make_command(src_node, self._uid_generator)
                     assert cmd is not None
@@ -62,7 +63,7 @@ class CommandBuilder:
             logger.debug(f'Building command plan from delete_list of size {len(delete_list)}')
             # Deletes are much simpler than other change types. We delete files one by one, with no dependencies needed
             for node in delete_list:
-                assert not node.is_just_fluff() and not isinstance(node, PlanningNode) and node.category == Category.Deleted
+                assert not node.is_just_fluff() and not node.is_planning_node() and node.category == Category.Deleted
                 cmd: Command = _make_command(node, self._uid_generator)
                 assert cmd is not None
                 command_tree.add_node(node=cmd, parent=cmd_root)

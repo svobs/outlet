@@ -26,6 +26,10 @@ class PlanningNode(DisplayNodeWithParents, ABC):
     def is_just_fluff(cls) -> bool:
         return False
 
+    @classmethod
+    def is_planning_node(cls) -> bool:
+        return True
+
 
 # ABSTRACT CLASS FileDecoratorNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

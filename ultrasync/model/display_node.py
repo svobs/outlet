@@ -44,7 +44,12 @@ class DisplayNode(Node, ABC):
         return False
 
     @classmethod
+    def is_planning_node(cls) -> bool:
+        return False
+
+    @classmethod
     def is_just_fluff(cls) -> bool:
+        # TODO: get rid of this. MUST get rid of this if we want to track changes for directories
         return True
 
     @property

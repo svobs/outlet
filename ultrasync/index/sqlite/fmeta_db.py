@@ -5,7 +5,6 @@ from index.sqlite.base_db import MetaDatabase
 from model.display_node import DirNode
 from model.fmeta import FMeta
 from model.node_identifier import LocalFsIdentifier
-from model.planning_node import PlanningNode
 
 logger = logging.getLogger(__name__)
 
@@ -54,11 +53,12 @@ class FMetaDatabase(MetaDatabase):
             entries.append(FMeta(uid, *row[1:]))
         return entries
 
-    def insert_local_files(self, entries, overwrite, commit=True):
+    def insert_local_files(self, entries: List[FMeta], overwrite, commit=True):
         """ Takes a list of FMeta objects: """
         to_insert = []
         for e in entries:
-            if not isinstance(e, PlanningNode):
+            if not e.is_planning_node():
+                assert isinstance(e, FMeta), f'Expected FMeta; got instead: {e}'
                 e_tuple = _make_file_tuple(e)
                 to_insert.append(e_tuple)
 
@@ -95,12 +95,14 @@ class FMetaDatabase(MetaDatabase):
             entries.append(DirNode(LocalFsIdentifier(uid=uid, full_path=full_path)))
         return entries
 
-    def insert_local_dirs(self, entries, overwrite, commit=True):
-        """ Takes a list of FMeta objects: """
+    def insert_local_dirs(self, entries: List[DirNode], overwrite, commit=True):
+        """ Takes a list of DirNode objects: """
         to_insert = []
         for d in entries:
-            d_tuple = _make_dir_tuple(d)
-            to_insert.append(d_tuple)
+            if not d.is_planning_node():
+                assert isinstance(d, DirNode), f'Expected DirNode; got instead: {d}'
+                d_tuple = _make_dir_tuple(d)
+                to_insert.append(d_tuple)
 
         if overwrite:
             self.drop_table_if_exists(self.TABLE_LOCAL_DIR)

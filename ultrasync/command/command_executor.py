@@ -21,7 +21,8 @@ class CommandExecutor:
     def enqueue(self, command_batch: CommandBatch):
         # TODO: expand this framework
 
-        # - Add planning nodes to the cache trees when we enqueue
+        # - Add planning nodes to the cache trees when we enqueue.
+        # - We will store planning nodes in the tree, but
         # - Maintain a mapping in the CacheMan for PlanningNode -> Command (also allows for context menus to cancel commands!)
         # - Also persist each command plan at enqueue time
         # - When each command completes, cache is notified of a planning node update
