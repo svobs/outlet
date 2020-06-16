@@ -5,7 +5,8 @@ from typing import Deque, Iterable, List, Tuple
 import treelib
 logger = logging.getLogger(__name__)
 
-from command.command import Command, CommandPlan, CopyFileLocallyCommand, CreateGDriveFolderCommand, \
+from command.command_interface import Command, CommandBatch
+from command.command_impl import CopyFileLocallyCommand, CreateGDriveFolderCommand, \
     CreatLocalDirCommand, DeleteGDriveFileCommand, DeleteLocalFileCommand, \
     DownloadFromGDriveCommand, \
     MoveFileGDriveCommand, \
@@ -20,12 +21,15 @@ from model.planning_node import FileToAdd, FileToMove, FileToUpdate, LocalDirToA
 from model.subtree_snapshot import SubtreeSnapshot
 
 
+# CLASS CommandBuilder
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class CommandBuilder:
     def __init__(self, application):
         self._uid_generator = application.uid_generator
         self._cache_manager = application.cache_manager
 
-    def build_command_plan(self, change_tree: SubtreeSnapshot = None, delete_list: List[DisplayNode] = None) -> CommandPlan:
+    def build_command_batch(self, change_tree: SubtreeSnapshot = None, delete_list: List[DisplayNode] = None) -> CommandBatch:
         """Builds a dependency tree consisting of commands, each of which correspond to one of the relevant nodes in the
         change tree, or alternatively, the delete_list"""
         command_tree = treelib.Tree()
@@ -65,7 +69,7 @@ class CommandBuilder:
         else:
             raise RuntimeError('Neither change_tree nor delete_list specified!')
 
-        return CommandPlan(self._uid_generator.get_new_uid(), command_tree)
+        return CommandBatch(self._uid_generator.get_new_uid(), command_tree)
 
 
 def _make_command(node: DisplayNode, uid_generator):

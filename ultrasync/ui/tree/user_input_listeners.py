@@ -205,9 +205,9 @@ class TreeUserInputListeners:
                                        application=self.con.parent_win.application)
             change_maker.copy_nodes_left_to_right(self._drag_data.nodes, dest_node)
             builder = CommandBuilder(self.con.parent_win.application)
-            command_plan = builder.build_command_plan(change_tree=change_maker.change_tree_right)
+            command_batch = builder.build_command_batch(change_tree=change_maker.change_tree_right)
             # This should fire listeners which ultimately populate the tree:
-            self.con.parent_win.application.command_executor.enqueue(command_plan)
+            self.con.parent_win.application.command_executor.enqueue(command_batch)
 
         # try to aid garbage collection
         self._drag_data = None

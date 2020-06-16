@@ -150,6 +150,6 @@ class TreeActions:
 
         total_list = list(file_dict.values())
         builder = CommandBuilder(self.con.parent_win.application)
-        command_plan = builder.build_command_plan(delete_list=total_list)
+        command_batch = builder.build_command_batch(delete_list=total_list)
         # This should fire listeners which ultimately populate the tree:
-        self.con.parent_win.application.command_executor.enqueue(command_plan)
+        self.con.parent_win.application.command_executor.enqueue(command_batch)

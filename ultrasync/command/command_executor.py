@@ -2,11 +2,14 @@ from pydispatch import dispatcher
 import logging
 
 import file_util
-from command.command import Command, CommandContext, CommandPlan, CommandStatus
+from command.command_interface import Command, CommandContext, CommandBatch, CommandStatus
 from ui import actions
 
 logger = logging.getLogger(__name__)
 
+
+# CLASS CommandExecutor
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class CommandExecutor:
     def __init__(self, application):
@@ -15,26 +18,31 @@ class CommandExecutor:
         self.staging_dir = file_util.get_resource_path(val)
         # TODO: clean staging dir at startup
 
-    def enqueue(self, command_plan: CommandPlan):
+    def enqueue(self, command_batch: CommandBatch):
         # TODO: expand this framework
 
+        # - Add planning nodes to the cache trees when we enqueue
+        # - Maintain a mapping in the CacheMan for PlanningNode -> Command (also allows for context menus to cancel commands!)
+        # - Also persist each command plan at enqueue time
+        # - When each command completes, cache is notified of a planning node update
+
         # At any given time... TODO
-        # self.cache_manager.add_to_command_queue(command_plan)
+        # self.cache_manager.add_to_command_queue(command_batch)
 
-        self.application.task_runner.enqueue(self._execute_all, command_plan)
+        self.application.task_runner.enqueue(self._execute_all, command_batch)
 
-    def _execute_all(self, command_plan: CommandPlan):
+    def _execute_all(self, command_batch: CommandBatch):
         total = 0
         needs_gdrive = False
-        count_commands = len(command_plan)
+        count_commands = len(command_batch)
 
         if count_commands == 0:
-            logger.error(f'Command plan (uid="{command_plan.uid}") is empty!')
+            logger.error(f'Command plan (uid="{command_batch.uid}") is empty!')
             return
 
-        logger.debug(f'Executing command plan uid="{command_plan.uid}", size={count_commands}: ' + command_plan.tree.show(stdout=False))
+        logger.debug(f'Executing command plan uid="{command_batch.uid}", size={count_commands}: ' + command_batch.tree.show(stdout=False))
 
-        command_list = command_plan.get_breadth_first_list()
+        command_list = command_batch.get_breadth_first_list()
 
         for command in command_list:
             total += command.get_total_work()
@@ -55,12 +63,12 @@ class CommandExecutor:
                 if command.status() != CommandStatus.NOT_STARTED:
                     logger.info(f'Skipping command: {command}')
                 else:
-                    parent_cmd = command_plan.get_parent(command.identifier)
+                    parent_cmd = command_batch.get_parent(command.identifier)
                     if parent_cmd and not parent_cmd.completed_without_error():
                         logger.info(f'Skipping execution of command {command}: parent did not complete ({parent_cmd})')
                     else:
                         try:
-                            status = f'Executing command {(command_num + 1)} of {len(command_plan)}'
+                            status = f'Executing command {(command_num + 1)} of {len(command_batch)}'
                             dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=actions.ID_COMMAND_EXECUTOR, msg=status)
                             logger.info(f'{status}: {repr(command)}')
                             command.execute(context)
@@ -74,4 +82,4 @@ class CommandExecutor:
         finally:
             dispatcher.send(signal=actions.STOP_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR)
 
-        logger.info(f'{command_plan.get_total_completed()} out of {len(command_plan)} completed')
+        logger.info(f'{command_batch.get_total_completed()} out of {len(command_batch)} completed')
