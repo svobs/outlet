@@ -58,7 +58,7 @@ class CommandExecutor:
                                 # TODO: notify/display error messages somewhere in the UI?
                                 logger.error(f'Command failed with error: {command.get_error()}')
                             else:
-                                logger.info(f'Command completed with status: {command.status()}')
+                                logger.info(f'Command returned with status: "{command.status().name}"')
                         except Exception as err:
                             # If caught here, it indicates a pretty big hole in our command logic
                             logger.exception(f'Unexpected exception while running command {command}')

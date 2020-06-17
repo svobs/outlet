@@ -208,6 +208,9 @@ class UploadToGDriveCommand(Command):
             parent_goog_id: str = context.resolve_parent_ids_to_goog_ids(self._model)
             src_file_path = self._model.original_full_path
             name = self._model.src_node.name
+            new_md5 = self._model.src_node.md5
+            new_size = self._model.src_node.size_bytes
+
             existing = context.gdrive_client.get_existing_file_with_parent_and_name(parent_goog_id=parent_goog_id, name=name)
             logger.debug(f'Found {len(existing.nodes)} existing files with parent={parent_goog_id} and name={name}')
             if self._overwrite:
@@ -218,8 +221,6 @@ class UploadToGDriveCommand(Command):
 
                 old_md5 = self._model.dst_node.md5
                 old_size = self._model.dst_node.size_bytes
-                new_md5 = self._model.src_node.md5
-                new_size = self._model.src_node.size_bytes
 
                 data_to_update = None
                 if len(existing.nodes) > 0:
@@ -249,8 +250,18 @@ class UploadToGDriveCommand(Command):
                 assert isinstance(self._model, FileToAdd)
 
                 if len(existing.nodes) > 0:
-                    # Google will allow this, but it makes no sense when uploading a file from local disk
-                    # (really, does it ever seem like a good idea?)
+                    for existing_data, existing_node in zip(existing.raw_items, existing.nodes):
+                        assert isinstance(existing_node, GoogFile)
+                        if existing_node.md5 == new_md5 and existing_node.size_bytes == new_size:
+                            logger.info(f'Identical already exists in Google Drive; will not update (md5={new_md5}, size={new_size})')
+                            self._status = CommandStatus.COMPLETED_NO_OP
+                            # Update cache manager - it's likely out of date:
+                            existing_node.uid = self._model.uid
+                            existing_node.parent_uids = self._model.parent_uids
+                            context.cache_manager.add_or_update_node(existing_node)
+                            return
+
+                    # if we got here, item is in the way which has an unexpected MD5
                     self._error = f'While trying to add: found unexpected item(s) with the same name and parent: {existing.nodes}'
                     self._status = CommandStatus.STOPPED_ON_ERROR
                     return
