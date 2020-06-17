@@ -8,7 +8,7 @@ import treelib
 from treelib.exceptions import DuplicatedNodeIdError
 
 import file_util
-from constants import ROOT_PATH, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
+from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from model.category import Category
 from model.display_node import CategoryNode, DirNode, DisplayNode, RootTypeNode
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier, NodeIdentifierFactory
@@ -16,7 +16,7 @@ from model.subtree_snapshot import SubtreeSnapshot
 
 logger = logging.getLogger(__name__)
 
-CATEGORIES = [Category.Added, Category.Deleted, Category.Moved, Category.Updated, Category.Ignored]
+CATEGORIES = [Category.Added, Category.Deleted, Category.Moved, Category.Updated]
 
 SUPER_DEBUG = False
 
@@ -297,7 +297,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
     def get_summary(self) -> str:
         def make_cat_map():
             cm = {}
-            for c in Category.Added, Category.Updated, Category.Moved, Category.Deleted, Category.Ignored:
+            for c in CATEGORIES:
                 cm[c] = f'{CategoryNode.display_names[c]}: 0'
             return cm
 
@@ -320,7 +320,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
                 cat_map = type_map.get(tree_type, None)
                 if cat_map:
                     cat_summaries = []
-                    for cat in Category.Added, Category.Updated, Category.Moved, Category.Deleted, Category.Ignored:
+                    for cat in CATEGORIES:
                         cat_summaries.append(cat_map[cat])
                     type_summaries.append(f'{tree_type_name}: {",".join(cat_summaries)}')
             return '; '.join(type_summaries)
@@ -333,7 +333,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
             if cat_count == 0:
                 return 'Contents are identical'
             cat_summaries = []
-            for cat in Category.Added, Category.Updated, Category.Moved, Category.Deleted, Category.Ignored:
+            for cat in CATEGORIES:
                 cat_summaries.append(cat_map[cat])
             return ', '.join(cat_summaries)
 

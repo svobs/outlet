@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Optional
 
 import gi
 from pydispatch.dispatcher import Any
@@ -8,6 +8,7 @@ from constants import TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
 from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
+from ui.tree.category_display_tree import CategoryDisplayTree
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk
@@ -218,6 +219,25 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # repeat timer
         return True
 
+    def _generate_merge_tree(self) -> Optional[CategoryDisplayTree]:
+        left_selected_changes: List[DisplayNode] = self.tree_con_left.get_checked_rows_as_list()
+        right_selected_changes: List[DisplayNode] = self.tree_con_right.get_checked_rows_as_list()
+        if len(left_selected_changes) == 0 and len(right_selected_changes) == 0:
+            self.show_error_msg('You must select change(s) first.')
+            return None
+
+        differ = ContentFirstDiffer(self.tree_con_left.get_tree(), self.tree_con_right.get_tree(), self.application)
+        merged_changes_tree: CategoryDisplayTree = differ.merge_change_trees(left_selected_changes, right_selected_changes)
+
+        conflict_pairs = []
+        if conflict_pairs:
+            # TODO: more informative error
+            self.show_error_msg('Cannot merge', f'{len(conflict_pairs)} conflicts found')
+            return None
+
+        logger.info(f'Merged changes: {merged_changes_tree.get_summary()}')
+        return merged_changes_tree
+
     def on_merge_preview_btn_clicked(self, widget):
         """
         1. Gets selected changes from both sides,
@@ -227,26 +247,11 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         logger.debug('Merge btn clicked')
 
         try:
-            left_selected_changes: List[DisplayNode] = self.tree_con_left.get_checked_rows_as_list()
-            right_selected_changes: List[DisplayNode] = self.tree_con_right.get_checked_rows_as_list()
-            if len(left_selected_changes) == 0 and len(right_selected_changes) == 0:
-                self.show_error_msg('You must select change(s) first.')
-                return
-
-            differ = ContentFirstDiffer(self.tree_con_left.get_tree(), self.tree_con_right.get_tree(), self.application)
-            merged_changes_tree = differ.merge_change_trees(left_selected_changes, right_selected_changes)
-
-            conflict_pairs = []
-            if conflict_pairs:
-                # TODO: more informative error
-                self.show_error_msg('Cannot merge', f'{len(conflict_pairs)} conflicts found')
-                return
-
-            logger.info(f'Merged changes: {merged_changes_tree.get_summary()}')
-
-            # Preview changes in UI pop-up
-            dialog = MergePreviewDialog(self, merged_changes_tree)
-            response_id = dialog.run()
+            merged_changes_tree = self._generate_merge_tree()
+            if merged_changes_tree:
+                # Preview changes in UI pop-up
+                dialog = MergePreviewDialog(self, merged_changes_tree)
+                dialog.run()
         except Exception as err:
             self.show_error_ui('Merge preview failed due to unexpected error', repr(err))
             raise
@@ -285,8 +290,13 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             merge_btn = Gtk.Button(label="Merge Selected...")
             merge_btn.connect("clicked", self.on_merge_preview_btn_clicked)
 
-            # FIXME: this is causing the button bar to disappear. Fix layout!
-            self.replace_bottom_button_panel(merge_btn)
+            def on_cancel_diff_btn_clicked(widget):
+                dispatcher.send(signal=actions.DIFF_CANCELLED, sender=actions.ID_MERGE_TREE)
+
+            cancel_diff_btn = Gtk.Button(label="Cancel Diff")
+            cancel_diff_btn.connect("clicked", on_cancel_diff_btn_clicked)
+
+            self.replace_bottom_button_panel(merge_btn, cancel_diff_btn)
 
             actions.enable_ui(sender=self)
             logger.debug(f'Diff time + redraw: {stopwatch}')
