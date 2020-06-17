@@ -408,7 +408,9 @@ class TreeUserInputListeners:
             logger.debug('User right-clicked on ephemereal node. Ignoring')
             return
         id_clicked = node_data.uid
-        selected_items: List[DisplayNode] = self.con.get_multiple_selection()
+        sel_items_tuple = self.con.get_multiple_selection_and_paths()
+        selected_items: List[DisplayNode] = sel_items_tuple[0]
+        selected_tree_paths: List[Gtk.TreePath] = sel_items_tuple[1]
 
         clicked_on_selection = False
 
@@ -422,7 +424,7 @@ class TreeUserInputListeners:
             objs_type = _get_items_type(selected_items)
 
             # User right-clicked on selection -> apply context menu to all selected items:
-            context_menu = self._context_menus_by_type[objs_type].build_context_menu_multiple(selected_items)
+            context_menu = self._context_menus_by_type[objs_type].build_context_menu_multiple(selected_items, selected_tree_paths)
             if context_menu:
                 context_menu.popup_at_pointer(event)
                 # Suppress selection event

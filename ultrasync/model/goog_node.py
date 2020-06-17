@@ -82,10 +82,6 @@ class GoogNode(DisplayNodeWithParents, ABC):
     def name(self, name):
         self._name = name
 
-    @classmethod
-    def has_path(cls):
-        return True
-
     @property
     def trashed_str(self):
         if self.trashed is None:
@@ -321,10 +317,6 @@ class FolderToAdd(PlanningNode, GoogNode):
 
     @classmethod
     def is_dir(cls):
-        return True
-
-    @classmethod
-    def has_path(cls):
         return True
 
     def __repr__(self):

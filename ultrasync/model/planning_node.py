@@ -87,10 +87,6 @@ class FileDecoratorNode(PlanningNode, ABC):
         return self.src_node.change_ts
 
     @classmethod
-    def has_path(cls):
-        return True
-
-    @classmethod
     def is_file(cls):
         return True
 
@@ -197,10 +193,6 @@ class LocalDirToAdd(PlanningNode):
 
     @classmethod
     def is_dir(cls):
-        return True
-
-    @classmethod
-    def has_path(cls):
         return True
 
     def __repr__(self):

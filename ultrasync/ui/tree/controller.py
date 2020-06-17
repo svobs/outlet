@@ -1,5 +1,7 @@
-from typing import List
+from typing import List, Tuple
 import logging
+
+from gi.overrides import Gtk
 
 from stopwatch_sec import Stopwatch
 
@@ -134,6 +136,16 @@ class TreePanelController:
             item = self.display_store.get_node_data(tree_path)
             items.append(item)
         return items
+
+    def get_multiple_selection_and_paths(self) -> Tuple[List[DisplayNode], List[Gtk.TreePath]]:
+        """Returns a list of the selected items (empty if none)"""
+        selection = self.tree_view.get_selection()
+        model, tree_paths = selection.get_selected_rows()
+        items = []
+        for tree_path in tree_paths:
+            item = self.display_store.get_node_data(tree_path)
+            items.append(item)
+        return items, tree_paths
 
     def get_checked_rows_as_list(self) -> List[DisplayNode]:
         timer = Stopwatch()

@@ -3,6 +3,8 @@ import logging
 import re
 from typing import List
 import subprocess
+
+from gi.overrides import Gtk
 from pydispatch import dispatcher
 
 import file_util
@@ -38,6 +40,8 @@ class TreeActions:
         dispatcher.connect(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, receiver=self._download_file_from_gdrive)
         dispatcher.connect(signal=actions.DELETE_SINGLE_FILE, sender=self.con.tree_id, receiver=self._delete_single_file)
         dispatcher.connect(signal=actions.DELETE_SUBTREE, sender=self.con.tree_id, receiver=self._delete_subtree)
+        dispatcher.connect(signal=actions.SET_ROWS_CHECKED, sender=self.con.tree_id, receiver=self._check_rows)
+        dispatcher.connect(signal=actions.SET_ROWS_UNCHECKED, sender=self.con.tree_id, receiver=self._uncheck_rows)
 
     # ACTIONS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -153,3 +157,11 @@ class TreeActions:
         command_batch = builder.build_command_batch(delete_list=total_list)
         # This should fire listeners which ultimately populate the tree:
         self.con.parent_win.application.cache_manager.add_command_batch(command_batch)
+
+    def _check_rows(self, sender, tree_paths: List[Gtk.TreePath] = None):
+        for tree_path in tree_paths:
+            self.con.display_store.set_row_checked(tree_path, True)
+
+    def _uncheck_rows(self, sender, tree_paths: List[Gtk.TreePath] = None):
+        for tree_path in tree_paths:
+            self.con.display_store.set_row_checked(tree_path, False)

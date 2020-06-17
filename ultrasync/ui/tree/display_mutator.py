@@ -529,7 +529,7 @@ class DisplayMutator:
 
     def _add_checked_columns(self, parent_iter, node: DisplayNode, row_values: List):
         """Populates the checkbox and sets its state for a newly added row"""
-        if self.con.treeview_meta.has_checkboxes and node.has_path():
+        if self.con.treeview_meta.has_checkboxes and not node.is_ephemereal():
             if parent_iter:
                 parent_checked = self.con.display_store.is_node_checked(parent_iter)
                 if parent_checked:

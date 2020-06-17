@@ -29,6 +29,8 @@ EXPAND_ALL = 'expand-all'
 DOWNLOAD_FROM_GDRIVE = 'download-from-gdrive'
 DELETE_SINGLE_FILE = 'delete-single-file'
 DELETE_SUBTREE = 'delete-subtree'
+SET_ROWS_CHECKED = 'set-rows-checked'
+SET_ROWS_UNCHECKED = 'set-rows-unchecked'
 
 # All components should listen for this
 TOGGLE_UI_ENABLEMENT = 'toggle-ui-enablement'

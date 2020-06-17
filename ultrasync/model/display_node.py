@@ -102,12 +102,6 @@ class DisplayNode(Node, ABC):
     def get_relative_path(self, parent_tree):
         return parent_tree.get_relative_path_for_item(self)
 
-    @classmethod
-    @abstractmethod
-    def has_path(cls):
-        """If true, this node represents a physical path. If false, it is just a logical node"""
-        return False
-
     def get_icon(self):
         return ICON_GENERIC_FILE
 
@@ -233,10 +227,6 @@ class DirNode(DisplayNode):
         return False
 
     @classmethod
-    def has_path(cls):
-        return True
-
-    @classmethod
     def is_dir(cls):
         return True
 
@@ -349,10 +339,6 @@ class EphemeralNode(DisplayNode, ABC):
 
     @classmethod
     def is_dir(cls):
-        return False
-
-    @classmethod
-    def has_path(cls):
         return False
 
 

@@ -22,10 +22,6 @@ class FMeta(DisplayNode):
         self._modify_ts: int = ensure_int(modify_ts)
         self._change_ts: int = ensure_int(change_ts)
 
-    @classmethod
-    def has_path(cls):
-        return True
-
     def get_icon(self):
         return self.category.name
 

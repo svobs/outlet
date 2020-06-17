@@ -93,6 +93,9 @@ class Command(treelib.Node, ABC):
         self._error = err
         self._status = CommandStatus.STOPPED_ON_ERROR
 
+    def get_error(self):
+        return self._error
+
     def __repr__(self):
         return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self._status}, model={self._model}'
 

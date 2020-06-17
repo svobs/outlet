@@ -53,12 +53,16 @@ class CommandExecutor:
                             dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=actions.ID_COMMAND_EXECUTOR, msg=status)
                             logger.info(f'{status}: {repr(command)}')
                             command.execute(context)
+
+                            if command.status() == CommandStatus.STOPPED_ON_ERROR:
+                                # TODO: notify/display error messages somewhere in the UI?
+                                logger.error(f'Command failed with error: {command.get_error()}')
+                            else:
+                                logger.info(f'Command completed with status: {command.status()}')
                         except Exception as err:
                             # If caught here, it indicates a pretty big hole in our command logic
                             logger.exception(f'Unexpected exception while running command {command}')
                             command.set_error(err)
-
-                    # TODO: notify/display error messages somewhere in the UI?
 
                     dispatcher.send(signal=actions.PROGRESS_MADE, sender=actions.ID_COMMAND_EXECUTOR, progress=command.get_total_work())
 
@@ -66,4 +70,4 @@ class CommandExecutor:
             dispatcher.send(signal=actions.STOP_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR)
             dispatcher.send(signal=actions.COMMAND_BATCH_COMPLETE, sender=actions.ID_COMMAND_EXECUTOR, batch_uid=command_batch.uid)
 
-        logger.info(f'{command_batch.get_total_completed()} out of {len(command_batch)} completed')
+        logger.info(f'{command_batch.get_total_completed()} out of {len(command_batch)} completed without error')

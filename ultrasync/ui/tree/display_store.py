@@ -80,7 +80,7 @@ class DisplayStore:
         assert not (is_checked and is_inconsistent)
         node_data: DisplayNode = self.get_node_data(tree_iter)
 
-        if not node_data.has_path():
+        if node_data.is_ephemereal():
             # Cannot be checked if no path (LoadingNode, etc.)
             return
 
@@ -102,22 +102,27 @@ class DisplayStore:
         else:
             if row_id in self.inconsistent_rows: del self.inconsistent_rows[row_id]
 
-    def on_cell_checkbox_toggled(self, widget, path):
+    def on_cell_checkbox_toggled(self, widget, tree_path):
         """LISTENER/CALLBACK: Called when checkbox in treeview is toggled"""
-        data_node: DisplayNode = self.get_node_data(path)
-        if not data_node.has_path():
+        if isinstance(tree_path, str):
+            tree_path = Gtk.TreePath.new_from_string(tree_path)
+        data_node: DisplayNode = self.get_node_data(tree_path)
+        if data_node.is_ephemereal():
             logger.debug('Disallowing checkbox toggle because node is ephemereal')
             return
         elif self.treeview_meta.is_ignored_func and self.treeview_meta.is_ignored_func(data_node):
             logger.debug('Disallowing checkbox toggle because node is in IGNORED category')
             return
-        checked_value = not self.is_node_checked(path)
-        logger.debug(f'Toggled {checked_value}: {self.get_node_name(path)}')
+        checked_value = not self.is_node_checked(tree_path)
+        self.set_row_checked(tree_path, checked_value)
+
+    def set_row_checked(self, tree_path: Gtk.TreePath, checked_value: bool):
+        logger.debug(f'Toggling {checked_value}: {self.get_node_name(tree_path)}')
 
         # Need to update all the siblings (children of parent) because their checked state may not be tracked.
         # We can assume that if a parent is not inconsistent (i.e. is either checked or unchecked), the state of its children are implied.
         # But if the parent is inconsistent, we must track the state of ALL of its children.
-        tree_iter = self.model.get_iter(path)
+        tree_iter = self.model.get_iter(tree_path)
         parent_iter = self.model.iter_parent(tree_iter)
         if parent_iter:
             child_iter = self.model.iter_children(parent_iter)
@@ -134,10 +139,9 @@ class DisplayStore:
         def update_checked_state(t_iter):
             self._set_checked_state(t_iter, checked_value, False)
 
-        self.do_for_self_and_descendants(path, update_checked_state)
+        self.do_for_self_and_descendants(tree_path, update_checked_state)
 
         # Now update its ancestors' states:
-        tree_path = Gtk.TreePath.new_from_string(path)
         while True:
             # Go up the tree, one level per loop,
             # with each node updating itself based on its immediate children

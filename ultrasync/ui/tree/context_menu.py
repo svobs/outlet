@@ -26,7 +26,7 @@ class TreeContextMenu:
     def __init__(self, controller):
         self.con = controller
 
-    def build_context_menu_multiple(self, selected_items: List[DisplayNode]) -> Optional[Gtk.Menu]:
+    def build_context_menu_multiple(self, selected_items: List[DisplayNode], selected_tree_paths: List[Gtk.TreePath]) -> Optional[Gtk.Menu]:
         menu = Gtk.Menu()
 
         # Show number of items selected
@@ -37,7 +37,20 @@ class TreeContextMenu:
         item.set_sensitive(False)
         menu.append(item)
 
-        # TODO: checkbox selection
+        if self.con.treeview_meta.has_checkboxes:
+            tree_paths: List[Gtk.TreePath] = []
+            for item, path in zip(selected_items, selected_tree_paths):
+                # maybe I'm nitpicking here
+                if not item.is_ephemereal():
+                    tree_paths.append(path)
+
+            item = Gtk.MenuItem(label=f'Check All')
+            item.connect('activate', self.send_signal, actions.SET_ROWS_CHECKED, {'tree_paths': tree_paths})
+            menu.append(item)
+
+            item = Gtk.MenuItem(label=f'Uncheck All')
+            item.connect('activate', self.send_signal, actions.SET_ROWS_UNCHECKED, {'tree_paths': tree_paths})
+            menu.append(item)
 
         is_localdisk = len(selected_items) > 0 and selected_items[0].node_identifier.tree_type == TREE_TYPE_LOCAL_DISK
         if is_localdisk:
