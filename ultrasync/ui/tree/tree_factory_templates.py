@@ -208,6 +208,14 @@ def build_treeview(display_store: DisplayStore, assets) -> Gtk.TreeView:
     # May want to disable if using drag+drop
     treeview.set_rubber_banding(True)
 
+    # Some guy on a message board says it's important to set this to true:
+    treeview.set_can_focus(True)
+
+    # Search-as-you-type: navigates to an item in the list which starts with the text entered.
+    # Currently we will just use the default built-in search box
+    treeview.set_enable_search(True)
+    treeview.set_search_column(treeview_meta.col_num_name)
+
     # Search for "TREE_VIEW_COLUMNS":
 
     add_checkbox_icon_name_column(treeview, display_store, assets)

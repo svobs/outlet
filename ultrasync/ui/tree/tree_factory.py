@@ -104,7 +104,6 @@ class TreeFactory:
 
         assets = self.parent_win.application.assets
         controller.tree_view = tree_factory_templates.build_treeview(display_store, assets)
-        controller.tree_view.set_can_focus(True)
 
         controller.root_dir_panel = RootDirPanel(parent_win=self.parent_win,
                                                  controller=controller,
