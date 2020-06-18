@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional, Tuple
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE
-from index.sqlite.base_db import MetaDatabase
+from index.sqlite.base_db import MetaDatabase, Table
 from index.uid_generator import UID
 
 logger = logging.getLogger(__name__)
@@ -26,53 +26,43 @@ class CurrentDownload:
 
 
 class GDriveDatabase(MetaDatabase):
+    TABLE_GRDIVE_CURRENT_DOWNLOADS = Table(name='current_downloads',
+                                           cols={'download_type': 'INTEGER',
+                                                 'current_state': 'INTEGER',
+                                                 'page_token': 'TEXT',
+                                                 'update_ts': 'INTEGER'})
 
-    TABLE_GRDIVE_CURRENT_DOWNLOADS = {
-        'name': 'current_downloads',
-        'cols': (('download_type', 'INTEGER'),
-                 ('current_state', 'INTEGER'),
-                 ('page_token', 'TEXT'),
-                 ('update_ts', 'INTEGER'))
-    }
+    TABLE_GRDIVE_DIRS = Table(name='goog_folder',
+                              cols={'uid': 'INTEGER PRIMARY KEY',
+                                    'goog_id': 'TEXT',
+                                    'name': 'TEXT',
+                                    'trashed': 'INTEGER',
+                                    'drive_id': 'TEXT',
+                                    'my_share': 'INTEGER',
+                                    'sync_ts': 'INTEGER',
+                                    'all_children_fetched': 'INTEGER'})
 
-    TABLE_GRDIVE_DIRS = {
-        'name': 'goog_folder',
-        'cols': (('uid', 'INTEGER PRIMARY KEY'),
-                 ('goog_id', 'TEXT'),
-                 ('name', 'TEXT'),
-                 ('trashed', 'INTEGER'),
-                 ('drive_id', 'TEXT'),
-                 ('my_share', 'INTEGER'),
-                 ('sync_ts', 'INTEGER'),
-                 ('all_children_fetched', 'INTEGER'))
-    }
+    TABLE_GRDIVE_ID_PARENT_MAPPINGS = Table(name='goog_id_parent_mappings',
+                                            cols={'item_uid': 'INTEGER',
+                                                  'parent_uid': 'INTEGER',
+                                                  'parent_goog_id': 'TEXT',
+                                                  'sync_ts': 'INTEGER'})
 
-    TABLE_GRDIVE_ID_PARENT_MAPPINGS = {
-        'name': 'goog_id_parent_mappings',
-        'cols': (('item_uid', 'INTEGER'),
-                 ('parent_uid', 'INTEGER'),
-                 ('parent_goog_id', 'TEXT'),
-                 ('sync_ts', 'INTEGER'))
-    }
-
-    TABLE_GRDIVE_FILES = {
-        'name': 'goog_file',
-        'cols': (('uid', 'INTEGER PRIMARY KEY'),
-                 ('goog_id', 'TEXT'),
-                 ('name', 'TEXT'),
-                 ('trashed', 'INTEGER'),
-                 ('size_bytes', 'INTEGER'),
-                 ('md5', 'TEXT'),
-                 ('create_ts', 'INTEGER'),
-                 ('modify_ts', 'INTEGER'),
-                 ('owner_id', 'TEXT'),
-                 ('drive_id', 'TEXT'),
-                 ('my_share', 'INTEGER'),
-                 ('version', 'INTEGER'),
-                 ('head_revision_id', 'TEXT'),
-                 ('sync_ts', 'INTEGER'))
-
-    }
+    TABLE_GRDIVE_FILES = Table(name='goog_file',
+                               cols={'uid': 'INTEGER PRIMARY KEY',
+                                     'goog_id': 'TEXT',
+                                     'name': 'TEXT',
+                                     'trashed': 'INTEGER',
+                                     'size_bytes': 'INTEGER',
+                                     'md5': 'TEXT',
+                                     'create_ts': 'INTEGER',
+                                     'modify_ts': 'INTEGER',
+                                     'owner_id': 'TEXT',
+                                     'drive_id': 'TEXT',
+                                     'my_share': 'INTEGER',
+                                     'version': 'INTEGER',
+                                     'head_revision_id': 'TEXT',
+                                     'sync_ts': 'INTEGER'})
 
     def __init__(self, db_path):
         super().__init__(db_path)
@@ -101,7 +91,7 @@ class GDriveDatabase(MetaDatabase):
         return self.get_all_rows(self.TABLE_GRDIVE_DIRS)
 
     def update_dir_fetched_status(self, commit=True):
-        self.update(self.TABLE_GRDIVE_DIRS, stmt_vars=(True,), cols=['all_children_fetched'], commit=commit)
+        self.update(self.TABLE_GRDIVE_DIRS, stmt_vars=(True,), col_names=['all_children_fetched'], commit=commit)
 
     def delete_gdrive_dir_with_uid(self, uid: UID, commit=True):
         sql = self.build_delete(self.TABLE_GRDIVE_DIRS) + f' WHERE uid = ?'

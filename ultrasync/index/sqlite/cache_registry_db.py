@@ -3,8 +3,7 @@ from typing import List, Union
 
 import file_util
 from index.cache_info import CacheInfoEntry
-from index.sqlite.base_db import MetaDatabase
-from model.node_identifier import NodeIdentifierFactory
+from index.sqlite.base_db import MetaDatabase, Table
 
 logger = logging.getLogger(__name__)
 
@@ -20,17 +19,14 @@ def ensure_int(val):
 
 
 class CacheRegistry(MetaDatabase):
-    TABLE_CACHE_REGISTRY = {
-        'name': 'cache_registry',
-        'cols': (('cache_location', 'TEXT'),
-                 ('cache_type', 'INTEGER'),
-                 ('subtree_root_path', 'TEXT'),
-                 ('subtree_root_uid', 'INTEGER'),
-                 ('sync_ts', 'INTEGER'),
-                 ('complete', 'INTEGER'))
-    }
+    TABLE_CACHE_REGISTRY = Table(name='cache_registry', cols={'cache_location': 'TEXT',
+                                                              'cache_type': 'INTEGER',
+                                                              'subtree_root_path': 'TEXT',
+                                                              'subtree_root_uid': 'INTEGER',
+                                                              'sync_ts': 'INTEGER',
+                                                              'complete': 'INTEGER'})
 
-    def __init__(self, main_registry_path, node_identifier_factory):
+    def __init__(self, main_registry_path: str, node_identifier_factory):
         super().__init__(main_registry_path)
         self.node_identifier_factory = node_identifier_factory
 

@@ -1,7 +1,7 @@
 import logging
 from typing import List
 
-from index.sqlite.base_db import MetaDatabase
+from index.sqlite.base_db import MetaDatabase, Table
 from model.display_node import DirNode
 from model.fmeta import FMeta
 from model.node_identifier import LocalFsIdentifier
@@ -10,24 +10,18 @@ logger = logging.getLogger(__name__)
 
 
 class FMetaDatabase(MetaDatabase):
-    TABLE_LOCAL_FILE = {
-        'name': 'local_file',
-        'cols': (('uid', 'INTEGER PRIMARY KEY'),
-                 ('md5', 'TEXT'),
-                 ('sha256', 'TEXT'),
-                 ('size_bytes', 'INTEGER'),
-                 ('sync_ts', 'INTEGER'),
-                 ('modify_ts', 'INTEGER'),
-                 ('change_ts', 'INTEGER'),
-                 ('full_path', 'TEXT'))
-    }
+    TABLE_LOCAL_FILE = Table(name='local_file', cols={'uid': 'INTEGER PRIMARY KEY',
+                                                      'md5': 'TEXT',
+                                                      'sha256': 'TEXT',
+                                                      'size_bytes': 'INTEGER',
+                                                      'sync_ts': 'INTEGER',
+                                                      'modify_ts': 'INTEGER',
+                                                      'change_ts': 'INTEGER',
+                                                      'full_path': 'TEXT'})
 
     # 2020-06: So far this is really just a mapping of UIDs to paths, to keep things consistent across runs.
-    TABLE_LOCAL_DIR = {
-        'name': 'local_dir',
-        'cols': (('uid', 'INTEGER PRIMARY KEY'),
-                 ('full_path', 'TEXT'))
-    }
+    TABLE_LOCAL_DIR = Table(name='local_dir', cols={'uid': 'INTEGER PRIMARY KEY',
+                                                    'full_path': 'TEXT'})
 
     def __init__(self, db_path, application):
         super().__init__(db_path)
