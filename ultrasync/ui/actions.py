@@ -11,16 +11,7 @@ DOWNLOAD_GDRIVE_META = 'download-gdrive-meta'
 GDRIVE_DOWNLOAD_COMPLETE = 'gdrive-download-complete'
 COMMAND_BATCH_COMPLETE = 'command-batch-complete'
 
-# --- Tree actions ---
-LOAD_TREE_STARTED = 'load-tree-started'
-NODE_EXPANSION_TOGGLED = 'node-expansion-toggled'
-ROOT_PATH_UPDATED = 'root-path-updated'
-NODE_UPSERTED = 'node-upserted'
-NODE_REMOVED = 'node-removed'
-DIFF_CANCELLED = 'diff-cancelled'
-REFRESH_ALL_NODE_STATS = 'refresh-all-node-stats'
-DRAG_AND_DROP = 'drag-and-drop'
-
+# --- Tree actions: requests ---
 CALL_EXIFTOOL = 'call-exiftool'
 CALL_EXIFTOOL_LIST = 'call-exiftool-list'
 SHOW_IN_NAUTILUS = 'show-in-nautilus'
@@ -32,6 +23,20 @@ DELETE_SUBTREE = 'delete-subtree'
 SET_ROWS_CHECKED = 'set-rows-checked'
 SET_ROWS_UNCHECKED = 'set-rows-unchecked'
 REFRESH_SUBTREE_STATS = 'refresh-subtree-stats'
+"""Requests that the central cache update the stats for all nodes in the given subtree.
+When done, the central cache will send the signal SUBTREE_STATS_UPDATED to notify the tree that it can redraw the displayed nodes"""
+
+# --- Tree actions: notifications ---
+LOAD_TREE_STARTED = 'load-tree-started'
+NODE_EXPANSION_TOGGLED = 'node-expansion-toggled'
+ROOT_PATH_UPDATED = 'root-path-updated'
+NODE_UPSERTED = 'node-upserted'
+NODE_REMOVED = 'node-removed'
+DIFF_CANCELLED = 'diff-cancelled'
+SUBTREE_STATS_UPDATED = 'subtree-stats-updated'
+"""Indicates that the central cache has updated the stats for the subtree, and the subtree should redraw the nodes"""
+
+DRAG_AND_DROP = 'drag-and-drop'
 
 # All components should listen for this
 TOGGLE_UI_ENABLEMENT = 'toggle-ui-enablement'

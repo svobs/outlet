@@ -57,7 +57,7 @@ class DisplayMutator:
             dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled,
                                sender=self.con.treeview_meta.tree_id)
 
-        dispatcher.connect(signal=actions.REFRESH_ALL_NODE_STATS, receiver=self._on_refresh_all_node_stats)
+        dispatcher.connect(signal=actions.SUBTREE_STATS_UPDATED, receiver=self._on_subtree_stats_updated)
         """This signal comes from the cacheman after it has finished updating all the nodes in the subtree,
         notfiying us that we can now refresh our display from it"""
 
@@ -384,7 +384,7 @@ class DisplayMutator:
 
         GLib.idle_add(update_ui)
 
-    def _on_refresh_all_node_stats(self, sender: str):
+    def _on_subtree_stats_updated(self, sender: str):
         """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes
         with the current values from the cache."""
         def refresh_displayed_node(tree_iter):

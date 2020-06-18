@@ -159,5 +159,5 @@ class SubtreeSnapshot(ABC):
 
         self._stats_loaded = True
         actions.set_status(sender=tree_id, status_msg=self.get_summary())
-        dispatcher.send(signal=actions.REFRESH_ALL_NODE_STATS, sender=tree_id)
+        dispatcher.send(signal=actions.SUBTREE_STATS_UPDATED, sender=tree_id)
         logger.debug(f'{stats_sw} Refreshed stats for tree')
