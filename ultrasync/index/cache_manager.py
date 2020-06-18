@@ -22,6 +22,7 @@ from model.category import Category
 from model.display_node import DisplayNode
 from model.fmeta import FMeta
 from model.gdrive_whole_tree import GDriveWholeTree
+from model.goog_node import GoogNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier, NodeIdentifierFactory
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
@@ -345,11 +346,16 @@ class CacheManager:
             return [LocalFsIdentifier(full_path=full_path, uid=uid)]
 
     def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
+        """Deterministically gets or creates a UID corresponding to the given path string"""
         return self._local_disk_cache.get_uid_for_path(path, uid_suggestion)
 
     def get_node_for_local_path(self, path: str) -> DisplayNode:
         uid = self.get_uid_for_path(path)
         return self._local_disk_cache.get_item(uid)
+
+    def get_goog_node(self, parent_uid: UID, goog_id: str) -> Optional[GoogNode]:
+        """Finds the GDrive node with the given goog_id. (Parent UID is needed so that we don't have to search the entire tree"""
+        return self._gdrive_cache.get_goog_node(parent_uid, goog_id)
 
     def get_item_for_uid(self, uid: UID, tree_type):
         if tree_type == TREE_TYPE_GDRIVE:

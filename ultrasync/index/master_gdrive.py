@@ -10,6 +10,7 @@ from index.cache_manager import PersistedCacheInfo
 from index.error import CacheNotLoadedError, GDriveItemNotFoundError
 from index.sqlite.gdrive_db import GDriveDatabase
 from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
+from index.uid_generator import UID
 from model.display_node import DisplayNode
 from model.gdrive_subtree import GDriveSubtree
 from model.gdrive_whole_tree import GDriveWholeTree
@@ -132,6 +133,8 @@ class GDriveMasterCache:
                 raise RuntimeError(f'Unrecognized node type: {node}')
             if not node.goog_id:
                 raise RuntimeError(f'Node is missing Google ID: {node}')
+
+            # assemble parent mappings
             parent_goog_ids = self.meta_master.resolve_uids_to_goog_ids(node.parent_uids)
             parent_mappings = []
             assert len(node.parent_uids) == len(parent_goog_ids)
@@ -149,6 +152,13 @@ class GDriveMasterCache:
                     # FIXME: it's not clear that we have implemented __eq__ for all necessary items
                     logger.info(f'Item being added (uid={node.uid}) is identical to item already in the cache; ignoring')
                     return
+                logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')
+            else:
+                node_with_different_uid = self.get_goog_node(parent_uid=node.parent_uids[0], goog_id=node.goog_id)
+                if node_with_different_uid:
+                    logger.warning(f'Found node in cache with same GoogID ({node.goog_id}) but different UID ('
+                                   f'{node_with_different_uid}). Changing UID of item (was: {node.uid}) to match')
+                    node.uid = node_with_different_uid.uid
 
             cache_path: str = self._get_cache_path_for_master()
 
@@ -192,6 +202,17 @@ class GDriveMasterCache:
                     cache.delete_gdrive_file_with_uid(node.uid)
 
         dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
+
+    def get_goog_node(self, parent_uid: UID, goog_id: str) -> Optional[GoogNode]:
+        """Finds the GDrive node with the given goog_id. (Parent UID is needed so that we don't have to search the entire tree"""
+        parent = self.get_item_for_uid(parent_uid)
+        if parent:
+            children = self.get_children(parent)
+            if children:
+                for child in children:
+                    if child.goog_id == goog_id:
+                        return child
+        return None
 
     def _get_cache_path_for_master(self) -> str:
         # Open master database...

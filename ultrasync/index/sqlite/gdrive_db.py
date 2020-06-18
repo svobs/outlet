@@ -143,7 +143,6 @@ class GDriveDatabase(MetaDatabase):
         self.insert_many(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS, id_parent_mappings, commit=commit)
 
     def upsert_parent_mappings_for_id(self, id_parent_mappings: List[Tuple], uid: UID, commit=True):
-        logger.debug(f'Deleting id-parent mappings for {uid}')
         # just do this the easy way for now. Need to replace all mappings for this UID
         self.delete_parent_mappings_for_uid(uid=uid, commit=False)
 

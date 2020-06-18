@@ -27,7 +27,7 @@ class CommandExecutor:
             logger.error(f'Command plan (uid="{command_batch.uid}") is empty!')
             return
 
-        logger.debug(f'Executing command plan uid="{command_batch.uid}", size={count_commands}: ' + command_batch.tree.show(stdout=False))
+        logger.debug(f'Executing command batch uid="{command_batch.uid}", size={count_commands}: ' + command_batch.tree.show(stdout=False))
 
         command_list = command_batch.get_breadth_first_list()
 

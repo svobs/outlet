@@ -137,7 +137,8 @@ class CategoryDisplayTree(SubtreeSnapshot):
                 break
 
         if not cat_node:
-            # Create category display node. This may be the "last pre-ancestor"
+            # Create category display node. This may be the "last pre-ancestor".
+            # Note that we can use this for GDrive paths because we are combining it with tree_type and category (below) into a new identifier:
             uid = self.cache_manager.get_uid_for_path(self.root_path)
             nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, item.category)
 

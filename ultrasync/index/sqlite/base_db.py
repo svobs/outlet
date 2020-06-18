@@ -44,7 +44,7 @@ class MetaDatabase:
 
     @staticmethod
     def build_upsert(table: Table):
-        return 'INSERT OR REPLACE INTO ' + table.name + '(' + ','.join(col[0] for col in table.cols) + \
+        return 'INSERT OR REPLACE INTO ' + table.name + '(' + ','.join(col for col in table.cols) + \
                ') VALUES (' + ','.join('?' for i in range(len(table.cols))) + ')'
 
     @staticmethod

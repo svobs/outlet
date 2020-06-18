@@ -2,6 +2,7 @@ import copy
 import logging
 import os
 import pathlib
+from typing import Optional
 
 import file_util
 from command.command_interface import Command, CommandContext, CommandStatus
@@ -222,16 +223,32 @@ class UploadToGDriveCommand(Command):
                 old_md5 = self._model.dst_node.md5
                 old_size = self._model.dst_node.size_bytes
 
-                data_to_update = None
+                data_to_update: Optional[GoogFile] = None
                 if len(existing.nodes) > 0:
                     for existing_data, existing_node in zip(existing.raw_items, existing.nodes):
                         assert isinstance(existing_node, GoogFile)
                         if existing_node.md5 == old_md5 and existing.nodes[0].size_bytes != old_size:
-                            data_to_update = existing_data
+                            data_to_update = existing_node
                         elif existing_node.md5 == new_md5 and existing_node.size_bytes == new_size:
-                            logger.info(f'Identical already exists in Google Drive; will not update (md5={new_md5}, size={new_size})')
+                            logger.info(f'Identical item already exists in Google Drive: (md5={new_md5}, size={new_size})')
                             self._status = CommandStatus.COMPLETED_NO_OP
                             # Update cache manager - it's likely out of date:
+                            cached_node = context.cache_manager.get_goog_node(parent_uid=self._model.parent_uids[0], goog_id=existing_node.goog_id)
+                            if cached_node:
+                                # kludge: make sure this field matches for equals func
+                                existing_node.uid = cached_node.uid
+                                if existing_node == cached_node:
+                                    logger.info(f'Identical already exists in Google Drive and local cache (UID={existing_node.uid})! Skipping.')
+                                    if cached_node.uid != self._model.uid:
+                                        # Get rid of the planning node if there is one
+                                        # (this code is getting hairy...)
+                                        context.cache_manager.remove_node(self._model, False)
+                                    return
+                                else:
+                                    logger.debug(f'Found existing node in cache for goog_id="{existing_node.goog_id}" but it needs update')
+                            else:
+                                logger.debug(f'Item not found in cache; it will be inserted: goog_id="{existing_node.goog_id}"')
+
                             existing_node.uid = self._model.uid
                             existing_node.parent_uids = self._model.parent_uids
                             context.cache_manager.add_or_update_node(existing_node)
@@ -253,9 +270,21 @@ class UploadToGDriveCommand(Command):
                     for existing_data, existing_node in zip(existing.raw_items, existing.nodes):
                         assert isinstance(existing_node, GoogFile)
                         if existing_node.md5 == new_md5 and existing_node.size_bytes == new_size:
-                            logger.info(f'Identical already exists in Google Drive; will not update (md5={new_md5}, size={new_size})')
                             self._status = CommandStatus.COMPLETED_NO_OP
                             # Update cache manager - it's likely out of date:
+                            cached_node = context.cache_manager.get_goog_node(parent_uid=self._model.parent_uids[0], goog_id=existing_node.goog_id)
+                            if cached_node:
+                                # kludge: make sure this field matches for equals func
+                                existing_node.uid = cached_node.uid
+                                if existing_node == cached_node:
+                                    logger.info(f'Identical already exists in Google Drive and local cache (UID={existing_node.uid})! Skipping.')
+                                    if cached_node.uid != self._model.uid:
+                                        # Get rid of the planning node if there is one
+                                        # (this code is getting hairy...)
+                                        context.cache_manager.remove_node(self._model, False)
+                                    return
+                                # Fall through! Wheee!
+                            logger.info(f'Identical item already exists in Google Drive; will update cache (md5={new_md5}, size={new_size})')
                             existing_node.uid = self._model.uid
                             existing_node.parent_uids = self._model.parent_uids
                             context.cache_manager.add_or_update_node(existing_node)
@@ -440,7 +469,7 @@ class MoveFileGDriveCommand(Command):
                 for existing_data, existing_node in zip(existing.raw_items, existing.nodes):
                     assert isinstance(existing_node, GoogFile)
                     if existing_node.goog_id == self._model.src_node.goog_id:
-                        src_node_found = existing_data
+                        src_node_found = existing_node
                         break
 
             if src_node_found:
@@ -452,6 +481,7 @@ class MoveFileGDriveCommand(Command):
                 goog_node.name = self._model.name
                 goog_node.parent_uids = self._model.parent_uids
 
+                # TODO: see if cache already contains item at destination
                 # Add node to disk & in-memory caches:
                 context.cache_manager.add_or_update_node(goog_node)
                 self._status = CommandStatus.COMPLETED_OK
@@ -461,16 +491,29 @@ class MoveFileGDriveCommand(Command):
                 dest = context.gdrive_client.get_existing_file_with_parent_and_name(parent_goog_id=dst_parent_goog_id, name=dst_name)
                 logger.debug(f'Found {len(dest.nodes)} matching dest files with parent={dst_parent_goog_id} and name={dst_name}')
 
-                dst_node_found = None
+                # FIXME: this code is duplicated 3 times. Consolidate
+                dst_node_found: Optional[GoogFile] = None
                 if len(existing.nodes) > 0:
                     for existing_data, existing_node in zip(existing.raw_items, existing.nodes):
                         assert isinstance(existing_node, GoogFile)
                         if existing_node.goog_id == self._model.src_node.goog_id:
-                            dst_node_found = existing_data
+                            dst_node_found = existing_node
                             break
                 if dst_node_found:
-                    logger.info(f'Identical already exists in Google Drive; will not update (goog_id={dst_node_found})')
                     # Update cache manager as it's likely out of date:
+                    cached_node = context.cache_manager.get_goog_node(parent_uid=self._model.parent_uids[0], goog_id=dst_node_found.goog_id)
+                    if cached_node:
+                        # kludge: make sure this field matches for equals func
+                        dst_node_found.uid = cached_node.uid
+                        if dst_node_found == cached_node:
+                            logger.info(f'Identical already exists in Google Drive and local cache (UID={dst_node_found.uid})! Skipping.')
+                            if cached_node.uid != self._model.uid:
+                                # Get rid of the planning node if there is one
+                                context.cache_manager.remove_node(self._model, False)
+                            return
+                        # Fall through! Wheee!
+
+                    logger.info(f'Identical already exists in Google Drive; will update cache only (goog_id={dst_node_found})')
                     dst_node_found.uid = self._model.uid
                     dst_node_found.parent_uids = self._model.parent_uids
                     context.cache_manager.add_or_update_node(dst_node_found)
@@ -499,6 +542,7 @@ class DeleteGDriveFileCommand(Command):
         super().__init__(uid, model_obj)
         self.to_trash = to_trash
         self.delete_empty_parent = delete_empty_parent
+        self.tag = f'{__class__.__name__}(uid={self.identifier}, to_trash={self.to_trash}, delete_empty_parent={self.delete_empty_parent})'
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -509,16 +553,29 @@ class DeleteGDriveFileCommand(Command):
     def execute(self, context: CommandContext):
         try:
             assert isinstance(self._model, GoogFile)
-            existing_node, existing_parents = context.gdrive_client.get_meta_single_item_by_id(self._model.goog_id, self._model.uid)
-            if not existing_node:
+
+            parent_goog_id: str = context.resolve_parent_ids_to_goog_ids(self._model)
+            # did not find the target file; see if our operation was already completed
+            existing = context.gdrive_client.get_existing_file_with_parent_and_name(parent_goog_id=parent_goog_id, name=self._model.name)
+            logger.debug(f'Found {len(existing.nodes)} matching dest files with parent={parent_goog_id} and name={self._model.name}')
+
+            target_node = None
+            if len(existing.nodes) > 0:
+                for existing_data, existing_node_x in zip(existing.raw_items, existing.nodes):
+                    assert isinstance(existing_node_x, GoogFile)
+                    if existing_node_x.goog_id == self._model.goog_id:
+                        target_node = existing_node_x
+                        break
+
+            if not target_node:
                 raise RuntimeError('Cannot delete: not found in GDrive!')
 
             if self.delete_empty_parent:
                 # TODO
                 logger.error('delete_empty_parent is not implemented!')
 
-            if self.to_trash and existing_node.trashed != NOT_TRASHED:
-                logger.info(f'Item is already trashed: {existing_node}')
+            if self.to_trash and target_node.trashed != NOT_TRASHED:
+                logger.info(f'Item is already trashed: {target_node}')
                 self._status = CommandStatus.COMPLETED_NO_OP
                 return
 
@@ -536,7 +593,7 @@ class DeleteGDriveFileCommand(Command):
             self._error = err
 
     def __repr__(self):
-        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, ' \
+        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, to_trash={self.to_trash}, ' \
                f'status={self._status}, model={self._model}'
 
 
