@@ -8,6 +8,7 @@ from typing import Deque, Iterable, List, Optional
 import gi
 
 from constants import LARGE_NUMBER_OF_CHILDREN
+from holdoff_timer import HoldOffTimer
 from model.node_identifier import NodeIdentifier
 
 gi.require_version("Gtk", "3.0")
@@ -22,6 +23,8 @@ from ui import actions
 
 
 logger = logging.getLogger(__name__)
+
+HOLDOFF_TIME_MS = 1000
 
 """
 #    CLASS DisplayMutator
@@ -38,6 +41,8 @@ class DisplayMutator:
         self.con = controller
         self.use_empty_nodes = True
         self._lock = threading.Lock()
+        self._stats_refresh_timer = HoldOffTimer(holdoff_time_ms=HOLDOFF_TIME_MS, task_func=self._refresh_subtree_stats)
+        """Stats for the entire subtree are all connected to each other, so this is a big task. This timer allows us to throttle its frequency"""
 
         self._enable_state_listeners = False
         """When true, listen and automatically update the display when a node is added, expanded, etc.
@@ -53,9 +58,11 @@ class DisplayMutator:
                                sender=self.con.treeview_meta.tree_id)
 
         dispatcher.connect(signal=actions.REFRESH_ALL_NODE_STATS, receiver=self._on_refresh_all_node_stats)
+        """This signal comes from the cacheman after it has finished updating all the nodes in the subtree,
+        notfiying us that we can now refresh our display from it"""
 
         if self.con.treeview_meta.can_modify_tree:
-            dispatcher.connect(signal=actions.NODE_ADDED_OR_UPDATED, receiver=self._on_node_added_or_updated_in_cache)
+            dispatcher.connect(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
             dispatcher.connect(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
 
     def _populate_recursively(self, parent_iter, node: DisplayNode, node_count: int = 0) -> int:
@@ -235,6 +242,10 @@ class DisplayMutator:
     # LISTENERS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
+    def _refresh_subtree_stats(self):
+        # Requests the cacheman to recalculate stats for this subtree
+        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id)
+
     def _on_node_expansion_toggled(self, sender: str, parent_iter: Gtk.TreeIter, parent_path, node_data: DisplayNode, is_expanded: bool):
         # Callback for actions.NODE_EXPANSION_TOGGLED:
         logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node_data}"')
@@ -269,11 +280,11 @@ class DisplayMutator:
                 logger.debug(f'[{self.con.tree_id}] Displayed rows count: {len(self.con.display_store.displayed_rows)}')
         GLib.idle_add(expand_or_contract)
 
-    def _on_node_added_or_updated_in_cache(self, sender: str, node: DisplayNode):
+    def _on_node_upserted_in_cache(self, sender: str, node: DisplayNode):
         assert node is not None
         if not self._enable_state_listeners:
             # TODO: is this still necessary here now that we use a lock?
-            logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_ADDED_OR_UPDATED}: listeners disabled"')
+            logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_UPSERTED}: listeners disabled"')
             return
 
         def update_ui():
@@ -286,7 +297,7 @@ class DisplayMutator:
                         text = 'Received'
                     else:
                         text = 'Ignoring'
-                    logger.debug(f'[{self.con.tree_id}] {text} signal {actions.NODE_ADDED_OR_UPDATED} with node {node}')
+                    logger.debug(f'[{self.con.tree_id}] {text} signal {actions.NODE_UPSERTED} with node {node}')
 
                 if not parent:
                     return
@@ -328,6 +339,8 @@ class DisplayMutator:
                     else:
                         self._append_file_node(parent_iter, node)
 
+                self._stats_refresh_timer.start_or_delay()
+
         GLib.idle_add(update_ui)
 
     def _on_node_removed_from_cache(self, sender: str, node: DisplayNode):
@@ -367,25 +380,32 @@ class DisplayMutator:
                 self.con.display_store.model.remove(tree_iter)
                 logger.debug(f'[{self.con.tree_id}] Node removed: {displayed_item.uid}')
 
+                self._stats_refresh_timer.start_or_delay()
+
         GLib.idle_add(update_ui)
 
     def _on_refresh_all_node_stats(self, sender: str):
-        def refresh_node(tree_iter):
+        """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes
+        with the current values from the cache."""
+        def refresh_displayed_node(tree_iter):
             ds = self.con.display_store
             data: DisplayNode = ds.get_node_data(tree_iter)
             if not data:
                 par = ds.model.iter_parent(tree_iter)
                 data: DisplayNode = ds.get_node_data(par)
-                logger.error(f'No data for child of {data}')
+                logger.error(f'[{self.con.tree_id}] No data for child of {data}')
             assert data, f'For tree_id="{sender} and row={self.con.display_store.model[tree_iter]}'
             ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(data)
             ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = data.etc
 
         def do_in_ui():
             with self._lock:
-                self.con.display_store.recurse_over_tree(action_func=refresh_node)
+                self.con.display_store.recurse_over_tree(action_func=refresh_displayed_node)
 
+        logger.debug(f'[{self.con.tree_id}] Redrawing display tree stats')
         GLib.idle_add(do_in_ui)
+        # Refresh summary also:
+        actions.set_status(sender=self.con.treeview_meta.tree_id, status_msg=self.con.get_tree().get_summary())
 
     # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
     # LISTENERS end

@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 import logging
+from typing import Callable
 
 from stopwatch_sec import Stopwatch
 
@@ -9,7 +10,7 @@ MAX_WORKERS = 1
 
 
 class Task:
-    def __init__(self, application, task_func, *args):
+    def __init__(self, application, task_func: Callable, *args):
         self.application = application
         self.task_func = task_func
         self.args = args

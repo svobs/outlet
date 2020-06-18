@@ -169,8 +169,8 @@ class GDriveMasterCache:
         # Generate full_path for item, if not already done (we assume this is a newly created node)
         self.meta_master.get_full_path_for_item(node)
 
-        logger.debug(f'Sending signal: {actions.NODE_ADDED_OR_UPDATED}')
-        dispatcher.send(signal=actions.NODE_ADDED_OR_UPDATED, sender=ID_GLOBAL_CACHE, node=node)
+        logger.debug(f'Sending signal: {actions.NODE_UPSERTED}')
+        dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
 
     def remove_goog_node(self, node: DisplayNode, to_trash):
         assert isinstance(node, GoogNode), f'For node: {node}'

@@ -42,6 +42,7 @@ class TreeActions:
         dispatcher.connect(signal=actions.DELETE_SUBTREE, sender=self.con.tree_id, receiver=self._delete_subtree)
         dispatcher.connect(signal=actions.SET_ROWS_CHECKED, sender=self.con.tree_id, receiver=self._check_rows)
         dispatcher.connect(signal=actions.SET_ROWS_UNCHECKED, sender=self.con.tree_id, receiver=self._uncheck_rows)
+        dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id, receiver=self._refresh_subtree_stats)
 
     # ACTIONS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -165,3 +166,6 @@ class TreeActions:
     def _uncheck_rows(self, sender, tree_paths: List[Gtk.TreePath] = None):
         for tree_path in tree_paths:
             self.con.display_store.set_row_checked(tree_path, False)
+
+    def _refresh_subtree_stats(self, sender):
+        self.con.parent_win.application.task_runner.enqueue(self.con.get_tree().refresh_stats, self.con.tree_id)

@@ -322,7 +322,7 @@ class LocalDiskMasterCache:
                 logger.error(f'Could not find a cache associated with file path: {item.full_path}')
 
         if fire_listeners:
-            dispatcher.send(signal=actions.NODE_ADDED_OR_UPDATED, sender=ID_GLOBAL_CACHE, node=item)
+            dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=item)
 
     def remove_fmeta(self, item: FMeta, to_trash=False, fire_listeners=True):
         with self._struct_lock:
