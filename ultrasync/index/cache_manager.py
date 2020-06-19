@@ -355,7 +355,7 @@ class CacheManager:
 
     def get_goog_node(self, parent_uid: UID, goog_id: str) -> Optional[GoogNode]:
         """Finds the GDrive node with the given goog_id. (Parent UID is needed so that we don't have to search the entire tree"""
-        return self._gdrive_cache.get_goog_node(parent_uid, goog_id)
+        return self._gdrive_cache.get_item_for_goog_id_and_parent_uid(goog_id, parent_uid)
 
     def get_item_for_uid(self, uid: UID, tree_type):
         if tree_type == TREE_TYPE_GDRIVE:

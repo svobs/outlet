@@ -1,6 +1,6 @@
 import logging
-from collections import deque
-from typing import Callable, Deque, Dict, List, Optional, Tuple, Union, ValuesView
+from collections import defaultdict, deque
+from typing import Callable, DefaultDict, Deque, Dict, List, Optional, Tuple, Union, ValuesView
 
 from pydispatch import dispatcher
 
@@ -294,6 +294,17 @@ class GDriveWholeTree:
     def get_children(self, node: DisplayNode) -> List[GoogNode]:
         return self.first_parent_dict.get(node.uid, [])
 
+    def get_item_for_goog_id_and_parent_uid(self, goog_id: str, parent_uid: UID) -> Optional[GoogNode]:
+        """Finds the GDrive node with the given goog_id. (Parent UID is needed so that we don't have to search the entire tree"""
+        parent = self.get_item_for_uid(parent_uid)
+        if parent:
+            children = self.get_children(parent)
+            if children:
+                for child in children:
+                    if child.goog_id == goog_id:
+                        return child
+        return None
+
     def get_item_for_uid(self, uid: UID) -> Optional[GoogNode]:
         assert uid
         return self.id_dict.get(uid, None)
@@ -409,6 +420,44 @@ class GDriveWholeTree:
         else:
             return 'Loading stats...'
 
+    def find_duplicate_node_names(self, tree_id):
+        """Finds and builds a list of all nodes which have the same name inside the same folder"""
+        queue: Deque[DisplayNode] = deque()
+        stack: Deque[DisplayNode] = deque()
+        child_dict: DefaultDict[str, List[GoogNode]] = defaultdict(list)
+
+        duplicates: List[List[GoogNode]] = []
+
+        # roots ...
+        for root in self.roots:
+            if root.is_dir():
+                queue.append(root)
+                stack.append(root)
+            child_dict[root.name].append(root)
+
+        for node_list in child_dict.values():
+            if len(node_list) > 1:
+                duplicates.append(node_list)
+
+        # everything else ...
+        while len(queue) > 0:
+            item: DisplayNode = queue.popleft()
+            child_dict: DefaultDict[str, List[GoogNode]] = defaultdict(list)
+
+            children = self.get_children(item)
+            if children:
+                for child in children:
+                    if child.is_dir():
+                        assert isinstance(child, DisplayNode)
+                        queue.append(child)
+                    child_dict[child.name].append(child)
+
+            for node_list in child_dict.values():
+                if len(node_list) > 1:
+                    duplicates.append(node_list)
+
+        logger.info(f'Tree contains {len(duplicates)} filename conflicts')
+
     def refresh_stats(self, tree_id):
         # Calculates the stats for all the directories
         stats_sw = Stopwatch()
@@ -443,7 +492,11 @@ class GDriveWholeTree:
         self._stats_loaded = True
         actions.set_status(sender=tree_id, status_msg=self.get_summary())
         dispatcher.send(signal=actions.SUBTREE_STATS_UPDATED, sender=tree_id)
-        logger.debug(f'{stats_sw} Refreshed stats for tree')
+
+        # TODO: make use of this later
+        self.find_duplicate_node_names(tree_id)
+
+        logger.debug(f'{stats_sw} Refreshed stats for whole Google Drive tree')
 
 
 def _merge_items(existing_item: GoogNode, new_item: GoogNode) -> List[UID]:

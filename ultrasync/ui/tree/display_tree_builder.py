@@ -23,17 +23,15 @@ class DisplayTreeBuilder(ABC):
         self._root: NodeIdentifier = root
         if tree:
             self._tree = tree
-            dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id)
             self._loaded = True
         else:
             self._tree = None
 
     def _ensure_is_loaded(self):
         if not self._loaded:
-            logger.debug(f'Tree was requested. Loading: {self._root}')
+            logger.debug(f'[{self.con.tree_id}] Tree was requested. Loading: {self._root}')
             self._tree = self.con.cache_manager.load_subtree(self._root, self.con.tree_id)
             self._loaded = True
-            dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id)
 
     def get_root_identifier(self) -> NodeIdentifier:
         if self._tree:

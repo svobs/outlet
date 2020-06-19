@@ -51,6 +51,7 @@ class DisplayMutator:
 
     def init(self):
         """Do post-wiring stuff like connect listeners."""
+        logger.debug(f'[{self.con.tree_id}] DisplayMutator init')
         self.use_empty_nodes = self.con.config.get('display.diff_tree.use_empty_nodes')
 
         if self.con.treeview_meta.lazy_load:
@@ -184,9 +185,11 @@ class DisplayMutator:
 
         GLib.idle_add(update_ui)
 
-        # Show tree summary:
-        actions.set_status(sender=self.con.treeview_meta.tree_id,
-                           status_msg=self.con.get_tree().get_summary())
+        # Show tree summary. This will probably just display 'Loading...' until REFRESH_SUBTREE_STATS is done processing
+        actions.set_status(sender=self.con.treeview_meta.tree_id, status_msg=self.con.get_tree().get_summary())
+
+        logger.debug(f'[{self.con.tree_id}] Sending signal "{actions.REFRESH_SUBTREE_STATS}"')
+        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id)
 
     def get_checked_rows_as_list(self) -> List[DisplayNode]:
         """Returns a list which contains the DisplayNodes of the items which are currently checked by the user

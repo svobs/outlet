@@ -154,7 +154,7 @@ class GDriveMasterCache:
                     return
                 logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')
             else:
-                node_with_different_uid = self.get_goog_node(parent_uid=node.parent_uids[0], goog_id=node.goog_id)
+                node_with_different_uid = self.get_item_for_goog_id_and_parent_uid(parent_uid=node.parent_uids[0], goog_id=node.goog_id)
                 if node_with_different_uid:
                     logger.warning(f'Found node in cache with same GoogID ({node.goog_id}) but different UID ('
                                    f'{node_with_different_uid}). Changing UID of item (was: {node.uid}) to match')
@@ -203,16 +203,9 @@ class GDriveMasterCache:
 
         dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
 
-    def get_goog_node(self, parent_uid: UID, goog_id: str) -> Optional[GoogNode]:
+    def get_item_for_goog_id_and_parent_uid(self, goog_id: str, parent_uid: UID) -> Optional[GoogNode]:
         """Finds the GDrive node with the given goog_id. (Parent UID is needed so that we don't have to search the entire tree"""
-        parent = self.get_item_for_uid(parent_uid)
-        if parent:
-            children = self.get_children(parent)
-            if children:
-                for child in children:
-                    if child.goog_id == goog_id:
-                        return child
-        return None
+        return self.meta_master.get_item_for_goog_id_and_parent_uid(goog_id=goog_id, parent_uid=parent_uid)
 
     def _get_cache_path_for_master(self) -> str:
         # Open master database...

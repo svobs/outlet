@@ -32,6 +32,7 @@ class TreeActions:
         self.post_download_action = OPEN
 
     def init(self):
+        logger.debug(f'[{self.con.tree_id}] TreeActions init')
         dispatcher.connect(signal=actions.CALL_EXIFTOOL, sender=self.con.tree_id, receiver=self._call_exiftool)
         dispatcher.connect(signal=actions.CALL_EXIFTOOL_LIST, sender=self.con.tree_id, receiver=self._call_exiftool_list)
         dispatcher.connect(signal=actions.SHOW_IN_NAUTILUS, sender=self.con.tree_id, receiver=self._show_in_nautilus)
@@ -82,7 +83,7 @@ class TreeActions:
             date_to_set += ':01:01'
         date_to_set = date_to_set.replace('-', ':')
 
-        logger.info(f'Calling exiftool for: {full_path}')
+        logger.info(f'[{self.con.tree_id}] Calling exiftool for: {full_path}')
         args = ["exiftool", f'-AllDates="{date_to_set} 12:00:00"']
         if comment_to_set:
             args.append(f'-Comment="{comment_to_set}"')
@@ -91,7 +92,7 @@ class TreeActions:
 
         list_original_files = [f.path for f in os.scandir(full_path) if not f.is_dir() and f.path.endswith('.jpg_original')]
         for file in list_original_files:
-            logger.debug(f'Removing file: {file}')
+            logger.debug(f'[{self.con.tree_id}] Removing file: {file}')
             os.remove(file)
 
     def _download_file_from_gdrive(self, sender, node: GoogFile):
@@ -111,14 +112,14 @@ class TreeActions:
 
     def _call_xdg_open(self, sender, full_path):
         if os.path.exists(full_path):
-            logger.info(f'Calling xdg-open for: {full_path}')
+            logger.info(f'[{self.con.tree_id}] Calling xdg-open for: {full_path}')
             subprocess.run(["xdg-open", full_path])
         else:
             self.con.parent_win.show_error_msg(f'Cannot open file', f'File not found: {full_path}')
 
     def _show_in_nautilus(self, sender, full_path):
         if os.path.exists(full_path):
-            logger.info(f'Opening in Nautilus: {full_path}')
+            logger.info(f'[{self.con.tree_id}] Opening in Nautilus: {full_path}')
             subprocess.run(["nautilus", "--browser", full_path])
         else:
             self.con.parent_win.show_error_msg('Cannot open file in Nautilus', f'File not found: {full_path}')
@@ -132,7 +133,7 @@ class TreeActions:
     def _delete_subtree(self, sender, node: DisplayNode = None, node_list: List[DisplayNode] = None):
         if not node_list and node:
             node_list = [node]
-        logger.debug(f'Setting up delete for {len(node_list)} nodes')
+        logger.debug(f'[{self.con.tree_id}] Setting up delete for {len(node_list)} nodes')
 
         file_dict = {}
         for node_to_delete in node_list:

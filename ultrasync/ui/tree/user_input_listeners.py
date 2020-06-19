@@ -50,6 +50,7 @@ class TreeUserInputListeners:
                                        TREE_TYPE_MIXED: None}  # TODO: handle mixed
 
     def init(self):
+        logger.debug(f'[{self.con.tree_id}] TreeUserInputListeners init')
         actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
 
         targeted_signals = []
