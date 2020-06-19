@@ -455,6 +455,10 @@ class GDriveWholeTree:
             for node_list in child_dict.values():
                 if len(node_list) > 1:
                     duplicates.append(node_list)
+                    # TODO: distinguish between files and folders... folders will be non-trivial
+                    print_list = list(map(lambda x: f'{x.name}:{x.md5}', node_list))
+                    logger.warning(f'Conflict: {print_list}')
+                    # TODO: give user option of deleting the files which have identical MD5s
 
         logger.info(f'Tree contains {len(duplicates)} filename conflicts')
 
