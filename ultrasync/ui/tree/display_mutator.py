@@ -18,7 +18,6 @@ from pydispatch import dispatcher
 import humanfriendly
 
 from model.display_node import CategoryNode, DisplayNode, EmptyNode, LoadingNode
-from model.planning_node import FileToMove
 from ui import actions
 
 
@@ -496,11 +495,7 @@ class DisplayMutator:
         row_values.append(node.get_icon())
 
         # Name
-        # TODO: find more elegant solution
-        if isinstance(node, FileToMove):
-            node_name = f'{node.original_full_path} -> "{node.name}"'
-        else:
-            node_name = node.name
+        node_name = node.name
         row_values.append(node_name)  # Name
 
         # Directory

@@ -10,7 +10,7 @@ from treelib.exceptions import DuplicatedNodeIdError
 import file_util
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from model.category import Category
-from model.display_node import CategoryNode, DirNode, DisplayNode, RootTypeNode
+from model.display_node import CategoryNode, ContainerNode, DisplayNode, RootTypeNode
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier, NodeIdentifierFactory
 from model.subtree_snapshot import SubtreeSnapshot
 
@@ -26,17 +26,17 @@ SUPER_DEBUG = False
 
 class PreAncestorDict:
     def __init__(self):
-        self._dict: Dict[str, DirNode] = {}
+        self._dict: Dict[str, ContainerNode] = {}
 
     @classmethod
     def _generate_key(cls, source_tree: SubtreeSnapshot, category: Category):
         return f'{source_tree.tree_type}:{source_tree.uid}:{category.name}'
 
-    def get_for(self, source_tree: SubtreeSnapshot, category: Category) -> Optional[DirNode]:
+    def get_for(self, source_tree: SubtreeSnapshot, category: Category) -> Optional[ContainerNode]:
         key = PreAncestorDict._generate_key(source_tree, category)
         return self._dict.get(key, None)
 
-    def put_for(self, source_tree: SubtreeSnapshot, category: Category, item: DirNode):
+    def put_for(self, source_tree: SubtreeSnapshot, category: Category, item: ContainerNode):
         key = PreAncestorDict._generate_key(source_tree, category)
         self._dict[key] = item
 
@@ -49,7 +49,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
     inherit its functionality"""
     def __init__(self, application, root_node_identifier: NodeIdentifier, tree_id: str, show_whole_forest=False):
         # Root node will never be displayed in the UI, but treelib requires a root node, as does parent class
-        super().__init__(DirNode(root_node_identifier))
+        super().__init__(ContainerNode(root_node_identifier))
 
         self.tree_id = tree_id
         self.cache_manager = application.cache_manager
@@ -96,13 +96,13 @@ class CategoryDisplayTree(SubtreeSnapshot):
 
         return ancestors
 
-    def _get_subroot_node(self, node_identifier: NodeIdentifier) -> Optional[DirNode]:
+    def _get_subroot_node(self, node_identifier: NodeIdentifier) -> Optional[ContainerNode]:
         for child in self._category_tree.children(self.root_node.identifier):
             if child.node_identifier.tree_type == node_identifier.tree_type:
                 return child
         return None
 
-    def _get_or_create_pre_ancestors(self, item: DisplayNode, source_tree: SubtreeSnapshot) -> DirNode:
+    def _get_or_create_pre_ancestors(self, item: DisplayNode, source_tree: SubtreeSnapshot) -> ContainerNode:
         """Pre-ancestors are those nodes (either logical or pointing to real data) which are higher up than the source tree.
         Last pre-ancestor is easily derived and its prescence indicates whether its ancestors were already created"""
 
@@ -170,7 +170,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
                     nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, item.category)
                     node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=uid,
                                                                               category=item.category)
-                    child_node = DirNode(node_identifier=node_identifier)
+                    child_node = ContainerNode(node_identifier=node_identifier)
                     child_node.identifier = nid
                     logger.debug(f'[{self.tree_id}] Creating pre-ancestor DIR node: {node_identifier}')
                     self._category_tree.add_node(node=child_node, parent=parent_node)
@@ -207,7 +207,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
 
         parent: DisplayNode = self._get_or_create_pre_ancestors(item, source_tree)
 
-        if isinstance(parent, DirNode):
+        if isinstance(parent, ContainerNode):
             parent.add_meta_metrics(item)
 
         stack: Deque = deque()
@@ -225,7 +225,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
                 break
             else:
                 node_identifier = LogicalNodeIdentifier(uid, full_path, category, item.node_identifier.tree_type)
-                dir_node = DirNode(node_identifier)
+                dir_node = ContainerNode(node_identifier)
                 dir_node.identifier = nid
                 stack.append(dir_node)
 
@@ -267,7 +267,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
         if not self._category_tree.get_node(item.identifier):
             return None
 
-        ancestor: DirNode = self._category_tree.parent(item.identifier)
+        ancestor: ContainerNode = self._category_tree.parent(item.identifier)
         if ancestor:
             # Do not include CategoryNode and above
             if not isinstance(ancestor, CategoryNode):

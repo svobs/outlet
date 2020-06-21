@@ -6,8 +6,8 @@ import logging
 import treelib
 
 import file_util
-from model.display_node import DirNode, DisplayNode
-from model.fmeta import FMeta
+from model.display_node import DisplayNode
+from model.fmeta import LocalDirNode, LocalFileNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ class LocalDiskTree(treelib.Tree):
                 child: DisplayNode = self.get_node(nid=uid)
                 if not child:
                     # logger.debug(f'Creating dir node: nid={uid}')
-                    child = DirNode(node_identifier=LocalFsIdentifier(full_path=path_so_far, uid=uid))
+                    child = LocalDirNode(node_identifier=LocalFsIdentifier(full_path=path_so_far, uid=uid), exists=True)
                     try:
                         self.add_node(node=child, parent=parent)
                     except Exception:
@@ -65,21 +65,21 @@ class LocalDiskTree(treelib.Tree):
         logger.debug(f'Removed {count_removed} nodes from super-tree, to be replaced with {len(sub_tree)} nodes')
         self.paste(nid=parent_of_subtree.uid, new_tree=sub_tree)
 
-    def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalFsIdentifier) -> Tuple[List[FMeta], List[DirNode]]:
-        file_list: List[FMeta] = []
-        dir_list: List[DirNode] = []
+    def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalFsIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
+        file_list: List[LocalFileNode] = []
+        dir_list: List[LocalDirNode] = []
         queue: Deque[DisplayNode] = deque()
         node = self.get_node(nid=subtree_root.uid)
         queue.append(node)
         while len(queue) > 0:
             node = queue.popleft()
             if node.is_dir():
-                assert isinstance(node, DirNode)
+                assert isinstance(node, LocalDirNode)
                 dir_list.append(node)
                 for child in self.children(node.uid):
                     queue.append(child)
             else:
-                assert isinstance(node, FMeta)
+                assert isinstance(node, LocalFileNode)
                 file_list.append(node)
 
         logger.debug(f'Returning {len(file_list)} files and {len(dir_list)} dirs')

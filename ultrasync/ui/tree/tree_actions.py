@@ -4,7 +4,6 @@ import re
 from typing import List
 import subprocess
 
-from gi.overrides import Gtk
 from pydispatch import dispatcher
 
 import file_util
@@ -14,6 +13,10 @@ from model.category import Category
 from model.display_node import DisplayNode
 from model.goog_node import GoogFile
 from ui import actions
+
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
 
 logger = logging.getLogger(__name__)
 

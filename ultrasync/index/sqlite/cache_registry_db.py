@@ -48,7 +48,7 @@ class CacheRegistry(MetaDatabase):
             entries.append(CacheInfoEntry(cache_location=cache_location, subtree_root=node_identifier, sync_ts=sync_ts, is_complete=is_complete))
         return entries
 
-    # Takes a list of FMeta objects:
+    # Takes a list of LocalFileNode objects:
     def insert_cache_info(self, entries: Union[CacheInfoEntry, List[CacheInfoEntry]], append: bool, overwrite: bool):
         rows = []
         if type(entries) == list:

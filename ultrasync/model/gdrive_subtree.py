@@ -89,9 +89,6 @@ class GDriveSubtree(SubtreeSnapshot):
         logger.warning(f'Found {len(identifiers)} identifiers for path: "{path}"). Returning the whole list')
         return list(map(lambda x: self._whole_tree.get_item_for_uid(x.uid), identifiers))
 
-    def add_item(self, item):
-        raise RuntimeError('Cannot do this from a subtree!')
-
     def get_parent_for_item(self, item: DisplayNode) -> Optional[GoogNode]:
         return self._whole_tree.get_parent_for_item(item, self.root_path)
 

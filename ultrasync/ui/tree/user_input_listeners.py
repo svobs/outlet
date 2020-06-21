@@ -12,11 +12,10 @@ from diff.change_maker import ChangeMaker
 from index.uid_generator import UID
 from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
-from model.fmeta import FMeta
+from model.fmeta import LocalFileNode
 
 import gi
 
-from model.planning_node import FileDecoratorNode
 from ui.tree.context_menu import TreeContextMenu
 
 gi.require_version("Gtk", "3.0")
@@ -257,7 +256,7 @@ class TreeUserInputListeners:
         model, treeiter = selection.get_selected_rows()
         if treeiter is not None and len(treeiter) == 1:
             meta = self.con.display_store.get_node_data(treeiter)
-            if isinstance(meta, FMeta):
+            if isinstance(meta, LocalFileNode):
                 logger.info(f'User selected cat="{meta.category.name}" md5="{meta.md5}" path="{meta.full_path}"')
             else:
                 logger.info(f'User selected {self.con.display_store.get_node_name(treeiter)}')
@@ -374,16 +373,17 @@ class TreeUserInputListeners:
                 elif item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
                     dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=item)
                     return True
-            elif isinstance(item, FileDecoratorNode):
-                # if it references a source node, maybe that is accessible instead?
-                item = item.src_node
-                if TreeContextMenu.file_exists(item):
-                    if item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-                        dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, full_path=item.full_path)
-                        return True
-                    elif item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
-                        dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=item)
-                        return True
+                # FIXME
+            # elif isinstance(item, FileDecoratorNode):
+            #     # if it references a source node, maybe that is accessible instead?
+            #     item = item.src_node
+            #     if TreeContextMenu.file_exists(item):
+            #         if item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+            #             dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, full_path=item.full_path)
+            #             return True
+            #         elif item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
+            #             dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=item)
+            #             return True
         return False
 
     def on_multiple_rows_activated(self, tree_view, tree_paths):

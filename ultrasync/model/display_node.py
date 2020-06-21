@@ -6,7 +6,8 @@ from typing import List, Optional
 from treelib import Node
 
 import format_util
-from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_LOCAL_DISK, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_NA
+from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_LOCAL_DISK, NOT_TRASHED, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, \
+    TREE_TYPE_NA
 from index.uid_generator import NULL_UID, UID
 from model.category import Category
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
@@ -44,18 +45,18 @@ class DisplayNode(Node, ABC):
         return False
 
     @classmethod
-    def is_planning_node(cls) -> bool:
+    def exists(cls) -> bool:
+        """Whether the object represented by this node actually exists currently, or it is just planned to exist or is an ephemeral node."""
         return False
-
-    @classmethod
-    def is_just_fluff(cls) -> bool:
-        # TODO: get rid of this. MUST get rid of this if we want to track changes for directories
-        return True
 
     @property
     def name(self):
         assert type(self.node_identifier.full_path) == str, f'Not a string: {self.node_identifier.full_path} (this={self})'
         return os.path.basename(self.node_identifier.full_path)
+
+    @property
+    def trashed(self):
+        return NOT_TRASHED
 
     @property
     def etc(self):
@@ -66,7 +67,15 @@ class DisplayNode(Node, ABC):
         return None
 
     @property
+    def sha256(self):
+        return None
+
+    @property
     def size_bytes(self):
+        return None
+
+    @property
+    def sync_ts(self):
         return None
 
     @property
@@ -82,12 +91,12 @@ class DisplayNode(Node, ABC):
         return self.node_identifier.full_path
 
     @property
-    def parent_uids(self) -> List[UID]:
-        return []
-
-    @property
     def category(self):
         return self.node_identifier.category
+
+    @property
+    def parent_uids(self) -> List[UID]:
+        return []
 
     @property
     def uid(self) -> UID:
@@ -106,12 +115,11 @@ class DisplayNode(Node, ABC):
         return ICON_GENERIC_FILE
 
 
-# ABSTRACT CLASS DisplayNodeWithParents
+# ABSTRACT CLASS HasParentList
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class DisplayNodeWithParents(DisplayNode, ABC):
-    def __init__(self, node_identifier: NodeIdentifier, parent_uids: Optional[List[UID]] = None):
-        super().__init__(node_identifier)
+class HasParentList(ABC):
+    def __init__(self, parent_uids: Optional[List[UID]] = None):
         self._parent_uids: Optional[List[UID]] = parent_uids
 
     @property
@@ -138,42 +146,92 @@ class DisplayNodeWithParents(DisplayNode, ABC):
         else:
             self._parent_uids = parent_uids
 
+    def add_parent(self, parent_uid: UID):
+        current_parent_ids: List[UID] = self.parent_uids
+        if len(current_parent_ids) == 0:
+            self.parent_uids = parent_uid
+        else:
+            for current_parent_id in current_parent_ids:
+                if current_parent_id == parent_uid:
+                    logger.debug(f'Parent is already in list; skipping: {parent_uid}')
+                    return
+            current_parent_ids.append(parent_uid)
+            self.parent_uids = current_parent_ids
 
-"""
-⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
-The following are model objects for use in the hidden 'data' column in the TreeStore, for when a domain object doesn't quite make sense.
-⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆"""
 
+# CLASS ContainerNode
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class DirNode(DisplayNode):
+class ContainerNode(DisplayNode):
     """
-    Represents a generic directory (i.e. not an FMeta or domain object)
+    Represents a generic directory (i.e. not an LocalFileNode or domain object)
     """
 
     def __init__(self, node_identifier: NodeIdentifier):
         super().__init__(node_identifier)
+
         self.file_count = 0
+        self.trashed_file_count = 0
+        self.trashed_dir_count = 0
         self.dir_count = 0
-        # Set this to None to signify that stats are not yet calculated
+        self.trashed_bytes = 0
         self._size_bytes = None
+        """Set this to None to signify that stats are not yet calculated"""
 
     def zero_out_stats(self):
         self._size_bytes = None
         self.file_count = 0
         self.dir_count = 0
 
-    def add_meta_metrics(self, child_node):
+    def add_meta_metrics(self, child_node: DisplayNode):
         if self._size_bytes is None:
             self._size_bytes = 0
 
-        if child_node.is_dir():
-            self.dir_count += child_node.dir_count + 1
-            self.file_count += child_node.file_count
-        else:
-            self.file_count += 1
+        if child_node.trashed == NOT_TRASHED and self.trashed == NOT_TRASHED:
+            # not trashed:
+            if child_node.size_bytes:
+                self._size_bytes += child_node.size_bytes
 
-        if child_node.size_bytes:
-            self._size_bytes += child_node.size_bytes
+            if child_node.is_dir():
+                assert isinstance(child_node, ContainerNode)
+                self.dir_count += child_node.dir_count + 1
+                self.file_count += child_node.file_count
+            else:
+                self.file_count += 1
+        else:
+            # trashed:
+            if child_node.is_dir():
+                assert isinstance(child_node, ContainerNode)
+                if child_node.size_bytes:
+                    self.trashed_bytes += child_node.size_bytes
+                if child_node.trashed_bytes:
+                    self.trashed_bytes += child_node.trashed_bytes
+                self.trashed_dir_count += child_node.dir_count + child_node.trashed_dir_count + 1
+                self.trashed_file_count += child_node.file_count + child_node.trashed_file_count
+            else:
+                self.trashed_file_count += 1
+                if child_node.size_bytes:
+                    self.trashed_bytes += child_node.size_bytes
+
+    @property
+    def etc(self):
+        if self._size_bytes is None:
+            return ''
+        files = self.file_count + self.trashed_file_count
+        folders = self.trashed_dir_count + self.dir_count
+        if folders:
+            if folders == 1:
+                multi = ''
+            else:
+                multi = 's'
+            folders_str = f', {folders:n} folder{multi}'
+        else:
+            folders_str = ''
+        if files == 1:
+            multi = ''
+        else:
+            multi = 's'
+        return f'{files:n} file{multi}{folders_str}'
 
     def get_summary(self):
         if self._size_bytes is None:
@@ -187,41 +245,6 @@ class DirNode(DisplayNode):
     def size_bytes(self):
         return self._size_bytes
 
-    @property
-    def etc(self):
-        if self._size_bytes is None:
-            return ''
-        if self.dir_count:
-            folders_str = f', {self.dir_count:n} dir'
-            if self.dir_count != 1:
-                folders_str += 's'
-        else:
-            folders_str = ''
-        if self.file_count == 1:
-            f_str = 'file'
-        else:
-            f_str = 'files'
-        return f'{self.file_count:n} {f_str}{folders_str}'
-
-    def get_icon(self):
-        return ICON_GENERIC_DIR
-
-    @property
-    def name(self):
-        if type(self.node_identifier.full_path) == list:
-            return os.path.basename(self.node_identifier.full_path[0])
-        assert self.node_identifier.full_path, f'For {type(self)}, uid={self.uid}'
-        return os.path.basename(self.node_identifier.full_path)
-
-    @classmethod
-    def is_ephemereal(cls) -> bool:
-        return False
-
-    @classmethod
-    def is_just_fluff(cls) -> bool:
-        # FIXME
-        return True
-
     @classmethod
     def is_file(cls):
         return False
@@ -230,17 +253,32 @@ class DirNode(DisplayNode):
     def is_dir(cls):
         return True
 
+    def get_icon(self):
+        return ICON_GENERIC_DIR
+
+    @property
+    def name(self):
+        assert self.node_identifier.full_path, f'For {type(self)}, uid={self.uid}'
+        return os.path.basename(self.node_identifier.full_path)
+
+    def __eq__(self, other):
+        if not isinstance(other, ContainerNode):
+            return False
+
+        return other.uid == self.uid and self.node_identifier.tree_type == other.node_identifier.tree_type and self.full_path == other.full_path \
+            and other.name == self.name and other.trashed == self.trashed and self.size_bytes == other.size_bytes
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __repr__(self):
-        return f'DirNode({self.node_identifier} cat="{self.category.name[0]}" {self.get_summary()})'
-
-    def clone(self):
-        return DirNode(self.node_identifier)
+        return f'ContainerNode({self.node_identifier} cat="{self.category.name[0]}" {self.get_summary()})'
 
 
-# ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
+# CLASS CategoryNode
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-
-class CategoryNode(DirNode):
+class CategoryNode(ContainerNode):
     """
     Represents a category in the tree (however it can possibly be treated as the root dir)
     """
@@ -266,7 +304,10 @@ class CategoryNode(DirNode):
         return ICON_GENERIC_DIR
 
 
-class RootTypeNode(DirNode):
+# CLASS RootTypeNode
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class RootTypeNode(ContainerNode):
     """
     Represents a type of root in the tree (GDrive, local FS, etc.)
     """
@@ -295,6 +336,8 @@ class RootTypeNode(DirNode):
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
+# CLASS EphemeralNode
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class EphemeralNode(DisplayNode, ABC):
     """Does not have an identifier - should not be inserted into a treelib.Tree!"""
@@ -342,8 +385,8 @@ class EphemeralNode(DisplayNode, ABC):
         return False
 
 
-# ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
-
+# CLASS LoadingNode
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class LoadingNode(EphemeralNode):
     """
@@ -359,8 +402,8 @@ class LoadingNode(EphemeralNode):
         return 'LoadingNode'
 
 
-# ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
-
+# CLASS EmptyNode
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class EmptyNode(EphemeralNode):
     """

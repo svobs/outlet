@@ -34,9 +34,6 @@ class NullSubtree(SubtreeSnapshot):
     def get_md5_dict(self):
         raise RuntimeError('Should not do this')
 
-    def add_item(self, item):
-        raise RuntimeError('Cannot add item to NullSubtree!')
-
     def get_summary(self):
         # Should not return None
         return 'Tree does not exist'

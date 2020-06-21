@@ -17,8 +17,8 @@ from index.sqlite.fmeta_db import FMetaDatabase
 from index.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
 from index.uid_generator import ROOT_UID, UID
 from model.category import Category
-from model.display_node import DirNode, DisplayNode, RootTypeNode
-from model.fmeta import FMeta
+from model.display_node import ContainerNode, DisplayNode, RootTypeNode
+from model.fmeta import LocalDirNode, LocalFileNode
 from model.fmeta_tree import FMetaTree
 from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
@@ -93,10 +93,10 @@ class LocalDiskMasterCache:
 
             root_node_identifer = LocalFsIdentifier(full_path=cache_info.subtree_root.full_path, uid=uid)
             tree: LocalDiskTree = LocalDiskTree(self.application)
-            root_node = DirNode(node_identifier=root_node_identifer)
+            root_node = LocalDirNode(node_identifier=root_node_identifer, exists=True)
             tree.add_node(node=root_node, parent=None)
 
-            dir_list: List[DirNode] = fmeta_disk_cache.get_local_dirs()
+            dir_list: List[LocalDirNode] = fmeta_disk_cache.get_local_dirs()
             if len(dir_list) == 0:
                 logger.debug('No dirs found in disk cache')
 
@@ -109,7 +109,7 @@ class LocalDiskMasterCache:
                 else:
                     assert existing.full_path == dir_node.full_path, f'Existing={existing}, New={dir_node}'
 
-            file_list: List[FMeta] = fmeta_disk_cache.get_local_files()
+            file_list: List[LocalFileNode] = fmeta_disk_cache.get_local_files()
             if len(file_list) == 0:
                 logger.debug('No files found in disk cache')
 
@@ -162,7 +162,7 @@ class LocalDiskMasterCache:
 
         if not os.path.exists(subtree_root.full_path):
             logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root.full_path}"')
-            root_node = DirNode(subtree_root)
+            root_node = ContainerNode(subtree_root)
             return NullSubtree(root_node)
 
         existing_uid = subtree_root.uid
@@ -291,7 +291,7 @@ class LocalDiskMasterCache:
     # Individual item updates
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def add_or_update_fmeta(self, item: FMeta, fire_listeners=True):
+    def add_or_update_fmeta(self, item: LocalFileNode, fire_listeners=True):
         with self._struct_lock:
             uid = self._get_uid_for_path(item.full_path, item.uid)
             # logger.debug(f'ID: {uid}, path: {item.full_path}')
@@ -324,7 +324,7 @@ class LocalDiskMasterCache:
         if fire_listeners:
             dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=item)
 
-    def remove_fmeta(self, item: FMeta, to_trash=False, fire_listeners=True):
+    def remove_fmeta(self, item: LocalFileNode, to_trash=False, fire_listeners=True):
         with self._struct_lock:
             assert item.uid == self._full_path_uid_dict.get(item.full_path, None), f'For item: {item}'
 
@@ -387,7 +387,7 @@ class LocalDiskMasterCache:
             md5 = 'disabled'
         return f'LocalDiskMasterCache tree_size={len(self.dir_tree):n} md5={md5}'
 
-    def build_fmeta(self, full_path: str, category=Category.NA, staging_path=None) -> Optional[FMeta]:
+    def build_fmeta(self, full_path: str, category=Category.NA, staging_path=None) -> Optional[LocalFileNode]:
         uid = self.get_uid_for_path(full_path)
 
         if category == Category.Ignored:
@@ -408,7 +408,7 @@ class LocalDiskMasterCache:
                     target = os.readlink(full_path)
                     logger.error(f'Broken link, skipping: "{full_path}" -> "{target}"')
                 else:
-                    logger.error(f'While building FMeta: file not found; skipping: {full_path}')
+                    logger.error(f'While building LocalFileNode: file not found; skipping: {full_path}')
                 # Return None. Will be assumed to be a deleted file
                 return None
 
@@ -427,4 +427,4 @@ class LocalDiskMasterCache:
         change_ts = int(stat.st_ctime * 1000)
         assert change_ts > 100000000000, f'change_ts too small: {change_ts} for path: {path}'
 
-        return FMeta(uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, category)
+        return LocalFileNode(uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, True, category)

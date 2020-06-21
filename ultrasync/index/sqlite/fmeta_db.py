@@ -2,8 +2,7 @@ import logging
 from typing import List
 
 from index.sqlite.base_db import MetaDatabase, Table
-from model.display_node import DirNode
-from model.fmeta import FMeta
+from model.fmeta import LocalDirNode, LocalFileNode
 from model.node_identifier import LocalFsIdentifier
 
 logger = logging.getLogger(__name__)
@@ -17,11 +16,13 @@ class FMetaDatabase(MetaDatabase):
                                                       'sync_ts': 'INTEGER',
                                                       'modify_ts': 'INTEGER',
                                                       'change_ts': 'INTEGER',
-                                                      'full_path': 'TEXT'})
+                                                      'full_path': 'TEXT',
+                                                      'exist': 'INTEGER'})
 
     # 2020-06: So far this is really just a mapping of UIDs to paths, to keep things consistent across runs.
     TABLE_LOCAL_DIR = Table(name='local_dir', cols={'uid': 'INTEGER PRIMARY KEY',
-                                                    'full_path': 'TEXT'})
+                                                    'full_path': 'TEXT',
+                                                    'exist': 'INTEGER'})
 
     def __init__(self, db_path, application):
         super().__init__(db_path)
@@ -32,8 +33,8 @@ class FMetaDatabase(MetaDatabase):
     def has_local_files(self):
         return self.has_rows(self.TABLE_LOCAL_FILE)
 
-    def get_local_files(self) -> List[FMeta]:
-        entries: List[FMeta] = []
+    def get_local_files(self) -> List[LocalFileNode]:
+        entries: List[LocalFileNode] = []
 
         """ Gets all changes in the table """
         if not self.is_table(self.TABLE_LOCAL_FILE):
@@ -44,17 +45,16 @@ class FMetaDatabase(MetaDatabase):
             full_path = row[7]
             uid = self.cache_manager.get_uid_for_path(full_path, row[0])
             assert uid == row[0], f'UID conflict! Got {uid} but read {row[0]} in row: {row}'
-            entries.append(FMeta(uid, *row[1:]))
+            entries.append(LocalFileNode(uid, *row[1:]))
         return entries
 
-    def insert_local_files(self, entries: List[FMeta], overwrite, commit=True):
-        """ Takes a list of FMeta objects: """
+    def insert_local_files(self, entries: List[LocalFileNode], overwrite, commit=True):
+        """ Takes a list of LocalFileNode objects: """
         to_insert = []
         for e in entries:
-            if not e.is_planning_node():
-                assert isinstance(e, FMeta), f'Expected FMeta; got instead: {e}'
-                e_tuple = _make_file_tuple(e)
-                to_insert.append(e_tuple)
+            assert isinstance(e, LocalFileNode), f'Expected LocalFileNode; got instead: {e}'
+            e_tuple = _make_file_tuple(e)
+            to_insert.append(e_tuple)
 
         if overwrite:
             self.drop_table_if_exists(self.TABLE_LOCAL_FILE)
@@ -74,9 +74,9 @@ class FMetaDatabase(MetaDatabase):
     def has_local_dirs(self):
         return self.has_rows(self.TABLE_LOCAL_DIR)
 
-    def get_local_dirs(self) -> List[DirNode]:
+    def get_local_dirs(self) -> List[LocalDirNode]:
         """ Gets all changes in the table """
-        entries: List[DirNode] = []
+        entries: List[LocalDirNode] = []
 
         if not self.is_table(self.TABLE_LOCAL_DIR):
             return entries
@@ -86,17 +86,16 @@ class FMetaDatabase(MetaDatabase):
             full_path = row[1]
             uid = self.cache_manager.get_uid_for_path(full_path, row[0])
             assert uid == row[0], f'UID conflict! Got {uid} but read {row}'
-            entries.append(DirNode(LocalFsIdentifier(uid=uid, full_path=full_path)))
+            entries.append(LocalDirNode(LocalFsIdentifier(uid=uid, full_path=full_path), bool(row[2])))
         return entries
 
-    def insert_local_dirs(self, entries: List[DirNode], overwrite, commit=True):
-        """ Takes a list of DirNode objects: """
+    def insert_local_dirs(self, entries: List[LocalDirNode], overwrite, commit=True):
+        """ Takes a list of LocalDirNode objects: """
         to_insert = []
         for d in entries:
-            if not d.is_planning_node():
-                assert isinstance(d, DirNode), f'Expected DirNode; got instead: {d}'
-                d_tuple = _make_dir_tuple(d)
-                to_insert.append(d_tuple)
+            assert isinstance(d, LocalDirNode), f'Expected LocalDirNode; got instead: {d}'
+            d_tuple = _make_dir_tuple(d)
+            to_insert.append(d_tuple)
 
         if overwrite:
             self.drop_table_if_exists(self.TABLE_LOCAL_DIR)
@@ -110,8 +109,8 @@ class FMetaDatabase(MetaDatabase):
 
 
 def _make_file_tuple(f):
-    return f.uid, f.md5, f.sha256, f.size_bytes, f.sync_ts, f.modify_ts, f.change_ts, f.full_path
+    return f.uid, f.md5, f.sha256, f.size_bytes, f.sync_ts, f.modify_ts, f.change_ts, f.full_path, f.exists()
 
 
 def _make_dir_tuple(d):
-    return d.uid, d.full_path
+    return d.uid, d.full_path, d.exists()

@@ -12,7 +12,6 @@ from index.uid_generator import UID
 from model.display_node import DisplayNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier, NodeIdentifierFactory
 from model.goog_node import GoogFile, GoogFolder, GoogNode
-from model.planning_node import PlanningNode
 from stopwatch_sec import Stopwatch
 from ui import actions
 
@@ -54,8 +53,8 @@ class GDriveWholeTree:
         self._stats_loaded = False
 
         # Keep track of parentless nodes. These include the 'My Drive' item, as well as shared items.
-        self.roots: List[GoogNode] = []
-        self.id_dict: Dict[UID, GoogNode] = {}
+        self.roots: List[DisplayNode] = []
+        self.id_dict: Dict[UID, DisplayNode] = {}
         """ Forward lookup table: nodes are indexed by GOOG ID"""
 
         self.first_parent_dict: Dict[UID, List[GoogNode]] = {}
@@ -71,7 +70,7 @@ class GDriveWholeTree:
     def node_identifier(self):
         return self.node_identifier_factory.get_gdrive_root_constant_identifier()
 
-    def get_full_path_for_item(self, item: GoogNode) -> List[str]:
+    def get_full_path_for_item(self, item: DisplayNode) -> List[str]:
         """Gets the absolute path for the item. Also sets its 'full_path' attribute for future use"""
         if item.full_path:
             # Does item already have a full_path? Just return that (huge speed gain):
@@ -465,22 +464,23 @@ class GDriveWholeTree:
     def refresh_stats(self, tree_id):
         # Calculates the stats for all the directories
         stats_sw = Stopwatch()
-        queue: Deque[DisplayNode] = deque()
-        stack: Deque[DisplayNode] = deque()
+        queue: Deque[GoogFolder] = deque()
+        stack: Deque[GoogFolder] = deque()
         for root in self.roots:
             if root.is_dir():
+                assert isinstance(root, GoogFolder)
                 queue.append(root)
                 stack.append(root)
 
         while len(queue) > 0:
-            item: DisplayNode = queue.popleft()
+            item: GoogFolder = queue.popleft()
             item.zero_out_stats()
 
             children = self.get_children(item)
             if children:
                 for child in children:
                     if child.is_dir():
-                        assert isinstance(child, DisplayNode)
+                        assert isinstance(child, GoogFolder)
                         queue.append(child)
                         stack.append(child)
 

@@ -7,10 +7,10 @@ from typing import Dict, List
 import file_util
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.category import Category
-from model.display_node import DisplayNode
-from model.goog_node import FolderToAdd
+from model.display_node import ContainerNode, DisplayNode
+from model.fmeta import LocalDirNode
+from model.goog_node import GoogFolder
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
-from model.planning_node import FileDecoratorNode, FileToAdd, FileToMove, FileToUpdate, LocalDirToAdd, PlanningNode
 from model.subtree_snapshot import SubtreeSnapshot
 from ui.actions import ID_LEFT_TREE, ID_RIGHT_TREE
 from ui.tree.category_display_tree import CategoryDisplayTree
@@ -31,8 +31,8 @@ class ChangeMaker:
         self.change_tree_left: CategoryDisplayTree = CategoryDisplayTree(application, self.left_tree.node_identifier, ID_LEFT_TREE)
         self.change_tree_right: CategoryDisplayTree = CategoryDisplayTree(application, self.right_tree.node_identifier, ID_RIGHT_TREE)
 
-        self.added_folders_left: Dict[str, PlanningNode] = {}
-        self.added_folders_right: Dict[str, PlanningNode] = {}
+        self.added_folders_left: Dict[str, ContainerNode] = {}
+        self.added_folders_right: Dict[str, ContainerNode] = {}
 
     def copy_nodes_left_to_right(self, src_node_list: List[DisplayNode], dst_parent: DisplayNode):
         """Populates the destination parent in "change_tree_right" with the given source nodes."""
@@ -94,7 +94,7 @@ class ChangeMaker:
         return self.application.node_identifier_factory.for_values(tree_type=tree_type, full_path=path, uid=uid)
 
     def _add_items_and_missing_parents(self, change_tree: CategoryDisplayTree, source_tree: SubtreeSnapshot,
-                                       added_folders_dict: Dict[str, PlanningNode], new_item: FileDecoratorNode):
+                                       added_folders_dict: Dict[str, ContainerNode], new_item: DisplayNode):
         tree_type: int = new_item.node_identifier.tree_type
 
         # Lowest item in the stack will always be orig item. Stack size > 1 iff need to add parent folders
@@ -119,12 +119,14 @@ class ChangeMaker:
             if tree_type == TREE_TYPE_GDRIVE:
                 logger.debug(f'Creating GoogFolderToAdd for {path}')
                 new_uid = self.uid_generator.get_new_uid()
-                new_folder = FolderToAdd(new_uid, path)
+                folder_name = os.path.basename(path)
+                new_folder = GoogFolder(uid=new_uid, goog_id=None, item_name=folder_name, trashed=False, drive_id=None, my_share=False, sync_ts=None,
+                                        all_children_fetched=True)
             elif tree_type == TREE_TYPE_LOCAL_DISK:
                 logger.debug(f'Creating LocalDirToAdd for {path}')
                 new_uid = self.application.cache_manager.get_uid_for_path(path)
                 node_identifier = LocalFsIdentifier(path, new_uid, Category.Added)
-                new_folder = LocalDirToAdd(node_identifier)
+                new_folder = LocalDirNode(node_identifier, exists=False)
             else:
                 raise RuntimeError(f'Invalid tree type: {tree_type} for item {new_item}')
 

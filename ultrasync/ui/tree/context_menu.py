@@ -8,8 +8,7 @@ from pydispatch import dispatcher
 
 from constants import GDRIVE_PATH_PREFIX, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.display_node import CategoryNode, DisplayNode
-from model.goog_node import GoogFile, GoogNode
-from model.planning_node import FileDecoratorNode
+from model.goog_node import GoogNode
 from ui import actions
 from ui.tree.tree_actions import DATE_REGEX
 
@@ -200,7 +199,7 @@ class TreeContextMenu:
                 # We assume that the node exists in GDrive if a Google ID has been assigned
                 return node.goog_id and True
             except AttributeError:
-                # Probably a PlanningNode, in which case the destination node def doesn't exist
+                # Shouldn't happen...
                 return False
 
     @staticmethod

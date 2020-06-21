@@ -42,7 +42,7 @@ class NodeIdentifier(ABC):
     """
 
     def __init__(self, uid: UID, full_path: str, category: Category):
-        # TODO: remove category entirely. PlanningNodes will encapsulate Add/Move/Update. FMeta, DirNode, GoogNode will have to_delete flag
+        # TODO: remove category entirely. PlanningNodes will encapsulate Add/Move/Update. LocalFileNode, LocalDirNode, GoogNode will have to_delete flag
         # assert full_path is None or (type(full_path) == str and full_path.find('/') >= 0), f'full_path does not look like a path: {full_path}'
         if uid and not isinstance(uid, UID):
             uid = UID(ensure_int(uid))

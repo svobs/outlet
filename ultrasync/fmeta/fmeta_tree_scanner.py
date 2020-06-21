@@ -7,8 +7,7 @@ from pydispatch import dispatcher
 
 import ui.actions as actions
 from fmeta.file_tree_recurser import FileTreeRecurser
-from model.display_node import DirNode
-from model.fmeta import Category, FMeta
+from model.fmeta import Category, LocalFileNode, LocalDirNode
 from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 VALID_SUFFIXES = None
 
 
-def meta_matches(file_path: str, fmeta: FMeta):
+def meta_matches(file_path: str, fmeta: LocalFileNode):
     stat = os.stat(file_path)
     size_bytes = int(stat.st_size)
     modify_ts = int(stat.st_mtime * 1000)
@@ -26,7 +25,7 @@ def meta_matches(file_path: str, fmeta: FMeta):
     change_ts = int(stat.st_ctime * 1000)
     assert change_ts > 100000000000, f'change_ts too small: {change_ts} (for path: {file_path})'
 
-    is_equal = fmeta.size_bytes == size_bytes and fmeta.modify_ts == modify_ts and fmeta.change_ts == change_ts
+    is_equal = fmeta.exists() and fmeta.size_bytes == size_bytes and fmeta.modify_ts == modify_ts and fmeta.change_ts == change_ts
 
     if False and logger.isEnabledFor(logging.DEBUG):
         logger.debug(f'Meta Exp=[{fmeta.size_bytes} {fmeta.modify_ts} {fmeta.change_ts}]' +
@@ -82,7 +81,7 @@ class FMetaDiskScanner(FileTreeRecurser):
         self.total = 0
 
         self.dir_tree: LocalDiskTree = LocalDiskTree(application)
-        root_node = DirNode(node_identifier=root_node_identifer)
+        root_node = LocalDirNode(node_identifier=root_node_identifer, exists=os.path.exists(root_node_identifer.full_path))
         self.dir_tree.add_node(node=root_node, parent=None)
 
         self.added_count = 0
@@ -101,7 +100,7 @@ class FMetaDiskScanner(FileTreeRecurser):
         return total
 
     def handle_file(self, file_path: str, category):
-        stale_fmeta: FMeta = self.cache_manager.get_node_for_local_path(file_path)
+        stale_fmeta: LocalFileNode = self.cache_manager.get_node_for_local_path(file_path)
 
         if stale_fmeta:
             if meta_matches(file_path, stale_fmeta):
@@ -151,7 +150,8 @@ class FMetaDiskScanner(FileTreeRecurser):
         try:
             self.recurse_through_dir_tree()
 
-            logger.info(f'Result: {self.added_count} new, {self.updated_count} updated, {self.deleted_count} deleted, '
+            # FIXME: deleted_count never actually populated
+            logger.info(f'Result: {self.added_count} new, {self.updated_count} updated, ? deleted, '
                         f'and {self.unchanged_count} unchanged from cache')
 
             return self.dir_tree

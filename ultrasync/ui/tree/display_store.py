@@ -6,7 +6,6 @@ from gi.repository.Gtk import TreeIter, TreePath
 
 from index.uid_generator import UID
 from model.display_node import DisplayNode
-from model.planning_node import FileDecoratorNode
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -251,8 +250,9 @@ class DisplayStore:
         data: DisplayNode = row_values[self.treeview_meta.col_num_data]
 
         if not data.is_ephemereal():
-            if isinstance(data, FileDecoratorNode):
-                self.displayed_decorated_rows[data.src_node.uid] = data
+            # FIXME
+            # if isinstance(data, FileDecoratorNode):
+            #     self.displayed_decorated_rows[data.src_node.uid] = data
             self.displayed_rows[data.uid] = data
 
         return self.model.append(parent_node_iter, row_values)
@@ -273,8 +273,9 @@ class DisplayStore:
             logger.debug(f'Removing child: {child_data}')
 
         if not child_data.is_ephemereal():
-            if isinstance(child_data, FileDecoratorNode):
-                self.displayed_decorated_rows.pop(child_data.src_node.uid)
+            # FIXME
+            # if isinstance(child_data, FileDecoratorNode):
+            #     self.displayed_decorated_rows.pop(child_data.src_node.uid)
             self.displayed_rows.pop(child_data.uid)
 
         # remove the first child

@@ -20,7 +20,7 @@ from index.two_level_dict import TwoLevelDict
 from index.uid_generator import UID
 from model.category import Category
 from model.display_node import DisplayNode
-from model.fmeta import FMeta
+from model.fmeta import LocalFileNode
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.goog_node import GoogNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier, NodeIdentifierFactory
@@ -325,7 +325,7 @@ class CacheManager:
         root_identifier: NodeIdentifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         return self._gdrive_cache.load_gdrive_subtree(root_identifier, tree_id)
 
-    def build_fmeta(self, full_path: str, category=Category.NA, staging_path=None) -> Optional[FMeta]:
+    def build_fmeta(self, full_path: str, category=Category.NA, staging_path=None) -> Optional[LocalFileNode]:
         return self._local_disk_cache.build_fmeta(full_path, category, staging_path)
 
     def resolve_path(self, full_path: str = None, node_identifier: Optional[NodeIdentifier] = None) -> List[NodeIdentifier]:

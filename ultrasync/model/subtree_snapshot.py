@@ -115,13 +115,6 @@ class SubtreeSnapshot(ABC):
 
         return ancestors
 
-    # Setter
-    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-    @abstractmethod
-    def add_item(self, item: DisplayNode):
-        pass
-
     # Stats
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 

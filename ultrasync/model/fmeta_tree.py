@@ -8,10 +8,9 @@ import file_util
 import format_util
 from index.two_level_dict import Md5BeforePathDict
 from index.uid_generator import UID
-from model.display_node import DirNode, DisplayNode
-from model.fmeta import FMeta
+from model.display_node import DisplayNode
+from model.fmeta import LocalDirNode, LocalFileNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
-from model.planning_node import PlanningNode
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
 
@@ -27,7 +26,7 @@ logger = logging.getLogger(__name__)
 class FMetaTree(SubtreeSnapshot):
     """🢄 Just a shell of its former self!"""
 
-    def __init__(self, root_node: DirNode, application):
+    def __init__(self, root_node: LocalDirNode, application):
         assert isinstance(root_node.node_identifier, LocalFsIdentifier)
         super().__init__(root_node)
         self.root_node = root_node
@@ -39,7 +38,7 @@ class FMetaTree(SubtreeSnapshot):
     def create_identifier(cls, full_path: str, uid: UID, category) -> NodeIdentifier:
         return LocalFsIdentifier(full_path=full_path, uid=uid, category=category)
 
-    def get_parent_for_item(self, item: FMeta) -> Optional[DisplayNode]:
+    def get_parent_for_item(self, item: LocalFileNode) -> Optional[DisplayNode]:
         assert item.full_path, f'No full_path for item: {item}'
         parent_path: str = str(pathlib.Path(item.full_path).parent)
         if parent_path.startswith(self.root_path):
@@ -53,11 +52,11 @@ class FMetaTree(SubtreeSnapshot):
         assert node.node_identifier.tree_type == constants.TREE_TYPE_LOCAL_DISK, f'For: {node.node_identifier}'
         return self.cache_manager.get_children(node)
 
-    def get_full_path_for_item(self, item: FMeta) -> str:
+    def get_full_path_for_item(self, item: LocalFileNode) -> str:
         # Trivial for FMetas
         return item.full_path
 
-    def get_for_path(self, path: str, include_ignored=False) -> List[FMeta]:
+    def get_for_path(self, path: str, include_ignored=False) -> List[LocalFileNode]:
         item = self.cache_manager.get_node_for_local_path(path)
         if item:
             if item.full_path.startswith(self.root_path):
@@ -80,13 +79,10 @@ class FMetaTree(SubtreeSnapshot):
         assert full_path.startswith(self.root_path), f'Full path ({full_path}) does not contain root ({self.root_path})'
         return file_util.strip_root(full_path, self.root_path)
 
-    def get_relative_path_for_item(self, fmeta: FMeta):
+    def get_relative_path_for_item(self, fmeta: LocalFileNode):
         return self.get_relative_path_for_full_path(fmeta.full_path)
 
-    def remove(self, node: FMeta):
-        raise RuntimeError('Can no longer do this in FMetaTree!')
-
-    def add_item(self, item: Union[FMeta, PlanningNode]):
+    def remove(self, node: LocalFileNode):
         raise RuntimeError('Can no longer do this in FMetaTree!')
 
     def get_summary(self):
