@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class GoogNode(HasParentList, ABC):
+    # FIXME: this is not a good hierarchy. Find a better one
 
     def __init__(self, goog_id: Optional[str], item_name: str, trashed: int, drive_id: Optional[str], my_share: bool, sync_ts: Optional[int]):
         HasParentList.__init__(self, None)
@@ -156,6 +157,7 @@ class GoogFile(GoogNode, DisplayNode):
         self._modify_ts = ensure_int(modify_ts)
         self._size_bytes = ensure_int(size_bytes)
         self.owner_id = owner_id
+        """OwnerID if it's not me"""
 
     def __repr__(self):
         return f'GoogFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str}  size={self.size_bytes} ' \

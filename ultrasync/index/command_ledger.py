@@ -4,7 +4,7 @@ from typing import Dict
 from pydispatch import dispatcher
 
 from command.command_interface import Command, CommandBatch
-from index.uid_generator import UID
+from index.uid import UID
 from ui import actions
 
 logger = logging.getLogger(__name__)

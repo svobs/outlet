@@ -1,17 +1,15 @@
 import logging
 import os
 import time
-import uuid
 from collections import deque
 from typing import Dict, List, Optional, Tuple
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
-    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL
+    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL, ROOT_UID
 from gdrive.client import GDriveClient, MetaObserver
-from index import uid_generator
 from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
-from index.uid_generator import UID
+from index.uid import UID
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.goog_node import GoogFile, GoogFolder, GoogNode
 from stopwatch_sec import Stopwatch
@@ -230,7 +228,7 @@ class GDriveTreeLoader:
         GDrive tree.
         """
         sw_total = Stopwatch()
-        max_uid = uid_generator.ROOT_UID + 1
+        max_uid = ROOT_UID + 1
         tree = GDriveWholeTree(self.node_identifier_factory)
 
         # DIRs:
@@ -296,7 +294,7 @@ class GDriveTreeLoader:
         return tree
 
     def _determine_roots(self, tree: GDriveWholeTree):
-        max_uid = uid_generator.ROOT_UID + 1
+        max_uid = ROOT_UID + 1
         for item in tree.id_dict.values():
             if not item.parent_uids:
                 tree.roots.append(item)

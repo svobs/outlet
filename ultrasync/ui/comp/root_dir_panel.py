@@ -7,14 +7,13 @@ import gi
 
 import file_util
 from index.error import CacheNotLoadedError, GDriveItemNotFoundError
-from index.uid_generator import NULL_UID
 from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib, GObject
 
-from constants import GDRIVE_PATH_PREFIX, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
-from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
+from constants import GDRIVE_PATH_PREFIX, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
+from model.node_identifier import NodeIdentifier
 from ui.dialog.base_dialog import BaseDialog
 import ui.actions as actions
 from ui.assets import ALERT_ICON_PATH, CHOOSE_ROOT_ICON_PATH, GDRIVE_ICON_PATH, REFRESH_ICON_PATH

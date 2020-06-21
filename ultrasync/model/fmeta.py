@@ -3,7 +3,7 @@ import os
 from typing import Optional
 
 from constants import NOT_TRASHED
-from index.uid_generator import UID
+from index.uid import UID
 from model.category import Category
 from model.node_identifier import ensure_int, LocalFsIdentifier, NodeIdentifier
 from model.display_node import ContainerNode, DisplayNode

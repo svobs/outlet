@@ -3,25 +3,12 @@ from abc import ABC, abstractmethod
 
 import logging
 
+from constants import ENABLE_UID_PERSISTENCE, NULL_UID, ROOT_UID, UID_RESERVATION_BLOCK_SIZE
+from index.uid import UID
+
 logger = logging.getLogger(__name__)
 
-ENABLE_PERSISTENCE = True
-CONFIG_KEY = 'transient.global.last_uid'
-WRITE_OUT_UID_EVERY_N = 10000
-
-
-class UID(int):
-    def __new__(cls, val, *args, **kwargs):
-        return super(UID, cls).__new__(cls, val)
-
-
-class AUID(int):
-    def __new__(cls, val, *args, **kwargs):
-        return super(AUID, cls).__new__(cls, val)
-
-
-ROOT_UID = UID(1)
-NULL_UID = UID(0)
+CONFIG_KEY_LAST_UID = 'transient.global.last_uid'
 
 
 class UidGenerator(ABC):
@@ -52,8 +39,8 @@ class PersistentAtomicIntUidGenerator(UidGenerator):
     def __init__(self, config):
         super().__init__()
         self._config = config
-        if ENABLE_PERSISTENCE:
-            self._last_uid_written = self._config.get(CONFIG_KEY, ROOT_UID + 1)
+        if ENABLE_UID_PERSISTENCE:
+            self._last_uid_written = self._config.get(CONFIG_KEY_LAST_UID, ROOT_UID + 1)
         else:
             self._last_uid_written = ROOT_UID + 1
         self._value = self._last_uid_written + 1
@@ -61,10 +48,10 @@ class PersistentAtomicIntUidGenerator(UidGenerator):
 
     def _set(self, new_value):
         self._value = new_value
-        if ENABLE_PERSISTENCE and self._value > self._last_uid_written:
+        if ENABLE_UID_PERSISTENCE and self._value > self._last_uid_written:
             # skip ahead and write a larger number. This will cause us to burn through numbers quicker, but will really speed things up
-            self._last_uid_written = self._value + WRITE_OUT_UID_EVERY_N
-            self._config.write(CONFIG_KEY, self._last_uid_written)
+            self._last_uid_written = self._value + UID_RESERVATION_BLOCK_SIZE
+            self._config.write(CONFIG_KEY_LAST_UID, self._last_uid_written)
         return self._value
 
     def get_new_uid(self) -> UID:

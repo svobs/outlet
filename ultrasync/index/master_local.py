@@ -16,6 +16,7 @@ from index.cache_manager import PersistedCacheInfo
 from index.sqlite.fmeta_db import FMetaDatabase
 from index.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
 from index.uid_generator import ROOT_UID, UID
+from index.uid_mapper import UidPathMapper
 from model.category import Category
 from model.display_node import ContainerNode, DisplayNode, RootTypeNode
 from model.fmeta import LocalDirNode, LocalFileNode
@@ -41,9 +42,10 @@ class LocalDiskMasterCache:
         """Singleton in-memory cache for local filesystem"""
         self.application = application
 
-        self._uid_lock = threading.Lock()
         # TODO: put struct lock in CacheManager, cover Goog and Command
         self._struct_lock = threading.Lock()
+
+        self._uid_mapper = UidPathMapper(application)
 
         self.use_md5 = application.config.get('cache.enable_md5_lookup')
         if self.use_md5:
@@ -56,9 +58,6 @@ class LocalDiskMasterCache:
             self.sha256_dict = Sha256BeforePathDict()
         else:
             self.sha256_dict = None
-
-        # Every unique path must map to one unique UID
-        self._full_path_uid_dict: Dict[str, UID] = {ROOT_PATH: ROOT_UID}
 
         # Each item inserted here will have an entry created for its dir.
         # self.parent_path_dict = ParentPathBeforeFileNameDict()
@@ -326,7 +325,7 @@ class LocalDiskMasterCache:
 
     def remove_fmeta(self, item: LocalFileNode, to_trash=False, fire_listeners=True):
         with self._struct_lock:
-            assert item.uid == self._full_path_uid_dict.get(item.full_path, None), f'For item: {item}'
+            assert item.uid == self._uid_mapper.get_uid_for_path(item.full_path), f'For item: {item}'
 
             if self.use_md5 and item.md5:
                 self.md5_dict.remove(item.md5, item.full_path)
@@ -342,34 +341,20 @@ class LocalDiskMasterCache:
 
     # Various public getters
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
     def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
-        with self._uid_lock:
-            return self._get_uid_for_path(path, uid_suggestion)
-
-    def _get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
-        path = file_util.normalize_path(path)
-        uid = self._full_path_uid_dict.get(path, None)
-        if not uid:
-            if uid_suggestion:
-                self._full_path_uid_dict[path] = uid_suggestion
-                uid = uid_suggestion
-            else:
-                uid = self.application.uid_generator.get_new_uid()
-                self._full_path_uid_dict[path] = uid
-        return uid
+        return self._uid_mapper.get_uid_for_path(path, uid_suggestion)
 
     def get_children(self, node: DisplayNode):
-        with self._uid_lock:
+        with self._struct_lock:
             return self.dir_tree.children(node.identifier)
 
     def get_item(self, uid: UID) -> DisplayNode:
-        with self._uid_lock:
+        with self._struct_lock:
             return self.dir_tree.get_node(uid)
 
     def get_parent_for_item(self, item: DisplayNode, required_subtree_path: str = None):
         try:
-            with self._uid_lock:
+            with self._struct_lock:
                 parent: DisplayNode = self.dir_tree.parent(nid=item.uid)
                 if not required_subtree_path or parent.full_path.startswith(required_subtree_path):
                     return parent

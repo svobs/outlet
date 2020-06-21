@@ -11,7 +11,8 @@ import file_util
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from model.category import Category
 from model.display_node import CategoryNode, ContainerNode, DisplayNode, RootTypeNode
-from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier, NodeIdentifierFactory
+from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
+from model.node_identifier_factory import NodeIdentifierFactory
 from model.subtree_snapshot import SubtreeSnapshot
 
 logger = logging.getLogger(__name__)

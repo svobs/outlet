@@ -1,9 +1,9 @@
-from pydispatch import dispatcher
 import logging
 
-from constants import TREE_TYPE_LOCAL_DISK
-from index.uid_generator import NULL_UID, ROOT_UID
-from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
+from pydispatch import dispatcher
+
+from index.uid_generator import NULL_UID
+from model.node_identifier import NodeIdentifier
 from ui import actions
 
 logger = logging.getLogger(__name__)

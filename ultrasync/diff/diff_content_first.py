@@ -3,9 +3,8 @@ import logging
 import time
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from constants import ROOT_PATH, TREE_TYPE_MIXED
+from constants import ROOT_PATH, ROOT_UID, TREE_TYPE_MIXED
 from diff.change_maker import ChangeMaker
-from index import uid_generator
 from index.two_level_dict import TwoLevelDict
 from model.category import Category
 from model.display_node import DisplayNode
@@ -238,11 +237,11 @@ class ContentFirstDiffer(ChangeMaker):
         # always root path, but tree type may differ
         is_mixed_tree = self.left_tree.tree_type != self.right_tree.tree_type
         if is_mixed_tree:
-            root_node_identifier = LogicalNodeIdentifier(uid=uid_generator.ROOT_UID, full_path=ROOT_PATH, category=Category.NA,
+            root_node_identifier = LogicalNodeIdentifier(uid=ROOT_UID, full_path=ROOT_PATH, category=Category.NA,
                                                          tree_type=TREE_TYPE_MIXED)
         else:
             root_node_identifier: NodeIdentifier = self.application.node_identifier_factory.for_values(
-                tree_type=self.left_tree.tree_type, full_path=ROOT_PATH, uid=uid_generator.ROOT_UID)
+                tree_type=self.left_tree.tree_type, full_path=ROOT_PATH, uid=ROOT_UID)
 
         merged_tree = CategoryDisplayTree(root_node_identifier=root_node_identifier, show_whole_forest=True,
                                           application=self.application, tree_id=ID_MERGE_TREE)

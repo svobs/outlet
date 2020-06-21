@@ -20,7 +20,8 @@ from pydispatch import dispatcher
 import file_util
 from app_config import AppConfig
 from constants import EXPLICITLY_TRASHED, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, IMPLICITLY_TRASHED, NOT_TRASHED
-from index.uid_generator import UID, UidGenerator, NullUidGenerator
+from index.uid import UID
+from index.uid_generator import UidGenerator, NullUidGenerator
 from model.gdrive_whole_tree import GDriveWholeTree, UserMeta
 from model.goog_node import GoogFile, GoogFolder, GoogNode
 from stopwatch_sec import Stopwatch

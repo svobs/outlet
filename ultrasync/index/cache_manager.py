@@ -12,18 +12,19 @@ from command.command_interface import CommandBatch
 from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
-from index.CommandLedger import CommandLedger
+from index.command_ledger import CommandLedger
 from index.master_gdrive import GDriveMasterCache
 from index.master_local import LocalDiskMasterCache
 from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
-from index.uid_generator import UID
+from index.uid import UID
 from model.category import Category
 from model.display_node import DisplayNode
 from model.fmeta import LocalFileNode
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.goog_node import GoogNode
-from model.node_identifier import LocalFsIdentifier, NodeIdentifier, NodeIdentifierFactory
+from model.node_identifier import LocalFsIdentifier, NodeIdentifier
+from model.node_identifier_factory import NodeIdentifierFactory
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
 from ui import actions

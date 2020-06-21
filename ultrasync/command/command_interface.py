@@ -8,7 +8,7 @@ from typing import Deque, List, Optional
 import treelib
 
 from gdrive.client import GDriveClient
-from index.uid_generator import UID
+from index.uid import UID
 from model.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveWholeTree
 

@@ -1,5 +1,7 @@
 from enum import IntEnum
 
+from index.uid import UID
+
 VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp4', 'mpeg', 'mpg', 'm4v', 'avi', 'pdf', 'nef', 'vob')
 
 READ_CHUNK_SIZE = 1024 * 1024
@@ -47,6 +49,16 @@ GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE = 3
 GDRIVE_DOWNLOAD_STATE_COMPLETE = 10
 
 TRASHED_STATUS = ['No', 'UserTrashed', 'Trashed']
+
+# TODO: put in config
+ENABLE_UID_PERSISTENCE = True
+UID_RESERVATION_BLOCK_SIZE = 10000
+"""The number of sequential UIDs to reserve each time we persist to disk. Setting to a higher number will mean less disk access, but
+the UID numbers will get larger faster if there are a lot of program restarts, which is somewhere between annoying and inconvenient
+when debugging"""
+
+ROOT_UID = UID(1)
+NULL_UID = UID(0)
 
 
 class TreeDisplayMode(IntEnum):

@@ -8,6 +8,9 @@ from model.node_identifier import LocalFsIdentifier
 logger = logging.getLogger(__name__)
 
 
+# CLASS FMetaDatabase
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class FMetaDatabase(MetaDatabase):
     TABLE_LOCAL_FILE = Table(name='local_file', cols={'uid': 'INTEGER PRIMARY KEY',
                                                       'md5': 'TEXT',

@@ -1,14 +1,12 @@
 import logging
 import os
-import uuid
 
 import gi
 from pydispatch import dispatcher
 
 from constants import TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
-from model import node_identifier
-from model.node_identifier import NodeIdentifier, NodeIdentifierFactory
+from model.node_identifier import NodeIdentifier
 from model.subtree_snapshot import SubtreeSnapshot
 
 gi.require_version("Gtk", "3.0")
@@ -18,8 +16,6 @@ from stopwatch_sec import Stopwatch
 
 import ui.actions as actions
 from ui.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
-
-from diff import diff_content_first
 
 logger = logging.getLogger(__name__)
 

@@ -3,7 +3,7 @@ import gi
 
 from command.command_executor import CommandExecutor
 from index.uid_generator import PersistentAtomicIntUidGenerator
-from model.node_identifier import NodeIdentifierFactory
+from model.node_identifier_factory import NodeIdentifierFactory
 from ui.actions import ID_DIFF_WINDOW
 
 gi.require_version("Gtk", "3.0")

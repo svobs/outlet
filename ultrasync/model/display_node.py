@@ -22,13 +22,13 @@ class DisplayNode(Node, ABC):
     """Base class for nodes which are meant to be displayed in a UI tree"""
 
     def __init__(self, node_identifier: NodeIdentifier):
-        # Look at this next line, It is very important.
+        # Look at this next line. It is very important.
         Node.__init__(self, identifier=node_identifier.uid)
         self.node_identifier = node_identifier
 
-        self.set_tag()
+        self._update_tag()
 
-    def set_tag(self):
+    def _update_tag(self):
         self.tag = f'{self.node_identifier}: "{self.identifier}"'
 
     @classmethod
@@ -106,7 +106,7 @@ class DisplayNode(Node, ABC):
     def uid(self, uid: UID):
         self.node_identifier.uid = uid
         self.identifier = uid
-        self.set_tag()
+        self._update_tag()
 
     def get_relative_path(self, parent_tree):
         return parent_tree.get_relative_path_for_item(self)

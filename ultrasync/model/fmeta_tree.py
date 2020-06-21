@@ -1,13 +1,12 @@
 import logging
 import pathlib
-from collections import deque
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Iterable, List, Optional
 
 import constants
 import file_util
 import format_util
 from index.two_level_dict import Md5BeforePathDict
-from index.uid_generator import UID
+from index.uid import UID
 from model.display_node import DisplayNode
 from model.fmeta import LocalDirNode, LocalFileNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier

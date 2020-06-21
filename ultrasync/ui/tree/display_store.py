@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, Optional, Union
 import gi
 from gi.repository.Gtk import TreeIter, TreePath
 
-from index.uid_generator import UID
+from index.uid import UID
 from model.display_node import DisplayNode
 
 gi.require_version("Gtk", "3.0")

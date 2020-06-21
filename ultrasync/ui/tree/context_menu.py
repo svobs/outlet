@@ -147,7 +147,7 @@ class TreeContextMenu:
 
         menu = Gtk.Menu()
 
-        if isinstance(node, FileDecoratorNode):
+        if False:  # FIXME isinstance(node, FileDecoratorNode):
             # Source:
             item = TreeContextMenu.build_full_path_display_item(menu, 'Src: ', node.src_node)
             if TreeContextMenu.file_exists(node.src_node):

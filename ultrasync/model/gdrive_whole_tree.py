@@ -8,10 +8,11 @@ import constants
 import file_util
 import format_util
 from index.error import GDriveItemNotFoundError
-from index.uid_generator import UID
+from index.uid import UID
 from model.display_node import DisplayNode
-from model.node_identifier import GDriveIdentifier, NodeIdentifier, NodeIdentifierFactory
+from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.goog_node import GoogFile, GoogFolder, GoogNode
+from model.node_identifier_factory import NodeIdentifierFactory
 from stopwatch_sec import Stopwatch
 from ui import actions
 

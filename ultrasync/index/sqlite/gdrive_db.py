@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE
 from index.sqlite.base_db import MetaDatabase, Table
-from index.uid_generator import UID
+from index.uid import UID
 
 logger = logging.getLogger(__name__)
 
