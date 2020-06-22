@@ -149,7 +149,7 @@ class GDriveDatabase(MetaDatabase):
         logger.debug(f'Inserting {len(id_parent_mappings)} id-parent mappings for {uid}')
         self.insert_id_parent_mappings(id_parent_mappings, commit)
 
-    def get_id_parent_mappings(self):
+    def get_id_parent_mappings(self) -> List[Tuple]:
         parent_uids = self.get_all_rows(self.TABLE_GRDIVE_ID_PARENT_MAPPINGS)
         logger.debug(f'Retrieved {len(parent_uids)} id-parent mappings')
         return parent_uids

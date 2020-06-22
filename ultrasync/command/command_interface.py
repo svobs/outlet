@@ -36,7 +36,7 @@ class CommandContext:
         self.cache_manager = application.cache_manager
         self.uid_generator = application.uid_generator
         if needs_gdrive:
-            self.gdrive_client = GDriveClient(config=self.config, tree_id=None)
+            self.gdrive_client = GDriveClient(application=application, tree_id=None)
             self.gdrive_tree: GDriveWholeTree = self.cache_manager.get_gdrive_whole_tree(tree_id=tree_id)
 
     def resolve_parent_ids_to_goog_ids(self, node: DisplayNode) -> str:

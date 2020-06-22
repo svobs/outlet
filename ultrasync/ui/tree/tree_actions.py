@@ -99,7 +99,7 @@ class TreeActions:
             os.remove(file)
 
     def _download_file_from_gdrive(self, sender, node: GoogFile):
-        gdrive_client = GDriveClient(self.con.config)
+        gdrive_client = GDriveClient(self.con.parent_win.application)
 
         os.makedirs(name=self.download_dir, exist_ok=True)
         dest_file = os.path.join(self.download_dir, node.name)

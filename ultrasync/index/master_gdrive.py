@@ -51,6 +51,9 @@ class GDriveMasterCache:
 
         self._uid_mapper = UidGoogIdMapper(application)
 
+    # Subtree-level stuff
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
     def load_gdrive_cache(self, cache_info: PersistedCacheInfo, tree_id: str):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
         if not self.application.cache_manager.enable_load_from_disk:
@@ -116,6 +119,9 @@ class GDriveMasterCache:
                                               offending_path=subtree_root.full_path)
         return gdrive_meta
 
+    # Individual item cache updates
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
     def add_or_update_goog_node(self, node: DisplayNode):
         # try to prevent cache corruption by doing some sanity checks
         if not node:
@@ -157,7 +163,7 @@ class GDriveMasterCache:
                     return
                 logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')
             else:
-                node_with_different_uid = self.get_item_for_goog_id_and_parent_uid(parent_uid=node.parent_uids[0], goog_id=node.goog_id)
+                node_with_different_uid = self.get_item_for_goog_id(goog_id=node.goog_id)
                 if node_with_different_uid:
                     logger.warning(f'Found node in cache with same GoogID ({node.goog_id}) but different UID ('
                                    f'{node_with_different_uid}). Changing UID of item (was: {node.uid}) to match')
@@ -206,9 +212,24 @@ class GDriveMasterCache:
 
         dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
 
-    def get_item_for_goog_id_and_parent_uid(self, goog_id: str, parent_uid: UID) -> Optional[GoogNode]:
-        """Finds the GDrive node with the given goog_id. (Parent UID is needed so that we don't have to search the entire tree"""
-        return self._my_gdrive.get_item_for_goog_id_and_parent_uid(goog_id=goog_id, parent_uid=parent_uid)
+    # Various public methods
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def get_uid_for_goog_id(self, goog_id: str, uid_suggestion: Optional[UID] = None) -> UID:
+        return self._uid_mapper.get_uid_for_goog_id(goog_id, uid_suggestion)
+
+    def get_item_for_goog_id(self, goog_id: str) -> Optional[GoogNode]:
+        uid = self._uid_mapper.get_uid_for_goog_id(goog_id)
+        return self._my_gdrive.get_item_for_uid(uid)
+
+    def get_item_for_uid(self, uid: UID) -> Optional[GoogNode]:
+        return self._my_gdrive.get_item_for_uid(uid)
+
+    def get_goog_id_for_uid(self, uid: UID) -> Optional[str]:
+        item = self.get_item_for_uid(uid)
+        if item:
+            return item.goog_id
+        return None
 
     def _get_cache_path_for_master(self) -> str:
         # Open master database...

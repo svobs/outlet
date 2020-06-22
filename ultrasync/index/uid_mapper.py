@@ -1,9 +1,12 @@
 import threading
+import logging
 from typing import Dict, Optional
 
 import file_util
 from constants import ROOT_PATH
 from index.uid_generator import ROOT_UID, UID
+
+logger = logging.getLogger(__name__)
 
 
 # CLASS UidPathMapper
@@ -30,6 +33,8 @@ class UidPathMapper:
                 else:
                     uid = self.uid_generator.get_new_uid()
                     self._full_path_uid_dict[path] = uid
+            elif uid_suggestion and uid_suggestion != uid:
+                logger.warning(f'UID was requested ({uid_suggestion}) but an existing UID was found ({uid}) for key: "{path}"')
             return uid
 
 
@@ -56,5 +61,7 @@ class UidGoogIdMapper:
                 else:
                     uid = self.uid_generator.get_new_uid()
                     self._goog_uid_dict[goog_id] = uid
+            elif uid_suggestion and uid_suggestion != uid:
+                logger.warning(f'UID was requested ({uid_suggestion}) but an existing UID was found ({uid}) for key: "{goog_id}"')
             return uid
 

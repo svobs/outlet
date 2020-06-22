@@ -43,7 +43,7 @@ def _ensure_cache_dir_path(config):
     return cache_dir_path
 
 
-#    CLASS CacheInfoByType
+# CLASS CacheInfoByType
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 
@@ -53,7 +53,7 @@ class CacheInfoByType(TwoLevelDict):
         super().__init__(lambda x: x.subtree_root.tree_type, lambda x: x.subtree_root.full_path, lambda x, y: True)
 
 
-#    CLASS CacheManager
+# CLASS CacheManager
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class CacheManager:
@@ -350,13 +350,16 @@ class CacheManager:
         """Deterministically gets or creates a UID corresponding to the given path string"""
         return self._local_disk_cache.get_uid_for_path(path, uid_suggestion)
 
+    def get_uid_for_goog_id(self, goog_id: str, uid_suggestion: Optional[UID] = None) -> UID:
+        """Deterministically gets or creates a UID corresponding to the given goog_id"""
+        return self._gdrive_cache.get_uid_for_goog_id(goog_id, uid_suggestion)
+
     def get_node_for_local_path(self, path: str) -> DisplayNode:
         uid = self.get_uid_for_path(path)
         return self._local_disk_cache.get_item(uid)
 
-    def get_goog_node(self, parent_uid: UID, goog_id: str) -> Optional[GoogNode]:
-        """Finds the GDrive node with the given goog_id. (Parent UID is needed so that we don't have to search the entire tree"""
-        return self._gdrive_cache.get_item_for_goog_id_and_parent_uid(goog_id, parent_uid)
+    def get_item_for_goog_id(self, goog_id: str) -> UID:
+        return self._gdrive_cache.get_item_for_goog_id(goog_id)
 
     def get_item_for_uid(self, uid: UID, tree_type):
         if tree_type == TREE_TYPE_GDRIVE:

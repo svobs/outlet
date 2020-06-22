@@ -12,20 +12,24 @@ from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from index.uid import UID
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.goog_node import GoogFile, GoogFolder, GoogNode
+from model.node_identifier_factory import NodeIdentifierFactory
 from stopwatch_sec import Stopwatch
 from ui import actions
 
 logger = logging.getLogger(__name__)
 
 
-class DirMetaObserver(MetaObserver):
-    """Collect dir metas for mass insertion into database"""
-    def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, cache):
+# CLASS FolderMetaPersister
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class FolderMetaPersister(MetaObserver):
+    """Collect GDrive folder metas for mass insertion into database"""
+    def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, cache: GDriveDatabase):
         super().__init__()
         self.tree = tree
         assert download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
-        self.download = download
-        self.cache = cache
+        self.download: CurrentDownload = download
+        self.cache: GDriveDatabase = cache
         self.dir_tuples: List[Tuple] = []
         self.id_parent_mappings: List[Tuple] = []
 
@@ -52,14 +56,17 @@ class DirMetaObserver(MetaObserver):
             self.id_parent_mappings = []
 
 
-class FileMetaObserver(MetaObserver):
-    """Collect file metas for mass insertion into database"""
-    def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, cache):
+# CLASS FileMetaPersister
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class FileMetaPersister(MetaObserver):
+    """Collect GDrive file metas for mass insertion into database"""
+    def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, cache: GDriveDatabase):
         super().__init__()
         self.tree = tree
         assert download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
-        self.download = download
-        self.cache = cache
+        self.download: CurrentDownload = download
+        self.cache: GDriveDatabase = cache
         self.file_tuples: List[Tuple] = []
         self.id_parent_mappings: List[Tuple] = []
 
@@ -94,22 +101,18 @@ def parent_mappings_tuples(item_uid: UID, parent_goog_ids: List[str], sync_ts: i
     return tuples
 
 
-"""
-▛▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝▝ ▜
-          Class GDriveTreeLoader
-▙ ▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▖▟
-"""
-
+# CLASS GDriveTreeLoader
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class GDriveTreeLoader:
     def __init__(self, application, cache_path, tree_id=None):
         self.uid_generator = application.uid_generator
-        self.node_identifier_factory = application.node_identifier_factory
+        self.cache_manager = application.cache_manager
         self.config = application.config
         self.tree_id = tree_id
         self.cache_path = cache_path
         self.cache = None
-        self.gdrive_client = GDriveClient(self.config, tree_id)
+        self.gdrive_client = GDriveClient(application, tree_id)
 
     def _get_previous_download_state(self, download_type: int):
         for download in self.cache.get_current_downloads():
@@ -137,13 +140,13 @@ class GDriveTreeLoader:
 
         download: CurrentDownload = self._get_previous_download_state(GDRIVE_DOWNLOAD_TYPE_LOAD_ALL)
         if not download or invalidate_cache:
-            logger.debug(f'Starting a fresh download for all Google Drive meta (invalidate_cache={invalidate_cache}')
+            logger.debug(f'Starting a fresh download for entire Google Drive tree meta (invalidate_cache={invalidate_cache}')
             download = CurrentDownload(GDRIVE_DOWNLOAD_TYPE_LOAD_ALL, GDRIVE_DOWNLOAD_STATE_NOT_STARTED, None, sync_ts)
             self.cache.create_or_update_download(download)
 
         if download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             # completely fresh tree
-            meta = GDriveWholeTree(self.node_identifier_factory)
+            tree = GDriveWholeTree()
         else:
             # Start/resume: read cache
             msg = 'Reading cache...'
@@ -152,14 +155,14 @@ class GDriveTreeLoader:
             if self.tree_id:
                 actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
-            meta: GDriveWholeTree = self._load_tree_from_cache(download.is_complete())
+            tree: GDriveWholeTree = self._load_tree_from_cache(download.is_complete())
 
         # TODO
-        meta.me = self.gdrive_client.get_about()
+        tree.me = self.gdrive_client.get_about()
 
         if not download.is_complete():
             state = 'Starting' if download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED else 'Resuming'
-            logger.info(f'{state} download of all Google Drive meta (state={download.current_state})')
+            logger.info(f'{state} download of all Google Drive tree (state={download.current_state})')
 
         # BEGIN STATE MACHINE:
 
@@ -169,9 +172,8 @@ class GDriveTreeLoader:
             # Need to make a special call to get the root node 'My Drive'. This node will not be included
             # in the "list files" call:
             download.update_ts = sync_ts
-            new_uid = self.uid_generator.get_new_uid()
-            drive_root: GoogFolder = self.gdrive_client.get_meta_my_drive_root(new_uid, download.update_ts)
-            meta.id_dict[drive_root.uid] = drive_root
+            drive_root: GoogFolder = self.gdrive_client.get_meta_my_drive_root(download.update_ts)
+            tree.id_dict[drive_root.uid] = drive_root
 
             download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
             download.page_token = None
@@ -180,13 +182,13 @@ class GDriveTreeLoader:
             # fall through
 
         if download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
-            observer = DirMetaObserver(meta, download, self.cache)
-            self.gdrive_client.get_meta_all_directories(download.page_token, download.update_ts, self.uid_generator, observer)
+            observer = FolderMetaPersister(tree, download, self.cache)
+            self.gdrive_client.get_meta_all_directories(download.page_token, download.update_ts, observer)
             # fall through
 
         if download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS:
-            observer = FileMetaObserver(meta, download, self.cache)
-            self.gdrive_client.get_meta_all_files(download.page_token, download.update_ts, self.uid_generator, observer)
+            observer = FileMetaPersister(tree, download, self.cache)
+            self.gdrive_client.get_meta_all_files(download.page_token, download.update_ts, observer)
             # fall through
 
         if download.current_state <= GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE:
@@ -196,7 +198,7 @@ class GDriveTreeLoader:
 
             # (1) Update all_children_fetched state
             tuples: List[Tuple[int, bool]] = []
-            for goog_node in meta.id_dict.values():
+            for goog_node in tree.id_dict.values():
                 if goog_node.is_dir():
                     goog_node.all_children_fetched = True
                     tuples.append((goog_node.uid, True))
@@ -206,7 +208,7 @@ class GDriveTreeLoader:
 
             # (2) Set UIDs for parents, and assemble parent dict:
             parent_mappings: List[Tuple] = self.cache.get_id_parent_mappings()
-            parent_mappings = _translate_parent_ids(meta, parent_mappings)
+            parent_mappings = self._translate_parent_ids(tree, parent_mappings)
             self.cache.insert_id_parent_mappings(parent_mappings, overwrite=True, commit=False)
             logger.debug(f'Updated {len(parent_mappings)} id-parent mappings')
 
@@ -217,10 +219,10 @@ class GDriveTreeLoader:
             # fall through
 
         # Still need to compute this in memory:
-        self._determine_roots(meta)
-        _compile_full_paths(meta)
+        self._determine_roots(tree)
+        _compile_full_paths(tree)
 
-        return meta
+        return tree
 
     def _load_tree_from_cache(self, is_complete: bool) -> GDriveWholeTree:
         """
@@ -229,7 +231,8 @@ class GDriveTreeLoader:
         """
         sw_total = Stopwatch()
         max_uid = ROOT_UID + 1
-        tree = GDriveWholeTree(self.node_identifier_factory)
+        tree = GDriveWholeTree()
+        invalidate_uids: Dict[UID, str] = {}
 
         # DIRs:
         sw = Stopwatch()
@@ -240,6 +243,7 @@ class GDriveTreeLoader:
 
         for uid_int, goog_id, item_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
             uid = UID(uid_int)
+            uid = self.cache_manager.get_uid_for_goog_id(goog_id, uid)
             item = GoogFolder(uid=uid, goog_id=goog_id, item_name=item_name,
                               trashed=item_trashed, drive_id=drive_id, my_share=my_share,
                               sync_ts=sync_ts, all_children_fetched=all_children_fetched)
@@ -260,16 +264,22 @@ class GDriveTreeLoader:
         for uid_int, goog_id, item_name, item_trashed, size_bytes_str, md5, create_ts, modify_ts, owner_id, drive_id, \
                 my_share, version, head_revision_id, sync_ts in file_rows:
             size_bytes = None if size_bytes_str is None else int(size_bytes_str)
-            uid = UID(uid_int)
-            item = GoogFile(uid=uid, goog_id=goog_id, item_name=item_name,
-                            trashed=item_trashed, drive_id=drive_id, my_share=my_share, version=int(version),
-                            head_revision_id=head_revision_id, md5=md5,
-                            create_ts=int(create_ts), modify_ts=int(modify_ts), size_bytes=size_bytes,
-                            owner_id=owner_id, sync_ts=sync_ts)
-            tree.id_dict[uid] = item
+            uid_from_cache = UID(uid_int)
+            uid = self.cache_manager.get_uid_for_goog_id(goog_id, uid_from_cache)
+            if uid_from_cache == uid:
+                item = GoogFile(uid=uid, goog_id=goog_id, item_name=item_name,
+                                trashed=item_trashed, drive_id=drive_id, my_share=my_share, version=int(version),
+                                head_revision_id=head_revision_id, md5=md5,
+                                create_ts=int(create_ts), modify_ts=int(modify_ts), size_bytes=size_bytes,
+                                owner_id=owner_id, sync_ts=sync_ts)
+                tree.id_dict[uid] = item
 
-            if item.uid >= max_uid:
-                max_uid = item.uid
+                if item.uid >= max_uid:
+                    max_uid = item.uid
+            else:
+                # Duplicate entry with same goog_id
+                logger.warning(f'Skipping what appears to be a duplicate entry: goog_id="{goog_id}", uid={uid_from_cache}')
+                invalidate_uids[uid_from_cache] = goog_id
 
         logger.debug(f'{sw} Loaded {file_count} Google Drive files')
 
@@ -282,9 +292,15 @@ class GDriveTreeLoader:
 
             for mapping in id_parent_mappings:
                 item_uid = mapping[0]
-                parent_uid = mapping[1]
-                if parent_uid:
-                    tree.add_parent_mapping(UID(item_uid), UID(parent_uid))
+                if invalidate_uids.get(item_uid, None):
+                    logger.warning(f'Skipping parent mappings for uid={item_uid}')
+                else:
+                    parent_uid = mapping[1]
+                    if parent_uid:
+                        tree.add_parent_mapping(UID(item_uid), UID(parent_uid))
+
+                        if parent_uid >= max_uid:
+                            max_uid = parent_uid
 
             logger.debug(f'{sw} Loaded {mapping_count} Google Drive file-folder mappings')
 
@@ -304,36 +320,28 @@ class GDriveTreeLoader:
 
         self.uid_generator.set_next_uid(max_uid + 1)
 
+    def _translate_parent_ids(self, tree: GDriveWholeTree, id_parent_mappings: List[Tuple[UID, None, str, int]]) -> List[Tuple]:
+        sw = Stopwatch()
+        logger.debug(f'Translating parent IDs for {len(tree.id_dict)} items...')
 
-def _translate_parent_ids(tree: GDriveWholeTree, id_parent_mappings: List[Tuple]) -> List[Tuple]:
-    sw = Stopwatch()
-    logger.debug(f'Translating parent IDs for {len(tree.id_dict)} items...')
+        new_mappings: List[Tuple] = []
+        for mapping in id_parent_mappings:
+            # [0]=item_uid, [1]=parent_uid, [2]=parent_goog_id, [3]=sync_ts
+            assert not mapping[1]
+            parent_goog_id: str = mapping[2]
 
-    # Create temporary dict for Google IDs
-    goog_id_dict: dict[str, GoogNode] = {}
-    for item in tree.id_dict.values():
-        goog_id_dict[item.goog_id] = item
+            # Add parent UID to tuple for later DB update:
+            parent_uid = self.cache_manager.get_uid_for_goog_id(parent_goog_id)
+            mapping = mapping[0], parent_uid, mapping[2], mapping[3]
+            tree.add_parent_mapping(mapping[0], parent_uid)
+            new_mappings.append(mapping)
 
-    unresolved_parents = []
-    new_mappings: List[Tuple] = []
-    for mapping in id_parent_mappings:
-        # [0]=item_uid, [1]=parent_uid, [2]=parent_goog_id, [3]=sync_ts
-        assert not mapping[1]
-        parent_goog_id: str = mapping[2]
+        logger.debug(f'{sw} Filled in parent IDs')
+        return new_mappings
 
-        # Add parent UID to tuple for later DB update:
-        parent = goog_id_dict.get(parent_goog_id)
-        if not parent:
-            unresolved_parents.append(parent_goog_id)
-        else:
-            mapping = mapping[0], parent.uid, mapping[2], mapping[3]
-            tree.add_parent_mapping(mapping[0], parent.uid)
-        new_mappings.append(mapping)
 
-    logger.debug(f'{sw} Filled in parent IDs')
-    if unresolved_parents:
-        logger.warning(f'{len(unresolved_parents)} parent IDs could not be resolved: {unresolved_parents}')
-    return new_mappings
+# ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+# CLASS GDriveTreeLoader end
 
 
 def _compile_full_paths(tree: GDriveWholeTree):
