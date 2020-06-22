@@ -20,6 +20,7 @@ import file_util
 from constants import EXPLICITLY_TRASHED, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, IMPLICITLY_TRASHED, NOT_TRASHED
 from model.gdrive_whole_tree import UserMeta
 from model.goog_node import GoogFile, GoogFolder, GoogNode
+from model.node_identifier import GDriveIdentifier
 from stopwatch_sec import Stopwatch
 from ui import actions
 
@@ -194,7 +195,7 @@ class GDriveClient:
 
         goog_id = result['id']
         uid = self.cache_manager.get_uid_for_goog_id(goog_id)
-        return GoogFolder(uid=uid, goog_id=goog_id, item_name=result['name'], trashed=_convert_trashed(result),
+        return GoogFolder(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, item_name=result['name'], trashed=_convert_trashed(result),
                           drive_id=result.get('driveId', None), my_share=result.get('shared', None), sync_ts=sync_ts, all_children_fetched=False)
 
     def _convert_to_goog_file(self, item, sync_ts: int = 0) -> GoogFile:
@@ -227,7 +228,7 @@ class GDriveClient:
 
         goog_id = item['id']
         uid = self.cache_manager.get_uid_for_goog_id(goog_id)
-        goog_node: GoogFile = GoogFile(uid=uid, goog_id=goog_id, item_name=item["name"],
+        goog_node: GoogFile = GoogFile(node_identifier=GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, item_name=item["name"],
                                        trashed=_convert_trashed(item),
                                        drive_id=item.get('driveId', None),
                                        version=version, head_revision_id=head_revision_id,

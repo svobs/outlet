@@ -10,7 +10,7 @@ from model.category import Category
 from model.display_node import ContainerNode, DisplayNode
 from model.fmeta import LocalDirNode, LocalFileNode
 from model.goog_node import GoogFile, GoogFolder
-from model.node_identifier import LocalFsIdentifier, NodeIdentifier
+from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier
 from model.subtree_snapshot import SubtreeSnapshot
 from ui.actions import ID_LEFT_TREE, ID_RIGHT_TREE
 from ui.tree.category_display_tree import CategoryDisplayTree
@@ -82,9 +82,11 @@ class ChangeMaker:
 
         tree_type = node_identifier.tree_type
         if tree_type == TREE_TYPE_LOCAL_DISK:
-            return LocalFileNode(node_identifier.uid, md5, sha256, size_bytes, None, None, None, node_identifier.full_path, node_identifier.category)
+            assert isinstance(node_identifier, LocalFsIdentifier)
+            return LocalFileNode(node_identifier, md5, sha256, size_bytes, None, None, None, True)
         elif tree_type == TREE_TYPE_GDRIVE:
-            return GoogFile(node_identifier.uid, None, src_node.name, NOT_TRASHED, None, None, None, md5, False, None, None, size_bytes, None, None)
+            assert isinstance(node_identifier, GDriveIdentifier)
+            return GoogFile(node_identifier, None, src_node.name, NOT_TRASHED, None, None, None, md5, False, None, None, size_bytes, None, None)
         else:
             raise RuntimeError(f"Cannot create file node for tree type: {tree_type} (node_identifier={node_identifier}")
 
@@ -137,7 +139,7 @@ class ChangeMaker:
                 logger.debug(f'Creating GoogFolderToAdd for {parent_path}')
                 new_uid = self.uid_generator.get_new_uid()
                 folder_name = os.parent_path.basename(parent_path)
-                new_parent = GoogFolder(uid=new_uid, goog_id=None, item_name=folder_name, trashed=False, drive_id=None, my_share=False, sync_ts=None,
+                new_parent = GoogFolder(GDriveIdentifier(uid=new_uid, full_path=None), goog_id=None, item_name=folder_name, trashed=False, drive_id=None, my_share=False, sync_ts=None,
                                         all_children_fetched=True)
             elif tree_type == TREE_TYPE_LOCAL_DISK:
                 logger.debug(f'Creating LocalDirToAdd for {parent_path}')
@@ -175,41 +177,41 @@ class ChangeMaker:
         the file on the left"""
         node_identifier = self.move_to_right(left_item)
         node_identifier.category = Category.Moved
-        node = FileToMove(node_identifier=node_identifier, src_node=right_item)
+        node: DisplayNode = self._migrate_file_node(node_identifier=node_identifier, src_node=right_item)
         self._add_item_and_needed_ancestors(self.change_tree_right, self.right_tree, self.added_folders_right, node)
 
     def add_rename_left(self, left_item, right_item):
         """Make a FileToMove node which will rename a file within the left tree to match the relative path of the file on right"""
         node_identifier = self.move_to_left(right_item)
         node_identifier.category = Category.Moved
-        node = FileToMove(node_identifier=node_identifier, src_node=left_item)
+        node: DisplayNode = self._migrate_file_node(node_identifier=node_identifier, src_node=left_item)
         self._add_item_and_needed_ancestors(self.change_tree_left, self.left_tree, self.added_folders_left, node)
 
     def add_filetoadd_left_to_right(self, left_item):
         """ADD: Left -> Right"""
         node_identifier = self.move_to_right(left_item)
         node_identifier.category = Category.Added
-        node = FileToAdd(node_identifier=node_identifier, src_node=left_item)
+        node: DisplayNode = self._migrate_file_node(node_identifier=node_identifier, src_node=left_item)
         self._add_item_and_needed_ancestors(self.change_tree_right, self.right_tree, self.added_folders_right, node)
 
     def add_filetoadd_right_to_left(self, right_item):
         """ADD: Left <- Right"""
         node_identifier = self.move_to_left(right_item)
         node_identifier.category = Category.Added
-        node = FileToAdd(node_identifier=node_identifier, src_node=right_item)
+        node: DisplayNode = self._migrate_file_node(node_identifier=node_identifier, src_node=right_item)
         self._add_item_and_needed_ancestors(self.change_tree_left, self.left_tree, self.added_folders_left, node)
 
     def add_fileupdate_left_to_right(self, left_item, right_item_to_overwrite):
         """UPDATE: Left -> Right"""
         node_identifier = self.move_to_right(left_item)
         node_identifier.category = Category.Updated
-        node = FileToUpdate(node_identifier=node_identifier, src_node=left_item, dst_node=right_item_to_overwrite)
+        node: DisplayNode = self._migrate_file_node(node_identifier=node_identifier, src_node=left_item)
         self._add_item_and_needed_ancestors(self.change_tree_right, self.right_tree, self.added_folders_right, node)
 
     def add_fileupdate_right_to_left(self, right_item, left_item_to_overwrite):
         """UPDATE: Left <- Right"""
         node_identifier = self.move_to_left(right_item)
         node_identifier.category = Category.Updated
-        node = FileToUpdate(node_identifier=node_identifier, src_node=right_item, dst_node=left_item_to_overwrite)
+        node: DisplayNode = self._migrate_file_node(node_identifier=node_identifier, src_node=right_item)
         self._add_item_and_needed_ancestors(self.change_tree_left, self.left_tree, self.added_folders_left, node)
 

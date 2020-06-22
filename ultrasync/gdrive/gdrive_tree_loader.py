@@ -12,6 +12,7 @@ from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from index.uid import UID
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.goog_node import GoogFile, GoogFolder, GoogNode
+from model.node_identifier import GDriveIdentifier
 from stopwatch_sec import Stopwatch
 from ui import actions
 
@@ -244,7 +245,7 @@ class GDriveTreeLoader:
         for uid_int, goog_id, item_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
             uid = UID(uid_int)
             uid = self.cache_manager.get_uid_for_goog_id(goog_id, uid)
-            item = GoogFolder(uid=uid, goog_id=goog_id, item_name=item_name,
+            item = GoogFolder(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, item_name=item_name,
                               trashed=item_trashed, drive_id=drive_id, my_share=my_share,
                               sync_ts=sync_ts, all_children_fetched=all_children_fetched)
             tree.id_dict[uid] = item
@@ -267,7 +268,7 @@ class GDriveTreeLoader:
             uid_from_cache = UID(uid_int)
             uid = self.cache_manager.get_uid_for_goog_id(goog_id, uid_from_cache)
             if uid_from_cache == uid:
-                item = GoogFile(uid=uid, goog_id=goog_id, item_name=item_name,
+                item = GoogFile(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, item_name=item_name,
                                 trashed=item_trashed, drive_id=drive_id, my_share=my_share, version=int(version),
                                 head_revision_id=head_revision_id, md5=md5,
                                 create_ts=int(create_ts), modify_ts=int(modify_ts), size_bytes=size_bytes,

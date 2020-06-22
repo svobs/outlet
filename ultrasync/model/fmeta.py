@@ -26,8 +26,8 @@ def _ensure_bool(val):
 
 
 class LocalFileNode(DisplayNode):
-    def __init__(self, uid: UID, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path: str, exists: bool, category=Category.NA):
-        super().__init__(LocalFsIdentifier(full_path=full_path, uid=uid, category=category))
+    def __init__(self, node_identifier: LocalFsIdentifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, exists: bool):
+        super().__init__(node_identifier)
         self._md5: Optional[str] = md5
         self._sha256: Optional[str] = sha256
         self._size_bytes: int = ensure_int(size_bytes)

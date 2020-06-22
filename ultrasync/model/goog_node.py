@@ -20,8 +20,9 @@ logger = logging.getLogger(__name__)
 class GoogNode(HasParentList, DisplayNode, ABC):
     # ▲▲ Remember, Method Resolution Order places greatest priority to the first in the list, then goes down ▲▲
 
-    def __init__(self, uid, goog_id: Optional[str], item_name: str, trashed: int, drive_id: Optional[str], my_share: bool, sync_ts: Optional[int]):
-        DisplayNode.__init__(self, GDriveIdentifier(uid=uid, full_path=None))
+    def __init__(self, node_identifier: GDriveIdentifier, goog_id: Optional[str], item_name: str, trashed: int, drive_id: Optional[str],
+                 my_share: bool, sync_ts: Optional[int]):
+        DisplayNode.__init__(self, node_identifier)
         HasParentList.__init__(self, None)
         self.goog_id: Optional[str] = goog_id
         """The Google ID - long string. Need this for syncing with Google Drive,
@@ -79,8 +80,8 @@ class GoogNode(HasParentList, DisplayNode, ABC):
 
 
 class GoogFolder(HasChildren, GoogNode):
-    def __init__(self, uid, goog_id, item_name, trashed, drive_id, my_share, sync_ts, all_children_fetched):
-        GoogNode.__init__(self, uid, goog_id, item_name, trashed, drive_id, my_share, sync_ts)
+    def __init__(self, node_identifier: GDriveIdentifier, goog_id, item_name, trashed, drive_id, my_share, sync_ts, all_children_fetched):
+        GoogNode.__init__(self, node_identifier, goog_id, item_name, trashed, drive_id, my_share, sync_ts)
         HasChildren.__init__(self)
 
         self.all_children_fetched = all_children_fetched
@@ -122,9 +123,6 @@ class GoogFolder(HasChildren, GoogNode):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def clone(self):
-        return GoogFolder(*self.to_tuple())
-
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
@@ -137,9 +135,9 @@ class GoogFile(GoogNode):
     # TODO: handling of shortcuts... does a shortcut have an ID?
     # TODO: handling of special chars in file systems
 
-    def __init__(self, uid, goog_id, item_name, trashed, drive_id, version, head_revision_id, md5,
+    def __init__(self, node_identifier: GDriveIdentifier, goog_id, item_name, trashed, drive_id, version, head_revision_id, md5,
                  my_share, create_ts, modify_ts, size_bytes, owner_id, sync_ts):
-        GoogNode.__init__(self, uid, goog_id, item_name, trashed, drive_id, my_share, sync_ts)
+        GoogNode.__init__(self, node_identifier, goog_id, item_name, trashed, drive_id, my_share, sync_ts)
 
         self.version = version
         self.head_revision_id = head_revision_id

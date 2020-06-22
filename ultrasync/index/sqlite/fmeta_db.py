@@ -48,7 +48,9 @@ class FMetaDatabase(MetaDatabase):
             full_path = row[7]
             uid = self.cache_manager.get_uid_for_path(full_path, row[0])
             assert uid == row[0], f'UID conflict! Got {uid} but read {row[0]} in row: {row}'
-            entries.append(LocalFileNode(uid, *row[1:]))
+
+            node_identifier = LocalFsIdentifier(uid=uid, full_path=full_path)
+            entries.append(LocalFileNode(node_identifier, row[1], row[2], row[3], row[4], row[5], row[6], row[8]))
         return entries
 
     def insert_local_files(self, entries: List[LocalFileNode], overwrite, commit=True):
