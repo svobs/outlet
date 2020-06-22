@@ -13,7 +13,7 @@ import fmeta.content_hasher
 from constants import ROOT_PATH
 from fmeta.local_disk_scanner import LocalDiskScanner
 from index.cache_manager import PersistedCacheInfo
-from index.sqlite.fmeta_db import FMetaDatabase
+from index.sqlite.local_db import LocalDiskDatabase
 from index.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
 from index.uid_generator import ROOT_UID, UID
 from index.uid_mapper import UidPathMapper
@@ -76,7 +76,7 @@ class LocalDiskMasterCache:
         stopwatch_load = Stopwatch()
 
         # Load cache from file, and update with any local FS changes found:
-        with FMetaDatabase(cache_info.cache_location, self.application) as fmeta_disk_cache:
+        with LocalDiskDatabase(cache_info.cache_location, self.application) as fmeta_disk_cache:
             if not fmeta_disk_cache.has_local_files() and not fmeta_disk_cache.has_local_dirs():
                 logger.debug(f'No meta found in cache ({cache_info.cache_location}) - will skip loading it')
                 return None
@@ -133,7 +133,7 @@ class LocalDiskMasterCache:
             file_list, dir_list = self.dir_tree.get_all_files_and_dirs_for_subtree(cache_info.subtree_root)
 
         stopwatch_write_cache = Stopwatch()
-        with FMetaDatabase(cache_info.cache_location, self.application) as fmeta_disk_cache:
+        with LocalDiskDatabase(cache_info.cache_location, self.application) as fmeta_disk_cache:
             # Update cache:
             fmeta_disk_cache.insert_local_files(file_list, overwrite=True, commit=False)
             fmeta_disk_cache.insert_local_dirs(dir_list, overwrite=True, commit=True)
@@ -312,7 +312,7 @@ class LocalDiskMasterCache:
             cache_info = cache_man.find_existing_supertree_for_subtree(item.node_identifier, ID_GLOBAL_CACHE)
             if cache_info:
                 if cache_man.enable_save_to_disk:
-                    with FMetaDatabase(cache_info.cache_location, self.application) as cache:
+                    with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
                         if item.is_dir():
                             cache.upsert_local_dir(item)
                         else:
