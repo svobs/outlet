@@ -34,10 +34,10 @@ class DragAndDropData:
         self.nodes: List[DisplayNode] = nodes
 
 
-# CLASS TreeUserInputListeners
+# CLASS TreeUiListeners
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class TreeUserInputListeners:
+class TreeUiListeners:
     def __init__(self, config, controller):
         self.con = controller
         self._ui_enabled = True
@@ -49,7 +49,7 @@ class TreeUserInputListeners:
                                        TREE_TYPE_MIXED: None}  # TODO: handle mixed
 
     def init(self):
-        logger.debug(f'[{self.con.tree_id}] TreeUserInputListeners init')
+        logger.debug(f'[{self.con.tree_id}] TreeUiListeners init')
         actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
 
         targeted_signals = []

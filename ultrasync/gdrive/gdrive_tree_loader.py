@@ -12,7 +12,6 @@ from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from index.uid import UID
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.goog_node import GoogFile, GoogFolder, GoogNode
-from model.node_identifier_factory import NodeIdentifierFactory
 from stopwatch_sec import Stopwatch
 from ui import actions
 
@@ -277,7 +276,8 @@ class GDriveTreeLoader:
                 if item.uid >= max_uid:
                     max_uid = item.uid
             else:
-                # Duplicate entry with same goog_id
+                # Duplicate entry with same goog_id. Here's a useful SQLite query:
+                # "SELECT goog_id, COUNT(*) c FROM goog_file GROUP BY goog_id HAVING c > 1;"
                 logger.warning(f'Skipping what appears to be a duplicate entry: goog_id="{goog_id}", uid={uid_from_cache}')
                 invalidate_uids[uid_from_cache] = goog_id
 

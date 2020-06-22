@@ -10,7 +10,7 @@ from model.subtree_snapshot import SubtreeSnapshot
 from ui.dialog.base_dialog import BaseDialog
 from ui.tree import tree_factory_templates
 from ui.tree.tree_actions import TreeActions
-from ui.tree.user_input_listeners import TreeUserInputListeners
+from ui.tree.ui_listeners import TreeUiListeners
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -98,7 +98,7 @@ class TreeFactory:
 
         controller.display_mutator = DisplayMutator(config=self.parent_win.config, controller=controller)
 
-        controller.user_input_listeners = TreeUserInputListeners(config=self.parent_win.config, controller=controller)
+        controller.user_input_listeners = TreeUiListeners(config=self.parent_win.config, controller=controller)
 
         controller.tree_actions = TreeActions(controller=controller)
 
