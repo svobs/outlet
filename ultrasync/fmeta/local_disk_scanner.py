@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 VALID_SUFFIXES = None
 
 
-def meta_matches(file_path: str, fmeta: LocalFileNode):
+def meta_matches(file_path: str, node: LocalFileNode):
     stat = os.stat(file_path)
     size_bytes = int(stat.st_size)
     modify_ts = int(stat.st_mtime * 1000)
@@ -25,10 +25,10 @@ def meta_matches(file_path: str, fmeta: LocalFileNode):
     change_ts = int(stat.st_ctime * 1000)
     assert change_ts > 100000000000, f'change_ts too small: {change_ts} (for path: {file_path})'
 
-    is_equal = fmeta.exists() and fmeta.get_size_bytes() == size_bytes and fmeta.modify_ts == modify_ts and fmeta.change_ts == change_ts
+    is_equal = node.exists() and node.get_size_bytes() == size_bytes and node.modify_ts == modify_ts and node.change_ts == change_ts
 
     if False and logger.isEnabledFor(logging.DEBUG):
-        logger.debug(f'Meta Exp=[{fmeta.get_size_bytes()} {fmeta.modify_ts} {fmeta.change_ts}]' +
+        logger.debug(f'Meta Exp=[{node.get_size_bytes()} {node.modify_ts} {node.change_ts}]' +
                      f' Act=[{size_bytes} {modify_ts} {change_ts}] -> {is_equal}')
 
     return is_equal
@@ -65,7 +65,7 @@ class FileCounter(FileTreeRecurser):
         self.files_to_scan += 1
 
 
-class FMetaDiskScanner(FileTreeRecurser):
+class LocalDiskScanner(FileTreeRecurser):
     """
     Walks the filesystem for a subtree (FMetaTree), using a cache if configured,
     to generate an up-to-date list of FMetas.

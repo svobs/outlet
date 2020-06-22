@@ -122,7 +122,7 @@ class GDriveMasterCache:
     # Individual item cache updates
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def add_or_update_goog_node(self, node: DisplayNode):
+    def add_or_update_goog_node(self, node: GoogNode):
         # try to prevent cache corruption by doing some sanity checks
         if not node:
             raise RuntimeError(f'No node supplied!')

@@ -11,7 +11,7 @@ from treelib.exceptions import NodeIDAbsentError
 import file_util
 import fmeta.content_hasher
 from constants import ROOT_PATH
-from fmeta.fmeta_tree_scanner import FMetaDiskScanner
+from fmeta.local_disk_scanner import LocalDiskScanner
 from index.cache_manager import PersistedCacheInfo
 from index.sqlite.fmeta_db import FMetaDatabase
 from index.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
@@ -144,7 +144,7 @@ class LocalDiskMasterCache:
     def _resync_with_file_system(self, subtree_root: LocalFsIdentifier, tree_id: str):
         # Scan directory tree and update where needed.
         logger.debug(f'[{tree_id}] Scanning filesystem subtree: {subtree_root}')
-        scanner = FMetaDiskScanner(application=self.application, root_node_identifer=subtree_root, tree_id=tree_id)
+        scanner = LocalDiskScanner(application=self.application, root_node_identifer=subtree_root, tree_id=tree_id)
         fresh_tree: treelib.Tree = scanner.scan()
 
         with self._struct_lock:

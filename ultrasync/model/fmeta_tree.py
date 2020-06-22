@@ -78,8 +78,8 @@ class FMetaTree(SubtreeSnapshot):
         assert full_path.startswith(self.root_path), f'Full path ({full_path}) does not contain root ({self.root_path})'
         return file_util.strip_root(full_path, self.root_path)
 
-    def get_relative_path_for_item(self, fmeta: LocalFileNode):
-        return self.get_relative_path_for_full_path(fmeta.full_path)
+    def get_relative_path_for_item(self, item: LocalFileNode):
+        return self.get_relative_path_for_full_path(item.full_path)
 
     def remove(self, node: LocalFileNode):
         raise RuntimeError('Can no longer do this in FMetaTree!')
