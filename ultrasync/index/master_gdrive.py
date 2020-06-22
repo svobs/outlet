@@ -225,6 +225,9 @@ class GDriveMasterCache:
     def get_item_for_uid(self, uid: UID) -> Optional[GoogNode]:
         return self._my_gdrive.get_item_for_uid(uid)
 
+    def get_item_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GoogNode]:
+        return self._my_gdrive.get_item_for_name_and_parent_uid(name, parent_uid)
+
     def get_goog_id_for_uid(self, uid: UID) -> Optional[str]:
         item = self.get_item_for_uid(uid)
         if item:
@@ -237,9 +240,6 @@ class GDriveMasterCache:
         cache_info = self.application.cache_manager.get_or_create_cache_info_entry(root)
         cache_path = cache_info.cache_location
         return cache_path
-
-    def get_item_for_uid(self, uid):
-        return self._my_gdrive.get_item_for_uid(uid)
 
     def get_children(self, node: DisplayNode):
         return self._my_gdrive.get_children(node)

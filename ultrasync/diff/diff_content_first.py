@@ -3,6 +3,7 @@ import logging
 import time
 from typing import Dict, Iterable, List, Optional, Tuple
 
+from command.change_action import ChangeType
 from constants import ROOT_PATH, ROOT_UID, TREE_TYPE_MIXED
 from diff.change_maker import ChangeMaker
 from index.two_level_dict import TwoLevelDict
@@ -49,12 +50,12 @@ class ContentFirstDiffer(ChangeMaker):
         left_dict: Dict[str, DisplayNode] = {}
 
         for left in lefts:
-            left_rel_path = left.get_relative_path(self.left_tree)
+            left_rel_path = left.get_relative_path(self.left_side.underlying_tree)
             left_dict[left_rel_path] = left
 
         right_list: List[DisplayNode] = []
         for right in rights:
-            right_rel_path = right.get_relative_path(self.right_tree)
+            right_rel_path = right.get_relative_path(self.right_side.underlying_tree)
             match = left_dict.pop(right_rel_path, None)
             # a match means same MD5, same path: we can ignore
             if not match:
@@ -105,8 +106,8 @@ class ContentFirstDiffer(ChangeMaker):
 
         # the set of MD5s already processed
         md5_set_stopwatch = Stopwatch()
-        left_md5s: TwoLevelDict = self.left_tree.get_md5_dict()
-        right_md5s: TwoLevelDict = self.right_tree.get_md5_dict()
+        left_md5s: TwoLevelDict = self.left_side.underlying_tree.get_md5_dict()
+        right_md5s: TwoLevelDict = self.right_side.underlying_tree.get_md5_dict()
         md5_set = left_md5s.keys() | right_md5s.keys()
         logger.debug(f'{md5_set_stopwatch} Found {len(md5_set)} combined MD5s')
 
@@ -155,9 +156,9 @@ class ContentFirstDiffer(ChangeMaker):
                     if pair.left and pair.right:
                         # MOVED: the file already exists in each tree, so just do a rename within the tree
                         # (it is possible that the trees are on different disks, so keep performance in mind)
-                        self.add_rename_right(pair.left, pair.right)
+                        self.append_rename_right_to_right(pair.left, pair.right)
 
-                        self.add_rename_left(pair.left, pair.right)
+                        self.append_rename_left_to_left(pair.left, pair.right)
                         count_moved_pairs += 1
                     else:
                         """Looks like one side has additional file(s) with same signature 
@@ -182,29 +183,30 @@ class ContentFirstDiffer(ChangeMaker):
             #  - For each unique, compare only the best match on each side and ignore the rest
             for left_item in list_of_left_items_for_given_md5:
                 if compare_paths_also:
-                    left_on_right_identifier: NodeIdentifier = self.move_to_right(left_item)
-                    path_matches_right: List[DisplayNode] = self.right_tree.get_for_path(left_on_right_identifier.full_path)
+                    left_on_right_path: str = self.get_path_moved_to_right(left_item)
+                    path_matches_right: List[DisplayNode] = self.right_side.underlying_tree.get_for_path(left_on_right_path)
                     if path_matches_right:
                         if len(path_matches_right) > 1:
                             # If this ever happens it is a bug
-                            raise RuntimeError(f'More than one match for path: {left_on_right_identifier.full_path}')
+                            raise RuntimeError(f'More than one match for path: {left_on_right_path}')
                         # UPDATED
                         if logger.isEnabledFor(logging.DEBUG):
-                            left_path = self.left_tree.get_full_path_for_item(left_item)
+                            left_path = self.left_side.underlying_tree.get_full_path_for_item(left_item)
                             logger.debug(f'File updated: {left_item.md5} <- "{left_path}" -> {path_matches_right[0].md5}')
                         # Same path, different md5 -> Updated
-                        self.add_fileupdate_right_to_left(path_matches_right[0], left_item)
-                        self.add_fileupdate_left_to_right(left_item, path_matches_right[0])
+                        self.append_update_right_to_left(path_matches_right[0], left_item)
+                        self.append_update_left_to_right(left_item, path_matches_right[0])
                         count_updated_pairs += 1
                         continue
                     # No match? fall through
                 # DUPLICATE ADDED on right + DELETED on left
                 if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f'Left has new file: "{self.left_tree.get_full_path_for_item(left_item)}"')
-                self.add_filetoadd_left_to_right(left_item)
+                    logger.debug(f'Left has new file: "{self.left_side.underlying_tree.get_full_path_for_item(left_item)}"')
+                self.append_copy_left_to_right(left_item)
 
                 # Dead node walking:
-                self.change_tree_left.add_item(left_item, Category.Deleted, self.left_tree)
+                self.left_side.change_tree.add_item(left_item, Category.Deleted, self.left_side.underlying_tree)
+                self.left_side.append_new_change_action(change_type=ChangeType.RM, src_uid=left_item.uid)
                 count_add_delete_pairs += 1
         logger.info(f'{sw} Finished path comparison for left tree')
 
@@ -212,45 +214,46 @@ class ContentFirstDiffer(ChangeMaker):
         for dup_md5s_right in list_of_lists_of_right_items_for_given_md5:
             for right_item in dup_md5s_right:
                 if compare_paths_also:
-                    right_on_left_identifier: NodeIdentifier = self.move_to_left(right_item)
-                    if self.left_tree.get_for_path(right_on_left_identifier.full_path):
+                    right_on_left_path: str = self.get_path_moved_to_left(right_item)
+                    if self.left_side.underlying_tree.get_for_path(right_on_left_path):
                         # UPDATED. Logically this has already been covered (above) since our iteration is symmetrical:
                         continue
                 # DUPLICATE ADDED on right + DELETED on left
                 if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f'Right has new file: "{self.right_tree.get_full_path_for_item(right_item)}"')
-                self.add_filetoadd_right_to_left(right_item)
+                    logger.debug(f'Right has new file: "{self.right_side.underlying_tree.get_full_path_for_item(right_item)}"')
+                self.append_copy_right_to_left(right_item)
 
                 # Dead node walking:
-                self.change_tree_right.add_item(right_item, Category.Deleted, self.right_tree)
+                self.right_side.change_tree.add_item(right_item, Category.Deleted, self.right_side.underlying_tree)
+                self.right_side.append_new_change_action(change_type=ChangeType.RM, src_uid=right_item.uid)
                 count_add_delete_pairs += 1
 
         logger.info(f'Done with diff (pairs: add/del={count_add_delete_pairs} upd={count_updated_pairs} moved={count_moved_pairs})'
-                    f' Left:[{self.change_tree_left.get_summary()}] Right:[{self.change_tree_right.get_summary()}]')
+                    f' Left:[{self.left_side.change_tree.get_summary()}] Right:[{self.right_side.change_tree.get_summary()}]')
         logger.info(f'{sw} Finished path comparison for right tree')
 
-        return self.change_tree_left, self.change_tree_right
+        return self.left_side.change_tree, self.right_side.change_tree
 
     def merge_change_trees(self, left_selected_changes: List[DisplayNode], right_selected_changes: List[DisplayNode],
                            check_for_conflicts=False) -> CategoryDisplayTree:
 
         # always root path, but tree type may differ
-        is_mixed_tree = self.left_tree.tree_type != self.right_tree.tree_type
+        is_mixed_tree = self.left_side.underlying_tree.tree_type != self.right_side.underlying_tree.tree_type
         if is_mixed_tree:
             root_node_identifier = LogicalNodeIdentifier(uid=ROOT_UID, full_path=ROOT_PATH, category=Category.NA,
                                                          tree_type=TREE_TYPE_MIXED)
         else:
             root_node_identifier: NodeIdentifier = self.application.node_identifier_factory.for_values(
-                tree_type=self.left_tree.tree_type, full_path=ROOT_PATH, uid=ROOT_UID)
+                tree_type=self.left_side.underlying_tree.tree_type, full_path=ROOT_PATH, uid=ROOT_UID)
 
         merged_tree = CategoryDisplayTree(root_node_identifier=root_node_identifier, show_whole_forest=True,
                                           application=self.application, tree_id=ID_MERGE_TREE)
 
         for item in left_selected_changes:
-            merged_tree.add_item(item, item.category, self.left_tree)
+            merged_tree.add_item(item, item.category, self.left_side.underlying_tree)
 
         for item in right_selected_changes:
-            merged_tree.add_item(item, item.category, self.right_tree)
+            merged_tree.add_item(item, item.category, self.right_side.underlying_tree)
 
         # TODO: check for conflicts
 

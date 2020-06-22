@@ -232,6 +232,7 @@ class DisplayMutator:
 
         while len(whitelist) > 0:
             chosen_node: DisplayNode = whitelist.popleft()
+            # non-existent directory must be added
             if not chosen_node.is_dir() or not chosen_node.exists():
                 checked_items.append(chosen_node)
 

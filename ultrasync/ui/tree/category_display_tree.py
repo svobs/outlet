@@ -8,7 +8,9 @@ import treelib
 from treelib.exceptions import DuplicatedNodeIdError
 
 import file_util
+from command.change_action import ChangeAction
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
+from index.uid import UID
 from model.category import Category
 from model.display_node import CategoryNode, ContainerNode, DisplayNode, RootTypeNode
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
@@ -64,8 +66,18 @@ class CategoryDisplayTree(SubtreeSnapshot):
         # saved in a nice dict for easy reference:
         self._pre_ancestor_dict: PreAncestorDict = PreAncestorDict()
 
+        self.change_action_dict: Dict[UID, ChangeAction] = {}
+
         self.count_conflict_warnings = 0
         self.count_conflict_errors = 0
+
+    def append_change_action(self, change_action: ChangeAction):
+        if change_action.dst_uid:
+            assert not self.change_action_dict.get(change_action.dst_uid, None), f'Duplicate ChangeAction: {change_action}'
+            self.change_action_dict[change_action.dst_uid] = change_action
+        else:
+            assert not self.change_action_dict.get(change_action.src_uid, None), f'Duplicate ChangeAction: {change_action}'
+            self.change_action_dict[change_action.src_uid] = change_action
 
     def get_children_for_root(self) -> Iterable[DisplayNode]:
         return self.get_children(self.root_node)
@@ -338,4 +350,3 @@ class CategoryDisplayTree(SubtreeSnapshot):
             for cat in CATEGORIES:
                 cat_summaries.append(cat_map[cat])
             return ', '.join(cat_summaries)
-

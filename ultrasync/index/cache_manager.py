@@ -358,6 +358,11 @@ class CacheManager:
         uid = self.get_uid_for_path(path)
         return self._local_disk_cache.get_item(uid)
 
+    def get_goog_node_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GoogNode]:
+        """Returns the first GDrive node found with the given name and parent.
+        This roughly matches the logic used to search for an item in Google Drive when we are unsure about its goog_id."""
+        return self._gdrive_cache.get_item_for_name_and_parent_uid(name, parent_uid)
+
     def get_item_for_goog_id(self, goog_id: str) -> UID:
         return self._gdrive_cache.get_item_for_goog_id(goog_id)
 

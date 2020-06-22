@@ -302,6 +302,18 @@ class GDriveWholeTree:
                         return child
         return None
 
+    def get_item_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GoogNode]:
+        """Returns the first GDrive node found with the given name and parent.
+        This roughly matches the logic used to search for an item in Google Drive when we are unsure about its goog_id."""
+        parent = self.get_item_for_uid(parent_uid)
+        if parent:
+            children = self.get_children(parent)
+            if children:
+                for child in children:
+                    if child.name == name:
+                        return child
+        return None
+
     def get_item_for_uid(self, uid: UID) -> Optional[GoogNode]:
         assert uid
         return self.id_dict.get(uid, None)
