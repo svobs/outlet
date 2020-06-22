@@ -126,13 +126,15 @@ class ChangeMaker:
             # AddedFolder already generated and added?
             existing_ancestor = added_folders_dict.get(parent_path, None)
             if existing_ancestor:
-                child.add_parent(existing_ancestor.uid)
+                if tree_type == TREE_TYPE_GDRIVE:
+                    child.set_parent_uids(existing_ancestor.uid)
                 break
 
             # Folder already existed in original tree?
             existing_ancestor_list = source_tree.get_for_path(parent_path)
             if existing_ancestor_list:
-                child.set_parent_uids(list(map(lambda x: x.uid, existing_ancestor_list)))
+                if tree_type == TREE_TYPE_GDRIVE:
+                    child.set_parent_uids(list(map(lambda x: x.uid, existing_ancestor_list)))
                 break
 
             if tree_type == TREE_TYPE_GDRIVE:
@@ -149,12 +151,12 @@ class ChangeMaker:
             else:
                 raise RuntimeError(f'Invalid tree type: {tree_type} for item {new_item}')
 
-            child.add_parent(new_parent.uid)
-
             added_folders_dict[parent_path] = new_parent
             ancestor_stack.append(new_parent)
 
-            child.set_parent_uids(new_parent.uid)
+            if tree_type == TREE_TYPE_GDRIVE:
+                child.set_parent_uids(new_parent.uid)
+
             child_path = parent_path
             child = new_parent
 

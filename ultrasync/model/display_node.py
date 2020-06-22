@@ -15,8 +15,8 @@ from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 logger = logging.getLogger(__name__)
 
 
-# ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
-
+# ABSTRACT CLASS DisplayNode
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class DisplayNode(Node, ABC):
     """Base class for nodes which are meant to be displayed in a UI tree"""
@@ -376,10 +376,6 @@ class EphemeralNode(DisplayNode, ABC):
 
     @classmethod
     def is_ephemereal(cls) -> bool:
-        return True
-
-    @classmethod
-    def is_just_fluff(cls) -> bool:
         return True
 
     @classmethod

@@ -11,15 +11,15 @@ from constants import LARGE_NUMBER_OF_CHILDREN
 from holdoff_timer import HoldOffTimer
 from model.node_identifier import NodeIdentifier
 
-gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk
-from gi.repository.Gtk import TreeIter
 from pydispatch import dispatcher
 import humanfriendly
 
 from model.display_node import CategoryNode, DisplayNode, EmptyNode, LoadingNode
 from ui import actions
 
+gi.require_version("Gtk", "3.0")
+from gi.repository import GLib, Gtk
+from gi.repository.Gtk import TreeIter
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +218,7 @@ class DisplayMutator:
             parent: DisplayNode = secondary_screening.popleft()
             assert parent.is_dir(), f'Expected a dir-type node: {parent}'
 
-            if not parent.is_just_fluff():
+            if not parent.exists():
                 # Even an inconsistent FolderToAdd must be included as a checked item:
                 checked_items.append(parent)
 
@@ -232,7 +232,7 @@ class DisplayMutator:
 
         while len(whitelist) > 0:
             chosen_node: DisplayNode = whitelist.popleft()
-            if not chosen_node.is_dir() or not chosen_node.is_just_fluff():
+            if not chosen_node.is_dir() or not chosen_node.exists():
                 checked_items.append(chosen_node)
 
             children: Iterable[DisplayNode] = self.con.tree_builder.get_children(chosen_node)
