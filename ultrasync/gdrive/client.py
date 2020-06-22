@@ -433,7 +433,7 @@ class GDriveClient:
 
             logger.debug(f'Found {len(mime_types)} distinct MIME types')
             for mime_type, item in mime_types.items():
-                logger.debug(f'MIME type: {mime_type} -> [{item.uid}] {item.name} {item.size_bytes}')
+                logger.debug(f'MIME type: {mime_type} -> [{item.uid}] {item.name} {item.get_size_bytes()}')
 
         # TODO: save MIME types, owners, shortcuts
 

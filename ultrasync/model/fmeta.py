@@ -47,9 +47,11 @@ class LocalFileNode(DisplayNode):
     def is_dir(cls):
         return False
 
-    @property
-    def size_bytes(self):
+    def get_size_bytes(self):
         return self._size_bytes
+
+    def get_etc(self):
+        return None
 
     @property
     def md5(self):
@@ -112,7 +114,7 @@ class LocalFileNode(DisplayNode):
         self._exists = does_exist
 
     def __repr__(self):
-        return f'LocalFileNode({self.node_identifier} md5={self._md5} sha256={self.sha256} exists={self.exists()} modify_ts={self._modify_ts})'
+        return f'LocalFileNode({self.node_identifier} md5={self._md5} sha256={self.sha256} size_bytes={self._size_bytes} exists={self.exists()} modify_ts={self._modify_ts})'
 
 
 # CLASS LocalDirNode

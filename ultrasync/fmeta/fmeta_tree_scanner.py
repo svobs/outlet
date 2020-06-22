@@ -25,10 +25,10 @@ def meta_matches(file_path: str, fmeta: LocalFileNode):
     change_ts = int(stat.st_ctime * 1000)
     assert change_ts > 100000000000, f'change_ts too small: {change_ts} (for path: {file_path})'
 
-    is_equal = fmeta.exists() and fmeta.size_bytes == size_bytes and fmeta.modify_ts == modify_ts and fmeta.change_ts == change_ts
+    is_equal = fmeta.exists() and fmeta.get_size_bytes() == size_bytes and fmeta.modify_ts == modify_ts and fmeta.change_ts == change_ts
 
     if False and logger.isEnabledFor(logging.DEBUG):
-        logger.debug(f'Meta Exp=[{fmeta.size_bytes} {fmeta.modify_ts} {fmeta.change_ts}]' +
+        logger.debug(f'Meta Exp=[{fmeta.get_size_bytes()} {fmeta.modify_ts} {fmeta.change_ts}]' +
                      f' Act=[{size_bytes} {modify_ts} {change_ts}] -> {is_equal}')
 
     return is_equal
@@ -41,9 +41,9 @@ def _check_update_sanity(old_fmeta, new_fmeta):
     if new_fmeta.change_ts < old_fmeta.change_ts:
         logger.warning(f'File "{new_fmeta.full_path}": update has older change_ts ({new_fmeta.change_ts}) than prev version ({old_fmeta.change_ts})')
 
-    if new_fmeta.size_bytes != old_fmeta.size_bytes and new_fmeta.md5 == old_fmeta.md5:
+    if new_fmeta.get_size_bytes() != old_fmeta.get_size_bytes() and new_fmeta.md5 == old_fmeta.md5:
         logger.warning(f'File "{new_fmeta.full_path}": update has same md5 ({new_fmeta.md5}) ' +
-                       f'but different size: (old={old_fmeta.size_bytes}, new={new_fmeta.size_bytes})')
+                       f'but different size: (old={old_fmeta.get_size_bytes()}, new={new_fmeta.get_size_bytes()})')
 
 
 # SUPPORT CLASSES ####################

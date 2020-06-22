@@ -130,7 +130,7 @@ class GDriveMasterCache:
             raise RuntimeError(f'Node is missing UID: {node}')
         if node.node_identifier.tree_type != TREE_TYPE_GDRIVE:
             raise RuntimeError(f'Unrecognized tree type: {node.node_identifier.tree_type}')
-        if not node.parent_uids:
+        if not node.get_parent_uids():
             # Adding a new root is currently not allowed (which is fine because there should be no way to do this via the UI)
             raise RuntimeError(f'Node is missing parent UIDs: {node}')
         if not self._my_gdrive:
@@ -144,10 +144,10 @@ class GDriveMasterCache:
                 raise RuntimeError(f'Node is missing Google ID: {node}')
 
             # assemble parent mappings
-            parent_goog_ids = self._my_gdrive.resolve_uids_to_goog_ids(node.parent_uids)
+            parent_goog_ids = self._my_gdrive.resolve_uids_to_goog_ids(node.get_parent_uids())
             parent_mappings = []
-            assert len(node.parent_uids) == len(parent_goog_ids)
-            for parent_uid, parent_goog_id in zip(node.parent_uids, parent_goog_ids):
+            assert len(node.get_parent_uids()) == len(parent_goog_ids)
+            for parent_uid, parent_goog_id in zip(node.get_parent_uids(), parent_goog_ids):
                 parent_mappings.append((node.uid, parent_uid, parent_goog_id, node.sync_ts))
             node_tuple = node.to_tuple()
 

@@ -398,7 +398,7 @@ class DisplayMutator:
                 logger.error(f'[{self.con.tree_id}] No data for child of {data}')
             assert data, f'For tree_id="{sender} and row={self.con.display_store.model[tree_iter]}'
             ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(data)
-            ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = data.etc
+            ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = data.get_etc()
 
         def do_in_ui():
             with self._lock:
@@ -508,7 +508,7 @@ class DisplayMutator:
         row_values.append(_format_size_bytes(node))  # Size
 
         # etc
-        row_values.append(node.etc)  # Etc
+        row_values.append(node.get_etc())  # Etc
 
         # Modify TS
         try:
@@ -568,7 +568,7 @@ class DisplayMutator:
 
 
 def _format_size_bytes(node: DisplayNode):
-    if not node.size_bytes:
+    if not node.get_size_bytes():
         return None
     else:
-        return humanfriendly.format_size(node.size_bytes)
+        return humanfriendly.format_size(node.get_size_bytes())

@@ -58,8 +58,8 @@ class DisplayNode(Node, ABC):
     def trashed(self):
         return NOT_TRASHED
 
-    @property
-    def etc(self):
+    @abstractmethod
+    def get_etc(self):
         return None
 
     @property
@@ -70,8 +70,8 @@ class DisplayNode(Node, ABC):
     def sha256(self):
         return None
 
-    @property
-    def size_bytes(self):
+    @abstractmethod
+    def get_size_bytes(self):
         return None
 
     @property
@@ -93,10 +93,6 @@ class DisplayNode(Node, ABC):
     @property
     def category(self):
         return self.node_identifier.category
-
-    @property
-    def parent_uids(self) -> List[UID]:
-        return []
 
     @property
     def uid(self) -> UID:
@@ -122,8 +118,7 @@ class HasParentList(ABC):
     def __init__(self, parent_uids: Optional[List[UID]] = None):
         self._parent_uids: Optional[List[UID]] = parent_uids
 
-    @property
-    def parent_uids(self) -> List[UID]:
+    def get_parent_uids(self) -> List[UID]:
         if self._parent_uids:
             if isinstance(self._parent_uids, list):
                 return self._parent_uids
@@ -132,8 +127,7 @@ class HasParentList(ABC):
             assert False
         return []
 
-    @parent_uids.setter
-    def parent_uids(self, parent_uids):
+    def set_parent_uids(self, parent_uids):
         """Can be a list of GoogFolders' UIDs, or a single UID, or None"""
         if not parent_uids:
             self._parent_uids = None
@@ -147,29 +141,27 @@ class HasParentList(ABC):
             self._parent_uids = parent_uids
 
     def add_parent(self, parent_uid: UID):
-        current_parent_ids: List[UID] = self.parent_uids
+        current_parent_ids: List[UID] = self.get_parent_uids()
         if len(current_parent_ids) == 0:
-            self.parent_uids = parent_uid
+            self._parent_uids = parent_uid
         else:
             for current_parent_id in current_parent_ids:
                 if current_parent_id == parent_uid:
                     logger.debug(f'Parent is already in list; skipping: {parent_uid}')
                     return
             current_parent_ids.append(parent_uid)
-            self.parent_uids = current_parent_ids
+            self._parent_uids = current_parent_ids
 
 
-# CLASS ContainerNode
+# CLASS HasChildren
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class ContainerNode(DisplayNode):
+class HasChildren:
     """
     Represents a generic directory (i.e. not an LocalFileNode or domain object)
     """
 
-    def __init__(self, node_identifier: NodeIdentifier):
-        super().__init__(node_identifier)
-
+    def __init__(self):
         self.file_count = 0
         self.trashed_file_count = 0
         self.trashed_dir_count = 0
@@ -187,13 +179,13 @@ class ContainerNode(DisplayNode):
         if self._size_bytes is None:
             self._size_bytes = 0
 
-        if child_node.trashed == NOT_TRASHED and self.trashed == NOT_TRASHED:
+        if child_node.trashed == NOT_TRASHED:
             # not trashed:
-            if child_node.size_bytes:
-                self._size_bytes += child_node.size_bytes
+            if child_node.get_size_bytes():
+                self._size_bytes += child_node.get_size_bytes()
 
             if child_node.is_dir():
-                assert isinstance(child_node, ContainerNode)
+                assert isinstance(child_node, HasChildren)
                 self.dir_count += child_node.dir_count + 1
                 self.file_count += child_node.file_count
             else:
@@ -201,20 +193,19 @@ class ContainerNode(DisplayNode):
         else:
             # trashed:
             if child_node.is_dir():
-                assert isinstance(child_node, ContainerNode)
-                if child_node.size_bytes:
-                    self.trashed_bytes += child_node.size_bytes
+                assert isinstance(child_node, HasChildren)
+                if child_node.get_size_bytes():
+                    self.trashed_bytes += child_node.get_size_bytes()
                 if child_node.trashed_bytes:
                     self.trashed_bytes += child_node.trashed_bytes
                 self.trashed_dir_count += child_node.dir_count + child_node.trashed_dir_count + 1
                 self.trashed_file_count += child_node.file_count + child_node.trashed_file_count
             else:
                 self.trashed_file_count += 1
-                if child_node.size_bytes:
-                    self.trashed_bytes += child_node.size_bytes
+                if child_node.get_size_bytes():
+                    self.trashed_bytes += child_node.get_size_bytes()
 
-    @property
-    def etc(self):
+    def get_etc(self):
         if self._size_bytes is None:
             return ''
         files = self.file_count + self.trashed_file_count
@@ -241,9 +232,21 @@ class ContainerNode(DisplayNode):
         size = format_util.humanfriendlier_size(self._size_bytes)
         return f'{size} in {self.file_count:n} files and {self.dir_count:n} dirs'
 
-    @property
-    def size_bytes(self):
+    def get_size_bytes(self):
         return self._size_bytes
+
+
+# CLASS ContainerNode
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class ContainerNode(HasChildren, DisplayNode):
+    """
+    Represents a generic directory (i.e. not an LocalFileNode or domain object)
+    """
+
+    def __init__(self, node_identifier: NodeIdentifier):
+        DisplayNode.__init__(self, node_identifier)
+        HasChildren.__init__(self)
 
     @classmethod
     def is_file(cls):
@@ -252,6 +255,9 @@ class ContainerNode(DisplayNode):
     @classmethod
     def is_dir(cls):
         return True
+
+    def get_size_bytes(self):
+        return self._size_bytes
 
     def get_icon(self):
         return ICON_GENERIC_DIR
@@ -266,7 +272,7 @@ class ContainerNode(DisplayNode):
             return False
 
         return other.uid == self.uid and self.node_identifier.tree_type == other.node_identifier.tree_type and self.full_path == other.full_path \
-            and other.name == self.name and other.trashed == self.trashed and self.size_bytes == other.size_bytes
+               and other.name == self.name and other.trashed == self.trashed and self.get_size_bytes() == other.get_size_bytes()
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -383,6 +389,12 @@ class EphemeralNode(DisplayNode, ABC):
     @classmethod
     def is_dir(cls):
         return False
+
+    def get_etc(self):
+        return None
+
+    def get_size_bytes(self):
+        return None
 
 
 # CLASS LoadingNode

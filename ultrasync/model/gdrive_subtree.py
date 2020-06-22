@@ -115,7 +115,7 @@ class GDriveSubtree(SubtreeSnapshot):
 
     def get_summary(self):
         if self._stats_loaded:
-            size_hf = format_util.humanfriendlier_size(self._root_node.size_bytes)
+            size_hf = format_util.humanfriendlier_size(self._root_node.get_size_bytes())
             trashed_size_hf = format_util.humanfriendlier_size(self._root_node.trashed_bytes)
             return f'{size_hf} total in {self._root_node.file_count:n} items (including {trashed_size_hf} in ' \
                    f'{self._root_node.trashed_file_count:n} trashed)'

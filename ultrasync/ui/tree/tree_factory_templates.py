@@ -128,7 +128,7 @@ def add_size_column(treeview, treeview_meta, model):
     treeview.append_column(column)
 
     # Need the original file sizes (in bytes) here, not the formatted one
-    model.set_sort_func(treeview_meta.col_num_size, _compare_data, (treeview_meta, lambda f: f.size_bytes))
+    model.set_sort_func(treeview_meta.col_num_size, _compare_data, (treeview_meta, lambda f: f.get_size_bytes()))
 
 
 def add_etc_column(treeview, treeview_meta, model):

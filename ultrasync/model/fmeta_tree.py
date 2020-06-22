@@ -86,7 +86,7 @@ class FMetaTree(SubtreeSnapshot):
 
     def get_summary(self):
         if self._stats_loaded:
-            size_hf = format_util.humanfriendlier_size(self.root_node.size_bytes)
+            size_hf = format_util.humanfriendlier_size(self.root_node.get_size_bytes())
             return f'{size_hf} total in {self.root_node.file_count:n} files and {self.root_node.dir_count:n} dirs'
         else:
             return 'Loading stats...'

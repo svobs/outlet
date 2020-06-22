@@ -105,6 +105,7 @@ def parent_mappings_tuples(item_uid: UID, parent_goog_ids: List[str], sync_ts: i
 
 class GDriveTreeLoader:
     def __init__(self, application, cache_path, tree_id=None):
+        self.node_identifier_factory = application.node_identifier_factory
         self.uid_generator = application.uid_generator
         self.cache_manager = application.cache_manager
         self.config = application.config
@@ -145,7 +146,7 @@ class GDriveTreeLoader:
 
         if download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             # completely fresh tree
-            tree = GDriveWholeTree()
+            tree = GDriveWholeTree(self.node_identifier_factory)
         else:
             # Start/resume: read cache
             msg = 'Reading cache...'
@@ -230,7 +231,7 @@ class GDriveTreeLoader:
         """
         sw_total = Stopwatch()
         max_uid = ROOT_UID + 1
-        tree = GDriveWholeTree()
+        tree = GDriveWholeTree(self.node_identifier_factory)
         invalidate_uids: Dict[UID, str] = {}
 
         # DIRs:
@@ -312,7 +313,7 @@ class GDriveTreeLoader:
     def _determine_roots(self, tree: GDriveWholeTree):
         max_uid = ROOT_UID + 1
         for item in tree.id_dict.values():
-            if not item.parent_uids:
+            if not item.get_parent_uids():
                 tree.roots.append(item)
 
             if item.uid >= max_uid:

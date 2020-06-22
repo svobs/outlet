@@ -1,10 +1,10 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import List, Optional
 
 import format_util
 from constants import ICON_GENERIC_DIR, ICON_TRASHED_DIR, ICON_TRASHED_FILE, NOT_TRASHED, TRASHED_STATUS
-from model.display_node import ContainerNode, DisplayNode, HasParentList
+from model.display_node import ContainerNode, DisplayNode, HasChildren, HasParentList
 from model.node_identifier import ensure_int, GDriveIdentifier
 
 logger = logging.getLogger(__name__)
@@ -17,10 +17,11 @@ logger = logging.getLogger(__name__)
 """
 
 
-class GoogNode(HasParentList, ABC):
-    # FIXME: this is not a good hierarchy. Find a better one
+class GoogNode(HasParentList, DisplayNode, ABC):
+    # ▲▲ Remember, Method Resolution Order places greatest priority to the first in the list, then goes down ▲▲
 
-    def __init__(self, goog_id: Optional[str], item_name: str, trashed: int, drive_id: Optional[str], my_share: bool, sync_ts: Optional[int]):
+    def __init__(self, uid, goog_id: Optional[str], item_name: str, trashed: int, drive_id: Optional[str], my_share: bool, sync_ts: Optional[int]):
+        DisplayNode.__init__(self, GDriveIdentifier(uid=uid, full_path=None))
         HasParentList.__init__(self, None)
         self.goog_id: Optional[str] = goog_id
         """The Google ID - long string. Need this for syncing with Google Drive,
@@ -77,25 +78,17 @@ class GoogNode(HasParentList, ABC):
 """
 
 
-class GoogFolder(GoogNode, ContainerNode):
+class GoogFolder(HasChildren, GoogNode):
     def __init__(self, uid, goog_id, item_name, trashed, drive_id, my_share, sync_ts, all_children_fetched):
-        GoogNode.__init__(self, goog_id, item_name, trashed, drive_id, my_share, sync_ts)
-        ContainerNode.__init__(self, GDriveIdentifier(uid, None))
+        GoogNode.__init__(self, uid, goog_id, item_name, trashed, drive_id, my_share, sync_ts)
+        HasChildren.__init__(self)
 
         self.all_children_fetched = all_children_fetched
         """If true, all its children have been fetched from Google"""
 
-        self.file_count = 0
-        self.trashed_file_count = 0
-        self.trashed_dir_count = 0
-        self.dir_count = 0
-        self.trashed_bytes = 0
-        self._size_bytes = None
-        """Set this to None to signify that stats are not yet calculated"""
-
     def __repr__(self):
         return f'Folder:(uid="{self.uid}" goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
-               f'my_share={self.my_share} sync_ts={self.sync_ts} parent_uids={self.parent_uids} children_fetched={self.all_children_fetched} ]'
+               f'my_share={self.my_share} sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()} children_fetched={self.all_children_fetched} ]'
 
     def to_tuple(self):
         return self.uid, self.goog_id, self.name, self.trashed, self.drive_id, self.my_share, self.sync_ts, self.all_children_fetched
@@ -140,14 +133,13 @@ class GoogFolder(GoogNode, ContainerNode):
 """
 
 
-class GoogFile(GoogNode, DisplayNode):
+class GoogFile(GoogNode):
     # TODO: handling of shortcuts... does a shortcut have an ID?
     # TODO: handling of special chars in file systems
 
     def __init__(self, uid, goog_id, item_name, trashed, drive_id, version, head_revision_id, md5,
                  my_share, create_ts, modify_ts, size_bytes, owner_id, sync_ts):
-        GoogNode.__init__(self, goog_id, item_name, trashed, drive_id, my_share, sync_ts)
-        DisplayNode.__init__(self, GDriveIdentifier(uid=uid, full_path=None))
+        GoogNode.__init__(self, uid, goog_id, item_name, trashed, drive_id, my_share, sync_ts)
 
         self.version = version
         self.head_revision_id = head_revision_id
@@ -160,10 +152,10 @@ class GoogFile(GoogNode, DisplayNode):
         """OwnerID if it's not me"""
 
     def __repr__(self):
-        return f'GoogFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str}  size={self.size_bytes} ' \
+        return f'GoogFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str}  size={self.get_size_bytes()} ' \
                f'md5="{self._md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
                f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
-               f'sync_ts={self.sync_ts} parent_uids={self.parent_uids})'
+               f'sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()})'
 
     def __eq__(self, other):
         if not isinstance(other, GoogFile):
@@ -171,11 +163,14 @@ class GoogFile(GoogNode, DisplayNode):
 
         return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name and other.md5 == self._md5 and \
             other.trashed == self.trashed and other.drive_id == self.drive_id and other.version == self.version and \
-            other.head_revision_id == self.head_revision_id and other.my_share == self.my_share and other.size_bytes == self.size_bytes \
+            other.head_revision_id == self.head_revision_id and other.my_share == self.my_share and other.get_size_bytes() == self.get_size_bytes() \
             and other.create_ts == self.create_ts and other.modify_ts == self.modify_ts
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def get_etc(self):
+        return None
 
     @property
     def md5(self):
@@ -193,8 +188,7 @@ class GoogFile(GoogNode, DisplayNode):
     def modify_ts(self, modify_ts):
         self._modify_ts = modify_ts
 
-    @property
-    def size_bytes(self):
+    def get_size_bytes(self):
         return self._size_bytes
 
     @classmethod

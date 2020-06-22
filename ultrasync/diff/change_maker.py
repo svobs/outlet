@@ -78,7 +78,7 @@ class ChangeMaker:
     def _migrate_file_node(self, node_identifier: NodeIdentifier, src_node: DisplayNode) -> DisplayNode:
         md5 = src_node.md5
         sha256 = src_node.sha256
-        size_bytes = src_node.size_bytes
+        size_bytes = src_node.get_size_bytes()
 
         tree_type = node_identifier.tree_type
         if tree_type == TREE_TYPE_LOCAL_DISK:
@@ -130,7 +130,7 @@ class ChangeMaker:
             # Folder already existed in original tree?
             existing_ancestor_list = source_tree.get_for_path(parent_path)
             if existing_ancestor_list:
-                child.parent_uids = list(map(lambda x: x.uid, existing_ancestor_list))
+                child.set_parent_uids(list(map(lambda x: x.uid, existing_ancestor_list)))
                 break
 
             if tree_type == TREE_TYPE_GDRIVE:
@@ -152,7 +152,7 @@ class ChangeMaker:
             added_folders_dict[parent_path] = new_parent
             ancestor_stack.append(new_parent)
 
-            child.parent_uids = new_parent.uid
+            child.set_parent_uids(new_parent.uid)
             child_path = parent_path
             child = new_parent
 
@@ -161,7 +161,6 @@ class ChangeMaker:
     def _add_item_and_needed_ancestors(self, dst_tree: CategoryDisplayTree, source_tree: SubtreeSnapshot,
                                        added_folders_dict: Dict[str, ContainerNode], new_item: DisplayNode):
         """Adds the migrated item """
-
 
         # Lowest item in the stack will always be orig item. Stack size > 1 iff need to add parent folders
         ancestor_stack: Deque[ContainerNode] = self._generate_missing_ancestor_nodes(source_tree, added_folders_dict, new_item)

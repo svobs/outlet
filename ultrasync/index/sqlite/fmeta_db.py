@@ -111,8 +111,8 @@ class FMetaDatabase(MetaDatabase):
         self.upsert_one(self.TABLE_LOCAL_DIR, _make_dir_tuple(item), commit=commit)
 
 
-def _make_file_tuple(f):
-    return f.uid, f.md5, f.sha256, f.size_bytes, f.sync_ts, f.modify_ts, f.change_ts, f.full_path, f.exists()
+def _make_file_tuple(f: LocalFileNode):
+    return f.uid, f.md5, f.sha256, f.get_size_bytes(), f.sync_ts, f.modify_ts, f.change_ts, f.full_path, f.exists()
 
 
 def _make_dir_tuple(d):

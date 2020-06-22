@@ -46,7 +46,8 @@ class GDriveWholeTree:
     """
     Represents the entire GDrive tree. We can't easily map this to SubtreeSnapshot, because the GDriveWholeTree can have multiple roots.
     """
-    def __init__(self):
+    def __init__(self, node_identifier_factory):
+        self.node_identifier_factory = node_identifier_factory
         self.node_identifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         """This is sometimes needed for lookups"""
 
@@ -84,7 +85,7 @@ class GDriveWholeTree:
         """Adds an item. Assumes that the item has all necessary parent info filled in already,
         and does the heavy lifting and populates all data structures appropriately."""
 
-        parent_uids: List[UID] = item.parent_uids
+        parent_uids: List[UID] = item.get_parent_uids()
 
         # Build forward dictionary
         existing_item = self.id_dict.get(item.uid, None)
@@ -99,7 +100,7 @@ class GDriveWholeTree:
             for parent_uid in parent_uids:
                 self._add_to_parent_dict(parent_uid, item)
 
-        if not item.parent_uids:
+        if not item.get_parent_uids():
             self.roots.append(item)
 
     def add_parent_mapping(self, item_uid: UID, parent_uid: UID):
@@ -110,6 +111,7 @@ class GDriveWholeTree:
         item = self.id_dict.get(item_uid)
         if not item:
             raise RuntimeError(f'Cannot add parent mapping: Item not found with UID: {item_uid}')
+        assert isinstance(item, GoogNode)
 
         # Add to dict:
         self._add_to_parent_dict(parent_uid, item)
@@ -227,10 +229,10 @@ class GDriveWholeTree:
         return path.startswith(subtree_root_path)
 
     def get_parent_for_item(self, item: GoogNode, required_subtree_path: str = None) -> Optional[GoogNode]:
-        parent_uids = item.parent_uids
+        parent_uids = item.get_parent_uids()
         if parent_uids:
             resolved_parents = []
-            for par_id in item.parent_uids:
+            for par_id in parent_uids:
                 parent = self.get_item_for_uid(par_id)
                 if parent and (not required_subtree_path or self.is_in_subtree(parent.full_path, required_subtree_path)):
                     resolved_parents.append(parent)
@@ -272,8 +274,8 @@ class GDriveWholeTree:
         for item_id, item in self.id_dict.items():
             if item_id != item.uid:
                 logger.error(f'[!!!] Item actual ID does not match its key in the ID dict ({item_id}): {item}')
-            if len(item.parent_uids) > 1:
-                resolved_parent_ids = [x for x in item.parent_uids if self.get_item_for_uid(x)]
+            if len(item.get_parent_uids()) > 1:
+                resolved_parent_ids = [x for x in item.get_parent_uids() if self.get_item_for_uid(x)]
                 if len(resolved_parent_ids) > 1:
                     logger.error(f'Found multiple valid parent_uids for item: {item}: parent_uids={resolved_parent_ids}')
 
@@ -340,7 +342,7 @@ class GDriveWholeTree:
                 else:
                     path_so_far = item.name + '/' + path_so_far
 
-                parent_uids: List[UID] = item.parent_uids
+                parent_uids: List[UID] = item.get_parent_uids()
                 if parent_uids:
                     if len(parent_uids) > 1:
                         # Make sure they are not dead links:
@@ -380,10 +382,11 @@ class GDriveWholeTree:
             trashed_dir_count = 0
             for root in self.roots:
                 if root.trashed == constants.NOT_TRASHED:
-                    if root.size_bytes:
-                        size_bytes += root.size_bytes
+                    if root.get_size_bytes():
+                        size_bytes += root.get_size_bytes()
 
                         if root.is_dir():
+                            assert isinstance(root, GoogFolder)
                             dir_count += root.dir_count + 1
                             file_count += root.file_count
                         else:
@@ -391,16 +394,17 @@ class GDriveWholeTree:
                 else:
                     # trashed:
                     if root.is_dir():
-                        if root.size_bytes:
-                            trashed_bytes += root.size_bytes
+                        assert isinstance(root, GoogFolder)
+                        if root.get_size_bytes():
+                            trashed_bytes += root.get_size_bytes()
                         if root.trashed_bytes:
                             trashed_bytes += root.trashed_bytes
                         trashed_dir_count += root.dir_count + root.trashed_dir_count + 1
                         trashed_file_count += root.file_count + root.trashed_file_count
                     else:
-                        self.trashed_file_count += 1
-                        if root.size_bytes:
-                            self.trashed_bytes += root.size_bytes
+                        trashed_file_count += 1
+                        if root.get_size_bytes():
+                            trashed_bytes += root.get_size_bytes()
 
                 if root.is_dir():
                     trashed_bytes += root.trashed_bytes
@@ -501,16 +505,16 @@ class GDriveWholeTree:
 
 def _merge_items(existing_item: GoogNode, new_item: GoogNode) -> List[UID]:
     # Assume items are identical but each references a different parent (most likely flattened for SQL)
-    assert len(existing_item.parent_uids) >= 1 and len(
-        new_item.parent_uids) == 1, f'Expected 1 parent each but found: {existing_item.parent_uids} and {new_item.parent_uids}'
+    assert len(existing_item.get_parent_uids()) >= 1 and len(
+        new_item.get_parent_uids()) == 1, f'Expected 1 parent each but found: {existing_item.get_parent_uids()} and {new_item.get_parent_uids()}'
 
     new_parent_ids: List[UID] = []
-    for parent_uid in new_item.parent_uids:
-        if parent_uid not in existing_item.parent_uids:
+    for parent_uid in new_item.get_parent_uids():
+        if parent_uid not in existing_item.get_parent_uids():
             new_parent_ids.append(parent_uid)
 
     # Merge into existing item:
-    existing_item.parent_uids = existing_item.parent_uids + new_parent_ids
+    existing_item.set_parent_uids(existing_item.get_parent_uids() + new_parent_ids)
 
     # Need to return these so they can be added to reverse dict
     return new_parent_ids
