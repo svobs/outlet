@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
 from collections import deque
 import logging
-from typing import Any, Callable, Deque, Iterable, List, Optional, Union
+from typing import Any, Callable, Deque, Iterable, List, Optional
 
 from pydispatch import dispatcher
 
-from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
 from ui import actions
 
@@ -56,15 +55,6 @@ class SubtreeSnapshot(ABC):
             return False
 
         return path.startswith(self.root_path)
-
-    # Factory methods
-    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-    @classmethod
-    @abstractmethod
-    def create_identifier(cls, full_path, uid, category) -> NodeIdentifier:
-        """Create a new node_identifier of the type matching this tree"""
-        pass
 
     # Getters & search
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

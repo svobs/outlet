@@ -7,7 +7,7 @@ from pydispatch import dispatcher
 
 import ui.actions as actions
 from fmeta.file_tree_recurser import FileTreeRecurser
-from model.fmeta import Category, LocalFileNode, LocalDirNode
+from model.fmeta import LocalFileNode, LocalDirNode
 from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 
@@ -99,7 +99,7 @@ class LocalDiskScanner(FileTreeRecurser):
         logger.debug(f'Found {total} files to scan.')
         return total
 
-    def handle_file(self, file_path: str, category):
+    def handle_file(self, file_path: str):
         stale_fmeta: LocalFileNode = self.cache_manager.get_node_for_local_path(file_path)
 
         if stale_fmeta:
@@ -109,14 +109,14 @@ class LocalDiskScanner(FileTreeRecurser):
                 target_fmeta = stale_fmeta
             else:
                 # this can fail (e.g. broken symlink). If it does, we'll treat it like a deleted file
-                target_fmeta = self.cache_manager.build_fmeta(full_path=file_path, category=category)
+                target_fmeta = self.cache_manager.build_fmeta(full_path=file_path)
                 if target_fmeta:
                     self.updated_count += 1
                     if logger.isEnabledFor(logging.DEBUG):
                         _check_update_sanity(stale_fmeta, target_fmeta)
         else:
             # Not in cache (i.e. new):
-            target_fmeta = self.cache_manager.build_fmeta(full_path=file_path, category=category)
+            target_fmeta = self.cache_manager.build_fmeta(full_path=file_path)
             if target_fmeta:
                 self.added_count += 1
 
@@ -130,10 +130,10 @@ class LocalDiskScanner(FileTreeRecurser):
             actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
     def handle_target_file_type(self, file_path):
-        self.handle_file(file_path, Category.NA)
+        self.handle_file(file_path)
 
     def handle_non_target_file(self, file_path):
-        self.handle_file(file_path, Category.Ignored)
+        self.handle_file(file_path)
 
     def scan(self) -> LocalDiskTree:
         """Recurse over disk tree. Gather current stats for each file, and compare to the stale tree.

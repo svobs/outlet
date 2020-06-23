@@ -7,8 +7,6 @@ from typing import Deque, Dict, List
 import file_util
 from command.change_action import ChangeAction, ChangeType
 from constants import NOT_TRASHED, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from index.uid import UID
-from model.category import Category
 from model.display_node import ContainerNode, DisplayNode
 from model.fmeta import LocalDirNode, LocalFileNode
 from model.goog_node import GoogFile, GoogFolder, GoogNode
@@ -71,13 +69,33 @@ class OneSide:
                 # Not exist: assign new UID. We will later associate this with a goog_id once it's made existent
                 dst_node.uid = self.application.uid_generator.get_new_uid()
 
-        self.change_tree.add_item(dst_node, dst_node.category, self.underlying_tree)
         return dst_node
 
-    def append_new_change_action(self, change_type: ChangeType, src_uid: UID, dst_uid: UID = None):
+    def create_change_action(self, change_type: ChangeType, src_node: DisplayNode, dst_node: DisplayNode = None):
+        if src_node:
+            src_uid = src_node.uid
+        else:
+            src_uid = None
+
+        if dst_node:
+            dst_uid = dst_node.uid
+        else:
+            dst_uid = None
+
         action_uid = self.uid_generator.get_new_uid()
-        action = ChangeAction(change_type=change_type, action_uid=action_uid, src_uid=src_uid, dst_uid=dst_uid)
-        self.change_tree.append_change_action(action)
+        return ChangeAction(change_type=change_type, action_uid=action_uid, src_uid=src_uid, dst_uid=dst_uid)
+
+    def add_change_item(self, change_type: ChangeType, src_node: DisplayNode, dst_node: DisplayNode = None):
+        """Adds a node to the change tree (dst_node; unless dst_node is None, in which case it will use src_node), and also adds a ChangeAction
+        of the given type"""
+
+        change_action: ChangeAction = self.create_change_action(change_type, src_node, dst_node)
+
+        if dst_node:
+            target_node = dst_node
+        else:
+            target_node = src_node
+        self.change_tree.add_item(target_node, change_action, self.underlying_tree)
 
     def add_needed_ancestors(self, new_item: DisplayNode):
         """Determines what ancestor directories need to be created, and appends them to the change tree (as well as change actions for them).
@@ -87,10 +105,8 @@ class OneSide:
         ancestor_stack: Deque[ContainerNode] = self._generate_missing_ancestor_nodes(new_item)
         while len(ancestor_stack) > 0:
             ancestor: DisplayNode = ancestor_stack.pop()
-            self.change_tree.add_item(ancestor, ancestor.category, self.underlying_tree)
-
             # Create an accompanying MKDIR action which will create the new folder/dir
-            self.append_new_change_action(change_type=ChangeType.MKDIR, src_uid=ancestor.uid)
+            self.add_change_item(change_type=ChangeType.MKDIR, src_node=ancestor)
 
     def _generate_missing_ancestor_nodes(self, new_item: DisplayNode):
         tree_type: int = new_item.node_identifier.tree_type
@@ -123,12 +139,12 @@ class OneSide:
                 logger.debug(f'Creating GoogFolderToAdd for {parent_path}')
                 new_uid = self.uid_generator.get_new_uid()
                 folder_name = os.parent_path.basename(parent_path)
-                new_parent = GoogFolder(GDriveIdentifier(uid=new_uid, full_path=None), goog_id=None, item_name=folder_name, trashed=False, drive_id=None, my_share=False, sync_ts=None,
-                                        all_children_fetched=True)
+                new_parent = GoogFolder(GDriveIdentifier(uid=new_uid, full_path=None), goog_id=None, item_name=folder_name, trashed=False,
+                                        drive_id=None, my_share=False, sync_ts=None, all_children_fetched=True)
             elif tree_type == TREE_TYPE_LOCAL_DISK:
                 logger.debug(f'Creating LocalDirToAdd for {parent_path}')
                 new_uid = self.application.cache_manager.get_uid_for_path(parent_path)
-                node_identifier = LocalFsIdentifier(parent_path, new_uid, Category.Added)
+                node_identifier = LocalFsIdentifier(parent_path, new_uid)
                 new_parent = LocalDirNode(node_identifier, exists=False)
             else:
                 raise RuntimeError(f'Invalid tree type: {tree_type} for item {new_item}')
@@ -179,12 +195,12 @@ class ChangeMaker:
                     dst_rel_path = file_util.strip_root(node.full_path, src_path_minus_dirname)
                     new_path = os.path.join(dst_parent_path, dst_rel_path)
                     dst_node = self.right_side.migrate_single_node_to_this_side(node, new_path)
-                    self.right_side.append_new_change_action(change_type=ChangeType.CP, src_uid=node.uid, dst_uid=dst_node.uid)
+                    self.right_side.add_change_item(change_type=ChangeType.CP, src_node=node, dst_node=dst_node)
             else:
                 file_name = os.path.basename(src_node.full_path)
                 new_path = os.path.join(dst_parent_path, file_name)
                 dst_node = self.right_side.migrate_single_node_to_this_side(src_node, new_path)
-                self.right_side.append_new_change_action(change_type=ChangeType.CP, src_uid=src_node.uid, dst_uid=dst_node.uid)
+                self.right_side.add_change_item(change_type=ChangeType.CP, src_node=src_node, dst_node=dst_node)
 
     def get_path_moved_to_right(self, left_item) -> str:
         return os.path.join(self.right_side.underlying_tree.root_path, left_item.get_relative_path(self.left_side.underlying_tree))
@@ -204,30 +220,28 @@ class ChangeMaker:
         """Make a dst node which will rename a file within the right tree to match the relative path of
         the file on the left"""
         dst_node: DisplayNode = self._migrate_node_to_right(left_item)
-
         # "src node" can be either left_item or right_item. We'll use right_item because it is closer (in theory)
-        self.right_side.append_new_change_action(change_type=ChangeType.MV, src_uid=right_item.uid, dst_uid=dst_node.uid)
+        self.right_side.add_change_item(change_type=ChangeType.MV, src_node=right_item, dst_node=dst_node)
 
     def append_rename_left_to_left(self, left_item, right_item):
         """Make a FileToMove node which will rename a file within the left tree to match the relative path of the file on right"""
         dst_node: DisplayNode = self._migrate_node_to_left(right_item)
-
-        # "src node" can be either left_item or right_item. We'll use left_item because it is closer (in theory)
-        self.left_side.append_new_change_action(change_type=ChangeType.MV, src_uid=left_item.uid, dst_uid=dst_node.uid)
+        # "src node" can be either left_item or right_item. We'll use right_item because it is closer (in theory)
+        self.left_side.add_change_item(change_type=ChangeType.MV, src_node=left_item, dst_node=dst_node)
 
     def append_copy_left_to_right(self, left_item):
         """COPY: Left -> Right"""
         dst_node: DisplayNode = self._migrate_node_to_right(left_item)
 
         # "src node" can be either left_item or right_item. We'll use left_item because it is closer (in theory)
-        self.left_side.append_new_change_action(change_type=ChangeType.CP, src_uid=left_item.uid, dst_uid=dst_node.uid)
+        self.right_side.add_change_item(change_type=ChangeType.CP, src_node=left_item, dst_node=dst_node)
 
     def append_copy_right_to_left(self, right_item):
         """COPY: Left <- Right"""
         dst_node: DisplayNode = self._migrate_node_to_left(right_item)
 
         # "src node" can be either left_item or right_item. We'll use left_item because it is closer (in theory)
-        self.left_side.append_new_change_action(change_type=ChangeType.CP, src_uid=right_item.uid, dst_uid=dst_node.uid)
+        self.left_side.add_change_item(change_type=ChangeType.CP, src_node=right_item, dst_node=dst_node)
 
     def append_update_left_to_right(self, left_item, right_item_to_overwrite):
         """UPDATE: Left -> Right"""
@@ -235,7 +249,7 @@ class ChangeMaker:
         assert dst_node.uid == right_item_to_overwrite.uid
 
         # "src node" can be either left_item or right_item. We'll use left_item because it is closer (in theory)
-        self.right_side.append_new_change_action(change_type=ChangeType.UP, src_uid=left_item.uid, dst_uid=dst_node.uid)
+        self.right_side.add_change_item(change_type=ChangeType.UP, src_node=left_item, dst_node=dst_node)
 
     def append_update_right_to_left(self, right_item, left_item_to_overwrite):
         """UPDATE: Left <- Right"""
@@ -243,6 +257,6 @@ class ChangeMaker:
         assert dst_node.uid == left_item_to_overwrite.uid
 
         # "src node" can be either left_item or right_item. We'll use left_item because it is closer (in theory)
-        self.left_side.append_new_change_action(change_type=ChangeType.UP, src_uid=right_item.uid, dst_uid=dst_node.uid)
+        self.left_side.add_change_item(change_type=ChangeType.UP, src_node=right_item, dst_node=dst_node)
 
 

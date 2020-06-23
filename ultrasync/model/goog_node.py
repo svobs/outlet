@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 
 import format_util
-from constants import ICON_GENERIC_DIR, ICON_TRASHED_DIR, ICON_TRASHED_FILE, NOT_TRASHED, TRASHED_STATUS
+from constants import ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE, NOT_TRASHED, TRASHED_STATUS
 from model.display_node import ContainerNode, DisplayNode, HasChildren, HasParentList
 from model.node_identifier import ensure_int, GDriveIdentifier
 
@@ -200,7 +200,7 @@ class GoogFile(GoogNode):
     def get_icon(self):
         if self.trashed != NOT_TRASHED:
             return ICON_TRASHED_FILE
-        return self.category.name
+        return ICON_GENERIC_FILE
 
     def to_tuple(self):
         return (self.uid, self.goog_id, self.name, self.trashed, self._size_bytes, self._md5, self.create_ts, self.modify_ts,

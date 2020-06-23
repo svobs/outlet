@@ -200,8 +200,7 @@ class GDriveWholeTree:
                 if SUPER_DEBUG:
                     logger.debug(f'Segment not found: "{name_seg}" (target_path: "{path}"')
                 raise GDriveItemNotFoundError(node_identifier=self.node_identifier_factory.for_values(
-                    tree_type=constants.TREE_TYPE_GDRIVE, full_path=path),
-                                              offending_path=path_so_far)
+                    tree_type=constants.TREE_TYPE_GDRIVE, full_path=path), offending_path=path_so_far)
             else:
                 path_found = path_found + '/' + next_seg_items[0].name
 

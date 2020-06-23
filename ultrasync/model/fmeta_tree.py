@@ -33,10 +33,6 @@ class FMetaTree(SubtreeSnapshot):
 
         self._stats_loaded = False
 
-    @classmethod
-    def create_identifier(cls, full_path: str, uid: UID, category) -> NodeIdentifier:
-        return LocalFsIdentifier(full_path=full_path, uid=uid, category=category)
-
     def get_parent_for_item(self, item: LocalFileNode) -> Optional[DisplayNode]:
         assert item.full_path, f'No full_path for item: {item}'
         parent_path: str = str(pathlib.Path(item.full_path).parent)

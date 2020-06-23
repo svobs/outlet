@@ -9,10 +9,6 @@ class NullSubtree(SubtreeSnapshot):
     def __init__(self, root_identifier):
         super().__init__(root_identifier)
 
-    @classmethod
-    def create_identifier(cls, full_path, uid, category) -> NodeIdentifier:
-        raise RuntimeError('Should not do this')
-
     def get_children_for_root(self) -> Iterable[DisplayNode]:
         return []
 

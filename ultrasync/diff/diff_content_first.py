@@ -7,7 +7,6 @@ from command.change_action import ChangeType
 from constants import ROOT_PATH, ROOT_UID, TREE_TYPE_MIXED
 from diff.change_maker import ChangeMaker
 from index.two_level_dict import TwoLevelDict
-from model.category import Category
 from model.display_node import DisplayNode
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 from model.subtree_snapshot import SubtreeSnapshot
@@ -205,8 +204,7 @@ class ContentFirstDiffer(ChangeMaker):
                 self.append_copy_left_to_right(left_item)
 
                 # Dead node walking:
-                self.left_side.change_tree.add_item(left_item, Category.Deleted, self.left_side.underlying_tree)
-                self.left_side.append_new_change_action(change_type=ChangeType.RM, src_uid=left_item.uid)
+                self.left_side.add_change_item(ChangeType.RM, src_node=left_item)
                 count_add_delete_pairs += 1
         logger.info(f'{sw} Finished path comparison for left tree')
 
@@ -224,8 +222,7 @@ class ContentFirstDiffer(ChangeMaker):
                 self.append_copy_right_to_left(right_item)
 
                 # Dead node walking:
-                self.right_side.change_tree.add_item(right_item, Category.Deleted, self.right_side.underlying_tree)
-                self.right_side.append_new_change_action(change_type=ChangeType.RM, src_uid=right_item.uid)
+                self.right_side.add_change_item(ChangeType.RM, src_node=right_item)
                 count_add_delete_pairs += 1
 
         logger.info(f'Done with diff (pairs: add/del={count_add_delete_pairs} upd={count_updated_pairs} moved={count_moved_pairs})'
@@ -240,8 +237,7 @@ class ContentFirstDiffer(ChangeMaker):
         # always root path, but tree type may differ
         is_mixed_tree = self.left_side.underlying_tree.tree_type != self.right_side.underlying_tree.tree_type
         if is_mixed_tree:
-            root_node_identifier = LogicalNodeIdentifier(uid=ROOT_UID, full_path=ROOT_PATH, category=Category.NA,
-                                                         tree_type=TREE_TYPE_MIXED)
+            root_node_identifier = LogicalNodeIdentifier(uid=ROOT_UID, full_path=ROOT_PATH, tree_type=TREE_TYPE_MIXED)
         else:
             root_node_identifier: NodeIdentifier = self.application.node_identifier_factory.for_values(
                 tree_type=self.left_side.underlying_tree.tree_type, full_path=ROOT_PATH, uid=ROOT_UID)
@@ -250,10 +246,18 @@ class ContentFirstDiffer(ChangeMaker):
                                           application=self.application, tree_id=ID_MERGE_TREE)
 
         for item in left_selected_changes:
-            merged_tree.add_item(item, item.category, self.left_side.underlying_tree)
+            change_action = self.left_side.underlying_tree.get_change_action_for_node(item)
+            if change_action:
+                merged_tree.add_item(item, change_action, self.left_side.underlying_tree)
+            else:
+                logger.debug(f'Skipping node because it is not associated with a ChangeAction: {item}')
 
         for item in right_selected_changes:
-            merged_tree.add_item(item, item.category, self.right_side.underlying_tree)
+            change_action = self.right_side.underlying_tree.get_change_action_for_node(item)
+            if change_action:
+                merged_tree.add_item(item, change_action, self.right_side.underlying_tree)
+            else:
+                logger.debug(f'Skipping node because it is not associated with a ChangeAction: {item}')
 
         # TODO: check for conflicts
 

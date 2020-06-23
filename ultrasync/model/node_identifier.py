@@ -74,7 +74,7 @@ class NodeIdentifier(ABC):
 
 
 class LogicalNodeIdentifier(NodeIdentifier):
-    def __init__(self, uid: UID, full_path: str, category: Category, tree_type: int):
+    def __init__(self, uid: UID, full_path: str, tree_type: int, category: Category = Category.NA):
         """Object has a path, but does not represent a physical item"""
         super().__init__(uid, full_path, category)
         self._tree_type = tree_type

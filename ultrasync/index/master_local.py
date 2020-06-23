@@ -17,7 +17,6 @@ from index.sqlite.local_db import LocalDiskDatabase
 from index.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
 from index.uid_generator import ROOT_UID, UID
 from index.uid_mapper import UidPathMapper
-from model.category import Category
 from model.display_node import ContainerNode, DisplayNode, RootTypeNode
 from model.fmeta import LocalDirNode, LocalFileNode
 from model.fmeta_tree import FMetaTree
@@ -372,30 +371,25 @@ class LocalDiskMasterCache:
             md5 = 'disabled'
         return f'LocalDiskMasterCache tree_size={len(self.dir_tree):n} md5={md5}'
 
-    def build_fmeta(self, full_path: str, category=Category.NA, staging_path=None) -> Optional[LocalFileNode]:
+    def build_fmeta(self, full_path: str, staging_path=None) -> Optional[LocalFileNode]:
         uid = self.get_uid_for_path(full_path)
 
-        if category == Category.Ignored:
-            # Do not scan ignored files for content (optimization)
-            md5 = None
+        try:
+            # Open,close, read file and calculate hash of its contents
+            if staging_path:
+                md5 = fmeta.content_hasher.md5(staging_path)
+            else:
+                md5 = fmeta.content_hasher.md5(full_path)
+            # sha256 = fmeta.content_hasher.dropbox_hash(full_path)
             sha256 = None
-        else:
-            try:
-                # Open,close, read file and calculate hash of its contents
-                if staging_path:
-                    md5 = fmeta.content_hasher.md5(staging_path)
-                else:
-                    md5 = fmeta.content_hasher.md5(full_path)
-                # sha256 = fmeta.content_hasher.dropbox_hash(full_path)
-                sha256 = None
-            except FileNotFoundError:
-                if os.path.islink(full_path):
-                    target = os.readlink(full_path)
-                    logger.error(f'Broken link, skipping: "{full_path}" -> "{target}"')
-                else:
-                    logger.error(f'While building LocalFileNode: file not found; skipping: {full_path}')
-                # Return None. Will be assumed to be a deleted file
-                return None
+        except FileNotFoundError:
+            if os.path.islink(full_path):
+                target = os.readlink(full_path)
+                logger.error(f'Broken link, skipping: "{full_path}" -> "{target}"')
+            else:
+                logger.error(f'While building LocalFileNode: file not found; skipping: {full_path}')
+            # Return None. Will be assumed to be a deleted file
+            return None
 
         # Get "now" in UNIX time:
         sync_ts = int(time.time())

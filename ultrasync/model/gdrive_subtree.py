@@ -35,10 +35,6 @@ class GDriveSubtree(SubtreeSnapshot):
         # See refresh_stats() for the following
         self._stats_loaded = False
 
-    @classmethod
-    def create_identifier(cls, full_path, uid, category) -> NodeIdentifier:
-        return GDriveIdentifier(uid=uid, full_path=full_path, category=category)
-
     def get_ignored_items(self):
         return self._ignored_items
 

@@ -6,10 +6,10 @@ from typing import List, Optional
 from treelib import Node
 
 import format_util
+from command.change_action import ChangeType
 from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_LOCAL_DISK, NOT_TRASHED, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, \
     TREE_TYPE_NA
 from index.uid_generator import NULL_UID, UID
-from model.category import Category
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 
 logger = logging.getLogger(__name__)
@@ -288,23 +288,23 @@ class CategoryNode(ContainerNode):
     """
     Represents a category in the tree (however it can possibly be treated as the root dir)
     """
-    display_names = {Category.Nada: 'NA',
-                     Category.Ignored: 'Ignored',
-                     Category.Added: 'To Add',
-                     Category.Deleted: 'To Delete',
-                     Category.Updated: 'To Update',
-                     Category.Moved: 'To Move',
+    display_names = {
+                     ChangeType.CP: 'To Add',
+                     ChangeType.RM: 'To Delete',
+                     ChangeType.UP: 'To Update',
+                     ChangeType.MV: 'To Move',
                      }
 
-    def __init__(self, node_identifier: NodeIdentifier):
+    def __init__(self, node_identifier: NodeIdentifier, change_type: ChangeType):
         super().__init__(node_identifier=node_identifier)
+        self.change_type = change_type
 
     def __repr__(self):
-        return f'CategoryNode(cat={self.category.name}, identifier={self.node_identifier})'
+        return f'CategoryNode(type={self.change_type.name}, identifier={self.node_identifier})'
 
     @property
     def name(self):
-        return CategoryNode.display_names[self.category.value]
+        return CategoryNode.display_names[self.change_type]
 
     def get_icon(self):
         return ICON_GENERIC_DIR
@@ -349,7 +349,7 @@ class EphemeralNode(DisplayNode, ABC):
     """Does not have an identifier - should not be inserted into a treelib.Tree!"""
 
     def __init__(self):
-        super().__init__(LogicalNodeIdentifier(full_path=None, uid=NULL_UID, tree_type=TREE_TYPE_NA, category=Category.Nada))
+        super().__init__(LogicalNodeIdentifier(full_path=None, uid=NULL_UID, tree_type=TREE_TYPE_NA))
 
     def __repr__(self):
         return self.name

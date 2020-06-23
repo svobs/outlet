@@ -36,8 +36,6 @@ class TreeViewMeta:
 
         self.tree_display_mode: TreeDisplayMode = tree_display_mode
         self.lazy_load: bool = lazy_load
-        """If true, display category trees for items which are not Category.NA. If false, show all items and
-        do not use category nodes."""
 
         """If true, create a node for each ancestor directory for the files.
            If false, create a second column which shows the parent path. """

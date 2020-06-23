@@ -8,10 +8,9 @@ import treelib
 from treelib.exceptions import DuplicatedNodeIdError
 
 import file_util
-from command.change_action import ChangeAction
+from command.change_action import ChangeAction, ChangeType
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from index.uid import UID
-from model.category import Category
 from model.display_node import CategoryNode, ContainerNode, DisplayNode, RootTypeNode
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
@@ -19,7 +18,7 @@ from model.subtree_snapshot import SubtreeSnapshot
 
 logger = logging.getLogger(__name__)
 
-CATEGORIES = [Category.Added, Category.Deleted, Category.Moved, Category.Updated]
+CHANGE_TYPES = [ChangeType.CP, ChangeType.RM, ChangeType.UP, ChangeType.MV]
 
 SUPER_DEBUG = False
 
@@ -31,16 +30,12 @@ class PreAncestorDict:
     def __init__(self):
         self._dict: Dict[str, ContainerNode] = {}
 
-    @classmethod
-    def _generate_key(cls, source_tree: SubtreeSnapshot, category: Category):
-        return f'{source_tree.tree_type}:{source_tree.uid}:{category.name}'
-
-    def get_for(self, source_tree: SubtreeSnapshot, category: Category) -> Optional[ContainerNode]:
-        key = PreAncestorDict._generate_key(source_tree, category)
+    def get_for(self, source_tree: SubtreeSnapshot, change_type: ChangeType) -> Optional[ContainerNode]:
+        key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, change_type=change_type)
         return self._dict.get(key, None)
 
-    def put_for(self, source_tree: SubtreeSnapshot, category: Category, item: ContainerNode):
-        key = PreAncestorDict._generate_key(source_tree, category)
+    def put_for(self, source_tree: SubtreeSnapshot, change_type: ChangeType, item: ContainerNode):
+        key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, change_type=change_type)
         self._dict[key] = item
 
 
@@ -70,14 +65,6 @@ class CategoryDisplayTree(SubtreeSnapshot):
 
         self.count_conflict_warnings = 0
         self.count_conflict_errors = 0
-
-    def append_change_action(self, change_action: ChangeAction):
-        if change_action.dst_uid:
-            assert not self.change_action_dict.get(change_action.dst_uid, None), f'Duplicate ChangeAction: {change_action}'
-            self.change_action_dict[change_action.dst_uid] = change_action
-        else:
-            assert not self.change_action_dict.get(change_action.src_uid, None), f'Duplicate ChangeAction: {change_action}'
-            self.change_action_dict[change_action.src_uid] = change_action
 
     def get_children_for_root(self) -> Iterable[DisplayNode]:
         return self.get_children(self.root_node)
@@ -115,15 +102,14 @@ class CategoryDisplayTree(SubtreeSnapshot):
                 return child
         return None
 
-    def _get_or_create_pre_ancestors(self, item: DisplayNode, source_tree: SubtreeSnapshot) -> ContainerNode:
+    def _get_or_create_pre_ancestors(self, item: DisplayNode, change_type: ChangeType, source_tree: SubtreeSnapshot) -> ContainerNode:
         """Pre-ancestors are those nodes (either logical or pointing to real data) which are higher up than the source tree.
         Last pre-ancestor is easily derived and its prescence indicates whether its ancestors were already created"""
 
         tree_type: int = item.node_identifier.tree_type
         assert tree_type != TREE_TYPE_MIXED, f'For {item.node_identifier}'
-        assert item.category != Category.NA, f'For {item.node_identifier}'
 
-        last_pre_ancestor = self._pre_ancestor_dict.get_for(source_tree, item.category)
+        last_pre_ancestor = self._pre_ancestor_dict.get_for(source_tree, change_type)
         if last_pre_ancestor:
             return last_pre_ancestor
 
@@ -134,7 +120,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
             subroot_node = self._get_subroot_node(item.node_identifier)
             if not subroot_node:
                 uid = self.uid_generator.get_new_uid()
-                node_identifier = self.node_identifier_factory.for_values(tree_type=item.node_identifier.tree_type, uid=uid, category=item.category)
+                node_identifier = self.node_identifier_factory.for_values(tree_type=item.node_identifier.tree_type, uid=uid)
                 subroot_node = RootTypeNode(node_identifier=node_identifier)
                 logger.debug(f'[{self.tree_id}] Creating pre-ancestor RootType node: {node_identifier}')
                 self._category_tree.add_node(node=subroot_node, parent=self.root_node)
@@ -145,19 +131,18 @@ class CategoryDisplayTree(SubtreeSnapshot):
 
         cat_node = None
         for child in self._category_tree.children(parent_node.identifier):
-            if child.category == item.category:
+            if child.change_type == change_type:
                 cat_node = child
                 break
 
         if not cat_node:
             # Create category display node. This may be the "last pre-ancestor".
-            # Note that we can use this for GDrive paths because we are combining it with tree_type and category (below) into a new identifier:
+            # Note that we can use this for GDrive paths because we are combining it with tree_type and ChangeType (below) into a new identifier:
             uid = self.cache_manager.get_uid_for_path(self.root_path)
-            nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, item.category)
+            nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, change_type)
 
-            node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=self.root_path,
-                                                                      uid=uid, category=item.category)
-            cat_node = CategoryNode(node_identifier=node_identifier)
+            node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=self.root_path, uid=uid)
+            cat_node = CategoryNode(node_identifier=node_identifier, change_type=change_type)
             cat_node.identifier = nid
             logger.debug(f'Creating pre-ancestor CAT node: {node_identifier}')
             self._category_tree.add_node(node=cat_node, parent=parent_node)
@@ -180,9 +165,8 @@ class CategoryDisplayTree(SubtreeSnapshot):
 
                 if not child_node:
                     uid = self.cache_manager.get_uid_for_path(path_so_far)
-                    nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, item.category)
-                    node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=uid,
-                                                                              category=item.category)
+                    nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, change_type)
+                    node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=uid)
                     child_node = ContainerNode(node_identifier=node_identifier)
                     child_node.identifier = nid
                     logger.debug(f'[{self.tree_id}] Creating pre-ancestor DIR node: {node_identifier}')
@@ -190,35 +174,50 @@ class CategoryDisplayTree(SubtreeSnapshot):
                 parent_node = child_node
 
         # this is the last pre-ancestor. Cache it:
-        self._pre_ancestor_dict.put_for(source_tree, item.category, parent_node)
+        self._pre_ancestor_dict.put_for(source_tree, change_type, parent_node)
         return parent_node
 
     def get_relative_path_for_full_path(self, full_path: str):
         assert full_path.startswith(self.root_path), f'Full path ({full_path}) does not contain root ({self.root_path})'
         return file_util.strip_root(full_path, self.root_path)
 
-    def add_item(self, item: DisplayNode, category: Category, source_tree: SubtreeSnapshot):
+    def get_change_action_for_node(self, node: DisplayNode) -> Optional[ChangeAction]:
+        return self.change_action_dict.get(node.uid, None)
+
+    def _append_change_action(self, change_action: ChangeAction):
+        if change_action.dst_uid:
+            assert not self.change_action_dict.get(change_action.dst_uid, None), f'Duplicate ChangeAction: {change_action}'
+            self.change_action_dict[change_action.dst_uid] = change_action
+        else:
+            assert not self.change_action_dict.get(change_action.src_uid, None), f'Duplicate ChangeAction: {change_action}'
+            self.change_action_dict[change_action.src_uid] = change_action
+
+    def add_item(self, item: DisplayNode, change_action: ChangeAction, source_tree: SubtreeSnapshot):
         """When we add the item, we add any necessary ancestors for it as well.
         1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't
         backed by any actual data nodes. This includes possibly tree-type nodes, category nodes, and ancestors
         which aren't in the source tree.
         2. Create and add "ancestors": dir nodes from the source tree for display, and possibly any FolderToAdd nodes.
-        The "ancestors" are duplicated for each category, so we need to generate a separate unique identifier which includes the category.
+        The "ancestors" are duplicated for each ChangeType, so we need to generate a separate unique identifier which includes the ChangeType.
         For this, we take advantage of the fact that each node has a separate "identifier" field which is nominally identical to its UID,
-        but in this case it will be a string which includes the category name.
+        but in this case it will be a string which includes the ChangeType name.
         3. Add a node for the item itself
         """
-        assert category != Category.NA, f'For item: {item}'
+        assert change_action is not None, f'For item: {item}'
+        self._append_change_action(change_action)
+
+        change_type_for_display = change_action.change_type
+        if change_type_for_display == ChangeType.MKDIR:
+            # Group "mkdir" with "copy" for display purposes:
+            change_type_for_display = ChangeType.CP
+
         # Clone the item so as not to mutate the source tree. The item category is needed to determine which bra
         item_clone = copy.copy(item)
         item_clone.node_identifier = copy.copy(item.node_identifier)
-        item_clone.node_identifier.category = category
-        uid = self.cache_manager.get_uid_for_path(item.full_path)
-        nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, category)
-        item_clone.identifier = nid
+        item_clone.identifier = NodeIdentifierFactory.nid(item.uid, item.node_identifier.tree_type, change_type_for_display)
         item = item_clone
 
-        parent: DisplayNode = self._get_or_create_pre_ancestors(item, source_tree)
+        parent: DisplayNode = self._get_or_create_pre_ancestors(item, change_type_for_display, source_tree)
 
         if isinstance(parent, ContainerNode):
             parent.add_meta_metrics(item)
@@ -227,17 +226,18 @@ class CategoryDisplayTree(SubtreeSnapshot):
         full_path = item.full_path
         # Walk up the source tree and compose a list of ancestors:
         while True:
-            assert full_path.startswith(self.root_path), f'FullPath="{full_path}", RootPath="{self.root_path}"'
+            assert full_path.startswith(self.root_path), f'ItemPath="{full_path}", TreeRootPath="{self.root_path}"'
             # Go up one dir:
             full_path: str = str(pathlib.Path(full_path).parent)
-            # Get standard UID for path:
+            # Get standard UID for path (note: this is a kludge for non-local trees, but should be OK because we just need a UID which
+            # is unique for this tree)
             uid = self.cache_manager.get_uid_for_path(full_path)
-            nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, category)
+            nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, change_type_for_display)
             parent = self._category_tree.get_node(nid=nid)
             if parent:
                 break
             else:
-                node_identifier = LogicalNodeIdentifier(uid, full_path, category, item.node_identifier.tree_type)
+                node_identifier = LogicalNodeIdentifier(uid, full_path, item.node_identifier.tree_type)
                 dir_node = ContainerNode(node_identifier)
                 dir_node.identifier = nid
                 stack.append(dir_node)
@@ -295,10 +295,6 @@ class CategoryDisplayTree(SubtreeSnapshot):
     def __repr__(self):
         return f'CategoryDisplayTree(tree_id=[{self.tree_id}], {self.get_summary()})'
 
-    @classmethod
-    def create_identifier(cls, full_path, uid, category) -> NodeIdentifier:
-        raise NotImplementedError
-
     def get_relative_path_for_item(self, item):
         raise NotImplementedError
 
@@ -311,7 +307,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
     def get_summary(self) -> str:
         def make_cat_map():
             cm = {}
-            for c in CATEGORIES:
+            for c in CHANGE_TYPES:
                 cm[c] = f'{CategoryNode.display_names[c]}: 0'
             return cm
 
@@ -326,7 +322,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
                 for grandchild in self._category_tree.children(child.identifier):
                     assert isinstance(grandchild, CategoryNode), f'For {grandchild}'
                     cat_count += 1
-                    cat_map[grandchild.category] = f'{grandchild.name}: {grandchild.get_summary()}'
+                    cat_map[grandchild.change_type] = f'{grandchild.name}: {grandchild.get_summary()}'
                 type_map[child.node_identifier.tree_type] = cat_map
             if cat_count == 0:
                 return 'Contents are identical'
@@ -334,7 +330,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
                 cat_map = type_map.get(tree_type, None)
                 if cat_map:
                     cat_summaries = []
-                    for cat in CATEGORIES:
+                    for cat in CHANGE_TYPES:
                         cat_summaries.append(cat_map[cat])
                     type_summaries.append(f'{tree_type_name}: {",".join(cat_summaries)}')
             return '; '.join(type_summaries)
@@ -343,10 +339,10 @@ class CategoryDisplayTree(SubtreeSnapshot):
             for child in self._category_tree.children(self.root_node.identifier):
                 assert isinstance(child, CategoryNode), f'For {child}'
                 cat_count += 1
-                cat_map[child.category] = f'{child.name}: {child.get_summary()}'
+                cat_map[child.change_type] = f'{child.name}: {child.get_summary()}'
             if cat_count == 0:
                 return 'Contents are identical'
             cat_summaries = []
-            for cat in CATEGORIES:
+            for cat in CHANGE_TYPES:
                 cat_summaries.append(cat_map[cat])
             return ', '.join(cat_summaries)

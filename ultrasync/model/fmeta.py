@@ -1,10 +1,7 @@
 import logging
-import os
 from typing import Optional
 
-from constants import NOT_TRASHED
-from index.uid import UID
-from model.category import Category
+from constants import ICON_GENERIC_FILE, NOT_TRASHED
 from model.node_identifier import ensure_int, LocalFsIdentifier, NodeIdentifier
 from model.display_node import ContainerNode, DisplayNode
 
@@ -37,7 +34,7 @@ class LocalFileNode(DisplayNode):
         self._exists = _ensure_bool(exists)
 
     def get_icon(self):
-        return self.category.name
+        return ICON_GENERIC_FILE
 
     @classmethod
     def is_file(cls):

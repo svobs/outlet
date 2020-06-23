@@ -487,13 +487,19 @@ class DisplayMutator:
 
         return self.con.display_store.append_node(parent_node_iter, row_values)
 
+    def _get_icon_for_node(self, node: DisplayNode):
+        # TODO:
+        return node.get_icon()
+
     def generate_display_cols(self, parent_iter, node: DisplayNode):
+        """Serializes a node into a list of strings which tell the TreeView how to populate each of the row's columns"""
         row_values = []
 
         self._add_checked_columns(parent_iter, node, row_values)
 
-        # Icon
-        row_values.append(node.get_icon())
+        # Icon: can vary based on pending actions
+
+        row_values.append(self._get_icon_for_node(node))
 
         # Name
         node_name = node.name
@@ -505,7 +511,6 @@ class DisplayMutator:
             row_values.append(directory)  # Directory
 
         # Size Bytes
-
         row_values.append(_format_size_bytes(node))  # Size
 
         # etc

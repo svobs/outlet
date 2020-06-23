@@ -1,7 +1,6 @@
 import logging
-from typing import Optional, Tuple
+from typing import Optional
 
-import gi
 
 from constants import TreeDisplayMode
 from model.display_node import DisplayNode
@@ -12,16 +11,16 @@ from ui.tree import tree_factory_templates
 from ui.tree.tree_actions import TreeActions
 from ui.tree.ui_listeners import TreeUiListeners
 
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
-
-from model.fmeta import Category
 from ui.tree.display_mutator import DisplayMutator
 from ui.comp.root_dir_panel import RootDirPanel
 
 from ui.tree.controller import TreePanelController
 from ui.tree.treeview_meta import TreeViewMeta
 from ui.tree.display_store import DisplayStore
+
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,8 @@ logger = logging.getLogger(__name__)
 
 
 def is_ignored_func(data_node: DisplayNode) -> bool:
-    return data_node.category == Category.Ignored
+    # not currently used
+    return False
 
 
 """
