@@ -7,7 +7,7 @@ from typing import Deque, List, Optional
 
 import treelib
 
-from command.change_action import ChangeAction
+from command.change_action import ChangeAction, ChangeType
 from gdrive.client import GDriveClient
 from index.uid import UID
 from model.display_node import DisplayNode
@@ -106,6 +106,18 @@ class Command(treelib.Node, ABC):
 
     def __repr__(self):
         return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self._status}, model={self.tgt_node}'
+
+
+# CLASS DeleteNodeCommand
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class DeleteNodeCommand(Command, ABC):
+    """A Command which deletes the target node. If to_trash is true, it's more of a move/update."""
+    def __init__(self, uid: UID, change_action: ChangeAction, tgt_node: DisplayNode, to_trash: bool, delete_empty_parent: bool):
+        Command.__init__(self, uid, change_action, tgt_node)
+        assert change_action.change_type == ChangeType.RM
+        self.to_trash = to_trash
+        self.delete_empty_parent = delete_empty_parent
 
 
 # CLASS TwoNodeCommand
