@@ -59,18 +59,25 @@ class CommandContext:
         return parent_goog_id
 
 
-# CLASS Command
+# ABSTRACT CLASS Command
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class Command(treelib.Node, ABC):
-    def __init__(self, uid, target_node: DisplayNode, change_action: ChangeAction):
+    """Every command has an associated target node and a ChangeAction."""
+    def __init__(self, uid: UID, change_action: ChangeAction, tgt_node: DisplayNode):
         treelib.Node.__init__(self, identifier=uid)
-        self._target_node = target_node
-        """If the ChangeAction uses a dst_uid, this will be it. Otherwise it will use a src_uid"""
+
         self._change_action = change_action
+        self.tgt_node = tgt_node
+        """If the ChangeAction uses a dst_uid, this will be it. Otherwise it will use a src_uid"""
+
         self._status = CommandStatus.NOT_STARTED
         self._error = None
         self.tag = f'{__class__.__name__}(uid={self.identifier})'
+
+    @property
+    def uid(self):
+        return self.identifier
 
     @abstractmethod
     def execute(self, context: CommandContext):
@@ -90,9 +97,6 @@ class Command(treelib.Node, ABC):
     def status(self) -> CommandStatus:
         return self._status
 
-    def get_target_node(self) -> DisplayNode:
-        return self._target_node
-
     def set_error(self, err):
         self._error = err
         self._status = CommandStatus.STOPPED_ON_ERROR
@@ -101,7 +105,27 @@ class Command(treelib.Node, ABC):
         return self._error
 
     def __repr__(self):
-        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self._status}, model={self._target_node}'
+        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self._status}, model={self.tgt_node}'
+
+
+# CLASS TwoNodeCommand
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class TwoNodeCommand(Command, ABC):
+    """Same functionality as Command but with an additional "source" node. Its "target" node represents the destination node."""
+    def __init__(self, uid: UID, change_action: ChangeAction, tgt_node: DisplayNode, src_node: DisplayNode):
+        Command.__init__(self, uid, change_action, tgt_node)
+        self.src_node = src_node
+
+
+# CLASS CopyNodeCommand
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class CopyNodeCommand(TwoNodeCommand, ABC):
+    """A TwoNodeCommand which does a copy from src to tgt"""
+    def __init__(self, uid: UID, change_action: ChangeAction, tgt_node: DisplayNode, src_node: DisplayNode, overwrite: bool):
+        TwoNodeCommand.__init__(self, uid, change_action, tgt_node)
+        self.overwrite = overwrite
 
 
 # CLASS CommandBatch

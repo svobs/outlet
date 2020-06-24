@@ -5,15 +5,15 @@ from typing import Any, Callable, Deque, Iterable, List, Optional
 
 from pydispatch import dispatcher
 
+from stopwatch_sec import Stopwatch
 from model.display_node import DisplayNode
 from ui import actions
 
 logger = logging.getLogger(__name__)
 
+
 # ABSTRACT CLASS SubtreeSnapshot
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-from stopwatch_sec import Stopwatch
-
 
 class SubtreeSnapshot(ABC):
     def __init__(self, root_node: DisplayNode):
@@ -24,7 +24,7 @@ class SubtreeSnapshot(ABC):
         self._stats_loaded = False
 
     # From the root node_identifier
-    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @property
     def node_identifier(self):
@@ -57,7 +57,7 @@ class SubtreeSnapshot(ABC):
         return path.startswith(self.root_path)
 
     # Getters & search
-    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @abstractmethod
     def get_children_for_root(self) -> Iterable[DisplayNode]:
@@ -106,7 +106,7 @@ class SubtreeSnapshot(ABC):
         return ancestors
 
     # Stats
-    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @abstractmethod
     def get_summary(self):
