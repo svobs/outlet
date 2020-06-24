@@ -81,7 +81,7 @@ class DisplayMutator:
     def expand_and_select_node(self, selection: NodeIdentifier):
         def do_in_ui():
             with self._lock:
-                item = self.con.parent_win.application.cache_manager.get_item_for_uid(selection.uid, selection.tree_type)
+                item = self.con.parent_win.application.cache_manager.get_item_for_uid_and_tree_type(selection.uid, selection.tree_type)
                 ancestor_list: Iterable[DisplayNode] = self.con.get_tree().get_ancestors(item)
 
                 tree_iter = None

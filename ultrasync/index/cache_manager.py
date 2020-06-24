@@ -365,7 +365,13 @@ class CacheManager:
     def get_item_for_goog_id(self, goog_id: str) -> UID:
         return self._gdrive_cache.get_item_for_goog_id(goog_id)
 
-    def get_item_for_uid(self, uid: UID, tree_type):
+    def get_item_for_uid(self, uid: UID):
+        item = self._gdrive_cache.get_item_for_uid(uid)
+        if not item:
+            item = self._local_disk_cache.get_item(uid)
+        return item
+
+    def get_item_for_uid_and_tree_type(self, uid: UID, tree_type):
         if tree_type == TREE_TYPE_GDRIVE:
             return self._gdrive_cache.get_item_for_uid(uid)
         elif tree_type == TREE_TYPE_LOCAL_DISK:

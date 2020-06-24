@@ -4,7 +4,6 @@ from command.change_action import ChangeType
 from constants import GDRIVE_PATH_PREFIX, ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, ROOT_PATH
 from index.uid import UID
 
-from model.category import Category
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, LogicalNodeIdentifier, NodeIdentifier
 
 logger = logging.getLogger(__name__)
@@ -60,11 +59,11 @@ class NodeIdentifierFactory:
         else:
             raise RuntimeError('no tree_type and no full_path supplied')
 
-    def _for_tree_type_local(self, full_path: str = None, uid: UID = None, category: Category = Category.NA) -> LocalFsIdentifier:
+    def _for_tree_type_local(self, full_path: str = None, uid: UID = None) -> LocalFsIdentifier:
         if not uid:
             uid = self.application.cache_manager.get_uid_for_path(full_path)
 
-        return LocalFsIdentifier(uid=uid, full_path=full_path, category=category)
+        return LocalFsIdentifier(uid=uid, full_path=full_path)
 
     def _for_tree_type_gdrive(self, full_path: str = None, uid: UID = None) -> GDriveIdentifier:
         if not uid:

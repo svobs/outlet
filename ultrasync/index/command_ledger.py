@@ -37,7 +37,7 @@ class CommandLedger:
             # TODO: (1) persist each command first
 
             # (2) Add model to lookup table
-            display_node = command.get_model()
+            display_node = command.get_target_node()
             self.model_command_dict[display_node.uid] = command
 
             # (3) add each model node to the relevant cache trees

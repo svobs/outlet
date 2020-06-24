@@ -7,10 +7,12 @@ from typing import Deque, List, Optional
 
 import treelib
 
+from command.change_action import ChangeAction
 from gdrive.client import GDriveClient
 from index.uid import UID
 from model.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveWholeTree
+from model.goog_node import GoogNode
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +41,8 @@ class CommandContext:
             self.gdrive_client = GDriveClient(application=application, tree_id=None)
             self.gdrive_tree: GDriveWholeTree = self.cache_manager.get_gdrive_whole_tree(tree_id=tree_id)
 
-    def resolve_parent_ids_to_goog_ids(self, node: DisplayNode) -> str:
-        parent_uids: List[UID] = node.parent_uids
+    def resolve_parent_ids_to_goog_ids(self, node: GoogNode) -> str:
+        parent_uids: List[UID] = node.get_parent_uids()
         if not parent_uids:
             raise RuntimeError(f'Parents are required but item has no parents: {node}')
 
@@ -61,9 +63,11 @@ class CommandContext:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class Command(treelib.Node, ABC):
-    def __init__(self, uid, model_obj: DisplayNode = None):
+    def __init__(self, uid, target_node: DisplayNode, change_action: ChangeAction):
         treelib.Node.__init__(self, identifier=uid)
-        self._model = model_obj
+        self._target_node = target_node
+        """If the ChangeAction uses a dst_uid, this will be it. Otherwise it will use a src_uid"""
+        self._change_action = change_action
         self._status = CommandStatus.NOT_STARTED
         self._error = None
         self.tag = f'{__class__.__name__}(uid={self.identifier})'
@@ -86,8 +90,8 @@ class Command(treelib.Node, ABC):
     def status(self) -> CommandStatus:
         return self._status
 
-    def get_model(self) -> DisplayNode:
-        return self._model
+    def get_target_node(self) -> DisplayNode:
+        return self._target_node
 
     def set_error(self, err):
         self._error = err
@@ -97,7 +101,7 @@ class Command(treelib.Node, ABC):
         return self._error
 
     def __repr__(self):
-        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self._status}, model={self._model}'
+        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self._status}, model={self._target_node}'
 
 
 # CLASS CommandBatch
