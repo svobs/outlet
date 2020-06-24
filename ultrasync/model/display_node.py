@@ -91,10 +91,6 @@ class DisplayNode(Node, ABC):
         return self.node_identifier.full_path
 
     @property
-    def category(self):
-        return self.node_identifier.category
-
-    @property
     def uid(self) -> UID:
         return self.node_identifier.uid
 
@@ -272,13 +268,13 @@ class ContainerNode(HasChildren, DisplayNode):
             return False
 
         return other.uid == self.uid and self.node_identifier.tree_type == other.node_identifier.tree_type and self.full_path == other.full_path \
-               and other.name == self.name and other.trashed == self.trashed and self.get_size_bytes() == other.get_size_bytes()
+            and other.name == self.name and other.trashed == self.trashed and self.get_size_bytes() == other.get_size_bytes()
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return f'ContainerNode({self.node_identifier} cat="{self.category.name[0]}" {self.get_summary()})'
+        return f'ContainerNode({self.node_identifier} {self.get_summary()})'
 
 
 # CLASS CategoryNode
@@ -369,10 +365,6 @@ class EphemeralNode(DisplayNode, ABC):
     @property
     def uid(self):
         raise RuntimeError(f'Cannot call uid() for {self}')
-
-    @property
-    def category(self):
-        raise RuntimeError
 
     @classmethod
     def is_ephemereal(cls) -> bool:

@@ -406,5 +406,5 @@ class LocalDiskMasterCache:
         change_ts = int(stat.st_ctime * 1000)
         assert change_ts > 100000000000, f'change_ts too small: {change_ts} for path: {path}'
 
-        node_identifier = LocalFsIdentifier(uid=uid, full_path=full_path, category=category)
+        node_identifier = LocalFsIdentifier(uid=uid, full_path=full_path)
         return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, True)

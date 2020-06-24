@@ -257,7 +257,7 @@ class TreeUiListeners:
         if treeiter is not None and len(treeiter) == 1:
             meta = self.con.display_store.get_node_data(treeiter)
             if isinstance(meta, LocalFileNode):
-                logger.info(f'User selected cat="{meta.category.name}" md5="{meta.md5}" path="{meta.full_path}"')
+                logger.info(f'User selected md5="{meta.md5}" path="{meta.full_path}"')
             else:
                 logger.info(f'User selected {self.con.display_store.get_node_name(treeiter)}')
         return self.on_selection_changed(treeiter)
@@ -291,7 +291,7 @@ class TreeUiListeners:
             raise RuntimeError(f'Node is not a directory: {type(parent_data)}; node_data')
 
         dispatcher.send(signal=actions.NODE_EXPANSION_TOGGLED, sender=self.con.tree_id, parent_iter=parent_iter, parent_path=parent_path,
-                        node_data=parent_data, is_expanded=is_expanded, expand_all=False)
+                        node=parent_data, is_expanded=is_expanded, expand_all=False)
 
         return True
 

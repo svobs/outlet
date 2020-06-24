@@ -249,9 +249,9 @@ class DisplayMutator:
         # Requests the cacheman to recalculate stats for this subtree
         dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id)
 
-    def _on_node_expansion_toggled(self, sender: str, parent_iter: Gtk.TreeIter, parent_path, node_data: DisplayNode, is_expanded: bool):
+    def _on_node_expansion_toggled(self, sender: str, parent_iter: Gtk.TreeIter, parent_path, node: DisplayNode, is_expanded: bool):
         # Callback for actions.NODE_EXPANSION_TOGGLED:
-        logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node_data}"')
+        logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node}"')
 
         if not self._enable_state_listeners:
             logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_EXPANSION_TOGGLED}: listeners disabled"')
@@ -264,7 +264,7 @@ class DisplayMutator:
                     # Remove Loading node:
                     self.con.display_store.remove_first_child(parent_iter)
 
-                    children = self.con.tree_builder.get_children(node_data)
+                    children = self.con.tree_builder.get_children(node)
                     self._append_children(children=children, parent_iter=parent_iter)
 
                     # Need to call this because removing the Loading node leaves the parent with no children,

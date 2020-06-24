@@ -109,9 +109,6 @@ class DisplayStore:
         if data_node.is_ephemereal():
             logger.debug('Disallowing checkbox toggle because node is ephemereal')
             return
-        elif self.treeview_meta.is_ignored_func and self.treeview_meta.is_ignored_func(data_node):
-            logger.debug('Disallowing checkbox toggle because node is in IGNORED category')
-            return
         checked_value = not self.is_node_checked(tree_path)
         self.set_row_checked(tree_path, checked_value)
 
