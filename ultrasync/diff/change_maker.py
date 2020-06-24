@@ -67,7 +67,7 @@ class OneSide:
                 dst_node.goog_id = existing_node.goog_id
             else:
                 # Not exist: assign new UID. We will later associate this with a goog_id once it's made existent
-                dst_node.uid = self.application.uid_generator.get_new_uid()
+                dst_node.uid = self.application.uid_generator.next_uid()
 
         return dst_node
 
@@ -82,7 +82,7 @@ class OneSide:
         else:
             dst_uid = None
 
-        action_uid = self.uid_generator.get_new_uid()
+        action_uid = self.uid_generator.next_uid()
         return ChangeAction(change_type=change_type, action_uid=action_uid, src_uid=src_uid, dst_uid=dst_uid)
 
     def add_change_item(self, change_type: ChangeType, src_node: DisplayNode, dst_node: DisplayNode = None):
@@ -137,7 +137,7 @@ class OneSide:
 
             if tree_type == TREE_TYPE_GDRIVE:
                 logger.debug(f'Creating GoogFolderToAdd for {parent_path}')
-                new_uid = self.uid_generator.get_new_uid()
+                new_uid = self.uid_generator.next_uid()
                 folder_name = os.parent_path.basename(parent_path)
                 new_parent = GoogFolder(GDriveIdentifier(uid=new_uid, full_path=None), goog_id=None, item_name=folder_name, trashed=False,
                                         drive_id=None, my_share=False, sync_ts=None, all_children_fetched=True)

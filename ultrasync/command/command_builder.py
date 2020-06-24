@@ -56,7 +56,7 @@ class CommandBuilder:
         else:
             raise RuntimeError('Neither change_tree nor delete_list specified!')
 
-        return CommandBatch(self._uid_generator.get_new_uid(), command_tree)
+        return CommandBatch(self._uid_generator.next_uid(), command_tree)
 
     def _create_change_action(self, change_type: ChangeType, src_node: DisplayNode, dst_node: DisplayNode = None):
         if src_node:
@@ -69,7 +69,7 @@ class CommandBuilder:
         else:
             dst_uid = None
 
-        action_uid = self._uid_generator.get_new_uid()
+        action_uid = self._uid_generator.next_uid()
         return ChangeAction(change_type=change_type, action_uid=action_uid, src_uid=src_uid, dst_uid=dst_uid)
 
     def _populate_command_tree_from_delete_list(self, delete_list: List[DisplayNode], command_tree: treelib.Tree, cmd_root):
@@ -108,56 +108,56 @@ class CommandBuilder:
         build_dict = {}
         build_dict[ChangeType.MKDIR] = {
             GD: lambda tgt, src, change:
-            CreateGDriveFolderCommand(target_node=tgt, change_action=change, uid=self._uid_generator.get_new_uid()),
+            CreateGDriveFolderCommand(target_node=tgt, change_action=change, uid=self._uid_generator.next_uid()),
             LO: lambda tgt, src, change:
-            CreatLocalDirCommand(target_node=tgt, change_action=change, uid=self._uid_generator.get_new_uid())
+            CreatLocalDirCommand(target_node=tgt, change_action=change, uid=self._uid_generator.next_uid())
         }
 
         build_dict[ChangeType.CP] = {
             LO_LO: lambda tgt, src, change:
-            CopyFileLocallyCommand(target_node=tgt, src_node=src, change_action=change, uid=self._uid_generator.get_new_uid(), overwrite=False),
+            CopyFileLocallyCommand(target_node=tgt, src_node=src, change_action=change, uid=self._uid_generator.next_uid(), overwrite=False),
 
             LO_GD: lambda tgt, src, change:
-            UploadToGDriveCommand(target_node=tgt, src_node=src, change_action=change, uid=self._uid_generator.get_new_uid()),
+            UploadToGDriveCommand(target_node=tgt, src_node=src, change_action=change, uid=self._uid_generator.next_uid()),
 
             GD_LO: lambda tgt, src, change:
-            DownloadFromGDriveCommand(target_node=tgt, src_node=src, change_action=change, uid=self._uid_generator.get_new_uid())
+            DownloadFromGDriveCommand(target_node=tgt, src_node=src, change_action=change, uid=self._uid_generator.next_uid())
         }
 
         build_dict[ChangeType.MV] = {
             LO_LO: lambda tgt, src, change:
-            MoveFileLocallyCommand(target_node=tgt, src_node=src, change_action=change, uid=self._uid_generator.get_new_uid()),
+            MoveFileLocallyCommand(target_node=tgt, src_node=src, change_action=change, uid=self._uid_generator.next_uid()),
 
             GD_GD: lambda tgt, src, change:
-            MoveFileGDriveCommand(target_node=tgt, src_node=src, change_action=change, uid=self._uid_generator.get_new_uid()),
+            MoveFileGDriveCommand(target_node=tgt, src_node=src, change_action=change, uid=self._uid_generator.next_uid()),
 
             LO_GD: lambda tgt, src, change:
-            UploadToGDriveCommand(target_node=tgt, src_node=src, change_action=change, uid=self._uid_generator.get_new_uid()),
+            UploadToGDriveCommand(target_node=tgt, src_node=src, change_action=change, uid=self._uid_generator.next_uid()),
 
             GD_LO: lambda tgt, src, change:
-            DownloadFromGDriveCommand(target_node=tgt, src_node=src, change_action=change, uid=self._uid_generator.get_new_uid())
+            DownloadFromGDriveCommand(target_node=tgt, src_node=src, change_action=change, uid=self._uid_generator.next_uid())
         }
 
         build_dict[ChangeType.RM] = {
             LO: lambda tgt_node, src_node, change:
-            DeleteLocalFileCommand(target_node=tgt_node, change_action=change, uid=self._uid_generator.get_new_uid(),
+            DeleteLocalFileCommand(target_node=tgt_node, change_action=change, uid=self._uid_generator.next_uid(),
                                    to_trash=True, delete_empty_parent=True),
 
             GD: lambda tgt_node, src_node, change:
-            DeleteGDriveFileCommand(target_node=tgt_node, change_action=change, uid=self._uid_generator.get_new_uid(),
+            DeleteGDriveFileCommand(target_node=tgt_node, change_action=change, uid=self._uid_generator.next_uid(),
                                     to_trash=True, delete_empty_parent=True)
         }
 
         build_dict[ChangeType.UP] = {
             LO_LO: lambda tgt_node, src_node, change:
-            CopyFileLocallyCommand(target_node=tgt_node, src_node=src_node, change_action=change, uid=self._uid_generator.get_new_uid(),
+            CopyFileLocallyCommand(target_node=tgt_node, src_node=src_node, change_action=change, uid=self._uid_generator.next_uid(),
                                    overwrite=True),
 
             LO_GD: lambda tgt_node, src_node, change:
-            UploadToGDriveCommand(target_node=tgt_node, src_node=src_node, change_action=change, uid=self._uid_generator.get_new_uid()),
+            UploadToGDriveCommand(target_node=tgt_node, src_node=src_node, change_action=change, uid=self._uid_generator.next_uid()),
 
             GD_LO: lambda tgt_node, src_node, change:
-            DownloadFromGDriveCommand(target_node=tgt_node, src_node=src_node, change_action=change, uid=self._uid_generator.get_new_uid())
+            DownloadFromGDriveCommand(target_node=tgt_node, src_node=src_node, change_action=change, uid=self._uid_generator.next_uid())
         }
         return build_dict
 

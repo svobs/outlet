@@ -119,7 +119,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
             # Create sub-root (i.e. 'GDrive' or 'Local Disk')
             subroot_node = self._get_subroot_node(item.node_identifier)
             if not subroot_node:
-                uid = self.uid_generator.get_new_uid()
+                uid = self.uid_generator.next_uid()
                 node_identifier = self.node_identifier_factory.for_values(tree_type=item.node_identifier.tree_type, uid=uid)
                 subroot_node = RootTypeNode(node_identifier=node_identifier)
                 logger.debug(f'[{self.tree_id}] Creating pre-ancestor RootType node: {node_identifier}')

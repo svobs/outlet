@@ -139,7 +139,7 @@ class TreeUiListeners:
         selected_nodes: List[DisplayNode] = self.con.get_multiple_selection()
         if selected_nodes:
             # Avoid complicated, undocumented GTK3 garbage by just sending a UID along with needed data via the dispatcher. See _check_drop()
-            dd_uid = self.con.parent_win.application.uid_generator.get_new_uid()
+            dd_uid = self.con.parent_win.application.uid_generator.next_uid()
             action = drag_context.get_selected_action()
             _drag_data = DragAndDropData(dd_uid, self.con, selected_nodes)
             dispatcher.send(signal=actions.DRAG_AND_DROP, sender=self.con.tree_id, data=_drag_data)

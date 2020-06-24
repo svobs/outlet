@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
-    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL, ROOT_UID
+    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL, ROOT_UID, TREE_TYPE_GDRIVE
 from gdrive.client import GDriveClient, MetaObserver
 from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from index.uid import UID
@@ -235,6 +235,8 @@ class GDriveTreeLoader:
         tree = GDriveWholeTree(self.node_identifier_factory)
         invalidate_uids: Dict[UID, str] = {}
 
+        items_without_goog_ids: List[GoogNode] = []
+
         # DIRs:
         sw = Stopwatch()
         dir_rows = self.cache.get_gdrive_dirs()
@@ -243,12 +245,25 @@ class GDriveTreeLoader:
         actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=f'Retrieved {len(dir_rows):n} Google Drive dirs')
 
         for uid_int, goog_id, item_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
-            uid = UID(uid_int)
-            uid = self.cache_manager.get_uid_for_goog_id(goog_id, uid)
-            item = GoogFolder(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, item_name=item_name,
+            uid_from_cache = UID(uid_int)
+            item = GoogFolder(GDriveIdentifier(uid=uid_from_cache, full_path=None), goog_id=goog_id, item_name=item_name,
                               trashed=item_trashed, drive_id=drive_id, my_share=my_share,
                               sync_ts=sync_ts, all_children_fetched=all_children_fetched)
-            tree.id_dict[uid] = item
+
+            if goog_id:
+                uid = self.cache_manager.get_uid_for_goog_id(goog_id, uid_from_cache)
+                if uid_from_cache != uid:
+                    # Duplicate entry with same goog_id. Here's a useful SQLite query:
+                    # "SELECT goog_id, COUNT(*) c FROM goog_file GROUP BY goog_id HAVING c > 1;"
+                    logger.warning(f'Skipping what appears to be a duplicate entry: goog_id="{goog_id}", uid={uid_from_cache}')
+                    invalidate_uids[uid_from_cache] = goog_id
+                    continue
+            else:
+                # no goog_id: indicates a node being copied
+                self.uid_generator.ensure_next_uid_greater_than(max_uid)
+                items_without_goog_ids.append(item)
+
+            tree.id_dict[uid_from_cache] = item
 
             if item.uid >= max_uid:
                 max_uid = item.uid
@@ -262,31 +277,37 @@ class GDriveTreeLoader:
 
         actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=f'Retreived {len(file_rows):n} Google Drive files')
 
-        for uid_int, goog_id, item_name, item_trashed, size_bytes_str, md5, create_ts, modify_ts, owner_id, drive_id, \
+        for uid_int, goog_id, item_name, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_id, drive_id, \
                 my_share, version, head_revision_id, sync_ts in file_rows:
-            size_bytes = None if size_bytes_str is None else int(size_bytes_str)
             uid_from_cache = UID(uid_int)
-            uid = self.cache_manager.get_uid_for_goog_id(goog_id, uid_from_cache)
-            if uid_from_cache == uid:
-                item = GoogFile(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, item_name=item_name,
-                                trashed=item_trashed, drive_id=drive_id, my_share=my_share, version=int(version),
-                                head_revision_id=head_revision_id, md5=md5,
-                                create_ts=int(create_ts), modify_ts=int(modify_ts), size_bytes=size_bytes,
-                                owner_id=owner_id, sync_ts=sync_ts)
-                tree.id_dict[uid] = item
 
-                if item.uid >= max_uid:
-                    max_uid = item.uid
+            item = GoogFile(GDriveIdentifier(uid=uid_from_cache, full_path=None), goog_id=goog_id, item_name=item_name,
+                            trashed=item_trashed, drive_id=drive_id, my_share=my_share, version=version,
+                            head_revision_id=head_revision_id, md5=md5,
+                            create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes,
+                            owner_id=owner_id, sync_ts=sync_ts)
+
+            if goog_id:
+                uid = self.cache_manager.get_uid_for_goog_id(goog_id, uid_from_cache)
+                if uid_from_cache != uid:
+                    # Duplicate entry with same goog_id. Here's a useful SQLite query:
+                    # "SELECT goog_id, COUNT(*) c FROM goog_file GROUP BY goog_id HAVING c > 1;"
+                    logger.warning(f'Skipping what appears to be a duplicate entry: goog_id="{goog_id}", uid={uid_from_cache}')
+                    invalidate_uids[uid_from_cache] = goog_id
+                    continue
             else:
-                # Duplicate entry with same goog_id. Here's a useful SQLite query:
-                # "SELECT goog_id, COUNT(*) c FROM goog_file GROUP BY goog_id HAVING c > 1;"
-                logger.warning(f'Skipping what appears to be a duplicate entry: goog_id="{goog_id}", uid={uid_from_cache}')
-                invalidate_uids[uid_from_cache] = goog_id
+                # no goog_id: indicates a node being copied
+                self.uid_generator.ensure_next_uid_greater_than(max_uid)
+                items_without_goog_ids.append(item)
+
+            tree.id_dict[uid_from_cache] = item
+
+            if item.uid >= max_uid:
+                max_uid = item.uid
 
         logger.debug(f'{sw} Loaded {file_count} Google Drive files')
 
         if is_complete:
-
             # CHILD-PARENT MAPPINGS:
             sw = Stopwatch()
             id_parent_mappings = self.cache.get_id_parent_mappings()
@@ -307,8 +328,10 @@ class GDriveTreeLoader:
             logger.debug(f'{sw} Loaded {mapping_count} Google Drive file-folder mappings')
 
         logger.debug(f'{sw_total} Loaded {len(tree.id_dict):n} items from {file_count:n} file rows and {dir_count:n} dir rows')
+        logger.debug(f'Found {len(items_without_goog_ids)} items without goog_ids')
+        # TODO: do stuff with the above items ^^^
 
-        self.uid_generator.set_next_uid(max_uid + 1)
+        self.uid_generator.ensure_next_uid_greater_than(max_uid)
         return tree
 
     def _determine_roots(self, tree: GDriveWholeTree):
@@ -320,7 +343,7 @@ class GDriveTreeLoader:
             if item.uid >= max_uid:
                 max_uid = item.uid
 
-        self.uid_generator.set_next_uid(max_uid + 1)
+        self.uid_generator.ensure_next_uid_greater_than(max_uid + 1)
 
     def _translate_parent_ids(self, tree: GDriveWholeTree, id_parent_mappings: List[Tuple[UID, None, str, int]]) -> List[Tuple]:
         sw = Stopwatch()

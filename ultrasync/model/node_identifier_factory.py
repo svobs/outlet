@@ -70,7 +70,7 @@ class NodeIdentifierFactory:
             if full_path == ROOT_PATH:
                 uid = ROOT_UID
             else:
-                uid = self.application.uid_generator.get_new_uid()
+                uid = self.application.uid_generator.next_uid()
         elif uid == ROOT_UID and not full_path:
             full_path = ROOT_PATH
 

@@ -236,8 +236,7 @@ class UploadToGDriveCommand(Command):
                         else:
                             data_to_update = existing_node
                 if data_to_update:
-                    goog_node: GoogNode = context.gdrive_client.update_existing_file(raw_item=data_to_update, local_full_path=src_file_path,
-                                                                                     uid=self._target_node.uid)
+                    goog_node: GoogNode = context.gdrive_client.update_existing_file(raw_item=data_to_update, local_full_path=src_file_path)
                     # Need to add these in (GDrive client cannot resolve them):
                     goog_node.set_parent_uids(self._target_node.get_parent_uids())
 
@@ -276,7 +275,7 @@ class UploadToGDriveCommand(Command):
                     return
                 else:
                     # Note that we will reuse the FileToAdd's UID
-                    goog_node: GoogNode = context.gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id, uid=self._target_node.uid)
+                    goog_node: GoogNode = context.gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id)
                     # Need to add these in (GDrive client cannot resolve them):
                     goog_node.set_parent_uids(self._target_node.get_parent_uids())
 

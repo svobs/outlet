@@ -16,11 +16,11 @@ class UidGenerator(ABC):
         pass
 
     @abstractmethod
-    def get_new_uid(self) -> UID:
+    def next_uid(self) -> UID:
         pass
 
     @abstractmethod
-    def set_next_uid(self, uid: UID):
+    def ensure_next_uid_greater_than(self, uid: UID):
         pass
 
 
@@ -28,10 +28,10 @@ class NullUidGenerator(UidGenerator):
     def __init__(self):
         super().__init__()
 
-    def get_new_uid(self) -> UID:
+    def next_uid(self) -> UID:
         return NULL_UID
 
-    def set_next_uid(self, uid: UID):
+    def ensure_next_uid_greater_than(self, uid: UID):
         pass
 
 
@@ -54,11 +54,11 @@ class PersistentAtomicIntUidGenerator(UidGenerator):
             self._config.write(CONFIG_KEY_LAST_UID, self._last_uid_written)
         return self._value
 
-    def get_new_uid(self) -> UID:
+    def next_uid(self) -> UID:
         with self._lock:
             return UID(self._set(self._value + 1))
 
-    def set_next_uid(self, uid: int):
+    def ensure_next_uid_greater_than(self, uid: int):
         with self._lock:
             if uid > self._value:
                 new_val = self._set(uid)

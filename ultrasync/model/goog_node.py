@@ -40,7 +40,7 @@ class GoogNode(HasParentList, DisplayNode, ABC):
         self.my_share = my_share
         """If true, I own it but I have shared it with other users"""
 
-        self._sync_ts = sync_ts
+        self._sync_ts = ensure_int(sync_ts)
 
     @property
     def name(self):
@@ -139,7 +139,7 @@ class GoogFile(GoogNode):
                  my_share, create_ts, modify_ts, size_bytes, owner_id, sync_ts):
         GoogNode.__init__(self, node_identifier, goog_id, item_name, trashed, drive_id, my_share, sync_ts)
 
-        self.version = version
+        self.version = ensure_int(version)
         self.head_revision_id = head_revision_id
         self._md5 = md5
         self.my_share = my_share

@@ -135,8 +135,6 @@ class GDriveMasterCache:
             raise RuntimeError('GDriveWholeTree not loaded!')
         if not isinstance(node, GoogNode):
             raise RuntimeError(f'Unrecognized node type: {node}')
-        if not node.goog_id:
-            raise RuntimeError(f'Node is missing Google ID: {node}')
 
         # Validate parent mappings
         parent_uids = node.get_parent_uids()
@@ -250,7 +248,8 @@ class GDriveMasterCache:
         cache_path = cache_info.cache_location
         return cache_path
 
-    def get_children(self, node: DisplayNode):
+    def get_children(self, node: DisplayNode) -> List[GoogNode]:
+        assert isinstance(node, GoogNode)
         return self._my_gdrive.get_children(node)
 
     def get_parent_for_item(self, item: DisplayNode, required_subtree_path: str = None):
