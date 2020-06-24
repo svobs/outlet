@@ -429,7 +429,7 @@ class DisplayMutator:
 
         logger.debug(f'[{self.con.tree_id}]Displayed rows count: {len(self.con.display_store.displayed_rows)}')
 
-    def _append_dir_node_and_empty_child(self, parent_iter, node_data: DisplayNode):
+    def _append_dir_node_and_loading_child(self, parent_iter, node_data: DisplayNode):
         dir_node_iter = self._append_dir_node(parent_iter, node_data)
         self._append_loading_child(dir_node_iter)
         return dir_node_iter
@@ -444,7 +444,7 @@ class DisplayMutator:
             # Append all underneath tree_iter
             for child in children:
                 if child.is_dir():
-                    self._append_dir_node_and_empty_child(parent_iter, child)
+                    self._append_dir_node_and_loading_child(parent_iter, child)
                 else:
                     self._append_file_node(parent_iter, child)
 

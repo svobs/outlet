@@ -163,7 +163,7 @@ class GDriveMasterCache:
             logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')
         elif node.goog_id:
             previous_uid = self.get_uid_for_goog_id(goog_id=node.goog_id)
-            if previous_uid:
+            if previous_uid and node.uid != previous_uid:
                 logger.warning(f'Found node in cache with same GoogID ({node.goog_id}) but different UID ('
                                f'{previous_uid}). Changing UID of item (was: {node.uid}) to match and overwrite previous node')
                 node.uid = previous_uid
