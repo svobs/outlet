@@ -36,11 +36,11 @@ class ContentFirstDiffer(ChangeMaker):
     def _compare_paths_for_same_md5(self, lefts: Iterable[DisplayNode], rights: Iterable[DisplayNode]) -> Iterable[DisplayNodePair]:
         compare_result: List[DisplayNodePair] = []
 
-        if lefts is None:
+        if not lefts:
             for right in rights:
                 compare_result.append(DisplayNodePair(None, right))
             return compare_result
-        if rights is None:
+        if not rights:
             for left in lefts:
                 compare_result.append(DisplayNodePair(None, left))
             return compare_result
@@ -125,15 +125,17 @@ class ContentFirstDiffer(ChangeMaker):
         for md5 in md5_set:
             # Grant just a tiny bit of time to other tasks in the CPython thread (e.g. progress bar):
             time.sleep(0.00001)
+            if md5 == 'c76172c81f4d7ffcfffb2e30aa028487':
+                logger.info('stop here')
 
             # Set of items on left with same MD5:
             left_items_for_given_md5: Iterable[DisplayNode] = left_md5s.get_second_dict(md5).values()
             right_items_for_given_md5: Iterable[DisplayNode] = right_md5s.get_second_dict(md5).values()
 
-            if left_items_for_given_md5 is None:
+            if not left_items_for_given_md5:
                 # Content is only present on RIGHT side
                 list_of_lists_of_right_items_for_given_md5.append(right_items_for_given_md5)
-            elif right_items_for_given_md5 is None:
+            elif not right_items_for_given_md5:
                 # Content is only present on LEFT side
                 list_of_lists_of_left_items_for_given_md5.append(left_items_for_given_md5)
             elif compare_paths_also:
@@ -163,9 +165,9 @@ class ContentFirstDiffer(ChangeMaker):
                         """Looks like one side has additional file(s) with same signature 
                            - essentially a duplicate.. Remember, we know each side already contains
                            at least one copy with the given signature"""
-                        if pair.left is None:
+                        if not pair.left:
                             orphaned_right_dup_md5.append(pair.right)
-                        elif pair.right is None:
+                        elif not pair.right:
                             orphaned_left_dup_md5.append(pair.left)
                 if orphaned_left_dup_md5:
                     list_of_lists_of_left_items_for_given_md5.append(orphaned_left_dup_md5)
@@ -188,15 +190,19 @@ class ContentFirstDiffer(ChangeMaker):
                         if len(path_matches_right) > 1:
                             # If this ever happens it is a bug
                             raise RuntimeError(f'More than one match for path: {left_on_right_path}')
-                        # UPDATED
-                        if logger.isEnabledFor(logging.DEBUG):
-                            left_path = self.left_side.underlying_tree.get_full_path_for_item(left_item)
-                            logger.debug(f'File updated: {left_item.md5} <- "{left_path}" -> {path_matches_right[0].md5}')
-                        # Same path, different md5 -> Updated
-                        self.append_update_right_to_left(path_matches_right[0], left_item)
-                        self.append_update_left_to_right(left_item, path_matches_right[0])
-                        count_updated_pairs += 1
-                        continue
+                        path_match_right = path_matches_right[0]
+                        if path_match_right.exists():  # treat items which don't exist...as if they don't exist
+                            # UPDATED
+                            assert path_match_right.md5 != left_item.md5, \
+                                f'Expected different MD5 for left item ({left_item}) and right item ({path_match_right})'
+                            if logger.isEnabledFor(logging.DEBUG):
+                                left_path = self.left_side.underlying_tree.get_full_path_for_item(left_item)
+                                logger.debug(f'File updated: {left_item.md5} <- "{left_path}" -> {path_matches_right[0].md5}')
+                            # Same path, different md5 -> Updated
+                            self.append_update_right_to_left(path_matches_right[0], left_item)
+                            self.append_update_left_to_right(left_item, path_matches_right[0])
+                            count_updated_pairs += 1
+                            continue
                     # No match? fall through
                 # DUPLICATE ADDED on right + DELETED on left
                 if logger.isEnabledFor(logging.DEBUG):
@@ -213,7 +219,8 @@ class ContentFirstDiffer(ChangeMaker):
             for right_item in dup_md5s_right:
                 if compare_paths_also:
                     right_on_left_path: str = self.get_path_moved_to_left(right_item)
-                    if self.left_side.underlying_tree.get_for_path(right_on_left_path):
+                    matches = self.left_side.underlying_tree.get_for_path(right_on_left_path)
+                    if matches and matches[0].exists():
                         # UPDATED. Logically this has already been covered (above) since our iteration is symmetrical:
                         continue
                 # DUPLICATE ADDED on right + DELETED on left

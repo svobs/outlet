@@ -49,13 +49,14 @@ class GDriveSubtree(SubtreeSnapshot):
 
         while len(queue) > 0:
             item: GoogNode = queue.popleft()
-            if item.is_dir():
-                child_list = self._whole_tree.get_children(item)
-                if child_list:
-                    for child in child_list:
-                        queue.append(child)
-            elif item.md5:
-                md5_dict.put(item)
+            if item.exists():
+                if item.is_dir():
+                    child_list = self._whole_tree.get_children(item)
+                    if child_list:
+                        for child in child_list:
+                            queue.append(child)
+                elif item.md5:
+                    md5_dict.put(item)
 
         logger.info(f'{md5_set_stopwatch} Found {md5_dict.total_entries} MD5s')
         return md5_dict

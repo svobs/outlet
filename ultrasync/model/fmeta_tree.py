@@ -64,7 +64,7 @@ class FMetaTree(SubtreeSnapshot):
         md5_dict: Md5BeforePathDict = Md5BeforePathDict()
         files_list, dir_list = self.cache_manager.get_all_files_and_dirs_for_subtree(self.node_identifier)
         for item in files_list:
-            if item.md5:
+            if item.exists() and item.md5:
                 md5_dict.put(item)
 
         logger.info(f'{md5_set_stopwatch} Found {md5_dict.total_entries} MD5s in {self.root_path}')

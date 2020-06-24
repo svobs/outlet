@@ -328,7 +328,7 @@ class GDriveTreeLoader:
             logger.debug(f'{sw} Loaded {mapping_count} Google Drive file-folder mappings')
 
         logger.debug(f'{sw_total} Loaded {len(tree.id_dict):n} items from {file_count:n} file rows and {dir_count:n} dir rows')
-        logger.debug(f'Found {len(items_without_goog_ids)} items without goog_ids')
+        logger.info(f'Found {len(items_without_goog_ids)} cached items which do not have goog_ids')
         # TODO: do stuff with the above items ^^^
 
         self.uid_generator.ensure_next_uid_greater_than(max_uid)

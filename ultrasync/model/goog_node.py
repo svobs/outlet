@@ -69,7 +69,7 @@ class GoogNode(HasParentList, DisplayNode, ABC):
         pass
 
     def exists(self) -> bool:
-        return self.goog_id is not None
+        return bool(self.goog_id)
 
 
 """
