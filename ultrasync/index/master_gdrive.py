@@ -130,45 +130,47 @@ class GDriveMasterCache:
             raise RuntimeError(f'Node is missing UID: {node}')
         if node.node_identifier.tree_type != TREE_TYPE_GDRIVE:
             raise RuntimeError(f'Unrecognized tree type: {node.node_identifier.tree_type}')
-        if not node.get_parent_uids():
-            # Adding a new root is currently not allowed (which is fine because there should be no way to do this via the UI)
-            raise RuntimeError(f'Node is missing parent UIDs: {node}')
         if not self._my_gdrive:
             # TODO: give more thought to lifecycle
             raise RuntimeError('GDriveWholeTree not loaded!')
+        if not isinstance(node, GoogNode):
+            raise RuntimeError(f'Unrecognized node type: {node}')
+        if not node.goog_id:
+            raise RuntimeError(f'Node is missing Google ID: {node}')
 
-        if not node.is_planning_node():
-            if not isinstance(node, GoogNode):
-                raise RuntimeError(f'Unrecognized node type: {node}')
-            if not node.goog_id:
-                raise RuntimeError(f'Node is missing Google ID: {node}')
+        # Validate parent mappings
+        parent_uids = node.get_parent_uids()
+        if not parent_uids:
+            # Adding a new root is currently not allowed (which is fine because there should be no way to do this via the UI)
+            raise RuntimeError(f'Node is missing parent UIDs: {node}')
+        parent_goog_ids = self._my_gdrive.resolve_uids_to_goog_ids(parent_uids)
+        parent_mappings = []
+        if len(node.get_parent_uids()) != len(parent_goog_ids):
+            raise RuntimeError(f'Internal error: could not map all parent goog_ids ({len(parent_goog_ids)}) to parent UIDs '
+                               f'({len(parent_uids)}) for item: {node}')
+        for parent_uid, parent_goog_id in zip(node.get_parent_uids(), parent_goog_ids):
+            parent_mappings.append((node.uid, parent_uid, parent_goog_id, node.sync_ts))
+        node_tuple = node.to_tuple()
 
-            # assemble parent mappings
-            parent_goog_ids = self._my_gdrive.resolve_uids_to_goog_ids(node.get_parent_uids())
-            parent_mappings = []
-            assert len(node.get_parent_uids()) == len(parent_goog_ids)
-            for parent_uid, parent_goog_id in zip(node.get_parent_uids(), parent_goog_ids):
-                parent_mappings.append((node.uid, parent_uid, parent_goog_id, node.sync_ts))
-            node_tuple = node.to_tuple()
+        # Detect whether it's already in the cache
+        existing_node = self._my_gdrive.get_item_for_uid(node.uid)
+        if existing_node:
+            if existing_node.goog_id != node.goog_id:
+                raise RuntimeError(f'Serious error: cache already contains UID {node.uid} but Google ID does not match '
+                                   f'(existing="{existing_node.goog_id}"; new="{node.goog_id}")')
+            if existing_node == node:
+                # FIXME: it's not clear that we have implemented __eq__ for all necessary items
+                logger.info(f'Item being added (uid={node.uid}) is identical to item already in the cache; ignoring')
+                return
+            logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')
+        elif node.goog_id:
+            previous_uid = self.get_uid_for_goog_id(goog_id=node.goog_id)
+            if previous_uid:
+                logger.warning(f'Found node in cache with same GoogID ({node.goog_id}) but different UID ('
+                               f'{previous_uid}). Changing UID of item (was: {node.uid}) to match and overwrite previous node')
+                node.uid = previous_uid
 
-            # Detect whether it's already in the cache
-            existing_node = self._my_gdrive.get_item_for_uid(node.uid)
-            if existing_node and not existing_node.is_planning_node():
-                if existing_node.goog_id != node.goog_id:
-                    raise RuntimeError(f'Serious error: cache already contains UID {node.uid} but Google ID does not match '
-                                       f'(existing={existing_node.goog_id}; new={node.goog_id})')
-                if existing_node == node:
-                    # FIXME: it's not clear that we have implemented __eq__ for all necessary items
-                    logger.info(f'Item being added (uid={node.uid}) is identical to item already in the cache; ignoring')
-                    return
-                logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')
-            else:
-                node_with_different_uid = self.get_item_for_goog_id(goog_id=node.goog_id)
-                if node_with_different_uid:
-                    logger.warning(f'Found node in cache with same GoogID ({node.goog_id}) but different UID ('
-                                   f'{node_with_different_uid}). Changing UID of item (was: {node.uid}) to match')
-                    node.uid = node_with_different_uid.uid
-
+        if self.application.cache_manager.enable_save_to_disk:
             cache_path: str = self._get_cache_path_for_master()
 
             # Write new values:
@@ -181,6 +183,8 @@ class GDriveMasterCache:
                 else:
                     logger.debug(f'Writing file node to the GDrive master cache: {node}')
                     cache.upsert_gdrive_files([node_tuple])
+        else:
+            logger.debug(f'Save to disk is disabled: skipping add/update of item with UID={node.uid}')
 
         # Finally, update in-memory cache (tree):
         self._my_gdrive.add_item(node)
@@ -195,6 +199,11 @@ class GDriveMasterCache:
         assert isinstance(node, GoogNode), f'For node: {node}'
 
         assert not node.is_dir(), 'FIXME! Add folder support!'  # FIXME
+
+        if node.is_dir():
+            children: List[GoogNode] = self._my_gdrive.get_children(node)
+            if children:
+                raise RuntimeError(f'Cannot remove GDrive folder from cache: it contains {len(children)} children!')
 
         if to_trash:
             if node.trashed == NOT_TRASHED:

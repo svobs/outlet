@@ -1,8 +1,6 @@
 from typing import List, Tuple
 import logging
 
-from gi.overrides import Gtk
-
 from stopwatch_sec import Stopwatch
 
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TreeDisplayMode
@@ -14,14 +12,11 @@ from model.display_node import DisplayNode
 from model.subtree_snapshot import SubtreeSnapshot
 from ui.dialog.base_dialog import BaseDialog
 
-
-import gi
-
 from ui.tree.display_store import DisplayStore
 
+import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib
-
+from gi.repository import GLib, Gtk
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +35,8 @@ class TreePanelController:
         self.tree_builder = None
         self.display_store = display_store
         self.treeview_meta = treeview_meta
+        self.tree_id = treeview_meta.tree_id
+        """Cached in controller, in case treeview_meta goes away"""
         self.tree_view = None
         self.root_dir_panel = None
         self.display_mutator = None
@@ -201,11 +198,6 @@ class TreePanelController:
     def config(self):
         """Convenience method. Retreives the tree_id from the parent_win"""
         return self.parent_win.config
-
-    @property
-    def tree_id(self):
-        """Convenience method. Retreives the tree_id from the metastore"""
-        return self.treeview_meta.tree_id
 
     def get_root_identifier(self):
         return self.tree_builder.get_root_identifier()

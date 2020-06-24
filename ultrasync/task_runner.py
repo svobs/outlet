@@ -9,10 +9,13 @@ logger = logging.getLogger(__name__)
 MAX_WORKERS = 1
 
 
+# CLASS Task
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class Task:
     def __init__(self, application, task_func: Callable, *args):
         self.application = application
-        self.task_func = task_func
+        self.task_func: Callable = task_func
         self.args = args
 
     def run(self):
@@ -28,10 +31,13 @@ class Task:
             logger.info(f'{task_time} Task returned: "{self.task_func.__name__}"')
 
 
+# CLASS CentralTaskRunner
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class CentralTaskRunner:
     def __init__(self, application):
         self.application = application
-        self.executor = ThreadPoolExecutor(max_workers=MAX_WORKERS)
+        self.executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=MAX_WORKERS)
 
     def enqueue(self, task_func, *args):
         logger.debug(f'Submitting new task to executor: "{task_func.__name__}"')

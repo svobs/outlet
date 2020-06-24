@@ -34,3 +34,5 @@ class ChangeAction:
         self.src_uid: UID = src_uid
         self.dst_uid: UID = dst_uid
 
+    def __repr__(self):
+        return f'ChangeAction(uid={self.action_uid} type={self.change_type.name} src={self.src_uid} dst={self.dst_uid}'

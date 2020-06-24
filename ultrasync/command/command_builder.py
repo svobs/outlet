@@ -29,7 +29,7 @@ LO = _make_key(TREE_TYPE_LOCAL_DISK)
 GD = _make_key(TREE_TYPE_GDRIVE)
 LO_LO = _make_key(TREE_TYPE_LOCAL_DISK, TREE_TYPE_LOCAL_DISK)
 GD_GD = _make_key(TREE_TYPE_GDRIVE, TREE_TYPE_GDRIVE)
-LO_GD = _make_key(TREE_TYPE_LOCAL_DISK, TREE_TYPE_LOCAL_DISK)
+LO_GD = _make_key(TREE_TYPE_LOCAL_DISK, TREE_TYPE_GDRIVE)
 GD_LO = _make_key(TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK)
 
 
@@ -188,6 +188,6 @@ class CommandBuilder:
 
         build_func = tree_type_dict.get(tree_type_key, None)
         if not build_func:
-            raise RuntimeError(f'Bad tree type(s): {tree_type_key}')
+            raise RuntimeError(f'Bad tree type(s): {tree_type_key}, for ChangeType "{change_action.change_type.name}"')
         return build_func(tgt_node, src_node, change_action)
 

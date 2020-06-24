@@ -46,14 +46,14 @@ class CopyFileLocallyCommand(Command):
                 file_util.copy_file_new(src_path=src_path, staging_path=staging_path, dst_path=dst_path, md5_src=self._target_node.md5, verify=True)
 
             # update cache:
-            local_node = context.cache_manager.build_fmeta(full_path=dst_path)
+            local_node = context.cache_manager.build_local_file_node(full_path=dst_path)
             context.cache_manager.add_or_update_node(local_node)
 
             self._status = CommandStatus.COMPLETED_OK
         except file_util.IdenticalFileExistsError:
             # Not a real error. Nothing to do.
             # However make sure we still keep the cache manager in the loop - it's likely out of date:
-            local_node = context.cache_manager.build_fmeta(full_path=self._target_node.full_path)
+            local_node = context.cache_manager.build_local_file_node(full_path=self._target_node.full_path)
             context.cache_manager.add_or_update_node(local_node)
             self._status = CommandStatus.COMPLETED_NO_OP
         except Exception as err:
@@ -133,7 +133,7 @@ class MoveFileLocallyCommand(Command):
             file_util.move_file(self._src_node.full_path, self._target_node.full_path)
 
             # Add to cache:
-            local_node = context.cache_manager.build_fmeta(full_path=self._target_node.full_path)
+            local_node = context.cache_manager.build_local_file_node(full_path=self._target_node.full_path)
             context.cache_manager.add_or_update_node(local_node)
             self._status = CommandStatus.COMPLETED_OK
         except Exception as err:
@@ -318,7 +318,7 @@ class DownloadFromGDriveCommand(Command):
             dst_path = self._target_node.full_path
 
             if os.path.exists(dst_path):
-                item: LocalFileNode = context.cache_manager.build_fmeta(full_path=dst_path)
+                item: LocalFileNode = context.cache_manager.build_local_file_node(full_path=dst_path)
                 if item and item.md5 == self._src_node.md5:
                     logger.debug(f'Item already exists and appears valid: skipping download; will update cache and return ({dst_path})')
                     context.cache_manager.add_or_update_node(item)
@@ -337,7 +337,7 @@ class DownloadFromGDriveCommand(Command):
             staging_path = os.path.join(context.staging_dir, self._src_node.md5)
 
             if os.path.exists(staging_path):
-                item: LocalFileNode = context.cache_manager.build_fmeta(full_path=dst_path)
+                item: LocalFileNode = context.cache_manager.build_local_file_node(full_path=dst_path)
                 if item and item.md5 == self._src_node.md5:
                     logger.debug(f'Found target item in staging dir; will move: ({staging_path} -> {dst_path})')
                     file_util.move_to_dst(staging_path=staging_path, dst_path=dst_path)
@@ -351,7 +351,7 @@ class DownloadFromGDriveCommand(Command):
             context.gdrive_client.download_file(file_id=src_goog_id, dest_path=staging_path)
 
             # verify contents:
-            item: LocalFileNode = context.cache_manager.build_fmeta(full_path=dst_path, staging_path=staging_path)
+            item: LocalFileNode = context.cache_manager.build_local_file_node(full_path=dst_path, staging_path=staging_path)
             if item.md5 != self._src_node.md5:
                 raise RuntimeError(f'Downloaded MD5 ({item.md5}) does not matched expected ({self._src_node.md5})!')
 

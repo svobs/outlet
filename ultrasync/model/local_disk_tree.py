@@ -13,7 +13,11 @@ from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 logger = logging.getLogger(__name__)
 
 
+# CLASS LocalDiskTree
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class LocalDiskTree(treelib.Tree):
+    """Represents a subtree on a local disk, backed by a treelib.Tree data structure."""
     def __init__(self, application):
         super().__init__()
         self.application = application

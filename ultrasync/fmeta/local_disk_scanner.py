@@ -109,14 +109,14 @@ class LocalDiskScanner(FileTreeRecurser):
                 target_fmeta = stale_fmeta
             else:
                 # this can fail (e.g. broken symlink). If it does, we'll treat it like a deleted file
-                target_fmeta = self.cache_manager.build_fmeta(full_path=file_path)
+                target_fmeta = self.cache_manager.build_local_file_node(full_path=file_path)
                 if target_fmeta:
                     self.updated_count += 1
                     if logger.isEnabledFor(logging.DEBUG):
                         _check_update_sanity(stale_fmeta, target_fmeta)
         else:
             # Not in cache (i.e. new):
-            target_fmeta = self.cache_manager.build_fmeta(full_path=file_path)
+            target_fmeta = self.cache_manager.build_local_file_node(full_path=file_path)
             if target_fmeta:
                 self.added_count += 1
 

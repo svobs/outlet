@@ -67,7 +67,6 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
             logger.exception(err)
             detail = f'{repr(err)}]'
             self.show_error_ui('Diff task failed due to unexpected error', detail)
-            raise
         finally:
             # Clean up:
             self.tree_con.destroy()

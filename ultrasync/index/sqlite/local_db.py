@@ -2,6 +2,7 @@ import logging
 from typing import List
 
 from index.sqlite.base_db import MetaDatabase, Table
+from index.uid import UID
 from model.fmeta import LocalDirNode, LocalFileNode
 from model.node_identifier import LocalFsIdentifier
 
@@ -74,6 +75,13 @@ class LocalDiskDatabase(MetaDatabase):
     def upsert_local_file(self, item, commit=True):
         self.upsert_one(self.TABLE_LOCAL_FILE, _make_file_tuple(item), commit=commit)
 
+    def delete_local_file_with_uid(self, uid: UID, commit=True):
+        sql = self.build_delete(self.TABLE_LOCAL_FILE) + f' WHERE uid = ?'
+        self.conn.execute(sql, (uid,))
+        if commit:
+            logger.debug('Committing!')
+            self.conn.commit()
+
     # LOCAL_DIR operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
     def has_local_dirs(self):
@@ -111,6 +119,13 @@ class LocalDiskDatabase(MetaDatabase):
 
     def upsert_local_dir(self, item, commit=True):
         self.upsert_one(self.TABLE_LOCAL_DIR, _make_dir_tuple(item), commit=commit)
+
+    def delete_local_dir_with_uid(self, uid: UID, commit=True):
+        sql = self.build_delete(self.TABLE_LOCAL_DIR) + f' WHERE uid = ?'
+        self.conn.execute(sql, (uid,))
+        if commit:
+            logger.debug('Committing!')
+            self.conn.commit()
 
 
 def _make_file_tuple(f: LocalFileNode):

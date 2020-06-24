@@ -289,52 +289,114 @@ class LocalDiskMasterCache:
     # Individual item updates
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def add_or_update_fmeta(self, item: LocalFileNode, fire_listeners=True):
+    def _update_dir_fields(self, update_to: LocalDirNode, update_from: LocalDirNode):
+        # We only have one field to update for dirs so far
+        if update_from.exists():
+            # Only update to True. Do not overwrite with False
+            update_to.set_exists(True)
+
+    def add_or_update_fmeta(self, item: DisplayNode, fire_listeners=True):
+        # 1. Validate UID:
+        if not item.uid:
+            raise RuntimeError(f'Cannot upsert item to cache because it has no UID: {item}')
+
+        uid = self._uid_mapper.get_uid_for_path(item.full_path, item.uid)
+        if item.uid != uid:
+            raise RuntimeError(f'Internal error while trying to upsert node to cache: UID did not match expected '
+                               f'({self._uid_mapper.get_uid_for_path(item.full_path)}); item={item}')
+
+        # 2. Update in-memory cache:
         with self._struct_lock:
-            uid = self._get_uid_for_path(item.full_path, item.uid)
-            # logger.debug(f'ID: {uid}, path: {item.full_path}')
-            assert (not item.uid) or (uid == item.uid)
-            item.uid = uid
             existing: DisplayNode = self.dir_tree.get_node(item.uid)
-            if self.use_md5 and item.md5:
-                self.md5_dict.put(item, existing)
-            if self.use_sha256 and item.sha256:
-                self.sha256_dict.put(item, existing)
-
             if existing:
-                self.dir_tree.remove_node(existing.identifier)
-            self.dir_tree.add_to_tree(item)
+                if existing.is_dir():
+                    if not item.is_dir():
+                        # need to replace all descendants...not ready to do this yet
+                        raise RuntimeError(f'Cannot replace a directory with a file: "{item.full_path}"')
+                    else:
+                        assert isinstance(existing, LocalDirNode)
+                        assert isinstance(item, LocalDirNode)
+                        # just update the existing - much easier
+                        self._update_dir_fields(existing, item)
+                        item = existing
+                else:
+                    # replace a file with either file or dir
+                    assert isinstance(existing, LocalFileNode)
+                    self.dir_tree.remove_node(existing.identifier)
+                    self.dir_tree.add_to_tree(item)
+            else:
+                # new file or directory insert
+                self.dir_tree.add_to_tree(item)
 
-        if not item.is_planning_node():
-            # Update disk cache:
-            cache_man = self.application.cache_manager
+        # do this after the above, to avoid cache corruption in case of failure
+        if self.use_md5 and item.md5:
+            self.md5_dict.put(item, existing)
+        if self.use_sha256 and item.sha256:
+            self.sha256_dict.put(item, existing)
+
+        # 3. Update on-disk cache:
+        cache_man = self.application.cache_manager
+        if cache_man.enable_save_to_disk:
             cache_info = cache_man.find_existing_supertree_for_subtree(item.node_identifier, ID_GLOBAL_CACHE)
             if cache_info:
-                if cache_man.enable_save_to_disk:
-                    with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
-                        if item.is_dir():
-                            cache.upsert_local_dir(item)
-                        else:
-                            cache.upsert_local_file(item)
+                with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
+                    if item.is_dir():
+                        cache.upsert_local_dir(item)
+                    else:
+                        cache.upsert_local_file(item)
             else:
                 logger.error(f'Could not find a cache associated with file path: {item.full_path}')
+        else:
+            logger.debug(f'Save to disk is disabled: skipping add/update of item with UID={item.uid}')
 
+        # 4. Notify UI:
         if fire_listeners:
             dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=item)
 
     def remove_fmeta(self, item: LocalFileNode, to_trash=False, fire_listeners=True):
+        # 1. Validate
+        if not item.uid:
+            raise RuntimeError(f'Cannot remove item from cache because it has no UID: {item}')
+
+        if item.uid != self._uid_mapper.get_uid_for_path(item.full_path):
+            raise RuntimeError(f'Internal error while trying to remove node ({item}): UID did not match expected '
+                               f'({self._uid_mapper.get_uid_for_path(item.full_path)})')
+
+        # 2. update in-memory cache
         with self._struct_lock:
-            assert item.uid == self._uid_mapper.get_uid_for_path(item.full_path), f'For item: {item}'
+            existing: DisplayNode = self.dir_tree.get_node(item.uid)
+            if existing:
+                if existing.is_dir():
+                    children = self.dir_tree.children(existing.identifier)
+                    if children:
+                        # maybe allow deletion of dir with children in the future, but for now be careful
+                        raise RuntimeError(f'Cannot remove dir from cache because it has {len(children)} children: {item}')
+
+                count_removed = self.dir_tree.remove_node(item.uid)
+                assert count_removed <= 1, f'Deleted {count_removed} nodes at {item.full_path}'
+            else:
+                logger.warning(f'Cannot remove node because it has already been removed from cache: {item}')
 
             if self.use_md5 and item.md5:
                 self.md5_dict.remove(item.md5, item.full_path)
             if self.use_sha256 and item.sha256:
                 self.sha256_dict.remove(item.sha256, item.full_path)
 
-            if self.dir_tree.get_node(item.uid):
-                count_removed = self.dir_tree.remove_node(item.uid)
-                assert count_removed <= 1, f'Deleted {count_removed} nodes at {item.full_path}'
+        cache_man = self.application.cache_manager
+        if cache_man.enable_save_to_disk:
+            cache_info = cache_man.find_existing_supertree_for_subtree(item.node_identifier, ID_GLOBAL_CACHE)
+            if cache_info:
+                with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
+                    if item.is_dir():
+                        cache.delete_local_dir_with_uid(item.uid)
+                    else:
+                        cache.delete_local_file_with_uid(item.uid)
+            else:
+                logger.error(f'Could not find a cache associated with file path: {item.full_path}')
+        else:
+            logger.debug(f'Save to disk is disabled: skipping removal of item with UID={item.uid}')
 
+        # 3. Notify UI:
         if fire_listeners:
             dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=item)
 
@@ -371,7 +433,7 @@ class LocalDiskMasterCache:
             md5 = 'disabled'
         return f'LocalDiskMasterCache tree_size={len(self.dir_tree):n} md5={md5}'
 
-    def build_fmeta(self, full_path: str, staging_path=None) -> Optional[LocalFileNode]:
+    def build_local_file_node(self, full_path: str, staging_path=None) -> Optional[LocalFileNode]:
         uid = self.get_uid_for_path(full_path)
 
         try:
