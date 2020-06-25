@@ -226,7 +226,7 @@ class CacheManager:
             node_identifier.full_path = file_util.normalize_path(node_identifier.full_path)
             logger.debug(f'Normalized path: {node_identifier.full_path}')
 
-        dispatcher.send(signal=actions.LOAD_TREE_STARTED, sender=tree_id)
+        dispatcher.send(signal=actions.LOAD_SUBTREE_STARTED, sender=tree_id)
 
         if node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
             assert self._local_disk_cache

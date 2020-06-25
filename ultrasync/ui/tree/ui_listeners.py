@@ -194,12 +194,12 @@ class TreeUiListeners:
             dest_node = self.con.cache_manager.get_parent_for_item(dest_node)
 
         if not dest_node:
-            logger.error('Cancelling drop: no parent node for dropped location!')
+            logger.error(f'[{self.con.tree_id}] Cancelling drop: no parent node for dropped location!')
         elif self.con.tree_id == self._drag_data.src_tree_controller.tree_id and self._is_dropping_on_itself(dest_node,
                                                                                                             self._drag_data.nodes):
-            logger.debug('Cancelling drop: nodes were dropped in same location in the tree')
+            logger.debug(f'[{self.con.tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
         else:
-            logger.debug(f'Dropping into dest: {dest_node.node_identifier}')
+            logger.debug(f'[{self.con.tree_id}]Dropping into dest: {dest_node.node_identifier}')
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
             change_maker = ChangeMaker(left_tree=self._drag_data.src_tree_controller.get_tree(), right_tree=self.con.get_tree(),
                                        application=self.con.parent_win.application)
@@ -223,11 +223,11 @@ class TreeUiListeners:
         return False
 
     def _on_root_path_updated(self, sender, new_root: NodeIdentifier, err=None):
-        logger.debug(f'Received signal: "{actions.ROOT_PATH_UPDATED}"')
+        logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.ROOT_PATH_UPDATED}"')
 
         # Reload subtree and refresh display
         if not err and self.con.cache_manager.reload_tree_on_root_path_update:
-            logger.debug(f'Got new root. Reloading subtree for: {new_root}')
+            logger.debug(f'[{self.con.tree_id}] Got new root. Reloading subtree for: {new_root}')
             # Loads from disk if necessary:
             self.con.reload(new_root, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, hide_checkboxes=True)
         else:
@@ -235,14 +235,8 @@ class TreeUiListeners:
             self.con.set_tree(root=new_root)
 
     def _after_all_caches_loaded(self, sender):
-        logger.debug(f'Received signal: "{actions.LOAD_ALL_CACHES_DONE}"')
-
-        try:
-            # Reload subtree and refresh display
-            self.con.load()
-        except RuntimeError as err:
-            # TODO: custom exceptions
-            logger.warning(f'Failed to load cache for "{self.con.tree_id}": {repr(err)}')
+        logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.LOAD_ALL_CACHES_DONE}"; sending "{actions.LOAD_UI_TREE}" signal')
+        dispatcher.send(signal=actions.LOAD_UI_TREE, sender=self.con.tree_id)
 
     # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
     def _on_set_status(self, sender, status_msg):
@@ -257,14 +251,14 @@ class TreeUiListeners:
         if treeiter is not None and len(treeiter) == 1:
             meta = self.con.display_store.get_node_data(treeiter)
             if isinstance(meta, LocalFileNode):
-                logger.info(f'User selected md5="{meta.md5}" path="{meta.full_path}"')
+                logger.info(f'[{self.con.tree_id}] User selected md5="{meta.md5}" path="{meta.full_path}"')
             else:
-                logger.info(f'User selected {self.con.display_store.get_node_name(treeiter)}')
+                logger.info(f'[{self.con.tree_id}] User selected {self.con.display_store.get_node_name(treeiter)}')
         return self.on_selection_changed(treeiter)
 
     def _on_row_activated(self, tree_view, tree_path, col, tree_id):
         if not self._ui_enabled:
-            logger.debug('Ignoring row activation - UI is disabled')
+            logger.debug(f'[{self.con.tree_id}] Ignoring row activation - UI is disabled')
             # Allow it to propagate down the chain:
             return False
         selection = tree_view.get_selection()
@@ -314,10 +308,10 @@ class TreeUiListeners:
             mods.append('Super')
         if (event.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK:
             mods.append('Alt')
-        logger.debug(f'Key pressed: {Gdk.keyval_name(event.keyval)} ({event.keyval}), mods: {" ".join(mods)}')
+        logger.debug(f'[{self.con.tree_id}]Key pressed: {Gdk.keyval_name(event.keyval)} ({event.keyval}), mods: {" ".join(mods)}')
 
         if event.keyval == Gdk.KEY_Delete and self.con.treeview_meta.can_modify_tree:
-            logger.debug('DELETE key detected!')
+            logger.debug(f'[{self.con.tree_id}]DELETE key detected!')
             if self.on_delete_key_pressed():
                 return True
         return False
@@ -325,18 +319,18 @@ class TreeUiListeners:
     def _on_tree_button_press(self, tree_view, event, tree_id):
         """Used for displaying context menu on right click"""
         if not self._ui_enabled:
-            logger.debug('Ignoring button press - UI is disabled')
+            logger.debug(f'[{self.con.tree_id}] Ignoring button press - UI is disabled')
             return False
 
         if event.button == 3:  # right click
             path_at_pos = tree_view.get_path_at_pos(int(event.x), int(event.y))
             if not path_at_pos:
-                logger.debug('Right-click but no node!')
+                logger.debug(f'[{self.con.tree_id}] Right-click but no node!')
                 return False
 
             # tree_path, col, cell_x, cell_y = path_at_pos[0], path_at_pos[1], path_at_pos[2], path_at_pos[3]
             node_data = self.con.display_store.get_node_data(path_at_pos[0])
-            logger.debug(f'User right-clicked on {node_data}')
+            logger.debug(f'[{self.con.tree_id}] User right-clicked on {node_data}')
 
             if self.on_row_right_clicked(event=event, tree_path=path_at_pos[0], node_data=node_data):
                 # Suppress selection event:
@@ -406,7 +400,7 @@ class TreeUiListeners:
 
     def on_row_right_clicked(self, event, tree_path, node_data: DisplayNode):
         if node_data.is_ephemereal():
-            logger.debug('User right-clicked on ephemereal node. Ignoring')
+            logger.debug(f'[{self.con.tree_id}] User right-clicked on ephemereal node. Ignoring')
             return
         id_clicked = node_data.uid
         sel_items_tuple = self.con.get_multiple_selection_and_paths()

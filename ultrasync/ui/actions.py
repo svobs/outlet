@@ -23,16 +23,17 @@ DELETE_SUBTREE = 'delete-subtree'
 SET_ROWS_CHECKED = 'set-rows-checked'
 SET_ROWS_UNCHECKED = 'set-rows-unchecked'
 REFRESH_SUBTREE_STATS = 'refresh-subtree-stats'
+LOAD_UI_TREE = 'load-ui-tree'
 """Requests that the central cache update the stats for all nodes in the given subtree.
 When done, the central cache will send the signal SUBTREE_STATS_UPDATED to notify the tree that it can redraw the displayed nodes"""
 
 # --- Tree actions: notifications ---
-LOAD_TREE_STARTED = 'load-tree-started'
+LOAD_SUBTREE_STARTED = 'load-subtree-started'
 NODE_EXPANSION_TOGGLED = 'node-expansion-toggled'
 ROOT_PATH_UPDATED = 'root-path-updated'
 NODE_UPSERTED = 'node-upserted'
 NODE_REMOVED = 'node-removed'
-DIFF_CANCELLED = 'diff-cancelled'
+EXIT_DIFF_MODE = 'diff-cancelled'
 SUBTREE_STATS_UPDATED = 'subtree-stats-updated'
 """Indicates that the central cache has updated the stats for the subtree, and the subtree should redraw the nodes"""
 
@@ -59,6 +60,7 @@ ID_MERGE_TREE = 'merge_tree'
 ID_GDRIVE_DIR_SELECT = 'gdrive_dir_select'
 ID_GLOBAL_CACHE = 'global_cache'
 ID_COMMAND_EXECUTOR = 'command-executor'
+ID_CENTRAL_EXEC = 'central-executor'
 
 logger = logging.getLogger(__name__)
 

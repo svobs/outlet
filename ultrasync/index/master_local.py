@@ -94,6 +94,8 @@ class LocalDiskMasterCache:
             root_node = LocalDirNode(node_identifier=root_node_identifer, exists=True)
             tree.add_node(node=root_node, parent=None)
 
+            missing_items: List[DisplayNode] = []
+
             dir_list: List[LocalDirNode] = fmeta_disk_cache.get_local_dirs()
             if len(dir_list) == 0:
                 logger.debug('No dirs found in disk cache')
@@ -104,6 +106,8 @@ class LocalDiskMasterCache:
                 # Overwrite older changes for the same path:
                 if not existing:
                     tree.add_to_tree(dir_node)
+                    if not dir_node.exists():
+                        missing_items.append(dir_node)
                 else:
                     assert existing.full_path == dir_node.full_path, f'Existing={existing}, New={dir_node}'
 
@@ -116,12 +120,18 @@ class LocalDiskMasterCache:
                 # Overwrite older changes for the same path:
                 if not existing:
                     tree.add_to_tree(change)
+                    if not change.exists():
+                        missing_items.append(change)
                 elif existing.sync_ts < change.sync_ts:
                     tree.remove_node(change.identifier)
                     tree.add_to_tree(change)
 
             # logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
             logger.debug(f'{stopwatch_load} [{tree_id}] Finished loading {len(file_list)} files and {len(dir_list)} dirs from disk')
+
+            if len(missing_items) > 0:
+                logger.info(f'Found {len(missing_items)} cached items with exists=false: submitting to adjudicator...')
+
 
             cache_info.is_loaded = True
             return tree

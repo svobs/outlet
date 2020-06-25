@@ -1,7 +1,7 @@
 import sys
 import gi
 
-from command.command_executor import CommandExecutor
+from executor.central import CentralExecutor
 from index.uid_generator import PersistentAtomicIntUidGenerator
 from model.node_identifier_factory import NodeIdentifierFactory
 from ui.actions import ID_DIFF_WINDOW
@@ -12,9 +12,6 @@ from gi.repository import Gtk, Gio
 from index.cache_manager import CacheManager
 
 import logging
-
-from global_actions import GlobalActions
-from task_runner import CentralTaskRunner
 
 from ui.two_pane_window import TwoPanelWindow
 from app_config import AppConfig
@@ -37,13 +34,10 @@ class UltrasyncApplication(Gtk.Application):
 
         self.window = None
 
-        self.task_runner = CentralTaskRunner(self)
         self.uid_generator = PersistentAtomicIntUidGenerator(self.config)
         self.node_identifier_factory = NodeIdentifierFactory(self)
-        self.command_executor = CommandExecutor(self)
+        self.executor = CentralExecutor(self)
         self.cache_manager = CacheManager(self)
-        self.global_actions = GlobalActions(self)
-        self.global_actions.init()
 
     def do_activate(self):
         # We only allow a single window and raise any existing ones
@@ -53,6 +47,8 @@ class UltrasyncApplication(Gtk.Application):
 
             self.window = TwoPanelWindow(application=self, win_id=ID_DIFF_WINDOW)
             self.window.show_all()
+
+            self.executor.start()
 
         self.window.present()
 

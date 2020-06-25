@@ -20,6 +20,9 @@ from ui.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
 logger = logging.getLogger(__name__)
 
 
+# CLASS GlobalActions
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class GlobalActions:
     def __init__(self, application):
         self.application = application
@@ -49,11 +52,11 @@ class GlobalActions:
 
     def on_load_all_caches_requested(self, sender):
         logger.debug(f'Received signal: "{actions.LOAD_ALL_CACHES}"')
-        self.application.task_runner.enqueue(self.application.cache_manager.load_all_caches, sender)
+        self.application.executor.submit_async_task(self.application.cache_manager.load_all_caches, sender)
 
     def on_gdrive_requested(self, sender):
         logger.debug(f'Received signal: "{actions.DOWNLOAD_GDRIVE_META}"')
-        self.application.task_runner.enqueue(self.download_all_gdrive_meta, sender)
+        self.application.executor.submit_async_task(self.download_all_gdrive_meta, sender)
 
     def download_all_gdrive_meta(self, tree_id):
         """Executed by Task Runner. NOT UI thread"""
@@ -83,7 +86,7 @@ class GlobalActions:
 
     def on_gdrive_root_dialog_requested(self, sender, current_selection: NodeIdentifier):
         logger.debug(f'Received signal: "{actions.SHOW_GDRIVE_ROOT_DIALOG}"')
-        self.application.task_runner.enqueue(self.load_gdrive_root_meta, sender, current_selection)
+        self.application.executor.submit_async_task(self.load_gdrive_root_meta, sender, current_selection)
 
     def on_gdrive_download_complete(self, sender, tree: SubtreeSnapshot, current_selection: NodeIdentifier):
         logger.debug(f'Received signal: "{actions.GDRIVE_DOWNLOAD_COMPLETE}"')
@@ -105,7 +108,7 @@ class GlobalActions:
 
     def on_diff_requested(self, sender, tree_con_left, tree_con_right):
         logger.debug(f'Received signal: "{actions.START_DIFF_TREES}"')
-        self.application.task_runner.enqueue(self.do_tree_diff, sender, tree_con_left, tree_con_right)
+        self.application.executor.submit_async_task(self.do_tree_diff, sender, tree_con_left, tree_con_right)
 
     def do_tree_diff(self, sender, tree_con_left, tree_con_right):
         stopwatch_diff_total = Stopwatch()

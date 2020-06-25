@@ -114,8 +114,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # if displaying the results of a diff
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=actions.ID_LEFT_TREE)
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=actions.ID_RIGHT_TREE)
-        dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=actions.ID_RIGHT_TREE)
-        dispatcher.connect(signal=actions.DIFF_CANCELLED, receiver=self._on_merge_complete, sender=Any)
+        dispatcher.connect(signal=actions.EXIT_DIFF_MODE, receiver=self._on_merge_complete, sender=Any)
 
         # Connect "resize" event. Lots of excess logic to determine approximately when the
         # window *stops* being resized, so we can persist the value semi-efficiently
@@ -130,9 +129,6 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             for monitor_num in range(0, screen.get_n_monitors()):
                 size_rect: Gdk.Rectangle = screen.get_monitor_geometry(monitor_num)
                 logger.debug(f'        Monitor #{monitor_num} is {size_rect.width}x{size_rect.height}')
-
-        # Kick off cache load now that we have a progress bar
-        actions.get_dispatcher().send(actions.LOAD_ALL_CACHES, sender=self.win_id)
 
     def replace_bottom_button_panel(self, *buttons):
         for child in self.bottom_button_panel.get_children():
@@ -291,7 +287,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             merge_btn.connect("clicked", self.on_merge_preview_btn_clicked)
 
             def on_cancel_diff_btn_clicked(widget):
-                dispatcher.send(signal=actions.DIFF_CANCELLED, sender=actions.ID_MERGE_TREE)
+                dispatcher.send(signal=actions.EXIT_DIFF_MODE, sender=actions.ID_MERGE_TREE)
 
             cancel_diff_btn = Gtk.Button(label="Cancel Diff")
             cancel_diff_btn.connect("clicked", on_cancel_diff_btn_clicked)

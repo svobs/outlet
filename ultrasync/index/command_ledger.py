@@ -44,7 +44,7 @@ class CommandLedger:
             self.application.cache_manager.add_or_update_node(display_node)
 
         # Finally, kick off command execution:
-        self.application.task_runner.enqueue(self.application.command_executor.execute_batch, command_batch)
+        self.application.executor.execute_command_batch(command_batch)
 
     def _on_batch_completed(self, batch_uid: UID):
         logger.debug(f'Received signal: "{actions.COMMAND_BATCH_COMPLETE}" with batch_uid={batch_uid}')

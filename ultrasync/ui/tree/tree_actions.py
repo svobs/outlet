@@ -36,6 +36,7 @@ class TreeActions:
 
     def init(self):
         logger.debug(f'[{self.con.tree_id}] TreeActions init')
+        dispatcher.connect(signal=actions.LOAD_UI_TREE, sender=self.con.tree_id, receiver=self._load_ui_tree)
         dispatcher.connect(signal=actions.CALL_EXIFTOOL, sender=self.con.tree_id, receiver=self._call_exiftool)
         dispatcher.connect(signal=actions.CALL_EXIFTOOL_LIST, sender=self.con.tree_id, receiver=self._call_exiftool_list)
         dispatcher.connect(signal=actions.SHOW_IN_NAUTILUS, sender=self.con.tree_id, receiver=self._show_in_nautilus)
@@ -50,6 +51,10 @@ class TreeActions:
 
     # ACTIONS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def _load_ui_tree(self, sender):
+        """Just populates the tree with nodes. Executed asyncly by actions.LOAD_UI_TREE"""
+        self.con.app.executor.submit_async_task(self.con.display_mutator.populate_root)
 
     def _call_exiftool_list(self, sender, node_list: List[DisplayNode]):
         for item in node_list:
@@ -172,4 +177,4 @@ class TreeActions:
             self.con.display_store.set_row_checked(tree_path, False)
 
     def _refresh_subtree_stats(self, sender):
-        self.con.parent_win.application.task_runner.enqueue(self.con.get_tree().refresh_stats, self.con.tree_id)
+        self.con.parent_win.application.executor.submit_async_task(self.con.get_tree().refresh_stats, self.con.tree_id)

@@ -40,7 +40,7 @@ class CommandBuilder:
     def __init__(self, application):
         self._uid_generator = application.uid_generator
         self._cache_manager = application.cache_manager
-        self._build_dict: Dict[ChangeType, Dict[str, Callable]] = self._populate_build_dict()
+        self._build_dict: Dict[ChangeType, Dict[str, Callable]] = _populate_build_dict()
 
     def build_command_batch(self, change_tree: CategoryDisplayTree = None, delete_list: List[DisplayNode] = None) -> CommandBatch:
         """Builds a dependency tree consisting of commands, each of which correspond to one of the relevant nodes in the
@@ -110,47 +110,6 @@ class CommandBuilder:
             for change_child in change_children:
                 stack.append((cmd_parent, change_child))
 
-    def _populate_build_dict(self):
-        """Every command has an associated target node and a ChangeAction. Many commands also have an associated source node."""
-        build_dict = {}
-        build_dict[ChangeType.MKDIR] = {
-            GD: lambda uid, change, tgt, src: CreateGDriveFolderCommand(tgt_node=tgt, change_action=change, uid=uid),
-            LO: lambda uid, change, tgt, src: CreatLocalDirCommand(tgt_node=tgt, change_action=change, uid=uid)
-        }
-
-        build_dict[ChangeType.CP] = {
-            LO_LO: lambda uid, change, tgt, src: CopyFileLocallyCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=False),
-
-            LO_GD: lambda uid, change, tgt, src: UploadToGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=False),
-
-            GD_LO: lambda uid, change, tgt, src: DownloadFromGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=False)
-        }
-
-        build_dict[ChangeType.MV] = {
-            LO_LO: lambda uid, change, tgt, src: MoveFileLocallyCommand(uid, change, tgt_node=tgt, src_node=src),
-
-            GD_GD: lambda uid, change, tgt, src: MoveFileGDriveCommand(uid, change, tgt_node=tgt, src_node=src),
-
-            LO_GD: lambda uid, change, tgt, src: UploadToGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=False),
-
-            GD_LO: lambda uid, change, tgt, src: DownloadFromGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=False)
-        }
-
-        build_dict[ChangeType.RM] = {
-            LO: lambda uid, change, tgt, src: DeleteLocalFileCommand(uid, change, tgt_node=tgt, to_trash=True, delete_empty_parent=True),
-
-            GD: lambda uid, change, tgt, src: DeleteGDriveFileCommand(uid, change, tgt_node=tgt, to_trash=True, delete_empty_parent=True)
-        }
-
-        build_dict[ChangeType.UP] = {
-            LO_LO: lambda uid, change, tgt, src: CopyFileLocallyCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=True),
-
-            LO_GD: lambda uid, change, tgt, src: UploadToGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=True),
-
-            GD_LO: lambda uid, change, tgt, src: DownloadFromGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=True),
-        }
-        return build_dict
-
     def _build_command(self, tgt_node: DisplayNode, change_action: ChangeAction):
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f'Building command for ChangeAction={change_action},  tgt_node={tgt_node}')
@@ -182,3 +141,34 @@ class CommandBuilder:
         uid = self._uid_generator.next_uid()
         return build_func(uid, change_action, tgt_node, src_node)
 
+
+def _populate_build_dict():
+    """Every command has an associated target node and a ChangeAction. Many commands also have an associated source node."""
+    return {ChangeType.MKDIR: {
+        GD: lambda uid, change, tgt, src: CreateGDriveFolderCommand(tgt_node=tgt, change_action=change, uid=uid),
+        LO: lambda uid, change, tgt, src: CreatLocalDirCommand(tgt_node=tgt, change_action=change, uid=uid)
+    }, ChangeType.CP: {
+        LO_LO: lambda uid, change, tgt, src: CopyFileLocallyCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=False),
+
+        LO_GD: lambda uid, change, tgt, src: UploadToGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=False),
+
+        GD_LO: lambda uid, change, tgt, src: DownloadFromGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=False)
+    }, ChangeType.MV: {
+        LO_LO: lambda uid, change, tgt, src: MoveFileLocallyCommand(uid, change, tgt_node=tgt, src_node=src),
+
+        GD_GD: lambda uid, change, tgt, src: MoveFileGDriveCommand(uid, change, tgt_node=tgt, src_node=src),
+
+        LO_GD: lambda uid, change, tgt, src: UploadToGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=False),
+
+        GD_LO: lambda uid, change, tgt, src: DownloadFromGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=False)
+    }, ChangeType.RM: {
+        LO: lambda uid, change, tgt, src: DeleteLocalFileCommand(uid, change, tgt_node=tgt, to_trash=True, delete_empty_parent=True),
+
+        GD: lambda uid, change, tgt, src: DeleteGDriveFileCommand(uid, change, tgt_node=tgt, to_trash=True, delete_empty_parent=True)
+    }, ChangeType.UP: {
+        LO_LO: lambda uid, change, tgt, src: CopyFileLocallyCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=True),
+
+        LO_GD: lambda uid, change, tgt, src: UploadToGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=True),
+
+        GD_LO: lambda uid, change, tgt, src: DownloadFromGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=True),
+    }}

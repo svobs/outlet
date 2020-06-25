@@ -44,7 +44,7 @@ class RootDirPanel:
         else:
             # Manual load:
             self.needs_load = True
-            dispatcher.connect(signal=actions.LOAD_TREE_STARTED, sender=self.tree_id, receiver=self._on_load_started)
+            dispatcher.connect(signal=actions.LOAD_SUBTREE_STARTED, sender=self.tree_id, receiver=self._on_load_started)
 
         self.path_icon = Gtk.Image()
         self.refresh_icon = Gtk.Image()
@@ -317,8 +317,8 @@ class RootDirPanel:
     def _on_refresh_button_clicked(self, widget):
         logger.debug('The Refresh button was clicked!')
         self.needs_load = False
-        # Launch in non-UI thread
-        self.con.task_runner.enqueue(self.con.load)
+        # Launch in a non-UI thread:
+        dispatcher.send(signal=actions.LOAD_UI_TREE, sender=self.tree_id)
         # Hide Refresh button
         GLib.idle_add(self._update_root_label, self.current_root, self.err)
 

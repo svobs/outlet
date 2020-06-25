@@ -1,10 +1,13 @@
 from typing import List, Tuple
 import logging
 
+from pydispatch import dispatcher
+
 from stopwatch_sec import Stopwatch
 
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from model.node_identifier import NodeIdentifier
+from ui import actions
 from ui.tree import tree_factory_templates
 from ui.tree.all_items_tree_builder import AllItemsGDriveTreeBuilder, AllItemsLocalFsTreeBuilder
 from ui.tree.category_tree_builder import CategoryTreeBuilder
@@ -32,6 +35,7 @@ class TreePanelController:
     """
     def __init__(self, parent_win, display_store, treeview_meta):
         self.parent_win: BaseDialog = parent_win
+        self.app = parent_win.application
         self.tree_builder = None
         self.display_store = display_store
         self.treeview_meta = treeview_meta
@@ -72,11 +76,6 @@ class TreePanelController:
         self.tree_view.get_column(self.treeview_meta.col_num_change_ts_view).set_visible(self.treeview_meta.show_change_ts_col)
         self.tree_view.get_column(self.treeview_meta.col_num_etc_view).set_visible(self.treeview_meta.show_etc_col)
 
-    def load(self):
-        """Just populates the tree with nodes"""
-        # TODO: convert this to an action
-        self.display_mutator.populate_root()
-
     def reload(self, new_root=None, new_tree=None, tree_display_mode: TreeDisplayMode = None,
                show_checkboxes: bool = False, hide_checkboxes: bool = False):
         """Invalidate whatever cache the tree_builder built up, and re-populate the display tree"""
@@ -109,7 +108,9 @@ class TreePanelController:
                 logger.info(f'[{self.tree_id}] reload() with same tree')
                 tree = self.tree_builder.get_tree()
                 self.set_tree(tree=tree, tree_display_mode=tree_display_mode)
-            self.load()
+
+            # Back to the non-UI thread with you!
+            dispatcher.send(signal=actions.LOAD_UI_TREE, sender=self.tree_id)
 
         GLib.idle_add(_reload)
 
@@ -189,10 +190,6 @@ class TreePanelController:
     @property
     def cache_manager(self):
         return self.parent_win.application.cache_manager
-
-    @property
-    def task_runner(self):
-        return self.parent_win.application.task_runner
 
     @property
     def config(self):
