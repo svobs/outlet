@@ -7,7 +7,7 @@ import treelib
 
 import file_util
 from model.display_node import DisplayNode
-from model.fmeta import LocalDirNode, LocalFileNode
+from model.local_disk_node import LocalDirNode, LocalFileNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class LocalDiskTree(treelib.Tree):
-    """Represents a subtree on a local disk, backed by a treelib.Tree data structure."""
+    """Tree data structure, representing a subtree on a local disk, backed by a treelib.Tree data structure."""
     def __init__(self, application):
         super().__init__()
         self.application = application

@@ -6,10 +6,9 @@ import constants
 import file_util
 import format_util
 from index.two_level_dict import Md5BeforePathDict
-from index.uid import UID
 from model.display_node import DisplayNode
-from model.fmeta import LocalDirNode, LocalFileNode
-from model.node_identifier import LocalFsIdentifier, NodeIdentifier
+from model.local_disk_node import LocalDirNode, LocalFileNode
+from model.node_identifier import LocalFsIdentifier
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
 
@@ -17,12 +16,12 @@ logger = logging.getLogger(__name__)
 
 """
 ━━━━━━━━━━━━━━━━━┛ ✠ ┗━━━━━━━━━━━━━━━━━
-              FMetaTree
+           LocalDiskSubtree
 ━━━━━━━━━━━━━━━━━┓ ✠ ┏━━━━━━━━━━━━━━━━━
 """
 
 
-class FMetaTree(SubtreeSnapshot):
+class LocalDiskSubtree(SubtreeSnapshot):
     """🢄 Just a shell of its former self!"""
 
     def __init__(self, root_node: LocalDirNode, application):
@@ -78,7 +77,7 @@ class FMetaTree(SubtreeSnapshot):
         return self.get_relative_path_for_full_path(item.full_path)
 
     def remove(self, node: LocalFileNode):
-        raise RuntimeError('Can no longer do this in FMetaTree!')
+        raise RuntimeError('Can no longer do this in LocalDiskSubtree!')
 
     def get_summary(self):
         if self._stats_loaded:
@@ -88,4 +87,4 @@ class FMetaTree(SubtreeSnapshot):
             return 'Loading stats...'
 
     def __repr__(self):
-        return f'FMetaTree(root="{self.node_identifier}"])'
+        return f'LocalDiskSubtree(root="{self.node_identifier}"])'

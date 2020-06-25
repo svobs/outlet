@@ -8,7 +8,7 @@ import file_util
 from command.change_action import ChangeAction, ChangeType
 from constants import NOT_TRASHED, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.display_node import ContainerNode, DisplayNode
-from model.fmeta import LocalDirNode, LocalFileNode
+from model.local_disk_node import LocalDirNode, LocalFileNode
 from model.goog_node import GoogFile, GoogFolder, GoogNode
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier
 from model.subtree_snapshot import SubtreeSnapshot

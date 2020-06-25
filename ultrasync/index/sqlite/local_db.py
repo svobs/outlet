@@ -3,7 +3,7 @@ from typing import List
 
 from index.sqlite.base_db import MetaDatabase, Table
 from index.uid import UID
-from model.fmeta import LocalDirNode, LocalFileNode
+from model.local_disk_node import LocalDirNode, LocalFileNode
 from model.node_identifier import LocalFsIdentifier
 
 logger = logging.getLogger(__name__)

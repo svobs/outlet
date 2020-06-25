@@ -19,7 +19,7 @@ from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
 from index.uid import UID
 from model.display_node import DisplayNode
-from model.fmeta import LocalFileNode
+from model.local_disk_node import LocalFileNode
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.goog_node import GoogNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier

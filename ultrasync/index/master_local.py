@@ -18,8 +18,8 @@ from index.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
 from index.uid_generator import ROOT_UID, UID
 from index.uid_mapper import UidPathMapper
 from model.display_node import ContainerNode, DisplayNode, RootTypeNode
-from model.fmeta import LocalDirNode, LocalFileNode
-from model.fmeta_tree import FMetaTree
+from model.local_disk_node import LocalDirNode, LocalFileNode
+from model.local_disk_subtree import LocalDiskSubtree
 from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from model.null_subtree import NullSubtree
@@ -182,7 +182,7 @@ class LocalDiskMasterCache:
             assert cache_info is not None
             return self._load_subtree(cache_info, tree_id)
 
-    def _load_subtree(self, cache_info: PersistedCacheInfo, tree_id, requested_subtree_root: LocalFsIdentifier = None) -> FMetaTree:
+    def _load_subtree(self, cache_info: PersistedCacheInfo, tree_id, requested_subtree_root: LocalFsIdentifier = None) -> LocalDiskSubtree:
         """requested_subtree_root, if present, is a subset of the cache_info's subtree and it will be used. Otherwise cache_info's will be used"""
         assert cache_info
         stopwatch_total = Stopwatch()
@@ -237,7 +237,7 @@ class LocalDiskMasterCache:
                 logger.debug(f'[{tree_id}] Skipping cache save because it is disabled')
 
         root_node = self.dir_tree.get_node(requested_subtree_root.uid)
-        fmeta_tree = FMetaTree(root_node=root_node, application=self.application)
+        fmeta_tree = LocalDiskSubtree(root_node=root_node, application=self.application)
         logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {fmeta_tree.node_identifier.full_path}')
         return fmeta_tree
 

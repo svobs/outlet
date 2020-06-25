@@ -7,7 +7,7 @@ from pydispatch import dispatcher
 
 import ui.actions as actions
 from fmeta.file_tree_recurser import FileTreeRecurser
-from model.fmeta import LocalFileNode, LocalDirNode
+from model.local_disk_node import LocalFileNode, LocalDirNode
 from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 
@@ -67,7 +67,7 @@ class FileCounter(FileTreeRecurser):
 
 class LocalDiskScanner(FileTreeRecurser):
     """
-    Walks the filesystem for a subtree (FMetaTree), using a cache if configured,
+    Walks the filesystem for a subtree (LocalDiskSubtree), using a cache if configured,
     to generate an up-to-date list of FMetas.
     """
 

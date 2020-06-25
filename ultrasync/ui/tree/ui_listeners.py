@@ -12,7 +12,7 @@ from diff.change_maker import ChangeMaker
 from index.uid import UID
 from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
-from model.fmeta import LocalFileNode
+from model.local_disk_node import LocalFileNode
 
 import gi
 

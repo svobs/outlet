@@ -8,7 +8,7 @@ from command.command_interface import Command, CommandContext, CommandStatus, Co
 from constants import EXPLICITLY_TRASHED, FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, NOT_TRASHED
 from index.uid import UID
 from model.display_node import DisplayNode
-from model.fmeta import LocalDirNode, LocalFileNode
+from model.local_disk_node import LocalDirNode, LocalFileNode
 from model.goog_node import GoogFile, GoogNode
 
 logger = logging.getLogger(__name__)
