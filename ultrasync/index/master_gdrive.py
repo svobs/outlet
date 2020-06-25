@@ -196,7 +196,7 @@ class GDriveMasterCache:
     def remove_goog_node(self, node: DisplayNode, to_trash):
         assert isinstance(node, GoogNode), f'For node: {node}'
 
-        assert not node.is_dir(), 'FIXME! Add folder support!'  # FIXME
+        assert not node.is_dir(), 'FIXME! Add remove folder support!'  # FIXME
 
         if node.is_dir():
             children: List[GoogNode] = self._my_gdrive.get_children(node)
@@ -209,18 +209,37 @@ class GDriveMasterCache:
             # this is actually an update
             self.add_or_update_goog_node(node)
         else:
-            cache_path: str = self._get_cache_path_for_master()
-            with GDriveDatabase(cache_path) as cache:
-                cache.delete_parent_mappings_for_uid(node.uid, commit=False)
-                if node.is_dir():
-                    cache.delete_gdrive_dir_with_uid(node.uid)
-                else:
-                    cache.delete_gdrive_file_with_uid(node.uid)
+            # Remove from in-memory cache:
+            existing_node = self._my_gdrive.get_item_for_uid(node.uid)
+            if existing_node:
+                self._my_gdrive.remove_item(existing_node)
+
+            # Remove from disk cache:
+            if self.application.cache_manager.enable_save_to_disk:
+                cache_path: str = self._get_cache_path_for_master()
+                with GDriveDatabase(cache_path) as cache:
+                    cache.delete_parent_mappings_for_uid(node.uid, commit=False)
+                    if node.is_dir():
+                        cache.delete_gdrive_dir_with_uid(node.uid)
+                    else:
+                        cache.delete_gdrive_file_with_uid(node.uid)
+            else:
+                logger.debug(f'Save to disk is disabled: skipping removal of item with UID={node.uid}')
 
         dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
 
     # Various public methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def get_goog_ids_for_uids(self, uids: List[UID]) -> List[str]:
+        return self._my_gdrive.resolve_uids_to_goog_ids(uids)
+
+    def get_uid_list_for_goog_id_list(self, goog_ids: List[str]) -> List[UID]:
+        uid_list = []
+        for goog_id in goog_ids:
+            uid_list.append(self._uid_mapper.get_uid_for_goog_id(goog_id))
+
+        return uid_list
 
     def get_uid_for_goog_id(self, goog_id: str, uid_suggestion: Optional[UID] = None) -> UID:
         return self._uid_mapper.get_uid_for_goog_id(goog_id, uid_suggestion)

@@ -103,6 +103,28 @@ class GDriveWholeTree:
         if not item.get_parent_uids():
             self.roots.append(item)
 
+    def remove_item(self, item: GoogNode):
+        """Remove given item from all data structures in this tree."""
+        if item.uid not in self.id_dict:
+            logger.warning(f'Cannot remove item from in-memory tree: it was not found in the tree: {item}')
+            return
+
+        if item.is_dir():
+            # FIXME
+            raise RuntimeError(f'Cannot remove folders yet: {item}')
+        else:
+            for parent_uid in item.get_parent_uids():
+                child_list = self.first_parent_dict.get(parent_uid, [])
+                if child_list:
+                    # this may get expensive for folders with lots of items...may want to monitor performance
+                    child_list.remove(item)
+
+        if item in self.roots:
+            self.roots.remove(item)
+
+        self.id_dict.pop(item.uid, None)
+        logger.debug(f'GoogNode removed from in-memory tree: {item}')
+
     def add_parent_mapping(self, item_uid: UID, parent_uid: UID):
         """Assuming that an item with the given UID has already been added to this tree, this method
         adds all the references to the various data structures which are needed to assign it a single parent."""

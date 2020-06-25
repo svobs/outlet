@@ -345,9 +345,15 @@ class CacheManager:
             uid = self.get_uid_for_path(full_path)
             return [LocalFsIdentifier(full_path=full_path, uid=uid)]
 
+    def get_goog_ids_for_uids(self, uids: List[UID]) -> List[str]:
+        return self._gdrive_cache.get_goog_ids_for_uids(uids)
+
     def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
         """Deterministically gets or creates a UID corresponding to the given path string"""
         return self._local_disk_cache.get_uid_for_path(path, uid_suggestion)
+
+    def get_uid_list_for_goog_id_list(self, goog_id_list: List[str]) -> List[UID]:
+        return self._gdrive_cache.get_uid_list_for_goog_id_list(goog_id_list)
 
     def get_uid_for_goog_id(self, goog_id: str, uid_suggestion: Optional[UID] = None) -> UID:
         """Deterministically gets or creates a UID corresponding to the given goog_id"""

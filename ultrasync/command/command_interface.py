@@ -41,23 +41,6 @@ class CommandContext:
             self.gdrive_client = GDriveClient(application=application, tree_id=None)
             self.gdrive_tree: GDriveWholeTree = self.cache_manager.get_gdrive_whole_tree(tree_id=tree_id)
 
-    def resolve_parent_ids_to_goog_ids(self, node: GoogNode) -> str:
-        parent_uids: List[UID] = node.get_parent_uids()
-        if not parent_uids:
-            raise RuntimeError(f'Parents are required but item has no parents: {node}')
-
-        # This will raise an exception if it cannot resolve:
-        parent_goog_ids: List[str] = self.gdrive_tree.resolve_uids_to_goog_ids(parent_uids)
-
-        if len(parent_goog_ids) == 0:
-            raise RuntimeError(f'No parent Google IDs for: {node}')
-        if len(parent_goog_ids) > 1:
-            # not supported at this time
-            raise RuntimeError(f'Too many parent Google IDs for: {node}')
-
-        parent_goog_id: str = parent_goog_ids[0]
-        return parent_goog_id
-
 
 # ABSTRACT CLASS Command
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
