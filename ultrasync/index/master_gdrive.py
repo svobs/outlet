@@ -14,7 +14,7 @@ from index.uid_mapper import UidGoogIdMapper
 from model.display_node import DisplayNode
 from model.gdrive_subtree import GDriveSubtree
 from model.gdrive_whole_tree import GDriveWholeTree
-from model.goog_node import GoogFile, GoogFolder, GoogNode
+from model.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from stopwatch_sec import Stopwatch
@@ -81,7 +81,7 @@ class GDriveMasterCache:
         if not subtree_root.uid:
             # TODO: raise something
             return None
-        root: GoogNode = self._my_gdrive.get_item_for_uid(subtree_root.uid)
+        root: GDriveNode = self._my_gdrive.get_item_for_uid(subtree_root.uid)
         if not root:
             return None
 
@@ -122,7 +122,7 @@ class GDriveMasterCache:
     # Individual item cache updates
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def add_or_update_goog_node(self, node: GoogNode):
+    def add_or_update_goog_node(self, node: GDriveNode):
         # try to prevent cache corruption by doing some sanity checks
         if not node:
             raise RuntimeError(f'No node supplied!')
@@ -133,7 +133,7 @@ class GDriveMasterCache:
         if not self._my_gdrive:
             # TODO: give more thought to lifecycle
             raise RuntimeError('GDriveWholeTree not loaded!')
-        if not isinstance(node, GoogNode):
+        if not isinstance(node, GDriveNode):
             raise RuntimeError(f'Unrecognized node type: {node}')
 
         # Validate parent mappings
@@ -194,12 +194,12 @@ class GDriveMasterCache:
         dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
 
     def remove_goog_node(self, node: DisplayNode, to_trash):
-        assert isinstance(node, GoogNode), f'For node: {node}'
+        assert isinstance(node, GDriveNode), f'For node: {node}'
 
         assert not node.is_dir(), 'FIXME! Add remove folder support!'  # FIXME
 
         if node.is_dir():
-            children: List[GoogNode] = self._my_gdrive.get_children(node)
+            children: List[GDriveNode] = self._my_gdrive.get_children(node)
             if children:
                 raise RuntimeError(f'Cannot remove GDrive folder from cache: it contains {len(children)} children!')
 
@@ -244,14 +244,14 @@ class GDriveMasterCache:
     def get_uid_for_goog_id(self, goog_id: str, uid_suggestion: Optional[UID] = None) -> UID:
         return self._uid_mapper.get_uid_for_goog_id(goog_id, uid_suggestion)
 
-    def get_item_for_goog_id(self, goog_id: str) -> Optional[GoogNode]:
+    def get_item_for_goog_id(self, goog_id: str) -> Optional[GDriveNode]:
         uid = self._uid_mapper.get_uid_for_goog_id(goog_id)
         return self._my_gdrive.get_item_for_uid(uid)
 
-    def get_item_for_uid(self, uid: UID) -> Optional[GoogNode]:
+    def get_item_for_uid(self, uid: UID) -> Optional[GDriveNode]:
         return self._my_gdrive.get_item_for_uid(uid)
 
-    def get_item_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GoogNode]:
+    def get_item_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GDriveNode]:
         return self._my_gdrive.get_item_for_name_and_parent_uid(name, parent_uid)
 
     def get_goog_id_for_uid(self, uid: UID) -> Optional[str]:
@@ -267,8 +267,8 @@ class GDriveMasterCache:
         cache_path = cache_info.cache_location
         return cache_path
 
-    def get_children(self, node: DisplayNode) -> List[GoogNode]:
-        assert isinstance(node, GoogNode)
+    def get_children(self, node: DisplayNode) -> List[GDriveNode]:
+        assert isinstance(node, GDriveNode)
         return self._my_gdrive.get_children(node)
 
     def get_parent_for_item(self, item: DisplayNode, required_subtree_path: str = None):
@@ -287,5 +287,5 @@ class GDriveMasterCache:
             raise CacheNotLoadedError()
         return self._my_gdrive.get_all_identifiers_for_path(path)
 
-    def get_all_goog_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GoogFile], List[GoogFolder]]:
+    def get_all_goog_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
         return self._my_gdrive.get_all_files_and_folders_for_subtree(subtree_root)

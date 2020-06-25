@@ -8,7 +8,7 @@ from pydispatch import dispatcher
 
 from constants import GDRIVE_PATH_PREFIX, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.display_node import CategoryNode, DisplayNode
-from model.goog_node import GoogNode
+from model.gdrive_node import GDriveNode
 from ui import actions
 from ui.tree.tree_actions import DATE_REGEX
 
@@ -204,7 +204,7 @@ class TreeContextMenu:
 
     @staticmethod
     def build_full_path_display_item(menu: Gtk.Menu, preamble: str, node: DisplayNode) -> Gtk.MenuItem:
-        if isinstance(node, GoogNode):
+        if isinstance(node, GDriveNode):
             full_path_display = GDRIVE_PATH_PREFIX + node.full_path
         else:
             full_path_display = node.full_path

@@ -7,7 +7,7 @@ import format_util
 from index.two_level_dict import Md5BeforeUidDict
 from model.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveItemNotFoundError, GDriveWholeTree
-from model.goog_node import GoogFolder, GoogNode
+from model.gdrive_node import GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
@@ -25,12 +25,12 @@ SUPER_DEBUG = False
 
 
 class GDriveSubtree(SubtreeSnapshot):
-    def __init__(self, whole_tree: GDriveWholeTree, root_node: GoogFolder):
+    def __init__(self, whole_tree: GDriveWholeTree, root_node: GDriveFolder):
         SubtreeSnapshot.__init__(self, root_node=root_node)
 
         self._whole_tree = whole_tree
-        self._root_node: GoogFolder = root_node
-        self._ignored_items: List[GoogNode] = []
+        self._root_node: GDriveFolder = root_node
+        self._ignored_items: List[GDriveNode] = []
 
         # See refresh_stats() for the following
         self._stats_loaded = False
@@ -43,12 +43,12 @@ class GDriveSubtree(SubtreeSnapshot):
 
         md5_dict: Md5BeforeUidDict = Md5BeforeUidDict()
 
-        queue: Deque[GoogNode] = collections.deque()
-        assert isinstance(self.root_node, GoogFolder)
+        queue: Deque[GDriveNode] = collections.deque()
+        assert isinstance(self.root_node, GDriveFolder)
         queue.append(self.root_node)
 
         while len(queue) > 0:
-            item: GoogNode = queue.popleft()
+            item: GDriveNode = queue.popleft()
             if item.exists():
                 if item.is_dir():
                     child_list = self._whole_tree.get_children(item)
@@ -61,17 +61,17 @@ class GDriveSubtree(SubtreeSnapshot):
         logger.info(f'{md5_set_stopwatch} Found {md5_dict.total_entries} MD5s')
         return md5_dict
 
-    def get_children_for_root(self) -> List[GoogNode]:
-        assert isinstance(self.root_node, GoogFolder)
+    def get_children_for_root(self) -> List[GDriveNode]:
+        assert isinstance(self.root_node, GDriveFolder)
         return self.get_children(self.root_node)
 
-    def get_children(self, node: GoogNode) -> List[GoogNode]:
+    def get_children(self, node: GDriveNode) -> List[GDriveNode]:
         return self._whole_tree.get_children(node=node)
 
-    def get_full_path_for_item(self, item: GoogNode) -> List[str]:
+    def get_full_path_for_item(self, item: GDriveNode) -> List[str]:
         return self._whole_tree.get_full_path_for_item(item)
 
-    def get_for_path(self, path: str, include_ignored=False) -> List[GoogNode]:
+    def get_for_path(self, path: str, include_ignored=False) -> List[GDriveNode]:
         if not self.in_this_subtree(path):
             raise RuntimeError(f'Not in this tree: "{path}" (tree root: {self.root_path}')
         try:
@@ -86,10 +86,10 @@ class GDriveSubtree(SubtreeSnapshot):
         logger.warning(f'Found {len(identifiers)} identifiers for path: "{path}"). Returning the whole list')
         return list(map(lambda x: self._whole_tree.get_item_for_uid(x.uid), identifiers))
 
-    def get_parent_for_item(self, item: DisplayNode) -> Optional[GoogNode]:
+    def get_parent_for_item(self, item: DisplayNode) -> Optional[GDriveNode]:
         return self._whole_tree.get_parent_for_item(item, self.root_path)
 
-    def get_relative_path_for_item(self, goog_node: GoogNode):
+    def get_relative_path_for_item(self, goog_node: GDriveNode):
         """Get the path for the given ID, relative to the root of this subtree"""
         if not goog_node.full_path:
             node_full_path = self._whole_tree.get_all_paths_for_id(goog_node.uid)

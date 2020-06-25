@@ -12,7 +12,7 @@ from gdrive.client import GDriveClient
 from index.uid import UID
 from model.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveWholeTree
-from model.goog_node import GoogNode
+from model.gdrive_node import GDriveNode
 
 logger = logging.getLogger(__name__)
 

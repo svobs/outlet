@@ -9,7 +9,7 @@ from constants import EXPLICITLY_TRASHED, FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 from index.uid import UID
 from model.display_node import DisplayNode
 from model.local_disk_node import LocalDirNode, LocalFileNode
-from model.goog_node import GoogFile, GoogNode
+from model.gdrive_node import GDriveFile, GDriveNode
 
 logger = logging.getLogger(__name__)
 
@@ -212,7 +212,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
 
     def execute(self, cxt: CommandContext):
         try:
-            assert isinstance(self.tgt_node, GoogNode)
+            assert isinstance(self.tgt_node, GDriveNode)
             # this requires that any parents have been created and added to the in-memory cache (and will fail otherwise)
             src_file_path = self.src_node.full_path
             md5 = self.src_node.md5
@@ -241,7 +241,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
             if self.overwrite:
                 if existing:
                     logger.info(f'Found existing item in Google Drive with same parent and name, but different content (overwrite={self.overwrite})')
-                    goog_node: GoogNode = cxt.gdrive_client.update_existing_file(raw_item=existing_raw, local_full_path=src_file_path)
+                    goog_node: GDriveNode = cxt.gdrive_client.update_existing_file(raw_item=existing_raw, local_full_path=src_file_path)
                 else:
                     self._error = f'While trying to update item in Google Drive: could not find item with matching meta!'
                     self._status = CommandStatus.STOPPED_ON_ERROR
@@ -253,7 +253,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
                     return
                 else:
                     parent_goog_id: str = cxt.gdrive_client.resolve_parent_ids_to_goog_ids(self.tgt_node)
-                    goog_node: GoogNode = cxt.gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id)
+                    goog_node: GDriveNode = cxt.gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id)
 
             cxt.cache_manager.remove_node(self.tgt_node)
             cxt.cache_manager.add_or_update_node(goog_node)
@@ -277,7 +277,7 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
     """
     def __init__(self, uid: UID, change_action: ChangeAction, tgt_node: DisplayNode, src_node: DisplayNode, overwrite: bool):
         super().__init__(uid, change_action, tgt_node, src_node, overwrite)
-        assert isinstance(self.src_node, GoogNode), f'For {self.src_node}'
+        assert isinstance(self.src_node, GDriveNode), f'For {self.src_node}'
         assert isinstance(self.tgt_node, LocalFileNode), f'For {self.tgt_node}'
         self.tag = f'{__class__.__name__}(uid={self.identifier}, act={change_action.change_type} tgt_uid={self.tgt_node.uid} ' \
                    f'src_uid={self.src_node.uid} overwrite={overwrite}'
@@ -290,7 +290,7 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
 
     def execute(self, cxt: CommandContext):
         try:
-            assert isinstance(self.src_node, GoogFile), f'For {self.src_node}'
+            assert isinstance(self.src_node, GDriveFile), f'For {self.src_node}'
             src_goog_id = self.src_node.goog_id
             dst_path = self.tgt_node.full_path
 
@@ -366,7 +366,7 @@ class CreateGDriveFolderCommand(Command):
 
     def execute(self, cxt: CommandContext):
         try:
-            assert isinstance(self.tgt_node, GoogNode) and self.tgt_node.is_dir(), f'For {self.tgt_node}'
+            assert isinstance(self.tgt_node, GDriveNode) and self.tgt_node.is_dir(), f'For {self.tgt_node}'
 
             parent_goog_id: str = cxt.gdrive_client.resolve_parent_ids_to_goog_ids(self.tgt_node)
             name = self.tgt_node.name
@@ -374,7 +374,7 @@ class CreateGDriveFolderCommand(Command):
             if len(existing.nodes) > 0:
                 logger.info(f'Found {len(existing.nodes)} existing folders with parent={parent_goog_id} and name="{name}". '
                             f'Will use first found instead of creating a new folder.')
-                goog_node: GoogNode = existing.nodes[0]
+                goog_node: GDriveNode = existing.nodes[0]
                 goog_node.uid = self.tgt_node.uid
             else:
                 goog_node = cxt.gdrive_client.create_folder(name=self.tgt_node.name, parent_goog_ids=[parent_goog_id], uid=self.tgt_node.uid)
@@ -413,8 +413,8 @@ class MoveFileGDriveCommand(TwoNodeCommand):
 
     def execute(self, cxt: CommandContext):
         try:
-            assert isinstance(self.tgt_node, GoogFile), f'For {self.tgt_node}'
-            assert isinstance(self.src_node, GoogFile), f'For {self.src_node}'
+            assert isinstance(self.tgt_node, GDriveFile), f'For {self.tgt_node}'
+            assert isinstance(self.src_node, GDriveFile), f'For {self.src_node}'
             # this requires that any parents have been created and added to the in-memory cache (and will fail otherwise)
             src_parent_goog_id: str = cxt.gdrive_client.resolve_parent_ids_to_goog_ids(self.src_node)
             dst_parent_goog_id: str = cxt.gdrive_client.resolve_parent_ids_to_goog_ids(self.tgt_node)
@@ -485,7 +485,7 @@ class DeleteGDriveFileCommand(DeleteNodeCommand):
 
     def execute(self, cxt: CommandContext):
         try:
-            assert isinstance(self.tgt_node, GoogFile)
+            assert isinstance(self.tgt_node, GDriveFile)
             tgt_goog_id = self.tgt_node.goog_id
 
             existing = cxt.gdrive_client.get_existing_file_with_same_parent_and_name_and_criteria(self.tgt_node, lambda x: x.goog_id == tgt_goog_id)

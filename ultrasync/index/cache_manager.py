@@ -21,7 +21,7 @@ from index.uid import UID
 from model.display_node import DisplayNode
 from model.local_disk_node import LocalFileNode
 from model.gdrive_whole_tree import GDriveWholeTree
-from model.goog_node import GoogNode
+from model.gdrive_node import GDriveNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.subtree_snapshot import SubtreeSnapshot
@@ -363,7 +363,7 @@ class CacheManager:
         uid = self.get_uid_for_path(path)
         return self._local_disk_cache.get_item(uid)
 
-    def get_goog_node_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GoogNode]:
+    def get_goog_node_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GDriveNode]:
         """Returns the first GDrive node found with the given name and parent.
         This roughly matches the logic used to search for an item in Google Drive when we are unsure about its goog_id."""
         return self._gdrive_cache.get_item_for_name_and_parent_uid(name, parent_uid)

@@ -9,7 +9,7 @@ from command.change_action import ChangeAction, ChangeType
 from constants import NOT_TRASHED, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.display_node import ContainerNode, DisplayNode
 from model.local_disk_node import LocalDirNode, LocalFileNode
-from model.goog_node import GoogFile, GoogFolder, GoogNode
+from model.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier
 from model.subtree_snapshot import SubtreeSnapshot
 from ui.actions import ID_LEFT_TREE, ID_RIGHT_TREE
@@ -32,7 +32,7 @@ def _migrate_file_node(node_identifier: NodeIdentifier, src_node: DisplayNode) -
         return LocalFileNode(node_identifier, md5, sha256, size_bytes, None, None, None, True)
     elif tree_type == TREE_TYPE_GDRIVE:
         assert isinstance(node_identifier, GDriveIdentifier)
-        return GoogFile(node_identifier, None, src_node.name, NOT_TRASHED, None, None, None, md5, False, None, None, size_bytes, None, None)
+        return GDriveFile(node_identifier, None, src_node.name, NOT_TRASHED, None, None, None, md5, False, None, None, size_bytes, None, None)
     else:
         raise RuntimeError(f"Cannot create file node for tree type: {tree_type} (node_identifier={node_identifier}")
 
@@ -59,7 +59,7 @@ class OneSide:
         if dst_tree_type == TREE_TYPE_LOCAL_DISK:
             dst_node.uid = self.application.cache_manager.get_uid_for_path(new_path)
         elif dst_tree_type == TREE_TYPE_GDRIVE:
-            assert isinstance(dst_node, GoogNode) and dst_node.get_parent_uids(), f'Bad data: {dst_node}'
+            assert isinstance(dst_node, GDriveNode) and dst_node.get_parent_uids(), f'Bad data: {dst_node}'
             existing_node = self.application.cache_manager.get_goog_node_for_name_and_parent_uid(dst_node.name, dst_node.get_parent_uids()[0])
             if existing_node:
                 # If item is already there with given name, use its identification; we will overwrite its content with a new version
@@ -139,7 +139,7 @@ class OneSide:
                 logger.debug(f'Creating GoogFolderToAdd for {parent_path}')
                 new_uid = self.uid_generator.next_uid()
                 folder_name = os.parent_path.basename(parent_path)
-                new_parent = GoogFolder(GDriveIdentifier(uid=new_uid, full_path=None), goog_id=None, item_name=folder_name, trashed=False,
+                new_parent = GDriveFolder(GDriveIdentifier(uid=new_uid, full_path=None), goog_id=None, item_name=folder_name, trashed=False,
                                         drive_id=None, my_share=False, sync_ts=None, all_children_fetched=True)
             elif tree_type == TREE_TYPE_LOCAL_DISK:
                 logger.debug(f'Creating LocalDirToAdd for {parent_path}')

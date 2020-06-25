@@ -11,7 +11,7 @@ from command.command_builder import CommandBuilder
 from gdrive.client import GDriveClient
 from model.category import Category
 from model.display_node import DisplayNode
-from model.goog_node import GoogFile
+from model.gdrive_node import GDriveFile
 from ui import actions
 
 import gi
@@ -98,7 +98,7 @@ class TreeActions:
             logger.debug(f'[{self.con.tree_id}] Removing file: {file}')
             os.remove(file)
 
-    def _download_file_from_gdrive(self, sender, node: GoogFile):
+    def _download_file_from_gdrive(self, sender, node: GDriveFile):
         gdrive_client = GDriveClient(self.con.parent_win.application)
 
         os.makedirs(name=self.download_dir, exist_ok=True)

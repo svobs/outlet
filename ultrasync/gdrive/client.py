@@ -20,7 +20,7 @@ import file_util
 from constants import EXPLICITLY_TRASHED, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, IMPLICITLY_TRASHED, NOT_TRASHED
 from index.uid import UID
 from model.gdrive_whole_tree import UserMeta
-from model.goog_node import GoogFile, GoogFolder, GoogNode
+from model.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier
 from stopwatch_sec import Stopwatch
 from ui import actions
@@ -56,7 +56,7 @@ class MetaObserver(ABC):
         pass
 
     @abstractmethod
-    def meta_received(self, goog_node: GoogNode, item):
+    def meta_received(self, goog_node: GDriveNode, item):
         pass
 
     @abstractmethod
@@ -72,10 +72,10 @@ class SimpleNodeCollector(MetaObserver):
 
     def __init__(self):
         super().__init__()
-        self.nodes: List[GoogNode] = []
+        self.nodes: List[GDriveNode] = []
         self.raw_items = []
 
-    def meta_received(self, goog_node: GoogNode, item):
+    def meta_received(self, goog_node: GDriveNode, item):
         self.nodes.append(goog_node)
         self.raw_items.append(item)
 
@@ -187,7 +187,7 @@ class GDriveClient:
         self.page_size = self.config.get('gdrive.page_size')
         self.service = _load_google_client_service(self.config)
 
-    def resolve_parent_ids_to_goog_ids(self, node: GoogNode) -> str:
+    def resolve_parent_ids_to_goog_ids(self, node: GDriveNode) -> str:
         parent_uids: List[UID] = node.get_parent_uids()
         if not parent_uids:
             raise RuntimeError(f'Parents are required but item has no parents: {node}')
@@ -204,7 +204,7 @@ class GDriveClient:
         parent_goog_id: str = parent_goog_ids[0]
         return parent_goog_id
 
-    def _convert_to_goog_folder(self, item, sync_ts: int = 0) -> GoogFolder:
+    def _convert_to_goog_folder(self, item, sync_ts: int = 0) -> GDriveFolder:
         # 'driveId' only populated for items which someone has shared with me
         # 'shared' only populated for items which are owned by me
 
@@ -214,7 +214,7 @@ class GDriveClient:
         goog_id = item['id']
         uid = self.cache_manager.get_uid_for_goog_id(goog_id)
 
-        goog_node = GoogFolder(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, item_name=item['name'], trashed=_convert_trashed(item),
+        goog_node = GDriveFolder(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, item_name=item['name'], trashed=_convert_trashed(item),
                             drive_id=item.get('driveId', None), my_share=item.get('shared', None), sync_ts=sync_ts, all_children_fetched=False)
 
         parent_goog_ids = item.get('parents', [])
@@ -223,7 +223,7 @@ class GDriveClient:
 
         return goog_node
 
-    def _convert_to_goog_file(self, item, sync_ts: int = 0) -> GoogFile:
+    def _convert_to_goog_file(self, item, sync_ts: int = 0) -> GDriveFile:
         if not sync_ts:
             sync_ts = int(time.time())
 
@@ -253,7 +253,7 @@ class GDriveClient:
 
         goog_id = item['id']
         uid = self.cache_manager.get_uid_for_goog_id(goog_id)
-        goog_node: GoogFile = GoogFile(node_identifier=GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, item_name=item["name"],
+        goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, item_name=item["name"],
                                        trashed=_convert_trashed(item),
                                        drive_id=item.get('driveId', None),
                                        version=version, head_revision_id=head_revision_id,
@@ -306,9 +306,9 @@ class GDriveClient:
         logger.info(f'{used} of {total} used (including {drive_used} for Drive files; of which {drive_trash_used} is trash)')
         return user_meta
 
-    def get_meta_my_drive_root(self, sync_ts: int) -> GoogFolder:
+    def get_meta_my_drive_root(self, sync_ts: int) -> GDriveFolder:
         """
-        Returns: a GoogFolder representing the user's GDrive root node.
+        Returns: a GDriveFolder representing the user's GDrive root node.
         """
 
         def request():
@@ -331,14 +331,14 @@ class GDriveClient:
         self._get_meta_for_dirs(query, fields, None, sync_ts, observer)
         return observer
 
-    def get_existing_file_with_same_parent_and_name_and_criteria(self, node: GoogNode, match_func: Callable[[GoogNode], bool]):
+    def get_existing_file_with_same_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool]):
         src_parent_goog_id: str = self.resolve_parent_ids_to_goog_ids(node)
         result: SimpleNodeCollector = self.get_existing_file_with_parent_and_name(parent_goog_id=src_parent_goog_id, name=node.name)
         logger.debug(f'Found {len(result.nodes)} matching GDrive files with parent={src_parent_goog_id} and name={node.name}')
 
         if len(result.nodes) > 0:
             for found_node, found_raw in zip(result.nodes, result.raw_items):
-                assert isinstance(found_node, GoogFile)
+                assert isinstance(found_node, GDriveFile)
                 if match_func(found_node):
                     return found_node, found_raw
         return None
@@ -392,8 +392,8 @@ class GDriveClient:
         stopwatch_retrieval = Stopwatch()
 
         owner_dict: Dict[str, Tuple[str, str, str, bool]] = {}
-        mime_types: Dict[str, GoogNode] = {}
-        shortcuts: Dict[str, GoogNode] = {}
+        mime_types: Dict[str, GDriveNode] = {}
+        shortcuts: Dict[str, GDriveNode] = {}
 
         while True:
             results: dict = _try_repeatedly(request)
@@ -424,7 +424,7 @@ class GDriveClient:
                     owner_is_me = owner.get('me', None)
                     owner_dict[owner_id] = (owner_name, owner_email, owner_photo_link, owner_is_me)
 
-                goog_node: GoogFile = self._convert_to_goog_file(item, sync_ts=sync_ts)
+                goog_node: GDriveFile = self._convert_to_goog_file(item, sync_ts=sync_ts)
 
                 # Collect MIME types
                 mime_type = item['mimeType']
@@ -541,7 +541,7 @@ class GDriveClient:
                 actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             for item in items:
-                goog_node: GoogFolder = self._convert_to_goog_folder(item, sync_ts)
+                goog_node: GDriveFolder = self._convert_to_goog_folder(item, sync_ts)
 
                 observer.meta_received(goog_node, item)
                 item_count += 1
@@ -583,7 +583,7 @@ class GDriveClient:
 
         _try_repeatedly(download)
 
-    def upload_new_file(self, local_full_path: str, parent_goog_ids: Union[str, List[str]]) -> GoogFile:
+    def upload_new_file(self, local_full_path: str, parent_goog_ids: Union[str, List[str]]) -> GDriveFile:
         """Upload a single file based on its path. If successful, returns the newly created Google ID"""
         if not local_full_path:
             raise RuntimeError(f'No path specified for file!')
@@ -608,7 +608,7 @@ class GDriveClient:
 
         return goog_file
 
-    def update_existing_file(self, raw_item, local_full_path: str) -> GoogFile:
+    def update_existing_file(self, raw_item, local_full_path: str) -> GDriveFile:
         if not local_full_path:
             raise RuntimeError(f'No path specified for file!')
 
@@ -623,13 +623,13 @@ class GDriveClient:
             return self.service.files().update(fileId=raw_item['id'], body=file_metadata, media_body=media, fields=FILE_FIELDS).execute()
 
         updated_file_meta = _try_repeatedly(request)
-        goog_file: GoogFile = self._convert_to_goog_file(updated_file_meta)
+        goog_file: GDriveFile = self._convert_to_goog_file(updated_file_meta)
 
         logger.info(f'File update uploaded successfully) Returned name="{goog_file.name}", version="{goog_file.version}", goog_id="{goog_file.goog_id}",')
 
         return goog_file
 
-    def create_folder(self, name: str, parent_goog_ids: List[str]) -> GoogFolder:
+    def create_folder(self, name: str, parent_goog_ids: List[str]) -> GDriveFolder:
         """Create a folder with the given name. If successful, returns a new Google ID for the created folder"""
         if not name:
             raise RuntimeError(f'No name specified for folder!')
@@ -644,14 +644,14 @@ class GDriveClient:
 
         item = _try_repeatedly(request)
 
-        goog_node: GoogFolder = self._convert_to_goog_folder(item)
+        goog_node: GDriveFolder = self._convert_to_goog_folder(item)
         if not goog_node.goog_id:
             raise RuntimeError(f'Folder creation failed (no ID returned)!')
 
         logger.debug(f'Folder "{name}" created successfully! Returned id={goog_node.goog_id}')
         return goog_node
 
-    def modify_meta(self, goog_id: str, remove_parents: List[str], add_parents: List[str], name: str = None) -> GoogNode:
+    def modify_meta(self, goog_id: str, remove_parents: List[str], add_parents: List[str], name: str = None) -> GDriveNode:
         assert isinstance(add_parents, list), f'For goog_id={goog_id}: {add_parents}'
         assert isinstance(remove_parents, list), f'For goog_id={goog_id}: {remove_parents}'
 
@@ -686,9 +686,9 @@ class GDriveClient:
             return self.service.files().update(fileId=goog_id, body=file_metadata, fields=FILE_FIELDS).execute()
 
         file_meta = _try_repeatedly(request)
-        goog_file: GoogFile = self._convert_to_goog_file(file_meta)
+        goog_file: GDriveFile = self._convert_to_goog_file(file_meta)
 
-        logger.debug(f'Successfully trashed Goog node: {goog_id}: trashed={goog_file.trashed}')
+        logger.debug(f'Successfully trashed GDriveNode: {goog_id}: trashed={goog_file.trashed}')
         return goog_file
 
     def hard_delete(self, goog_id: str):
@@ -700,5 +700,5 @@ class GDriveClient:
             return file
 
         _try_repeatedly(request)
-        logger.debug(f'Successfully deleted Goog node: {goog_id}')
+        logger.debug(f'Successfully deleted GDriveNode: {goog_id}')
 

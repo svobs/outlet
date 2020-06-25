@@ -12,12 +12,12 @@ logger = logging.getLogger(__name__)
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    CLASS GoogNode
+    CLASS GDriveNode
 ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
 """
 
 
-class GoogNode(HasParentList, DisplayNode, ABC):
+class GDriveNode(HasParentList, DisplayNode, ABC):
     # ▲▲ Remember, Method Resolution Order places greatest priority to the first in the list, then goes down ▲▲
 
     def __init__(self, node_identifier: GDriveIdentifier, goog_id: Optional[str], item_name: str, trashed: int, drive_id: Optional[str],
@@ -74,14 +74,14 @@ class GoogNode(HasParentList, DisplayNode, ABC):
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    CLASS GoogFolder
+    CLASS GDriveFolder
 ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
 """
 
 
-class GoogFolder(HasChildren, GoogNode):
+class GDriveFolder(HasChildren, GDriveNode):
     def __init__(self, node_identifier: GDriveIdentifier, goog_id, item_name, trashed, drive_id, my_share, sync_ts, all_children_fetched):
-        GoogNode.__init__(self, node_identifier, goog_id, item_name, trashed, drive_id, my_share, sync_ts)
+        GDriveNode.__init__(self, node_identifier, goog_id, item_name, trashed, drive_id, my_share, sync_ts)
         HasChildren.__init__(self)
 
         self.all_children_fetched = all_children_fetched
@@ -114,7 +114,7 @@ class GoogFolder(HasChildren, GoogNode):
         return f'{size} in {self.file_count:n} files and {self.dir_count:n} folders'
 
     def __eq__(self, other):
-        if not isinstance(other, GoogFolder):
+        if not isinstance(other, GDriveFolder):
             return False
 
         return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name and other.trashed == self.trashed \
@@ -126,18 +126,18 @@ class GoogFolder(HasChildren, GoogNode):
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    CLASS GoogFile
+    CLASS GDriveFile
 ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
 """
 
 
-class GoogFile(GoogNode):
+class GDriveFile(GDriveNode):
     # TODO: handling of shortcuts... does a shortcut have an ID?
     # TODO: handling of special chars in file systems
 
     def __init__(self, node_identifier: GDriveIdentifier, goog_id, item_name, trashed, drive_id, version, head_revision_id, md5,
                  my_share, create_ts, modify_ts, size_bytes, owner_id, sync_ts):
-        GoogNode.__init__(self, node_identifier, goog_id, item_name, trashed, drive_id, my_share, sync_ts)
+        GDriveNode.__init__(self, node_identifier, goog_id, item_name, trashed, drive_id, my_share, sync_ts)
 
         self.version = ensure_int(version)
         self.head_revision_id = head_revision_id
@@ -150,13 +150,13 @@ class GoogFile(GoogNode):
         """OwnerID if it's not me"""
 
     def __repr__(self):
-        return f'GoogFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str}  size={self.get_size_bytes()} ' \
+        return f'GDriveFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str}  size={self.get_size_bytes()} ' \
                f'md5="{self._md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
                f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
                f'sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()})'
 
     def __eq__(self, other):
-        if not isinstance(other, GoogFile):
+        if not isinstance(other, GDriveFile):
             return False
 
         return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name and other.md5 == self._md5 and \

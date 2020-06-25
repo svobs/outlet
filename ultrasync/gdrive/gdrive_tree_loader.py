@@ -11,7 +11,7 @@ from gdrive.client import GDriveClient, MetaObserver
 from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from index.uid import UID
 from model.gdrive_whole_tree import GDriveWholeTree
-from model.goog_node import GoogFile, GoogFolder, GoogNode
+from model.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier
 from stopwatch_sec import Stopwatch
 from ui import actions
@@ -173,7 +173,7 @@ class GDriveTreeLoader:
             # Need to make a special call to get the root node 'My Drive'. This node will not be included
             # in the "list files" call:
             download.update_ts = sync_ts
-            drive_root: GoogFolder = self.gdrive_client.get_meta_my_drive_root(download.update_ts)
+            drive_root: GDriveFolder = self.gdrive_client.get_meta_my_drive_root(download.update_ts)
             tree.id_dict[drive_root.uid] = drive_root
 
             download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
@@ -235,7 +235,7 @@ class GDriveTreeLoader:
         tree = GDriveWholeTree(self.node_identifier_factory)
         invalidate_uids: Dict[UID, str] = {}
 
-        items_without_goog_ids: List[GoogNode] = []
+        items_without_goog_ids: List[GDriveNode] = []
 
         # DIRs:
         sw = Stopwatch()
@@ -246,7 +246,7 @@ class GDriveTreeLoader:
 
         for uid_int, goog_id, item_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
             uid_from_cache = UID(uid_int)
-            item = GoogFolder(GDriveIdentifier(uid=uid_from_cache, full_path=None), goog_id=goog_id, item_name=item_name,
+            item = GDriveFolder(GDriveIdentifier(uid=uid_from_cache, full_path=None), goog_id=goog_id, item_name=item_name,
                               trashed=item_trashed, drive_id=drive_id, my_share=my_share,
                               sync_ts=sync_ts, all_children_fetched=all_children_fetched)
 
@@ -281,7 +281,7 @@ class GDriveTreeLoader:
                 my_share, version, head_revision_id, sync_ts in file_rows:
             uid_from_cache = UID(uid_int)
 
-            item = GoogFile(GDriveIdentifier(uid=uid_from_cache, full_path=None), goog_id=goog_id, item_name=item_name,
+            item = GDriveFile(GDriveIdentifier(uid=uid_from_cache, full_path=None), goog_id=goog_id, item_name=item_name,
                             trashed=item_trashed, drive_id=drive_id, my_share=my_share, version=version,
                             head_revision_id=head_revision_id, md5=md5,
                             create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes,
@@ -383,7 +383,7 @@ def _compile_full_paths(tree: GDriveWholeTree):
         path_count += 1
 
     while len(queue) > 0:
-        item: GoogNode = queue.popleft()
+        item: GDriveNode = queue.popleft()
         children = tree.first_parent_dict.get(item.uid, None)
         if children:
             parent_paths = item.full_path

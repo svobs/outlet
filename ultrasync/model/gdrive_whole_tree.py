@@ -10,7 +10,7 @@ import format_util
 from index.error import GDriveItemNotFoundError
 from index.uid import UID
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
-from model.goog_node import GoogFile, GoogFolder, GoogNode
+from model.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
 from stopwatch_sec import Stopwatch
 from ui import actions
@@ -54,11 +54,11 @@ class GDriveWholeTree:
         self._stats_loaded = False
 
         # Keep track of parentless nodes. These include the 'My Drive' item, as well as shared items.
-        self.roots: List[GoogNode] = []
-        self.id_dict: Dict[UID, GoogNode] = {}
+        self.roots: List[GDriveNode] = []
+        self.id_dict: Dict[UID, GDriveNode] = {}
         """ Forward lookup table: nodes are indexed by GOOG ID"""
 
-        self.first_parent_dict: Dict[UID, List[GoogNode]] = {}
+        self.first_parent_dict: Dict[UID, List[GDriveNode]] = {}
         """ Reverse lookup table: 'parent_uid' -> list of child nodes """
 
         self.me: Optional[UserMeta] = None
@@ -67,7 +67,7 @@ class GDriveWholeTree:
         self.mime_types = {}
         self.shortcuts = {}
 
-    def get_full_path_for_item(self, item: GoogNode) -> List[str]:
+    def get_full_path_for_item(self, item: GDriveNode) -> List[str]:
         """Gets the absolute path for the item. Also sets its 'full_path' attribute for future use"""
         if item.full_path:
             # Does item already have a full_path? Just return that (huge speed gain):
@@ -81,7 +81,7 @@ class GDriveWholeTree:
             item.node_identifier.full_path = full_paths
         return full_paths
 
-    def add_item(self, item: GoogNode):
+    def add_item(self, item: GDriveNode):
         """Adds an item. Assumes that the item has all necessary parent info filled in already,
         and does the heavy lifting and populates all data structures appropriately."""
 
@@ -103,7 +103,7 @@ class GDriveWholeTree:
         if not item.get_parent_uids():
             self.roots.append(item)
 
-    def remove_item(self, item: GoogNode):
+    def remove_item(self, item: GDriveNode):
         """Remove given item from all data structures in this tree."""
         if item.uid not in self.id_dict:
             logger.warning(f'Cannot remove item from in-memory tree: it was not found in the tree: {item}')
@@ -123,7 +123,7 @@ class GDriveWholeTree:
             self.roots.remove(item)
 
         self.id_dict.pop(item.uid, None)
-        logger.debug(f'GoogNode removed from in-memory tree: {item}')
+        logger.debug(f'GDriveNode removed from in-memory tree: {item}')
 
     def add_parent_mapping(self, item_uid: UID, parent_uid: UID):
         """Assuming that an item with the given UID has already been added to this tree, this method
@@ -133,7 +133,7 @@ class GDriveWholeTree:
         item = self.id_dict.get(item_uid)
         if not item:
             raise RuntimeError(f'Cannot add parent mapping: Item not found with UID: {item_uid}')
-        assert isinstance(item, GoogNode)
+        assert isinstance(item, GDriveNode)
 
         # Add to dict:
         self._add_to_parent_dict(parent_uid, item)
@@ -142,29 +142,29 @@ class GDriveWholeTree:
         item.add_parent(parent_uid)
 
     def _add_to_parent_dict(self, parent_uid: UID, item):
-        child_list: List[GoogNode] = self.first_parent_dict.get(parent_uid)
+        child_list: List[GDriveNode] = self.first_parent_dict.get(parent_uid)
         if not child_list:
-            child_list: List[GoogNode] = []
+            child_list: List[GDriveNode] = []
             self.first_parent_dict[parent_uid] = child_list
         child_list.append(item)
 
-    def get_all_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GoogFile], List[GoogFolder]]:
-        file_list: List[GoogFile] = []
-        folder_list: List[GoogFolder] = []
-        queue: Deque[GoogNode] = deque()
+    def get_all_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
+        file_list: List[GDriveFile] = []
+        folder_list: List[GDriveFolder] = []
+        queue: Deque[GDriveNode] = deque()
         node = self.get_item_for_uid(uid=subtree_root.uid)
         if node:
             queue.append(node)
 
         while len(queue) > 0:
-            node: GoogNode = queue.popleft()
+            node: GDriveNode = queue.popleft()
             if node.is_dir():
-                assert isinstance(node, GoogFolder)
+                assert isinstance(node, GDriveFolder)
                 folder_list.append(node)
                 for child in self.get_children(node):
                     queue.append(child)
             else:
-                assert isinstance(node, GoogFile)
+                assert isinstance(node, GDriveFile)
                 file_list.append(node)
 
         return file_list, folder_list
@@ -195,8 +195,8 @@ class GDriveWholeTree:
             except StopIteration:
                 seg = ''
         path_so_far = '/' + seg
-        current_seg_items: List[GoogNode] = [x for x in self.roots if x.name.lower() == seg.lower()]
-        next_seg_items: List[GoogNode] = []
+        current_seg_items: List[GDriveNode] = [x for x in self.roots if x.name.lower() == seg.lower()]
+        next_seg_items: List[GDriveNode] = []
         path_found = '/'
         if current_seg_items:
             path_found += current_seg_items[0].name
@@ -205,12 +205,12 @@ class GDriveWholeTree:
             path_so_far = path_so_far + '/' + name_seg
             for current in current_seg_items:
                 current_id: UID = current.uid
-                children: List[GoogNode] = self.get_children(current)
+                children: List[GDriveNode] = self.get_children(current)
                 if not children:
                     if SUPER_DEBUG:
                         logger.debug(f'Item has no children: id="{current_id}" path_so_far="{path_so_far}"')
                     break
-                matches: List[GoogNode] = [x for x in children if x.name.lower() == name_seg.lower()]
+                matches: List[GDriveNode] = [x for x in children if x.name.lower() == name_seg.lower()]
                 if SUPER_DEBUG and len(matches) > 1:
                     logger.info(f'get_all_identifiers_for_path(): Multiple child IDs ({len(matches)}) found for parent ID "'
                                 f'{current_id}", path_so_far "{path_so_far}"')
@@ -249,7 +249,7 @@ class GDriveWholeTree:
 
         return path.startswith(subtree_root_path)
 
-    def get_parent_for_item(self, item: GoogNode, required_subtree_path: str = None) -> Optional[GoogNode]:
+    def get_parent_for_item(self, item: GDriveNode, required_subtree_path: str = None) -> Optional[GDriveNode]:
         parent_uids = item.get_parent_uids()
         if parent_uids:
             resolved_parents = []
@@ -263,8 +263,8 @@ class GDriveWholeTree:
                 return resolved_parents[0]
         return None
 
-    def get_ancestors(self, item: GoogNode, stop_before_func: Callable[[GoogNode], bool] = None) -> Deque[GoogNode]:
-        ancestors: Deque[GoogNode] = deque()
+    def get_ancestors(self, item: GDriveNode, stop_before_func: Callable[[GDriveNode], bool] = None) -> Deque[GDriveNode]:
+        ancestors: Deque[GDriveNode] = deque()
 
         # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
         # been added to this tree, or the root of the source tree
@@ -306,13 +306,13 @@ class GDriveWholeTree:
     def tree_type(self) -> int:
         return constants.TREE_TYPE_GDRIVE
 
-    def get_children_for_root(self) -> List[GoogNode]:
+    def get_children_for_root(self) -> List[GDriveNode]:
         return self.roots
 
-    def get_children(self, node: GoogNode) -> List[GoogNode]:
+    def get_children(self, node: GDriveNode) -> List[GDriveNode]:
         return self.first_parent_dict.get(node.uid, [])
 
-    def get_item_for_goog_id_and_parent_uid(self, goog_id: str, parent_uid: UID) -> Optional[GoogNode]:
+    def get_item_for_goog_id_and_parent_uid(self, goog_id: str, parent_uid: UID) -> Optional[GDriveNode]:
         """Finds the GDrive node with the given goog_id. (Parent UID is needed so that we don't have to search the entire tree"""
         parent = self.get_item_for_uid(parent_uid)
         if parent:
@@ -323,7 +323,7 @@ class GDriveWholeTree:
                         return child
         return None
 
-    def get_item_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GoogNode]:
+    def get_item_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GDriveNode]:
         """Returns the first GDrive node found with the given name and parent.
         This roughly matches the logic used to search for an item in Google Drive when we are unsure about its goog_id."""
         parent = self.get_item_for_uid(parent_uid)
@@ -335,7 +335,7 @@ class GDriveWholeTree:
                         return child
         return None
 
-    def get_item_for_uid(self, uid: UID) -> Optional[GoogNode]:
+    def get_item_for_uid(self, uid: UID) -> Optional[GDriveNode]:
         assert uid
         return self.id_dict.get(uid, None)
 
@@ -354,7 +354,7 @@ class GDriveWholeTree:
         """Gets the filesystem-like-path for the item with the given GoogID.
         If stop_before_id is given, treat it as the subtree root and stop before including it; otherwise continue
         until a parent cannot be found, or until the root of the tree is reached"""
-        current_item: GoogNode = self.get_item_for_uid(uid)
+        current_item: GDriveNode = self.get_item_for_uid(uid)
         if not current_item:
             raise RuntimeError(f'Item not found: id={uid}')
 
@@ -362,8 +362,8 @@ class GDriveWholeTree:
 
         path_list: List[str] = []
         # Iterate backwards (the given ID is the last segment in the path
-        current_items: List[Tuple[GoogNode, str]] = [(current_item, '')]
-        next_segment_items: List[Tuple[GoogNode, str]] = []
+        current_items: List[Tuple[GDriveNode, str]] = [(current_item, '')]
+        next_segment_items: List[Tuple[GDriveNode, str]] = []
         while current_items:
             for item, path_so_far in current_items:
                 if item.uid == stop_before_id:
@@ -419,7 +419,7 @@ class GDriveWholeTree:
                         size_bytes += root.get_size_bytes()
 
                         if root.is_dir():
-                            assert isinstance(root, GoogFolder)
+                            assert isinstance(root, GDriveFolder)
                             dir_count += root.dir_count + 1
                             file_count += root.file_count
                         else:
@@ -427,7 +427,7 @@ class GDriveWholeTree:
                 else:
                     # trashed:
                     if root.is_dir():
-                        assert isinstance(root, GoogFolder)
+                        assert isinstance(root, GDriveFolder)
                         if root.get_size_bytes():
                             trashed_bytes += root.get_size_bytes()
                         if root.trashed_bytes:
@@ -454,11 +454,11 @@ class GDriveWholeTree:
 
     def find_duplicate_node_names(self, tree_id):
         """Finds and builds a list of all nodes which have the same name inside the same folder"""
-        queue: Deque[GoogNode] = deque()
-        stack: Deque[GoogNode] = deque()
-        child_dict: DefaultDict[str, List[GoogNode]] = defaultdict(list)
+        queue: Deque[GDriveNode] = deque()
+        stack: Deque[GDriveNode] = deque()
+        child_dict: DefaultDict[str, List[GDriveNode]] = defaultdict(list)
 
-        duplicates: List[List[GoogNode]] = []
+        duplicates: List[List[GDriveNode]] = []
 
         # roots ...
         for root in self.roots:
@@ -473,14 +473,14 @@ class GDriveWholeTree:
 
         # everything else ...
         while len(queue) > 0:
-            item: GoogNode = queue.popleft()
-            child_dict: DefaultDict[str, List[GoogNode]] = defaultdict(list)
+            item: GDriveNode = queue.popleft()
+            child_dict: DefaultDict[str, List[GDriveNode]] = defaultdict(list)
 
             children = self.get_children(item)
             if children:
                 for child in children:
                     if child.is_dir():
-                        assert isinstance(child, GoogNode)
+                        assert isinstance(child, GDriveNode)
                         queue.append(child)
                     child_dict[child.name].append(child)
 
@@ -497,23 +497,23 @@ class GDriveWholeTree:
     def refresh_stats(self, tree_id):
         # Calculates the stats for all the directories
         stats_sw = Stopwatch()
-        queue: Deque[GoogFolder] = deque()
-        stack: Deque[GoogFolder] = deque()
+        queue: Deque[GDriveFolder] = deque()
+        stack: Deque[GDriveFolder] = deque()
         for root in self.roots:
             if root.is_dir():
-                assert isinstance(root, GoogFolder)
+                assert isinstance(root, GDriveFolder)
                 queue.append(root)
                 stack.append(root)
 
         while len(queue) > 0:
-            item: GoogFolder = queue.popleft()
+            item: GDriveFolder = queue.popleft()
             item.zero_out_stats()
 
             children = self.get_children(item)
             if children:
                 for child in children:
                     if child.is_dir():
-                        assert isinstance(child, GoogFolder)
+                        assert isinstance(child, GDriveFolder)
                         queue.append(child)
                         stack.append(child)
 
@@ -536,7 +536,7 @@ class GDriveWholeTree:
         logger.debug(f'{stats_sw} Refreshed stats for whole Google Drive tree')
 
 
-def _merge_items(existing_item: GoogNode, new_item: GoogNode) -> List[UID]:
+def _merge_items(existing_item: GDriveNode, new_item: GDriveNode) -> List[UID]:
     # Assume items are identical but each references a different parent (most likely flattened for SQL)
     assert len(existing_item.get_parent_uids()) >= 1 and len(
         new_item.get_parent_uids()) == 1, f'Expected 1 parent each but found: {existing_item.get_parent_uids()} and {new_item.get_parent_uids()}'

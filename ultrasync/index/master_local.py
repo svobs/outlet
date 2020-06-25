@@ -41,7 +41,7 @@ class LocalDiskMasterCache:
         """Singleton in-memory cache for local filesystem"""
         self.application = application
 
-        # TODO: put struct lock in CacheManager, cover Goog and Command
+        # TODO: put struct lock in CacheManager, cover GDrive and Command
         self._struct_lock = threading.Lock()
 
         self._uid_mapper = UidPathMapper(application)
