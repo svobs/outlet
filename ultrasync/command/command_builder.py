@@ -121,9 +121,9 @@ class CommandBuilder:
         build_dict[ChangeType.CP] = {
             LO_LO: lambda uid, change, tgt, src: CopyFileLocallyCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=False),
 
-            LO_GD: lambda uid, change, tgt, src: UploadToGDriveCommand(uid, change, tgt_node=tgt, src_node=src),
+            LO_GD: lambda uid, change, tgt, src: UploadToGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=False),
 
-            GD_LO: lambda uid, change, tgt, src, overwrite: DownloadFromGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=overwrite)
+            GD_LO: lambda uid, change, tgt, src: DownloadFromGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=False)
         }
 
         build_dict[ChangeType.MV] = {
@@ -131,23 +131,23 @@ class CommandBuilder:
 
             GD_GD: lambda uid, change, tgt, src: MoveFileGDriveCommand(uid, change, tgt_node=tgt, src_node=src),
 
-            LO_GD: lambda uid, change, tgt, src: UploadToGDriveCommand(uid, change, tgt_node=tgt, src_node=src),
+            LO_GD: lambda uid, change, tgt, src: UploadToGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=False),
 
-            GD_LO: lambda uid, change, tgt, src, overwrite: DownloadFromGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=overwrite)
+            GD_LO: lambda uid, change, tgt, src: DownloadFromGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=False)
         }
 
         build_dict[ChangeType.RM] = {
-            LO: lambda uid, change, tgt, src_node: DeleteLocalFileCommand(uid, change, tgt_node=tgt, to_trash=True, delete_empty_parent=True),
+            LO: lambda uid, change, tgt, src: DeleteLocalFileCommand(uid, change, tgt_node=tgt, to_trash=True, delete_empty_parent=True),
 
-            GD: lambda uid, change, tgt, src_node: DeleteGDriveFileCommand(uid, change, tgt_node=tgt, to_trash=True, delete_empty_parent=True)
+            GD: lambda uid, change, tgt, src: DeleteGDriveFileCommand(uid, change, tgt_node=tgt, to_trash=True, delete_empty_parent=True)
         }
 
         build_dict[ChangeType.UP] = {
             LO_LO: lambda uid, change, tgt, src: CopyFileLocallyCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=True),
 
-            LO_GD: lambda uid, change, tgt, src: UploadToGDriveCommand(uid, change, tgt_node=tgt, src_node=src),
+            LO_GD: lambda uid, change, tgt, src: UploadToGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=True),
 
-            GD_LO: lambda uid, change, tgt, src, overwrite: DownloadFromGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=overwrite),
+            GD_LO: lambda uid, change, tgt, src: DownloadFromGDriveCommand(uid, change, tgt_node=tgt, src_node=src, overwrite=True),
         }
         return build_dict
 
