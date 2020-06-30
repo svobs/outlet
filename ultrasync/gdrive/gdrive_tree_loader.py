@@ -7,7 +7,8 @@ from typing import Dict, List, Optional, Tuple
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
     GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL, ROOT_UID, TREE_TYPE_GDRIVE
-from gdrive.client import GDriveClient, MetaObserver
+from gdrive.client import GDriveClient
+from gdrive.meta_observer import FileMetaPersister, FolderMetaPersister
 from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from index.uid import UID
 from model.gdrive_whole_tree import GDriveWholeTree
@@ -17,88 +18,6 @@ from stopwatch_sec import Stopwatch
 from ui import actions
 
 logger = logging.getLogger(__name__)
-
-
-# CLASS FolderMetaPersister
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-class FolderMetaPersister(MetaObserver):
-    """Collect GDrive folder metas for mass insertion into database"""
-    def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, cache: GDriveDatabase):
-        super().__init__()
-        self.tree = tree
-        assert download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
-        self.download: CurrentDownload = download
-        self.cache: GDriveDatabase = cache
-        self.dir_tuples: List[Tuple] = []
-        self.id_parent_mappings: List[Tuple] = []
-
-    def meta_received(self, goog_node, item):
-        parent_google_ids = item.get('parents', [])
-        self.tree.id_dict[goog_node.uid] = goog_node
-        self.dir_tuples.append(goog_node.to_tuple())
-
-        self.id_parent_mappings += parent_mappings_tuples(goog_node.uid, parent_google_ids, sync_ts=self.download.update_ts)
-
-    def end_of_page(self, next_page_token):
-        self.download.page_token = next_page_token
-        if not next_page_token:
-            # done
-            assert self.download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
-            self.download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
-            # fall through
-
-        self.cache.insert_gdrive_dirs_and_parents(dir_list=self.dir_tuples, parent_mappings=self.id_parent_mappings, current_download=self.download)
-
-        if next_page_token:
-            # Clear the buffers for reuse:
-            self.dir_tuples = []
-            self.id_parent_mappings = []
-
-
-# CLASS FileMetaPersister
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-class FileMetaPersister(MetaObserver):
-    """Collect GDrive file metas for mass insertion into database"""
-    def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, cache: GDriveDatabase):
-        super().__init__()
-        self.tree = tree
-        assert download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
-        self.download: CurrentDownload = download
-        self.cache: GDriveDatabase = cache
-        self.file_tuples: List[Tuple] = []
-        self.id_parent_mappings: List[Tuple] = []
-
-    def meta_received(self, goog_node, item):
-        parent_google_ids = item.get('parents', [])
-        self.tree.id_dict[goog_node.uid] = goog_node
-        self.file_tuples.append(goog_node.to_tuple())
-
-        self.id_parent_mappings += parent_mappings_tuples(goog_node.uid, parent_google_ids, sync_ts=self.download.update_ts)
-
-    def end_of_page(self, next_page_token):
-        self.download.page_token = next_page_token
-        if not next_page_token:
-            # done
-            assert self.download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
-            self.download.current_state = GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE
-            # fall through
-
-        self.cache.insert_gdrive_files_and_parents(file_list=self.file_tuples, parent_mappings=self.id_parent_mappings,
-                                                   current_download=self.download)
-
-        if next_page_token:
-            # Clear the buffers for reuse:
-            self.file_tuples = []
-            self.id_parent_mappings = []
-
-
-def parent_mappings_tuples(item_uid: UID, parent_goog_ids: List[str], sync_ts: int) -> List[Tuple[UID, Optional[UID], str, int]]:
-    tuples = []
-    for parent_goog_id in parent_goog_ids:
-        tuples.append((item_uid, None, parent_goog_id, sync_ts))
-    return tuples
 
 
 # CLASS GDriveTreeLoader
@@ -247,8 +166,8 @@ class GDriveTreeLoader:
         for uid_int, goog_id, item_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched in dir_rows:
             uid_from_cache = UID(uid_int)
             item = GDriveFolder(GDriveIdentifier(uid=uid_from_cache, full_path=None), goog_id=goog_id, item_name=item_name,
-                              trashed=item_trashed, drive_id=drive_id, my_share=my_share,
-                              sync_ts=sync_ts, all_children_fetched=all_children_fetched)
+                                trashed=item_trashed, drive_id=drive_id, my_share=my_share,
+                                sync_ts=sync_ts, all_children_fetched=all_children_fetched)
 
             if goog_id:
                 uid = self.cache_manager.get_uid_for_goog_id(goog_id, uid_from_cache)
@@ -277,15 +196,15 @@ class GDriveTreeLoader:
 
         actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=f'Retreived {len(file_rows):n} Google Drive files')
 
-        for uid_int, goog_id, item_name, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_id, drive_id, \
-                my_share, version, head_revision_id, sync_ts in file_rows:
+        for uid_int, goog_id, item_name, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_id, drive_id, my_share, version, \
+                head_revision_id, sync_ts in file_rows:
+
             uid_from_cache = UID(uid_int)
 
             item = GDriveFile(GDriveIdentifier(uid=uid_from_cache, full_path=None), goog_id=goog_id, item_name=item_name,
-                            trashed=item_trashed, drive_id=drive_id, my_share=my_share, version=version,
-                            head_revision_id=head_revision_id, md5=md5,
-                            create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes,
-                            owner_id=owner_id, sync_ts=sync_ts)
+                              trashed=item_trashed, drive_id=drive_id, my_share=my_share, version=version,
+                              head_revision_id=head_revision_id, md5=md5,
+                              create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes, owner_id=owner_id, sync_ts=sync_ts)
 
             if goog_id:
                 uid = self.cache_manager.get_uid_for_goog_id(goog_id, uid_from_cache)

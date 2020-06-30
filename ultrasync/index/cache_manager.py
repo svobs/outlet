@@ -12,7 +12,7 @@ from command.command_interface import CommandBatch
 from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
-from index.command_ledger import CommandLedger
+from index.change_ledger import ChangeLedger
 from index.master_gdrive import GDriveMasterCache
 from index.master_local import LocalDiskMasterCache
 from index.sqlite.cache_registry_db import CacheRegistry
@@ -108,7 +108,7 @@ class CacheManager:
         try:
             self._local_disk_cache = LocalDiskMasterCache(self.application)
             self._gdrive_cache = GDriveMasterCache(self.application)
-            self._command_ledger = CommandLedger(self.application)
+            self._command_ledger = ChangeLedger(self.application)
 
             # First put into map, to eliminate possible duplicates
             caches_from_registry: List[CacheInfoEntry] = self._get_cache_info_from_registry()

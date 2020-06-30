@@ -7,9 +7,10 @@ from ui import actions
 
 
 # CLASS CentralExecutor
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class CentralExecutor:
+    """Half-baked proto-module which will at least let me see all execution in one place"""
     def __init__(self, application):
         self.app = application
         self._command_executor = CommandExecutor(self.app)

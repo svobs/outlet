@@ -18,6 +18,7 @@ from pydispatch import dispatcher
 
 import file_util
 from constants import EXPLICITLY_TRASHED, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, IMPLICITLY_TRASHED, NOT_TRASHED
+from gdrive.meta_observer import MetaObserver, SimpleNodeCollector
 from index.uid import UID
 from model.gdrive_whole_tree import UserMeta
 from model.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
@@ -44,46 +45,6 @@ FILE_FIELDS = 'id, name, trashed, explicitlyTrashed, driveId, shared, version, c
               'modifiedTime, owners, md5Checksum, size, headRevisionId, shortcutDetails, mimeType, sharingUser'
 
 logger = logging.getLogger(__name__)
-
-
-# ABSTRACT CLASS MetaObserver
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-class MetaObserver(ABC):
-    """Observer interface, to be implemented with various strategies for processing downloaded Google Drive meta"""
-
-    def __init__(self):
-        pass
-
-    @abstractmethod
-    def meta_received(self, goog_node: GDriveNode, item):
-        pass
-
-    @abstractmethod
-    def end_of_page(self, next_page_token: str):
-        pass
-
-
-# CLASS SimpleNodeCollector
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-class SimpleNodeCollector(MetaObserver):
-    """Just collects Google nodes in its internal list, to be retreived all at once when meta download is done"""
-
-    def __init__(self):
-        super().__init__()
-        self.nodes: List[GDriveNode] = []
-        self.raw_items = []
-
-    def meta_received(self, goog_node: GDriveNode, item):
-        self.nodes.append(goog_node)
-        self.raw_items.append(item)
-
-    def end_of_page(self, next_page_token: str):
-        pass
-
-    def __repr__(self):
-        return f'SimpleNodeCollector(nodes={len(self.nodes)} raw_items={len(self.raw_items)}'
 
 
 # CLASS MemoryCache

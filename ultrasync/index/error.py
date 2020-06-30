@@ -1,8 +1,8 @@
+from model.node_identifier import NodeIdentifier
+
 
 #    CLASS GDriveItemNotFoundError
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-from model.node_identifier import NodeIdentifier
-
 
 class GDriveItemNotFoundError(RuntimeError):
     def __init__(self, node_identifier: NodeIdentifier, offending_path: str, msg: str = None):

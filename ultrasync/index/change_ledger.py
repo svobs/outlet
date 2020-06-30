@@ -10,7 +10,7 @@ from ui import actions
 logger = logging.getLogger(__name__)
 
 
-class CommandLedger:
+class ChangeLedger:
     def __init__(self, application):
         self.application = application
 
