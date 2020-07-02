@@ -52,17 +52,33 @@ class CommandExecutor:
                             status = f'Executing command {(command_num + 1)} of {len(command_batch)}'
                             dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=actions.ID_COMMAND_EXECUTOR, msg=status)
                             logger.info(f'{status}: {repr(command)}')
-                            command.execute(context)
-
-                            if command.status() == CommandStatus.STOPPED_ON_ERROR:
-                                # TODO: notify/display error messages somewhere in the UI?
-                                logger.error(f'Command failed with error: {command.get_error()}')
-                            else:
-                                logger.info(f'Command returned with status: "{command.status().name}"')
+                            command.result = command.execute(context)
                         except Exception as err:
-                            # If caught here, it indicates a pretty big hole in our command logic
-                            logger.exception(f'Unexpected exception while running command {command}')
-                            command.set_error(err)
+                            logger.exception(f'While executing {command.get_description()}')
+                            # Save the error inside the command:
+                            command.set_error_result(err)
+
+                        if command.status() == CommandStatus.STOPPED_ON_ERROR:
+                            # TODO: notify/display error messages somewhere in the UI?
+                            logger.error(f'Command failed with error: {command.get_error()}')
+                        else:
+                            logger.info(f'Command returned with status: "{command.status().name}"')
+
+                        # Add/update nodes in central cache:
+                        if command.result.nodes_to_upsert:
+                            for upsert_node in command.result.nodes_to_upsert:
+                                context.cache_manager.add_or_update_node(upsert_node)
+
+                        # Remove nodes in central cache:
+                        if command.result.nodes_to_delete:
+                            try:
+                                to_trash = command.to_trash
+                            except AttributeError:
+                                to_trash = False
+
+                            logger.debug(f'Deleted {len(command.result.nodes_to_delete)} nodes: notifying cacheman')
+                            for deleted_node in command.result.nodes_to_delete:
+                                context.cache_manager.remove_node(deleted_node, to_trash)
 
                     dispatcher.send(signal=actions.PROGRESS_MADE, sender=actions.ID_COMMAND_EXECUTOR, progress=command.get_total_work())
 

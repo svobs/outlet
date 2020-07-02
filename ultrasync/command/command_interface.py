@@ -10,6 +10,7 @@ import treelib
 from command.change_action import ChangeAction, ChangeType
 from gdrive.client import GDriveClient
 from index.uid import UID
+from model.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveWholeTree
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,16 @@ class CommandContext:
             self.gdrive_tree: GDriveWholeTree = self.cache_manager.get_gdrive_whole_tree(tree_id=tree_id)
 
 
+# CLASS CommandResult
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class CommandResult:
+    def __init__(self, status: CommandStatus, error=None, to_upsert=None, to_delete=None):
+        self.status = status
+        self.error = error
+        self.nodes_to_upsert: List[DisplayNode] = to_upsert
+        self.nodes_to_delete: List[DisplayNode] = to_delete
+
+
 # ABSTRACT CLASS Command
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -49,13 +60,15 @@ class Command(treelib.Node, ABC):
         treelib.Node.__init__(self, identifier=uid)
 
         self.change_action = change_action
-
-        self._status = CommandStatus.NOT_STARTED
-        self._error = None
+        self.result = None
         self.tag = f'{__class__.__name__}(uid={self.identifier})'
 
+    def get_description(self) -> str:
+        # default
+        return self.tag
+
     @property
-    def uid(self):
+    def uid(self) -> UID:
         return self.identifier
 
     @abstractmethod
@@ -71,20 +84,26 @@ class Command(treelib.Node, ABC):
         return False
 
     def completed_without_error(self):
-        return self._status == CommandStatus.COMPLETED_OK or self._status == CommandStatus.COMPLETED_NO_OP
+        status = self.status()
+        return status == CommandStatus.COMPLETED_OK or status == CommandStatus.COMPLETED_NO_OP
 
     def status(self) -> CommandStatus:
-        return self._status
+        if self.result:
+            return self.result.status
+        return CommandStatus.NOT_STARTED
 
-    def set_error(self, err):
-        self._error = err
-        self._status = CommandStatus.STOPPED_ON_ERROR
+    def set_error_result(self, err) -> CommandResult:
+        result = CommandResult(CommandStatus.STOPPED_ON_ERROR, error=err)
+        self.result = result
+        return result
 
     def get_error(self):
-        return self._error
+        if self.result:
+            return self.result.error
+        return None
 
     def __repr__(self):
-        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self._status}, ' \
+        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self.status()}, ' \
                f'change_actions={self.change_action}'
 
 
