@@ -3,12 +3,9 @@ import logging
 import gi
 from pydispatch import dispatcher
 
-from command.command_interface import CommandBatch
-
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
-from command.command_builder import CommandBuilder
 from ui.actions import ID_MERGE_TREE
 from ui.tree import tree_factory
 from ui.tree.category_display_tree import CategoryDisplayTree
@@ -75,8 +72,5 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
             dialog.destroy()
 
     def on_apply_clicked(self):
-        builder = CommandBuilder(self.parent_win.application)
-        command_batch: CommandBatch = builder.build_command_batch(self.tree)
-        logger.debug(f'Built a CommandBatch with {len(command_batch)} commands')
-        self.parent_win.application.cache_manager.add_command_batch(command_batch)
+        self.parent_win.application.cache_manager.enqueue_changes(self.tree)
         dispatcher.send(signal=actions.EXIT_DIFF_MODE, sender=actions.ID_MERGE_TREE)

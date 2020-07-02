@@ -7,7 +7,8 @@ import gi
 from pydispatch import dispatcher
 
 from constants import GDRIVE_PATH_PREFIX, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from model.display_node import CategoryNode, DisplayNode
+from model.container_node import CategoryNode
+from model.display_node import DisplayNode
 from model.gdrive_node import GDriveNode
 from ui import actions
 from ui.tree.tree_actions import DATE_REGEX

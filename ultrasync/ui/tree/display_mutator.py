@@ -2,21 +2,19 @@ import collections
 import logging
 import os
 import threading
+import humanfriendly
+from pydispatch import dispatcher
 from datetime import datetime
 from typing import Deque, Iterable, List, Optional
-
-import gi
-
 from constants import LARGE_NUMBER_OF_CHILDREN
 from holdoff_timer import HoldOffTimer
+from model.container_node import CategoryNode
+from model.display_node import DisplayNode
+from model.ephemeral_node import EmptyNode, LoadingNode
 from model.node_identifier import NodeIdentifier
-
-from pydispatch import dispatcher
-import humanfriendly
-
-from model.display_node import CategoryNode, DisplayNode, EmptyNode, LoadingNode
 from ui import actions
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 from gi.repository.Gtk import TreeIter

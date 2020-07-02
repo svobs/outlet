@@ -6,7 +6,6 @@ from typing import List, Optional
 from pydispatch import dispatcher
 
 import ui.actions as actions
-from command.command_builder import CommandBuilder
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
 from diff.change_maker import ChangeMaker
 from index.uid import UID
@@ -204,10 +203,8 @@ class TreeUiListeners:
             change_maker = ChangeMaker(left_tree=self._drag_data.src_tree_controller.get_tree(), right_tree=self.con.get_tree(),
                                        application=self.con.parent_win.application)
             change_maker.copy_nodes_left_to_right(self._drag_data.nodes, dest_node)
-            builder = CommandBuilder(self.con.parent_win.application)
-            command_batch = builder.build_command_batch(change_tree=change_maker.change_tree_right)
             # This should fire listeners which ultimately populate the tree:
-            self.con.parent_win.application.cache_manager.add_command_batch(command_batch)
+            self.con.parent_win.application.cache_manager.enqueue_change_tree(change_maker.right_side.change_tree)
 
         # try to aid garbage collection
         self._drag_data = None

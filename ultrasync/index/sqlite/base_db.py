@@ -5,11 +5,17 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 logger = logging.getLogger(__name__)
 
 
+# CLASS Table
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class Table:
     def __init__(self, name: str, cols: Dict[str, str]):
         self.name: str = name
         self.cols = cols
 
+
+# CLASS MetaDatabase
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class MetaDatabase:
     """Example:

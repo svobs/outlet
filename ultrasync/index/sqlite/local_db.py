@@ -63,9 +63,9 @@ class LocalDiskDatabase(MetaDatabase):
             to_insert.append(e_tuple)
 
         if overwrite:
-            self.drop_table_if_exists(self.TABLE_LOCAL_FILE)
+            self.drop_table_if_exists(self.TABLE_LOCAL_FILE, commit=False)
 
-        self.create_table_if_not_exist(self.TABLE_LOCAL_FILE)
+        self.create_table_if_not_exist(self.TABLE_LOCAL_FILE, commit=False)
 
         self.insert_many(self.TABLE_LOCAL_FILE, to_insert, commit)
 

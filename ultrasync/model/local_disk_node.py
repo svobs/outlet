@@ -2,8 +2,9 @@ import logging
 from typing import Optional
 
 from constants import ICON_GENERIC_FILE, NOT_TRASHED
+from model.container_node import ContainerNode
 from model.node_identifier import ensure_int, LocalFsIdentifier, NodeIdentifier
-from model.display_node import ContainerNode, DisplayNode
+from model.display_node import DisplayNode
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +112,8 @@ class LocalFileNode(DisplayNode):
         self._exists = does_exist
 
     def __repr__(self):
-        return f'LocalFileNode({self.node_identifier} md5={self._md5} sha256={self.sha256} size_bytes={self._size_bytes} exists={self.exists()} modify_ts={self._modify_ts})'
+        return f'LocalFileNode({self.node_identifier} md5={self._md5} sha256={self.sha256} size_bytes={self._size_bytes} ' \
+               f'exists={self.exists()} modify_ts={self._modify_ts})'
 
 
 # CLASS LocalDirNode

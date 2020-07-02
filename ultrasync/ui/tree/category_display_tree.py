@@ -11,7 +11,8 @@ import file_util
 from command.change_action import ChangeAction, ChangeType
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from index.uid import UID
-from model.display_node import CategoryNode, ContainerNode, DisplayNode, RootTypeNode
+from model.container_node import CategoryNode, ContainerNode, RootTypeNode
+from model.display_node import DisplayNode
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.subtree_snapshot import SubtreeSnapshot
@@ -181,16 +182,19 @@ class CategoryDisplayTree(SubtreeSnapshot):
         assert full_path.startswith(self.root_path), f'Full path ({full_path}) does not contain root ({self.root_path})'
         return file_util.strip_root(full_path, self.root_path)
 
+    def get_change_actions(self) -> Iterable[ChangeAction]:
+        return self.change_action_dict.values()
+
     def get_change_action_for_node(self, node: DisplayNode) -> Optional[ChangeAction]:
         return self.change_action_dict.get(node.uid, None)
 
     def _append_change_action(self, change_action: ChangeAction):
-        if change_action.dst_uid:
-            assert not self.change_action_dict.get(change_action.dst_uid, None), f'Duplicate ChangeAction: {change_action}'
-            self.change_action_dict[change_action.dst_uid] = change_action
+        if change_action.dst_node:
+            assert not self.change_action_dict.get(change_action.dst_node.uid, None), f'Duplicate ChangeAction: {change_action}'
+            self.change_action_dict[change_action.dst_node.uid] = change_action
         else:
-            assert not self.change_action_dict.get(change_action.src_uid, None), f'Duplicate ChangeAction: {change_action}'
-            self.change_action_dict[change_action.src_uid] = change_action
+            assert not self.change_action_dict.get(change_action.src_node.uid, None), f'Duplicate ChangeAction: {change_action}'
+            self.change_action_dict[change_action.src_node.uid] = change_action
 
     def add_item(self, item: DisplayNode, change_action: ChangeAction, source_tree: SubtreeSnapshot):
         """When we add the item, we add any necessary ancestors for it as well.

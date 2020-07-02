@@ -18,6 +18,9 @@ def ensure_int(val):
     return val
 
 
+# CLASS CacheRegistry
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class CacheRegistry(MetaDatabase):
     TABLE_CACHE_REGISTRY = Table(name='cache_registry', cols={'cache_location': 'TEXT',
                                                               'cache_type': 'INTEGER',

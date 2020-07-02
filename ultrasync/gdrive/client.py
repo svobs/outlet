@@ -47,23 +47,6 @@ FILE_FIELDS = 'id, name, trashed, explicitlyTrashed, driveId, shared, version, c
 logger = logging.getLogger(__name__)
 
 
-# CLASS MemoryCache
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-class MemoryCache:
-    """
-    Workaround for bug in Google code:
-    See: https://github.com/googleapis/google-api-python-client/issues/325#issuecomment-274349841
-    """
-    _CACHE = {}
-
-    def get(self, url):
-        return MemoryCache._CACHE.get(url)
-
-    def set(self, url, content):
-        MemoryCache._CACHE[url] = content
-
-
 def _load_google_client_service(config):
     def request():
         creds = None
@@ -136,6 +119,23 @@ def _convert_trashed(result):
         return NOT_TRASHED
 
 
+# CLASS MemoryCache
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class MemoryCache:
+    """
+    Workaround for bug in Google code:
+    See: https://github.com/googleapis/google-api-python-client/issues/325#issuecomment-274349841
+    """
+    _CACHE = {}
+
+    def get(self, url):
+        return MemoryCache._CACHE.get(url)
+
+    def set(self, url, content):
+        MemoryCache._CACHE[url] = content
+
+
 # CLASS GDriveClient
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -176,7 +176,7 @@ class GDriveClient:
         uid = self.cache_manager.get_uid_for_goog_id(goog_id)
 
         goog_node = GDriveFolder(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, item_name=item['name'], trashed=_convert_trashed(item),
-                            drive_id=item.get('driveId', None), my_share=item.get('shared', None), sync_ts=sync_ts, all_children_fetched=False)
+                                 drive_id=item.get('driveId', None), my_share=item.get('shared', None), sync_ts=sync_ts, all_children_fetched=False)
 
         parent_goog_ids = item.get('parents', [])
         parent_uids = self.cache_manager.get_uid_list_for_goog_id_list(parent_goog_ids)
@@ -215,11 +215,10 @@ class GDriveClient:
         goog_id = item['id']
         uid = self.cache_manager.get_uid_for_goog_id(goog_id)
         goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, item_name=item["name"],
-                                       trashed=_convert_trashed(item),
-                                       drive_id=item.get('driveId', None),
-                                       version=version, head_revision_id=head_revision_id,
-                                       md5=item.get('md5Checksum', None), my_share=item.get('shared', None), create_ts=create_ts,
-                                       modify_ts=modify_ts, size_bytes=size, owner_id=owner_id, sync_ts=sync_ts)
+                                           trashed=_convert_trashed(item), drive_id=item.get('driveId', None), version=version,
+                                           head_revision_id=head_revision_id, md5=item.get('md5Checksum', None),
+                                           my_share=item.get('shared', None), create_ts=create_ts, modify_ts=modify_ts, size_bytes=size,
+                                           owner_id=owner_id, sync_ts=sync_ts)
 
         parent_goog_ids = item.get('parents', [])
         parent_uids = self.cache_manager.get_uid_list_for_goog_id_list(parent_goog_ids)
@@ -586,7 +585,8 @@ class GDriveClient:
         updated_file_meta = _try_repeatedly(request)
         goog_file: GDriveFile = self._convert_to_goog_file(updated_file_meta)
 
-        logger.info(f'File update uploaded successfully) Returned name="{goog_file.name}", version="{goog_file.version}", goog_id="{goog_file.goog_id}",')
+        logger.info(
+            f'File update uploaded successfully) Returned name="{goog_file.name}", version="{goog_file.version}", goog_id="{goog_file.goog_id}",')
 
         return goog_file
 
@@ -662,4 +662,3 @@ class GDriveClient:
 
         _try_repeatedly(request)
         logger.debug(f'Successfully deleted GDriveNode: {goog_id}')
-

@@ -4,7 +4,7 @@ from typing import List, Optional
 
 import format_util
 from constants import ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE, NOT_TRASHED, TRASHED_STATUS
-from model.display_node import ContainerNode, DisplayNode, HasChildren, HasParentList
+from model.display_node import DisplayNode, HasChildren, HasParentList
 from model.node_identifier import ensure_int, GDriveIdentifier
 
 logger = logging.getLogger(__name__)
@@ -150,8 +150,8 @@ class GDriveFile(GDriveNode):
         """OwnerID if it's not me"""
 
     def __repr__(self):
-        return f'GDriveFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str}  size={self.get_size_bytes()} ' \
-               f'md5="{self._md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
+        return f'GDriveFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str}  ' \
+               f'size={self.get_size_bytes()} md5="{self._md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
                f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
                f'sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()})'
 

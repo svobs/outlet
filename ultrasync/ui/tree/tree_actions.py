@@ -7,7 +7,6 @@ import subprocess
 from pydispatch import dispatcher
 
 import file_util
-from command.command_builder import CommandBuilder
 from gdrive.client import GDriveClient
 from model.category import Category
 from model.display_node import DisplayNode
@@ -163,10 +162,9 @@ class TreeActions:
                 file_dict[f.uid] = f
 
         total_list = list(file_dict.values())
-        builder = CommandBuilder(self.con.parent_win.application)
-        command_batch = builder.build_command_batch(delete_list=total_list)
-        # This should fire listeners which ultimately populate the tree:
-        self.con.parent_win.application.cache_manager.add_command_batch(command_batch)
+
+        # FIXME! This is totally broken now
+        self.con.parent_win.application.cache_manager.enqueue_delete(change_list)
 
     def _check_rows(self, sender, tree_paths: List[Gtk.TreePath] = None):
         for tree_path in tree_paths:

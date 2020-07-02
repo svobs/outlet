@@ -7,7 +7,8 @@ from typing import Deque, Dict, List
 import file_util
 from command.change_action import ChangeAction, ChangeType
 from constants import NOT_TRASHED, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from model.display_node import ContainerNode, DisplayNode
+from model.container_node import ContainerNode
+from model.display_node import DisplayNode
 from model.local_disk_node import LocalDirNode, LocalFileNode
 from model.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier
@@ -71,25 +72,14 @@ class OneSide:
 
         return dst_node
 
-    def create_change_action(self, change_type: ChangeType, src_node: DisplayNode, dst_node: DisplayNode = None):
-        if src_node:
-            src_uid = src_node.uid
-        else:
-            src_uid = None
-
-        if dst_node:
-            dst_uid = dst_node.uid
-        else:
-            dst_uid = None
-
-        action_uid = self.uid_generator.next_uid()
-        return ChangeAction(change_type=change_type, action_uid=action_uid, src_uid=src_uid, dst_uid=dst_uid)
+    def _create_change_action(self, change_type: ChangeType, src_node: DisplayNode, dst_node: DisplayNode = None):
+        return ChangeAction(action_uid=self.uid_generator.next_uid(), change_type=change_type, src_node=src_node, dst_node=dst_node)
 
     def add_change_item(self, change_type: ChangeType, src_node: DisplayNode, dst_node: DisplayNode = None):
         """Adds a node to the change tree (dst_node; unless dst_node is None, in which case it will use src_node), and also adds a ChangeAction
         of the given type"""
 
-        change_action: ChangeAction = self.create_change_action(change_type, src_node, dst_node)
+        change_action: ChangeAction = self._create_change_action(change_type, src_node, dst_node)
 
         if dst_node:
             target_node = dst_node
@@ -140,7 +130,7 @@ class OneSide:
                 new_uid = self.uid_generator.next_uid()
                 folder_name = os.parent_path.basename(parent_path)
                 new_parent = GDriveFolder(GDriveIdentifier(uid=new_uid, full_path=None), goog_id=None, item_name=folder_name, trashed=False,
-                                        drive_id=None, my_share=False, sync_ts=None, all_children_fetched=True)
+                                          drive_id=None, my_share=False, sync_ts=None, all_children_fetched=True)
             elif tree_type == TREE_TYPE_LOCAL_DISK:
                 logger.debug(f'Creating LocalDirToAdd for {parent_path}')
                 new_uid = self.application.cache_manager.get_uid_for_path(parent_path)
@@ -258,5 +248,3 @@ class ChangeMaker:
 
         # "src node" can be either left_item or right_item. We'll use left_item because it is closer (in theory)
         self.left_side.add_change_item(change_type=ChangeType.UP, src_node=right_item, dst_node=dst_node)
-
-

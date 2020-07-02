@@ -16,6 +16,7 @@ TREE_TYPE_GDRIVE = 2
 TREE_TYPE_MIXED = 3
 
 MAIN_REGISTRY_FILE_NAME = 'registry.db'
+PENDING_CHANGES_FILE_NAME = 'pending-changes.db'
 ROOT_PATH = '/'
 GDRIVE_PATH_PREFIX = 'gdrive:/'
 
