@@ -4,7 +4,7 @@ from typing import Dict, Iterable, List
 
 from pydispatch import dispatcher
 
-from command.change_action import ChangeAction, ChangeActionRef
+from command.change_action import ChangeAction, ChangeActionRef, ChangeType
 from command.command_builder import CommandBuilder
 from command.command_interface import Command, CommandBatch
 from constants import PENDING_CHANGES_FILE_NAME
@@ -15,9 +15,13 @@ from ui import actions
 logger = logging.getLogger(__name__)
 
 
+# CLASS ChangeLedger
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class ChangeLedger:
     def __init__(self, application):
         self.application = application
+        self.cacheman = self.application.cache_manager
         self._cmd_builder = CommandBuilder(self.application)
 
         self.pending_changes_db_path = os.path.join(self.application.cache_manager.cache_dir_path, PENDING_CHANGES_FILE_NAME)
@@ -30,7 +34,7 @@ class ChangeLedger:
 
         dispatcher.connect(signal=actions.COMMAND_BATCH_COMPLETE, receiver=self._on_batch_completed)
 
-    def _load_pending_changes_from_disk(self) -> Iterable[ChangeAction]:
+    def _load_pending_changes_from_disk(self) -> List[ChangeAction]:
         # first load refs from disk
         with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
             change_ref_list: List[ChangeActionRef] = change_db.get_all_changes()
@@ -59,16 +63,41 @@ class ChangeLedger:
         with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
             change_db.upsert_changes(change_list, overwrite=False)
 
-    # FIXME: call this at startup
+    def _add_missing_nodes(self, change_action: ChangeAction):
+        """Looks at the given ChangeAction and adds any given "planning node" to it."""
+        if change_action.change_type == ChangeType.MKDIR:
+            self.cacheman.add_or_update_node(change_action.src_node)
+        elif change_action.change_type == ChangeType.CP:
+            self.cacheman.add_or_update_node(change_action.dst_node)
+        elif change_action.change_type == ChangeType.MV:
+            self.cacheman.add_or_update_node(change_action.dst_node)
+        else:
+            assert self.cacheman.get_item_for_uid(change_action.src_node.uid), f'Expected src node already present for change: {change_action}'
+            if change_action.dst_node:
+                assert self.cacheman.get_item_for_uid(change_action.dst_node.uid), f'Expected dst node already present for change: {change_action}'
+
     def load_pending_changes(self):
         """Call this at startup, to resume pending changes which have not yet been applied."""
         change_list = self._load_pending_changes_from_disk()
+        logger.info(f'Found {len(change_list)} pending changes from the disk cache')
         self._enqueue_changes(change_list)
 
     # FIXME: add lookup of changes and check for conflicts when user requests more changes
 
     def append_new_pending_changes(self, change_list: Iterable[ChangeAction]):
-        """Call this after the user requests a new set of changes."""
+        """
+        Call this after the user requests a new set of changes.
+
+         - First store "planning nodes" to the list of cached nodes (but each will have exists=False until we execute its associated command).
+         - The list of to-be-completed changes is also cached on disk.
+         - When each command completes, cacheman is notified of any node updates required as well.
+         - When batch completes, ledger archives the changes.
+        """
+
+        for change_action in change_list:
+            # Add dst nodes for to-be-created nodes if they are not present:
+            self._add_missing_nodes(change_action)
+
         self._save_pending_changes_to_disk(change_list)
         self._enqueue_changes(change_list)
 

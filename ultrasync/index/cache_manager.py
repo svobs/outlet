@@ -9,8 +9,6 @@ from pydispatch import dispatcher
 
 import file_util
 from command.change_action import ChangeAction, ChangeType
-from command.command_builder import CommandBuilder
-from command.command_interface import CommandBatch
 from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
@@ -109,11 +107,12 @@ class CacheManager:
         dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=ID_GLOBAL_CACHE)
 
         try:
+            # Init sub-modules:
             self._local_disk_cache = LocalDiskMasterCache(self.application)
             self._gdrive_cache = GDriveMasterCache(self.application)
             self._change_ledger = ChangeLedger(self.application)
 
-            # First put into map, to eliminate possible duplicates
+            # Load registry. Do validation along the way
             caches_from_registry: List[CacheInfoEntry] = self._get_cache_info_from_registry()
             unique_cache_count = 0
             skipped_count = 0
@@ -145,12 +144,15 @@ class CacheManager:
                                        f' changing it to "{new_uid}"')
                     info.subtree_root.uid = new_uid
 
+                # Put into map to eliminate possible duplicates
                 self.caches_by_type.put(info)
 
+            # Write back to cache if we need to clean things up:
             if skipped_count > 0:
                 caches = self.caches_by_type.get_all()
                 self._overwrite_all_caches_in_registry(caches)
 
+            # Now load all caches (if configured):
             if self.application.cache_manager.enable_load_from_disk and self.load_all_caches_on_startup:
                 # MUST read GDrive first, because currently we assign incrementing integer UIDs for local files dynamically,
                 # and we won't know which are reserved until we have read in all the existing GDrive caches
@@ -181,6 +183,10 @@ class CacheManager:
                 logger.info(f'{stopwatch} Load All Caches complete')
             else:
                 logger.info(f'{stopwatch} Found {unique_cache_count} existing caches but configured not to load on startup')
+
+            # Finally, add any queued changes
+            self._change_ledger.load_pending_changes()
+
         finally:
             dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
             self.all_caches_loaded.set()
@@ -320,30 +326,7 @@ class CacheManager:
         change_list: Iterable[ChangeAction] = change_tree.get_change_actions()
         self.enqueue_change_list(change_list=change_list)
 
-    def _add_missing_nodes(self, change_action: ChangeAction):
-        """Looks at the given ChangeAction and adds any given "planning node" to it."""
-        if change_action.change_type == ChangeType.MKDIR:
-            self.add_or_update_node(change_action.src_node)
-        elif change_action.change_type == ChangeType.CP:
-            self.add_or_update_node(change_action.dst_node)
-        elif change_action.change_type == ChangeType.MV:
-            self.add_or_update_node(change_action.dst_node)
-        else:
-            assert self.get_item_for_uid(change_action.src_node.uid), f'Expected src node already present for change: {change_action}'
-            if change_action.dst_node:
-                assert self.get_item_for_uid(change_action.dst_node.uid), f'Expected dst node already present for change: {change_action}'
-
     def enqueue_change_list(self, change_list: Iterable[ChangeAction]):
-        """
-         - First store "planning nodes" to the list of cached nodes (but each will have exists=False until we execute its associated command).
-         - The list of to-be-completed changes is also cached on disk.
-         - When each command completes, cacheman is notified of any node updates required as well.
-         - When batch completes, ledger archives the changes.
-        """
-        for change_action in change_list:
-            # Add dst nodes for to-be-created nodes if they are not present:
-            self._add_missing_nodes(change_action)
-
         self._change_ledger.append_new_pending_changes(change_list)
 
     def download_all_gdrive_meta(self, tree_id):

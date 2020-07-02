@@ -42,7 +42,6 @@ class LocalDiskMasterCache:
         """Singleton in-memory cache for local filesystem"""
         self.application = application
 
-        # TODO: put struct lock in CacheManager, cover GDrive and Command
         self._struct_lock = threading.Lock()
 
         self._uid_mapper = UidPathMapper(application)
@@ -132,7 +131,6 @@ class LocalDiskMasterCache:
 
             if len(missing_items) > 0:
                 logger.info(f'Found {len(missing_items)} cached items with exists=false: submitting to adjudicator...')
-
 
             cache_info.is_loaded = True
             return tree
@@ -247,7 +245,8 @@ class LocalDiskMasterCache:
             else:
                 logger.debug(f'[{tree_id}] Skipping cache save because it is disabled')
 
-        root_node = self.dir_tree.get_node(requested_subtree_root.uid)
+        with self._struct_lock:
+            root_node = self.dir_tree.get_node(requested_subtree_root.uid)
         fmeta_tree = LocalDiskSubtree(root_node=root_node, application=self.application)
         logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {fmeta_tree.node_identifier.full_path}')
         return fmeta_tree
