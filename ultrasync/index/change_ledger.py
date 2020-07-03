@@ -94,9 +94,16 @@ class ChangeLedger:
          - When batch completes, ledger archives the changes.
         """
 
+        # TODO: resolve redundancies in change_list
+
+        # TODO: reconcile changes against master change tree
+
+
         for change_action in change_list:
             # Add dst nodes for to-be-created nodes if they are not present:
             self._add_missing_nodes(change_action)
+
+
 
         self._save_pending_changes_to_disk(change_list)
         self._enqueue_changes(change_list)

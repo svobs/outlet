@@ -7,6 +7,7 @@ import subprocess
 from pydispatch import dispatcher
 
 import file_util
+from command.change_action import ChangeAction, ChangeType
 from gdrive.client import GDriveClient
 from model.category import Category
 from model.display_node import DisplayNode
@@ -142,29 +143,12 @@ class TreeActions:
             node_list = [node]
         logger.debug(f'[{self.con.tree_id}] Setting up delete for {len(node_list)} nodes')
 
-        file_dict = {}
+        # don't worry about overlapping trees; the cacheman will sort everything out
+        change_list = []
         for node_to_delete in node_list:
-            if node_to_delete.is_dir():
-                # Add all its descendants. Assume that we came from a display tree which may not have all its children.
-                # Need to look things up in the central cache. We will focus on deleting files, and will delete empty parent dirs as needed.
-                subtree_file_list, dir_list = self.con.parent_win.application.cache_manager.get_all_files_and_dirs_for_subtree(
-                    node_to_delete.node_identifier)
-                # FIXME: we need to incorporate directories into delete. This means building a tree and changing everything...
-                for file in subtree_file_list:
-                    # mark for deletion
-                    file.node_identifier.category = Category.Deleted
-            else:
-                node_to_delete.node_identifier.category = Category.Deleted
-                subtree_file_list = [node_to_delete]
+            change_list.append(ChangeAction(action_uid=self.con.app.uid_generator.next_uid(), change_type=ChangeType.RM, src_node=node_to_delete))
 
-            # remove duplicates
-            for f in subtree_file_list:
-                file_dict[f.uid] = f
-
-        total_list = list(file_dict.values())
-
-        # FIXME! This is totally broken now
-        self.con.parent_win.application.cache_manager.enqueue_delete(change_list)
+        self.con.parent_win.application.cache_manager.enqueue_change_list(change_list)
 
     def _check_rows(self, sender, tree_paths: List[Gtk.TreePath] = None):
         for tree_path in tree_paths:

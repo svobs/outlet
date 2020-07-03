@@ -322,11 +322,10 @@ class CacheManager:
     # Various public methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def enqueue_change_tree(self, change_tree: CategoryDisplayTree):
-        change_list: Iterable[ChangeAction] = change_tree.get_change_actions()
-        self.enqueue_change_list(change_list=change_list)
-
     def enqueue_change_list(self, change_list: Iterable[ChangeAction]):
+        """Attempt to add the given ChangeActions to the execution tree. No need to worry whether some changes overlap or are redundant;
+         the ChangeLedger will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
+         that is scheduled for deletion."""
         self._change_ledger.append_new_pending_changes(change_list)
 
     def download_all_gdrive_meta(self, tree_id):

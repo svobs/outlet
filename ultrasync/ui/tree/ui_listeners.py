@@ -1,11 +1,12 @@
 
 import logging
 import pathlib
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 from pydispatch import dispatcher
 
 import ui.actions as actions
+from command.change_action import ChangeAction
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
 from diff.change_maker import ChangeMaker
 from index.uid import UID
@@ -194,17 +195,18 @@ class TreeUiListeners:
 
         if not dest_node:
             logger.error(f'[{self.con.tree_id}] Cancelling drop: no parent node for dropped location!')
-        elif self.con.tree_id == self._drag_data.src_tree_controller.tree_id and self._is_dropping_on_itself(dest_node,
-                                                                                                            self._drag_data.nodes):
+        elif self.con.tree_id == self._drag_data.src_tree_controller.tree_id and self._is_dropping_on_itself(dest_node, self._drag_data.nodes):
             logger.debug(f'[{self.con.tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
         else:
             logger.debug(f'[{self.con.tree_id}]Dropping into dest: {dest_node.node_identifier}')
+            # So far we only support COPY.
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
             change_maker = ChangeMaker(left_tree=self._drag_data.src_tree_controller.get_tree(), right_tree=self.con.get_tree(),
                                        application=self.con.parent_win.application)
             change_maker.copy_nodes_left_to_right(self._drag_data.nodes, dest_node)
             # This should fire listeners which ultimately populate the tree:
-            self.con.parent_win.application.cache_manager.enqueue_change_tree(change_maker.right_side.change_tree)
+            change_list: Iterable[ChangeAction] = change_maker.right_side.change_tree.get_change_actions()
+            self.con.parent_win.application.cache_manager.enqueue_change_list(change_list)
 
         # try to aid garbage collection
         self._drag_data = None
@@ -364,7 +366,7 @@ class TreeUiListeners:
                 elif item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
                     dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=item)
                     return True
-                # FIXME
+                # FIXME: Look up in ChangeLedger
             # elif isinstance(item, FileDecoratorNode):
             #     # if it references a source node, maybe that is accessible instead?
             #     item = item.src_node
