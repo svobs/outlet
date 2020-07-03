@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from command.change_action import ChangeType
+from model.change_action import ChangeType
 from constants import ROOT_PATH, ROOT_UID, TREE_TYPE_MIXED
 from diff.change_maker import ChangeMaker
 from index.two_level_dict import TwoLevelDict

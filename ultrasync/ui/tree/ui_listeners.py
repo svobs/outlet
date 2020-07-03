@@ -6,10 +6,10 @@ from typing import Iterable, List, Optional
 from pydispatch import dispatcher
 
 import ui.actions as actions
-from command.change_action import ChangeAction
+from model.change_action import ChangeAction
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
 from diff.change_maker import ChangeMaker
-from index.uid import UID
+from index.uid.uid import UID
 from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
 from model.local_disk_node import LocalFileNode

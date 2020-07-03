@@ -1,10 +1,10 @@
 import logging
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Callable, Dict, Optional, Union
 
 import gi
 from gi.repository.Gtk import TreeIter, TreePath
 
-from index.uid import UID
+from index.uid.uid import UID
 from model.display_node import DisplayNode
 
 gi.require_version("Gtk", "3.0")

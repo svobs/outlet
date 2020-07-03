@@ -7,9 +7,8 @@ import subprocess
 from pydispatch import dispatcher
 
 import file_util
-from command.change_action import ChangeAction, ChangeType
+from model.change_action import ChangeAction, ChangeType
 from gdrive.client import GDriveClient
-from model.category import Category
 from model.display_node import DisplayNode
 from model.gdrive_node import GDriveFile
 from ui import actions

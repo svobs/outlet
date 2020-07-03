@@ -1,6 +1,6 @@
 import gi
 
-from command.change_action import ChangeType
+from model.change_action import ChangeType
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GdkPixbuf

@@ -4,12 +4,15 @@ from abc import ABC, abstractmethod
 import logging
 
 from constants import ENABLE_UID_PERSISTENCE, NULL_UID, ROOT_UID, UID_RESERVATION_BLOCK_SIZE
-from index.uid import UID
+from index.uid.uid import UID
 
 logger = logging.getLogger(__name__)
 
 CONFIG_KEY_LAST_UID = 'transient.global.last_uid'
 
+
+# ABSTRACT CLASS UidGenerator
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class UidGenerator(ABC):
     def __init__(self):
@@ -24,6 +27,9 @@ class UidGenerator(ABC):
         pass
 
 
+# CLASS NullUidGenerator
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class NullUidGenerator(UidGenerator):
     def __init__(self):
         super().__init__()
@@ -34,6 +40,9 @@ class NullUidGenerator(UidGenerator):
     def ensure_next_uid_greater_than(self, uid: UID):
         pass
 
+
+# CLASS PersistentAtomicIntUidGenerator
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class PersistentAtomicIntUidGenerator(UidGenerator):
     def __init__(self, config):

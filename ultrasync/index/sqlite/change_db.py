@@ -1,9 +1,9 @@
 import logging
 from typing import Iterable, List
 
-from command.change_action import ChangeAction, ChangeActionRef, ChangeType
+from model.change_action import ChangeAction, ChangeActionRef, ChangeType
 from index.sqlite.base_db import MetaDatabase, Table
-from index.uid import UID
+from index.uid.uid import UID
 
 logger = logging.getLogger(__name__)
 

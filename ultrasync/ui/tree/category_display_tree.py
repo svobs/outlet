@@ -8,9 +8,9 @@ import treelib
 from treelib.exceptions import DuplicatedNodeIdError
 
 import file_util
-from command.change_action import ChangeAction, ChangeType
+from model.change_action import ChangeAction, ChangeType
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
-from index.uid import UID
+from index.uid.uid import UID
 from model.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.display_node import DisplayNode
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier

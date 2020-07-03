@@ -7,9 +7,9 @@ from typing import Deque, List, Optional
 
 import treelib
 
-from command.change_action import ChangeAction, ChangeType
+from model.change_action import ChangeAction, ChangeType
 from gdrive.client import GDriveClient
-from index.uid import UID
+from index.uid.uid import UID
 from model.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveWholeTree
 
@@ -59,13 +59,17 @@ class Command(treelib.Node, ABC):
     def __init__(self, uid: UID, change_action: ChangeAction):
         treelib.Node.__init__(self, identifier=uid)
 
-        self.change_action = change_action
-        self.result = None
-        self.tag = f'{__class__.__name__}(uid={self.identifier})'
+        self.change_action: ChangeAction = change_action
+        self.result: CommandResult = None
+        self.tag: str = f'{__class__.__name__}(uid={self.identifier})'
 
     def get_description(self) -> str:
         # default
         return self.tag
+
+    @property
+    def type(self) -> ChangeType:
+        return self.change_action.change_type
 
     @property
     def uid(self) -> UID:

@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict, deque
-from typing import Callable, DefaultDict, Deque, Dict, List, Optional, Tuple, Union, ValuesView
+from typing import Callable, DefaultDict, Deque, Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
@@ -8,7 +8,7 @@ import constants
 import file_util
 import format_util
 from index.error import GDriveItemNotFoundError
-from index.uid import UID
+from index.uid.uid import UID
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory

@@ -4,7 +4,6 @@ import os.path
 import pickle
 import socket
 import time
-from abc import ABC, abstractmethod
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import dateutil.parser
@@ -19,7 +18,7 @@ from pydispatch import dispatcher
 import file_util
 from constants import EXPLICITLY_TRASHED, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, IMPLICITLY_TRASHED, NOT_TRASHED
 from gdrive.meta_observer import MetaObserver, SimpleNodeCollector
-from index.uid import UID
+from index.uid.uid import UID
 from model.gdrive_whole_tree import UserMeta
 from model.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier

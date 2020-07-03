@@ -8,7 +8,7 @@ from typing import Iterable, List, Optional, Tuple
 from pydispatch import dispatcher
 
 import file_util
-from command.change_action import ChangeAction, ChangeType
+from model.change_action import ChangeAction
 from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
@@ -17,7 +17,7 @@ from index.master_gdrive import GDriveMasterCache
 from index.master_local import LocalDiskMasterCache
 from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
-from index.uid import UID
+from index.uid.uid import UID
 from model.display_node import DisplayNode
 from model.local_disk_node import LocalFileNode
 from model.gdrive_whole_tree import GDriveWholeTree
@@ -28,7 +28,6 @@ from model.subtree_snapshot import SubtreeSnapshot
 from stopwatch_sec import Stopwatch
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
-from ui.tree.category_display_tree import CategoryDisplayTree
 
 logger = logging.getLogger(__name__)
 

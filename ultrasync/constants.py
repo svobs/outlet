@@ -1,6 +1,6 @@
 from enum import IntEnum
 
-from index.uid import UID
+from index.uid.uid import UID
 
 VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp4', 'mpeg', 'mpg', 'm4v', 'avi', 'pdf', 'nef', 'vob')
 

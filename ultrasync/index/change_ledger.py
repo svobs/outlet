@@ -4,12 +4,12 @@ from typing import Dict, Iterable, List
 
 from pydispatch import dispatcher
 
-from command.change_action import ChangeAction, ChangeActionRef, ChangeType
+from model.change_action import ChangeAction, ChangeActionRef, ChangeType
 from command.command_builder import CommandBuilder
 from command.command_interface import Command, CommandBatch
 from constants import PENDING_CHANGES_FILE_NAME
 from index.sqlite.change_db import PendingChangeDatabase
-from index.uid import UID
+from index.uid.uid import UID
 from ui import actions
 
 logger = logging.getLogger(__name__)

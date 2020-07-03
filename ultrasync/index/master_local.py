@@ -2,7 +2,7 @@ import logging
 import os
 import threading
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import treelib
 from pydispatch import dispatcher
@@ -15,8 +15,8 @@ from fmeta.local_disk_scanner import LocalDiskScanner
 from index.cache_manager import PersistedCacheInfo
 from index.sqlite.local_db import LocalDiskDatabase
 from index.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
-from index.uid_generator import ROOT_UID, UID
-from index.uid_mapper import UidPathMapper
+from index.uid.uid_generator import ROOT_UID, UID
+from index.uid.uid_mapper import UidPathMapper
 from model.container_node import ContainerNode, RootTypeNode
 from model.display_node import DisplayNode
 from model.local_disk_node import LocalDirNode, LocalFileNode

@@ -10,8 +10,8 @@ from index.cache_manager import PersistedCacheInfo
 from index.error import CacheNotLoadedError, GDriveItemNotFoundError
 from index.sqlite.gdrive_db import GDriveDatabase
 from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
-from index.uid import UID
-from index.uid_mapper import UidGoogIdMapper
+from index.uid.uid import UID
+from index.uid.uid_mapper import UidGoogIdMapper
 from model.display_node import DisplayNode
 from model.gdrive_subtree import GDriveSubtree
 from model.gdrive_whole_tree import GDriveWholeTree

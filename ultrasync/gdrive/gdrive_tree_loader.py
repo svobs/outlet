@@ -2,15 +2,15 @@ import logging
 import os
 import time
 from collections import deque
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
-    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL, ROOT_UID, TREE_TYPE_GDRIVE
+    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL, ROOT_UID
 from gdrive.client import GDriveClient
 from gdrive.meta_observer import FileMetaPersister, FolderMetaPersister
 from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
-from index.uid import UID
+from index.uid.uid import UID
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier

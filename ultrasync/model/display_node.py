@@ -7,7 +7,7 @@ from treelib import Node
 
 import format_util
 from constants import ICON_GENERIC_FILE, NOT_TRASHED
-from index.uid_generator import UID
+from index.uid.uid_generator import UID
 from model.node_identifier import NodeIdentifier
 
 logger = logging.getLogger(__name__)

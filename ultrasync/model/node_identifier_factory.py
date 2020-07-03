@@ -1,8 +1,8 @@
 import logging
 
-from command.change_action import ChangeType
+from model.change_action import ChangeType
 from constants import GDRIVE_PATH_PREFIX, ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, ROOT_PATH
-from index.uid import UID
+from index.uid.uid import UID
 
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, LogicalNodeIdentifier, NodeIdentifier
 

@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from constants import ROOT_PATH, ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from index.uid import UID
+from index.uid.uid import UID
 
 logger = logging.getLogger(__name__)
 

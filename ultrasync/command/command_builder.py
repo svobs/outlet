@@ -1,10 +1,10 @@
 import collections
 import logging
-from typing import Callable, Deque, Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Deque, Dict, Iterable, List, Tuple
 
 import treelib
 
-from command.change_action import ChangeAction, ChangeType
+from model.change_action import ChangeAction, ChangeType
 from command.command_interface import Command, CommandBatch
 from command.command_impl import CopyFileLocallyCommand, CreateGDriveFolderCommand, \
     CreatLocalDirCommand, DeleteGDriveFileCommand, DeleteLocalFileCommand, \

@@ -1,5 +1,5 @@
 from enum import IntEnum
-from index.uid import UID
+from index.uid.uid import UID
 from model.display_node import DisplayNode
 
 
