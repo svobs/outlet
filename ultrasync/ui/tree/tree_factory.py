@@ -5,7 +5,7 @@ from typing import Optional
 from constants import TreeDisplayMode
 from model.node.display_node import DisplayNode
 from model.node_identifier import NodeIdentifier
-from model.display_tree import DisplayTree
+from model.display_tree.display_tree import DisplayTree
 from ui.dialog.base_dialog import BaseDialog
 from ui.tree import tree_factory_templates
 from ui.tree.tree_actions import TreeActions

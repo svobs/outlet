@@ -20,11 +20,11 @@ from index.uid.uid_mapper import UidPathMapper
 from model.node.container_node import ContainerNode, RootTypeNode
 from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
-from model.local_disk_display_tree import LocalDiskSubtree
+from model.display_tree.local_disk import LocalDiskSubtree
 from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
-from model.null_display_tree import NullDisplayTree
-from model.display_tree import DisplayTree
+from model.display_tree.null import NullDisplayTree
+from model.display_tree.display_tree import DisplayTree
 from stopwatch_sec import Stopwatch
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE

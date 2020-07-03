@@ -8,7 +8,7 @@ from index.two_level_dict import Md5BeforeUidDict
 from model.node.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveItemNotFoundError, GDriveWholeTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode
-from model.display_tree import DisplayTree
+from model.display_tree.display_tree import DisplayTree
 from stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)

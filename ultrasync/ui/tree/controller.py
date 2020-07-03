@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 from constants import TreeDisplayMode
 from model.node.display_node import DisplayNode
 from model.node_identifier import NodeIdentifier
-from model.display_tree import DisplayTree
+from model.display_tree.display_tree import DisplayTree
 from stopwatch_sec import Stopwatch
 from ui import actions
 from ui.dialog.base_dialog import BaseDialog

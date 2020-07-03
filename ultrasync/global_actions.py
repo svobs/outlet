@@ -7,7 +7,7 @@ from pydispatch import dispatcher
 from constants import TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
 from model.node_identifier import NodeIdentifier
-from model.display_tree import DisplayTree
+from model.display_tree.display_tree import DisplayTree
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk

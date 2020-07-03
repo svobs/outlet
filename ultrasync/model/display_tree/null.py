@@ -1,7 +1,7 @@
 from typing import Iterable, List, Optional
 
 from model.node.display_node import DisplayNode
-from model.display_tree import DisplayTree
+from model.display_tree.display_tree import DisplayTree
 
 
 class NullDisplayTree(DisplayTree):

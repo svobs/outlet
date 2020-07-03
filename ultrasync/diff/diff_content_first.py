@@ -9,7 +9,7 @@ from diff.change_maker import ChangeMaker
 from index.two_level_dict import TwoLevelDict
 from model.node.display_node import DisplayNode
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
-from model.display_tree import DisplayTree
+from model.display_tree.display_tree import DisplayTree
 from stopwatch_sec import Stopwatch
 from ui.actions import ID_MERGE_TREE
 from ui.tree.category_display_tree import CategoryDisplayTree

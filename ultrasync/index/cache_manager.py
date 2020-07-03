@@ -24,7 +24,7 @@ from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
-from model.display_tree import DisplayTree
+from model.display_tree.display_tree import DisplayTree
 from stopwatch_sec import Stopwatch
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE

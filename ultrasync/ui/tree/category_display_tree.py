@@ -15,7 +15,7 @@ from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.display_node import DisplayNode
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
-from model.display_tree import DisplayTree
+from model.display_tree.display_tree import DisplayTree
 
 logger = logging.getLogger(__name__)
 

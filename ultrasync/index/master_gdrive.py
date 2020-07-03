@@ -13,7 +13,7 @@ from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
 from index.uid.uid import UID
 from index.uid.uid_mapper import UidGoogIdMapper
 from model.node.display_node import DisplayNode
-from model.gdrive_display_tree import GDriveDisplayTree
+from model.display_tree.gdrive import GDriveDisplayTree
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier

@@ -3,7 +3,7 @@ from typing import Iterable
 
 from model.node.display_node import DisplayNode
 from model.node_identifier import NodeIdentifier
-from model.display_tree import DisplayTree
+from model.display_tree.display_tree import DisplayTree
 
 logger = logging.getLogger(__name__)
 
