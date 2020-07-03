@@ -5,7 +5,7 @@ from pydispatch import dispatcher
 
 import gi
 
-import file_util
+from util import file_util
 from index.error import CacheNotLoadedError, GDriveItemNotFoundError
 from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 

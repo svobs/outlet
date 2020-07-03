@@ -6,7 +6,7 @@ import json
 import logging
 
 import logging_config
-from file_util import get_resource_path
+from util.file_util import get_resource_path
 
 PROJECT_DIR = get_resource_path('.')
 DEFAULT_CONFIG_PATH = os.path.join(PROJECT_DIR, 'default.cfg')

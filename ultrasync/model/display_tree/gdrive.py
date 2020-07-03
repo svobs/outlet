@@ -2,14 +2,13 @@ import collections
 import logging
 from typing import Deque, List, Optional
 
-import file_util
-import format_util
+from util import file_util, format
 from index.two_level_dict import Md5BeforeUidDict
 from model.node.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveItemNotFoundError, GDriveWholeTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.display_tree.display_tree import DisplayTree
-from stopwatch_sec import Stopwatch
+from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
@@ -111,8 +110,8 @@ class GDriveDisplayTree(DisplayTree):
 
     def get_summary(self):
         if self._stats_loaded:
-            size_hf = format_util.humanfriendlier_size(self._root_node.get_size_bytes())
-            trashed_size_hf = format_util.humanfriendlier_size(self._root_node.trashed_bytes)
+            size_hf = format.humanfriendlier_size(self._root_node.get_size_bytes())
+            trashed_size_hf = format.humanfriendlier_size(self._root_node.trashed_bytes)
             return f'{size_hf} total in {self._root_node.file_count:n} items (including {trashed_size_hf} in ' \
                    f'{self._root_node.trashed_file_count:n} trashed)'
         else:

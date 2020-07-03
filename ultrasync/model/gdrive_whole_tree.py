@@ -5,14 +5,13 @@ from typing import Callable, DefaultDict, Deque, Dict, List, Optional, Tuple
 from pydispatch import dispatcher
 
 import constants
-import file_util
-import format_util
+from util import file_util, format
 from index.error import GDriveItemNotFoundError
 from index.uid.uid import UID
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
-from stopwatch_sec import Stopwatch
+from util.stopwatch_sec import Stopwatch
 from ui import actions
 
 logger = logging.getLogger(__name__)
@@ -445,8 +444,8 @@ class GDriveWholeTree:
                 else:
                     file_count += 1
 
-            size_hf = format_util.humanfriendlier_size(size_bytes)
-            trashed_size_hf = format_util.humanfriendlier_size(trashed_bytes)
+            size_hf = format.humanfriendlier_size(size_bytes)
+            trashed_size_hf = format.humanfriendlier_size(trashed_bytes)
             return f'{size_hf} total in {file_count:n} files & {dir_count:n} folders (including {trashed_size_hf} in ' \
                    f'{trashed_file_count:n} files & {trashed_dir_count:n} folders trashed) in Google Drive'
         else:

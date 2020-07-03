@@ -7,10 +7,10 @@ from typing import Iterable, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-import file_util
+from util import file_util
 from model.change_action import ChangeAction
 from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from file_util import get_resource_path
+from util.file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
 from index.change_ledger import ChangeLedger
 from index.master_gdrive import GDriveMasterCache
@@ -25,7 +25,7 @@ from model.node.gdrive_node import GDriveNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.display_tree.display_tree import DisplayTree
-from stopwatch_sec import Stopwatch
+from util.stopwatch_sec import Stopwatch
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
 

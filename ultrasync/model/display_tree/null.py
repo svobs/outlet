@@ -4,7 +4,11 @@ from model.node.display_node import DisplayNode
 from model.display_tree.display_tree import DisplayTree
 
 
+# CLASS NullDisplayTree
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class NullDisplayTree(DisplayTree):
+    """A DisplayTree which has no nodes and does nothing. Useful for representing a tree whose root does not exist."""
     def __init__(self, root_identifier):
         super().__init__(root_identifier)
 

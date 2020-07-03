@@ -15,14 +15,14 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from pydispatch import dispatcher
 
-import file_util
+from util import file_util
 from constants import EXPLICITLY_TRASHED, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, IMPLICITLY_TRASHED, NOT_TRASHED
 from gdrive.meta_observer import MetaObserver, SimpleNodeCollector
 from index.uid.uid import UID
 from model.gdrive_whole_tree import UserMeta
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier
-from stopwatch_sec import Stopwatch
+from util.stopwatch_sec import Stopwatch
 from ui import actions
 
 # IMPORTANT: If modifying these scopes, delete the file token.pickle.

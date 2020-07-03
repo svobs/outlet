@@ -7,7 +7,6 @@ import treelib
 # CLASS DepTree
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-
 class DepTree(treelib.Tree):
     """Dependency tree, currently with emphasis on ChangeActions"""
 

@@ -7,7 +7,7 @@ from gi.repository import GdkPixbuf
 
 from constants import ICON_ADD_DIR, ICON_GDRIVE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_LOCAL_DISK, ICON_TRASHED_DIR, ICON_TRASHED_FILE
 
-from file_util import get_resource_path
+from util.file_util import get_resource_path
 
 ALERT_ICON_PATH = get_resource_path("resources/Dialog-error-icon-24px.png")
 GDRIVE_ICON_PATH = get_resource_path("resources/google-drive-logo-48px-scaled.png")

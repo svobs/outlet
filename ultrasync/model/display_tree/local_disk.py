@@ -3,14 +3,13 @@ import pathlib
 from typing import Iterable, List, Optional
 
 import constants
-import file_util
-import format_util
+from util import file_util, format
 from index.two_level_dict import Md5BeforePathDict
 from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node_identifier import LocalFsIdentifier
 from model.display_tree.display_tree import DisplayTree
-from stopwatch_sec import Stopwatch
+from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +80,7 @@ class LocalDiskSubtree(DisplayTree):
 
     def get_summary(self):
         if self._stats_loaded:
-            size_hf = format_util.humanfriendlier_size(self.root_node.get_size_bytes())
+            size_hf = format.humanfriendlier_size(self.root_node.get_size_bytes())
             return f'{size_hf} total in {self.root_node.file_count:n} files and {self.root_node.dir_count:n} dirs'
         else:
             return 'Loading stats...'

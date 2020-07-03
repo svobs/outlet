@@ -1,7 +1,7 @@
 from pydispatch import dispatcher
 import logging
 
-import file_util
+from util import file_util
 from cmd.cmd_interface import CommandContext, CommandBatch, CommandStatus
 from ui import actions
 

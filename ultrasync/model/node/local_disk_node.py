@@ -22,7 +22,6 @@ def _ensure_bool(val):
 # CLASS LocalFileNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-
 class LocalFileNode(DisplayNode):
     def __init__(self, node_identifier: LocalFsIdentifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, exists: bool):
         super().__init__(node_identifier)

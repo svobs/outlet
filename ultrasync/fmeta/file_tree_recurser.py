@@ -1,7 +1,7 @@
 import os
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
-import file_util
+from util import file_util
 
 
 class FileTreeRecurser:

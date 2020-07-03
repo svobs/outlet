@@ -5,7 +5,7 @@ from typing import Callable, Deque, Iterable, List, Optional
 
 from pydispatch import dispatcher
 
-from stopwatch_sec import Stopwatch
+from util.stopwatch_sec import Stopwatch
 from model.node.display_node import DisplayNode
 from ui import actions
 

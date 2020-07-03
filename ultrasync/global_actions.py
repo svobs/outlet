@@ -12,7 +12,7 @@ from model.display_tree.display_tree import DisplayTree
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 
-from stopwatch_sec import Stopwatch
+from util.stopwatch_sec import Stopwatch
 
 import ui.actions as actions
 from ui.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog

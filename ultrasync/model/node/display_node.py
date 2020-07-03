@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from treelib import Node
 
-import format_util
+from util import format
 from constants import ICON_GENERIC_FILE, NOT_TRASHED
 from index.uid.uid_generator import UID
 from model.node_identifier import NodeIdentifier
@@ -223,7 +223,7 @@ class HasChildren:
             return ''
         if not self._size_bytes and not self.file_count:
             return '0 items'
-        size = format_util.humanfriendlier_size(self._size_bytes)
+        size = format.humanfriendlier_size(self._size_bytes)
         return f'{size} in {self.file_count:n} files and {self.dir_count:n} dirs'
 
     def get_size_bytes(self):

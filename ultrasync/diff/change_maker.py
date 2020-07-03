@@ -4,7 +4,7 @@ import pathlib
 from collections import deque
 from typing import Deque, Dict, List
 
-import file_util
+from util import file_util
 from model.change_action import ChangeAction, ChangeType
 from constants import NOT_TRASHED, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.container_node import ContainerNode

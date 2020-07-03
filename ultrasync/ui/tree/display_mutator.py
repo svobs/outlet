@@ -7,7 +7,7 @@ from pydispatch import dispatcher
 from datetime import datetime
 from typing import Deque, Iterable, List, Optional
 from constants import LARGE_NUMBER_OF_CHILDREN
-from holdoff_timer import HoldOffTimer
+from util.holdoff_timer import HoldOffTimer
 from model.node.container_node import CategoryNode
 from model.node.display_node import DisplayNode
 from model.node.ephemeral_node import EmptyNode, LoadingNode

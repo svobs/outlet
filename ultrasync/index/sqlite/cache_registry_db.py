@@ -1,7 +1,7 @@
 import logging
 from typing import List, Union
 
-import file_util
+from util import file_util
 from index.cache_info import CacheInfoEntry
 from index.sqlite.base_db import MetaDatabase, Table
 

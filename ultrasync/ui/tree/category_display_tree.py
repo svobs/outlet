@@ -7,7 +7,7 @@ from typing import Callable, Deque, Dict, Iterable, List, Optional
 import treelib
 from treelib.exceptions import DuplicatedNodeIdError
 
-import file_util
+from util import file_util
 from model.change_action import ChangeAction, ChangeType
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from index.uid.uid import UID

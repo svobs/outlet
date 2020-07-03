@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
-import format_util
+from util import format
 from constants import ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE, NOT_TRASHED, TRASHED_STATUS
 from model.node.display_node import DisplayNode, HasChildren, HasParentList
 from model.node_identifier import ensure_int, GDriveIdentifier
@@ -110,7 +110,7 @@ class GDriveFolder(HasChildren, GDriveNode):
     def get_summary(self):
         if not self._size_bytes and not self.file_count and not self.dir_count:
             return '0 items'
-        size = format_util.humanfriendlier_size(self._size_bytes)
+        size = format.humanfriendlier_size(self._size_bytes)
         return f'{size} in {self.file_count:n} files and {self.dir_count:n} folders'
 
     def __eq__(self, other):
