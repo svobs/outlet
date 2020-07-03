@@ -5,7 +5,7 @@ from pydispatch import dispatcher
 
 from constants import TREE_TYPE_GDRIVE
 from model.node_identifier import NodeIdentifier
-from model.display_node import DisplayNode
+from model.node.display_node import DisplayNode
 from model.node_identifier_factory import NodeIdentifierFactory
 from ui import actions
 from ui.tree import tree_factory

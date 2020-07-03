@@ -7,10 +7,10 @@ from typing import Deque, Dict, List
 import file_util
 from model.change_action import ChangeAction, ChangeType
 from constants import NOT_TRASHED, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from model.container_node import ContainerNode
-from model.display_node import DisplayNode
-from model.local_disk_node import LocalDirNode, LocalFileNode
-from model.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
+from model.node.container_node import ContainerNode
+from model.node.display_node import DisplayNode
+from model.node.local_disk_node import LocalDirNode, LocalFileNode
+from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier
 from model.display_tree import DisplayTree
 from ui.actions import ID_LEFT_TREE, ID_RIGHT_TREE

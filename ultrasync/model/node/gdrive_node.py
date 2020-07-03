@@ -1,10 +1,10 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Optional
 
 import format_util
 from constants import ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE, NOT_TRASHED, TRASHED_STATUS
-from model.display_node import DisplayNode, HasChildren, HasParentList
+from model.node.display_node import DisplayNode, HasChildren, HasParentList
 from model.node_identifier import ensure_int, GDriveIdentifier
 
 logger = logging.getLogger(__name__)

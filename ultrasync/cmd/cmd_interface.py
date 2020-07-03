@@ -10,7 +10,7 @@ import treelib
 from model.change_action import ChangeAction, ChangeType
 from gdrive.client import GDriveClient
 from index.uid.uid import UID
-from model.display_node import DisplayNode
+from model.node.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveWholeTree
 
 logger = logging.getLogger(__name__)

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 from constants import NULL_UID, TREE_TYPE_NA
-from model.display_node import DisplayNode
+from model.node.display_node import DisplayNode
 from model.node_identifier import LogicalNodeIdentifier
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛

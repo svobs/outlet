@@ -5,7 +5,7 @@ import gi
 from gi.repository.Gtk import TreeIter, TreePath
 
 from index.uid.uid import UID
-from model.display_node import DisplayNode
+from model.node.display_node import DisplayNode
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk

@@ -11,8 +11,8 @@ import file_util
 from model.change_action import ChangeAction, ChangeType
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from index.uid.uid import UID
-from model.container_node import CategoryNode, ContainerNode, RootTypeNode
-from model.display_node import DisplayNode
+from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
+from model.node.display_node import DisplayNode
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.display_tree import DisplayTree

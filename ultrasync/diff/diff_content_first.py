@@ -7,7 +7,7 @@ from model.change_action import ChangeType
 from constants import ROOT_PATH, ROOT_UID, TREE_TYPE_MIXED
 from diff.change_maker import ChangeMaker
 from index.two_level_dict import TwoLevelDict
-from model.display_node import DisplayNode
+from model.node.display_node import DisplayNode
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 from model.display_tree import DisplayTree
 from stopwatch_sec import Stopwatch

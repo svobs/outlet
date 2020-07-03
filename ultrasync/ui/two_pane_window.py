@@ -7,7 +7,7 @@ from pydispatch.dispatcher import Any
 from constants import TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
 from model.node_identifier import NodeIdentifier
-from model.display_node import DisplayNode
+from model.node.display_node import DisplayNode
 from ui.tree.category_display_tree import CategoryDisplayTree
 
 gi.require_version("Gtk", "3.0")

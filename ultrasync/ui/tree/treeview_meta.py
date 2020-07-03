@@ -5,8 +5,8 @@ import logging
 
 from app_config import AppConfig
 from constants import TreeDisplayMode
-from model.container_node import CategoryNode
-from model.display_node import DisplayNode
+from model.node.container_node import CategoryNode
+from model.node.display_node import DisplayNode
 from ui import actions
 
 logger = logging.getLogger(__name__)

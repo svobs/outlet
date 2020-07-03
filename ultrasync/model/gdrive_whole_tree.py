@@ -10,7 +10,7 @@ import format_util
 from index.error import GDriveItemNotFoundError
 from index.uid.uid import UID
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
-from model.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
+from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
 from stopwatch_sec import Stopwatch
 from ui import actions

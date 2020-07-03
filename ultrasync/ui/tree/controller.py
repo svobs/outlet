@@ -4,7 +4,7 @@ from typing import List, Tuple
 from pydispatch import dispatcher
 
 from constants import TreeDisplayMode
-from model.display_node import DisplayNode
+from model.node.display_node import DisplayNode
 from model.node_identifier import NodeIdentifier
 from model.display_tree import DisplayTree
 from stopwatch_sec import Stopwatch
@@ -13,10 +13,9 @@ from ui.dialog.base_dialog import BaseDialog
 from ui.tree import tree_factory_templates
 from ui.tree.display_store import DisplayStore
 
-import gi
-
 from ui.tree.display_tree_decorator import LazyLoadDisplayTreeDecorator
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 

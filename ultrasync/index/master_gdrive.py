@@ -12,10 +12,10 @@ from index.sqlite.gdrive_db import GDriveDatabase
 from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
 from index.uid.uid import UID
 from index.uid.uid_mapper import UidGoogIdMapper
-from model.display_node import DisplayNode
-from model.gdrive_subtree import GDriveSubtree
+from model.node.display_node import DisplayNode
+from model.gdrive_display_tree import GDriveDisplayTree
 from model.gdrive_whole_tree import GDriveWholeTree
-from model.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
+from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from stopwatch_sec import Stopwatch
@@ -81,7 +81,7 @@ class GDriveMasterCache:
         cache_info.is_loaded = True
         self._my_gdrive = meta
 
-    def _slice_off_subtree_from_master(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveSubtree:
+    def _slice_off_subtree_from_master(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveDisplayTree:
         if not subtree_root.uid:
             # TODO: raise something
             return None
@@ -89,11 +89,11 @@ class GDriveMasterCache:
         if not root:
             return None
 
-        subtree_meta: GDriveSubtree = GDriveSubtree(whole_tree=self._my_gdrive, root_node=root)
+        subtree_meta: GDriveDisplayTree = GDriveDisplayTree(whole_tree=self._my_gdrive, root_node=root)
 
         return subtree_meta
 
-    def load_gdrive_subtree(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveSubtree:
+    def load_gdrive_subtree(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveDisplayTree:
         if subtree_root.full_path == ROOT_PATH or subtree_root.uid == ROOT_UID:
             subtree_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         logger.debug(f'Getting meta for subtree: "{subtree_root}"')

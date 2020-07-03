@@ -12,7 +12,7 @@ from gdrive.meta_observer import FileMetaPersister, FolderMetaPersister
 from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from index.uid.uid import UID
 from model.gdrive_whole_tree import GDriveWholeTree
-from model.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
+from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier
 from stopwatch_sec import Stopwatch
 from ui import actions

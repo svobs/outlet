@@ -2,9 +2,9 @@ import logging
 from typing import Optional
 
 from constants import ICON_GENERIC_FILE, NOT_TRASHED
-from model.container_node import ContainerNode
+from model.node.container_node import ContainerNode
 from model.node_identifier import ensure_int, LocalFsIdentifier, NodeIdentifier
-from model.display_node import DisplayNode
+from model.node.display_node import DisplayNode
 
 logger = logging.getLogger(__name__)
 

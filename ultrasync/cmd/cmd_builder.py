@@ -13,7 +13,7 @@ from cmd.cmd_impl import CopyFileLocallyCommand, CreateGDriveFolderCommand, \
     MoveFileLocallyCommand, \
     UploadToGDriveCommand
 from constants import ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from model.display_node import DisplayNode
+from model.node.display_node import DisplayNode
 from ui.tree.category_display_tree import CategoryDisplayTree
 
 logger = logging.getLogger(__name__)

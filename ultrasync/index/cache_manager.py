@@ -18,10 +18,10 @@ from index.master_local import LocalDiskMasterCache
 from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
 from index.uid.uid import UID
-from model.display_node import DisplayNode
-from model.local_disk_node import LocalFileNode
+from model.node.display_node import DisplayNode
+from model.node.local_disk_node import LocalFileNode
 from model.gdrive_whole_tree import GDriveWholeTree
-from model.gdrive_node import GDriveNode
+from model.node.gdrive_node import GDriveNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.display_tree import DisplayTree

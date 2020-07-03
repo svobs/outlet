@@ -11,8 +11,8 @@ from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, T
 from diff.change_maker import ChangeMaker
 from index.uid.uid import UID
 from model.node_identifier import NodeIdentifier
-from model.display_node import DisplayNode
-from model.local_disk_node import LocalFileNode
+from model.node.display_node import DisplayNode
+from model.node.local_disk_node import LocalFileNode
 
 import gi
 

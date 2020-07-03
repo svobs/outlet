@@ -6,8 +6,8 @@ import logging
 import treelib
 
 import file_util
-from model.display_node import DisplayNode
-from model.local_disk_node import LocalDirNode, LocalFileNode
+from model.node.display_node import DisplayNode
+from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 
 logger = logging.getLogger(__name__)

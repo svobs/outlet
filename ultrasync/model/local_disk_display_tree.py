@@ -6,8 +6,8 @@ import constants
 import file_util
 import format_util
 from index.two_level_dict import Md5BeforePathDict
-from model.display_node import DisplayNode
-from model.local_disk_node import LocalDirNode, LocalFileNode
+from model.node.display_node import DisplayNode
+from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node_identifier import LocalFsIdentifier
 from model.display_tree import DisplayTree
 from stopwatch_sec import Stopwatch

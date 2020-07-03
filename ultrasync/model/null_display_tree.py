@@ -1,11 +1,10 @@
 from typing import Iterable, List, Optional
 
-from model.display_node import DisplayNode
-from model.node_identifier import NodeIdentifier
+from model.node.display_node import DisplayNode
 from model.display_tree import DisplayTree
 
 
-class NullSubtree(DisplayTree):
+class NullDisplayTree(DisplayTree):
     def __init__(self, root_identifier):
         super().__init__(root_identifier)
 

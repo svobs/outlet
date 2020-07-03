@@ -2,7 +2,7 @@ import os
 
 from model.change_action import ChangeType
 from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_LOCAL_DISK, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from model.display_node import DisplayNode, HasChildren
+from model.node.display_node import DisplayNode, HasChildren
 from model.node_identifier import NodeIdentifier
 
 

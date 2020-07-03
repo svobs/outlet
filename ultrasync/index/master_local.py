@@ -17,13 +17,13 @@ from index.sqlite.local_db import LocalDiskDatabase
 from index.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
 from index.uid.uid_generator import ROOT_UID, UID
 from index.uid.uid_mapper import UidPathMapper
-from model.container_node import ContainerNode, RootTypeNode
-from model.display_node import DisplayNode
-from model.local_disk_node import LocalDirNode, LocalFileNode
-from model.local_disk_subtree import LocalDiskSubtree
+from model.node.container_node import ContainerNode, RootTypeNode
+from model.node.display_node import DisplayNode
+from model.node.local_disk_node import LocalDirNode, LocalFileNode
+from model.local_disk_display_tree import LocalDiskSubtree
 from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
-from model.null_subtree import NullSubtree
+from model.null_display_tree import NullDisplayTree
 from model.display_tree import DisplayTree
 from stopwatch_sec import Stopwatch
 from ui import actions
@@ -170,7 +170,7 @@ class LocalDiskMasterCache:
         if not os.path.exists(subtree_root.full_path):
             logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root.full_path}"')
             root_node = ContainerNode(subtree_root)
-            return NullSubtree(root_node)
+            return NullDisplayTree(root_node)
 
         existing_uid = subtree_root.uid
         new_uid = self.get_uid_for_path(subtree_root.full_path, existing_uid)

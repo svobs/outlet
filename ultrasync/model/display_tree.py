@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
 from collections import deque
 import logging
-from typing import Any, Callable, Deque, Iterable, List, Optional
+from typing import Callable, Deque, Iterable, List, Optional
 
 from pydispatch import dispatcher
 
 from stopwatch_sec import Stopwatch
-from model.display_node import DisplayNode
+from model.node.display_node import DisplayNode
 from ui import actions
 
 logger = logging.getLogger(__name__)

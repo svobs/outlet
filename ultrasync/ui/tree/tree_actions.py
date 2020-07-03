@@ -9,8 +9,8 @@ from pydispatch import dispatcher
 import file_util
 from model.change_action import ChangeAction, ChangeType
 from gdrive.client import GDriveClient
-from model.display_node import DisplayNode
-from model.gdrive_node import GDriveFile
+from model.node.display_node import DisplayNode
+from model.node.gdrive_node import GDriveFile
 from ui import actions
 
 import gi

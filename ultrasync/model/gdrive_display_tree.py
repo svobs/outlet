@@ -1,14 +1,13 @@
 import collections
 import logging
-from typing import Deque, List, Optional, Union, ValuesView
+from typing import Deque, List, Optional
 
 import file_util
 import format_util
 from index.two_level_dict import Md5BeforeUidDict
-from model.display_node import DisplayNode
+from model.node.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveItemNotFoundError, GDriveWholeTree
-from model.gdrive_node import GDriveFolder, GDriveNode
-from model.node_identifier import GDriveIdentifier, NodeIdentifier
+from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.display_tree import DisplayTree
 from stopwatch_sec import Stopwatch
 
@@ -18,13 +17,13 @@ SUPER_DEBUG = False
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    CLASS GDriveSubtree
+    CLASS GDriveDisplayTree
     Represents a branch of the whole tree.
 ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
 """
 
 
-class GDriveSubtree(DisplayTree):
+class GDriveDisplayTree(DisplayTree):
     def __init__(self, whole_tree: GDriveWholeTree, root_node: GDriveFolder):
         DisplayTree.__init__(self, root_node=root_node)
 
@@ -108,7 +107,7 @@ class GDriveSubtree(DisplayTree):
             id_count_str = f' id_count={self._root_node.file_count + self._root_node.dir_count}'
         else:
             id_count_str = ''
-        return f'GDriveSubtree(root_uid={self.root_uid} root_path="{self.root_path}"{id_count_str})'
+        return f'GDriveDisplayTree(root_uid={self.root_uid} root_path="{self.root_path}"{id_count_str})'
 
     def get_summary(self):
         if self._stats_loaded:
