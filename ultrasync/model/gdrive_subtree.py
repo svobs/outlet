@@ -9,7 +9,7 @@ from model.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveItemNotFoundError, GDriveWholeTree
 from model.gdrive_node import GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
-from model.subtree_snapshot import SubtreeSnapshot
+from model.display_tree import DisplayTree
 from stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -24,9 +24,9 @@ SUPER_DEBUG = False
 """
 
 
-class GDriveSubtree(SubtreeSnapshot):
+class GDriveSubtree(DisplayTree):
     def __init__(self, whole_tree: GDriveWholeTree, root_node: GDriveFolder):
-        SubtreeSnapshot.__init__(self, root_node=root_node)
+        DisplayTree.__init__(self, root_node=root_node)
 
         self._whole_tree = whole_tree
         self._root_node: GDriveFolder = root_node

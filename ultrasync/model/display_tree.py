@@ -12,10 +12,10 @@ from ui import actions
 logger = logging.getLogger(__name__)
 
 
-# ABSTRACT CLASS SubtreeSnapshot
+# ABSTRACT CLASS DisplayTree
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class SubtreeSnapshot(ABC):
+class DisplayTree(ABC):
     def __init__(self, root_node: DisplayNode):
         super().__init__()
         assert isinstance(root_node, DisplayNode)

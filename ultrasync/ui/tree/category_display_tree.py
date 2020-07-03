@@ -15,7 +15,7 @@ from model.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.display_node import DisplayNode
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
-from model.subtree_snapshot import SubtreeSnapshot
+from model.display_tree import DisplayTree
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +31,11 @@ class PreAncestorDict:
     def __init__(self):
         self._dict: Dict[str, ContainerNode] = {}
 
-    def get_for(self, source_tree: SubtreeSnapshot, change_type: ChangeType) -> Optional[ContainerNode]:
+    def get_for(self, source_tree: DisplayTree, change_type: ChangeType) -> Optional[ContainerNode]:
         key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, change_type=change_type)
         return self._dict.get(key, None)
 
-    def put_for(self, source_tree: SubtreeSnapshot, change_type: ChangeType, item: ContainerNode):
+    def put_for(self, source_tree: DisplayTree, change_type: ChangeType, item: ContainerNode):
         key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, change_type=change_type)
         self._dict[key] = item
 
@@ -43,8 +43,8 @@ class PreAncestorDict:
 # CLASS CategoryDisplayTree
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class CategoryDisplayTree(SubtreeSnapshot):
-    """Note: this doesn't completely map to SubtreeSnapshot, but it's close enough for it to be useful to
+class CategoryDisplayTree(DisplayTree):
+    """Note: this doesn't completely map to DisplayTree, but it's close enough for it to be useful to
     inherit its functionality"""
     def __init__(self, application, root_node_identifier: NodeIdentifier, tree_id: str, show_whole_forest=False):
         # Root node will never be displayed in the UI, but treelib requires a root node, as does parent class
@@ -103,7 +103,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
                 return child
         return None
 
-    def _get_or_create_pre_ancestors(self, item: DisplayNode, change_type: ChangeType, source_tree: SubtreeSnapshot) -> ContainerNode:
+    def _get_or_create_pre_ancestors(self, item: DisplayNode, change_type: ChangeType, source_tree: DisplayTree) -> ContainerNode:
         """Pre-ancestors are those nodes (either logical or pointing to real data) which are higher up than the source tree.
         Last pre-ancestor is easily derived and its prescence indicates whether its ancestors were already created"""
 
@@ -196,7 +196,7 @@ class CategoryDisplayTree(SubtreeSnapshot):
             assert not self.change_action_dict.get(change_action.src_node.uid, None), f'Duplicate ChangeAction: {change_action}'
             self.change_action_dict[change_action.src_node.uid] = change_action
 
-    def add_item(self, item: DisplayNode, change_action: ChangeAction, source_tree: SubtreeSnapshot):
+    def add_item(self, item: DisplayNode, change_action: ChangeAction, source_tree: DisplayTree):
         """When we add the item, we add any necessary ancestors for it as well.
         1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't
         backed by any actual data nodes. This includes possibly tree-type nodes, category nodes, and ancestors

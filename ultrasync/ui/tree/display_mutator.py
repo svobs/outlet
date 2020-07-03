@@ -25,7 +25,7 @@ HOLDOFF_TIME_MS = 1000
 
 """
 #    CLASS DisplayMutator
-#  Cache Manager --> TreeBuilder --> SubtreeSnapshot --> DisplayMutator --> DisplayStore (TreeModel)
+#  Cache Manager --> TreeBuilder --> DisplayTree --> DisplayMutator --> DisplayStore (TreeModel)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 """
 
@@ -68,7 +68,7 @@ class DisplayMutator:
         if node.is_dir():
             parent_iter = self._append_dir_node(parent_iter=parent_iter, node=node)
 
-            for child in self.con.tree_builder.get_children(node):
+            for child in self.con.lazy_tree.get_children(node):
                 node_count = self._populate_recursively(parent_iter, child, node_count)
         else:
             self._append_file_node(parent_iter, node)
@@ -133,7 +133,7 @@ class DisplayMutator:
             parent_iter = self.con.display_store.model.get_iter(tree_path)
             # Remove loading node:
             self.con.display_store.remove_first_child(parent_iter)
-            children: List[DisplayNode] = self.con.tree_builder.get_children(node)
+            children: List[DisplayNode] = self.con.lazy_tree.get_children(node)
 
             if expand_all:
                 node_count = 0
@@ -148,10 +148,12 @@ class DisplayMutator:
             self._enable_state_listeners = True
 
     def populate_root(self):
-        """Draws from the undelying data store as needed, to populate the display store."""
+        """START HERE.
+        More like "repopulate" - clears model before populating.
+        Draws from the undelying data store as needed, to populate the display store."""
 
         # This may be a long task
-        children: List[DisplayNode] = self.con.tree_builder.get_children_for_root()
+        children: List[DisplayNode] = self.con.lazy_tree.get_children_for_root()
 
         def update_ui():
             self._enable_state_listeners = False
@@ -190,7 +192,7 @@ class DisplayMutator:
 
     def get_checked_rows_as_list(self) -> List[DisplayNode]:
         """Returns a list which contains the DisplayNodes of the items which are currently checked by the user
-        (including collapsed rows). This will be a subset of the SubtreeSnapshot which was used to
+        (including collapsed rows). This will be a subset of the DisplayTree which was used to
         populate this tree. Includes file nodes only, with the exception of GDrive FolderToAdd."""
         assert self.con.treeview_meta.has_checkboxes
         # subtree root will be the same as the current subtree's
@@ -204,7 +206,7 @@ class DisplayMutator:
         whitelist: Deque[DisplayNode] = collections.deque()
         secondary_screening: Deque[DisplayNode] = collections.deque()
 
-        children: Iterable[DisplayNode] = self.con.tree_builder.get_children_for_root()
+        children: Iterable[DisplayNode] = self.con.lazy_tree.get_children_for_root()
         for child in children:
 
             if self.con.display_store.checked_rows.get(child.identifier, None):
@@ -220,7 +222,7 @@ class DisplayMutator:
                 # Even an inconsistent FolderToAdd must be included as a checked item:
                 checked_items.append(parent)
 
-            children: Iterable[DisplayNode] = self.con.tree_builder.get_children(parent)
+            children: Iterable[DisplayNode] = self.con.lazy_tree.get_children(parent)
 
             for child in children:
                 if self.con.display_store.checked_rows.get(child.identifier, None):
@@ -234,7 +236,7 @@ class DisplayMutator:
             if not chosen_node.is_dir() or not chosen_node.exists():
                 checked_items.append(chosen_node)
 
-            children: Iterable[DisplayNode] = self.con.tree_builder.get_children(chosen_node)
+            children: Iterable[DisplayNode] = self.con.lazy_tree.get_children(chosen_node)
             for child in children:
                 whitelist.append(child)
 
@@ -262,7 +264,7 @@ class DisplayMutator:
                     # Remove Loading node:
                     self.con.display_store.remove_first_child(parent_iter)
 
-                    children = self.con.tree_builder.get_children(node)
+                    children = self.con.lazy_tree.get_children(node)
                     self._append_children(children=children, parent_iter=parent_iter)
 
                     # Need to call this because removing the Loading node leaves the parent with no children,

@@ -1,23 +1,22 @@
-from typing import List, Tuple
 import logging
+from typing import List, Tuple
 
 from pydispatch import dispatcher
 
-from stopwatch_sec import Stopwatch
-
-from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TreeDisplayMode
-from model.node_identifier import NodeIdentifier
-from ui import actions
-from ui.tree import tree_factory_templates
-from ui.tree.all_items_tree_builder import AllItemsGDriveTreeBuilder, AllItemsLocalFsTreeBuilder
-from ui.tree.category_tree_builder import CategoryTreeBuilder
+from constants import TreeDisplayMode
 from model.display_node import DisplayNode
-from model.subtree_snapshot import SubtreeSnapshot
+from model.node_identifier import NodeIdentifier
+from model.display_tree import DisplayTree
+from stopwatch_sec import Stopwatch
+from ui import actions
 from ui.dialog.base_dialog import BaseDialog
-
+from ui.tree import tree_factory_templates
 from ui.tree.display_store import DisplayStore
 
 import gi
+
+from ui.tree.display_tree_decorator import LazyLoadDisplayTreeDecorator
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 
@@ -36,7 +35,7 @@ class TreePanelController:
     def __init__(self, parent_win, display_store, treeview_meta):
         self.parent_win: BaseDialog = parent_win
         self.app = parent_win.application
-        self.tree_builder = None
+        self.lazy_tree = None
         self.display_store = display_store
         self.treeview_meta = treeview_meta
         self.tree_id = treeview_meta.tree_id
@@ -65,7 +64,7 @@ class TreePanelController:
         self.treeview_meta = None
         del self.display_mutator  # really kill those listeners
 
-        self.tree_builder = None
+        self.lazy_tree = None
         self.display_store = None
         self.root_dir_panel = None
         self.tree_view = None
@@ -78,7 +77,7 @@ class TreePanelController:
 
     def reload(self, new_root=None, new_tree=None, tree_display_mode: TreeDisplayMode = None,
                show_checkboxes: bool = False, hide_checkboxes: bool = False):
-        """Invalidate whatever cache the tree_builder built up, and re-populate the display tree"""
+        """Invalidate whatever cache the lazy_tree built up, and re-populate the display tree"""
         def _reload():
 
             checkboxes_visible = self.treeview_meta.has_checkboxes
@@ -106,7 +105,7 @@ class TreePanelController:
                 self.set_tree(tree=new_tree, tree_display_mode=tree_display_mode)
             else:
                 logger.info(f'[{self.tree_id}] reload() with same tree')
-                tree = self.tree_builder.get_tree()
+                tree = self.lazy_tree.get_tree()
                 self.set_tree(tree=tree, tree_display_mode=tree_display_mode)
 
             # Back to the non-UI thread with you!
@@ -152,37 +151,21 @@ class TreePanelController:
 
         return checked_rows
 
-    def get_tree(self) -> SubtreeSnapshot:
-        return self.tree_builder.get_tree()
+    def get_tree(self) -> DisplayTree:
+        return self.lazy_tree.get_tree()
 
-    def set_tree(self, root: NodeIdentifier = None, tree: SubtreeSnapshot = None, tree_display_mode: TreeDisplayMode = None):
+    def set_tree(self, root: NodeIdentifier = None, tree: DisplayTree = None, tree_display_mode: TreeDisplayMode = None):
         # Clear old display (if any)
         GLib.idle_add(self.display_store.clear_model)
 
-        if root:
-            tree_type = root.tree_type
-        elif tree:
-            tree_type = tree.tree_type
-        else:
+        if not root and not tree:
             raise RuntimeError('"root" and "tree" are both empty!')
 
         if tree_display_mode:
+            logger.debug(f'Setting TreeDisplayMode={tree_display_mode.name} for root={root}, tree={tree}')
             self.treeview_meta.tree_display_mode = tree_display_mode
 
-            logger.debug(f'Setting TreeDisplayMode={tree_display_mode.name} for root={root}, tree={tree}')
-        if self.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
-            tree_builder = CategoryTreeBuilder(controller=self, root=root, tree=tree)
-        elif self.tree_display_mode == TreeDisplayMode.ONE_TREE_ALL_ITEMS:
-            if tree_type == TREE_TYPE_GDRIVE:
-                tree_builder = AllItemsGDriveTreeBuilder(controller=self, root=root, tree=tree)
-            elif tree_type == TREE_TYPE_LOCAL_DISK:
-                tree_builder = AllItemsLocalFsTreeBuilder(controller=self, root=root, tree=tree)
-            else:
-                raise RuntimeError(f'Unrecognized tree type: {tree_type}')
-        else:
-            raise RuntimeError(f'Unrecognized value for tree_display_mode: "{self.treeview_meta.tree_display_mode}"')
-
-        self.tree_builder = tree_builder
+        self.lazy_tree = LazyLoadDisplayTreeDecorator(controller=self, root=root, tree=tree)
 
     # CONVENIENCE METHODS
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -197,7 +180,7 @@ class TreePanelController:
         return self.parent_win.config
 
     def get_root_identifier(self):
-        return self.tree_builder.get_root_identifier()
+        return self.lazy_tree.get_root_identifier()
 
     @property
     def tree_display_mode(self):

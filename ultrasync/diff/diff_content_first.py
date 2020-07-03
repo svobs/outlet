@@ -9,7 +9,7 @@ from diff.change_maker import ChangeMaker
 from index.two_level_dict import TwoLevelDict
 from model.display_node import DisplayNode
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
-from model.subtree_snapshot import SubtreeSnapshot
+from model.display_tree import DisplayTree
 from stopwatch_sec import Stopwatch
 from ui.actions import ID_MERGE_TREE
 from ui.tree.category_display_tree import CategoryDisplayTree
@@ -30,7 +30,7 @@ class DisplayNodePair:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class ContentFirstDiffer(ChangeMaker):
-    def __init__(self, left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, application):
+    def __init__(self, left_tree: DisplayTree, right_tree: DisplayTree, application):
         super().__init__(left_tree, right_tree, application)
 
     def _compare_paths_for_same_md5(self, lefts: Iterable[DisplayNode], rights: Iterable[DisplayNode]) -> Iterable[DisplayNodePair]:

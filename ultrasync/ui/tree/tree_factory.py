@@ -5,7 +5,7 @@ from typing import Optional
 from constants import TreeDisplayMode
 from model.display_node import DisplayNode
 from model.node_identifier import NodeIdentifier
-from model.subtree_snapshot import SubtreeSnapshot
+from model.display_tree import DisplayTree
 from ui.dialog.base_dialog import BaseDialog
 from ui.tree import tree_factory_templates
 from ui.tree.tree_actions import TreeActions
@@ -44,12 +44,12 @@ class TreeFactory:
                  parent_win: BaseDialog,
                  tree_id: str,
                  root: Optional[NodeIdentifier] = None,
-                 tree: Optional[SubtreeSnapshot] = None
+                 tree: Optional[DisplayTree] = None
                  ):
         self.parent_win = parent_win
 
         self.root: Optional[NodeIdentifier] = root
-        self.tree: Optional[SubtreeSnapshot] = tree
+        self.tree: Optional[DisplayTree] = tree
         """Choose one: tree or root"""
 
         self.tree_id: str = tree_id
@@ -134,7 +134,7 @@ class TreeFactory:
 """
 
 
-def build_gdrive_root_chooser(parent_win, tree_id, tree: SubtreeSnapshot):
+def build_gdrive_root_chooser(parent_win, tree_id, tree: DisplayTree):
     """Builds a tree panel for browsing a Google Drive tree, using lazy loading. For the GDrive root chooser dialog"""
 
     factory = TreeFactory(parent_win=parent_win, tree=tree, tree_id=tree_id)
@@ -149,7 +149,7 @@ def build_gdrive_root_chooser(parent_win, tree_id, tree: SubtreeSnapshot):
 def build_editor_tree(parent_win,
                       tree_id: str,
                       root: NodeIdentifier = None,
-                      tree: SubtreeSnapshot = None):
+                      tree: DisplayTree = None):
     factory = TreeFactory(parent_win=parent_win, root=root, tree=tree, tree_id=tree_id)
     factory.has_checkboxes = False  # not initially
     factory.can_modify_tree = True
@@ -159,7 +159,7 @@ def build_editor_tree(parent_win,
     return factory.build()
 
 
-def build_static_category_file_tree(parent_win, tree_id: str, tree: SubtreeSnapshot):
+def build_static_category_file_tree(parent_win, tree_id: str, tree: DisplayTree):
     # Whole tree is provided here. For Merge Preview dialog
     factory = TreeFactory(parent_win=parent_win, tree=tree, tree_id=tree_id)
     factory.has_checkboxes = False

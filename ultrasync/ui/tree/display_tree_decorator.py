@@ -1,23 +1,20 @@
 import logging
-from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Iterable
 
-from pydispatch import dispatcher
-
-from model.node_identifier import NodeIdentifier
 from model.display_node import DisplayNode
-from model.subtree_snapshot import SubtreeSnapshot
-from ui import actions
+from model.node_identifier import NodeIdentifier
+from model.display_tree import DisplayTree
 
 logger = logging.getLogger(__name__)
 
 
-# ABSTRACT CLASS DisplayTreeBuilder
+# ABSTRACT CLASS LazyLoadDisplayTreeDecorator
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class DisplayTreeBuilder(ABC):
-    """Abstract base class. Subclasses can implement different strategies for how to group and organize the underlying data tree"""
-    def __init__(self, controller, root: NodeIdentifier = None, tree: SubtreeSnapshot = None):
+class LazyLoadDisplayTreeDecorator:
+    """Wraps a DisplayTree. Can optionally wrap a root identifier instead, in which case it only loads the tree when
+     it is requested (either via the "tree" attribute or via one of the get_children() methods"""
+    def __init__(self, controller, root: NodeIdentifier = None, tree: DisplayTree = None):
         self.con = controller
         self._loaded = False
         self._root: NodeIdentifier = root
@@ -39,21 +36,18 @@ class DisplayTreeBuilder(ABC):
             return self._tree.node_identifier
         return self._root
 
-    def get_tree(self) -> SubtreeSnapshot:
+    def get_tree(self) -> DisplayTree:
         return self.tree
 
     @property
-    def tree(self) -> SubtreeSnapshot:
+    def tree(self) -> DisplayTree:
         self._ensure_is_loaded()
         return self._tree
 
-    @abstractmethod
-    def get_children_for_root(self) -> Optional[List[DisplayNode]]:
-        pass
+    def get_children_for_root(self) -> Iterable[DisplayNode]:
+        return self.tree.get_children_for_root()
 
-    @abstractmethod
-    def get_children(self, node: DisplayNode) -> Optional[List[DisplayNode]]:
+    def get_children(self, node: DisplayNode) -> Iterable[DisplayNode]:
         """Return the children for the given parent_uid.
         The children of the given node can look very different depending on value of 'tree_display_mode'"""
-        return None
-
+        return self.tree.get_children(node=node)

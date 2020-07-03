@@ -24,7 +24,7 @@ from model.local_disk_subtree import LocalDiskSubtree
 from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from model.null_subtree import NullSubtree
-from model.subtree_snapshot import SubtreeSnapshot
+from model.display_tree import DisplayTree
 from stopwatch_sec import Stopwatch
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
@@ -161,7 +161,7 @@ class LocalDiskMasterCache:
     # Subtree-level methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def load_local_subtree(self, subtree_root: NodeIdentifier, tree_id) -> SubtreeSnapshot:
+    def load_local_subtree(self, subtree_root: NodeIdentifier, tree_id) -> DisplayTree:
         """
         Performs a read-through retreival of all the FMetas in the given subtree
         on the local filesystem.

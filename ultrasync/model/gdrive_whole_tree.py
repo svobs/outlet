@@ -44,7 +44,7 @@ class UserMeta:
 
 class GDriveWholeTree:
     """
-    Represents the entire GDrive tree. We can't easily map this to SubtreeSnapshot, because the GDriveWholeTree can have multiple roots.
+    Represents the entire GDrive tree. We can't easily map this to DisplayTree, because the GDriveWholeTree can have multiple roots.
     """
     def __init__(self, node_identifier_factory):
         self.node_identifier_factory = node_identifier_factory

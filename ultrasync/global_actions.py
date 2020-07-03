@@ -7,7 +7,7 @@ from pydispatch import dispatcher
 from constants import TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
 from model.node_identifier import NodeIdentifier
-from model.subtree_snapshot import SubtreeSnapshot
+from model.display_tree import DisplayTree
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
@@ -88,7 +88,7 @@ class GlobalActions:
         logger.debug(f'Received signal: "{actions.SHOW_GDRIVE_ROOT_DIALOG}"')
         self.application.executor.submit_async_task(self.load_gdrive_root_meta, sender, current_selection)
 
-    def on_gdrive_download_complete(self, sender, tree: SubtreeSnapshot, current_selection: NodeIdentifier):
+    def on_gdrive_download_complete(self, sender, tree: DisplayTree, current_selection: NodeIdentifier):
         logger.debug(f'Received signal: "{actions.GDRIVE_DOWNLOAD_COMPLETE}"')
         assert type(sender) == str
 

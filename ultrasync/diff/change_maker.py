@@ -12,7 +12,7 @@ from model.display_node import DisplayNode
 from model.local_disk_node import LocalDirNode, LocalFileNode
 from model.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier
-from model.subtree_snapshot import SubtreeSnapshot
+from model.display_tree import DisplayTree
 from ui.actions import ID_LEFT_TREE, ID_RIGHT_TREE
 from ui.tree.category_display_tree import CategoryDisplayTree
 
@@ -41,8 +41,8 @@ def _migrate_file_node(node_identifier: NodeIdentifier, src_node: DisplayNode) -
 # CLASS OneSide
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class OneSide:
-    def __init__(self, underlying_tree: SubtreeSnapshot, application, tree_id: str):
-        self.underlying_tree: SubtreeSnapshot = underlying_tree
+    def __init__(self, underlying_tree: DisplayTree, application, tree_id: str):
+        self.underlying_tree: DisplayTree = underlying_tree
         self.application = application
         self.uid_generator = application.uid_generator
         self.change_tree: CategoryDisplayTree = CategoryDisplayTree(application, self.underlying_tree.node_identifier, tree_id)
@@ -155,7 +155,7 @@ class OneSide:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class ChangeMaker:
-    def __init__(self, left_tree: SubtreeSnapshot, right_tree: SubtreeSnapshot, application):
+    def __init__(self, left_tree: DisplayTree, right_tree: DisplayTree, application):
         self.left_side = OneSide(left_tree, application, ID_LEFT_TREE)
         self.right_side = OneSide(right_tree, application, ID_RIGHT_TREE)
 
