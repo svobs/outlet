@@ -1,6 +1,6 @@
 from pydispatch import dispatcher
 
-from command.command_executor import CommandExecutor
+from cmd.cmd_executor import CommandExecutor
 from global_actions import GlobalActions
 from task_runner import CentralTaskRunner
 from ui import actions

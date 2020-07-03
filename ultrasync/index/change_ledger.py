@@ -5,8 +5,8 @@ from typing import Dict, Iterable, List
 from pydispatch import dispatcher
 
 from model.change_action import ChangeAction, ChangeActionRef, ChangeType
-from command.command_builder import CommandBuilder
-from command.command_interface import Command, CommandBatch
+from cmd.cmd_builder import CommandBuilder
+from cmd.cmd_interface import Command, CommandBatch
 from constants import PENDING_CHANGES_FILE_NAME
 from index.sqlite.change_db import PendingChangeDatabase
 from index.uid.uid import UID

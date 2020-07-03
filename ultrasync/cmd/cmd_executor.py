@@ -2,7 +2,7 @@ from pydispatch import dispatcher
 import logging
 
 import file_util
-from command.command_interface import CommandContext, CommandBatch, CommandStatus
+from cmd.cmd_interface import CommandContext, CommandBatch, CommandStatus
 from ui import actions
 
 logger = logging.getLogger(__name__)

@@ -1,6 +1,6 @@
 import collections
 from typing import Deque, List
-from command.command_interface import Command
+from cmd.cmd_interface import Command
 import treelib
 
 
