@@ -46,6 +46,7 @@ class OneSide:
         self.application = application
         self.uid_generator = application.uid_generator
         self.change_tree: CategoryDisplayTree = CategoryDisplayTree(application, self.underlying_tree.node_identifier, tree_id)
+        self.batch_uid = self.uid_generator.next_uid()
         self.added_folders: Dict[str, ContainerNode] = {}
 
     def migrate_single_node_to_this_side(self, src_node: DisplayNode, new_path: str):
@@ -73,7 +74,8 @@ class OneSide:
         return dst_node
 
     def _create_change_action(self, change_type: ChangeType, src_node: DisplayNode, dst_node: DisplayNode = None):
-        return ChangeAction(action_uid=self.uid_generator.next_uid(), change_type=change_type, src_node=src_node, dst_node=dst_node)
+        return ChangeAction(action_uid=self.uid_generator.next_uid(), batch_uid=self.batch_uid, change_type=change_type,
+                            src_node=src_node, dst_node=dst_node)
 
     def add_change_item(self, change_type: ChangeType, src_node: DisplayNode, dst_node: DisplayNode = None):
         """Adds a node to the change tree (dst_node; unless dst_node is None, in which case it will use src_node), and also adds a ChangeAction

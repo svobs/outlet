@@ -143,9 +143,11 @@ class TreeActions:
         logger.debug(f'[{self.con.tree_id}] Setting up delete for {len(node_list)} nodes')
 
         # don't worry about overlapping trees; the cacheman will sort everything out
+        batch_uid = self.con.app.uid_generator.next_uid()
         change_list = []
         for node_to_delete in node_list:
-            change_list.append(ChangeAction(action_uid=self.con.app.uid_generator.next_uid(), change_type=ChangeType.RM, src_node=node_to_delete))
+            change_list.append(ChangeAction(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
+                                            change_type=ChangeType.RM, src_node=node_to_delete))
 
         self.con.parent_win.application.cache_manager.enqueue_change_list(change_list)
 

@@ -1,20 +1,15 @@
-import collections
 import logging
-from typing import Callable, Deque, Dict, Iterable, List, Tuple
+from typing import Callable, Dict
 
-import treelib
-
-from model.change_action import ChangeAction, ChangeType
-from cmd.cmd_interface import Command, CommandBatch
 from cmd.cmd_impl import CopyFileLocallyCommand, CreateGDriveFolderCommand, \
     CreatLocalDirCommand, DeleteGDriveFileCommand, DeleteLocalFileCommand, \
     DownloadFromGDriveCommand, \
     MoveFileGDriveCommand, \
     MoveFileLocallyCommand, \
     UploadToGDriveCommand
-from constants import ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from model.node.display_node import DisplayNode
-from ui.tree.category_display_tree import CategoryDisplayTree
+from cmd.cmd_interface import Command
+from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from model.change_action import ChangeAction, ChangeType
 
 logger = logging.getLogger(__name__)
 
@@ -42,57 +37,7 @@ class CommandBuilder:
         self._cache_manager = application.cache_manager
         self._build_dict: Dict[ChangeType, Dict[str, Callable]] = _populate_build_dict()
 
-    def build_command_batch(self, change_list: Iterable[ChangeAction]) -> CommandBatch:
-        """Builds a dependency tree consisting of commands, each of which correspond to one of the relevant nodes in the
-        change tree, or alternatively, the delete_list"""
-        command_tree = treelib.Tree()
-        # As usual, root is not used for much. All children of root have no dependencies:
-        cmd_root = command_tree.create_node(identifier=ROOT_UID, parent=None, data=None)
-
-        # FIXME!
-        return CommandBatch(self._uid_generator.next_uid(), command_tree)
-
-    # From delete_list
-    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-
-    def _populate_cmd_tree_from_delete_list(self, delete_list: List[DisplayNode], command_tree: treelib.Tree, cmd_root):
-        logger.debug(f'Building command batch from delete_list of size {len(delete_list)}')
-        # Deletes are much simpler than other change types. We delete files one by one, with no dependencies needed
-        for node in delete_list:
-            change_action = self._create_change_action(ChangeType.RM, src_node=node)
-            cmd: Command = self._build_command(change_action)
-            assert cmd is not None
-            command_tree.add_node(node=cmd, parent=cmd_root)
-
-    # From change_tree
-    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-
-    def _populate_cmd_tree_from_change_tree(self, change_tree: CategoryDisplayTree, command_tree: treelib.Tree, cmd_root):
-        stack: Deque[Tuple[treelib.Node, DisplayNode]] = collections.deque()
-        src_children: Iterable[DisplayNode] = change_tree.get_children_for_root()
-        for change_node in src_children:
-            stack.append((cmd_root, change_node))
-
-        # FIXME: need to rework this logic
-
-        while len(stack) > 0:
-            cmd_parent, change_node = stack.popleft()
-
-            change_action = change_tree.get_change_action_for_node(change_node)
-            if change_action:
-                cmd: Command = self._build_command(change_action)
-                assert cmd is not None
-                command_tree.add_node(node=cmd, parent=cmd_parent)
-
-                if change_node.is_dir():
-                    # added folder creates extra level of dependency:
-                    cmd_parent = cmd
-
-            change_children = change_tree.get_children(change_node)
-            for change_child in change_children:
-                stack.append((cmd_parent, change_child))
-
-    def _build_command(self, change_action: ChangeAction):
+    def build_command(self, change_action: ChangeAction) -> Command:
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f'Building command for ChangeAction={change_action}')
 

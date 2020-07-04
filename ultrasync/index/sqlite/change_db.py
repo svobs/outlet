@@ -33,7 +33,7 @@ class PendingChangeDatabase(MetaDatabase):
 
         rows = self.get_all_rows(self.TABLE_PENDING_CHANGE)
         for row in rows:
-            entries.append(ChangeActionRef(UID(row[0]), ChangeType(row[1]), UID(row[2]), UID(row[3])))
+            entries.append(ChangeActionRef(UID(row[0]), ChangeType(row[1]), UID(row[2]), UID(row[3]), int(row[4])))
         return entries
 
     def upsert_changes(self, entries: Iterable[ChangeAction], overwrite, commit=True):
@@ -62,4 +62,4 @@ def _make_change_tuple(e: ChangeAction):
     if e.dst_node:
         dst_uid = e.dst_node.uid
 
-    return e.action_uid, e.change_type, src_uid, dst_uid
+    return e.action_uid, e.change_type, src_uid, dst_uid, e.create_ts

@@ -1,17 +1,15 @@
-import collections
 import logging
-import time
 from abc import ABC, abstractmethod
 from enum import IntEnum
-from typing import Deque, List, Optional
+from typing import List
 
 import treelib
 
-from model.change_action import ChangeAction, ChangeType
 from gdrive.client import GDriveClient
 from index.uid.uid import UID
-from model.node.display_node import DisplayNode
+from model.change_action import ChangeAction, ChangeType
 from model.gdrive_whole_tree import GDriveWholeTree
+from model.node.display_node import DisplayNode
 
 logger = logging.getLogger(__name__)
 
@@ -140,52 +138,3 @@ class CopyNodeCommand(TwoNodeCommand, ABC):
     def __init__(self, uid: UID, change_action: ChangeAction, overwrite: bool):
         TwoNodeCommand.__init__(self, uid, change_action)
         self.overwrite = overwrite
-
-
-# CLASS CommandBatch
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-class CommandBatch:
-    def __init__(self, uid: UID, cmd_tree):
-        self.uid: UID = uid
-        self.create_ts = int(time.time())
-        self.tree: treelib.Tree = cmd_tree
-
-    def get_breadth_first_list(self):
-        """Returns the command tree as a list, in breadth-first order"""
-        blist: List[Command] = []
-
-        queue: Deque[Command] = collections.deque()
-        # skip root:
-        for child in self.tree.children(self.tree.root):
-            queue.append(child)
-
-        while len(queue) > 0:
-            item: Command = queue.popleft()
-            blist.append(item)
-            for child in self.tree.children(item.identifier):
-                queue.append(child)
-
-        return blist
-
-    def __len__(self):
-        # subtract root node
-        return self.tree.__len__() - 1
-
-    def get_item_for_uid(self, uid: UID) -> Command:
-        return self.tree.get_node(uid)
-
-    def get_total_completed(self) -> int:
-        """Returns the number of commands which executed successfully"""
-        total_succeeded: int = 0
-        for command in self.get_breadth_first_list():
-            if command.completed_without_error():
-                total_succeeded += 1
-        return total_succeeded
-
-    def get_parent(self, uid: UID) -> Optional[Command]:
-        parent = self.tree.parent(nid=uid)
-        if parent and isinstance(parent, Command):
-            return parent
-        return None
-

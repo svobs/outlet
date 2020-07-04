@@ -46,7 +46,8 @@ def get_resource_path(rel_path: str, resolve_symlinks=False):
         logger.debug(f'get_resource_path(): Already an absolute path: {rel_path}')
         return rel_path
     dir_of_py_file = os.path.dirname(__file__)
-    project_dir = os.path.join(dir_of_py_file, os.pardir)
+    # go up 2 dirs
+    project_dir = os.path.join(os.path.join(dir_of_py_file, os.pardir), os.pardir)
     rel_path_to_resource = os.path.join(project_dir, rel_path)
     if resolve_symlinks:
         abs_path_to_resource = os.path.realpath(rel_path_to_resource)

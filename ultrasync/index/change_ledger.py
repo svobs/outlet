@@ -4,9 +4,10 @@ from typing import Dict, Iterable, List
 
 from pydispatch import dispatcher
 
+from index.dep_tree import DepTree
 from model.change_action import ChangeAction, ChangeActionRef, ChangeType
 from cmd.cmd_builder import CommandBuilder
-from cmd.cmd_interface import Command, CommandBatch
+from cmd.cmd_interface import Command
 from constants import PENDING_CHANGES_FILE_NAME
 from index.sqlite.change_db import PendingChangeDatabase
 from index.uid.uid import UID
@@ -29,7 +30,7 @@ class ChangeLedger:
         self.model_command_dict: Dict[UID, Command] = {}
         """Convenient up-to-date mapping for DisplayNode UID -> Command (also allows for context menus to cancel commands!)"""
 
-        self.batches_to_run: Dict[UID, CommandBatch] = {}
+        self.dep_tree: DepTree = DepTree()
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
 
         dispatcher.connect(signal=actions.COMMAND_BATCH_COMPLETE, receiver=self._on_batch_completed)
@@ -53,7 +54,8 @@ class ChangeLedger:
             else:
                 dst_node = None
 
-            change = ChangeAction(action_uid=change_ref.action_uid, change_type=change_ref.change_type, src_node=src_node, dst_node=dst_node)
+            change = ChangeAction(action_uid=change_ref.action_uid, batch_uid=change_ref.batch_uid, change_type=change_ref.change_type,
+                                  src_node=src_node, dst_node=dst_node)
             change_list.append(change)
 
         logger.debug(f'Found {len(change_list)} pending changes in the cache')
@@ -106,33 +108,31 @@ class ChangeLedger:
 
 
         self._save_pending_changes_to_disk(change_list)
-        self._enqueue_changes(change_list)
+        # TODO
+        # self._enqueue_changes(change_list)
 
     def _enqueue_changes(self, change_list: Iterable[ChangeAction]):
-        command_batch: CommandBatch = self._cmd_builder.build_command_batch(change_list=change_list)
-        logger.debug(f'Built a CommandBatch with {len(command_batch)} commands')
 
-        self.batches_to_run[command_batch.uid] = command_batch
+        for change_action in change_list:
+            # TODO: each change list can resolve into multiple commands
+            command = self._cmd_builder.build_command(change_action)
 
-        command_list = command_batch.get_breadth_first_list()
-
-        for command in command_list:
             # (1) Add model to lookup table (both src and dst if applicable)
-            self.model_command_dict[command.change_action.src_node.uid] = command
-            if command.change_action.dst_node:
+            self.model_command_dict[change_action.src_node.uid] = command
+            if change_action.dst_node:
                 self.model_command_dict[command.change_action.dst_node.uid] = command
+
+            self.application.executor.execute_batch([command])
 
         # FIXME: add master dependency tree logic
 
-        # Finally, kick off command execution:
-        self.application.executor.execute_command_batch(command_batch)
 
-    def _on_batch_completed(self, batch_uid: UID):
-        logger.debug(f'Received signal: "{actions.COMMAND_BATCH_COMPLETE}" with batch_uid={batch_uid}')
+    def _on_batch_completed(self, command_batch: List[Command]):
+        logger.debug(f'Received signal: "{actions.COMMAND_BATCH_COMPLETE}"')
         # TODO: archive the batch in DB
 
-        completed_batch = self.batches_to_run.pop(batch_uid)
-        if not completed_batch:
-            raise RuntimeError(f'OnBatchCompleted(): Batch not found: uid={batch_uid}')
+        # completed_batch = self.batches_to_run.pop(batch_uid)
+        # if not completed_batch:
+        #     raise RuntimeError(f'OnBatchCompleted(): Batch not found: uid={batch_uid}')
 
 
