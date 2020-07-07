@@ -2,11 +2,11 @@
     "diff_win": {
         "height": 746,
         "width": 1440,
-        "x": 0,
-        "y": 2187
+        "x": 1230,
+        "y": 524
     },
     "global": {
-        "last_uid": 2306829
+        "last_uid": 2516871
     },
     "left_tree": {
         "expanded_state": {
@@ -15,8 +15,8 @@
             "RM": true,
             "UP": true
         },
-        "root_path": "/home/msvoboda/GoogleDrive/Media/Svoboda-Family/Svoboda Family Photos",
-        "root_uid": 886285,
+        "root_path": "/media/msvoboda/sdcard-msvoboda/Negatives Batch 2/Good",
+        "root_uid": 2496869,
         "tree_type": 1
     },
     "right_tree": {
