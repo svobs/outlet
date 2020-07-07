@@ -29,6 +29,7 @@ class ChangeLedger:
 
         self.pending_changes_db_path = os.path.join(self.application.cache_manager.cache_dir_path, PENDING_CHANGES_FILE_NAME)
 
+        # TODO: rework this
         self.model_command_dict: Dict[UID, Command] = {}
         """Convenient up-to-date mapping for DisplayNode UID -> Command (also allows for context menus to cancel commands!)"""
 
@@ -93,7 +94,9 @@ class ChangeLedger:
         cp_dst_dict: Dict[UID, ChangeAction] = {}
         # src node is not necessarily mutually exclusive:
         cp_src_dict: DefaultDict[UID, List[ChangeAction]] = defaultdict(lambda: list())
+        count_changes_orig = 0
         for change in change_list:
+            count_changes_orig += 1
             if change.change_type == ChangeType.MKDIR:
                 # remove dups
                 mkdir_dict[change.src_node.uid] = change
@@ -151,6 +154,7 @@ class ChangeLedger:
         final_list += rm_dict.values()
         final_list += cp_dst_dict.values()
 
+        logger.debug(f'Reduced {count_changes_orig} changes to {len(final_list)} changes')
         return final_list
 
     def _check_cp_ancestors(self, change: ChangeAction, mkdir_dict, rm_dict, cp_src_dict, cp_dst_dict):
@@ -276,6 +280,13 @@ class ChangeLedger:
 
     def _on_batch_completed(self, command_batch: List[Command]):
         logger.debug(f'Received signal: "{actions.COMMAND_BATCH_COMPLETE}"')
+
+        completed_changes = {}
+        for command in command_batch:
+            # if command.completed_without_error():
+            #     completed_changes[command.change_action.action_uid] = acion
+            completed_changes[command.change_action.action_uid] = command.change_action
+
         # TODO: archive the batch in DB
 
         # completed_batch = self.batches_to_run.pop(batch_uid)
