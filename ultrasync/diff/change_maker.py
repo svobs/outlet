@@ -164,9 +164,10 @@ class ChangeMaker:
         self.application = application
         self.uid_generator = application.uid_generator
 
-    def copy_nodes_left_to_right(self, src_node_list: List[DisplayNode], dst_parent: DisplayNode):
+    def copy_nodes_left_to_right(self, src_node_list: List[DisplayNode], dst_parent: DisplayNode, change_type: ChangeType):
         """Populates the destination parent in "change_tree_right" with the given source nodes."""
         assert dst_parent.is_dir()
+        assert change_type == ChangeType.CP or change_type == ChangeType.MV or change_type == ChangeType.UP
         dst_parent_path = dst_parent.full_path
 
         # We won't deal with update logic here. A node being copied will be treated as an "add"
@@ -187,12 +188,12 @@ class ChangeMaker:
                     dst_rel_path = file_util.strip_root(node.full_path, src_path_minus_dirname)
                     new_path = os.path.join(dst_parent_path, dst_rel_path)
                     dst_node = self.right_side.migrate_single_node_to_this_side(node, new_path)
-                    self.right_side.add_change_item(change_type=ChangeType.CP, src_node=node, dst_node=dst_node)
+                    self.right_side.add_change_item(change_type=change_type, src_node=node, dst_node=dst_node)
             else:
                 file_name = os.path.basename(src_node.full_path)
                 new_path = os.path.join(dst_parent_path, file_name)
                 dst_node = self.right_side.migrate_single_node_to_this_side(src_node, new_path)
-                self.right_side.add_change_item(change_type=ChangeType.CP, src_node=src_node, dst_node=dst_node)
+                self.right_side.add_change_item(change_type=change_type, src_node=src_node, dst_node=dst_node)
 
     def get_path_moved_to_right(self, left_item) -> str:
         return os.path.join(self.right_side.underlying_tree.root_path, left_item.get_relative_path(self.left_side.underlying_tree))

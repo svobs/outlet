@@ -1,8 +1,33 @@
 import collections
-from typing import Deque, List, Optional
+from enum import IntEnum
+from typing import DefaultDict, Deque, Dict, Iterable, List, Optional
 import treelib
 from index.uid.uid import UID
 from model.change_action import ChangeAction
+
+# class LockType(IntEnum):
+#     READ = 1
+#     """CP_SRC, MV_SRC"""
+#
+#     WRITE = 2
+#     """MKDIR, CP_DST, MV_DST, UP_DST"""
+#
+#     RM = 3
+#     """RM"""
+#
+# class NodeLock:
+#     def __init__(self, node_uid):
+#         # self.node_uid = node_uid
+#         # self.strongest_lock: LockType = LockType.READ
+#         self.change_deque: Deque[ChangeAction] = collections.deque()
+#
+#     def push_change(self, change: ChangeAction):
+#         self.change_deque.append(change)
+#
+#     def pop_change(self) -> Optional[ChangeAction]:
+#         if len(self.change_deque) == 0:
+#             return None
+#         return self.change_deque.popleft()
 
 
 # CLASS DepTree
@@ -13,10 +38,12 @@ class DepTree(treelib.Tree):
 
     def __init__(self):
         treelib.Tree.__init__(self)
-        # TODO: rework this
-        self.model_command_dict: Dict[UID, Command] = {}
-        """Convenient up-to-date mapping for DisplayNode UID -> Command (also allows for context menus to cancel commands!)"""
+        self._node_lock_dict: DefaultDict[UID, Deque] = collections.defaultdict(lambda: collections.deque())
 
+
+    def can_add_batch(self, change_batch: Iterable[ChangeAction]) -> bool:
+        # TODO
+        return False
 
     def get_breadth_first_list(self):
         """Returns the change tree as a list, in breadth-first order"""

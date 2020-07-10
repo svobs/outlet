@@ -325,8 +325,7 @@ class CacheManager:
         """Attempt to add the given ChangeActions to the execution tree. No need to worry whether some changes overlap or are redundant;
          the ChangeLedger will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
          that is scheduled for deletion."""
-
-    self._change_ledger.append_new_pending_changes(change_list)
+        self._change_ledger.append_new_pending_changes(change_list)
 
     def download_all_gdrive_meta(self, tree_id):
         return self._gdrive_cache.download_all_gdrive_meta(tree_id)

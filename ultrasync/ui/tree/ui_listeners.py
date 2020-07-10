@@ -6,7 +6,7 @@ from typing import Iterable, List, Optional
 from pydispatch import dispatcher
 
 import ui.actions as actions
-from model.change_action import ChangeAction
+from model.change_action import ChangeAction, ChangeType
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
 from diff.change_maker import ChangeMaker
 from index.uid.uid import UID
@@ -203,7 +203,7 @@ class TreeUiListeners:
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
             change_maker = ChangeMaker(left_tree=self._drag_data.src_tree_controller.get_tree(), right_tree=self.con.get_tree(),
                                        application=self.con.parent_win.application)
-            change_maker.copy_nodes_left_to_right(self._drag_data.nodes, dest_node)
+            change_maker.copy_nodes_left_to_right(self._drag_data.nodes, dest_node, ChangeType.CP)
             # This should fire listeners which ultimately populate the tree:
             change_list: Iterable[ChangeAction] = change_maker.right_side.change_tree.get_change_actions()
             self.con.parent_win.application.cache_manager.enqueue_change_list(change_list)

@@ -230,7 +230,13 @@ class ChangeLedger:
         """Call this at startup, to resume pending changes which have not yet been applied."""
         change_list = self._load_pending_changes_from_disk()
         logger.info(f'Found {len(change_list)} pending changes from the disk cache')
-        self._enqueue_changes(change_list)
+
+        batch_dict: DefaultDict[UID, List[ChangeAction]] = defaultdict(lambda: list())
+        for change in change_list:
+            batch_dict[change.batch_uid].append(change)
+
+        for batch in batch_dict.values():
+            self._enqueue_batch(batch)
 
     def append_new_pending_changes(self, change_batch: Iterable[ChangeAction]):
         """
@@ -251,23 +257,24 @@ class ChangeLedger:
                 raise RuntimeError(f'Changes in batch do not all contain the same batch_uid (found {change.batch_uid} and {batch_uid})')
 
         # Simplify and remove redundancies in change_list
-        reduced_changes = self._reduce_changes(change_batch)
+        reduced_batch = self._reduce_changes(change_batch)
 
-        # TODO: reconcile changes against master change tree before adding nodes
+        # Reconcile changes against master change tree before adding nodes
+        if not self.dep_tree.can_add_batch(reduced_batch):
+            raise RuntimeError('Invalid batch!')
 
         # Add dst nodes for to-be-created nodes if they are not present (this will also save to disk).
         # Important: do this *before* saving or queuing up the pending changes. In the case of a crash, we can find and remove
         # these orphaned nodes
-        for change_action in reduced_changes:
+        for change_action in reduced_batch:
             self._add_missing_nodes(change_action)
 
-        self._save_pending_changes_to_disk(reduced_changes)
+        self._save_pending_changes_to_disk(reduced_batch)
 
-        self._enqueue_changes(reduced_changes)
+        self._enqueue_batch(reduced_batch)
 
-    def _enqueue_changes(self, change_list: Iterable[ChangeAction]):
-        for change_action in change_list:
-            self.dep_tree.add_change(change_action)
+    def _enqueue_batch(self, change_batch: Iterable[ChangeAction]):
+        self.dep_tree.add_batch(change_batch)
 
     def get_next_command(self):
         # FIXME: call this from executor (possibly multi-threaded)

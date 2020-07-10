@@ -137,6 +137,12 @@ class TreeActions:
     def _delete_single_file(self, sender, node: DisplayNode):
         self._delete_subtree(sender, node)
 
+    def _get_subtree_for_node(self, subtree_root: DisplayNode) -> List[DisplayNode]:
+        assert subtree_root.is_dir(), f'Expected a dir: {subtree_root}'
+
+        subtree_files, subtree_dirs = self.con.app.cache_manager.get_all_files_and_dirs_for_subtree(subtree_root.node_identifier)
+        return subtree_files + subtree_dirs
+
     def _delete_subtree(self, sender, node: DisplayNode = None, node_list: List[DisplayNode] = None):
         if not node_list and node:
             node_list = [node]
@@ -146,6 +152,13 @@ class TreeActions:
         batch_uid = self.con.app.uid_generator.next_uid()
         change_list = []
         for node_to_delete in node_list:
+            if node_to_delete.is_dir():
+                # Expand dir nodes. ChangeManager will not remove non-empty dirs
+                expanded_node_list = self._get_subtree_for_node(node_to_delete)
+                for node in expanded_node_list:
+                    change_list.append(ChangeAction(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
+                                                    change_type=ChangeType.RM, src_node=node))
+
             change_list.append(ChangeAction(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
                                             change_type=ChangeType.RM, src_node=node_to_delete))
 
