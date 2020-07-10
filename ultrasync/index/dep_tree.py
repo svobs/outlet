@@ -13,6 +13,10 @@ class DepTree(treelib.Tree):
 
     def __init__(self):
         treelib.Tree.__init__(self)
+        # TODO: rework this
+        self.model_command_dict: Dict[UID, Command] = {}
+        """Convenient up-to-date mapping for DisplayNode UID -> Command (also allows for context menus to cancel commands!)"""
+
 
     def get_breadth_first_list(self):
         """Returns the change tree as a list, in breadth-first order"""

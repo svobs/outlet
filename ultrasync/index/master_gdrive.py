@@ -160,6 +160,12 @@ class GDriveMasterCache:
             if existing_node.goog_id != node.goog_id:
                 raise RuntimeError(f'Serious error: cache already contains UID {node.uid} but Google ID does not match '
                                    f'(existing="{existing_node.goog_id}"; new="{node.goog_id}")')
+
+            if existing_node.exists() and not node.exists():
+                # In the future, let's close this hole with more elegant logic
+                logger.warning(f'Cannot replace a node which exists with one which does not exist; ignoring: {node}')
+                return
+
             if existing_node == node:
                 # FIXME: it's not clear that we have implemented __eq__ for all necessary items
                 logger.info(f'Item being added (uid={node.uid}) is identical to item already in the cache; ignoring')

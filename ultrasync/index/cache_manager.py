@@ -305,7 +305,7 @@ class CacheManager:
         if tree_type == TREE_TYPE_GDRIVE:
             self._gdrive_cache.add_or_update_goog_node(node)
         elif tree_type == TREE_TYPE_LOCAL_DISK:
-            self._local_disk_cache.add_or_update_fmeta(node)
+            self._local_disk_cache.add_or_update_node(node)
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
@@ -314,7 +314,7 @@ class CacheManager:
         if tree_type == TREE_TYPE_GDRIVE:
             self._gdrive_cache.remove_goog_node(node, to_trash)
         elif tree_type == TREE_TYPE_LOCAL_DISK:
-            self._local_disk_cache.remove_fmeta(node, to_trash)
+            self._local_disk_cache.remove_node(node, to_trash)
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
@@ -325,7 +325,8 @@ class CacheManager:
         """Attempt to add the given ChangeActions to the execution tree. No need to worry whether some changes overlap or are redundant;
          the ChangeLedger will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
          that is scheduled for deletion."""
-        self._change_ledger.append_new_pending_changes(change_list)
+
+    self._change_ledger.append_new_pending_changes(change_list)
 
     def download_all_gdrive_meta(self, tree_id):
         return self._gdrive_cache.download_all_gdrive_meta(tree_id)

@@ -29,10 +29,6 @@ class ChangeLedger:
 
         self.pending_changes_db_path = os.path.join(self.application.cache_manager.cache_dir_path, PENDING_CHANGES_FILE_NAME)
 
-        # TODO: rework this
-        self.model_command_dict: Dict[UID, Command] = {}
-        """Convenient up-to-date mapping for DisplayNode UID -> Command (also allows for context menus to cancel commands!)"""
-
         self.dep_tree: DepTree = DepTree()
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
 
@@ -75,10 +71,13 @@ class ChangeLedger:
     def _add_missing_nodes(self, change_action: ChangeAction):
         """Looks at the given ChangeAction and adds any given "planning node" to it."""
         if change_action.change_type == ChangeType.MKDIR:
+            assert not change_action.src_node.exists(), f'Expected to not exist: {change_action.src_node}'
             self.cacheman.add_or_update_node(change_action.src_node)
         elif change_action.change_type == ChangeType.CP:
+            assert not change_action.dst_node.exists(), f'Expected to not exist: {change_action.dst_node}'
             self.cacheman.add_or_update_node(change_action.dst_node)
         elif change_action.change_type == ChangeType.MV:
+            assert not change_action.dst_node.exists(), f'Expected to not exist: {change_action.dst_node}'
             self.cacheman.add_or_update_node(change_action.dst_node)
         else:
             assert self.cacheman.get_item_for_uid(change_action.src_node.uid), f'Expected src node already present for: {change_action}'
@@ -256,8 +255,10 @@ class ChangeLedger:
 
         # TODO: reconcile changes against master change tree before adding nodes
 
+        # Add dst nodes for to-be-created nodes if they are not present (this will also save to disk).
+        # Important: do this *before* saving or queuing up the pending changes. In the case of a crash, we can find and remove
+        # these orphaned nodes
         for change_action in reduced_changes:
-            # Add dst nodes for to-be-created nodes if they are not present:
             self._add_missing_nodes(change_action)
 
         self._save_pending_changes_to_disk(reduced_changes)
