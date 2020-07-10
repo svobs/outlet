@@ -54,33 +54,11 @@ class CommandExecutor:
                         # Save the error inside the command:
                         command.set_error_result(err)
 
-                    if command.status() == CommandStatus.STOPPED_ON_ERROR:
-                        # TODO: notify/display error messages somewhere in the UI?
-                        logger.error(f'Command failed with error: {command.get_error()}')
-                    else:
-                        logger.info(f'Command returned with status: "{command.status().name}"')
-
-                    # Add/update nodes in central cache:
-                    if command.result.nodes_to_upsert:
-                        for upsert_node in command.result.nodes_to_upsert:
-                            context.cache_manager.add_or_update_node(upsert_node)
-
-                    # Remove nodes in central cache:
-                    if command.result.nodes_to_delete:
-                        try:
-                            to_trash = command.to_trash
-                        except AttributeError:
-                            to_trash = False
-
-                        logger.debug(f'Deleted {len(command.result.nodes_to_delete)} nodes: notifying cacheman')
-                        for deleted_node in command.result.nodes_to_delete:
-                            context.cache_manager.remove_node(deleted_node, to_trash)
-
+                    dispatcher.send(signal=actions.COMMAND_COMPLETE, sender=actions.ID_COMMAND_EXECUTOR, command=command)
                     dispatcher.send(signal=actions.PROGRESS_MADE, sender=actions.ID_COMMAND_EXECUTOR, progress=command.get_total_work())
 
         finally:
             dispatcher.send(signal=actions.STOP_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR)
-            dispatcher.send(signal=actions.COMMAND_BATCH_COMPLETE, sender=actions.ID_COMMAND_EXECUTOR, command_batch=command_batch)
 
         logger.info(f'{_get_total_completed(command_batch)} out of {len(command_batch)} completed without error')
 

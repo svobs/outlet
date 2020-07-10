@@ -39,3 +39,25 @@ class DepTree(treelib.Tree):
         if parent and isinstance(parent, ChangeAction):
             return parent
         return None
+
+    def add_change(self, change: ChangeAction):
+        # (1) Add model to lookup table (both src and dst if applicable)
+        # self.model_command_dict[change_action.src_node.uid] = command
+        # if change_action.dst_node:
+        #     self.model_command_dict[command.change_action.dst_node.uid] = command
+
+        # FIXME: add master dependency tree logic
+        pass
+
+    def get_next_change(self) -> Optional[ChangeAction]:
+        """Gets and returns the next available ChangeAction from the tree; returns None if nothing either queued or ready.
+        Internally this class keeps track of what this has returned previously, and will expect to be notified when each is complete."""
+
+        # TODO
+        pass
+
+    def change_completed(self, change: ChangeAction):
+        # TODO: ensure that we were expecting this change
+
+        # TODO: remove change from tree
+        pass

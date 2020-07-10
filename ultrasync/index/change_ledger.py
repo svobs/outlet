@@ -8,7 +8,7 @@ from pydispatch import dispatcher
 from index.dep_tree import DepTree
 from model.change_action import ChangeAction, ChangeActionRef, ChangeType
 from cmd.cmd_builder import CommandBuilder
-from cmd.cmd_interface import Command
+from cmd.cmd_interface import Command, CommandStatus
 from constants import PENDING_CHANGES_FILE_NAME
 from index.sqlite.change_db import PendingChangeDatabase
 from index.uid.uid import UID
@@ -36,12 +36,12 @@ class ChangeLedger:
         self.dep_tree: DepTree = DepTree()
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
 
-        dispatcher.connect(signal=actions.COMMAND_BATCH_COMPLETE, receiver=self._on_batch_completed)
+        dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
 
     def _load_pending_changes_from_disk(self) -> List[ChangeAction]:
         # first load refs from disk
         with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
-            change_ref_list: List[ChangeActionRef] = change_db.get_all_changes()
+            change_ref_list: List[ChangeActionRef] = change_db.get_all_pending_changes()
 
         change_list: List[ChangeAction] = []
         # dereference src and dst:
@@ -66,7 +66,11 @@ class ChangeLedger:
 
     def _save_pending_changes_to_disk(self, change_list: Iterable[ChangeAction]):
         with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
-            change_db.upsert_changes(change_list, overwrite=False)
+            change_db.upsert_pending_changes(change_list, overwrite=False)
+
+    def _archive_pending_changes_to_disk(self, change_list: Iterable[ChangeAction]):
+        with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
+            change_db.archive_changes(change_list)
 
     def _add_missing_nodes(self, change_action: ChangeAction):
         """Looks at the given ChangeAction and adds any given "planning node" to it."""
@@ -256,41 +260,52 @@ class ChangeLedger:
             # Add dst nodes for to-be-created nodes if they are not present:
             self._add_missing_nodes(change_action)
 
-
-
         self._save_pending_changes_to_disk(reduced_changes)
 
         self._enqueue_changes(reduced_changes)
 
     def _enqueue_changes(self, change_list: Iterable[ChangeAction]):
-
         for change_action in change_list:
-            # TODO: each change list can resolve into multiple commands
-            command = self._cmd_builder.build_command(change_action)
+            self.dep_tree.add_change(change_action)
 
-            # (1) Add model to lookup table (both src and dst if applicable)
-            self.model_command_dict[change_action.src_node.uid] = command
-            if change_action.dst_node:
-                self.model_command_dict[command.change_action.dst_node.uid] = command
+    def get_next_command(self):
+        # FIXME: call this from executor (possibly multi-threaded)
 
-            self.application.executor.execute_batch([command])
+        change_action: ChangeAction = self.dep_tree.get_next_change()
 
-        # FIXME: add master dependency tree logic
+        command = self._cmd_builder.build_command(change_action)
+        self.application.executor.execute_batch([command])
 
+    def _on_command_completed(self, command: Command):
+        logger.debug(f'Received signal: "{actions.COMMAND_COMPLETE}"')
 
-    def _on_batch_completed(self, command_batch: List[Command]):
-        logger.debug(f'Received signal: "{actions.COMMAND_BATCH_COMPLETE}"')
+        if command.status() == CommandStatus.STOPPED_ON_ERROR:
+            # TODO: notify/display error messages somewhere in the UI?
+            logger.error(f'Command failed with error: {command.get_error()}')
+            # TODO: how to recover?
+            return
+        else:
+            logger.info(f'Command returned with status: "{command.status().name}"')
 
-        completed_changes = {}
-        for command in command_batch:
-            # if command.completed_without_error():
-            #     completed_changes[command.change_action.action_uid] = acion
-            completed_changes[command.change_action.action_uid] = command.change_action
+        # Ensure command is one that we are expecting
+        self.dep_tree.change_completed(command.change_action)
 
-        # TODO: archive the batch in DB
+        # Add/update nodes in central cache:
+        if command.result.nodes_to_upsert:
+            for upsert_node in command.result.nodes_to_upsert:
+                self.cacheman.add_or_update_node(upsert_node)
 
-        # completed_batch = self.batches_to_run.pop(batch_uid)
-        # if not completed_batch:
-        #     raise RuntimeError(f'OnBatchCompleted(): Batch not found: uid={batch_uid}')
+        # Remove nodes in central cache:
+        if command.result.nodes_to_delete:
+            try:
+                to_trash = command.to_trash
+            except AttributeError:
+                to_trash = False
+
+            logger.debug(f'Deleted {len(command.result.nodes_to_delete)} nodes: notifying cacheman')
+            for deleted_node in command.result.nodes_to_delete:
+                self.cacheman.remove_node(deleted_node, to_trash)
+
+        self._archive_pending_changes_to_disk([command.change_action])
 
 
