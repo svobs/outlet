@@ -29,7 +29,7 @@ class ChangeLedger:
 
         self.pending_changes_db_path = os.path.join(self.application.cache_manager.cache_dir_path, PENDING_CHANGES_FILE_NAME)
 
-        self.dep_tree: DepTree = DepTree()
+        self.dep_tree: DepTree = DepTree(self.cacheman)
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
 
         dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
@@ -88,6 +88,7 @@ class ChangeLedger:
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _reduce_changes(self, change_list: Iterable[ChangeAction]) -> Iterable[ChangeAction]:
+        # FIXME: need to rethink all of this
         final_list: List[ChangeAction] = []
 
         # Put all affected nodes in map.
@@ -228,15 +229,27 @@ class ChangeLedger:
 
     def load_pending_changes(self):
         """Call this at startup, to resume pending changes which have not yet been applied."""
-        change_list = self._load_pending_changes_from_disk()
+        change_list: List[ChangeAction] = self._load_pending_changes_from_disk()
+        if not change_list:
+            logger.debug(f'No pending changes found in the disk cache')
+            return
+
         logger.info(f'Found {len(change_list)} pending changes from the disk cache')
 
+        # Sort into batches
         batch_dict: DefaultDict[UID, List[ChangeAction]] = defaultdict(lambda: list())
         for change in change_list:
             batch_dict[change.batch_uid].append(change)
 
-        for batch in batch_dict.values():
-            self._enqueue_batch(batch)
+        batch_dict_keys = batch_dict.keys()
+        logger.info(f'Sorted changes into {len(batch_dict_keys)} batches')
+        sorted_keys = sorted(batch_dict_keys)
+
+        for key in sorted_keys:
+            # Assume batch has already been reduced and reconciled against master tree.
+            batch_items: List[ChangeAction] = batch_dict[key]
+            batch_root = self.dep_tree.make_tree_to_insert(batch_items)
+            self.dep_tree.add_batch(batch_root)
 
     def append_new_pending_changes(self, change_batch: Iterable[ChangeAction]):
         """
@@ -259,8 +272,10 @@ class ChangeLedger:
         # Simplify and remove redundancies in change_list
         reduced_batch = self._reduce_changes(change_batch)
 
+        tree_root = self.dep_tree.make_tree_to_insert(reduced_batch)
+
         # Reconcile changes against master change tree before adding nodes
-        if not self.dep_tree.can_add_batch(reduced_batch):
+        if not self.dep_tree.can_add_batch(tree_root):
             raise RuntimeError('Invalid batch!')
 
         # Add dst nodes for to-be-created nodes if they are not present (this will also save to disk).
@@ -271,7 +286,7 @@ class ChangeLedger:
 
         self._save_pending_changes_to_disk(reduced_batch)
 
-        self._enqueue_batch(reduced_batch)
+        self.dep_tree.add_batch(tree_root)
 
     def _enqueue_batch(self, change_batch: Iterable[ChangeAction]):
         self.dep_tree.add_batch(change_batch)

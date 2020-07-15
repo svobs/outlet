@@ -26,6 +26,9 @@ class ChangeType(IntEnum):
     UP = 5
     """Essentially equivalent to CP, but intention is different. Copy content of src node to dst node, overwriting the contents of dst"""
 
+    def has_dst(self) -> bool:
+        return self == ChangeType.CP or self == ChangeType.MV or self == ChangeType.UP
+
 
 # Class ChangeActionRef
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -49,7 +52,8 @@ class ChangeActionRef:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class ChangeAction(Node):
-    def __init__(self, action_uid: UID, batch_uid: UID, change_type: ChangeType, src_node: DisplayNode, dst_node: DisplayNode = None, create_ts: int = None):
+    def __init__(self, action_uid: UID, batch_uid: UID, change_type: ChangeType, src_node: DisplayNode,
+                 dst_node: DisplayNode = None, create_ts: int = None):
         Node.__init__(self, identifier=action_uid)
         self.action_uid: UID = action_uid
         self.batch_uid: UID = batch_uid
@@ -63,6 +67,9 @@ class ChangeAction(Node):
             self.create_ts = int(time.time())
 
         self.tag = repr(self)
+
+    def has_dst(self) -> bool:
+        return self.change_type.has_dst()
 
     def __repr__(self):
         return f'ChangeAction(uid={self.action_uid} batch={self.batch_uid} type={self.change_type.name} src={self.src_node.node_identifier} ' \

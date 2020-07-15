@@ -2,6 +2,9 @@ import humanfriendly
 
 
 def humanfriendlier_size(size_bytes):
+    if not size_bytes:
+        # treat None as 0
+        size_bytes = 0
     size_hf = humanfriendly.format_size(size_bytes)
     size_tokens = size_hf.split(' ')
     if size_tokens[1] == 'bytes':
