@@ -2,7 +2,6 @@ import collections
 import pathlib
 import logging
 from abc import ABC, abstractmethod
-from enum import IntEnum
 from typing import DefaultDict, Deque, Dict, Iterable, List, Optional
 
 from constants import ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
@@ -13,15 +12,11 @@ from model.node.gdrive_node import GDriveNode
 
 logger = logging.getLogger(__name__)
 
-# class DepType(IntEnum):
-#     NONE = 1
-#     UPSTREAM = 2
-#     DOWNSTREAM = 3
-
 
 # ABSTRACT CLASS TreeNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class TreeNode(ABC):
+    # TODO: find a better name for "TreeNode". This is a node which represents an operation (or half of an operation, if it includes 2 nodes)
     def __init__(self, uid: UID, change_action: Optional[ChangeAction]):
         self.node_uid: UID = uid
         self.change_action: ChangeAction = change_action
@@ -46,12 +41,42 @@ class TreeNode(ABC):
             child.parent = None
 
     @classmethod
-    def is_root(cls):
+    def is_root(cls) -> bool:
         return False
 
     @classmethod
-    def is_dst(cls):
+    def is_dst(cls) -> bool:
         return False
+
+    def is_create_type(self) -> bool:
+        return False
+
+    def get_level(self) -> int:
+        level: int = 0
+        node = self
+        while node:
+            level += 1
+            node = node.parent
+
+        return level
+
+    def get_all_nodes_in_subtree(self):
+        """
+        Returns: a list of all the nodes in this sutree (including this one) in breadth-first order
+        """
+        node_list = []
+
+        queue: Deque[TreeNode] = collections.deque()
+        queue.append(self)
+
+        while len(queue) > 0:
+            node: TreeNode = queue.popleft()
+            node_list.append(node)
+
+            for child in node.children:
+                queue.append(child)
+
+        return node_list
 
 
 # CLASS RootNode
@@ -77,6 +102,8 @@ class SrcActionNode(TreeNode):
     def get_target_node(self):
         return self.change_action.src_node
 
+    def is_create_type(self) -> bool:
+        return self.change_action.change_type == ChangeType.MKDIR
 
 
 # CLASS DstActionNode
@@ -93,6 +120,8 @@ class DstActionNode(TreeNode):
     def is_dst(cls):
         return True
 
+    def is_create_type(self) -> bool:
+        return True
 
 # CLASS DepTree
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -118,70 +147,12 @@ class DepTree:
             parent_path = str(pathlib.Path(node.full_path).parent)
             return self.cacheman.get_uid_for_path(parent_path)
 
-    # TODO: junk code ?
-    # def _determine_relationship(self, node_to_insert: TreeNode, tree_node: TreeNode):
-    #     node: DisplayNode = node_to_insert.get_target_node()
-    #
-    #     tree_ancestor: DisplayNode = tree_node.get_target_node()
-    #     # check initial node:
-    #     if tree_ancestor.uid == node.uid:
-    #         raise RuntimeError(f'Duplicate node: {node_to_insert}')
-    #
-    #     node_parent_uid = self._derive_parent_uid(node)
-    #     if tree_ancestor.uid == node_parent_uid:
-    #         return DepType.DOWNSTREAM
-    #
-    #     # See if node to be inserted is upstream of the tree_node. Do this by iterating up the actual tree
-    #     while tree_ancestor:
-    #         tree_ancestor = self.cacheman.get_parent_for_item(tree_ancestor)
-    #         if tree_ancestor and tree_ancestor.uid == node.uid:
-    #             return DepType.UPSTREAM
-    #
-    #     return DepType.NONE
-    #
-    # def _insert_node(self, node_to_insert: TreeNode, root_node: RootNode):
-    #     queue: Deque = collections.deque()
-    #     queue.append(root_node)
-    #
-    #     while len(queue) > 0:
-    #         inserted = False
-    #         parent_node: TreeNode = queue.popleft()
-    #         # We can always assume that node_to_insert is downstream of parent_node
-    #         for child in parent_node.children:
-    #             dep = self._determine_relationship(node_to_insert, child)
-    #             if dep == DepType.UPSTREAM:
-    #                 # Insert between parent_node and child: swap child and node_to_insert
-    #                 node_to_insert.add_child(child)
-    #                 parent_node.remove_child(child)
-    #                 if not inserted:
-    #                     # Only do this once per parent/node_to_insert combo
-    #                     parent_node.add_child(node_to_insert)
-    #                 inserted = True
-    #                 # Fall through. Need to do this check for all children.
-    #             elif dep == DepType.DOWNSTREAM:
-    #                 # Drill down into child. All other children can be ignored
-    #                 queue.append(child)
-    #                 continue
-    #             elif dep == DepType.NONE:
-    #                 pass
-    #         if not inserted:
-    #             parent_node.add_child(node_to_insert)
-    #         return
-    #
-    # def _get_all_nodes(self, subtree_root: TreeNode):
-    #     node_list = []
-    #
-    #     queue: Deque[TreeNode] = collections.deque()
-    #     queue.append(subtree_root)
-    #
-    #     while len(queue) > 0:
-    #         node: TreeNode = queue.popleft()
-    #         node_list.append(node)
-    #
-    #         for child in node.children:
-    #             queue.append(child)
-    #
-    #     return node_list
+    def _get_lowest_priority_tree_node(self, uid: UID):
+        node_list = self.node_dict.get(uid, None)
+        if node_list:
+            # last element in list is lowest priority:
+            return node_list[-1]
+        return None
 
     def make_tree_to_insert(self, change_batch: Iterable[ChangeAction]) -> RootNode:
         # Verify batch sort:
@@ -237,18 +208,19 @@ class DepTree:
         # Invert RM nodes when inserting into tree
         batch_uid = root_of_changes.children[0].change_action.batch_uid
 
-        for change_subtree_root in root_of_changes.children:
+        for change_subtree_root in root_of_changes.get_all_nodes_in_subtree():
             subtree_root_node: DisplayNode = change_subtree_root.get_target_node()
             op_type: str = change_subtree_root.change_action.change_type.name
-            if change_subtree_root.change_action.change_type == ChangeType.MKDIR or change_subtree_root.is_dst():
-                # Enforce Rule 1: ensure parent is valid:
+
+            if change_subtree_root.is_create_type():
+                # Enforce Rule 1: ensure parent of target is valid:
                 parent_uid = self._derive_parent_uid(subtree_root_node)
                 if not self.cacheman.get_item_for_uid(parent_uid):
                     logger.error(f'Could not find parent in cache with UID {parent_uid} for "{op_type}" operation node: {subtree_root_node}')
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find parent in cache with UID {parent_uid} '
                                        f'for "{op_type}"')
             else:
-                # Enforce Rule 2:
+                # Enforce Rule 2: ensure target node is valid
                 if not self.cacheman.get_item_for_uid(subtree_root_node.uid):
                     logger.error(f'Could not find node in cache for "{op_type}" operation node: {subtree_root_node}')
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find node in cache with UID {subtree_root_node.uid} '
@@ -264,59 +236,116 @@ class DepTree:
 
         return True
 
+    def _add_single_node(self, tree_node: TreeNode):
+        """
+        The node shall be added as a child dependency of either the last operation which affected its target,
+        or as a child dependency of the last operation which affected its parent, whichever has lower priority (i.e. has a lower level
+        in the dependency tree). In the case where neither the node nor its parent has a pending operation, we obviously can just add
+        to the top of the dependency tree.
+        """
+        target_node: DisplayNode = tree_node.get_target_node()
+        target_uid: UID = target_node.uid
+        parent_uid: UID = self._derive_parent_uid(target_node)
+
+        # First check whether the target node is known and has pending operations
+        last_target_op = self._get_lowest_priority_tree_node(target_uid)
+        last_parent_op = self._get_lowest_priority_tree_node(parent_uid)
+
+        if last_target_op and last_parent_op:
+            if last_target_op.get_level() > last_parent_op.get_level():
+                logger.debug(f'Last target op (for node {target_uid}) is lower level than last parent op (for node {parent_uid});'
+                             f' adding as child of last target op')
+                last_target_op.add_child(tree_node)
+            else:
+                logger.debug(f'Last target op is >= level than last parent op; adding as child of last parent op')
+                last_parent_op.add_child(tree_node)
+        elif last_target_op:
+            assert not last_parent_op
+            logger.debug(f'Found pending op(s) for target node {target_uid}; adding as child dependency')
+            last_target_op.add_child(tree_node)
+        elif last_parent_op:
+            assert not last_target_op
+            logger.debug(f'Found pending op(s) for parent node {parent_uid}; adding as child dependency')
+            last_parent_op.add_child(tree_node)
+        else:
+            assert not last_parent_op and not last_target_op
+            logger.debug(f'Found no previous ops for either target node {target_uid} or parent node {parent_uid}; adding to root')
+            self.root.add_child(tree_node)
+
+        # Always add pending operation for bookkeeping
+        self.node_dict[target_uid].append(tree_node)
+
+    def _add_subtree(self, subtree_root: TreeNode):
+        all_subtree_nodes = subtree_root.get_all_nodes_in_subtree()
+        if subtree_root.change_action.change_type == ChangeType.RM:
+            # Removing a tree? Do everything in reverse order
+            all_subtree_nodes = reversed(all_subtree_nodes)
+            # FIXME: probably want completely separate logic for this
+
+        for tree_node in all_subtree_nodes:
+            self._add_single_node(tree_node)
+
     def add_batch(self, root_of_changes: RootNode):
         # 1. Discard root
         # 2. Examine each child of root. Each shall be treated as its own subtree.
-        # 3. For each subtree, look up all its nodes in the master dict
+        # 3. For each subtree, look up all its nodes in the master dict. Level...?
 
-        # Disregard the kind of change when building the tree; they are all equal
+        # Disregard the kind of change when building the tree; they are all equal for now (except for RM; see below):
         # Once entire tree is constructed, invert the RM subtree (if any) so that ancestor RMs become descendants
-        #
 
-    def get_breadth_first_list(self):
-        """Returns the change tree as a list, in breadth-first order"""
-        blist: List[ChangeAction] = []
-
-        queue: Deque[ChangeAction] = collections.deque()
-        # skip root:
-        for child in self.children(self.root):
-            queue.append(child)
-
-        while len(queue) > 0:
-            item: ChangeAction = queue.popleft()
-            blist.append(item)
-            for child in self.children(item.action_uid):
-                queue.append(child)
-
-        return blist
-
-    def get_item_for_uid(self, uid: UID) -> ChangeAction:
-        return self.get_node(uid)
-
-    def get_parent(self, uid: UID) -> Optional[ChangeAction]:
-        parent = self.tree.parent(nid=uid)
-        if parent and isinstance(parent, ChangeAction):
-            return parent
-        return None
-
-    def add_change(self, change: ChangeAction):
-        # (1) Add model to lookup table (both src and dst if applicable)
-        # self.model_command_dict[change_action.src_node.uid] = command
-        # if change_action.dst_node:
-        #     self.model_command_dict[command.change_action.dst_node.uid] = command
-
-        # FIXME: add master dependency tree logic
-        pass
+        for change_subtree_root in root_of_changes.children:
+            self._add_subtree(change_subtree_root)
 
     def get_next_change(self) -> Optional[ChangeAction]:
         """Gets and returns the next available ChangeAction from the tree; returns None if nothing either queued or ready.
         Internally this class keeps track of what this has returned previously, and will expect to be notified when each is complete."""
 
+        # TODO: block until we have a change
+
         # TODO
         pass
 
     def change_completed(self, change: ChangeAction):
-        # TODO: ensure that we were expecting this change
+        """Ensure that we were expecting this change to be copmleted, and remove it from the tree."""
+        logger.debug(f'Entered change_completed() for change {change}')
 
-        # TODO: remove change from tree
-        pass
+        src_node_list = self.node_dict.get(change.src_node.uid)
+        if not src_node_list:
+            raise RuntimeError(f'Src node for completed change not found in master dict (src node UID {change.src_node.uid}')
+
+        src_tree_node = src_node_list.popleft()
+        if src_tree_node.change_action.action_uid != change.action_uid:
+            raise RuntimeError(f'Completed change (UID {change.action_uid}) does not match first item popped from src queue '
+                               f'(UID {src_tree_node.change_action.action_uid})')
+
+        if src_tree_node.parent.node_uid != self.root.node_uid:
+            raise RuntimeError(f'Src node for completed change is not a parent of root (instead found parent {src_tree_node.parent.node_uid}')
+
+        for child in src_tree_node.children:
+            # this will change their parent pointers too
+            self.root.add_child(child)
+
+        self.root.remove_child(src_tree_node)
+        del src_tree_node
+
+        if change.has_dst():
+            dst_node_list = self.node_dict.get(change.dst_node.uid)
+            if not dst_node_list:
+                raise RuntimeError(f'Dst node for completed change not found in master dict (dst node UID {change.dst_node.uid}')
+            dst_tree_node = dst_node_list.popleft()
+            if dst_tree_node.change_action.action_uid != change.action_uid:
+                raise RuntimeError(f'Completed change (UID {change.action_uid}) does not match first item popped from dst queue '
+                                   f'(UID {dst_tree_node.change_action.action_uid})')
+
+            if dst_tree_node.parent.node_uid != self.root.node_uid:
+                raise RuntimeError(f'Dst node for completed change is not a parent of root (instead found parent {src_tree_node.parent.node_uid}')
+
+            for child in dst_tree_node.children:
+                self.root.add_child(child)
+
+            self.root.remove_child(dst_tree_node)
+            del dst_tree_node
+
+        logger.debug(f'change_completed() done')
+
+

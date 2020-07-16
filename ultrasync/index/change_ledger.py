@@ -288,9 +288,6 @@ class ChangeLedger:
 
         self.dep_tree.add_batch(tree_root)
 
-    def _enqueue_batch(self, change_batch: Iterable[ChangeAction]):
-        self.dep_tree.add_batch(change_batch)
-
     def get_next_command(self):
         # FIXME: call this from executor (possibly multi-threaded)
 
