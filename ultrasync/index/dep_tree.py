@@ -1,6 +1,7 @@
 import collections
 import pathlib
 import logging
+import threading
 from abc import ABC, abstractmethod
 from typing import DefaultDict, Deque, Dict, Iterable, List, Optional
 
@@ -16,10 +17,12 @@ logger = logging.getLogger(__name__)
 # ABSTRACT CLASS TreeNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class TreeNode(ABC):
-    # TODO: find a better name for "TreeNode". This is a node which represents an operation (or half of an operation, if it includes 2 nodes)
+    """This is a node which represents an operation (or half of an operation, if the operations includes both src and dst nodes)"""
+    # TODO: find a better name for "TreeNode".
     def __init__(self, uid: UID, change_action: Optional[ChangeAction]):
         self.node_uid: UID = uid
         self.change_action: ChangeAction = change_action
+        """The ChangeAction (i.e. "operation")"""
         self.children: List[TreeNode] = []
         self.parent: Optional[TreeNode] = None
 
@@ -123,6 +126,7 @@ class DstActionNode(TreeNode):
     def is_create_type(self) -> bool:
         return True
 
+
 # CLASS DepTree
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -132,8 +136,16 @@ class DepTree:
     def __init__(self, cache_manager, uid_generator):
         self.cacheman = cache_manager
         self.uid_generator = uid_generator
+
+        self.cv = threading.Condition()
+        """Used to help consumers block"""
+
         self.node_dict: DefaultDict[UID, Deque[TreeNode]] = collections.defaultdict(lambda: collections.deque())
+        """Contains entries for all nodes have pending changes. Each entry has a queue of pending changes for that node"""
         self.root: TreeNode = RootNode()
+        """Root of tree. Has no useful internal data; we value it for its children"""
+        self.outstanding_nodes: Dict[UID, TreeNode] = {}
+        """Contains entries for all nodes which have running operations. Keyed by action UID"""
 
     def _derive_parent_uid(self, node: DisplayNode):
         """Derives the UID for the parent of the given node"""
@@ -296,18 +308,82 @@ class DepTree:
         for change_subtree_root in root_of_changes.children:
             self._add_subtree(change_subtree_root)
 
+        with self.cv:
+            # notify consumers there is something to get:
+            self.cv.notifyAll()
+
+    def _try_get(self) -> Optional[ChangeAction]:
+        # We can optimize this later
+
+        for tree_node in self.root.children:
+            if tree_node.change_action.has_dst():
+                # If the ChangeAction has both src and dst nodes, *both* must be next in their queues, and also be just below root.
+                if tree_node.is_dst():
+                    # look up src
+                    pending_changes_for_src_node = self.node_dict.get(tree_node.change_action.src_node.uid, None)
+                    if not pending_changes_for_src_node:
+                        logger.error(f'Could not find entry for change src (change={tree_node.change_action}); raising error')
+                        raise RuntimeError(f'Serious error: master dict has no entries for change src ({tree_node.change_action.src_node.uid})!')
+
+                    src_tree_node = pending_changes_for_src_node[0]
+                    if src_tree_node.change_action.action_uid != tree_node.change_action.action_uid:
+                        logger.debug(f'Skipping ChangeAction (UID {tree_node.change_action.action_uid}): it is not next in src node queue')
+                        continue
+
+                    level = src_tree_node.get_level()
+                    if level != 1:
+                        logger.debug(f'Skipping ChangeAction (UID {tree_node.change_action.action_uid}): src node is level {level}')
+                        continue
+
+                else:
+                    # look up dst
+                    pending_changes_for_node = self.node_dict.get(tree_node.change_action.dst_node.uid, None)
+                    if not pending_changes_for_node:
+                        logger.error(f'Could not find entry for change dst (change={tree_node.change_action}); raising error')
+                        raise RuntimeError(f'Serious error: master dict has no entries for change dst ({tree_node.change_action.dst_node.uid})!')
+
+                    dst_tree_node = pending_changes_for_node[0]
+                    if dst_tree_node.change_action.action_uid != tree_node.change_action.action_uid:
+                        logger.debug(f'Skipping ChangeAction (UID {tree_node.change_action.action_uid}): it is not next in dst node queue')
+                        continue
+
+                    level = dst_tree_node.get_level()
+                    if level != 1:
+                        logger.debug(f'Skipping ChangeAction (UID {tree_node.change_action.action_uid}): dst node is level {level}')
+                        continue
+
+            # Make sure the node has not already been checked out:
+            if not self.outstanding_nodes.get(tree_node.change_action.action_uid, None):
+                self.outstanding_nodes[tree_node.change_action.action_uid] = tree_node
+                return tree_node.change_action
+
+        return None
+
     def get_next_change(self) -> Optional[ChangeAction]:
-        """Gets and returns the next available ChangeAction from the tree; returns None if nothing either queued or ready.
-        Internally this class keeps track of what this has returned previously, and will expect to be notified when each is complete."""
+        """Gets and returns the next available ChangeAction from the tree; BLOCKS if no pending changes or all the pending changes have
+        already been gotten.
 
-        # TODO: block until we have a change
+        Internally this class keeps track of what this has returned previously, and will expect to be notified when each is complete
+         - think of get_next_change() as a repository checkout, and change_completed() as a commit"""
 
-        # TODO
-        pass
+        # Block until we have a change
+        while True:
+            change = self._try_get()
+            if change:
+                logger.debug(f'Got next pending change: {change}')
+                return change
+            else:
+                logger.debug(f'No pending changes; sleeping until notified')
+                self.cv.wait()
 
     def change_completed(self, change: ChangeAction):
         """Ensure that we were expecting this change to be copmleted, and remove it from the tree."""
         logger.debug(f'Entered change_completed() for change {change}')
+
+        if self.outstanding_nodes.get(change.action_uid, None):
+            self.outstanding_nodes.pop(change.action_uid)
+        else:
+            raise RuntimeError(f'Complated change not found in outstanding change list (action UID {change.action_uid}')
 
         src_node_list = self.node_dict.get(change.src_node.uid)
         if not src_node_list:
@@ -338,7 +414,7 @@ class DepTree:
                                    f'(UID {dst_tree_node.change_action.action_uid})')
 
             if dst_tree_node.parent.node_uid != self.root.node_uid:
-                raise RuntimeError(f'Dst node for completed change is not a parent of root (instead found parent {src_tree_node.parent.node_uid}')
+                raise RuntimeError(f'Dst node for completed change is not a parent of root (instead found parent {dst_tree_node.parent.node_uid}')
 
             for child in dst_tree_node.children:
                 self.root.add_child(child)
@@ -347,5 +423,9 @@ class DepTree:
             del dst_tree_node
 
         logger.debug(f'change_completed() done')
+
+        with self.cv:
+            # this may have jostled the tree to make something else free:
+            self.cv.notifyAll()
 
 

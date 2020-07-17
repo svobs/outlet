@@ -327,6 +327,10 @@ class CacheManager:
          that is scheduled for deletion."""
         self._change_ledger.append_new_pending_changes(change_list)
 
+    def get_next_command(self):
+        # blocks !
+        return self._change_ledger.get_next_command()
+
     def download_all_gdrive_meta(self, tree_id):
         return self._gdrive_cache.download_all_gdrive_meta(tree_id)
 

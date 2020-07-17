@@ -288,13 +288,13 @@ class ChangeLedger:
 
         self.dep_tree.add_batch(tree_root)
 
-    def get_next_command(self):
-        # FIXME: call this from executor (possibly multi-threaded)
+    def get_next_command(self) -> Command:
+        # Call this from Executor.
 
+        # This will block until a change is ready:
         change_action: ChangeAction = self.dep_tree.get_next_change()
 
-        command = self._cmd_builder.build_command(change_action)
-        self.application.executor.execute_batch([command])
+        return self._cmd_builder.build_command(change_action)
 
     def _on_command_completed(self, command: Command):
         logger.debug(f'Received signal: "{actions.COMMAND_COMPLETE}"')
