@@ -5,7 +5,7 @@ from typing import Callable, DefaultDict, Dict, Iterable, List
 
 from pydispatch import dispatcher
 
-from index.dep_tree import DepTree
+from index.op_tree import OpTree
 from model.change_action import ChangeAction, ChangeActionRef, ChangeType
 from cmd.cmd_builder import CommandBuilder
 from cmd.cmd_interface import Command, CommandStatus
@@ -29,7 +29,7 @@ class ChangeLedger:
 
         self.pending_changes_db_path = os.path.join(self.application.cache_manager.cache_dir_path, PENDING_CHANGES_FILE_NAME)
 
-        self.dep_tree: DepTree = DepTree(self.cacheman)
+        self.dep_tree: OpTree = OpTree(self.cacheman)
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
 
         dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
