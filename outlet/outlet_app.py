@@ -19,11 +19,11 @@ import ui.assets
 
 logger = logging.getLogger(__name__)
 
-# CLASS UltrasyncApplication
+# CLASS OutletApplication
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 
-class UltrasyncApplication(Gtk.Application):
+class OutletApplication(Gtk.Application):
 
     """Main application.
     See: https://athenajc.gitbooks.io/python-gtk-3-api/content/gtk-group/gtkapplication.html"""
@@ -90,7 +90,7 @@ def main():
     else:
         config = AppConfig()
 
-    application = UltrasyncApplication(config)
+    application = OutletApplication(config)
     exit_status = application.run(sys.argv)
     sys.exit(exit_status)
 

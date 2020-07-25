@@ -4,7 +4,7 @@ from typing import List, Optional
 import gi
 from pydispatch.dispatcher import Any
 
-from constants import TreeDisplayMode
+from constants import APP_NAME, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
 from model.node_identifier import NodeIdentifier
 from model.node.display_node import DisplayNode
@@ -40,7 +40,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         BaseDialog.__init__(self, application)
 
         self.win_id = win_id
-        self.set_title('UltraSync')
+        self.set_title(APP_NAME)
         # program icon:
         self.set_icon_from_file(ui.assets.WINDOW_ICON_PATH)
         # Set minimum width and height
