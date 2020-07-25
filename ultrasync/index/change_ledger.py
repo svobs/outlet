@@ -29,7 +29,7 @@ class ChangeLedger:
 
         self.pending_changes_db_path = os.path.join(self.application.cache_manager.cache_dir_path, PENDING_CHANGES_FILE_NAME)
 
-        self.dep_tree: OpTree = OpTree(self.cacheman)
+        self.dep_tree: OpTree = OpTree(self.application)
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
 
         dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)

@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 class OpTree:
     """Dependency tree, currently with emphasis on ChangeActions"""
 
-    def __init__(self, cache_manager, uid_generator):
-        self.cacheman = cache_manager
-        self.uid_generator = uid_generator
+    def __init__(self, application):
+        self.cacheman = application.cache_manager
+        self.uid_generator = application.uid_generator
 
         self.cv = threading.Condition()
         """Used to help consumers block"""
@@ -261,7 +261,8 @@ class OpTree:
                 return change
             else:
                 logger.debug(f'No pending changes; sleeping until notified')
-                self.cv.wait()
+                with self.cv:
+                    self.cv.wait()
 
     def change_completed(self, change: ChangeAction):
         """Ensure that we were expecting this change to be copmleted, and remove it from the tree."""

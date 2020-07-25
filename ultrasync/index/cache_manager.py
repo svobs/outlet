@@ -329,6 +329,9 @@ class CacheManager:
 
     def get_next_command(self):
         # blocks !
+        if not self.all_caches_loaded.wait(CACHE_LOAD_TIMEOUT_SEC):
+            logger.error('Timed out waiting for all caches to load!')
+        # also blocks !
         return self._change_ledger.get_next_command()
 
     def download_all_gdrive_meta(self, tree_id):
