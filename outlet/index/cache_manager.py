@@ -388,7 +388,16 @@ class CacheManager:
     def get_item_for_goog_id(self, goog_id: str) -> UID:
         return self._gdrive_cache.get_item_for_goog_id(goog_id)
 
-    def get_item_for_uid(self, uid: UID):
+    def get_item_for_uid(self, uid: UID, tree_type: int = None):
+        if tree_type:
+            if tree_type == TREE_TYPE_LOCAL_DISK:
+                return self._local_disk_cache.get_item(uid)
+            elif tree_type == TREE_TYPE_GDRIVE:
+                return self._gdrive_cache.get_item_for_uid(uid)
+            else:
+                raise RuntimeError(f'Bad tree type: {tree_type}')
+
+        # no tree type provided? -> just try all trees:
         item = self._gdrive_cache.get_item_for_uid(uid)
         if not item:
             item = self._local_disk_cache.get_item(uid)

@@ -9,6 +9,8 @@ from model.change_action import ChangeAction, ChangeType
 
 logger = logging.getLogger(__name__)
 
+INDENT = '->'
+
 
 # ABSTRACT CLASS OpTreeNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -58,6 +60,19 @@ class OpTreeNode(ABC):
 
         return level
 
+    def print_me(self) -> str:
+        return f'NodeUID={self.node_uid}: {self.change_action}'
+
+    def print_recursively(self) -> str:
+        level = self.get_level()
+
+        blocks = [f'{INDENT * (level-1)} {self.print_me()}']
+
+        for child in self.children:
+            blocks.append(child.print_recursively())
+
+        return '\n'.join(blocks)
+
     def get_all_nodes_in_subtree(self):
         """
         Returns: a list of all the nodes in this sutree (including this one) in breadth-first order
@@ -90,6 +105,9 @@ class RootNode(OpTreeNode):
     def get_target_node(self):
         return None
 
+    def print_me(self) -> str:
+        return f'RootNode'
+
 
 # CLASS SrcActionNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -102,6 +120,9 @@ class SrcActionNode(OpTreeNode):
 
     def is_create_type(self) -> bool:
         return self.change_action.change_type == ChangeType.MKDIR
+
+    def print_me(self) -> str:
+        return f'SrcActionNode UID={self.node_uid}: {self.change_action}'
 
 
 # CLASS DstActionNode
@@ -120,3 +141,6 @@ class DstActionNode(OpTreeNode):
 
     def is_create_type(self) -> bool:
         return True
+
+    def print_me(self) -> str:
+        return f'DstActionNode UID={self.node_uid}: {self.change_action}'

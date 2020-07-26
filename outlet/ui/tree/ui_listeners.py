@@ -377,6 +377,8 @@ class TreeUiListeners:
             #         elif item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
             #             dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=item)
             #             return True
+            else:
+                logger.debug(f'Aborting activation: file does not exist: {item}')
         return False
 
     def on_multiple_rows_activated(self, tree_view, tree_paths):

@@ -54,6 +54,8 @@ class OpTree:
         return None
 
     def make_tree_to_insert(self, change_batch: Iterable[ChangeAction]) -> RootNode:
+        logger.debug(f'Constructing OpNode tree for ChangeAction batch...')
+
         # Verify batch sort:
         last_uid = 0
         for change in change_batch:
@@ -62,7 +64,7 @@ class OpTree:
                 raise RuntimeError(f'Batch items are not in order! ({change.action_uid} < {last_uid}')
             last_uid = change.action_uid
 
-        # 1. Put all in dict as wrapped TreeNodes
+        # Put all in dict as wrapped OpTreeNodes
         node_dict: Dict[UID, OpTreeNode] = {}
         for change in change_batch:
             src_node = SrcActionNode(self.uid_generator.next_uid(), change)
@@ -89,7 +91,7 @@ class OpTree:
                 # those with no parent will be children of root:
                 root_node.add_child(potential_child_node)
 
-        # TODO: print out contents of tree
+        logger.debug(f'Constructed tree: {root_node.print_recursively()}')
         return root_node
 
     def can_add_batch(self, root_of_changes: RootNode) -> bool:
@@ -107,20 +109,24 @@ class OpTree:
         # Invert RM nodes when inserting into tree
         batch_uid = root_of_changes.children[0].change_action.batch_uid
 
-        for change_subtree_root in root_of_changes.get_all_nodes_in_subtree():
+        iterator = iter(root_of_changes.get_all_nodes_in_subtree())
+        # skip root
+        next(iterator)
+
+        for change_subtree_root in iterator:
             subtree_root_node: DisplayNode = change_subtree_root.get_target_node()
             op_type: str = change_subtree_root.change_action.change_type.name
 
             if change_subtree_root.is_create_type():
                 # Enforce Rule 1: ensure parent of target is valid:
                 parent_uid = self._derive_parent_uid(subtree_root_node)
-                if not self.cacheman.get_item_for_uid(parent_uid):
+                if not self.cacheman.get_item_for_uid(parent_uid, subtree_root_node.node_identifier.tree_type):
                     logger.error(f'Could not find parent in cache with UID {parent_uid} for "{op_type}" operation node: {subtree_root_node}')
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find parent in cache with UID {parent_uid} '
                                        f'for "{op_type}"')
             else:
                 # Enforce Rule 2: ensure target node is valid
-                if not self.cacheman.get_item_for_uid(subtree_root_node.uid):
+                if not self.cacheman.get_item_for_uid(subtree_root_node.uid, subtree_root_node.node_identifier.tree_type):
                     logger.error(f'Could not find node in cache for "{op_type}" operation node: {subtree_root_node}')
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find node in cache with UID {subtree_root_node.uid} '
                                        f'for "{op_type}"')

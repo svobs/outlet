@@ -88,7 +88,6 @@ class ChangeLedger:
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _reduce_changes(self, change_list: Iterable[ChangeAction]) -> Iterable[ChangeAction]:
-        # FIXME: need to rethink all of this
         final_list: List[ChangeAction] = []
 
         # Put all affected nodes in map.
@@ -110,7 +109,7 @@ class ChangeLedger:
             elif change.change_type == ChangeType.CP or change.change_type == ChangeType.UP or change.change_type == ChangeType.MV:
                 existing = cp_dst_dict.get(change.dst_node.uid, None)
                 if existing:
-                    # Fail for anything but a duplicate
+                    # It is an error for anything but an exact duplicate to share the same dst node; if duplicate, then discard
                     if existing.src_node.uid != change.src_node.uid:
                         logger.error(f'Conflict: Change1: {existing}; Change2: {change}')
                         raise RuntimeError(f'Batch change conflict: trying to copy different nodes into the same destination!')
@@ -125,20 +124,15 @@ class ChangeLedger:
                     cp_dst_dict[change.dst_node.uid] = change
                     cp_src_dict[change.src_node.uid].append(change)
 
-        def eval_rm_ancestor(chg: ChangeAction, par: DisplayNode) -> bool:
+        def eval_rm_ancestor_func(chg: ChangeAction, par: DisplayNode) -> bool:
             conflict = mkdir_dict.get(par.uid, None)
             if conflict:
                 logger.error(f'Conflict: Change1: {conflict}; Change2: {change}')
                 raise RuntimeError(f'Batch change conflict: trying to create a node and remove its descendant at the same time!')
 
-            redundant = rm_dict.get(par.uid, None)
-            if redundant:
-                logger.info(f'Removing redundant RM change because its descendant is already being removed: {chg}')
-                rm_dict.pop(chg.src_node.uid)
-                return False
             return True
 
-        def eval_mkdir_ancestor(chg: ChangeAction, par: DisplayNode) -> bool:
+        def eval_mkdir_ancestor_func(chg: ChangeAction, par: DisplayNode) -> bool:
             conflict = rm_dict.get(par.uid, None)
             if conflict:
                 logger.error(f'Conflict: Change1: {conflict}; Change2: {change}')
@@ -148,9 +142,9 @@ class ChangeLedger:
         # For each element, traverse up the tree and compare each parent node to map
         for change in change_list:
             if change.change_type == ChangeType.RM:
-                self._check_ancestors(change, eval_rm_ancestor)
+                self._check_ancestors(change, eval_rm_ancestor_func)
             elif change.change_type == ChangeType.MKDIR:
-                self._check_ancestors(change, eval_mkdir_ancestor)
+                self._check_ancestors(change, eval_mkdir_ancestor_func)
             elif change.change_type == ChangeType.CP or change.change_type == ChangeType.UP or change.change_type == ChangeType.MV:
                 self._check_cp_ancestors(change, mkdir_dict, rm_dict, cp_src_dict, cp_dst_dict)
 
@@ -165,54 +159,30 @@ class ChangeLedger:
         """Checks all ancestors of both src and dst for mapped ChangeActions. The following are the only valid situations:
          1. No ancestors of src or dst correspond to any ChangeActions.
          2. Ancestor(s) of the src node correspond to the src node of a CP or UP action (i.e. they will not change)
-         3. A ChangeAction exists which is a perfect superset of this one. This means that both changes are the same type,
-          and src and dst of the super-change are the same number of levels above the src and dst of the sub-change."""
+         """
         src_ancestor = change.src_node
         dst_ancestor = change.dst_node
-        src_generation = 0
-        dst_generation = 0
-        while True:
-            if src_ancestor:
-                src_ancestor = self.application.cache_manager.get_parent_for_item(src_ancestor)
-                src_generation += 1
+        while src_ancestor:
+            logger.debug(f'(Change={change}): evaluating src ancestor: {src_ancestor}')
+            if mkdir_dict.get(src_ancestor.uid, None):
+                raise RuntimeError(f'Batch change conflict: copy from a descendant of a node being created!')
+            if rm_dict.get(src_ancestor.uid, None):
+                raise RuntimeError(f'Batch change conflict: copy from a descendant of a node being deleted!')
+            if cp_dst_dict.get(src_ancestor.uid, None):
+                raise RuntimeError(f'Batch change conflict: copy from a descendant of a node being copied to!')
 
-            if dst_ancestor:
-                dst_ancestor = self.application.cache_manager.get_parent_for_item(dst_ancestor)
-                dst_generation += 1
+            src_ancestor = self.application.cache_manager.get_parent_for_item(src_ancestor)
 
-            src_ancestor_cp = None
-            dst_ancestor_cp = None
-
-            if src_ancestor:
-                logger.debug(f'(Change={change}): evaluating src ancestor: {src_ancestor}')
-                if mkdir_dict.get(src_ancestor.uid, None):
-                    raise RuntimeError(f'Batch change conflict: copy from a descendant of a node being created!')
-                if rm_dict.get(src_ancestor.uid, None):
-                    raise RuntimeError(f'Batch change conflict: copy from a descendant of a node being deleted!')
-                if cp_dst_dict.get(dst_ancestor.uid, None):
-                    raise RuntimeError(f'Batch change conflict: copy from a descendant of a node being copied to!')
-
-                src_ancestor_cp = cp_src_dict.get(src_ancestor.uid, None)
-
-            if dst_ancestor:
-                logger.debug(f'(Change={change}): evaluating dst ancestor: {dst_ancestor}')
-                if mkdir_dict.get(dst_ancestor.uid, None):
-                    raise RuntimeError(f'Batch change conflict: copy to a descendant of a node being created!')
-                if rm_dict.get(dst_ancestor.uid, None):
-                    raise RuntimeError(f'Batch change conflict: copy to a descendant of a node being deleted!')
-                if cp_src_dict.get(dst_ancestor.uid, None):
-                    raise RuntimeError(f'Batch change conflict: copy to a descendant of a node being copied from!')
-
-                dst_ancestor_cp = cp_dst_dict.get(dst_ancestor.uid, None)
-
-            if src_ancestor_cp and dst_ancestor_cp and src_ancestor_cp.change_type == dst_ancestor_cp.change_type \
-                    and src_ancestor_cp.action_uid == dst_ancestor_cp.action_uid and src_generation == dst_generation:
-                logger.info(f'Found a superset for change; will remove: {change}')
-                cp_src_dict.pop(src_ancestor.uid)
-                cp_dst_dict.pop(dst_ancestor.uid)
-            elif src_ancestor_cp or dst_ancestor_cp:
-                logger.error(f'(Change={change}): conflict src: {src_ancestor_cp} or dst: {dst_ancestor_cp}')
+        while dst_ancestor:
+            logger.debug(f'(Change={change}): evaluating dst ancestor: {dst_ancestor}')
+            if mkdir_dict.get(dst_ancestor.uid, None):
+                raise RuntimeError(f'Batch change conflict: copy to a descendant of a node being created!')
+            if rm_dict.get(dst_ancestor.uid, None):
+                raise RuntimeError(f'Batch change conflict: copy to a descendant of a node being deleted!')
+            if cp_src_dict.get(dst_ancestor.uid, None):
                 raise RuntimeError(f'Batch change conflict: copy to a descendant of a node being copied from!')
+
+            dst_ancestor = self.application.cache_manager.get_parent_for_item(dst_ancestor)
 
     def _check_ancestors(self, change: ChangeAction, eval_func: Callable[[ChangeAction, DisplayNode], bool]):
         ancestor = change.src_node
@@ -270,7 +240,7 @@ class ChangeLedger:
                 raise RuntimeError(f'Changes in batch do not all contain the same batch_uid (found {change.batch_uid} and {batch_uid})')
 
         # Simplify and remove redundancies in change_list
-        reduced_batch = self._reduce_changes(change_batch)
+        reduced_batch: Iterable[ChangeAction] = self._reduce_changes(change_batch)
 
         tree_root = self.dep_tree.make_tree_to_insert(reduced_batch)
 

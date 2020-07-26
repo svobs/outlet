@@ -30,7 +30,7 @@ def _migrate_file_node(node_identifier: NodeIdentifier, src_node: DisplayNode) -
     tree_type = node_identifier.tree_type
     if tree_type == TREE_TYPE_LOCAL_DISK:
         assert isinstance(node_identifier, LocalFsIdentifier)
-        return LocalFileNode(node_identifier, md5, sha256, size_bytes, None, None, None, True)
+        return LocalFileNode(node_identifier, md5, sha256, size_bytes, None, None, None, False)
     elif tree_type == TREE_TYPE_GDRIVE:
         assert isinstance(node_identifier, GDriveIdentifier)
         return GDriveFile(node_identifier, None, src_node.name, NOT_TRASHED, None, None, None, md5, False, None, None, size_bytes, None, None)
@@ -49,7 +49,7 @@ class OneSide:
         self.batch_uid = self.uid_generator.next_uid()
         self.added_folders: Dict[str, ContainerNode] = {}
 
-    def migrate_single_node_to_this_side(self, src_node: DisplayNode, new_path: str):
+    def migrate_single_node_to_this_side(self, src_node: DisplayNode, new_path: str) -> DisplayNode:
         logger.debug(f'New path for migrated item: {new_path}')
         dst_tree_type = self.underlying_tree.tree_type
         # (Kludge) set UID to -1 because we want to leave it unset for now. We need to wait until after we have determined parent nodes
