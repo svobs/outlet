@@ -52,7 +52,7 @@ class GlobalActions:
 
     def on_load_all_caches_requested(self, sender):
         logger.debug(f'Received signal: "{actions.LOAD_ALL_CACHES}"')
-        self.application.executor.submit_async_task(self.application.cache_manager.load_all_caches, sender)
+        self.application.executor.submit_async_task(self.application.cache_manager.init, sender)
 
     def on_gdrive_requested(self, sender):
         logger.debug(f'Received signal: "{actions.DOWNLOAD_GDRIVE_META}"')

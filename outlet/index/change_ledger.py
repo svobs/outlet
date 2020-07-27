@@ -40,6 +40,13 @@ class ChangeLedger:
             change_ref_list: List[ChangeActionRef] = change_db.get_all_pending_changes()
 
         change_list: List[ChangeAction] = []
+
+        if not change_ref_list:
+            return change_list
+
+        # We don't know which cache these node refs came from. So for now, just tell the CacheManager to load all the caches.
+        self.cacheman.load_all_caches()
+
         # dereference src and dst:
         for change_ref in change_ref_list:
             src_node = self.application.cache_manager.get_item_for_uid(change_ref.src_uid)

@@ -86,21 +86,25 @@ class CacheManager:
         self._change_ledger = None
         """Sub-module of Cache Manager which manages commands which have yet to execute"""
 
-        # Create an Event object.
-        self.all_caches_loaded = threading.Event()
+        # Create Event objects to wait for init and cache loads.
+        self._init_done = threading.Event()
+
+        # (Optional) variables needed for producer/consumer behavior if Load All Caches needed
+        self._load_all_caches_done = threading.Event()
+        self._all_caches_loading = False
+        self._all_caches_loaded = False
 
     # Startup loading/maintenance
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def load_all_caches(self, sender):
+    def init(self, sender):
         """Should be called during startup. Loop over all caches and load/merge them into a
         single large in-memory cache"""
-        logger.debug(f'Received signal: "{actions.LOAD_ALL_CACHES}"')
         if self._local_disk_cache:
             logger.info(f'Caches already loaded. Ignoring signal from {sender}.')
             return
 
-        logger.debug(f'CacheManager.load_all_caches() initiated by {sender}')
+        logger.debug(f'CacheManager.init() initiated by {sender}')
         logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {ID_GLOBAL_CACHE}')
         stopwatch = Stopwatch()
         dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=ID_GLOBAL_CACHE)
@@ -153,43 +157,75 @@ class CacheManager:
 
             # Now load all caches (if configured):
             if self.application.cache_manager.enable_load_from_disk and self.load_all_caches_on_startup:
-                # MUST read GDrive first, because currently we assign incrementing integer UIDs for local files dynamically,
-                # and we won't know which are reserved until we have read in all the existing GDrive caches
-                existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_GDRIVE).values())
-                assert len(existing_caches) <= 1
-
-                local_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_LOCAL_DISK).values())
-                consolidated_local_caches, registry_needs_update = self._local_disk_cache.consolidate_local_caches(local_caches, ID_GLOBAL_CACHE)
-                existing_caches += consolidated_local_caches
-
-                if registry_needs_update and self.enable_save_to_disk:
-                    self._overwrite_all_caches_in_registry(existing_caches)
-                    logger.debug(f'Overwriting in-memory list ({len(self.caches_by_type)}) with {len(existing_caches)} entries')
-                    self.caches_by_type.clear()
-                    for cache in existing_caches:
-                        self.caches_by_type.put(cache)
-
-                for cache_num, existing_disk_cache in enumerate(existing_caches):
-                    try:
-                        self.caches_by_type.put(existing_disk_cache)
-                        logger.info(f'Init cache {(cache_num + 1)}/{len(existing_caches)}: id={existing_disk_cache.subtree_root}')
-                        if existing_disk_cache.is_loaded:
-                            logger.debug('Cache is already loaded; skipping')
-                        else:
-                            self._init_existing_cache(existing_disk_cache)
-                    except Exception:
-                        logger.exception(f'Failed to load cache: {existing_disk_cache.cache_location}')
-                logger.info(f'{stopwatch} Load All Caches complete')
+                self.load_all_caches()
             else:
                 logger.info(f'{stopwatch} Found {unique_cache_count} existing caches but configured not to load on startup')
 
-            # Finally, add any queued changes
-            self._change_ledger.load_pending_changes()
+            # Finally, add any queued changes (asynchronously)
+            self.application.executor.submit_async_task(self._change_ledger.load_pending_changes)
 
         finally:
             dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
-            self.all_caches_loaded.set()
+            self._init_done.set()
+            logger.debug('CacheManager init done')
             dispatcher.send(signal=actions.LOAD_ALL_CACHES_DONE, sender=ID_GLOBAL_CACHE)
+
+    def _wait_for_init_done(self):
+        if not self._init_done.is_set():
+            logger.info('Waiting for CacheManager init to complete')
+        if not self._init_done.wait(CACHE_LOAD_TIMEOUT_SEC):
+            logger.error('Timed out waiting for CacheManager init!')
+
+    def load_all_caches(self):
+        """Load ALL the caches into memory. This is needed in certain circumstances, such as when a UID is being derefernced but we
+        don't know which cache it belongs to."""
+        if not self.application.cache_manager.enable_load_from_disk:
+            raise RuntimeError('Cannot load all caches; loading caches from disk is disabled in config!')
+
+        if self._all_caches_loading:
+            logger.info('Waiting for all caches to load')
+            # Wait for the other thread to complete. (With no timeout, it will never return):
+            if not self._load_all_caches_done.wait(CACHE_LOAD_TIMEOUT_SEC):
+                logger.error('Timed out waiting for all caches to load!')
+        if self._load_all_caches_done.is_set():
+            # Other thread completed
+            return
+
+        self._all_caches_loading = True
+        logger.info('Loading all caches from disk')
+
+        stopwatch = Stopwatch()
+
+        # MUST read GDrive first, because currently we assign incrementing integer UIDs for local files dynamically,
+        # and we won't know which are reserved until we have read in all the existing GDrive caches
+        existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_GDRIVE).values())
+        assert len(existing_caches) <= 1
+
+        local_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_LOCAL_DISK).values())
+        consolidated_local_caches, registry_needs_update = self._local_disk_cache.consolidate_local_caches(local_caches, ID_GLOBAL_CACHE)
+        existing_caches += consolidated_local_caches
+
+        if registry_needs_update and self.enable_save_to_disk:
+            self._overwrite_all_caches_in_registry(existing_caches)
+            logger.debug(f'Overwriting in-memory list ({len(self.caches_by_type)}) with {len(existing_caches)} entries')
+            self.caches_by_type.clear()
+            for cache in existing_caches:
+                self.caches_by_type.put(cache)
+
+        for cache_num, existing_disk_cache in enumerate(existing_caches):
+            try:
+                self.caches_by_type.put(existing_disk_cache)
+                logger.info(f'Init cache {(cache_num + 1)}/{len(existing_caches)}: id={existing_disk_cache.subtree_root}')
+                if existing_disk_cache.is_loaded:
+                    logger.debug('Cache is already loaded; skipping')
+                else:
+                    self._init_existing_cache(existing_disk_cache)
+            except Exception:
+                logger.exception(f'Failed to load cache: {existing_disk_cache.cache_location}')
+
+        logger.info(f'{stopwatch} Load All Caches complete')
+        self._all_caches_loading = False
+        self._load_all_caches_done.set()
 
     def _overwrite_all_caches_in_registry(self, cache_info_list: List[CacheInfoEntry]):
         logger.info(f'Overwriting all cache entries in persisted registry with {len(cache_info_list)} entries')
@@ -329,8 +365,7 @@ class CacheManager:
 
     def get_next_command(self):
         # blocks !
-        if not self.all_caches_loaded.wait(CACHE_LOAD_TIMEOUT_SEC):
-            logger.error('Timed out waiting for all caches to load!')
+        self._wait_for_init_done()
         # also blocks !
         return self._change_ledger.get_next_command()
 
@@ -352,8 +387,7 @@ class CacheManager:
             node_identifier = self.application.node_identifier_factory.for_values(full_path=full_path)
         if node_identifier.tree_type == TREE_TYPE_GDRIVE:
             # Need to wait until all caches are loaded:
-            if not self.all_caches_loaded.wait(CACHE_LOAD_TIMEOUT_SEC):
-                logger.error('Timed out waiting for all caches to load!')
+            self._wait_for_init_done()
 
             return self._gdrive_cache.get_all_for_path(node_identifier.full_path)
         else:
@@ -398,9 +432,9 @@ class CacheManager:
                 raise RuntimeError(f'Bad tree type: {tree_type}')
 
         # no tree type provided? -> just try all trees:
-        item = self._gdrive_cache.get_item_for_uid(uid)
+        item = self._local_disk_cache.get_item(uid)
         if not item:
-            item = self._local_disk_cache.get_item(uid)
+            item = self._gdrive_cache.get_item_for_uid(uid)
         return item
 
     def get_item_for_uid_and_tree_type(self, uid: UID, tree_type):

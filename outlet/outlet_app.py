@@ -39,6 +39,9 @@ class OutletApplication(Gtk.Application):
         self.executor = CentralExecutor(self)
         self.cache_manager = CacheManager(self)
 
+    def start(self):
+        self.executor.start()
+
     def do_activate(self):
         # We only allow a single window and raise any existing ones
         if not self.window:
@@ -48,7 +51,7 @@ class OutletApplication(Gtk.Application):
             self.window = TwoPanelWindow(application=self, win_id=ID_DIFF_WINDOW)
             self.window.show_all()
 
-            self.executor.start()
+            self.start()
 
         self.window.present()
 

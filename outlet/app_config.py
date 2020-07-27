@@ -14,6 +14,9 @@ DEFAULT_CONFIG_PATH = os.path.join(PROJECT_DIR, 'default.cfg')
 logger = logging.getLogger(__name__)
 
 
+# CLASS AppConfig
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class AppConfig:
     def __init__(self, config_file_path=DEFAULT_CONFIG_PATH):
         try:

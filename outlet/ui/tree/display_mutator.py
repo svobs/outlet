@@ -6,7 +6,7 @@ import humanfriendly
 from pydispatch import dispatcher
 from datetime import datetime
 from typing import Deque, Iterable, List, Optional
-from constants import LARGE_NUMBER_OF_CHILDREN
+from constants import HOLDOFF_TIME_MS, LARGE_NUMBER_OF_CHILDREN
 from util.holdoff_timer import HoldOffTimer
 from model.node.container_node import CategoryNode
 from model.node.display_node import DisplayNode
@@ -21,17 +21,13 @@ from gi.repository.Gtk import TreeIter
 
 logger = logging.getLogger(__name__)
 
-HOLDOFF_TIME_MS = 1000
 
-"""
-#    CLASS DisplayMutator
-#  Cache Manager --> TreeBuilder --> DisplayTree --> DisplayMutator --> DisplayStore (TreeModel)
+# CLASS DisplayMutator
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-"""
-
 
 class DisplayMutator:
     """
+    Cache Manager --> TreeBuilder --> DisplayTree --> DisplayMutator --> DisplayStore (TreeModel)
     TODO: when does the number of display nodes start to slow down? -> add config for live node maximum
     """
     def __init__(self, config, controller=None):

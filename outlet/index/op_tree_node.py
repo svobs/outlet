@@ -3,13 +3,11 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Deque, List, Optional
 
-from constants import ROOT_UID
+from constants import OP_TREE_INDENT_STR, ROOT_UID
 from index.uid.uid import UID
 from model.change_action import ChangeAction, ChangeType
 
 logger = logging.getLogger(__name__)
-
-INDENT = '->'
 
 
 # ABSTRACT CLASS OpTreeNode
@@ -66,7 +64,7 @@ class OpTreeNode(ABC):
     def print_recursively(self) -> str:
         level = self.get_level()
 
-        blocks = [f'{INDENT * (level-1)} {self.print_me()}']
+        blocks = [f'{OP_TREE_INDENT_STR * (level-1)} {self.print_me()}']
 
         for child in self.children:
             blocks.append(child.print_recursively())

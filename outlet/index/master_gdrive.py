@@ -259,6 +259,8 @@ class GDriveMasterCache:
         return self._my_gdrive.get_item_for_uid(uid)
 
     def get_item_for_uid(self, uid: UID) -> Optional[GDriveNode]:
+        if not self._my_gdrive:
+            raise RuntimeError(f'Cannot retrieve item (UID={uid}(: GDrive cache not loaded!')
         return self._my_gdrive.get_item_for_uid(uid)
 
     def get_item_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GDriveNode]:
