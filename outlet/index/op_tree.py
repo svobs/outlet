@@ -224,7 +224,8 @@ class OpTree:
                         continue
 
                     level = src_tree_node.get_level()
-                    if level != 1:
+                    # level 1 == root; level 2 == subroot
+                    if level != 2:
                         logger.debug(f'Skipping ChangeAction (UID {tree_node.change_action.action_uid}): src node is level {level}')
                         continue
 
@@ -241,7 +242,7 @@ class OpTree:
                         continue
 
                     level = dst_tree_node.get_level()
-                    if level != 1:
+                    if level != 2:
                         logger.debug(f'Skipping ChangeAction (UID {tree_node.change_action.action_uid}): dst node is level {level}')
                         continue
 

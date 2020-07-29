@@ -303,6 +303,7 @@ class ChangeLedger:
             for deleted_node in command.result.nodes_to_delete:
                 self.cacheman.remove_node(deleted_node, to_trash)
 
+        logger.debug(f'Archiving change: {command.change_action}')
         self._archive_pending_changes_to_disk([command.change_action])
 
 

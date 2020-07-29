@@ -135,6 +135,20 @@ class LocalDiskMasterCache:
             cache_info.is_loaded = True
             return tree
 
+    def _cp_planning_nodes_into(self, tree: treelib.Tree):
+        count = 0
+        for node in self.dir_tree.bfs(tree.root):
+            if not node.exists() and not tree.contains(node.uid):
+                parent: DisplayNode = self.dir_tree.parent(node.identifier)
+                if tree.contains(parent.identifier):
+                    tree.add_node(node=node, parent=parent.identifier)
+                    count += 1
+                else:
+                    # This will cause an error cascade. Need a strategy to handle it
+                    logger.error(f'Dropping node because its parent does not exist: {node}')
+
+        logger.debug(f'Transferred {count} planning nodes into new tree with root {tree.get_node(tree.root).full_path})')
+
     def _save_subtree_to_disk(self, cache_info: PersistedCacheInfo, tree_id):
         assert isinstance(cache_info.subtree_root, LocalFsIdentifier)
         with self._struct_lock:
@@ -156,6 +170,7 @@ class LocalDiskMasterCache:
         fresh_tree: treelib.Tree = scanner.scan()
 
         with self._struct_lock:
+            self._cp_planning_nodes_into(fresh_tree)
             self.dir_tree.replace_subtree(sub_tree=fresh_tree)
 
     # Subtree-level methods

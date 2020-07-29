@@ -21,11 +21,12 @@ class PendingChangeDatabase(MetaDatabase):
                                                               'create_ts': 'INTEGER'})
 
     TABLE_COMPLETED_CHANGE = Table(name='completed_change', cols={'uid': 'INTEGER PRIMARY KEY',
-                                                              'batch_uid': 'INTEGER',
-                                                              'change_type': 'INTEGER',
-                                                              'src_node_uid': 'INTEGER',
-                                                              'dst_node_uid': 'INTEGER',
-                                                              'create_ts': 'INTEGER'})
+                                                                  'batch_uid': 'INTEGER',
+                                                                  'change_type': 'INTEGER',
+                                                                  'src_node_uid': 'INTEGER',
+                                                                  'dst_node_uid': 'INTEGER',
+                                                                  'create_ts': 'INTEGER',
+                                                                  'complete_ts': 'INTEGER'})
 
     def __init__(self, db_path, application):
         super().__init__(db_path)
@@ -63,7 +64,7 @@ class PendingChangeDatabase(MetaDatabase):
 
     def _delete_pending_changes(self, changes: Iterable[ChangeAction], commit=True):
         sql = self.build_delete(self.TABLE_PENDING_CHANGE) + f' WHERE uid = ?'
-        tuples = list(map(lambda x: tuple(x.action_uid), changes))
+        tuples = list(map(lambda x: (x.action_uid,), changes))
         count_deleted = self.conn.executemany(sql, tuples).rowcount
         if count_deleted != len(tuples):
             logger.error(f'Expected to remove {len(tuples)} from DB but instead removed {count_deleted}!)')

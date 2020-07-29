@@ -1,10 +1,11 @@
 import os
 from collections import deque
-from typing import Deque, List, Tuple
+from typing import Deque, Iterator, List, Tuple
 import logging
 
 import treelib
 
+from index.uid.uid import UID
 from util import file_util
 from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
@@ -56,6 +57,26 @@ class LocalDiskTree(treelib.Tree):
         assert not child, f'For old={child}, new={item}, path_segments={path_segments}'
         if not child:
             self.add_node(node=item, parent=parent)
+
+    def bfs(self, subtree_root_uid: UID = None) -> Iterator[DisplayNode]:
+        """Returns an iterator which will do a breadth-first traversal of the tree. If subtree_root is provided, do a breadth-first traversal
+        of the subtree whose root is subtree_root (returning None if this tree does not contain subtree_root).
+        """
+        if not subtree_root_uid:
+            subtree_root_uid = self.root
+
+        if not self.contains(subtree_root_uid):
+            return None
+
+        queue: Deque[DisplayNode] = deque()
+        node = self.get_node(nid=subtree_root_uid)
+        queue.append(node)
+        while len(queue) > 0:
+            node = queue.popleft()
+            yield node
+            if node.is_dir():
+                for child in self.children(node.uid):
+                    queue.append(child)
 
     def replace_subtree(self, sub_tree: treelib.Tree):
         if not self.contains(sub_tree.root):
