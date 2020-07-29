@@ -3,6 +3,7 @@ from enum import IntEnum
 
 from treelib import Node
 
+from constants import ICON_ADD_DIR, ICON_GENERIC_DIR, ICON_GENERIC_FILE
 from index.uid.uid import UID
 from model.node.display_node import DisplayNode
 
@@ -52,6 +53,23 @@ class ChangeActionRef:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class ChangeAction(Node):
+    # TODO: add additional icons
+    icon_src_file_dict = {ChangeType.RM: ChangeType.RM.name,
+                          ChangeType.MV: ICON_GENERIC_FILE,
+                          ChangeType.UP: ICON_GENERIC_FILE,
+                          ChangeType.CP: ICON_GENERIC_FILE}
+    icon_dst_file_dict = {ChangeType.MV: ChangeType.CP.name,
+                          ChangeType.UP: ChangeType.UP.name,
+                          ChangeType.CP: ChangeType.CP.name}
+    icon_src_dir_dict = {ChangeType.MKDIR: ICON_ADD_DIR,
+                         ChangeType.RM: ICON_GENERIC_DIR,
+                         ChangeType.MV: ICON_GENERIC_DIR,
+                         ChangeType.UP: ICON_GENERIC_DIR,
+                         ChangeType.CP: ICON_GENERIC_DIR}
+    icon_dst_dir_dict = {ChangeType.MV: ICON_ADD_DIR,
+                         ChangeType.UP: ICON_GENERIC_DIR,
+                         ChangeType.CP: ICON_ADD_DIR}
+
     def __init__(self, action_uid: UID, batch_uid: UID, change_type: ChangeType, src_node: DisplayNode,
                  dst_node: DisplayNode = None, create_ts: int = None):
         Node.__init__(self, identifier=action_uid)
@@ -70,6 +88,19 @@ class ChangeAction(Node):
 
     def has_dst(self) -> bool:
         return self.change_type.has_dst()
+
+    def get_icon(self, node_uid: UID):
+        if self.has_dst() and self.dst_node.uid == node_uid:
+            if self.dst_node.is_dir():
+                return ChangeAction.icon_dst_dir_dict[self.change_type]
+            else:
+                return ChangeAction.icon_dst_file_dict[self.change_type]
+
+        assert self.src_node.uid == node_uid
+        if self.src_node.is_dir():
+            return ChangeAction.icon_src_dir_dict[self.change_type]
+        else:
+            return ChangeAction.icon_src_file_dict[self.change_type]
 
     def __repr__(self):
         return f'ChangeAction(uid={self.action_uid} batch={self.batch_uid} type={self.change_type.name} src={self.src_node.node_identifier} ' \

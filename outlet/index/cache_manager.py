@@ -357,6 +357,9 @@ class CacheManager:
     # Various public methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
+    def get_last_pending_change_for_node(self, node_uid: UID) -> Optional[ChangeAction]:
+        return self._change_ledger.get_last_pending_change_for_node(node_uid)
+
     def enqueue_change_list(self, change_list: Iterable[ChangeAction]):
         """Attempt to add the given ChangeActions to the execution tree. No need to worry whether some changes overlap or are redundant;
          the ChangeLedger will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree

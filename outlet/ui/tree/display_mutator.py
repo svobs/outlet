@@ -483,8 +483,11 @@ class DisplayMutator:
 
         return self.con.display_store.append_node(parent_node_iter, row_values)
 
-    def _get_icon_for_node(self, node: DisplayNode):
-        # TODO:
+    def _get_icon_for_node(self, node: DisplayNode) -> str:
+        change_action = self.con.app.cache_manager.get_last_pending_change_for_node(node.uid)
+        if change_action:
+            logger.debug(f'Found pending change for node: {change_action.change_type}')
+            return change_action.get_icon_for_node(node.uid)
         return node.get_icon()
 
     def generate_display_cols(self, parent_iter, node: DisplayNode):

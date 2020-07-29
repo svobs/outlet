@@ -53,6 +53,12 @@ class OpTree:
             return node_list[-1]
         return None
 
+    def get_last_pending_change_for_node(self, node_uid: UID) -> Optional[ChangeAction]:
+        tree_node = self._get_lowest_priority_tree_node(node_uid)
+        if tree_node:
+            return tree_node.change_action
+        return None
+
     def make_tree_to_insert(self, change_batch: Iterable[ChangeAction]) -> RootNode:
         logger.debug(f'Constructing OpNode tree for ChangeAction batch...')
 

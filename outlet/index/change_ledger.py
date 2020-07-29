@@ -1,7 +1,7 @@
 import logging
 import os
 from collections import defaultdict
-from typing import Callable, DefaultDict, Dict, Iterable, List
+from typing import Callable, DefaultDict, Dict, Iterable, List, Optional
 
 from pydispatch import dispatcher
 
@@ -264,6 +264,9 @@ class ChangeLedger:
         self._save_pending_changes_to_disk(reduced_batch)
 
         self.dep_tree.add_batch(tree_root)
+
+    def get_last_pending_change_for_node(self, node_uid: UID) -> Optional[ChangeAction]:
+        return self.dep_tree.get_last_pending_change_for_node(node_uid)
 
     def get_next_command(self) -> Command:
         # Call this from Executor.
