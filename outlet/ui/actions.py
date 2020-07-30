@@ -26,6 +26,7 @@ REFRESH_SUBTREE_STATS = 'refresh-subtree-stats'
 LOAD_UI_TREE = 'load-ui-tree'
 """Requests that the central cache update the stats for all nodes in the given subtree.
 When done, the central cache will send the signal SUBTREE_STATS_UPDATED to notify the tree that it can redraw the displayed nodes"""
+LOAD_UI_TREE_DONE = 'load-ui-tree-done'
 
 # --- Tree actions: notifications ---
 LOAD_SUBTREE_STARTED = 'load-subtree-started'

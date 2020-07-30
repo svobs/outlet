@@ -89,7 +89,7 @@ class ChangeAction(Node):
     def has_dst(self) -> bool:
         return self.change_type.has_dst()
 
-    def get_icon(self, node_uid: UID):
+    def get_icon_for_node(self, node_uid: UID):
         if self.has_dst() and self.dst_node.uid == node_uid:
             if self.dst_node.is_dir():
                 return ChangeAction.icon_dst_dir_dict[self.change_type]

@@ -4,6 +4,7 @@ import re
 from typing import List, Optional
 
 import gi
+from gi.overrides import GLib
 from pydispatch import dispatcher
 
 from constants import GDRIVE_PATH_PREFIX, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
@@ -212,7 +213,7 @@ class TreeContextMenu:
 
         item = Gtk.MenuItem(label='')
         label = item.get_child()
-        full_path_display = GObject.markup_escape_text(full_path_display)
+        full_path_display = GLib.markup_escape_text(full_path_display)
         label.set_markup(f'<i>{preamble}{full_path_display}</i>')
         menu.append(item)
         return item

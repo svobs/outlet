@@ -56,7 +56,11 @@ class TreePanelController:
         self.user_input_listeners.init()
         self.tree_actions.init()
 
+        self.app.cache_manager.register_tree_controller(self)
+
     def destroy(self):
+        self.app.cache_manager.unregister_tree_controller(self)
+
         self.user_input_listeners.disconnect_gtk_listeners()
         self.user_input_listeners = None
         self.tree_actions = None

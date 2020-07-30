@@ -3,10 +3,11 @@ import logging
 import os
 import threading
 import time
-from typing import Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
+from ui.tree.controller import TreePanelController
 from util import file_util
 from model.change_action import ChangeAction
 from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
@@ -85,6 +86,9 @@ class CacheManager:
 
         self._change_ledger = None
         """Sub-module of Cache Manager which manages commands which have yet to execute"""
+
+        self._tree_controllers: Dict[str, TreePanelController] = {}
+        """Keep track of live UI tree controllers, so that we can look them up by ID (e.g. for use in automated testing)"""
 
         # Create Event objects to wait for init and cache loads.
         self._init_done = threading.Event()
@@ -353,6 +357,18 @@ class CacheManager:
             self._local_disk_cache.remove_node(node, to_trash)
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
+
+    # Tree controller tracking/lookup
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def register_tree_controller(self, controller: TreePanelController):
+        self._tree_controllers[controller.tree_id] = controller
+
+    def unregister_tree_controller(self, controller: TreePanelController):
+        self._tree_controllers.pop(controller.tree_id)
+
+    def get_tree_controller(self, tree_id: str) -> Optional[TreePanelController]:
+        return self._tree_controllers.get(tree_id, None)
 
     # Various public methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

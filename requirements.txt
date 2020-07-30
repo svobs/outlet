@@ -30,6 +30,6 @@ six==1.14.0
 treelib==1.6.1
 uritemplate==3.0.1
 urllib3==1.25.8
-
+py7zr==0.8.3
 pip~=20.1.1
 setuptools~=47.1.1

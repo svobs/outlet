@@ -178,6 +178,8 @@ class DisplayMutator:
                 if self.con.treeview_meta.is_display_persisted:
                     self._set_expand_states_from_config()
 
+            dispatcher.send(signal=actions.LOAD_UI_TREE_DONE, sender=self.con.tree_id)
+
         GLib.idle_add(update_ui)
 
         # Show tree summary. This will probably just display 'Loading...' until REFRESH_SUBTREE_STATS is done processing

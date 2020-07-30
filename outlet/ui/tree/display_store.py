@@ -1,13 +1,12 @@
 import logging
 from typing import Callable, Dict, Optional, Union
 
-import gi
-from gi.repository.Gtk import TreeIter, TreePath
-
 from index.uid.uid import UID
 from model.node.display_node import DisplayNode
 
+import gi
 gi.require_version("Gtk", "3.0")
+from gi.repository.Gtk import TreeIter, TreePath
 from gi.repository import Gtk
 
 logger = logging.getLogger(__name__)

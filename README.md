@@ -1,4 +1,7 @@
 
+## In Ubuntu (TODO: is this required?)
+sudo apt-get install libarchive-dev
+
 # Create a virtual environment within this directory ({project_name})
 following instructions from: https://docs.python.org/3/tutorial/venv.html)
 cd ..
