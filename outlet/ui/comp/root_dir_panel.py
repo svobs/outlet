@@ -269,8 +269,8 @@ class RootDirPanel:
 
     def _set_label_markup(self, pre, color, root_part_regular, root_part_bold):
         """Sets the content of the label only. Expected to be called from the UI thread"""
-        root_part_regular = GObject.markup_escape_text(root_part_regular)
-        root_part_bold = GObject.markup_escape_text(root_part_bold)
+        root_part_regular = GLib.markup_escape_text(root_part_regular)
+        root_part_bold = GLib.markup_escape_text(root_part_bold)
         self.label.set_markup(f"{pre}<span font_family='monospace' size='medium' {color}><i>{root_part_regular}\n<b>{root_part_bold}</b></i></span>")
         self.label.show()
         self.label_event_box.show()

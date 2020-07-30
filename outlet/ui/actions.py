@@ -38,6 +38,7 @@ SUBTREE_STATS_UPDATED = 'subtree-stats-updated'
 """Indicates that the central cache has updated the stats for the subtree, and the subtree should redraw the nodes"""
 
 DRAG_AND_DROP = 'drag-and-drop'
+DRAG_AND_DROP_DIRECT = 'drag-and-drop-direct'
 
 # All components should listen for this
 TOGGLE_UI_ENABLEMENT = 'toggle-ui-enablement'

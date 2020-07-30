@@ -104,6 +104,8 @@ class TreeUiListeners:
             # self.con.tree_view.connect('drag-motion', self._on_drag_motion)
 
             dispatcher.connect(signal=actions.DRAG_AND_DROP, receiver=self._receive_drag_data_signal)
+            dispatcher.connect(signal=actions.DRAG_AND_DROP_DIRECT, receiver=self._do_drop, sender=self.con.tree_id)
+            # ^^^ mostly for testing
 
     def disconnect_gtk_listeners(self):
         for eid in self._connected_eids:
@@ -141,8 +143,8 @@ class TreeUiListeners:
             # Avoid complicated, undocumented GTK3 garbage by just sending a UID along with needed data via the dispatcher. See _check_drop()
             dd_uid = self.con.parent_win.application.uid_generator.next_uid()
             action = drag_context.get_selected_action()
-            _drag_data = DragAndDropData(dd_uid, self.con, selected_nodes)
-            dispatcher.send(signal=actions.DRAG_AND_DROP, sender=self.con.tree_id, data=_drag_data)
+            drag_data = DragAndDropData(dd_uid, self.con, selected_nodes)
+            dispatcher.send(signal=actions.DRAG_AND_DROP, sender=self.con.tree_id, data=drag_data)
             selection_data.set_text(str(dd_uid), -1)
         else:
             selection_data.set_text('', -1)
@@ -161,29 +163,24 @@ class TreeUiListeners:
         dd_uid = UID(text)
 
         drop_info = treeview.get_dest_row_at_pos(x, y)
-        self._drop_data = dd_uid, drop_info
-        self._check_drop()
-
-    def _check_drop(self):
-        """Drag & Drop 4/4: Check UID of the dragged data against the UID of the dropped data.
-        If they match, then we are the target."""
-        if not self._drop_data or not self._drag_data or self._drop_data[0] != self._drag_data.dd_uid:
-            return
-
-        logger.info(f'{self.con.tree_id}] We received a drop of {len(self._drag_data.nodes)} nodes!')
-
-        dd_uid, drop_info = self._drop_data
         if not drop_info:
             logger.debug('No drop info!')
             return
 
         tree_path, drop_position = drop_info
-        model = self.con.display_store.model
-        drop_dest_iter = model.get_iter(tree_path)
         if drop_position == Gtk.TreeViewDropPosition.INTO_OR_BEFORE or drop_position == Gtk.TreeViewDropPosition.INTO_OR_AFTER:
             is_into = True
         else:
             is_into = False
+        self._drop_data = dd_uid, tree_path, is_into
+        self._check_drop()
+
+    def _do_drop(self, sender, drag_data: DragAndDropData, tree_path: Gtk.TreePath, is_into: bool):
+        # Puts the drag data into/adjacent to the given tree_path.
+        logger.info(f'{self.con.tree_id}] We received a drop of {len(drag_data.nodes)} nodes!')
+
+        model = self.con.display_store.model
+        drop_dest_iter = model.get_iter(tree_path)
 
         dest_node = self.con.display_store.get_node_data(drop_dest_iter)
         if is_into:
@@ -195,18 +192,28 @@ class TreeUiListeners:
 
         if not dest_node:
             logger.error(f'[{self.con.tree_id}] Cancelling drop: no parent node for dropped location!')
-        elif self.con.tree_id == self._drag_data.src_tree_controller.tree_id and self._is_dropping_on_itself(dest_node, self._drag_data.nodes):
+        elif self.con.tree_id == drag_data.src_tree_controller.tree_id and self._is_dropping_on_itself(dest_node, drag_data.nodes):
             logger.debug(f'[{self.con.tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
         else:
             logger.debug(f'[{self.con.tree_id}]Dropping into dest: {dest_node.node_identifier}')
             # So far we only support COPY.
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
-            change_maker = ChangeMaker(left_tree=self._drag_data.src_tree_controller.get_tree(), right_tree=self.con.get_tree(),
+            change_maker = ChangeMaker(left_tree=drag_data.src_tree_controller.get_tree(), right_tree=self.con.get_tree(),
                                        application=self.con.parent_win.application)
-            change_maker.copy_nodes_left_to_right(self._drag_data.nodes, dest_node, ChangeType.CP)
+            change_maker.copy_nodes_left_to_right(drag_data.nodes, dest_node, ChangeType.CP)
             # This should fire listeners which ultimately populate the tree:
             change_list: Iterable[ChangeAction] = change_maker.right_side.change_tree.get_change_actions()
             self.con.parent_win.application.cache_manager.enqueue_change_list(change_list)
+
+    def _check_drop(self):
+        """Drag & Drop 4/4: Check UID of the dragged data against the UID of the dropped data.
+        If they match, then we are the target."""
+        if not self._drop_data or not self._drag_data or self._drop_data[0] != self._drag_data.dd_uid:
+            return
+
+        dd_uid, tree_path, is_into = self._drop_data
+
+        self.do_drop(self.con.tree_id, self._drag_data, tree_path, is_into)
 
         # try to aid garbage collection
         self._drag_data = None

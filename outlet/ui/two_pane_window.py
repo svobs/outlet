@@ -122,13 +122,11 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
         # Docs: https://developer.gnome.org/pygtk/stable/class-gdkdisplay.html
         display: Gdk.Display = self.get_display()
-        logger.debug(f'Display has {display.get_n_screens()} screen(s)')
-        for screen_num in range(0, display.get_n_screens()):
-            screen = display.get_screen(screen_num)
-            logger.debug(f'    Screen #{screen_num} has {screen.get_n_monitors()} monitors and is {screen.get_width()}x{screen.get_height()}')
-            for monitor_num in range(0, screen.get_n_monitors()):
-                size_rect: Gdk.Rectangle = screen.get_monitor_geometry(monitor_num)
-                logger.debug(f'        Monitor #{monitor_num} is {size_rect.width}x{size_rect.height}')
+        logger.debug(f'Display has {display.get_n_monitors()} monitors:')
+        for monitor_num in range(0, display.get_n_monitors()):
+            monitor = display.get_monitor(monitor_num)
+            size_rect: Gdk.Rectangle = monitor.get_geometry()
+            logger.debug(f'        Monitor #{monitor_num} is {size_rect.width}x{size_rect.height}')
 
     def replace_bottom_button_panel(self, *buttons):
         for child in self.bottom_button_panel.get_children():
