@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from enum import IntEnum
-from typing import List
+from typing import List, Optional
 
 import treelib
 
@@ -58,7 +58,7 @@ class Command(treelib.Node, ABC):
         treelib.Node.__init__(self, identifier=uid)
 
         self.change_action: ChangeAction = change_action
-        self.result: CommandResult = None
+        self.result: Optional[CommandResult] = None
         self.tag: str = f'{__class__.__name__}(uid={self.identifier})'
 
     def get_description(self) -> str:

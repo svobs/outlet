@@ -72,6 +72,7 @@ class ChangeAction(Node):
 
     def __init__(self, action_uid: UID, batch_uid: UID, change_type: ChangeType, src_node: DisplayNode,
                  dst_node: DisplayNode = None, create_ts: int = None):
+        assert src_node, 'No src node!'
         Node.__init__(self, identifier=action_uid)
         self.action_uid: UID = action_uid
         self.batch_uid: UID = batch_uid
@@ -103,5 +104,9 @@ class ChangeAction(Node):
             return ChangeAction.icon_src_file_dict[self.change_type]
 
     def __repr__(self):
+        if self.dst_node:
+            dst = self.dst_node.node_identifier
+        else:
+            dst = 'None'
         return f'ChangeAction(uid={self.action_uid} batch={self.batch_uid} type={self.change_type.name} src={self.src_node.node_identifier} ' \
-               f'dst={self.dst_node.node_identifier}'
+               f'dst={dst}'

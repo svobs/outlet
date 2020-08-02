@@ -51,12 +51,12 @@ class ChangeLedger:
         for change_ref in change_ref_list:
             src_node = self.application.cache_manager.get_item_for_uid(change_ref.src_uid)
             if not src_node:
-                raise RuntimeError(f'Could not find node in cache with UID={change_ref.src_uid} (for change_action={change_ref})')
+                raise RuntimeError(f'Could not find src node in cache with UID={change_ref.src_uid} (for change_action={change_ref})')
 
             if change_ref.dst_uid:
                 dst_node = self.application.cache_manager.get_item_for_uid(change_ref.dst_uid)
                 if not dst_node:
-                    raise RuntimeError(f'Could not find node in cache with UID={change_ref.dst_uid} (for change_action={change_ref})')
+                    raise RuntimeError(f'Could not find dst node in cache with UID={change_ref.dst_uid} (for change_action={change_ref})')
             else:
                 dst_node = None
 
@@ -109,10 +109,18 @@ class ChangeLedger:
             count_changes_orig += 1
             if change.change_type == ChangeType.MKDIR:
                 # remove dups
-                mkdir_dict[change.src_node.uid] = change
+                if mkdir_dict.get(change.src_node.uid, None):
+                    logger.info(f'Removing duplicate MKDIR for node: {change.src_node}')
+                else:
+                    final_list.append(change)
+                    mkdir_dict[change.src_node.uid] = change
             elif change.change_type == ChangeType.RM:
                 # remove dups
-                rm_dict[change.src_node.uid] = change
+                if rm_dict.get(change.src_node.uid, None):
+                    logger.info(f'Removing duplicate RM for node: {change.src_node}')
+                else:
+                    final_list.append(change)
+                    rm_dict[change.src_node.uid] = change
             elif change.change_type == ChangeType.CP or change.change_type == ChangeType.UP or change.change_type == ChangeType.MV:
                 existing = cp_dst_dict.get(change.dst_node.uid, None)
                 if existing:
@@ -130,6 +138,7 @@ class ChangeLedger:
                 else:
                     cp_dst_dict[change.dst_node.uid] = change
                     cp_src_dict[change.src_node.uid].append(change)
+                    final_list.append(change)
 
         def eval_rm_ancestor_func(chg: ChangeAction, par: DisplayNode) -> bool:
             conflict = mkdir_dict.get(par.uid, None)
@@ -154,10 +163,6 @@ class ChangeLedger:
                 self._check_ancestors(change, eval_mkdir_ancestor_func)
             elif change.change_type == ChangeType.CP or change.change_type == ChangeType.UP or change.change_type == ChangeType.MV:
                 self._check_cp_ancestors(change, mkdir_dict, rm_dict, cp_src_dict, cp_dst_dict)
-
-        final_list += mkdir_dict.values()
-        final_list += rm_dict.values()
-        final_list += cp_dst_dict.values()
 
         logger.debug(f'Reduced {count_changes_orig} changes to {len(final_list)} changes')
         return final_list
@@ -226,6 +231,7 @@ class ChangeLedger:
             # Assume batch has already been reduced and reconciled against master tree.
             batch_items: List[ChangeAction] = batch_dict[key]
             batch_root = self.dep_tree.make_tree_to_insert(batch_items)
+            logger.info(f'Adding batch {key} to PendingChangeTree')
             self.dep_tree.add_batch(batch_root)
 
     def append_new_pending_changes(self, change_batch: Iterable[ChangeAction]):

@@ -9,6 +9,13 @@ from index.uid.uid import UID
 logger = logging.getLogger(__name__)
 
 
+def _ensure_uid(val):
+    """Converts val to UID but allows for null"""
+    if val:
+        return UID(val)
+    return None
+
+
 # CLASS PendingChangeDatabase
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -43,7 +50,7 @@ class PendingChangeDatabase(MetaDatabase):
 
         rows = self.get_all_rows(self.TABLE_PENDING_CHANGE)
         for row in rows:
-            entries.append(ChangeActionRef(UID(row[0]), UID(row[1]), ChangeType(row[2]), UID(row[3]), UID(row[4]), int(row[5])))
+            entries.append(ChangeActionRef(UID(row[0]), UID(row[1]), ChangeType(row[2]), UID(row[3]), _ensure_uid(row[4]), int(row[5])))
         return entries
 
     def upsert_pending_changes(self, entries: Iterable[ChangeAction], overwrite, commit=True):

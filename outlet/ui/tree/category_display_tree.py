@@ -63,6 +63,10 @@ class CategoryDisplayTree(DisplayTree):
         self._pre_ancestor_dict: PreAncestorDict = PreAncestorDict()
 
         self.change_action_dict: Dict[UID, ChangeAction] = {}
+        """Lookup for target node UID -> ChangeAction. The target node will be the dst node if the ChangeAction has one; otherwise
+        it will be the source node."""
+        self._change_action_list: List[ChangeAction] = []
+        """We want to keep track of change action creation order."""
 
         self.count_conflict_warnings = 0
         self.count_conflict_errors = 0
@@ -183,18 +187,22 @@ class CategoryDisplayTree(DisplayTree):
         return file_util.strip_root(full_path, self.root_path)
 
     def get_change_actions(self) -> Iterable[ChangeAction]:
-        return self.change_action_dict.values()
+        return self._change_action_list
 
     def get_change_action_for_node(self, node: DisplayNode) -> Optional[ChangeAction]:
         return self.change_action_dict.get(node.uid, None)
 
     def _append_change_action(self, change_action: ChangeAction):
+        logger.debug(f'Appending ChangeAction: {change_action.action_uid} ({change_action.change_type.name})')
         if change_action.dst_node:
-            assert not self.change_action_dict.get(change_action.dst_node.uid, None), f'Duplicate ChangeAction: {change_action}'
+            if self.change_action_dict.get(change_action.dst_node.uid, None):
+                raise RuntimeError(f'Duplicate ChangeAction: {change_action}')
             self.change_action_dict[change_action.dst_node.uid] = change_action
         else:
-            assert not self.change_action_dict.get(change_action.src_node.uid, None), f'Duplicate ChangeAction: {change_action}'
+            if self.change_action_dict.get(change_action.src_node.uid, None):
+                raise RuntimeError(f'Duplicate ChangeAction: {change_action}')
             self.change_action_dict[change_action.src_node.uid] = change_action
+        self._change_action_list.append(change_action)
 
     def add_item(self, item: DisplayNode, change_action: ChangeAction, source_tree: DisplayTree):
         """When we add the item, we add any necessary ancestors for it as well.

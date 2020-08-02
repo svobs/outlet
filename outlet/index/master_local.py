@@ -145,7 +145,7 @@ class LocalDiskMasterCache:
                     count += 1
                 else:
                     # This will cause an error cascade. Need a strategy to handle it
-                    logger.error(f'Dropping node because its parent does not exist: {node}')
+                    logger.error(f'Dropping planning node because its parent does not exist: {node}')
 
         logger.debug(f'Transferred {count} planning nodes into new tree with root {tree.get_node(tree.root).full_path})')
 

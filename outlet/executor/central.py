@@ -52,7 +52,7 @@ class CentralExecutor:
             # May need to throttle here in the future however if we are seeing hiccups in the UI for large numbers of operations
 
             command = self.app.cache_manager.get_next_command()
-            logger.debug(f'Got a command to execute')
+            logger.debug(f'Got a command to execute: {command.__class__.__name__}')
 
             self.submit_async_task(self._command_executor.execute_batch, [command])
 

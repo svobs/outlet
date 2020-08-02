@@ -81,9 +81,9 @@ class DisplayMutator:
                 tree_iter = None
                 for ancestor in ancestor_list:
                     if tree_iter is None:
-                        tree_iter = self.con.display_store.find_in_top_level(target_uid=ancestor.uid)
+                        tree_iter = self.con.display_store.find_uid_in_top_level(target_uid=ancestor.uid)
                     else:
-                        tree_iter = self.con.display_store.find_in_children(target_uid=ancestor.uid, parent_iter=tree_iter)
+                        tree_iter = self.con.display_store.find_uid_in_children(target_uid=ancestor.uid, parent_iter=tree_iter)
                     if not tree_iter:
                         logger.error(f'Could not find node in tree for: {ancestor}')
                         return
@@ -91,7 +91,7 @@ class DisplayMutator:
                     if not self.con.tree_view.row_expanded(tree_path):
                         self._expand_subtree(tree_path, expand_all=False)
 
-                tree_iter = self.con.display_store.find_in_children(target_uid=selection.uid, parent_iter=tree_iter)
+                tree_iter = self.con.display_store.find_uid_in_children(target_uid=selection.uid, parent_iter=tree_iter)
                 if not tree_iter:
                     logger.error(f'Could not find node in tree for: {selection}')
                     return
@@ -310,11 +310,11 @@ class DisplayMutator:
                 if self.con.get_tree().root_uid == parent_uid:
                     # Top level? Special case. There will be no parent iter
                     parent_iter = None
-                    child_iter = self.con.display_store.find_in_top_level(node.uid)
+                    child_iter = self.con.display_store.find_uid_in_top_level(node.uid)
                     if child_iter:
                         existing_node = self.con.display_store.get_node_data(child_iter)
                 else:
-                    parent_iter = self.con.display_store.find_in_tree(target_uid=parent_uid)
+                    parent_iter = self.con.display_store.find_uid_in_tree(target_uid=parent_uid)
                     if not parent_iter:
                         # Probably node isn't expanded. Just skip
                         assert parent_uid not in self.con.display_store.displayed_rows, \
@@ -323,7 +323,7 @@ class DisplayMutator:
                         return
 
                     # Check whether the "added node" already exists:
-                    child_iter = self.con.display_store.find_in_children(node.uid, parent_iter)
+                    child_iter = self.con.display_store.find_uid_in_children(node.uid, parent_iter)
                     if child_iter:
                         existing_node = self.con.display_store.get_node_data(child_iter)
 
@@ -373,7 +373,7 @@ class DisplayMutator:
                     displayed_item = displayed_src_item
 
                 # TODO: this can be optimized to search only the paths of the ancestors
-                tree_iter = self.con.display_store.find_in_tree(target_uid=displayed_item.uid)
+                tree_iter = self.con.display_store.find_uid_in_tree(target_uid=displayed_item.uid)
                 if not tree_iter:
                     raise RuntimeError(f'[{self.con.tree_id}] Cannot remove node: Could not find node in display tree: {displayed_item}')
 

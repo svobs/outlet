@@ -1,4 +1,5 @@
 import logging
+from functools import partial
 from typing import Callable, Dict, Optional, Union
 
 from index.uid.uid import UID
@@ -165,43 +166,54 @@ class DisplayStore:
 
     # --- Tree searching & iteration (utility functions) --- #
 
-    def _found_func(self, tree_iter, target_uid: UID) -> bool:
-        node = self.get_node_data(tree_iter)
+    def _uid_equals_func(self, target_uid: UID, node: DisplayNode) -> bool:
         # if logger.isEnabledFor(logging.DEBUG) and not node.is_ephemereal():
         #     logger.debug(f'Examining node uid={node.uid} (looking for: {target_uid})')
         return not node.is_ephemereal() and node.uid == target_uid
 
-    def find_in_tree(self, target_uid: UID, tree_iter: Optional[Gtk.TreeIter] = None) -> Optional[Gtk.TreeIter]:
-        """Recurses over entire tree and visits every node until is_found_func() returns True, then returns the data at that node"""
+    def find_in_tree(self, found_func: Callable[[DisplayNode], bool], tree_iter: Optional[Gtk.TreeIter] = None) -> Optional[Gtk.TreeIter]:
+        """Recurses over entire tree and visits every node until is_uid_equals_func() returns True, then returns the data at that node"""
         if not tree_iter:
             tree_iter = self.model.get_iter_first()
 
         while tree_iter is not None:
-            if self._found_func(tree_iter, target_uid):
+            node = self.get_node_data(tree_iter)
+            if found_func(node):
                 return tree_iter
             if self.model.iter_has_child(tree_iter):
                 child_iter = self.model.iter_children(tree_iter)
-                ret_iter = self.find_in_tree(target_uid, child_iter)
+                ret_iter = self.find_in_tree(found_func, child_iter)
                 if ret_iter:
                     return ret_iter
             tree_iter = self.model.iter_next(tree_iter)
         return None
 
-    def find_in_top_level(self, target_uid: UID):
+    def find_uid_in_tree(self, target_uid: UID, tree_iter: Optional[Gtk.TreeIter] = None) -> Optional[Gtk.TreeIter]:
+        """Recurses over entire tree and visits every node until is_uid_equals_func() returns True, then returns the data at that node"""
+        bound_func: Callable = partial(self._uid_equals_func, target_uid)
+        return self.find_in_tree(bound_func, tree_iter)
+
+    def find_uid_in_top_level(self, target_uid: UID) -> Optional[Gtk.TreeIter]:
         """Searches the children of the given parent_iter for the given UID, then returns the data at that node"""
+        bound_func: Callable = partial(self._uid_equals_func, target_uid)
+
         tree_iter = self.model.get_iter_first()
         while tree_iter is not None:
-            if self._found_func(tree_iter, target_uid):
+            node = self.get_node_data(tree_iter)
+            if bound_func(node):
                 return tree_iter
             tree_iter = self.model.iter_next(tree_iter)
         return None
 
-    def find_in_children(self, target_uid: UID, parent_iter):
+    def find_uid_in_children(self, target_uid: UID, parent_iter) -> Optional[Gtk.TreeIter]:
         """Searches the children of the given parent_iter for the given UID, then returns the data at that node"""
+        bound_func: Callable = partial(self._uid_equals_func, target_uid)
+        
         if self.model.iter_has_child(parent_iter):
             child_iter = self.model.iter_children(parent_iter)
             while child_iter is not None:
-                if self._found_func(child_iter, target_uid):
+                node = self.get_node_data(child_iter)
+                if bound_func(node):
                     return child_iter
                 child_iter = self.model.iter_next(child_iter)
         return None

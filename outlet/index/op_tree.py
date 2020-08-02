@@ -119,30 +119,38 @@ class OpTree:
         # skip root
         next(iterator)
 
-        for change_subtree_root in iterator:
-            subtree_root_node: DisplayNode = change_subtree_root.get_target_node()
-            op_type: str = change_subtree_root.change_action.change_type.name
+        mkdir_dict: Dict[UID, DisplayNode] = {}
+        """Keep track of nodes which are to be created, so we can include them in the lookup for valid parents"""
 
-            if change_subtree_root.is_create_type():
+        for tree_node in iterator:
+            tgt_node: DisplayNode = tree_node.get_target_node()
+            op_type: str = tree_node.change_action.change_type.name
+
+            if tree_node.is_create_type():
                 # Enforce Rule 1: ensure parent of target is valid:
-                parent_uid = self._derive_parent_uid(subtree_root_node)
-                if not self.cacheman.get_item_for_uid(parent_uid, subtree_root_node.node_identifier.tree_type):
-                    logger.error(f'Could not find parent in cache with UID {parent_uid} for "{op_type}" operation node: {subtree_root_node}')
+                parent_uid = self._derive_parent_uid(tgt_node)
+                if not self.cacheman.get_item_for_uid(parent_uid, tgt_node.node_identifier.tree_type) \
+                        and not mkdir_dict.get(parent_uid, None):
+                    logger.error(f'Could not find parent in cache with UID {parent_uid} for "{op_type}" operation node: {tgt_node}')
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find parent in cache with UID {parent_uid} '
                                        f'for "{op_type}"')
+
+                if tree_node.change_action.change_type == ChangeType.MKDIR:
+                    assert not mkdir_dict.get(tree_node.change_action.src_node.uid, None), f'Duplicate MKDIR: {tree_node.change_action.src_node}'
+                    mkdir_dict[tree_node.change_action.src_node.uid] = tree_node.change_action.src_node
             else:
                 # Enforce Rule 2: ensure target node is valid
-                if not self.cacheman.get_item_for_uid(subtree_root_node.uid, subtree_root_node.node_identifier.tree_type):
-                    logger.error(f'Could not find node in cache for "{op_type}" operation node: {subtree_root_node}')
-                    raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find node in cache with UID {subtree_root_node.uid} '
+                if not self.cacheman.get_item_for_uid(tgt_node.uid, tgt_node.node_identifier.tree_type):
+                    logger.error(f'Could not find node in cache for "{op_type}" operation node: {tgt_node}')
+                    raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find node in cache with UID {tgt_node.uid} '
                                        f'for "{op_type}"')
 
-            pending_change_list = self.node_dict.get(subtree_root_node.uid, [])
+            pending_change_list = self.node_dict.get(tgt_node.uid, [])
             if pending_change_list:
                 for change_node in pending_change_list:
                     # TODO: for now, just deny anything which tries to work off an RM. Refine in future
                     if change_node.change_action.change_type == ChangeType.RM:
-                        raise RuntimeError(f'Cannot add batch (UID={batch_uid}): it depends on a node (UID={subtree_root_node.uid}) '
+                        raise RuntimeError(f'Cannot add batch (UID={batch_uid}): it depends on a node (UID={tgt_node.uid}) '
                                            f'which is being removed')
 
         return True
@@ -207,6 +215,8 @@ class OpTree:
         for change_subtree_root in root_of_changes.children:
             self._add_subtree(change_subtree_root)
 
+        logger.debug(f'add_batch() done: PendingChangeTree is now: {self.root.print_recursively()}')
+
         with self.cv:
             # notify consumers there is something to get:
             self.cv.notifyAll()
@@ -270,7 +280,7 @@ class OpTree:
         while True:
             change = self._try_get()
             if change:
-                logger.debug(f'Got next pending change: {change}')
+                logger.info(f'Got next pending change: {change}')
                 return change
             else:
                 logger.debug(f'No pending changes; sleeping until notified')
@@ -323,7 +333,7 @@ class OpTree:
             self.root.remove_child(dst_tree_node)
             del dst_tree_node
 
-        logger.debug(f'change_completed() done')
+        logger.debug(f'change_completed() done: PendingChangeTree is now: {self.root.print_recursively()}')
 
         with self.cv:
             # this may have jostled the tree to make something else free:

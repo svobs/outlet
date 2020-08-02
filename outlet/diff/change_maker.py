@@ -74,6 +74,7 @@ class OneSide:
         return dst_node
 
     def _create_change_action(self, change_type: ChangeType, src_node: DisplayNode, dst_node: DisplayNode = None):
+        assert src_node, f'No src node!'
         return ChangeAction(action_uid=self.uid_generator.next_uid(), batch_uid=self.batch_uid, change_type=change_type,
                             src_node=src_node, dst_node=dst_node)
 

@@ -24,7 +24,7 @@ from gi.repository import Gtk
 
 logger = logging.getLogger(__name__)
 
-LOAD_TIMEOUT_SEC = 15
+LOAD_TIMEOUT_SEC = None
 ENABLE_CHANGE_EXECUTION_THREAD = True
 
 TEST_BASE_DIR = file_util.get_resource_path('test')
@@ -77,11 +77,12 @@ class ChangeTest(unittest.TestCase):
         self.right_con: TreePanelController = self.app.cache_manager.get_tree_controller(actions.ID_RIGHT_TREE)
         logger.info(f'LOAD COMPLETE')
 
-    def test_single_file_cp(self):
-        logger.info('Doing drop test')
+    def test_dd_single_file_cp(self):
+        logger.info('Testing drag & drop copy of single file local to local')
         # Offset from 0:
         src_tree_path = Gtk.TreePath.new_from_string('1')
         node: DisplayNode = self.right_con.display_store.get_node_data(src_tree_path)
+        logger.info(f'CP "{node.name}" from right root to left root')
 
         nodes = [node]
         dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.right_con, nodes=nodes)
@@ -90,3 +91,57 @@ class ChangeTest(unittest.TestCase):
         logger.info('Sleeping')
         time.sleep(10) # in seconds
         logger.info('Done!')
+
+    def test_dd_multi_file_cp(self):
+        logger.info('Testing drag & drop copy of multiple files local to local')
+        # Offset from 0:
+
+        nodes = []
+        for num in range(0, 3):
+            node: DisplayNode = self.right_con.display_store.get_node_data(Gtk.TreePath.new_from_string(f'{num}'))
+            self.assertIsNotNone(node, f'Expected to find node at index {num}')
+            nodes.append(node)
+            logger.warning(f'CP "{node.name}" (#{num}) from right root to left root')
+
+        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.right_con, nodes=nodes)
+        dst_tree_path = Gtk.TreePath.new_from_string('1')
+        dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_LEFT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+        logger.info('Sleeping')
+        time.sleep(10) # in seconds
+        logger.info('Done!')
+
+    def test_dd_dir_tree_cp(self):
+        logger.info('Testing drag & drop copy of dir tree local to local')
+        # Offset from 0:
+        node_name = 'Art'
+
+        def name_equals_func(a_node) -> bool:
+            # if logger.isEnabledFor(logging.DEBUG) and not node.is_ephemereal():
+            #     logger.debug(f'Examining node uid={node.uid} (looking for: {target_uid})')
+            return not a_node.is_ephemereal() and a_node.name == node_name
+
+        nodes = []
+        # Go ahead and duplicate the node 3 times. This is a good test of our reduction logic
+        for num in range(0, 3):
+            tree_iter = self.left_con.display_store.find_in_tree(name_equals_func)
+            node = None
+            if tree_iter:
+                node = self.left_con.display_store.get_node_data(tree_iter)
+            self.assertIsNotNone(node, f'Expected to find node named "{node_name}"')
+            nodes.append(node)
+            logger.warning(f'CP "{node.name}" (#{num}) from left root to right root')
+
+        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
+        dst_tree_path = Gtk.TreePath.new_from_string('1')
+
+        # Verify that 3 identical nodes causes an error:
+        with self.assertRaises(RuntimeError) as context:
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+            logger.info('Sleeping')
+            time.sleep(10) # in seconds
+            logger.info('Done!')
+
+        # Now do just 1 node:
+        dd_data.nodes = [nodes[0]]
+        dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+

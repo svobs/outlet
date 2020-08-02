@@ -60,7 +60,7 @@ class CommandExecutor:
         finally:
             dispatcher.send(signal=actions.STOP_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR)
 
-        logger.info(f'{_get_total_completed(command_batch)} out of {len(command_batch)} completed without error')
+        logger.debug(f'{_get_total_completed(command_batch)} out of {len(command_batch)} completed without error')
 
 
 def _get_total_completed(command_batch) -> int:
