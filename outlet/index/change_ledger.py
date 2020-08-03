@@ -1,6 +1,7 @@
 import logging
 import os
 from collections import defaultdict
+from enum import IntEnum
 from typing import Callable, DefaultDict, Dict, Iterable, List, Optional
 
 from pydispatch import dispatcher
@@ -16,6 +17,14 @@ from model.node.display_node import DisplayNode
 from ui import actions
 
 logger = logging.getLogger(__name__)
+
+
+# ENUM FailureBehavior
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class ErrorHandlingBehavior(IntEnum):
+    RAISE_ERROR = 1
+    IGNORE = 2
+    DISCARD = 3
 
 
 # CLASS ChangeLedger
@@ -34,10 +43,23 @@ class ChangeLedger:
 
         dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
 
-    def _load_pending_changes_from_disk(self) -> List[ChangeAction]:
+    def _handle_bad_change_ref(self, change_ref: ChangeActionRef, error_handling_behavior: ErrorHandlingBehavior, error_msg):
+        if error_handling_behavior == ErrorHandlingBehavior.RAISE_ERROR:
+            raise RuntimeError(f'Error loading ChangeAction ({change_ref}): {error_msg}')
+        elif error_handling_behavior == ErrorHandlingBehavior.IGNORE:
+            logger.error(f'Ignoring ChangeAction ({change_ref}): {error_msg}')
+        elif error_handling_behavior == ErrorHandlingBehavior.DISCARD:
+            logger.error(f'Archiving ChangeAction ({change_ref}) as failed: {error_msg}')
+            self._archive_failed_changes_to_disk([change_ref], error_msg)
+        else:
+            raise RuntimeError(f'Unrecognized ErrorHandlingBehavior: {error_handling_behavior}')
+
+    def _load_pending_changes_from_disk(self, error_handling_behavior: ErrorHandlingBehavior) -> List[ChangeAction]:
         # first load refs from disk
         with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
             change_ref_list: List[ChangeActionRef] = change_db.get_all_pending_changes()
+
+        logger.debug(f'Found {len(change_ref_list)} pending change refs in cache')
 
         change_list: List[ChangeAction] = []
 
@@ -51,12 +73,16 @@ class ChangeLedger:
         for change_ref in change_ref_list:
             src_node = self.application.cache_manager.get_item_for_uid(change_ref.src_uid)
             if not src_node:
-                raise RuntimeError(f'Could not find src node in cache with UID={change_ref.src_uid} (for change_action={change_ref})')
+                self._handle_bad_change_ref(change_ref, error_handling_behavior,
+                                            f'Src node {change_ref.src_uid} not found in cache')
+                continue
 
             if change_ref.dst_uid:
                 dst_node = self.application.cache_manager.get_item_for_uid(change_ref.dst_uid)
                 if not dst_node:
-                    raise RuntimeError(f'Could not find dst node in cache with UID={change_ref.dst_uid} (for change_action={change_ref})')
+                    self._handle_bad_change_ref(change_ref, error_handling_behavior,
+                                                f'Dst node {change_ref.dst_uid} not found in cache')
+                    continue
             else:
                 dst_node = None
 
@@ -74,6 +100,10 @@ class ChangeLedger:
     def _archive_pending_changes_to_disk(self, change_list: Iterable[ChangeAction]):
         with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
             change_db.archive_changes(change_list)
+
+    def _archive_failed_changes_to_disk(self, change_list: Iterable[ChangeActionRef], error_msg: str):
+        with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
+            change_db.archive_failed_changes(change_list, error_msg)
 
     def _add_missing_nodes(self, change_action: ChangeAction):
         """Looks at the given ChangeAction and adds any given "planning node" to it."""
@@ -174,8 +204,9 @@ class ChangeLedger:
          """
         src_ancestor = change.src_node
         dst_ancestor = change.dst_node
+        logger.debug(f'Evaluating ancestors for change: {change}')
         while src_ancestor:
-            logger.debug(f'(Change={change}): evaluating src ancestor: {src_ancestor}')
+            logger.debug(f'Evaluating src ancestor (change={change.action_uid}): {src_ancestor}')
             if mkdir_dict.get(src_ancestor.uid, None):
                 raise RuntimeError(f'Batch change conflict: copy from a descendant of a node being created!')
             if rm_dict.get(src_ancestor.uid, None):
@@ -186,7 +217,7 @@ class ChangeLedger:
             src_ancestor = self.application.cache_manager.get_parent_for_item(src_ancestor)
 
         while dst_ancestor:
-            logger.debug(f'(Change={change}): evaluating dst ancestor: {dst_ancestor}')
+            logger.debug(f'Evaluating dst ancestor (change={change.action_uid}): {dst_ancestor}')
             if mkdir_dict.get(dst_ancestor.uid, None):
                 raise RuntimeError(f'Batch change conflict: copy to a descendant of a node being created!')
             if rm_dict.get(dst_ancestor.uid, None):
@@ -211,7 +242,7 @@ class ChangeLedger:
 
     def load_pending_changes(self):
         """Call this at startup, to resume pending changes which have not yet been applied."""
-        change_list: List[ChangeAction] = self._load_pending_changes_from_disk()
+        change_list: List[ChangeAction] = self._load_pending_changes_from_disk(ErrorHandlingBehavior.DISCARD)
         if not change_list:
             logger.debug(f'No pending changes found in the disk cache')
             return

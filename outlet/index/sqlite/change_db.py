@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Iterable, List
+from typing import Iterable, List, Union
 
 from model.change_action import ChangeAction, ChangeActionRef, ChangeType
 from index.sqlite.base_db import MetaDatabase, Table
@@ -34,6 +34,15 @@ class PendingChangeDatabase(MetaDatabase):
                                                                   'dst_node_uid': 'INTEGER',
                                                                   'create_ts': 'INTEGER',
                                                                   'complete_ts': 'INTEGER'})
+
+    TABLE_FAILED_CHANGE = Table(name='failed_change', cols={'uid': 'INTEGER PRIMARY KEY',
+                                                            'batch_uid': 'INTEGER',
+                                                            'change_type': 'INTEGER',
+                                                            'src_node_uid': 'INTEGER',
+                                                            'dst_node_uid': 'INTEGER',
+                                                            'create_ts': 'INTEGER',
+                                                            'complete_ts': 'INTEGER',
+                                                            'error_msg': 'TEXT'})
 
     def __init__(self, db_path, application):
         super().__init__(db_path)
@@ -69,7 +78,7 @@ class PendingChangeDatabase(MetaDatabase):
 
         self.upsert_many(self.TABLE_PENDING_CHANGE, to_insert, commit)
 
-    def _delete_pending_changes(self, changes: Iterable[ChangeAction], commit=True):
+    def _delete_pending_changes(self, changes: Iterable[Union[ChangeAction, ChangeActionRef]], commit=True):
         sql = self.build_delete(self.TABLE_PENDING_CHANGE) + f' WHERE uid = ?'
         tuples = list(map(lambda x: (x.action_uid,), changes))
         count_deleted = self.conn.executemany(sql, tuples).rowcount
@@ -83,8 +92,7 @@ class PendingChangeDatabase(MetaDatabase):
     # COMPLETED_CHANGE operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
     def upsert_completed_changes(self, entries: Iterable[ChangeAction], commit=True):
-        """Inserts or updates a list of ChangeActions (remember that each action's UID is its primary key).
-        If overwrite=true, then removes all existing changes first."""
+        """Inserts or updates a list of ChangeActions (remember that each action's UID is its primary key)."""
         current_time = int(time.time())
         to_insert = []
         for e in entries:
@@ -96,11 +104,30 @@ class PendingChangeDatabase(MetaDatabase):
 
         self.upsert_many(self.TABLE_COMPLETED_CHANGE, to_insert, commit)
 
+    # FAILED_CHANGE operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
+
+    def upsert_failed_changes(self, entries: Iterable[ChangeActionRef], error_msg: str, commit=True):
+        """Inserts or updates a list of ChangeActionRefs (remember that each action's UID is its primary key)."""
+        current_time = int(time.time())
+        to_insert = []
+        for e in entries:
+            assert isinstance(e, ChangeActionRef), f'Expected ChangeActionRef; got instead: {e}'
+            e_tuple = e.action_uid, e.batch_uid, e.change_type, e.src_uid, e.dst_uid, e.create_ts, current_time, error_msg
+            to_insert.append(e_tuple)
+
+        self.create_table_if_not_exist(self.TABLE_FAILED_CHANGE, commit=False)
+
+        self.upsert_many(self.TABLE_FAILED_CHANGE, to_insert, commit)
+
     # Compound operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
     def archive_changes(self, entries: Iterable[ChangeAction]):
         self._delete_pending_changes(changes=entries, commit=False)
         self.upsert_completed_changes(entries)
+
+    def archive_failed_changes(self, entries: Iterable[ChangeActionRef], error_msg: str):
+        self._delete_pending_changes(changes=entries, commit=False)
+        self.upsert_failed_changes(entries, error_msg)
 
 
 def _make_change_tuple(e: ChangeAction):

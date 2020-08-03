@@ -4,11 +4,14 @@ import threading
 import time
 import unittest
 import logging
+from functools import partial
+from typing import Callable, List
 
 from py7zr import SevenZipFile
 from pydispatch import dispatcher
 
 from app_config import AppConfig
+from cmd.cmd_interface import Command
 from index.uid.uid import UID
 from model.node.display_node import DisplayNode
 from outlet_app import OutletApplication
@@ -96,6 +99,7 @@ class ChangeTest(unittest.TestCase):
         logger.info('Testing drag & drop copy of multiple files local to local')
         # Offset from 0:
 
+        # Simulate drag & drop based on position in list:
         nodes = []
         for num in range(0, 3):
             node: DisplayNode = self.right_con.display_store.get_node_data(Gtk.TreePath.new_from_string(f'{num}'))
@@ -110,18 +114,15 @@ class ChangeTest(unittest.TestCase):
         time.sleep(10) # in seconds
         logger.info('Done!')
 
-    def test_dd_dir_tree_cp(self):
-        logger.info('Testing drag & drop copy of dir tree local to local')
+    def test_bad_dd_dir_tree_cp(self):
+        logger.info('Testing negative case: drag & drop copy of duplicate nodes local to local')
         # Offset from 0:
         node_name = 'Art'
 
-        def name_equals_func(a_node) -> bool:
-            # if logger.isEnabledFor(logging.DEBUG) and not node.is_ephemereal():
-            #     logger.debug(f'Examining node uid={node.uid} (looking for: {target_uid})')
-            return not a_node.is_ephemereal() and a_node.name == node_name
+        name_equals_func: Callable = partial(_name_equals_func, node_name)
 
         nodes = []
-        # Go ahead and duplicate the node 3 times. This is a good test of our reduction logic
+        # Duplicate the node 3 times. This is a good test of our reduction logic
         for num in range(0, 3):
             tree_iter = self.left_con.display_store.find_in_tree(name_equals_func)
             node = None
@@ -138,10 +139,52 @@ class ChangeTest(unittest.TestCase):
         with self.assertRaises(RuntimeError) as context:
             dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
             logger.info('Sleeping')
-            time.sleep(10) # in seconds
-            logger.info('Done!')
+            time.sleep(10)  # in seconds
+            self.assertFalse(True, 'If we got here we failed!')
 
-        # Now do just 1 node:
+    def test_dd_dir_tree_cp(self):
+        logger.info('Testing drag & drop copy of dir tree local to local')
+        # Offset from 0:
+        node_name = 'Art'
+        name_equals_func: Callable = partial(_name_equals_func, node_name)
+
+        expected_count = 12
+
+        nodes = []
+        tree_iter = self.left_con.display_store.find_in_tree(name_equals_func)
+        node = None
+        if tree_iter:
+            node = self.left_con.display_store.get_node_data(tree_iter)
+        self.assertIsNotNone(node, f'Expected to find node named "{node_name}"')
+        nodes.append(node)
+        logger.warning(f'CP "{node.name}" from left root to right root')
+
+        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
+        dst_tree_path = Gtk.TreePath.new_from_string('1')
+
+        # Drag & drop 1 node, which represents a tree of 10 files and 2 dirs:
+        completed_cmds: List[Command] = []
+        all_complete = threading.Event()
+
+        def on_command_complete(command: Command):
+            completed_cmds.append(command)
+            logger.info(f'Got a completed command: {len(completed_cmds)} (expecting: {expected_count})')
+            if len(completed_cmds) >= expected_count:
+                all_complete.set()
+
+        dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=on_command_complete)
+
         dd_data.nodes = [nodes[0]]
+        logger.info('Submitting drag & drop signal')
         dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
+        logger.info('Sleeping until we get what we want')
+        if not all_complete.wait():
+            raise RuntimeError('Timed out waiting for all commands to complete!')
+        logger.info('Done!')
+
+
+def _name_equals_func(node_name, a_node) -> bool:
+    # if logger.isEnabledFor(logging.DEBUG) and not node.is_ephemereal():
+    #     logger.debug(f'Examining node uid={node.uid} (looking for: {target_uid})')
+    return not a_node.is_ephemereal() and a_node.name == node_name

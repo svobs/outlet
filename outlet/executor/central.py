@@ -54,5 +54,5 @@ class CentralExecutor:
             command = self.app.cache_manager.get_next_command()
             logger.debug(f'Got a command to execute: {command.__class__.__name__}')
 
-            self.submit_async_task(self._command_executor.execute_batch, [command])
+            self.submit_async_task(self._command_executor.execute_command, command)
 

@@ -20,7 +20,39 @@ class CommandExecutor:
         self.staging_dir = file_util.get_resource_path(val)
         # TODO: clean staging dir at startup
 
+    def execute_command(self, command: Command):
+        if not command:
+            logger.error(f'No command!')
+            return
+
+        needs_gdrive = command.needs_gdrive()
+
+        try:
+            context = CommandContext(self.staging_dir, self.application, actions.ID_COMMAND_EXECUTOR, needs_gdrive)
+
+            if command.status() != CommandStatus.NOT_STARTED:
+                logger.info(f'Skipping command: {command} because it has status {command.status()}')
+            else:
+                try:
+                    status = f'Executing command {command.get_description()}'
+                    dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=actions.ID_COMMAND_EXECUTOR, msg=status)
+                    logger.info(f'{status}: {repr(command)}')
+                    command.result = command.execute(context)
+                except Exception as err:
+                    logger.exception(f'While executing {command.get_description()}')
+                    # Save the error inside the command:
+                    command.set_error_result(err)
+
+                dispatcher.send(signal=actions.COMMAND_COMPLETE, sender=actions.ID_COMMAND_EXECUTOR, command=command)
+                dispatcher.send(signal=actions.PROGRESS_MADE, sender=actions.ID_COMMAND_EXECUTOR, progress=command.get_total_work())
+
+        finally:
+            dispatcher.send(signal=actions.STOP_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR)
+
+        logger.debug(f'{command.get_description()} completed without error')
+
     def execute_batch(self, command_batch: List[Command]):
+        """deprecated - use execute_command()"""
         total = 0
         needs_gdrive = False
         count_commands = len(command_batch)

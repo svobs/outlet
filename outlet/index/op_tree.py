@@ -4,6 +4,8 @@ import pathlib
 import threading
 from typing import DefaultDict, Deque, Dict, Iterable, Optional
 
+from pydispatch import dispatcher
+
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from index.op_tree_node import DstActionNode, OpTreeNode, RootNode, SrcActionNode
 from index.uid.uid import UID
@@ -29,8 +31,10 @@ class OpTree:
 
         self.node_dict: DefaultDict[UID, Deque[OpTreeNode]] = collections.defaultdict(lambda: collections.deque())
         """Contains entries for all nodes have pending changes. Each entry has a queue of pending changes for that node"""
+
         self.root: OpTreeNode = RootNode()
         """Root of tree. Has no useful internal data; we value it for its children"""
+
         self.outstanding_nodes: Dict[UID, OpTreeNode] = {}
         """Contains entries for all nodes which have running operations. Keyed by action UID"""
 
