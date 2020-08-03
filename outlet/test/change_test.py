@@ -39,8 +39,10 @@ TEST_TARGET_DIR = os.path.join(TEST_BASE_DIR, 'ChangeTest')
 class ChangeTest(unittest.TestCase):
     def setUp(self) -> None:
         # Remove test files and replace with freshly extracted files
-        shutil.rmtree(TEST_TARGET_DIR)
-        logger.debug(f'Deleted dir: {TEST_TARGET_DIR}')
+        if os.path.exists(TEST_TARGET_DIR):
+            shutil.rmtree(TEST_TARGET_DIR)
+            logger.debug(f'Deleted dir: {TEST_TARGET_DIR}')
+
         with SevenZipFile(file=TEST_ARCHIVE_PATH) as archive:
             archive.extractall(TEST_BASE_DIR)
         logger.debug(f'Extracted: {TEST_ARCHIVE_PATH} to {TEST_BASE_DIR}')
@@ -168,7 +170,7 @@ class ChangeTest(unittest.TestCase):
 
         def on_command_complete(command: Command):
             completed_cmds.append(command)
-            logger.info(f'Got a completed command: {len(completed_cmds)} (expecting: {expected_count})')
+            logger.info(f'Got a completed command (total: {len(completed_cmds)}, expecting: {expected_count})')
             if len(completed_cmds) >= expected_count:
                 all_complete.set()
 

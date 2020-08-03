@@ -123,7 +123,7 @@ class OneSide:
 
             # Folder already existed in original tree?
             existing_ancestor_list = self.underlying_tree.get_for_path(parent_path)
-            if existing_ancestor_list:
+            if existing_ancestor_list and existing_ancestor_list[0].exists():
                 if tree_type == TREE_TYPE_GDRIVE:
                     child.set_parent_uids(list(map(lambda x: x.uid, existing_ancestor_list)))
                 break

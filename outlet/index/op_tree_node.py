@@ -61,6 +61,9 @@ class OpTreeNode(ABC):
     def print_me(self) -> str:
         return f'NodeUID={self.node_uid}: {self.change_action}'
 
+    def __repr__(self):
+        return self.print_me()
+
     def print_recursively(self) -> str:
         level = self.get_level()
 

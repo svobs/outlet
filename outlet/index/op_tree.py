@@ -2,7 +2,7 @@ import collections
 import logging
 import pathlib
 import threading
-from typing import DefaultDict, Deque, Dict, Iterable, Optional
+from typing import DefaultDict, Deque, Dict, Iterable, List, Optional
 
 from pydispatch import dispatcher
 
@@ -26,17 +26,33 @@ class OpTree:
         self.cacheman = application.cache_manager
         self.uid_generator = application.uid_generator
 
-        self.cv = threading.Condition()
+        self._lock = threading.Lock()
+
+        self._cv = threading.Condition()
         """Used to help consumers block"""
 
-        self.node_dict: DefaultDict[UID, Deque[OpTreeNode]] = collections.defaultdict(lambda: collections.deque())
+        self._node_dict: DefaultDict[UID, Deque[OpTreeNode]] = collections.defaultdict(lambda: collections.deque())
         """Contains entries for all nodes have pending changes. Each entry has a queue of pending changes for that node"""
 
-        self.root: OpTreeNode = RootNode()
+        self._root: OpTreeNode = RootNode()
         """Root of tree. Has no useful internal data; we value it for its children"""
 
-        self.outstanding_nodes: Dict[UID, OpTreeNode] = {}
-        """Contains entries for all nodes which have running operations. Keyed by action UID"""
+        self._outstanding_actions: Dict[UID, ChangeAction] = {}
+        """Contains entries for all ChangeActions which have running operations. Keyed by action UID"""
+
+    def _print_current_state(self):
+        logger.debug(f'CURRENT STATE: PendingChangeTree is now: {self._root.print_recursively()}')
+        logger.debug(f'CURRENT STATE: NodeDict: {len(self._node_dict)} items:\n{self._print_node_dict()}')
+
+    def _print_node_dict(self):
+        blocks: List[str] = []
+        for node_uid, deque in self._node_dict.items():
+            node_list: List[str] = []
+            for node in deque:
+                node_list.append(node.change_action.tag)
+            blocks.append(f'{node_uid}: {"| ".join(node_list)}')
+
+        return '\n'.join(blocks)
 
     def _derive_parent_uid(self, node: DisplayNode):
         """Derives the UID for the parent of the given node"""
@@ -51,7 +67,7 @@ class OpTree:
             return self.cacheman.get_uid_for_path(parent_path)
 
     def _get_lowest_priority_tree_node(self, uid: UID):
-        node_list = self.node_dict.get(uid, None)
+        node_list = self._node_dict.get(uid, None)
         if node_list:
             # last element in list is lowest priority:
             return node_list[-1]
@@ -149,13 +165,14 @@ class OpTree:
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find node in cache with UID {tgt_node.uid} '
                                        f'for "{op_type}"')
 
-            pending_change_list = self.node_dict.get(tgt_node.uid, [])
-            if pending_change_list:
-                for change_node in pending_change_list:
-                    # TODO: for now, just deny anything which tries to work off an RM. Refine in future
-                    if change_node.change_action.change_type == ChangeType.RM:
-                        raise RuntimeError(f'Cannot add batch (UID={batch_uid}): it depends on a node (UID={tgt_node.uid}) '
-                                           f'which is being removed')
+            with self._lock:
+                pending_change_list = self._node_dict.get(tgt_node.uid, [])
+                if pending_change_list:
+                    for change_node in pending_change_list:
+                        # TODO: for now, just deny anything which tries to work off an RM. Refine in future
+                        if change_node.change_action.change_type == ChangeType.RM:
+                            raise RuntimeError(f'Cannot add batch (UID={batch_uid}): it depends on a node (UID={tgt_node.uid}) '
+                                               f'which is being removed')
 
         return True
 
@@ -166,6 +183,12 @@ class OpTree:
         in the dependency tree). In the case where neither the node nor its parent has a pending operation, we obviously can just add
         to the top of the dependency tree.
         """
+        logger.debug(f'Enqueuing single node: {tree_node}')
+
+        # Need to clear out previous relationships before adding to main tree:
+        tree_node.children.clear()
+        tree_node.parent = None
+
         target_node: DisplayNode = tree_node.get_target_node()
         target_uid: UID = target_node.uid
         parent_uid: UID = self._derive_parent_uid(target_node)
@@ -193,20 +216,22 @@ class OpTree:
         else:
             assert not last_parent_op and not last_target_op
             logger.debug(f'Found no previous ops for either target node {target_uid} or parent node {parent_uid}; adding to root')
-            self.root.add_child(tree_node)
+            self._root.add_child(tree_node)
 
         # Always add pending operation for bookkeeping
-        self.node_dict[target_uid].append(tree_node)
+        self._node_dict[target_uid].append(tree_node)
 
     def _add_subtree(self, subtree_root: OpTreeNode):
         all_subtree_nodes = subtree_root.get_all_nodes_in_subtree()
-        if subtree_root.change_action.change_type == ChangeType.RM:
-            # Removing a tree? Do everything in reverse order
-            all_subtree_nodes = reversed(all_subtree_nodes)
+        
+        # if subtree_root.change_action.change_type == ChangeType.RM:
+        #     # Removing a tree? Do everything in reverse order
+        #     all_subtree_nodes = reversed(all_subtree_nodes)
             # FIXME: probably want completely separate logic for this
 
         for tree_node in all_subtree_nodes:
-            self._add_single_node(tree_node)
+            with self._lock:
+                self._add_single_node(tree_node)
 
     def add_batch(self, root_of_changes: RootNode):
         # 1. Discard root
@@ -216,24 +241,32 @@ class OpTree:
         # Disregard the kind of change when building the tree; they are all equal for now (except for RM; see below):
         # Once entire tree is constructed, invert the RM subtree (if any) so that ancestor RMs become descendants
 
+        if not root_of_changes.children:
+            raise RuntimeError(f'Batch has no nodes!')
+
+        batch_uid = root_of_changes.children[0].change_action.batch_uid
+
         for change_subtree_root in root_of_changes.children:
             self._add_subtree(change_subtree_root)
 
-        logger.debug(f'add_batch() done: PendingChangeTree is now: {self.root.print_recursively()}')
+        logger.debug(f'Done adding batch {batch_uid}')
+        self._print_current_state()
 
-        with self.cv:
+        with self._cv:
             # notify consumers there is something to get:
-            self.cv.notifyAll()
+            self._cv.notifyAll()
 
     def _try_get(self) -> Optional[ChangeAction]:
         # We can optimize this later
 
-        for tree_node in self.root.children:
+        for tree_node in self._root.children:
+            logger.debug(f'TryGet(): examining {tree_node}')
+
             if tree_node.change_action.has_dst():
                 # If the ChangeAction has both src and dst nodes, *both* must be next in their queues, and also be just below root.
                 if tree_node.is_dst():
-                    # look up src
-                    pending_changes_for_src_node = self.node_dict.get(tree_node.change_action.src_node.uid, None)
+                    # Dst node is child of root. But verify corresponding src node is also child of root
+                    pending_changes_for_src_node = self._node_dict.get(tree_node.change_action.src_node.uid, None)
                     if not pending_changes_for_src_node:
                         logger.error(f'Could not find entry for change src (change={tree_node.change_action}); raising error')
                         raise RuntimeError(f'Serious error: master dict has no entries for change src ({tree_node.change_action.src_node.uid})!')
@@ -250,8 +283,8 @@ class OpTree:
                         continue
 
                 else:
-                    # look up dst
-                    pending_changes_for_node = self.node_dict.get(tree_node.change_action.dst_node.uid, None)
+                    # Src node is child of root. But verify corresponding dst node is also child of root
+                    pending_changes_for_node = self._node_dict.get(tree_node.change_action.dst_node.uid, None)
                     if not pending_changes_for_node:
                         logger.error(f'Could not find entry for change dst (change={tree_node.change_action}); raising error')
                         raise RuntimeError(f'Serious error: master dict has no entries for change dst ({tree_node.change_action.dst_node.uid})!')
@@ -267,9 +300,11 @@ class OpTree:
                         continue
 
             # Make sure the node has not already been checked out:
-            if not self.outstanding_nodes.get(tree_node.change_action.action_uid, None):
-                self.outstanding_nodes[tree_node.change_action.action_uid] = tree_node
+            if not self._outstanding_actions.get(tree_node.change_action.action_uid, None):
+                self._outstanding_actions[tree_node.change_action.action_uid] = tree_node.change_action
                 return tree_node.change_action
+            else:
+                logger.debug(f'Skipping node because it is already outstanding')
 
         return None
 
@@ -282,65 +317,68 @@ class OpTree:
 
         # Block until we have a change
         while True:
-            change = self._try_get()
+            with self._lock:
+                change = self._try_get()
             if change:
                 logger.info(f'Got next pending change: {change}')
                 return change
             else:
                 logger.debug(f'No pending changes; sleeping until notified')
-                with self.cv:
-                    self.cv.wait()
+                with self._cv:
+                    self._cv.wait()
 
     def change_completed(self, change: ChangeAction):
         """Ensure that we were expecting this change to be copmleted, and remove it from the tree."""
         logger.debug(f'Entered change_completed() for change {change}')
 
-        if self.outstanding_nodes.get(change.action_uid, None):
-            self.outstanding_nodes.pop(change.action_uid)
-        else:
-            raise RuntimeError(f'Complated change not found in outstanding change list (action UID {change.action_uid}')
+        with self._lock:
+            if self._outstanding_actions.get(change.action_uid, None):
+                self._outstanding_actions.pop(change.action_uid)
+            else:
+                raise RuntimeError(f'Complated change not found in outstanding change list (action UID {change.action_uid}')
 
-        src_node_list = self.node_dict.get(change.src_node.uid)
-        if not src_node_list:
-            raise RuntimeError(f'Src node for completed change not found in master dict (src node UID {change.src_node.uid}')
+            src_node_list: Deque[OpTreeNode] = self._node_dict.get(change.src_node.uid)
+            if not src_node_list:
+                raise RuntimeError(f'Src node for completed change not found in master dict (src node UID {change.src_node.uid}')
 
-        src_tree_node = src_node_list.popleft()
-        if src_tree_node.change_action.action_uid != change.action_uid:
-            raise RuntimeError(f'Completed change (UID {change.action_uid}) does not match first item popped from src queue '
-                               f'(UID {src_tree_node.change_action.action_uid})')
+            src_tree_node = src_node_list.popleft()
+            if src_tree_node.change_action.action_uid != change.action_uid:
+                raise RuntimeError(f'Completed change (UID {change.action_uid}) does not match first item popped from src queue '
+                                   f'(UID {src_tree_node.change_action.action_uid})')
 
-        if src_tree_node.parent.node_uid != self.root.node_uid:
-            raise RuntimeError(f'Src node for completed change is not a parent of root (instead found parent {src_tree_node.parent.node_uid}')
+            if src_tree_node.parent.node_uid != self._root.node_uid:
+                raise RuntimeError(f'Src node for completed change is not a parent of root (instead found parent {src_tree_node.parent.node_uid}')
 
-        for child in src_tree_node.children:
-            # this will change their parent pointers too
-            self.root.add_child(child)
+            for child in src_tree_node.children:
+                # this will change their parent pointers too
+                self._root.add_child(child)
 
-        self.root.remove_child(src_tree_node)
-        del src_tree_node
+            self._root.remove_child(src_tree_node)
+            del src_tree_node
 
-        if change.has_dst():
-            dst_node_list = self.node_dict.get(change.dst_node.uid)
-            if not dst_node_list:
-                raise RuntimeError(f'Dst node for completed change not found in master dict (dst node UID {change.dst_node.uid}')
-            dst_tree_node = dst_node_list.popleft()
-            if dst_tree_node.change_action.action_uid != change.action_uid:
-                raise RuntimeError(f'Completed change (UID {change.action_uid}) does not match first item popped from dst queue '
-                                   f'(UID {dst_tree_node.change_action.action_uid})')
+            if change.has_dst():
+                dst_node_list: Deque[OpTreeNode] = self._node_dict.get(change.dst_node.uid)
+                if not dst_node_list:
+                    raise RuntimeError(f'Dst node for completed change not found in master dict (dst node UID {change.dst_node.uid}')
+                dst_tree_node = dst_node_list.popleft()
+                if dst_tree_node.change_action.action_uid != change.action_uid:
+                    raise RuntimeError(f'Completed change (UID {change.action_uid}) does not match first item popped from dst queue '
+                                       f'(UID {dst_tree_node.change_action.action_uid})')
 
-            if dst_tree_node.parent.node_uid != self.root.node_uid:
-                raise RuntimeError(f'Dst node for completed change is not a parent of root (instead found parent {dst_tree_node.parent.node_uid}')
+                if dst_tree_node.parent.node_uid != self._root.node_uid:
+                    raise RuntimeError(f'Dst node for completed change is not a parent of root (instead found parent {dst_tree_node.parent.node_uid}')
 
-            for child in dst_tree_node.children:
-                self.root.add_child(child)
+                for child in dst_tree_node.children:
+                    self._root.add_child(child)
 
-            self.root.remove_child(dst_tree_node)
-            del dst_tree_node
+                self._root.remove_child(dst_tree_node)
+                del dst_tree_node
 
-        logger.debug(f'change_completed() done: PendingChangeTree is now: {self.root.print_recursively()}')
+            logger.debug(f'Done with change_completed() for change: {change}')
+            self._print_current_state()
 
-        with self.cv:
+        with self._cv:
             # this may have jostled the tree to make something else free:
-            self.cv.notifyAll()
+            self._cv.notifyAll()
 
 

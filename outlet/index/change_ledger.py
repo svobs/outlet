@@ -225,8 +225,6 @@ class ChangeLedger:
 
         while dst_ancestor:
             logger.debug(f'Evaluating dst ancestor (change={change.action_uid}): {dst_ancestor}')
-            if mkdir_dict.get(dst_ancestor.uid, None):
-                raise RuntimeError(f'Batch change conflict: copy to a descendant of a node being created!')
             if rm_dict.get(dst_ancestor.uid, None):
                 raise RuntimeError(f'Batch change conflict: copy to a descendant of a node being deleted!')
             if cp_src_dict.get(dst_ancestor.uid, None):
