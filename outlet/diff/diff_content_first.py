@@ -125,8 +125,6 @@ class ContentFirstDiffer(ChangeMaker):
         for md5 in md5_set:
             # Grant just a tiny bit of time to other tasks in the CPython thread (e.g. progress bar):
             time.sleep(0.00001)
-            if md5 == 'c76172c81f4d7ffcfffb2e30aa028487':
-                logger.info('stop here')
 
             # Set of items on left with same MD5:
             left_items_for_given_md5: Iterable[DisplayNode] = left_md5s.get_second_dict(md5).values()

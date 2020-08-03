@@ -127,8 +127,7 @@ class DisplayMutator:
         try:
             node = self.con.display_store.get_node_data(tree_path)
             parent_iter = self.con.display_store.model.get_iter(tree_path)
-            # Remove loading node:
-            self.con.display_store.remove_first_child(parent_iter)
+            self.con.display_store.remove_loading_node(parent_iter)
             children: List[DisplayNode] = self.con.lazy_tree.get_children(node)
 
             if expand_all:
@@ -259,8 +258,7 @@ class DisplayMutator:
             with self._lock:
                 # Add children for node:
                 if is_expanded:
-                    # Remove Loading node:
-                    self.con.display_store.remove_first_child(parent_iter)
+                    self.con.display_store.remove_loading_node(parent_iter)
 
                     children = self.con.lazy_tree.get_children(node)
                     self._append_children(children=children, parent_iter=parent_iter)
@@ -276,6 +274,7 @@ class DisplayMutator:
                     # Collapsed:
                     self.con.display_store.remove_all_children(parent_iter)
                     # Always have at least a dummy node:
+                    logger.debug(f'Collapsing tree: adding loading node')
                     self._append_loading_child(parent_iter)
 
                 logger.debug(f'[{self.con.tree_id}] Displayed rows count: {len(self.con.display_store.displayed_rows)}')
@@ -316,10 +315,14 @@ class DisplayMutator:
                 else:
                     parent_iter = self.con.display_store.find_uid_in_tree(target_uid=parent_uid)
                     if not parent_iter:
-                        # Probably node isn't expanded. Just skip
+                        # Probably an ancestor isn't expanded. Just skip
                         assert parent_uid not in self.con.display_store.displayed_rows, \
                             f'DisplayedRows ({self.con.display_store.displayed_rows}) contains UID ({parent_uid})!'
                         logger.debug(f'[{self.con.tree_id}] Will not add/update node: Could not find parent node in display tree: {parent}')
+                        return
+                    parent_path = self.con.display_store.model.get_path(parent_iter)
+                    if not self.con.tree_view.row_expanded(parent_path):
+                        logger.debug(f'[{self.con.tree_id}] Will not add/update node {node.uid}: Parent is not expanded: {parent.uid}')
                         return
 
                     # Check whether the "added node" already exists:
@@ -332,11 +335,10 @@ class DisplayMutator:
                     display_vals: list = self.generate_display_cols(parent_iter, node)
                     for col, val in enumerate(display_vals):
                         self.con.display_store.model.set_value(child_iter, col, val)
-                    return
                 else:
                     # New node
                     if node.is_dir():
-                        self._append_dir_node(parent_iter, node)
+                        self._append_dir_node_and_loading_child(parent_iter, node)
                     else:
                         self._append_file_node(parent_iter, node)
 
@@ -488,7 +490,7 @@ class DisplayMutator:
     def _get_icon_for_node(self, node: DisplayNode) -> str:
         change_action = self.con.app.cache_manager.get_last_pending_change_for_node(node.uid)
         if change_action:
-            logger.debug(f'Found pending change for node: {change_action.change_type}')
+            logger.debug(f'Found pending change for node {node.uid}: {change_action.change_type.name}')
             return change_action.get_icon_for_node(node.uid)
         return node.get_icon()
 

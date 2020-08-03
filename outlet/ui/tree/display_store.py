@@ -40,7 +40,6 @@ class DisplayStore:
         self.checked_rows: Dict[UID, DisplayNode] = {}
         self.inconsistent_rows: Dict[UID, DisplayNode] = {}
         self.displayed_rows: Dict[UID, DisplayNode] = {}
-        self.displayed_decorated_rows: Dict[UID, DisplayNode] = {}
         """Need to track these so that we can remove a node if its src node was removed"""
 
     def get_node_data(self, tree_path: Union[TreeIter, TreePath]) -> DisplayNode:
@@ -72,7 +71,6 @@ class DisplayStore:
         self.checked_rows.clear()
         self.inconsistent_rows.clear()
         self.displayed_rows.clear()
-        self.displayed_decorated_rows.clear()
         return self.model.get_iter_first()
 
     def _set_checked_state(self, tree_iter, is_checked, is_inconsistent):
@@ -258,9 +256,6 @@ class DisplayStore:
         data: DisplayNode = row_values[self.treeview_meta.col_num_data]
 
         if not data.is_ephemereal():
-            # FIXME
-            # if isinstance(data, FileDecoratorNode):
-            #     self.displayed_decorated_rows[data.src_node.uid] = data
             self.displayed_rows[data.uid] = data
 
         return self.model.append(parent_node_iter, row_values)
@@ -269,7 +264,23 @@ class DisplayStore:
         if uid in self.checked_rows: del self.checked_rows[uid]
         if uid in self.inconsistent_rows: del self.inconsistent_rows[uid]
         if uid in self.displayed_rows: del self.displayed_rows[uid]
-        if uid in self.displayed_decorated_rows: del self.displayed_decorated_rows[uid]
+
+    def remove_loading_node(self, parent_iter):
+        """The Loading Node must be the first child"""
+        first_child_iter = self.model.iter_children(parent_iter)
+        if not first_child_iter:
+            return False
+
+        child_data = self.get_node_data(first_child_iter)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f'Removing child: {child_data}')
+
+        if not child_data.is_ephemereal():
+            raise RuntimeError(f'Expected LoadingNode but found: {child_data}')
+
+        # remove the first child
+        self.model.remove(first_child_iter)
+        return True
 
     def remove_first_child(self, parent_iter):
         first_child_iter = self.model.iter_children(parent_iter)
@@ -281,9 +292,6 @@ class DisplayStore:
             logger.debug(f'Removing child: {child_data}')
 
         if not child_data.is_ephemereal():
-            # FIXME
-            # if isinstance(child_data, FileDecoratorNode):
-            #     self.displayed_decorated_rows.pop(child_data.src_node.uid)
             self.displayed_rows.pop(child_data.uid)
 
         # remove the first child

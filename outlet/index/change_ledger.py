@@ -339,6 +339,7 @@ class ChangeLedger:
 
         # Add/update nodes in central cache:
         if command.result.nodes_to_upsert:
+            logger.debug(f'Upserted {len(command.result.nodes_to_upsert)} nodes: notifying cacheman')
             for upsert_node in command.result.nodes_to_upsert:
                 self.cacheman.add_or_update_node(upsert_node)
 
