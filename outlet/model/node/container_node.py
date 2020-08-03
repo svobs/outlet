@@ -1,7 +1,7 @@
 import os
 
 from model.change_action import ChangeType
-from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_LOCAL_DISK, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import ICON_ADD_DIR, ICON_GDRIVE, ICON_GENERIC_DIR, ICON_LOCAL_DISK, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.display_node import DisplayNode, HasChildren
 from model.node_identifier import NodeIdentifier
 
@@ -30,7 +30,9 @@ class ContainerNode(HasChildren, DisplayNode):
         return self._size_bytes
 
     def get_icon(self):
-        return ICON_GENERIC_DIR
+        if self.exists():
+            return ICON_GENERIC_DIR
+        return ICON_ADD_DIR
 
     @property
     def name(self):

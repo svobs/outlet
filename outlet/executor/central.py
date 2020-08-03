@@ -21,7 +21,7 @@ class CentralExecutor:
         self._command_executor = CommandExecutor(self.app)
         self._global_actions = GlobalActions(self.app)
         self._task_runner = CentralTaskRunner(self.app)
-        self.enable_change_thread = application.config.get('executor.enable_op_execution_thread')
+        self.enable_op_execution_thread = application.config.get('executor.enable_op_execution_thread')
 
         self._op_execution_thread = threading.Thread(target=self._run_op_execution_thread, name='OpExecutionThread', daemon=True)
         """Executes changes as needed in its own thread, which blocks until a change is available."""
@@ -29,13 +29,18 @@ class CentralExecutor:
     def start(self):
         self._global_actions.init()
 
-        if self.enable_change_thread:
-            self._op_execution_thread.start()
+        if self.enable_op_execution_thread:
+            self.start_op_execution_thread()
         else:
             logger.warning('OpExecutionThread is disabled!')
 
         # Kick off cache load now that we have a progress bar
         dispatcher.send(actions.LOAD_ALL_CACHES, sender=actions.ID_CENTRAL_EXEC)
+
+    def start_op_execution_thread(self):
+        if not self._op_execution_thread.is_alive():
+            logger.debug('Starting op execution thread...')
+            self._op_execution_thread.start()
 
     def submit_async_task(self, task_func, *args):
         """Will expand on this later."""

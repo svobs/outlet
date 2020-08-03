@@ -6,7 +6,7 @@ from typing import List, Optional
 from treelib import Node
 
 from util import format
-from constants import ICON_GENERIC_FILE, NOT_TRASHED
+from constants import ICON_ADD_FILE, ICON_GENERIC_FILE, NOT_TRASHED
 from index.uid.uid_generator import UID
 from model.node_identifier import NodeIdentifier
 
@@ -102,7 +102,9 @@ class DisplayNode(Node, ABC):
         return parent_tree.get_relative_path_for_item(self)
 
     def get_icon(self):
-        return ICON_GENERIC_FILE
+        if self.exists():
+            return ICON_GENERIC_FILE
+        return ICON_ADD_FILE
 
 
 # ABSTRACT CLASS HasParentList

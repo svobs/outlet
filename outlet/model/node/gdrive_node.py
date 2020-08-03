@@ -3,7 +3,8 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from util import format
-from constants import ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE, NOT_TRASHED, TRASHED_STATUS
+from constants import ICON_ADD_DIR, ICON_ADD_FILE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE, NOT_TRASHED, \
+    TRASHED_STATUS
 from model.node.display_node import DisplayNode, HasChildren, HasParentList
 from model.node_identifier import ensure_int, GDriveIdentifier
 
@@ -104,7 +105,10 @@ class GDriveFolder(HasChildren, GDriveNode):
 
     def get_icon(self):
         if self.trashed == NOT_TRASHED:
-            return ICON_GENERIC_DIR
+            if self.exists():
+                return ICON_GENERIC_DIR
+            else:
+                return ICON_ADD_DIR
         return ICON_TRASHED_DIR
 
     def get_summary(self):
@@ -198,9 +202,12 @@ class GDriveFile(GDriveNode):
         return False
 
     def get_icon(self):
-        if self.trashed != NOT_TRASHED:
-            return ICON_TRASHED_FILE
-        return ICON_GENERIC_FILE
+        if self.trashed == NOT_TRASHED:
+            if self.exists():
+                return ICON_GENERIC_FILE
+            else:
+                return ICON_ADD_FILE
+        return ICON_TRASHED_FILE
 
     def to_tuple(self):
         return (self.uid, self.goog_id, self.name, self.trashed, self._size_bytes, self._md5, self.create_ts, self.modify_ts,

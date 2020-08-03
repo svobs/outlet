@@ -3,7 +3,7 @@ from enum import IntEnum
 
 from treelib import Node
 
-from constants import ICON_ADD_DIR, ICON_GENERIC_DIR, ICON_GENERIC_FILE
+from constants import ICON_ADD_DIR, ICON_ADD_FILE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_MODIFY_FILE
 from index.uid.uid import UID
 from model.node.display_node import DisplayNode
 
@@ -58,9 +58,9 @@ class ChangeAction(Node):
                           ChangeType.MV: ICON_GENERIC_FILE,
                           ChangeType.UP: ICON_GENERIC_FILE,
                           ChangeType.CP: ICON_GENERIC_FILE}
-    icon_dst_file_dict = {ChangeType.MV: ChangeType.CP.name,
-                          ChangeType.UP: ChangeType.UP.name,
-                          ChangeType.CP: ChangeType.CP.name}
+    icon_dst_file_dict = {ChangeType.MV: ICON_ADD_FILE,
+                          ChangeType.UP: ICON_MODIFY_FILE,
+                          ChangeType.CP: ICON_ADD_FILE}
     icon_src_dir_dict = {ChangeType.MKDIR: ICON_ADD_DIR,
                          ChangeType.RM: ICON_GENERIC_DIR,
                          ChangeType.MV: ICON_GENERIC_DIR,

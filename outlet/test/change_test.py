@@ -50,7 +50,7 @@ class ChangeTest(unittest.TestCase):
         config = AppConfig()
         self.app = OutletApplication(config)
         # Disable execution so we can study the state of the OpTree:
-        self.app.executor.enable_change_thread = ENABLE_CHANGE_EXECUTION_THREAD
+        self.app.executor.enable_op_execution_thread = False
 
         load_left_done = threading.Event()
         load_right_done = threading.Event()
@@ -84,6 +84,7 @@ class ChangeTest(unittest.TestCase):
 
     def test_dd_single_file_cp(self):
         logger.info('Testing drag & drop copy of single file local to local')
+        self.app.executor.start_op_execution_thread()
         # Offset from 0:
         src_tree_path = Gtk.TreePath.new_from_string('1')
         node: DisplayNode = self.right_con.display_store.get_node_data(src_tree_path)
@@ -99,6 +100,7 @@ class ChangeTest(unittest.TestCase):
 
     def test_dd_multi_file_cp(self):
         logger.info('Testing drag & drop copy of multiple files local to local')
+        self.app.executor.start_op_execution_thread()
         # Offset from 0:
 
         # Simulate drag & drop based on position in list:
@@ -118,6 +120,7 @@ class ChangeTest(unittest.TestCase):
 
     def test_bad_dd_dir_tree_cp(self):
         logger.info('Testing negative case: drag & drop copy of duplicate nodes local to local')
+        self.app.executor.start_op_execution_thread()
         # Offset from 0:
         node_name = 'Art'
 
@@ -146,6 +149,7 @@ class ChangeTest(unittest.TestCase):
 
     def test_dd_dir_tree_cp(self):
         logger.info('Testing drag & drop copy of dir tree local to local')
+        self.app.executor.start_op_execution_thread()
         # Offset from 0:
         node_name = 'Art'
         name_equals_func: Callable = partial(_name_equals_func, node_name)

@@ -33,9 +33,6 @@ class LocalFileNode(DisplayNode):
         self._change_ts: int = ensure_int(change_ts)
         self._exists = _ensure_bool(exists)
 
-    def get_icon(self):
-        return ICON_GENERIC_FILE
-
     @classmethod
     def is_file(cls):
         return True
