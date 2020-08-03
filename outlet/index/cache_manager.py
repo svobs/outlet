@@ -74,6 +74,10 @@ class CacheManager:
         self.load_caches_for_displayed_trees_at_startup = application.config.get('cache.load_caches_for_displayed_trees_on_startup')
         self.sync_from_local_disk_on_cache_load = application.config.get('cache.sync_from_local_disk_on_cache_load')
         self.reload_tree_on_root_path_update = application.config.get('cache.load_cache_when_tree_root_selected')
+        self.cancel_all_pending_changes_on_startup = application.config.get('cache.cancel_all_pending_changes_on_startup')
+
+        # FIXME: put all planning nodes into their own cache (using Google and Local table structures). Doesn't make sense to store them
+        # alongside regular objects
 
         if not self.load_all_caches_on_startup:
             logger.info('Configured not to fetch all caches on startup; will lazy load instead')

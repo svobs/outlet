@@ -54,6 +54,13 @@ class ChangeLedger:
         else:
             raise RuntimeError(f'Unrecognized ErrorHandlingBehavior: {error_handling_behavior}')
 
+    def _cancel_pending_changes_from_disk(self):
+        with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
+            change_ref_list: List[ChangeActionRef] = change_db.get_all_pending_changes()
+            if change_ref_list:
+                change_db.archive_failed_changes(change_ref_list, 'Cancelled on startup per user config')
+                logger.info(f'Cancelled {len(change_ref_list)} pending changes found in cache')
+
     def _load_pending_changes_from_disk(self, error_handling_behavior: ErrorHandlingBehavior) -> List[ChangeAction]:
         # first load refs from disk
         with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
@@ -242,6 +249,11 @@ class ChangeLedger:
 
     def load_pending_changes(self):
         """Call this at startup, to resume pending changes which have not yet been applied."""
+        if self.cacheman.cancel_all_pending_changes_on_startup:
+            logger.debug(f'User configuration specifies cancelling all pending changes on startup')
+            self._cancel_pending_changes_from_disk()
+            return
+
         change_list: List[ChangeAction] = self._load_pending_changes_from_disk(ErrorHandlingBehavior.DISCARD)
         if not change_list:
             logger.debug(f'No pending changes found in the disk cache')
