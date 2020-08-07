@@ -170,7 +170,8 @@ class DisplayStore:
         return not node.is_ephemereal() and node.uid == target_uid
 
     def find_in_tree(self, found_func: Callable[[DisplayNode], bool], tree_iter: Optional[Gtk.TreeIter] = None) -> Optional[Gtk.TreeIter]:
-        """Recurses over entire tree and visits every node until is_uid_equals_func() returns True, then returns the data at that node"""
+        """Recurses over entire tree and visits every node until is_uid_equals_func() returns True, then returns the data at that node.
+        REMEMBER: if this is a lazy-loading tree, this only iterates over the VISIBLE nodes!"""
         if not tree_iter:
             tree_iter = self.model.get_iter_first()
 

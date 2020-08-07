@@ -46,6 +46,10 @@ class OpTreeNode(ABC):
     def is_dst(cls) -> bool:
         return False
 
+    @abstractmethod
+    def is_mutually_exclusive(self) -> bool:
+        return False
+
     def is_create_type(self) -> bool:
         return False
 
@@ -64,15 +68,15 @@ class OpTreeNode(ABC):
     def __repr__(self):
         return self.print_me()
 
-    def print_recursively(self) -> str:
+    def print_recursively(self) -> List[str]:
         level = self.get_level()
 
-        blocks = [f'{OP_TREE_INDENT_STR * (level-1)} {self.print_me()}']
+        blocks = [f'{OP_TREE_INDENT_STR * (level-1)}{self.print_me()}']
 
         for child in self.children:
-            blocks.append(child.print_recursively())
+            blocks += child.print_recursively()
 
-        return '\n'.join(blocks)
+        return blocks
 
     def get_all_nodes_in_subtree(self):
         """
@@ -103,6 +107,9 @@ class RootNode(OpTreeNode):
     def is_root(cls):
         return True
 
+    def is_mutually_exclusive(self) -> bool:
+        return True
+
     def get_target_node(self):
         return None
 
@@ -115,6 +122,10 @@ class RootNode(OpTreeNode):
 class SrcActionNode(OpTreeNode):
     def __init__(self, uid: UID, change_action: ChangeAction):
         super().__init__(uid, change_action=change_action)
+
+    def is_mutually_exclusive(self) -> bool:
+        # Only CP src nodes are non-mutually-exclusive
+        return self.change_action.change_type != ChangeType.CP
 
     def get_target_node(self):
         return self.change_action.src_node
@@ -132,6 +143,9 @@ class DstActionNode(OpTreeNode):
     def __init__(self, uid: UID, change_action: ChangeAction):
         assert change_action.has_dst()
         super().__init__(uid, change_action=change_action)
+
+    def is_mutually_exclusive(self) -> bool:
+        return True
 
     def get_target_node(self):
         return self.change_action.dst_node

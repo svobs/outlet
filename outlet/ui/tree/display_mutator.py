@@ -278,6 +278,7 @@ class DisplayMutator:
                     self._append_loading_child(parent_iter)
 
                 logger.debug(f'[{self.con.tree_id}] Displayed rows count: {len(self.con.display_store.displayed_rows)}')
+                dispatcher.send(signal=actions.NODE_EXPANSION_DONE, sender=self.con.tree_id)
         GLib.idle_add(expand_or_contract)
 
     def _on_node_upserted_in_cache(self, sender: str, node: DisplayNode):

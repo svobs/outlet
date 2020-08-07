@@ -41,18 +41,19 @@ class OpTree:
         """Contains entries for all ChangeActions which have running operations. Keyed by action UID"""
 
     def _print_current_state(self):
-        logger.debug(f'CURRENT STATE: PendingChangeTree is now: {self._root.print_recursively()}')
-        logger.debug(f'CURRENT STATE: NodeDict: {len(self._node_dict)} items:\n{self._print_node_dict()}')
+        lines = self._root.print_recursively()
+        logger.debug(f'CURRENT STATE: PendingChangeTree is now {len(lines)} items:')
+        for line in lines:
+            logger.debug(line)
+        self._print_node_dict()
 
     def _print_node_dict(self):
-        blocks: List[str] = []
+        logger.debug(f'CURRENT STATE: NodeDict is now: {len(self._node_dict)} items:')
         for node_uid, deque in self._node_dict.items():
             node_list: List[str] = []
             for node in deque:
                 node_list.append(node.change_action.tag)
-            blocks.append(f'{node_uid}: {"| ".join(node_list)}')
-
-        return '\n'.join(blocks)
+            logger.debug(f'{node_uid}: [{"; ".join(node_list)}]')
 
     def _derive_parent_uid(self, node: DisplayNode):
         """Derives the UID for the parent of the given node"""
@@ -67,7 +68,7 @@ class OpTree:
             return self.cacheman.get_uid_for_path(parent_path)
 
     def _get_lowest_priority_tree_node(self, uid: UID):
-        node_list = self._node_dict.get(uid, None)
+        node_list = self._node_dict[uid]
         if node_list:
             # last element in list is lowest priority:
             return node_list[-1]
@@ -91,33 +92,48 @@ class OpTree:
             last_uid = change.action_uid
 
         # Put all in dict as wrapped OpTreeNodes
-        node_dict: Dict[UID, OpTreeNode] = {}
+        non_mutex_node_dict: DefaultDict[UID, List[OpTreeNode]] = collections.defaultdict(lambda: list())
+        mutex_node_dict: Dict[UID, OpTreeNode] = {}
         for change in change_batch:
             src_node = SrcActionNode(self.uid_generator.next_uid(), change)
-            existing = node_dict.get(src_node.get_target_node().uid, None)
-            if existing:
-                raise RuntimeError(f'Duplicate node: {src_node.get_target_node()}')
-            node_dict[src_node.get_target_node().uid] = src_node
+            if src_node.is_mutually_exclusive():
+                existing = mutex_node_dict.get(src_node.get_target_node().uid, None)
+                if existing:
+                    raise RuntimeError(f'Duplicate node: {src_node.get_target_node()}')
+                mutex_node_dict[src_node.get_target_node().uid] = src_node
+            else:
+                non_mutex_node_dict[src_node.get_target_node().uid].append(src_node)
 
             if change.has_dst():
                 dst_node = DstActionNode(self.uid_generator.next_uid(), change)
-                existing = node_dict.get(dst_node.get_target_node().uid, None)
+                assert dst_node.is_mutually_exclusive()
+                existing = mutex_node_dict.get(dst_node.get_target_node().uid, None)
                 if existing:
                     raise RuntimeError(f'Duplicate node: {dst_node.get_target_node()}')
-                node_dict[dst_node.get_target_node().uid] = dst_node
+                mutex_node_dict[dst_node.get_target_node().uid] = dst_node
 
         # Assemble nodes one by one with parent-child relationships.
         root_node = RootNode()
-        for potential_child_node in node_dict.values():
+
+        # non-mutually exclusive nodes: just make them all children of root
+        for non_mutex_list in non_mutex_node_dict.values():
+            for node in non_mutex_list:
+                root_node.add_child(node)
+
+        # mutually exclusive nodes have dependencies on each other:
+        for potential_child_node in mutex_node_dict.values():
             parent_uid = self._derive_parent_uid(potential_child_node.get_target_node())
-            parent = node_dict.get(parent_uid, None)
+            parent = mutex_node_dict.get(parent_uid, None)
             if parent:
                 parent.add_child(potential_child_node)
             else:
                 # those with no parent will be children of root:
                 root_node.add_child(potential_child_node)
 
-        logger.debug(f'Constructed tree: {root_node.print_recursively()}')
+        lines = root_node.print_recursively()
+        logger.debug(f'MakeTreeToInsert: constructed tree with {len(lines)} items:')
+        for line in lines:
+            logger.debug(line)
         return root_node
 
     def can_add_batch(self, root_of_changes: RootNode) -> bool:

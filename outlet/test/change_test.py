@@ -147,23 +147,26 @@ class ChangeTest(unittest.TestCase):
             time.sleep(10)  # in seconds
             self.assertFalse(True, 'If we got here we failed!')
 
+    def _find_iter_by_name_in_left_tree(self, node_name):
+        name_equals_func: Callable = partial(_name_equals_func, node_name)
+        tree_iter = self.left_con.display_store.find_in_tree(name_equals_func)
+        if not tree_iter:
+            self.fail(f'Expected to find node named "{node_name}"')
+        return tree_iter
+
+    def _find_node_by_name_im_left_tree(self, node_name):
+        tree_iter = self._find_iter_by_name_in_left_tree(node_name)
+        node = self.left_con.display_store.get_node_data(tree_iter)
+        logger.warning(f'CP "{node.name}" from left to right root')
+        return node
+
     def test_dd_dir_tree_cp(self):
         logger.info('Testing drag & drop copy of dir tree local to local')
         self.app.executor.start_op_execution_thread()
-        # Offset from 0:
-        node_name = 'Art'
-        name_equals_func: Callable = partial(_name_equals_func, node_name)
-
         expected_count = 12
 
         nodes = []
-        tree_iter = self.left_con.display_store.find_in_tree(name_equals_func)
-        node = None
-        if tree_iter:
-            node = self.left_con.display_store.get_node_data(tree_iter)
-        self.assertIsNotNone(node, f'Expected to find node named "{node_name}"')
-        nodes.append(node)
-        logger.warning(f'CP "{node.name}" from left root to right root')
+        nodes.append(self._find_node_by_name_im_left_tree('Art'))
 
         dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
         dst_tree_path = Gtk.TreePath.new_from_string('1')
@@ -180,7 +183,6 @@ class ChangeTest(unittest.TestCase):
 
         dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=on_command_complete)
 
-        dd_data.nodes = [nodes[0]]
         logger.info('Submitting drag & drop signal')
         dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
@@ -189,8 +191,66 @@ class ChangeTest(unittest.TestCase):
             raise RuntimeError('Timed out waiting for all commands to complete!')
         logger.info('Done!')
 
+    def _do_and_wait_for_signal(self, action_func, signal, tree_id):
+        received = threading.Event()
 
-def _name_equals_func(node_name, a_node) -> bool:
-    # if logger.isEnabledFor(logging.DEBUG) and not node.is_ephemereal():
-    #     logger.debug(f'Examining node uid={node.uid} (looking for: {target_uid})')
-    return not a_node.is_ephemereal() and a_node.name == node_name
+        def on_received():
+            logger.debug(f'Received signal: {signal} from tree {tree_id}')
+            received.set()
+
+        dispatcher.connect(signal=signal, receiver=on_received, sender=tree_id)
+
+        action_func()
+        logger.debug(f'Waiting for signal: {signal} from tree {tree_id}')
+        if not received.wait():
+            raise RuntimeError(f'Timed out waiting for signal: {signal} from tree: {tree_id}')
+
+    def test_dd_two_dir_trees_cp(self):
+        logger.info('Testing drag & drop copy of 2 dir trees local to local')
+        # Offset from 0:
+
+        expected_count = 18
+
+        # Need to first expand tree in order to find child nodes
+        tree_iter = self._find_iter_by_name_in_left_tree('Art')
+        tree_path = self.left_con.display_store.model.get_path(tree_iter)
+
+        def action_func():
+            self.left_con.tree_view.expand_row(path=tree_path, open_all=True)
+
+        self._do_and_wait_for_signal(action_func, actions.NODE_EXPANSION_DONE, actions.ID_LEFT_TREE)
+
+        nodes = []
+        nodes.append(self._find_node_by_name_im_left_tree('Modern'))
+        nodes.append(self._find_node_by_name_im_left_tree('Art'))
+
+        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
+        dst_tree_path = Gtk.TreePath.new_from_string('1')
+
+        # Drag & drop 1 node, which represents a tree of 10 files and 2 dirs:
+        completed_cmds: List[Command] = []
+        all_complete = threading.Event()
+
+        def on_command_complete(command: Command):
+            completed_cmds.append(command)
+            logger.info(f'Got a completed command (total: {len(completed_cmds)}, expecting: {expected_count})')
+            if len(completed_cmds) >= expected_count:
+                all_complete.set()
+
+        dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=on_command_complete)
+
+        logger.info('Submitting drag & drop signal')
+        dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+
+        self.app.executor.start_op_execution_thread()
+        logger.info('Sleeping until we get what we want')
+        if not all_complete.wait():
+            raise RuntimeError('Timed out waiting for all commands to complete!')
+        # TODO: verify correct nodes were copied
+        logger.info('Done!')
+
+
+def _name_equals_func(node_name, node) -> bool:
+    if logger.isEnabledFor(logging.DEBUG) and not node.is_ephemereal():
+        logger.debug(f'Examining node uid={node.uid} name={node.name} (looking for: {node_name})')
+    return not node.is_ephemereal() and node.name == node_name

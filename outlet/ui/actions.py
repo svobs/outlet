@@ -31,6 +31,7 @@ LOAD_UI_TREE_DONE = 'load-ui-tree-done'
 # --- Tree actions: notifications ---
 LOAD_SUBTREE_STARTED = 'load-subtree-started'
 NODE_EXPANSION_TOGGLED = 'node-expansion-toggled'
+NODE_EXPANSION_DONE = 'node-expansion-done'
 ROOT_PATH_UPDATED = 'root-path-updated'
 NODE_UPSERTED = 'node-upserted'
 NODE_REMOVED = 'node-removed'
