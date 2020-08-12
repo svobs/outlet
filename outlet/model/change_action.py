@@ -1,5 +1,6 @@
 import time
 from enum import IntEnum
+from typing import Optional
 
 from treelib import Node
 
@@ -102,6 +103,19 @@ class ChangeAction(Node):
             return ChangeAction.icon_src_dir_dict[self.change_type]
         else:
             return ChangeAction.icon_src_file_dict[self.change_type]
+
+    def get_planning_node(self) -> Optional[DisplayNode]:
+        """Returns the "planning node" (i.e., the node to be created by this transcation), if any"""
+        if self.change_type == ChangeType.MKDIR:
+            assert not self.src_node.exists(), f'Expected to not exist: {self.src_node}'
+            return self.src_node
+        elif self.change_type == ChangeType.CP:
+            assert not self.dst_node.exists(), f'Expected to not exist: {self.dst_node}'
+            return self.dst_node
+        elif self.change_type == ChangeType.MV:
+            assert not self.dst_node.exists(), f'Expected to not exist: {self.dst_node}'
+            return self.dst_node
+        return None
 
     def __repr__(self):
         if self.dst_node:

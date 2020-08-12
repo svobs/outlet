@@ -126,7 +126,7 @@ class GDriveMasterCache:
     # Individual item cache updates
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def add_or_update_goog_node(self, node: GDriveNode):
+    def upsert_gdrive_node(self, node: GDriveNode):
         # try to prevent cache corruption by doing some sanity checks
         if not node:
             raise RuntimeError(f'No node supplied!')
@@ -178,21 +178,24 @@ class GDriveMasterCache:
                                f'{previous_uid}). Changing UID of item (was: {node.uid}) to match and overwrite previous node')
                 node.uid = previous_uid
 
-        if self.application.cache_manager.enable_save_to_disk:
-            cache_path: str = self._get_cache_path_for_master()
+        if node.exists():
+            if self.application.cache_manager.enable_save_to_disk:
+                cache_path: str = self._get_cache_path_for_master()
 
-            # Write new values:
-            with GDriveDatabase(cache_path) as cache:
-                logger.debug(f'Writing id-parent mappings to the GDrive master cache: {parent_mappings}')
-                cache.upsert_parent_mappings_for_id(parent_mappings, node.uid, commit=False)
-                if node.is_dir():
-                    logger.debug(f'Writing folder node to the GDrive master cache: {node}')
-                    cache.upsert_gdrive_dirs([node_tuple])
-                else:
-                    logger.debug(f'Writing file node to the GDrive master cache: {node}')
-                    cache.upsert_gdrive_files([node_tuple])
+                # Write new values:
+                with GDriveDatabase(cache_path) as cache:
+                    logger.debug(f'Writing id-parent mappings to the GDrive master cache: {parent_mappings}')
+                    cache.upsert_parent_mappings_for_id(parent_mappings, node.uid, commit=False)
+                    if node.is_dir():
+                        logger.debug(f'Writing folder node to the GDrive master cache: {node}')
+                        cache.upsert_gdrive_dirs([node_tuple])
+                    else:
+                        logger.debug(f'Writing file node to the GDrive master cache: {node}')
+                        cache.upsert_gdrive_files([node_tuple])
+            else:
+                logger.debug(f'Save to disk is disabled: skipping add/update of item with UID={node.uid}')
         else:
-            logger.debug(f'Save to disk is disabled: skipping add/update of item with UID={node.uid}')
+            logger.debug(f'Node does not exist; skipping save to disk: {node}')
 
         # Finally, update in-memory cache (tree):
         self._my_gdrive.add_item(node)
@@ -217,7 +220,7 @@ class GDriveMasterCache:
             if node.trashed == NOT_TRASHED:
                 raise RuntimeError(f'Trying to trash Google node which is not marked as trashed: {node}')
             # this is actually an update
-            self.add_or_update_goog_node(node)
+            self.upsert_gdrive_node(node)
         else:
             # Remove from in-memory cache:
             existing_node = self._my_gdrive.get_item_for_uid(node.uid)
@@ -284,6 +287,7 @@ class GDriveMasterCache:
         return self._my_gdrive.get_children(node)
 
     def get_parent_for_item(self, item: DisplayNode, required_subtree_path: str = None):
+        assert isinstance(item, GDriveNode)
         return self._my_gdrive.get_parent_for_item(item, required_subtree_path)
 
     def download_all_gdrive_meta(self, tree_id):

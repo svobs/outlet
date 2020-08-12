@@ -191,20 +191,6 @@ class ChangeTest(unittest.TestCase):
             raise RuntimeError('Timed out waiting for all commands to complete!')
         logger.info('Done!')
 
-    def _do_and_wait_for_signal(self, action_func, signal, tree_id):
-        received = threading.Event()
-
-        def on_received():
-            logger.debug(f'Received signal: {signal} from tree {tree_id}')
-            received.set()
-
-        dispatcher.connect(signal=signal, receiver=on_received, sender=tree_id)
-
-        action_func()
-        logger.debug(f'Waiting for signal: {signal} from tree {tree_id}')
-        if not received.wait():
-            raise RuntimeError(f'Timed out waiting for signal: {signal} from tree: {tree_id}')
-
     def test_dd_two_dir_trees_cp(self):
         logger.info('Testing drag & drop copy of 2 dir trees local to local')
         # Offset from 0:
@@ -218,7 +204,7 @@ class ChangeTest(unittest.TestCase):
         def action_func():
             self.left_con.tree_view.expand_row(path=tree_path, open_all=True)
 
-        self._do_and_wait_for_signal(action_func, actions.NODE_EXPANSION_DONE, actions.ID_LEFT_TREE)
+        _do_and_wait_for_signal(action_func, actions.NODE_EXPANSION_DONE, actions.ID_LEFT_TREE)
 
         nodes = []
         nodes.append(self._find_node_by_name_im_left_tree('Modern'))
@@ -248,6 +234,21 @@ class ChangeTest(unittest.TestCase):
             raise RuntimeError('Timed out waiting for all commands to complete!')
         # TODO: verify correct nodes were copied
         logger.info('Done!')
+
+
+def _do_and_wait_for_signal(action_func, signal, tree_id):
+    received = threading.Event()
+
+    def on_received():
+        logger.debug(f'Received signal: {signal} from tree {tree_id}')
+        received.set()
+
+    dispatcher.connect(signal=signal, receiver=on_received, sender=tree_id)
+
+    action_func()
+    logger.debug(f'Waiting for signal: {signal} from tree {tree_id}')
+    if not received.wait():
+        raise RuntimeError(f'Timed out waiting for signal: {signal} from tree: {tree_id}')
 
 
 def _name_equals_func(node_name, node) -> bool:

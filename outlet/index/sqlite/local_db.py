@@ -1,4 +1,5 @@
 import logging
+from collections import OrderedDict
 from typing import List
 
 from index.sqlite.base_db import MetaDatabase, Table
@@ -13,20 +14,24 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class LocalDiskDatabase(MetaDatabase):
-    TABLE_LOCAL_FILE = Table(name='local_file', cols={'uid': 'INTEGER PRIMARY KEY',
-                                                      'md5': 'TEXT',
-                                                      'sha256': 'TEXT',
-                                                      'size_bytes': 'INTEGER',
-                                                      'sync_ts': 'INTEGER',
-                                                      'modify_ts': 'INTEGER',
-                                                      'change_ts': 'INTEGER',
-                                                      'full_path': 'TEXT',
-                                                      'exist': 'INTEGER'})
+    TABLE_LOCAL_FILE = Table(name='local_file', cols=OrderedDict([
+        ('uid', 'INTEGER PRIMARY KEY'),
+        ('md5', 'TEXT'),
+        ('sha256', 'TEXT'),
+        ('size_bytes', 'INTEGER'),
+        ('sync_ts', 'INTEGER'),
+        ('modify_ts', 'INTEGER'),
+        ('change_ts', 'INTEGER'),
+        ('full_path', 'TEXT'),
+        ('exist', 'INTEGER')
+    ]))
 
-    # 2020-06: So far this is really just a mapping of UIDs to paths, to keep things consistent across runs.
-    TABLE_LOCAL_DIR = Table(name='local_dir', cols={'uid': 'INTEGER PRIMARY KEY',
-                                                    'full_path': 'TEXT',
-                                                    'exist': 'INTEGER'})
+    # 2020-06, So far this is really just a mapping of UIDs to paths, to keep things consistent across runs.
+    TABLE_LOCAL_DIR = Table(name='local_dir', cols=OrderedDict([
+        ('uid', 'INTEGER PRIMARY KEY'),
+        ('full_path', 'TEXT'),
+        ('exist', 'INTEGER')
+    ]))
 
     def __init__(self, db_path, application):
         super().__init__(db_path)
@@ -35,16 +40,16 @@ class LocalDiskDatabase(MetaDatabase):
     # LOCAL_FILE operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
     def has_local_files(self):
-        return self.has_rows(self.TABLE_LOCAL_FILE)
+        return self.TABLE_LOCAL_FILE.has_rows(self.conn)
 
     def get_local_files(self) -> List[LocalFileNode]:
         entries: List[LocalFileNode] = []
 
         """ Gets all changes in the table """
-        if not self.is_table(self.TABLE_LOCAL_FILE):
+        if not self.TABLE_LOCAL_FILE.is_table(self.conn):
             return entries
 
-        rows = self.get_all_rows(self.TABLE_LOCAL_FILE)
+        rows = self.TABLE_LOCAL_FILE.get_all_rows(self.conn)
         for row in rows:
             full_path = row[7]
             uid = self.cache_manager.get_uid_for_path(full_path, row[0])
@@ -63,20 +68,20 @@ class LocalDiskDatabase(MetaDatabase):
             to_insert.append(e_tuple)
 
         if overwrite:
-            self.drop_table_if_exists(self.TABLE_LOCAL_FILE, commit=False)
+            self.TABLE_LOCAL_FILE.drop_table_if_exists(self.conn, commit=False)
 
-        self.create_table_if_not_exist(self.TABLE_LOCAL_FILE, commit=False)
+        self.TABLE_LOCAL_FILE.create_table_if_not_exist(self.conn, commit=False)
 
-        self.insert_many(self.TABLE_LOCAL_FILE, to_insert, commit)
+        self.TABLE_LOCAL_FILE.insert_many(self.conn, to_insert, commit)
 
     def truncate_local_files(self):
-        self.truncate_table(self.TABLE_LOCAL_FILE)
+        self.TABLE_LOCAL_FILE.truncate_table(self.conn)
 
     def upsert_local_file(self, item, commit=True):
-        self.upsert_one(self.TABLE_LOCAL_FILE, _make_file_tuple(item), commit=commit)
+        self.TABLE_LOCAL_FILE.upsert_one(self.conn, _make_file_tuple(item), commit=commit)
 
     def delete_local_file_with_uid(self, uid: UID, commit=True):
-        sql = self.build_delete(self.TABLE_LOCAL_FILE) + f' WHERE uid = ?'
+        sql = self.TABLE_LOCAL_FILE.build_delete() + f' WHERE uid = ?'
         self.conn.execute(sql, (uid,))
         if commit:
             logger.debug('Committing!')
@@ -85,16 +90,16 @@ class LocalDiskDatabase(MetaDatabase):
     # LOCAL_DIR operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
     def has_local_dirs(self):
-        return self.has_rows(self.TABLE_LOCAL_DIR)
+        return self.TABLE_LOCAL_DIR.has_rows(self.conn)
 
     def get_local_dirs(self) -> List[LocalDirNode]:
         """ Gets all changes in the table """
         entries: List[LocalDirNode] = []
 
-        if not self.is_table(self.TABLE_LOCAL_DIR):
+        if not self.TABLE_LOCAL_DIR.is_table(self.conn):
             return entries
 
-        rows = self.get_all_rows(self.TABLE_LOCAL_DIR)
+        rows = self.TABLE_LOCAL_DIR.get_all_rows(self.conn)
         for row in rows:
             full_path = row[1]
             uid = self.cache_manager.get_uid_for_path(full_path, row[0])
@@ -111,17 +116,17 @@ class LocalDiskDatabase(MetaDatabase):
             to_insert.append(d_tuple)
 
         if overwrite:
-            self.drop_table_if_exists(self.TABLE_LOCAL_DIR)
+            self.TABLE_LOCAL_DIR.drop_table_if_exists(self.conn)
 
-        self.create_table_if_not_exist(self.TABLE_LOCAL_DIR)
+        self.TABLE_LOCAL_DIR.create_table_if_not_exist(self.conn)
 
-        self.insert_many(self.TABLE_LOCAL_DIR, to_insert, commit)
+        self.TABLE_LOCAL_DIR.insert_many(self.conn, to_insert, commit)
 
     def upsert_local_dir(self, item, commit=True):
-        self.upsert_one(self.TABLE_LOCAL_DIR, _make_dir_tuple(item), commit=commit)
+        self.TABLE_LOCAL_DIR.upsert_one(self.conn, _make_dir_tuple(item), commit=commit)
 
     def delete_local_dir_with_uid(self, uid: UID, commit=True):
-        sql = self.build_delete(self.TABLE_LOCAL_DIR) + f' WHERE uid = ?'
+        sql = self.TABLE_LOCAL_DIR.build_delete() + f' WHERE uid = ?'
         self.conn.execute(sql, (uid,))
         if commit:
             logger.debug('Committing!')

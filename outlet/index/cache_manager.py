@@ -347,9 +347,9 @@ class CacheManager:
     def add_or_update_node(self, node: DisplayNode):
         tree_type = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
-            self._gdrive_cache.add_or_update_goog_node(node)
+            self._gdrive_cache.upsert_gdrive_node(node)
         elif tree_type == TREE_TYPE_LOCAL_DISK:
-            self._local_disk_cache.add_or_update_node(node)
+            self._local_disk_cache.upsert_local_node(node)
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 

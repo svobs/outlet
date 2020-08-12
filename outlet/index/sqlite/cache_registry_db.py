@@ -1,4 +1,5 @@
 import logging
+from collections import OrderedDict
 from typing import List, Union
 
 from util import file_util
@@ -22,26 +23,28 @@ def ensure_int(val):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class CacheRegistry(MetaDatabase):
-    TABLE_CACHE_REGISTRY = Table(name='cache_registry', cols={'cache_location': 'TEXT',
-                                                              'cache_type': 'INTEGER',
-                                                              'subtree_root_path': 'TEXT',
-                                                              'subtree_root_uid': 'INTEGER',
-                                                              'sync_ts': 'INTEGER',
-                                                              'complete': 'INTEGER'})
+    TABLE_CACHE_REGISTRY = Table(name='cache_registry', cols=OrderedDict([
+        ('cache_location', 'TEXT'),
+        ('cache_type', 'INTEGER'),
+        ('subtree_root_path', 'TEXT'),
+        ('subtree_root_uid', 'INTEGER'),
+        ('sync_ts', 'INTEGER'),
+        ('complete', 'INTEGER')
+    ]))
 
     def __init__(self, main_registry_path: str, node_identifier_factory):
         super().__init__(main_registry_path)
         self.node_identifier_factory = node_identifier_factory
 
     def has_cache_info(self):
-        return self.has_rows(self.TABLE_CACHE_REGISTRY)
+        return self.TABLE_CACHE_REGISTRY.has_rows(self.conn)
 
     def create_cache_registry_if_not_exist(self):
-        self.create_table_if_not_exist(self.TABLE_CACHE_REGISTRY)
+        self.TABLE_CACHE_REGISTRY.create_table_if_not_exist(self.conn)
 
     def get_cache_info(self) -> List[CacheInfoEntry]:
         # Gets all changes in the table
-        rows = self.get_all_rows(self.TABLE_CACHE_REGISTRY)
+        rows = self.TABLE_CACHE_REGISTRY.get_all_rows(self.conn)
         entries = []
         for row in rows:
             cache_location, cache_type, subtree_root_path, subtree_root_uid, sync_ts, is_complete = row
@@ -63,9 +66,9 @@ class CacheRegistry(MetaDatabase):
         has_existing = self.has_cache_info()
         if has_existing:
             if overwrite:
-                self.drop_table_if_exists(self.TABLE_CACHE_REGISTRY, commit=False)
+                self.TABLE_CACHE_REGISTRY.drop_table_if_exists(self.conn, commit=False)
             elif not append:
                 raise RuntimeError('Cannot insert CacheInfo into a non-empty table (overwrite=False, append=False)')
 
-        self.create_table_if_not_exist(self.TABLE_CACHE_REGISTRY, commit=False)
-        self.insert_many(self.TABLE_CACHE_REGISTRY, rows)
+        self.TABLE_CACHE_REGISTRY.create_table_if_not_exist(self.conn, commit=False)
+        self.TABLE_CACHE_REGISTRY.insert_many(self.conn, rows)

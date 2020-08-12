@@ -65,6 +65,8 @@ class ChangeLedger:
         # first load refs from disk
         with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
             change_ref_list: List[ChangeActionRef] = change_db.get_all_pending_changes()
+            src_node_by_action_uid: Dict[UID, DisplayNode] = change_db.get_all_src_nodes_by_action_uid()
+            dst_node_by_action_uid: Dict[UID, DisplayNode] = change_db.get_all_dst_nodes_by_action_uid()
 
         logger.debug(f'Found {len(change_ref_list)} pending change refs in cache')
 
@@ -78,18 +80,35 @@ class ChangeLedger:
 
         # dereference src and dst:
         for change_ref in change_ref_list:
-            src_node = self.application.cache_manager.get_item_for_uid(change_ref.src_uid)
+            src_node = src_node_by_action_uid.pop(change_ref.action_uid, None)
+            if src_node and src_node.uid != change_ref.src_uid:
+                logger.error(f'Src node from pending change cache ({src_node.uid}) does not match UID referenced by change: {change_ref}; '
+                             f'will attempt to load from regular cache')
+                src_node = None
+
             if not src_node:
-                self._handle_bad_change_ref(change_ref, error_handling_behavior,
-                                            f'Src node {change_ref.src_uid} not found in cache')
-                continue
+                # This should never really happen. But do this as a fallback
+                logger.warning(f'Src node not found in change cache; will attempt lookup in regular cache: {change_ref}')
+                src_node = self.application.cache_manager.get_item_for_uid(change_ref.src_uid)
+                if not src_node:
+                    self._handle_bad_change_ref(change_ref, error_handling_behavior,
+                                                f'Src node {change_ref.src_uid} not found in cache')
+                    continue
 
             if change_ref.dst_uid:
-                dst_node = self.application.cache_manager.get_item_for_uid(change_ref.dst_uid)
+                dst_node = dst_node_by_action_uid.pop(change_ref.action_uid, None)
+                if dst_node and dst_node.uid != change_ref.dst_uid:
+                    logger.error(f'Dst node from pending change cache ({dst_node.uid}) does not match UID referenced by change: {change_ref}; '
+                                 f'will attempt to load from regular cache')
+                    dst_node = None
                 if not dst_node:
-                    self._handle_bad_change_ref(change_ref, error_handling_behavior,
-                                                f'Dst node {change_ref.dst_uid} not found in cache')
-                    continue
+                    # This should never really happen. But do this as a fallback
+                    logger.warning(f'Dst node not found in change cache; will attempt lookup in regular cache: {change_ref}')
+                    dst_node = self.application.cache_manager.get_item_for_uid(change_ref.dst_uid)
+                    if not dst_node:
+                        self._handle_bad_change_ref(change_ref, error_handling_behavior,
+                                                    f'Dst node {change_ref.dst_uid} not found in cache')
+                        continue
             else:
                 dst_node = None
 
@@ -98,10 +117,18 @@ class ChangeLedger:
             change_list.append(change)
 
         logger.debug(f'Found {len(change_list)} pending changes in the cache')
+
+        # Prob. should clean up in future:
+        if len(src_node_by_action_uid) > 0:
+            logger.warning(f'Found {len(src_node_by_action_uid)} src nodes orphaned with no ChangeAction!')
+        if len(dst_node_by_action_uid) > 0:
+            logger.warning(f'Found {len(dst_node_by_action_uid)} dst nodes orphaned with no ChangeAction!')
+
         return change_list
 
     def _save_pending_changes_to_disk(self, change_list: Iterable[ChangeAction]):
         with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
+            # This will save each of the planning nodes, if any:
             change_db.upsert_pending_changes(change_list, overwrite=False)
 
     def _archive_pending_changes_to_disk(self, change_list: Iterable[ChangeAction]):
@@ -112,17 +139,11 @@ class ChangeLedger:
         with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
             change_db.archive_failed_changes(change_list, error_msg)
 
-    def _add_missing_nodes(self, change_action: ChangeAction):
-        """Looks at the given ChangeAction and adds any given "planning node" to it."""
-        if change_action.change_type == ChangeType.MKDIR:
-            assert not change_action.src_node.exists(), f'Expected to not exist: {change_action.src_node}'
-            self.cacheman.add_or_update_node(change_action.src_node)
-        elif change_action.change_type == ChangeType.CP:
-            assert not change_action.dst_node.exists(), f'Expected to not exist: {change_action.dst_node}'
-            self.cacheman.add_or_update_node(change_action.dst_node)
-        elif change_action.change_type == ChangeType.MV:
-            assert not change_action.dst_node.exists(), f'Expected to not exist: {change_action.dst_node}'
-            self.cacheman.add_or_update_node(change_action.dst_node)
+    def _add_planning_nodes_to_memcache(self, change_action: ChangeAction):
+        """Looks at the given ChangeAction and adds any non-existent "planning nodes" to it."""
+        planning_node = change_action.get_planning_node()
+        if planning_node:
+            self.cacheman.add_or_update_node(planning_node)
         else:
             assert self.cacheman.get_item_for_uid(change_action.src_node.uid), f'Expected src node already present for: {change_action}'
             if change_action.dst_node:
@@ -302,13 +323,11 @@ class ChangeLedger:
         if not self.dep_tree.can_add_batch(tree_root):
             raise RuntimeError('Invalid batch!')
 
-        # Add dst nodes for to-be-created nodes if they are not present (this will also save to disk).
-        # Important: do this *before* saving or queuing up the pending changes. In the case of a crash, we can find and remove
-        # these orphaned nodes
-        for change_action in reduced_batch:
-            self._add_missing_nodes(change_action)
-
         self._save_pending_changes_to_disk(reduced_batch)
+
+        # Add dst nodes for to-be-created nodes if they are not present. This will not save to disk
+        for change_action in reduced_batch:
+            self._add_planning_nodes_to_memcache(change_action)
 
         self.dep_tree.add_batch(tree_root)
 

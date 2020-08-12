@@ -321,7 +321,7 @@ class LocalDiskMasterCache:
             # Only update to True. Do not overwrite with False
             update_to.set_exists(True)
 
-    def add_or_update_node(self, node: DisplayNode, fire_listeners=True):
+    def upsert_local_node(self, node: DisplayNode, fire_listeners=True):
         # 1. Validate UID:
         if not node.uid:
             raise RuntimeError(f'Cannot upsert node to cache because it has no UID: {node}')
@@ -366,19 +366,22 @@ class LocalDiskMasterCache:
                 self.sha256_dict.put(node, existing)
 
         # 3. Update on-disk cache:
-        cache_man = self.application.cache_manager
-        if cache_man.enable_save_to_disk:
-            cache_info = cache_man.find_existing_supertree_for_subtree(node.node_identifier, ID_GLOBAL_CACHE)
-            if cache_info:
-                with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
-                    if node.is_dir():
-                        cache.upsert_local_dir(node)
-                    else:
-                        cache.upsert_local_file(node)
+        if node.exists():
+            cache_man = self.application.cache_manager
+            if cache_man.enable_save_to_disk:
+                cache_info = cache_man.find_existing_supertree_for_subtree(node.node_identifier, ID_GLOBAL_CACHE)
+                if cache_info:
+                    with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
+                        if node.is_dir():
+                            cache.upsert_local_dir(node)
+                        else:
+                            cache.upsert_local_file(node)
+                else:
+                    logger.error(f'Could not find a cache associated with file path: {node.full_path}')
             else:
-                logger.error(f'Could not find a cache associated with file path: {node.full_path}')
+                logger.debug(f'Save to disk is disabled: skipping add/update of node with UID={node.uid}')
         else:
-            logger.debug(f'Save to disk is disabled: skipping add/update of node with UID={node.uid}')
+            logger.debug(f'Node does not exist; skipping save to disk: {node}')
 
         # 4. Notify UI:
         if fire_listeners:
