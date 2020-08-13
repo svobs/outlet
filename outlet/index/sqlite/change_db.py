@@ -39,6 +39,11 @@ def _copy_and_augment_table(src_table: Table, prefix: str, suffix: str) -> Table
     return table
 
 
+def _add_gdrive_parent_cols(table: Table):
+    table.cols.update({('parent_uid', 'INTEGER'),
+                       ('parent_goog_id', 'TEXT')})
+
+
 # CLASS PendingChangeDatabase
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -85,6 +90,9 @@ class PendingChangeDatabase(MetaDatabase):
     TABLE_GRDIVE_FILE_PENDING_SRC = _copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, PENDING, SRC)
     TABLE_GRDIVE_FILE_PENDING_DST = _copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, PENDING, DST)
 
+    for table in [TABLE_GRDIVE_DIR_PENDING_SRC, TABLE_GRDIVE_DIR_PENDING_DST, TABLE_GRDIVE_FILE_PENDING_SRC, TABLE_GRDIVE_FILE_PENDING_DST]:
+        _add_gdrive_parent_cols(table)
+
     # archive ...
     TABLE_LOCAL_FILE_ARCHIVE_SRC = _copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, ARCHIVE, SRC)
     TABLE_LOCAL_FILE_ARCHIVE_DST = _copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, ARCHIVE, DST)
@@ -94,6 +102,9 @@ class PendingChangeDatabase(MetaDatabase):
     TABLE_GRDIVE_DIR_ARCHIVE_DST = _copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, ARCHIVE, DST)
     TABLE_GRDIVE_FILE_ARCHIVE_SRC = _copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, ARCHIVE, SRC)
     TABLE_GRDIVE_FILE_ARCHIVE_DST = _copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, ARCHIVE, DST)
+
+    for table in [TABLE_GRDIVE_DIR_ARCHIVE_SRC, TABLE_GRDIVE_DIR_ARCHIVE_DST, TABLE_GRDIVE_FILE_ARCHIVE_SRC, TABLE_GRDIVE_FILE_ARCHIVE_DST]:
+        _add_gdrive_parent_cols(table)
 
     SRC_PENDING_TABLE_LIST = [TABLE_LOCAL_FILE_PENDING_SRC, TABLE_LOCAL_DIR_PENDING_SRC, TABLE_GRDIVE_DIR_PENDING_SRC, TABLE_GRDIVE_FILE_PENDING_SRC]
     DST_PENDING_TABLE_LIST = [TABLE_LOCAL_FILE_PENDING_DST, TABLE_LOCAL_DIR_PENDING_DST, TABLE_GRDIVE_DIR_PENDING_DST, TABLE_GRDIVE_FILE_PENDING_DST]

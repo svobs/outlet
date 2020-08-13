@@ -77,7 +77,7 @@ class FolderMetaPersister(MetaObserver):
             self.download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
             # fall through
 
-        self.cache.insert_gdrive_dirs_and_parents(dir_list=self.dir_tuples, parent_mappings=self.id_parent_mappings, current_download=self.download)
+        self.cache.insert_gdrive_folders_and_parents(dir_list=self.dir_tuples, parent_mappings=self.id_parent_mappings, current_download=self.download)
 
         if next_page_token:
             # Clear the buffers for reuse:

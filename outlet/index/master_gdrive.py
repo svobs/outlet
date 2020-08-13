@@ -183,12 +183,12 @@ class GDriveMasterCache:
                 cache_path: str = self._get_cache_path_for_master()
 
                 # Write new values:
-                with GDriveDatabase(cache_path) as cache:
+                with GDriveDatabase(cache_path, self.application) as cache:
                     logger.debug(f'Writing id-parent mappings to the GDrive master cache: {parent_mappings}')
                     cache.upsert_parent_mappings_for_id(parent_mappings, node.uid, commit=False)
                     if node.is_dir():
                         logger.debug(f'Writing folder node to the GDrive master cache: {node}')
-                        cache.upsert_gdrive_dirs([node_tuple])
+                        cache.upsert_gdrive_folders([node_tuple])
                     else:
                         logger.debug(f'Writing file node to the GDrive master cache: {node}')
                         cache.upsert_gdrive_files([node_tuple])
@@ -230,10 +230,10 @@ class GDriveMasterCache:
             # Remove from disk cache:
             if self.application.cache_manager.enable_save_to_disk:
                 cache_path: str = self._get_cache_path_for_master()
-                with GDriveDatabase(cache_path) as cache:
+                with GDriveDatabase(cache_path, self.application) as cache:
                     cache.delete_parent_mappings_for_uid(node.uid, commit=False)
                     if node.is_dir():
-                        cache.delete_gdrive_dir_with_uid(node.uid)
+                        cache.delete_gdrive_folder_with_uid(node.uid)
                     else:
                         cache.delete_gdrive_file_with_uid(node.uid)
             else:

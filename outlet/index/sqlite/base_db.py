@@ -1,6 +1,8 @@
 import sqlite3
 import logging
-from typing import Dict, Iterable, List, Optional, OrderedDict, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, OrderedDict, Tuple, Union
+
+from index.uid.uid import UID
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +141,45 @@ class Table:
         sql = f"DROP TABLE IF EXISTS {self.name}"
         logger.debug('Executing SQL: ' + sql)
         conn.execute(sql)
+        if commit:
+            logger.debug('Committing!')
+            conn.commit()
+
+    def insert_object_list(self, conn, entries: List, obj_to_tuple_func: Optional[Callable[[Any], Tuple]], overwrite: bool, commit: bool = True):
+        """ Takes a list of objects and inserts them all """
+        if obj_to_tuple_func:
+            to_insert = []
+            for e in entries:
+                e_tuple: Tuple = obj_to_tuple_func(e)
+                to_insert.append(e_tuple)
+        else:
+            to_insert = entries
+
+        if overwrite:
+            self.drop_table_if_exists(conn, commit=False)
+
+        self.create_table_if_not_exist(conn, commit=False)
+
+        self.insert_many(conn, to_insert, commit)
+
+    def upsert_object(self, conn, obj_to_tuple_func: Callable[[Any], Tuple], item: Any, commit=True):
+        self.upsert_one(conn, obj_to_tuple_func(item), commit=commit)
+
+    def select_object_list(self, conn, tuple_to_obj_func: Callable[[Tuple], Any], where_clause: str = '') -> List[Any]:
+        entries: List[Any] = []
+
+        """ Gets all changes in the table """
+        if not self.is_table(conn):
+            return entries
+
+        rows = self.select(conn, where_clause)
+        for row in rows:
+            entries.append(tuple_to_obj_func(row))
+        return entries
+
+    def delete_for_uid(self, conn, uid: UID, commit=True):
+        sql = self.build_delete() + f' WHERE uid = ?'
+        conn.execute(sql, (uid,))
         if commit:
             logger.debug('Committing!')
             conn.commit()

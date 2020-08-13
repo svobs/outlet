@@ -1,12 +1,34 @@
 import logging
 from collections import OrderedDict
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE
 from index.sqlite.base_db import MetaDatabase, Table
 from index.uid.uid import UID
+from model.node.gdrive_node import GDriveFile, GDriveFolder
+from model.node_identifier import GDriveIdentifier
 
 logger = logging.getLogger(__name__)
+
+
+def _tuple_to_gdrive_folder(row: Tuple) -> GDriveFolder:
+    uid_int, goog_id, item_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched = row
+    uid_from_cache = UID(uid_int)
+
+    return GDriveFolder(GDriveIdentifier(uid=uid_from_cache, full_path=None), goog_id=goog_id, item_name=item_name,
+                        trashed=item_trashed, drive_id=drive_id, my_share=my_share, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
+
+
+def _tuple_to_gdrive_file(row: Tuple) -> GDriveFile:
+    uid_int, goog_id, item_name, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_id, drive_id, my_share, version, head_revision_id, \
+        sync_ts = row
+
+    uid_from_cache = UID(uid_int)
+
+    return GDriveFile(GDriveIdentifier(uid=uid_from_cache, full_path=None), goog_id=goog_id, item_name=item_name,
+                      trashed=item_trashed, drive_id=drive_id, my_share=my_share, version=version,
+                      head_revision_id=head_revision_id, md5=md5,
+                      create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes, owner_id=owner_id, sync_ts=sync_ts)
 
 
 # CLASS CurrentDownload
@@ -79,42 +101,29 @@ class GDriveDatabase(MetaDatabase):
                                                ('sync_ts', 'INTEGER')
                                            ]))
 
-    def __init__(self, db_path):
+    def __init__(self, db_path, application):
         super().__init__(db_path)
+        self.cache_manager = application.cache_manager
+        self.uid_generator = application.uid_generator
 
     # GDRIVE_DIR operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def has_gdrive_dirs(self):
-        return self.TABLE_GRDIVE_DIR.has_rows(self.conn)
+    def insert_gdrive_folders(self, dir_list: List[Tuple], overwrite=False, commit=True):
+        self.TABLE_GRDIVE_DIR.insert_object_list(self.conn, dir_list, None, overwrite, commit)
 
-    def insert_gdrive_dirs(self, dir_list: List[Tuple], overwrite=False, commit=True):
-        if self.has_gdrive_dirs():
-            if overwrite:
-                self.TABLE_GRDIVE_DIR.drop_table_if_exists(self.conn)
-
-        self.TABLE_GRDIVE_DIR.create_table_if_not_exist(self.conn, commit=False)
-        self.TABLE_GRDIVE_DIR.insert_many(self.conn, dir_list, commit=commit)
-
-    def upsert_gdrive_dirs(self, dir_list: List[Tuple], commit=True):
+    def upsert_gdrive_folders(self, dir_list: List[Tuple], commit=True):
         self.TABLE_GRDIVE_DIR.create_table_if_not_exist(self.conn, commit=False)
         self.TABLE_GRDIVE_DIR.upsert_many(self.conn, dir_list, commit=commit)
 
-    def get_gdrive_dirs(self):
-        if not self.has_gdrive_dirs():
-            logger.debug('No GDrive dirs in DB. Returning empty list')
-            return []
-        return self.TABLE_GRDIVE_DIR.get_all_rows(self.conn)
+    def get_gdrive_folder_object_list(self) -> List[GDriveFolder]:
+        return self.TABLE_GRDIVE_DIR.select_object_list(self.conn, tuple_to_obj_func=_tuple_to_gdrive_folder)
 
-    def update_dir_fetched_status(self, commit=True):
+    def update_folder_fetched_status(self, commit=True):
         self.TABLE_GRDIVE_DIR.update(self.conn, stmt_vars=(True,), col_names=['all_children_fetched'], commit=commit)
 
-    def delete_gdrive_dir_with_uid(self, uid: UID, commit=True):
-        sql = self.TABLE_GRDIVE_DIR.build_delete() + f' WHERE uid = ?'
-        self.conn.execute(sql, (uid,))
-        if commit:
-            logger.debug('Committing!')
-            self.conn.commit()
+    def delete_gdrive_folder_with_uid(self, uid: UID, commit=True):
+        self.TABLE_GRDIVE_DIR.delete_for_uid(self.conn, uid, commit)
 
     # TABLE goog_file operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -123,29 +132,17 @@ class GDriveDatabase(MetaDatabase):
         return self.TABLE_GRDIVE_FILE.has_rows(self.conn)
 
     def insert_gdrive_files(self, file_list: List[Tuple], overwrite=False, commit=True):
-        if self.has_gdrive_files():
-            if overwrite:
-                self.TABLE_GRDIVE_FILE.drop_table_if_exists(self.conn, commit=False)
-
-        self.TABLE_GRDIVE_FILE.create_table_if_not_exist(self.conn, commit=False)
-        self.TABLE_GRDIVE_FILE.insert_many(self.conn, file_list, commit=commit)
+        self.TABLE_GRDIVE_FILE.insert_object_list(self.conn, file_list, None, overwrite, commit)
 
     def upsert_gdrive_files(self, file_list: List[Tuple], commit=True):
         self.TABLE_GRDIVE_FILE.create_table_if_not_exist(self.conn, commit=False)
         self.TABLE_GRDIVE_FILE.upsert_many(self.conn, file_list, commit=commit)
 
-    def get_gdrive_files(self):
-        if not self.has_gdrive_files():
-            logger.debug('No GDrive files in DB. Returning empty list')
-            return []
-        return self.TABLE_GRDIVE_FILE.get_all_rows(self.conn)
+    def get_gdrive_file_object_list(self):
+        return self.TABLE_GRDIVE_FILE.select_object_list(self.conn, tuple_to_obj_func=_tuple_to_gdrive_file)
 
     def delete_gdrive_file_with_uid(self, uid: UID, commit=True):
-        sql = self.TABLE_GRDIVE_FILE.build_delete() + f' WHERE uid = ?'
-        self.conn.execute(sql, (uid,))
-        if commit:
-            logger.debug('Committing!')
-            self.conn.commit()
+        self.TABLE_GRDIVE_FILE.delete_for_uid(self.conn, uid, commit)
 
     # TABLE goog_id_parent_mapping operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -175,8 +172,8 @@ class GDriveDatabase(MetaDatabase):
         self.insert_id_parent_mappings(parent_mappings, commit=False)
         self.create_or_update_download(current_download)
 
-    def insert_gdrive_dirs_and_parents(self, dir_list: List[Tuple], parent_mappings: List[Tuple], current_download: CurrentDownload):
-        self.insert_gdrive_dirs(dir_list=dir_list, commit=False)
+    def insert_gdrive_folders_and_parents(self, dir_list: List[Tuple], parent_mappings: List[Tuple], current_download: CurrentDownload):
+        self.insert_gdrive_folders(dir_list=dir_list, commit=False)
         self.insert_id_parent_mappings(parent_mappings, commit=False)
         self.create_or_update_download(current_download)
 
