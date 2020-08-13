@@ -184,6 +184,16 @@ class Table:
             logger.debug('Committing!')
             conn.commit()
 
+    def delete_for_uid_list(self, conn, uid_tuple_list: List[Tuple[UID]], commit=True):
+        """NOTE: uid_tuple_list must be a list of TUPLES, each containing one UID (this is needed for SQLite)"""
+        sql = self.build_delete() + f' WHERE uid = ?'
+        count_deleted = conn.executemany(sql, uid_tuple_list).rowcount
+        if count_deleted != len(uid_tuple_list):
+            logger.error(f'Expected to remove {len(uid_tuple_list)} from DB but instead removed {count_deleted}!)')
+
+        if commit:
+            logger.debug('Committing!')
+            conn.commit()
 
 # CLASS MetaDatabase
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

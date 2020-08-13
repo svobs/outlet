@@ -50,11 +50,12 @@ class LocalDiskDatabase(MetaDatabase):
     # LOCAL_FILE operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
     def _tuple_to_file(self, row: Tuple) -> LocalFileNode:
-        full_path = row[7]
-        uid = self.cache_manager.get_uid_for_path(full_path, row[0])
-        assert uid == row[0], f'UID conflict! Got {uid} but read {row[0]} in row: {row}'
+        uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, exists = row
+
+        uid = self.cache_manager.get_uid_for_path(full_path, uid_int)
+        assert uid == row[0], f'UID conflict! Got {uid} but read {uid_int} in row: {row}'
         node_identifier = LocalFsIdentifier(uid=uid, full_path=full_path)
-        return LocalFileNode(node_identifier, row[1], row[2], row[3], row[4], row[5], row[6], row[8])
+        return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, exists)
 
     def has_local_files(self):
         return self.TABLE_LOCAL_FILE.has_rows(self.conn)

@@ -43,86 +43,27 @@ class ChangeLedger:
 
         dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
 
-    def _handle_bad_change_ref(self, change_ref: ChangeActionRef, error_handling_behavior: ErrorHandlingBehavior, error_msg):
-        if error_handling_behavior == ErrorHandlingBehavior.RAISE_ERROR:
-            raise RuntimeError(f'Error loading ChangeAction ({change_ref}): {error_msg}')
-        elif error_handling_behavior == ErrorHandlingBehavior.IGNORE:
-            logger.error(f'Ignoring ChangeAction ({change_ref}): {error_msg}')
-        elif error_handling_behavior == ErrorHandlingBehavior.DISCARD:
-            logger.error(f'Archiving ChangeAction ({change_ref}) as failed: {error_msg}')
-            self._archive_failed_changes_to_disk([change_ref], error_msg)
-        else:
-            raise RuntimeError(f'Unrecognized ErrorHandlingBehavior: {error_handling_behavior}')
-
     def _cancel_pending_changes_from_disk(self):
         with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
-            change_ref_list: List[ChangeActionRef] = change_db.get_all_pending_changes()
-            if change_ref_list:
-                change_db.archive_failed_changes(change_ref_list, 'Cancelled on startup per user config')
-                logger.info(f'Cancelled {len(change_ref_list)} pending changes found in cache')
+            change_list: List[ChangeAction] = change_db.get_all_pending_changes()
+            if change_list:
+                change_db.archive_failed_changes(change_list, 'Cancelled on startup per user config')
+                logger.info(f'Cancelled {len(change_list)} pending changes found in cache')
 
     def _load_pending_changes_from_disk(self, error_handling_behavior: ErrorHandlingBehavior) -> List[ChangeAction]:
         # first load refs from disk
         with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
-            change_ref_list: List[ChangeActionRef] = change_db.get_all_pending_changes()
-            src_node_by_action_uid: Dict[UID, DisplayNode] = change_db.get_all_src_nodes_by_action_uid()
-            dst_node_by_action_uid: Dict[UID, DisplayNode] = change_db.get_all_dst_nodes_by_action_uid()
+            change_list: List[ChangeAction] = change_db.get_all_pending_changes()
 
-        logger.debug(f'Found {len(change_ref_list)} pending change refs in cache')
-
-        change_list: List[ChangeAction] = []
-
-        if not change_ref_list:
+        if not change_list:
             return change_list
+
+        logger.debug(f'Found {len(change_list)} pending changes in cache')
 
         # We don't know which cache these node refs came from. So for now, just tell the CacheManager to load all the caches.
         self.cacheman.load_all_caches()
 
-        # dereference src and dst:
-        for change_ref in change_ref_list:
-            src_node = src_node_by_action_uid.pop(change_ref.action_uid, None)
-            if src_node and src_node.uid != change_ref.src_uid:
-                logger.error(f'Src node from pending change cache ({src_node.uid}) does not match UID referenced by change: {change_ref}; '
-                             f'will attempt to load from regular cache')
-                src_node = None
-
-            if not src_node:
-                # This should never really happen. But do this as a fallback
-                logger.warning(f'Src node not found in change cache; will attempt lookup in regular cache: {change_ref}')
-                src_node = self.application.cache_manager.get_item_for_uid(change_ref.src_uid)
-                if not src_node:
-                    self._handle_bad_change_ref(change_ref, error_handling_behavior,
-                                                f'Src node {change_ref.src_uid} not found in cache')
-                    continue
-
-            if change_ref.dst_uid:
-                dst_node = dst_node_by_action_uid.pop(change_ref.action_uid, None)
-                if dst_node and dst_node.uid != change_ref.dst_uid:
-                    logger.error(f'Dst node from pending change cache ({dst_node.uid}) does not match UID referenced by change: {change_ref}; '
-                                 f'will attempt to load from regular cache')
-                    dst_node = None
-                if not dst_node:
-                    # This should never really happen. But do this as a fallback
-                    logger.warning(f'Dst node not found in change cache; will attempt lookup in regular cache: {change_ref}')
-                    dst_node = self.application.cache_manager.get_item_for_uid(change_ref.dst_uid)
-                    if not dst_node:
-                        self._handle_bad_change_ref(change_ref, error_handling_behavior,
-                                                    f'Dst node {change_ref.dst_uid} not found in cache')
-                        continue
-            else:
-                dst_node = None
-
-            change = ChangeAction(action_uid=change_ref.action_uid, batch_uid=change_ref.batch_uid, change_type=change_ref.change_type,
-                                  src_node=src_node, dst_node=dst_node)
-            change_list.append(change)
-
-        logger.debug(f'Found {len(change_list)} pending changes in the cache')
-
-        # Prob. should clean up in future:
-        if len(src_node_by_action_uid) > 0:
-            logger.warning(f'Found {len(src_node_by_action_uid)} src nodes orphaned with no ChangeAction!')
-        if len(dst_node_by_action_uid) > 0:
-            logger.warning(f'Found {len(dst_node_by_action_uid)} dst nodes orphaned with no ChangeAction!')
+        # TODO: check for invalid nodes?
 
         return change_list
 
@@ -133,11 +74,7 @@ class ChangeLedger:
 
     def _archive_pending_changes_to_disk(self, change_list: Iterable[ChangeAction]):
         with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
-            change_db.archive_changes(change_list)
-
-    def _archive_failed_changes_to_disk(self, change_list: Iterable[ChangeActionRef], error_msg: str):
-        with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
-            change_db.archive_failed_changes(change_list, error_msg)
+            change_db.archive_completed_changes(change_list)
 
     def _add_planning_nodes_to_memcache(self, change_action: ChangeAction):
         """Looks at the given ChangeAction and adds any non-existent "planning nodes" to it."""
