@@ -1,7 +1,7 @@
 import logging
-from typing import Optional
+from typing import Optional, Tuple
 
-from constants import ICON_GENERIC_FILE, NOT_TRASHED
+from constants import ICON_GENERIC_FILE, NOT_TRASHED, OBJ_TYPE_FILE
 from model.node.container_node import ContainerNode
 from model.node_identifier import ensure_int, LocalFsIdentifier, NodeIdentifier
 from model.node.display_node import DisplayNode
@@ -32,6 +32,10 @@ class LocalFileNode(DisplayNode):
         self._modify_ts: int = ensure_int(modify_ts)
         self._change_ts: int = ensure_int(change_ts)
         self._exists = _ensure_bool(exists)
+
+    @classmethod
+    def get_obj_type(cls):
+        return OBJ_TYPE_FILE
 
     @classmethod
     def is_file(cls):
@@ -106,6 +110,9 @@ class LocalFileNode(DisplayNode):
 
     def set_exists(self, does_exist: bool):
         self._exists = does_exist
+        
+    def to_tuple(self) -> Tuple:
+        return self.uid, self.md5, self.sha256, self.get_size_bytes(), self.sync_ts, self.modify_ts, self.change_ts, self.full_path, self.exists()
 
     def __repr__(self):
         return f'LocalFileNode({self.node_identifier} md5={self._md5} sha256={self.sha256} size_bytes={self._size_bytes} ' \
@@ -130,6 +137,9 @@ class LocalDirNode(ContainerNode):
 
     def set_exists(self, does_exist: bool):
         self._exists = does_exist
+
+    def to_tuple(self) -> Tuple:
+        return self.uid, self.full_path, self.exists()
 
     def __repr__(self):
         return f'LocalDirNode({self.node_identifier} exists={self.exists()} {self.get_summary()})'

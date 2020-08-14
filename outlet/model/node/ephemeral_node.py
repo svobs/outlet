@@ -47,6 +47,10 @@ class EphemeralNode(DisplayNode, ABC):
     def is_dir(cls):
         return False
 
+    @classmethod
+    def get_obj_type(cls):
+        raise RuntimeError('Invalid operation for EphemeralNode!')
+
     def get_etc(self):
         return None
 

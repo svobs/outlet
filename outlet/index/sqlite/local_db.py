@@ -2,7 +2,7 @@ import logging
 from collections import OrderedDict
 from typing import List, Tuple
 
-from index.sqlite.base_db import MetaDatabase, Table
+from index.sqlite.base_db import LiveTable, MetaDatabase, Table
 from index.uid.uid import UID
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node_identifier import LocalFsIdentifier
@@ -12,12 +12,12 @@ logger = logging.getLogger(__name__)
 
 def _file_to_tuple(f: LocalFileNode):
     assert isinstance(f, LocalFileNode), f'Expected LocalFileNode; got instead: {f}'
-    return f.uid, f.md5, f.sha256, f.get_size_bytes(), f.sync_ts, f.modify_ts, f.change_ts, f.full_path, f.exists()
+    return f.to_tuple()
 
 
 def _dir_to_tuple(d):
     assert isinstance(d, LocalDirNode), f'Expected LocalDirNode; got instead: {d}'
-    return d.uid, d.full_path, d.exists()
+    return d.to_tuple()
 
 
 # CLASS LocalDiskDatabase
@@ -46,6 +46,8 @@ class LocalDiskDatabase(MetaDatabase):
     def __init__(self, db_path, application):
         super().__init__(db_path)
         self.cache_manager = application.cache_manager
+        self.table_local_file = LiveTable(LocalDiskDatabase.TABLE_LOCAL_FILE, self.conn, _file_to_tuple, self._tuple_to_file)
+        self.table_local_dir = LiveTable(LocalDiskDatabase.TABLE_LOCAL_DIR, self.conn, _dir_to_tuple, self._tuple_to_dir)
 
     # LOCAL_FILE operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
@@ -58,22 +60,22 @@ class LocalDiskDatabase(MetaDatabase):
         return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, exists)
 
     def has_local_files(self):
-        return self.TABLE_LOCAL_FILE.has_rows(self.conn)
+        return self.table_local_file.has_rows()
 
     def get_local_files(self) -> List[LocalFileNode]:
-        return self.TABLE_LOCAL_FILE.select_object_list(self.conn, tuple_to_obj_func=self._tuple_to_file)
+        return self.table_local_file.select_object_list()
 
     def insert_local_files(self, entries: List[LocalFileNode], overwrite, commit=True):
-        self.TABLE_LOCAL_FILE.insert_object_list(self.conn, entries, obj_to_tuple_func=_file_to_tuple, overwrite=overwrite, commit=commit)
+        self.table_local_file.insert_object_list(entries, overwrite=overwrite, commit=commit)
 
     def truncate_local_files(self):
-        self.TABLE_LOCAL_FILE.truncate_table(self.conn)
+        self.table_local_file.truncate_table(self.conn)
 
     def upsert_local_file(self, item, commit=True):
-        self.TABLE_LOCAL_FILE.upsert_object(self.conn, _file_to_tuple, item, commit=commit)
+        self.table_local_file.upsert_object(item, commit=commit)
 
     def delete_local_file_with_uid(self, uid: UID, commit=True):
-        self.TABLE_LOCAL_FILE.delete_for_uid(self.conn, uid, commit)
+        self.table_local_file.delete_for_uid(uid, commit)
 
     # LOCAL_DIR operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
@@ -84,19 +86,19 @@ class LocalDiskDatabase(MetaDatabase):
         return LocalDirNode(LocalFsIdentifier(uid=uid, full_path=full_path), bool(row[2]))
 
     def has_local_dirs(self):
-        return self.TABLE_LOCAL_DIR.has_rows(self.conn)
+        return self.table_local_dir.has_rows()
 
     def get_local_dirs(self) -> List[LocalDirNode]:
-        return self.TABLE_LOCAL_DIR.select_object_list(self.conn, tuple_to_obj_func=self._tuple_to_dir)
+        return self.table_local_dir.select_object_list()
 
     def insert_local_dirs(self, entries: List[LocalDirNode], overwrite, commit=True):
-        self.TABLE_LOCAL_DIR.insert_object_list(self.conn, entries, obj_to_tuple_func=_dir_to_tuple, overwrite=overwrite, commit=commit)
+        self.table_local_dir.insert_object_list(entries, overwrite=overwrite, commit=commit)
 
     def upsert_local_dir(self, item, commit=True):
-        self.TABLE_LOCAL_DIR.upsert_object(self.conn, _dir_to_tuple, item, commit=commit)
+        self.table_local_dir.upsert_object(item, commit=commit)
 
     def delete_local_dir_with_uid(self, uid: UID, commit=True):
-        sql = self.TABLE_LOCAL_DIR.build_delete() + f' WHERE uid = ?'
+        sql = self.table_local_dir.build_delete() + f' WHERE uid = ?'
         self.conn.execute(sql, (uid,))
         if commit:
             logger.debug('Committing!')

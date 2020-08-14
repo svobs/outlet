@@ -1,7 +1,7 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from treelib import Node
 
@@ -30,6 +30,11 @@ class DisplayNode(Node, ABC):
         self.tag = f'{self.node_identifier}: "{self.identifier}"'
 
     @classmethod
+    @abstractmethod
+    def get_obj_type(cls):
+        return None
+
+    @classmethod
     def is_file(cls):
         return False
 
@@ -46,6 +51,9 @@ class DisplayNode(Node, ABC):
     def exists(cls) -> bool:
         """Whether the object represented by this node actually exists currently, or it is just planned to exist or is an ephemeral node."""
         return False
+
+    def to_tuple(self) -> Tuple:
+        return ()
 
     @property
     def name(self):

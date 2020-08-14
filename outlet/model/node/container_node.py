@@ -1,7 +1,7 @@
 import os
 
 from model.change_action import ChangeType
-from constants import ICON_ADD_DIR, ICON_GDRIVE, ICON_GENERIC_DIR, ICON_LOCAL_DISK, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import ICON_ADD_DIR, ICON_GDRIVE, ICON_GENERIC_DIR, ICON_LOCAL_DISK, OBJ_TYPE_DIR, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.display_node import DisplayNode, HasChildren
 from model.node_identifier import NodeIdentifier
 
@@ -17,6 +17,10 @@ class ContainerNode(HasChildren, DisplayNode):
     def __init__(self, node_identifier: NodeIdentifier):
         DisplayNode.__init__(self, node_identifier)
         HasChildren.__init__(self)
+
+    @classmethod
+    def get_obj_type(cls):
+        return OBJ_TYPE_DIR
 
     @classmethod
     def is_file(cls):

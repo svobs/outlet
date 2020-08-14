@@ -2,14 +2,15 @@ import copy
 import itertools
 import logging
 import time
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 from functools import partial
-from typing import Callable, Dict, Iterable, List, Tuple, Union
+from typing import Any, Callable, DefaultDict, Dict, Iterable, List, Tuple, Union
 
+from constants import OBJ_TYPE_DIR, OBJ_TYPE_FILE, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from index.sqlite.gdrive_db import GDriveDatabase
 from index.sqlite.local_db import LocalDiskDatabase
 from model.change_action import ChangeAction, ChangeActionRef, ChangeType
-from index.sqlite.base_db import MetaDatabase, Table
+from index.sqlite.base_db import LiveTable, MetaDatabase, Table
 from index.uid.uid import UID
 from model.node.display_node import DisplayNode
 from model.node.gdrive_node import GDriveFile, GDriveFolder
@@ -23,20 +24,135 @@ ARCHIVE = 'archive'
 SRC = 'src'
 DST = 'dst'
 
+ACTION_UID_COL_NAME = 'action_uid'
+
+
+def _pending_change_to_tuple(e: ChangeAction):
+    assert isinstance(e, ChangeAction), f'Expected ChangeAction; got instead: {e}'
+    src_uid = None
+    dst_uid = None
+    if e.src_node:
+        src_uid = e.src_node.uid
+
+    if e.dst_node:
+        dst_uid = e.dst_node.uid
+
+    return e.action_uid, e.batch_uid, e.change_type, src_uid, dst_uid, e.create_ts
+
+
+def _completed_change_to_tuple(e: ChangeAction, current_time):
+    assert isinstance(e, ChangeAction), f'Expected ChangeAction; got instead: {e}'
+    src_uid = None
+    dst_uid = None
+    if e.src_node:
+        src_uid = e.src_node.uid
+
+    if e.dst_node:
+        dst_uid = e.dst_node.uid
+
+    return e.action_uid, e.batch_uid, e.change_type, src_uid, dst_uid, e.create_ts, current_time
+
+
+def _failed_change_to_tuple(e: ChangeAction, current_time, error_msg):
+    partial_tuple = _completed_change_to_tuple(e, current_time)
+    return *partial_tuple, error_msg
+
+
+def _tuple_to_change_ref(row: Tuple) -> ChangeActionRef:
+    assert isinstance(row, Tuple), f'Expected Tuple; got instead: {row}'
+    return ChangeActionRef(UID(row[0]), UID(row[1]), ChangeType(row[2]), UID(row[3]), _ensure_uid(row[4]), int(row[5]))
+
+
+# CLASS TableMultiMap
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class TableMultiMap:
+    def __init__(self):
+        self.all_dict: Dict[str, Dict[str, Dict[int, Dict[str, Any]]]] = {}
+
+    def put(self, lifecycle_state: str, src_or_dst: str, tree_type: int, obj_type: str, obj):
+        dict2 = self.all_dict.get(lifecycle_state, None)
+        if not dict2:
+            dict2 = {}
+            self.all_dict[lifecycle_state] = dict2
+
+        dict3 = dict2.get(src_or_dst, None)
+        if not dict3:
+            dict3 = {}
+            dict2[src_or_dst] = dict3
+
+        dict4 = dict3.get(tree_type, None)
+        if not dict4:
+            dict4 = {}
+            dict3[tree_type] = dict4
+
+        dict4[obj_type] = obj
+
+    def append(self, lifecycle_state: str, src_or_dst: str, tree_type: int, obj_type: str, obj):
+        dict2 = self.all_dict.get(lifecycle_state, None)
+        if not dict2:
+            dict2 = {}
+            self.all_dict[lifecycle_state] = dict2
+
+        dict3 = dict2.get(src_or_dst, None)
+        if not dict3:
+            dict3 = {}
+            dict2[src_or_dst] = dict3
+
+        dict4 = dict3.get(tree_type, None)
+        if not dict4:
+            dict4 = {}
+            dict3[tree_type] = dict4
+
+        the_list = dict4.get(obj_type)
+        if not the_list:
+            the_list = []
+            dict4[obj_type] = the_list
+        the_list.append(obj)
+
+    def get(self, lifecycle_state: str, src_or_dst: str, tree_type: int, obj_type: str) -> Any:
+        dict2 = self.all_dict.get(lifecycle_state, None)
+        dict3 = dict2.get(src_or_dst, None)
+        dict4 = dict3.get(tree_type, None)
+        return dict4.get(obj_type, None)
+
+    def entries(self) -> List[Tuple[str, str, int, str, List]]:
+        tuple_list: List[Tuple[str, str, int, str, List]] = []
+
+        for lifecycle_state, dict2 in self.all_dict.items():
+            for src_or_dst, dict3 in dict2.items():
+                for tree_type, dict4 in dict3.items():
+                    for obj_type, final_list in dict4.items():
+                        tuple_list.append((lifecycle_state, src_or_dst, tree_type, obj_type, final_list))
+
+        logger.debug(f'Returning {len(tuple_list)} entry sets for multimap')
+        return tuple_list
+
 
 # CLASS TableListCollection
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class TableListCollection:
     def __init__(self):
-        self.local_file = []
-        self.local_dir = []
-        self.gdrive_file = []
-        self.gdrive_dir = []
-        self.src_pending = []
-        self.dst_pending = []
-        self.src_archive = []
-        self.dst_archive = []
-        self.orm_map: Dict[str, Callable] = {}
+        self.all_dict: TableMultiMap = TableMultiMap()
+        """ {PENDING or ARCHIVE} -> {SRC or DST} -> {tree type} -> {obj type} -> """
+
+        self.all: List[LiveTable] = []
+        self.local_file: List[LiveTable] = []
+        self.local_dir: List[LiveTable] = []
+        self.gdrive_file: List[LiveTable] = []
+        self.gdrive_dir: List[LiveTable] = []
+        self.src_pending: List[LiveTable] = []
+        self.dst_pending: List[LiveTable] = []
+        self.src_archive: List[LiveTable] = []
+        self.dst_archive: List[LiveTable] = []
+        self.tuple_to_obj_func_map: Dict[str, Callable[[Dict[UID, DisplayNode], Tuple], Any]] = {}
+        # self.obj_to_tuple_func_map: Dict[str, Callable[[Any, UID], Tuple]] = {}
+
+    def put_table(self, lifecycle_state: str, src_or_dst: str, tree_type: int, obj_type: str, table):
+        self.all_dict.put(lifecycle_state, src_or_dst, tree_type, obj_type, table)
+
+    def get_table(self, lifecycle_state: str, src_or_dst: str, tree_type: int, obj_type: str) -> LiveTable:
+        return self.all_dict.get(lifecycle_state, src_or_dst, tree_type, obj_type)
 
 
 def _ensure_uid(val):
@@ -49,6 +165,10 @@ def _ensure_uid(val):
 def _add_gdrive_parent_cols(table: Table):
     table.cols.update({('parent_uid', 'INTEGER'),
                        ('parent_goog_id', 'TEXT')})
+
+
+def _action_node_to_tuple(obj: DisplayNode, action_uid: UID) -> Tuple:
+    return action_uid, *obj.to_tuple()
 
 
 # CLASS PendingChangeDatabase
@@ -92,26 +212,30 @@ class PendingChangeDatabase(MetaDatabase):
         self.cache_manager = application.cache_manager
 
         self.table_lists: TableListCollection = TableListCollection()
+        # We do not use ChangeActionRef to Tuple, because we convert ChangeAction to Tuple instead
+        self.table_pending_change = LiveTable(PendingChangeDatabase.TABLE_PENDING_CHANGE, self.conn, None, _tuple_to_change_ref)
+        self.table_completed_change = LiveTable(PendingChangeDatabase.TABLE_COMPLETED_CHANGE, self.conn, None, _tuple_to_change_ref)
+        self.table_failed_change = LiveTable(PendingChangeDatabase.TABLE_FAILED_CHANGE, self.conn, None, _tuple_to_change_ref)
 
         # pending ...
-        TABLE_LOCAL_FILE_PENDING_SRC = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, PENDING, SRC, self.table_lists)
-        TABLE_LOCAL_FILE_PENDING_DST = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, PENDING, DST, self.table_lists)
-        TABLE_LOCAL_DIR_PENDING_SRC = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, PENDING, SRC, self.table_lists)
-        TABLE_LOCAL_DIR_PENDING_DST = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, PENDING, DST, self.table_lists)
-        TABLE_GRDIVE_DIR_PENDING_SRC = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, PENDING, SRC, self.table_lists)
-        TABLE_GRDIVE_DIR_PENDING_DST = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, PENDING, DST, self.table_lists)
-        TABLE_GRDIVE_FILE_PENDING_SRC = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, PENDING, SRC, self.table_lists)
-        TABLE_GRDIVE_FILE_PENDING_DST = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, PENDING, DST, self.table_lists)
+        TABLE_LOCAL_FILE_PENDING_SRC = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, PENDING, SRC)
+        TABLE_LOCAL_FILE_PENDING_DST = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, PENDING, DST)
+        TABLE_LOCAL_DIR_PENDING_SRC = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, PENDING, SRC)
+        TABLE_LOCAL_DIR_PENDING_DST = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, PENDING, DST)
+        TABLE_GRDIVE_DIR_PENDING_SRC = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, PENDING, SRC)
+        TABLE_GRDIVE_DIR_PENDING_DST = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, PENDING, DST)
+        TABLE_GRDIVE_FILE_PENDING_SRC = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, PENDING, SRC)
+        TABLE_GRDIVE_FILE_PENDING_DST = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, PENDING, DST)
 
         # archive ...
-        TABLE_LOCAL_FILE_ARCHIVE_SRC = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, ARCHIVE, SRC, self.table_lists)
-        TABLE_LOCAL_FILE_ARCHIVE_DST = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, ARCHIVE, DST, self.table_lists)
-        TABLE_LOCAL_DIR_ARCHIVE_SRC = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, ARCHIVE, SRC, self.table_lists)
-        TABLE_LOCAL_DIR_ARCHIVE_DST = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, ARCHIVE, DST, self.table_lists)
-        TABLE_GRDIVE_DIR_ARCHIVE_SRC = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, ARCHIVE, SRC, self.table_lists)
-        TABLE_GRDIVE_DIR_ARCHIVE_DST = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, ARCHIVE, DST, self.table_lists)
-        TABLE_GRDIVE_FILE_ARCHIVE_SRC = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, ARCHIVE, SRC, self.table_lists)
-        TABLE_GRDIVE_FILE_ARCHIVE_DST = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, ARCHIVE, DST, self.table_lists)
+        TABLE_LOCAL_FILE_ARCHIVE_SRC = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, ARCHIVE, SRC)
+        TABLE_LOCAL_FILE_ARCHIVE_DST = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, ARCHIVE, DST)
+        TABLE_LOCAL_DIR_ARCHIVE_SRC = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, ARCHIVE, SRC)
+        TABLE_LOCAL_DIR_ARCHIVE_DST = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, ARCHIVE, DST)
+        TABLE_GRDIVE_DIR_ARCHIVE_SRC = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, ARCHIVE, SRC)
+        TABLE_GRDIVE_DIR_ARCHIVE_DST = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, ARCHIVE, DST)
+        TABLE_GRDIVE_FILE_ARCHIVE_SRC = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, ARCHIVE, SRC)
+        TABLE_GRDIVE_FILE_ARCHIVE_DST = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, ARCHIVE, DST)
 
         for table in itertools.chain(self.table_lists.gdrive_dir, self.table_lists.gdrive_file):
             _add_gdrive_parent_cols(table)
@@ -181,65 +305,68 @@ class PendingChangeDatabase(MetaDatabase):
         nodes_by_action_uid[action_uid] = obj
         return obj
 
-    def _gdrive_folder_to_tuple(self):
-        pass
-
-    def _gdrive_file_to_tuple(self):
-        pass
-
-    def _local_file_to_tuple(self):
-        pass
-
-    def _local_dir_to_tuple(self):
-        pass
-
-
-    def _copy_and_augment_table(self, src_table: Table, prefix: str, suffix: str, table_list_collection: TableListCollection) -> Table:
+    def _copy_and_augment_table(self, src_table: Table, prefix: str, suffix: str) -> LiveTable:
         table: Table = copy.deepcopy(src_table)
         table.name = f'{prefix}_{table.name}_{suffix}'
         # uid is no longer primary key
         table.cols.update({'uid': 'INTEGER'})
         # primary key is also foreign key (not enforced) to ChangeAction (ergo, only one row per ChangeAction):
-        table.cols.update({'action_uid': 'INTEGER PRIMARY KEY'})
+        table.cols.update({ACTION_UID_COL_NAME: 'INTEGER PRIMARY KEY'})
         # move to front:
-        table.cols.move_to_end('action_uid', last=False)
+        table.cols.move_to_end(ACTION_UID_COL_NAME, last=False)
 
-        if src_table.name == LocalDiskDatabase.TABLE_LOCAL_FILE:
-            table_list_collection.local_file.append(table)
-            table_list_collection.orm_map[table.name] = self._tuple_to_local_file
-        elif src_table.name == LocalDiskDatabase.TABLE_LOCAL_DIR:
-            table_list_collection.local_dir.append(table)
-            table_list_collection.orm_map[table.name] = self._tuple_to_local_dir
-        elif src_table.name == GDriveDatabase.TABLE_GRDIVE_FILE:
-            table_list_collection.gdrive_file.append(table)
-            table_list_collection.orm_map[table.name] = self._tuple_to_gdrive_file
-        elif src_table.name == GDriveDatabase.TABLE_GRDIVE_DIR:
-            table_list_collection.gdrive_dir.append(table)
-            table_list_collection.orm_map[table.name] = self._tuple_to_gdrive_folder
+        if src_table.name == LocalDiskDatabase.TABLE_LOCAL_FILE.name:
+            live_table = LiveTable(table, self.conn, None, None)
+            self.table_lists.put_table(prefix, suffix, TREE_TYPE_LOCAL_DISK, OBJ_TYPE_FILE, live_table)
+            self.table_lists.local_file.append(live_table)
+            self.table_lists.tuple_to_obj_func_map[live_table.name] = self._tuple_to_local_file
+        elif src_table.name == LocalDiskDatabase.TABLE_LOCAL_DIR.name:
+            live_table = LiveTable(table, self.conn, None, None)
+            self.table_lists.put_table(prefix, suffix, TREE_TYPE_LOCAL_DISK, OBJ_TYPE_DIR, live_table)
+            self.table_lists.local_dir.append(live_table)
+            self.table_lists.tuple_to_obj_func_map[live_table.name] = self._tuple_to_local_dir
+        elif src_table.name == GDriveDatabase.TABLE_GRDIVE_FILE.name:
+            live_table = LiveTable(table, self.conn, None, None)
+            self.table_lists.put_table(prefix, suffix, TREE_TYPE_GDRIVE, OBJ_TYPE_FILE, live_table)
+            self.table_lists.gdrive_file.append(live_table)
+            self.table_lists.tuple_to_obj_func_map[live_table.name] = self._tuple_to_gdrive_file
+        elif src_table.name == GDriveDatabase.TABLE_GRDIVE_DIR.name:
+            live_table = LiveTable(table, self.conn, None, None)
+            self.table_lists.put_table(prefix, suffix, TREE_TYPE_GDRIVE, OBJ_TYPE_DIR, live_table)
+            self.table_lists.gdrive_dir.append(live_table)
+            self.table_lists.tuple_to_obj_func_map[live_table.name] = self._tuple_to_gdrive_folder
+        else:
+            raise RuntimeError(f'Unrecognized table name: {src_table.name}')
+
+        self.table_lists.all.append(live_table)
 
         if prefix == PENDING:
             if suffix == SRC:
-                table_list_collection.src_pending.append(table)
+                self.table_lists.src_pending.append(live_table)
             elif suffix == DST:
-                table_list_collection.dst_pending.append(table)
+                self.table_lists.dst_pending.append(live_table)
         elif prefix == ARCHIVE:
             if suffix == SRC:
-                table_list_collection.src_archive.append(table)
+                self.table_lists.src_archive.append(live_table)
             elif suffix == DST:
-                table_list_collection.dst_archive.append(table)
+                self.table_lists.dst_archive.append(live_table)
 
-        return table
+        return live_table
 
     # PENDING_CHANGE operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
-    def _get_all_in_table(self, table: Table, nodes_by_action_uid: Dict[UID, DisplayNode]):
+    def _get_all_in_table(self, table: LiveTable, nodes_by_action_uid: Dict[UID, DisplayNode]):
         # Look up appropriate ORM function and bind its first param to nodes_by_action_uid
-        table_func: Callable = partial(self.table_lists.orm_map[table.name], nodes_by_action_uid)
+        table_func: Callable = partial(self.table_lists.tuple_to_obj_func_map[table.name], nodes_by_action_uid)
 
-        table.select_object_list(self.conn, tuple_to_obj_func=table_func)
+        table.select_object_list(tuple_to_obj_func_override=table_func)
 
     def get_all_pending_changes(self) -> List[ChangeAction]:
+        """ Gets all pending changes, filling int their src and dst nodes as well """
         entries: List[ChangeAction] = []
+
+        if not self.table_pending_change.is_table():
+            return entries
 
         src_node_by_action_uid: Dict[UID, DisplayNode] = {}
         for table in self.table_lists.src_pending:
@@ -249,11 +376,7 @@ class PendingChangeDatabase(MetaDatabase):
         for table in self.table_lists.dst_pending:
             self._get_all_in_table(table, dst_node_by_action_uid)
 
-        """ Gets all changes in the table """
-        if not self.TABLE_PENDING_CHANGE.is_table(self.conn):
-            return entries
-
-        rows = self.TABLE_PENDING_CHANGE.get_all_rows(self.conn)
+        rows = self.table_pending_change.get_all_rows()
         for row in rows:
             ref = ChangeActionRef(UID(row[0]), UID(row[1]), ChangeType(row[2]), UID(row[3]), _ensure_uid(row[4]), int(row[5]))
             src_node = src_node_by_action_uid.get(ref.action_uid, None)
@@ -273,62 +396,101 @@ class PendingChangeDatabase(MetaDatabase):
             entries.append(ChangeAction(ref.action_uid, ref.batch_uid, ref.change_type, src_node, dst_node))
         return entries
 
+    def _make_tuple_list(self, entries: Iterable[ChangeAction], lifecycle_state: str) -> TableMultiMap:
+        tuple_list_multimap: TableMultiMap = TableMultiMap()
+
+        for e in entries:
+            assert isinstance(e, ChangeAction), f'Expected ChangeAction; got instead: {e}'
+
+            node = e.src_node
+            node_tuple = _action_node_to_tuple(node, e.action_uid)
+            tuple_list_multimap.append(lifecycle_state, SRC, node.node_identifier.tree_type, node.get_obj_type(), node_tuple)
+
+            if e.dst_node:
+                node = e.dst_node
+                node_tuple = _action_node_to_tuple(node, e.action_uid)
+                tuple_list_multimap.append(lifecycle_state, DST, node.node_identifier.tree_type, node.get_obj_type(), node_tuple)
+
+        return tuple_list_multimap
+
+    def _upsert_nodes_without_commit(self, entries: Iterable[ChangeAction], lifecycle_state: str):
+        tuple_list_multimap = self._make_tuple_list(entries, lifecycle_state)
+        for lifecycle_state, src_or_dst, tree_type, obj_type, tuple_list in tuple_list_multimap.entries():
+            table: LiveTable = self.table_lists.get_table(lifecycle_state, src_or_dst, tree_type, obj_type)
+            assert table, f'No table for values: {lifecycle_state}, {src_or_dst}, {tree_type}, {obj_type}'
+            table.upsert_many(tuple_list, commit=False)
+
     def upsert_pending_changes(self, entries: Iterable[ChangeAction], overwrite, commit=True):
         """Inserts or updates a list of ChangeActions (remember that each action's UID is its primary key).
         If overwrite=true, then removes all existing changes first."""
-        to_insert = []
-        for e in entries:
-            assert isinstance(e, ChangeAction), f'Expected ChangeAction; got instead: {e}'
-            e_tuple = _make_change_tuple(e)
-            to_insert.append(e_tuple)
-
-        # TODO: upsert into child tables
 
         if overwrite:
-            self.TABLE_PENDING_CHANGE.drop_table_if_exists(self.conn, commit=False)
+            self.table_pending_change.drop_table_if_exists(commit=False)
+            for table in self.table_lists.all:
+                table.drop_table_if_exists(commit=False)
 
-        self.TABLE_PENDING_CHANGE.create_table_if_not_exist(self.conn, commit=False)
+        # create missing tables:
+        self.table_pending_change.create_table_if_not_exist(commit=False)
+        for table in self.table_lists.all:
+            table.create_table_if_not_exist(commit=False)
 
-        self.TABLE_PENDING_CHANGE.upsert_many(self.conn, to_insert, commit)
+        # Upsert src & dst nodes
+        self._upsert_nodes_without_commit(entries, PENDING)
+
+        # Upsert ChangeActions
+        change_tuple_list: List[Tuple] = []
+        for e in entries:
+            change_tuple_list.append(_pending_change_to_tuple(e))
+        self.table_pending_change.upsert_many(change_tuple_list, commit)
 
     def _delete_pending_changes(self, changes: Iterable[ChangeAction], commit=True):
         uid_tuple_list = list(map(lambda x: (x.action_uid,), changes))
-        self.TABLE_PENDING_CHANGE.delete_for_uid_list(self.conn, uid_tuple_list, commit)
-        # TODO delete from child tables
+
+        # Delete for all child tables (src and dst nodes):
+        for table in itertools.chain(self.table_lists.src_pending, self.table_lists.dst_pending):
+            if len(uid_tuple_list) == 1:
+                table.delete_for_uid(uid_tuple_list[0][0], uid_col_name=ACTION_UID_COL_NAME, commit=False)
+            else:
+                table.delete_for_uid_list(uid_tuple_list, uid_col_name=ACTION_UID_COL_NAME, commit=False)
+
+        # Finally delete the ChangeActions
+        self.table_pending_change.delete_for_uid_list(uid_tuple_list, commit=commit)
 
     # COMPLETED_CHANGE operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
     def _upsert_completed_changes(self, entries: Iterable[ChangeAction], commit=True):
         """Inserts or updates a list of ChangeActions (remember that each action's UID is its primary key)."""
+
+        self.table_completed_change.create_table_if_not_exist(commit=False)
+
+        # Upsert src & dst nodes
+        self._upsert_nodes_without_commit(entries, ARCHIVE)
+
+        # Upsert ChangeActions
         current_time = int(time.time())
-        to_insert = []
+        change_tuple_list = []
         for e in entries:
             assert isinstance(e, ChangeAction), f'Expected ChangeAction; got instead: {e}'
-            e_tuple = _make_completed_change_tuple(e, current_time)
-            to_insert.append(e_tuple)
-
-        # TODO: insert into child tables
-
-        self.TABLE_COMPLETED_CHANGE.create_table_if_not_exist(self.conn, commit=False)
-
-        self.TABLE_COMPLETED_CHANGE.upsert_many(self.conn, to_insert, commit)
+            change_tuple_list.append(_completed_change_to_tuple(e, current_time))
+        self.table_completed_change.upsert_many(change_tuple_list, commit)
 
     # FAILED_CHANGE operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
     def _upsert_failed_changes(self, entries: Iterable[ChangeAction], error_msg: str, commit=True):
         """Inserts or updates a list of ChangeAction (remember that each action's UID is its primary key)."""
+
+        self.table_failed_change.create_table_if_not_exist(commit=False)
+
+        # Upsert src & dst nodes
+        self._upsert_nodes_without_commit(entries, ARCHIVE)
+
         current_time = int(time.time())
-        to_insert = []
+        change_tuple_list = []
         for e in entries:
             assert isinstance(e, ChangeAction), f'Expected ChangeAction; got instead: {e}'
-            e_tuple = e.action_uid, e.batch_uid, e.change_type, e.src_node.uid, e.dst_node.uid, e.create_ts, current_time, error_msg
-            to_insert.append(e_tuple)
+            change_tuple_list.append(_failed_change_to_tuple(e, current_time, error_msg))
 
-        # TODO: insert into child tables
-
-        self.TABLE_FAILED_CHANGE.create_table_if_not_exist(self.conn, commit=False)
-
-        self.TABLE_FAILED_CHANGE.upsert_many(self.conn, to_insert, commit)
+        self.table_failed_change.upsert_many(change_tuple_list, commit)
 
     # Compound operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
@@ -340,26 +502,3 @@ class PendingChangeDatabase(MetaDatabase):
         self._delete_pending_changes(changes=entries, commit=False)
         self._upsert_failed_changes(entries, error_msg)
 
-
-def _make_change_tuple(e: ChangeAction):
-    src_uid = None
-    dst_uid = None
-    if e.src_node:
-        src_uid = e.src_node.uid
-
-    if e.dst_node:
-        dst_uid = e.dst_node.uid
-
-    return e.action_uid, e.batch_uid, e.change_type, src_uid, dst_uid, e.create_ts
-
-
-def _make_completed_change_tuple(e: ChangeAction, current_time):
-    src_uid = None
-    dst_uid = None
-    if e.src_node:
-        src_uid = e.src_node.uid
-
-    if e.dst_node:
-        dst_uid = e.dst_node.uid
-
-    return e.action_uid, e.batch_uid, e.change_type, src_uid, dst_uid, e.create_ts, current_time
