@@ -368,9 +368,6 @@ class ChangeTest(unittest.TestCase):
 
     def test_dd_two_dir_trees_cp(self):
         logger.info('Testing drag & drop copy of 2 dir trees local left to local right')
-        # Offset from 0:
-
-        expected_count = 18
 
         # Need to first expand tree in order to find child nodes
         tree_iter = self._find_iter_by_name_in_left_tree('Art')
@@ -388,37 +385,9 @@ class ChangeTest(unittest.TestCase):
         dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
         dst_tree_path = Gtk.TreePath.new_from_string('1')
 
-        # Drag & drop 1 node, which represents a tree of 10 files and 2 dirs:
-        completed_cmds: List[Command] = []
-        all_commands_complete = threading.Event()
-        left_stats_updated = threading.Event()
-        right_stats_updated = threading.Event()
-
-        def on_command_complete(sender, command: Command):
-            completed_cmds.append(command)
-            logger.info(f'Got a completed command (total: {len(completed_cmds)}, expecting: {expected_count})')
-            if len(completed_cmds) >= expected_count:
-                all_commands_complete.set()
-
-        def on_stats_updated(sender):
-            logger.info(f'Got signal: {actions.SUBTREE_STATS_UPDATED} for "{sender}"')
-            if sender == self.left_con.tree_id:
-                left_stats_updated.set()
-            elif sender == self.right_con.tree_id:
-                right_stats_updated.set()
-
-        dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=on_command_complete)
-        dispatcher.connect(signal=actions.SUBTREE_STATS_UPDATED, receiver=on_stats_updated)
-
-        logger.info('Submitting drag & drop signal')
-        dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
-
-        self.app.executor.start_op_execution_thread()
-        logger.info('Sleeping until we get what we want')
-        if not all_commands_complete.wait():
-            raise RuntimeError('Timed out waiting for all commands to complete!')
-        if not right_stats_updated.wait():
-            raise RuntimeError('Timed out waiting for Right stats to update!')
+        def drop():
+            logger.info('Submitting drag & drop signal')
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
         final_tree_right = [
             DNode('Art', (88259 + 652220 + 239739 + 44487 + 479124) + (147975 + 275771 + 8098 + 247023 + 36344), [
@@ -450,8 +419,48 @@ class ChangeTest(unittest.TestCase):
             FNode('we-can-do-it-poster.jpg', 390093),
         ]
 
-        self._verify(self.left_con, INITIAL_TREE_LEFT)
-        self._verify(self.right_con, final_tree_right)
+        self._do_and_verify(drop, count_expected_cmds=18, wait_for_left=False, wait_for_right=True,
+                            expected_left=INITIAL_TREE_LEFT, expected_right=final_tree_right)
+
+    def _do_and_verify(self, do_func: Callable, count_expected_cmds: int, wait_for_left: bool, wait_for_right: bool,
+                       expected_left: List, expected_right: List):
+        # Drag & drop 1 node, which represents a tree of 10 files and 2 dirs:
+        completed_cmds: List[Command] = []
+        all_commands_complete = threading.Event()
+        left_stats_updated = threading.Event()
+        right_stats_updated = threading.Event()
+
+        def on_command_complete(sender, command: Command):
+            completed_cmds.append(command)
+            logger.info(f'Got a completed command (total: {len(completed_cmds)}, expecting: {count_expected_cmds})')
+            if len(completed_cmds) >= count_expected_cmds:
+                all_commands_complete.set()
+
+        def on_stats_updated(sender):
+            logger.info(f'Got signal: {actions.SUBTREE_STATS_UPDATED} for "{sender}"')
+            if sender == self.left_con.tree_id:
+                left_stats_updated.set()
+            elif sender == self.right_con.tree_id:
+                right_stats_updated.set()
+
+        dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=on_command_complete)
+        dispatcher.connect(signal=actions.SUBTREE_STATS_UPDATED, receiver=on_stats_updated)
+
+        do_func()
+
+        self.app.executor.start_op_execution_thread()
+        logger.info('Sleeping until we get what we want')
+        if not all_commands_complete.wait():
+            raise RuntimeError('Timed out waiting for all commands to complete!')
+        if wait_for_left:
+            if not left_stats_updated.wait():
+                raise RuntimeError('Timed out waiting for Left stats to update!')
+        if wait_for_right:
+            if not right_stats_updated.wait():
+                raise RuntimeError('Timed out waiting for Right stats to update!')
+
+        self._verify(self.left_con, expected_left)
+        self._verify(self.right_con, expected_right)
         logger.info('Done!')
 
 
