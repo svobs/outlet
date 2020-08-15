@@ -1,3 +1,4 @@
+import collections
 import os
 import shutil
 import threading
@@ -5,7 +6,7 @@ import time
 import unittest
 import logging
 from functools import partial
-from typing import Callable, List
+from typing import Callable, Deque, Iterable, List, Optional, Tuple
 
 from py7zr import SevenZipFile
 from pydispatch import dispatcher
@@ -13,6 +14,7 @@ from pydispatch import dispatcher
 from app_config import AppConfig
 from cmd.cmd_interface import Command
 from index.uid.uid import UID
+from model.display_tree.display_tree import DisplayTree
 from model.node.display_node import DisplayNode
 from outlet_app import OutletApplication
 from ui import actions
@@ -35,6 +37,71 @@ TEST_ARCHIVE = 'ChangeTest.7z'
 TEST_ARCHIVE_PATH = os.path.join(TEST_BASE_DIR, TEST_ARCHIVE)
 TEST_TARGET_DIR = os.path.join(TEST_BASE_DIR, 'ChangeTest')
 
+
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class FNode:
+    def __init__(self, name: str, size_bytes: int):
+        self.name: str = name
+        self.size_bytes: int = size_bytes
+
+    @classmethod
+    def is_dir(cls):
+        return False
+
+    def __repr__(self):
+        return f'File({self.name} size={self.size_bytes})'
+
+
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class DNode(FNode):
+    def __init__(self, name: str, size_bytes: int, children: Optional[List] = None):
+        super().__init__(name, size_bytes)
+        if children is None:
+            children = list()
+        self.children: List[FNode] = children
+
+    @classmethod
+    def is_dir(cls):
+        return True
+
+    def __repr__(self):
+        return f'Dir({self.name} size={self.size_bytes} children={len(self.children)})'
+
+
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+
+INITIAL_TREE_LEFT = [
+    FNode('American_Gothic.jpg', 2061397),
+    FNode('Angry-Clown.jpg', 824641),
+    DNode('Art', (88259+652220+239739+44487+479124)+(147975+275771+8098+247023+36344), [
+        FNode('Dark-Art.png', 147975),
+        FNode('Hokusai_Great-Wave.jpg', 275771),
+        DNode('Modern', (88259+652220+239739+44487+479124), [
+            FNode('1923-art.jpeg', 88259),
+            FNode('43548-forbidden_planet.jpg', 652220),
+            FNode('Dunno.jpg', 239739),
+            FNode('felix-the-cat.jpg', 44487),
+            FNode('Glow-Cat.png', 479124),
+        ]),
+        FNode('Mona-Lisa.jpeg', 8098),
+        FNode('william-shakespeare.jpg', 247023),
+        FNode('WTF.jpg', 36344),
+    ]),
+    FNode('Egypt.jpg', 154564),
+    FNode('George-Floyd.png', 27601),
+    FNode('Geriatric-Clown.jpg', 89182),
+    FNode('Keep-calm-and-carry-on.jpg', 745698),
+]
+
+
+def _get_name_lower(display_node: DisplayNode):
+    return display_node.name.lower()
+
+
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class ChangeTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -80,7 +147,59 @@ class ChangeTest(unittest.TestCase):
             raise RuntimeError('Timed out waiting for right to load!')
         self.left_con: TreePanelController = self.app.cache_manager.get_tree_controller(actions.ID_LEFT_TREE)
         self.right_con: TreePanelController = self.app.cache_manager.get_tree_controller(actions.ID_RIGHT_TREE)
+
+        self.verify(self.left_con, INITIAL_TREE_LEFT)
         logger.info(f'LOAD COMPLETE')
+
+    def verify_one_dir(self, tree_con, expected: List[FNode], actual: Iterable[DisplayNode],
+                       dir_deque: Deque[Tuple[List[FNode], Iterable[DisplayNode]]]):
+        actual_iter = iter(actual)
+        for i in range(0, len(expected)):
+            expected_node: FNode = expected[i]
+            try:
+                actual_node: DisplayNode = next(actual_iter)
+                logger.info(f'Examining: {actual_node} (expecting: {expected_node})')
+                self.assertEqual(expected_node.name, actual_node.name)
+                self.assertEqual(expected_node.size_bytes, actual_node.get_size_bytes())
+                self.assertEqual(expected_node.is_dir(), actual_node.is_dir())
+                logger.info(f'OK: {expected_node.name}')
+
+                if expected_node.is_dir():
+                    assert isinstance(expected_node, DNode)
+                    expected_list: List[FNode] = expected_node.children
+                    actual_list: Iterable[DisplayNode] = tree_con.get_tree().get_children(actual_node)
+                    dir_deque.append((expected_list, actual_list))
+
+            except StopIteration:
+                self.fail(f'Tree "{tree_con.tree_id}" is missing node: {expected_node}')
+
+        try:
+            actual_node: DisplayNode = next(actual_iter)
+            self.fail(f'Tree "{tree_con.tree_id}" has unexpected node: {actual_node}')
+        except StopIteration:
+            pass
+
+    def verify(self, tree_con: TreePanelController, expected_list: List[FNode]):
+
+        # Verify that all nodes loaded correctly into the cache, which will be reflected by the state of the DisplayTree:
+        backing_tree: DisplayTree = tree_con.get_tree()
+
+        dir_deque: Deque[Tuple[List[FNode], Iterable[DisplayNode]]] = collections.deque()
+        """Each entry contains the expected and actual contents of a single dir"""
+
+        actual_list: Iterable[DisplayNode] = backing_tree.get_children_for_root()
+
+        count_dir = 0
+        dir_deque.append((expected_list, actual_list))
+        while len(dir_deque) > 0:
+            count_dir += 1
+            expected_list, actual_list = dir_deque.popleft()
+            # sort the actual list by name, since it is not required to be sorted
+            actual_list = list(actual_list)
+            actual_list.sort(key=_get_name_lower)
+            self.verify_one_dir(tree_con, expected_list, actual_list, dir_deque)
+
+        logger.info(f'Verified {count_dir} dirs')
 
     def test_dd_single_file_cp(self):
         logger.info('Testing drag & drop copy of single file local to local')

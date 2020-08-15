@@ -7,7 +7,7 @@ from typing import Callable, DefaultDict, Dict, Iterable, List, Optional
 from pydispatch import dispatcher
 
 from index.op_tree import OpTree
-from model.change_action import ChangeAction, ChangeActionRef, ChangeType
+from model.change_action import ChangeAction, ChangeType
 from cmd.cmd_builder import CommandBuilder
 from cmd.cmd_interface import Command, CommandStatus
 from constants import PENDING_CHANGES_FILE_NAME

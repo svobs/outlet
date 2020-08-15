@@ -2,16 +2,16 @@ import copy
 import itertools
 import logging
 import time
-from collections import defaultdict, OrderedDict
+from collections import OrderedDict
 from functools import partial
-from typing import Any, Callable, DefaultDict, Dict, Iterable, List, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Tuple
 
 from constants import OBJ_TYPE_DIR, OBJ_TYPE_FILE, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from index.sqlite.base_db import LiveTable, MetaDatabase, Table
 from index.sqlite.gdrive_db import GDriveDatabase
 from index.sqlite.local_db import LocalDiskDatabase
-from model.change_action import ChangeAction, ChangeActionRef, ChangeType
-from index.sqlite.base_db import LiveTable, MetaDatabase, Table
 from index.uid.uid import UID
+from model.change_action import ChangeAction, ChangeActionRef, ChangeType
 from model.node.display_node import DisplayNode
 from model.node.gdrive_node import GDriveFile, GDriveFolder
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
@@ -218,24 +218,24 @@ class PendingChangeDatabase(MetaDatabase):
         self.table_failed_change = LiveTable(PendingChangeDatabase.TABLE_FAILED_CHANGE, self.conn, None, _tuple_to_change_ref)
 
         # pending ...
-        TABLE_LOCAL_FILE_PENDING_SRC = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, PENDING, SRC)
-        TABLE_LOCAL_FILE_PENDING_DST = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, PENDING, DST)
-        TABLE_LOCAL_DIR_PENDING_SRC = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, PENDING, SRC)
-        TABLE_LOCAL_DIR_PENDING_DST = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, PENDING, DST)
-        TABLE_GRDIVE_DIR_PENDING_SRC = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, PENDING, SRC)
-        TABLE_GRDIVE_DIR_PENDING_DST = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, PENDING, DST)
-        TABLE_GRDIVE_FILE_PENDING_SRC = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, PENDING, SRC)
-        TABLE_GRDIVE_FILE_PENDING_DST = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, PENDING, DST)
+        self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, PENDING, SRC)
+        self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, PENDING, DST)
+        self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, PENDING, SRC)
+        self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, PENDING, DST)
+        self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, PENDING, SRC)
+        self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, PENDING, DST)
+        self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, PENDING, SRC)
+        self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, PENDING, DST)
 
         # archive ...
-        TABLE_LOCAL_FILE_ARCHIVE_SRC = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, ARCHIVE, SRC)
-        TABLE_LOCAL_FILE_ARCHIVE_DST = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, ARCHIVE, DST)
-        TABLE_LOCAL_DIR_ARCHIVE_SRC = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, ARCHIVE, SRC)
-        TABLE_LOCAL_DIR_ARCHIVE_DST = self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, ARCHIVE, DST)
-        TABLE_GRDIVE_DIR_ARCHIVE_SRC = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, ARCHIVE, SRC)
-        TABLE_GRDIVE_DIR_ARCHIVE_DST = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, ARCHIVE, DST)
-        TABLE_GRDIVE_FILE_ARCHIVE_SRC = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, ARCHIVE, SRC)
-        TABLE_GRDIVE_FILE_ARCHIVE_DST = self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, ARCHIVE, DST)
+        self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, ARCHIVE, SRC)
+        self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, ARCHIVE, DST)
+        self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, ARCHIVE, SRC)
+        self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, ARCHIVE, DST)
+        self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, ARCHIVE, SRC)
+        self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, ARCHIVE, DST)
+        self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, ARCHIVE, SRC)
+        self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, ARCHIVE, DST)
 
         for table in itertools.chain(self.table_lists.gdrive_dir, self.table_lists.gdrive_file):
             _add_gdrive_parent_cols(table)

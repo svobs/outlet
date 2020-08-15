@@ -39,11 +39,13 @@ class TreePanelController:
         self.treeview_meta = treeview_meta
         self.tree_id = treeview_meta.tree_id
         """Cached in controller, in case treeview_meta goes away"""
+
         self.tree_view = None
         self.root_dir_panel = None
         self.display_mutator = None
         self.status_bar = None
         self.content_box = None
+
         self.user_input_listeners = None
         self.tree_actions = None
 
