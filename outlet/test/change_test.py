@@ -38,6 +38,7 @@ TEST_ARCHIVE_PATH = os.path.join(TEST_BASE_DIR, TEST_ARCHIVE)
 TEST_TARGET_DIR = os.path.join(TEST_BASE_DIR, 'ChangeTest')
 
 
+# MOCK CLASS FNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class FNode:
@@ -53,6 +54,7 @@ class FNode:
         return f'File("{self.name}" size={self.size_bytes})'
 
 
+# MOCK CLASS DNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class DNode(FNode):
@@ -71,6 +73,33 @@ class DNode(FNode):
 
 
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+# Static stuff
+# ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+
+def _get_name_lower(display_node: DisplayNode):
+    return display_node.name.lower()
+
+
+def _do_and_wait_for_signal(action_func, signal, tree_id):
+    received = threading.Event()
+
+    def on_received():
+        logger.debug(f'Received signal: {signal} from tree {tree_id}')
+        received.set()
+
+    dispatcher.connect(signal=signal, receiver=on_received, sender=tree_id)
+
+    action_func()
+    logger.debug(f'Waiting for signal: {signal} from tree {tree_id}')
+    if not received.wait():
+        raise RuntimeError(f'Timed out waiting for signal: {signal} from tree: {tree_id}')
+
+
+def _name_equals_func(node_name, node) -> bool:
+    if logger.isEnabledFor(logging.DEBUG) and not node.is_ephemereal():
+        logger.debug(f'Examining node uid={node.uid} name={node.name} (looking for: {node_name})')
+    return not node.is_ephemereal() and node.name == node_name
 
 
 INITIAL_TREE_LEFT = [
@@ -107,10 +136,7 @@ INITIAL_TREE_RIGHT = [
 ]
 
 
-def _get_name_lower(display_node: DisplayNode):
-    return display_node.name.lower()
-
-
+# CLASS ChangeTest
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class ChangeTest(unittest.TestCase):
@@ -163,7 +189,7 @@ class ChangeTest(unittest.TestCase):
         logger.info(f'LOAD COMPLETE')
 
     def _verify_one_memcache_dir(self, tree_con, expected: List[FNode], actual: Iterable[DisplayNode],
-                                dir_deque: Deque[Tuple[List[FNode], Iterable[DisplayNode]]]):
+                                 dir_deque: Deque[Tuple[List[FNode], Iterable[DisplayNode]]]):
         actual_iter = iter(actual)
         for i in range(0, len(expected)):
             expected_node: FNode = expected[i]
@@ -257,71 +283,6 @@ class ChangeTest(unittest.TestCase):
             self._verify_one_display_dir(tree_con, expected_list, actual_list, dir_deque)
         logger.info(f'Verified {count_dir} display dirs for "{tree_con.tree_id}"')
 
-    def test_dd_single_file_cp(self):
-        logger.info('Testing drag & drop copy of single file local to local')
-        self.app.executor.start_op_execution_thread()
-        # Offset from 0:
-        src_tree_path = Gtk.TreePath.new_from_string('1')
-        node: DisplayNode = self.right_con.display_store.get_node_data(src_tree_path)
-        logger.info(f'CP "{node.name}" from right root to left root')
-
-        nodes = [node]
-        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.right_con, nodes=nodes)
-        dst_tree_path = Gtk.TreePath.new_from_string('1')
-        dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_LEFT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
-        logger.info('Sleeping')
-        time.sleep(10) # in seconds
-        logger.info('Done!')
-
-    def test_dd_multi_file_cp(self):
-        logger.info('Testing drag & drop copy of multiple files local to local')
-        self.app.executor.start_op_execution_thread()
-        # Offset from 0:
-
-        # Simulate drag & drop based on position in list:
-        nodes = []
-        for num in range(0, 3):
-            node: DisplayNode = self.right_con.display_store.get_node_data(Gtk.TreePath.new_from_string(f'{num}'))
-            self.assertIsNotNone(node, f'Expected to find node at index {num}')
-            nodes.append(node)
-            logger.warning(f'CP "{node.name}" (#{num}) from right root to left root')
-
-        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.right_con, nodes=nodes)
-        dst_tree_path = Gtk.TreePath.new_from_string('1')
-        dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_LEFT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
-        logger.info('Sleeping')
-        time.sleep(10) # in seconds
-        logger.info('Done!')
-
-    def test_bad_dd_dir_tree_cp(self):
-        logger.info('Testing negative case: drag & drop copy of duplicate nodes local to local')
-        self.app.executor.start_op_execution_thread()
-        # Offset from 0:
-        node_name = 'Art'
-
-        name_equals_func: Callable = partial(_name_equals_func, node_name)
-
-        nodes = []
-        # Duplicate the node 3 times. This is a good test of our reduction logic
-        for num in range(0, 3):
-            tree_iter = self.left_con.display_store.find_in_tree(name_equals_func)
-            node = None
-            if tree_iter:
-                node = self.left_con.display_store.get_node_data(tree_iter)
-            self.assertIsNotNone(node, f'Expected to find node named "{node_name}"')
-            nodes.append(node)
-            logger.warning(f'CP "{node.name}" (#{num}) from left root to right root')
-
-        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
-        dst_tree_path = Gtk.TreePath.new_from_string('1')
-
-        # Verify that 3 identical nodes causes an error:
-        with self.assertRaises(RuntimeError) as context:
-            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
-            logger.info('Sleeping')
-            time.sleep(10)  # in seconds
-            self.assertFalse(True, 'If we got here we failed!')
-
     def _find_iter_by_name_in_left_tree(self, node_name):
         name_equals_func: Callable = partial(_name_equals_func, node_name)
         tree_iter = self.left_con.display_store.find_in_tree(name_equals_func)
@@ -334,93 +295,6 @@ class ChangeTest(unittest.TestCase):
         node = self.left_con.display_store.get_node_data(tree_iter)
         logger.warning(f'CP "{node.name}" from left to right root')
         return node
-
-    def test_dd_dir_tree_cp(self):
-        logger.info('Testing drag & drop copy of dir tree local to local')
-        self.app.executor.start_op_execution_thread()
-        expected_count = 12
-
-        nodes = []
-        nodes.append(self._find_node_by_name_im_left_tree('Art'))
-
-        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
-        dst_tree_path = Gtk.TreePath.new_from_string('1')
-
-        # Drag & drop 1 node, which represents a tree of 10 files and 2 dirs:
-        completed_cmds: List[Command] = []
-        all_complete = threading.Event()
-
-        def on_command_complete(sender, command: Command):
-            completed_cmds.append(command)
-            logger.info(f'Got a completed command (total: {len(completed_cmds)}, expecting: {expected_count})')
-            if len(completed_cmds) >= expected_count:
-                all_complete.set()
-
-        dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=on_command_complete)
-
-        logger.info('Submitting drag & drop signal')
-        dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
-
-        logger.info('Sleeping until we get what we want')
-        if not all_complete.wait():
-            raise RuntimeError('Timed out waiting for all commands to complete!')
-        logger.info('Done!')
-
-    def test_dd_two_dir_trees_cp(self):
-        logger.info('Testing drag & drop copy of 2 dir trees local left to local right')
-
-        # Need to first expand tree in order to find child nodes
-        tree_iter = self._find_iter_by_name_in_left_tree('Art')
-        tree_path = self.left_con.display_store.model.get_path(tree_iter)
-
-        def action_func():
-            self.left_con.tree_view.expand_row(path=tree_path, open_all=True)
-
-        _do_and_wait_for_signal(action_func, actions.NODE_EXPANSION_DONE, actions.ID_LEFT_TREE)
-
-        nodes = []
-        nodes.append(self._find_node_by_name_im_left_tree('Modern'))
-        nodes.append(self._find_node_by_name_im_left_tree('Art'))
-
-        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
-        dst_tree_path = Gtk.TreePath.new_from_string('1')
-
-        def drop():
-            logger.info('Submitting drag & drop signal')
-            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
-
-        final_tree_right = [
-            DNode('Art', (88259 + 652220 + 239739 + 44487 + 479124) + (147975 + 275771 + 8098 + 247023 + 36344), [
-                FNode('Dark-Art.png', 147975),
-                FNode('Hokusai_Great-Wave.jpg', 275771),
-                DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
-                    FNode('1923-art.jpeg', 88259),
-                    FNode('43548-forbidden_planet.jpg', 652220),
-                    FNode('Dunno.jpg', 239739),
-                    FNode('felix-the-cat.jpg', 44487),
-                    FNode('Glow-Cat.png', 479124),
-                ]),
-                FNode('Mona-Lisa.jpeg', 8098),
-                FNode('william-shakespeare.jpg', 247023),
-                FNode('WTF.jpg', 36344),
-            ]),
-            FNode('Edvard-Munch-The-Scream.jpg', 114082),
-            FNode('M83.jpg', 17329),
-            DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
-                FNode('1923-art.jpeg', 88259),
-                FNode('43548-forbidden_planet.jpg', 652220),
-                FNode('Dunno.jpg', 239739),
-                FNode('felix-the-cat.jpg', 44487),
-                FNode('Glow-Cat.png', 479124),
-            ]),
-            FNode('oak-tree-sunset.jpg', 386888),
-            FNode('Ocean-Wave.jpg', 83713),
-            FNode('Starry-Night.jpg', 91699),
-            FNode('we-can-do-it-poster.jpg', 390093),
-        ]
-
-        self._do_and_verify(drop, count_expected_cmds=18, wait_for_left=False, wait_for_right=True,
-                            expected_left=INITIAL_TREE_LEFT, expected_right=final_tree_right)
 
     def _do_and_verify(self, do_func: Callable, count_expected_cmds: int, wait_for_left: bool, wait_for_right: bool,
                        expected_left: List, expected_right: List):
@@ -463,23 +337,227 @@ class ChangeTest(unittest.TestCase):
         self._verify(self.right_con, expected_right)
         logger.info('Done!')
 
+    # TESTS
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-def _do_and_wait_for_signal(action_func, signal, tree_id):
-    received = threading.Event()
+    def test_dd_single_file_cp(self):
+        logger.info('Testing drag & drop copy of single file local right to local left')
+        self.app.executor.start_op_execution_thread()
+        # Offset from 0:
+        src_tree_path = Gtk.TreePath.new_from_string('1')
+        node: DisplayNode = self.right_con.display_store.get_node_data(src_tree_path)
+        logger.info(f'CP "{node.name}" from right root to left root')
 
-    def on_received():
-        logger.debug(f'Received signal: {signal} from tree {tree_id}')
-        received.set()
+        nodes = [node]
+        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.right_con, nodes=nodes)
+        dst_tree_path = Gtk.TreePath.new_from_string('1')
 
-    dispatcher.connect(signal=signal, receiver=on_received, sender=tree_id)
+        def drop():
+            logger.info('Submitting drag & drop signal')
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_LEFT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
-    action_func()
-    logger.debug(f'Waiting for signal: {signal} from tree {tree_id}')
-    if not received.wait():
-        raise RuntimeError(f'Timed out waiting for signal: {signal} from tree: {tree_id}')
+        final_tree_left = [
+            FNode('American_Gothic.jpg', 2061397),
+            FNode('Angry-Clown.jpg', 824641),
+            DNode('Art', (88259 + 652220 + 239739 + 44487 + 479124) + (147975 + 275771 + 8098 + 247023 + 36344), [
+                FNode('Dark-Art.png', 147975),
+                FNode('Hokusai_Great-Wave.jpg', 275771),
+                DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
+                    FNode('1923-art.jpeg', 88259),
+                    FNode('43548-forbidden_planet.jpg', 652220),
+                    FNode('Dunno.jpg', 239739),
+                    FNode('felix-the-cat.jpg', 44487),
+                    FNode('Glow-Cat.png', 479124),
+                ]),
+                FNode('Mona-Lisa.jpeg', 8098),
+                FNode('william-shakespeare.jpg', 247023),
+                FNode('WTF.jpg', 36344),
+            ]),
+            FNode('Egypt.jpg', 154564),
+            FNode('George-Floyd.png', 27601),
+            FNode('Geriatric-Clown.jpg', 89182),
+            FNode('Keep-calm-and-carry-on.jpg', 745698),
+            FNode('M83.jpg', 17329),
+        ]
 
+        self._do_and_verify(drop, count_expected_cmds=1, wait_for_left=True, wait_for_right=False,
+                            expected_left=final_tree_left, expected_right=INITIAL_TREE_RIGHT)
 
-def _name_equals_func(node_name, node) -> bool:
-    if logger.isEnabledFor(logging.DEBUG) and not node.is_ephemereal():
-        logger.debug(f'Examining node uid={node.uid} name={node.name} (looking for: {node_name})')
-    return not node.is_ephemereal() and node.name == node_name
+    def test_dd_multi_file_cp(self):
+        logger.info('Testing drag & drop copy of 4 files local right to local left')
+        self.app.executor.start_op_execution_thread()
+
+        # Simulate drag & drop based on position in list:
+        nodes = []
+        for num in range(0, 4):
+            node: DisplayNode = self.right_con.display_store.get_node_data(Gtk.TreePath.new_from_string(f'{num}'))
+            self.assertIsNotNone(node, f'Expected to find node at index {num}')
+            nodes.append(node)
+            logger.warning(f'CP "{node.name}" (#{num}) from right root to left root')
+
+        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.right_con, nodes=nodes)
+        dst_tree_path = Gtk.TreePath.new_from_string('1')
+        dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_LEFT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+
+        def drop():
+            logger.info('Submitting drag & drop signal')
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_LEFT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+
+        final_tree_left = [
+            FNode('American_Gothic.jpg', 2061397),
+            FNode('Angry-Clown.jpg', 824641),
+            DNode('Art', (88259 + 652220 + 239739 + 44487 + 479124) + (147975 + 275771 + 8098 + 247023 + 36344), [
+                FNode('Dark-Art.png', 147975),
+                FNode('Hokusai_Great-Wave.jpg', 275771),
+                DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
+                    FNode('1923-art.jpeg', 88259),
+                    FNode('43548-forbidden_planet.jpg', 652220),
+                    FNode('Dunno.jpg', 239739),
+                    FNode('felix-the-cat.jpg', 44487),
+                    FNode('Glow-Cat.png', 479124),
+                ]),
+                FNode('Mona-Lisa.jpeg', 8098),
+                FNode('william-shakespeare.jpg', 247023),
+                FNode('WTF.jpg', 36344),
+            ]),
+            FNode('Edvard-Munch-The-Scream.jpg', 114082),
+            FNode('Egypt.jpg', 154564),
+            FNode('George-Floyd.png', 27601),
+            FNode('Geriatric-Clown.jpg', 89182),
+            FNode('Keep-calm-and-carry-on.jpg', 745698),
+            FNode('M83.jpg', 17329),
+            FNode('oak-tree-sunset.jpg', 386888),
+            FNode('Ocean-Wave.jpg', 83713),
+        ]
+
+        self._do_and_verify(drop, count_expected_cmds=4, wait_for_left=True, wait_for_right=False,
+                            expected_left=final_tree_left, expected_right=INITIAL_TREE_RIGHT)
+
+    def test_bad_dd_dir_tree_cp(self):
+        logger.info('Testing negative case: drag & drop copy of duplicate nodes local to local')
+        self.app.executor.start_op_execution_thread()
+        # Offset from 0:
+        node_name = 'Art'
+
+        name_equals_func: Callable = partial(_name_equals_func, node_name)
+
+        nodes = []
+        # Duplicate the node 3 times. This is a good test of our reduction logic
+        for num in range(0, 3):
+            tree_iter = self.left_con.display_store.find_in_tree(name_equals_func)
+            node = None
+            if tree_iter:
+                node = self.left_con.display_store.get_node_data(tree_iter)
+            self.assertIsNotNone(node, f'Expected to find node named "{node_name}"')
+            nodes.append(node)
+            logger.warning(f'CP "{node.name}" (#{num}) from left root to right root')
+
+        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
+        dst_tree_path = Gtk.TreePath.new_from_string('1')
+
+        # Verify that 3 identical nodes causes an error:
+        with self.assertRaises(RuntimeError) as context:
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+            logger.info('Sleeping')
+            time.sleep(10)  # in seconds
+            self.assertFalse(True, 'If we got here we failed!')
+
+    def test_dd_one_dir_tree_cp(self):
+        logger.info('Testing drag & drop copy of 1 dir tree local left to local right')
+        self.app.executor.start_op_execution_thread()
+
+        nodes = [
+            self._find_node_by_name_im_left_tree('Art')
+        ]
+
+        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
+        dst_tree_path = Gtk.TreePath.new_from_string('1')
+
+        # Drag & drop 1 node, which represents a tree of 10 files and 2 dirs:
+
+        def drop():
+            logger.info('Submitting drag & drop signal')
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+
+        final_tree_right = [
+            DNode('Art', (88259 + 652220 + 239739 + 44487 + 479124) + (147975 + 275771 + 8098 + 247023 + 36344), [
+                FNode('Dark-Art.png', 147975),
+                FNode('Hokusai_Great-Wave.jpg', 275771),
+                DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
+                    FNode('1923-art.jpeg', 88259),
+                    FNode('43548-forbidden_planet.jpg', 652220),
+                    FNode('Dunno.jpg', 239739),
+                    FNode('felix-the-cat.jpg', 44487),
+                    FNode('Glow-Cat.png', 479124),
+                ]),
+                FNode('Mona-Lisa.jpeg', 8098),
+                FNode('william-shakespeare.jpg', 247023),
+                FNode('WTF.jpg', 36344),
+            ]),
+            FNode('Edvard-Munch-The-Scream.jpg', 114082),
+            FNode('M83.jpg', 17329),
+            FNode('oak-tree-sunset.jpg', 386888),
+            FNode('Ocean-Wave.jpg', 83713),
+            FNode('Starry-Night.jpg', 91699),
+            FNode('we-can-do-it-poster.jpg', 390093),
+        ]
+
+        self._do_and_verify(drop, count_expected_cmds=12, wait_for_left=False, wait_for_right=True,
+                            expected_left=INITIAL_TREE_LEFT, expected_right=final_tree_right)
+
+    def test_dd_two_dir_trees_cp(self):
+        logger.info('Testing drag & drop copy of 2 dir trees local left to local right')
+
+        # Need to first expand tree in order to find child nodes
+        tree_iter = self._find_iter_by_name_in_left_tree('Art')
+        tree_path = self.left_con.display_store.model.get_path(tree_iter)
+
+        def action_func():
+            self.left_con.tree_view.expand_row(path=tree_path, open_all=True)
+
+        _do_and_wait_for_signal(action_func, actions.NODE_EXPANSION_DONE, actions.ID_LEFT_TREE)
+
+        nodes = [
+            self._find_node_by_name_im_left_tree('Modern'),
+            self._find_node_by_name_im_left_tree('Art')
+        ]
+
+        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
+        dst_tree_path = Gtk.TreePath.new_from_string('1')
+
+        def drop():
+            logger.info('Submitting drag & drop signal')
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+
+        final_tree_right = [
+            DNode('Art', (88259 + 652220 + 239739 + 44487 + 479124) + (147975 + 275771 + 8098 + 247023 + 36344), [
+                FNode('Dark-Art.png', 147975),
+                FNode('Hokusai_Great-Wave.jpg', 275771),
+                DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
+                    FNode('1923-art.jpeg', 88259),
+                    FNode('43548-forbidden_planet.jpg', 652220),
+                    FNode('Dunno.jpg', 239739),
+                    FNode('felix-the-cat.jpg', 44487),
+                    FNode('Glow-Cat.png', 479124),
+                ]),
+                FNode('Mona-Lisa.jpeg', 8098),
+                FNode('william-shakespeare.jpg', 247023),
+                FNode('WTF.jpg', 36344),
+            ]),
+            FNode('Edvard-Munch-The-Scream.jpg', 114082),
+            FNode('M83.jpg', 17329),
+            DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
+                FNode('1923-art.jpeg', 88259),
+                FNode('43548-forbidden_planet.jpg', 652220),
+                FNode('Dunno.jpg', 239739),
+                FNode('felix-the-cat.jpg', 44487),
+                FNode('Glow-Cat.png', 479124),
+            ]),
+            FNode('oak-tree-sunset.jpg', 386888),
+            FNode('Ocean-Wave.jpg', 83713),
+            FNode('Starry-Night.jpg', 91699),
+            FNode('we-can-do-it-poster.jpg', 390093),
+        ]
+
+        self._do_and_verify(drop, count_expected_cmds=18, wait_for_left=False, wait_for_right=True,
+                            expected_left=INITIAL_TREE_LEFT, expected_right=final_tree_right)

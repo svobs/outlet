@@ -13,7 +13,6 @@ from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from index.uid.uid import UID
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.node_identifier import GDriveIdentifier
 from util.stopwatch_sec import Stopwatch
 from ui import actions
 
