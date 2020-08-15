@@ -1,6 +1,6 @@
 import logging
 from functools import partial
-from typing import Callable, Dict, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 from index.uid.uid import UID
 from model.node.display_node import DisplayNode
@@ -216,6 +216,24 @@ class DisplayStore:
                     return child_iter
                 child_iter = self.model.iter_next(child_iter)
         return None
+
+    def get_displayed_children_of(self, parent_uid: UID) -> List[DisplayNode]:
+        if not parent_uid:
+            child_iter = self.model.get_iter_first()
+        else:
+            parent_iter = self.find_uid_in_tree(parent_uid)
+            if not parent_iter:
+                return []
+            child_iter = self.model.iter_children(parent_iter)
+
+        children: List[DisplayNode] = []
+        while child_iter is not None:
+            node = self.get_node_data(child_iter)
+            if not node.is_ephemereal():
+                children.append(node)
+            child_iter = self.model.iter_next(child_iter)
+
+        return children
 
     def recurse_over_tree(self, tree_iter: Gtk.TreeIter = None, action_func: Callable[[Gtk.TreeIter], None] = None):
         """

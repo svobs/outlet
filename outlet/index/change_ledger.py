@@ -279,7 +279,7 @@ class ChangeLedger:
 
         return self._cmd_builder.build_command(change_action)
 
-    def _on_command_completed(self, command: Command):
+    def _on_command_completed(self, sender, command: Command):
         logger.debug(f'Received signal: "{actions.COMMAND_COMPLETE}"')
 
         if command.status() == CommandStatus.STOPPED_ON_ERROR:

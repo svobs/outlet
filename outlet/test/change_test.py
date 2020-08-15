@@ -50,7 +50,7 @@ class FNode:
         return False
 
     def __repr__(self):
-        return f'File({self.name} size={self.size_bytes})'
+        return f'File("{self.name}" size={self.size_bytes})'
 
 
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -67,7 +67,7 @@ class DNode(FNode):
         return True
 
     def __repr__(self):
-        return f'Dir({self.name} size={self.size_bytes} children={len(self.children)})'
+        return f'Dir("{self.name}" size={self.size_bytes} children={len(self.children)})'
 
 
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -94,6 +94,16 @@ INITIAL_TREE_LEFT = [
     FNode('George-Floyd.png', 27601),
     FNode('Geriatric-Clown.jpg', 89182),
     FNode('Keep-calm-and-carry-on.jpg', 745698),
+]
+
+
+INITIAL_TREE_RIGHT = [
+    FNode('Edvard-Munch-The-Scream.jpg', 114082),
+    FNode('M83.jpg', 17329),
+    FNode('oak-tree-sunset.jpg', 386888),
+    FNode('Ocean-Wave.jpg', 83713),
+    FNode('Starry-Night.jpg', 91699),
+    FNode('we-can-do-it-poster.jpg', 390093),
 ]
 
 
@@ -148,11 +158,12 @@ class ChangeTest(unittest.TestCase):
         self.left_con: TreePanelController = self.app.cache_manager.get_tree_controller(actions.ID_LEFT_TREE)
         self.right_con: TreePanelController = self.app.cache_manager.get_tree_controller(actions.ID_RIGHT_TREE)
 
-        self.verify(self.left_con, INITIAL_TREE_LEFT)
+        self._verify(self.left_con, INITIAL_TREE_LEFT)
+        self._verify(self.right_con, INITIAL_TREE_RIGHT)
         logger.info(f'LOAD COMPLETE')
 
-    def verify_one_dir(self, tree_con, expected: List[FNode], actual: Iterable[DisplayNode],
-                       dir_deque: Deque[Tuple[List[FNode], Iterable[DisplayNode]]]):
+    def _verify_one_memcache_dir(self, tree_con, expected: List[FNode], actual: Iterable[DisplayNode],
+                                dir_deque: Deque[Tuple[List[FNode], Iterable[DisplayNode]]]):
         actual_iter = iter(actual)
         for i in range(0, len(expected)):
             expected_node: FNode = expected[i]
@@ -179,7 +190,38 @@ class ChangeTest(unittest.TestCase):
         except StopIteration:
             pass
 
-    def verify(self, tree_con: TreePanelController, expected_list: List[FNode]):
+    def _verify_one_display_dir(self, tree_con, expected: List[FNode], actual: List[DisplayNode],
+                                dir_deque: Deque[Tuple[List[FNode], Iterable[DisplayNode]]]):
+        """Displayed directories may not all be loaded. But we will _verify the ones that are"""
+        actual_iter = iter(actual)
+        for i in range(0, len(expected)):
+            expected_node: FNode = expected[i]
+            try:
+                actual_node: DisplayNode = next(actual_iter)
+                logger.info(f'Examining: {actual_node} (expecting: {expected_node})')
+                self.assertEqual(expected_node.name, actual_node.name)
+                self.assertEqual(expected_node.size_bytes, actual_node.get_size_bytes())
+                self.assertEqual(expected_node.is_dir(), actual_node.is_dir())
+                logger.info(f'OK: {expected_node.name}')
+
+                if expected_node.is_dir():
+                    assert isinstance(expected_node, DNode)
+                    expected_list: List[FNode] = expected_node.children
+                    actual_list: Iterable[DisplayNode] = tree_con.display_store.get_displayed_children_of(actual_node.uid)
+                    if actual_list:
+                        dir_deque.append((expected_list, actual_list))
+
+            except StopIteration:
+                self.fail(f'Tree "{tree_con.tree_id}" is missing displayed node: {expected_node}')
+
+        try:
+            actual_node: DisplayNode = next(actual_iter)
+            self.fail(f'Tree "{tree_con.tree_id}" has unexpected displayed node: {actual_node}')
+        except StopIteration:
+            pass
+
+    def _verify(self, tree_con: TreePanelController, expected_list_root: List[FNode]):
+        logger.info(f'Verifying "{tree_con.tree_id}"')
 
         # Verify that all nodes loaded correctly into the cache, which will be reflected by the state of the DisplayTree:
         backing_tree: DisplayTree = tree_con.get_tree()
@@ -189,17 +231,31 @@ class ChangeTest(unittest.TestCase):
 
         actual_list: Iterable[DisplayNode] = backing_tree.get_children_for_root()
 
+        # Cached nodes (in tree model)
         count_dir = 0
-        dir_deque.append((expected_list, actual_list))
+        dir_deque.append((expected_list_root, actual_list))
         while len(dir_deque) > 0:
             count_dir += 1
             expected_list, actual_list = dir_deque.popleft()
             # sort the actual list by name, since it is not required to be sorted
-            actual_list = list(actual_list)
+            actual_list: List[DisplayNode] = list(actual_list)
             actual_list.sort(key=_get_name_lower)
-            self.verify_one_dir(tree_con, expected_list, actual_list, dir_deque)
+            self._verify_one_memcache_dir(tree_con, expected_list, actual_list, dir_deque)
 
-        logger.info(f'Verified {count_dir} dirs')
+        logger.info(f'Verified {count_dir} dirs in memcache for "{tree_con.tree_id}"')
+
+        # Displayed nodes
+        count_dir = 0
+        actual_list: List[DisplayNode] = tree_con.display_store.get_displayed_children_of(None)
+        dir_deque.append((expected_list_root, actual_list))
+        while len(dir_deque) > 0:
+            count_dir += 1
+            expected_list, actual_list = dir_deque.popleft()
+            # sort the actual list by name, since it is not required to be sorted
+            actual_list: List[DisplayNode] = list(actual_list)
+            actual_list.sort(key=_get_name_lower)
+            self._verify_one_display_dir(tree_con, expected_list, actual_list, dir_deque)
+        logger.info(f'Verified {count_dir} display dirs for "{tree_con.tree_id}"')
 
     def test_dd_single_file_cp(self):
         logger.info('Testing drag & drop copy of single file local to local')
@@ -294,7 +350,7 @@ class ChangeTest(unittest.TestCase):
         completed_cmds: List[Command] = []
         all_complete = threading.Event()
 
-        def on_command_complete(command: Command):
+        def on_command_complete(sender, command: Command):
             completed_cmds.append(command)
             logger.info(f'Got a completed command (total: {len(completed_cmds)}, expecting: {expected_count})')
             if len(completed_cmds) >= expected_count:
@@ -311,7 +367,7 @@ class ChangeTest(unittest.TestCase):
         logger.info('Done!')
 
     def test_dd_two_dir_trees_cp(self):
-        logger.info('Testing drag & drop copy of 2 dir trees local to local')
+        logger.info('Testing drag & drop copy of 2 dir trees local left to local right')
         # Offset from 0:
 
         expected_count = 18
@@ -334,24 +390,68 @@ class ChangeTest(unittest.TestCase):
 
         # Drag & drop 1 node, which represents a tree of 10 files and 2 dirs:
         completed_cmds: List[Command] = []
-        all_complete = threading.Event()
+        all_commands_complete = threading.Event()
+        left_stats_updated = threading.Event()
+        right_stats_updated = threading.Event()
 
-        def on_command_complete(command: Command):
+        def on_command_complete(sender, command: Command):
             completed_cmds.append(command)
             logger.info(f'Got a completed command (total: {len(completed_cmds)}, expecting: {expected_count})')
             if len(completed_cmds) >= expected_count:
-                all_complete.set()
+                all_commands_complete.set()
+
+        def on_stats_updated(sender):
+            logger.info(f'Got signal: {actions.SUBTREE_STATS_UPDATED} for "{sender}"')
+            if sender == self.left_con.tree_id:
+                left_stats_updated.set()
+            elif sender == self.right_con.tree_id:
+                right_stats_updated.set()
 
         dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=on_command_complete)
+        dispatcher.connect(signal=actions.SUBTREE_STATS_UPDATED, receiver=on_stats_updated)
 
         logger.info('Submitting drag & drop signal')
         dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
         self.app.executor.start_op_execution_thread()
         logger.info('Sleeping until we get what we want')
-        if not all_complete.wait():
+        if not all_commands_complete.wait():
             raise RuntimeError('Timed out waiting for all commands to complete!')
-        # TODO: verify correct nodes were copied
+        if not right_stats_updated.wait():
+            raise RuntimeError('Timed out waiting for Right stats to update!')
+
+        final_tree_right = [
+            DNode('Art', (88259 + 652220 + 239739 + 44487 + 479124) + (147975 + 275771 + 8098 + 247023 + 36344), [
+                FNode('Dark-Art.png', 147975),
+                FNode('Hokusai_Great-Wave.jpg', 275771),
+                DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
+                    FNode('1923-art.jpeg', 88259),
+                    FNode('43548-forbidden_planet.jpg', 652220),
+                    FNode('Dunno.jpg', 239739),
+                    FNode('felix-the-cat.jpg', 44487),
+                    FNode('Glow-Cat.png', 479124),
+                ]),
+                FNode('Mona-Lisa.jpeg', 8098),
+                FNode('william-shakespeare.jpg', 247023),
+                FNode('WTF.jpg', 36344),
+            ]),
+            FNode('Edvard-Munch-The-Scream.jpg', 114082),
+            FNode('M83.jpg', 17329),
+            DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
+                FNode('1923-art.jpeg', 88259),
+                FNode('43548-forbidden_planet.jpg', 652220),
+                FNode('Dunno.jpg', 239739),
+                FNode('felix-the-cat.jpg', 44487),
+                FNode('Glow-Cat.png', 479124),
+            ]),
+            FNode('oak-tree-sunset.jpg', 386888),
+            FNode('Ocean-Wave.jpg', 83713),
+            FNode('Starry-Night.jpg', 91699),
+            FNode('we-can-do-it-poster.jpg', 390093),
+        ]
+
+        self._verify(self.left_con, INITIAL_TREE_LEFT)
+        self._verify(self.right_con, final_tree_right)
         logger.info('Done!')
 
 
