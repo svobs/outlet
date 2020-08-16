@@ -105,15 +105,17 @@ class ChangeLedger:
             if change.change_type == ChangeType.MKDIR:
                 # remove dups
                 if mkdir_dict.get(change.src_node.uid, None):
-                    logger.info(f'Removing duplicate MKDIR for node: {change.src_node}')
+                    logger.info(f'ReduceChanges(): Removing duplicate MKDIR for node: {change.src_node}')
                 else:
+                    logger.info(f'ReduceChanges(): Adding MKDIR-type: {change}')
                     final_list.append(change)
                     mkdir_dict[change.src_node.uid] = change
             elif change.change_type == ChangeType.RM:
                 # remove dups
                 if rm_dict.get(change.src_node.uid, None):
-                    logger.info(f'Removing duplicate RM for node: {change.src_node}')
+                    logger.info(f'ReduceChanges(): Removing duplicate RM for node: {change.src_node}')
                 else:
+                    logger.info(f'ReduceChanges(): Adding RM-type: {change}')
                     final_list.append(change)
                     rm_dict[change.src_node.uid] = change
             elif change.change_type == ChangeType.CP or change.change_type == ChangeType.UP or change.change_type == ChangeType.MV:
@@ -121,24 +123,25 @@ class ChangeLedger:
                 if existing:
                     # It is an error for anything but an exact duplicate to share the same dst node; if duplicate, then discard
                     if existing.src_node.uid != change.src_node.uid:
-                        logger.error(f'Conflict: Change1: {existing}; Change2: {change}')
+                        logger.error(f'ReduceChanges(): Conflict: Change1: {existing}; Change2: {change}')
                         raise RuntimeError(f'Batch change conflict: trying to copy different nodes into the same destination!')
                     elif existing.change_type != change.change_type:
-                        logger.error(f'Conflict: Change1: {existing}; Change2: {change}')
+                        logger.error(f'ReduceChanges(): Conflict: Change1: {existing}; Change2: {change}')
                         raise RuntimeError(f'Batch change conflict: trying to copy differnt change types into the same destination!')
                     else:
                         assert change.dst_node.uid == existing.dst_node.uid and existing.src_node.uid == change.src_node.uid and \
                                existing.change_type == change.change_type, f'Conflict: Change1: {existing}; Change2: {change}'
-                        logger.info(f'Discarding duplicate change: {change}')
+                        logger.info(f'ReduceChanges(): Discarding change (dup dst): {change}')
                 else:
-                    cp_dst_dict[change.dst_node.uid] = change
+                    logger.info(f'ReduceChanges(): Adding CP-like type: {change}')
                     cp_src_dict[change.src_node.uid].append(change)
+                    cp_dst_dict[change.dst_node.uid] = change
                     final_list.append(change)
 
         def eval_rm_ancestor_func(chg: ChangeAction, par: DisplayNode) -> bool:
             conflict = mkdir_dict.get(par.uid, None)
             if conflict:
-                logger.error(f'Conflict: Change1: {conflict}; Change2: {change}')
+                logger.error(f'ReduceChanges(): Conflict! Change1={conflict}; Change2={change}')
                 raise RuntimeError(f'Batch change conflict: trying to create a node and remove its descendant at the same time!')
 
             return True
@@ -146,7 +149,7 @@ class ChangeLedger:
         def eval_mkdir_ancestor_func(chg: ChangeAction, par: DisplayNode) -> bool:
             conflict = rm_dict.get(par.uid, None)
             if conflict:
-                logger.error(f'Conflict: Change1: {conflict}; Change2: {change}')
+                logger.error(f'ReduceChanges(): Conflict! Change1={conflict}; Change2={change}')
                 raise RuntimeError(f'Batch change conflict: trying to remove a node and create its descendant at the same time!')
             return True
 

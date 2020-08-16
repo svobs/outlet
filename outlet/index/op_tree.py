@@ -31,7 +31,7 @@ class OpTree:
         self._cv = threading.Condition()
         """Used to help consumers block"""
 
-        self._node_dict: DefaultDict[UID, Deque[OpTreeNode]] = collections.defaultdict(lambda: collections.deque())
+        self._node_dict: Dict[UID, Deque[OpTreeNode]] = {}
         """Contains entries for all nodes have pending changes. Each entry has a queue of pending changes for that node"""
 
         self._root: OpTreeNode = RootNode()
@@ -68,7 +68,7 @@ class OpTree:
             return self.cacheman.get_uid_for_path(parent_path)
 
     def _get_lowest_priority_tree_node(self, uid: UID):
-        node_list = self._node_dict[uid]
+        node_list = self._node_dict.get(uid, None)
         if node_list:
             # last element in list is lowest priority:
             return node_list[-1]
@@ -182,7 +182,7 @@ class OpTree:
                                        f'for "{op_type}"')
 
             with self._lock:
-                pending_change_list = self._node_dict.get(tgt_node.uid, [])
+                pending_change_list = self._node_dict.get(tgt_node.uid, None)
                 if pending_change_list:
                     for change_node in pending_change_list:
                         # TODO: for now, just deny anything which tries to work off an RM. Refine in future
@@ -235,7 +235,11 @@ class OpTree:
             self._root.add_child(tree_node)
 
         # Always add pending operation for bookkeeping
-        self._node_dict[target_uid].append(tree_node)
+        pending_ops = self._node_dict.get(target_uid, None)
+        if not pending_ops:
+            pending_ops = collections.deque()
+            self._node_dict[target_uid] = pending_ops
+        pending_ops.append(tree_node)
 
     def _add_subtree(self, subtree_root: OpTreeNode):
         all_subtree_nodes = subtree_root.get_all_nodes_in_subtree()

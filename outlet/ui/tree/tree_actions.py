@@ -156,8 +156,10 @@ class TreeActions:
                 # Expand dir nodes. ChangeManager will not remove non-empty dirs
                 expanded_node_list = self._get_subtree_for_node(node_to_delete)
                 for node in expanded_node_list:
-                    change_list.append(ChangeAction(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
-                                                    change_type=ChangeType.RM, src_node=node))
+                    # somewhere in this returned list is the subtree root. Need to check so we don't include a duplicate:
+                    if node.uid != node_to_delete.uid:
+                        change_list.append(ChangeAction(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
+                                                        change_type=ChangeType.RM, src_node=node))
 
             change_list.append(ChangeAction(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
                                             change_type=ChangeType.RM, src_node=node_to_delete))

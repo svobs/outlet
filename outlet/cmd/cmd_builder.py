@@ -81,9 +81,10 @@ def _populate_build_dict():
 
         GD_LO: lambda uid, change: DownloadFromGDriveCommand(uid, change, overwrite=False)
     }, ChangeType.RM: {
-        LO: lambda uid, change: DeleteLocalFileCommand(uid, change, to_trash=True, delete_empty_parent=True),
+        # TODO: add support for trash
+        LO: lambda uid, change: DeleteLocalFileCommand(uid, change, to_trash=False, delete_empty_parent=True),
 
-        GD: lambda uid, change: DeleteGDriveFileCommand(uid, change, to_trash=True, delete_empty_parent=True)
+        GD: lambda uid, change: DeleteGDriveFileCommand(uid, change, to_trash=False, delete_empty_parent=True)
     }, ChangeType.UP: {
         LO_LO: lambda uid, change: CopyFileLocallyCommand(uid, change, overwrite=True),
 

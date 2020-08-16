@@ -146,7 +146,7 @@ class GDriveDatabase(MetaDatabase):
         self.table_gdrive_folder.update(stmt_vars=(True,), col_names=['all_children_fetched'], commit=commit)
 
     def delete_gdrive_folder_with_uid(self, uid: UID, commit=True):
-        self.table_gdrive_folder.delete_for_uid(uid, commit)
+        self.table_gdrive_folder.delete_for_uid(uid, commit=commit)
 
     # GDRIVE_FILE operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -165,7 +165,7 @@ class GDriveDatabase(MetaDatabase):
         return self.table_gdrive_file.select_object_list()
 
     def delete_gdrive_file_with_uid(self, uid: UID, commit=True):
-        self.table_gdrive_file.delete_for_uid(uid, commit)
+        self.table_gdrive_file.delete_for_uid(uid, commit=commit)
 
     # goog_id_parent_mappings operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

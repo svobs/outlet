@@ -19,7 +19,7 @@ from model.display_tree.display_tree import DisplayTree
 from model.node.display_node import DisplayNode
 from outlet_app import OutletApplication
 from ui import actions
-from ui.actions import DRAG_AND_DROP_DIRECT
+from ui.actions import DELETE_SUBTREE, DRAG_AND_DROP_DIRECT
 from ui.tree import root_path_config
 from ui.tree.controller import TreePanelController
 from ui.tree.ui_listeners import DragAndDropData
@@ -301,7 +301,7 @@ class ChangeTest(unittest.TestCase):
     def _find_node_by_name_im_left_tree(self, node_name):
         tree_iter = self._find_iter_by_name_in_left_tree(node_name)
         node = self.left_con.display_store.get_node_data(tree_iter)
-        logger.warning(f'CP "{node.name}" from left to right root')
+        logger.info(f'Found "{node.name}"')
         return node
 
     def _do_and_verify(self, do_func: Callable, count_expected_cmds: int, wait_for_left: bool, wait_for_right: bool,
@@ -569,3 +569,39 @@ class ChangeTest(unittest.TestCase):
 
         self._do_and_verify(drop, count_expected_cmds=18, wait_for_left=False, wait_for_right=True,
                             expected_left=INITIAL_TREE_LEFT, expected_right=final_tree_right)
+
+    # TODO: test drop INTO
+
+    def test_delete_subtree(self):
+        logger.info('Testing delete subtree on left')
+
+        # Need to first expand tree in order to find child nodes
+        tree_iter = self._find_iter_by_name_in_left_tree('Art')
+        tree_path = self.left_con.display_store.model.get_path(tree_iter)
+
+        def action_func():
+            self.left_con.tree_view.expand_row(path=tree_path, open_all=True)
+
+        _do_and_wait_for_signal(action_func, actions.NODE_EXPANSION_DONE, actions.ID_LEFT_TREE)
+
+        nodes = [
+            self._find_node_by_name_im_left_tree('Art')
+        ]
+
+        def delete():
+            logger.info('Submitting delete signal')
+            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_LEFT_TREE, node_list=nodes)
+
+        final_tree_left = [
+            FNode('American_Gothic.jpg', 2061397),
+            FNode('Angry-Clown.jpg', 824641),
+            FNode('Egypt.jpg', 154564),
+            FNode('George-Floyd.png', 27601),
+            FNode('Geriatric-Clown.jpg', 89182),
+            FNode('Keep-calm-and-carry-on.jpg', 745698),
+        ]
+
+        self._do_and_verify(delete, count_expected_cmds=18, wait_for_left=False, wait_for_right=True,
+                            expected_left=final_tree_left, expected_right=INITIAL_TREE_RIGHT)
+
+        # TODO: test delete overlapping subtrees (before starting execution thread)
