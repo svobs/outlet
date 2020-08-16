@@ -29,3 +29,7 @@ exiftool -AllDates="2001:01:01 12:00:00" *
 
 exiftool -Comment="Hawaii" {target_dir}
 find . -name "*jpg_original" -exec rm -fv {} \;
+
+### Future Features (TODO)
+* CommandBuilder: look up MD5 for src_node and use a closer node
+* ChangeLedger: simplify the op tree each time the next change is requested

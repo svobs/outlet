@@ -3,10 +3,18 @@ from abc import ABC, abstractmethod
 
 import logging
 
-from constants import ENABLE_UID_PERSISTENCE, NULL_UID, ROOT_UID, UID_RESERVATION_BLOCK_SIZE
+from constants import NULL_UID, ROOT_UID
 from index.uid.uid import UID
 
 logger = logging.getLogger(__name__)
+
+CONFIG_KEY_ENABLE_LAST_UID = 'cache.enable_uid_lastval_persistence'
+"""If true, read and write the last allocated UID value to 'transient.global.last_uid' so that duplicate UIDs aren't assigned across startups"""
+
+CONFIG_KEY_UID_RESERVATION_BLOCK_SIZE = 'cache.uid_reservation_block_size'
+"""The number of sequential UIDs to reserve each time we persist to disk. Setting to a higher number will mean less disk access, but
+the UID numbers will get larger faster if there are a lot of program restarts, which is somewhere between annoying and inconvenient
+when debugging"""
 
 CONFIG_KEY_LAST_UID = 'transient.global.last_uid'
 
@@ -48,8 +56,10 @@ class PersistentAtomicIntUidGenerator(UidGenerator):
     def __init__(self, config):
         super().__init__()
         self._config = config
-        if ENABLE_UID_PERSISTENCE:
+        self._enable_uid_persistence: bool = self._config.get(CONFIG_KEY_ENABLE_LAST_UID)
+        if self._enable_uid_persistence:
             self._last_uid_written = self._config.get(CONFIG_KEY_LAST_UID, ROOT_UID + 1)
+            self._uid_reservation_block_size = self._config.get(CONFIG_KEY_UID_RESERVATION_BLOCK_SIZE)
         else:
             self._last_uid_written = ROOT_UID + 1
         self._value = self._last_uid_written + 1
@@ -57,9 +67,9 @@ class PersistentAtomicIntUidGenerator(UidGenerator):
 
     def _set(self, new_value):
         self._value = new_value
-        if ENABLE_UID_PERSISTENCE and self._value > self._last_uid_written:
+        if self._enable_uid_persistence and self._value > self._last_uid_written:
             # skip ahead and write a larger number. This will cause us to burn through numbers quicker, but will really speed things up
-            self._last_uid_written = self._value + UID_RESERVATION_BLOCK_SIZE
+            self._last_uid_written = self._value + self._uid_reservation_block_size
             self._config.write(CONFIG_KEY_LAST_UID, self._last_uid_written)
         return self._value
 

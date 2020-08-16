@@ -45,7 +45,7 @@ ICON_ADD_DIR = 'add-dir'
 ICON_GDRIVE = 'gdrive'
 ICON_LOCAL_DISK = 'local'
 
-FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT = 100  # TODO: put in config
+FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT = 100
 
 # GDrive
 NOT_TRASHED = 0
@@ -61,13 +61,6 @@ GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE = 3
 GDRIVE_DOWNLOAD_STATE_COMPLETE = 10
 
 TRASHED_STATUS = ['No', 'UserTrashed', 'Trashed']
-
-# TODO: put in config
-ENABLE_UID_PERSISTENCE = True
-UID_RESERVATION_BLOCK_SIZE = 10000
-"""The number of sequential UIDs to reserve each time we persist to disk. Setting to a higher number will mean less disk access, but
-the UID numbers will get larger faster if there are a lot of program restarts, which is somewhere between annoying and inconvenient
-when debugging"""
 
 ROOT_UID = UID(1)
 NULL_UID = UID(0)

@@ -1,4 +1,5 @@
 import threading
+import time
 from typing import Callable, Optional
 import logging
 
@@ -15,6 +16,7 @@ class HoldOffTimer:
         self._finished = threading.Event()
         self._lock = threading.Lock()
         self._thread: Optional[threading.Thread] = None
+        self._last_sleep_time_ms: int = 0
 
     def start_or_delay(self):
         """If a timer has not been started, then it starts one with the configured delay. If one has been started,
@@ -27,9 +29,14 @@ class HoldOffTimer:
                 self._thread = threading.Thread(target=self._run, name='HoldOffTimer', args=self.args, kwargs=self.kwargs, daemon=True)
                 self._thread.start()
             else:
-                logger.debug(f'Adding {self._initial_delay_sec}s delay to existing timer...')
-                # TODO: more exact timing, like in the function description. This should suffice for now though...
-                self._additional_delay_sec = self._initial_delay_sec
+                remaining_delay = self._initial_delay_sec - (int(time.time()) - self._last_sleep_time_ms)
+                if remaining_delay < 0:
+                    # in case of loss of sanity
+                    remaining_delay = self._initial_delay_sec
+                else:
+                    remaining_delay = min(remaining_delay, self._initial_delay_sec)
+                logger.debug(f'Adding {remaining_delay}s delay to existing timer...')
+                self._additional_delay_sec = remaining_delay
 
     def cancel(self):
         """Stop the timer if it hasn't finished yet."""
@@ -38,17 +45,18 @@ class HoldOffTimer:
 
     def _run(self):
         logger.debug(f'RunThread started. Sleeping for {self._initial_delay_sec}s...')
+        self._last_sleep_time_ms = int(time.time())
         self._finished.wait(self._initial_delay_sec)
         while True:
-            more_delay: float = 0
             with self._lock:
-                if self._additional_delay_sec == 0:
-                    break
-                else:
+                if self._additional_delay_sec:
                     more_delay: float = self._additional_delay_sec
                     self._additional_delay_sec = 0
+                else:
+                    break
             if more_delay:
                 logger.debug(f'RunThread sleeping for another {more_delay}s...')
+                self._last_sleep_time_ms = int(time.time())
                 self._finished.wait(more_delay)
 
         if not self._finished.is_set():

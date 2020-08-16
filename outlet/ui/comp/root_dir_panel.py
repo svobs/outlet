@@ -9,14 +9,14 @@ from util import file_util
 from index.error import CacheNotLoadedError, GDriveItemNotFoundError
 from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib, GObject
-
 from constants import GDRIVE_PATH_PREFIX, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from model.node_identifier import NodeIdentifier
 from ui.dialog.base_dialog import BaseDialog
 import ui.actions as actions
 from ui.assets import ALERT_ICON_PATH, CHOOSE_ROOT_ICON_PATH, GDRIVE_ICON_PATH, REFRESH_ICON_PATH
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib
 
 logger = logging.getLogger(__name__)
 
@@ -61,17 +61,14 @@ class RootDirPanel:
                 if self._ui_enabled and event.keyval == Gdk.KEY_Escape and self.entry:
                     # cancel
                     logger.debug(f'Escape pressed! Cancelling root path entry box')
-                    # if self.entry and self.entry_box_focus_eid:
-                    #     self.entry.disconnect(self.entry_box_focus_eid)
-                    #     self.entry_box_focus_eid = None
                     self._update_root_label(self.current_root, self.err)
                     return True
                 return False
 
             # Connect Escape key listener to parent window so it can be heard everywhere
-            self.parent_win.connect('key-press-event', on_key_pressed)
-            # TODO: remove listener when destroyed
+            self.key_press_event_eid = self.parent_win.connect('key-press-event', on_key_pressed)
         else:
+            self.key_press_event_eid = None
             self.change_btn = None
             self.content_box.pack_start(self.path_icon, expand=False, fill=False, padding=0)
 
@@ -103,6 +100,15 @@ class RootDirPanel:
             self.err = None
 
         GLib.idle_add(self._update_root_label, current_root, self.err)
+
+    def __del__(self):
+        if self.entry_box_focus_eid:
+            self.entry.disconnect(self.entry_box_focus_eid)
+            self.entry_box_focus_eid = None
+
+        if self.key_press_event_eid:
+            self.parent_win.disconnect(self.key_press_event_eid)
+            self.key_press_event_eid = None
 
     def _on_root_text_entry_submitted(self, widget, tree_id):
         if self.entry and self.entry_box_focus_eid:
