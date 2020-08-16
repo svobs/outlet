@@ -108,8 +108,8 @@ class LocalDiskMasterCache:
                     tree.add_to_tree(dir_node)
                     if not dir_node.exists():
                         missing_items.append(dir_node)
-                else:
-                    assert existing.full_path == dir_node.full_path, f'Existing={existing}, New={dir_node}'
+                elif existing.full_path != dir_node.full_path:
+                    raise RuntimeError(f'Existing={existing}, FromCache={dir_node}')
 
             file_list: List[LocalFileNode] = fmeta_disk_cache.get_local_files()
             if len(file_list) == 0:

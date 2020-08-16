@@ -112,7 +112,7 @@ class TreeContextMenu:
 
         if is_dir:
             item = Gtk.MenuItem(label=f'Go into "{file_name}"')
-            item.connect('activate', self.send_signal, actions.ROOT_PATH_UPDATED, {'new_root' : node.node_identifier})
+            item.connect('activate', self.send_signal, actions.ROOT_PATH_UPDATED, {'new_root': node.node_identifier})
             menu.append(item)
 
         if file_exists and is_dir and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:

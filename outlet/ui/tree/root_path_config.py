@@ -9,15 +9,27 @@ from ui import actions
 logger = logging.getLogger(__name__)
 
 
+def make_tree_type_config_key(tree_id: str):
+    return f'transient.{tree_id}.tree_type'
+
+
+def make_root_path_config_key(tree_id: str):
+    return f'transient.{tree_id}.root_path'
+
+
+def make_root_uid_config_key(tree_id: str):
+    return f'transient.{tree_id}.root_uid'
+
+
 class RootPathConfigPersister:
     """Reads and writes the root path for the given tree_id.
     Listens for signals to stay up-to-date. Configure this class, add it to its
     parent's instance variables, and then forget about it."""
 
     def __init__(self, application, tree_id):
-        self._tree_type_config_key = f'transient.{tree_id}.tree_type'
-        self._root_path_config_key = f'transient.{tree_id}.root_path'
-        self._root_uid_config_key = f'transient.{tree_id}.root_uid'
+        self._tree_type_config_key = make_tree_type_config_key(tree_id)
+        self._root_path_config_key = make_root_path_config_key(tree_id)
+        self._root_uid_config_key = make_root_uid_config_key(tree_id)
         self._config = application.config
         self.node_identifier_factory = application.node_identifier_factory
         tree_type = self._config.get(self._tree_type_config_key)

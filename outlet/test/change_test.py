@@ -13,12 +13,14 @@ from pydispatch import dispatcher
 
 from app_config import AppConfig
 from cmd.cmd_interface import Command
+from constants import TREE_TYPE_LOCAL_DISK
 from index.uid.uid import UID
 from model.display_tree.display_tree import DisplayTree
 from model.node.display_node import DisplayNode
 from outlet_app import OutletApplication
 from ui import actions
 from ui.actions import DRAG_AND_DROP_DIRECT
+from ui.tree import root_path_config
 from ui.tree.controller import TreePanelController
 from ui.tree.ui_listeners import DragAndDropData
 from util import file_util
@@ -151,6 +153,12 @@ class ChangeTest(unittest.TestCase):
         logger.debug(f'Extracted: {TEST_ARCHIVE_PATH} to {TEST_BASE_DIR}')
 
         config = AppConfig()
+        config.write(root_path_config.make_tree_type_config_key(actions.ID_LEFT_TREE), TREE_TYPE_LOCAL_DISK)
+        config.write(root_path_config.make_root_path_config_key(actions.ID_LEFT_TREE), os.path.join(TEST_TARGET_DIR, 'Left-Root'))
+        # TODO: craft some kind of strategy for looking up UID for dir
+
+        config.write(root_path_config.make_tree_type_config_key(actions.ID_RIGHT_TREE), TREE_TYPE_LOCAL_DISK)
+        config.write(root_path_config.make_root_path_config_key(actions.ID_RIGHT_TREE), os.path.join(TEST_TARGET_DIR, 'Right-Root'))
         self.app = OutletApplication(config)
         # Disable execution so we can study the state of the OpTree:
         self.app.executor.enable_op_execution_thread = False

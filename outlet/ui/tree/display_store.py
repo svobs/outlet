@@ -165,7 +165,7 @@ class DisplayStore:
     # --- Tree searching & iteration (utility functions) --- #
 
     def _uid_equals_func(self, target_uid: UID, node: DisplayNode) -> bool:
-        # if logger.isEnabledFor(logging.DEBUG) and not node.is_ephemereal():
+        # if logger.isEnabledFor(logging.DEBUG) and not node.is_ephemeral():
         #     logger.debug(f'Examining node uid={node.uid} (looking for: {target_uid})')
         return not node.is_ephemereal() and node.uid == target_uid
 
