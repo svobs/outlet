@@ -137,7 +137,7 @@ def creation_date(path_to_file):
             return stat.st_mtime
 
 
-def delete_file(tgt_path, to_trash=False):
+def delete_file(tgt_path: str, to_trash: bool = False):
     if not os.path.exists(tgt_path):
         logger.info(f'Cannot not delete file: file does not exist: {tgt_path}')
         return
@@ -149,6 +149,20 @@ def delete_file(tgt_path, to_trash=False):
     else:
         logger.debug(f'Deleting file: {tgt_path}')
         os.remove(tgt_path)
+
+
+def delete_empty_dir(tgt_path: str, to_trash: bool = False):
+    if not os.path.exists(tgt_path):
+        logger.info(f'Cannot not delete dir: dir does not exist: {tgt_path}')
+        return
+
+    if to_trash:
+        # TODO
+        logger.warning(f'Moving to trash not implemented! Skipping: {tgt_path}')
+        pass
+    else:
+        logger.debug(f'Deleting dir: {tgt_path}')
+        os.rmdir(tgt_path)
 
 
 def move_file(src_path, dst_path):

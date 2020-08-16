@@ -62,7 +62,7 @@ class CopyFileLocallyCommand(CopyNodeCommand):
 
 class DeleteLocalFileCommand(DeleteNodeCommand):
     """
-    Delete Local
+    Delete Local. This supports deleting either a single file or an empty dir.
     """
     def __init__(self, uid: UID, change_action: ChangeAction, to_trash=True, delete_empty_parent=False):
         super().__init__(uid, change_action, to_trash, delete_empty_parent)
@@ -75,7 +75,13 @@ class DeleteLocalFileCommand(DeleteNodeCommand):
     def execute(self, cxt: CommandContext):
         deleted_nodes_list = []
         logger.debug(f'RM: tgt={self.change_action.src_node.full_path}')
-        file_util.delete_file(self.change_action.src_node.full_path, self.to_trash)
+
+        if self.change_action.src_node.is_file():
+            file_util.delete_file(self.change_action.src_node.full_path, self.to_trash)
+        elif self.change_action.src_node.is_dir():
+            file_util.delete_empty_dir(self.change_action.src_node.full_path, self.to_trash)
+        else:
+            raise RuntimeError(f'Not a file or dir: {self.change_action.src_node}')
         deleted_nodes_list.append(self.change_action.src_node)
 
         # TODO: reconsider deleting empty ancestors...

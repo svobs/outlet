@@ -31,7 +31,7 @@ from gi.repository import Gtk
 
 logger = logging.getLogger(__name__)
 
-LOAD_TIMEOUT_SEC = None
+LOAD_TIMEOUT_SEC = 30
 ENABLE_CHANGE_EXECUTION_THREAD = True
 
 TEST_BASE_DIR = file_util.get_resource_path('test')
@@ -94,7 +94,7 @@ def _do_and_wait_for_signal(action_func, signal, tree_id):
 
     action_func()
     logger.debug(f'Waiting for signal: {signal} from tree {tree_id}')
-    if not received.wait():
+    if not received.wait(LOAD_TIMEOUT_SEC):
         raise RuntimeError(f'Timed out waiting for signal: {signal} from tree: {tree_id}')
 
 
@@ -332,13 +332,13 @@ class ChangeTest(unittest.TestCase):
 
         self.app.executor.start_op_execution_thread()
         logger.info('Sleeping until we get what we want')
-        if not all_commands_complete.wait():
+        if not all_commands_complete.wait(LOAD_TIMEOUT_SEC):
             raise RuntimeError('Timed out waiting for all commands to complete!')
         if wait_for_left:
-            if not left_stats_updated.wait():
+            if not left_stats_updated.wait(LOAD_TIMEOUT_SEC):
                 raise RuntimeError('Timed out waiting for Left stats to update!')
         if wait_for_right:
-            if not right_stats_updated.wait():
+            if not right_stats_updated.wait(LOAD_TIMEOUT_SEC):
                 raise RuntimeError('Timed out waiting for Right stats to update!')
 
         self._verify(self.left_con, expected_left)
