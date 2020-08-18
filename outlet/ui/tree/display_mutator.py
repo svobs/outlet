@@ -356,24 +356,17 @@ class DisplayMutator:
         def update_ui():
             with self._lock:
                 displayed_item = self.con.display_store.displayed_rows.get(node.uid, None)
-                displayed_src_item = self.con.display_store.displayed_decorated_rows.get(node.uid, None)
-                in_this_tree = displayed_item or displayed_src_item
                 if logger.isEnabledFor(logging.DEBUG):
-                    if in_this_tree:
+                    if displayed_item:
                         text = 'Received'
                     else:
                         text = 'Ignoring'
                     logger.debug(f'[{self.con.tree_id}] {text} signal {actions.NODE_REMOVED} with node {node.node_identifier}')
 
-                if not in_this_tree:
+                if not displayed_item:
                     return
 
                 self.con.display_store.remove_from_lists(node.uid)
-
-                if displayed_src_item:
-                    # this is actually the one we want to delete
-                    self.con.display_store.remove_from_lists(displayed_src_item.uid)
-                    displayed_item = displayed_src_item
 
                 # TODO: this can be optimized to search only the paths of the ancestors
                 tree_iter = self.con.display_store.find_uid_in_tree(target_uid=displayed_item.uid)

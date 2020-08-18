@@ -6,7 +6,7 @@ from typing import DefaultDict, Deque, Dict, Iterable, List, Optional
 
 from pydispatch import dispatcher
 
-from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from index.op_tree_node import DstActionNode, OpTreeNode, RmActionNode, RootNode, SrcActionNode
 from index.uid.uid import UID
 from model.change_action import ChangeAction, ChangeType
@@ -124,26 +124,35 @@ class OpTree:
             for node in non_mutex_list:
                 root_node.link_child(node)
 
+        # Need to keep track of RM nodes because we can't identify their topmost nodes the same way as other nodes:
         rm_node_dict: Dict[UID, OpTreeNode] = {}
+        
         # mutually exclusive nodes have dependencies on each other:
-        for potential_child_node in mutex_node_dict.values():
-            parent_uid = self._derive_parent_uid(potential_child_node.get_target_node())
-            parent: OpTreeNode = mutex_node_dict.get(parent_uid, None)
-            if potential_child_node.change_action.change_type == ChangeType.RM:
+        for potential_child_op in mutex_node_dict.values():
+            parent_uid = self._derive_parent_uid(potential_child_op.get_target_node())
+            op_for_parent_node: OpTreeNode = mutex_node_dict.get(parent_uid, None)
+            if potential_child_op.is_remove_type():
                 # Special handling for RM-type nodes:
-                rm_node_dict[potential_child_node.get_target_node().uid] = potential_child_node
-                if parent and parent.change_action.change_type == ChangeType.RM:
-                    potential_child_node.link_child(parent)
+                op_parent_unknown = True
+                if op_for_parent_node:
+                    # Parent node's op is also RM? -> parent node's op becomes op child
+                    if op_for_parent_node.is_remove_type():
+                        potential_child_op.link_child(op_for_parent_node)
+                    else:
+                        op_for_parent_node.link_child(potential_child_op)
+                        op_parent_unknown = False
+                if op_parent_unknown:
+                    rm_node_dict[potential_child_op.get_target_node().uid] = potential_child_op
             else:
                 # (Nodes which are NOT ChangeType.RM):
-                if parent:
-                    parent.link_child(potential_child_node)
+                if op_for_parent_node:
+                    op_for_parent_node.link_child(potential_child_op)
                 else:
                     # those with no parent will be children of root:
-                    root_node.link_child(potential_child_node)
+                    root_node.link_child(potential_child_op)
 
         # Filter RM node list so that we only have topmost nodes:
-        for uid in rm_node_dict.keys():
+        for uid in list(rm_node_dict.keys()):
             if rm_node_dict[uid].get_parent_list():
                 del rm_node_dict[uid]
         # Finally, link topmost RM nodes to root:
@@ -228,6 +237,19 @@ class OpTree:
         target_uid: UID = target_node.uid
         parent_uid: UID = self._derive_parent_uid(target_node)
 
+        if tree_node.is_remove_type():
+            # Special handling for RM-type nodes:
+            op_parent_unknown = True
+            # if op_for_parent_node:
+            #     # Parent node's op is also RM? -> parent node's op becomes op child
+            #     if op_for_parent_node.change_action.change_type == ChangeType.RM:
+            #         potential_child_op.link_child(op_for_parent_node)
+            #     else:
+            #         op_for_parent_node.link_child(potential_child_op)
+            #         op_parent_unknown = False
+            # if op_parent_unknown:
+            #     rm_node_dict[potential_child_op.get_target_node().uid] = potential_child_op
+
         # First check whether the target node is known and has pending operations
         last_target_op = self._get_lowest_priority_tree_node(target_uid)
         last_parent_op = self._get_lowest_priority_tree_node(parent_uid)
@@ -260,13 +282,6 @@ class OpTree:
             self._node_dict[target_uid] = pending_ops
         pending_ops.append(tree_node)
 
-    def _add_subtree(self, subtree_root: OpTreeNode):
-        all_subtree_nodes = subtree_root.get_all_nodes_in_subtree()
-
-        for tree_node in all_subtree_nodes:
-            with self._lock:
-                self._add_single_node(tree_node)
-
     def add_batch(self, root_of_changes: RootNode):
         # 1. Discard root
         # 2. Examine each child of root. Each shall be treated as its own subtree.
@@ -280,8 +295,10 @@ class OpTree:
 
         batch_uid = root_of_changes.get_first_child().change_action.batch_uid
 
-        for change_subtree_root in root_of_changes.get_child_list():
-            self._add_subtree(change_subtree_root)
+        breadth_first_list: List[OpTreeNode] = root_of_changes.get_all_nodes_in_subtree()
+        for tree_node in _skip_root(breadth_first_list):
+            with self._lock:
+                self._add_single_node(tree_node)
 
         logger.debug(f'Done adding batch {batch_uid}')
         self._print_current_state()
@@ -432,3 +449,11 @@ class OpTree:
             self._cv.notifyAll()
 
 
+def _skip_root(node_list: List[OpTreeNode]) -> Iterable[OpTreeNode]:
+    """Note: does not support case when root node is second or later in the list"""
+    if node_list and node_list[0].node_uid == ROOT_UID:
+        node_list_iter = iter(node_list)
+        next(node_list_iter)
+        return node_list_iter
+
+    return node_list

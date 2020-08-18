@@ -1,7 +1,7 @@
 import collections
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any, Deque, Dict, Iterable, List, Optional
 
 from constants import OP_TREE_INDENT_STR, ROOT_UID
 from index.uid.uid import UID
@@ -31,7 +31,7 @@ class OpTreeNode(ABC):
     def get_first_parent(self) -> Optional:
         """Returns one of the parents, or None if there aren't any"""
         try:
-            parent_list = self.get_parent_list()
+            parent_list: Optional[Iterable] = self.get_parent_list()
             if parent_list:
                 return next(iter(parent_list))
         except StopIteration:
@@ -41,17 +41,17 @@ class OpTreeNode(ABC):
     def get_first_child(self) -> Optional:
         """Returns one of the children, or None if there aren't any"""
         try:
-            child_list = self.get_child_list()
+            child_list: Optional[Iterable] = self.get_child_list()
             if child_list:
                 return next(iter(child_list))
         except StopIteration:
             pass
         return None
 
-    def get_parent_list(self) -> Optional[List]:
+    def get_parent_list(self) -> Optional[Iterable]:
         return None
 
-    def get_child_list(self) -> Optional[List]:
+    def get_child_list(self) -> Optional[Iterable]:
         return None
 
     def link_parent(self, parent):
@@ -97,8 +97,12 @@ class OpTreeNode(ABC):
 
         return level
 
-    def print_me(self) -> str:
-        return f'NodeUID={self.node_uid}: {self.change_action}'
+    def print_me(self, full=True) -> str:
+        string = f'(?) op node UID={self.node_uid}'
+        if full:
+            return f'{string}: {self.change_action}'
+        else:
+            return string
 
     def __repr__(self):
         return self.print_me()
@@ -110,18 +114,18 @@ class OpTreeNode(ABC):
         level = self.get_level()
         if coverage_dict.get(self.node_uid, None):
             # already printed this node
-            return [f'{OP_TREE_INDENT_STR * (level-1)} (ditto))']
+            return [f'{OP_TREE_INDENT_STR * (level-1)}{self.print_me(full=False)} [see above]']
 
         coverage_dict[self.node_uid] = self
 
         blocks = [f'{OP_TREE_INDENT_STR * (level-1)}{self.print_me()}']
 
         for child in self.get_child_list():
-            blocks += child.print_recursively()
+            blocks += child.print_recursively(coverage_dict)
 
         return blocks
 
-    def get_all_nodes_in_subtree(self, coverage_dict: Dict[UID, Any] = None):
+    def get_all_nodes_in_subtree(self, coverage_dict: Dict[UID, Any] = None) -> List:
         """
         Returns: a list of all the nodes in this sutree (including this one) in breadth-first order
         """
@@ -140,8 +144,8 @@ class OpTreeNode(ABC):
 
             for child in node.get_child_list():
                 # avoid duplicates:
-                if not coverage_dict.get(node.node_uid, None):
-                    coverage_dict[node.node_uid] = child
+                if not coverage_dict.get(child.node_uid, None):
+                    coverage_dict[child.node_uid] = child
                     queue.append(child)
 
         return node_list
@@ -153,7 +157,7 @@ class HasSingleParent(ABC):
     def __init__(self):
         self._parent: Optional[OpTreeNode] = None
 
-    def get_parent_list(self) -> Optional[List]:
+    def get_parent_list(self) -> Optional[Iterable]:
         if self._parent:
             return [self._parent]
         return []
@@ -164,8 +168,7 @@ class HasSingleParent(ABC):
                 raise RuntimeError('Cannot link parent: HasSingleParent already has a different parent linked!')
         else:
             self._parent = parent
-
-        parent.link_child(self)
+            parent.link_child(self)
 
     def unlink_parent(self, parent: OpTreeNode):
         if self._parent:
@@ -185,7 +188,7 @@ class HasMultiParent(ABC):
     def __init__(self):
         self._parent_dict: Dict[UID, OpTreeNode] = {}
 
-    def get_parent_list(self) -> Optional[List]:
+    def get_parent_list(self) -> Optional[Iterable]:
         return self._parent_dict.values()
 
     def link_parent(self, parent: OpTreeNode):
@@ -194,7 +197,8 @@ class HasMultiParent(ABC):
             parent.link_child(self)
 
     def unlink_parent(self, parent: OpTreeNode):
-        if self._parent_dict.pop(parent.node_uid):
+        if self._parent_dict.get(parent.node_uid, None):
+            self._parent_dict.pop(parent.node_uid)
             parent.unlink_child(self)
 
     def clear_relationships(self):
@@ -207,7 +211,7 @@ class HasSingleChild(ABC):
     def __init__(self):
         self._child: Optional[OpTreeNode] = None
 
-    def get_child_list(self) -> Optional[List]:
+    def get_child_list(self) -> Optional[Iterable]:
         if self._child:
             return [self._child]
         return []
@@ -218,6 +222,7 @@ class HasSingleChild(ABC):
                 raise RuntimeError('Only a single child allowed!')
         else:
             self._child = child
+            child.link_parent(self)
 
     def unlink_child(self, child: OpTreeNode):
         if self._child == child:
@@ -237,7 +242,7 @@ class HasMultiChild(ABC):
     def __init__(self):
         self._child_dict: Dict[UID, OpTreeNode] = {}
 
-    def get_child_list(self) -> Optional[List]:
+    def get_child_list(self) -> Optional[Iterable]:
         return self._child_dict.values()
 
     def link_child(self, child: OpTreeNode):
@@ -246,7 +251,8 @@ class HasMultiChild(ABC):
             child.link_parent(self)
 
     def unlink_child(self, child: OpTreeNode):
-        if self._child_dict.pop(child.node_uid):
+        if self._child_dict.get(child.node_uid, None):
+            self._child_dict.pop(child.node_uid)
             child.unlink_parent(self)
 
     def clear_relationships(self):
@@ -272,10 +278,10 @@ class RootNode(HasMultiChild, OpTreeNode):
         return None
 
     def clear_relationships(self):
-        HasMultiChild().clear_relationships()
+        HasMultiChild.clear_relationships(self)
 
-    def print_me(self) -> str:
-        return f'RootNode'
+    def print_me(self, full=True) -> str:
+        return f'ROOT_no_op'
 
 
 # CLASS SrcActionNode
@@ -297,11 +303,15 @@ class SrcActionNode(HasSingleParent, HasMultiChild, OpTreeNode):
         return self.change_action.change_type == ChangeType.MKDIR
 
     def clear_relationships(self):
-        for cls in HasSingleParent, HasMultiChild:
-            cls().clear_relationships()
+        HasSingleParent.clear_relationships(self)
+        HasMultiChild.clear_relationships(self)
 
-    def print_me(self) -> str:
-        return f'SrcActionNode UID={self.node_uid}: {self.change_action}'
+    def print_me(self, full=True) -> str:
+        string = f'SRC_op UID={self.node_uid}'
+        if full:
+            return f'{string}: {self.change_action}'
+        else:
+            return string
 
 
 # CLASS DstActionNode
@@ -327,11 +337,15 @@ class DstActionNode(OpTreeNode, HasSingleParent, HasMultiChild):
         return True
 
     def clear_relationships(self):
-        for cls in HasSingleParent, HasMultiChild:
-            cls().clear_relationships()
+        HasSingleParent.clear_relationships(self)
+        HasMultiChild.clear_relationships(self)
 
-    def print_me(self) -> str:
-        return f'DstActionNode UID={self.node_uid}: {self.change_action}'
+    def print_me(self, full=True) -> str:
+        string = f'DST_op UID={self.node_uid}'
+        if full:
+            return f'{string}: {self.change_action}'
+        else:
+            return string
 
 
 # CLASS RmActionNode
@@ -354,8 +368,12 @@ class RmActionNode(HasMultiParent, HasSingleChild, OpTreeNode):
         return self.change_action.src_node
 
     def clear_relationships(self):
-        for cls in HasMultiParent, HasSingleChild:
-            cls().clear_relationships()
+        HasMultiParent.clear_relationships(self)
+        HasSingleChild.clear_relationships(self)
 
-    def print_me(self) -> str:
-        return f'RmActionNode UID={self.node_uid}: {self.change_action}'
+    def print_me(self, full=True) -> str:
+        string = f'RM_op UID={self.node_uid}'
+        if full:
+            return f'{string}: {self.change_action}'
+        else:
+            return string
