@@ -411,6 +411,10 @@ class DisplayMutator:
         """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes
         with the current values from the cache."""
         def refresh_displayed_node(tree_iter):
+            if self.con.app.shutdown:
+                # try to prevent junk errors during shutdown
+                return
+
             ds = self.con.display_store
             data: DisplayNode = ds.get_node_data(tree_iter)
             if not data:
@@ -423,7 +427,8 @@ class DisplayMutator:
 
         def do_in_ui():
             with self._lock:
-                self.con.display_store.recurse_over_tree(action_func=refresh_displayed_node)
+                if not self.con.app.shutdown:
+                    self.con.display_store.recurse_over_tree(action_func=refresh_displayed_node)
 
         logger.debug(f'[{self.con.tree_id}] Redrawing display tree stats')
         GLib.idle_add(do_in_ui)

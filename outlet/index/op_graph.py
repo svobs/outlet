@@ -36,7 +36,7 @@ class OpGraph:
         self._node_dict: Dict[UID, Deque[OpGraphNode]] = {}
         """Contains entries for all nodes have pending changes. Each entry has a queue of pending changes for that node"""
 
-        self._root: OpGraphNode = RootNode()
+        self._graph_root: OpGraphNode = RootNode()
         """Root of tree. Has no useful internal data; we value it for its children"""
 
         self._outstanding_actions: Dict[UID, ChangeAction] = {}
@@ -53,8 +53,8 @@ class OpGraph:
             self._cv.notifyAll()
 
     def _print_current_state(self):
-        lines = self._root.print_recursively()
-        logger.debug(f'CURRENT STATE: PendingChangeTree is now {len(lines)} items:')
+        lines = self._graph_root.print_recursively()
+        logger.debug(f'CURRENT STATE: PendingChangeGraph is now {len(lines)} items:')
         for line in lines:
             logger.debug(line)
         self._print_node_dict()
@@ -79,7 +79,7 @@ class OpGraph:
             parent_path = str(pathlib.Path(node.full_path).parent)
             return self.cacheman.get_uid_for_path(parent_path)
 
-    def _get_lowest_priority_tree_node(self, uid: UID):
+    def _get_lowest_priority_op_node(self, uid: UID):
         node_list = self._node_dict.get(uid, None)
         if node_list:
             # last element in list is lowest priority:
@@ -88,9 +88,9 @@ class OpGraph:
 
     def get_last_pending_change_for_node(self, node_uid: UID) -> Optional[ChangeAction]:
         """This is a public method."""
-        tree_node = self._get_lowest_priority_tree_node(node_uid)
-        if tree_node:
-            return tree_node.change_action
+        op_node = self._get_lowest_priority_op_node(node_uid)
+        if op_node:
+            return op_node.change_action
         return None
 
     def make_tree_to_insert(self, change_batch: Iterable[ChangeAction]) -> RootNode:
@@ -242,7 +242,7 @@ class OpGraph:
 
         child_nodes = []
 
-        for existing_op_node in _skip_root(self._root.get_all_nodes_in_subtree()):
+        for existing_op_node in _skip_root(self._graph_root.get_all_nodes_in_subtree()):
             potential_child: DisplayNode = existing_op_node.get_target_node()
             if potential_parent.is_parent(potential_child):
                 child_nodes.append(existing_op_node)
@@ -267,7 +267,7 @@ class OpGraph:
         parent_uid: UID = self._derive_parent_uid(target_node)
 
         # First check whether the target node is known and has pending operations
-        last_target_op = self._get_lowest_priority_tree_node(target_uid)
+        last_target_op = self._get_lowest_priority_op_node(target_uid)
 
         if node_to_insert.is_remove_type():
             # Special handling for RM-type nodes.
@@ -295,10 +295,10 @@ class OpGraph:
                         op_for_child_node.link_child(node_to_insert)
                 else:
                     logger.debug(f'Found no previous ops for target node {target_uid} or its children; adding to root')
-                    self._root.link_child(node_to_insert)
+                    self._graph_root.link_child(node_to_insert)
         else:
             # Not an RM node:
-            last_parent_op = self._get_lowest_priority_tree_node(parent_uid)
+            last_parent_op = self._get_lowest_priority_op_node(parent_uid)
 
             if last_target_op and last_parent_op:
                 if last_target_op.get_level() > last_parent_op.get_level():
@@ -319,7 +319,7 @@ class OpGraph:
             else:
                 assert not last_parent_op and not last_target_op
                 logger.debug(f'Found no previous ops for either target node {target_uid} or parent node {parent_uid}; adding to root')
-                self._root.link_child(node_to_insert)
+                self._graph_root.link_child(node_to_insert)
 
         # Always add pending operation for bookkeeping
         pending_ops = self._node_dict.get(target_uid, None)
@@ -356,49 +356,49 @@ class OpGraph:
     def _try_get(self) -> Optional[ChangeAction]:
         # We can optimize this later
 
-        for tree_node in self._root.get_child_list():
-            logger.debug(f'TryGet(): examining {tree_node}')
+        for op_node in self._graph_root.get_child_list():
+            logger.debug(f'TryGet(): examining {op_node}')
 
-            if tree_node.change_action.has_dst():
+            if op_node.change_action.has_dst():
                 # If the ChangeAction has both src and dst nodes, *both* must be next in their queues, and also be just below root.
-                if tree_node.is_dst():
+                if op_node.is_dst():
                     # Dst node is child of root. But verify corresponding src node is also child of root
-                    pending_changes_for_src_node: Deque[OpGraphNode] = self._node_dict.get(tree_node.change_action.src_node.uid, None)
+                    pending_changes_for_src_node: Deque[OpGraphNode] = self._node_dict.get(op_node.change_action.src_node.uid, None)
                     if not pending_changes_for_src_node:
-                        logger.error(f'Could not find entry for change src (change={tree_node.change_action}); raising error')
-                        raise RuntimeError(f'Serious error: master dict has no entries for change src ({tree_node.change_action.src_node.uid})!')
-                    src_tree_node = pending_changes_for_src_node[0]
-                    if src_tree_node.change_action.action_uid != tree_node.change_action.action_uid:
-                        logger.debug(f'Skipping ChangeAction (UID {tree_node.change_action.action_uid}): it is not next in src node queue')
+                        logger.error(f'Could not find entry for change src (change={op_node.change_action}); raising error')
+                        raise RuntimeError(f'Serious error: master dict has no entries for change src ({op_node.change_action.src_node.uid})!')
+                    src_op_node = pending_changes_for_src_node[0]
+                    if src_op_node.change_action.action_uid != op_node.change_action.action_uid:
+                        logger.debug(f'Skipping ChangeAction (UID {op_node.change_action.action_uid}): it is not next in src node queue')
                         continue
 
-                    level = src_tree_node.get_level()
+                    level = src_op_node.get_level()
                     # level 1 == root; level 2 == sub-root
                     if level != 2:
-                        logger.debug(f'Skipping ChangeAction (UID {tree_node.change_action.action_uid}): src node is level {level}')
+                        logger.debug(f'Skipping ChangeAction (UID {op_node.change_action.action_uid}): src node is level {level}')
                         continue
 
                 else:
                     # Src node is child of root. But verify corresponding dst node is also child of root
-                    pending_changes_for_node: Deque[OpGraphNode] = self._node_dict.get(tree_node.change_action.dst_node.uid, None)
+                    pending_changes_for_node: Deque[OpGraphNode] = self._node_dict.get(op_node.change_action.dst_node.uid, None)
                     if not pending_changes_for_node:
-                        logger.error(f'Could not find entry for change dst (change={tree_node.change_action}); raising error')
-                        raise RuntimeError(f'Serious error: master dict has no entries for change dst ({tree_node.change_action.dst_node.uid})!')
+                        logger.error(f'Could not find entry for change dst (change={op_node.change_action}); raising error')
+                        raise RuntimeError(f'Serious error: master dict has no entries for change dst ({op_node.change_action.dst_node.uid})!')
 
-                    dst_tree_node = pending_changes_for_node[0]
-                    if dst_tree_node.change_action.action_uid != tree_node.change_action.action_uid:
-                        logger.debug(f'Skipping ChangeAction (UID {tree_node.change_action.action_uid}): it is not next in dst node queue')
+                    dst_op_node = pending_changes_for_node[0]
+                    if dst_op_node.change_action.action_uid != op_node.change_action.action_uid:
+                        logger.debug(f'Skipping ChangeAction (UID {op_node.change_action.action_uid}): it is not next in dst node queue')
                         continue
 
-                    level = dst_tree_node.get_level()
+                    level = dst_op_node.get_level()
                     if level != 2:
-                        logger.debug(f'Skipping ChangeAction (UID {tree_node.change_action.action_uid}): dst node is level {level}')
+                        logger.debug(f'Skipping ChangeAction (UID {op_node.change_action.action_uid}): dst node is level {level}')
                         continue
 
             # Make sure the node has not already been checked out:
-            if not self._outstanding_actions.get(tree_node.change_action.action_uid, None):
-                self._outstanding_actions[tree_node.change_action.action_uid] = tree_node.change_action
-                return tree_node.change_action
+            if not self._outstanding_actions.get(op_node.change_action.action_uid, None):
+                self._outstanding_actions[op_node.change_action.action_uid] = op_node.change_action
+                return op_node.change_action
             else:
                 logger.debug(f'Skipping node because it is already outstanding')
 
@@ -428,7 +428,7 @@ class OpGraph:
 
     def _is_child_of_root(self, node: OpGraphNode) -> bool:
         parent = node.get_first_parent()
-        return parent and parent.node_uid == self._root.node_uid
+        return parent and parent.node_uid == self._graph_root.node_uid
 
     def pop_change(self, change: ChangeAction):
         """Ensure that we were expecting this change to be copmleted, and remove it from the tree."""
@@ -448,16 +448,16 @@ class OpGraph:
             if not src_node_list:
                 raise RuntimeError(f'Src node for completed change not found in master dict (src node UID {change.src_node.uid}')
 
-            src_tree_node: OpGraphNode = src_node_list.popleft()
-            if src_tree_node.change_action.action_uid != change.action_uid:
+            src_op_node: OpGraphNode = src_node_list.popleft()
+            if src_op_node.change_action.action_uid != change.action_uid:
                 raise RuntimeError(f'Completed change (UID {change.action_uid}) does not match first item popped from src queue '
-                                   f'(UID {src_tree_node.change_action.action_uid})')
+                                   f'(UID {src_op_node.change_action.action_uid})')
 
             # I-2. Remove src node from op graph
 
             # validate it is a child of root
-            if not self._is_child_of_root(src_tree_node):
-                parent = src_tree_node.get_first_parent()
+            if not self._is_child_of_root(src_op_node):
+                parent = src_op_node.get_first_parent()
                 if parent:
                     parent_uid = parent.node_uid
                 else:
@@ -465,17 +465,17 @@ class OpGraph:
                 raise RuntimeError(f'Src node for completed change is not a parent of root (instead found parent {parent_uid}')
 
             # unlink from its parent
-            self._root.unlink_child(src_tree_node)
+            self._graph_root.unlink_child(src_op_node)
 
             # unlink its children also. If the child then has no other parents, it moves up to become child of root
-            for child in src_tree_node.get_child_list():
-                child.unlink_parent(src_tree_node)
+            for child in src_op_node.get_child_list():
+                child.unlink_parent(src_op_node)
 
                 if not child.get_parent_list():
-                    self._root.link_child(child)
+                    self._graph_root.link_child(child)
 
             # I-3. Delete src node
-            del src_tree_node
+            del src_op_node
 
             # II. DST Node
             if change.has_dst():
@@ -484,16 +484,16 @@ class OpGraph:
                 dst_node_list: Deque[OpGraphNode] = self._node_dict.get(change.dst_node.uid)
                 if not dst_node_list:
                     raise RuntimeError(f'Dst node for completed change not found in master dict (dst node UID {change.dst_node.uid}')
-                dst_tree_node = dst_node_list.popleft()
-                if dst_tree_node.change_action.action_uid != change.action_uid:
+                dst_op_node = dst_node_list.popleft()
+                if dst_op_node.change_action.action_uid != change.action_uid:
                     raise RuntimeError(f'Completed change (UID {change.action_uid}) does not match first item popped from dst queue '
-                                       f'(UID {dst_tree_node.change_action.action_uid})')
+                                       f'(UID {dst_op_node.change_action.action_uid})')
 
                 # II-2. Remove dst node from op graph
 
                 # validate it is a child of root
-                if not self._is_child_of_root(dst_tree_node):
-                    parent = dst_tree_node.get_first_parent()
+                if not self._is_child_of_root(dst_op_node):
+                    parent = dst_op_node.get_first_parent()
                     if parent:
                         parent_uid = parent.node_uid
                     else:
@@ -501,17 +501,17 @@ class OpGraph:
                     raise RuntimeError(f'Dst node for completed change is not a parent of root (instead found parent {parent_uid}')
 
                 # unlink from its parent
-                self._root.unlink_child(dst_tree_node)
+                self._graph_root.unlink_child(dst_op_node)
 
                 # unlink its children also. If the child then has no other parents, it moves up to become child of root
-                for child in dst_tree_node.get_child_list():
-                    child.unlink_parent(dst_tree_node)
+                for child in dst_op_node.get_child_list():
+                    child.unlink_parent(dst_op_node)
 
                     if not child.get_parent_list():
-                        self._root.link_child(child)
+                        self._graph_root.link_child(child)
 
                 # II-3. Delete dst node
-                del dst_tree_node
+                del dst_op_node
 
             logger.debug(f'Done with change_completed() for change: {change}')
             self._print_current_state()
