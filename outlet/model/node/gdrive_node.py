@@ -4,7 +4,7 @@ from typing import Optional
 
 from util import format
 from constants import ICON_ADD_DIR, ICON_ADD_FILE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE, NOT_TRASHED, \
-    OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS
+    OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS, TREE_TYPE_GDRIVE
 from model.node.display_node import DisplayNode, HasChildren, HasParentList
 from model.node_identifier import ensure_int, GDriveIdentifier
 
@@ -33,7 +33,7 @@ class GDriveNode(HasParentList, DisplayNode, ABC):
 
         if trashed < 0 or trashed > 2:
             raise RuntimeError(f'Invalid value for "trashed": {trashed}')
-        self._trashed = trashed
+        self._trashed: int = trashed
 
         self.drive_id = drive_id
         """This will only ever contain other users' drive_ids."""
@@ -43,8 +43,12 @@ class GDriveNode(HasParentList, DisplayNode, ABC):
 
         self._sync_ts = ensure_int(sync_ts)
 
+    @classmethod
+    def get_tree_type(cls) -> int:
+        return TREE_TYPE_GDRIVE
+
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name
 
     @name.setter
@@ -52,11 +56,11 @@ class GDriveNode(HasParentList, DisplayNode, ABC):
         self._name = name
 
     @property
-    def trashed(self):
+    def trashed(self) -> int:
         return self._trashed
 
     @trashed.setter
-    def trashed(self, trashed: bool):
+    def trashed(self, trashed: int):
         self._trashed = trashed
 
     @property
@@ -94,6 +98,11 @@ class GDriveFolder(HasChildren, GDriveNode):
 
     def to_tuple(self):
         return self.uid, self.goog_id, self.name, self.trashed, self.drive_id, self.my_share, self.sync_ts, self.all_children_fetched
+
+    def is_parent(self, potential_child_node: DisplayNode) -> bool:
+        if potential_child_node.get_tree_type() == TREE_TYPE_GDRIVE:
+            return potential_child_node.uid in self.get_parent_uids()
+        return False
 
     @classmethod
     def get_obj_type(cls):
@@ -174,6 +183,10 @@ class GDriveFile(GDriveNode):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def is_parent(self, potential_child_node: DisplayNode) -> bool:
+        # A file can never be the parent of anything
+        return False
 
     def get_etc(self):
         return None

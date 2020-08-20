@@ -1,7 +1,8 @@
 import logging
+import re
 from typing import Optional, Tuple
 
-from constants import ICON_GENERIC_FILE, NOT_TRASHED, OBJ_TYPE_FILE
+from constants import ICON_GENERIC_FILE, NOT_TRASHED, OBJ_TYPE_FILE, TREE_TYPE_LOCAL_DISK
 from model.node.container_node import ContainerNode
 from model.node_identifier import ensure_int, LocalFsIdentifier, NodeIdentifier
 from model.node.display_node import DisplayNode
@@ -32,6 +33,14 @@ class LocalFileNode(DisplayNode):
         self._modify_ts: int = ensure_int(modify_ts)
         self._change_ts: int = ensure_int(change_ts)
         self._exists = _ensure_bool(exists)
+
+    def is_parent(self, potential_child_node: DisplayNode) -> bool:
+        # A file can never be the parent of anything
+        return False
+
+    @classmethod
+    def get_tree_type(cls) -> int:
+        return TREE_TYPE_LOCAL_DISK
 
     @classmethod
     def get_obj_type(cls):
@@ -130,6 +139,14 @@ class LocalDirNode(ContainerNode):
     def __init__(self, node_identifier: NodeIdentifier, exists: bool):
         super().__init__(node_identifier)
         self._exists = exists
+
+    def is_parent(self, potential_child_node: DisplayNode):
+        if potential_child_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
+            rel_path = re.sub(self.full_path, '', potential_child_node.full_path, count=1)
+            if len(rel_path) > 0 and rel_path.startswith('/'):
+                rel_path = rel_path[1:]
+            return rel_path == potential_child_node.name
+        return False
 
     def exists(self) -> bool:
         """Whether the object represented by this node actually exists currently, or it is just planned to exist or is an ephemeral node."""

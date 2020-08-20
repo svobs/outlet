@@ -601,7 +601,9 @@ class ChangeTest(unittest.TestCase):
             FNode('Keep-calm-and-carry-on.jpg', 745698),
         ]
 
-        self._do_and_verify(delete, count_expected_cmds=18, wait_for_left=False, wait_for_right=True,
+        self._do_and_verify(delete, count_expected_cmds=12, wait_for_left=True, wait_for_right=False,
                             expected_left=final_tree_left, expected_right=INITIAL_TREE_RIGHT)
 
         # TODO: test delete overlapping subtrees (before starting execution thread)
+
+        # TODO: test multiple delete batches of different levels

@@ -294,7 +294,7 @@ class ChangeLedger:
             logger.info(f'Command returned with status: "{command.status().name}"')
 
         # Ensure command is one that we are expecting
-        self.dep_tree.change_completed(command.change_action)
+        self.dep_tree.pop_change(command.change_action)
 
         # Add/update nodes in central cache:
         if command.result.nodes_to_upsert:

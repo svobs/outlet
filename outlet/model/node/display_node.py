@@ -29,6 +29,16 @@ class DisplayNode(Node, ABC):
     def _update_tag(self):
         self.tag = f'{self.node_identifier}: "{self.identifier}"'
 
+    @abstractmethod
+    def is_parent(self, potential_child_node) -> bool:
+        # TODO: custom exception class, 'InvalidOperationError'
+        raise RuntimeError('Not allowed!')
+
+    @classmethod
+    def get_tree_type(cls) -> int:
+        # TODO: custom exception class, 'InvalidOperationError'
+        raise RuntimeError('Not allowed!')
+
     @classmethod
     @abstractmethod
     def get_obj_type(cls):

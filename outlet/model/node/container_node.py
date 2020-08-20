@@ -30,6 +30,15 @@ class ContainerNode(HasChildren, DisplayNode):
     def is_dir(cls):
         return True
 
+    def get_tree_type(self) -> int:
+        return self.node_identifier.tree_type
+
+    def is_parent(self, potential_child_node: DisplayNode) -> bool:
+        # This is not currently possible to determine without access to the containing tree
+        # TODO: extend from HasParentList to add this support
+        # TODO: custom exception class, 'InvalidOperationError'
+        raise RuntimeError('Not allowed!')
+
     def get_size_bytes(self):
         return self._size_bytes
 

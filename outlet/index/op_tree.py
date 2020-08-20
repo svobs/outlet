@@ -12,6 +12,7 @@ from index.uid.uid import UID
 from model.change_action import ChangeAction, ChangeType
 from model.node.display_node import DisplayNode, HasParentList
 from model.node.gdrive_node import GDriveNode
+from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
@@ -221,66 +222,95 @@ class OpTree:
 
         return True
 
-    def _add_single_node(self, tree_node: OpTreeNode):
+    def _find_child_nodes_in_tree(self, op_node: OpTreeNode) -> List[OpTreeNode]:
+        sw_total = Stopwatch()
+
+        # TODO: wow this is O(n*m). Find a way to optimize
+        assert isinstance(op_node, RmActionNode)
+        potential_parent: DisplayNode = op_node.get_target_node()
+
+        child_nodes = []
+
+        for existing_op_node in _skip_root(self._root.get_all_nodes_in_subtree()):
+            potential_child: DisplayNode = existing_op_node.get_target_node()
+            if potential_parent.is_parent(potential_child):
+                child_nodes.append(existing_op_node)
+
+        logger.debug(f'{sw_total} Found {len(child_nodes):n} child nodes in tree for op node')
+        return child_nodes
+
+    def _add_single_node(self, node_to_insert: OpTreeNode):
         """
         The node shall be added as a child dependency of either the last operation which affected its target,
         or as a child dependency of the last operation which affected its parent, whichever has lower priority (i.e. has a lower level
         in the dependency tree). In the case where neither the node nor its parent has a pending operation, we obviously can just add
         to the top of the dependency tree.
         """
-        logger.debug(f'Enqueuing single node: {tree_node}')
+        logger.debug(f'Enqueuing single node: {node_to_insert}')
 
         # Need to clear out previous relationships before adding to main tree:
-        tree_node.clear_relationships()
+        node_to_insert.clear_relationships()
 
-        target_node: DisplayNode = tree_node.get_target_node()
+        target_node: DisplayNode = node_to_insert.get_target_node()
         target_uid: UID = target_node.uid
         parent_uid: UID = self._derive_parent_uid(target_node)
 
-        if tree_node.is_remove_type():
-            # Special handling for RM-type nodes:
-            op_parent_unknown = True
-            # if op_for_parent_node:
-            #     # Parent node's op is also RM? -> parent node's op becomes op child
-            #     if op_for_parent_node.change_action.change_type == ChangeType.RM:
-            #         potential_child_op.link_child(op_for_parent_node)
-            #     else:
-            #         op_for_parent_node.link_child(potential_child_op)
-            #         op_parent_unknown = False
-            # if op_parent_unknown:
-            #     rm_node_dict[potential_child_op.get_target_node().uid] = potential_child_op
-
         # First check whether the target node is known and has pending operations
         last_target_op = self._get_lowest_priority_tree_node(target_uid)
-        last_parent_op = self._get_lowest_priority_tree_node(parent_uid)
 
-        if last_target_op and last_parent_op:
-            if last_target_op.get_level() > last_parent_op.get_level():
-                logger.debug(f'Last target op (for node {target_uid}) is lower level than last parent op (for node {parent_uid});'
-                             f' adding as child of last target op')
-                last_target_op.link_child(tree_node)
+        if node_to_insert.is_remove_type():
+            # Special handling for RM-type nodes.
+            # We want to find the lowest RM node in the tree.
+
+            if last_target_op:
+                # If existing op is found for the target node, add below that.
+                if last_target_op.get_child_list():
+                    raise RuntimeError(f'While trying to add RM op: did not expect existing op for node to have children! '
+                                       f'(Node={last_target_op})')
+                logger.debug(f'Found pending op(s) for target node {target_uid} for RM op; adding as child dependency')
+                last_target_op.link_child(node_to_insert)
             else:
-                logger.debug(f'Last target op is >= level than last parent op; adding as child of last parent op')
-                last_parent_op.link_child(tree_node)
-        elif last_target_op:
-            assert not last_parent_op
-            logger.debug(f'Found pending op(s) for target node {target_uid}; adding as child dependency')
-            last_target_op.link_child(tree_node)
-        elif last_parent_op:
-            assert not last_target_op
-            logger.debug(f'Found pending op(s) for parent node {parent_uid}; adding as child dependency')
-            last_parent_op.link_child(tree_node)
+                # Otherwise see if we can find child nodes of the target node (which in our rules would be the parents of the RM op):
+                op_for_child_node_list: List[OpTreeNode] = self._find_child_nodes_in_tree(node_to_insert)
+                if op_for_child_node_list:
+                    logger.debug(f'Found {len(op_for_child_node_list)} ops for children of node being removed ({target_uid});'
+                                 f' adding as child dependency of each')
+                    for op_for_child_node in op_for_child_node_list:
+                        op_for_child_node.link_child(node_to_insert)
+                else:
+                    logger.debug(f'Found no previous ops for target node {target_uid} or its children; adding to root')
+                    self._root.link_child(node_to_insert)
         else:
-            assert not last_parent_op and not last_target_op
-            logger.debug(f'Found no previous ops for either target node {target_uid} or parent node {parent_uid}; adding to root')
-            self._root.link_child(tree_node)
+            # Not an RM node:
+            last_parent_op = self._get_lowest_priority_tree_node(parent_uid)
+
+            if last_target_op and last_parent_op:
+                if last_target_op.get_level() > last_parent_op.get_level():
+                    logger.debug(f'Last target op (for node {target_uid}) is lower level than last parent op (for node {parent_uid});'
+                                 f' adding as child of last target op')
+                    last_target_op.link_child(node_to_insert)
+                else:
+                    logger.debug(f'Last target op is >= level than last parent op; adding as child of last parent op')
+                    last_parent_op.link_child(node_to_insert)
+            elif last_target_op:
+                assert not last_parent_op
+                logger.debug(f'Found pending op(s) for target node {target_uid}; adding as child dependency')
+                last_target_op.link_child(node_to_insert)
+            elif last_parent_op:
+                assert not last_target_op
+                logger.debug(f'Found pending op(s) for parent node {parent_uid}; adding as child dependency')
+                last_parent_op.link_child(node_to_insert)
+            else:
+                assert not last_parent_op and not last_target_op
+                logger.debug(f'Found no previous ops for either target node {target_uid} or parent node {parent_uid}; adding to root')
+                self._root.link_child(node_to_insert)
 
         # Always add pending operation for bookkeeping
         pending_ops = self._node_dict.get(target_uid, None)
         if not pending_ops:
             pending_ops = collections.deque()
             self._node_dict[target_uid] = pending_ops
-        pending_ops.append(tree_node)
+        pending_ops.append(node_to_insert)
 
     def add_batch(self, root_of_changes: RootNode):
         # 1. Discard root
@@ -296,9 +326,9 @@ class OpTree:
         batch_uid = root_of_changes.get_first_child().change_action.batch_uid
 
         breadth_first_list: List[OpTreeNode] = root_of_changes.get_all_nodes_in_subtree()
-        for tree_node in _skip_root(breadth_first_list):
+        for node_to_insert in _skip_root(breadth_first_list):
             with self._lock:
-                self._add_single_node(tree_node)
+                self._add_single_node(node_to_insert)
 
         logger.debug(f'Done adding batch {batch_uid}')
         self._print_current_state()
@@ -317,25 +347,24 @@ class OpTree:
                 # If the ChangeAction has both src and dst nodes, *both* must be next in their queues, and also be just below root.
                 if tree_node.is_dst():
                     # Dst node is child of root. But verify corresponding src node is also child of root
-                    pending_changes_for_src_node = self._node_dict.get(tree_node.change_action.src_node.uid, None)
+                    pending_changes_for_src_node: Deque[OpTreeNode] = self._node_dict.get(tree_node.change_action.src_node.uid, None)
                     if not pending_changes_for_src_node:
                         logger.error(f'Could not find entry for change src (change={tree_node.change_action}); raising error')
                         raise RuntimeError(f'Serious error: master dict has no entries for change src ({tree_node.change_action.src_node.uid})!')
-
                     src_tree_node = pending_changes_for_src_node[0]
                     if src_tree_node.change_action.action_uid != tree_node.change_action.action_uid:
                         logger.debug(f'Skipping ChangeAction (UID {tree_node.change_action.action_uid}): it is not next in src node queue')
                         continue
 
                     level = src_tree_node.get_level()
-                    # level 1 == root; level 2 == subroot
+                    # level 1 == root; level 2 == sub-root
                     if level != 2:
                         logger.debug(f'Skipping ChangeAction (UID {tree_node.change_action.action_uid}): src node is level {level}')
                         continue
 
                 else:
                     # Src node is child of root. But verify corresponding dst node is also child of root
-                    pending_changes_for_node = self._node_dict.get(tree_node.change_action.dst_node.uid, None)
+                    pending_changes_for_node: Deque[OpTreeNode] = self._node_dict.get(tree_node.change_action.dst_node.uid, None)
                     if not pending_changes_for_node:
                         logger.error(f'Could not find entry for change dst (change={tree_node.change_action}); raising error')
                         raise RuntimeError(f'Serious error: master dict has no entries for change dst ({tree_node.change_action.dst_node.uid})!')
@@ -378,13 +407,13 @@ class OpTree:
                 with self._cv:
                     self._cv.wait()
 
-    def _is_subtree_root(self, node: OpTreeNode) -> bool:
+    def _is_child_of_root(self, node: OpTreeNode) -> bool:
         parent = node.get_first_parent()
         return parent and parent.node_uid == self._root.node_uid
 
-    def change_completed(self, change: ChangeAction):
+    def pop_change(self, change: ChangeAction):
         """Ensure that we were expecting this change to be copmleted, and remove it from the tree."""
-        logger.debug(f'Entered change_completed() for change {change}')
+        logger.debug(f'Entered pop_change() for change {change}')
 
         with self._lock:
             if self._outstanding_actions.get(change.action_uid, None):
@@ -392,7 +421,10 @@ class OpTree:
             else:
                 raise RuntimeError(f'Complated change not found in outstanding change list (action UID {change.action_uid}')
 
-            # I. SRC
+            # I. SRC Node
+
+            # I-1. Remove src node from node dict
+
             src_node_list: Deque[OpTreeNode] = self._node_dict.get(change.src_node.uid)
             if not src_node_list:
                 raise RuntimeError(f'Src node for completed change not found in master dict (src node UID {change.src_node.uid}')
@@ -402,7 +434,10 @@ class OpTree:
                 raise RuntimeError(f'Completed change (UID {change.action_uid}) does not match first item popped from src queue '
                                    f'(UID {src_tree_node.change_action.action_uid})')
 
-            if not self._is_subtree_root(src_tree_node):
+            # I-2. Remove src node from op graph
+
+            # validate it is a child of root
+            if not self._is_child_of_root(src_tree_node):
                 parent = src_tree_node.get_first_parent()
                 if parent:
                     parent_uid = parent.node_uid
@@ -410,15 +445,23 @@ class OpTree:
                     parent_uid = None
                 raise RuntimeError(f'Src node for completed change is not a parent of root (instead found parent {parent_uid}')
 
-            for child in src_tree_node.get_child_list():
-                # this will change their parent pointers too
-                self._root.link_child(child)
-
+            # unlink from its parent
             self._root.unlink_child(src_tree_node)
+
+            # unlink its children also. If the child then has no other parents, it moves up to become child of root
+            for child in src_tree_node.get_child_list():
+                child.unlink_parent(src_tree_node)
+
+                if not child.get_parent_list():
+                    self._root.link_child(child)
+
+            # I-3. Delete src node
             del src_tree_node
 
-            # II. DST
+            # II. DST Node
             if change.has_dst():
+                # II-1. Remove dst node from node dict
+
                 dst_node_list: Deque[OpTreeNode] = self._node_dict.get(change.dst_node.uid)
                 if not dst_node_list:
                     raise RuntimeError(f'Dst node for completed change not found in master dict (dst node UID {change.dst_node.uid}')
@@ -427,7 +470,10 @@ class OpTree:
                     raise RuntimeError(f'Completed change (UID {change.action_uid}) does not match first item popped from dst queue '
                                        f'(UID {dst_tree_node.change_action.action_uid})')
 
-                if not self._is_subtree_root(dst_tree_node):
+                # II-2. Remove dst node from op graph
+
+                # validate it is a child of root
+                if not self._is_child_of_root(dst_tree_node):
                     parent = dst_tree_node.get_first_parent()
                     if parent:
                         parent_uid = parent.node_uid
@@ -435,10 +481,17 @@ class OpTree:
                         parent_uid = None
                     raise RuntimeError(f'Dst node for completed change is not a parent of root (instead found parent {parent_uid}')
 
-                for child in dst_tree_node.get_child_list():
-                    self._root.link_child(child)
-
+                # unlink from its parent
                 self._root.unlink_child(dst_tree_node)
+
+                # unlink its children also. If the child then has no other parents, it moves up to become child of root
+                for child in dst_tree_node.get_child_list():
+                    child.unlink_parent(dst_tree_node)
+
+                    if not child.get_parent_list():
+                        self._root.link_child(child)
+
+                # II-3. Delete dst node
                 del dst_tree_node
 
             logger.debug(f'Done with change_completed() for change: {change}')
