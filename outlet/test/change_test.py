@@ -181,8 +181,8 @@ class ChangeTest(unittest.TestCase):
 
         dispatcher.connect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_LEFT_TREE, receiver=after_left_tree_loaded)
         dispatcher.connect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_RIGHT_TREE, receiver=after_right_tree_loaded)
-        thread = threading.Thread(target=run_thread, daemon=True)
-        thread.start()
+        self.app_thread = threading.Thread(target=run_thread, daemon=True, name='AppTestRunnerThread')
+        self.app_thread.start()
 
         # wait for both sides to load before returning:
         if not load_left_done.wait(LOAD_TIMEOUT_SEC):
@@ -195,6 +195,18 @@ class ChangeTest(unittest.TestCase):
         self._verify(self.left_con, INITIAL_TREE_LEFT)
         self._verify(self.right_con, INITIAL_TREE_RIGHT)
         logger.info(f'LOAD COMPLETE')
+
+    def tearDown(self) -> None:
+        logger.info('Quitting app!')
+        self.app.window.close()
+        self.app.quit()
+        self.left_con.destroy()
+        self.right_con.destroy()
+        del self.left_con
+        del self.right_con
+        del self.app
+        self.app_thread.join(LOAD_TIMEOUT_SEC)
+        del self.app_thread
 
     def _verify_one_memcache_dir(self, tree_con, expected: List[FNode], actual: Iterable[DisplayNode],
                                  dir_deque: Deque[Tuple[List[FNode], Iterable[DisplayNode]]]):
@@ -445,6 +457,8 @@ class ChangeTest(unittest.TestCase):
                             expected_left=final_tree_left, expected_right=INITIAL_TREE_RIGHT)
 
     def test_bad_dd_dir_tree_cp(self):
+        self.tearDown()
+        self.setUp()
         logger.info('Testing negative case: drag & drop copy of duplicate nodes local to local')
         self.app.executor.start_op_execution_thread()
         # Offset from 0:

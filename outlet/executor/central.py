@@ -27,6 +27,7 @@ class CentralExecutor:
         """Executes changes as needed in its own thread, which blocks until a change is available."""
 
     def start(self):
+        logger.debug('Central Executor starting')
         self._global_actions.init()
 
         if self.enable_op_execution_thread:
@@ -48,6 +49,18 @@ class CentralExecutor:
 
         self._task_runner.enqueue(task_func, *args)
 
+    def shutdown(self):
+        if self._task_runner:
+            self._task_runner.shutdown()
+            self._task_runner = None
+
+        # Kill listeners by dereferencing parent:
+        if self._global_actions:
+            self._global_actions.shutdown()
+            self._global_actions = None
+
+        logger.debug('CentralExecutor shut down')
+
     def _run_op_execution_thread(self):
         """This is a consumer thread for the ChangeManager's dependency tree"""
         logger.info('Starting OpExecutionThread...')
@@ -57,6 +70,11 @@ class CentralExecutor:
             # May need to throttle here in the future however if we are seeing hiccups in the UI for large numbers of operations
 
             command = self.app.cache_manager.get_next_command()
+            if not command:
+                logger.debug('Got None for next command. Shutting down')
+                self.shutdown()
+                return
+
             logger.debug(f'Got a command to execute: {command.__class__.__name__}')
 
             self.submit_async_task(self._command_executor.execute_command, command)

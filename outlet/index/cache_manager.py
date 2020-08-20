@@ -7,6 +7,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
+from cmd.cmd_interface import Command
 from ui.tree.controller import TreePanelController
 from util import file_util
 from model.change_action import ChangeAction
@@ -101,6 +102,21 @@ class CacheManager:
         self._load_all_caches_done = threading.Event()
         self._all_caches_loading = False
         self._all_caches_loaded = False
+
+    def __del__(self):
+        self.shutdown()
+
+    def shutdown(self):
+        if self._op_ledger:
+            self._op_ledger.shutdown()
+            self._op_ledger = None
+
+        self._local_disk_cache = None
+        self._gdrive_cache = None
+
+        if self._tree_controllers:
+            for controller in list(self._tree_controllers.values()):
+                controller.destroy()
 
     # Startup loading/maintenance
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -369,7 +385,10 @@ class CacheManager:
         self._tree_controllers[controller.tree_id] = controller
 
     def unregister_tree_controller(self, controller: TreePanelController):
-        self._tree_controllers.pop(controller.tree_id)
+        try:
+            self._tree_controllers.pop(controller.tree_id)
+        except KeyError:
+            logger.debug(f'Could not unregister TreeController; it was not found: {controller.tree_id}')
 
     def get_tree_controller(self, tree_id: str) -> Optional[TreePanelController]:
         return self._tree_controllers.get(tree_id, None)
@@ -386,7 +405,7 @@ class CacheManager:
          that is scheduled for deletion."""
         self._op_ledger.append_new_pending_changes(change_list)
 
-    def get_next_command(self):
+    def get_next_command(self) -> Optional[Command]:
         # blocks !
         self._wait_for_init_done()
         # also blocks !

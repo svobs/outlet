@@ -19,6 +19,9 @@ class BaseDialog:
         do_on_ui_thread(msg, secondary_msg)
 
     def show_error_msg(self, msg, secondary_msg=None):
+        if self.application.shutdown:
+            logger.debug('Application shutting down; discarding msg: {msg}')
+            return
         dialog = Gtk.MessageDialog(parent=self, modal=True, message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CANCEL, text=msg)
         dialog.set_default_response(Gtk.ResponseType.CANCEL)
         if secondary_msg is None:

@@ -6,6 +6,9 @@ import humanfriendly
 from pydispatch import dispatcher
 from datetime import datetime
 from typing import Deque, Iterable, List, Optional
+
+from pydispatch.errors import DispatcherKeyError
+
 from constants import HOLDOFF_TIME_MS, LARGE_NUMBER_OF_CHILDREN
 from util.holdoff_timer import HoldOffTimer
 from model.node.container_node import CategoryNode
@@ -41,6 +44,29 @@ class DisplayMutator:
         """When true, listen and automatically update the display when a node is added, expanded, etc.
         Needs to be set to false when modifying the model with certain operations, because leaving enabled would
         result in an infinite loop"""
+
+    def __del__(self):
+        try:
+            if self.con and self.con.treeview_meta:
+                dispatcher.disconnect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled,
+                                      sender=self.con.treeview_meta.tree_id)
+        except DispatcherKeyError:
+            pass
+
+        try:
+            dispatcher.disconnect(signal=actions.SUBTREE_STATS_UPDATED, receiver=self._on_subtree_stats_updated)
+        except DispatcherKeyError:
+            pass
+
+        try:
+            dispatcher.disconnect(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
+        except DispatcherKeyError:
+            pass
+
+        try:
+            dispatcher.disconnect(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
+        except DispatcherKeyError:
+            pass
 
     def init(self):
         """Do post-wiring stuff like connect listeners."""

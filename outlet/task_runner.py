@@ -37,7 +37,7 @@ class Task:
 class CentralTaskRunner:
     def __init__(self, application):
         self.application = application
-        self.executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=MAX_WORKERS)
+        self.executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix='TaskRunner-')
 
     def enqueue(self, task_func, *args):
         logger.debug(f'Submitting new task to executor: "{task_func.__name__}"')
@@ -49,5 +49,9 @@ class CentralTaskRunner:
         """Note: setting wait to False will not decrease the shutdown time.
         Rather, wait=True just means block here until all running tasks are completed (i.e. the thread
         pool threads appear to not be daemon threads."""
-        self.executor.shutdown(wait=True)
+        if self.executor:
+            self.executor.shutdown(wait=True)
+            self.executor = None
+
+        self.application = None
 

@@ -10,9 +10,6 @@ from model.node_identifier import NodeIdentifier
 from model.node.display_node import DisplayNode
 from ui.tree.category_display_tree import CategoryDisplayTree
 
-gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk, Gdk
-
 from ui.tree.root_path_config import RootPathConfigPersister
 
 from pydispatch import dispatcher
@@ -24,6 +21,9 @@ from ui.tree import tree_factory
 
 from ui.dialog.merge_preview_dialog import MergePreviewDialog
 from ui.dialog.base_dialog import BaseDialog
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import GLib, Gtk, Gdk
 
 logger = logging.getLogger(__name__)
 

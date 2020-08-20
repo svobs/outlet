@@ -3,6 +3,7 @@ import os
 
 import gi
 from pydispatch import dispatcher
+from pydispatch.errors import DispatcherKeyError
 
 from constants import TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
@@ -27,17 +28,40 @@ class GlobalActions:
     def __init__(self, application):
         self.application = application
 
+    def shutdown(self):
+        try:
+            dispatcher.disconnect(signal=actions.START_DIFF_TREES, receiver=self.on_diff_requested)
+        except DispatcherKeyError:
+            pass
+        try:
+            dispatcher.disconnect(signal=actions.DOWNLOAD_GDRIVE_META, receiver=self.on_gdrive_requested)
+        except DispatcherKeyError:
+            pass
+        try:
+            dispatcher.disconnect(signal=actions.SHOW_GDRIVE_ROOT_DIALOG, receiver=self.on_gdrive_root_dialog_requested)
+        except DispatcherKeyError:
+            pass
+        try:
+            dispatcher.disconnect(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, receiver=self.on_gdrive_download_complete)
+        except DispatcherKeyError:
+            pass
+        try:
+            dispatcher.disconnect(signal=actions.LOAD_ALL_CACHES, receiver=self.on_load_all_caches_requested)
+        except DispatcherKeyError:
+            pass
+        logger.debug('Global actions shut down')
+
     """
     🡻🡻🡻 ① Connect Listeners 🡻🡻🡻
     """
 
     def init(self):
         logger.debug('Init global actions')
-        actions.connect(signal=actions.START_DIFF_TREES, handler=self.on_diff_requested)
-        actions.connect(signal=actions.DOWNLOAD_GDRIVE_META, handler=self.on_gdrive_requested)
-        actions.connect(signal=actions.SHOW_GDRIVE_ROOT_DIALOG, handler=self.on_gdrive_root_dialog_requested)
-        actions.connect(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, handler=self.on_gdrive_download_complete)
-        actions.connect(signal=actions.LOAD_ALL_CACHES, handler=self.on_load_all_caches_requested)
+        dispatcher.connect(signal=actions.START_DIFF_TREES, receiver=self.on_diff_requested)
+        dispatcher.connect(signal=actions.DOWNLOAD_GDRIVE_META, receiver=self.on_gdrive_requested)
+        dispatcher.connect(signal=actions.SHOW_GDRIVE_ROOT_DIALOG, receiver=self.on_gdrive_root_dialog_requested)
+        dispatcher.connect(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, receiver=self.on_gdrive_download_complete)
+        dispatcher.connect(signal=actions.LOAD_ALL_CACHES, receiver=self.on_load_all_caches_requested)
 
     """
     🡻🡻🡻 ② Utility functions 🡻🡻🡻

@@ -177,7 +177,7 @@ class TreeUiListeners:
 
     def _do_drop(self, sender, drag_data: DragAndDropData, tree_path: Gtk.TreePath, is_into: bool):
         # Puts the drag data into/adjacent to the given tree_path.
-        logger.info(f'{self.con.tree_id}] We received a drop of {len(drag_data.nodes)} nodes!')
+        logger.info(f'[{self.con.tree_id}] We received a drop of {len(drag_data.nodes)} nodes!')
 
         model = self.con.display_store.model
         drop_dest_iter = model.get_iter(tree_path)

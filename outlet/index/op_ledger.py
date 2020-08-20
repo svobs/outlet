@@ -43,6 +43,16 @@ class OpLedger:
 
         dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
 
+    def __del__(self):
+        self.shutdown()
+
+    def shutdown(self):
+        if self.op_graph:
+            self.op_graph.shutdown()
+
+        self.cacheman = None
+        self.application = None
+
     def _cancel_pending_changes_from_disk(self):
         with PendingChangeDatabase(self.pending_changes_db_path, self.application) as change_db:
             change_list: List[ChangeAction] = change_db.get_all_pending_changes()
@@ -263,9 +273,10 @@ class OpLedger:
         if not self.op_graph.can_add_batch(tree_root):
             raise RuntimeError('Invalid batch!')
 
+        # Save ops and their planning nodes to disk
         self._save_pending_changes_to_disk(reduced_batch)
 
-        # Add dst nodes for to-be-created nodes if they are not present. This will not save to disk
+        # Add dst nodes for to-be-created nodes if they are not present
         for change_action in reduced_batch:
             self._add_planning_nodes_to_memcache(change_action)
 
@@ -274,11 +285,15 @@ class OpLedger:
     def get_last_pending_change_for_node(self, node_uid: UID) -> Optional[ChangeAction]:
         return self.op_graph.get_last_pending_change_for_node(node_uid)
 
-    def get_next_command(self) -> Command:
-        # Call this from Executor.
+    def get_next_command(self) -> Optional[Command]:
+        # Call this from Executor. Only returns None if shutting down
 
         # This will block until a change is ready:
         change_action: ChangeAction = self.op_graph.get_next_change()
+
+        if not change_action:
+            logger.debug('Received None; looks like we are shutting down')
+            return None
 
         return self._cmd_builder.build_command(change_action)
 

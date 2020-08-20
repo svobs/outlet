@@ -103,12 +103,18 @@ class RootDirPanel:
 
     def __del__(self):
         if self.entry_box_focus_eid:
-            self.entry.disconnect(self.entry_box_focus_eid)
-            self.entry_box_focus_eid = None
+            if self.entry:
+                self.entry.disconnect(self.entry_box_focus_eid)
+                self.entry_box_focus_eid = None
 
         if self.key_press_event_eid:
-            self.parent_win.disconnect(self.key_press_event_eid)
+            if self.parent_win:
+                self.parent_win.disconnect(self.key_press_event_eid)
             self.key_press_event_eid = None
+
+        self.cache_manager = None
+        self.parent_win = None
+        self.con = None
 
     def _on_root_text_entry_submitted(self, widget, tree_id):
         if self.entry and self.entry_box_focus_eid:

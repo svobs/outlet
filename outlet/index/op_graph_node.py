@@ -74,6 +74,10 @@ class OpGraphNode(ABC):
         return False
 
     @classmethod
+    def is_src(cls) -> bool:
+        return True
+
+    @classmethod
     def is_dst(cls) -> bool:
         return False
 
@@ -327,6 +331,10 @@ class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
 
     def get_target_node(self):
         return self.change_action.dst_node
+
+    @classmethod
+    def is_src(cls) -> bool:
+        return False
 
     @classmethod
     def is_dst(cls):

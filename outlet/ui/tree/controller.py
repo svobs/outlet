@@ -61,13 +61,19 @@ class TreePanelController:
         self.app.cache_manager.register_tree_controller(self)
 
     def destroy(self):
-        self.app.cache_manager.unregister_tree_controller(self)
+        if self.app.cache_manager:
+            self.app.cache_manager.unregister_tree_controller(self)
 
-        self.user_input_listeners.disconnect_gtk_listeners()
+        if self.user_input_listeners:
+            self.user_input_listeners.disconnect_gtk_listeners()
         self.user_input_listeners = None
         self.tree_actions = None
         self.treeview_meta = None
-        del self.display_mutator  # really kill those listeners
+
+        try:
+            del self.display_mutator  # make sure no references are left here, cuz listeners
+        except AttributeError:
+            pass
 
         self.lazy_tree = None
         self.display_store = None

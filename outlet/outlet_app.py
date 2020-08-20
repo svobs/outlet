@@ -6,9 +6,6 @@ from index.uid.uid_generator import PersistentAtomicIntUidGenerator
 from model.node_identifier_factory import NodeIdentifierFactory
 from ui.actions import ID_DIFF_WINDOW
 
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gio
-
 from index.cache_manager import CacheManager
 
 import logging
@@ -16,6 +13,9 @@ import logging
 from ui.two_pane_window import TwoPanelWindow
 from app_config import AppConfig
 import ui.assets
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gio
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,7 @@ class OutletApplication(Gtk.Application):
         self.assets = ui.assets.Assets(config)
 
         self.window = None
+        self.shutdown = False
 
         self.uid_generator = PersistentAtomicIntUidGenerator(self.config)
         self.node_identifier_factory = NodeIdentifierFactory(self)
@@ -40,7 +41,27 @@ class OutletApplication(Gtk.Application):
         self.cache_manager = CacheManager(self)
 
     def start(self):
+        logger.info('Starting app')
         self.executor.start()
+
+    def quit(self):
+        logger.info('Shutting down app')
+        self.shutdown = True
+
+        if self.window:
+            self.window.close()
+            self.window = None
+
+        Gtk.Application.quit(self)
+
+        # This will emit a cascade of events which will shut down the Executor too:
+        self.cache_manager.shutdown()
+        self.cache_manager = None
+        # Just to be sure:
+        self.executor.shutdown()
+        self.executor = None
+
+        logger.info('App shut down')
 
     def do_activate(self):
         # We only allow a single window and raise any existing ones

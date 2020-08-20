@@ -60,7 +60,7 @@ class ProgressBar:
 
         GLib.idle_add(start_animation)
 
-        thread = threading.Thread(target=self.run_thread, daemon=True)
+        thread = threading.Thread(target=self.run_thread, daemon=True, name='ProgressBarThread')
         thread.start()
 
     def on_start_progress_indeterminate(self, sender):

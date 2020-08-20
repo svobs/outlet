@@ -29,6 +29,7 @@ class OpGraph:
 
         self._lock = threading.Lock()
 
+        self._shutdown: bool = False
         self._cv = threading.Condition()
         """Used to help consumers block"""
 
@@ -40,6 +41,16 @@ class OpGraph:
 
         self._outstanding_actions: Dict[UID, ChangeAction] = {}
         """Contains entries for all ChangeActions which have running operations. Keyed by action UID"""
+
+    def __del__(self):
+        self.shutdown()
+
+    def shutdown(self):
+        """Need to call this for try_get() to return"""
+        self._shutdown = True
+        with self._cv:
+            # unblock any get() task which is waiting
+            self._cv.notifyAll()
 
     def _print_current_state(self):
         lines = self._root.print_recursively()
@@ -76,6 +87,7 @@ class OpGraph:
         return None
 
     def get_last_pending_change_for_node(self, node_uid: UID) -> Optional[ChangeAction]:
+        """This is a public method."""
         tree_node = self._get_lowest_priority_tree_node(node_uid)
         if tree_node:
             return tree_node.change_action
@@ -188,11 +200,11 @@ class OpGraph:
         mkdir_dict: Dict[UID, DisplayNode] = {}
         """Keep track of nodes which are to be created, so we can include them in the lookup for valid parents"""
 
-        for tree_node in iterator:
-            tgt_node: DisplayNode = tree_node.get_target_node()
-            op_type: str = tree_node.change_action.change_type.name
+        for op_node in iterator:
+            tgt_node: DisplayNode = op_node.get_target_node()
+            op_type: str = op_node.change_action.change_type.name
 
-            if tree_node.is_create_type():
+            if op_node.is_create_type():
                 # Enforce Rule 1: ensure parent of target is valid:
                 parent_uid = self._derive_parent_uid(tgt_node)
                 if not self.cacheman.get_item_for_uid(parent_uid, tgt_node.node_identifier.tree_type) \
@@ -201,9 +213,9 @@ class OpGraph:
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find parent in cache with UID {parent_uid} '
                                        f'for "{op_type}"')
 
-                if tree_node.change_action.change_type == ChangeType.MKDIR:
-                    assert not mkdir_dict.get(tree_node.change_action.src_node.uid, None), f'Duplicate MKDIR: {tree_node.change_action.src_node}'
-                    mkdir_dict[tree_node.change_action.src_node.uid] = tree_node.change_action.src_node
+                if op_node.change_action.change_type == ChangeType.MKDIR:
+                    assert not mkdir_dict.get(op_node.change_action.src_node.uid, None), f'Duplicate MKDIR: {op_node.change_action.src_node}'
+                    mkdir_dict[op_node.change_action.src_node.uid] = op_node.change_action.src_node
             else:
                 # Enforce Rule 2: ensure target node is valid
                 if not self.cacheman.get_item_for_uid(tgt_node.uid, tgt_node.node_identifier.tree_type):
@@ -212,20 +224,19 @@ class OpGraph:
                                        f'for "{op_type}"')
 
             with self._lock:
-                pending_change_list = self._node_dict.get(tgt_node.uid, None)
-                if pending_change_list:
-                    for change_node in pending_change_list:
-                        # TODO: for now, just deny anything which tries to work off an RM. Refine in future
-                        if change_node.is_remove_type():
-                            raise RuntimeError(f'Cannot add batch (UID={batch_uid}): it depends on a node (UID={tgt_node.uid}) '
-                                               f'which is being removed')
+                # More of Rule 2: ensure target node is not scheduled for deletion:
+                most_recent_op = self.get_last_pending_change_for_node(tgt_node.uid)
+                if most_recent_op and most_recent_op.change_type == ChangeType.RM and op_node.is_src() and op_node.change_action.has_dst():
+                    # CP, MV, and UP ops cannot logically have a src node which is not present:
+                    raise RuntimeError(f'Cannot add batch (UID={batch_uid}): it is attempting to CP/MV/UP from a node (UID={tgt_node.uid}) '
+                                       f'which is being removed')
 
         return True
 
     def _find_child_nodes_in_tree(self, op_node: OpGraphNode) -> List[OpGraphNode]:
+        # TODO: wow this is O(n*m). Find a way to optimize
         sw_total = Stopwatch()
 
-        # TODO: wow this is O(n*m). Find a way to optimize
         assert isinstance(op_node, RmOpNode)
         potential_parent: DisplayNode = op_node.get_target_node()
 
@@ -246,7 +257,7 @@ class OpGraph:
         in the dependency tree). In the case where neither the node nor its parent has a pending operation, we obviously can just add
         to the top of the dependency tree.
         """
-        logger.debug(f'Enqueuing single node: {node_to_insert}')
+        logger.debug(f'Enqueuing single op node: {node_to_insert}')
 
         # Need to clear out previous relationships before adding to main tree:
         node_to_insert.clear_relationships()
@@ -263,6 +274,11 @@ class OpGraph:
             # We want to find the lowest RM node in the tree.
 
             if last_target_op:
+                if last_target_op.is_remove_type():
+                    logger.info(f'Op node being enqueued (UID {node_to_insert.node_uid}, tgt UID {target_uid}) is an RM type which is '
+                                f'a dup of already enqueued RM (UID {last_target_op.node_uid}); discarding!')
+                    return
+
                 # If existing op is found for the target node, add below that.
                 if last_target_op.get_child_list():
                     raise RuntimeError(f'While trying to add RM op: did not expect existing op for node to have children! '
@@ -397,6 +413,9 @@ class OpGraph:
 
         # Block until we have a change
         while True:
+            if self._shutdown:
+                return None
+
             with self._lock:
                 change = self._try_get()
             if change:
