@@ -373,7 +373,7 @@ class TreeUiListeners:
                 elif item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
                     dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=item)
                     return True
-                # FIXME: Look up in ChangeLedger
+                # FIXME: Look up in OpLedger
             # elif isinstance(item, FileDecoratorNode):
             #     # if it references a source node, maybe that is accessible instead?
             #     item = item.src_node

@@ -6,7 +6,7 @@ from typing import Callable, DefaultDict, Dict, Iterable, List, Optional
 
 from pydispatch import dispatcher
 
-from index.op_tree import OpTree
+from index.op_graph import OpGraph
 from model.change_action import ChangeAction, ChangeType
 from cmd.cmd_builder import CommandBuilder
 from cmd.cmd_interface import Command, CommandStatus
@@ -27,10 +27,10 @@ class ErrorHandlingBehavior(IntEnum):
     DISCARD = 3
 
 
-# CLASS ChangeLedger
+# CLASS OpLedger
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class ChangeLedger:
+class OpLedger:
     def __init__(self, application):
         self.application = application
         self.cacheman = self.application.cache_manager
@@ -38,7 +38,7 @@ class ChangeLedger:
 
         self.pending_changes_db_path = os.path.join(self.application.cache_manager.cache_dir_path, PENDING_CHANGES_FILE_NAME)
 
-        self.dep_tree: OpTree = OpTree(self.application)
+        self.op_graph: OpGraph = OpGraph(self.application)
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
 
         dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
@@ -232,9 +232,9 @@ class ChangeLedger:
         for key in sorted_keys:
             # Assume batch has already been reduced and reconciled against master tree.
             batch_items: List[ChangeAction] = batch_dict[key]
-            batch_root = self.dep_tree.make_tree_to_insert(batch_items)
+            batch_root = self.op_graph.make_tree_to_insert(batch_items)
             logger.info(f'Adding batch {key} to PendingChangeTree')
-            self.dep_tree.add_batch(batch_root)
+            self.op_graph.add_batch(batch_root)
 
     def append_new_pending_changes(self, change_batch: Iterable[ChangeAction]):
         """
@@ -257,10 +257,10 @@ class ChangeLedger:
         # Simplify and remove redundancies in change_list
         reduced_batch: Iterable[ChangeAction] = self._reduce_changes(change_batch)
 
-        tree_root = self.dep_tree.make_tree_to_insert(reduced_batch)
+        tree_root = self.op_graph.make_tree_to_insert(reduced_batch)
 
         # Reconcile changes against master change tree before adding nodes
-        if not self.dep_tree.can_add_batch(tree_root):
+        if not self.op_graph.can_add_batch(tree_root):
             raise RuntimeError('Invalid batch!')
 
         self._save_pending_changes_to_disk(reduced_batch)
@@ -269,16 +269,16 @@ class ChangeLedger:
         for change_action in reduced_batch:
             self._add_planning_nodes_to_memcache(change_action)
 
-        self.dep_tree.add_batch(tree_root)
+        self.op_graph.add_batch(tree_root)
 
     def get_last_pending_change_for_node(self, node_uid: UID) -> Optional[ChangeAction]:
-        return self.dep_tree.get_last_pending_change_for_node(node_uid)
+        return self.op_graph.get_last_pending_change_for_node(node_uid)
 
     def get_next_command(self) -> Command:
         # Call this from Executor.
 
         # This will block until a change is ready:
-        change_action: ChangeAction = self.dep_tree.get_next_change()
+        change_action: ChangeAction = self.op_graph.get_next_change()
 
         return self._cmd_builder.build_command(change_action)
 
@@ -294,7 +294,7 @@ class ChangeLedger:
             logger.info(f'Command returned with status: "{command.status().name}"')
 
         # Ensure command is one that we are expecting
-        self.dep_tree.pop_change(command.change_action)
+        self.op_graph.pop_change(command.change_action)
 
         # Add/update nodes in central cache:
         if command.result.nodes_to_upsert:

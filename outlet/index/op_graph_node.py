@@ -10,10 +10,9 @@ from model.change_action import ChangeAction, ChangeType
 logger = logging.getLogger(__name__)
 
 
-# ABSTRACT CLASS OpTreeNode
-# TODO: rename to OpGraphNode
+# ABSTRACT CLASS OpGraphNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class OpTreeNode(ABC):
+class OpGraphNode(ABC):
     """This is a node which represents an operation (or half of an operation, if the operations includes both src and dst nodes)"""
     def __init__(self, uid: UID, change_action: Optional[ChangeAction]):
         self.node_uid: UID = uid
@@ -134,11 +133,11 @@ class OpTreeNode(ABC):
 
         node_list = []
 
-        queue: Deque[OpTreeNode] = collections.deque()
+        queue: Deque[OpGraphNode] = collections.deque()
         queue.append(self)
 
         while len(queue) > 0:
-            node: OpTreeNode = queue.popleft()
+            node: OpGraphNode = queue.popleft()
 
             node_list.append(node)
 
@@ -155,14 +154,14 @@ class OpTreeNode(ABC):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class HasSingleParent(ABC):
     def __init__(self):
-        self._parent: Optional[OpTreeNode] = None
+        self._parent: Optional[OpGraphNode] = None
 
     def get_parent_list(self) -> Optional[Iterable]:
         if self._parent:
             return [self._parent]
         return []
 
-    def link_parent(self, parent: OpTreeNode):
+    def link_parent(self, parent: OpGraphNode):
         if self._parent:
             if self._parent.node_uid != parent.node_uid:
                 raise RuntimeError('Cannot link parent: HasSingleParent already has a different parent linked!')
@@ -170,7 +169,7 @@ class HasSingleParent(ABC):
             self._parent = parent
             parent.link_child(self)
 
-    def unlink_parent(self, parent: OpTreeNode):
+    def unlink_parent(self, parent: OpGraphNode):
         if self._parent:
             if self._parent.node_uid == parent.node_uid:
                 self._parent = None
@@ -186,17 +185,17 @@ class HasSingleParent(ABC):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class HasMultiParent(ABC):
     def __init__(self):
-        self._parent_dict: Dict[UID, OpTreeNode] = {}
+        self._parent_dict: Dict[UID, OpGraphNode] = {}
 
     def get_parent_list(self) -> Optional[Iterable]:
         return self._parent_dict.values()
 
-    def link_parent(self, parent: OpTreeNode):
+    def link_parent(self, parent: OpGraphNode):
         if not self._parent_dict.get(parent.node_uid, None):
             self._parent_dict[parent.node_uid] = parent
             parent.link_child(self)
 
-    def unlink_parent(self, parent: OpTreeNode):
+    def unlink_parent(self, parent: OpGraphNode):
         if self._parent_dict.get(parent.node_uid, None):
             self._parent_dict.pop(parent.node_uid)
             parent.unlink_child(self)
@@ -209,14 +208,14 @@ class HasMultiParent(ABC):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class HasSingleChild(ABC):
     def __init__(self):
-        self._child: Optional[OpTreeNode] = None
+        self._child: Optional[OpGraphNode] = None
 
     def get_child_list(self) -> Optional[Iterable]:
         if self._child:
             return [self._child]
         return []
 
-    def link_child(self, child: OpTreeNode):
+    def link_child(self, child: OpGraphNode):
         if self._child:
             if self._child.node_uid != child.node_uid:
                 raise RuntimeError('Only a single child allowed!')
@@ -224,7 +223,7 @@ class HasSingleChild(ABC):
             self._child = child
             child.link_parent(self)
 
-    def unlink_child(self, child: OpTreeNode):
+    def unlink_child(self, child: OpGraphNode):
         if self._child == child:
             if self._child.node_uid == child.node_uid:
                 self._child = None
@@ -240,17 +239,17 @@ class HasSingleChild(ABC):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class HasMultiChild(ABC):
     def __init__(self):
-        self._child_dict: Dict[UID, OpTreeNode] = {}
+        self._child_dict: Dict[UID, OpGraphNode] = {}
 
     def get_child_list(self) -> Optional[Iterable]:
         return self._child_dict.values()
 
-    def link_child(self, child: OpTreeNode):
+    def link_child(self, child: OpGraphNode):
         if not self._child_dict.get(child.node_uid, None):
             self._child_dict[child.node_uid] = child
             child.link_parent(self)
 
-    def unlink_child(self, child: OpTreeNode):
+    def unlink_child(self, child: OpGraphNode):
         if self._child_dict.get(child.node_uid, None):
             self._child_dict.pop(child.node_uid)
             child.unlink_parent(self)
@@ -261,10 +260,10 @@ class HasMultiChild(ABC):
 
 # CLASS RootNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class RootNode(HasMultiChild, OpTreeNode):
+class RootNode(HasMultiChild, OpGraphNode):
 
     def __init__(self):
-        OpTreeNode.__init__(self, ROOT_UID, None)
+        OpGraphNode.__init__(self, ROOT_UID, None)
         HasMultiChild.__init__(self)
 
     @classmethod
@@ -284,11 +283,11 @@ class RootNode(HasMultiChild, OpTreeNode):
         return f'ROOT_no_op'
 
 
-# CLASS SrcActionNode
+# CLASS SrcOpNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class SrcActionNode(HasSingleParent, HasMultiChild, OpTreeNode):
+class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
     def __init__(self, uid: UID, change_action: ChangeAction):
-        OpTreeNode.__init__(self, uid, change_action=change_action)
+        OpGraphNode.__init__(self, uid, change_action=change_action)
         HasSingleParent.__init__(self)
         HasMultiChild.__init__(self)
 
@@ -314,12 +313,12 @@ class SrcActionNode(HasSingleParent, HasMultiChild, OpTreeNode):
             return string
 
 
-# CLASS DstActionNode
+# CLASS DstOpNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class DstActionNode(OpTreeNode, HasSingleParent, HasMultiChild):
+class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
     def __init__(self, uid: UID, change_action: ChangeAction):
         assert change_action.has_dst()
-        OpTreeNode.__init__(self, uid, change_action=change_action)
+        OpGraphNode.__init__(self, uid, change_action=change_action)
         HasSingleParent.__init__(self)
         HasMultiChild.__init__(self)
 
@@ -348,13 +347,13 @@ class DstActionNode(OpTreeNode, HasSingleParent, HasMultiChild):
             return string
 
 
-# CLASS RmActionNode
+# CLASS RmOpNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class RmActionNode(HasMultiParent, HasSingleChild, OpTreeNode):
+class RmOpNode(HasMultiParent, HasSingleChild, OpGraphNode):
     """RM nodes have an inverted structure: the child nodes become the shared parents for their parent dir."""
     def __init__(self, uid: UID, change_action: ChangeAction):
         assert change_action.change_type == ChangeType.RM
-        OpTreeNode.__init__(self, uid, change_action=change_action)
+        OpGraphNode.__init__(self, uid, change_action=change_action)
         HasMultiParent.__init__(self)
         HasSingleChild.__init__(self)
 

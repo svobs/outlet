@@ -34,7 +34,7 @@ class UidPathMapper:
                     uid = self.uid_generator.next_uid()
                     self._full_path_uid_dict[path] = uid
             elif uid_suggestion and uid_suggestion != uid:
-                logger.warning(f'UID was requested ({uid_suggestion}) but an existing UID was found ({uid}) for key: "{path}"')
+                logger.warning(f'UID was requested ({uid_suggestion}) but found existing UID ({uid}) for key: "{path}"')
             return uid
 
 
@@ -62,6 +62,6 @@ class UidGoogIdMapper:
                     uid = self.uid_generator.next_uid()
                     self._goog_uid_dict[goog_id] = uid
             elif uid_suggestion and uid_suggestion != uid:
-                logger.warning(f'UID was requested ({uid_suggestion}) but an existing UID was found ({uid}) for key: "{goog_id}"')
+                logger.warning(f'UID was requested ({uid_suggestion}) but found existing UID ({uid}) for key: "{goog_id}"')
             return uid
 

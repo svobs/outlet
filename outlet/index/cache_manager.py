@@ -13,7 +13,7 @@ from model.change_action import ChangeAction
 from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from util.file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
-from index.change_ledger import ChangeLedger
+from index.op_ledger import OpLedger
 from index.master_gdrive import GDriveMasterCache
 from index.master_local import LocalDiskMasterCache
 from index.sqlite.cache_registry_db import CacheRegistry
@@ -88,7 +88,7 @@ class CacheManager:
         self._gdrive_cache = None
         """Sub-module of Cache Manager which manages Google Drive caches"""
 
-        self._change_ledger = None
+        self._op_ledger = None
         """Sub-module of Cache Manager which manages commands which have yet to execute"""
 
         self._tree_controllers: Dict[str, TreePanelController] = {}
@@ -121,7 +121,7 @@ class CacheManager:
             # Init sub-modules:
             self._local_disk_cache = LocalDiskMasterCache(self.application)
             self._gdrive_cache = GDriveMasterCache(self.application)
-            self._change_ledger = ChangeLedger(self.application)
+            self._op_ledger = OpLedger(self.application)
 
             # Load registry. Do validation along the way
             caches_from_registry: List[CacheInfoEntry] = self._get_cache_info_from_registry()
@@ -170,7 +170,7 @@ class CacheManager:
                 logger.info(f'{stopwatch} Found {unique_cache_count} existing caches but configured not to load on startup')
 
             # Finally, add any queued changes (asynchronously)
-            self.application.executor.submit_async_task(self._change_ledger.load_pending_changes)
+            self.application.executor.submit_async_task(self._op_ledger.load_pending_changes)
 
         finally:
             dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
@@ -378,19 +378,19 @@ class CacheManager:
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def get_last_pending_change_for_node(self, node_uid: UID) -> Optional[ChangeAction]:
-        return self._change_ledger.get_last_pending_change_for_node(node_uid)
+        return self._op_ledger.get_last_pending_change_for_node(node_uid)
 
     def enqueue_change_list(self, change_list: Iterable[ChangeAction]):
         """Attempt to add the given ChangeActions to the execution tree. No need to worry whether some changes overlap or are redundant;
-         the ChangeLedger will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
+         the OpLedger will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
          that is scheduled for deletion."""
-        self._change_ledger.append_new_pending_changes(change_list)
+        self._op_ledger.append_new_pending_changes(change_list)
 
     def get_next_command(self):
         # blocks !
         self._wait_for_init_done()
         # also blocks !
-        return self._change_ledger.get_next_command()
+        return self._op_ledger.get_next_command()
 
     def download_all_gdrive_meta(self, tree_id):
         return self._gdrive_cache.download_all_gdrive_meta(tree_id)

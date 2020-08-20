@@ -160,7 +160,7 @@ class ChangeTest(unittest.TestCase):
         config.write(root_path_config.make_tree_type_config_key(actions.ID_RIGHT_TREE), TREE_TYPE_LOCAL_DISK)
         config.write(root_path_config.make_root_path_config_key(actions.ID_RIGHT_TREE), os.path.join(TEST_TARGET_DIR, 'Right-Root'))
         self.app = OutletApplication(config)
-        # Disable execution so we can study the state of the OpTree:
+        # Disable execution so we can study the state of the OpGraph:
         self.app.executor.enable_op_execution_thread = False
 
         load_left_done = threading.Event()
@@ -291,12 +291,15 @@ class ChangeTest(unittest.TestCase):
             self._verify_one_display_dir(tree_con, expected_list, actual_list, dir_deque)
         logger.info(f'Verified {count_dir} display dirs for "{tree_con.tree_id}"')
 
-    def _find_iter_by_name_in_left_tree(self, node_name):
+    def _find_iter_by_name(self, tree_con, node_name: str):
         name_equals_func: Callable = partial(_name_equals_func, node_name)
-        tree_iter = self.left_con.display_store.find_in_tree(name_equals_func)
+        tree_iter = tree_con.display_store.find_in_tree(name_equals_func)
         if not tree_iter:
             self.fail(f'Expected to find node named "{node_name}"')
         return tree_iter
+
+    def _find_iter_by_name_in_left_tree(self, node_name):
+        return self._find_iter_by_name(self.left_con, node_name)
 
     def _find_node_by_name_im_left_tree(self, node_name):
         tree_iter = self._find_iter_by_name_in_left_tree(node_name)
@@ -513,17 +516,20 @@ class ChangeTest(unittest.TestCase):
         self._do_and_verify(drop, count_expected_cmds=12, wait_for_left=False, wait_for_right=True,
                             expected_left=INITIAL_TREE_LEFT, expected_right=final_tree_right)
 
+    def _expand_visible_node(self, tree_con, node_name: str):
+        # Need to first expand tree in order to find child nodes
+        tree_iter = self._find_iter_by_name(tree_con, node_name)
+        tree_path = tree_con.display_store.model.get_path(tree_iter)
+
+        def action_func():
+            tree_con.tree_view.expand_row(path=tree_path, open_all=True)
+
+        _do_and_wait_for_signal(action_func, actions.NODE_EXPANSION_DONE, tree_con.tree_id)
+
     def test_dd_two_dir_trees_cp(self):
         logger.info('Testing drag & drop copy of 2 dir trees local left to local right')
 
-        # Need to first expand tree in order to find child nodes
-        tree_iter = self._find_iter_by_name_in_left_tree('Art')
-        tree_path = self.left_con.display_store.model.get_path(tree_iter)
-
-        def action_func():
-            self.left_con.tree_view.expand_row(path=tree_path, open_all=True)
-
-        _do_and_wait_for_signal(action_func, actions.NODE_EXPANSION_DONE, actions.ID_LEFT_TREE)
+        self._expand_visible_node(self.left_con, 'Art')
 
         nodes = [
             self._find_node_by_name_im_left_tree('Modern'),
@@ -604,6 +610,64 @@ class ChangeTest(unittest.TestCase):
         self._do_and_verify(delete, count_expected_cmds=12, wait_for_left=True, wait_for_right=False,
                             expected_left=final_tree_left, expected_right=INITIAL_TREE_RIGHT)
 
-        # TODO: test delete overlapping subtrees (before starting execution thread)
+    def test_delete_superset(self):
+        logger.info('Testing delete tree followed by superset of tree (on left)')
 
-        # TODO: test multiple delete batches of different levels
+        self._expand_visible_node(self.left_con, 'Art')
+
+        nodes_1 = [
+            self._find_node_by_name_im_left_tree('Modern')
+        ]
+        nodes_2 = [
+            self._find_node_by_name_im_left_tree('Art')
+        ]
+
+        def delete():
+            logger.info('Submitting delete signal 1: RM "Modern"')
+            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_LEFT_TREE, node_list=nodes_1)
+            logger.info('Submitting delete signal 2: RM "Art"')
+            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_LEFT_TREE, node_list=nodes_2)
+
+        final_tree_left = [
+            FNode('American_Gothic.jpg', 2061397),
+            FNode('Angry-Clown.jpg', 824641),
+            FNode('Egypt.jpg', 154564),
+            FNode('George-Floyd.png', 27601),
+            FNode('Geriatric-Clown.jpg', 89182),
+            FNode('Keep-calm-and-carry-on.jpg', 745698),
+        ]
+
+        self._do_and_verify(delete, count_expected_cmds=12, wait_for_left=True, wait_for_right=False,
+                            expected_left=final_tree_left, expected_right=INITIAL_TREE_RIGHT)
+
+    def test_delete_subset(self):
+        logger.info('Testing delete tree followed by subset of tree (on left)')
+
+        self._expand_visible_node(self.left_con, 'Art')
+
+        nodes_1 = [
+            self._find_node_by_name_im_left_tree('Art')
+        ]
+        nodes_2 = [
+            self._find_node_by_name_im_left_tree('Modern')
+        ]
+
+        def delete():
+            logger.info('Submitting delete signal 1: RM "Art"')
+            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_LEFT_TREE, node_list=nodes_1)
+            logger.info('Submitting delete signal 1: RM "Modern"')
+            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_LEFT_TREE, node_list=nodes_2)
+
+        final_tree_left = [
+            FNode('American_Gothic.jpg', 2061397),
+            FNode('Angry-Clown.jpg', 824641),
+            FNode('Egypt.jpg', 154564),
+            FNode('George-Floyd.png', 27601),
+            FNode('Geriatric-Clown.jpg', 89182),
+            FNode('Keep-calm-and-carry-on.jpg', 745698),
+        ]
+
+        self._do_and_verify(delete, count_expected_cmds=12, wait_for_left=True, wait_for_right=False,
+                            expected_left=final_tree_left, expected_right=INITIAL_TREE_RIGHT)
+
+    # TODO: test multiple delete batches of different levels

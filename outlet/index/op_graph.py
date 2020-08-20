@@ -7,7 +7,7 @@ from typing import DefaultDict, Deque, Dict, Iterable, List, Optional
 from pydispatch import dispatcher
 
 from constants import ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from index.op_tree_node import DstActionNode, OpTreeNode, RmActionNode, RootNode, SrcActionNode
+from index.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, SrcOpNode
 from index.uid.uid import UID
 from model.change_action import ChangeAction, ChangeType
 from model.node.display_node import DisplayNode, HasParentList
@@ -17,10 +17,10 @@ from util.stopwatch_sec import Stopwatch
 logger = logging.getLogger(__name__)
 
 
-# CLASS OpTree
+# CLASS OpGraph
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class OpTree:
+class OpGraph:
     """Dependency tree, currently with emphasis on ChangeActions"""
 
     def __init__(self, application):
@@ -32,10 +32,10 @@ class OpTree:
         self._cv = threading.Condition()
         """Used to help consumers block"""
 
-        self._node_dict: Dict[UID, Deque[OpTreeNode]] = {}
+        self._node_dict: Dict[UID, Deque[OpGraphNode]] = {}
         """Contains entries for all nodes have pending changes. Each entry has a queue of pending changes for that node"""
 
-        self._root: OpTreeNode = RootNode()
+        self._root: OpGraphNode = RootNode()
         """Root of tree. Has no useful internal data; we value it for its children"""
 
         self._outstanding_actions: Dict[UID, ChangeAction] = {}
@@ -92,14 +92,14 @@ class OpTree:
                 raise RuntimeError(f'Batch items are not in order! ({change.action_uid} < {last_uid}')
             last_uid = change.action_uid
 
-        # Put all in dict as wrapped OpTreeNodes
-        non_mutex_node_dict: DefaultDict[UID, List[OpTreeNode]] = collections.defaultdict(lambda: list())
-        mutex_node_dict: Dict[UID, OpTreeNode] = {}
+        # Put all in dict as wrapped OpGraphNodes
+        non_mutex_node_dict: DefaultDict[UID, List[OpGraphNode]] = collections.defaultdict(lambda: list())
+        mutex_node_dict: Dict[UID, OpGraphNode] = {}
         for change in change_batch:
             if change.change_type == ChangeType.RM:
-                src_node = RmActionNode(self.uid_generator.next_uid(), change)
+                src_node = RmOpNode(self.uid_generator.next_uid(), change)
             else:
-                src_node = SrcActionNode(self.uid_generator.next_uid(), change)
+                src_node = SrcOpNode(self.uid_generator.next_uid(), change)
 
             if src_node.is_mutually_exclusive():
                 existing = mutex_node_dict.get(src_node.get_target_node().uid, None)
@@ -110,7 +110,7 @@ class OpTree:
                 non_mutex_node_dict[src_node.get_target_node().uid].append(src_node)
 
             if change.has_dst():
-                dst_node = DstActionNode(self.uid_generator.next_uid(), change)
+                dst_node = DstOpNode(self.uid_generator.next_uid(), change)
                 assert dst_node.is_mutually_exclusive()
                 existing = mutex_node_dict.get(dst_node.get_target_node().uid, None)
                 if existing:
@@ -126,12 +126,12 @@ class OpTree:
                 root_node.link_child(node)
 
         # Need to keep track of RM nodes because we can't identify their topmost nodes the same way as other nodes:
-        rm_node_dict: Dict[UID, OpTreeNode] = {}
+        rm_node_dict: Dict[UID, OpGraphNode] = {}
         
         # mutually exclusive nodes have dependencies on each other:
         for potential_child_op in mutex_node_dict.values():
             parent_uid = self._derive_parent_uid(potential_child_op.get_target_node())
-            op_for_parent_node: OpTreeNode = mutex_node_dict.get(parent_uid, None)
+            op_for_parent_node: OpGraphNode = mutex_node_dict.get(parent_uid, None)
             if potential_child_op.is_remove_type():
                 # Special handling for RM-type nodes:
                 op_parent_unknown = True
@@ -222,11 +222,11 @@ class OpTree:
 
         return True
 
-    def _find_child_nodes_in_tree(self, op_node: OpTreeNode) -> List[OpTreeNode]:
+    def _find_child_nodes_in_tree(self, op_node: OpGraphNode) -> List[OpGraphNode]:
         sw_total = Stopwatch()
 
         # TODO: wow this is O(n*m). Find a way to optimize
-        assert isinstance(op_node, RmActionNode)
+        assert isinstance(op_node, RmOpNode)
         potential_parent: DisplayNode = op_node.get_target_node()
 
         child_nodes = []
@@ -239,7 +239,7 @@ class OpTree:
         logger.debug(f'{sw_total} Found {len(child_nodes):n} child nodes in tree for op node')
         return child_nodes
 
-    def _add_single_node(self, node_to_insert: OpTreeNode):
+    def _add_single_node(self, node_to_insert: OpGraphNode):
         """
         The node shall be added as a child dependency of either the last operation which affected its target,
         or as a child dependency of the last operation which affected its parent, whichever has lower priority (i.e. has a lower level
@@ -271,7 +271,7 @@ class OpTree:
                 last_target_op.link_child(node_to_insert)
             else:
                 # Otherwise see if we can find child nodes of the target node (which in our rules would be the parents of the RM op):
-                op_for_child_node_list: List[OpTreeNode] = self._find_child_nodes_in_tree(node_to_insert)
+                op_for_child_node_list: List[OpGraphNode] = self._find_child_nodes_in_tree(node_to_insert)
                 if op_for_child_node_list:
                     logger.debug(f'Found {len(op_for_child_node_list)} ops for children of node being removed ({target_uid});'
                                  f' adding as child dependency of each')
@@ -325,7 +325,7 @@ class OpTree:
 
         batch_uid = root_of_changes.get_first_child().change_action.batch_uid
 
-        breadth_first_list: List[OpTreeNode] = root_of_changes.get_all_nodes_in_subtree()
+        breadth_first_list: List[OpGraphNode] = root_of_changes.get_all_nodes_in_subtree()
         for node_to_insert in _skip_root(breadth_first_list):
             with self._lock:
                 self._add_single_node(node_to_insert)
@@ -347,7 +347,7 @@ class OpTree:
                 # If the ChangeAction has both src and dst nodes, *both* must be next in their queues, and also be just below root.
                 if tree_node.is_dst():
                     # Dst node is child of root. But verify corresponding src node is also child of root
-                    pending_changes_for_src_node: Deque[OpTreeNode] = self._node_dict.get(tree_node.change_action.src_node.uid, None)
+                    pending_changes_for_src_node: Deque[OpGraphNode] = self._node_dict.get(tree_node.change_action.src_node.uid, None)
                     if not pending_changes_for_src_node:
                         logger.error(f'Could not find entry for change src (change={tree_node.change_action}); raising error')
                         raise RuntimeError(f'Serious error: master dict has no entries for change src ({tree_node.change_action.src_node.uid})!')
@@ -364,7 +364,7 @@ class OpTree:
 
                 else:
                     # Src node is child of root. But verify corresponding dst node is also child of root
-                    pending_changes_for_node: Deque[OpTreeNode] = self._node_dict.get(tree_node.change_action.dst_node.uid, None)
+                    pending_changes_for_node: Deque[OpGraphNode] = self._node_dict.get(tree_node.change_action.dst_node.uid, None)
                     if not pending_changes_for_node:
                         logger.error(f'Could not find entry for change dst (change={tree_node.change_action}); raising error')
                         raise RuntimeError(f'Serious error: master dict has no entries for change dst ({tree_node.change_action.dst_node.uid})!')
@@ -407,7 +407,7 @@ class OpTree:
                 with self._cv:
                     self._cv.wait()
 
-    def _is_child_of_root(self, node: OpTreeNode) -> bool:
+    def _is_child_of_root(self, node: OpGraphNode) -> bool:
         parent = node.get_first_parent()
         return parent and parent.node_uid == self._root.node_uid
 
@@ -425,11 +425,11 @@ class OpTree:
 
             # I-1. Remove src node from node dict
 
-            src_node_list: Deque[OpTreeNode] = self._node_dict.get(change.src_node.uid)
+            src_node_list: Deque[OpGraphNode] = self._node_dict.get(change.src_node.uid)
             if not src_node_list:
                 raise RuntimeError(f'Src node for completed change not found in master dict (src node UID {change.src_node.uid}')
 
-            src_tree_node: OpTreeNode = src_node_list.popleft()
+            src_tree_node: OpGraphNode = src_node_list.popleft()
             if src_tree_node.change_action.action_uid != change.action_uid:
                 raise RuntimeError(f'Completed change (UID {change.action_uid}) does not match first item popped from src queue '
                                    f'(UID {src_tree_node.change_action.action_uid})')
@@ -462,7 +462,7 @@ class OpTree:
             if change.has_dst():
                 # II-1. Remove dst node from node dict
 
-                dst_node_list: Deque[OpTreeNode] = self._node_dict.get(change.dst_node.uid)
+                dst_node_list: Deque[OpGraphNode] = self._node_dict.get(change.dst_node.uid)
                 if not dst_node_list:
                     raise RuntimeError(f'Dst node for completed change not found in master dict (dst node UID {change.dst_node.uid}')
                 dst_tree_node = dst_node_list.popleft()
@@ -502,7 +502,7 @@ class OpTree:
             self._cv.notifyAll()
 
 
-def _skip_root(node_list: List[OpTreeNode]) -> Iterable[OpTreeNode]:
+def _skip_root(node_list: List[OpGraphNode]) -> Iterable[OpGraphNode]:
     """Note: does not support case when root node is second or later in the list"""
     if node_list and node_list[0].node_uid == ROOT_UID:
         node_list_iter = iter(node_list)
