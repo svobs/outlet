@@ -31,7 +31,7 @@ from gi.repository import Gtk
 
 logger = logging.getLogger(__name__)
 
-LOAD_TIMEOUT_SEC = 30
+LOAD_TIMEOUT_SEC = 100000000
 ENABLE_CHANGE_EXECUTION_THREAD = True
 
 TEST_BASE_DIR = file_util.get_resource_path('test')
@@ -457,8 +457,6 @@ class ChangeTest(unittest.TestCase):
                             expected_left=final_tree_left, expected_right=INITIAL_TREE_RIGHT)
 
     def test_bad_dd_dir_tree_cp(self):
-        self.tearDown()
-        self.setUp()
         logger.info('Testing negative case: drag & drop copy of duplicate nodes local to local')
         self.app.executor.start_op_execution_thread()
         # Offset from 0:

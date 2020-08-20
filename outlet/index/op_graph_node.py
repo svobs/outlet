@@ -30,7 +30,7 @@ class OpGraphNode(ABC):
     def get_first_parent(self) -> Optional:
         """Returns one of the parents, or None if there aren't any"""
         try:
-            parent_list: Optional[Iterable] = self.get_parent_list()
+            parent_list: Optional[List] = self.get_parent_list()
             if parent_list:
                 return next(iter(parent_list))
         except StopIteration:
@@ -40,17 +40,17 @@ class OpGraphNode(ABC):
     def get_first_child(self) -> Optional:
         """Returns one of the children, or None if there aren't any"""
         try:
-            child_list: Optional[Iterable] = self.get_child_list()
+            child_list: Optional[List] = self.get_child_list()
             if child_list:
                 return next(iter(child_list))
         except StopIteration:
             pass
         return None
 
-    def get_parent_list(self) -> Optional[Iterable]:
+    def get_parent_list(self) -> Optional[List]:
         return None
 
-    def get_child_list(self) -> Optional[Iterable]:
+    def get_child_list(self) -> Optional[List]:
         return None
 
     def link_parent(self, parent):
@@ -160,7 +160,7 @@ class HasSingleParent(ABC):
     def __init__(self):
         self._parent: Optional[OpGraphNode] = None
 
-    def get_parent_list(self) -> Optional[Iterable]:
+    def get_parent_list(self) -> Optional[List]:
         if self._parent:
             return [self._parent]
         return []
@@ -191,8 +191,8 @@ class HasMultiParent(ABC):
     def __init__(self):
         self._parent_dict: Dict[UID, OpGraphNode] = {}
 
-    def get_parent_list(self) -> Optional[Iterable]:
-        return self._parent_dict.values()
+    def get_parent_list(self) -> Optional[List]:
+        return list(self._parent_dict.values())
 
     def link_parent(self, parent: OpGraphNode):
         if not self._parent_dict.get(parent.node_uid, None):
@@ -214,7 +214,7 @@ class HasSingleChild(ABC):
     def __init__(self):
         self._child: Optional[OpGraphNode] = None
 
-    def get_child_list(self) -> Optional[Iterable]:
+    def get_child_list(self) -> Optional[List]:
         if self._child:
             return [self._child]
         return []
@@ -245,8 +245,8 @@ class HasMultiChild(ABC):
     def __init__(self):
         self._child_dict: Dict[UID, OpGraphNode] = {}
 
-    def get_child_list(self) -> Optional[Iterable]:
-        return self._child_dict.values()
+    def get_child_list(self) -> Optional[List]:
+        return list(self._child_dict.values())
 
     def link_child(self, child: OpGraphNode):
         if not self._child_dict.get(child.node_uid, None):
