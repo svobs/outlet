@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple
 from constants import GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE
 from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from index.uid.uid import UID
-from model.node.gdrive_node import GDriveNode
+from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.gdrive_whole_tree import GDriveWholeTree
 
 
@@ -53,19 +53,20 @@ class SimpleNodeCollector(MetaObserver):
 
 class FolderMetaPersister(MetaObserver):
     """Collect GDrive folder metas for mass insertion into database"""
+
     def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, cache: GDriveDatabase):
         super().__init__()
         self.tree = tree
         assert download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
         self.download: CurrentDownload = download
         self.cache: GDriveDatabase = cache
-        self.dir_tuples: List[Tuple] = []
+        self.folder_list: List[GDriveFolder] = []
         self.id_parent_mappings: List[Tuple] = []
 
-    def meta_received(self, goog_node, item):
+    def meta_received(self, goog_node: GDriveFolder, item):
         parent_google_ids = item.get('parents', [])
         self.tree.id_dict[goog_node.uid] = goog_node
-        self.dir_tuples.append(goog_node.to_tuple())
+        self.folder_list.append(goog_node)
 
         self.id_parent_mappings += parent_mappings_tuples(goog_node.uid, parent_google_ids, sync_ts=self.download.update_ts)
 
@@ -77,11 +78,12 @@ class FolderMetaPersister(MetaObserver):
             self.download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
             # fall through
 
-        self.cache.insert_gdrive_folders_and_parents(dir_list=self.dir_tuples, parent_mappings=self.id_parent_mappings, current_download=self.download)
+        self.cache.insert_gdrive_folder_list_and_parents(folder_list=self.folder_list, parent_mappings=self.id_parent_mappings,
+                                                         current_download=self.download)
 
         if next_page_token:
             # Clear the buffers for reuse:
-            self.dir_tuples = []
+            self.folder_list = []
             self.id_parent_mappings = []
 
 
@@ -90,19 +92,20 @@ class FolderMetaPersister(MetaObserver):
 
 class FileMetaPersister(MetaObserver):
     """Collect GDrive file metas for mass insertion into database"""
+
     def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, cache: GDriveDatabase):
         super().__init__()
         self.tree = tree
         assert download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
         self.download: CurrentDownload = download
         self.cache: GDriveDatabase = cache
-        self.file_tuples: List[Tuple] = []
+        self.file_list: List[GDriveFile] = []
         self.id_parent_mappings: List[Tuple] = []
 
-    def meta_received(self, goog_node, item):
+    def meta_received(self, goog_node: GDriveFile, item):
         parent_google_ids = item.get('parents', [])
         self.tree.id_dict[goog_node.uid] = goog_node
-        self.file_tuples.append(goog_node.to_tuple())
+        self.file_list.append(goog_node)
 
         self.id_parent_mappings += parent_mappings_tuples(goog_node.uid, parent_google_ids, sync_ts=self.download.update_ts)
 
@@ -114,12 +117,12 @@ class FileMetaPersister(MetaObserver):
             self.download.current_state = GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE
             # fall through
 
-        self.cache.insert_gdrive_files_and_parents(file_list=self.file_tuples, parent_mappings=self.id_parent_mappings,
+        self.cache.insert_gdrive_files_and_parents(file_list=self.file_list, parent_mappings=self.id_parent_mappings,
                                                    current_download=self.download)
 
         if next_page_token:
             # Clear the buffers for reuse:
-            self.file_tuples = []
+            self.file_list = []
             self.id_parent_mappings = []
 
 

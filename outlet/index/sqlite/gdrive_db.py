@@ -81,19 +81,19 @@ class GDriveDatabase(MetaDatabase):
                                               ('update_ts', 'INTEGER')
                                           ]))
 
-    TABLE_GRDIVE_DIR = Table(name='goog_folder',
-                             cols=OrderedDict([
-                                 ('uid', 'INTEGER PRIMARY KEY'),
-                                 ('goog_id', 'TEXT'),
-                                 ('name', 'TEXT'),
-                                 ('trashed', 'INTEGER'),
-                                 ('drive_id', 'TEXT'),
-                                 ('my_share', 'INTEGER'),
-                                 ('sync_ts', 'INTEGER'),
-                                 ('all_children_fetched', 'INTEGER')
-                             ]))
+    TABLE_GRDIVE_FOLDER = Table(name='gdrive_folder',
+                                cols=OrderedDict([
+                                    ('uid', 'INTEGER PRIMARY KEY'),
+                                    ('goog_id', 'TEXT'),
+                                    ('name', 'TEXT'),
+                                    ('trashed', 'INTEGER'),
+                                    ('drive_id', 'TEXT'),
+                                    ('my_share', 'INTEGER'),
+                                    ('sync_ts', 'INTEGER'),
+                                    ('all_children_fetched', 'INTEGER')
+                                ]))
 
-    TABLE_GRDIVE_FILE = Table(name='goog_file',
+    TABLE_GRDIVE_FILE = Table(name='gdrive_file',
                               cols=OrderedDict([
                                   ('uid', 'INTEGER PRIMARY KEY'),
                                   ('goog_id', 'TEXT'),
@@ -111,7 +111,7 @@ class GDriveDatabase(MetaDatabase):
                                   ('sync_ts', 'INTEGER')
                               ]))
 
-    TABLE_GRDIVE_ID_PARENT_MAPPING = Table(name='goog_id_parent_mappings',
+    TABLE_GRDIVE_ID_PARENT_MAPPING = Table(name='gdrive_id_parent_mapping',
                                            cols=OrderedDict([
                                                ('item_uid', 'INTEGER'),
                                                ('parent_uid', 'INTEGER'),
@@ -125,19 +125,19 @@ class GDriveDatabase(MetaDatabase):
         self.uid_generator = application.uid_generator
 
         self.table_current_download = LiveTable(GDriveDatabase.TABLE_GRDIVE_CURRENT_DOWNLOAD, self.conn, _download_to_tuple, _tuple_to_download)
-        self.table_gdrive_folder = LiveTable(GDriveDatabase.TABLE_GRDIVE_DIR, self.conn, _gdrive_folder_to_tuple, _tuple_to_gdrive_folder)
+        self.table_gdrive_folder = LiveTable(GDriveDatabase.TABLE_GRDIVE_FOLDER, self.conn, _gdrive_folder_to_tuple, _tuple_to_gdrive_folder)
         self.table_gdrive_file = LiveTable(GDriveDatabase.TABLE_GRDIVE_FILE, self.conn, _gdrive_file_to_tuple, _tuple_to_gdrive_file)
         self.id_parent_mapping = LiveTable(GDriveDatabase.TABLE_GRDIVE_ID_PARENT_MAPPING, self.conn, None, None)
 
-    # GDRIVE_DIR operations
+    # GDRIVE_FOLDER operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def insert_gdrive_folders(self, dir_list: List[Tuple], overwrite=False, commit=True):
-        self.table_gdrive_folder.insert_object_list(dir_list, overwrite, commit)
+    def insert_gdrive_folder_list(self, folder_list: List[GDriveFolder], overwrite=False, commit=True):
+        self.table_gdrive_folder.insert_object_list(folder_list, overwrite, commit)
 
-    def upsert_gdrive_folders(self, dir_list: List[Tuple], commit=True):
+    def upsert_gdrive_folder_tuple_list(self, folder_list: List[Tuple], commit=True):
         self.table_gdrive_folder.create_table_if_not_exist(commit=False)
-        self.table_gdrive_folder.upsert_many(dir_list, commit=commit)
+        self.table_gdrive_folder.upsert_many(folder_list, commit=commit)
 
     def get_gdrive_folder_object_list(self) -> List[GDriveFolder]:
         return self.table_gdrive_folder.select_object_list()
@@ -154,12 +154,12 @@ class GDriveDatabase(MetaDatabase):
     def has_gdrive_files(self):
         return self.table_gdrive_file.has_rows()
 
-    def insert_gdrive_files(self, file_list: List[Tuple], overwrite=False, commit=True):
+    def insert_gdrive_files(self, file_list: List[GDriveFile], overwrite=False, commit=True):
         self.table_gdrive_file.insert_object_list(file_list, overwrite, commit)
 
-    def upsert_gdrive_files(self, file_list: List[Tuple], commit=True):
+    def upsert_gdrive_file_list(self, file_list: List[GDriveFile], commit=True):
         self.table_gdrive_file.create_table_if_not_exist(commit=False)
-        self.table_gdrive_file.upsert_many(file_list, commit=commit)
+        self.table_gdrive_file.upsert_object_list(file_list, commit=commit)
 
     def get_gdrive_file_object_list(self):
         return self.table_gdrive_file.select_object_list()
@@ -167,7 +167,7 @@ class GDriveDatabase(MetaDatabase):
     def delete_gdrive_file_with_uid(self, uid: UID, commit=True):
         self.table_gdrive_file.delete_for_uid(uid, commit=commit)
 
-    # goog_id_parent_mappings operations
+    # gdrive_id_parent_mappings operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def insert_id_parent_mappings(self, id_parent_mappings: List[Tuple], overwrite=False, commit=True):
@@ -190,13 +190,13 @@ class GDriveDatabase(MetaDatabase):
         logger.debug(f'Retrieved {len(parent_uids)} id-parent mappings')
         return parent_uids
 
-    def insert_gdrive_files_and_parents(self, file_list: List[Tuple], parent_mappings: List[Tuple], current_download: CurrentDownload):
+    def insert_gdrive_files_and_parents(self, file_list: List[GDriveFile], parent_mappings: List[Tuple], current_download: CurrentDownload):
         self.insert_gdrive_files(file_list=file_list, commit=False)
         self.insert_id_parent_mappings(parent_mappings, commit=False)
         self.create_or_update_download(current_download)
 
-    def insert_gdrive_folders_and_parents(self, dir_list: List[Tuple], parent_mappings: List[Tuple], current_download: CurrentDownload):
-        self.insert_gdrive_folders(dir_list=dir_list, commit=False)
+    def insert_gdrive_folder_list_and_parents(self, folder_list: List[GDriveFolder], parent_mappings: List[Tuple], current_download: CurrentDownload):
+        self.insert_gdrive_folder_list(folder_list=folder_list, commit=False)
         self.insert_id_parent_mappings(parent_mappings, commit=False)
         self.create_or_update_download(current_download)
 

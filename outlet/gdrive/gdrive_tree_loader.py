@@ -97,7 +97,7 @@ class GDriveTreeLoader:
 
             download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
             download.page_token = None
-            self.cache.insert_gdrive_folders(dir_list=[drive_root.to_tuple()], commit=False)
+            self.cache.insert_gdrive_folder_list(folder_list=[drive_root], commit=False)
             self.cache.create_or_update_download(download=download)
             # fall through
 
@@ -168,7 +168,7 @@ class GDriveTreeLoader:
                 uid = self.cache_manager.get_uid_for_goog_id(folder.goog_id, folder.uid)
                 if folder.uid != uid:
                     # Duplicate entry with same goog_id. Here's a useful SQLite query:
-                    # "SELECT goog_id, COUNT(*) c FROM goog_file GROUP BY goog_id HAVING c > 1;"
+                    # "SELECT goog_id, COUNT(*) c FROM gdrive_file GROUP BY goog_id HAVING c > 1;"
                     logger.warning(f'Skipping what appears to be a duplicate entry: goog_id="{folder.goog_id}", uid={folder.uid}')
                     invalidate_uids[folder.uid] = folder.goog_id
                     continue
@@ -198,7 +198,7 @@ class GDriveTreeLoader:
                 uid = self.cache_manager.get_uid_for_goog_id(file.goog_id, file.uid)
                 if file.uid != uid:
                     # Duplicate entry with same goog_id. Here's a useful SQLite query:
-                    # "SELECT goog_id, COUNT(*) c FROM goog_file GROUP BY goog_id HAVING c > 1;"
+                    # "SELECT goog_id, COUNT(*) c FROM gdrive_file GROUP BY goog_id HAVING c > 1;"
                     logger.warning(f'Skipping what appears to be a duplicate entry: goog_id="{file.goog_id}", uid={file.uid}')
                     invalidate_uids[file.uid] = file.goog_id
                     continue

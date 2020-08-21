@@ -188,10 +188,10 @@ class GDriveMasterCache:
                     cache.upsert_parent_mappings_for_id(parent_mappings, node.uid, commit=False)
                     if node.is_dir():
                         logger.debug(f'Writing folder node to the GDrive master cache: {node}')
-                        cache.upsert_gdrive_folders([node_tuple])
+                        cache.upsert_gdrive_folder_tuple_list([node_tuple])
                     else:
                         logger.debug(f'Writing file node to the GDrive master cache: {node}')
-                        cache.upsert_gdrive_files([node_tuple])
+                        cache.upsert_gdrive_file_list([node_tuple])
             else:
                 logger.debug(f'Save to disk is disabled: skipping add/update of item with UID={node.uid}')
         else:
@@ -303,5 +303,5 @@ class GDriveMasterCache:
             raise CacheNotLoadedError()
         return self._my_gdrive.get_all_identifiers_for_path(path)
 
-    def get_all_goog_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
+    def get_all_gdrive_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
         return self._my_gdrive.get_all_files_and_folders_for_subtree(subtree_root)

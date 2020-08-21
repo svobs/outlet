@@ -164,7 +164,7 @@ class GDriveClient:
         parent_goog_id: str = parent_goog_ids[0]
         return parent_goog_id
 
-    def _convert_to_goog_folder(self, item, sync_ts: int = 0) -> GDriveFolder:
+    def _convert_to_gdrive_folder(self, item, sync_ts: int = 0) -> GDriveFolder:
         # 'driveId' only populated for items which someone has shared with me
         # 'shared' only populated for items which are owned by me
 
@@ -183,7 +183,7 @@ class GDriveClient:
 
         return goog_node
 
-    def _convert_to_goog_file(self, item, sync_ts: int = 0) -> GDriveFile:
+    def _convert_to_gdrive_file(self, item, sync_ts: int = 0) -> GDriveFile:
         if not sync_ts:
             sync_ts = int(time.time())
 
@@ -277,7 +277,7 @@ class GDriveClient:
 
         result = _try_repeatedly(request)
 
-        root_node = self._convert_to_goog_folder(result, sync_ts)
+        root_node = self._convert_to_gdrive_folder(result, sync_ts)
         logger.debug(f'Drive root: {root_node}')
         return root_node
 
@@ -383,7 +383,7 @@ class GDriveClient:
                     owner_is_me = owner.get('me', None)
                     owner_dict[owner_id] = (owner_name, owner_email, owner_photo_link, owner_is_me)
 
-                goog_node: GDriveFile = self._convert_to_goog_file(item, sync_ts=sync_ts)
+                goog_node: GDriveFile = self._convert_to_gdrive_file(item, sync_ts=sync_ts)
 
                 # Collect MIME types
                 mime_type = item['mimeType']
@@ -500,7 +500,7 @@ class GDriveClient:
                 actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             for item in items:
-                goog_node: GDriveFolder = self._convert_to_goog_folder(item, sync_ts)
+                goog_node: GDriveFolder = self._convert_to_gdrive_folder(item, sync_ts)
 
                 observer.meta_received(goog_node, item)
                 item_count += 1
@@ -561,11 +561,11 @@ class GDriveClient:
             return response
 
         file_meta = _try_repeatedly(request)
-        goog_file = self._convert_to_goog_file(file_meta)
+        gdrive_file = self._convert_to_gdrive_file(file_meta)
 
-        logger.info(f'File uploaded successfully) Returned name="{goog_file.name}", version="{goog_file.version}", goog_id="{goog_file.goog_id}",')
+        logger.info(f'File uploaded successfully) Returned name="{gdrive_file.name}", version="{gdrive_file.version}", goog_id="{gdrive_file.goog_id}",')
 
-        return goog_file
+        return gdrive_file
 
     def update_existing_file(self, raw_item, local_full_path: str) -> GDriveFile:
         if not local_full_path:
@@ -582,12 +582,12 @@ class GDriveClient:
             return self.service.files().update(fileId=raw_item['id'], body=file_metadata, media_body=media, fields=FILE_FIELDS).execute()
 
         updated_file_meta = _try_repeatedly(request)
-        goog_file: GDriveFile = self._convert_to_goog_file(updated_file_meta)
+        gdrive_file: GDriveFile = self._convert_to_gdrive_file(updated_file_meta)
 
         logger.info(
-            f'File update uploaded successfully) Returned name="{goog_file.name}", version="{goog_file.version}", goog_id="{goog_file.goog_id}",')
+            f'File update uploaded successfully) Returned name="{gdrive_file.name}", version="{gdrive_file.version}", goog_id="{gdrive_file.goog_id}",')
 
-        return goog_file
+        return gdrive_file
 
     def create_folder(self, name: str, parent_goog_ids: List[str]) -> GDriveFolder:
         """Create a folder with the given name. If successful, returns a new Google ID for the created folder"""
@@ -604,7 +604,7 @@ class GDriveClient:
 
         item = _try_repeatedly(request)
 
-        goog_node: GDriveFolder = self._convert_to_goog_folder(item)
+        goog_node: GDriveFolder = self._convert_to_gdrive_folder(item)
         if not goog_node.goog_id:
             raise RuntimeError(f'Folder creation failed (no ID returned)!')
 
@@ -630,9 +630,9 @@ class GDriveClient:
 
         mime_type = item['mimeType']
         if mime_type == MIME_TYPE_FOLDER:
-            goog_node = self._convert_to_goog_folder(item)
+            goog_node = self._convert_to_gdrive_folder(item)
         else:
-            goog_node = self._convert_to_goog_file(item)
+            goog_node = self._convert_to_gdrive_file(item)
         return goog_node
 
     def trash(self, goog_id: str):
@@ -646,10 +646,10 @@ class GDriveClient:
             return self.service.files().update(fileId=goog_id, body=file_metadata, fields=FILE_FIELDS).execute()
 
         file_meta = _try_repeatedly(request)
-        goog_file: GDriveFile = self._convert_to_goog_file(file_meta)
+        gdrive_file: GDriveFile = self._convert_to_gdrive_file(file_meta)
 
-        logger.debug(f'Successfully trashed GDriveNode: {goog_id}: trashed={goog_file.trashed}')
-        return goog_file
+        logger.debug(f'Successfully trashed GDriveNode: {goog_id}: trashed={gdrive_file.trashed}')
+        return gdrive_file
 
     def hard_delete(self, goog_id: str):
         logger.debug(f'Sending request to delete file with goog_id="{goog_id}"')

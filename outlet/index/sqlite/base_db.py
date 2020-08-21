@@ -171,9 +171,7 @@ class LiveTable(Table):
             logger.debug('Committing!')
             self.conn.commit()
 
-    def insert_object_list(self, entries: List, overwrite: bool, commit: bool = True,
-                           obj_to_tuple_func_override: Optional[Callable[[Any], Tuple]] = None):
-        """ Takes a list of objects and inserts them all """
+    def _to_tuple_list(self, entries: List, obj_to_tuple_func_override: Optional[Callable[[Any], Tuple]] = None) -> List[Tuple]:
         if obj_to_tuple_func_override:
             to_insert = []
             for e in entries:
@@ -187,12 +185,31 @@ class LiveTable(Table):
         else:
             to_insert = entries
 
+        return to_insert
+
+    def insert_object_list(self, entries: List, overwrite: bool, commit: bool = True,
+                           obj_to_tuple_func_override: Optional[Callable[[Any], Tuple]] = None):
+        """ Takes a list of objects and inserts them all """
+        to_insert: List[Tuple] = self._to_tuple_list(entries, obj_to_tuple_func_override)
+
         if overwrite:
             self.drop_table_if_exists(commit=False)
 
         self.create_table_if_not_exist(commit=False)
 
         self.insert_many(to_insert, commit)
+
+    def upsert_object_list(self, entries: List, overwrite: bool, commit: bool = True,
+                           obj_to_tuple_func_override: Optional[Callable[[Any], Tuple]] = None):
+        """ Takes a list of objects and inserts them all """
+        to_insert: List[Tuple] = self._to_tuple_list(entries, obj_to_tuple_func_override)
+
+        if overwrite:
+            self.drop_table_if_exists(commit=False)
+
+        self.create_table_if_not_exist(commit=False)
+
+        self.upsert_many(to_insert, commit)
 
     def upsert_object(self, item: Any, commit=True, obj_to_tuple_func_override: Optional[Callable[[Any], Tuple]] = None):
         if obj_to_tuple_func_override:

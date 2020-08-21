@@ -222,8 +222,8 @@ class PendingChangeDatabase(MetaDatabase):
         self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, PENDING, DST)
         self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, PENDING, SRC)
         self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, PENDING, DST)
-        self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, PENDING, SRC)
-        self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, PENDING, DST)
+        self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FOLDER, PENDING, SRC)
+        self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FOLDER, PENDING, DST)
         self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, PENDING, SRC)
         self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, PENDING, DST)
 
@@ -232,8 +232,8 @@ class PendingChangeDatabase(MetaDatabase):
         self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, ARCHIVE, DST)
         self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, ARCHIVE, SRC)
         self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_DIR, ARCHIVE, DST)
-        self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, ARCHIVE, SRC)
-        self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_DIR, ARCHIVE, DST)
+        self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FOLDER, ARCHIVE, SRC)
+        self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FOLDER, ARCHIVE, DST)
         self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, ARCHIVE, SRC)
         self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, ARCHIVE, DST)
 
@@ -330,7 +330,7 @@ class PendingChangeDatabase(MetaDatabase):
             self.table_lists.put_table(prefix, suffix, TREE_TYPE_GDRIVE, OBJ_TYPE_FILE, live_table)
             self.table_lists.gdrive_file.append(live_table)
             self.table_lists.tuple_to_obj_func_map[live_table.name] = self._tuple_to_gdrive_file
-        elif src_table.name == GDriveDatabase.TABLE_GRDIVE_DIR.name:
+        elif src_table.name == GDriveDatabase.TABLE_GRDIVE_FOLDER.name:
             live_table = LiveTable(table, self.conn, None, None)
             self.table_lists.put_table(prefix, suffix, TREE_TYPE_GDRIVE, OBJ_TYPE_DIR, live_table)
             self.table_lists.gdrive_dir.append(live_table)

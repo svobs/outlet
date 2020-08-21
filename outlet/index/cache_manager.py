@@ -109,10 +109,6 @@ class CacheManager:
     def shutdown(self):
         if self._op_ledger:
             self._op_ledger.shutdown()
-            self._op_ledger = None
-
-        self._local_disk_cache = None
-        self._gdrive_cache = None
 
         if self._tree_controllers:
             for controller in list(self._tree_controllers.values()):
@@ -506,7 +502,7 @@ class CacheManager:
 
     def get_all_files_and_dirs_for_subtree(self, subtree_root: NodeIdentifier) -> Tuple[List[DisplayNode], List[DisplayNode]]:
         if subtree_root.tree_type == TREE_TYPE_GDRIVE:
-            return self._gdrive_cache.get_all_goog_files_and_folders_for_subtree(subtree_root)
+            return self._gdrive_cache.get_all_gdrive_files_and_folders_for_subtree(subtree_root)
         elif subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
             return self._local_disk_cache.dir_tree.get_all_files_and_dirs_for_subtree(subtree_root)
         else:
