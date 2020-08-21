@@ -39,6 +39,9 @@ TEST_ARCHIVE = 'ChangeTest.7z'
 TEST_ARCHIVE_PATH = os.path.join(TEST_BASE_DIR, TEST_ARCHIVE)
 TEST_TARGET_DIR = os.path.join(TEST_BASE_DIR, 'ChangeTest')
 
+# TODO: investigate using pytest-forked [https://github.com/pytest-dev/pytest-forked]
+# Currently, each test must be run in its own Python interpreter, due to Python/GTK3 failing to dispose of the app after each test
+
 
 # MOCK CLASS FNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -313,11 +316,14 @@ class ChangeTest(unittest.TestCase):
     def _find_iter_by_name_in_left_tree(self, node_name):
         return self._find_iter_by_name(self.left_con, node_name)
 
-    def _find_node_by_name_im_left_tree(self, node_name):
-        tree_iter = self._find_iter_by_name_in_left_tree(node_name)
-        node = self.left_con.display_store.get_node_data(tree_iter)
+    def _find_node_by_name(self, tree_con, node_name: str):
+        tree_iter = self._find_iter_by_name(tree_con, node_name)
+        node = tree_con.display_store.get_node_data(tree_iter)
         logger.info(f'Found "{node.name}"')
         return node
+
+    def _find_node_by_name_in_left_tree(self, node_name):
+        return self._find_node_by_name(self.left_con, node_name)
 
     def _do_and_verify(self, do_func: Callable, count_expected_cmds: int, wait_for_left: bool, wait_for_right: bool,
                        expected_left: List, expected_right: List):
@@ -490,7 +496,7 @@ class ChangeTest(unittest.TestCase):
         self.app.executor.start_op_execution_thread()
 
         nodes = [
-            self._find_node_by_name_im_left_tree('Art')
+            self._find_node_by_name_in_left_tree('Art')
         ]
 
         dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
@@ -544,8 +550,8 @@ class ChangeTest(unittest.TestCase):
         self._expand_visible_node(self.left_con, 'Art')
 
         nodes = [
-            self._find_node_by_name_im_left_tree('Modern'),
-            self._find_node_by_name_im_left_tree('Art')
+            self._find_node_by_name_in_left_tree('Modern'),
+            self._find_node_by_name_in_left_tree('Art')
         ]
 
         dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
@@ -588,7 +594,158 @@ class ChangeTest(unittest.TestCase):
         self._do_and_verify(drop, count_expected_cmds=18, wait_for_left=False, wait_for_right=True,
                             expected_left=INITIAL_TREE_LEFT, expected_right=final_tree_right)
 
-    # TODO: test drop INTO
+    def test_dd_into(self):
+        logger.info('Testing drag & drop copy of 3 files into dir node')
+
+        nodes = [
+            self._find_node_by_name(self.right_con, 'M83.jpg'),
+            self._find_node_by_name(self.right_con, 'Ocean-Wave.jpg'),
+            self._find_node_by_name(self.right_con, 'Starry-Night.jpg'),
+        ]
+
+        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.right_con, nodes=nodes)
+
+        node_iter = self._find_iter_by_name(self.left_con, 'Art')
+        dst_tree_path = self.left_con.display_store.model.get_path(node_iter)
+
+        def drop():
+            logger.info('Submitting drag & drop signal')
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_LEFT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=True)
+
+        final_tree_left = [
+            FNode('American_Gothic.jpg', 2061397),
+            FNode('Angry-Clown.jpg', 824641),
+            DNode('Art', (88259 + 652220 + 239739 + 44487 + 479124) + (147975 + 275771 + 8098 + 247023 + 36344), [
+                FNode('Dark-Art.png', 147975),
+                FNode('Hokusai_Great-Wave.jpg', 275771),
+                FNode('M83.jpg', 17329),
+                DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
+                    FNode('1923-art.jpeg', 88259),
+                    FNode('43548-forbidden_planet.jpg', 652220),
+                    FNode('Dunno.jpg', 239739),
+                    FNode('felix-the-cat.jpg', 44487),
+                    FNode('Glow-Cat.png', 479124),
+                ]),
+                FNode('Mona-Lisa.jpeg', 8098),
+                FNode('Ocean-Wave.jpg', 83713),
+                FNode('Starry-Night.jpg', 91699),
+                FNode('william-shakespeare.jpg', 247023),
+                FNode('WTF.jpg', 36344),
+            ]),
+            FNode('Egypt.jpg', 154564),
+            FNode('George-Floyd.png', 27601),
+            FNode('Geriatric-Clown.jpg', 89182),
+            FNode('Keep-calm-and-carry-on.jpg', 745698),
+        ]
+
+        # Do not wait for Left stats to be updated; the node we are dropping into is not expanded so there is no need for it to be called
+        self._do_and_verify(drop, count_expected_cmds=3, wait_for_left=False, wait_for_right=False,
+                            expected_left=final_tree_left, expected_right=INITIAL_TREE_RIGHT)
+
+    def test_dd_left_then_dd_right(self):
+        logger.info('Testing CP tree to right followed by CP of same tree to left')
+
+        self._expand_visible_node(self.left_con, 'Art')
+
+        nodes_batch_1 = [
+            self._find_node_by_name(self.left_con, 'Modern')
+        ]
+
+        def drop_both_sides():
+            logger.info('Submitting first drag & drop signal')
+            dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes_batch_1)
+            dst_tree_path = Gtk.TreePath.new_from_string('2')
+
+            drop_complete = threading.Event()
+            expected_count = 6
+
+            right_stats_updated = threading.Event()
+
+            def on_stats_updated(sender):
+                logger.info(f'Got signal: {actions.SUBTREE_STATS_UPDATED} for "{sender}"')
+                right_stats_updated.set()
+
+            dispatcher.connect(signal=actions.SUBTREE_STATS_UPDATED, receiver=on_stats_updated)
+
+            def on_node_upserted(sender: str, node: DisplayNode):
+                on_node_upserted.count += 1
+                logger.info(f'Got upserted node (total: {on_node_upserted.count}, expecting: {expected_count})')
+                if on_node_upserted.count >= expected_count:
+                    drop_complete.set()
+
+            on_node_upserted.count = 0
+
+            dispatcher.connect(signal=actions.NODE_UPSERTED, receiver=on_node_upserted)
+
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+
+            logger.info('Waiting for drop to complete...')
+
+            if not drop_complete.wait(LOAD_TIMEOUT_SEC):
+                raise RuntimeError('Timed out waiting for drag to complete!')
+
+            if not right_stats_updated.wait(LOAD_TIMEOUT_SEC):
+                raise RuntimeError('Timed out waiting for stats to update!')
+
+            # Now find the dropped nodes in right tree...
+            nodes_batch_2 = [
+                self._find_node_by_name(self.right_con, 'Modern')
+            ]
+
+            dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.right_con, nodes=nodes_batch_2)
+            dst_tree_path = Gtk.TreePath.new_from_string('1')
+            # Drop into left tree:
+            logger.info('Submitting second drag & drop signal')
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_LEFT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+
+        final_tree_left = [
+            FNode('American_Gothic.jpg', 2061397),
+            FNode('Angry-Clown.jpg', 824641),
+            DNode('Art', (88259 + 652220 + 239739 + 44487 + 479124) + (147975 + 275771 + 8098 + 247023 + 36344), [
+                FNode('Dark-Art.png', 147975),
+                FNode('Hokusai_Great-Wave.jpg', 275771),
+                DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
+                    FNode('1923-art.jpeg', 88259),
+                    FNode('43548-forbidden_planet.jpg', 652220),
+                    FNode('Dunno.jpg', 239739),
+                    FNode('felix-the-cat.jpg', 44487),
+                    FNode('Glow-Cat.png', 479124),
+                ]),
+                FNode('Mona-Lisa.jpeg', 8098),
+                FNode('william-shakespeare.jpg', 247023),
+                FNode('WTF.jpg', 36344),
+            ]),
+            FNode('Egypt.jpg', 154564),
+            FNode('George-Floyd.png', 27601),
+            FNode('Geriatric-Clown.jpg', 89182),
+            FNode('Keep-calm-and-carry-on.jpg', 745698),
+            DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
+                FNode('1923-art.jpeg', 88259),
+                FNode('43548-forbidden_planet.jpg', 652220),
+                FNode('Dunno.jpg', 239739),
+                FNode('felix-the-cat.jpg', 44487),
+                FNode('Glow-Cat.png', 479124),
+            ]),
+        ]
+
+        final_tree_right = [
+            FNode('Edvard-Munch-The-Scream.jpg', 114082),
+            FNode('M83.jpg', 17329),
+            DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
+                FNode('1923-art.jpeg', 88259),
+                FNode('43548-forbidden_planet.jpg', 652220),
+                FNode('Dunno.jpg', 239739),
+                FNode('felix-the-cat.jpg', 44487),
+                FNode('Glow-Cat.png', 479124),
+            ]),
+            FNode('oak-tree-sunset.jpg', 386888),
+            FNode('Ocean-Wave.jpg', 83713),
+            FNode('Starry-Night.jpg', 91699),
+            FNode('we-can-do-it-poster.jpg', 390093),
+        ]
+
+        self._do_and_verify(drop_both_sides, count_expected_cmds=12, wait_for_left=True, wait_for_right=True,
+                            expected_left=final_tree_left, expected_right=final_tree_right)
 
     def test_delete_subtree(self):
         logger.info('Testing delete subtree on left')
@@ -603,7 +760,7 @@ class ChangeTest(unittest.TestCase):
         _do_and_wait_for_signal(action_func, actions.NODE_EXPANSION_DONE, actions.ID_LEFT_TREE)
 
         nodes = [
-            self._find_node_by_name_im_left_tree('Art')
+            self._find_node_by_name_in_left_tree('Art')
         ]
 
         def delete():
@@ -628,10 +785,10 @@ class ChangeTest(unittest.TestCase):
         self._expand_visible_node(self.left_con, 'Art')
 
         nodes_1 = [
-            self._find_node_by_name_im_left_tree('Modern')
+            self._find_node_by_name_in_left_tree('Modern')
         ]
         nodes_2 = [
-            self._find_node_by_name_im_left_tree('Art')
+            self._find_node_by_name_in_left_tree('Art')
         ]
 
         def delete():
@@ -657,18 +814,18 @@ class ChangeTest(unittest.TestCase):
 
         self._expand_visible_node(self.left_con, 'Art')
 
-        nodes_1 = [
-            self._find_node_by_name_im_left_tree('Art')
+        nodes_batch_1 = [
+            self._find_node_by_name_in_left_tree('Art')
         ]
-        nodes_2 = [
-            self._find_node_by_name_im_left_tree('Modern')
+        nodes_batch_2 = [
+            self._find_node_by_name_in_left_tree('Modern')
         ]
 
         def delete():
             logger.info('Submitting delete signal 1: RM "Art"')
-            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_LEFT_TREE, node_list=nodes_1)
+            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_LEFT_TREE, node_list=nodes_batch_1)
             logger.info('Submitting delete signal 1: RM "Modern"')
-            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_LEFT_TREE, node_list=nodes_2)
+            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_LEFT_TREE, node_list=nodes_batch_2)
 
         final_tree_left = [
             FNode('American_Gothic.jpg', 2061397),
