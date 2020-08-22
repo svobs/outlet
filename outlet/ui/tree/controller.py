@@ -61,6 +61,7 @@ class TreePanelController:
         self.app.cache_manager.register_tree_controller(self)
 
     def destroy(self):
+        logger.debug(f'[{self.tree_id}] Destroying controller')
         if self.app.cache_manager:
             self.app.cache_manager.unregister_tree_controller(self)
 
@@ -68,17 +69,14 @@ class TreePanelController:
             self.user_input_listeners.disconnect_gtk_listeners()
         self.user_input_listeners = None
         self.tree_actions = None
-        self.treeview_meta = None
+        self.treeview_meta.destroy()
 
         try:
             del self.display_mutator  # make sure no references are left here, cuz listeners
         except AttributeError:
             pass
 
-        self.lazy_tree = None
-        self.display_store = None
         self.root_dir_panel = None
-        self.tree_view = None
 
     def _set_column_visibilities(self):
         # the columns stored in TreeViewMeta are 1

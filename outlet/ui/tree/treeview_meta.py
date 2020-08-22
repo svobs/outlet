@@ -3,6 +3,8 @@ from typing import Callable
 from pydispatch import dispatcher
 import logging
 
+from pydispatch.errors import DispatcherKeyError
+
 from app_config import AppConfig
 from constants import TreeDisplayMode
 from model.node.container_node import CategoryNode
@@ -125,6 +127,13 @@ class TreeViewMeta:
         # Hook up persistence of expanded state (if configured):
         if self.is_display_persisted:
             dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.tree_id)
+
+    def destroy(self):
+        if self.is_display_persisted:
+            try:
+                dispatcher.disconnect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.tree_id)
+            except DispatcherKeyError:
+                pass
 
     def _on_node_expansion_toggled(self, sender: str, parent_iter, parent_path, node: DisplayNode, is_expanded: bool):
         if type(node) == CategoryNode:

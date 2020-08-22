@@ -6,6 +6,7 @@ import subprocess
 
 from pydispatch import dispatcher
 
+from model.node_identifier import NodeIdentifier
 from util import file_util
 from model.change_action import ChangeAction, ChangeType
 from gdrive.client import GDriveClient
@@ -36,6 +37,7 @@ class TreeActions:
     def init(self):
         logger.debug(f'[{self.con.tree_id}] TreeActions init')
         dispatcher.connect(signal=actions.LOAD_UI_TREE, sender=self.con.tree_id, receiver=self._load_ui_tree)
+        dispatcher.connect(signal=actions.EXPAND_AND_SELECT_NODE, sender=self.con.tree_id, receiver=self._expand_and_select_node)
         dispatcher.connect(signal=actions.CALL_EXIFTOOL, sender=self.con.tree_id, receiver=self._call_exiftool)
         dispatcher.connect(signal=actions.CALL_EXIFTOOL_LIST, sender=self.con.tree_id, receiver=self._call_exiftool_list)
         dispatcher.connect(signal=actions.SHOW_IN_NAUTILUS, sender=self.con.tree_id, receiver=self._show_in_nautilus)
@@ -54,6 +56,9 @@ class TreeActions:
     def _load_ui_tree(self, sender):
         """Just populates the tree with nodes. Executed asyncly by actions.LOAD_UI_TREE"""
         self.con.app.executor.submit_async_task(self.con.display_mutator.populate_root)
+
+    def _expand_and_select_node(self, nid: NodeIdentifier):
+        self.con.display_mutator.expand_and_select_node(nid)
 
     def _call_exiftool_list(self, sender, node_list: List[DisplayNode]):
         for item in node_list:

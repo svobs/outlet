@@ -530,7 +530,8 @@ class GDriveWholeTree:
         dispatcher.send(signal=actions.SUBTREE_STATS_UPDATED, sender=tree_id)
 
         # TODO: make use of this later
-        self.find_duplicate_node_names(tree_id)
+        if constants.FIND_DUPLICATE_GDRIVE_NODE_NAMES:
+            self.find_duplicate_node_names(tree_id)
 
         logger.debug(f'{stats_sw} Refreshed stats for whole Google Drive tree')
 

@@ -111,7 +111,7 @@ class DisplayMutator:
                     else:
                         tree_iter = self.con.display_store.find_uid_in_children(target_uid=ancestor.uid, parent_iter=tree_iter)
                     if not tree_iter:
-                        logger.error(f'Could not find node in tree for: {ancestor}')
+                        logger.error(f'Could not expand node: could not find node in tree for: {ancestor}')
                         return
                     tree_path = self.con.display_store.model.get_path(tree_iter)
                     if not self.con.tree_view.row_expanded(tree_path):
@@ -119,7 +119,7 @@ class DisplayMutator:
 
                 tree_iter = self.con.display_store.find_uid_in_children(target_uid=selection.uid, parent_iter=tree_iter)
                 if not tree_iter:
-                    logger.error(f'Could not find node in tree for: {selection}')
+                    logger.error(f'Could not expand node: could not find node in tree for: {selection}')
                     return
                 tree_view_selection: Gtk.TreeSelection = self.con.tree_view.get_selection()
                 # tree_view_selection.unselect_all()
@@ -208,7 +208,7 @@ class DisplayMutator:
         GLib.idle_add(update_ui)
 
         # Show tree summary. This will probably just display 'Loading...' until REFRESH_SUBTREE_STATS is done processing
-        actions.set_status(sender=self.con.treeview_meta.tree_id, status_msg=self.con.get_tree().get_summary())
+        actions.set_status(sender=self.con.tree_id, status_msg=self.con.get_tree().get_summary())
 
         logger.debug(f'[{self.con.tree_id}] Sending signal "{actions.REFRESH_SUBTREE_STATS}"')
         dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id)
@@ -433,7 +433,7 @@ class DisplayMutator:
         logger.debug(f'[{self.con.tree_id}] Redrawing display tree stats')
         GLib.idle_add(do_in_ui)
         # Refresh summary also:
-        actions.set_status(sender=self.con.treeview_meta.tree_id, status_msg=self.con.get_tree().get_summary())
+        actions.set_status(sender=self.con.tree_id, status_msg=self.con.get_tree().get_summary())
 
     # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
     # LISTENERS end

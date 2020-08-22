@@ -17,17 +17,23 @@ from ui.dialog.base_dialog import BaseDialog
 
 logger = logging.getLogger(__name__)
 
+GDRIVE_DIR_CHOOSER_DIALOG_DEFAULT_WIDTH = 1000
+GDRIVE_DIR_CHOOSER_DIALOG_DEFAULT_HEIGHT = 800
+
 
 class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
 
     def __init__(self, parent_win: BaseDialog, tree, tree_id: str, current_selection: NodeIdentifier):
         Gtk.Dialog.__init__(self, "Select GDrive Root", parent_win, 0)
         BaseDialog.__init__(self, application=parent_win.application)
+
         self.tree_id = tree_id
+        """Note: this is the ID of the tree for which this dialog is ultimately selecting for, not this dialog's tree (see tree_controller below)"""
+
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
-        self.set_default_size(1000, 800)
+        self.set_default_size(GDRIVE_DIR_CHOOSER_DIALOG_DEFAULT_WIDTH, GDRIVE_DIR_CHOOSER_DIALOG_DEFAULT_HEIGHT)
 
         box = self.get_content_area()
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
@@ -41,17 +47,22 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
 
         self.content_box.pack_start(self.tree_controller.content_box, True, True, 0)
 
-        self.tree_controller.load()
+        self._initial_selection_nid: NodeIdentifier = current_selection
         if current_selection.tree_type == TREE_TYPE_GDRIVE:
-            # TODO: turn this into an action
-            self.tree_controller.display_mutator.expand_and_select_node(current_selection)
+            logger.debug(f'[{actions.ID_GDRIVE_DIR_SELECT}] Connecting listener to signal: {actions.LOAD_UI_TREE_DONE}')
+            dispatcher.connect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
+        self.tree_controller.reload()
 
         self.connect("response", self.on_response)
         self.show_all()
 
+    def _on_load_complete(self, sender):
+        logger.debug(f'[{actions.ID_GDRIVE_DIR_SELECT}] Load complete! Sending signal: {actions.EXPAND_AND_SELECT_NODE}')
+        dispatcher.send(actions.EXPAND_AND_SELECT_NODE, sender=actions.ID_GDRIVE_DIR_SELECT, nid=self._initial_selection_nid)
+
     def on_ok_clicked(self, node_identifier: NodeIdentifier):
         # TODO: disallow selection of files
-        logger.info(f'User selected dir "{node_identifier}"')
+        logger.info(f'[{self.tree_id}] User selected dir "{node_identifier}"')
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root=node_identifier)
 
     def on_response(self, dialog, response_id):

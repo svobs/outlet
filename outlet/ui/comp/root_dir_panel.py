@@ -82,6 +82,7 @@ class RootDirPanel:
         self.alert_image = Gtk.Image()
         self.alert_image.set_from_file(ALERT_ICON_PATH)
 
+        self.entry_box_focus_eid = None
         self.entry = None
         self.label_event_box = None
         self.label = None
