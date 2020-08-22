@@ -6,7 +6,7 @@ from typing import Deque, Dict, List
 
 from util import file_util
 from model.change_action import ChangeAction, ChangeType
-from constants import NOT_TRASHED, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import NOT_TRASHED, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.container_node import ContainerNode
 from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
@@ -17,8 +17,6 @@ from ui.actions import ID_LEFT_TREE, ID_RIGHT_TREE
 from ui.tree.category_display_tree import CategoryDisplayTree
 
 logger = logging.getLogger(__name__)
-
-DUMMY_UID = -1
 
 
 def _migrate_file_node(node_identifier: NodeIdentifier, src_node: DisplayNode) -> DisplayNode:
@@ -52,9 +50,8 @@ class OneSide:
     def migrate_single_node_to_this_side(self, src_node: DisplayNode, new_path: str) -> DisplayNode:
         logger.debug(f'New path for migrated item: {new_path}')
         dst_tree_type = self.underlying_tree.tree_type
-        # (Kludge) set UID to -1 because we want to leave it unset for now. We need to wait until after we have determined parent nodes
-        # so that we can determine if there is an existing GDrive UID for it
-        dst_node_identifier = self.application.node_identifier_factory.for_values(tree_type=dst_tree_type, full_path=new_path, uid=DUMMY_UID)
+        # (Kludge) just assign the NULL UID for now, so we don't auto-generate a new UID. It will just get overwritten anyway if GDrive
+        dst_node_identifier = self.application.node_identifier_factory.for_values(tree_type=dst_tree_type, full_path=new_path, uid=NULL_UID)
         dst_node: DisplayNode = _migrate_file_node(node_identifier=dst_node_identifier, src_node=src_node)
         self.add_needed_ancestors(dst_node)
 

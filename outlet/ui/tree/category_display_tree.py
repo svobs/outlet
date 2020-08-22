@@ -196,11 +196,11 @@ class CategoryDisplayTree(DisplayTree):
         logger.debug(f'Appending ChangeAction: {change_action.action_uid} ({change_action.change_type.name})')
         if change_action.dst_node:
             if self.change_action_dict.get(change_action.dst_node.uid, None):
-                raise RuntimeError(f'Duplicate ChangeAction: {change_action}')
+                raise RuntimeError(f'Duplicate ChangeAction: 1st={change_action}; 2nd={self.change_action_dict.get(change_action.dst_node.uid)}')
             self.change_action_dict[change_action.dst_node.uid] = change_action
         else:
             if self.change_action_dict.get(change_action.src_node.uid, None):
-                raise RuntimeError(f'Duplicate ChangeAction: {change_action}')
+                raise RuntimeError(f'Duplicate ChangeAction: 1st={change_action}; 2nd={self.change_action_dict.get(change_action.src_node.uid)}')
             self.change_action_dict[change_action.src_node.uid] = change_action
         self._change_action_list.append(change_action)
 

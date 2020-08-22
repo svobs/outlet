@@ -41,7 +41,7 @@ class RootPathConfigPersister:
         except ValueError:
             raise RuntimeError(f"Invalid value for tree's UID (expected integer): '{root_uid}'")
 
-        # Wait for registry to load to cross-check that our root UID is correct. Shouldn't be long.
+        # Wait for registry to load to cross-check that our local root UIDs are correct. Shouldn't be long.
         self.application.cache_manager.wait_for_load_registry_done()
         self.root_identifier = self.application.node_identifier_factory.for_values(tree_type=tree_type, full_path=root_path, uid=root_uid)
 
