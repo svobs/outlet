@@ -1,12 +1,9 @@
 import threading
 import logging
 
-from pydispatch import dispatcher
-
 from cmd.cmd_executor import CommandExecutor
 from global_actions import GlobalActions
 from task_runner import CentralTaskRunner
-from ui import actions
 
 logger = logging.getLogger(__name__)
 
@@ -28,15 +25,12 @@ class CentralExecutor:
 
     def start(self):
         logger.debug('Central Executor starting')
-        self._global_actions.init()
+        self._global_actions.start()
 
         if self.enable_op_execution_thread:
             self.start_op_execution_thread()
         else:
             logger.warning('OpExecutionThread is disabled!')
-
-        # Kick off cache load now that we have a progress bar
-        dispatcher.send(actions.LOAD_ALL_CACHES, sender=actions.ID_CENTRAL_EXEC)
 
     def start_op_execution_thread(self):
         if not self._op_execution_thread.is_alive():

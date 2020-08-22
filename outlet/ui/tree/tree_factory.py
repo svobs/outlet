@@ -98,7 +98,7 @@ class TreeFactory:
 
         controller.display_mutator = DisplayMutator(config=self.parent_win.config, controller=controller)
 
-        controller.user_input_listeners = TreeUiListeners(config=self.parent_win.config, controller=controller)
+        controller.tree_ui_listeners = TreeUiListeners(config=self.parent_win.config, controller=controller)
 
         controller.tree_actions = TreeActions(controller=controller)
 

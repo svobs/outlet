@@ -30,23 +30,23 @@ class GlobalActions:
 
     def shutdown(self):
         try:
-            dispatcher.disconnect(signal=actions.START_DIFF_TREES, receiver=self.on_diff_requested)
+            dispatcher.disconnect(signal=actions.START_DIFF_TREES, receiver=self._on_diff_requested)
         except DispatcherKeyError:
             pass
         try:
-            dispatcher.disconnect(signal=actions.DOWNLOAD_GDRIVE_META, receiver=self.on_gdrive_requested)
+            dispatcher.disconnect(signal=actions.DOWNLOAD_GDRIVE_META, receiver=self._on_gdrive_requested)
         except DispatcherKeyError:
             pass
         try:
-            dispatcher.disconnect(signal=actions.SHOW_GDRIVE_ROOT_DIALOG, receiver=self.on_gdrive_root_dialog_requested)
+            dispatcher.disconnect(signal=actions.SHOW_GDRIVE_ROOT_DIALOG, receiver=self._on_gdrive_root_dialog_requested)
         except DispatcherKeyError:
             pass
         try:
-            dispatcher.disconnect(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, receiver=self.on_gdrive_download_complete)
+            dispatcher.disconnect(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, receiver=self._on_gdrive_download_complete)
         except DispatcherKeyError:
             pass
         try:
-            dispatcher.disconnect(signal=actions.LOAD_ALL_CACHES, receiver=self.on_load_all_caches_requested)
+            dispatcher.disconnect(signal=actions.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
         except DispatcherKeyError:
             pass
         logger.debug('Global actions shut down')
@@ -55,13 +55,13 @@ class GlobalActions:
     🡻🡻🡻 ① Connect Listeners 🡻🡻🡻
     """
 
-    def init(self):
-        logger.debug('Init global actions')
-        dispatcher.connect(signal=actions.START_DIFF_TREES, receiver=self.on_diff_requested)
-        dispatcher.connect(signal=actions.DOWNLOAD_GDRIVE_META, receiver=self.on_gdrive_requested)
-        dispatcher.connect(signal=actions.SHOW_GDRIVE_ROOT_DIALOG, receiver=self.on_gdrive_root_dialog_requested)
-        dispatcher.connect(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, receiver=self.on_gdrive_download_complete)
-        dispatcher.connect(signal=actions.LOAD_ALL_CACHES, receiver=self.on_load_all_caches_requested)
+    def start(self):
+        logger.debug('Starting global action listeners')
+        dispatcher.connect(signal=actions.START_DIFF_TREES, receiver=self._on_diff_requested)
+        dispatcher.connect(signal=actions.DOWNLOAD_GDRIVE_META, receiver=self._on_gdrive_requested)
+        dispatcher.connect(signal=actions.SHOW_GDRIVE_ROOT_DIALOG, receiver=self._on_gdrive_root_dialog_requested)
+        dispatcher.connect(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, receiver=self._on_gdrive_download_complete)
+        dispatcher.connect(signal=actions.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
 
     """
     🡻🡻🡻 ② Utility functions 🡻🡻🡻
@@ -74,11 +74,11 @@ class GlobalActions:
     🡻🡻🡻 ③ Actions 🡻🡻🡻
     """
 
-    def on_load_all_caches_requested(self, sender):
-        logger.debug(f'Received signal: "{actions.LOAD_ALL_CACHES}"')
-        self.application.executor.submit_async_task(self.application.cache_manager.init, sender)
+    def _on_start_cacheman_requested(self, sender):
+        logger.debug(f'Received signal: "{actions.START_CACHEMAN}"')
+        self.application.executor.submit_async_task(self.application.cache_manager.start, sender)
 
-    def on_gdrive_requested(self, sender):
+    def _on_gdrive_requested(self, sender):
         logger.debug(f'Received signal: "{actions.DOWNLOAD_GDRIVE_META}"')
         self.application.executor.submit_async_task(self.download_all_gdrive_meta, sender)
 
@@ -108,11 +108,11 @@ class GlobalActions:
         finally:
             actions.enable_ui(sender=tree_id)
 
-    def on_gdrive_root_dialog_requested(self, sender, current_selection: NodeIdentifier):
+    def _on_gdrive_root_dialog_requested(self, sender, current_selection: NodeIdentifier):
         logger.debug(f'Received signal: "{actions.SHOW_GDRIVE_ROOT_DIALOG}"')
         self.application.executor.submit_async_task(self.load_gdrive_root_meta, sender, current_selection)
 
-    def on_gdrive_download_complete(self, sender, tree: DisplayTree, current_selection: NodeIdentifier):
+    def _on_gdrive_download_complete(self, sender, tree: DisplayTree, current_selection: NodeIdentifier):
         logger.debug(f'Received signal: "{actions.GDRIVE_DOWNLOAD_COMPLETE}"')
         assert type(sender) == str
 
@@ -130,7 +130,7 @@ class GlobalActions:
 
         GLib.idle_add(open_dialog)
 
-    def on_diff_requested(self, sender, tree_con_left, tree_con_right):
+    def _on_diff_requested(self, sender, tree_con_left, tree_con_right):
         logger.debug(f'Received signal: "{actions.START_DIFF_TREES}"')
         self.application.executor.submit_async_task(self.do_tree_diff, sender, tree_con_left, tree_con_right)
 

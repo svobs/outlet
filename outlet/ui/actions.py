@@ -2,8 +2,9 @@ from pydispatch import dispatcher
 import logging
 
 # Tasks
-LOAD_ALL_CACHES = 'load-all-caches'
-LOAD_ALL_CACHES_DONE = 'load-all-caches-done'
+START_CACHEMAN = 'start-cacheman'
+LOAD_REGISTRY_DONE = 'load-registry-done'
+START_CACHEMAN_DONE = 'start-cacheman-done'
 START_DIFF_TREES = 'start-tree-diff'
 DIFF_TREES_DONE = 'tree-diff_done'
 SHOW_GDRIVE_ROOT_DIALOG = 'show-gdrive-root-dialog'

@@ -92,13 +92,14 @@ class CacheManager:
         self._tree_controllers: Dict[str, TreePanelController] = {}
         """Keep track of live UI tree controllers, so that we can look them up by ID (e.g. for use in automated testing)"""
 
-        # Create Event objects to wait for init and cache loads.
-        self._init_done = threading.Event()
+        # Create Event objects to optionally wait for lifecycle events
+        self._load_registry_done: threading.Event = threading.Event()
+
+        self._startup_done: threading.Event = threading.Event()
 
         # (Optional) variables needed for producer/consumer behavior if Load All Caches needed
-        self._load_all_caches_done = threading.Event()
-        self._all_caches_loading = False
-        self._all_caches_loaded = False
+        self.load_all_caches_done: threading.Event = threading.Event()
+        self._all_caches_loading: bool = False
 
     def __del__(self):
         self.shutdown()
@@ -114,14 +115,14 @@ class CacheManager:
     # Startup loading/maintenance
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def init(self, sender):
+    def start(self, sender):
         """Should be called during startup. Loop over all caches and load/merge them into a
         single large in-memory cache"""
         if self._local_disk_cache:
             logger.info(f'Caches already loaded. Ignoring signal from {sender}.')
             return
 
-        logger.debug(f'CacheManager.init() initiated by {sender}')
+        logger.debug(f'CacheManager.start() initiated by {sender}')
         logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {ID_GLOBAL_CACHE}')
         stopwatch = Stopwatch()
         dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=ID_GLOBAL_CACHE)
@@ -154,15 +155,12 @@ class CacheManager:
                 else:
                     unique_cache_count += 1
 
-                # Special handling to local-type caches: ignore any UID we find in the registry and bring it in line with what's in memory:
-                # TODO: delete this once we are stable enough to assume this won't be necessary. It doesn't really buy us anything
-                # (except to tell us we did something wrong)
+                # There are up to 4 locations where the subtree root can be stored
                 if info.subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
-                    new_uid = self._local_disk_cache.get_uid_for_path(info.subtree_root.full_path, info.subtree_root.uid)
-                    if new_uid != info.subtree_root.uid:
-                        logger.warning(f'Requested UID "{info.subtree_root.uid}" is invalid for given path "{info.subtree_root.full_path}";'
-                                       f' changing it to "{new_uid}"')
-                    info.subtree_root.uid = new_uid
+                    uid_from_mem = self._local_disk_cache.get_uid_for_path(info.subtree_root.full_path, info.subtree_root.uid)
+                    if uid_from_mem != info.subtree_root.uid:
+                        raise RuntimeError(f'Subtree root UID from diskcache registry ({info.subtree_root.uid}) does not match UID '
+                                           f'from memcache ({uid_from_mem}) for path="{info.subtree_root.full_path}"')
 
                 # Put into map to eliminate possible duplicates
                 self.caches_by_type.put(info)
@@ -171,6 +169,9 @@ class CacheManager:
             if skipped_count > 0:
                 caches = self.caches_by_type.get_all()
                 self._overwrite_all_caches_in_registry(caches)
+
+            self._load_registry_done.set()
+            dispatcher.send(signal=actions.LOAD_REGISTRY_DONE, sender=ID_GLOBAL_CACHE)
 
             # Now load all caches (if configured):
             if self.application.cache_manager.enable_load_from_disk and self.load_all_caches_on_startup:
@@ -183,15 +184,22 @@ class CacheManager:
 
         finally:
             dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
-            self._init_done.set()
+            self._startup_done.set()
             logger.debug('CacheManager init done')
-            dispatcher.send(signal=actions.LOAD_ALL_CACHES_DONE, sender=ID_GLOBAL_CACHE)
+            dispatcher.send(signal=actions.START_CACHEMAN_DONE, sender=ID_GLOBAL_CACHE)
 
-    def _wait_for_init_done(self):
-        if not self._init_done.is_set():
-            logger.info('Waiting for CacheManager init to complete')
-        if not self._init_done.wait(CACHE_LOAD_TIMEOUT_SEC):
-            logger.error('Timed out waiting for CacheManager init!')
+    def wait_for_load_registry_done(self, fail_on_timeout: bool = True):
+        if not self._load_registry_done.wait(CACHE_LOAD_TIMEOUT_SEC):
+            if fail_on_timeout:
+                raise RuntimeError('Timed out waiting for CacheManager to finish loading the registry!')
+            else:
+                logger.error('Timed out waiting for CacheManager to finish loading the registry!')
+
+    def _wait_for_startup_done(self):
+        if not self._startup_done.is_set():
+            logger.info('Waiting for CacheManager startup to complete')
+        if not self._startup_done.wait(CACHE_LOAD_TIMEOUT_SEC):
+            logger.error('Timed out waiting for CacheManager startup!')
 
     def load_all_caches(self):
         """Load ALL the caches into memory. This is needed in certain circumstances, such as when a UID is being derefernced but we
@@ -202,9 +210,9 @@ class CacheManager:
         if self._all_caches_loading:
             logger.info('Waiting for all caches to load')
             # Wait for the other thread to complete. (With no timeout, it will never return):
-            if not self._load_all_caches_done.wait(CACHE_LOAD_TIMEOUT_SEC):
+            if not self.load_all_caches_done.wait(CACHE_LOAD_TIMEOUT_SEC):
                 logger.error('Timed out waiting for all caches to load!')
-        if self._load_all_caches_done.is_set():
+        if self.load_all_caches_done.is_set():
             # Other thread completed
             return
 
@@ -242,7 +250,7 @@ class CacheManager:
 
         logger.info(f'{stopwatch} Load All Caches complete')
         self._all_caches_loading = False
-        self._load_all_caches_done.set()
+        self.load_all_caches_done.set()
 
     def _overwrite_all_caches_in_registry(self, cache_info_list: List[CacheInfoEntry]):
         logger.info(f'Overwriting all cache entries in persisted registry with {len(cache_info_list)} entries')
@@ -400,7 +408,7 @@ class CacheManager:
 
     def get_next_command(self) -> Optional[Command]:
         # blocks !
-        self._wait_for_init_done()
+        self._wait_for_startup_done()
         # also blocks !
         return self._op_ledger.get_next_command()
 
@@ -422,7 +430,7 @@ class CacheManager:
             node_identifier = self.application.node_identifier_factory.for_values(full_path=full_path)
         if node_identifier.tree_type == TREE_TYPE_GDRIVE:
             # Need to wait until all caches are loaded:
-            self._wait_for_init_done()
+            self._wait_for_startup_done()
 
             return self._gdrive_cache.get_all_for_path(node_identifier.full_path)
         else:

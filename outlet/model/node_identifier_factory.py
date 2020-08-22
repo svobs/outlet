@@ -60,8 +60,7 @@ class NodeIdentifierFactory:
             raise RuntimeError('no tree_type and no full_path supplied')
 
     def _for_tree_type_local(self, full_path: str = None, uid: UID = None) -> LocalFsIdentifier:
-        if not uid:
-            uid = self.application.cache_manager.get_uid_for_path(full_path)
+        uid = self.application.cache_manager.get_uid_for_path(full_path, uid)
 
         return LocalFsIdentifier(uid=uid, full_path=full_path)
 

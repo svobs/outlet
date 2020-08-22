@@ -34,8 +34,8 @@ class TreeActions:
         self.download_dir = file_util.get_resource_path(self.con.config.get('download_dir'))
         self.post_download_action = OPEN
 
-    def init(self):
-        logger.debug(f'[{self.con.tree_id}] TreeActions init')
+    def start_listeners(self):
+        logger.debug(f'[{self.con.tree_id}] TreeActions start_listeners')
         dispatcher.connect(signal=actions.LOAD_UI_TREE, sender=self.con.tree_id, receiver=self._load_ui_tree)
         dispatcher.connect(signal=actions.EXPAND_AND_SELECT_NODE, sender=self.con.tree_id, receiver=self._expand_and_select_node)
         dispatcher.connect(signal=actions.CALL_EXIFTOOL, sender=self.con.tree_id, receiver=self._call_exiftool)

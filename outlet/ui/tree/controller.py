@@ -46,7 +46,7 @@ class TreePanelController:
         self.status_bar = None
         self.content_box = None
 
-        self.user_input_listeners = None
+        self.tree_ui_listeners = None
         self.tree_actions = None
 
     def init(self):
@@ -55,8 +55,9 @@ class TreePanelController:
         """Should be called after all controller components have been wired together"""
         self.treeview_meta.init()
         self.display_mutator.init()
-        self.user_input_listeners.init()
-        self.tree_actions.init()
+        self.tree_actions.start_listeners()
+        # Need to start TreeUiListeners AFTER TreeActions... Need a better solution
+        self.tree_ui_listeners.init()
 
         self.app.cache_manager.register_tree_controller(self)
 
@@ -65,9 +66,9 @@ class TreePanelController:
         if self.app.cache_manager:
             self.app.cache_manager.unregister_tree_controller(self)
 
-        if self.user_input_listeners:
-            self.user_input_listeners.disconnect_gtk_listeners()
-        self.user_input_listeners = None
+        if self.tree_ui_listeners:
+            self.tree_ui_listeners.disconnect_gtk_listeners()
+        self.tree_ui_listeners = None
         self.tree_actions = None
         self.treeview_meta.destroy()
 
@@ -94,7 +95,7 @@ class TreePanelController:
                 # Change in checkbox visibility means tearing out half the guts here and swapping them out...
                 logger.info(f'[{self.tree_id}] Rebuilding treeview!')
                 checkboxes_visible = not checkboxes_visible
-                self.user_input_listeners.disconnect_gtk_listeners()
+                self.tree_ui_listeners.disconnect_gtk_listeners()
                 self.treeview_meta = self.treeview_meta.but_with_checkboxes(checkboxes_visible)
                 self.display_store = DisplayStore(self.treeview_meta)
 
@@ -102,7 +103,7 @@ class TreePanelController:
                 new_treeview = tree_factory_templates.build_treeview(self.display_store, assets)
                 tree_factory_templates.replace_widget(self.tree_view, new_treeview)
                 self.tree_view = new_treeview
-                self.user_input_listeners.init()
+                self.tree_ui_listeners.init()
                 self.treeview_meta.init()
                 self._set_column_visibilities()
 

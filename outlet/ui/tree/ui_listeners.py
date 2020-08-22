@@ -60,17 +60,22 @@ class TreeUiListeners:
             targeted_signals.append(actions.ROOT_PATH_UPDATED)
 
         if self.con.cache_manager.load_all_caches_on_startup or self.con.cache_manager.load_caches_for_displayed_trees_at_startup:
-            logger.debug(f'LoadAllAtStartup={self.con.cache_manager.load_all_caches_on_startup}, '
+            logger.debug(f'[{self.con.tree_id}] LoadAllAtStartup={self.con.cache_manager.load_all_caches_on_startup}, '
                          f'LoadDisplayedAtStartup={self.con.cache_manager.load_caches_for_displayed_trees_at_startup}')
             # Either enabled for this tree to be loaded automatically
-            actions.connect(signal=actions.LOAD_ALL_CACHES_DONE, handler=self._after_all_caches_loaded)
-            general_signals.append(actions.LOAD_ALL_CACHES_DONE)
+            actions.connect(signal=actions.START_CACHEMAN_DONE, handler=self._after_all_caches_loaded)
+            if self.con.app.cache_manager.load_all_caches_done:
+                # If cacheman finished loading before we even started listening, just execute here.
+                # Possible race condition? Should be ok for CPython...
+                # FIXME: this is nasty. Find a better solution. Something like a queuing solution for signals...
+                self._after_all_caches_loaded(self.con.tree_id)
+            general_signals.append(actions.START_CACHEMAN_DONE)
 
         # Status bar
         actions.connect(signal=actions.SET_STATUS, handler=self._on_set_status, sender=self.con.tree_id)
         targeted_signals.append(actions.SET_STATUS)
 
-        logger.debug(f'Listening for signals: Any={general_signals}, "{self.con.tree_id}"={targeted_signals}')
+        logger.debug(f'[{self.con.tree_id}] Listening for signals: Any={general_signals}, "{self.con.tree_id}"={targeted_signals}')
 
         # TreeView
         # double-click or enter key:
@@ -223,7 +228,7 @@ class TreeUiListeners:
         assert dest_node.full_path
         for node in nodes:
             parent_path = str(pathlib.Path(node.full_path).parent)
-            logger.debug(f'DestNodePath="{dest_node.full_path}", NodeParentPath="{parent_path}"')
+            logger.debug(f'[{self.con.tree_id}] DestNodePath="{dest_node.full_path}", NodeParentPath="{parent_path}"')
             if parent_path == dest_node.full_path:
                 return True
         return False
@@ -241,7 +246,7 @@ class TreeUiListeners:
             self.con.set_tree(root=new_root)
 
     def _after_all_caches_loaded(self, sender):
-        logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.LOAD_ALL_CACHES_DONE}"; sending "{actions.LOAD_UI_TREE}" signal')
+        logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.START_CACHEMAN_DONE}"; sending "{actions.LOAD_UI_TREE}" signal')
         dispatcher.send(signal=actions.LOAD_UI_TREE, sender=self.con.tree_id)
 
     # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
@@ -270,10 +275,10 @@ class TreeUiListeners:
         selection = tree_view.get_selection()
         model, tree_paths = selection.get_selected_rows()
         if not tree_paths:
-            logger.error('Row somehow activated with no selection!')
+            logger.error(f'[{self.con.tree_id}] Row somehow activated with no selection!')
             return False
         else:
-            logger.debug(f'User activated {len(tree_paths)} rows')
+            logger.debug(f'[{self.con.tree_id}] User activated {len(tree_paths)} rows')
 
         # FIXME: GTK3's multiple item activation is terrible - find a way around it
         if len(tree_paths) == 1:
@@ -298,7 +303,7 @@ class TreeUiListeners:
     def _on_key_press(self, tree_view, event, tree_id):
         """Fired when a key is pressed"""
         if not self._ui_enabled:
-            logger.debug('Ignoring key press - UI is disabled')
+            logger.debug(f'[{self.con.tree_id}] Ignoring key press - UI is disabled')
             return False
 
         # Note: if the key sequence matches a Gnome keyboard shortcut, it will grab part
@@ -314,7 +319,7 @@ class TreeUiListeners:
             mods.append('Super')
         if (event.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK:
             mods.append('Alt')
-        logger.debug(f'[{self.con.tree_id}]Key pressed: {Gdk.keyval_name(event.keyval)} ({event.keyval}), mods: {" ".join(mods)}')
+        logger.debug(f'[{self.con.tree_id}] Key pressed: {Gdk.keyval_name(event.keyval)} ({event.keyval}), mods: {" ".join(mods)}')
 
         if event.keyval == Gdk.KEY_Delete and self.con.treeview_meta.can_modify_tree:
             logger.debug(f'[{self.con.tree_id}]DELETE key detected!')

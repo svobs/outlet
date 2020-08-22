@@ -30,8 +30,8 @@ class RootPathConfigPersister:
         self._tree_type_config_key = make_tree_type_config_key(tree_id)
         self._root_path_config_key = make_root_path_config_key(tree_id)
         self._root_uid_config_key = make_root_uid_config_key(tree_id)
+        self.application = application
         self._config = application.config
-        self.node_identifier_factory = application.node_identifier_factory
         tree_type = self._config.get(self._tree_type_config_key)
         root_path = self._config.get(self._root_path_config_key)
         root_uid = self._config.get(self._root_uid_config_key)
@@ -41,7 +41,9 @@ class RootPathConfigPersister:
         except ValueError:
             raise RuntimeError(f"Invalid value for tree's UID (expected integer): '{root_uid}'")
 
-        self.root_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=root_path, uid=root_uid)
+        # Wait for registry to load to cross-check that our root UID is correct. Shouldn't be long.
+        self.application.cache_manager.wait_for_load_registry_done()
+        self.root_identifier = self.application.node_identifier_factory.for_values(tree_type=tree_type, full_path=root_path, uid=root_uid)
 
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=tree_id)
 

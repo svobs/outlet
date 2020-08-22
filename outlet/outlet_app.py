@@ -1,9 +1,11 @@
 import sys
 import gi
+from pydispatch import dispatcher
 
 from executor.central import CentralExecutor
-from index.uid.uid_generator import PersistentAtomicIntUidGenerator
+from index.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
 from model.node_identifier_factory import NodeIdentifierFactory
+from ui import actions
 from ui.actions import ID_DIFF_WINDOW
 
 from index.cache_manager import CacheManager
@@ -33,16 +35,20 @@ class OutletApplication(Gtk.Application):
         self.assets = ui.assets.Assets(config)
 
         self.window = None
-        self.shutdown = False
+        self.shutdown: bool = False
 
-        self.uid_generator = PersistentAtomicIntUidGenerator(self.config)
-        self.node_identifier_factory = NodeIdentifierFactory(self)
-        self.executor = CentralExecutor(self)
-        self.cache_manager = CacheManager(self)
+        self.executor: CentralExecutor = CentralExecutor(self)
+
+        self.uid_generator: UidGenerator = PersistentAtomicIntUidGenerator(self.config)
+        self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self)
+        self.cache_manager: CacheManager = CacheManager(self)
 
     def start(self):
         logger.info('Starting app')
         self.executor.start()
+
+        # Kick off cache load now that we have a progress bar
+        dispatcher.send(actions.START_CACHEMAN, sender=actions.ID_CENTRAL_EXEC)
 
     def quit(self):
         logger.info('Shutting down app')
@@ -68,11 +74,10 @@ class OutletApplication(Gtk.Application):
         if not self.window:
             # Windows are associated with the application
             # when the last one is closed the application shuts down
+            self.start()
 
             self.window = TwoPanelWindow(application=self, win_id=ID_DIFF_WINDOW)
             self.window.show_all()
-
-            self.start()
 
         self.window.present()
 
