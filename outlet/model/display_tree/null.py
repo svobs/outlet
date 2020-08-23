@@ -15,7 +15,7 @@ class NullDisplayTree(DisplayTree):
     def get_children_for_root(self) -> Iterable[DisplayNode]:
         return []
 
-    def get_children(self, node: DisplayNode) -> Iterable[DisplayNode]:
+    def get_children(self, parent: DisplayNode) -> Iterable[DisplayNode]:
         return []
 
     def get_parent_for_item(self, item) -> Optional[DisplayNode]:

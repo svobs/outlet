@@ -41,9 +41,9 @@ class LocalDiskSubtree(DisplayTree):
     def get_children_for_root(self) -> Iterable[DisplayNode]:
         return self.cache_manager.get_children(self.root_node)
 
-    def get_children(self, node: DisplayNode) -> Iterable[DisplayNode]:
-        assert node.node_identifier.tree_type == constants.TREE_TYPE_LOCAL_DISK, f'For: {node.node_identifier}'
-        return self.cache_manager.get_children(node)
+    def get_children(self, parent: DisplayNode) -> Iterable[DisplayNode]:
+        assert parent.node_identifier.tree_type == constants.TREE_TYPE_LOCAL_DISK, f'For: {parent.node_identifier}'
+        return self.cache_manager.get_children(parent)
 
     def get_full_path_for_item(self, item: LocalFileNode) -> str:
         # Trivial for FMetas

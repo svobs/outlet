@@ -28,13 +28,9 @@ class GDriveDisplayTree(DisplayTree):
 
         self._whole_tree = whole_tree
         self._root_node: GDriveFolder = root_node
-        self._ignored_items: List[GDriveNode] = []
 
         # See refresh_stats() for the following
         self._stats_loaded = False
-
-    def get_ignored_items(self):
-        return self._ignored_items
 
     def get_md5_dict(self):
         md5_set_stopwatch = Stopwatch()
@@ -46,15 +42,15 @@ class GDriveDisplayTree(DisplayTree):
         queue.append(self.root_node)
 
         while len(queue) > 0:
-            item: GDriveNode = queue.popleft()
-            if item.exists():
-                if item.is_dir():
-                    child_list = self._whole_tree.get_children(item)
+            node: GDriveNode = queue.popleft()
+            if node.exists():
+                if node.is_dir():
+                    child_list = self._whole_tree.get_children(node)
                     if child_list:
                         for child in child_list:
                             queue.append(child)
-                elif item.md5:
-                    md5_dict.put(item)
+                elif node.md5:
+                    md5_dict.put(node)
 
         logger.info(f'{md5_set_stopwatch} Found {md5_dict.total_entries} MD5s')
         return md5_dict
@@ -63,8 +59,8 @@ class GDriveDisplayTree(DisplayTree):
         assert isinstance(self.root_node, GDriveFolder)
         return self.get_children(self.root_node)
 
-    def get_children(self, node: GDriveNode) -> List[GDriveNode]:
-        return self._whole_tree.get_children(node=node)
+    def get_children(self, parent: GDriveNode) -> List[GDriveNode]:
+        return self._whole_tree.get_children(node=parent)
 
     def get_full_path_for_item(self, item: GDriveNode) -> List[str]:
         return self._whole_tree.get_full_path_for_item(item)

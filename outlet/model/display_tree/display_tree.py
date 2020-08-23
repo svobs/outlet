@@ -64,7 +64,7 @@ class DisplayTree(ABC):
         pass
 
     @abstractmethod
-    def get_children(self, node: DisplayNode) -> Iterable[DisplayNode]:
+    def get_children(self, parent: DisplayNode) -> Iterable[DisplayNode]:
         pass
 
     @abstractmethod

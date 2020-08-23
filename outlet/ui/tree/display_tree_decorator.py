@@ -16,10 +16,10 @@ class LazyLoadDisplayTreeDecorator:
      it is requested (either via the "tree" attribute or via one of the get_children() methods"""
     def __init__(self, controller, root: NodeIdentifier = None, tree: DisplayTree = None):
         self.con = controller
-        self._loaded = False
+        self._loaded: bool = False
         self._root: NodeIdentifier = root
         if tree:
-            self._tree = tree
+            self._tree: DisplayTree = tree
             self._loaded = True
         else:
             self._tree = None
@@ -50,4 +50,4 @@ class LazyLoadDisplayTreeDecorator:
     def get_children(self, node: DisplayNode) -> Iterable[DisplayNode]:
         """Return the children for the given parent_uid.
         The children of the given node can look very different depending on value of 'tree_display_mode'"""
-        return self.tree.get_children(node=node)
+        return self.tree.get_children(node)
