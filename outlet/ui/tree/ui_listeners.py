@@ -17,6 +17,7 @@ from model.node.local_disk_node import LocalFileNode
 import gi
 
 from ui.tree.context_menu import TreeContextMenu
+from ui.tree.controller import TreePanelController
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gdk, Gtk
@@ -28,9 +29,9 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class DragAndDropData:
-    def __init__(self, dd_uid: UID, src_tree_controller, nodes: List[DisplayNode]):
-        self.dd_uid = dd_uid
-        self.src_tree_controller: str = src_tree_controller
+    def __init__(self, dd_uid: UID, src_tree_controller: TreePanelController, nodes: List[DisplayNode]):
+        self.dd_uid: UID = dd_uid
+        self.src_tree_controller: TreePanelController = src_tree_controller
         self.nodes: List[DisplayNode] = nodes
 
 
@@ -218,7 +219,7 @@ class TreeUiListeners:
 
         dd_uid, tree_path, is_into = self._drop_data
 
-        self.do_drop(self.con.tree_id, self._drag_data, tree_path, is_into)
+        self._do_drop(self.con.tree_id, self._drag_data, tree_path, is_into)
 
         # try to aid garbage collection
         self._drag_data = None
@@ -360,7 +361,7 @@ class TreeUiListeners:
 
     def on_single_row_activated(self, tree_view, tree_path):
         """Fired when an item is double-clicked or when an item is selected and Enter is pressed"""
-        item = self.con.display_store.get_node_data(tree_path)
+        item: DisplayNode = self.con.display_store.get_node_data(tree_path)
         if item.is_dir():
             # Expand/collapse row:
             if tree_view.row_expanded(tree_path):
@@ -371,14 +372,14 @@ class TreeUiListeners:
         else:
             # Attempt to open it no matter where it is.
             # In the future, we should enhance this so that it will find the most convenient copy anywhere and open that
-            if TreeContextMenu.file_exists(item):
+            if item.exists():
                 if item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
                     dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, full_path=item.full_path)
                     return True
                 elif item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
                     dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=item)
                     return True
-                # FIXME: Look up in OpLedger
+            # FIXME: Look up in Cacheman based on signature
             # elif isinstance(item, FileDecoratorNode):
             #     # if it references a source node, maybe that is accessible instead?
             #     item = item.src_node

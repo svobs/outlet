@@ -39,13 +39,9 @@ class ContainerNode(HasChildren, DisplayNode):
         # TODO: custom exception class, 'InvalidOperationError'
         raise RuntimeError('Not allowed!')
 
-    def get_size_bytes(self):
-        return self._size_bytes
-
     def get_icon(self):
-        if self.exists():
-            return ICON_GENERIC_DIR
-        return ICON_ADD_DIR
+        # FIXME: allow custom icon for Category Tree nodes ("To Add", "To Delete", etc)
+        return ICON_GENERIC_DIR
 
     @property
     def name(self):

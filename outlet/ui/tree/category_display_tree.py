@@ -1,5 +1,6 @@
 import copy
 import logging
+import os
 import pathlib
 from collections import deque
 from typing import Callable, Deque, Dict, Iterable, List, Optional
@@ -7,6 +8,8 @@ from typing import Callable, Deque, Dict, Iterable, List, Optional
 import treelib
 from treelib.exceptions import DuplicatedNodeIdError
 
+from model.node.gdrive_node import GDriveFolder
+from model.node.local_disk_node import LocalDirNode
 from util import file_util
 from model.change_action import ChangeAction, ChangeType
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
@@ -125,7 +128,7 @@ class CategoryDisplayTree(DisplayTree):
             subroot_node = self._get_subroot_node(item.node_identifier)
             if not subroot_node:
                 uid = self.uid_generator.next_uid()
-                node_identifier = self.node_identifier_factory.for_values(tree_type=item.node_identifier.tree_type, uid=uid)
+                node_identifier = self.node_identifier_factory.for_values(tree_type=item.node_identifier.tree_type, full_path=self.root_path, uid=uid)
                 subroot_node = RootTypeNode(node_identifier=node_identifier)
                 logger.debug(f'[{self.tree_id}] Creating pre-ancestor RootType node: {node_identifier}')
                 self._category_tree.add_node(node=subroot_node, parent=self.root_node)

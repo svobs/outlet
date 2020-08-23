@@ -62,8 +62,12 @@ class DisplayNode(Node, ABC):
         """Whether the object represented by this node actually exists currently, or it is just planned to exist or is an ephemeral node."""
         return False
 
+    @classmethod
+    def has_tuple(cls) -> bool:
+        return False
+
     def to_tuple(self) -> Tuple:
-        return ()
+        raise RuntimeError('Operation not supported for this object: "to_tuple()"')
 
     @property
     def name(self):

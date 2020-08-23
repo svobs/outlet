@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from constants import ROOT_PATH, ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import ROOT_PATH, LOCAL_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from index.uid.uid import UID
 
 logger = logging.getLogger(__name__)
@@ -46,8 +46,6 @@ class NodeIdentifier(ABC):
         return f'∣✪-{self.uid}⩨{self.full_path}∣'
 
     def __eq__(self, other):
-        if isinstance(other, str):
-            return other == ROOT_PATH and self.uid == ROOT_UID
         return self.full_path == other.full_path and self.uid == other.uid and self.tree_type == other.tree_type
 
     def __ne__(self, other):

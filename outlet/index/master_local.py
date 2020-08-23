@@ -10,12 +10,12 @@ from treelib.exceptions import NodeIDAbsentError
 
 from util import file_util
 import fmeta.content_hasher
-from constants import ROOT_PATH
+from constants import LOCAL_ROOT_UID, ROOT_PATH
 from fmeta.local_disk_scanner import LocalDiskScanner
 from index.cache_manager import PersistedCacheInfo
 from index.sqlite.local_db import LocalDiskDatabase
 from index.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
-from index.uid.uid_generator import ROOT_UID, UID
+from index.uid.uid_generator import UID
 from index.uid.uid_mapper import UidPathMapper
 from model.node.container_node import ContainerNode, RootTypeNode
 from model.node.display_node import DisplayNode
@@ -63,7 +63,7 @@ class LocalDiskMasterCache:
         # But we still need a dir tree to look up child dirs:
         with self._struct_lock:
             self.dir_tree = LocalDiskTree(self.application)
-            root_node = RootTypeNode(node_identifier=LocalFsIdentifier(full_path=ROOT_PATH, uid=ROOT_UID))
+            root_node = RootTypeNode(node_identifier=LocalFsIdentifier(full_path=ROOT_PATH, uid=LOCAL_ROOT_UID))
             self.dir_tree.add_node(node=root_node, parent=None)
 
     # Disk access

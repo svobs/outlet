@@ -6,7 +6,7 @@ from typing import Dict, List, Tuple
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
-    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL, ROOT_UID
+    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL, GDRIVE_ROOT_UID
 from gdrive.client import GDriveClient
 from gdrive.meta_observer import FileMetaPersister, FolderMetaPersister
 from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
@@ -150,7 +150,7 @@ class GDriveTreeLoader:
         GDrive tree.
         """
         sw_total = Stopwatch()
-        max_uid = ROOT_UID + 1
+        max_uid = GDRIVE_ROOT_UID + 1
         tree = GDriveWholeTree(self.node_identifier_factory)
         invalidate_uids: Dict[UID, str] = {}
 
@@ -245,7 +245,7 @@ class GDriveTreeLoader:
         return tree
 
     def _determine_roots(self, tree: GDriveWholeTree):
-        max_uid = ROOT_UID + 1
+        max_uid = GDRIVE_ROOT_UID + 1
         for item in tree.id_dict.values():
             if not item.get_parent_uids():
                 tree.roots.append(item)

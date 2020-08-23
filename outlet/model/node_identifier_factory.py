@@ -1,7 +1,7 @@
 import logging
 
 from model.change_action import ChangeType
-from constants import GDRIVE_PATH_PREFIX, ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, ROOT_PATH
+from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, ROOT_PATH
 from index.uid.uid import UID
 
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, LogicalNodeIdentifier, NodeIdentifier
@@ -22,7 +22,7 @@ class NodeIdentifierFactory:
 
     @staticmethod
     def get_gdrive_root_constant_identifier() -> GDriveIdentifier:
-        return GDriveIdentifier(uid=ROOT_UID, full_path=ROOT_PATH)
+        return GDriveIdentifier(uid=GDRIVE_ROOT_UID, full_path=ROOT_PATH)
 
     def for_values(self, tree_type: int = None, full_path: str = None, uid: UID = None) -> NodeIdentifier:
         """Big factory method for creating a new identifier (for example when you intend to create a new node"""
@@ -67,10 +67,10 @@ class NodeIdentifierFactory:
     def _for_tree_type_gdrive(self, full_path: str = None, uid: UID = None) -> GDriveIdentifier:
         if not uid:
             if full_path == ROOT_PATH:
-                uid = ROOT_UID
+                uid = GDRIVE_ROOT_UID
             else:
                 uid = self.application.uid_generator.next_uid()
-        elif uid == ROOT_UID and not full_path:
+        elif uid == GDRIVE_ROOT_UID and not full_path:
             full_path = ROOT_PATH
 
         return GDriveIdentifier(uid=uid, full_path=full_path)

@@ -4,9 +4,7 @@ import pathlib
 import threading
 from typing import DefaultDict, Deque, Dict, Iterable, List, Optional
 
-from pydispatch import dispatcher
-
-from constants import ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import SUPER_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from index.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, SrcOpNode
 from index.uid.uid import UID
 from model.change_action import ChangeAction, ChangeType
@@ -523,7 +521,7 @@ class OpGraph:
 
 def _skip_root(node_list: List[OpGraphNode]) -> Iterable[OpGraphNode]:
     """Note: does not support case when root node is second or later in the list"""
-    if node_list and node_list[0].node_uid == ROOT_UID:
+    if node_list and node_list[0].node_uid == SUPER_ROOT_UID:
         node_list_iter = iter(node_list)
         next(node_list_iter)
         return node_list_iter

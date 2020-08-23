@@ -168,6 +168,8 @@ def _add_gdrive_parent_cols(table: Table):
 
 
 def _action_node_to_tuple(obj: DisplayNode, action_uid: UID) -> Tuple:
+    if not obj.has_tuple():
+        raise RuntimeError(f'Node cannot be converted to tuple: {obj}')
     return action_uid, *obj.to_tuple()
 
 

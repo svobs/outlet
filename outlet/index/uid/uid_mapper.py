@@ -3,8 +3,8 @@ import logging
 from typing import Dict, Optional
 
 from util import file_util
-from constants import ROOT_PATH
-from index.uid.uid_generator import ROOT_UID, UID
+from constants import LOCAL_ROOT_UID, ROOT_PATH
+from index.uid.uid import UID
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +20,10 @@ class UidPathMapper:
         self._uid_lock = threading.Lock()
         self.uid_generator = application.uid_generator
         # Every unique path must map to one unique UID
-        self._full_path_uid_dict: Dict[str, UID] = {ROOT_PATH: ROOT_UID}
+        self._full_path_uid_dict: Dict[str, UID] = {ROOT_PATH: LOCAL_ROOT_UID}
 
     def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
+        assert path is not None
         with self._uid_lock:
             path = file_util.normalize_path(path)
             uid = self._full_path_uid_dict.get(path, None)

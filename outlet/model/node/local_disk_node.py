@@ -119,7 +119,11 @@ class LocalFileNode(DisplayNode):
 
     def set_exists(self, does_exist: bool):
         self._exists = does_exist
-        
+
+    @classmethod
+    def has_tuple(cls) -> bool:
+        return True
+
     def to_tuple(self) -> Tuple:
         return self.uid, self.md5, self.sha256, self.get_size_bytes(), self.sync_ts, self.modify_ts, self.change_ts, self.full_path, self.exists()
 
@@ -154,6 +158,10 @@ class LocalDirNode(ContainerNode):
 
     def set_exists(self, does_exist: bool):
         self._exists = does_exist
+
+    @classmethod
+    def has_tuple(cls) -> bool:
+        return True
 
     def to_tuple(self) -> Tuple:
         return self.uid, self.full_path, self.exists()

@@ -96,6 +96,10 @@ class GDriveFolder(HasChildren, GDriveNode):
         return f'Folder:(uid="{self.uid}" goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
                f'my_share={self.my_share} sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()} children_fetched={self.all_children_fetched} ]'
 
+    @classmethod
+    def has_tuple(cls) -> bool:
+        return True
+
     def to_tuple(self):
         return self.uid, self.goog_id, self.name, self.trashed, self.drive_id, self.my_share, self.sync_ts, self.all_children_fetched
 
@@ -229,6 +233,10 @@ class GDriveFile(GDriveNode):
             else:
                 return ICON_ADD_FILE
         return ICON_TRASHED_FILE
+
+    @classmethod
+    def has_tuple(cls) -> bool:
+        return True
 
     def to_tuple(self):
         return (self.uid, self.goog_id, self.name, self.trashed, self._size_bytes, self._md5, self.create_ts, self.modify_ts,

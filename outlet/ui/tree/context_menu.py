@@ -62,9 +62,9 @@ class TreeContextMenu:
         items_to_delete_local: List[DisplayNode] = []
         items_to_delete_gdrive: List[DisplayNode] = []
         for selected_item in selected_items:
-            if selected_item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK and TreeContextMenu.file_exists(selected_item):
+            if selected_item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK and selected_item.exists():
                 items_to_delete_local.append(selected_item)
-            elif selected_item.node_identifier.tree_type == TREE_TYPE_GDRIVE and TreeContextMenu.file_exists(selected_item):
+            elif selected_item.node_identifier.tree_type == TREE_TYPE_GDRIVE and selected_item.exists():
                 items_to_delete_gdrive.append(selected_item)
 
         if len(items_to_delete_local) > 0:
@@ -83,7 +83,7 @@ class TreeContextMenu:
     def _build_menu_items_for_single_node(self, menu, tree_path, node: DisplayNode):
         full_path = node.full_path
         is_category_node = type(node) == CategoryNode
-        file_exists = TreeContextMenu.file_exists(node)
+        file_exists = node.exists()
         is_dir = node.is_dir()
         file_name = os.path.basename(full_path)
         is_gdrive = node.node_identifier.tree_type == TREE_TYPE_GDRIVE
@@ -104,13 +104,14 @@ class TreeContextMenu:
                 menu.append(item)
 
         if not file_exists:
+            # FIXME: this is not entirely correct when examining logical nodes which represent real paths
             item = Gtk.MenuItem(label='')
             label = item.get_child()
             label.set_markup(f'<i>Path not found</i>')
             item.set_sensitive(False)
             menu.append(item)
 
-        if is_dir:
+        if file_exists and is_dir:
             item = Gtk.MenuItem(label=f'Go into "{file_name}"')
             item.connect('activate', self.send_signal, actions.ROOT_PATH_UPDATED, {'new_root': node.node_identifier})
             menu.append(item)
@@ -152,7 +153,7 @@ class TreeContextMenu:
         if False:  # FIXME isinstance(node, FileDecoratorNode): Look up in OpLedger
             # Source:
             item = TreeContextMenu.build_full_path_display_item(menu, 'Src: ', node.src_node)
-            if TreeContextMenu.file_exists(node.src_node):
+            if node.exists():
                 src_submenu = Gtk.Menu()
                 item.set_submenu(src_submenu)
                 self._build_menu_items_for_single_node(src_submenu, tree_path, node.src_node)
@@ -164,7 +165,7 @@ class TreeContextMenu:
 
             # Destination:
             item = TreeContextMenu.build_full_path_display_item(menu, 'Dst: ', node)
-            if TreeContextMenu.file_exists(node):
+            if node.exists():
                 dst_submenu = Gtk.Menu()
                 item.set_submenu(dst_submenu)
                 self._build_menu_items_for_single_node(dst_submenu, tree_path, node)
@@ -191,18 +192,6 @@ class TreeContextMenu:
 
         menu.show_all()
         return menu
-
-    @staticmethod
-    def file_exists(node: DisplayNode):
-        if node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-            return os.path.exists(node.full_path)
-        elif node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
-            try:
-                # We assume that the node exists in GDrive if a Google ID has been assigned
-                return node.goog_id and True
-            except AttributeError:
-                # Shouldn't happen...
-                return False
 
     @staticmethod
     def build_full_path_display_item(menu: Gtk.Menu, preamble: str, node: DisplayNode) -> Gtk.MenuItem:

@@ -3,7 +3,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Deque, Dict, Iterable, List, Optional
 
-from constants import OP_TREE_INDENT_STR, ROOT_UID
+from constants import OP_TREE_INDENT_STR, SUPER_ROOT_UID
 from index.uid.uid import UID
 from model.change_action import ChangeAction, ChangeType
 
@@ -267,7 +267,7 @@ class HasMultiChild(ABC):
 class RootNode(HasMultiChild, OpGraphNode):
 
     def __init__(self):
-        OpGraphNode.__init__(self, ROOT_UID, None)
+        OpGraphNode.__init__(self, SUPER_ROOT_UID, None)
         HasMultiChild.__init__(self)
 
     @classmethod

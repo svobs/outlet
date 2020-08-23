@@ -444,6 +444,7 @@ class CacheManager:
 
     def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
         """Deterministically gets or creates a UID corresponding to the given path string"""
+        assert path
         return self._local_disk_cache.get_uid_for_path(path, uid_suggestion)
 
     def get_uid_list_for_goog_id_list(self, goog_id_list: List[str]) -> List[UID]:

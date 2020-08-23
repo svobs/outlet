@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 import logging
 
-from constants import NULL_UID, ROOT_UID
+from constants import NULL_UID, GDRIVE_ROOT_UID
 from index.uid.uid import UID
 
 logger = logging.getLogger(__name__)
@@ -58,10 +58,10 @@ class PersistentAtomicIntUidGenerator(UidGenerator):
         self._config = config
         self._enable_uid_persistence: bool = self._config.get(CONFIG_KEY_ENABLE_LAST_UID)
         if self._enable_uid_persistence:
-            self._last_uid_written = self._config.get(CONFIG_KEY_LAST_UID, ROOT_UID + 1)
+            self._last_uid_written = self._config.get(CONFIG_KEY_LAST_UID, GDRIVE_ROOT_UID + 1)
             self._uid_reservation_block_size = self._config.get(CONFIG_KEY_UID_RESERVATION_BLOCK_SIZE)
         else:
-            self._last_uid_written = ROOT_UID + 1
+            self._last_uid_written = GDRIVE_ROOT_UID + 1
         self._value = self._last_uid_written + 1
         self._lock = threading.Lock()
 
