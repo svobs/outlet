@@ -400,11 +400,11 @@ class CacheManager:
     def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[Op]:
         return self._op_ledger.get_last_pending_op_for_node(node_uid)
 
-    def enqueue_change_list(self, change_list: Iterable[Op]):
-        """Attempt to add the given ChangeActions to the execution tree. No need to worry whether some changes overlap or are redundant;
+    def enqueue_op_list(self, op_list: Iterable[Op]):
+        """Attempt to add the given Ops to the execution tree. No need to worry whether some changes overlap or are redundant;
          the OpLedger will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
          that is scheduled for deletion."""
-        self._op_ledger.append_new_pending_ops(change_list)
+        self._op_ledger.append_new_pending_ops(op_list)
 
     def get_next_command(self) -> Optional[Command]:
         # blocks !

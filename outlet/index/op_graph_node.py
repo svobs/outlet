@@ -14,9 +14,9 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class OpGraphNode(ABC):
     """This is a node which represents an operation (or half of an operation, if the operations includes both src and dst nodes)"""
-    def __init__(self, uid: UID, change_action: Optional[Op]):
+    def __init__(self, uid: UID, op: Optional[Op]):
         self.node_uid: UID = uid
-        self.change_action: Op = change_action
+        self.op: Op = op
         """The Op (i.e. "operation")"""
 
     @property
@@ -103,7 +103,7 @@ class OpGraphNode(ABC):
     def print_me(self, full=True) -> str:
         string = f'(?) op node UID={self.node_uid}'
         if full:
-            return f'{string}: {self.change_action}'
+            return f'{string}: {self.op}'
         else:
             return string
 
@@ -290,20 +290,20 @@ class RootNode(HasMultiChild, OpGraphNode):
 # CLASS SrcOpNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
-    def __init__(self, uid: UID, change_action: Op):
-        OpGraphNode.__init__(self, uid, change_action=change_action)
+    def __init__(self, uid: UID, op: Op):
+        OpGraphNode.__init__(self, uid, op=op)
         HasSingleParent.__init__(self)
         HasMultiChild.__init__(self)
 
     def is_mutually_exclusive(self) -> bool:
         # Only CP src nodes are non-mutually-exclusive
-        return self.change_action.op_type != OpType.CP
+        return self.op.op_type != OpType.CP
 
     def get_target_node(self):
-        return self.change_action.src_node
+        return self.op.src_node
 
     def is_create_type(self) -> bool:
-        return self.change_action.op_type == OpType.MKDIR
+        return self.op.op_type == OpType.MKDIR
 
     def clear_relationships(self):
         HasSingleParent.clear_relationships(self)
@@ -312,7 +312,7 @@ class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
     def print_me(self, full=True) -> str:
         string = f'SRC_op UID={self.node_uid}'
         if full:
-            return f'{string}: {self.change_action}'
+            return f'{string}: {self.op}'
         else:
             return string
 
@@ -320,9 +320,9 @@ class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
 # CLASS DstOpNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
-    def __init__(self, uid: UID, change_action: Op):
-        assert change_action.has_dst()
-        OpGraphNode.__init__(self, uid, change_action=change_action)
+    def __init__(self, uid: UID, op: Op):
+        assert op.has_dst()
+        OpGraphNode.__init__(self, uid, op=op)
         HasSingleParent.__init__(self)
         HasMultiChild.__init__(self)
 
@@ -330,7 +330,7 @@ class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
         return True
 
     def get_target_node(self):
-        return self.change_action.dst_node
+        return self.op.dst_node
 
     @classmethod
     def is_src(cls) -> bool:
@@ -350,7 +350,7 @@ class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
     def print_me(self, full=True) -> str:
         string = f'DST_op UID={self.node_uid}'
         if full:
-            return f'{string}: {self.change_action}'
+            return f'{string}: {self.op}'
         else:
             return string
 
@@ -359,9 +359,9 @@ class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class RmOpNode(HasMultiParent, HasSingleChild, OpGraphNode):
     """RM nodes have an inverted structure: the child nodes become the shared parents for their parent dir."""
-    def __init__(self, uid: UID, change_action: Op):
-        assert change_action.op_type == OpType.RM
-        OpGraphNode.__init__(self, uid, change_action=change_action)
+    def __init__(self, uid: UID, op: Op):
+        assert op.op_type == OpType.RM
+        OpGraphNode.__init__(self, uid, op=op)
         HasMultiParent.__init__(self)
         HasSingleChild.__init__(self)
 
@@ -372,7 +372,7 @@ class RmOpNode(HasMultiParent, HasSingleChild, OpGraphNode):
         return True
 
     def get_target_node(self):
-        return self.change_action.src_node
+        return self.op.src_node
 
     def clear_relationships(self):
         HasMultiParent.clear_relationships(self)
@@ -381,6 +381,6 @@ class RmOpNode(HasMultiParent, HasSingleChild, OpGraphNode):
     def print_me(self, full=True) -> str:
         string = f'RM_op UID={self.node_uid}'
         if full:
-            return f'{string}: {self.change_action}'
+            return f'{string}: {self.op}'
         else:
             return string

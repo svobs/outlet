@@ -11,7 +11,7 @@ from model.op import Op, OpType
 from cmd.cmd_builder import CommandBuilder
 from cmd.cmd_interface import Command, CommandStatus
 from constants import OPS_FILE_NAME
-from index.sqlite.change_db import PendingChangeDatabase
+from index.sqlite.op_db import OpDatabase
 from index.uid.uid import UID
 from model.node.display_node import DisplayNode
 from ui import actions
@@ -54,49 +54,49 @@ class OpLedger:
         self.application = None
 
     def _cancel_pending_ops_from_disk(self):
-        with PendingChangeDatabase(self.op_db_path, self.application) as change_db:
-            change_list: List[Op] = change_db.get_all_pending_ops()
-            if change_list:
-                change_db.archive_failed_ops(change_list, 'Cancelled on startup per user config')
-                logger.info(f'Cancelled {len(change_list)} pending changes found in cache')
+        with OpDatabase(self.op_db_path, self.application) as op_db:
+            op_list: List[Op] = op_db.get_all_pending_ops()
+            if op_list:
+                op_db.archive_failed_ops(op_list, 'Cancelled on startup per user config')
+                logger.info(f'Cancelled {len(op_list)} pending changes found in cache')
 
     def _load_pending_ops_from_disk(self, error_handling_behavior: ErrorHandlingBehavior) -> List[Op]:
         # first load refs from disk
-        with PendingChangeDatabase(self.op_db_path, self.application) as change_db:
-            change_list: List[Op] = change_db.get_all_pending_ops()
+        with OpDatabase(self.op_db_path, self.application) as op_db:
+            op_list: List[Op] = op_db.get_all_pending_ops()
 
-        if not change_list:
-            return change_list
+        if not op_list:
+            return op_list
 
-        logger.debug(f'Found {len(change_list)} pending changes in cache')
+        logger.debug(f'Found {len(op_list)} pending changes in cache')
 
         # TODO: check for invalid nodes?
 
-        return change_list
+        return op_list
 
-    def _save_pending_ops_to_disk(self, change_list: Iterable[Op]):
-        with PendingChangeDatabase(self.op_db_path, self.application) as change_db:
+    def _save_pending_ops_to_disk(self, op_list: Iterable[Op]):
+        with OpDatabase(self.op_db_path, self.application) as op_db:
             # This will save each of the planning nodes, if any:
-            change_db.upsert_pending_ops(change_list, overwrite=False)
+            op_db.upsert_pending_ops(op_list, overwrite=False)
 
-    def _archive_pending_ops_to_disk(self, change_list: Iterable[Op]):
-        with PendingChangeDatabase(self.op_db_path, self.application) as change_db:
-            change_db.archive_completed_ops(change_list)
+    def _archive_pending_ops_to_disk(self, op_list: Iterable[Op]):
+        with OpDatabase(self.op_db_path, self.application) as op_db:
+            op_db.archive_completed_ops(op_list)
 
-    def _add_planning_nodes_to_memcache(self, change_action: Op):
+    def _add_planning_nodes_to_memcache(self, op: Op):
         """Looks at the given Op and adds any non-existent "planning nodes" to it."""
-        planning_node = change_action.get_planning_node()
+        planning_node = op.get_planning_node()
         if planning_node:
             self.cacheman.add_or_update_node(planning_node)
         else:
-            assert self.cacheman.get_item_for_uid(change_action.src_node.uid), f'Expected src node already present for: {change_action}'
-            if change_action.dst_node:
-                assert self.cacheman.get_item_for_uid(change_action.dst_node.uid), f'Expected dst node already present for change: {change_action}'
+            assert self.cacheman.get_item_for_uid(op.src_node.uid), f'Expected src node already present for: {op}'
+            if op.dst_node:
+                assert self.cacheman.get_item_for_uid(op.dst_node.uid), f'Expected dst node already present for change: {op}'
 
     # Reduce Changes logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _reduce_changes(self, change_list: Iterable[Op]) -> Iterable[Op]:
+    def _reduce_changes(self, op_list: Iterable[Op]) -> Iterable[Op]:
         final_list: List[Op] = []
 
         # Put all affected nodes in map.
@@ -107,7 +107,7 @@ class OpLedger:
         # src node is not necessarily mutually exclusive:
         cp_src_dict: DefaultDict[UID, List[Op]] = defaultdict(lambda: list())
         count_changes_orig = 0
-        for change in change_list:
+        for change in op_list:
             count_changes_orig += 1
             if change.op_type == OpType.MKDIR:
                 # remove dups
@@ -161,7 +161,7 @@ class OpLedger:
             return True
 
         # For each element, traverse up the tree and compare each parent node to map
-        for change in change_list:
+        for change in op_list:
             if change.op_type == OpType.RM:
                 self._check_ancestors(change, eval_rm_ancestor_func)
             elif change.op_type == OpType.MKDIR:
@@ -173,8 +173,8 @@ class OpLedger:
         return final_list
 
     def _check_cp_ancestors(self, change: Op, mkdir_dict, rm_dict, cp_src_dict, cp_dst_dict):
-        """Checks all ancestors of both src and dst for mapped ChangeActions. The following are the only valid situations:
-         1. No ancestors of src or dst correspond to any ChangeActions.
+        """Checks all ancestors of both src and dst for mapped Ops. The following are the only valid situations:
+         1. No ancestors of src or dst correspond to any Ops.
          2. Ancestor(s) of the src node correspond to the src node of a CP or UP action (i.e. they will not change)
          """
         src_ancestor = change.src_node
@@ -225,16 +225,16 @@ class OpLedger:
             self._cancel_pending_ops_from_disk()
             return
 
-        change_list: List[Op] = self._load_pending_ops_from_disk(ErrorHandlingBehavior.DISCARD)
-        if not change_list:
+        op_list: List[Op] = self._load_pending_ops_from_disk(ErrorHandlingBehavior.DISCARD)
+        if not op_list:
             logger.debug(f'No pending changes found in the disk cache')
             return
 
-        logger.info(f'Found {len(change_list)} pending changes from the disk cache')
+        logger.info(f'Found {len(op_list)} pending changes from the disk cache')
 
         # Sort into batches
         batch_dict: DefaultDict[UID, List[Op]] = defaultdict(lambda: list())
-        for change in change_list:
+        for change in op_list:
             batch_dict[change.batch_uid].append(change)
 
         batch_dict_keys = batch_dict.keys()
@@ -245,10 +245,10 @@ class OpLedger:
             # Assume batch has already been reduced and reconciled against master tree.
             batch_items: List[Op] = batch_dict[key]
             batch_root = self.op_graph.make_tree_to_insert(batch_items)
-            logger.info(f'Adding batch {key} to PendingChangeTree')
+            logger.info(f'Adding batch {key} to OpTree')
             self.op_graph.add_batch(batch_root)
 
-    def append_new_pending_ops(self, change_batch: Iterable[Op]):
+    def append_new_pending_ops(self, op_batch: Iterable[Op]):
         """
         Call this after the user requests a new set of changes.
 
@@ -257,17 +257,17 @@ class OpLedger:
          - When each command completes, cacheman is notified of any node updates required as well.
          - When batch completes, we archive the changes on disk.
         """
-        if not change_batch:
+        if not op_batch:
             return
 
-        change_iter = iter(change_batch)
+        change_iter = iter(op_batch)
         batch_uid = next(change_iter).batch_uid
         for change in change_iter:
             if change.batch_uid != batch_uid:
                 raise RuntimeError(f'Changes in batch do not all contain the same batch_uid (found {change.batch_uid} and {batch_uid})')
 
-        # Simplify and remove redundancies in change_list
-        reduced_batch: Iterable[Op] = self._reduce_changes(change_batch)
+        # Simplify and remove redundancies in op_list
+        reduced_batch: Iterable[Op] = self._reduce_changes(op_batch)
 
         tree_root = self.op_graph.make_tree_to_insert(reduced_batch)
 
@@ -279,8 +279,8 @@ class OpLedger:
         self._save_pending_ops_to_disk(reduced_batch)
 
         # Add dst nodes for to-be-created nodes if they are not present
-        for change_action in reduced_batch:
-            self._add_planning_nodes_to_memcache(change_action)
+        for op in reduced_batch:
+            self._add_planning_nodes_to_memcache(op)
 
         self.op_graph.add_batch(tree_root)
 
@@ -291,13 +291,13 @@ class OpLedger:
         # Call this from Executor. Only returns None if shutting down
 
         # This will block until a change is ready:
-        change_action: Op = self.op_graph.get_next_change()
+        op: Op = self.op_graph.get_next_change()
 
-        if not change_action:
+        if not op:
             logger.debug('Received None; looks like we are shutting down')
             return None
 
-        return self._cmd_builder.build_command(change_action)
+        return self._cmd_builder.build_command(op)
 
     def _on_command_completed(self, sender, command: Command):
         logger.debug(f'Received signal: "{actions.COMMAND_COMPLETE}"')
@@ -311,7 +311,7 @@ class OpLedger:
             logger.info(f'Command returned with status: "{command.status().name}"')
 
         # Ensure command is one that we are expecting
-        self.op_graph.pop_change(command.change_action)
+        self.op_graph.pop_change(command.op)
 
         # Add/update nodes in central cache:
         if command.result.nodes_to_upsert:
@@ -330,7 +330,7 @@ class OpLedger:
             for deleted_node in command.result.nodes_to_delete:
                 self.cacheman.remove_node(deleted_node, to_trash)
 
-        logger.debug(f'Archiving change: {command.change_action}')
-        self._archive_pending_ops_to_disk([command.change_action])
+        logger.debug(f'Archiving change: {command.op}')
+        self._archive_pending_ops_to_disk([command.op])
 
 

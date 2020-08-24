@@ -167,14 +167,14 @@ def _add_gdrive_parent_cols(table: Table):
                        ('parent_goog_id', 'TEXT')})
 
 
-# CLASS PendingChangeDatabase
+# CLASS OpDatabase
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class PendingChangeDatabase(MetaDatabase):
+class OpDatabase(MetaDatabase):
     TABLE_PENDING_CHANGE = Table(name='pending_op', cols=OrderedDict([
         ('uid', 'INTEGER PRIMARY KEY'),
         ('batch_uid', 'INTEGER'),
-        ('change_type', 'INTEGER'),
+        ('op_type', 'INTEGER'),
         ('src_node_uid', 'INTEGER'),
         ('dst_node_uid', 'INTEGER'),
         ('create_ts', 'INTEGER')
@@ -184,7 +184,7 @@ class PendingChangeDatabase(MetaDatabase):
                                    cols=OrderedDict([
                                        ('uid', 'INTEGER PRIMARY KEY'),
                                        ('batch_uid', 'INTEGER'),
-                                       ('change_type', 'INTEGER'),
+                                       ('op_type', 'INTEGER'),
                                        ('src_node_uid', 'INTEGER'),
                                        ('dst_node_uid', 'INTEGER'),
                                        ('create_ts', 'INTEGER'),
@@ -195,7 +195,7 @@ class PendingChangeDatabase(MetaDatabase):
                                 cols=OrderedDict([
                                     ('uid', 'INTEGER PRIMARY KEY'),
                                     ('batch_uid', 'INTEGER'),
-                                    ('change_type', 'INTEGER'),
+                                    ('op_type', 'INTEGER'),
                                     ('src_node_uid', 'INTEGER'),
                                     ('dst_node_uid', 'INTEGER'),
                                     ('create_ts', 'INTEGER'),
@@ -209,9 +209,9 @@ class PendingChangeDatabase(MetaDatabase):
 
         self.table_lists: TableListCollection = TableListCollection()
         # We do not use OpRef to Tuple, because we convert Op to Tuple instead
-        self.table_pending_op = LiveTable(PendingChangeDatabase.TABLE_PENDING_CHANGE, self.conn, None, _tuple_to_op_ref)
-        self.table_completed_op = LiveTable(PendingChangeDatabase.TABLE_COMPLETED_CHANGE, self.conn, None, _tuple_to_op_ref)
-        self.table_failed_op = LiveTable(PendingChangeDatabase.TABLE_FAILED_CHANGE, self.conn, None, _tuple_to_op_ref)
+        self.table_pending_op = LiveTable(OpDatabase.TABLE_PENDING_CHANGE, self.conn, None, _tuple_to_op_ref)
+        self.table_completed_op = LiveTable(OpDatabase.TABLE_COMPLETED_CHANGE, self.conn, None, _tuple_to_op_ref)
+        self.table_failed_op = LiveTable(OpDatabase.TABLE_FAILED_CHANGE, self.conn, None, _tuple_to_op_ref)
 
         # pending ...
         self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, PENDING, SRC)
@@ -440,7 +440,7 @@ class PendingChangeDatabase(MetaDatabase):
             table.upsert_many(tuple_list, commit=False)
 
     def upsert_pending_ops(self, entries: Iterable[Op], overwrite, commit=True):
-        """Inserts or updates a list of ChangeActions (remember that each action's UID is its primary key).
+        """Inserts or updates a list of Ops (remember that each action's UID is its primary key).
         If overwrite=true, then removes all existing changes first."""
 
         if overwrite:
@@ -456,7 +456,7 @@ class PendingChangeDatabase(MetaDatabase):
         # Upsert src & dst nodes
         self._upsert_nodes_without_commit(entries, PENDING)
 
-        # Upsert ChangeActions
+        # Upsert Ops
         change_tuple_list: List[Tuple] = []
         for e in entries:
             change_tuple_list.append(_pending_op_to_tuple(e))
@@ -472,20 +472,20 @@ class PendingChangeDatabase(MetaDatabase):
             else:
                 table.delete_for_uid_list(uid_tuple_list, uid_col_name=ACTION_UID_COL_NAME, commit=False)
 
-        # Finally delete the ChangeActions
+        # Finally delete the Ops
         self.table_pending_op.delete_for_uid_list(uid_tuple_list, commit=commit)
 
     # COMPLETED_CHANGE operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
     def _upsert_completed_ops(self, entries: Iterable[Op], commit=True):
-        """Inserts or updates a list of ChangeActions (remember that each action's UID is its primary key)."""
+        """Inserts or updates a list of Ops (remember that each action's UID is its primary key)."""
 
         self.table_completed_op.create_table_if_not_exist(commit=False)
 
         # Upsert src & dst nodes
         self._upsert_nodes_without_commit(entries, ARCHIVE)
 
-        # Upsert ChangeActions
+        # Upsert Ops
         current_time = int(time.time())
         change_tuple_list = []
         for e in entries:

@@ -17,8 +17,8 @@ class NodeIdentifierFactory:
         self.application = application
 
     @staticmethod
-    def nid(uid: UID, tree_type: int, change_type: OpType):
-        return f'{tree_type}-{uid}-{change_type.name}'
+    def nid(uid: UID, tree_type: int, op_type: OpType):
+        return f'{tree_type}-{uid}-{op_type.name}'
 
     @staticmethod
     def get_gdrive_root_constant_identifier() -> GDriveIdentifier:

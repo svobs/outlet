@@ -208,8 +208,8 @@ class TreeUiListeners:
                                        application=self.con.parent_win.application)
             change_maker.copy_nodes_left_to_right(drag_data.nodes, dest_node, OpType.CP)
             # This should fire listeners which ultimately populate the tree:
-            change_list: Iterable[Op] = change_maker.right_side.change_tree.get_change_actions()
-            self.con.parent_win.application.cache_manager.enqueue_change_list(change_list)
+            op_list: Iterable[Op] = change_maker.right_side.change_tree.get_ops()
+            self.con.parent_win.application.cache_manager.enqueue_op_list(op_list)
 
     def _check_drop(self):
         """Drag & Drop 4/4: Check UID of the dragged data against the UID of the dropped data.

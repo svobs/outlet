@@ -251,16 +251,16 @@ class ContentFirstDiffer(ChangeMaker):
                                           application=self.application, tree_id=ID_MERGE_TREE)
 
         for item in left_selected_changes:
-            change_action = self.left_side.underlying_tree.get_change_action_for_node(item)
-            if change_action:
-                merged_tree.add_item(item, change_action, self.left_side.underlying_tree)
+            op = self.left_side.underlying_tree.get_op_for_node(item)
+            if op:
+                merged_tree.add_item(item, op, self.left_side.underlying_tree)
             else:
                 logger.debug(f'Skipping node because it is not associated with a Op: {item}')
 
         for item in right_selected_changes:
-            change_action = self.right_side.underlying_tree.get_change_action_for_node(item)
-            if change_action:
-                merged_tree.add_item(item, change_action, self.right_side.underlying_tree)
+            op = self.right_side.underlying_tree.get_op_for_node(item)
+            if op:
+                merged_tree.add_item(item, op, self.right_side.underlying_tree)
             else:
                 logger.debug(f'Skipping node because it is not associated with a Op: {item}')
 

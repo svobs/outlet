@@ -72,5 +72,5 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
             dialog.destroy()
 
     def on_apply_clicked(self):
-        self.parent_win.application.cache_manager.enqueue_change_list(change_list=self.tree.get_change_actions())
+        self.parent_win.application.cache_manager.enqueue_op_list(op_list=self.tree.get_ops())
         dispatcher.send(signal=actions.EXIT_DIFF_MODE, sender=actions.ID_MERGE_TREE)

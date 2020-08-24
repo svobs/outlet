@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class OpGraph:
-    """Dependency tree, currently with emphasis on ChangeActions"""
+    """Dependency tree, currently with emphasis on Ops"""
 
     def __init__(self, application):
         self.cacheman = application.cache_manager
@@ -38,7 +38,7 @@ class OpGraph:
         """Root of tree. Has no useful internal data; we value it for its children"""
 
         self._outstanding_actions: Dict[UID, Op] = {}
-        """Contains entries for all ChangeActions which have running operations. Keyed by action UID"""
+        """Contains entries for all Ops which have running operations. Keyed by action UID"""
 
     def __del__(self):
         self.shutdown()
@@ -52,7 +52,7 @@ class OpGraph:
 
     def _print_current_state(self):
         lines = self._graph_root.print_recursively()
-        logger.debug(f'CURRENT STATE: PendingChangeGraph is now {len(lines)} items:')
+        logger.debug(f'CURRENT STATE: OpGraph is now {len(lines)} items:')
         for line in lines:
             logger.debug(line)
         self._print_node_dict()
@@ -62,7 +62,7 @@ class OpGraph:
         for node_uid, deque in self._node_dict.items():
             node_list: List[str] = []
             for node in deque:
-                node_list.append(node.change_action.tag)
+                node_list.append(node.op.tag)
             logger.debug(f'{node_uid}: [{"; ".join(node_list)}]')
 
     def _derive_parent_uid(self, node: DisplayNode):
@@ -88,15 +88,15 @@ class OpGraph:
         """This is a public method."""
         op_node = self._get_lowest_priority_op_node(node_uid)
         if op_node:
-            return op_node.change_action
+            return op_node.op
         return None
 
-    def make_tree_to_insert(self, change_batch: Iterable[Op]) -> RootNode:
+    def make_tree_to_insert(self, op_batch: Iterable[Op]) -> RootNode:
         logger.debug(f'Constructing OpNode tree for Op batch...')
 
         # Verify batch sort:
         last_uid = 0
-        for change in change_batch:
+        for change in op_batch:
             # Changes MUST be sorted in ascending time of creation!
             if change.action_uid < last_uid:
                 raise RuntimeError(f'Batch items are not in order! ({change.action_uid} < {last_uid}')
@@ -105,7 +105,7 @@ class OpGraph:
         # Put all in dict as wrapped OpGraphNodes
         non_mutex_node_dict: DefaultDict[UID, List[OpGraphNode]] = collections.defaultdict(lambda: list())
         mutex_node_dict: Dict[UID, OpGraphNode] = {}
-        for change in change_batch:
+        for change in op_batch:
             if change.op_type == OpType.RM:
                 src_node = RmOpNode(self.uid_generator.next_uid(), change)
             else:
@@ -189,7 +189,7 @@ class OpGraph:
         """
 
         # Invert RM nodes when inserting into tree
-        batch_uid = root_of_changes.get_first_child().change_action.batch_uid
+        batch_uid = root_of_changes.get_first_child().op.batch_uid
 
         iterator = iter(root_of_changes.get_all_nodes_in_subtree())
         # skip root
@@ -200,7 +200,7 @@ class OpGraph:
 
         for op_node in iterator:
             tgt_node: DisplayNode = op_node.get_target_node()
-            op_type: str = op_node.change_action.op_type.name
+            op_type: str = op_node.op.op_type.name
 
             if op_node.is_create_type():
                 # Enforce Rule 1: ensure parent of target is valid:
@@ -211,9 +211,9 @@ class OpGraph:
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find parent in cache with UID {parent_uid} '
                                        f'for "{op_type}"')
 
-                if op_node.change_action.op_type == OpType.MKDIR:
-                    assert not mkdir_dict.get(op_node.change_action.src_node.uid, None), f'Duplicate MKDIR: {op_node.change_action.src_node}'
-                    mkdir_dict[op_node.change_action.src_node.uid] = op_node.change_action.src_node
+                if op_node.op.op_type == OpType.MKDIR:
+                    assert not mkdir_dict.get(op_node.op.src_node.uid, None), f'Duplicate MKDIR: {op_node.op.src_node}'
+                    mkdir_dict[op_node.op.src_node.uid] = op_node.op.src_node
             else:
                 # Enforce Rule 2: ensure target node is valid
                 if not self.cacheman.get_item_for_uid(tgt_node.uid, tgt_node.node_identifier.tree_type):
@@ -224,7 +224,7 @@ class OpGraph:
             with self._lock:
                 # More of Rule 2: ensure target node is not scheduled for deletion:
                 most_recent_op = self.get_last_pending_op_for_node(tgt_node.uid)
-                if most_recent_op and most_recent_op.op_type == OpType.RM and op_node.is_src() and op_node.change_action.has_dst():
+                if most_recent_op and most_recent_op.op_type == OpType.RM and op_node.is_src() and op_node.op.has_dst():
                     # CP, MV, and UP ops cannot logically have a src node which is not present:
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): it is attempting to CP/MV/UP from a node (UID={tgt_node.uid}) '
                                        f'which is being removed')
@@ -337,7 +337,7 @@ class OpGraph:
         if not root_of_changes.get_child_list():
             raise RuntimeError(f'Batch has no nodes!')
 
-        batch_uid = root_of_changes.get_first_child().change_action.batch_uid
+        batch_uid = root_of_changes.get_first_child().op.batch_uid
 
         breadth_first_list: List[OpGraphNode] = root_of_changes.get_all_nodes_in_subtree()
         for node_to_insert in _skip_root(breadth_first_list):
@@ -357,46 +357,46 @@ class OpGraph:
         for op_node in self._graph_root.get_child_list():
             logger.debug(f'TryGet(): examining {op_node}')
 
-            if op_node.change_action.has_dst():
+            if op_node.op.has_dst():
                 # If the Op has both src and dst nodes, *both* must be next in their queues, and also be just below root.
                 if op_node.is_dst():
                     # Dst node is child of root. But verify corresponding src node is also child of root
-                    pending_ops_for_src_node: Deque[OpGraphNode] = self._node_dict.get(op_node.change_action.src_node.uid, None)
+                    pending_ops_for_src_node: Deque[OpGraphNode] = self._node_dict.get(op_node.op.src_node.uid, None)
                     if not pending_ops_for_src_node:
-                        logger.error(f'Could not find entry for change src (change={op_node.change_action}); raising error')
-                        raise RuntimeError(f'Serious error: master dict has no entries for change src ({op_node.change_action.src_node.uid})!')
+                        logger.error(f'Could not find entry for change src (change={op_node.op}); raising error')
+                        raise RuntimeError(f'Serious error: master dict has no entries for change src ({op_node.op.src_node.uid})!')
                     src_op_node = pending_ops_for_src_node[0]
-                    if src_op_node.change_action.action_uid != op_node.change_action.action_uid:
-                        logger.debug(f'Skipping Op (UID {op_node.change_action.action_uid}): it is not next in src node queue')
+                    if src_op_node.op.action_uid != op_node.op.action_uid:
+                        logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): it is not next in src node queue')
                         continue
 
                     level = src_op_node.get_level()
                     # level 1 == root; level 2 == sub-root
                     if level != 2:
-                        logger.debug(f'Skipping Op (UID {op_node.change_action.action_uid}): src node is level {level}')
+                        logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): src node is level {level}')
                         continue
 
                 else:
                     # Src node is child of root. But verify corresponding dst node is also child of root
-                    pending_ops_for_node: Deque[OpGraphNode] = self._node_dict.get(op_node.change_action.dst_node.uid, None)
+                    pending_ops_for_node: Deque[OpGraphNode] = self._node_dict.get(op_node.op.dst_node.uid, None)
                     if not pending_ops_for_node:
-                        logger.error(f'Could not find entry for change dst (change={op_node.change_action}); raising error')
-                        raise RuntimeError(f'Serious error: master dict has no entries for change dst ({op_node.change_action.dst_node.uid})!')
+                        logger.error(f'Could not find entry for change dst (change={op_node.op}); raising error')
+                        raise RuntimeError(f'Serious error: master dict has no entries for change dst ({op_node.op.dst_node.uid})!')
 
                     dst_op_node = pending_ops_for_node[0]
-                    if dst_op_node.change_action.action_uid != op_node.change_action.action_uid:
-                        logger.debug(f'Skipping Op (UID {op_node.change_action.action_uid}): it is not next in dst node queue')
+                    if dst_op_node.op.action_uid != op_node.op.action_uid:
+                        logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): it is not next in dst node queue')
                         continue
 
                     level = dst_op_node.get_level()
                     if level != 2:
-                        logger.debug(f'Skipping Op (UID {op_node.change_action.action_uid}): dst node is level {level}')
+                        logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): dst node is level {level}')
                         continue
 
             # Make sure the node has not already been checked out:
-            if not self._outstanding_actions.get(op_node.change_action.action_uid, None):
-                self._outstanding_actions[op_node.change_action.action_uid] = op_node.change_action
-                return op_node.change_action
+            if not self._outstanding_actions.get(op_node.op.action_uid, None):
+                self._outstanding_actions[op_node.op.action_uid] = op_node.op
+                return op_node.op
             else:
                 logger.debug(f'Skipping node because it is already outstanding')
 
@@ -447,9 +447,9 @@ class OpGraph:
                 raise RuntimeError(f'Src node for completed change not found in master dict (src node UID {change.src_node.uid}')
 
             src_op_node: OpGraphNode = src_node_list.popleft()
-            if src_op_node.change_action.action_uid != change.action_uid:
+            if src_op_node.op.action_uid != change.action_uid:
                 raise RuntimeError(f'Completed change (UID {change.action_uid}) does not match first item popped from src queue '
-                                   f'(UID {src_op_node.change_action.action_uid})')
+                                   f'(UID {src_op_node.op.action_uid})')
 
             # I-2. Remove src node from op graph
 
@@ -483,9 +483,9 @@ class OpGraph:
                 if not dst_node_list:
                     raise RuntimeError(f'Dst node for completed change not found in master dict (dst node UID {change.dst_node.uid}')
                 dst_op_node = dst_node_list.popleft()
-                if dst_op_node.change_action.action_uid != change.action_uid:
+                if dst_op_node.op.action_uid != change.action_uid:
                     raise RuntimeError(f'Completed change (UID {change.action_uid}) does not match first item popped from dst queue '
-                                       f'(UID {dst_op_node.change_action.action_uid})')
+                                       f'(UID {dst_op_node.op.action_uid})')
 
                 # II-2. Remove dst node from op graph
 

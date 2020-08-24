@@ -76,9 +76,9 @@ class CategoryNode(ContainerNode):
         OpType.MV: 'To Move',
     }
 
-    def __init__(self, node_identifier: NodeIdentifier, change_type: OpType):
+    def __init__(self, node_identifier: NodeIdentifier, op_type: OpType):
         super().__init__(node_identifier=node_identifier)
-        self.op_type = change_type
+        self.op_type = op_type
 
     def __repr__(self):
         return f'CategoryNode(type={self.op_type.name}, identifier={self.node_identifier})'

@@ -155,7 +155,7 @@ class TreeActions:
 
         # don't worry about overlapping trees; the cacheman will sort everything out
         batch_uid = self.con.app.uid_generator.next_uid()
-        change_list = []
+        op_list = []
         for node_to_delete in node_list:
             if node_to_delete.is_dir():
                 # Expand dir nodes. ChangeManager will not remove non-empty dirs
@@ -163,13 +163,13 @@ class TreeActions:
                 for node in expanded_node_list:
                     # somewhere in this returned list is the subtree root. Need to check so we don't include a duplicate:
                     if node.uid != node_to_delete.uid:
-                        change_list.append(Op(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
-                                                        change_type=OpType.RM, src_node=node))
+                        op_list.append(Op(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
+                                                        op_type=OpType.RM, src_node=node))
 
-            change_list.append(Op(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
-                                            change_type=OpType.RM, src_node=node_to_delete))
+            op_list.append(Op(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
+                                            op_type=OpType.RM, src_node=node_to_delete))
 
-        self.con.parent_win.application.cache_manager.enqueue_change_list(change_list)
+        self.con.parent_win.application.cache_manager.enqueue_op_list(op_list)
 
     def _check_rows(self, sender, tree_paths: List[Gtk.TreePath] = None):
         for tree_path in tree_paths:

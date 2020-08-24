@@ -37,35 +37,35 @@ class CommandBuilder:
         self._cache_manager = application.cache_manager
         self._build_dict: Dict[OpType, Dict[str, Callable]] = _populate_build_dict()
 
-    def build_command(self, change_action: Op) -> Command:
+    def build_command(self, op: Op) -> Command:
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f'Building command for Op={change_action}')
+            logger.debug(f'Building command for Op={op}')
 
         # TODO: [improvement] look up MD5 for src_node and use a closer node
 
-        if change_action.dst_node:
+        if op.dst_node:
             # Src AND Dst:
-            tree_type_key = _make_key(change_action.src_node.node_identifier.tree_type, change_action.dst_node.node_identifier.tree_type)
+            tree_type_key = _make_key(op.src_node.node_identifier.tree_type, op.dst_node.node_identifier.tree_type)
         else:
             # Only Src:
-            tree_type_key = _make_key(change_action.src_node.node_identifier.tree_type)
+            tree_type_key = _make_key(op.src_node.node_identifier.tree_type)
 
-        tree_type_dict = self._build_dict.get(change_action.op_type)
+        tree_type_dict = self._build_dict.get(op.op_type)
         if not tree_type_dict:
-            raise RuntimeError(f'Unrecognized OpType: {change_action.op_type}')
+            raise RuntimeError(f'Unrecognized OpType: {op.op_type}')
 
         build_func = tree_type_dict.get(tree_type_key, None)
         if not build_func:
-            raise RuntimeError(f'Bad tree type(s): {tree_type_key}, for OpType "{change_action.op_type.name}"')
+            raise RuntimeError(f'Bad tree type(s): {tree_type_key}, for OpType "{op.op_type.name}"')
         uid = self._uid_generator.next_uid()
-        return build_func(uid, change_action)
+        return build_func(uid, op)
 
 
 def _populate_build_dict():
     """Every command has an associated target node and a Op. Many commands also have an associated source node."""
     return {OpType.MKDIR: {
-        GD: lambda uid, change: CreateGDriveFolderCommand(change_action=change, uid=uid),
-        LO: lambda uid, change: CreatLocalDirCommand(change_action=change, uid=uid)
+        GD: lambda uid, change: CreateGDriveFolderCommand(op=change, uid=uid),
+        LO: lambda uid, change: CreatLocalDirCommand(op=change, uid=uid)
     }, OpType.CP: {
         LO_LO: lambda uid, change: CopyFileLocallyCommand(uid, change, overwrite=False),
 

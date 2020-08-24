@@ -54,10 +54,10 @@ class CommandResult:
 
 class Command(treelib.Node, ABC):
     """Every command has an associated target node and a Op."""
-    def __init__(self, uid: UID, change_action: Op):
+    def __init__(self, uid: UID, op: Op):
         treelib.Node.__init__(self, identifier=uid)
 
-        self.change_action: Op = change_action
+        self.op: Op = op
         self.result: Optional[CommandResult] = None
         self.tag: str = f'{__class__.__name__}(uid={self.identifier})'
 
@@ -67,7 +67,7 @@ class Command(treelib.Node, ABC):
 
     @property
     def type(self) -> OpType:
-        return self.change_action.op_type
+        return self.op.op_type
 
     @property
     def uid(self) -> UID:
@@ -106,7 +106,7 @@ class Command(treelib.Node, ABC):
 
     def __repr__(self):
         return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self.status()}, ' \
-               f'change_actions={self.change_action}'
+               f'ops={self.op}'
 
 
 # CLASS DeleteNodeCommand
@@ -114,9 +114,9 @@ class Command(treelib.Node, ABC):
 
 class DeleteNodeCommand(Command, ABC):
     """A Command which deletes the target node. If to_trash is true, it's more of a move/update."""
-    def __init__(self, uid: UID, change_action: Op, to_trash: bool, delete_empty_parent: bool):
-        Command.__init__(self, uid, change_action)
-        assert change_action.op_type == OpType.RM
+    def __init__(self, uid: UID, op: Op, to_trash: bool, delete_empty_parent: bool):
+        Command.__init__(self, uid, op)
+        assert op.op_type == OpType.RM
         self.to_trash = to_trash
         self.delete_empty_parent = delete_empty_parent
 
@@ -126,8 +126,8 @@ class DeleteNodeCommand(Command, ABC):
 
 class TwoNodeCommand(Command, ABC):
     """Same functionality as Command but with an additional "source" node. Its "target" node represents the destination node."""
-    def __init__(self, uid: UID, change_action: Op):
-        Command.__init__(self, uid, change_action)
+    def __init__(self, uid: UID, op: Op):
+        Command.__init__(self, uid, op)
 
 
 # CLASS CopyNodeCommand
@@ -135,6 +135,6 @@ class TwoNodeCommand(Command, ABC):
 
 class CopyNodeCommand(TwoNodeCommand, ABC):
     """A TwoNodeCommand which does a copy from src to tgt"""
-    def __init__(self, uid: UID, change_action: Op, overwrite: bool):
-        TwoNodeCommand.__init__(self, uid, change_action)
+    def __init__(self, uid: UID, op: Op, overwrite: bool):
+        TwoNodeCommand.__init__(self, uid, op)
         self.overwrite = overwrite

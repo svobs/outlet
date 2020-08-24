@@ -36,10 +36,10 @@ class OpType(IntEnum):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class OpRef:
-    def __init__(self, action_uid: UID, batch_uid: UID, change_type: OpType, src_uid: UID, dst_uid: UID = None, create_ts: int = None):
+    def __init__(self, action_uid: UID, batch_uid: UID, op_type: OpType, src_uid: UID, dst_uid: UID = None, create_ts: int = None):
         self.action_uid: UID = action_uid
         self.batch_uid: UID = batch_uid
-        self.op_type: OpType = change_type
+        self.op_type: OpType = op_type
         self.src_uid: UID = src_uid
         self.dst_uid: UID = dst_uid
         self.create_ts: int = create_ts
@@ -71,13 +71,13 @@ class Op(Node):
                          OpType.UP: ICON_GENERIC_DIR,
                          OpType.CP: ICON_ADD_DIR}
 
-    def __init__(self, action_uid: UID, batch_uid: UID, change_type: OpType, src_node: DisplayNode,
+    def __init__(self, action_uid: UID, batch_uid: UID, op_type: OpType, src_node: DisplayNode,
                  dst_node: DisplayNode = None, create_ts: int = None):
         assert src_node, 'No src node!'
         Node.__init__(self, identifier=action_uid)
         self.action_uid: UID = action_uid
         self.batch_uid: UID = batch_uid
-        self.op_type: OpType = change_type
+        self.op_type: OpType = op_type
         self.src_node: DisplayNode = src_node
         self.dst_node: DisplayNode = dst_node
         """If it exists, this is the target. Otherwise the target is the src node"""

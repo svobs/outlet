@@ -34,12 +34,12 @@ class PreAncestorDict:
     def __init__(self):
         self._dict: Dict[str, ContainerNode] = {}
 
-    def get_for(self, source_tree: DisplayTree, change_type: OpType) -> Optional[ContainerNode]:
-        key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, change_type=change_type)
+    def get_for(self, source_tree: DisplayTree, op_type: OpType) -> Optional[ContainerNode]:
+        key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, op_type=op_type)
         return self._dict.get(key, None)
 
-    def put_for(self, source_tree: DisplayTree, change_type: OpType, item: ContainerNode):
-        key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, change_type=change_type)
+    def put_for(self, source_tree: DisplayTree, op_type: OpType, item: ContainerNode):
+        key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, op_type=op_type)
         self._dict[key] = item
 
 
@@ -65,10 +65,10 @@ class CategoryDisplayTree(DisplayTree):
         # saved in a nice dict for easy reference:
         self._pre_ancestor_dict: PreAncestorDict = PreAncestorDict()
 
-        self.change_action_dict: Dict[UID, Op] = {}
+        self.op_dict: Dict[UID, Op] = {}
         """Lookup for target node UID -> Op. The target node will be the dst node if the Op has one; otherwise
         it will be the source node."""
-        self._change_action_list: List[Op] = []
+        self._op_list: List[Op] = []
         """We want to keep track of change action creation order."""
 
         self.count_conflict_warnings = 0
@@ -110,14 +110,14 @@ class CategoryDisplayTree(DisplayTree):
                 return child
         return None
 
-    def _get_or_create_pre_ancestors(self, item: DisplayNode, change_type: OpType, source_tree: DisplayTree) -> ContainerNode:
+    def _get_or_create_pre_ancestors(self, item: DisplayNode, op_type: OpType, source_tree: DisplayTree) -> ContainerNode:
         """Pre-ancestors are those nodes (either logical or pointing to real data) which are higher up than the source tree.
         Last pre-ancestor is easily derived and its prescence indicates whether its ancestors were already created"""
 
         tree_type: int = item.node_identifier.tree_type
         assert tree_type != TREE_TYPE_MIXED, f'For {item.node_identifier}'
 
-        last_pre_ancestor = self._pre_ancestor_dict.get_for(source_tree, change_type)
+        last_pre_ancestor = self._pre_ancestor_dict.get_for(source_tree, op_type)
         if last_pre_ancestor:
             return last_pre_ancestor
 
@@ -139,7 +139,7 @@ class CategoryDisplayTree(DisplayTree):
 
         cat_node = None
         for child in self._category_tree.children(parent_node.identifier):
-            if child.op_type == change_type:
+            if child.op_type == op_type:
                 cat_node = child
                 break
 
@@ -147,10 +147,10 @@ class CategoryDisplayTree(DisplayTree):
             # Create category display node. This may be the "last pre-ancestor".
             # Note that we can use this for GDrive paths because we are combining it with tree_type and OpType (below) into a new identifier:
             uid = self.cache_manager.get_uid_for_path(self.root_path)
-            nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, change_type)
+            nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, op_type)
 
             node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=self.root_path, uid=uid)
-            cat_node = CategoryNode(node_identifier=node_identifier, change_type=change_type)
+            cat_node = CategoryNode(node_identifier=node_identifier, op_type=op_type)
             cat_node.identifier = nid
             logger.debug(f'Creating pre-ancestor CAT node: {node_identifier}')
             self._category_tree.add_node(node=cat_node, parent=parent_node)
@@ -173,7 +173,7 @@ class CategoryDisplayTree(DisplayTree):
 
                 if not child_node:
                     uid = self.cache_manager.get_uid_for_path(path_so_far)
-                    nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, change_type)
+                    nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, op_type)
                     node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=uid)
                     child_node = ContainerNode(node_identifier=node_identifier)
                     child_node.identifier = nid
@@ -182,32 +182,32 @@ class CategoryDisplayTree(DisplayTree):
                 parent_node = child_node
 
         # this is the last pre-ancestor. Cache it:
-        self._pre_ancestor_dict.put_for(source_tree, change_type, parent_node)
+        self._pre_ancestor_dict.put_for(source_tree, op_type, parent_node)
         return parent_node
 
     def get_relative_path_for_full_path(self, full_path: str):
         assert full_path.startswith(self.root_path), f'Full path ({full_path}) does not contain root ({self.root_path})'
         return file_util.strip_root(full_path, self.root_path)
 
-    def get_change_actions(self) -> Iterable[Op]:
-        return self._change_action_list
+    def get_ops(self) -> Iterable[Op]:
+        return self._op_list
 
-    def get_change_action_for_node(self, node: DisplayNode) -> Optional[Op]:
-        return self.change_action_dict.get(node.uid, None)
+    def get_op_for_node(self, node: DisplayNode) -> Optional[Op]:
+        return self.op_dict.get(node.uid, None)
 
-    def _append_change_action(self, change_action: Op):
-        logger.debug(f'Appending Op: {change_action.action_uid} ({change_action.op_type.name})')
-        if change_action.dst_node:
-            if self.change_action_dict.get(change_action.dst_node.uid, None):
-                raise RuntimeError(f'Duplicate Op: 1st={change_action}; 2nd={self.change_action_dict.get(change_action.dst_node.uid)}')
-            self.change_action_dict[change_action.dst_node.uid] = change_action
+    def _append_op(self, op: Op):
+        logger.debug(f'Appending Op: {op.action_uid} ({op.op_type.name})')
+        if op.dst_node:
+            if self.op_dict.get(op.dst_node.uid, None):
+                raise RuntimeError(f'Duplicate Op: 1st={op}; 2nd={self.op_dict.get(op.dst_node.uid)}')
+            self.op_dict[op.dst_node.uid] = op
         else:
-            if self.change_action_dict.get(change_action.src_node.uid, None):
-                raise RuntimeError(f'Duplicate Op: 1st={change_action}; 2nd={self.change_action_dict.get(change_action.src_node.uid)}')
-            self.change_action_dict[change_action.src_node.uid] = change_action
-        self._change_action_list.append(change_action)
+            if self.op_dict.get(op.src_node.uid, None):
+                raise RuntimeError(f'Duplicate Op: 1st={op}; 2nd={self.op_dict.get(op.src_node.uid)}')
+            self.op_dict[op.src_node.uid] = op
+        self._op_list.append(op)
 
-    def add_item(self, item: DisplayNode, change_action: Op, source_tree: DisplayTree):
+    def add_item(self, item: DisplayNode, op: Op, source_tree: DisplayTree):
         """When we add the item, we add any necessary ancestors for it as well.
         1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't
         backed by any actual data nodes. This includes possibly tree-type nodes, category nodes, and ancestors
@@ -218,21 +218,21 @@ class CategoryDisplayTree(DisplayTree):
         but in this case it will be a string which includes the OpType name.
         3. Add a node for the item itself
         """
-        assert change_action is not None, f'For item: {item}'
-        self._append_change_action(change_action)
+        assert op is not None, f'For item: {item}'
+        self._append_op(op)
 
-        change_type_for_display = change_action.op_type
-        if change_type_for_display == OpType.MKDIR:
+        op_type_for_display = op.op_type
+        if op_type_for_display == OpType.MKDIR:
             # Group "mkdir" with "copy" for display purposes:
-            change_type_for_display = OpType.CP
+            op_type_for_display = OpType.CP
 
         # Clone the item so as not to mutate the source tree. The item category is needed to determine which bra
         item_clone = copy.copy(item)
         item_clone.node_identifier = copy.copy(item.node_identifier)
-        item_clone.identifier = NodeIdentifierFactory.nid(item.uid, item.node_identifier.tree_type, change_type_for_display)
+        item_clone.identifier = NodeIdentifierFactory.nid(item.uid, item.node_identifier.tree_type, op_type_for_display)
         item = item_clone
 
-        parent: DisplayNode = self._get_or_create_pre_ancestors(item, change_type_for_display, source_tree)
+        parent: DisplayNode = self._get_or_create_pre_ancestors(item, op_type_for_display, source_tree)
 
         if isinstance(parent, ContainerNode):
             parent.add_meta_metrics(item)
@@ -247,7 +247,7 @@ class CategoryDisplayTree(DisplayTree):
             # Get standard UID for path (note: this is a kludge for non-local trees, but should be OK because we just need a UID which
             # is unique for this tree)
             uid = self.cache_manager.get_uid_for_path(full_path)
-            nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, change_type_for_display)
+            nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, op_type_for_display)
             parent = self._category_tree.get_node(nid=nid)
             if parent:
                 break
