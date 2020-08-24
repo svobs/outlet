@@ -233,8 +233,27 @@ class PendingChangeDatabase(MetaDatabase):
         self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, ARCHIVE, SRC)
         self._copy_and_augment_table(GDriveDatabase.TABLE_GRDIVE_FILE, ARCHIVE, DST)
 
+        # Add additional columns for GDrive tables:
         for table in itertools.chain(self.table_lists.gdrive_dir, self.table_lists.gdrive_file):
             _add_gdrive_parent_cols(table)
+
+    def _verify_goog_id_consistency(self, goog_id: str, obj_uid: UID):
+        if goog_id:
+            # Sanity check: make sure pending change cache matches GDrive cache
+            uid_from_cacheman = self.cache_manager.get_uid_for_goog_id(goog_id, obj_uid)
+            if uid_from_cacheman != obj_uid:
+                raise RuntimeError(f'UID from cacheman ({uid_from_cacheman}) does not match UID from change cache ({obj_uid}) '
+                                   f'for goog_id "{goog_id}"')
+
+    def _store_gdrive_object(self, obj: GDriveNode, goog_id: str, parent_uid_int: int, action_uid_int: int,
+                             nodes_by_action_uid: Dict[UID, DisplayNode]):
+        self._verify_goog_id_consistency(goog_id, obj.uid)
+
+        obj.set_parent_uids(parent_uid_int)
+        action_uid = UID(action_uid_int)
+        if nodes_by_action_uid.get(action_uid, None):
+            raise RuntimeError(f'Duplicate node for action_uid: {action_uid}')
+        nodes_by_action_uid[action_uid] = obj
 
     def _tuple_to_gdrive_folder(self, nodes_by_action_uid: Dict[UID, DisplayNode], row: Tuple) -> GDriveFolder:
         action_uid_int, uid_int, goog_id, item_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched, parent_uid_int, \
@@ -243,16 +262,8 @@ class PendingChangeDatabase(MetaDatabase):
         obj = GDriveFolder(GDriveIdentifier(uid=UID(uid_int), full_path=None), goog_id=goog_id, item_name=item_name, trashed=item_trashed,
                            drive_id=drive_id, my_share=my_share, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
 
-        uid_from_cacheman = self.cache_manager.get_uid_for_goog_id(goog_id, obj.uid)
-        if uid_from_cacheman != obj.uid:
-            raise RuntimeError(f'UID from cacheman ({uid_from_cacheman}) does not match UID from change cache ({obj.uid}) '
-                               f'for goog_id "{goog_id}"')
+        self._store_gdrive_object(obj, goog_id, parent_uid_int, action_uid_int, nodes_by_action_uid)
 
-        obj.set_parent_uids(parent_uid_int)
-        action_uid = UID(action_uid_int)
-        if nodes_by_action_uid.get(action_uid, None):
-            raise RuntimeError(f'Duplicate node for action_uid: {action_uid}')
-        nodes_by_action_uid[action_uid] = obj
         return obj
 
     def _tuple_to_gdrive_file(self, nodes_by_action_uid: Dict[UID, DisplayNode], row: Tuple) -> GDriveFile:
@@ -264,16 +275,7 @@ class PendingChangeDatabase(MetaDatabase):
                          head_revision_id=head_revision_id, md5=md5,
                          create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes, owner_id=owner_id, sync_ts=sync_ts)
 
-        uid_from_cacheman = self.cache_manager.get_uid_for_goog_id(goog_id, obj.uid)
-        if uid_from_cacheman != obj.uid:
-            raise RuntimeError(f'UID from cacheman ({uid_from_cacheman}) does not match UID from change cache ({obj.uid}) '
-                               f'for goog_id "{goog_id}"')
-
-        obj.set_parent_uids(parent_uid_int)
-        action_uid = UID(action_uid_int)
-        if nodes_by_action_uid.get(action_uid, None):
-            raise RuntimeError(f'Duplicate node for action_uid: {action_uid}')
-        nodes_by_action_uid[action_uid] = obj
+        self._store_gdrive_object(obj, goog_id, parent_uid_int, action_uid_int, nodes_by_action_uid)
         return obj
 
     def _tuple_to_local_dir(self, nodes_by_action_uid: Dict[UID, DisplayNode], row: Tuple) -> LocalDirNode:

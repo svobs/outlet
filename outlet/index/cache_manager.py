@@ -452,6 +452,8 @@ class CacheManager:
 
     def get_uid_for_goog_id(self, goog_id: str, uid_suggestion: Optional[UID] = None) -> UID:
         """Deterministically gets or creates a UID corresponding to the given goog_id"""
+        if not goog_id:
+            raise RuntimeError('get_uid_for_goog_id(): no goog_id specified!')
         return self._gdrive_cache.get_uid_for_goog_id(goog_id, uid_suggestion)
 
     def get_node_for_local_path(self, path: str) -> DisplayNode:

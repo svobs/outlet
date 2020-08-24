@@ -15,7 +15,7 @@ ALERT_ICON_PATH = get_resource_path("resources/Dialog-error-icon-24px.png")
 GDRIVE_ICON_PATH = get_resource_path("resources/google-drive-logo-48px-scaled.png")
 LOCAL_DISK_PATH = get_resource_path("resources/Filesystems-hd-linux-icon-48px.png")
 CHOOSE_ROOT_ICON_PATH = LOCAL_DISK_PATH  # get_resource_path("resources/Folder-tree-flat-40px.png")
-WINDOW_ICON_PATH = get_resource_path("resources/fslint_icon.png")
+WINDOW_ICON_PATH = get_resource_path("resources/app_icon.png")
 REFRESH_ICON_PATH = get_resource_path('resources/Refresh-icon-48px.png')
 
 

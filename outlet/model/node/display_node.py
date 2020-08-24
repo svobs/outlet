@@ -142,7 +142,7 @@ class HasParentList(ABC):
                 return self._parent_uids
             elif isinstance(self._parent_uids, UID):
                 return [self._parent_uids]
-            assert False
+            assert False, f'Expected list or UID for parent_uids but got: type={type(self._parent_uids)}; val={self._parent_uids} '
         return []
 
     def set_parent_uids(self, parent_uids):
