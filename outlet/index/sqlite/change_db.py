@@ -249,7 +249,9 @@ class PendingChangeDatabase(MetaDatabase):
                              nodes_by_action_uid: Dict[UID, DisplayNode]):
         self._verify_goog_id_consistency(goog_id, obj.uid)
 
-        obj.set_parent_uids(parent_uid_int)
+        if not parent_uid_int:
+            raise RuntimeError(f'Cannot store GDrive object: it has no parent! Object: {obj}')
+        obj.set_parent_uids(UID(parent_uid_int))
         action_uid = UID(action_uid_int)
         if nodes_by_action_uid.get(action_uid, None):
             raise RuntimeError(f'Duplicate node for action_uid: {action_uid}')

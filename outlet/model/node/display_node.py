@@ -156,6 +156,7 @@ class HasParentList(ABC):
             else:
                 self._parent_uids = parent_uids
         else:
+            assert isinstance(parent_uids, UID), f'Found instead: {parent_uids}, type={type(parent_uids)}'
             self._parent_uids = parent_uids
 
     def add_parent(self, parent_uid: UID):
