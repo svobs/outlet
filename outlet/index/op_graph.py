@@ -32,7 +32,7 @@ class OpGraph:
         """Used to help consumers block"""
 
         self._node_dict: Dict[UID, Deque[OpGraphNode]] = {}
-        """Contains entries for all nodes have pending changes. Each entry has a queue of pending changes for that node"""
+        """Contains entries for all nodes have pending ops. Each entry has a queue of pending ops for that node"""
 
         self._graph_root: OpGraphNode = RootNode()
         """Root of tree. Has no useful internal data; we value it for its children"""
@@ -96,20 +96,20 @@ class OpGraph:
 
         # Verify batch sort:
         last_uid = 0
-        for change in op_batch:
+        for op in op_batch:
             # Changes MUST be sorted in ascending time of creation!
-            if change.action_uid < last_uid:
-                raise RuntimeError(f'Batch items are not in order! ({change.action_uid} < {last_uid}')
-            last_uid = change.action_uid
+            if op.action_uid < last_uid:
+                raise RuntimeError(f'Batch items are not in order! ({op.action_uid} < {last_uid}')
+            last_uid = op.action_uid
 
         # Put all in dict as wrapped OpGraphNodes
         non_mutex_node_dict: DefaultDict[UID, List[OpGraphNode]] = collections.defaultdict(lambda: list())
         mutex_node_dict: Dict[UID, OpGraphNode] = {}
-        for change in op_batch:
-            if change.op_type == OpType.RM:
-                src_node = RmOpNode(self.uid_generator.next_uid(), change)
+        for op in op_batch:
+            if op.op_type == OpType.RM:
+                src_node = RmOpNode(self.uid_generator.next_uid(), op)
             else:
-                src_node = SrcOpNode(self.uid_generator.next_uid(), change)
+                src_node = SrcOpNode(self.uid_generator.next_uid(), op)
 
             if src_node.is_mutually_exclusive():
                 existing = mutex_node_dict.get(src_node.get_target_node().uid, None)
@@ -119,8 +119,8 @@ class OpGraph:
             else:
                 non_mutex_node_dict[src_node.get_target_node().uid].append(src_node)
 
-            if change.has_dst():
-                dst_node = DstOpNode(self.uid_generator.next_uid(), change)
+            if op.has_dst():
+                dst_node = DstOpNode(self.uid_generator.next_uid(), op)
                 assert dst_node.is_mutually_exclusive()
                 existing = mutex_node_dict.get(dst_node.get_target_node().uid, None)
                 if existing:
@@ -176,7 +176,7 @@ class OpGraph:
             logger.debug(line)
         return root_node
 
-    def can_add_batch(self, root_of_changes: RootNode) -> bool:
+    def can_add_batch(self, root_of_ops: RootNode) -> bool:
         """
         Takes a tree representing a batch as an arg. The root itself is ignored, but each of its children represent the root of a
         subtree of changes, in which each node of the subtree maps to a node in a directory tree. No intermediate nodes are allowed to be

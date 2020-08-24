@@ -118,7 +118,7 @@ class GlobalActions:
 
         def open_dialog():
             try:
-                # Preview changes in UI pop-up. Change tree_id so that listeners don't step on existing trees
+                # Preview ops in UI pop-up. Change tree_id so that listeners don't step on existing trees
                 dialog = GDriveDirChooserDialog(self.application.window, tree, sender, current_selection)
                 response_id = dialog.run()
                 if response_id == Gtk.ResponseType.OK:
@@ -160,14 +160,14 @@ class GlobalActions:
 
             stopwatch_diff = Stopwatch()
             differ = ContentFirstDiffer(left_fmeta_tree, right_fmeta_tree, self.application)
-            change_tree_left, change_tree_right, = differ.diff(compare_paths_also=True)
+            op_tree_left, op_tree_right, = differ.diff(compare_paths_also=True)
             logger.info(f'{stopwatch_diff} Diff completed')
 
             actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, msg='Populating UI trees...')
 
-            tree_con_left.reload(new_tree=change_tree_left, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY,
+            tree_con_left.reload(new_tree=op_tree_left, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY,
                                  show_checkboxes=True)
-            tree_con_right.reload(new_tree=change_tree_right, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY,
+            tree_con_right.reload(new_tree=op_tree_right, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY,
                                   show_checkboxes=True)
 
             actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW)

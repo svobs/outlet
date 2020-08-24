@@ -208,7 +208,7 @@ class ContentFirstDiffer(ChangeMaker):
                 self.append_copy_left_to_right(left_item)
 
                 # Dead node walking:
-                self.left_side.add_change_item(OpType.RM, src_node=left_item)
+                self.left_side.add_op(OpType.RM, src_node=left_item)
                 count_add_delete_pairs += 1
         logger.info(f'{sw} Finished path comparison for left tree')
 
@@ -227,7 +227,7 @@ class ContentFirstDiffer(ChangeMaker):
                 self.append_copy_right_to_left(right_item)
 
                 # Dead node walking:
-                self.right_side.add_change_item(OpType.RM, src_node=right_item)
+                self.right_side.add_op(OpType.RM, src_node=right_item)
                 count_add_delete_pairs += 1
 
         logger.info(f'Done with diff (pairs: add/del={count_add_delete_pairs} upd={count_updated_pairs} moved={count_moved_pairs})'

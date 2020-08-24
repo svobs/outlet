@@ -58,7 +58,7 @@ class OpLedger:
             op_list: List[Op] = op_db.get_all_pending_ops()
             if op_list:
                 op_db.archive_failed_ops(op_list, 'Cancelled on startup per user config')
-                logger.info(f'Cancelled {len(op_list)} pending changes found in cache')
+                logger.info(f'Cancelled {len(op_list)} pending ops found in cache')
 
     def _load_pending_ops_from_disk(self, error_handling_behavior: ErrorHandlingBehavior) -> List[Op]:
         # first load refs from disk
@@ -68,7 +68,7 @@ class OpLedger:
         if not op_list:
             return op_list
 
-        logger.debug(f'Found {len(op_list)} pending changes in cache')
+        logger.debug(f'Found {len(op_list)} pending ops in cache')
 
         # TODO: check for invalid nodes?
 
@@ -91,12 +91,12 @@ class OpLedger:
         else:
             assert self.cacheman.get_item_for_uid(op.src_node.uid), f'Expected src node already present for: {op}'
             if op.dst_node:
-                assert self.cacheman.get_item_for_uid(op.dst_node.uid), f'Expected dst node already present for change: {op}'
+                assert self.cacheman.get_item_for_uid(op.dst_node.uid), f'Expected dst node already present for op: {op}'
 
     # Reduce Changes logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _reduce_changes(self, op_list: Iterable[Op]) -> Iterable[Op]:
+    def _reduce_ops(self, op_list: Iterable[Op]) -> Iterable[Op]:
         final_list: List[Op] = []
 
         # Put all affected nodes in map.
@@ -106,34 +106,34 @@ class OpLedger:
         cp_dst_dict: Dict[UID, Op] = {}
         # src node is not necessarily mutually exclusive:
         cp_src_dict: DefaultDict[UID, List[Op]] = defaultdict(lambda: list())
-        count_changes_orig = 0
-        for change in op_list:
-            count_changes_orig += 1
-            if change.op_type == OpType.MKDIR:
+        count_ops_orig = 0
+        for op in op_list:
+            count_ops_orig += 1
+            if op.op_type == OpType.MKDIR:
                 # remove dups
-                if mkdir_dict.get(change.src_node.uid, None):
-                    logger.info(f'ReduceChanges(): Removing duplicate MKDIR for node: {change.src_node}')
+                if mkdir_dict.get(op.src_node.uid, None):
+                    logger.info(f'ReduceChanges(): Removing duplicate MKDIR for node: {op.src_node}')
                 else:
-                    logger.info(f'ReduceChanges(): Adding MKDIR-type: {change}')
-                    final_list.append(change)
-                    mkdir_dict[change.src_node.uid] = change
-            elif change.op_type == OpType.RM:
+                    logger.info(f'ReduceChanges(): Adding MKDIR-type: {op}')
+                    final_list.append(op)
+                    mkdir_dict[op.src_node.uid] = op
+            elif op.op_type == OpType.RM:
                 # remove dups
-                if rm_dict.get(change.src_node.uid, None):
-                    logger.info(f'ReduceChanges(): Removing duplicate RM for node: {change.src_node}')
+                if rm_dict.get(op.src_node.uid, None):
+                    logger.info(f'ReduceChanges(): Removing duplicate RM for node: {op.src_node}')
                 else:
-                    logger.info(f'ReduceChanges(): Adding RM-type: {change}')
-                    final_list.append(change)
-                    rm_dict[change.src_node.uid] = change
-            elif change.op_type == OpType.CP or change.op_type == OpType.UP or change.op_type == OpType.MV:
-                existing = cp_dst_dict.get(change.dst_node.uid, None)
+                    logger.info(f'ReduceChanges(): Adding RM-type: {op}')
+                    final_list.append(op)
+                    rm_dict[op.src_node.uid] = op
+            elif op.op_type == OpType.CP or op.op_type == OpType.UP or op.op_type == OpType.MV:
+                existing = cp_dst_dict.get(op.dst_node.uid, None)
                 if existing:
                     # It is an error for anything but an exact duplicate to share the same dst node; if duplicate, then discard
-                    if existing.src_node.uid != change.src_node.uid:
-                        logger.error(f'ReduceChanges(): Conflict: Change1: {existing}; Change2: {change}')
-                        raise RuntimeError(f'Batch change conflict: trying to copy different nodes into the same destination!')
-                    elif existing.op_type != change.op_type:
-                        logger.error(f'ReduceChanges(): Conflict: Change1: {existing}; Change2: {change}')
+                    if existing.src_node.uid != op.src_node.uid:
+                        logger.error(f'ReduceChanges(): Conflict: Change1: {existing}; Change2: {op}')
+                        raise RuntimeError(f'Batch op conflict: trying to copy different nodes into the same destination!')
+                    elif existing.op_type != op.op_type:
+                        logger.error(f'ReduceChanges(): Conflict: Change1: {existing}; Change2: {op}')
                         raise RuntimeError(f'Batch change conflict: trying to copy differnt change types into the same destination!')
                     else:
                         assert change.dst_node.uid == existing.dst_node.uid and existing.src_node.uid == change.src_node.uid and \

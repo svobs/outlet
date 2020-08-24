@@ -74,7 +74,7 @@ class LocalDiskMasterCache:
 
         stopwatch_load = Stopwatch()
 
-        # Load cache from file, and update with any local FS changes found:
+        # Load cache from file, and update with any local FS ops found:
         with LocalDiskDatabase(cache_info.cache_location, self.application) as fmeta_disk_cache:
             if not fmeta_disk_cache.has_local_files() and not fmeta_disk_cache.has_local_dirs():
                 logger.debug(f'No meta found in cache ({cache_info.cache_location}) - will skip loading it')
@@ -103,7 +103,7 @@ class LocalDiskMasterCache:
             # Dirs first
             for dir_node in dir_list:
                 existing = tree.get_node(dir_node.identifier)
-                # Overwrite older changes for the same path:
+                # Overwrite older ops for the same path:
                 if not existing:
                     tree.add_to_tree(dir_node)
                     if not dir_node.exists():

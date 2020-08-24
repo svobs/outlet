@@ -141,10 +141,10 @@ INITIAL_TREE_RIGHT = [
 ]
 
 
-# CLASS ChangeTest
+# CLASS OpTest
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class ChangeTest(unittest.TestCase):
+class OpTest(unittest.TestCase):
     def setUp(self) -> None:
         # Remove test files and replace with freshly extracted files
         if os.path.exists(TEST_TARGET_DIR):

@@ -43,7 +43,7 @@ class OneSide:
         self.underlying_tree: DisplayTree = underlying_tree
         self.application = application
         self.uid_generator = application.uid_generator
-        self.change_tree: CategoryDisplayTree = CategoryDisplayTree(application, self.underlying_tree.node_identifier, tree_id)
+        self.op_tree: CategoryDisplayTree = CategoryDisplayTree(application, self.underlying_tree.node_identifier, tree_id)
         self.batch_uid = self.uid_generator.next_uid()
         self.added_folders: Dict[str, ContainerNode] = {}
 
@@ -75,8 +75,8 @@ class OneSide:
         return Op(action_uid=self.uid_generator.next_uid(), batch_uid=self.batch_uid, op_type=op_type,
                             src_node=src_node, dst_node=dst_node)
 
-    def add_change_item(self, op_type: OpType, src_node: DisplayNode, dst_node: DisplayNode = None):
-        """Adds a node to the change tree (dst_node; unless dst_node is None, in which case it will use src_node), and also adds a Op
+    def add_op(self, op_type: OpType, src_node: DisplayNode, dst_node: DisplayNode = None):
+        """Adds a node to the op tree (dst_node; unless dst_node is None, in which case it will use src_node), and also adds a Op
         of the given type"""
 
         op: Op = self._create_op(op_type, src_node, dst_node)
@@ -85,18 +85,18 @@ class OneSide:
             target_node = dst_node
         else:
             target_node = src_node
-        self.change_tree.add_item(target_node, op, self.underlying_tree)
+        self.op_tree.add_item(target_node, op, self.underlying_tree)
 
     def add_needed_ancestors(self, new_item: DisplayNode):
-        """Determines what ancestor directories need to be created, and appends them to the change tree (as well as change actions for them).
-        Appends the migrated item as well, but the change action for it is omitted so that the caller can provide its own"""
+        """Determines what ancestor directories need to be created, and appends them to the op tree (as well as ops for them).
+        Appends the migrated item as well, but the op for it is omitted so that the caller can provide its own"""
 
         # Lowest item in the stack will always be orig item. Stack size > 1 iff need to add parent folders
         ancestor_stack: Deque[ContainerNode] = self._generate_missing_ancestor_nodes(new_item)
         while len(ancestor_stack) > 0:
             ancestor: DisplayNode = ancestor_stack.pop()
             # Create an accompanying MKDIR action which will create the new folder/dir
-            self.add_change_item(op_type=OpType.MKDIR, src_node=ancestor)
+            self.add_op(op_type=OpType.MKDIR, src_node=ancestor)
 
     def _generate_missing_ancestor_nodes(self, new_item: DisplayNode):
         tree_type: int = new_item.node_identifier.tree_type
@@ -163,7 +163,7 @@ class ChangeMaker:
         self.uid_generator = application.uid_generator
 
     def copy_nodes_left_to_right(self, src_node_list: List[DisplayNode], dst_parent: DisplayNode, op_type: OpType):
-        """Populates the destination parent in "change_tree_right" with the given source nodes."""
+        """Populates the destination parent in "op_tree_right" with the given source nodes."""
         assert dst_parent.is_dir()
         assert op_type == OpType.CP or op_type == OpType.MV or op_type == OpType.UP
         dst_parent_path = dst_parent.full_path
@@ -186,12 +186,12 @@ class ChangeMaker:
                     dst_rel_path = file_util.strip_root(node.full_path, src_path_minus_dirname)
                     new_path = os.path.join(dst_parent_path, dst_rel_path)
                     dst_node = self.right_side.migrate_single_node_to_this_side(node, new_path)
-                    self.right_side.add_change_item(op_type=op_type, src_node=node, dst_node=dst_node)
+                    self.right_side.add_op(op_type=op_type, src_node=node, dst_node=dst_node)
             else:
                 file_name = os.path.basename(src_node.full_path)
                 new_path = os.path.join(dst_parent_path, file_name)
                 dst_node = self.right_side.migrate_single_node_to_this_side(src_node, new_path)
-                self.right_side.add_change_item(op_type=op_type, src_node=src_node, dst_node=dst_node)
+                self.right_side.add_op(op_type=op_type, src_node=src_node, dst_node=dst_node)
 
     def get_path_moved_to_right(self, left_item) -> str:
         return os.path.join(self.right_side.underlying_tree.root_path, left_item.get_relative_path(self.left_side.underlying_tree))
@@ -212,27 +212,27 @@ class ChangeMaker:
         the file on the left"""
         dst_node: DisplayNode = self._migrate_node_to_right(left_item)
         # "src node" can be either left_item or right_item. We'll use right_item because it is closer (in theory)
-        self.right_side.add_change_item(op_type=OpType.MV, src_node=right_item, dst_node=dst_node)
+        self.right_side.add_op(op_type=OpType.MV, src_node=right_item, dst_node=dst_node)
 
     def append_rename_left_to_left(self, left_item, right_item):
         """Make a FileToMove node which will rename a file within the left tree to match the relative path of the file on right"""
         dst_node: DisplayNode = self._migrate_node_to_left(right_item)
         # "src node" can be either left_item or right_item. We'll use right_item because it is closer (in theory)
-        self.left_side.add_change_item(op_type=OpType.MV, src_node=left_item, dst_node=dst_node)
+        self.left_side.add_op(op_type=OpType.MV, src_node=left_item, dst_node=dst_node)
 
     def append_copy_left_to_right(self, left_item):
         """COPY: Left -> Right"""
         dst_node: DisplayNode = self._migrate_node_to_right(left_item)
 
         # "src node" can be either left_item or right_item. We'll use left_item because it is closer (in theory)
-        self.right_side.add_change_item(op_type=OpType.CP, src_node=left_item, dst_node=dst_node)
+        self.right_side.add_op(op_type=OpType.CP, src_node=left_item, dst_node=dst_node)
 
     def append_copy_right_to_left(self, right_item):
         """COPY: Left <- Right"""
         dst_node: DisplayNode = self._migrate_node_to_left(right_item)
 
         # "src node" can be either left_item or right_item. We'll use left_item because it is closer (in theory)
-        self.left_side.add_change_item(op_type=OpType.CP, src_node=right_item, dst_node=dst_node)
+        self.left_side.add_op(op_type=OpType.CP, src_node=right_item, dst_node=dst_node)
 
     def append_update_left_to_right(self, left_item, right_item_to_overwrite):
         """UPDATE: Left -> Right"""
@@ -240,7 +240,7 @@ class ChangeMaker:
         assert dst_node.uid == right_item_to_overwrite.uid
 
         # "src node" can be either left_item or right_item. We'll use left_item because it is closer (in theory)
-        self.right_side.add_change_item(op_type=OpType.UP, src_node=left_item, dst_node=dst_node)
+        self.right_side.add_op(op_type=OpType.UP, src_node=left_item, dst_node=dst_node)
 
     def append_update_right_to_left(self, right_item, left_item_to_overwrite):
         """UPDATE: Left <- Right"""
@@ -248,4 +248,4 @@ class ChangeMaker:
         assert dst_node.uid == left_item_to_overwrite.uid
 
         # "src node" can be either left_item or right_item. We'll use left_item because it is closer (in theory)
-        self.left_side.add_change_item(op_type=OpType.UP, src_node=right_item, dst_node=dst_node)
+        self.left_side.add_op(op_type=OpType.UP, src_node=right_item, dst_node=dst_node)
