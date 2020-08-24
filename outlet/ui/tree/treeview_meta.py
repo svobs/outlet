@@ -138,8 +138,8 @@ class TreeViewMeta:
     def _on_node_expansion_toggled(self, sender: str, parent_iter, parent_path, node: DisplayNode, is_expanded: bool):
         if type(node) == CategoryNode:
             assert isinstance(node, CategoryNode)
-            logger.debug(f'[{self.tree_id}] Detected node expansion toggle: {node.change_type} = {is_expanded}')
-            cfg_path = f'transient.{self.tree_id}.expanded_state.{node.change_type.name}'
+            logger.debug(f'[{self.tree_id}] Detected node expansion toggle: {node.op_type} = {is_expanded}')
+            cfg_path = f'transient.{self.tree_id}.expanded_state.{node.op_type.name}'
             self.config.write(cfg_path, is_expanded)
         # Allow other listeners to handle this also:
         return False
@@ -147,7 +147,7 @@ class TreeViewMeta:
     def is_category_node_expanded(self, node: DisplayNode):
         if self.is_display_persisted:
             assert isinstance(node, CategoryNode)
-            cfg_path = f'transient.{self.tree_id}.expanded_state.{node.change_type.name}'
+            cfg_path = f'transient.{self.tree_id}.expanded_state.{node.op_type.name}'
             return self.config.get(cfg_path, True)
 
         # Default if no config:

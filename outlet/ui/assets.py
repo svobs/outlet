@@ -1,6 +1,6 @@
 import gi
 
-from model.change_action import ChangeType
+from model.op import OpType
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GdkPixbuf
@@ -28,12 +28,12 @@ def _build_icons(icon_size):
     icons[ICON_ADD_DIR] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Folder_add_{icon_size}px.png'))
     icons[ICON_TRASHED_DIR] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/recycle-bag-{icon_size}px.png'))
     icons[ICON_TRASHED_FILE] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/icons8-paper-waste-{icon_size}px.png'))
-    icons[ChangeType.CP.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-Add-icon-{icon_size}px.png'))
+    icons[OpType.CP.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-Add-icon-{icon_size}px.png'))
     icons[ICON_ADD_FILE] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-Add-icon-{icon_size}px.png'))
-    icons[ChangeType.RM.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-Delete-icon-{icon_size}px.png'))
+    icons[OpType.RM.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-Delete-icon-{icon_size}px.png'))
     icons[ICON_MODIFY_FILE] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
-    icons[ChangeType.MV.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
-    icons[ChangeType.UP.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
+    icons[OpType.MV.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
+    icons[OpType.UP.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
     return icons
 
 

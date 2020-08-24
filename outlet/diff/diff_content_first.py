@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from model.change_action import ChangeType
+from model.op import OpType
 from constants import ROOT_PATH, LOCAL_ROOT_UID, SUPER_ROOT_UID, TREE_TYPE_MIXED
 from diff.change_maker import ChangeMaker
 from index.two_level_dict import TwoLevelDict
@@ -208,7 +208,7 @@ class ContentFirstDiffer(ChangeMaker):
                 self.append_copy_left_to_right(left_item)
 
                 # Dead node walking:
-                self.left_side.add_change_item(ChangeType.RM, src_node=left_item)
+                self.left_side.add_change_item(OpType.RM, src_node=left_item)
                 count_add_delete_pairs += 1
         logger.info(f'{sw} Finished path comparison for left tree')
 
@@ -227,7 +227,7 @@ class ContentFirstDiffer(ChangeMaker):
                 self.append_copy_right_to_left(right_item)
 
                 # Dead node walking:
-                self.right_side.add_change_item(ChangeType.RM, src_node=right_item)
+                self.right_side.add_change_item(OpType.RM, src_node=right_item)
                 count_add_delete_pairs += 1
 
         logger.info(f'Done with diff (pairs: add/del={count_add_delete_pairs} upd={count_updated_pairs} moved={count_moved_pairs})'
@@ -255,14 +255,14 @@ class ContentFirstDiffer(ChangeMaker):
             if change_action:
                 merged_tree.add_item(item, change_action, self.left_side.underlying_tree)
             else:
-                logger.debug(f'Skipping node because it is not associated with a ChangeAction: {item}')
+                logger.debug(f'Skipping node because it is not associated with a Op: {item}')
 
         for item in right_selected_changes:
             change_action = self.right_side.underlying_tree.get_change_action_for_node(item)
             if change_action:
                 merged_tree.add_item(item, change_action, self.right_side.underlying_tree)
             else:
-                logger.debug(f'Skipping node because it is not associated with a ChangeAction: {item}')
+                logger.debug(f'Skipping node because it is not associated with a Op: {item}')
 
         # TODO: check for conflicts
 

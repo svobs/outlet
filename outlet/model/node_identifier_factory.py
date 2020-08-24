@@ -1,6 +1,6 @@
 import logging
 
-from model.change_action import ChangeType
+from model.op import OpType
 from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, ROOT_PATH
 from index.uid.uid import UID
 
@@ -17,7 +17,7 @@ class NodeIdentifierFactory:
         self.application = application
 
     @staticmethod
-    def nid(uid: UID, tree_type: int, change_type: ChangeType):
+    def nid(uid: UID, tree_type: int, change_type: OpType):
         return f'{tree_type}-{uid}-{change_type.name}'
 
     @staticmethod

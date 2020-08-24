@@ -3,7 +3,7 @@ import os
 import pathlib
 
 from util import file_util
-from model.change_action import ChangeAction, ChangeType
+from model.op import Op, OpType
 from cmd.cmd_interface import Command, CommandContext, CommandResult, CommandStatus, CopyNodeCommand, DeleteNodeCommand, TwoNodeCommand
 from constants import EXPLICITLY_TRASHED, FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, NOT_TRASHED
 from index.uid.uid import UID
@@ -19,11 +19,11 @@ logger = logging.getLogger(__name__)
 
 class CopyFileLocallyCommand(CopyNodeCommand):
     """Local-to-local add or update"""
-    def __init__(self, uid: UID, change_action: ChangeAction, overwrite: bool = False):
+    def __init__(self, uid: UID, change_action: Op, overwrite: bool = False):
         super().__init__(uid, change_action, overwrite)
         self.tag = f'{__class__.__name__}(uid={self.identifier}, ow={self.overwrite} src="{self.change_action.src_node.full_path}", ' \
                    f'dst="{self.change_action.dst_node.full_path}")'
-        assert change_action.change_type == ChangeType.CP
+        assert change_action.op_type == OpType.CP
 
     def get_total_work(self) -> int:
         return self.change_action.src_node.get_size_bytes()
@@ -64,7 +64,7 @@ class DeleteLocalFileCommand(DeleteNodeCommand):
     """
     Delete Local. This supports deleting either a single file or an empty dir.
     """
-    def __init__(self, uid: UID, change_action: ChangeAction, to_trash=True, delete_empty_parent=False):
+    def __init__(self, uid: UID, change_action: Op, to_trash=True, delete_empty_parent=False):
         super().__init__(uid, change_action, to_trash, delete_empty_parent)
         self.tag = f'{__class__.__name__}(uid={self.identifier}, tgt_uid={self.change_action.src_node.uid} to_trash={self.to_trash}, ' \
                    f'delete_empty_parent={self.delete_empty_parent})'
@@ -113,9 +113,9 @@ class MoveFileLocallyCommand(TwoNodeCommand):
     """
     Move/Rename Local -> Local
     """
-    def __init__(self, uid: UID, change_action: ChangeAction):
+    def __init__(self, uid: UID, change_action: Op):
         super().__init__(uid, change_action)
-        self.tag = f'{__class__.__name__}(uid={self.identifier}, act={change_action.change_type} tgt_uid={self.change_action.dst_node.uid}, ' \
+        self.tag = f'{__class__.__name__}(uid={self.identifier}, act={change_action.op_type} tgt_uid={self.change_action.dst_node.uid}, ' \
                    f'src_uid={self.change_action.src_node.uid}'
 
     def get_total_work(self) -> int:
@@ -149,9 +149,9 @@ class CreatLocalDirCommand(Command):
     Create Local dir
     """
 
-    def __init__(self, uid: UID, change_action: ChangeAction):
+    def __init__(self, uid: UID, change_action: Op):
         super().__init__(uid, change_action)
-        self.tag = f'{__class__.__name__}(uid={self.identifier}, act={change_action.change_type}'
+        self.tag = f'{__class__.__name__}(uid={self.identifier}, act={change_action.op_type}'
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -179,10 +179,10 @@ class UploadToGDriveCommand(CopyNodeCommand):
     """
     Copy Local -> GDrive
     """
-    def __init__(self, uid: UID, change_action: ChangeAction, overwrite: bool):
+    def __init__(self, uid: UID, change_action: Op, overwrite: bool):
         super().__init__(uid, change_action, overwrite)
         assert isinstance(self.change_action.dst_node, GDriveNode)
-        self.tag = f'{__class__.__name__}(uid={self.identifier}, op={change_action.change_type.name} src_uid={self.change_action.src_node.uid} ' \
+        self.tag = f'{__class__.__name__}(uid={self.identifier}, op={change_action.op_type.name} src_uid={self.change_action.src_node.uid} ' \
                    f'dst_uid={self.change_action.dst_node.uid} dst_parent_ids="{self.change_action.dst_node.get_parent_uids()} overwrite={overwrite}'
 
     def get_total_work(self) -> int:
@@ -231,11 +231,11 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
     """
     Copy GDrive -> Local
     """
-    def __init__(self, uid: UID, change_action: ChangeAction, overwrite: bool):
+    def __init__(self, uid: UID, change_action: Op, overwrite: bool):
         super().__init__(uid, change_action, overwrite)
         assert isinstance(self.change_action.src_node, GDriveNode), f'For {self.change_action.src_node}'
         assert isinstance(self.change_action.dst_node, LocalFileNode), f'For {self.change_action.dst_node}'
-        self.tag = f'{__class__.__name__}(uid={self.identifier}, act={change_action.change_type} tgt_uid={self.change_action.dst_node.uid} ' \
+        self.tag = f'{__class__.__name__}(uid={self.identifier}, act={change_action.op_type} tgt_uid={self.change_action.dst_node.uid} ' \
                    f'src_uid={self.change_action.src_node.uid} overwrite={overwrite}'
 
     def get_total_work(self) -> int:
@@ -297,10 +297,10 @@ class CreateGDriveFolderCommand(Command):
     """
     Create GDrive FOLDER (sometimes a prerequisite to uploading a file)
     """
-    def __init__(self, uid: UID, change_action: ChangeAction):
+    def __init__(self, uid: UID, change_action: Op):
         super().__init__(uid, change_action)
-        assert change_action.change_type == ChangeType.MKDIR
-        self.tag = f'{__class__.__name__}(uid={self.identifier}, act={change_action.change_type}'
+        assert change_action.op_type == OpType.MKDIR
+        self.tag = f'{__class__.__name__}(uid={self.identifier}, act={change_action.op_type}'
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -338,10 +338,10 @@ class MoveFileGDriveCommand(TwoNodeCommand):
     """
     Move GDrive -> GDrive
     """
-    def __init__(self, uid: UID, change_action: ChangeAction):
+    def __init__(self, uid: UID, change_action: Op):
         super().__init__(uid, change_action)
-        assert change_action.change_type == ChangeType.MV
-        self.tag = f'{__class__.__name__}(uid={self.identifier}, act={change_action.change_type} dst_uid={self.change_action.dst_node.uid}, ' \
+        assert change_action.op_type == OpType.MV
+        self.tag = f'{__class__.__name__}(uid={self.identifier}, act={change_action.op_type} dst_uid={self.change_action.dst_node.uid}, ' \
                    f'src_uid={self.change_action.src_node.uid}'
 
     def get_total_work(self) -> int:
@@ -393,7 +393,7 @@ class DeleteGDriveFileCommand(DeleteNodeCommand):
     """
     Delete GDrive
     """
-    def __init__(self, uid: UID, change_action: ChangeAction, to_trash=True, delete_empty_parent=False):
+    def __init__(self, uid: UID, change_action: Op, to_trash=True, delete_empty_parent=False):
         super().__init__(uid, change_action, to_trash, delete_empty_parent)
         self.tag = f'{__class__.__name__}(uid={self.identifier}, to_trash={self.to_trash}, delete_empty_parent={self.delete_empty_parent})'
 

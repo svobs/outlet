@@ -8,7 +8,7 @@ from pydispatch import dispatcher
 
 from model.node_identifier import NodeIdentifier
 from util import file_util
-from model.change_action import ChangeAction, ChangeType
+from model.op import Op, OpType
 from gdrive.client import GDriveClient
 from model.node.display_node import DisplayNode
 from model.node.gdrive_node import GDriveFile
@@ -163,11 +163,11 @@ class TreeActions:
                 for node in expanded_node_list:
                     # somewhere in this returned list is the subtree root. Need to check so we don't include a duplicate:
                     if node.uid != node_to_delete.uid:
-                        change_list.append(ChangeAction(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
-                                                        change_type=ChangeType.RM, src_node=node))
+                        change_list.append(Op(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
+                                                        change_type=OpType.RM, src_node=node))
 
-            change_list.append(ChangeAction(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
-                                            change_type=ChangeType.RM, src_node=node_to_delete))
+            change_list.append(Op(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
+                                            change_type=OpType.RM, src_node=node_to_delete))
 
         self.con.parent_win.application.cache_manager.enqueue_change_list(change_list)
 

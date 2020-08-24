@@ -11,7 +11,7 @@ from index.sqlite.base_db import LiveTable, MetaDatabase, Table
 from index.sqlite.gdrive_db import GDriveDatabase
 from index.sqlite.local_db import LocalDiskDatabase
 from index.uid.uid import UID
-from model.change_action import ChangeAction, ChangeActionRef, ChangeType
+from model.op import Op, OpRef, OpType
 from model.node.display_node import DisplayNode
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
@@ -27,8 +27,8 @@ DST = 'dst'
 ACTION_UID_COL_NAME = 'action_uid'
 
 
-def _pending_change_to_tuple(e: ChangeAction):
-    assert isinstance(e, ChangeAction), f'Expected ChangeAction; got instead: {e}'
+def _pending_op_to_tuple(e: Op):
+    assert isinstance(e, Op), f'Expected Op; got instead: {e}'
     src_uid = None
     dst_uid = None
     if e.src_node:
@@ -37,11 +37,11 @@ def _pending_change_to_tuple(e: ChangeAction):
     if e.dst_node:
         dst_uid = e.dst_node.uid
 
-    return e.action_uid, e.batch_uid, e.change_type, src_uid, dst_uid, e.create_ts
+    return e.action_uid, e.batch_uid, e.op_type, src_uid, dst_uid, e.create_ts
 
 
-def _completed_change_to_tuple(e: ChangeAction, current_time):
-    assert isinstance(e, ChangeAction), f'Expected ChangeAction; got instead: {e}'
+def _completed_op_to_tuple(e: Op, current_time):
+    assert isinstance(e, Op), f'Expected Op; got instead: {e}'
     src_uid = None
     dst_uid = None
     if e.src_node:
@@ -50,17 +50,17 @@ def _completed_change_to_tuple(e: ChangeAction, current_time):
     if e.dst_node:
         dst_uid = e.dst_node.uid
 
-    return e.action_uid, e.batch_uid, e.change_type, src_uid, dst_uid, e.create_ts, current_time
+    return e.action_uid, e.batch_uid, e.op_type, src_uid, dst_uid, e.create_ts, current_time
 
 
-def _failed_change_to_tuple(e: ChangeAction, current_time, error_msg):
-    partial_tuple = _completed_change_to_tuple(e, current_time)
+def _failed_op_to_tuple(e: Op, current_time, error_msg):
+    partial_tuple = _completed_op_to_tuple(e, current_time)
     return *partial_tuple, error_msg
 
 
-def _tuple_to_change_ref(row: Tuple) -> ChangeActionRef:
+def _tuple_to_op_ref(row: Tuple) -> OpRef:
     assert isinstance(row, Tuple), f'Expected Tuple; got instead: {row}'
-    return ChangeActionRef(UID(row[0]), UID(row[1]), ChangeType(row[2]), UID(row[3]), _ensure_uid(row[4]), int(row[5]))
+    return OpRef(UID(row[0]), UID(row[1]), OpType(row[2]), UID(row[3]), _ensure_uid(row[4]), int(row[5]))
 
 
 # CLASS TableMultiMap
@@ -171,7 +171,7 @@ def _add_gdrive_parent_cols(table: Table):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class PendingChangeDatabase(MetaDatabase):
-    TABLE_PENDING_CHANGE = Table(name='pending_change', cols=OrderedDict([
+    TABLE_PENDING_CHANGE = Table(name='pending_op', cols=OrderedDict([
         ('uid', 'INTEGER PRIMARY KEY'),
         ('batch_uid', 'INTEGER'),
         ('change_type', 'INTEGER'),
@@ -180,7 +180,7 @@ class PendingChangeDatabase(MetaDatabase):
         ('create_ts', 'INTEGER')
     ]))
 
-    TABLE_COMPLETED_CHANGE = Table(name='completed_change',
+    TABLE_COMPLETED_CHANGE = Table(name='completed_op',
                                    cols=OrderedDict([
                                        ('uid', 'INTEGER PRIMARY KEY'),
                                        ('batch_uid', 'INTEGER'),
@@ -191,7 +191,7 @@ class PendingChangeDatabase(MetaDatabase):
                                        ('complete_ts', 'INTEGER')
                                    ]))
 
-    TABLE_FAILED_CHANGE = Table(name='failed_change',
+    TABLE_FAILED_CHANGE = Table(name='failed_op',
                                 cols=OrderedDict([
                                     ('uid', 'INTEGER PRIMARY KEY'),
                                     ('batch_uid', 'INTEGER'),
@@ -208,10 +208,10 @@ class PendingChangeDatabase(MetaDatabase):
         self.cache_manager = application.cache_manager
 
         self.table_lists: TableListCollection = TableListCollection()
-        # We do not use ChangeActionRef to Tuple, because we convert ChangeAction to Tuple instead
-        self.table_pending_change = LiveTable(PendingChangeDatabase.TABLE_PENDING_CHANGE, self.conn, None, _tuple_to_change_ref)
-        self.table_completed_change = LiveTable(PendingChangeDatabase.TABLE_COMPLETED_CHANGE, self.conn, None, _tuple_to_change_ref)
-        self.table_failed_change = LiveTable(PendingChangeDatabase.TABLE_FAILED_CHANGE, self.conn, None, _tuple_to_change_ref)
+        # We do not use OpRef to Tuple, because we convert Op to Tuple instead
+        self.table_pending_op = LiveTable(PendingChangeDatabase.TABLE_PENDING_CHANGE, self.conn, None, _tuple_to_op_ref)
+        self.table_completed_op = LiveTable(PendingChangeDatabase.TABLE_COMPLETED_CHANGE, self.conn, None, _tuple_to_op_ref)
+        self.table_failed_op = LiveTable(PendingChangeDatabase.TABLE_FAILED_CHANGE, self.conn, None, _tuple_to_op_ref)
 
         # pending ...
         self._copy_and_augment_table(LocalDiskDatabase.TABLE_LOCAL_FILE, PENDING, SRC)
@@ -329,7 +329,7 @@ class PendingChangeDatabase(MetaDatabase):
         table.name = f'{prefix}_{table.name}_{suffix}'
         # uid is no longer primary key
         table.cols.update({'uid': 'INTEGER'})
-        # primary key is also foreign key (not enforced) to ChangeAction (ergo, only one row per ChangeAction):
+        # primary key is also foreign key (not enforced) to Op (ergo, only one row per Op):
         table.cols.update({ACTION_UID_COL_NAME: 'INTEGER PRIMARY KEY'})
         # move to front:
         table.cols.move_to_end(ACTION_UID_COL_NAME, last=False)
@@ -380,11 +380,11 @@ class PendingChangeDatabase(MetaDatabase):
 
         table.select_object_list(tuple_to_obj_func_override=table_func)
 
-    def get_all_pending_changes(self) -> List[ChangeAction]:
+    def get_all_pending_ops(self) -> List[Op]:
         """ Gets all pending changes, filling int their src and dst nodes as well """
-        entries: List[ChangeAction] = []
+        entries: List[Op] = []
 
-        if not self.table_pending_change.is_table():
+        if not self.table_pending_op.is_table():
             return entries
 
         src_node_by_action_uid: Dict[UID, DisplayNode] = {}
@@ -395,9 +395,9 @@ class PendingChangeDatabase(MetaDatabase):
         for table in self.table_lists.dst_pending:
             self._get_all_in_table(table, dst_node_by_action_uid)
 
-        rows = self.table_pending_change.get_all_rows()
+        rows = self.table_pending_op.get_all_rows()
         for row in rows:
-            ref = ChangeActionRef(UID(row[0]), UID(row[1]), ChangeType(row[2]), UID(row[3]), _ensure_uid(row[4]), int(row[5]))
+            ref = OpRef(UID(row[0]), UID(row[1]), OpType(row[2]), UID(row[3]), _ensure_uid(row[4]), int(row[5]))
             src_node = src_node_by_action_uid.get(ref.action_uid, None)
             dst_node = dst_node_by_action_uid.get(ref.action_uid, None)
 
@@ -412,14 +412,14 @@ class PendingChangeDatabase(MetaDatabase):
                 if dst_node.uid != ref.dst_uid:
                     raise RuntimeError(f'Dst node UID ({dst_node.uid}) does not match ref in: {ref}')
 
-            entries.append(ChangeAction(ref.action_uid, ref.batch_uid, ref.change_type, src_node, dst_node))
+            entries.append(Op(ref.action_uid, ref.batch_uid, ref.op_type, src_node, dst_node))
         return entries
 
-    def _make_tuple_list(self, entries: Iterable[ChangeAction], lifecycle_state: str) -> TableMultiMap:
+    def _make_tuple_list(self, entries: Iterable[Op], lifecycle_state: str) -> TableMultiMap:
         tuple_list_multimap: TableMultiMap = TableMultiMap()
 
         for e in entries:
-            assert isinstance(e, ChangeAction), f'Expected ChangeAction; got instead: {e}'
+            assert isinstance(e, Op), f'Expected Op; got instead: {e}'
 
             node = e.src_node
             node_tuple = self._action_node_to_tuple(node, e.action_uid)
@@ -432,24 +432,24 @@ class PendingChangeDatabase(MetaDatabase):
 
         return tuple_list_multimap
 
-    def _upsert_nodes_without_commit(self, entries: Iterable[ChangeAction], lifecycle_state: str):
+    def _upsert_nodes_without_commit(self, entries: Iterable[Op], lifecycle_state: str):
         tuple_list_multimap = self._make_tuple_list(entries, lifecycle_state)
         for lifecycle_state, src_or_dst, tree_type, obj_type, tuple_list in tuple_list_multimap.entries():
             table: LiveTable = self.table_lists.get_table(lifecycle_state, src_or_dst, tree_type, obj_type)
             assert table, f'No table for values: {lifecycle_state}, {src_or_dst}, {tree_type}, {obj_type}'
             table.upsert_many(tuple_list, commit=False)
 
-    def upsert_pending_changes(self, entries: Iterable[ChangeAction], overwrite, commit=True):
+    def upsert_pending_ops(self, entries: Iterable[Op], overwrite, commit=True):
         """Inserts or updates a list of ChangeActions (remember that each action's UID is its primary key).
         If overwrite=true, then removes all existing changes first."""
 
         if overwrite:
-            self.table_pending_change.drop_table_if_exists(commit=False)
+            self.table_pending_op.drop_table_if_exists(commit=False)
             for table in self.table_lists.all:
                 table.drop_table_if_exists(commit=False)
 
         # create missing tables:
-        self.table_pending_change.create_table_if_not_exist(commit=False)
+        self.table_pending_op.create_table_if_not_exist(commit=False)
         for table in self.table_lists.all:
             table.create_table_if_not_exist(commit=False)
 
@@ -459,10 +459,10 @@ class PendingChangeDatabase(MetaDatabase):
         # Upsert ChangeActions
         change_tuple_list: List[Tuple] = []
         for e in entries:
-            change_tuple_list.append(_pending_change_to_tuple(e))
-        self.table_pending_change.upsert_many(change_tuple_list, commit)
+            change_tuple_list.append(_pending_op_to_tuple(e))
+        self.table_pending_op.upsert_many(change_tuple_list, commit)
 
-    def _delete_pending_changes(self, changes: Iterable[ChangeAction], commit=True):
+    def _delete_pending_ops(self, changes: Iterable[Op], commit=True):
         uid_tuple_list = list(map(lambda x: (x.action_uid,), changes))
 
         # Delete for all child tables (src and dst nodes):
@@ -473,14 +473,14 @@ class PendingChangeDatabase(MetaDatabase):
                 table.delete_for_uid_list(uid_tuple_list, uid_col_name=ACTION_UID_COL_NAME, commit=False)
 
         # Finally delete the ChangeActions
-        self.table_pending_change.delete_for_uid_list(uid_tuple_list, commit=commit)
+        self.table_pending_op.delete_for_uid_list(uid_tuple_list, commit=commit)
 
     # COMPLETED_CHANGE operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
-    def _upsert_completed_changes(self, entries: Iterable[ChangeAction], commit=True):
+    def _upsert_completed_ops(self, entries: Iterable[Op], commit=True):
         """Inserts or updates a list of ChangeActions (remember that each action's UID is its primary key)."""
 
-        self.table_completed_change.create_table_if_not_exist(commit=False)
+        self.table_completed_op.create_table_if_not_exist(commit=False)
 
         # Upsert src & dst nodes
         self._upsert_nodes_without_commit(entries, ARCHIVE)
@@ -489,16 +489,16 @@ class PendingChangeDatabase(MetaDatabase):
         current_time = int(time.time())
         change_tuple_list = []
         for e in entries:
-            assert isinstance(e, ChangeAction), f'Expected ChangeAction; got instead: {e}'
-            change_tuple_list.append(_completed_change_to_tuple(e, current_time))
-        self.table_completed_change.upsert_many(change_tuple_list, commit)
+            assert isinstance(e, Op), f'Expected Op; got instead: {e}'
+            change_tuple_list.append(_completed_op_to_tuple(e, current_time))
+        self.table_completed_op.upsert_many(change_tuple_list, commit)
 
     # FAILED_CHANGE operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
-    def _upsert_failed_changes(self, entries: Iterable[ChangeAction], error_msg: str, commit=True):
-        """Inserts or updates a list of ChangeAction (remember that each action's UID is its primary key)."""
+    def _upsert_failed_ops(self, entries: Iterable[Op], error_msg: str, commit=True):
+        """Inserts or updates a list of Op (remember that each action's UID is its primary key)."""
 
-        self.table_failed_change.create_table_if_not_exist(commit=False)
+        self.table_failed_op.create_table_if_not_exist(commit=False)
 
         # Upsert src & dst nodes
         self._upsert_nodes_without_commit(entries, ARCHIVE)
@@ -506,18 +506,18 @@ class PendingChangeDatabase(MetaDatabase):
         current_time = int(time.time())
         change_tuple_list = []
         for e in entries:
-            assert isinstance(e, ChangeAction), f'Expected ChangeAction; got instead: {e}'
-            change_tuple_list.append(_failed_change_to_tuple(e, current_time, error_msg))
+            assert isinstance(e, Op), f'Expected Op; got instead: {e}'
+            change_tuple_list.append(_failed_op_to_tuple(e, current_time, error_msg))
 
-        self.table_failed_change.upsert_many(change_tuple_list, commit)
+        self.table_failed_op.upsert_many(change_tuple_list, commit)
 
     # Compound operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
-    def archive_completed_changes(self, entries: Iterable[ChangeAction]):
-        self._delete_pending_changes(changes=entries, commit=False)
-        self._upsert_completed_changes(entries)
+    def archive_completed_ops(self, entries: Iterable[Op]):
+        self._delete_pending_ops(changes=entries, commit=False)
+        self._upsert_completed_ops(entries)
 
-    def archive_failed_changes(self, entries: Iterable[ChangeAction], error_msg: str):
-        self._delete_pending_changes(changes=entries, commit=False)
-        self._upsert_failed_changes(entries, error_msg)
+    def archive_failed_ops(self, entries: Iterable[Op], error_msg: str):
+        self._delete_pending_ops(changes=entries, commit=False)
+        self._upsert_failed_ops(entries, error_msg)
 

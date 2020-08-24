@@ -7,7 +7,7 @@ import treelib
 
 from gdrive.client import GDriveClient
 from index.uid.uid import UID
-from model.change_action import ChangeAction, ChangeType
+from model.op import Op, OpType
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.display_node import DisplayNode
 
@@ -53,11 +53,11 @@ class CommandResult:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class Command(treelib.Node, ABC):
-    """Every command has an associated target node and a ChangeAction."""
-    def __init__(self, uid: UID, change_action: ChangeAction):
+    """Every command has an associated target node and a Op."""
+    def __init__(self, uid: UID, change_action: Op):
         treelib.Node.__init__(self, identifier=uid)
 
-        self.change_action: ChangeAction = change_action
+        self.change_action: Op = change_action
         self.result: Optional[CommandResult] = None
         self.tag: str = f'{__class__.__name__}(uid={self.identifier})'
 
@@ -66,8 +66,8 @@ class Command(treelib.Node, ABC):
         return self.tag
 
     @property
-    def type(self) -> ChangeType:
-        return self.change_action.change_type
+    def type(self) -> OpType:
+        return self.change_action.op_type
 
     @property
     def uid(self) -> UID:
@@ -114,9 +114,9 @@ class Command(treelib.Node, ABC):
 
 class DeleteNodeCommand(Command, ABC):
     """A Command which deletes the target node. If to_trash is true, it's more of a move/update."""
-    def __init__(self, uid: UID, change_action: ChangeAction, to_trash: bool, delete_empty_parent: bool):
+    def __init__(self, uid: UID, change_action: Op, to_trash: bool, delete_empty_parent: bool):
         Command.__init__(self, uid, change_action)
-        assert change_action.change_type == ChangeType.RM
+        assert change_action.op_type == OpType.RM
         self.to_trash = to_trash
         self.delete_empty_parent = delete_empty_parent
 
@@ -126,7 +126,7 @@ class DeleteNodeCommand(Command, ABC):
 
 class TwoNodeCommand(Command, ABC):
     """Same functionality as Command but with an additional "source" node. Its "target" node represents the destination node."""
-    def __init__(self, uid: UID, change_action: ChangeAction):
+    def __init__(self, uid: UID, change_action: Op):
         Command.__init__(self, uid, change_action)
 
 
@@ -135,6 +135,6 @@ class TwoNodeCommand(Command, ABC):
 
 class CopyNodeCommand(TwoNodeCommand, ABC):
     """A TwoNodeCommand which does a copy from src to tgt"""
-    def __init__(self, uid: UID, change_action: ChangeAction, overwrite: bool):
+    def __init__(self, uid: UID, change_action: Op, overwrite: bool):
         TwoNodeCommand.__init__(self, uid, change_action)
         self.overwrite = overwrite

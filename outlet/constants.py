@@ -27,7 +27,7 @@ OBJ_TYPE_FILE = 'FILE'
 OBJ_TYPE_DIR = 'DIR'
 
 MAIN_REGISTRY_FILE_NAME = 'registry.db'
-PENDING_CHANGES_FILE_NAME = 'pending-changes.db'
+OPS_FILE_NAME = 'ops.db'
 ROOT_PATH = '/'
 GDRIVE_PATH_PREFIX = 'gdrive:/'
 

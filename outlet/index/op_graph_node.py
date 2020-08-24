@@ -5,7 +5,7 @@ from typing import Any, Deque, Dict, Iterable, List, Optional
 
 from constants import OP_TREE_INDENT_STR, SUPER_ROOT_UID
 from index.uid.uid import UID
-from model.change_action import ChangeAction, ChangeType
+from model.op import Op, OpType
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +14,10 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class OpGraphNode(ABC):
     """This is a node which represents an operation (or half of an operation, if the operations includes both src and dst nodes)"""
-    def __init__(self, uid: UID, change_action: Optional[ChangeAction]):
+    def __init__(self, uid: UID, change_action: Optional[Op]):
         self.node_uid: UID = uid
-        self.change_action: ChangeAction = change_action
-        """The ChangeAction (i.e. "operation")"""
+        self.change_action: Op = change_action
+        """The Op (i.e. "operation")"""
 
     @property
     def identifier(self):
@@ -290,20 +290,20 @@ class RootNode(HasMultiChild, OpGraphNode):
 # CLASS SrcOpNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
-    def __init__(self, uid: UID, change_action: ChangeAction):
+    def __init__(self, uid: UID, change_action: Op):
         OpGraphNode.__init__(self, uid, change_action=change_action)
         HasSingleParent.__init__(self)
         HasMultiChild.__init__(self)
 
     def is_mutually_exclusive(self) -> bool:
         # Only CP src nodes are non-mutually-exclusive
-        return self.change_action.change_type != ChangeType.CP
+        return self.change_action.op_type != OpType.CP
 
     def get_target_node(self):
         return self.change_action.src_node
 
     def is_create_type(self) -> bool:
-        return self.change_action.change_type == ChangeType.MKDIR
+        return self.change_action.op_type == OpType.MKDIR
 
     def clear_relationships(self):
         HasSingleParent.clear_relationships(self)
@@ -320,7 +320,7 @@ class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
 # CLASS DstOpNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
-    def __init__(self, uid: UID, change_action: ChangeAction):
+    def __init__(self, uid: UID, change_action: Op):
         assert change_action.has_dst()
         OpGraphNode.__init__(self, uid, change_action=change_action)
         HasSingleParent.__init__(self)
@@ -359,8 +359,8 @@ class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class RmOpNode(HasMultiParent, HasSingleChild, OpGraphNode):
     """RM nodes have an inverted structure: the child nodes become the shared parents for their parent dir."""
-    def __init__(self, uid: UID, change_action: ChangeAction):
-        assert change_action.change_type == ChangeType.RM
+    def __init__(self, uid: UID, change_action: Op):
+        assert change_action.op_type == OpType.RM
         OpGraphNode.__init__(self, uid, change_action=change_action)
         HasMultiParent.__init__(self)
         HasSingleChild.__init__(self)
