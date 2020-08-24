@@ -70,9 +70,6 @@ class OpLedger:
 
         logger.debug(f'Found {len(change_list)} pending changes in cache')
 
-        # We don't know which cache these node refs came from. So for now, just tell the CacheManager to load all the caches.
-        self.cacheman.load_all_caches()
-
         # TODO: check for invalid nodes?
 
         return change_list
@@ -218,6 +215,11 @@ class OpLedger:
 
     def load_pending_changes(self):
         """Call this at startup, to resume pending changes which have not yet been applied."""
+
+        # We may need various things from the cacheman...
+        # For now, just tell the CacheManager to load all the caches. Can optimize in the future.
+        self.cacheman.load_all_caches()
+
         if self.cacheman.cancel_all_pending_changes_on_startup:
             logger.debug(f'User configuration specifies cancelling all pending changes on startup')
             self._cancel_pending_changes_from_disk()
