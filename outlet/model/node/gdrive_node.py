@@ -66,7 +66,7 @@ class GDriveNode(HasParentList, DisplayNode, ABC):
     @property
     def trashed_str(self):
         if self.trashed is None:
-            return ' '
+            return 'None'
         return TRASHED_STATUS[self.trashed]
 
     @abstractmethod
@@ -171,7 +171,7 @@ class GDriveFile(GDriveNode):
         """OwnerID if it's not me"""
 
     def __repr__(self):
-        return f'GDriveFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str}  ' \
+        return f'GDriveFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str} ' \
                f'size={self.get_size_bytes()} md5="{self._md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
                f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
                f'sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()})'

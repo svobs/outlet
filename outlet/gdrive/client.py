@@ -153,7 +153,7 @@ class GDriveClient:
             raise RuntimeError(f'Parents are required but item has no parents: {node}')
 
         # This will raise an exception if it cannot resolve:
-        parent_goog_ids: List[str] = self.cache_manager.resolve_uids_to_goog_ids(parent_uids)
+        parent_goog_ids: List[str] = self.cache_manager.get_uid_list_for_goog_id_list(parent_uids)
 
         if len(parent_goog_ids) == 0:
             raise RuntimeError(f'No parent Google IDs for: {node}')

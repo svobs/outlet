@@ -34,9 +34,9 @@ class CommandExecutor:
                 logger.info(f'Skipping command: {command} because it has status {command.status()}')
             else:
                 try:
-                    status = f'Executing command {command.get_description()}'
-                    dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=actions.ID_COMMAND_EXECUTOR, msg=status)
-                    logger.info(f'{status}: {repr(command)}')
+                    status_str: str = f'Executing command: {repr(command)}'
+                    dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=actions.ID_COMMAND_EXECUTOR, msg=status_str)
+                    logger.info(status_str)
                     command.result = command.execute(context)
                 except Exception as err:
                     logger.exception(f'While executing {command.get_description()}')

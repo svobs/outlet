@@ -4,7 +4,7 @@ import logging
 import time
 from collections import OrderedDict
 from functools import partial
-from typing import Any, Callable, Dict, Iterable, List, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from constants import OBJ_TYPE_DIR, OBJ_TYPE_FILE, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from index.sqlite.base_db import LiveTable, MetaDatabase, Table
@@ -13,7 +13,7 @@ from index.sqlite.local_db import LocalDiskDatabase
 from index.uid.uid import UID
 from model.change_action import ChangeAction, ChangeActionRef, ChangeType
 from model.node.display_node import DisplayNode
-from model.node.gdrive_node import GDriveFile, GDriveFolder
+from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier
 
@@ -167,12 +167,6 @@ def _add_gdrive_parent_cols(table: Table):
                        ('parent_goog_id', 'TEXT')})
 
 
-def _action_node_to_tuple(obj: DisplayNode, action_uid: UID) -> Tuple:
-    if not obj.has_tuple():
-        raise RuntimeError(f'Node cannot be converted to tuple: {obj}')
-    return action_uid, *obj.to_tuple()
-
-
 # CLASS PendingChangeDatabase
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -307,6 +301,25 @@ class PendingChangeDatabase(MetaDatabase):
         nodes_by_action_uid[action_uid] = obj
         return obj
 
+    def _action_node_to_tuple(self, obj: DisplayNode, action_uid: UID) -> Tuple:
+        if not obj.has_tuple():
+            raise RuntimeError(f'Node cannot be converted to tuple: {obj}')
+        if obj.get_tree_type() == TREE_TYPE_GDRIVE:
+            assert isinstance(obj, GDriveNode)
+            parent_uid: Optional[UID] = None
+            parent_goog_id: Optional[str] = None
+            if obj.get_parent_uids():
+                parent_uid = obj.get_parent_uids()[0]
+                try:
+                    parent_goog_id_list = self.cache_manager.get_goog_ids_for_uids([parent_uid])
+                    if parent_goog_id_list:
+                        parent_goog_id = parent_goog_id_list[0]
+                except RuntimeError:
+                    logger.debug(f'Could not resolve parent_uid to goog_id: {parent_uid}')
+            return action_uid, *obj.to_tuple(), parent_uid, parent_goog_id
+
+        return action_uid, *obj.to_tuple()
+
     def _copy_and_augment_table(self, src_table: Table, prefix: str, suffix: str) -> LiveTable:
         table: Table = copy.deepcopy(src_table)
         table.name = f'{prefix}_{table.name}_{suffix}'
@@ -405,12 +418,12 @@ class PendingChangeDatabase(MetaDatabase):
             assert isinstance(e, ChangeAction), f'Expected ChangeAction; got instead: {e}'
 
             node = e.src_node
-            node_tuple = _action_node_to_tuple(node, e.action_uid)
+            node_tuple = self._action_node_to_tuple(node, e.action_uid)
             tuple_list_multimap.append(lifecycle_state, SRC, node.node_identifier.tree_type, node.get_obj_type(), node_tuple)
 
             if e.dst_node:
                 node = e.dst_node
-                node_tuple = _action_node_to_tuple(node, e.action_uid)
+                node_tuple = self._action_node_to_tuple(node, e.action_uid)
                 tuple_list_multimap.append(lifecycle_state, DST, node.node_identifier.tree_type, node.get_obj_type(), node_tuple)
 
         return tuple_list_multimap

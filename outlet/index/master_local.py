@@ -442,7 +442,7 @@ class LocalDiskMasterCache:
 
     def get_children(self, node: DisplayNode):
         with self._struct_lock:
-            return self.dir_tree.children(node.identifier)
+            return self.dir_tree.children(node.uid)
 
     def get_item(self, uid: UID) -> DisplayNode:
         with self._struct_lock:

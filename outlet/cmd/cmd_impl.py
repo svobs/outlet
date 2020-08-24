@@ -182,9 +182,8 @@ class UploadToGDriveCommand(CopyNodeCommand):
     def __init__(self, uid: UID, change_action: ChangeAction, overwrite: bool):
         super().__init__(uid, change_action, overwrite)
         assert isinstance(self.change_action.dst_node, GDriveNode)
-        self.tag = f'{__class__.__name__}(uid={self.identifier}, act={change_action.change_type} dst_uid={self.change_action.dst_node.uid} ' \
-                   f'dest_parent_ids="{self.change_action.dst_node.get_parent_uids()} ' \
-                   f'src_uid={self.change_action.src_node.uid} overwrite={overwrite}'
+        self.tag = f'{__class__.__name__}(uid={self.identifier}, op={change_action.change_type.name} src_uid={self.change_action.src_node.uid} ' \
+                   f'dst_uid={self.change_action.dst_node.uid} dst_parent_ids="{self.change_action.dst_node.get_parent_uids()} overwrite={overwrite}'
 
     def get_total_work(self) -> int:
         return self.change_action.src_node.get_size_bytes()
@@ -225,7 +224,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
 
     def __repr__(self):
         return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, overwrite={self.overwrite}, ' \
-               f'status={self.status()}, dst={self.change_action.dst_node}'
+               f'status={self.status()}, src={self.change_action.src_node} dst={self.change_action.dst_node}'
 
 
 class DownloadFromGDriveCommand(CopyNodeCommand):
