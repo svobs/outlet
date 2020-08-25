@@ -454,7 +454,7 @@ class CacheManager:
 
         if tree_type == TREE_TYPE_LOCAL_DISK:
             assert self._local_disk_cache
-            node = self._local_disk_cache.get_node_for_path(full_path)
+            node = self._local_disk_cache.load_node_for_path(full_path)
             return node
         elif tree_type == TREE_TYPE_GDRIVE:
             assert self._gdrive_cache

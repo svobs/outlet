@@ -315,7 +315,8 @@ class LocalDiskMasterCache:
     # Individual node operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def get_node_for_path(self, full_path: str) -> DisplayNode:
+    def load_node_for_path(self, full_path: str) -> DisplayNode:
+        """This actually reads directly from the disk cache"""
         cache_man = self.application.cache_manager
         cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_supertree_for_subtree(full_path, TREE_TYPE_LOCAL_DISK)
         with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:

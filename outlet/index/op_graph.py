@@ -32,7 +32,7 @@ class OpGraph:
         """Used to help consumers block"""
 
         self._node_dict: Dict[UID, Deque[OpGraphNode]] = {}
-        """Contains entries for all nodes have pending ops. Each entry has a queue of pending ops for that node"""
+        """Contains entries for all nodes have pending ops. Each entry has a queue of pending ops for that target node"""
 
         self._graph_root: OpGraphNode = RootNode()
         """Root of tree. Has no useful internal data; we value it for its children"""
@@ -58,12 +58,14 @@ class OpGraph:
         self._print_node_dict()
 
     def _print_node_dict(self):
-        logger.debug(f'CURRENT STATE: NodeDict is now: {len(self._node_dict)} items:')
+        logger.debug(f'CURRENT STATE: QueueDict is now: {len(self._node_dict)} node queues:')
         for node_uid, deque in self._node_dict.items():
             node_list: List[str] = []
             for node in deque:
                 node_list.append(node.op.tag)
-            logger.debug(f'{node_uid}: [{"; ".join(node_list)}]')
+            logger.debug(f'{node_uid}:')
+            for i, node in enumerate(node_list):
+                logger.debug(f'  {i}. {node}')
 
     def _derive_parent_uid(self, node: DisplayNode):
         """Derives the UID for the parent of the given node"""
@@ -231,8 +233,8 @@ class OpGraph:
 
         return True
 
-    def _find_child_nodes_in_tree(self, op_node: OpGraphNode) -> List[OpGraphNode]:
-        # TODO: wow this is O(n*m). Find a way to optimize
+    def _find_child_nodes_in_tree_for_rm(self, op_node: OpGraphNode) -> List[OpGraphNode]:
+        # TODO: probably could optimize a bit more...
         sw_total = Stopwatch()
 
         assert isinstance(op_node, RmOpNode)
@@ -240,10 +242,15 @@ class OpGraph:
 
         child_nodes = []
 
-        for existing_op_node in _skip_root(self._graph_root.get_all_nodes_in_subtree()):
-            potential_child: DisplayNode = existing_op_node.get_target_node()
-            if potential_parent.is_parent(potential_child):
-                child_nodes.append(existing_op_node)
+        for node_queue in self._node_dict.values():
+            if node_queue:
+                existing_op_node = node_queue[-1]
+                potential_child: DisplayNode = existing_op_node.get_target_node()
+                if potential_parent.is_parent(potential_child):
+                    if not existing_op_node.is_remove_type():
+                        # This is not allowed. Cannot remove parent dir (aka child op node) unless *all* its children are first removed
+                        raise RuntimeError(f'Found child node for RM-type node which is not RM type: {existing_op_node}')
+                    child_nodes.append(existing_op_node)
 
         logger.debug(f'{sw_total} Found {len(child_nodes):n} child nodes in tree for op node')
         return child_nodes
@@ -271,29 +278,48 @@ class OpGraph:
             # Special handling for RM-type nodes.
             # We want to find the lowest RM node in the tree.
 
-            if last_target_op:
+            # First, see if we can find child nodes of the target node (which in our rules would be the parents of the RM op):
+            op_for_child_node_list: List[OpGraphNode] = self._find_child_nodes_in_tree_for_rm(node_to_insert)
+            if op_for_child_node_list:
+                logger.debug(f'Found {len(op_for_child_node_list)} ops for children of node being removed ({target_uid});'
+                             f' adding as child dependency of each')
+
+                existing_child_count = 0
+                for op_for_child_node in op_for_child_node_list:
+                    existing_child: Optional[OpGraphNode] = op_for_child_node.get_first_child()
+                    if existing_child:
+                        assert existing_child.is_remove_type()
+                        if existing_child.get_target_node().uid != target_uid:
+                            raise RuntimeError(f'Found unexpected child node: {existing_child} (attempting to insert: {node_to_insert})')
+                        existing_child_count += 1
+                    else:
+                        op_for_child_node.link_child(node_to_insert)
+
+                # Logically, either no children, *or* all child nodes have already been attached to parent
+                if not (existing_child_count == 0 or existing_child_count == len(op_for_child_node_list)):
+                    raise RuntimeError(f'Inconsistency detected in op tree! Only {existing_child_count} of {len(op_for_child_node_list)}'
+                                       f'RM nodes in dir have an RM child (attempting to insert: {node_to_insert})')
+
+                if existing_child_count > 0:
+                    logger.debug(f'All parent ops already have child op attached with correct node UID. Discarding op {node_to_insert.node_uid}')
+                    return
+
+            elif last_target_op:
+                # If existing op is found for the target node, add below that.
                 if last_target_op.is_remove_type():
                     logger.info(f'Op node being enqueued (UID {node_to_insert.node_uid}, tgt UID {target_uid}) is an RM type which is '
                                 f'a dup of already enqueued RM (UID {last_target_op.node_uid}); discarding!')
                     return
 
-                # If existing op is found for the target node, add below that.
+                # The node's children MUST be removed first. It is invalid to RM a node which has children.
                 if last_target_op.get_child_list():
                     raise RuntimeError(f'While trying to add RM op: did not expect existing op for node to have children! '
                                        f'(Node={last_target_op})')
                 logger.debug(f'Found pending op(s) for target node {target_uid} for RM op; adding as child dependency')
                 last_target_op.link_child(node_to_insert)
             else:
-                # Otherwise see if we can find child nodes of the target node (which in our rules would be the parents of the RM op):
-                op_for_child_node_list: List[OpGraphNode] = self._find_child_nodes_in_tree(node_to_insert)
-                if op_for_child_node_list:
-                    logger.debug(f'Found {len(op_for_child_node_list)} ops for children of node being removed ({target_uid});'
-                                 f' adding as child dependency of each')
-                    for op_for_child_node in op_for_child_node_list:
-                        op_for_child_node.link_child(node_to_insert)
-                else:
-                    logger.debug(f'Found no previous ops for target node {target_uid} or its children; adding to root')
-                    self._graph_root.link_child(node_to_insert)
+                logger.debug(f'Found no previous ops for target node {target_uid} or its children; adding to root')
+                self._graph_root.link_child(node_to_insert)
         else:
             # Not an RM node:
             last_parent_op = self._get_lowest_priority_op_node(parent_uid)
