@@ -296,7 +296,8 @@ class OpDatabase(MetaDatabase):
         action_uid_int, uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, exists = row
 
         uid = self.cache_manager.get_uid_for_path(full_path, uid_int)
-        assert uid == uid_int, f'UID conflict! Got {uid} but read {uid_int} in row: {row}'
+        if uid != uid_int:
+            raise RuntimeError(f'UID conflict! Cache man returned {uid} but op cache returned {uid_int} (from row: {row})')
         node_identifier = LocalFsIdentifier(uid=uid, full_path=full_path)
         obj = LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, exists)
         action_uid = UID(action_uid_int)

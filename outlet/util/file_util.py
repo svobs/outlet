@@ -28,6 +28,15 @@ def is_target_type(file_path: str, valid_suffixes: Tuple[str]):
     return False
 
 
+def rm_tree(tree_root_path: str):
+    logger.warning(f'Removing dir tree: {tree_root_path}')
+    shutil.rmtree(tree_root_path)
+
+
+def rm_file(tree_root_path: str):
+    return delete_file(tree_root_path)
+
+
 def normalize_path(path: str):
     if path != ROOT_PATH and path.endswith('/'):
         # directories ending in '/' are logically equivalent and should be treated as such

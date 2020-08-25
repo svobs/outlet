@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 CFG_ENABLE_LOAD_FROM_DISK = 'cache.enable_cache_load'
 
 
-def _ensure_cache_dir_path(config):
+def ensure_cache_dir_path(config):
     cache_dir_path = get_resource_path(config.get('cache.cache_dir_path'))
     if not os.path.exists(cache_dir_path):
         logger.info(f'Cache directory does not exist; attempting to create: "{cache_dir_path}"')
@@ -64,7 +64,7 @@ class CacheManager:
     def __init__(self, application):
         self.application = application
 
-        self.cache_dir_path = _ensure_cache_dir_path(self.application.config)
+        self.cache_dir_path = ensure_cache_dir_path(self.application.config)
         self.main_registry_path = os.path.join(self.cache_dir_path, MAIN_REGISTRY_FILE_NAME)
 
         self.caches_by_type: CacheInfoByType = CacheInfoByType()
@@ -105,12 +105,18 @@ class CacheManager:
         self.shutdown()
 
     def shutdown(self):
-        if self._op_ledger:
-            self._op_ledger.shutdown()
+        try:
+            if self._op_ledger:
+                self._op_ledger.shutdown()
+        except NameError:
+            pass
 
-        if self._tree_controllers:
-            for controller in list(self._tree_controllers.values()):
-                controller.destroy()
+        try:
+            if self._tree_controllers:
+                for controller in list(self._tree_controllers.values()):
+                    controller.destroy()
+        except NameError:
+            pass
 
     # Startup loading/maintenance
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

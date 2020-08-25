@@ -13,7 +13,10 @@ from pydispatch import dispatcher
 
 from app_config import AppConfig
 from cmd.cmd_interface import Command
-from constants import TREE_TYPE_LOCAL_DISK
+from constants import OPS_FILE_NAME, TREE_TYPE_LOCAL_DISK
+from index import cache_manager
+from index.cache_manager import CacheManager
+from index.sqlite.op_db import OpDatabase
 from index.uid.uid import UID
 from model.display_tree.display_tree import DisplayTree
 from model.node.display_node import DisplayNode
@@ -145,10 +148,11 @@ INITIAL_TREE_RIGHT = [
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class OpTest(unittest.TestCase):
+    """WARNING! RUNNING THIS TEST WILL MODIFY/DELETE RUNTIME FILES!"""
     def setUp(self) -> None:
         # Remove test files and replace with freshly extracted files
         if os.path.exists(TEST_TARGET_DIR):
-            shutil.rmtree(TEST_TARGET_DIR)
+            file_util.rm_tree(TEST_TARGET_DIR)
             logger.debug(f'Deleted dir: {TEST_TARGET_DIR}')
 
         with SevenZipFile(file=TEST_ARCHIVE_PATH) as archive:
@@ -156,6 +160,13 @@ class OpTest(unittest.TestCase):
         logger.debug(f'Extracted: {TEST_ARCHIVE_PATH} to {TEST_BASE_DIR}')
 
         config = AppConfig()
+
+        # Delete ops cache, so that prev run doesn't contaminate us:
+        cache_dir_path = cache_manager.ensure_cache_dir_path(config)
+        self.op_db_path = os.path.join(cache_dir_path, OPS_FILE_NAME)
+        if os.path.exists(self.op_db_path):
+            file_util.rm_file(self.op_db_path)
+
         config.write(root_path_config.make_tree_type_config_key(actions.ID_LEFT_TREE), TREE_TYPE_LOCAL_DISK)
         config.write(root_path_config.make_root_path_config_key(actions.ID_LEFT_TREE), os.path.join(TEST_TARGET_DIR, 'Left-Root'))
         # TODO: craft some kind of strategy for looking up UID for dir
@@ -200,6 +211,10 @@ class OpTest(unittest.TestCase):
         logger.info(f'LOAD COMPLETE')
 
     def tearDown(self) -> None:
+        with OpDatabase(self.op_db_path, self.app) as op_db:
+            op_list = op_db.get_all_pending_ops()
+            self.assertEqual(0, len(op_list), 'We have ops remaining after quit!')
+
         logger.info('Quitting app!')
         self.app.window.close()
         self.app.quit()
