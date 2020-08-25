@@ -76,8 +76,7 @@ class OpLedger:
 
     def _remove_pending_ops(self, op_list: Iterable[Op]):
         with OpDatabase(self.op_db_path, self.application) as op_db:
-            pass
-            # TODO
+            op_db.delete_pending_ops(op_list)
 
     def _save_pending_ops_to_disk(self, op_list: Iterable[Op]):
         with OpDatabase(self.op_db_path, self.application) as op_db:
@@ -246,15 +245,11 @@ class OpLedger:
         logger.info(f'Sorted ops into {len(batch_dict_keys)} batches')
         sorted_keys = sorted(batch_dict_keys)
 
-        for key in sorted_keys:
+        for batch_uid in sorted_keys:
             # Assume batch has already been reduced and reconciled against master tree.
-            batch_items: List[Op] = batch_dict[key]
+            batch_items: List[Op] = batch_dict[batch_uid]
             batch_root = self.op_graph.make_graph_from_batch(batch_items)
-            logger.info(f'Adding batch {key} to OpTree')
-            discarded_op_list: List[Op] = self.op_graph.nq_batch(batch_root)
-            if discarded_op_list:
-                logger.debug(f'{len(discarded_op_list)} ops were discarded')
-                self._remove_pending_ops(discarded_op_list)
+            self._add_batch_to_op_graph_and_remove_discarded(batch_root, batch_uid)
 
     def append_new_pending_ops(self, op_batch: Iterable[Op]):
         """
@@ -277,10 +272,10 @@ class OpLedger:
         # Simplify and remove redundancies in op_list
         reduced_batch: Iterable[Op] = self._reduce_ops(op_batch)
 
-        tree_root = self.op_graph.make_graph_from_batch(reduced_batch)
+        batch_root = self.op_graph.make_graph_from_batch(reduced_batch)
 
         # Reconcile ops against master op tree before adding nodes
-        if not self.op_graph.can_nq_batch(tree_root):
+        if not self.op_graph.can_nq_batch(batch_root):
             raise RuntimeError('Invalid batch!')
 
         # Save ops and their planning nodes to disk
@@ -290,9 +285,13 @@ class OpLedger:
         for op in reduced_batch:
             self._add_planning_nodes_to_memcache(op)
 
-        discarded_op_list: List[Op] = self.op_graph.nq_batch(tree_root)
+        self._add_batch_to_op_graph_and_remove_discarded(batch_root, batch_uid)
+
+    def _add_batch_to_op_graph_and_remove_discarded(self, batch_root, batch_uid):
+        logger.info(f'Adding batch {batch_uid} to OpTree')
+        discarded_op_list: List[Op] = self.op_graph.nq_batch(batch_root)
         if discarded_op_list:
-            logger.debug(f'{len(discarded_op_list)} ops were discarded')
+            logger.debug(f'{len(discarded_op_list)} ops were discarded: removing from disk cache')
             self._remove_pending_ops(discarded_op_list)
 
     def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[Op]:

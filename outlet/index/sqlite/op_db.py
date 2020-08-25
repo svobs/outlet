@@ -463,7 +463,7 @@ class OpDatabase(MetaDatabase):
             change_tuple_list.append(_pending_op_to_tuple(e))
         self.table_pending_op.upsert_many(change_tuple_list, commit)
 
-    def _delete_pending_ops(self, changes: Iterable[Op], commit=True):
+    def delete_pending_ops(self, changes: Iterable[Op], commit=True):
         uid_tuple_list = list(map(lambda x: (x.action_uid,), changes))
 
         # Delete for all child tables (src and dst nodes):
@@ -515,10 +515,10 @@ class OpDatabase(MetaDatabase):
     # Compound operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
     def archive_completed_ops(self, entries: Iterable[Op]):
-        self._delete_pending_ops(changes=entries, commit=False)
+        self.delete_pending_ops(changes=entries, commit=False)
         self._upsert_completed_ops(entries)
 
     def archive_failed_ops(self, entries: Iterable[Op], error_msg: str):
-        self._delete_pending_ops(changes=entries, commit=False)
+        self.delete_pending_ops(changes=entries, commit=False)
         self._upsert_failed_ops(entries, error_msg)
 
