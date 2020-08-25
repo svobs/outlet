@@ -43,7 +43,7 @@ class OneSide:
         self.underlying_tree: DisplayTree = underlying_tree
         self.application = application
         self.uid_generator = application.uid_generator
-        self.op_tree: CategoryDisplayTree = CategoryDisplayTree(application, self.underlying_tree.node_identifier, tree_id)
+        self.change_tree: CategoryDisplayTree = CategoryDisplayTree(application, self.underlying_tree.node_identifier, tree_id)
         self.batch_uid = self.uid_generator.next_uid()
         self.added_folders: Dict[str, ContainerNode] = {}
 
@@ -85,7 +85,7 @@ class OneSide:
             target_node = dst_node
         else:
             target_node = src_node
-        self.op_tree.add_item(target_node, op, self.underlying_tree)
+        self.change_tree.add_item(target_node, op, self.underlying_tree)
 
     def add_needed_ancestors(self, new_item: DisplayNode):
         """Determines what ancestor directories need to be created, and appends them to the op tree (as well as ops for them).
@@ -163,7 +163,7 @@ class ChangeMaker:
         self.uid_generator = application.uid_generator
 
     def copy_nodes_left_to_right(self, src_node_list: List[DisplayNode], dst_parent: DisplayNode, op_type: OpType):
-        """Populates the destination parent in "op_tree_right" with the given source nodes."""
+        """Populates the destination parent in "change_tree_right" with the given source nodes."""
         assert dst_parent.is_dir()
         assert op_type == OpType.CP or op_type == OpType.MV or op_type == OpType.UP
         dst_parent_path = dst_parent.full_path

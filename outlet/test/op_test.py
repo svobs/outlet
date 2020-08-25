@@ -801,60 +801,13 @@ class OpTest(unittest.TestCase):
                 self._find_node_by_name(self.right_con, 'Modern')
             ]
 
-            dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.right_con, nodes=nodes_batch_2)
-            dst_tree_path = Gtk.TreePath.new_from_string('1')
-            # Drop into left tree:
-            logger.info('Submitting second drag & drop signal')
-            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_LEFT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+            # Now delete the nodes which were just dropped
+            logger.info('Submitting delete signal')
+            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_RIGHT_TREE, node_list=nodes_batch_2)
 
-        final_tree_left = [
-            FNode('American_Gothic.jpg', 2061397),
-            FNode('Angry-Clown.jpg', 824641),
-            DNode('Art', (88259 + 652220 + 239739 + 44487 + 479124) + (147975 + 275771 + 8098 + 247023 + 36344), [
-                FNode('Dark-Art.png', 147975),
-                FNode('Hokusai_Great-Wave.jpg', 275771),
-                DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
-                    FNode('1923-art.jpeg', 88259),
-                    FNode('43548-forbidden_planet.jpg', 652220),
-                    FNode('Dunno.jpg', 239739),
-                    FNode('felix-the-cat.jpg', 44487),
-                    FNode('Glow-Cat.png', 479124),
-                ]),
-                FNode('Mona-Lisa.jpeg', 8098),
-                FNode('william-shakespeare.jpg', 247023),
-                FNode('WTF.jpg', 36344),
-            ]),
-            FNode('Egypt.jpg', 154564),
-            FNode('George-Floyd.png', 27601),
-            FNode('Geriatric-Clown.jpg', 89182),
-            FNode('Keep-calm-and-carry-on.jpg', 745698),
-            DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
-                FNode('1923-art.jpeg', 88259),
-                FNode('43548-forbidden_planet.jpg', 652220),
-                FNode('Dunno.jpg', 239739),
-                FNode('felix-the-cat.jpg', 44487),
-                FNode('Glow-Cat.png', 479124),
-            ]),
-        ]
-
-        final_tree_right = [
-            FNode('Edvard-Munch-The-Scream.jpg', 114082),
-            FNode('M83.jpg', 17329),
-            DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
-                FNode('1923-art.jpeg', 88259),
-                FNode('43548-forbidden_planet.jpg', 652220),
-                FNode('Dunno.jpg', 239739),
-                FNode('felix-the-cat.jpg', 44487),
-                FNode('Glow-Cat.png', 479124),
-            ]),
-            FNode('oak-tree-sunset.jpg', 386888),
-            FNode('Ocean-Wave.jpg', 83713),
-            FNode('Starry-Night.jpg', 91699),
-            FNode('we-can-do-it-poster.jpg', 390093),
-        ]
-
+        # The end result should be that nothing has changed
         self._do_and_verify(drop_both_sides, count_expected_cmds=12, wait_for_left=True, wait_for_right=True,
-                            expected_left=final_tree_left, expected_right=final_tree_right)
+                            expected_left=INITIAL_TREE_LEFT, expected_right=INITIAL_TREE_RIGHT)
 
     def test_delete_subtree(self):
         logger.info('Testing delete subtree on left')

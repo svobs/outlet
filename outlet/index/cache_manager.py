@@ -308,13 +308,13 @@ class CacheManager:
 
         return subtree
 
-    def find_existing_supertree_for_subtree(self, subtree_root: NodeIdentifier, tree_id: str) -> Optional[PersistedCacheInfo]:
-        existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(subtree_root.tree_type).values())
+    def find_existing_supertree_for_subtree(self, full_path: str, tree_type: int) -> Optional[PersistedCacheInfo]:
+        existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(tree_type).values())
 
         for existing_cache in existing_caches:
             # Is existing_cache an ancestor of target tree?
-            if subtree_root.full_path.startswith(existing_cache.subtree_root.full_path):
-                if existing_cache.subtree_root.full_path == subtree_root.full_path:
+            if full_path.startswith(existing_cache.subtree_root.full_path):
+                if existing_cache.subtree_root.full_path == full_path:
                     # Exact match exists: just return from here and allow exact match logic to work
                     return None
                 else:
@@ -446,6 +446,22 @@ class CacheManager:
         """Deterministically gets or creates a UID corresponding to the given path string"""
         assert path
         return self._local_disk_cache.get_uid_for_path(path, uid_suggestion)
+
+    def read_single_node_from_disk_for_path(self, full_path: str, tree_type: int) -> DisplayNode:
+        if not file_util.is_normalized(full_path):
+            full_path = file_util.normalize_path(full_path)
+            logger.debug(f'Normalized path: {full_path}')
+
+        if tree_type == TREE_TYPE_LOCAL_DISK:
+            assert self._local_disk_cache
+            node = self._local_disk_cache.get_node_for_path(full_path)
+            return node
+        elif tree_type == TREE_TYPE_GDRIVE:
+            assert self._gdrive_cache
+            # TODO
+            raise RuntimeError(f'Not yet supported: {tree_type}')
+        else:
+            raise RuntimeError(f'Unrecognized tree type: {tree_type}')
 
     def get_uid_list_for_goog_id_list(self, goog_id_list: List[str]) -> List[UID]:
         return self._gdrive_cache.get_uid_list_for_goog_id_list(goog_id_list)

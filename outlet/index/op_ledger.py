@@ -134,111 +134,111 @@ class OpLedger:
                         raise RuntimeError(f'Batch op conflict: trying to copy different nodes into the same destination!')
                     elif existing.op_type != op.op_type:
                         logger.error(f'ReduceChanges(): Conflict: Change1: {existing}; Change2: {op}')
-                        raise RuntimeError(f'Batch change conflict: trying to copy differnt change types into the same destination!')
+                        raise RuntimeError(f'Batch op conflict: trying to copy different op types into the same destination!')
                     else:
-                        assert change.dst_node.uid == existing.dst_node.uid and existing.src_node.uid == change.src_node.uid and \
-                               existing.op_type == change.op_type, f'Conflict: Change1: {existing}; Change2: {change}'
-                        logger.info(f'ReduceChanges(): Discarding change (dup dst): {change}')
+                        assert op.dst_node.uid == existing.dst_node.uid and existing.src_node.uid == op.src_node.uid and \
+                               existing.op_type == op.op_type, f'Conflict: Change1: {existing}; Change2: {op}'
+                        logger.info(f'ReduceChanges(): Discarding op (dup dst): {op}')
                 else:
-                    logger.info(f'ReduceChanges(): Adding CP-like type: {change}')
-                    cp_src_dict[change.src_node.uid].append(change)
-                    cp_dst_dict[change.dst_node.uid] = change
-                    final_list.append(change)
+                    logger.info(f'ReduceChanges(): Adding CP-like type: {op}')
+                    cp_src_dict[op.src_node.uid].append(op)
+                    cp_dst_dict[op.dst_node.uid] = op
+                    final_list.append(op)
 
-        def eval_rm_ancestor_func(chg: Op, par: DisplayNode) -> bool:
+        def eval_rm_ancestor_func(op_arg: Op, par: DisplayNode) -> bool:
             conflict = mkdir_dict.get(par.uid, None)
             if conflict:
-                logger.error(f'ReduceChanges(): Conflict! Change1={conflict}; Change2={change}')
-                raise RuntimeError(f'Batch change conflict: trying to create a node and remove its descendant at the same time!')
+                logger.error(f'ReduceChanges(): Conflict! Op1={conflict}; Op2={op_arg}')
+                raise RuntimeError(f'Batch op conflict: trying to create a node and remove its descendant at the same time!')
 
             return True
 
-        def eval_mkdir_ancestor_func(chg: Op, par: DisplayNode) -> bool:
+        def eval_mkdir_ancestor_func(op_arg: Op, par: DisplayNode) -> bool:
             conflict = rm_dict.get(par.uid, None)
             if conflict:
-                logger.error(f'ReduceChanges(): Conflict! Change1={conflict}; Change2={change}')
-                raise RuntimeError(f'Batch change conflict: trying to remove a node and create its descendant at the same time!')
+                logger.error(f'ReduceChanges(): Conflict! Op1={conflict}; Op2={op_arg}')
+                raise RuntimeError(f'Batch op conflict: trying to remove a node and create its descendant at the same time!')
             return True
 
         # For each element, traverse up the tree and compare each parent node to map
-        for change in op_list:
-            if change.op_type == OpType.RM:
-                self._check_ancestors(change, eval_rm_ancestor_func)
-            elif change.op_type == OpType.MKDIR:
-                self._check_ancestors(change, eval_mkdir_ancestor_func)
-            elif change.op_type == OpType.CP or change.op_type == OpType.UP or change.op_type == OpType.MV:
-                self._check_cp_ancestors(change, mkdir_dict, rm_dict, cp_src_dict, cp_dst_dict)
+        for op in op_list:
+            if op.op_type == OpType.RM:
+                self._check_ancestors(op, eval_rm_ancestor_func)
+            elif op.op_type == OpType.MKDIR:
+                self._check_ancestors(op, eval_mkdir_ancestor_func)
+            elif op.op_type == OpType.CP or op.op_type == OpType.UP or op.op_type == OpType.MV:
+                self._check_cp_ancestors(op, mkdir_dict, rm_dict, cp_src_dict, cp_dst_dict)
 
-        logger.debug(f'Reduced {count_changes_orig} changes to {len(final_list)} changes')
+        logger.debug(f'Reduced {count_ops_orig} ops to {len(final_list)} ops')
         return final_list
 
-    def _check_cp_ancestors(self, change: Op, mkdir_dict, rm_dict, cp_src_dict, cp_dst_dict):
+    def _check_cp_ancestors(self, op: Op, mkdir_dict, rm_dict, cp_src_dict, cp_dst_dict):
         """Checks all ancestors of both src and dst for mapped Ops. The following are the only valid situations:
          1. No ancestors of src or dst correspond to any Ops.
          2. Ancestor(s) of the src node correspond to the src node of a CP or UP action (i.e. they will not change)
          """
-        src_ancestor = change.src_node
-        dst_ancestor = change.dst_node
-        logger.debug(f'Evaluating ancestors for change: {change}')
+        src_ancestor = op.src_node
+        dst_ancestor = op.dst_node
+        logger.debug(f'Evaluating ancestors for op: {op}')
         while src_ancestor:
-            logger.debug(f'Evaluating src ancestor (change={change.action_uid}): {src_ancestor}')
+            logger.debug(f'Evaluating src ancestor (op={op.action_uid}): {src_ancestor}')
             if mkdir_dict.get(src_ancestor.uid, None):
-                raise RuntimeError(f'Batch change conflict: copy from a descendant of a node being created!')
+                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being created!')
             if rm_dict.get(src_ancestor.uid, None):
-                raise RuntimeError(f'Batch change conflict: copy from a descendant of a node being deleted!')
+                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being deleted!')
             if cp_dst_dict.get(src_ancestor.uid, None):
-                raise RuntimeError(f'Batch change conflict: copy from a descendant of a node being copied to!')
+                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being copied to!')
 
             src_ancestor = self.application.cache_manager.get_parent_for_item(src_ancestor)
 
         while dst_ancestor:
-            logger.debug(f'Evaluating dst ancestor (change={change.action_uid}): {dst_ancestor}')
+            logger.debug(f'Evaluating dst ancestor (op={op.action_uid}): {dst_ancestor}')
             if rm_dict.get(dst_ancestor.uid, None):
-                raise RuntimeError(f'Batch change conflict: copy to a descendant of a node being deleted!')
+                raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being deleted!')
             if cp_src_dict.get(dst_ancestor.uid, None):
-                raise RuntimeError(f'Batch change conflict: copy to a descendant of a node being copied from!')
+                raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being copied from!')
 
             dst_ancestor = self.application.cache_manager.get_parent_for_item(dst_ancestor)
 
-    def _check_ancestors(self, change: Op, eval_func: Callable[[Op, DisplayNode], bool]):
-        ancestor = change.src_node
+    def _check_ancestors(self, op: Op, eval_func: Callable[[Op, DisplayNode], bool]):
+        ancestor = op.src_node
         while True:
             ancestor = self.application.cache_manager.get_parent_for_item(ancestor)
             if not ancestor:
                 return
-            logger.debug(f'(Change={change}): evaluating ancestor: {ancestor}')
-            if not eval_func(change, ancestor):
+            logger.debug(f'(Op={op}): evaluating ancestor: {ancestor}')
+            if not eval_func(op, ancestor):
                 return
 
     # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
     # Reduce Changes logic
 
     def load_pending_ops(self):
-        """Call this at startup, to resume pending changes which have not yet been applied."""
+        """Call this at startup, to resume pending ops which have not yet been applied."""
 
         # We may need various things from the cacheman...
         # For now, just tell the CacheManager to load all the caches. Can optimize in the future.
         self.cacheman.load_all_caches()
 
         if self.cacheman.cancel_all_pending_ops_on_startup:
-            logger.debug(f'User configuration specifies cancelling all pending changes on startup')
+            logger.debug(f'User configuration specifies cancelling all pending ops on startup')
             self._cancel_pending_ops_from_disk()
             return
 
         op_list: List[Op] = self._load_pending_ops_from_disk(ErrorHandlingBehavior.DISCARD)
         if not op_list:
-            logger.debug(f'No pending changes found in the disk cache')
+            logger.debug(f'No pending ops found in the disk cache')
             return
 
-        logger.info(f'Found {len(op_list)} pending changes from the disk cache')
+        logger.info(f'Found {len(op_list)} pending ops from the disk cache')
 
         # Sort into batches
         batch_dict: DefaultDict[UID, List[Op]] = defaultdict(lambda: list())
-        for change in op_list:
-            batch_dict[change.batch_uid].append(change)
+        for op in op_list:
+            batch_dict[op.batch_uid].append(op)
 
         batch_dict_keys = batch_dict.keys()
-        logger.info(f'Sorted changes into {len(batch_dict_keys)} batches')
+        logger.info(f'Sorted ops into {len(batch_dict_keys)} batches')
         sorted_keys = sorted(batch_dict_keys)
 
         for key in sorted_keys:
@@ -250,28 +250,28 @@ class OpLedger:
 
     def append_new_pending_ops(self, op_batch: Iterable[Op]):
         """
-        Call this after the user requests a new set of changes.
+        Call this after the user requests a new set of ops.
 
          - First store "planning nodes" to the list of cached nodes (but each will have exists=False until we execute its associated command).
-         - The list of to-be-completed changes is also cached on disk.
+         - The list of to-be-completed ops is also cached on disk.
          - When each command completes, cacheman is notified of any node updates required as well.
-         - When batch completes, we archive the changes on disk.
+         - When batch completes, we archive the ops on disk.
         """
         if not op_batch:
             return
 
-        change_iter = iter(op_batch)
-        batch_uid = next(change_iter).batch_uid
-        for change in change_iter:
-            if change.batch_uid != batch_uid:
-                raise RuntimeError(f'Changes in batch do not all contain the same batch_uid (found {change.batch_uid} and {batch_uid})')
+        op_iter = iter(op_batch)
+        batch_uid = next(op_iter).batch_uid
+        for op in op_iter:
+            if op.batch_uid != batch_uid:
+                raise RuntimeError(f'Changes in batch do not all contain the same batch_uid (found {op.batch_uid} and {batch_uid})')
 
         # Simplify and remove redundancies in op_list
-        reduced_batch: Iterable[Op] = self._reduce_changes(op_batch)
+        reduced_batch: Iterable[Op] = self._reduce_ops(op_batch)
 
         tree_root = self.op_graph.make_tree_to_insert(reduced_batch)
 
-        # Reconcile changes against master change tree before adding nodes
+        # Reconcile ops against master op tree before adding nodes
         if not self.op_graph.can_add_batch(tree_root):
             raise RuntimeError('Invalid batch!')
 
@@ -290,8 +290,8 @@ class OpLedger:
     def get_next_command(self) -> Optional[Command]:
         # Call this from Executor. Only returns None if shutting down
 
-        # This will block until a change is ready:
-        op: Op = self.op_graph.get_next_change()
+        # This will block until a op is ready:
+        op: Op = self.op_graph.get_next_op()
 
         if not op:
             logger.debug('Received None; looks like we are shutting down')
@@ -311,7 +311,7 @@ class OpLedger:
             logger.info(f'Command returned with status: "{command.status().name}"')
 
         # Ensure command is one that we are expecting
-        self.op_graph.pop_change(command.op)
+        self.op_graph.pop_op(command.op)
 
         # Add/update nodes in central cache:
         if command.result.nodes_to_upsert:
@@ -330,7 +330,7 @@ class OpLedger:
             for deleted_node in command.result.nodes_to_delete:
                 self.cacheman.remove_node(deleted_node, to_trash)
 
-        logger.debug(f'Archiving change: {command.op}')
+        logger.debug(f'Archiving op: {command.op}')
         self._archive_pending_ops_to_disk([command.op])
 
 

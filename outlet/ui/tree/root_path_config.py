@@ -2,6 +2,7 @@ import logging
 
 from pydispatch import dispatcher
 
+from constants import TREE_TYPE_LOCAL_DISK
 from index.uid.uid_generator import NULL_UID
 from model.node_identifier import NodeIdentifier
 from ui import actions
@@ -43,6 +44,16 @@ class RootPathConfigPersister:
 
         # Wait for registry to load to cross-check that our local root UIDs are correct. Shouldn't be long.
         self.application.cache_manager.wait_for_load_registry_done()
+        if tree_type == TREE_TYPE_LOCAL_DISK:
+            # resolves a problem of inconsistent UIDs during testing
+            node = self.application.cache_manager.read_single_node_from_disk_for_path(root_path, tree_type)
+            if node:
+                if root_uid != node.uid:
+                    logger.warning(f'UID from config ({root_uid}) does not match UID from cache ({node.uid}); will use value from cache')
+                    root_uid = node.uid
+            else:
+                raise RuntimeError(f'Could not find node in cache for path "{root_path}"')
+
         self.root_identifier = self.application.node_identifier_factory.for_values(tree_type=tree_type, full_path=root_path, uid=root_uid)
 
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=tree_id)

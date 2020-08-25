@@ -10,7 +10,7 @@ from treelib.exceptions import NodeIDAbsentError
 
 from util import file_util
 import fmeta.content_hasher
-from constants import LOCAL_ROOT_UID, ROOT_PATH
+from constants import LOCAL_ROOT_UID, ROOT_PATH, TREE_TYPE_LOCAL_DISK
 from fmeta.local_disk_scanner import LocalDiskScanner
 from index.cache_manager import PersistedCacheInfo
 from index.sqlite.local_db import LocalDiskDatabase
@@ -196,7 +196,7 @@ class LocalDiskMasterCache:
 
         # If we have already loaded this subtree as part of a larger cache, use that:
         cache_man = self.application.cache_manager
-        supertree_cache: Optional[PersistedCacheInfo] = cache_man.find_existing_supertree_for_subtree(subtree_root, tree_id)
+        supertree_cache: Optional[PersistedCacheInfo] = cache_man.find_existing_supertree_for_subtree(subtree_root.full_path, subtree_root.tree_type)
         if supertree_cache:
             logger.debug(f'Subtree ({subtree_root.full_path}) is part of existing cached supertree ({supertree_cache.subtree_root.full_path})')
             assert isinstance(subtree_root, LocalFsIdentifier)
@@ -312,8 +312,14 @@ class LocalDiskMasterCache:
         registry_needs_update = len(supertree_sets) > 0
         return local_caches, registry_needs_update
 
-    # Individual node updates
+    # Individual node operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def get_node_for_path(self, full_path: str) -> DisplayNode:
+        cache_man = self.application.cache_manager
+        cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_supertree_for_subtree(full_path, TREE_TYPE_LOCAL_DISK)
+        with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
+            return cache.get_file_or_dir_for_path(full_path)
 
     def _update_dir_fields(self, update_to: LocalDirNode, update_from: LocalDirNode):
         # We only have one field to update for dirs so far
@@ -369,7 +375,8 @@ class LocalDiskMasterCache:
         if node.exists():
             cache_man = self.application.cache_manager
             if cache_man.enable_save_to_disk:
-                cache_info = cache_man.find_existing_supertree_for_subtree(node.node_identifier, ID_GLOBAL_CACHE)
+                assert node.get_tree_type() == TREE_TYPE_LOCAL_DISK
+                cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_supertree_for_subtree(node.full_path, node.get_tree_type())
                 if cache_info:
                     with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
                         if node.is_dir():
@@ -419,7 +426,8 @@ class LocalDiskMasterCache:
         # 3. Update on-disk cache:
         cache_man = self.application.cache_manager
         if cache_man.enable_save_to_disk:
-            cache_info = cache_man.find_existing_supertree_for_subtree(node.node_identifier, ID_GLOBAL_CACHE)
+            assert node.get_tree_type() == TREE_TYPE_LOCAL_DISK
+            cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_supertree_for_subtree(node.full_path, node.get_tree_type())
             if cache_info:
                 with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
                     if node.is_dir():

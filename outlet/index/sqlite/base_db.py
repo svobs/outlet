@@ -44,10 +44,11 @@ class Table:
         return f"UPDATE {self.name} SET {col_setters} "
 
     def build_select(self):
-        return 'SELECT ' + ','.join(col_name for col_name in self.cols.keys()) + ' FROM ' + self.name
+        col_names = ','.join(col_name for col_name in self.cols.keys())
+        return f'SELECT {col_names} FROM {self.name} '
 
     def build_delete(self):
-        return f"DELETE FROM {self.name} "
+        return f'DELETE FROM {self.name} '
 
     def build_create_table(self):
         return 'CREATE TABLE ' + self.name + '(' + ', '.join(col_name + ' ' + col_type for col_name, col_type in self.cols.items()) + ')'
@@ -100,10 +101,13 @@ class LiveTable(Table):
         logger.debug(f'Table {self.name} has rows = {has_rows}')
         return has_rows
 
-    def select(self, where_clause: str) -> List[Tuple]:
+    def select(self, where_clause: str, where_tuple: Tuple = None) -> List[Tuple]:
         cursor = self.conn.cursor()
         sql = self.build_select() + where_clause
-        cursor.execute(sql)
+        if where_tuple:
+            cursor.execute(sql, where_tuple)
+        else:
+            cursor.execute(sql)
         return cursor.fetchall()
 
     def get_all_rows(self) -> List[Tuple]:
@@ -218,14 +222,16 @@ class LiveTable(Table):
             item: Tuple = self.obj_to_tuple_func(item)
         self.upsert_one(item, commit=commit)
 
-    def select_object_list(self, where_clause: str = '', tuple_to_obj_func_override: Optional[Callable[[Tuple], Any]] = None) -> List[Any]:
+    def select_object_list(self, where_clause: str = '', where_tuple: Tuple = None,
+                           tuple_to_obj_func_override: Optional[Callable[[Tuple], Any]] = None) -> List[Any]:
+        """ Gets all changes in the table. If 'where_clause' is used, 'where_tuple' supplies the arguments to it """
+
         entries: List[Any] = []
 
-        """ Gets all changes in the table """
         if not self.is_table():
             return entries
 
-        rows = self.select(where_clause)
+        rows = self.select(where_clause, where_tuple)
         if tuple_to_obj_func_override:
             for row in rows:
                 entries.append(tuple_to_obj_func_override(row))

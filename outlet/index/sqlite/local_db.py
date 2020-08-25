@@ -1,6 +1,6 @@
 import logging
 from collections import OrderedDict
-from typing import List, Tuple
+from typing import List, Optional, Tuple, Union
 
 from index.sqlite.base_db import LiveTable, MetaDatabase, Table
 from index.uid.uid import UID
@@ -75,14 +75,14 @@ class LocalDiskDatabase(MetaDatabase):
         self.table_local_file.upsert_object(item, commit=commit)
 
     def delete_local_file_with_uid(self, uid: UID, commit=True):
-        self.table_local_file.delete_for_uid(uid, commit)
+        self.table_local_file.delete_for_uid(uid, commit=commit)
 
     # LOCAL_DIR operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
     def _tuple_to_dir(self, row: Tuple) -> LocalDirNode:
         full_path = row[1]
         uid = self.cache_manager.get_uid_for_path(full_path, row[0])
-        assert uid == row[0], f'UID conflict! Got {uid} but read {row}'
+        assert uid == row[0], f'UID conflict! Got {uid} from memcache but read from disk: {row}'
         return LocalDirNode(LocalFsIdentifier(uid=uid, full_path=full_path), bool(row[2]))
 
     def has_local_dirs(self):
@@ -104,3 +104,15 @@ class LocalDiskDatabase(MetaDatabase):
             logger.debug('Committing!')
             self.conn.commit()
 
+    # Other ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
+
+    def get_file_or_dir_for_path(self, full_path: str) -> Optional[Union[LocalDirNode, LocalFileNode]]:
+        dir_list = self.table_local_dir.select_object_list(where_clause='WHERE full_path = ?', where_tuple=(full_path,))
+        if dir_list:
+            return dir_list[0]
+
+        file_list = self.table_local_file.select_object_list(where_clause='WHERE full_path = ?', where_tuple=(full_path,))
+        if file_list:
+            return file_list[0]
+
+        return None
