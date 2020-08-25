@@ -31,7 +31,7 @@ class OpGraph:
         self._cv = threading.Condition()
         """Used to help consumers block"""
 
-        self._node_dict: Dict[UID, Deque[OpGraphNode]] = {}
+        self._node_q_dict: Dict[UID, Deque[OpGraphNode]] = {}
         """Contains entries for all nodes have pending ops. Each entry has a queue of pending ops for that target node"""
 
         self._graph_root: OpGraphNode = RootNode()
@@ -55,11 +55,11 @@ class OpGraph:
         logger.debug(f'CURRENT STATE: OpGraph is now {len(lines)} items:')
         for line in lines:
             logger.debug(line)
-        self._print_node_dict()
+        self._print_node_q_dict()
 
-    def _print_node_dict(self):
-        logger.debug(f'CURRENT STATE: QueueDict is now: {len(self._node_dict)} node queues:')
-        for node_uid, deque in self._node_dict.items():
+    def _print_node_q_dict(self):
+        logger.debug(f'CURRENT STATE: NodeQueueDict is now: {len(self._node_q_dict)} node queues:')
+        for node_uid, deque in self._node_q_dict.items():
             node_list: List[str] = []
             for node in deque:
                 node_list.append(node.op.tag)
@@ -80,7 +80,7 @@ class OpGraph:
             return self.cacheman.get_uid_for_path(parent_path)
 
     def _get_lowest_priority_op_node(self, uid: UID):
-        node_list = self._node_dict.get(uid, None)
+        node_list = self._node_q_dict.get(uid, None)
         if node_list:
             # last element in list is lowest priority:
             return node_list[-1]
@@ -93,7 +93,7 @@ class OpGraph:
             return op_node.op
         return None
 
-    def make_tree_to_insert(self, op_batch: Iterable[Op]) -> RootNode:
+    def make_graph_from_batch(self, op_batch: Iterable[Op]) -> RootNode:
         logger.debug(f'Constructing OpNode tree for Op batch...')
 
         # Verify batch sort:
@@ -105,8 +105,8 @@ class OpGraph:
             last_uid = op.action_uid
 
         # Put all in dict as wrapped OpGraphNodes
-        non_mutex_node_dict: DefaultDict[UID, List[OpGraphNode]] = collections.defaultdict(lambda: list())
-        mutex_node_dict: Dict[UID, OpGraphNode] = {}
+        non_mutex_node_q_dict: DefaultDict[UID, List[OpGraphNode]] = collections.defaultdict(lambda: list())
+        mutex_node_q_dict: Dict[UID, OpGraphNode] = {}
         for op in op_batch:
             if op.op_type == OpType.RM:
                 src_node = RmOpNode(self.uid_generator.next_uid(), op)
@@ -114,36 +114,36 @@ class OpGraph:
                 src_node = SrcOpNode(self.uid_generator.next_uid(), op)
 
             if src_node.is_mutually_exclusive():
-                existing = mutex_node_dict.get(src_node.get_target_node().uid, None)
+                existing = mutex_node_q_dict.get(src_node.get_target_node().uid, None)
                 if existing:
                     raise RuntimeError(f'Duplicate node: {src_node.get_target_node()}')
-                mutex_node_dict[src_node.get_target_node().uid] = src_node
+                mutex_node_q_dict[src_node.get_target_node().uid] = src_node
             else:
-                non_mutex_node_dict[src_node.get_target_node().uid].append(src_node)
+                non_mutex_node_q_dict[src_node.get_target_node().uid].append(src_node)
 
             if op.has_dst():
                 dst_node = DstOpNode(self.uid_generator.next_uid(), op)
                 assert dst_node.is_mutually_exclusive()
-                existing = mutex_node_dict.get(dst_node.get_target_node().uid, None)
+                existing = mutex_node_q_dict.get(dst_node.get_target_node().uid, None)
                 if existing:
                     raise RuntimeError(f'Duplicate node: {dst_node.get_target_node()}')
-                mutex_node_dict[dst_node.get_target_node().uid] = dst_node
+                mutex_node_q_dict[dst_node.get_target_node().uid] = dst_node
 
         # Assemble nodes one by one with parent-child relationships.
         root_node = RootNode()
 
         # non-mutually exclusive nodes: just make them all children of root
-        for non_mutex_list in non_mutex_node_dict.values():
+        for non_mutex_list in non_mutex_node_q_dict.values():
             for node in non_mutex_list:
                 root_node.link_child(node)
 
         # Need to keep track of RM nodes because we can't identify their topmost nodes the same way as other nodes:
-        rm_node_dict: Dict[UID, OpGraphNode] = {}
+        rm_node_q_dict: Dict[UID, OpGraphNode] = {}
         
         # mutually exclusive nodes have dependencies on each other:
-        for potential_child_op in mutex_node_dict.values():
+        for potential_child_op in mutex_node_q_dict.values():
             parent_uid = self._derive_parent_uid(potential_child_op.get_target_node())
-            op_for_parent_node: OpGraphNode = mutex_node_dict.get(parent_uid, None)
+            op_for_parent_node: OpGraphNode = mutex_node_q_dict.get(parent_uid, None)
             if potential_child_op.is_remove_type():
                 # Special handling for RM-type nodes:
                 op_parent_unknown = True
@@ -155,7 +155,7 @@ class OpGraph:
                         op_for_parent_node.link_child(potential_child_op)
                         op_parent_unknown = False
                 if op_parent_unknown:
-                    rm_node_dict[potential_child_op.get_target_node().uid] = potential_child_op
+                    rm_node_q_dict[potential_child_op.get_target_node().uid] = potential_child_op
             else:
                 # (Nodes which are NOT OpType.RM):
                 if op_for_parent_node:
@@ -165,11 +165,11 @@ class OpGraph:
                     root_node.link_child(potential_child_op)
 
         # Filter RM node list so that we only have topmost nodes:
-        for uid in list(rm_node_dict.keys()):
-            if rm_node_dict[uid].get_parent_list():
-                del rm_node_dict[uid]
+        for uid in list(rm_node_q_dict.keys()):
+            if rm_node_q_dict[uid].get_parent_list():
+                del rm_node_q_dict[uid]
         # Finally, link topmost RM nodes to root:
-        for rm_node in rm_node_dict.values():
+        for rm_node in rm_node_q_dict.values():
             root_node.link_child(rm_node)
 
         lines = root_node.print_recursively()
@@ -178,7 +178,7 @@ class OpGraph:
             logger.debug(line)
         return root_node
 
-    def can_add_batch(self, root_of_ops: RootNode) -> bool:
+    def can_nq_batch(self, root_of_ops: RootNode) -> bool:
         """
         Takes a tree representing a batch as an arg. The root itself is ignored, but each of its children represent the root of a
         subtree of changes, in which each node of the subtree maps to a node in a directory tree. No intermediate nodes are allowed to be
@@ -189,6 +189,8 @@ class OpGraph:
         2. Except for MKDIR, SRC nodes must all be present in tree (OK if exists==False due to pending operation)
         and not already scheduled for RM
         """
+
+        assert isinstance(root_of_ops, RootNode)
 
         # Invert RM nodes when inserting into tree
         batch_uid = root_of_ops.get_first_child().op.batch_uid
@@ -242,7 +244,7 @@ class OpGraph:
 
         child_nodes = []
 
-        for node_queue in self._node_dict.values():
+        for node_queue in self._node_q_dict.values():
             if node_queue:
                 existing_op_node = node_queue[-1]
                 potential_child: DisplayNode = existing_op_node.get_target_node()
@@ -255,12 +257,14 @@ class OpGraph:
         logger.debug(f'{sw_total} Found {len(child_nodes):n} child nodes in tree for op node')
         return child_nodes
 
-    def _add_single_node(self, node_to_insert: OpGraphNode):
+    def _nq_single_node(self, node_to_insert: OpGraphNode) -> bool:
         """
         The node shall be added as a child dependency of either the last operation which affected its target,
         or as a child dependency of the last operation which affected its parent, whichever has lower priority (i.e. has a lower level
         in the dependency tree). In the case where neither the node nor its parent has a pending operation, we obviously can just add
         to the top of the dependency tree.
+
+        Returns True if the node was successfully nq'd; returns False if discarded
         """
         logger.debug(f'Enqueuing single op node: {node_to_insert}')
 
@@ -302,14 +306,14 @@ class OpGraph:
 
                 if existing_child_count > 0:
                     logger.debug(f'All parent ops already have child op attached with correct node UID. Discarding op {node_to_insert.node_uid}')
-                    return
+                    return False
 
             elif last_target_op:
                 # If existing op is found for the target node, add below that.
                 if last_target_op.is_remove_type():
                     logger.info(f'Op node being enqueued (UID {node_to_insert.node_uid}, tgt UID {target_uid}) is an RM type which is '
                                 f'a dup of already enqueued RM (UID {last_target_op.node_uid}); discarding!')
-                    return
+                    return False
 
                 # The node's children MUST be removed first. It is invalid to RM a node which has children.
                 if last_target_op.get_child_list():
@@ -345,14 +349,16 @@ class OpGraph:
                 logger.debug(f'Found no previous ops for either target node {target_uid} or parent node {parent_uid}; adding to root')
                 self._graph_root.link_child(node_to_insert)
 
-        # Always add pending operation for bookkeeping
-        pending_ops = self._node_dict.get(target_uid, None)
+        # Always add to node_queue_dict:
+        pending_ops = self._node_q_dict.get(target_uid, None)
         if not pending_ops:
             pending_ops = collections.deque()
-            self._node_dict[target_uid] = pending_ops
+            self._node_q_dict[target_uid] = pending_ops
         pending_ops.append(node_to_insert)
 
-    def add_batch(self, root_of_ops: RootNode):
+        return True
+
+    def nq_batch(self, root_of_ops: RootNode) -> List[Op]:
         # 1. Discard root
         # 2. Examine each child of root. Each shall be treated as its own subtree.
         # 3. For each subtree, look up all its nodes in the master dict. Level...?
@@ -360,22 +366,30 @@ class OpGraph:
         # Disregard the kind of op when building the tree; they are all equal for now (except for RM; see below):
         # Once entire tree is constructed, invert the RM subtree (if any) so that ancestor RMs become descendants
 
+        # Note: it is assumed that the given batch has already been reduced, and stored in the pending ops tree.
+        # Every op node in the supplied graph must be accounted for.
+
         if not root_of_ops.get_child_list():
             raise RuntimeError(f'Batch has no nodes!')
 
-        batch_uid = root_of_ops.get_first_child().op.batch_uid
+        batch_uid: UID = root_of_ops.get_first_child().op.batch_uid
 
         breadth_first_list: List[OpGraphNode] = root_of_ops.get_all_nodes_in_subtree()
-        for node_to_insert in _skip_root(breadth_first_list):
+        discarded_op_dict: Dict[UID, Op] = {}
+        for node_to_nq in _skip_root(breadth_first_list):
             with self._lock:
-                self._add_single_node(node_to_insert)
+                succeeded = self._nq_single_node(node_to_nq)
+                if not succeeded:
+                    discarded_op_dict[node_to_nq.op.action_uid] = node_to_nq.op
 
         logger.debug(f'Done adding batch {batch_uid}')
         self._print_current_state()
 
+        # notify consumers there is something to get:
         with self._cv:
-            # notify consumers there is something to get:
             self._cv.notifyAll()
+
+        return list(discarded_op_dict.values())
 
     def _try_get(self) -> Optional[Op]:
         # We can optimize this later
@@ -387,7 +401,7 @@ class OpGraph:
                 # If the Op has both src and dst nodes, *both* must be next in their queues, and also be just below root.
                 if op_node.is_dst():
                     # Dst node is child of root. But verify corresponding src node is also child of root
-                    pending_ops_for_src_node: Deque[OpGraphNode] = self._node_dict.get(op_node.op.src_node.uid, None)
+                    pending_ops_for_src_node: Deque[OpGraphNode] = self._node_q_dict.get(op_node.op.src_node.uid, None)
                     if not pending_ops_for_src_node:
                         logger.error(f'Could not find entry for op src (op={op_node.op}); raising error')
                         raise RuntimeError(f'Serious error: master dict has no entries for op src ({op_node.op.src_node.uid})!')
@@ -404,7 +418,7 @@ class OpGraph:
 
                 else:
                     # Src node is child of root. But verify corresponding dst node is also child of root
-                    pending_ops_for_node: Deque[OpGraphNode] = self._node_dict.get(op_node.op.dst_node.uid, None)
+                    pending_ops_for_node: Deque[OpGraphNode] = self._node_q_dict.get(op_node.op.dst_node.uid, None)
                     if not pending_ops_for_node:
                         logger.error(f'Could not find entry for op dst (op={op_node.op}); raising error')
                         raise RuntimeError(f'Serious error: master dict has no entries for op dst ({op_node.op.dst_node.uid})!')
@@ -468,7 +482,7 @@ class OpGraph:
 
             # I-1. Remove src node from node dict
 
-            src_node_list: Deque[OpGraphNode] = self._node_dict.get(op.src_node.uid)
+            src_node_list: Deque[OpGraphNode] = self._node_q_dict.get(op.src_node.uid)
             if not src_node_list:
                 raise RuntimeError(f'Src node for completed op not found in master dict (src node UID {op.src_node.uid}')
 
@@ -505,7 +519,7 @@ class OpGraph:
             if op.has_dst():
                 # II-1. Remove dst node from node dict
 
-                dst_node_list: Deque[OpGraphNode] = self._node_dict.get(op.dst_node.uid)
+                dst_node_list: Deque[OpGraphNode] = self._node_q_dict.get(op.dst_node.uid)
                 if not dst_node_list:
                     raise RuntimeError(f'Dst node for completed op not found in master dict (dst node UID {op.dst_node.uid}')
                 dst_op_node = dst_node_list.popleft()

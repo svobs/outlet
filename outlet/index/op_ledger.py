@@ -74,6 +74,11 @@ class OpLedger:
 
         return op_list
 
+    def _remove_pending_ops(self, op_list: Iterable[Op]):
+        with OpDatabase(self.op_db_path, self.application) as op_db:
+            pass
+            # TODO
+
     def _save_pending_ops_to_disk(self, op_list: Iterable[Op]):
         with OpDatabase(self.op_db_path, self.application) as op_db:
             # This will save each of the planning nodes, if any:
@@ -244,9 +249,12 @@ class OpLedger:
         for key in sorted_keys:
             # Assume batch has already been reduced and reconciled against master tree.
             batch_items: List[Op] = batch_dict[key]
-            batch_root = self.op_graph.make_tree_to_insert(batch_items)
+            batch_root = self.op_graph.make_graph_from_batch(batch_items)
             logger.info(f'Adding batch {key} to OpTree')
-            self.op_graph.add_batch(batch_root)
+            discarded_op_list: List[Op] = self.op_graph.nq_batch(batch_root)
+            if discarded_op_list:
+                logger.debug(f'{len(discarded_op_list)} ops were discarded')
+                self._remove_pending_ops(discarded_op_list)
 
     def append_new_pending_ops(self, op_batch: Iterable[Op]):
         """
@@ -269,10 +277,10 @@ class OpLedger:
         # Simplify and remove redundancies in op_list
         reduced_batch: Iterable[Op] = self._reduce_ops(op_batch)
 
-        tree_root = self.op_graph.make_tree_to_insert(reduced_batch)
+        tree_root = self.op_graph.make_graph_from_batch(reduced_batch)
 
         # Reconcile ops against master op tree before adding nodes
-        if not self.op_graph.can_add_batch(tree_root):
+        if not self.op_graph.can_nq_batch(tree_root):
             raise RuntimeError('Invalid batch!')
 
         # Save ops and their planning nodes to disk
@@ -282,7 +290,10 @@ class OpLedger:
         for op in reduced_batch:
             self._add_planning_nodes_to_memcache(op)
 
-        self.op_graph.add_batch(tree_root)
+        discarded_op_list: List[Op] = self.op_graph.nq_batch(tree_root)
+        if discarded_op_list:
+            logger.debug(f'{len(discarded_op_list)} ops were discarded')
+            self._remove_pending_ops(discarded_op_list)
 
     def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[Op]:
         return self.op_graph.get_last_pending_op_for_node(node_uid)
