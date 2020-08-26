@@ -27,6 +27,7 @@ class CommandExecutor:
 
         needs_gdrive = command.needs_gdrive()
 
+        context = None
         try:
             context = CommandContext(self.staging_dir, self.application, actions.ID_COMMAND_EXECUTOR, needs_gdrive)
 
@@ -48,6 +49,8 @@ class CommandExecutor:
 
         finally:
             dispatcher.send(signal=actions.STOP_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR)
+            if context:
+                context.shutdown()
 
         logger.debug(f'{command.get_description()} completed without error')
 
@@ -69,6 +72,7 @@ class CommandExecutor:
                 needs_gdrive = True
 
         dispatcher.send(signal=actions.START_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR, total=total)
+        context = None
         try:
             context = CommandContext(self.staging_dir, self.application, actions.ID_COMMAND_EXECUTOR, needs_gdrive)
 
@@ -91,6 +95,8 @@ class CommandExecutor:
 
         finally:
             dispatcher.send(signal=actions.STOP_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR)
+            if context:
+                context.shutdown()
 
         logger.debug(f'{_get_total_completed(command_batch)} out of {len(command_batch)} completed without error')
 

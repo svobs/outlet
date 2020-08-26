@@ -108,10 +108,10 @@ class TreeActions:
             os.remove(file)
 
     def _download_file_from_gdrive(self, sender, node: GDriveFile):
-        gdrive_client = GDriveClient(self.con.parent_win.application)
-
         os.makedirs(name=self.download_dir, exist_ok=True)
         dest_file = os.path.join(self.download_dir, node.name)
+
+        gdrive_client = GDriveClient(self.con.parent_win.application)
         try:
             gdrive_client.download_file(node.goog_id, dest_file)
             if self.post_download_action == OPEN:
@@ -121,6 +121,8 @@ class TreeActions:
         except Exception as err:
             self.con.parent_win.show_error_msg('Download failed', repr(err))
             raise
+        finally:
+            gdrive_client.shutdown()
 
     def _call_xdg_open(self, sender, full_path):
         if os.path.exists(full_path):

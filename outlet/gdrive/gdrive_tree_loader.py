@@ -34,6 +34,11 @@ class GDriveTreeLoader:
         self.cache = None
         self.gdrive_client = GDriveClient(application, tree_id)
 
+    def __del__(self):
+        if self.gdrive_client:
+            self.gdrive_client.shutdown()
+            self.gdrive_client = None
+
     def _get_previous_download_state(self, download_type: int):
         for download in self.cache.get_current_downloads():
             if download.download_type == download_type:
@@ -41,6 +46,7 @@ class GDriveTreeLoader:
         return None
 
     def load_all(self, invalidate_cache=False) -> GDriveWholeTree:
+        logger.debug('GDrive: load_all() called')
         # This will create a new file if not found:
         with GDriveDatabase(self.cache_path, self.application) as self.cache:
             try:
@@ -142,6 +148,7 @@ class GDriveTreeLoader:
         self._determine_roots(tree)
         _compile_full_paths(tree)
 
+        logger.debug('GDrive: load_all() done')
         return tree
 
     def _load_tree_from_cache(self, is_complete: bool) -> GDriveWholeTree:
@@ -173,13 +180,10 @@ class GDriveTreeLoader:
                     invalidate_uids[folder.uid] = folder.goog_id
                     continue
             else:
-                # no goog_id: indicates a node being copied
-                # TODO: THIS IS OBSOLETE. ERROR
-                self.uid_generator.ensure_next_uid_greater_than(max_uid)
-                items_without_goog_ids.append(folder)
+                raise RuntimeError(f'GDriveFolder is missing goog_id: {folder}')
 
             if tree.id_dict.get(folder.uid, None):
-                logger.error(f'Duplicate folder entry found for UID: {folder.uid}. Will discard prev entry: {tree.id_dict[folder.uid]}')
+                raise RuntimeError(f'GDrive folder cache conflict for UID: {folder.uid} (1st: {tree.id_dict[folder.uid]}; 2nd: {folder}')
             tree.id_dict[folder.uid] = folder
             count_folders_loaded += 1
 
@@ -205,13 +209,10 @@ class GDriveTreeLoader:
                     invalidate_uids[file.uid] = file.goog_id
                     continue
             else:
-                # no goog_id: indicates a node being copied
-                # TODO: THIS IS OBSOLETE. ERROR
-                self.uid_generator.ensure_next_uid_greater_than(max_uid)
-                items_without_goog_ids.append(file)
+                raise RuntimeError(f'GDriveFile is missing goog_id: {file}')
 
             if tree.id_dict.get(file.uid, None):
-                logger.error(f'Duplicate entry found for UID: {file.uid}. Will discard prev entry: {tree.id_dict[file.uid]}')
+                raise RuntimeError(f'GDrive cache conflict for UID: {file.uid} (1st: {tree.id_dict[file.uid]}; 2nd: {file}')
             tree.id_dict[file.uid] = file
             count_files_loaded += 1
 
@@ -241,9 +242,6 @@ class GDriveTreeLoader:
             logger.debug(f'{sw} Loaded {mapping_count} Google Drive file-folder mappings')
 
         logger.debug(f'{sw_total} Loaded {len(tree.id_dict):n} items from {count_files_loaded:n} files and {count_folders_loaded:n} folders')
-        if items_without_goog_ids:
-            logger.warning(f'Found {len(items_without_goog_ids)} cached items which do not have goog_ids')
-            # TODO: do stuff with the above items ^^^
 
         self.uid_generator.ensure_next_uid_greater_than(max_uid)
         return tree

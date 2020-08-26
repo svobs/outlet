@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 
 def _load_google_client_service(config):
     def request():
+        logger.debug('Trying to authenticate against GDrive API...')
         creds = None
         # The file token.pickle stores the user's access and refresh tokens, and is
         # created automatically when the authorization flow completes for the first
@@ -73,7 +74,9 @@ def _load_google_client_service(config):
         service = build('drive', 'v3', credentials=creds, cache=MemoryCache())
         return service
 
-    return _try_repeatedly(request)
+    result = _try_repeatedly(request)
+    logger.debug('Authentication done!')
+    return result
 
 
 def _try_repeatedly(request_func):
@@ -146,6 +149,16 @@ class GDriveClient:
         self.tree_id = tree_id
         self.page_size = self.config.get('gdrive.page_size')
         self.service = _load_google_client_service(self.config)
+
+    def __del__(self):
+        self.shutdown()
+
+    def shutdown(self):
+        if self.service:
+            # Try to suppress warning
+            logger.debug(f'Closing GDriveClient')
+            self.service._http.http.close()
+            self.service = None
 
     def resolve_parent_ids_to_goog_ids(self, node: GDriveNode) -> str:
         parent_uids: List[UID] = node.get_parent_uids()
