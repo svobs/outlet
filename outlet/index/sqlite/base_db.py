@@ -203,7 +203,7 @@ class LiveTable(Table):
 
         self.insert_many(to_insert, commit)
 
-    def upsert_object_list(self, entries: List, overwrite: bool, commit: bool = True,
+    def upsert_object_list(self, entries: List, overwrite: bool = False, commit: bool = True,
                            obj_to_tuple_func_override: Optional[Callable[[Any], Tuple]] = None):
         """ Takes a list of objects and inserts them all """
         to_insert: List[Tuple] = self._to_tuple_list(entries, obj_to_tuple_func_override)

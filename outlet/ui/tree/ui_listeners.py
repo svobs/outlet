@@ -169,15 +169,16 @@ class TreeUiListeners:
         dd_uid = UID(text)
 
         drop_info = treeview.get_dest_row_at_pos(x, y)
-        if not drop_info:
-            logger.debug('No drop info!')
-            return
-
-        tree_path, drop_position = drop_info
-        if drop_position == Gtk.TreeViewDropPosition.INTO_OR_BEFORE or drop_position == Gtk.TreeViewDropPosition.INTO_OR_AFTER:
-            is_into = True
+        if drop_info:
+            tree_path, drop_position = drop_info
+            if drop_position == Gtk.TreeViewDropPosition.INTO_OR_BEFORE or drop_position == Gtk.TreeViewDropPosition.INTO_OR_AFTER:
+                is_into = True
+            else:
+                is_into = False
         else:
+            logger.info('No drop info! Assuming a top-level drop')
             is_into = False
+            tree_path = None
         self._drop_data = dd_uid, tree_path, is_into
         self._check_drop()
 
@@ -185,10 +186,15 @@ class TreeUiListeners:
         # Puts the drag data into/adjacent to the given tree_path.
         logger.info(f'[{self.con.tree_id}] We received a drop of {len(drag_data.nodes)} nodes!')
 
-        model = self.con.display_store.model
-        drop_dest_iter = model.get_iter(tree_path)
+        if tree_path:
+            model = self.con.display_store.model
+            drop_dest_iter = model.get_iter(tree_path)
+            dest_node = self.con.display_store.get_node_data(drop_dest_iter)
+        else:
+            # Assume we are dropping into the tree root
+            is_into = True
+            dest_node = self.con.get_tree().root_node
 
-        dest_node = self.con.display_store.get_node_data(drop_dest_iter)
         if is_into:
             if dest_node and not dest_node.is_dir():
                 # cannot drop into a file; just use parent in this case

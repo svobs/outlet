@@ -165,6 +165,8 @@ def _ensure_uid(val):
 def _add_gdrive_parent_cols(table: Table):
     table.cols.update({('parent_uid', 'INTEGER'),
                        ('parent_goog_id', 'TEXT')})
+    table.cols.move_to_end('parent_uid', last=True)
+    table.cols.move_to_end('parent_goog_id', last=True)
 
 
 # CLASS OpDatabase
@@ -390,13 +392,16 @@ class OpDatabase(MetaDatabase):
 
         src_node_by_action_uid: Dict[UID, DisplayNode] = {}
         for table in self.table_lists.src_pending:
+            logger.debug(f'Getting src nodes from table: "{table.name}"')
             self._get_all_in_table(table, src_node_by_action_uid)
 
         dst_node_by_action_uid: Dict[UID, DisplayNode] = {}
         for table in self.table_lists.dst_pending:
+            logger.debug(f'Getting dst nodes from table: "{table.name}"')
             self._get_all_in_table(table, dst_node_by_action_uid)
 
         rows = self.table_pending_op.get_all_rows()
+        logger.debug(f'Found {len(rows)} pending ops in table {self.table_pending_op.name}')
         for row in rows:
             ref = OpRef(UID(row[0]), UID(row[1]), OpType(row[2]), UID(row[3]), _ensure_uid(row[4]), int(row[5]))
             src_node = src_node_by_action_uid.get(ref.action_uid, None)
