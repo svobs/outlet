@@ -48,6 +48,10 @@ class ContainerNode(HasChildren, DisplayNode):
         assert self.node_identifier.full_path, f'For {type(self)}, uid={self.uid}'
         return os.path.basename(self.node_identifier.full_path)
 
+    @property
+    def sync_ts(self):
+        return None
+
     def __eq__(self, other):
         if not isinstance(other, ContainerNode):
             return False

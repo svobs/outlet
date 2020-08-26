@@ -14,6 +14,7 @@ from cmd.cmd_interface import Command
 from constants import OPS_FILE_NAME
 from index import cache_manager
 from index.sqlite.op_db import OpDatabase
+from index.uid.uid import UID
 from model.display_tree.display_tree import DisplayTree
 from model.node.display_node import DisplayNode
 from outlet_app import OutletApplication
@@ -71,6 +72,38 @@ class DNode(FNode):
 # Static stuff
 # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
+INITIAL_LOCAL_TREE_LEFT = [
+    FNode('American_Gothic.jpg', 2061397),
+    FNode('Angry-Clown.jpg', 824641),
+    DNode('Art', (88259 + 652220 + 239739 + 44487 + 479124) + (147975 + 275771 + 8098 + 247023 + 36344), [
+        FNode('Dark-Art.png', 147975),
+        FNode('Hokusai_Great-Wave.jpg', 275771),
+        DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
+            FNode('1923-art.jpeg', 88259),
+            FNode('43548-forbidden_planet.jpg', 652220),
+            FNode('Dunno.jpg', 239739),
+            FNode('felix-the-cat.jpg', 44487),
+            FNode('Glow-Cat.png', 479124),
+        ]),
+        FNode('Mona-Lisa.jpeg', 8098),
+        FNode('william-shakespeare.jpg', 247023),
+        FNode('WTF.jpg', 36344),
+    ]),
+    FNode('Egypt.jpg', 154564),
+    FNode('George-Floyd.png', 27601),
+    FNode('Geriatric-Clown.jpg', 89182),
+    FNode('Keep-calm-and-carry-on.jpg', 745698),
+]
+
+INITIAL_LOCAL_TREE_RIGHT = [
+    FNode('Edvard-Munch-The-Scream.jpg', 114082),
+    FNode('M83.jpg', 17329),
+    FNode('oak-tree-sunset.jpg', 386888),
+    FNode('Ocean-Wave.jpg', 83713),
+    FNode('Starry-Night.jpg', 91699),
+    FNode('we-can-do-it-poster.jpg', 390093),
+]
+
 
 def get_name_lower(display_node: DisplayNode):
     return display_node.name.lower()
@@ -108,10 +141,12 @@ class OpTestBase(unittest.TestCase):
         self.left_tree_initial = None
         self.left_tree_type = None
         self.left_tree_root_path = None
+        self.left_tree_root_uid = None
 
         self.right_tree_initial = None
-        self.right_tree_type = None
-        self.right_tree_root_path = None
+        self.right_tree_type: Optional[int] = None
+        self.right_tree_root_path: Optional[str] = None
+        self.right_tree_root_uid: Optional[UID] = None
 
     def do_setup(self):
         # Remove test files and replace with freshly extracted files
@@ -133,9 +168,14 @@ class OpTestBase(unittest.TestCase):
 
         config.write(root_path_config.make_tree_type_config_key(actions.ID_LEFT_TREE), self.left_tree_type)
         config.write(root_path_config.make_root_path_config_key(actions.ID_LEFT_TREE), self.left_tree_root_path)
+        if self.left_tree_root_uid:
+            config.write(root_path_config.make_root_uid_config_key(actions.ID_LEFT_TREE), self.left_tree_root_uid)
 
         config.write(root_path_config.make_tree_type_config_key(actions.ID_RIGHT_TREE), self.right_tree_type)
         config.write(root_path_config.make_root_path_config_key(actions.ID_RIGHT_TREE), self.right_tree_root_path)
+        if self.right_tree_root_uid:
+            config.write(root_path_config.make_root_uid_config_key(actions.ID_RIGHT_TREE), self.right_tree_root_uid)
+
         self.app = OutletApplication(config)
         # Disable execution so we can study the state of the OpGraph:
         self.app.executor.enable_op_execution_thread = False

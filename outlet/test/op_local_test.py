@@ -1,97 +1,48 @@
-import collections
 import os
-import shutil
+import logging
+import os
 import threading
 import time
-import unittest
-import logging
 from functools import partial
-from typing import Callable, Deque, Iterable, List, Optional, Tuple
-
-from py7zr import SevenZipFile
-from pydispatch import dispatcher
-
-from app_config import AppConfig
-from cmd.cmd_interface import Command
-from constants import OPS_FILE_NAME, TREE_TYPE_LOCAL_DISK
-from index import cache_manager
-from index.cache_manager import CacheManager
-from index.sqlite.op_db import OpDatabase
-from index.uid.uid import UID
-from model.display_tree.display_tree import DisplayTree
-from model.node.display_node import DisplayNode
-from outlet_app import OutletApplication
-from test import op_test_base
-from test.op_test_base import DNode, FNode, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
-from ui import actions
-from ui.actions import DELETE_SUBTREE, DRAG_AND_DROP_DIRECT
-from ui.tree import root_path_config
-from ui.tree.controller import TreePanelController
-from ui.tree.ui_listeners import DragAndDropData
-from util import file_util
+from typing import Callable
 
 import gi
+from pydispatch import dispatcher
+
+from constants import TREE_TYPE_LOCAL_DISK
+from index.uid.uid import UID
+from model.node.display_node import DisplayNode
+from test import op_test_base
+from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, INITIAL_LOCAL_TREE_RIGHT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
+from ui import actions
+from ui.actions import DELETE_SUBTREE, DRAG_AND_DROP_DIRECT
+from ui.tree.ui_listeners import DragAndDropData
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
 logger = logging.getLogger(__name__)
 
-# TODO: investigate using pytest-forked [https://github.com/pytest-dev/pytest-forked]
-# Currently, each test must be run in its own Python interpreter, due to Python/GTK3 failing to dispose of the app after each test
 
-
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-# Static stuff
-# ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-
-INITIAL_TREE_LEFT = [
-    FNode('American_Gothic.jpg', 2061397),
-    FNode('Angry-Clown.jpg', 824641),
-    DNode('Art', (88259 + 652220 + 239739 + 44487 + 479124) + (147975 + 275771 + 8098 + 247023 + 36344), [
-        FNode('Dark-Art.png', 147975),
-        FNode('Hokusai_Great-Wave.jpg', 275771),
-        DNode('Modern', (88259 + 652220 + 239739 + 44487 + 479124), [
-            FNode('1923-art.jpeg', 88259),
-            FNode('43548-forbidden_planet.jpg', 652220),
-            FNode('Dunno.jpg', 239739),
-            FNode('felix-the-cat.jpg', 44487),
-            FNode('Glow-Cat.png', 479124),
-        ]),
-        FNode('Mona-Lisa.jpeg', 8098),
-        FNode('william-shakespeare.jpg', 247023),
-        FNode('WTF.jpg', 36344),
-    ]),
-    FNode('Egypt.jpg', 154564),
-    FNode('George-Floyd.png', 27601),
-    FNode('Geriatric-Clown.jpg', 89182),
-    FNode('Keep-calm-and-carry-on.jpg', 745698),
-]
-
-INITIAL_TREE_RIGHT = [
-    FNode('Edvard-Munch-The-Scream.jpg', 114082),
-    FNode('M83.jpg', 17329),
-    FNode('oak-tree-sunset.jpg', 386888),
-    FNode('Ocean-Wave.jpg', 83713),
-    FNode('Starry-Night.jpg', 91699),
-    FNode('we-can-do-it-poster.jpg', 390093),
-]
-
-
-# CLASS OpTest
+# CLASS OpLocalTest
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class OpTest(OpTestBase):
-    """WARNING! RUNNING THIS TEST WILL MODIFY/DELETE RUNTIME FILES!"""
+class OpLocalTest(OpTestBase):
+    """WARNING! RUNNING THIS TEST WILL MODIFY/DELETE RUNTIME FILES!
+
+    Currently, each test must be run in its own Python interpreter, due to Python/GTK3 failing to dispose of the app after each test.
+    This means that each test must be run separately.
+    """
+    # TODO: investigate using pytest-forked [https://github.com/pytest-dev/pytest-forked]
 
     def setUp(self) -> None:
         super().setUp()
 
-        self.left_tree_initial = INITIAL_TREE_LEFT
+        self.left_tree_initial = INITIAL_LOCAL_TREE_LEFT
         self.left_tree_type = TREE_TYPE_LOCAL_DISK
         self.left_tree_root_path = os.path.join(TEST_TARGET_DIR, 'Left-Root')
 
-        self.right_tree_initial = INITIAL_TREE_RIGHT
+        self.right_tree_initial = INITIAL_LOCAL_TREE_RIGHT
         self.right_tree_type = TREE_TYPE_LOCAL_DISK
         self.right_tree_root_path = os.path.join(TEST_TARGET_DIR, 'Right-Root')
 
@@ -141,7 +92,7 @@ class OpTest(OpTestBase):
         ]
 
         self.do_and_verify(drop, count_expected_cmds=1, wait_for_left=True, wait_for_right=False,
-                           expected_left=final_tree_left, expected_right=INITIAL_TREE_RIGHT)
+                           expected_left=final_tree_left, expected_right=INITIAL_LOCAL_TREE_RIGHT)
 
     def test_dd_multi_file_cp(self):
         logger.info('Testing drag & drop copy of 4 files local right to local left')
@@ -191,7 +142,7 @@ class OpTest(OpTestBase):
         ]
 
         self.do_and_verify(drop, count_expected_cmds=4, wait_for_left=True, wait_for_right=False,
-                           expected_left=final_tree_left, expected_right=INITIAL_TREE_RIGHT)
+                           expected_left=final_tree_left, expected_right=INITIAL_LOCAL_TREE_RIGHT)
 
     def test_bad_dd_dir_tree_cp(self):
         logger.info('Testing negative case: drag & drop copy of duplicate nodes local to local')
@@ -263,7 +214,7 @@ class OpTest(OpTestBase):
         ]
 
         self.do_and_verify(drop, count_expected_cmds=12, wait_for_left=False, wait_for_right=True,
-                           expected_left=INITIAL_TREE_LEFT, expected_right=final_tree_right)
+                           expected_left=INITIAL_LOCAL_TREE_LEFT, expected_right=final_tree_right)
 
     def test_dd_two_dir_trees_cp(self):
         logger.info('Testing drag & drop copy of 2 dir trees local left to local right')
@@ -313,7 +264,7 @@ class OpTest(OpTestBase):
         ]
 
         self.do_and_verify(drop, count_expected_cmds=18, wait_for_left=False, wait_for_right=True,
-                           expected_left=INITIAL_TREE_LEFT, expected_right=final_tree_right)
+                           expected_left=INITIAL_LOCAL_TREE_LEFT, expected_right=final_tree_right)
 
     def test_dd_into(self):
         logger.info('Testing drag & drop copy of 3 files into dir node')
@@ -361,7 +312,7 @@ class OpTest(OpTestBase):
 
         # Do not wait for Left stats to be updated; the node we are dropping into is not expanded so there is no need for it to be called
         self.do_and_verify(drop, count_expected_cmds=3, wait_for_left=False, wait_for_right=False,
-                           expected_left=final_tree_left, expected_right=INITIAL_TREE_RIGHT)
+                           expected_left=final_tree_left, expected_right=INITIAL_LOCAL_TREE_RIGHT)
 
     def test_dd_left_then_dd_right(self):
         logger.info('Testing CP tree to right followed by CP of same tree to left')
@@ -528,7 +479,7 @@ class OpTest(OpTestBase):
 
         # The end result should be that nothing has changed
         self.do_and_verify(drop_both_sides, count_expected_cmds=12, wait_for_left=True, wait_for_right=True,
-                           expected_left=INITIAL_TREE_LEFT, expected_right=INITIAL_TREE_RIGHT)
+                           expected_left=INITIAL_LOCAL_TREE_LEFT, expected_right=INITIAL_LOCAL_TREE_RIGHT)
 
     def test_delete_subtree(self):
         logger.info('Testing delete subtree on left')
@@ -560,7 +511,7 @@ class OpTest(OpTestBase):
         ]
 
         self.do_and_verify(delete, count_expected_cmds=12, wait_for_left=True, wait_for_right=False,
-                           expected_left=final_tree_left, expected_right=INITIAL_TREE_RIGHT)
+                           expected_left=final_tree_left, expected_right=INITIAL_LOCAL_TREE_RIGHT)
 
     def test_delete_superset(self):
         logger.info('Testing delete tree followed by superset of tree (on left)')
@@ -590,7 +541,7 @@ class OpTest(OpTestBase):
         ]
 
         self.do_and_verify(delete, count_expected_cmds=12, wait_for_left=True, wait_for_right=False,
-                           expected_left=final_tree_left, expected_right=INITIAL_TREE_RIGHT)
+                           expected_left=final_tree_left, expected_right=INITIAL_LOCAL_TREE_RIGHT)
 
     def test_delete_subset(self):
         logger.info('Testing delete tree followed by subset of tree (on left)')
@@ -620,6 +571,6 @@ class OpTest(OpTestBase):
         ]
 
         self.do_and_verify(delete, count_expected_cmds=12, wait_for_left=True, wait_for_right=False,
-                           expected_left=final_tree_left, expected_right=INITIAL_TREE_RIGHT)
+                           expected_left=final_tree_left, expected_right=INITIAL_LOCAL_TREE_RIGHT)
 
     # TODO: test multiple delete batches of different levels

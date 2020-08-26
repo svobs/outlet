@@ -60,6 +60,10 @@ class EphemeralNode(DisplayNode, ABC):
     def get_size_bytes(self):
         return None
 
+    @property
+    def sync_ts(self):
+        return None
+
 
 # CLASS LoadingNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

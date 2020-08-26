@@ -56,7 +56,7 @@ class GDriveDisplayTree(DisplayTree):
         return md5_dict
 
     def get_children_for_root(self) -> List[GDriveNode]:
-        assert isinstance(self.root_node, GDriveFolder)
+        assert isinstance(self.root_node, GDriveFolder), f'Expected root node to be type GDriveFolder but found instead: {self.root_node}'
         return self.get_children(self.root_node)
 
     def get_children(self, parent: GDriveNode) -> List[GDriveNode]:

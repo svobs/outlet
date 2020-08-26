@@ -43,6 +43,10 @@ class GDriveNode(HasParentList, DisplayNode, ABC):
 
         self._sync_ts = ensure_int(sync_ts)
 
+    @property
+    def sync_ts(self):
+        return self._sync_ts
+
     @classmethod
     def get_tree_type(cls) -> int:
         return TREE_TYPE_GDRIVE

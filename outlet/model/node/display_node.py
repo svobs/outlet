@@ -95,8 +95,9 @@ class DisplayNode(Node, ABC):
         return None
 
     @property
+    @abstractmethod
     def sync_ts(self):
-        return None
+        raise RuntimeError('sync_ts(): if you are seeing this msg you forgot to implement this in subclass of DisplayNode!')
 
     @property
     def modify_ts(self):

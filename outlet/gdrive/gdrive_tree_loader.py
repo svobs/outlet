@@ -178,6 +178,8 @@ class GDriveTreeLoader:
                 self.uid_generator.ensure_next_uid_greater_than(max_uid)
                 items_without_goog_ids.append(folder)
 
+            if tree.id_dict.get(folder.uid, None):
+                logger.error(f'Duplicate folder entry found for UID: {folder.uid}. Will discard prev entry: {tree.id_dict[folder.uid]}')
             tree.id_dict[folder.uid] = folder
             count_folders_loaded += 1
 
@@ -208,6 +210,8 @@ class GDriveTreeLoader:
                 self.uid_generator.ensure_next_uid_greater_than(max_uid)
                 items_without_goog_ids.append(file)
 
+            if tree.id_dict.get(file.uid, None):
+                logger.error(f'Duplicate entry found for UID: {file.uid}. Will discard prev entry: {tree.id_dict[file.uid]}')
             tree.id_dict[file.uid] = file
             count_files_loaded += 1
 
