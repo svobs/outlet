@@ -73,7 +73,7 @@ class OpGDriveTest(OpTestBase):
 
         nodes = [node]
         dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.right_con, nodes=nodes)
-        dst_tree_path = Gtk.TreePath.new_from_string('0')
+        dst_tree_path = None    # top-level drop
 
         def drop():
             logger.info('Submitting drag & drop signal')

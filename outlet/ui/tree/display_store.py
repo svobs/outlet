@@ -207,6 +207,10 @@ class DisplayStore:
     def find_uid_in_children(self, target_uid: UID, parent_iter) -> Optional[Gtk.TreeIter]:
         """Searches the children of the given parent_iter for the given UID, then returns the data at that node"""
         bound_func: Callable = partial(self._uid_equals_func, target_uid)
+
+        if not parent_iter:
+            # top level
+            parent_iter = self.model.get_iter_first()
         
         if self.model.iter_has_child(parent_iter):
             child_iter = self.model.iter_children(parent_iter)

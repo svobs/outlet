@@ -152,7 +152,6 @@ class GDriveMasterCache:
                                f'({len(parent_uids)}) for item: {node}')
         for parent_uid, parent_goog_id in zip(node.get_parent_uids(), parent_goog_ids):
             parent_mappings.append((node.uid, parent_uid, parent_goog_id, node.sync_ts))
-        node_tuple = node.to_tuple()
 
         # Detect whether it's already in the cache
         existing_node = self._my_gdrive.get_item_for_uid(node.uid)
@@ -188,10 +187,12 @@ class GDriveMasterCache:
                     cache.upsert_parent_mappings_for_id(parent_mappings, node.uid, commit=False)
                     if node.is_dir():
                         logger.debug(f'Writing folder node to the GDrive master cache: {node}')
-                        cache.upsert_gdrive_folder_tuple_list([node_tuple])
+                        assert isinstance(node, GDriveFolder)
+                        cache.upsert_gdrive_folder_list([node])
                     else:
                         logger.debug(f'Writing file node to the GDrive master cache: {node}')
-                        cache.upsert_gdrive_file_list([node_tuple])
+                        assert isinstance(node, GDriveFile)
+                        cache.upsert_gdrive_file_list([node])
             else:
                 logger.debug(f'Save to disk is disabled: skipping add/update of item with UID={node.uid}')
         else:

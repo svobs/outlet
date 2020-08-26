@@ -166,7 +166,7 @@ class GDriveClient:
             raise RuntimeError(f'Parents are required but item has no parents: {node}')
 
         # This will raise an exception if it cannot resolve:
-        parent_goog_ids: List[str] = self.cache_manager.get_uid_list_for_goog_id_list(parent_uids)
+        parent_goog_ids: List[str] = self.cache_manager.get_goog_ids_for_uids(parent_uids)
 
         if len(parent_goog_ids) == 0:
             raise RuntimeError(f'No parent Google IDs for: {node}')
@@ -303,7 +303,7 @@ class GDriveClient:
         self._get_meta_for_dirs(query, fields, None, sync_ts, observer)
         return observer
 
-    def get_existing_file_with_same_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool]):
+    def get_existing_file_with_same_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool]) -> Tuple:
         src_parent_goog_id: str = self.resolve_parent_ids_to_goog_ids(node)
         result: SimpleNodeCollector = self.get_existing_file_with_parent_and_name(parent_goog_id=src_parent_goog_id, name=node.name)
         logger.debug(f'Found {len(result.nodes)} matching GDrive files with parent={src_parent_goog_id} and name={node.name}')
@@ -313,7 +313,7 @@ class GDriveClient:
                 assert isinstance(found_node, GDriveFile)
                 if match_func(found_node):
                     return found_node, found_raw
-        return None
+        return None, None
 
     def get_existing_file_with_parent_and_name(self, parent_goog_id: str, name: str) -> SimpleNodeCollector:
         query = f"{QUERY_NON_FOLDERS_ONLY} AND name='{name}' AND '{parent_goog_id}' in parents"
@@ -570,7 +570,7 @@ class GDriveClient:
         def request():
             logger.debug(f'Uploading local file: "{local_full_path}" to parents: {parent_goog_ids}')
 
-            response = self.service.files().create(body=file_metadata, media_body=media, fields=FILE_FIELDS).execute()
+            response = self.service.files().create(body=file_metadata, media_body=media, fields=f'{FILE_FIELDS}, parents').execute()
             return response
 
         file_meta = _try_repeatedly(request)
@@ -592,7 +592,7 @@ class GDriveClient:
             logger.debug(f'Updating node "{raw_item["id"]}" with local file: "{local_full_path}"')
 
             # Send the request to the API.
-            return self.service.files().update(fileId=raw_item['id'], body=file_metadata, media_body=media, fields=FILE_FIELDS).execute()
+            return self.service.files().update(fileId=raw_item['id'], body=file_metadata, media_body=media, fields=f'{FILE_FIELDS}, parents').execute()
 
         updated_file_meta = _try_repeatedly(request)
         gdrive_file: GDriveFile = self._convert_to_gdrive_file(updated_file_meta)
@@ -612,7 +612,7 @@ class GDriveClient:
         def request():
             logger.debug(f'Creating folder: {name}')
 
-            response = self.service.files().create(body=file_metadata, fields=DIR_FIELDS).execute()
+            response = self.service.files().create(body=file_metadata, fields=f'{DIR_FIELDS}, parents').execute()
             return response
 
         item = _try_repeatedly(request)
@@ -636,7 +636,7 @@ class GDriveClient:
         def request():
             # Move the file to the new folder
             file = self.service.files().update(fileId=goog_id, body=meta, addParents=add_parents,
-                                               removeParents=remove_parents, fields=FILE_FIELDS).execute()
+                                               removeParents=remove_parents, fields=f'{FILE_FIELDS}, parents').execute()
             return file
 
         item = _try_repeatedly(request)
@@ -656,7 +656,7 @@ class GDriveClient:
         def request():
             # Put the given file in the trash
             # Send the request to the API.
-            return self.service.files().update(fileId=goog_id, body=file_metadata, fields=FILE_FIELDS).execute()
+            return self.service.files().update(fileId=goog_id, body=file_metadata, fields=f'{FILE_FIELDS}, parents').execute()
 
         file_meta = _try_repeatedly(request)
         gdrive_file: GDriveFile = self._convert_to_gdrive_file(file_meta)

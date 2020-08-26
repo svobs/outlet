@@ -135,9 +135,9 @@ class GDriveDatabase(MetaDatabase):
     def insert_gdrive_folder_list(self, folder_list: List[GDriveFolder], overwrite=False, commit=True):
         self.table_gdrive_folder.insert_object_list(folder_list, overwrite, commit)
 
-    def upsert_gdrive_folder_tuple_list(self, folder_list: List[Tuple], commit=True):
+    def upsert_gdrive_folder_list(self, folder_list: List[GDriveFolder], commit=True):
         self.table_gdrive_folder.create_table_if_not_exist(commit=False)
-        self.table_gdrive_folder.upsert_many(folder_list, commit=commit)
+        self.table_gdrive_folder.upsert_object_list(folder_list, commit=commit)
 
     def get_gdrive_folder_object_list(self) -> List[GDriveFolder]:
         return self.table_gdrive_folder.select_object_list()

@@ -131,7 +131,7 @@ class GDriveWholeTree:
         assert parent_uid
         item = self.id_dict.get(item_uid)
         if not item:
-            raise RuntimeError(f'Cannot add parent mapping: Item not found with UID: {item_uid}')
+            raise RuntimeError(f'Cannot add parent mapping: Item not found with UID: {item_uid} (for parent_uid={parent_uid})')
         assert isinstance(item, GDriveNode)
 
         # Add to dict:
