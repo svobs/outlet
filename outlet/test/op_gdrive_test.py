@@ -67,7 +67,7 @@ class OpGDriveTest(OpTestBase):
         client = GDriveClient(self.app)
         parent_node: DisplayNode = self.app.cache_manager.get_item_for_uid(self.right_tree_root_uid, TREE_TYPE_GDRIVE)
         assert isinstance(parent_node, GDriveNode)
-        children = client.get_all_children_for_parent(parent_node)
+        children = client.get_all_children_for_parent(parent_node.goog_id)
         logger.info(f'Found {len(children)} child nodes for parent: {parent_node.name}')
 
         super(OpGDriveTest, self).tearDown()

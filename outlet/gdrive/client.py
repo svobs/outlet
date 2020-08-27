@@ -277,14 +277,13 @@ class GDriveClient:
         logger.debug(f'Drive root: {root_node}')
         return root_node
 
-    def get_all_children_for_parent(self, node: GDriveNode) -> List[GDriveNode]:
-        src_parent_goog_id: str = self.cache_manager.get_goog_id_for_parent(node)
-        query = f"'{src_parent_goog_id}' in parents"
+    def get_all_children_for_parent(self, parent_goog_id: str) -> List[GDriveNode]:
+        query = f"'{parent_goog_id}' in parents"
         fields = f'nextPageToken, incompleteSearch, files({FILE_FIELDS}, parents)'
 
         sync_ts = int(time.time())
         observer = SimpleNodeCollector()
-        self._get_meta_for_files(query, fields, None, sync_ts, observer)
+        self._execute_query(query, fields, None, sync_ts, observer)
         return observer.nodes
 
     def get_existing_folder_with_parent_and_name(self, parent_goog_id: str, name: str) -> SimpleNodeCollector:
@@ -293,7 +292,7 @@ class GDriveClient:
 
         sync_ts = int(time.time())
         observer = SimpleNodeCollector()
-        self._get_meta_for_files(query, fields, None, sync_ts, observer)
+        self._execute_query(query, fields, None, sync_ts, observer)
         return observer
 
     def get_existing_file_with_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool] = None) -> Tuple:
@@ -320,7 +319,7 @@ class GDriveClient:
 
         sync_ts = int(time.time())
         observer = SimpleNodeCollector()
-        self._get_meta_for_files(query, fields, None, sync_ts, observer)
+        self._execute_query(query, fields, None, sync_ts, observer)
 
         return observer
 
@@ -331,10 +330,10 @@ class GDriveClient:
 
         logger.info('Getting list of ALL NON DIRS in Google Drive...')
 
-        return self._get_meta_for_files(query, fields, initial_page_token, sync_ts, observer)
+        return self._execute_query(query, fields, initial_page_token, sync_ts, observer)
 
-    def _get_meta_for_files(self, query: str, fields: str, initial_page_token: Optional[str], sync_ts: int, observer: MetaObserver):
-        """Generic version"""
+    def _execute_query(self, query: str, fields: str, initial_page_token: Optional[str], sync_ts: int, observer: MetaObserver):
+        """Gets a list of files and/or folders which match the query criteria."""
 
         # Google Drive only; not app data or Google Photos:
         spaces = 'drive'
@@ -476,68 +475,7 @@ class GDriveClient:
         """
         fields = f'nextPageToken, incompleteSearch, files({DIR_FIELDS}, parents)'
 
-        self._get_meta_for_files(QUERY_FOLDERS_ONLY, fields, initial_page_token, sync_ts, observer)
-
-    # def _get_meta_for_dirs(self, query: str, fields: str, initial_page_token: Optional[str], sync_ts: int, observer: MetaObserver):
-    #     """Generic version of request for GoogFolders"""
-    #
-    #     # Google Drive only; not app data or Google Photos:
-    #     spaces = 'drive'
-    #
-    #     if initial_page_token:
-    #         logger.info('Found a page token. Attempting to resume previous download')
-    #
-    #     def request():
-    #         m = f'Sending request for dirs, page {request.page_count}...'
-    #         logger.debug(m)
-    #         if self.tree_id:
-    #             actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
-    #
-    #         # Call the Drive v3 API
-    #         response = self.service.files().list(q=query, fields=fields, spaces=spaces, pageSize=self.page_size,
-    #                                              pageToken=request.page_token).execute()
-    #         request.page_count += 1
-    #         return response
-    #
-    #     request.page_token = initial_page_token
-    #     request.page_count = 0
-    #     item_count = 0
-    #
-    #     stopwatch_retrieval = Stopwatch()
-    #
-    #     while True:
-    #         results: dict = _try_repeatedly(request)
-    #
-    #         # TODO: how will we know if the token is invalid?
-    #
-    #         if results.get('incompleteSearch', False):
-    #             raise RuntimeError(f'Results are incomplete! (page {request.page_count})')
-    #
-    #         items: list = results.get('files', [])
-    #         if not items:
-    #             logger.debug('Request returned no folders')
-    #             break
-    #
-    #         msg = f'Received {len(items)} items'
-    #         logger.debug(msg)
-    #         if self.tree_id:
-    #             actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
-    #
-    #         for item in items:
-    #             goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item, sync_ts)
-    #
-    #             observer.meta_received(goog_node, item)
-    #             item_count += 1
-    #
-    #         request.page_token = results.get('nextPageToken')
-    #
-    #         observer.end_of_page(request.page_token)
-    #
-    #         if not request.page_token:
-    #             logger.debug('Done!')
-    #             break
-    #
-    #     logger.debug(f'{stopwatch_retrieval} Query returned {item_count} folders')
+        self._execute_query(QUERY_FOLDERS_ONLY, fields, initial_page_token, sync_ts, observer)
 
     # BINARIES
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -591,7 +529,7 @@ class GDriveClient:
 
         return gdrive_file
 
-    def update_existing_file(self, raw_item, local_full_path: str) -> GDriveFile:
+    def update_existing_file(self, raw_item: Dict[str, str], local_full_path: str) -> GDriveFile:
         if not local_full_path:
             raise RuntimeError(f'No path specified for file!')
 
