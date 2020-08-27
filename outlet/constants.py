@@ -75,7 +75,11 @@ class TreeDisplayMode(IntEnum):
     CHANGES_ONE_TREE_PER_CATEGORY = 2
 
 
-# Google Drive:
+# ---- Google Drive: ----
+# IMPORTANT: If modifying these scopes, delete the file token.pickle.
+# GDRIVE_AUTH_SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
+GDRIVE_AUTH_SCOPES = ['https://www.googleapis.com/auth/drive']
+
 MIME_TYPE_SHORTCUT = 'application/vnd.google-apps.shortcut'
 MIME_TYPE_FOLDER = 'application/vnd.google-apps.folder'
 

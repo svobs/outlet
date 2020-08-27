@@ -15,9 +15,8 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from pydispatch import dispatcher
 
-from constants import EXPLICITLY_TRASHED, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_FILE_FIELDS, GDRIVE_FOLDER_FIELDS, IMPLICITLY_TRASHED, \
-    MIME_TYPE_FOLDER, NOT_TRASHED, \
-    QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY
+from constants import EXPLICITLY_TRASHED, GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_FILE_FIELDS, GDRIVE_FOLDER_FIELDS, \
+    IMPLICITLY_TRASHED, MIME_TYPE_FOLDER, NOT_TRASHED, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY
 from gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
 from model.gdrive_whole_tree import UserMeta
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
@@ -25,10 +24,6 @@ from model.node_identifier import GDriveIdentifier
 from ui import actions
 from util import file_util
 from util.stopwatch_sec import Stopwatch
-
-# IMPORTANT: If modifying these scopes, delete the file token.pickle.
-# SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
-SCOPES = ['https://www.googleapis.com/auth/drive']
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +47,7 @@ def _load_google_client_service(config):
                 creds_path = file_util.get_resource_path(config.get('auth.credentials_file_path'))
                 if not os.path.exists(creds_path):
                     raise RuntimeError(f'Could not find credentials file at the specified path ({creds_path})! This file is required to run.')
-                flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
+                flow = InstalledAppFlow.from_client_secrets_file(creds_path, GDRIVE_AUTH_SCOPES)
                 creds = flow.run_local_server(port=0)
             # Save the credentials for the next run
             with open(token_file_path, 'wb') as token:

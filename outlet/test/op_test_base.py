@@ -148,7 +148,7 @@ class OpTestBase(unittest.TestCase):
         self.right_tree_root_path: Optional[str] = None
         self.right_tree_root_uid: Optional[UID] = None
 
-    def do_setup(self):
+    def do_setup(self, do_before_verify_func: Callable = None):
         # Remove test files and replace with freshly extracted files
         if os.path.exists(TEST_TARGET_DIR):
             file_util.rm_tree(TEST_TARGET_DIR)
@@ -208,6 +208,9 @@ class OpTestBase(unittest.TestCase):
             raise RuntimeError('Timed out waiting for right to load!')
         self.left_con: TreePanelController = self.app.cache_manager.get_tree_controller(actions.ID_LEFT_TREE)
         self.right_con: TreePanelController = self.app.cache_manager.get_tree_controller(actions.ID_RIGHT_TREE)
+
+        if do_before_verify_func:
+            do_before_verify_func()
 
         self.verify(self.left_con, self.left_tree_initial)
         self.verify(self.right_con, self.right_tree_initial)

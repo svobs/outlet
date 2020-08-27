@@ -1,10 +1,11 @@
+import copy
 import logging
 import os
 import threading
 import time
 import warnings
 from functools import partial
-from typing import Callable
+from typing import Callable, List
 
 import gi
 from pydispatch import dispatcher
@@ -60,16 +61,32 @@ class OpGDriveTest(OpTestBase):
         self.right_tree_root_path = '/My Drive/Test'
         self.right_tree_root_uid = 5800000
 
-        self.do_setup()
+        self.do_setup(do_before_verify_func=self._cleanup_gdrive_local_and_remote)
 
-    def tearDown(self) -> None:
-        # delete all files which may have been uploaded to GDrive
+    def _cleanup_gdrive_local_and_remote(self):
+        displayed_rows: List[DisplayNode] = list(self.right_con.display_store.displayed_rows.values())
+        if displayed_rows:
+            logger.info(f'Found {len(displayed_rows)} displayed rows (will delete) for right tree: {self.right_tree_root_path}')
+            for node in displayed_rows:
+                logger.warning(f'Deleting node via cacheman: {node}')
+                self.app.cache_manager.remove_node(node, to_trash=False)
+
+        self._delete_all_files_in_gdrive_test_folder()
+
+    def _delete_all_files_in_gdrive_test_folder(self):
+        # delete all files which may have been uploaded to GDrive. Goes around the program cache
         client = GDriveClient(self.app)
         parent_node: DisplayNode = self.app.cache_manager.get_item_for_uid(self.right_tree_root_uid, TREE_TYPE_GDRIVE)
         assert isinstance(parent_node, GDriveNode)
         children = client.get_all_children_for_parent(parent_node.goog_id)
         logger.info(f'Found {len(children)} child nodes for parent: {parent_node.name}')
 
+        for child in children:
+            logger.warning(f'Deleting node via GDrive API: {child}')
+            client.hard_delete(child.goog_id)
+
+    def tearDown(self) -> None:
+        self._cleanup_gdrive_local_and_remote()
         super(OpGDriveTest, self).tearDown()
 
     # TESTS
