@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class CopyFileLocallyCommand(CopyNodeCommand):
     """Local-to-local add or update"""
+
     def __init__(self, uid: UID, op: Op, overwrite: bool = False):
         super().__init__(uid, op, overwrite)
         self.tag = f'{__class__.__name__}(uid={self.identifier}, ow={self.overwrite} src="{self.op.src_node.full_path}", ' \
@@ -64,6 +65,7 @@ class DeleteLocalFileCommand(DeleteNodeCommand):
     """
     Delete Local. This supports deleting either a single file or an empty dir.
     """
+
     def __init__(self, uid: UID, op: Op, to_trash=True, delete_empty_parent=False):
         super().__init__(uid, op, to_trash, delete_empty_parent)
         self.tag = f'{__class__.__name__}(uid={self.identifier}, tgt_uid={self.op.src_node.uid} to_trash={self.to_trash}, ' \
@@ -113,6 +115,7 @@ class MoveFileLocallyCommand(TwoNodeCommand):
     """
     Move/Rename Local -> Local
     """
+
     def __init__(self, uid: UID, op: Op):
         super().__init__(uid, op)
         self.tag = f'{__class__.__name__}(uid={self.identifier}, act={op.op_type} tgt_uid={self.op.dst_node.uid}, ' \
@@ -167,6 +170,7 @@ class CreatLocalDirCommand(Command):
     def __repr__(self):
         return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self.status()}'
 
+
 # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 # LOCAL COMMANDS end
 
@@ -179,6 +183,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
     """
     Copy Local -> GDrive
     """
+
     def __init__(self, uid: UID, op: Op, overwrite: bool):
         super().__init__(uid, op, overwrite)
         assert isinstance(self.op.dst_node, GDriveNode)
@@ -198,7 +203,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
         md5 = self.op.src_node.md5
         size_bytes = self.op.src_node.get_size_bytes()
 
-        existing, existing_raw = cxt.gdrive_client.get_existing_file_with_parent_and_name_and_criteria(self.op.dst_node)
+        existing, existing_raw = cxt.gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.dst_node)
         if existing and existing.md5 == md5 and existing.get_size_bytes() == size_bytes:
             logger.info(f'Identical item already exists in Google Drive: (md5={md5}, size={size_bytes})')
             # Target node will contain invalid UID anyway because it has no goog_id. Just remove it
@@ -230,6 +235,7 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
     """
     Copy GDrive -> Local
     """
+
     def __init__(self, uid: UID, op: Op, overwrite: bool):
         super().__init__(uid, op, overwrite)
         assert isinstance(self.op.src_node, GDriveNode), f'For {self.op.src_node}'
@@ -296,6 +302,7 @@ class CreateGDriveFolderCommand(Command):
     """
     Create GDrive FOLDER (sometimes a prerequisite to uploading a file)
     """
+
     def __init__(self, uid: UID, op: Op):
         super().__init__(uid, op)
         assert op.op_type == OpType.MKDIR
@@ -313,7 +320,7 @@ class CreateGDriveFolderCommand(Command):
 
         parent_goog_id: str = cxt.cache_manager.get_goog_id_for_parent(self.op.src_node)
         name = self.op.src_node.name
-        existing = cxt.gdrive_client.get_existing_folder_with_parent_and_name(parent_goog_id=parent_goog_id, name=name)
+        existing = cxt.gdrive_client.get_folders_with_parent_and_name(parent_goog_id=parent_goog_id, name=name)
         if len(existing.nodes) > 0:
             logger.info(f'Found {len(existing.nodes)} existing folders with parent={parent_goog_id} and name="{name}". '
                         f'Will use first found instead of creating a new folder.')
@@ -337,6 +344,7 @@ class MoveFileGDriveCommand(TwoNodeCommand):
     """
     Move GDrive -> GDrive
     """
+
     def __init__(self, uid: UID, op: Op):
         super().__init__(uid, op)
         assert op.op_type == OpType.MV
@@ -359,8 +367,8 @@ class MoveFileGDriveCommand(TwoNodeCommand):
         assert not self.op.dst_node.goog_id
         dst_name = self.op.dst_node.name
 
-        existing_src, raw = cxt.gdrive_client.get_existing_file_with_parent_and_name_and_criteria(self.op.src_node,
-                                                                                                  lambda x: x.goog_id == src_goog_id)
+        existing_src, raw = cxt.gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.src_node,
+                                                                                                lambda x: x.goog_id == src_goog_id)
         if existing_src:
             goog_node = cxt.gdrive_client.modify_meta(goog_id=src_goog_id, remove_parents=[src_parent_goog_id], add_parents=[dst_parent_goog_id],
                                                       name=dst_name)
@@ -371,11 +379,11 @@ class MoveFileGDriveCommand(TwoNodeCommand):
             return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[goog_node], to_delete=[self.op.dst_node])
         else:
             # did not find the src file; see if our operation was already completed
-            existing_dst, raw = cxt.gdrive_client.get_existing_file_with_parent_and_name_and_criteria(self.op.dst_node,
-                                                                                                      lambda x: x.goog_id == src_goog_id)
+            existing_dst, raw = cxt.gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.dst_node,
+                                                                                                    lambda x: x.goog_id == src_goog_id)
             if existing_dst:
                 # Update cache manager as it's likely out of date:
-                assert existing_dst.uid == self.op.src_node.uid and existing_dst.goog_id == self.op.src_node.goog_id,\
+                assert existing_dst.uid == self.op.src_node.uid and existing_dst.goog_id == self.op.src_node.goog_id, \
                     f'For {existing_dst} and {self.op.src_node}'
                 logger.info(f'Identical already exists in Google Drive; will update cache only (goog_id={existing_dst.goog_id})')
                 return CommandResult(CommandStatus.COMPLETED_NO_OP, to_upsert=[existing_dst], to_delete=[self.op.dst_node])
@@ -392,6 +400,7 @@ class DeleteGDriveFileCommand(DeleteNodeCommand):
     """
     Delete GDrive
     """
+
     def __init__(self, uid: UID, op: Op, to_trash=True, delete_empty_parent=False):
         super().__init__(uid, op, to_trash, delete_empty_parent)
         self.tag = f'{__class__.__name__}(uid={self.identifier}, to_trash={self.to_trash}, delete_empty_parent={self.delete_empty_parent})'
@@ -406,7 +415,7 @@ class DeleteGDriveFileCommand(DeleteNodeCommand):
         assert isinstance(self.op.src_node, GDriveFile)
         tgt_goog_id = self.op.src_node.goog_id
 
-        existing = cxt.gdrive_client.get_existing_file_with_parent_and_name_and_criteria(self.op.src_node, lambda x: x.goog_id == tgt_goog_id)
+        existing = cxt.gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.src_node, lambda x: x.goog_id == tgt_goog_id)
         if not existing:
             raise RuntimeError('Cannot delete: not found in GDrive!')
 
@@ -430,7 +439,5 @@ class DeleteGDriveFileCommand(DeleteNodeCommand):
         return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, to_trash={self.to_trash}, ' \
                f'status={self.status()}, model={self.op.src_node}'
 
-
 # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 # GOOGLE DRIVE COMMANDS end
-

@@ -74,3 +74,18 @@ class TreeDisplayMode(IntEnum):
     ONE_TREE_ALL_ITEMS = 1
     CHANGES_ONE_TREE_PER_CATEGORY = 2
 
+
+# Google Drive:
+MIME_TYPE_SHORTCUT = 'application/vnd.google-apps.shortcut'
+MIME_TYPE_FOLDER = 'application/vnd.google-apps.folder'
+
+QUERY_FOLDERS_ONLY = f"mimeType='{MIME_TYPE_FOLDER}'"
+QUERY_NON_FOLDERS_ONLY = f"not {QUERY_FOLDERS_ONLY}"
+
+# Web view link takes the form:
+GDRIVE_WEB_VIEW_LINK = 'https://drive.google.com/file/d/{id}/view?usp=drivesdk'
+GDRIVE_WEB_CONTENT_LINK = 'https://drive.google.com/uc?id={id}&export=download'
+
+GDRIVE_FOLDER_FIELDS = 'id, name, trashed, explicitlyTrashed, driveId, shared'
+GDRIVE_FILE_FIELDS = 'id, name, trashed, explicitlyTrashed, driveId, shared, version, createdTime, ' \
+                     'modifiedTime, owners, md5Checksum, size, headRevisionId, shortcutDetails, mimeType, sharingUser'

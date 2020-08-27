@@ -8,7 +8,7 @@ from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETT
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
     GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL, GDRIVE_ROOT_UID
 from gdrive.client import GDriveClient
-from gdrive.meta_observer import FileMetaPersister, FolderMetaPersister
+from gdrive.query_observer import FileMetaPersister, FolderMetaPersister
 from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from index.uid.uid import UID
 from model.gdrive_whole_tree import GDriveWholeTree
@@ -98,7 +98,7 @@ class GDriveTreeLoader:
             # Need to make a special call to get the root node 'My Drive'. This node will not be included
             # in the "list files" call:
             download.update_ts = sync_ts
-            drive_root: GDriveFolder = self.gdrive_client.get_meta_my_drive_root(download.update_ts)
+            drive_root: GDriveFolder = self.gdrive_client.get_my_drive_root(download.update_ts)
             tree.id_dict[drive_root.uid] = drive_root
 
             download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
@@ -109,12 +109,12 @@ class GDriveTreeLoader:
 
         if download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
             observer = FolderMetaPersister(tree, download, self.cache)
-            self.gdrive_client.get_meta_all_directories(download.page_token, download.update_ts, observer)
+            self.gdrive_client.get_all_folders(download.page_token, download.update_ts, observer)
             # fall through
 
         if download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS:
             observer = FileMetaPersister(tree, download, self.cache)
-            self.gdrive_client.get_meta_all_files(download.page_token, download.update_ts, observer)
+            self.gdrive_client.get_all_non_folders(download.page_token, download.update_ts, observer)
             # fall through
 
         if download.current_state <= GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE:
