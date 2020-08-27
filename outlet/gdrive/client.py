@@ -146,8 +146,8 @@ class GDriveClient:
     def __init__(self, application, tree_id=None):
         self.config = application.config
         self.cache_manager = application.cache_manager
-        self.tree_id = tree_id
-        self.page_size = self.config.get('gdrive.page_size')
+        self.tree_id: str = tree_id
+        self.page_size: int = self.config.get('gdrive.page_size')
         self.service = _load_google_client_service(self.config)
 
     def __del__(self):
@@ -160,24 +160,7 @@ class GDriveClient:
             self.service._http.http.close()
             self.service = None
 
-    def resolve_parent_ids_to_goog_ids(self, node: GDriveNode) -> str:
-        parent_uids: List[UID] = node.get_parent_uids()
-        if not parent_uids:
-            raise RuntimeError(f'Parents are required but item has no parents: {node}')
-
-        # This will raise an exception if it cannot resolve:
-        parent_goog_ids: List[str] = self.cache_manager.get_goog_ids_for_uids(parent_uids)
-
-        if len(parent_goog_ids) == 0:
-            raise RuntimeError(f'No parent Google IDs for: {node}')
-        if len(parent_goog_ids) > 1:
-            # not supported at this time
-            raise RuntimeError(f'Too many parent Google IDs for: {node}')
-
-        parent_goog_id: str = parent_goog_ids[0]
-        return parent_goog_id
-
-    def _convert_to_gdrive_folder(self, item, sync_ts: int = 0) -> GDriveFolder:
+    def _convert_dict_to_gdrive_folder(self, item: Dict, sync_ts: int = 0) -> GDriveFolder:
         # 'driveId' only populated for items which someone has shared with me
         # 'shared' only populated for items which are owned by me
 
@@ -196,7 +179,7 @@ class GDriveClient:
 
         return goog_node
 
-    def _convert_to_gdrive_file(self, item, sync_ts: int = 0) -> GDriveFile:
+    def _convert_dict_to_gdrive_file(self, item: Dict, sync_ts: int = 0) -> GDriveFile:
         if not sync_ts:
             sync_ts = int(time.time())
 
@@ -290,9 +273,19 @@ class GDriveClient:
 
         result = _try_repeatedly(request)
 
-        root_node = self._convert_to_gdrive_folder(result, sync_ts)
+        root_node = self._convert_dict_to_gdrive_folder(result, sync_ts)
         logger.debug(f'Drive root: {root_node}')
         return root_node
+
+    def get_all_children_for_parent(self, node: GDriveNode) -> List[GDriveNode]:
+        src_parent_goog_id: str = self.cache_manager.get_goog_id_for_parent(node)
+        query = f"'{src_parent_goog_id}' in parents"
+        fields = f'nextPageToken, incompleteSearch, files({FILE_FIELDS}, parents)'
+
+        sync_ts = int(time.time())
+        observer = SimpleNodeCollector()
+        self._get_meta_for_files(query, fields, None, sync_ts, observer)
+        return observer.nodes
 
     def get_existing_folder_with_parent_and_name(self, parent_goog_id: str, name: str) -> SimpleNodeCollector:
         query = f"{QUERY_FOLDERS_ONLY} AND name='{name}' AND '{parent_goog_id}' in parents"
@@ -300,19 +293,23 @@ class GDriveClient:
 
         sync_ts = int(time.time())
         observer = SimpleNodeCollector()
-        self._get_meta_for_dirs(query, fields, None, sync_ts, observer)
+        self._get_meta_for_files(query, fields, None, sync_ts, observer)
         return observer
 
-    def get_existing_file_with_same_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool]) -> Tuple:
-        src_parent_goog_id: str = self.resolve_parent_ids_to_goog_ids(node)
+    def get_existing_file_with_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool] = None) -> Tuple:
+        src_parent_goog_id: str = self.cache_manager.get_goog_id_for_parent(node)
         result: SimpleNodeCollector = self.get_existing_file_with_parent_and_name(parent_goog_id=src_parent_goog_id, name=node.name)
         logger.debug(f'Found {len(result.nodes)} matching GDrive files with parent={src_parent_goog_id} and name={node.name}')
 
         if len(result.nodes) > 0:
             for found_node, found_raw in zip(result.nodes, result.raw_items):
                 assert isinstance(found_node, GDriveFile)
-                if match_func(found_node):
+                if match_func:
+                    if match_func(found_node):
+                        return found_node, found_raw
+                else:
                     return found_node, found_raw
+
         return None, None
 
     def get_existing_file_with_parent_and_name(self, parent_goog_id: str, name: str) -> SimpleNodeCollector:
@@ -361,14 +358,23 @@ class GDriveClient:
         request.page_count = 0
         item_count = 0
 
-        stopwatch_retrieval = Stopwatch()
+        # TODO: replace this with Observer
+        collect_meta = False
+        if collect_meta:
+            owner_dict: Dict[str, Tuple[str, str, str, bool]] = {}
+            mime_types: Dict[str, GDriveNode] = {}
+            shortcuts: Dict[str, GDriveNode] = {}
+        else:
+            owner_dict = None
+            mime_types = None
+            shortcuts = None
 
-        owner_dict: Dict[str, Tuple[str, str, str, bool]] = {}
-        mime_types: Dict[str, GDriveNode] = {}
-        shortcuts: Dict[str, GDriveNode] = {}
+        stopwatch_retrieval = Stopwatch()
 
         while True:
             results: dict = _try_repeatedly(request)
+
+            # TODO: how will we know if the token is invalid?
 
             if results.get('incompleteSearch', False):
                 # Not clear when this would happen, but fail fast if so
@@ -385,47 +391,51 @@ class GDriveClient:
                 actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             for item in items:
-                # Collect owners
-                owners = item['owners']
-                if len(owners) > 0:
-                    owner = owners[0]
-                    owner_id = owner.get('permissionId', None)
-                    owner_name = owner.get('displayName', None)
-                    owner_email = owner.get('emailAddress', None)
-                    owner_photo_link = owner.get('photoLink', None)
-                    owner_is_me = owner.get('me', None)
-                    owner_dict[owner_id] = (owner_name, owner_email, owner_photo_link, owner_is_me)
-
-                goog_node: GDriveFile = self._convert_to_gdrive_file(item, sync_ts=sync_ts)
-
-                # Collect MIME types
                 mime_type = item['mimeType']
-                mime_types[mime_type] = goog_node
+                if mime_type == MIME_TYPE_FOLDER:
+                    goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item, sync_ts)
+                else:
+                    goog_node: GDriveFile = self._convert_dict_to_gdrive_file(item, sync_ts=sync_ts)
 
-                # web_view_link = item.get('webViewLink', None)
-                # if web_view_link:
-                #     logger.debug(f'Found webViewLink: "{web_view_link}" for goog_node: {goog_node}')
-                #
-                # web_content_link = item.get('webContentLink', None)
-                # if web_content_link:
-                #     logger.debug(f'Found webContentLink: "{web_content_link}" for goog_node: {goog_node}')
+                if collect_meta:
+                    # Collect owners
+                    owners = item['owners']
+                    if len(owners) > 0:
+                        owner = owners[0]
+                        owner_id = owner.get('permissionId', None)
+                        owner_name = owner.get('displayName', None)
+                        owner_email = owner.get('emailAddress', None)
+                        owner_photo_link = owner.get('photoLink', None)
+                        owner_is_me = owner.get('me', None)
+                        owner_dict[owner_id] = (owner_name, owner_email, owner_photo_link, owner_is_me)
 
-                sharing_user = item.get('sharingUser', None)
-                if sharing_user:
-                    logger.debug(f'Found sharingUser: "{sharing_user}" for goog_node: {goog_node}')
+                    # Collect MIME types
+                    mime_types[mime_type] = goog_node
 
-                is_shortcut = mime_type == MIME_TYPE_SHORTCUT
-                if is_shortcut:
-                    shortcut_details = item.get('shortcutDetails', None)
-                    if not shortcut_details:
-                        logger.error(f'Shortcut is missing shortcutDetails: id="{goog_node.uid}" name="{goog_node.name}"')
-                    else:
-                        target_id = shortcut_details.get('targetId')
-                        if not target_id:
-                            logger.error(f'Shortcut is missing targetId: id="{goog_node.uid}" name="{goog_node.name}"')
+                    # web_view_link = item.get('webViewLink', None)
+                    # if web_view_link:
+                    #     logger.debug(f'Found webViewLink: "{web_view_link}" for goog_node: {goog_node}')
+                    #
+                    # web_content_link = item.get('webContentLink', None)
+                    # if web_content_link:
+                    #     logger.debug(f'Found webContentLink: "{web_content_link}" for goog_node: {goog_node}')
+
+                    sharing_user = item.get('sharingUser', None)
+                    if sharing_user:
+                        logger.debug(f'Found sharingUser: "{sharing_user}" for goog_node: {goog_node}')
+
+                    is_shortcut = mime_type == MIME_TYPE_SHORTCUT
+                    if is_shortcut:
+                        shortcut_details = item.get('shortcutDetails', None)
+                        if not shortcut_details:
+                            logger.error(f'Shortcut is missing shortcutDetails: id="{goog_node.uid}" name="{goog_node.name}"')
                         else:
-                            logger.debug(f'Found shortcut: id="{goog_node.uid}" name="{goog_node.name}" -> target_id="{target_id}"')
-                            shortcuts[goog_node.goog_id] = target_id
+                            target_id = shortcut_details.get('targetId')
+                            if not target_id:
+                                logger.error(f'Shortcut is missing targetId: id="{goog_node.uid}" name="{goog_node.name}"')
+                            else:
+                                logger.debug(f'Found shortcut: id="{goog_node.uid}" name="{goog_node.name}" -> target_id="{target_id}"')
+                                shortcuts[goog_node.goog_id] = target_id
 
                 observer.meta_received(goog_node, item)
                 item_count += 1
@@ -440,16 +450,18 @@ class GDriveClient:
 
         logger.debug(f'{stopwatch_retrieval} Query returned {item_count} files')
 
-        if logger.isEnabledFor(logging.DEBUG) and item_count > 0:
-            logger.debug(f'Found {len(owner_dict)} distinct owners')
-            for owner_id, owner in owner_dict.items():
-                logger.debug(f'Found owner: id={owner_id} name={owner[0]} email={owner[1]} is_me={owner[2]}')
+        # TODO: roll into Observer
+        if collect_meta:
+            if logger.isEnabledFor(logging.DEBUG) and item_count > 0:
+                logger.debug(f'Found {len(owner_dict)} distinct owners')
+                for owner_id, owner in owner_dict.items():
+                    logger.debug(f'Found owner: id={owner_id} name={owner[0]} email={owner[1]} is_me={owner[2]}')
 
-            logger.debug(f'Found {len(mime_types)} distinct MIME types')
-            for mime_type, item in mime_types.items():
-                logger.debug(f'MIME type: {mime_type} -> [{item.uid}] {item.name} {item.get_size_bytes()}')
+                logger.debug(f'Found {len(mime_types)} distinct MIME types')
+                for mime_type, item in mime_types.items():
+                    logger.debug(f'MIME type: {mime_type} -> [{item.uid}] {item.name} {item.get_size_bytes()}')
 
-        # TODO: save MIME types, owners, shortcuts
+            # TODO: save MIME types, owners, shortcuts
 
     # DIRECTORIES (folders)
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -464,69 +476,68 @@ class GDriveClient:
         """
         fields = f'nextPageToken, incompleteSearch, files({DIR_FIELDS}, parents)'
 
-        self._get_meta_for_dirs(QUERY_FOLDERS_ONLY, fields, initial_page_token, sync_ts, observer)
+        self._get_meta_for_files(QUERY_FOLDERS_ONLY, fields, initial_page_token, sync_ts, observer)
 
-    def _get_meta_for_dirs(self, query: str, fields: str, initial_page_token: Optional[str], sync_ts: int, observer: MetaObserver):
-        """Generic version of request for GoogFolders"""
-
-        # Google Drive only; not app data or Google Photos:
-        spaces = 'drive'
-
-        def request():
-            m = f'Sending request for dirs, page {request.page_count}...'
-            logger.debug(m)
-            if self.tree_id:
-                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
-
-            # Call the Drive v3 API
-            response = self.service.files().list(q=query, fields=fields, spaces=spaces, pageSize=self.page_size,
-                                                 pageToken=request.page_token).execute()
-            request.page_count += 1
-            return response
-
-        request.page_token = initial_page_token
-        request.page_count = 0
-        item_count = 0
-
-        if request.page_token:
-            logger.info('Found a page token. Attempting to resume previous download')
-
-        stopwatch_retrieval = Stopwatch()
-
-        while True:
-            results: dict = _try_repeatedly(request)
-
-            # TODO: how will we know if the token is invalid?
-
-            if results.get('incompleteSearch', False):
-                raise RuntimeError(f'Results are incomplete! (page {request.page_count})')
-
-            items: list = results.get('files', [])
-            if not items:
-                if not items:
-                    logger.debug('Request returned no folders')
-                    break
-
-            msg = f'Received {len(items)} items'
-            logger.debug(msg)
-            if self.tree_id:
-                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
-
-            for item in items:
-                goog_node: GDriveFolder = self._convert_to_gdrive_folder(item, sync_ts)
-
-                observer.meta_received(goog_node, item)
-                item_count += 1
-
-            request.page_token = results.get('nextPageToken')
-
-            observer.end_of_page(request.page_token)
-
-            if not request.page_token:
-                logger.debug('Done!')
-                break
-
-        logger.debug(f'{stopwatch_retrieval} Query returned {item_count} folders')
+    # def _get_meta_for_dirs(self, query: str, fields: str, initial_page_token: Optional[str], sync_ts: int, observer: MetaObserver):
+    #     """Generic version of request for GoogFolders"""
+    #
+    #     # Google Drive only; not app data or Google Photos:
+    #     spaces = 'drive'
+    #
+    #     if initial_page_token:
+    #         logger.info('Found a page token. Attempting to resume previous download')
+    #
+    #     def request():
+    #         m = f'Sending request for dirs, page {request.page_count}...'
+    #         logger.debug(m)
+    #         if self.tree_id:
+    #             actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
+    #
+    #         # Call the Drive v3 API
+    #         response = self.service.files().list(q=query, fields=fields, spaces=spaces, pageSize=self.page_size,
+    #                                              pageToken=request.page_token).execute()
+    #         request.page_count += 1
+    #         return response
+    #
+    #     request.page_token = initial_page_token
+    #     request.page_count = 0
+    #     item_count = 0
+    #
+    #     stopwatch_retrieval = Stopwatch()
+    #
+    #     while True:
+    #         results: dict = _try_repeatedly(request)
+    #
+    #         # TODO: how will we know if the token is invalid?
+    #
+    #         if results.get('incompleteSearch', False):
+    #             raise RuntimeError(f'Results are incomplete! (page {request.page_count})')
+    #
+    #         items: list = results.get('files', [])
+    #         if not items:
+    #             logger.debug('Request returned no folders')
+    #             break
+    #
+    #         msg = f'Received {len(items)} items'
+    #         logger.debug(msg)
+    #         if self.tree_id:
+    #             actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+    #
+    #         for item in items:
+    #             goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item, sync_ts)
+    #
+    #             observer.meta_received(goog_node, item)
+    #             item_count += 1
+    #
+    #         request.page_token = results.get('nextPageToken')
+    #
+    #         observer.end_of_page(request.page_token)
+    #
+    #         if not request.page_token:
+    #             logger.debug('Done!')
+    #             break
+    #
+    #     logger.debug(f'{stopwatch_retrieval} Query returned {item_count} folders')
 
     # BINARIES
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -574,7 +585,7 @@ class GDriveClient:
             return response
 
         file_meta = _try_repeatedly(request)
-        gdrive_file = self._convert_to_gdrive_file(file_meta)
+        gdrive_file = self._convert_dict_to_gdrive_file(file_meta)
 
         logger.info(f'File uploaded successfully) Returned name="{gdrive_file.name}", version="{gdrive_file.version}", goog_id="{gdrive_file.goog_id}",')
 
@@ -595,7 +606,7 @@ class GDriveClient:
             return self.service.files().update(fileId=raw_item['id'], body=file_metadata, media_body=media, fields=f'{FILE_FIELDS}, parents').execute()
 
         updated_file_meta = _try_repeatedly(request)
-        gdrive_file: GDriveFile = self._convert_to_gdrive_file(updated_file_meta)
+        gdrive_file: GDriveFile = self._convert_dict_to_gdrive_file(updated_file_meta)
 
         logger.info(
             f'File update uploaded successfully) Returned name="{gdrive_file.name}", version="{gdrive_file.version}", goog_id="{gdrive_file.goog_id}",')
@@ -617,7 +628,7 @@ class GDriveClient:
 
         item = _try_repeatedly(request)
 
-        goog_node: GDriveFolder = self._convert_to_gdrive_folder(item)
+        goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item)
         if not goog_node.goog_id:
             raise RuntimeError(f'Folder creation failed (no ID returned)!')
 
@@ -643,9 +654,9 @@ class GDriveClient:
 
         mime_type = item['mimeType']
         if mime_type == MIME_TYPE_FOLDER:
-            goog_node = self._convert_to_gdrive_folder(item)
+            goog_node = self._convert_dict_to_gdrive_folder(item)
         else:
-            goog_node = self._convert_to_gdrive_file(item)
+            goog_node = self._convert_dict_to_gdrive_file(item)
         return goog_node
 
     def trash(self, goog_id: str):
@@ -659,7 +670,7 @@ class GDriveClient:
             return self.service.files().update(fileId=goog_id, body=file_metadata, fields=f'{FILE_FIELDS}, parents').execute()
 
         file_meta = _try_repeatedly(request)
-        gdrive_file: GDriveFile = self._convert_to_gdrive_file(file_meta)
+        gdrive_file: GDriveFile = self._convert_dict_to_gdrive_file(file_meta)
 
         logger.debug(f'Successfully trashed GDriveNode: {goog_id}: trashed={gdrive_file.trashed}')
         return gdrive_file

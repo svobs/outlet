@@ -198,8 +198,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
         md5 = self.op.src_node.md5
         size_bytes = self.op.src_node.get_size_bytes()
 
-        existing, existing_raw = cxt.gdrive_client.get_existing_file_with_same_parent_and_name_and_criteria(self.op.dst_node,
-                                                                                                            lambda x: True)
+        existing, existing_raw = cxt.gdrive_client.get_existing_file_with_parent_and_name_and_criteria(self.op.dst_node)
         if existing and existing.md5 == md5 and existing.get_size_bytes() == size_bytes:
             logger.info(f'Identical item already exists in Google Drive: (md5={md5}, size={size_bytes})')
             # Target node will contain invalid UID anyway because it has no goog_id. Just remove it
@@ -217,7 +216,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
             if existing:
                 return self.set_error_result(f'While trying to add: found unexpected item(s) with the same name and parent: {existing}')
             else:
-                parent_goog_id: str = cxt.gdrive_client.resolve_parent_ids_to_goog_ids(self.op.dst_node)
+                parent_goog_id: str = cxt.cache_manager.get_goog_id_for_parent(self.op.dst_node)
                 goog_node: GDriveNode = cxt.gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id)
 
         return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[goog_node], to_delete=[self.op.dst_node])
@@ -312,7 +311,7 @@ class CreateGDriveFolderCommand(Command):
         assert isinstance(self.op.src_node, GDriveNode) and self.op.src_node.is_dir(), \
             f'For {self.op.src_node}'
 
-        parent_goog_id: str = cxt.gdrive_client.resolve_parent_ids_to_goog_ids(self.op.src_node)
+        parent_goog_id: str = cxt.cache_manager.get_goog_id_for_parent(self.op.src_node)
         name = self.op.src_node.name
         existing = cxt.gdrive_client.get_existing_folder_with_parent_and_name(parent_goog_id=parent_goog_id, name=name)
         if len(existing.nodes) > 0:
@@ -354,14 +353,14 @@ class MoveFileGDriveCommand(TwoNodeCommand):
         assert isinstance(self.op.dst_node, GDriveFile), f'For {self.op.dst_node}'
         assert isinstance(self.op.src_node, GDriveFile), f'For {self.op.src_node}'
         # this requires that any parents have been created and added to the in-memory cache (and will fail otherwise)
-        src_parent_goog_id: str = cxt.gdrive_client.resolve_parent_ids_to_goog_ids(self.op.src_node)
-        dst_parent_goog_id: str = cxt.gdrive_client.resolve_parent_ids_to_goog_ids(self.op.dst_node)
+        src_parent_goog_id: str = cxt.cache_manager.get_goog_id_for_parent(self.op.src_node)
+        dst_parent_goog_id: str = cxt.cache_manager.get_goog_id_for_parent(self.op.dst_node)
         src_goog_id = self.op.src_node.goog_id
         assert not self.op.dst_node.goog_id
         dst_name = self.op.dst_node.name
 
-        existing_src, raw = cxt.gdrive_client.get_existing_file_with_same_parent_and_name_and_criteria(self.op.src_node,
-                                                                                                       lambda x: x.goog_id == src_goog_id)
+        existing_src, raw = cxt.gdrive_client.get_existing_file_with_parent_and_name_and_criteria(self.op.src_node,
+                                                                                                  lambda x: x.goog_id == src_goog_id)
         if existing_src:
             goog_node = cxt.gdrive_client.modify_meta(goog_id=src_goog_id, remove_parents=[src_parent_goog_id], add_parents=[dst_parent_goog_id],
                                                       name=dst_name)
@@ -372,8 +371,8 @@ class MoveFileGDriveCommand(TwoNodeCommand):
             return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[goog_node], to_delete=[self.op.dst_node])
         else:
             # did not find the src file; see if our operation was already completed
-            existing_dst, raw = cxt.gdrive_client.get_existing_file_with_same_parent_and_name_and_criteria(self.op.dst_node,
-                                                                                                           lambda x: x.goog_id == src_goog_id)
+            existing_dst, raw = cxt.gdrive_client.get_existing_file_with_parent_and_name_and_criteria(self.op.dst_node,
+                                                                                                      lambda x: x.goog_id == src_goog_id)
             if existing_dst:
                 # Update cache manager as it's likely out of date:
                 assert existing_dst.uid == self.op.src_node.uid and existing_dst.goog_id == self.op.src_node.goog_id,\
@@ -407,8 +406,7 @@ class DeleteGDriveFileCommand(DeleteNodeCommand):
         assert isinstance(self.op.src_node, GDriveFile)
         tgt_goog_id = self.op.src_node.goog_id
 
-        existing = cxt.gdrive_client.get_existing_file_with_same_parent_and_name_and_criteria(self.op.src_node,
-                                                                                              lambda x: x.goog_id == tgt_goog_id)
+        existing = cxt.gdrive_client.get_existing_file_with_parent_and_name_and_criteria(self.op.src_node, lambda x: x.goog_id == tgt_goog_id)
         if not existing:
             raise RuntimeError('Cannot delete: not found in GDrive!')
 

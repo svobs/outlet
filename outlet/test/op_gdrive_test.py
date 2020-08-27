@@ -10,8 +10,10 @@ import gi
 from pydispatch import dispatcher
 
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from gdrive.client import GDriveClient
 from index.uid.uid import UID
 from model.node.display_node import DisplayNode
+from model.node.gdrive_node import GDriveNode
 from test import op_test_base
 from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, INITIAL_LOCAL_TREE_RIGHT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
 from ui import actions
@@ -60,11 +62,21 @@ class OpGDriveTest(OpTestBase):
 
         self.do_setup()
 
+    def tearDown(self) -> None:
+        # delete all files which may have been uploaded to GDrive
+        client = GDriveClient(self.app)
+        parent_node: DisplayNode = self.app.cache_manager.get_item_for_uid(self.right_tree_root_uid, TREE_TYPE_GDRIVE)
+        assert isinstance(parent_node, GDriveNode)
+        children = client.get_all_children_for_parent(parent_node)
+        logger.info(f'Found {len(children)} child nodes for parent: {parent_node.name}')
+
+        super(OpGDriveTest, self).tearDown()
+
     # TESTS
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def test_dd_single_file_cp(self):
-        logger.info('Testing drag & drop copy of single file local right to local left')
+        logger.info('Testing drag & drop copy of single file local Left to GDrive Right')
         self.app.executor.start_op_execution_thread()
         # Offset from 0:
         src_tree_path = Gtk.TreePath.new_from_string('1')

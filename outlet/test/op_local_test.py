@@ -573,4 +573,12 @@ class OpLocalTest(OpTestBase):
         self.do_and_verify(delete, count_expected_cmds=12, wait_for_left=True, wait_for_right=False,
                            expected_left=final_tree_left, expected_right=INITIAL_LOCAL_TREE_RIGHT)
 
-    # TODO: test multiple delete batches of different levels
+    # TODO: Test: delete tree, then copy onto the deleted nodes
+
+    # TODO: Test: Copy 3-level tree, then copy new version of 2 levels of that tree
+
+    # TODO: MV op tests
+
+    # TODO: UP op tests
+
+    # TODO: combinations of op types

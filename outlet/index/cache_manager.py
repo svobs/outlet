@@ -445,6 +445,24 @@ class CacheManager:
             uid = self.get_uid_for_path(full_path)
             return [LocalFsIdentifier(full_path=full_path, uid=uid)]
 
+    def get_goog_id_for_parent(self, node: GDriveNode) -> str:
+        """Fails if there is not exactly 1 parent"""
+        parent_uids: List[UID] = node.get_parent_uids()
+        if not parent_uids:
+            raise RuntimeError(f'Parents are required but item has no parents: {node}')
+
+        # This will raise an exception if it cannot resolve:
+        parent_goog_ids: List[str] = self.get_goog_ids_for_uids(parent_uids)
+
+        if len(parent_goog_ids) == 0:
+            raise RuntimeError(f'No parent Google IDs for: {node}')
+        if len(parent_goog_ids) > 1:
+            # not supported at this time
+            raise RuntimeError(f'Too many parent Google IDs for: {node}')
+
+        parent_goog_id: str = parent_goog_ids[0]
+        return parent_goog_id
+
     def get_goog_ids_for_uids(self, uids: List[UID]) -> List[str]:
         return self._gdrive_cache.get_goog_ids_for_uids(uids)
 
