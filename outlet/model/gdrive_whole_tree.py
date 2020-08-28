@@ -553,7 +553,7 @@ class GDriveWholeTree:
 
         self._stats_loaded = True
         actions.set_status(sender=tree_id, status_msg=self.get_summary())
-        dispatcher.send(signal=actions.SUBTREE_STATS_UPDATED, sender=tree_id)
+        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
 
         # TODO: make use of this later
         if constants.FIND_DUPLICATE_GDRIVE_NODE_NAMES:

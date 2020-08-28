@@ -334,10 +334,10 @@ class OpLocalTest(OpTestBase):
             right_stats_updated = threading.Event()
 
             def on_stats_updated(sender):
-                logger.info(f'Got signal: {actions.SUBTREE_STATS_UPDATED} for "{sender}"')
+                logger.info(f'Got signal: {actions.REFRESH_SUBTREE_STATS_DONE} for "{sender}"')
                 right_stats_updated.set()
 
-            dispatcher.connect(signal=actions.SUBTREE_STATS_UPDATED, receiver=on_stats_updated)
+            dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=on_stats_updated)
 
             def on_node_upserted(sender: str, node: DisplayNode):
                 on_node_upserted.count += 1
@@ -441,10 +441,10 @@ class OpLocalTest(OpTestBase):
             right_stats_updated = threading.Event()
 
             def on_stats_updated(sender):
-                logger.info(f'Got signal: {actions.SUBTREE_STATS_UPDATED} for "{sender}"')
+                logger.info(f'Got signal: {actions.REFRESH_SUBTREE_STATS_DONE} for "{sender}"')
                 right_stats_updated.set()
 
-            dispatcher.connect(signal=actions.SUBTREE_STATS_UPDATED, receiver=on_stats_updated)
+            dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=on_stats_updated)
 
             def on_node_upserted(sender: str, node: DisplayNode):
                 on_node_upserted.count += 1

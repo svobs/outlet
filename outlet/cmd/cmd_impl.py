@@ -212,7 +212,8 @@ class UploadToGDriveCommand(CopyNodeCommand):
         if self.overwrite:
             if existing:
                 logger.info(f'Found existing item in Google Drive with same parent and name, but different content (overwrite={self.overwrite})')
-                goog_node: GDriveNode = cxt.gdrive_client.update_existing_file(raw_item=existing_raw, local_full_path=src_file_path)
+                goog_node: GDriveNode = cxt.gdrive_client.update_existing_file(name=existing.name, mime_type=existing_raw['mimeType'],
+                                                                               goog_id=existing.goog_id, local_full_path=src_file_path)
             else:
                 # be cautious and halt
                 return self.set_error_result(f'While trying to update item in Google Drive: could not find item with matching meta!')
@@ -394,7 +395,7 @@ class MoveFileGDriveCommand(TwoNodeCommand):
                f'status={self.status()}, dst_node={self.op.dst_node}'
 
 
-class DeleteGDriveFileCommand(DeleteNodeCommand):
+class DeleteGDriveNodeCommand(DeleteNodeCommand):
     """
     Delete GDrive
     """
@@ -410,12 +411,12 @@ class DeleteGDriveFileCommand(DeleteNodeCommand):
         return True
 
     def execute(self, cxt: CommandContext):
-        assert isinstance(self.op.src_node, GDriveFile)
+        assert isinstance(self.op.src_node, GDriveNode)
         tgt_goog_id = self.op.src_node.goog_id
 
-        existing = cxt.gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.src_node, lambda x: x.goog_id == tgt_goog_id)
+        existing = cxt.gdrive_client.get_single_node_with_parent_and_name_and_criteria(self.op.src_node, lambda x: x.goog_id == tgt_goog_id)
         if not existing:
-            raise RuntimeError('Cannot delete: not found in GDrive!')
+            return CommandResult(CommandStatus.COMPLETED_NO_OP, to_delete=[self.op.src_node])
 
         if self.delete_empty_parent:
             # TODO

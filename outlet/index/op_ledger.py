@@ -320,9 +320,6 @@ class OpLedger:
         else:
             logger.info(f'Command returned with status: "{command.status().name}"')
 
-        # Ensure command is one that we are expecting
-        self.op_graph.pop_op(command.op)
-
         # Add/update nodes in central cache:
         if command.result.nodes_to_upsert:
             logger.debug(f'Upserted {len(command.result.nodes_to_upsert)} nodes: notifying cacheman')
@@ -342,5 +339,10 @@ class OpLedger:
 
         logger.debug(f'Archiving op: {command.op}')
         self._archive_pending_ops_to_disk([command.op])
+
+        # Ensure command is one that we are expecting.
+        # Important: wait until after we have finished updating cacheman, as popping here will cause the next op to immediately execute:
+        self.op_graph.pop_op(command.op)
+
 
 

@@ -54,7 +54,7 @@ class DisplayMutator:
             pass
 
         try:
-            dispatcher.disconnect(signal=actions.SUBTREE_STATS_UPDATED, receiver=self._on_subtree_stats_updated)
+            dispatcher.disconnect(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_subtree_stats_updated)
         except DispatcherKeyError:
             pass
 
@@ -77,7 +77,7 @@ class DisplayMutator:
             dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled,
                                sender=self.con.treeview_meta.tree_id)
 
-        dispatcher.connect(signal=actions.SUBTREE_STATS_UPDATED, receiver=self._on_subtree_stats_updated)
+        dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_subtree_stats_updated)
         """This signal comes from the cacheman after it has finished updating all the nodes in the subtree,
         notfiying us that we can now refresh our display from it"""
 
@@ -268,10 +268,6 @@ class DisplayMutator:
     # LISTENERS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def _refresh_subtree_stats(self):
-        # Requests the cacheman to recalculate stats for this subtree
-        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id)
-
     def _on_node_expansion_toggled(self, sender: str, parent_iter: Gtk.TreeIter, parent_path, node: DisplayNode, is_expanded: bool):
         # Callback for actions.NODE_EXPANSION_TOGGLED:
         logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node}"')
@@ -327,7 +323,7 @@ class DisplayMutator:
                     logger.debug(f'[{self.con.tree_id}] {text} signal {actions.NODE_UPSERTED} with node {node}')
 
                 if not parent:
-                    logger.info(f'[{self.con.tree_id}] NO PARENT FOR NODE: {node}')
+                    # logger.debug(f'[{self.con.tree_id}] No parent for node: {node}')
                     return
 
                 # We want to refresh the stats, even if the node is not displayed (see below)
@@ -409,6 +405,11 @@ class DisplayMutator:
 
         GLib.idle_add(update_ui)
 
+    def _refresh_subtree_stats(self):
+        # Requests the cacheman to recalculate stats for this subtree. Sends actions.REFRESH_SUBTREE_STATS_DONE when done
+        logger.debug(f'[{self.con.tree_id}] Sending signal: "{actions.REFRESH_SUBTREE_STATS}"')
+        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id)
+
     def _on_subtree_stats_updated(self, sender: str):
         """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes
         with the current values from the cache."""
@@ -418,24 +419,31 @@ class DisplayMutator:
                 return
 
             ds = self.con.display_store
-            data: DisplayNode = ds.get_node_data(tree_iter)
-            if not data:
-                par = ds.model.iter_parent(tree_iter)
-                data: DisplayNode = ds.get_node_data(par)
-                logger.error(f'[{self.con.tree_id}] No data for child of {data}')
-            assert data, f'For tree_id="{sender} and row={self.con.display_store.model[tree_iter]}'
-            ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(data)
-            ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = data.get_etc()
+            node: DisplayNode = ds.get_node_data(tree_iter)
+            if not node:
+                par_iter = ds.model.iter_parent(tree_iter)
+                par_node: DisplayNode = ds.get_node_data(par_iter)
+                logger.error(f'[{self.con.tree_id}] No node for child of {par_node}')
+                return
+            assert node, f'For tree_id="{sender} and row={self.con.display_store.model[tree_iter]}'
+            if node.is_ephemereal():
+                return
+            tree_path = ds.model.get_path(tree_iter)
+            logger.warning(f'Refreshing stats for node: {node}: {node.get_etc()}')    # TODO
+            ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(node)
+            ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = node.get_etc()
 
         def do_in_ui():
             with self._lock:
                 if not self.con.app.shutdown:
                     self.con.display_store.recurse_over_tree(action_func=refresh_displayed_node)
+                    # currently this is only used for functional tests
+                    dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, sender=self.con.tree_id)
 
         logger.debug(f'[{self.con.tree_id}] Redrawing display tree stats')
         GLib.idle_add(do_in_ui)
         # Refresh summary also:
-        actions.set_status(sender=self.con.tree_id, status_msg=self.con.get_tree().get_summary())
+        dispatcher.send(signal=actions.SET_STATUS, sender=self.con.tree_id, status_msg=self.con.get_tree().get_summary())
 
     # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
     # LISTENERS end

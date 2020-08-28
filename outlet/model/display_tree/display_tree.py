@@ -119,6 +119,7 @@ class DisplayTree(ABC):
         queue.append(self.root_node)
         stack.append(self.root_node)
 
+        # go down tree, zeroing out existing stats and adding children to stack
         while len(queue) > 0:
             item: DisplayNode = queue.popleft()
             item.zero_out_stats()
@@ -131,16 +132,18 @@ class DisplayTree(ABC):
                         queue.append(child)
                         stack.append(child)
 
+        # now go back up the tree by popping the stack and building stats as we go:
         while len(stack) > 0:
             item = stack.pop()
             assert item.is_dir()
 
             children = self.get_children(item)
             if children:
+                if tree_id == actions.ID_RIGHT_TREE: # TODO
+                    logger.info(f'Adding metrics for {len(children)} children for node UID {item.uid}: "{item.name}"')
                 for child in children:
                     item.add_meta_metrics(child)
 
         self._stats_loaded = True
-        actions.set_status(sender=tree_id, status_msg=self.get_summary())
-        dispatcher.send(signal=actions.SUBTREE_STATS_UPDATED, sender=tree_id)
-        logger.debug(f'{stats_sw} Refreshed stats for tree')
+        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
+        logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for tree')

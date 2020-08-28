@@ -355,7 +355,7 @@ class OpTestBase(unittest.TestCase):
         right_stats_updated = threading.Event()
 
         def on_stats_updated(sender):
-            logger.info(f'Got signal: {actions.SUBTREE_STATS_UPDATED} for "{sender}"')
+            logger.info(f'Got signal: {actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE} for "{sender}"')
             if sender == self.left_con.tree_id:
                 left_stats_updated.set()
             elif sender == self.right_con.tree_id:
@@ -367,7 +367,7 @@ class OpTestBase(unittest.TestCase):
             if len(completed_cmds) >= count_expected_cmds:
                 all_commands_complete.set()
                 # Now start waiting for "stats updated" signal. Do not do before, because this signal can be sent any time there is a long-running op
-                dispatcher.connect(signal=actions.SUBTREE_STATS_UPDATED, receiver=on_stats_updated)
+                dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, receiver=on_stats_updated)
 
         dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=on_command_complete)
 

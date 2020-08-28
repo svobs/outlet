@@ -339,6 +339,34 @@ class GDriveClient:
         self._execute_query(query, fields, None, sync_ts, observer)
         return observer.nodes
 
+    def get_single_node_with_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool] = None) \
+            -> Optional[GDriveNode]:
+        src_parent_goog_id: str = self.cache_manager.get_goog_id_for_parent(node)
+        result: SimpleNodeCollector = self.get_existing_node_with_parent_and_name(parent_goog_id=src_parent_goog_id, name=node.name)
+        logger.debug(f'Found {len(result.nodes)} matching GDrive nodes with parent={src_parent_goog_id} and name={node.name}')
+
+        if len(result.nodes) > 0:
+            for found_node, found_raw in zip(result.nodes, result.raw_items):
+                if match_func:
+                    if match_func(found_node):
+                        return found_node
+                else:
+                    return found_node
+
+        return None
+
+    def get_existing_node_with_parent_and_name(self, parent_goog_id: str, name: str) -> SimpleNodeCollector:
+        query = f"name='{name}' AND '{parent_goog_id}' in parents"
+        fields = f'nextPageToken, incompleteSearch, files({GDRIVE_FILE_FIELDS}, parents)'
+
+        logger.debug(f'Getting existing nodes named "{name}" with parent "{parent_goog_id}"')
+
+        sync_ts = int(time.time())
+        observer = SimpleNodeCollector()
+        self._execute_query(query, fields, None, sync_ts, observer)
+
+        return observer
+
     # FILES
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
@@ -477,19 +505,19 @@ class GDriveClient:
 
         return gdrive_file
 
-    def update_existing_file(self, raw_item: Dict[str, str], local_full_path: str) -> GDriveFile:
+    def update_existing_file(self, name: str, mime_type: str, goog_id: str, local_full_path: str) -> GDriveFile:
         if not local_full_path:
             raise RuntimeError(f'No path specified for file!')
 
-        file_metadata = {'name': raw_item['name'], 'mimeType': raw_item['mimeType']}
+        file_metadata = {'name': name, 'mimeType': mime_type}
 
         media = MediaFileUpload(filename=local_full_path, resumable=True)
 
         def request():
-            logger.debug(f'Updating node "{raw_item["id"]}" with local file: "{local_full_path}"')
+            logger.debug(f'Updating node "{goog_id}" with local file: "{local_full_path}"')
 
             # Send the request to the API.
-            return self.service.files().update(fileId=raw_item['id'], body=file_metadata, media_body=media, fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
+            return self.service.files().update(fileId=goog_id, body=file_metadata, media_body=media, fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
 
         updated_file_meta = _try_repeatedly(request)
         gdrive_file: GDriveFile = self._convert_dict_to_gdrive_file(updated_file_meta)

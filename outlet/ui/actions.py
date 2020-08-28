@@ -27,7 +27,7 @@ SET_ROWS_UNCHECKED = 'set-rows-unchecked'
 REFRESH_SUBTREE_STATS = 'refresh-subtree-stats'
 LOAD_UI_TREE = 'load-ui-tree'
 """Requests that the central cache update the stats for all nodes in the given subtree.
-When done, the central cache will send the signal SUBTREE_STATS_UPDATED to notify the tree that it can redraw the displayed nodes"""
+When done, the central cache will send the signal REFRESH_SUBTREE_STATS_DONE to notify the tree that it can redraw the displayed nodes"""
 LOAD_UI_TREE_DONE = 'load-ui-tree-done'
 
 # --- Tree actions: notifications ---
@@ -38,7 +38,8 @@ ROOT_PATH_UPDATED = 'root-path-updated'
 NODE_UPSERTED = 'node-upserted'
 NODE_REMOVED = 'node-removed'
 EXIT_DIFF_MODE = 'diff-cancelled'
-SUBTREE_STATS_UPDATED = 'subtree-stats-updated'
+REFRESH_SUBTREE_STATS_DONE = 'subtree-stats-updated'
+REFRESH_SUBTREE_STATS_COMPLETELY_DONE = 'refresh-subtree-stats-completely-done'
 """Indicates that the central cache has updated the stats for the subtree, and the subtree should redraw the nodes"""
 
 DRAG_AND_DROP = 'drag-and-drop'

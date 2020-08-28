@@ -72,11 +72,11 @@ class OpGDriveTest(OpTestBase):
             right_stats_updated = threading.Event()
 
             def on_stats_updated(sender):
-                logger.info(f'Got signal: {actions.SUBTREE_STATS_UPDATED} for "{sender}"')
+                logger.info(f'Got signal: {actions.REFRESH_SUBTREE_STATS_DONE} for "{sender}"')
                 if sender == self.right_con.tree_id:
                     right_stats_updated.set()
 
-            dispatcher.connect(signal=actions.SUBTREE_STATS_UPDATED, receiver=on_stats_updated)
+            dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=on_stats_updated)
 
             for node in displayed_rows:
                 logger.warning(f'Deleting node via cacheman: {node}')
@@ -189,6 +189,8 @@ class OpGDriveTest(OpTestBase):
             self.assertFalse(True, 'If we got here we failed!')
 
     def test_dd_one_dir_tree_cp(self):
+        # FIXME: we have a bug when deleting the 'Art' tree from right-click
+        # FIXME: we have a bug which causes the visible rows in GDrive trees to fail to update stats and icon
         logger.info('Testing drag & drop copy of 1 dir tree local left to GDrive right')
         self.app.executor.start_op_execution_thread()
 

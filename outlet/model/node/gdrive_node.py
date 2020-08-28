@@ -97,7 +97,7 @@ class GDriveFolder(HasChildren, GDriveNode):
         """If true, all its children have been fetched from Google"""
 
     def __repr__(self):
-        return f'Folder:(uid="{self.uid}" goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
+        return f'GDriveFolder:(uid="{self.uid}" goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
                f'my_share={self.my_share} sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()} children_fetched={self.all_children_fetched} ]'
 
     @classmethod
