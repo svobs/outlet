@@ -29,9 +29,8 @@ class HoldOffTimer:
                 self._thread = threading.Thread(target=self._run, name='HoldOffTimer', args=self.args, kwargs=self.kwargs, daemon=True)
                 self._thread.start()
             else:
-                remaining_delay = self._initial_delay_sec - (int(time.time()) - self._last_sleep_time_ms)
+                remaining_delay = int(time.time()) - self._last_sleep_time_ms
                 if remaining_delay < 0:
-                    # in case of loss of sanity
                     remaining_delay = self._initial_delay_sec
                 else:
                     remaining_delay = min(remaining_delay, self._initial_delay_sec)

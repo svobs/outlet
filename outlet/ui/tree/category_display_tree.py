@@ -196,7 +196,7 @@ class CategoryDisplayTree(DisplayTree):
         return self.op_dict.get(node.uid, None)
 
     def _append_op(self, op: Op):
-        logger.debug(f'Appending Op: {op.action_uid} ({op.op_type.name})')
+        logger.debug(f'Appending op: {op.action_uid} ({op.op_type.name})')
         if op.dst_node:
             if self.op_dict.get(op.dst_node.uid, None):
                 raise RuntimeError(f'Duplicate Op: 1st={op}; 2nd={self.op_dict.get(op.dst_node.uid)}')
@@ -241,6 +241,7 @@ class CategoryDisplayTree(DisplayTree):
         full_path = item.full_path
         # Walk up the source tree and compose a list of ancestors:
         while True:
+            assert full_path, f'Item does not have a path: {item}'
             assert full_path.startswith(self.root_path), f'ItemPath="{full_path}", TreeRootPath="{self.root_path}"'
             # Go up one dir:
             full_path: str = str(pathlib.Path(full_path).parent)

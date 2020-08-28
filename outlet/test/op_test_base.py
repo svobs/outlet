@@ -270,7 +270,7 @@ class OpTestBase(unittest.TestCase):
                 actual_node: DisplayNode = next(actual_iter)
                 logger.info(f'Examining: {actual_node} (expecting: {expected_node})')
                 self.assertEqual(expected_node.name, actual_node.name)
-                self.assertEqual(expected_node.size_bytes, actual_node.get_size_bytes())
+                self.assertEqual(expected_node.size_bytes, actual_node.get_size_bytes(), f'For expected node: {expected_node}')
                 self.assertEqual(expected_node.is_dir(), actual_node.is_dir())
                 logger.info(f'OK: {expected_node.name}')
 
@@ -354,12 +354,6 @@ class OpTestBase(unittest.TestCase):
         left_stats_updated = threading.Event()
         right_stats_updated = threading.Event()
 
-        def on_command_complete(sender, command: Command):
-            completed_cmds.append(command)
-            logger.info(f'Got a completed command (total: {len(completed_cmds)}, expecting: {count_expected_cmds})')
-            if len(completed_cmds) >= count_expected_cmds:
-                all_commands_complete.set()
-
         def on_stats_updated(sender):
             logger.info(f'Got signal: {actions.SUBTREE_STATS_UPDATED} for "{sender}"')
             if sender == self.left_con.tree_id:
@@ -367,8 +361,15 @@ class OpTestBase(unittest.TestCase):
             elif sender == self.right_con.tree_id:
                 right_stats_updated.set()
 
+        def on_command_complete(sender, command: Command):
+            completed_cmds.append(command)
+            logger.info(f'Got a completed command (total: {len(completed_cmds)}, expecting: {count_expected_cmds})')
+            if len(completed_cmds) >= count_expected_cmds:
+                all_commands_complete.set()
+                # Now start waiting for "stats updated" signal. Do not do before, because this signal can be sent any time there is a long-running op
+                dispatcher.connect(signal=actions.SUBTREE_STATS_UPDATED, receiver=on_stats_updated)
+
         dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=on_command_complete)
-        dispatcher.connect(signal=actions.SUBTREE_STATS_UPDATED, receiver=on_stats_updated)
 
         do_func()
 

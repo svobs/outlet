@@ -18,6 +18,7 @@ from pydispatch import dispatcher
 from constants import EXPLICITLY_TRASHED, GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_FILE_FIELDS, GDRIVE_FOLDER_FIELDS, \
     IMPLICITLY_TRASHED, MIME_TYPE_FOLDER, NOT_TRASHED, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY
 from gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
+from index.uid.uid import UID
 from model.gdrive_whole_tree import UserMeta
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier
@@ -142,7 +143,7 @@ class GDriveClient:
             self.service._http.http.close()
             self.service = None
 
-    def _convert_dict_to_gdrive_folder(self, item: Dict, sync_ts: int = 0) -> GDriveFolder:
+    def _convert_dict_to_gdrive_folder(self, item: Dict, sync_ts: int = 0, uid: UID = None) -> GDriveFolder:
         # 'driveId' only populated for items which someone has shared with me
         # 'shared' only populated for items which are owned by me
 
@@ -150,7 +151,7 @@ class GDriveClient:
             sync_ts = int(time.time())
 
         goog_id = item['id']
-        uid = self.cache_manager.get_uid_for_goog_id(goog_id)
+        uid = self.cache_manager.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
 
         goog_node = GDriveFolder(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, item_name=item['name'], trashed=_convert_trashed(item),
                                  drive_id=item.get('driveId', None), my_share=item.get('shared', None), sync_ts=sync_ts, all_children_fetched=False)
@@ -161,7 +162,7 @@ class GDriveClient:
 
         return goog_node
 
-    def _convert_dict_to_gdrive_file(self, item: Dict, sync_ts: int = 0) -> GDriveFile:
+    def _convert_dict_to_gdrive_file(self, item: Dict, sync_ts: int = 0, uid: UID = None) -> GDriveFile:
         if not sync_ts:
             sync_ts = int(time.time())
 
@@ -190,7 +191,7 @@ class GDriveClient:
             version = int(version)
 
         goog_id = item['id']
-        uid = self.cache_manager.get_uid_for_goog_id(goog_id)
+        uid = self.cache_manager.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
         goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, item_name=item["name"],
                                            trashed=_convert_trashed(item), drive_id=item.get('driveId', None), version=version,
                                            head_revision_id=head_revision_id, md5=item.get('md5Checksum', None),
@@ -252,7 +253,7 @@ class GDriveClient:
             for item in items:
                 mime_type = item['mimeType']
                 if mime_type == MIME_TYPE_FOLDER:
-                    goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item, sync_ts)
+                    goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item, sync_ts=sync_ts)
                 else:
                     goog_node: GDriveFile = self._convert_dict_to_gdrive_file(item, sync_ts=sync_ts)
 
@@ -401,7 +402,7 @@ class GDriveClient:
         self._execute_query(query, fields, None, sync_ts, observer)
         return observer
 
-    def create_folder(self, name: str, parent_goog_ids: List[str]) -> GDriveFolder:
+    def create_folder(self, name: str, parent_goog_ids: List[str], uid: UID) -> GDriveFolder:
         """Create a folder with the given name. If successful, returns a new Google ID for the created folder"""
         if not name:
             raise RuntimeError(f'No name specified for folder!')
@@ -416,7 +417,7 @@ class GDriveClient:
 
         item = _try_repeatedly(request)
 
-        goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item)
+        goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item, uid=uid)
         if not goog_node.goog_id:
             raise RuntimeError(f'Folder creation failed (no ID returned)!')
 
@@ -450,8 +451,8 @@ class GDriveClient:
 
         _try_repeatedly(download)
 
-    def upload_new_file(self, local_full_path: str, parent_goog_ids: Union[str, List[str]]) -> GDriveFile:
-        """Upload a single file based on its path. If successful, returns the newly created Google ID"""
+    def upload_new_file(self, local_full_path: str, parent_goog_ids: Union[str, List[str]], uid: UID) -> GDriveFile:
+        """Upload a single file based on its path. If successful, returns the newly created GDriveFile"""
         if not local_full_path:
             raise RuntimeError(f'No path specified for file!')
 
@@ -470,7 +471,7 @@ class GDriveClient:
             return response
 
         file_meta = _try_repeatedly(request)
-        gdrive_file = self._convert_dict_to_gdrive_file(file_meta)
+        gdrive_file = self._convert_dict_to_gdrive_file(file_meta, uid=uid)
 
         logger.info(f'File uploaded successfully) Returned name="{gdrive_file.name}", version="{gdrive_file.version}", goog_id="{gdrive_file.goog_id}",')
 

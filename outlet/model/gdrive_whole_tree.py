@@ -80,49 +80,50 @@ class GDriveWholeTree:
             item.node_identifier.full_path = full_paths
         return full_paths
 
-    def add_item(self, item: GDriveNode):
-        """Adds an item. Assumes that the item has all necessary parent info filled in already,
+    def add_item(self, node: GDriveNode):
+        """Adds a node. Assumes that the node has all necessary parent info filled in already,
         and does the heavy lifting and populates all data structures appropriately."""
 
-        parent_uids: List[UID] = item.get_parent_uids()
+        parent_uids: List[UID] = node.get_parent_uids()
 
         # Build forward dictionary
-        existing_item = self.id_dict.get(item.uid, None)
-        if existing_item:
-            logger.debug(f'add_item(): found existing item with same ID (will attempt to merge items): existing: {existing_item}; new={item}')
-            parent_uids = _merge_items(existing_item, item)
+        existing_node = self.id_dict.get(node.uid, None)
+        if existing_node:
+            logger.debug(f'add_node(): found existing node with same ID (will attempt to merge nodes): existing: {existing_node}; new={node}')
+            parent_uids = _merge_nodes(existing_node, node)
         else:
-            self.id_dict[item.uid] = item
+            self.id_dict[node.uid] = node
 
         # build reverse dictionary
         if len(parent_uids) > 0:
             for parent_uid in parent_uids:
-                self._add_to_parent_dict(parent_uid, item)
+                self._add_to_parent_dict(parent_uid, node)
 
-        if not item.get_parent_uids():
-            self.roots.append(item)
+        if not node.get_parent_uids():
+            self.roots.append(node)
 
-    def remove_item(self, item: GDriveNode):
-        """Remove given item from all data structures in this tree."""
-        if item.uid not in self.id_dict:
-            logger.warning(f'Cannot remove item from in-memory tree: it was not found in the tree: {item}')
+    def remove_item(self, node: GDriveNode):
+        """Remove given node from all data structures in this tree."""
+        if node.uid not in self.id_dict:
+            logger.warning(f'Cannot remove node from in-memory tree: it was not found in the tree: {node}')
             return
 
-        if item.is_dir():
-            # FIXME
-            raise RuntimeError(f'Cannot remove folders yet: {item}')
-        else:
-            for parent_uid in item.get_parent_uids():
-                child_list = self.first_parent_dict.get(parent_uid, [])
-                if child_list:
-                    # this may get expensive for folders with lots of items...may want to monitor performance
-                    child_list.remove(item)
+        if node.is_dir():
+            child_list = self.get_children(node)
+            if child_list:
+                raise RuntimeError(f'Cannot remove non-empty folder: {node}')
 
-        if item in self.roots:
-            self.roots.remove(item)
+        for parent_uid in node.get_parent_uids():
+            child_list = self.first_parent_dict.get(parent_uid, [])
+            if child_list:
+                # this may get expensive for folders with lots of nodes...may want to monitor performance
+                child_list.remove(node)
 
-        self.id_dict.pop(item.uid, None)
-        logger.debug(f'GDriveNode removed from in-memory tree: {item}')
+        if node in self.roots:
+            self.roots.remove(node)
+
+        self.id_dict.pop(node.uid, None)
+        logger.debug(f'GDriveNode removed from in-memory tree: {node}')
 
     def add_parent_mapping(self, item_uid: UID, parent_uid: UID):
         """Assuming that an item with the given UID has already been added to this tree, this method
@@ -334,6 +335,31 @@ class GDriveWholeTree:
                         return child
         return None
 
+    def get_subtree_bfs(self, subtree_root: GDriveNode) -> List[GDriveNode]:
+        """Returns all nodes in the subtree in BFS order"""
+        queue: Deque[GDriveNode] = deque()
+        bfs_list: List[GDriveNode] = []
+
+        duplicates: List[List[GDriveNode]] = []
+
+        queue.append(subtree_root)
+        bfs_list.append(subtree_root)
+
+        # everything else ...
+        while len(queue) > 0:
+            item: GDriveNode = queue.popleft()
+
+            children = self.get_children(item)
+            if children:
+                for child in children:
+                    bfs_list.append(child)
+
+                    if child.is_dir():
+                        assert isinstance(child, GDriveNode)
+                        queue.append(child)
+
+        return bfs_list
+
     def get_item_for_uid(self, uid: UID) -> Optional[GDriveNode]:
         assert uid
         return self.id_dict.get(uid, None)
@@ -536,18 +562,35 @@ class GDriveWholeTree:
         logger.debug(f'{stats_sw} Refreshed stats for whole Google Drive tree')
 
 
-def _merge_items(existing_item: GDriveNode, new_item: GDriveNode) -> List[UID]:
-    # Assume items are identical but each references a different parent (most likely flattened for SQL)
-    assert len(existing_item.get_parent_uids()) >= 1 and len(
-        new_item.get_parent_uids()) == 1, f'Expected 1 parent each but found: {existing_item.get_parent_uids()} and {new_item.get_parent_uids()}'
+def _merge_nodes(existing_node: GDriveNode, new_node: GDriveNode) -> List[UID]:
+    # Assume nodes are identical but each references a different parent (most likely flattened for SQL)
+    assert len(existing_node.get_parent_uids()) >= 1 and len(
+        new_node.get_parent_uids()) == 1, f'Expected 1 parent each but found: {existing_node.get_parent_uids()} and {new_node.get_parent_uids()}'
 
     new_parent_ids: List[UID] = []
-    for parent_uid in new_item.get_parent_uids():
-        if parent_uid not in existing_item.get_parent_uids():
+    for parent_uid in new_node.get_parent_uids():
+        if parent_uid not in existing_node.get_parent_uids():
             new_parent_ids.append(parent_uid)
 
-    # Merge into existing item:
-    existing_item.set_parent_uids(existing_item.get_parent_uids() + new_parent_ids)
+    # Merge into existing node:
+    existing_node.set_parent_uids(existing_node.get_parent_uids() + new_parent_ids)
+
+    if not existing_node.goog_id:
+        existing_node.goog_id = new_node.goog_id
+    elif existing_node.goog_id != new_node.goog_id:
+        raise RuntimeError(f'Existing node goog_id ({existing_node.goog_id}) does not match new node goog_id ({new_node.goog_id})')
+
+    # Overwrite existing fields
+    existing_node.trashed = new_node.trashed
+    existing_node.name = new_node.name
+    existing_node.drive_id = new_node.drive_id
+    existing_node.my_share = new_node.my_share
+
+    if isinstance(existing_node, GDriveFile):
+        assert isinstance(new_node, GDriveFile)
+        existing_node.set_size_bytes(new_node.get_size_bytes())
+        existing_node.create_ts = new_node.create_ts
+        existing_node.set_modify_ts(new_node.modify_ts)
 
     # Need to return these so they can be added to reverse dict
     return new_parent_ids

@@ -1,6 +1,7 @@
 import logging
 import threading
-from typing import List, Optional, Tuple
+from collections import deque
+from typing import Deque, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
@@ -145,18 +146,12 @@ class GDriveMasterCache:
         if not parent_uids:
             # Adding a new root is currently not allowed (which is fine because there should be no way to do this via the UI)
             raise RuntimeError(f'Node is missing parent UIDs: {node}')
-        parent_goog_ids = self._my_gdrive.resolve_uids_to_goog_ids(parent_uids)
-        parent_mappings = []
-        if len(node.get_parent_uids()) != len(parent_goog_ids):
-            raise RuntimeError(f'Internal error: could not map all parent goog_ids ({len(parent_goog_ids)}) to parent UIDs '
-                               f'({len(parent_uids)}) for item: {node}')
-        for parent_uid, parent_goog_id in zip(node.get_parent_uids(), parent_goog_ids):
-            parent_mappings.append((node.uid, parent_uid, parent_goog_id, node.sync_ts))
 
         # Detect whether it's already in the cache
         existing_node = self._my_gdrive.get_item_for_uid(node.uid)
         if existing_node:
-            if existing_node.goog_id != node.goog_id:
+            # it is ok if we have an existing node which doesn't have a goog_id; that will be replaced
+            if existing_node.goog_id and existing_node.goog_id != node.goog_id:
                 raise RuntimeError(f'Serious error: cache already contains UID {node.uid} but Google ID does not match '
                                    f'(existing="{existing_node.goog_id}"; new="{node.goog_id}")')
 
@@ -179,6 +174,15 @@ class GDriveMasterCache:
 
         if node.exists():
             if self.application.cache_manager.enable_save_to_disk:
+
+                parent_goog_ids = self._my_gdrive.resolve_uids_to_goog_ids(parent_uids)
+                parent_mappings = []
+                if len(node.get_parent_uids()) != len(parent_goog_ids):
+                    raise RuntimeError(f'Internal error: could not map all parent goog_ids ({len(parent_goog_ids)}) to parent UIDs '
+                                       f'({len(parent_uids)}) for item: {node}')
+                for parent_uid, parent_goog_id in zip(node.get_parent_uids(), parent_goog_ids):
+                    parent_mappings.append((node.uid, parent_uid, parent_goog_id, node.sync_ts))
+
                 cache_path: str = self._get_cache_path_for_master()
 
                 # Write new values:
@@ -207,10 +211,21 @@ class GDriveMasterCache:
         logger.debug(f'Sending signal: {actions.NODE_UPSERTED}')
         dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
 
-    def remove_goog_node(self, node: DisplayNode, to_trash):
-        assert isinstance(node, GDriveNode), f'For node: {node}'
+    def remove_gdrive_subtree(self, subtree_root: DisplayNode, to_trash):
+        assert isinstance(subtree_root, GDriveNode), f'For node: {subtree_root}'
 
-        assert not node.is_dir(), 'FIXME! Add remove folder support!'  # FIXME
+        if not subtree_root.is_dir():
+            self.remove_gdrive_node(subtree_root, to_trash=to_trash)
+            return
+
+        subtree_nodes = self._my_gdrive.get_subtree_bfs(subtree_root)
+
+        logger.info(f'Removing subtree with {len(subtree_nodes)} nodes')
+        for node in reversed(subtree_nodes):
+            self.remove_gdrive_node(node, to_trash=to_trash)
+
+    def remove_gdrive_node(self, node: DisplayNode, to_trash):
+        assert isinstance(node, GDriveNode), f'For node: {node}'
 
         if node.is_dir():
             children: List[GDriveNode] = self._my_gdrive.get_children(node)

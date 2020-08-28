@@ -222,9 +222,9 @@ class UploadToGDriveCommand(CopyNodeCommand):
                 return self.set_error_result(f'While trying to add: found unexpected item(s) with the same name and parent: {existing}')
             else:
                 parent_goog_id: str = cxt.cache_manager.get_goog_id_for_parent(self.op.dst_node)
-                goog_node: GDriveNode = cxt.gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id)
+                goog_node: GDriveNode = cxt.gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id, uid=self.op.dst_node.uid)
 
-        return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[goog_node], to_delete=[self.op.dst_node])
+        return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[goog_node])
 
     def __repr__(self):
         return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, overwrite={self.overwrite}, ' \
@@ -315,8 +315,7 @@ class CreateGDriveFolderCommand(Command):
         return True
 
     def execute(self, cxt: CommandContext):
-        assert isinstance(self.op.src_node, GDriveNode) and self.op.src_node.is_dir(), \
-            f'For {self.op.src_node}'
+        assert isinstance(self.op.src_node, GDriveNode) and self.op.src_node.is_dir(), f'For {self.op.src_node}'
 
         parent_goog_id: str = cxt.cache_manager.get_goog_id_for_parent(self.op.src_node)
         name = self.op.src_node.name
@@ -327,8 +326,7 @@ class CreateGDriveFolderCommand(Command):
             goog_node: GDriveNode = existing.nodes[0]
             goog_node.uid = self.op.src_node.uid
         else:
-            goog_node = cxt.gdrive_client.create_folder(name=self.op.src_node.name,
-                                                        parent_goog_ids=[parent_goog_id], uid=self.op.src_node.uid)
+            goog_node = cxt.gdrive_client.create_folder(name=self.op.src_node.name, parent_goog_ids=[parent_goog_id], uid=self.op.src_node.uid)
             logger.info(f'Created GDrive folder successfully: uid={goog_node.uid} name="{goog_node.name}", goog_id="{goog_node.goog_id}"')
 
         assert goog_node.is_dir()

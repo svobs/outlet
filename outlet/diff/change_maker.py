@@ -128,8 +128,8 @@ class OneSide:
             if tree_type == TREE_TYPE_GDRIVE:
                 logger.debug(f'Creating GoogFolderToAdd for {parent_path}')
                 new_uid = self.uid_generator.next_uid()
-                folder_name = os.parent_path.basename(parent_path)
-                new_parent = GDriveFolder(GDriveIdentifier(uid=new_uid, full_path=None), goog_id=None, item_name=folder_name, trashed=False,
+                folder_name = os.path.basename(parent_path)
+                new_parent = GDriveFolder(GDriveIdentifier(uid=new_uid, full_path=parent_path), goog_id=None, item_name=folder_name, trashed=False,
                                           drive_id=None, my_share=False, sync_ts=None, all_children_fetched=True)
             elif tree_type == TREE_TYPE_LOCAL_DISK:
                 logger.debug(f'Creating LocalDirToAdd for {parent_path}')

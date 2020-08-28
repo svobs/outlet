@@ -327,7 +327,11 @@ class DisplayMutator:
                     logger.debug(f'[{self.con.tree_id}] {text} signal {actions.NODE_UPSERTED} with node {node}')
 
                 if not parent:
+                    logger.info(f'[{self.con.tree_id}] NO PARENT FOR NODE: {node}')
                     return
+
+                # We want to refresh the stats, even if the node is not displayed (see below)
+                self._stats_refresh_timer.start_or_delay()
 
                 parent_uid = parent.uid
 
@@ -368,8 +372,6 @@ class DisplayMutator:
                         self._append_dir_node_and_loading_child(parent_iter, node)
                     else:
                         self._append_file_node(parent_iter, node)
-
-                self._stats_refresh_timer.start_or_delay()
 
         GLib.idle_add(update_ui)
 

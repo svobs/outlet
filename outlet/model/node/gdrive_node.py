@@ -207,6 +207,9 @@ class GDriveFile(GDriveNode):
     def md5(self, md5):
         self._md5 = md5
 
+    def set_modify_ts(self, modify_ts: int):
+        self._modify_ts = ensure_int(modify_ts)
+
     @property
     def modify_ts(self):
         return self._modify_ts
@@ -217,6 +220,9 @@ class GDriveFile(GDriveNode):
 
     def get_size_bytes(self):
         return self._size_bytes
+
+    def set_size_bytes(self, size_bytes: int):
+        self._size_bytes = size_bytes
 
     @classmethod
     def get_obj_type(cls):

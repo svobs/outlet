@@ -376,10 +376,13 @@ class CacheManager:
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
+    def remove_gdrive_subtree(self, subtree_root: DisplayNode, to_trash):
+        self._gdrive_cache.remove_gdrive_subtree(subtree_root, to_trash)
+
     def remove_node(self, node: DisplayNode, to_trash):
         tree_type = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
-            self._gdrive_cache.remove_goog_node(node, to_trash)
+            self._gdrive_cache.remove_gdrive_node(node, to_trash)
         elif tree_type == TREE_TYPE_LOCAL_DISK:
             self._local_disk_cache.remove_node(node, to_trash)
         else:
