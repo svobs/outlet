@@ -100,7 +100,7 @@ class OpGDriveTest(OpTestBase):
             client.hard_delete(child.goog_id)
 
     def tearDown(self) -> None:
-        # self._cleanup_gdrive_local_and_remote()
+        self._cleanup_gdrive_local_and_remote()
         super(OpGDriveTest, self).tearDown()
 
     # TESTS

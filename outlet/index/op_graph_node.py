@@ -135,21 +135,27 @@ class OpGraphNode(ABC):
         if not coverage_dict:
             coverage_dict = {}
 
-        node_list = []
+        node_list: List[OpGraphNode] = []
 
-        queue: Deque[OpGraphNode] = collections.deque()
-        queue.append(self)
+        current_queue: Deque[OpGraphNode] = collections.deque()
+        other_queue: Deque[OpGraphNode] = collections.deque()
+        current_queue.append(self)
 
-        while len(queue) > 0:
-            node: OpGraphNode = queue.popleft()
-
+        while len(current_queue) > 0:
+            node: OpGraphNode = current_queue.popleft()
             node_list.append(node)
 
             for child in node.get_child_list():
                 # avoid duplicates:
                 if not coverage_dict.get(child.node_uid, None):
                     coverage_dict[child.node_uid] = child
-                    queue.append(child)
+
+                    other_queue.append(child)
+
+            if len(current_queue) == 0:
+                temp_var = other_queue
+                other_queue = current_queue
+                current_queue = other_queue
 
         return node_list
 

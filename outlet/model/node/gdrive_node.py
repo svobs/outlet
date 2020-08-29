@@ -109,7 +109,8 @@ class GDriveFolder(HasChildren, GDriveNode):
 
     def is_parent(self, potential_child_node: DisplayNode) -> bool:
         if potential_child_node.get_tree_type() == TREE_TYPE_GDRIVE:
-            return potential_child_node.uid in self.get_parent_uids()
+            assert isinstance(potential_child_node, GDriveNode)
+            return self.uid in potential_child_node.get_parent_uids()
         return False
 
     @classmethod

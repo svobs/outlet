@@ -113,6 +113,7 @@ class DisplayTree(ABC):
         pass
 
     def refresh_stats(self, tree_id):
+        logger.debug(f'Refreshing stats for display tree: "{tree_id}"')
         stats_sw = Stopwatch()
         queue: Deque[DisplayNode] = deque()
         stack: Deque[DisplayNode] = deque()

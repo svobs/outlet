@@ -282,6 +282,11 @@ class OpGraph:
             # Special handling for RM-type nodes.
             # We want to find the lowest RM node in the tree.
 
+            # Sometimes the nodes are not inserted in exactly the right order. Pick up any nodes which fell through:
+            last_parent_op = self._get_lowest_priority_op_node(parent_uid)
+            if last_parent_op:
+                last_parent_op.link_parent(node_to_insert)
+
             # First, see if we can find child nodes of the target node (which in our rules would be the parents of the RM op):
             op_for_child_node_list: List[OpGraphNode] = self._find_child_nodes_in_tree_for_rm(node_to_insert)
             if op_for_child_node_list:
