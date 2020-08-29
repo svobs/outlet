@@ -195,14 +195,10 @@ class OpGraph:
         # Invert RM nodes when inserting into tree
         batch_uid = root_of_ops.get_first_child().op.batch_uid
 
-        iterator = iter(root_of_ops.get_all_nodes_in_subtree())
-        # skip root
-        next(iterator)
-
         mkdir_dict: Dict[UID, DisplayNode] = {}
         """Keep track of nodes which are to be created, so we can include them in the lookup for valid parents"""
 
-        for op_node in iterator:
+        for op_node in _skip_root(root_of_ops.get_all_nodes_in_subtree()):
             tgt_node: DisplayNode = op_node.get_target_node()
             op_type: str = op_node.op.op_type.name
 
@@ -282,7 +278,7 @@ class OpGraph:
             # Special handling for RM-type nodes.
             # We want to find the lowest RM node in the tree.
 
-            # Sometimes the nodes are not inserted in exactly the right order. Pick up any nodes which fell through:
+            # Sometimes the nodes are not inserted in exactly the right order. Pick up any nodes which fell through cuz their child was inserted first
             last_parent_op = self._get_lowest_priority_op_node(parent_uid)
             if last_parent_op:
                 last_parent_op.link_parent(node_to_insert)
@@ -415,10 +411,8 @@ class OpGraph:
                         logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): it is not next in src node queue')
                         continue
 
-                    level = src_op_node.get_level()
-                    # level 1 == root; level 2 == sub-root
-                    if level != 2:
-                        logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): src node is level {level}')
+                    if not src_op_node.is_child_of_root():
+                        logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): src node is not child of root')
                         continue
 
                 else:
@@ -433,9 +427,8 @@ class OpGraph:
                         logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): it is not next in dst node queue')
                         continue
 
-                    level = dst_op_node.get_level()
-                    if level != 2:
-                        logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): dst node is level {level}')
+                    if not dst_op_node.is_child_of_root():
+                        logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): dst node is not child of root')
                         continue
 
             # Make sure the node has not already been checked out:

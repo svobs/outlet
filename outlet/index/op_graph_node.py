@@ -48,10 +48,10 @@ class OpGraphNode(ABC):
         return None
 
     def get_parent_list(self) -> Optional[List]:
-        return None
+        return []
 
     def get_child_list(self) -> Optional[List]:
-        return None
+        return []
 
     def link_parent(self, parent):
         raise RuntimeError('Cannot link parent to this class: class cannot have parents!')
@@ -64,6 +64,9 @@ class OpGraphNode(ABC):
 
     def unlink_child(self, child):
         raise RuntimeError('Cannot unlink child from class: class cannot have children!')
+
+    def is_child_of_root(self) -> bool:
+        return not self.is_root() and len(self.get_parent_list()) == 1 and self.get_first_parent().is_root()
 
     @abstractmethod
     def clear_relationships(self):
@@ -92,13 +95,13 @@ class OpGraphNode(ABC):
         return False
 
     def get_level(self) -> int:
-        level: int = 0
-        node = self
-        while node:
-            level += 1
-            node = node.get_first_parent()
+        max_parent = 0
+        for parent in self.get_parent_list():
+            parent_level = parent.get_level()
+            if parent_level > max_parent:
+                max_parent = parent_level
 
-        return level
+        return max_parent + 1
 
     def print_me(self, full=True) -> str:
         string = f'(?) op node UID={self.node_uid}'
@@ -110,21 +113,20 @@ class OpGraphNode(ABC):
     def __repr__(self):
         return self.print_me()
 
-    def print_recursively(self, coverage_dict: Dict[UID, Any] = None) -> List[str]:
+    def print_recursively(self, current_level: int = 0, coverage_dict: Dict[UID, Any] = None) -> List[str]:
         if not coverage_dict:
             coverage_dict = {}
 
-        level = self.get_level()
         if coverage_dict.get(self.node_uid, None):
             # already printed this node
-            return [f'{OP_TREE_INDENT_STR * (level-1)}{self.print_me(full=False)} [see above]']
+            return [f'{OP_TREE_INDENT_STR * current_level}[L{self.get_level()}] {self.print_me(full=False)} [see above]']
 
         coverage_dict[self.node_uid] = self
 
-        blocks = [f'{OP_TREE_INDENT_STR * (level-1)}{self.print_me()}']
+        blocks = [f'{OP_TREE_INDENT_STR * current_level}[L{self.get_level()}] {self.print_me()}']
 
         for child in self.get_child_list():
-            blocks += child.print_recursively(coverage_dict)
+            blocks += child.print_recursively(current_level + 1, coverage_dict)
 
         return blocks
 
@@ -155,7 +157,7 @@ class OpGraphNode(ABC):
             if len(current_queue) == 0:
                 temp_var = other_queue
                 other_queue = current_queue
-                current_queue = other_queue
+                current_queue = temp_var
 
         return node_list
 
