@@ -167,7 +167,6 @@ class OpGDriveTest(OpTestBase):
     def test_bad_dd_dir_tree_cp(self):
         logger.info('Testing negative case: drag & drop copy of duplicate nodes local to GDrive')
         self.app.executor.start_op_execution_thread()
-        # Offset from 0:
         node_name = 'Art'
 
         name_equals_func_bound: Callable = partial(op_test_base.name_equals_func, node_name)
@@ -194,7 +193,6 @@ class OpGDriveTest(OpTestBase):
             self.assertFalse(True, 'If we got here we failed!')
 
     def test_dd_one_dir_tree_cp(self):
-        # FIXME: we have a bug which causes the visible rows in GDrive trees to fail to update stats and icon
         logger.info('Testing drag & drop copy of 1 dir tree local left to GDrive right')
         self.app.executor.start_op_execution_thread()
 

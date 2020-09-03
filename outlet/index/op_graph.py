@@ -1,15 +1,14 @@
 import collections
 import logging
-import pathlib
 import threading
 from typing import DefaultDict, Deque, Dict, Iterable, List, Optional
 
-from constants import SUPER_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import SUPER_ROOT_UID, TREE_TYPE_GDRIVE
 from index.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, SrcOpNode
 from index.uid.uid import UID
-from model.op import Op, OpType
-from model.node.display_node import DisplayNode, HasParentList
+from model.node.display_node import DisplayNode
 from model.node.gdrive_node import GDriveNode
+from model.op import Op, OpType
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -27,10 +26,10 @@ class OpGraph:
         self.cacheman = application.cache_manager
         self.uid_generator = application.uid_generator
 
-        self._lock = threading.Lock()
+        self._struct_lock = threading.Lock()
 
         self._shutdown: bool = False
-        self._cv = threading.Condition()
+        self._cv_can_get = threading.Condition()
         """Used to help consumers block"""
 
         self._node_q_dict: Dict[UID, Deque[OpGraphNode]] = {}
@@ -48,9 +47,9 @@ class OpGraph:
     def shutdown(self):
         """Need to call this for try_get() to return"""
         self._shutdown = True
-        with self._cv:
+        with self._cv_can_get:
             # unblock any get() task which is waiting
-            self._cv.notifyAll()
+            self._cv_can_get.notifyAll()
 
     def _print_current_state(self):
         lines = self._graph_root.print_recursively()
@@ -68,18 +67,6 @@ class OpGraph:
             logger.debug(f'{node_uid}:')
             for i, node in enumerate(node_list):
                 logger.debug(f'  {i}. {node}')
-
-    def _derive_parent_uid(self, node: DisplayNode):
-        """Derives the UID for the parent of the given node"""
-        if isinstance(node, HasParentList):
-            assert isinstance(node, GDriveNode) and node.node_identifier.tree_type == TREE_TYPE_GDRIVE, f'Node: {node}'
-            parent_uids = node.get_parent_uids()
-            assert len(parent_uids) == 1, f'Expected exactly one parent_uid for node: {node}'
-            return parent_uids[0]
-        else:
-            assert node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Node: {node}'
-            parent_path = str(pathlib.Path(node.full_path).parent)
-            return self.cacheman.get_uid_for_path(parent_path)
 
     def _get_lowest_priority_op_node(self, uid: UID):
         node_list = self._node_q_dict.get(uid, None)
@@ -144,7 +131,7 @@ class OpGraph:
         
         # mutually exclusive nodes have dependencies on each other:
         for potential_child_op in mutex_node_q_dict.values():
-            parent_uid = self._derive_parent_uid(potential_child_op.get_target_node())
+            parent_uid = self.cacheman.get_parent_uid_for_node(potential_child_op.get_target_node())
             op_for_parent_node: OpGraphNode = mutex_node_q_dict.get(parent_uid, None)
             if potential_child_op.is_remove_type():
                 # Special handling for RM-type nodes:
@@ -180,7 +167,7 @@ class OpGraph:
             logger.debug(line)
         return root_node
 
-    def can_nq_batch(self, root_of_ops: RootNode) -> bool:
+    def can_nq_batch(self, op_root: RootNode) -> bool:
         """
         Takes a tree representing a batch as an arg. The root itself is ignored, but each of its children represent the root of a
         subtree of changes, in which each node of the subtree maps to a node in a directory tree. No intermediate nodes are allowed to be
@@ -192,23 +179,22 @@ class OpGraph:
         and not already scheduled for RM
         """
 
-        assert isinstance(root_of_ops, RootNode)
+        assert isinstance(op_root, RootNode)
 
         # Invert RM nodes when inserting into tree
-        batch_uid = root_of_ops.get_first_child().op.batch_uid
+        batch_uid: UID = op_root.get_first_child().op.batch_uid
 
         mkdir_dict: Dict[UID, DisplayNode] = {}
         """Keep track of nodes which are to be created, so we can include them in the lookup for valid parents"""
 
-        for op_node in _skip_root(root_of_ops.get_all_nodes_in_subtree()):
+        for op_node in _skip_root(op_root.get_all_nodes_in_subtree()):
             tgt_node: DisplayNode = op_node.get_target_node()
             op_type: str = op_node.op.op_type.name
 
             if op_node.is_create_type():
                 # Enforce Rule 1: ensure parent of target is valid:
-                parent_uid = self._derive_parent_uid(tgt_node)
-                if not self.cacheman.get_item_for_uid(parent_uid, tgt_node.node_identifier.tree_type) \
-                        and not mkdir_dict.get(parent_uid, None):
+                parent_uid = self.cacheman.get_parent_uid_for_node(tgt_node)
+                if not self.cacheman.get_item_for_uid(parent_uid, tgt_node.get_tree_type()) and not mkdir_dict.get(parent_uid, None):
                     logger.error(f'Could not find parent in cache with UID {parent_uid} for "{op_type}" operation node: {tgt_node}')
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find parent in cache with UID {parent_uid} '
                                        f'for "{op_type}"')
@@ -218,12 +204,21 @@ class OpGraph:
                     mkdir_dict[op_node.op.src_node.uid] = op_node.op.src_node
             else:
                 # Enforce Rule 2: ensure target node is valid
-                if not self.cacheman.get_item_for_uid(tgt_node.uid, tgt_node.node_identifier.tree_type):
+                if not self.cacheman.get_item_for_uid(tgt_node.uid, tgt_node.get_tree_type()):
                     logger.error(f'Could not find node in cache for "{op_type}" operation node: {tgt_node}')
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find node in cache with UID {tgt_node.uid} '
                                        f'for "{op_type}"')
 
-            with self._lock:
+                # Special check for GDrive dst nodes, since they will not have a reliable UID - must check for uniqueness using parent and name.
+                # May want to refactor this in the future... kind of a kludge
+                if op_node.is_dst() and tgt_node.get_tree_type() == TREE_TYPE_GDRIVE:
+                    assert isinstance(tgt_node, GDriveNode) and tgt_node.get_parent_uids(), f'Bad data: {tgt_node}'
+                    existing_node = self.cacheman.get_goog_node_for_name_and_parent_uid(tgt_node.name, tgt_node.get_parent_uids()[0])
+                    if existing_node and existing_node.uid != tgt_node.uid:
+                        raise RuntimeError(f'Cannot add batch (UID={batch_uid}): it is attempting to CP/MV/UP to a node (UID={tgt_node.uid}) '
+                                           f'which has a different UID than one with the same name and parent (UID={existing_node.uid})')
+
+            with self._struct_lock:
                 # More of Rule 2: ensure target node is not scheduled for deletion:
                 most_recent_op = self.get_last_pending_op_for_node(tgt_node.uid)
                 if most_recent_op and most_recent_op.op_type == OpType.RM and op_node.is_src() and op_node.op.has_dst():
@@ -271,7 +266,7 @@ class OpGraph:
 
         target_node: DisplayNode = node_to_insert.get_target_node()
         target_uid: UID = target_node.uid
-        parent_uid: UID = self._derive_parent_uid(target_node)
+        parent_uid: UID = self.cacheman.get_parent_uid_for_node(target_node)
 
         # First check whether the target node is known and has pending operations
         last_target_op = self._get_lowest_priority_op_node(target_uid)
@@ -361,7 +356,7 @@ class OpGraph:
 
         return True
 
-    def nq_batch(self, root_of_ops: RootNode) -> List[Op]:
+    def nq_batch(self, op_root: RootNode) -> List[Op]:
         # 1. Discard root
         # 2. Examine each child of root. Each shall be treated as its own subtree.
         # 3. For each subtree, look up all its nodes in the master dict. Level...?
@@ -372,15 +367,15 @@ class OpGraph:
         # Note: it is assumed that the given batch has already been reduced, and stored in the pending ops tree.
         # Every op node in the supplied graph must be accounted for.
 
-        if not root_of_ops.get_child_list():
+        if not op_root.get_child_list():
             raise RuntimeError(f'Batch has no nodes!')
 
-        batch_uid: UID = root_of_ops.get_first_child().op.batch_uid
+        batch_uid: UID = op_root.get_first_child().op.batch_uid
 
-        breadth_first_list: List[OpGraphNode] = root_of_ops.get_all_nodes_in_subtree()
+        breadth_first_list: List[OpGraphNode] = op_root.get_all_nodes_in_subtree()
         discarded_op_dict: Dict[UID, Op] = {}
         for node_to_nq in _skip_root(breadth_first_list):
-            with self._lock:
+            with self._struct_lock:
                 succeeded = self._nq_single_node(node_to_nq)
                 if not succeeded:
                     discarded_op_dict[node_to_nq.op.action_uid] = node_to_nq.op
@@ -389,8 +384,8 @@ class OpGraph:
         self._print_current_state()
 
         # notify consumers there is something to get:
-        with self._cv:
-            self._cv.notifyAll()
+        with self._cv_can_get:
+            self._cv_can_get.notifyAll()
 
         return list(discarded_op_dict.values())
 
@@ -460,15 +455,15 @@ class OpGraph:
             if self._shutdown:
                 return None
 
-            with self._lock:
+            with self._struct_lock:
                 op = self._try_get()
             if op:
                 logger.info(f'Got next pending op: {op}')
                 return op
             else:
                 logger.debug(f'No pending ops; sleeping until notified')
-                with self._cv:
-                    self._cv.wait()
+                with self._cv_can_get:
+                    self._cv_can_get.wait()
 
     def _is_child_of_root(self, node: OpGraphNode) -> bool:
         parent = node.get_first_parent()
@@ -478,7 +473,7 @@ class OpGraph:
         """Ensure that we were expecting this op to be copmleted, and remove it from the tree."""
         logger.debug(f'Entered pop_op() for op {op}')
 
-        with self._lock:
+        with self._struct_lock:
             if self._outstanding_actions.get(op.action_uid, None):
                 self._outstanding_actions.pop(op.action_uid)
             else:
@@ -560,9 +555,9 @@ class OpGraph:
             logger.debug(f'Done with op_completed() for op: {op}')
             self._print_current_state()
 
-        with self._cv:
+        with self._cv_can_get:
             # this may have jostled the tree to make something else free:
-            self._cv.notifyAll()
+            self._cv_can_get.notifyAll()
 
 
 def _skip_root(node_list: List[OpGraphNode]) -> Iterable[OpGraphNode]:

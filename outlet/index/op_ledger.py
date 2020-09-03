@@ -102,6 +102,10 @@ class OpLedger:
     # Reduce Changes logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
+    def _derive_cp_dst_key(self, dst_node: DisplayNode) -> str:
+        parent_uid = self.cacheman.get_parent_uid_for_node(dst_node)
+        return f'{parent_uid}/{dst_node.name}'
+
     def _reduce_ops(self, op_list: Iterable[Op]) -> Iterable[Op]:
         final_list: List[Op] = []
 
@@ -109,7 +113,8 @@ class OpLedger:
         # Is there a hit? Yes == there is overlap
         mkdir_dict: Dict[UID, Op] = {}
         rm_dict: Dict[UID, Op] = {}
-        cp_dst_dict: Dict[UID, Op] = {}
+        # Uses _derive_cp_dst_key() to make key:
+        cp_dst_dict: Dict[str, Op] = {}
         # src node is not necessarily mutually exclusive:
         cp_src_dict: DefaultDict[UID, List[Op]] = defaultdict(lambda: list())
         count_ops_orig = 0
@@ -132,7 +137,10 @@ class OpLedger:
                     final_list.append(op)
                     rm_dict[op.src_node.uid] = op
             elif op.op_type == OpType.CP or op.op_type == OpType.UP or op.op_type == OpType.MV:
-                existing = cp_dst_dict.get(op.dst_node.uid, None)
+                # GDrive nodes' UIDs are derived from their goog_ids; nodes with no goog_id can have different UIDs.
+                # So for GDrive nodes with no goog_id, we must rely on a combination of their parent UID and name to check for uniqueness
+                dst_key: str = self._derive_cp_dst_key(op.dst_node)
+                existing = cp_dst_dict.get(dst_key, None)
                 if existing:
                     # It is an error for anything but an exact duplicate to share the same dst node; if duplicate, then discard
                     if existing.src_node.uid != op.src_node.uid:
@@ -141,6 +149,9 @@ class OpLedger:
                     elif existing.op_type != op.op_type:
                         logger.error(f'ReduceChanges(): Conflict: Change1: {existing}; Change2: {op}')
                         raise RuntimeError(f'Batch op conflict: trying to copy different op types into the same destination!')
+                    elif op.dst_node.uid != existing.dst_node.uid:
+                        # GDrive nodes almost certainly
+                        raise RuntimeError(f'Batch op conflict: trying to copy same node into the same destination with a different UID!')
                     else:
                         assert op.dst_node.uid == existing.dst_node.uid and existing.src_node.uid == op.src_node.uid and \
                                existing.op_type == op.op_type, f'Conflict: Change1: {existing}; Change2: {op}'
@@ -148,7 +159,7 @@ class OpLedger:
                 else:
                     logger.info(f'ReduceChanges(): Adding CP-like type: {op}')
                     cp_src_dict[op.src_node.uid].append(op)
-                    cp_dst_dict[op.dst_node.uid] = op
+                    cp_dst_dict[dst_key] = op
                     final_list.append(op)
 
         def eval_rm_ancestor_func(op_arg: Op, par: DisplayNode) -> bool:

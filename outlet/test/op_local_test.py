@@ -147,7 +147,6 @@ class OpLocalTest(OpTestBase):
     def test_bad_dd_dir_tree_cp(self):
         logger.info('Testing negative case: drag & drop copy of duplicate nodes local to local')
         self.app.executor.start_op_execution_thread()
-        # Offset from 0:
         node_name = 'Art'
 
         name_equals_func_bound: Callable = partial(op_test_base.name_equals_func, node_name)

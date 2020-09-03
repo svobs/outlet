@@ -1,6 +1,7 @@
 import errno
 import logging
 import os
+import pathlib
 import threading
 import time
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -20,7 +21,7 @@ from index.master_local import LocalDiskMasterCache
 from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
 from index.uid.uid import UID
-from model.node.display_node import DisplayNode
+from model.node.display_node import DisplayNode, HasParentList
 from model.node.local_disk_node import LocalFileNode
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveNode
@@ -551,6 +552,18 @@ class CacheManager:
             return self._local_disk_cache.get_children(node)
         else:
             raise RuntimeError(f'Unknown tree type: {tree_type} for {node.node_identifier}')
+
+    def get_parent_uid_for_node(self, node: DisplayNode) -> UID:
+        """Derives the UID for the parent of the given node"""
+        if isinstance(node, HasParentList):
+            assert isinstance(node, GDriveNode) and node.node_identifier.tree_type == TREE_TYPE_GDRIVE, f'Node: {node}'
+            parent_uids = node.get_parent_uids()
+            assert len(parent_uids) == 1, f'Expected exactly one parent_uid for node: {node}'
+            return parent_uids[0]
+        else:
+            assert node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Node: {node}'
+            parent_path = str(pathlib.Path(node.full_path).parent)
+            return self.get_uid_for_path(parent_path)
 
     def get_parent_for_item(self, item: DisplayNode):
         if item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
