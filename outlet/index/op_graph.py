@@ -14,6 +14,8 @@ from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
+SUPER_DEBUG = False
+
 
 # CLASS OpGraph
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -88,7 +90,7 @@ class OpGraph:
 
     def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[Op]:
         """This is a public method."""
-        op_node = self._get_lowest_priority_op_node(node_uid)
+        op_node: OpGraphNode = self._get_lowest_priority_op_node(node_uid)
         if op_node:
             return op_node.op
         return None
@@ -396,7 +398,8 @@ class OpGraph:
         # We can optimize this later
 
         for op_node in self._graph_root.get_child_list():
-            logger.debug(f'TryGet(): examining {op_node}')
+            if SUPER_DEBUG:
+                logger.debug(f'TryGet(): examining {op_node}')
 
             if op_node.op.has_dst():
                 # If the Op has both src and dst nodes, *both* must be next in their queues, and also be just below root.
@@ -408,11 +411,13 @@ class OpGraph:
                         raise RuntimeError(f'Serious error: master dict has no entries for op src ({op_node.op.src_node.uid})!')
                     src_op_node = pending_ops_for_src_node[0]
                     if src_op_node.op.action_uid != op_node.op.action_uid:
-                        logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): it is not next in src node queue')
+                        if SUPER_DEBUG:
+                            logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): it is not next in src node queue')
                         continue
 
                     if not src_op_node.is_child_of_root():
-                        logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): src node is not child of root')
+                        if SUPER_DEBUG:
+                            logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): src node is not child of root')
                         continue
 
                 else:
@@ -424,11 +429,13 @@ class OpGraph:
 
                     dst_op_node = pending_ops_for_node[0]
                     if dst_op_node.op.action_uid != op_node.op.action_uid:
-                        logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): it is not next in dst node queue')
+                        if SUPER_DEBUG:
+                            logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): it is not next in dst node queue')
                         continue
 
                     if not dst_op_node.is_child_of_root():
-                        logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): dst node is not child of root')
+                        if SUPER_DEBUG:
+                            logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): dst node is not child of root')
                         continue
 
             # Make sure the node has not already been checked out:
@@ -436,7 +443,8 @@ class OpGraph:
                 self._outstanding_actions[op_node.op.action_uid] = op_node.op
                 return op_node.op
             else:
-                logger.debug(f'Skipping node because it is already outstanding')
+                if SUPER_DEBUG:
+                    logger.debug(f'Skipping node because it is already outstanding')
 
         return None
 

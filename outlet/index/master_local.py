@@ -312,6 +312,10 @@ class LocalDiskMasterCache:
         registry_needs_update = len(supertree_sets) > 0
         return local_caches, registry_needs_update
 
+    def refresh_stats(self, tree_id: str, subtree_root_node: DisplayNode):
+        with self._struct_lock:
+            self.dir_tree.refresh_stats(tree_id, subtree_root_node)
+
     # Individual node operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 

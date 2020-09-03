@@ -36,3 +36,6 @@ class NullDisplayTree(DisplayTree):
     def get_summary(self):
         # Should not return None
         return 'Tree does not exist'
+
+    def refresh_stats(self, tree_id: str):
+        pass

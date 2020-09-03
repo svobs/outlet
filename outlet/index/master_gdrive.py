@@ -90,7 +90,7 @@ class GDriveMasterCache:
         if not root:
             return None
 
-        subtree_meta: GDriveDisplayTree = GDriveDisplayTree(whole_tree=self._my_gdrive, root_node=root)
+        subtree_meta: GDriveDisplayTree = GDriveDisplayTree(cache_manager=self, whole_tree=self._my_gdrive, root_node=root)
 
         return subtree_meta
 
@@ -123,6 +123,10 @@ class GDriveMasterCache:
                                               msg=f'Cannot load subtree because it does not exist: "{subtree_root}"',
                                               offending_path=subtree_root.full_path)
         return gdrive_meta
+
+    def refresh_stats(self, tree_id: str, subtree_root_node: DisplayNode):
+        with self._struct_lock:
+            self._my_gdrive.refresh_stats(tree_id, subtree_root_node)
 
     # Individual item cache updates
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

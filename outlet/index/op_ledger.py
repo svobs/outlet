@@ -18,6 +18,8 @@ from ui import actions
 
 logger = logging.getLogger(__name__)
 
+SUPER_DEBUG = False
+
 
 # ENUM FailureBehavior
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -185,7 +187,8 @@ class OpLedger:
         dst_ancestor = op.dst_node
         logger.debug(f'Evaluating ancestors for op: {op}')
         while src_ancestor:
-            logger.debug(f'Evaluating src ancestor (op={op.action_uid}): {src_ancestor}')
+            if SUPER_DEBUG:
+                logger.debug(f'Evaluating src ancestor (op={op.action_uid}): {src_ancestor}')
             if mkdir_dict.get(src_ancestor.uid, None):
                 raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being created!')
             if rm_dict.get(src_ancestor.uid, None):
@@ -196,7 +199,8 @@ class OpLedger:
             src_ancestor = self.application.cache_manager.get_parent_for_item(src_ancestor)
 
         while dst_ancestor:
-            logger.debug(f'Evaluating dst ancestor (op={op.action_uid}): {dst_ancestor}')
+            if SUPER_DEBUG:
+                logger.debug(f'Evaluating dst ancestor (op={op.action_uid}): {dst_ancestor}')
             if rm_dict.get(dst_ancestor.uid, None):
                 raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being deleted!')
             if cp_src_dict.get(dst_ancestor.uid, None):
@@ -210,7 +214,8 @@ class OpLedger:
             ancestor = self.application.cache_manager.get_parent_for_item(ancestor)
             if not ancestor:
                 return
-            logger.debug(f'(Op={op}): evaluating ancestor: {ancestor}')
+            if SUPER_DEBUG:
+                logger.debug(f'(Op={op}): evaluating ancestor: {ancestor}')
             if not eval_func(op, ancestor):
                 return
 
@@ -319,6 +324,11 @@ class OpLedger:
             return
         else:
             logger.info(f'Command returned with status: "{command.status().name}"')
+
+        # Need to set this here to resolve chicken-and-egg scenario.
+        # When we tell cacheman to upsert node, it will notify DisplayMutator which will then look up here, and we have not yet popped the op.
+        # Need a way for DisplayMutator to know that it's complete.
+        command.op.set_completed()
 
         # Add/update nodes in central cache:
         if command.result.nodes_to_upsert:

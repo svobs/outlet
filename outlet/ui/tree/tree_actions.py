@@ -15,6 +15,7 @@ from model.node.gdrive_node import GDriveFile
 from ui import actions
 
 import gi
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -166,10 +167,10 @@ class TreeActions:
                     # somewhere in this returned list is the subtree root. Need to check so we don't include a duplicate:
                     if node.uid != node_to_delete.uid:
                         op_list.append(Op(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
-                                                        op_type=OpType.RM, src_node=node))
+                                          op_type=OpType.RM, src_node=node))
 
             op_list.append(Op(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
-                                            op_type=OpType.RM, src_node=node_to_delete))
+                              op_type=OpType.RM, src_node=node_to_delete))
 
         self.con.parent_win.application.cache_manager.enqueue_op_list(op_list)
 

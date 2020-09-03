@@ -6,10 +6,12 @@ from collections import deque
 from typing import Callable, Deque, Dict, Iterable, List, Optional
 
 import treelib
+from pydispatch import dispatcher
 from treelib.exceptions import DuplicatedNodeIdError
 
 from model.node.gdrive_node import GDriveFolder
 from model.node.local_disk_node import LocalDirNode
+from ui import actions
 from util import file_util
 from model.op import Op, OpType
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
@@ -19,6 +21,7 @@ from model.node.display_node import DisplayNode
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.display_tree.display_tree import DisplayTree
+from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +199,7 @@ class CategoryDisplayTree(DisplayTree):
         return self.op_dict.get(node.uid, None)
 
     def _append_op(self, op: Op):
-        logger.debug(f'Appending op: {op.action_uid} ({op.op_type.name})')
+        logger.debug(f'Appending op: {op}')
         if op.dst_node:
             if self.op_dict.get(op.dst_node.uid, None):
                 raise RuntimeError(f'Duplicate Op: 1st={op}; 2nd={self.op_dict.get(op.dst_node.uid)}')
@@ -362,3 +365,39 @@ class CategoryDisplayTree(DisplayTree):
             for cat in CHANGE_TYPES:
                 cat_summaries.append(cat_map[cat])
             return ', '.join(cat_summaries)
+
+    def refresh_stats(self, tree_id: str):
+        logger.debug(f'[{tree_id}] Refreshing stats for display tree')
+        stats_sw = Stopwatch()
+        queue: Deque[DisplayNode] = deque()
+        stack: Deque[DisplayNode] = deque()
+        queue.append(self.root_node)
+        stack.append(self.root_node)
+
+        # go down tree, zeroing out existing stats and adding children to stack
+        while len(queue) > 0:
+            item: DisplayNode = queue.popleft()
+            assert isinstance(item, ContainerNode)
+            item.zero_out_stats()
+
+            children = self.get_children(item)
+            if children:
+                for child in children:
+                    if child.is_dir():
+                        assert isinstance(child, DisplayNode)
+                        queue.append(child)
+                        stack.append(child)
+
+        # now go back up the tree by popping the stack and building stats as we go:
+        while len(stack) > 0:
+            item = stack.pop()
+            assert item.is_dir() and isinstance(item, ContainerNode)
+
+            children = self.get_children(item)
+            if children:
+                for child in children:
+                    item.add_meta_metrics(child)
+
+        self._stats_loaded = True
+        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
+        logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for tree')

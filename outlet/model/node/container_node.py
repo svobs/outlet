@@ -11,7 +11,7 @@ from model.node_identifier import NodeIdentifier
 
 class ContainerNode(HasChildren, DisplayNode):
     """
-    Represents a generic directory (i.e. not an LocalFileNode or domain object)
+    Represents a generic directory (i.e. not a LocalFileNode or domain object)
     """
 
     def __init__(self, node_identifier: NodeIdentifier):

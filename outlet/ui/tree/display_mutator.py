@@ -10,6 +10,7 @@ from typing import Deque, Iterable, List, Optional
 from pydispatch.errors import DispatcherKeyError
 
 from constants import HOLDOFF_TIME_MS, LARGE_NUMBER_OF_CHILDREN
+from model.op import Op
 from util.holdoff_timer import HoldOffTimer
 from model.node.container_node import CategoryNode
 from model.node.display_node import DisplayNode
@@ -326,48 +327,49 @@ class DisplayMutator:
                     # logger.debug(f'[{self.con.tree_id}] No parent for node: {node}')
                     return
 
-                # We want to refresh the stats, even if the node is not displayed (see below)
-                self._stats_refresh_timer.start_or_delay()
-
                 parent_uid = parent.uid
 
                 existing_node: Optional[DisplayNode] = None
 
-                if self.con.get_tree().root_uid == parent_uid:
-                    # Top level? Special case. There will be no parent iter
-                    parent_iter = None
-                    child_iter = self.con.display_store.find_uid_in_top_level(node.uid)
-                    if child_iter:
-                        existing_node = self.con.display_store.get_node_data(child_iter)
-                else:
-                    parent_iter = self.con.display_store.find_uid_in_tree(target_uid=parent_uid)
-                    if not parent_iter:
-                        # Probably an ancestor isn't expanded. Just skip
-                        assert parent_uid not in self.con.display_store.displayed_rows, \
-                            f'DisplayedRows ({self.con.display_store.displayed_rows}) contains UID ({parent_uid})!'
-                        logger.debug(f'[{self.con.tree_id}] Will not add/update node: Could not find parent node in display tree: {parent}')
-                        return
-                    parent_path = self.con.display_store.model.get_path(parent_iter)
-                    if not self.con.tree_view.row_expanded(parent_path):
-                        logger.debug(f'[{self.con.tree_id}] Will not add/update node {node.uid}: Parent is not expanded: {parent.uid}')
-                        return
-
-                    # Check whether the "added node" already exists:
-                    child_iter = self.con.display_store.find_uid_in_children(node.uid, parent_iter)
-                    if child_iter:
-                        existing_node = self.con.display_store.get_node_data(child_iter)
-
-                if existing_node:
-                    logger.debug(f'[{self.con.tree_id}] Node already exists in tree (uid={node.uid}): doing an update instead')
-                    display_vals: list = self.generate_display_cols(parent_iter, node)
-                    for col, val in enumerate(display_vals):
-                        self.con.display_store.model.set_value(child_iter, col, val)
-                else:
-                    # New node
-                    if node.is_dir():
-                        self._append_dir_node_and_loading_child(parent_iter, node)
+                try:
+                    if self.con.get_tree().root_uid == parent_uid:
+                        # Top level? Special case. There will be no parent iter
+                        parent_iter = None
+                        child_iter = self.con.display_store.find_uid_in_top_level(node.uid)
+                        if child_iter:
+                            existing_node = self.con.display_store.get_node_data(child_iter)
                     else:
-                        self._append_file_node(parent_iter, node)
+                        parent_iter = self.con.display_store.find_uid_in_tree(target_uid=parent_uid)
+                        if not parent_iter:
+                            # Probably an ancestor isn't expanded. Just skip
+                            assert parent_uid not in self.con.display_store.displayed_rows, \
+                                f'DisplayedRows ({self.con.display_store.displayed_rows}) contains UID ({parent_uid})!'
+                            logger.debug(f'[{self.con.tree_id}] Will not add/update node: Could not find parent node in display tree: {parent}')
+                            return
+                        parent_path = self.con.display_store.model.get_path(parent_iter)
+                        if not self.con.tree_view.row_expanded(parent_path):
+                            logger.debug(f'[{self.con.tree_id}] Will not add/update node {node.uid}: Parent is not expanded: {parent.uid}')
+                            return
+
+                        # Check whether the "added node" already exists:
+                        child_iter = self.con.display_store.find_uid_in_children(node.uid, parent_iter)
+                        if child_iter:
+                            existing_node = self.con.display_store.get_node_data(child_iter)
+
+                    if existing_node:
+                        logger.debug(f'[{self.con.tree_id}] Node already exists in tree (uid={node.uid}): doing an update instead')
+                        display_vals: list = self.generate_display_cols(parent_iter, node)
+                        for col, val in enumerate(display_vals):
+                            self.con.display_store.model.set_value(child_iter, col, val)
+                    else:
+                        # New node
+                        if node.is_dir():
+                            self._append_dir_node_and_loading_child(parent_iter, node)
+                        else:
+                            self._append_file_node(parent_iter, node)
+                finally:
+                    # We want to refresh the stats, even if the node is not displayed (see return statements above)
+                    self._stats_refresh_timer.start_or_delay()
 
         GLib.idle_add(update_ui)
 
@@ -430,7 +432,7 @@ class DisplayMutator:
                 return
             tree_path = ds.model.get_path(tree_iter)
             if self.con.tree_id == actions.ID_RIGHT_TREE:
-                logger.warning(f'Refreshing stats for node: {node}; path={tree_path}; size={node.get_size_bytes()} etc={node.get_etc()}')    # TODO
+                logger.warning(f'Redrawing stats for node: {node}; path={tree_path}; size={node.get_size_bytes()} etc={node.get_etc()}')    # TODO
             ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(node)
             ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = node.get_etc()
 
@@ -438,10 +440,11 @@ class DisplayMutator:
             with self._lock:
                 if not self.con.app.shutdown:
                     self.con.display_store.recurse_over_tree(action_func=refresh_displayed_node)
+                    logger.debug(f'[{self.con.tree_id}] Completely done redrawing display tree stats in UI')
                     # currently this is only used for functional tests
                     dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, sender=self.con.tree_id)
 
-        logger.debug(f'[{self.con.tree_id}] Redrawing display tree stats')
+        logger.debug(f'[{self.con.tree_id}] Redrawing display tree stats in UI')
         GLib.idle_add(do_in_ui)
         # Refresh summary also:
         dispatcher.send(signal=actions.SET_STATUS, sender=self.con.tree_id, status_msg=self.con.get_tree().get_summary())
@@ -524,11 +527,14 @@ class DisplayMutator:
         return self.con.display_store.append_node(parent_node_iter, row_values)
 
     def _get_icon_for_node(self, node: DisplayNode) -> str:
-        op = self.con.app.cache_manager.get_last_pending_op_for_node(node.uid)
-        if op:
-            logger.debug(f'Found pending change for node {node.uid}: {op.op_type.name}')
-            return op.get_icon_for_node(node.uid)
-        return node.get_icon()
+        op: Op = self.con.app.cache_manager.get_last_pending_op_for_node(node.uid)
+        if op and not op.is_completed():
+            logger.debug(f'[{self.con.tree_id}] Found pending op for node {node.uid}: {op.op_type.name}')
+            icon = op.get_icon_for_node(node.uid)
+        else:
+            icon = node.get_icon()
+        logger.warning(f'[{self.con.tree_id}] Got icon "{icon}" for node {node}')
+        return icon
 
     def generate_display_cols(self, parent_iter, node: DisplayNode):
         """Serializes a node into a list of strings which tell the TreeView how to populate each of the row's columns"""

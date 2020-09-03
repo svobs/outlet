@@ -48,7 +48,6 @@ class OneSide:
         self.added_folders: Dict[str, ContainerNode] = {}
 
     def migrate_single_node_to_this_side(self, src_node: DisplayNode, new_path: str) -> DisplayNode:
-        logger.debug(f'New path for migrated item: {new_path}')
         dst_tree_type = self.underlying_tree.tree_type
         # (Kludge) just assign the NULL UID for now, so we don't auto-generate a new UID. It will just get overwritten anyway if GDrive
         dst_node_identifier = self.application.node_identifier_factory.for_values(tree_type=dst_tree_type, full_path=new_path, uid=NULL_UID)
@@ -68,12 +67,13 @@ class OneSide:
                 # Not exist: assign new UID. We will later associate this with a goog_id once it's made existent
                 dst_node.uid = self.application.uid_generator.next_uid()
 
+        logger.debug(f'Migrated single node (UID={dst_node.uid} path="{new_path}")')
         return dst_node
 
     def _create_op(self, op_type: OpType, src_node: DisplayNode, dst_node: DisplayNode = None):
         assert src_node, f'No src node!'
         return Op(action_uid=self.uid_generator.next_uid(), batch_uid=self.batch_uid, op_type=op_type,
-                            src_node=src_node, dst_node=dst_node)
+                  src_node=src_node, dst_node=dst_node)
 
     def add_op(self, op_type: OpType, src_node: DisplayNode, dst_node: DisplayNode = None):
         """Adds a node to the op tree (dst_node; unless dst_node is None, in which case it will use src_node), and also adds a Op

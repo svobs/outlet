@@ -86,7 +86,14 @@ class Op(Node):
         if not self.create_ts:
             self.create_ts = int(time.time())
 
+        self._completed: bool = False
         self.tag = repr(self)
+
+    def is_completed(self):
+        return self._completed
+
+    def set_completed(self):
+        self._completed = True
 
     def has_dst(self) -> bool:
         return self.op_type.has_dst()

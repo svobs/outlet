@@ -64,7 +64,7 @@ class OpGDriveTest(OpTestBase):
         self.do_setup(do_before_verify_func=self._cleanup_gdrive_local_and_remote)
 
     def tearDown(self) -> None:
-        self._cleanup_gdrive_local_and_remote()
+        # self._cleanup_gdrive_local_and_remote()
         super(OpGDriveTest, self).tearDown()
 
     def _cleanup_gdrive_local_and_remote(self):

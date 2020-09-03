@@ -2,7 +2,10 @@ import logging
 import pathlib
 from typing import Iterable, List, Optional
 
+from pydispatch import dispatcher
+
 import constants
+from ui import actions
 from util import file_util, format
 from index.two_level_dict import Md5BeforePathDict
 from model.node.display_node import DisplayNode
@@ -26,7 +29,7 @@ class LocalDiskSubtree(DisplayTree):
     def __init__(self, root_node: LocalDirNode, application):
         assert isinstance(root_node.node_identifier, LocalFsIdentifier)
         super().__init__(root_node)
-        self.root_node = root_node
+        self.root_node: LocalDirNode = root_node
         self.cache_manager = application.cache_manager
 
         self._stats_loaded = False
@@ -84,6 +87,12 @@ class LocalDiskSubtree(DisplayTree):
             return f'{size_hf} total in {self.root_node.file_count:n} files and {self.root_node.dir_count:n} dirs'
         else:
             return 'Loading stats...'
+
+    def refresh_stats(self, tree_id: str):
+        self.cache_manager.refresh_stats(tree_id, self.root_node)
+        self._stats_loaded = True
+        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
+        dispatcher.send(signal=actions.SET_STATUS, sender=tree_id, status_msg=self.get_summary())
 
     def __repr__(self):
         return f'LocalDiskSubtree(root="{self.node_identifier}"])'

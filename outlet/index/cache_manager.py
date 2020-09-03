@@ -406,6 +406,15 @@ class CacheManager:
     # Various public methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
+    def refresh_stats(self, tree_id: str, subtree_root_node: DisplayNode):
+        """Does not send signals. The caller is responsible for sending REFRESH_SUBTREE_STATS_DONE and SET_STATUS themselves"""
+        if subtree_root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
+            self._local_disk_cache.refresh_stats(tree_id, subtree_root_node)
+        elif subtree_root_node.get_tree_type() == TREE_TYPE_GDRIVE:
+            self._gdrive_cache.refresh_stats(tree_id, subtree_root_node)
+        else:
+            assert False
+
     def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[Op]:
         return self._op_ledger.get_last_pending_op_for_node(node_uid)
 

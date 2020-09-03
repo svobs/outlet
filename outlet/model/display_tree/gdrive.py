@@ -2,6 +2,9 @@ import collections
 import logging
 from typing import Deque, List, Optional
 
+from pydispatch import dispatcher
+
+from ui import actions
 from util import file_util, format
 from index.two_level_dict import Md5BeforeUidDict
 from model.node.display_node import DisplayNode
@@ -23,9 +26,10 @@ SUPER_DEBUG = False
 
 
 class GDriveDisplayTree(DisplayTree):
-    def __init__(self, whole_tree: GDriveWholeTree, root_node: GDriveFolder):
+    def __init__(self, cache_manager,  whole_tree: GDriveWholeTree, root_node: GDriveFolder):
         DisplayTree.__init__(self, root_node=root_node)
 
+        self.cache_manager = cache_manager
         self._whole_tree = whole_tree
         self._root_node: GDriveFolder = root_node
 
@@ -80,7 +84,7 @@ class GDriveDisplayTree(DisplayTree):
         logger.warning(f'Found {len(identifiers)} identifiers for path: "{path}"). Returning the whole list')
         return list(map(lambda x: self._whole_tree.get_item_for_uid(x.uid), identifiers))
 
-    def get_parent_for_item(self, item: DisplayNode) -> Optional[GDriveNode]:
+    def get_parent_for_item(self, item: GDriveNode) -> Optional[GDriveNode]:
         return self._whole_tree.get_parent_for_item(item, self.root_path)
 
     def get_relative_path_for_item(self, goog_node: GDriveNode):
@@ -112,3 +116,9 @@ class GDriveDisplayTree(DisplayTree):
                    f'{self._root_node.trashed_file_count:n} trashed)'
         else:
             return 'Loading stats...'
+
+    def refresh_stats(self, tree_id: str):
+        self.cache_manager.refresh_stats(tree_id, self.root_node)
+        self._stats_loaded = True
+        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
+        dispatcher.send(signal=actions.SET_STATUS, sender=tree_id, status_msg=self.get_summary())

@@ -84,21 +84,22 @@ class GDriveWholeTree:
         """Adds a node. Assumes that the node has all necessary parent info filled in already,
         and does the heavy lifting and populates all data structures appropriately."""
 
-        parent_uids: List[UID] = node.get_parent_uids()
+        new_parent_uids: List[UID] = node.get_parent_uids()
 
         # Build forward dictionary
         existing_node = self.id_dict.get(node.uid, None)
         if existing_node:
             logger.debug(f'add_node(): found existing node with same ID (will attempt to merge nodes): existing: {existing_node}; new={node}')
-            parent_uids = _merge_nodes(existing_node, node)
-        else:
-            self.id_dict[node.uid] = node
+            new_parent_uids = _merge_parents_into_new(existing_node, node)
+
+        self.id_dict[node.uid] = node
 
         # build reverse dictionary
-        if len(parent_uids) > 0:
-            for parent_uid in parent_uids:
+        if len(new_parent_uids) > 0:
+            for parent_uid in new_parent_uids:
                 self._add_to_parent_dict(parent_uid, node)
 
+        # FIXME: prevent duplicate roots
         if not node.get_parent_uids():
             self.roots.append(node)
 
@@ -519,28 +520,36 @@ class GDriveWholeTree:
 
         logger.info(f'Tree contains {len(duplicates)} filename conflicts')
 
-    def refresh_stats(self, tree_id):
+    def refresh_stats(self, tree_id, subtree_root: Optional[GDriveFolder] = None):
         # Calculates the stats for all the directories
+        logger.debug(f'[{tree_id}] Refreshing stats for GDrive tree')
         stats_sw = Stopwatch()
         queue: Deque[GDriveFolder] = deque()
         stack: Deque[GDriveFolder] = deque()
-        for root in self.roots:
-            if root.is_dir():
-                assert isinstance(root, GDriveFolder)
-                queue.append(root)
-                stack.append(root)
 
-        while len(queue) > 0:
-            item: GDriveFolder = queue.popleft()
-            item.zero_out_stats()
+        if subtree_root:
+            # Partial refresh
+            assert isinstance(subtree_root, GDriveFolder)
+            queue.append(subtree_root)
+            stack.append(subtree_root)
+        else:
+            for root in self.roots:
+                if root.is_dir():
+                    assert isinstance(root, GDriveFolder)
+                    queue.append(root)
+                    stack.append(root)
 
-            children = self.get_children(item)
-            if children:
-                for child in children:
-                    if child.is_dir():
-                        assert isinstance(child, GDriveFolder)
-                        queue.append(child)
-                        stack.append(child)
+            while len(queue) > 0:
+                item: GDriveFolder = queue.popleft()
+                item.zero_out_stats()
+
+                children = self.get_children(item)
+                if children:
+                    for child in children:
+                        if child.is_dir():
+                            assert isinstance(child, GDriveFolder)
+                            queue.append(child)
+                            stack.append(child)
 
         while len(stack) > 0:
             item = stack.pop()
@@ -551,18 +560,20 @@ class GDriveWholeTree:
                 for child in children:
                     item.add_meta_metrics(child)
 
-        self._stats_loaded = True
-        actions.set_status(sender=tree_id, status_msg=self.get_summary())
-        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
-
         # TODO: make use of this later
         if constants.FIND_DUPLICATE_GDRIVE_NODE_NAMES:
             self.find_duplicate_node_names(tree_id)
 
-        logger.debug(f'{stats_sw} Refreshed stats for whole Google Drive tree')
+        if not subtree_root:
+            # whole tree
+            self._stats_loaded = True
+            dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
+            dispatcher.send(signal=actions.SET_STATUS, sender=tree_id, status_msg=self.get_summary())
+
+        logger.debug(f'{stats_sw} Refreshed stats for Google Drive tree')
 
 
-def _merge_nodes(existing_node: GDriveNode, new_node: GDriveNode) -> List[UID]:
+def _merge_parents_into_new(existing_node: GDriveNode, new_node: GDriveNode) -> List[UID]:
     # Assume nodes are identical but each references a different parent (most likely flattened for SQL)
     assert len(existing_node.get_parent_uids()) >= 1 and len(
         new_node.get_parent_uids()) == 1, f'Expected 1 parent each but found: {existing_node.get_parent_uids()} and {new_node.get_parent_uids()}'
@@ -572,25 +583,11 @@ def _merge_nodes(existing_node: GDriveNode, new_node: GDriveNode) -> List[UID]:
         if parent_uid not in existing_node.get_parent_uids():
             new_parent_ids.append(parent_uid)
 
-    # Merge into existing node:
-    existing_node.set_parent_uids(existing_node.get_parent_uids() + new_parent_ids)
+    # Merge into new node:
+    new_node.set_parent_uids(existing_node.get_parent_uids() + new_parent_ids)
 
-    if not existing_node.goog_id:
-        existing_node.goog_id = new_node.goog_id
-    elif existing_node.goog_id != new_node.goog_id:
+    if existing_node.goog_id and existing_node.goog_id != new_node.goog_id:
         raise RuntimeError(f'Existing node goog_id ({existing_node.goog_id}) does not match new node goog_id ({new_node.goog_id})')
-
-    # Overwrite existing fields
-    existing_node.trashed = new_node.trashed
-    existing_node.name = new_node.name
-    existing_node.drive_id = new_node.drive_id
-    existing_node.my_share = new_node.my_share
-
-    if isinstance(existing_node, GDriveFile):
-        assert isinstance(new_node, GDriveFile)
-        existing_node.set_size_bytes(new_node.get_size_bytes())
-        existing_node.create_ts = new_node.create_ts
-        existing_node.set_modify_ts(new_node.modify_ts)
 
     # Need to return these so they can be added to reverse dict
     return new_parent_ids

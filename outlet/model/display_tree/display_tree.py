@@ -1,13 +1,9 @@
+import logging
 from abc import ABC, abstractmethod
 from collections import deque
-import logging
 from typing import Callable, Deque, Iterable, List, Optional
 
-from pydispatch import dispatcher
-
-from util.stopwatch_sec import Stopwatch
 from model.node.display_node import DisplayNode
-from ui import actions
 
 logger = logging.getLogger(__name__)
 
@@ -112,39 +108,6 @@ class DisplayTree(ABC):
     def get_summary(self):
         pass
 
-    def refresh_stats(self, tree_id):
-        logger.debug(f'Refreshing stats for display tree: "{tree_id}"')
-        stats_sw = Stopwatch()
-        queue: Deque[DisplayNode] = deque()
-        stack: Deque[DisplayNode] = deque()
-        queue.append(self.root_node)
-        stack.append(self.root_node)
-
-        # go down tree, zeroing out existing stats and adding children to stack
-        while len(queue) > 0:
-            item: DisplayNode = queue.popleft()
-            item.zero_out_stats()
-
-            children = self.get_children(item)
-            if children:
-                for child in children:
-                    if child.is_dir():
-                        assert isinstance(child, DisplayNode)
-                        queue.append(child)
-                        stack.append(child)
-
-        # now go back up the tree by popping the stack and building stats as we go:
-        while len(stack) > 0:
-            item = stack.pop()
-            assert item.is_dir()
-
-            children = self.get_children(item)
-            if children:
-                if tree_id == actions.ID_RIGHT_TREE: # TODO
-                    logger.info(f'Adding metrics for {len(children)} children for node UID {item.uid}: "{item.name}"')
-                for child in children:
-                    item.add_meta_metrics(child)
-
-        self._stats_loaded = True
-        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
-        logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for tree')
+    @abstractmethod
+    def refresh_stats(self, tree_id: str):
+        pass

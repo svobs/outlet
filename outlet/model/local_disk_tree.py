@@ -6,10 +6,12 @@ import logging
 import treelib
 
 from index.uid.uid import UID
+from model.node.container_node import ContainerNode
 from util import file_util
 from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
+from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +25,7 @@ class LocalDiskTree(treelib.Tree):
         super().__init__()
         self.application = application
 
-    def add_to_tree(self, item: DisplayNode):
+    def add_to_tree(self, node: DisplayNode):
         root_node: DisplayNode = self.get_node(self.root)
         root_node_identifier: NodeIdentifier = root_node.node_identifier
         path_so_far: str = root_node_identifier.full_path
@@ -31,10 +33,10 @@ class LocalDiskTree(treelib.Tree):
 
         # A trailing '/' will really screw us up:
         assert file_util.is_normalized(root_node_identifier.full_path), f'Path: {root_node_identifier.full_path}'
-        item_rel_path = file_util.strip_root(item.full_path, root_node_identifier.full_path)
-        path_segments = file_util.split_path(item_rel_path)
+        node_rel_path = file_util.strip_root(node.full_path, root_node_identifier.full_path)
+        path_segments = file_util.split_path(node_rel_path)
         if path_segments:
-            # strip off last item (i.e. the target item)
+            # strip off last node (i.e. the target node)
             path_segments.pop()
 
         if path_segments:
@@ -53,10 +55,10 @@ class LocalDiskTree(treelib.Tree):
                 parent = child
 
         # Finally, add the node itself:
-        child: DisplayNode = self.get_node(nid=item.uid)
-        assert not child, f'For old={child}, new={item}, path_segments={path_segments}'
+        child: DisplayNode = self.get_node(nid=node.uid)
+        assert not child, f'For old={child}, new={node}, path_segments={path_segments}'
         if not child:
-            self.add_node(node=item, parent=parent)
+            self.add_node(node=node, parent=parent)
 
     def bfs(self, subtree_root_uid: UID = None) -> Iterator[DisplayNode]:
         """Returns an iterator which will do a breadth-first traversal of the tree. If subtree_root is provided, do a breadth-first traversal
@@ -109,3 +111,46 @@ class LocalDiskTree(treelib.Tree):
 
         logger.debug(f'Returning {len(file_list)} files and {len(dir_list)} dirs')
         return file_list, dir_list
+    
+    def get_children(self, node: DisplayNode):
+        return self.children(node.uid)
+
+    def refresh_stats(self, tree_id: str, subtree_root_node: DisplayNode):
+        logger.debug(f'[{tree_id}] Refreshing stats for local tree')
+        stats_sw = Stopwatch()
+        queue: Deque[DisplayNode] = deque()
+        stack: Deque[DisplayNode] = deque()
+
+        if subtree_root_node:
+            root_node = subtree_root_node
+        else:
+            root_node = self.root_node
+
+        queue.append(root_node)
+        stack.append(root_node)
+
+        # go down tree, zeroing out existing stats and adding children to stack
+        while len(queue) > 0:
+            node: DisplayNode = queue.popleft()
+            assert isinstance(node, ContainerNode)
+            node.zero_out_stats()
+
+            children = self.get_children(node)
+            if children:
+                for child in children:
+                    if child.is_dir():
+                        assert isinstance(child, DisplayNode)
+                        queue.append(child)
+                        stack.append(child)
+
+        # now go back up the tree by popping the stack and building stats as we go:
+        while len(stack) > 0:
+            node = stack.pop()
+            assert node.is_dir() and isinstance(node, ContainerNode)
+
+            children = self.get_children(node)
+            if children:
+                for child in children:
+                    node.add_meta_metrics(child)
+
+        logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for tree')
