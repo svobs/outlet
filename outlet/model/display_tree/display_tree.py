@@ -64,15 +64,15 @@ class DisplayTree(ABC):
         pass
 
     @abstractmethod
-    def get_parent_for_item(self, item) -> Optional[DisplayNode]:
+    def get_parent_for_node(self, node) -> Optional[DisplayNode]:
         pass
 
     @abstractmethod
-    def get_full_path_for_item(self, item) -> str:
+    def get_full_path_for_node(self, node) -> str:
         pass
 
     @abstractmethod
-    def get_relative_path_for_item(self, item):
+    def get_relative_path_for_node(self, node):
         pass
 
     @abstractmethod
@@ -83,16 +83,16 @@ class DisplayTree(ABC):
     def get_md5_dict(self):
         pass
 
-    def get_ancestors(self, item: DisplayNode, stop_before_func: Callable[[DisplayNode], bool] = None) -> Deque[DisplayNode]:
+    def get_ancestors(self, node: DisplayNode, stop_before_func: Callable[[DisplayNode], bool] = None) -> Deque[DisplayNode]:
         ancestors: Deque[DisplayNode] = deque()
 
         # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
         # been added to this tree, or the root of the source tree
-        ancestor = item
+        ancestor = node
         while ancestor:
             if stop_before_func is not None and stop_before_func(ancestor):
                 return ancestors
-            ancestor = self.get_parent_for_item(ancestor)
+            ancestor = self.get_parent_for_node(ancestor)
             if ancestor:
                 if ancestor.uid == self.uid:
                     # do not include source tree's root node:

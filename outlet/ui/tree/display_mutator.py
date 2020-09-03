@@ -102,7 +102,7 @@ class DisplayMutator:
     def expand_and_select_node(self, selection: NodeIdentifier):
         def do_in_ui():
             with self._lock:
-                item = self.con.parent_win.application.cache_manager.get_item_for_uid_and_tree_type(selection.uid, selection.tree_type)
+                item = self.con.parent_win.application.cache_manager.get_node_for_uid(selection.uid, selection.tree_type)
                 ancestor_list: Iterable[DisplayNode] = self.con.get_tree().get_ancestors(item)
 
                 tree_iter = None
@@ -314,7 +314,7 @@ class DisplayMutator:
         def update_ui():
             with self._lock:
                 # TODO: this can be optimized to search only the paths of the ancestors
-                parent = self.con.get_tree().get_parent_for_item(node)
+                parent = self.con.get_tree().get_parent_for_node(node)
 
                 if logger.isEnabledFor(logging.DEBUG):
                     if parent:
@@ -432,7 +432,7 @@ class DisplayMutator:
                 return
 
             # Need to get fresh node from cacheman. This is crucial for just-updated nodes (e.g. from completed operations)
-            updated_node = self.con.app.cache_manager.get_item_for_uid(node.uid, node.get_tree_type())
+            updated_node = self.con.app.cache_manager.get_node_for_uid(node.uid, node.get_tree_type())
             if not updated_node:
                 raise RuntimeError(f'Could not find up-to-date node in memcache: {node}')
             node = updated_node

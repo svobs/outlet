@@ -205,22 +205,22 @@ class UploadToGDriveCommand(CopyNodeCommand):
 
         existing, existing_raw = cxt.gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.dst_node)
         if existing and existing.md5 == md5 and existing.get_size_bytes() == size_bytes:
-            logger.info(f'Identical item already exists in Google Drive: (md5={md5}, size={size_bytes})')
+            logger.info(f'Identical node already exists in Google Drive: (md5={md5}, size={size_bytes})')
             # Target node will contain invalid UID anyway because it has no goog_id. Just remove it
             return CommandResult(CommandStatus.COMPLETED_NO_OP, to_upsert=[existing], to_delete=[self.op.dst_node])
 
         if self.overwrite:
             if existing:
-                logger.info(f'Found existing item in Google Drive with same parent and name, but different content (overwrite={self.overwrite})')
+                logger.info(f'Found existing node in Google Drive with same parent and name, but different content (overwrite={self.overwrite})')
                 goog_node: GDriveNode = cxt.gdrive_client.update_existing_file(name=existing.name, mime_type=existing_raw['mimeType'],
                                                                                goog_id=existing.goog_id, local_full_path=src_file_path)
             else:
                 # be cautious and halt
-                return self.set_error_result(f'While trying to update item in Google Drive: could not find item with matching meta!')
+                return self.set_error_result(f'While trying to update node in Google Drive: could not find node with matching meta!')
 
         else:  # not overwrite
             if existing:
-                return self.set_error_result(f'While trying to add: found unexpected item(s) with the same name and parent: {existing}')
+                return self.set_error_result(f'While trying to add: found unexpected node(s) with the same name and parent: {existing}')
             else:
                 parent_goog_id: str = cxt.cache_manager.get_goog_id_for_parent(self.op.dst_node)
                 goog_node: GDriveNode = cxt.gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id, uid=self.op.dst_node.uid)
@@ -256,12 +256,12 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
         dst_path = self.op.dst_node.full_path
 
         if os.path.exists(dst_path):
-            item: LocalFileNode = cxt.cache_manager.build_local_file_node(full_path=dst_path)
-            if item and item.md5 == self.op.src_node.md5:
+            node: LocalFileNode = cxt.cache_manager.build_local_file_node(full_path=dst_path)
+            if node and node.md5 == self.op.src_node.md5:
                 logger.debug(f'Item already exists and appears valid: skipping download; will update cache and return ({dst_path})')
-                return CommandResult(CommandStatus.COMPLETED_NO_OP, to_upsert=[item])
+                return CommandResult(CommandStatus.COMPLETED_NO_OP, to_upsert=[node])
             elif not self.overwrite:
-                raise RuntimeError(f'A different item already exists at the destination path: {dst_path}')
+                raise RuntimeError(f'A different node already exists at the destination path: {dst_path}')
         elif self.overwrite:
             logger.warning(f'Doing an "update" for a local file which does not exist: {dst_path}')
 
@@ -273,11 +273,11 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
         staging_path = os.path.join(cxt.staging_dir, self.op.src_node.md5)
 
         if os.path.exists(staging_path):
-            item: LocalFileNode = cxt.cache_manager.build_local_file_node(full_path=dst_path)
-            if item and item.md5 == self.op.src_node.md5:
-                logger.debug(f'Found target item in staging dir; will move: ({staging_path} -> {dst_path})')
+            node: LocalFileNode = cxt.cache_manager.build_local_file_node(full_path=dst_path)
+            if node and node.md5 == self.op.src_node.md5:
+                logger.debug(f'Found target node in staging dir; will move: ({staging_path} -> {dst_path})')
                 file_util.move_to_dst(staging_path=staging_path, dst_path=dst_path)
-                return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[item])
+                return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[node])
             else:
                 logger.debug(f'Found unknown file in the staging dir; removing: {staging_path}')
                 os.remove(staging_path)
@@ -285,14 +285,14 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
         cxt.gdrive_client.download_file(file_id=src_goog_id, dest_path=staging_path)
 
         # verify contents:
-        item: LocalFileNode = cxt.cache_manager.build_local_file_node(full_path=dst_path, staging_path=staging_path)
-        if item.md5 != self.op.src_node.md5:
-            raise RuntimeError(f'Downloaded MD5 ({item.md5}) does not matched expected ({self.op.src_node.md5})!')
+        node: LocalFileNode = cxt.cache_manager.build_local_file_node(full_path=dst_path, staging_path=staging_path)
+        if node.md5 != self.op.src_node.md5:
+            raise RuntimeError(f'Downloaded MD5 ({node.md5}) does not matched expected ({self.op.src_node.md5})!')
 
         # This will overwrite if the file already exists:
         file_util.move_to_dst(staging_path=staging_path, dst_path=dst_path)
 
-        return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[item])
+        return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[node])
 
     def __repr__(self):
         return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, overwrite={self.overwrite}, ' \

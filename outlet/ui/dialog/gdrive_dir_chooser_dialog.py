@@ -72,11 +72,11 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         try:
             if response_id == Gtk.ResponseType.OK:
                 logger.debug("The OK button was clicked")
-                item: DisplayNode = self.tree_controller.get_single_selection()
-                if not item:
+                node: DisplayNode = self.tree_controller.get_single_selection()
+                if not node:
                     self.on_ok_clicked(NodeIdentifierFactory.get_gdrive_root_constant_identifier())
                 else:
-                    self.on_ok_clicked(item.node_identifier)
+                    self.on_ok_clicked(node.node_identifier)
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
             elif response_id == Gtk.ResponseType.CLOSE:

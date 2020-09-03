@@ -58,7 +58,7 @@ class LocalDiskMasterCache:
         else:
             self.sha256_dict = None
 
-        # Each item inserted here will have an entry created for its dir.
+        # Each node inserted here will have an entry created for its dir.
         # self.parent_path_dict = ParentPathBeforeFileNameDict()
         # But we still need a dir tree to look up child dirs:
         with self._struct_lock:
@@ -94,7 +94,7 @@ class LocalDiskMasterCache:
             root_node = LocalDirNode(node_identifier=root_node_identifer, exists=True)
             tree.add_node(node=root_node, parent=None)
 
-            missing_items: List[DisplayNode] = []
+            missing_nodes: List[DisplayNode] = []
 
             dir_list: List[LocalDirNode] = fmeta_disk_cache.get_local_dirs()
             if len(dir_list) == 0:
@@ -107,7 +107,7 @@ class LocalDiskMasterCache:
                 if not existing:
                     tree.add_to_tree(dir_node)
                     if not dir_node.exists():
-                        missing_items.append(dir_node)
+                        missing_nodes.append(dir_node)
                 elif existing.full_path != dir_node.full_path:
                     raise RuntimeError(f'Existing={existing}, FromCache={dir_node}')
 
@@ -121,7 +121,7 @@ class LocalDiskMasterCache:
                 if not existing:
                     tree.add_to_tree(change)
                     if not change.exists():
-                        missing_items.append(change)
+                        missing_nodes.append(change)
                 elif existing.sync_ts < change.sync_ts:
                     tree.remove_node(change.identifier)
                     tree.add_to_tree(change)
@@ -129,8 +129,8 @@ class LocalDiskMasterCache:
             # logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
             logger.debug(f'{stopwatch_load} [{tree_id}] Finished loading {len(file_list)} files and {len(dir_list)} dirs from disk')
 
-            if len(missing_items) > 0:
-                logger.info(f'Found {len(missing_items)} cached items with exists=false: submitting to adjudicator...')
+            if len(missing_nodes) > 0:
+                logger.info(f'Found {len(missing_nodes)} cached nodes with exists=false: submitting to adjudicator...')
             # TODO: add code for adjudicator
 
             cache_info.is_loaded = True
@@ -457,21 +457,21 @@ class LocalDiskMasterCache:
         with self._struct_lock:
             return self.dir_tree.children(node.uid)
 
-    def get_item(self, uid: UID) -> DisplayNode:
+    def get_node(self, uid: UID) -> DisplayNode:
         with self._struct_lock:
             return self.dir_tree.get_node(uid)
 
-    def get_parent_for_item(self, item: DisplayNode, required_subtree_path: str = None):
+    def get_parent_for_node(self, node: DisplayNode, required_subtree_path: str = None):
         try:
             with self._struct_lock:
-                parent: DisplayNode = self.dir_tree.parent(nid=item.uid)
+                parent: DisplayNode = self.dir_tree.parent(nid=node.uid)
                 if not required_subtree_path or parent.full_path.startswith(required_subtree_path):
                     return parent
                 return None
         except NodeIDAbsentError:
             return None
         except Exception:
-            logger.error(f'Error getting parent for item: {item}, required_path: {required_subtree_path}')
+            logger.error(f'Error getting parent for node: {node}, required_path: {required_subtree_path}')
             raise
 
     def get_summary(self):

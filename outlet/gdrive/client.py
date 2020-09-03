@@ -153,7 +153,7 @@ class GDriveClient:
         goog_id = item['id']
         uid = self.cache_manager.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
 
-        goog_node = GDriveFolder(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, item_name=item['name'], trashed=_convert_trashed(item),
+        goog_node = GDriveFolder(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, node_name=item['name'], trashed=_convert_trashed(item),
                                  drive_id=item.get('driveId', None), my_share=item.get('shared', None), sync_ts=sync_ts, all_children_fetched=False)
 
         parent_goog_ids = item.get('parents', [])
@@ -192,7 +192,7 @@ class GDriveClient:
 
         goog_id = item['id']
         uid = self.cache_manager.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
-        goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, item_name=item["name"],
+        goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, node_name=item["name"],
                                            trashed=_convert_trashed(item), drive_id=item.get('driveId', None), version=version,
                                            head_revision_id=head_revision_id, md5=item.get('md5Checksum', None),
                                            my_share=item.get('shared', None), create_ts=create_ts, modify_ts=modify_ts, size_bytes=size,

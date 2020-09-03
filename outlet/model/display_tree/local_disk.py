@@ -34,9 +34,9 @@ class LocalDiskSubtree(DisplayTree):
 
         self._stats_loaded = False
 
-    def get_parent_for_item(self, item: LocalFileNode) -> Optional[DisplayNode]:
-        assert item.full_path, f'No full_path for item: {item}'
-        parent_path: str = str(pathlib.Path(item.full_path).parent)
+    def get_parent_for_node(self, node: LocalFileNode) -> Optional[DisplayNode]:
+        assert node.full_path, f'No full_path for node: {node}'
+        parent_path: str = str(pathlib.Path(node.full_path).parent)
         if parent_path.startswith(self.root_path):
             return self.cache_manager.get_node_for_local_path(parent_path)
         return None
@@ -48,15 +48,15 @@ class LocalDiskSubtree(DisplayTree):
         assert parent.node_identifier.tree_type == constants.TREE_TYPE_LOCAL_DISK, f'For: {parent.node_identifier}'
         return self.cache_manager.get_children(parent)
 
-    def get_full_path_for_item(self, item: LocalFileNode) -> str:
+    def get_full_path_for_node(self, node: LocalFileNode) -> str:
         # Trivial for FMetas
-        return item.full_path
+        return node.full_path
 
     def get_for_path(self, path: str, include_ignored=False) -> List[LocalFileNode]:
-        item = self.cache_manager.get_node_for_local_path(path)
-        if item:
-            if item.full_path.startswith(self.root_path):
-                return [item]
+        node = self.cache_manager.get_node_for_local_path(path)
+        if node:
+            if node.full_path.startswith(self.root_path):
+                return [node]
         return []
 
     def get_md5_dict(self):
@@ -64,9 +64,9 @@ class LocalDiskSubtree(DisplayTree):
 
         md5_dict: Md5BeforePathDict = Md5BeforePathDict()
         files_list, dir_list = self.cache_manager.get_all_files_and_dirs_for_subtree(self.node_identifier)
-        for item in files_list:
-            if item.exists() and item.md5:
-                md5_dict.put(item)
+        for node in files_list:
+            if node.exists() and node.md5:
+                md5_dict.put(node)
 
         logger.info(f'{md5_set_stopwatch} Found {md5_dict.total_entries} MD5s in {self.root_path}')
         return md5_dict
@@ -75,8 +75,8 @@ class LocalDiskSubtree(DisplayTree):
         assert full_path.startswith(self.root_path), f'Full path ({full_path}) does not contain root ({self.root_path})'
         return file_util.strip_root(full_path, self.root_path)
 
-    def get_relative_path_for_item(self, item: LocalFileNode):
-        return self.get_relative_path_for_full_path(item.full_path)
+    def get_relative_path_for_node(self, node: LocalFileNode):
+        return self.get_relative_path_for_full_path(node.full_path)
 
     def remove(self, node: LocalFileNode):
         raise RuntimeError('Can no longer do this in LocalDiskSubtree!')

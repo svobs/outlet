@@ -66,8 +66,8 @@ class GDriveDisplayTree(DisplayTree):
     def get_children(self, parent: GDriveNode) -> List[GDriveNode]:
         return self._whole_tree.get_children(node=parent)
 
-    def get_full_path_for_item(self, item: GDriveNode) -> List[str]:
-        return self._whole_tree.get_full_path_for_item(item)
+    def get_full_path_for_node(self, node: GDriveNode) -> List[str]:
+        return self._whole_tree.get_full_path_for_node(node)
 
     def get_for_path(self, path: str, include_ignored=False) -> List[GDriveNode]:
         if not self.in_this_subtree(path):
@@ -78,16 +78,16 @@ class GDriveDisplayTree(DisplayTree):
             return []
 
         if len(identifiers) == 1:
-            return [self._whole_tree.get_item_for_uid(identifiers[0].uid)]
+            return [self._whole_tree.get_node_for_uid(identifiers[0].uid)]
 
         # In Google Drive it is legal to have two different files with the same path
         logger.warning(f'Found {len(identifiers)} identifiers for path: "{path}"). Returning the whole list')
-        return list(map(lambda x: self._whole_tree.get_item_for_uid(x.uid), identifiers))
+        return list(map(lambda x: self._whole_tree.get_node_for_uid(x.uid), identifiers))
 
-    def get_parent_for_item(self, item: GDriveNode) -> Optional[GDriveNode]:
-        return self._whole_tree.get_parent_for_item(item, self.root_path)
+    def get_parent_for_node(self, node: GDriveNode) -> Optional[GDriveNode]:
+        return self._whole_tree.get_parent_for_node(node, self.root_path)
 
-    def get_relative_path_for_item(self, goog_node: GDriveNode):
+    def get_relative_path_for_node(self, goog_node: GDriveNode):
         """Get the path for the given ID, relative to the root of this subtree"""
         if not goog_node.full_path:
             node_full_path = self._whole_tree.get_all_paths_for_id(goog_node.uid)
@@ -112,7 +112,7 @@ class GDriveDisplayTree(DisplayTree):
         if self._stats_loaded:
             size_hf = format.humanfriendlier_size(self._root_node.get_size_bytes())
             trashed_size_hf = format.humanfriendlier_size(self._root_node.trashed_bytes)
-            return f'{size_hf} total in {self._root_node.file_count:n} items (including {trashed_size_hf} in ' \
+            return f'{size_hf} total in {self._root_node.file_count:n} nodes (including {trashed_size_hf} in ' \
                    f'{self._root_node.trashed_file_count:n} trashed)'
         else:
             return 'Loading stats...'

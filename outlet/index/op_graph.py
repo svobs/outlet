@@ -194,7 +194,7 @@ class OpGraph:
             if op_node.is_create_type():
                 # Enforce Rule 1: ensure parent of target is valid:
                 parent_uid = self.cacheman.get_parent_uid_for_node(tgt_node)
-                if not self.cacheman.get_item_for_uid(parent_uid, tgt_node.get_tree_type()) and not mkdir_dict.get(parent_uid, None):
+                if not self.cacheman.get_node_for_uid(parent_uid, tgt_node.get_tree_type()) and not mkdir_dict.get(parent_uid, None):
                     logger.error(f'Could not find parent in cache with UID {parent_uid} for "{op_type}" operation node: {tgt_node}')
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find parent in cache with UID {parent_uid} '
                                        f'for "{op_type}"')
@@ -204,7 +204,7 @@ class OpGraph:
                     mkdir_dict[op_node.op.src_node.uid] = op_node.op.src_node
             else:
                 # Enforce Rule 2: ensure target node is valid
-                if not self.cacheman.get_item_for_uid(tgt_node.uid, tgt_node.get_tree_type()):
+                if not self.cacheman.get_node_for_uid(tgt_node.uid, tgt_node.get_tree_type()):
                     logger.error(f'Could not find node in cache for "{op_type}" operation node: {tgt_node}')
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find node in cache with UID {tgt_node.uid} '
                                        f'for "{op_type}"')
@@ -489,7 +489,7 @@ class OpGraph:
 
             src_op_node: OpGraphNode = src_node_list.popleft()
             if src_op_node.op.action_uid != op.action_uid:
-                raise RuntimeError(f'Completed op (UID {op.action_uid}) does not match first item popped from src queue '
+                raise RuntimeError(f'Completed op (UID {op.action_uid}) does not match first node popped from src queue '
                                    f'(UID {src_op_node.op.action_uid})')
 
             # I-2. Remove src node from op graph
@@ -525,7 +525,7 @@ class OpGraph:
                     raise RuntimeError(f'Dst node for completed op not found in master dict (dst node UID {op.dst_node.uid}')
                 dst_op_node = dst_node_list.popleft()
                 if dst_op_node.op.action_uid != op.action_uid:
-                    raise RuntimeError(f'Completed op (UID {op.action_uid}) does not match first item popped from dst queue '
+                    raise RuntimeError(f'Completed op (UID {op.action_uid}) does not match first node popped from dst queue '
                                        f'(UID {dst_op_node.op.action_uid})')
 
                 # II-2. Remove dst node from op graph

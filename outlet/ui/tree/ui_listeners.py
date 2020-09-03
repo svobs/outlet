@@ -198,9 +198,9 @@ class TreeUiListeners:
         if is_into:
             if dest_node and not dest_node.is_dir():
                 # cannot drop into a file; just use parent in this case
-                dest_node = self.con.cache_manager.get_parent_for_item(dest_node)
+                dest_node = self.con.cache_manager.get_parent_for_node(dest_node)
         else:
-            dest_node = self.con.cache_manager.get_parent_for_item(dest_node)
+            dest_node = self.con.cache_manager.get_parent_for_node(dest_node)
 
         if not dest_node:
             logger.error(f'[{self.con.tree_id}] Cancelling drop: no parent node for dropped location!')

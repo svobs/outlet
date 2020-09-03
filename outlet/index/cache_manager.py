@@ -365,7 +365,7 @@ class CacheManager:
 
         return cache_info
 
-    # Individual item cache updates
+    # Individual node cache updates
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def add_or_update_node(self, node: DisplayNode):
@@ -462,7 +462,7 @@ class CacheManager:
         """Fails if there is not exactly 1 parent"""
         parent_uids: List[UID] = node.get_parent_uids()
         if not parent_uids:
-            raise RuntimeError(f'Parents are required but item has no parents: {node}')
+            raise RuntimeError(f'Parents are required but node has no parents: {node}')
 
         # This will raise an exception if it cannot resolve:
         parent_goog_ids: List[str] = self.get_goog_ids_for_uids(parent_uids)
@@ -511,38 +511,30 @@ class CacheManager:
 
     def get_node_for_local_path(self, path: str) -> DisplayNode:
         uid = self.get_uid_for_path(path)
-        return self._local_disk_cache.get_item(uid)
+        return self._local_disk_cache.get_node(uid)
 
     def get_goog_node_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GDriveNode]:
         """Returns the first GDrive node found with the given name and parent.
-        This roughly matches the logic used to search for an item in Google Drive when we are unsure about its goog_id."""
-        return self._gdrive_cache.get_item_for_name_and_parent_uid(name, parent_uid)
+        This roughly matches the logic used to search for an node in Google Drive when we are unsure about its goog_id."""
+        return self._gdrive_cache.get_node_for_name_and_parent_uid(name, parent_uid)
 
-    def get_item_for_goog_id(self, goog_id: str) -> UID:
-        return self._gdrive_cache.get_item_for_goog_id(goog_id)
+    def get_node_for_goog_id(self, goog_id: str) -> UID:
+        return self._gdrive_cache.get_node_for_goog_id(goog_id)
 
-    def get_item_for_uid(self, uid: UID, tree_type: int = None):
+    def get_node_for_uid(self, uid: UID, tree_type: int = None):
         if tree_type:
             if tree_type == TREE_TYPE_LOCAL_DISK:
-                return self._local_disk_cache.get_item(uid)
+                return self._local_disk_cache.get_node(uid)
             elif tree_type == TREE_TYPE_GDRIVE:
-                return self._gdrive_cache.get_item_for_uid(uid)
+                return self._gdrive_cache.get_node_for_uid(uid)
             else:
-                raise RuntimeError(f'Bad tree type: {tree_type}')
+                raise RuntimeError(f'Unknown tree type: {tree_type} for UID {uid}')
 
         # no tree type provided? -> just try all trees:
-        item = self._local_disk_cache.get_item(uid)
-        if not item:
-            item = self._gdrive_cache.get_item_for_uid(uid)
-        return item
-
-    def get_item_for_uid_and_tree_type(self, uid: UID, tree_type):
-        if tree_type == TREE_TYPE_GDRIVE:
-            return self._gdrive_cache.get_item_for_uid(uid)
-        elif tree_type == TREE_TYPE_LOCAL_DISK:
-            return self._local_disk_cache.get_item(uid)
-        else:
-            raise RuntimeError(f'Unknown tree type: {tree_type} for UID {uid}')
+        node = self._local_disk_cache.get_node(uid)
+        if not node:
+            node = self._gdrive_cache.get_node_for_uid(uid)
+        return node
 
     def get_children(self, node: DisplayNode):
         tree_type: int = node.node_identifier.tree_type
@@ -565,13 +557,13 @@ class CacheManager:
             parent_path = str(pathlib.Path(node.full_path).parent)
             return self.get_uid_for_path(parent_path)
 
-    def get_parent_for_item(self, item: DisplayNode):
-        if item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
-            return self._gdrive_cache.get_parent_for_item(item)
-        elif item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-            return self._local_disk_cache.get_parent_for_item(item)
+    def get_parent_for_node(self, node: DisplayNode):
+        if node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
+            return self._gdrive_cache.get_parent_for_node(node)
+        elif node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+            return self._local_disk_cache.get_parent_for_node(node)
         else:
-            raise RuntimeError(f'Unknown tree type: {item.node_identifier.tree_type} for {item}')
+            raise RuntimeError(f'Unknown tree type: {node.node_identifier.tree_type} for {node}')
 
     def get_all_files_and_dirs_for_subtree(self, subtree_root: NodeIdentifier) -> Tuple[List[DisplayNode], List[DisplayNode]]:
         if subtree_root.tree_type == TREE_TYPE_GDRIVE:

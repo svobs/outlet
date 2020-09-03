@@ -41,9 +41,9 @@ class PreAncestorDict:
         key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, op_type=op_type)
         return self._dict.get(key, None)
 
-    def put_for(self, source_tree: DisplayTree, op_type: OpType, item: ContainerNode):
+    def put_for(self, source_tree: DisplayTree, op_type: OpType, node: ContainerNode):
         key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, op_type=op_type)
-        self._dict[key] = item
+        self._dict[key] = node
 
 
 # CLASS CategoryDisplayTree
@@ -89,16 +89,16 @@ class CategoryDisplayTree(DisplayTree):
             logger.error(f'[{self.tree_id}] While retrieving children for: {parent.identifier}')
             raise
 
-    def get_ancestors(self, item: DisplayNode, stop_before_func: Callable[[DisplayNode], bool] = None) -> Deque[DisplayNode]:
+    def get_ancestors(self, node: DisplayNode, stop_before_func: Callable[[DisplayNode], bool] = None) -> Deque[DisplayNode]:
         ancestors: Deque[DisplayNode] = deque()
 
         # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
         # been added to this tree, or the root of the source tree
-        ancestor = item
+        ancestor = node
         while ancestor:
             if stop_before_func is not None and stop_before_func(ancestor):
                 return ancestors
-            ancestor = self.get_parent_for_item(ancestor)
+            ancestor = self.get_parent_for_node(ancestor)
             if ancestor:
                 if ancestor.uid == self.uid:
                     # do not include source tree's root node:
@@ -113,12 +113,12 @@ class CategoryDisplayTree(DisplayTree):
                 return child
         return None
 
-    def _get_or_create_pre_ancestors(self, item: DisplayNode, op_type: OpType, source_tree: DisplayTree) -> ContainerNode:
+    def _get_or_create_pre_ancestors(self, node: DisplayNode, op_type: OpType, source_tree: DisplayTree) -> ContainerNode:
         """Pre-ancestors are those nodes (either logical or pointing to real data) which are higher up than the source tree.
         Last pre-ancestor is easily derived and its prescence indicates whether its ancestors were already created"""
 
-        tree_type: int = item.node_identifier.tree_type
-        assert tree_type != TREE_TYPE_MIXED, f'For {item.node_identifier}'
+        tree_type: int = node.node_identifier.tree_type
+        assert tree_type != TREE_TYPE_MIXED, f'For {node.node_identifier}'
 
         last_pre_ancestor = self._pre_ancestor_dict.get_for(source_tree, op_type)
         if last_pre_ancestor:
@@ -128,10 +128,10 @@ class CategoryDisplayTree(DisplayTree):
 
         if self.show_whole_forest:
             # Create sub-root (i.e. 'GDrive' or 'Local Disk')
-            subroot_node = self._get_subroot_node(item.node_identifier)
+            subroot_node = self._get_subroot_node(node.node_identifier)
             if not subroot_node:
                 uid = self.uid_generator.next_uid()
-                node_identifier = self.node_identifier_factory.for_values(tree_type=item.node_identifier.tree_type, full_path=self.root_path, uid=uid)
+                node_identifier = self.node_identifier_factory.for_values(tree_type=node.node_identifier.tree_type, full_path=self.root_path, uid=uid)
                 subroot_node = RootTypeNode(node_identifier=node_identifier)
                 logger.debug(f'[{self.tree_id}] Creating pre-ancestor RootType node: {node_identifier}')
                 self._category_tree.add_node(node=subroot_node, parent=self.root_node)
@@ -150,7 +150,7 @@ class CategoryDisplayTree(DisplayTree):
             # Create category display node. This may be the "last pre-ancestor".
             # Note that we can use this for GDrive paths because we are combining it with tree_type and OpType (below) into a new identifier:
             uid = self.cache_manager.get_uid_for_path(self.root_path)
-            nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, op_type)
+            nid = NodeIdentifierFactory.nid(uid, node.node_identifier.tree_type, op_type)
 
             node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=self.root_path, uid=uid)
             cat_node = CategoryNode(node_identifier=node_identifier, op_type=op_type)
@@ -176,7 +176,7 @@ class CategoryDisplayTree(DisplayTree):
 
                 if not child_node:
                     uid = self.cache_manager.get_uid_for_path(path_so_far)
-                    nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, op_type)
+                    nid = NodeIdentifierFactory.nid(uid, node.node_identifier.tree_type, op_type)
                     node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=uid)
                     child_node = ContainerNode(node_identifier=node_identifier)
                     child_node.identifier = nid
@@ -210,8 +210,8 @@ class CategoryDisplayTree(DisplayTree):
             self.op_dict[op.src_node.uid] = op
         self._op_list.append(op)
 
-    def add_item(self, item: DisplayNode, op: Op, source_tree: DisplayTree):
-        """When we add the item, we add any necessary ancestors for it as well.
+    def add_node(self, node: DisplayNode, op: Op, source_tree: DisplayTree):
+        """When we add the node, we add any necessary ancestors for it as well.
         1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't
         backed by any actual data nodes. This includes possibly tree-type nodes, category nodes, and ancestors
         which aren't in the source tree.
@@ -219,9 +219,9 @@ class CategoryDisplayTree(DisplayTree):
         The "ancestors" are duplicated for each OpType, so we need to generate a separate unique identifier which includes the OpType.
         For this, we take advantage of the fact that each node has a separate "identifier" field which is nominally identical to its UID,
         but in this case it will be a string which includes the OpType name.
-        3. Add a node for the item itself
+        3. Add a node for the node itself
         """
-        assert op is not None, f'For item: {item}'
+        assert op is not None, f'For node: {node}'
         self._append_op(op)
 
         op_type_for_display = op.op_type
@@ -229,34 +229,34 @@ class CategoryDisplayTree(DisplayTree):
             # Group "mkdir" with "copy" for display purposes:
             op_type_for_display = OpType.CP
 
-        # Clone the item so as not to mutate the source tree. The item category is needed to determine which bra
-        item_clone = copy.copy(item)
-        item_clone.node_identifier = copy.copy(item.node_identifier)
-        item_clone.identifier = NodeIdentifierFactory.nid(item.uid, item.node_identifier.tree_type, op_type_for_display)
-        item = item_clone
+        # Clone the node so as not to mutate the source tree. The node category is needed to determine which bra
+        node_clone = copy.copy(node)
+        node_clone.node_identifier = copy.copy(node.node_identifier)
+        node_clone.identifier = NodeIdentifierFactory.nid(node.uid, node.node_identifier.tree_type, op_type_for_display)
+        node = node_clone
 
-        parent: DisplayNode = self._get_or_create_pre_ancestors(item, op_type_for_display, source_tree)
+        parent: DisplayNode = self._get_or_create_pre_ancestors(node, op_type_for_display, source_tree)
 
         if isinstance(parent, ContainerNode):
-            parent.add_meta_metrics(item)
+            parent.add_meta_metrics(node)
 
         stack: Deque = deque()
-        full_path = item.full_path
+        full_path = node.full_path
         # Walk up the source tree and compose a list of ancestors:
         while True:
-            assert full_path, f'Item does not have a path: {item}'
+            assert full_path, f'Item does not have a path: {node}'
             assert full_path.startswith(self.root_path), f'ItemPath="{full_path}", TreeRootPath="{self.root_path}"'
             # Go up one dir:
             full_path: str = str(pathlib.Path(full_path).parent)
             # Get standard UID for path (note: this is a kludge for non-local trees, but should be OK because we just need a UID which
             # is unique for this tree)
             uid = self.cache_manager.get_uid_for_path(full_path)
-            nid = NodeIdentifierFactory.nid(uid, item.node_identifier.tree_type, op_type_for_display)
+            nid = NodeIdentifierFactory.nid(uid, node.node_identifier.tree_type, op_type_for_display)
             parent = self._category_tree.get_node(nid=nid)
             if parent:
                 break
             else:
-                node_identifier = LogicalNodeIdentifier(uid, full_path, item.node_identifier.tree_type)
+                node_identifier = LogicalNodeIdentifier(uid, full_path, node.node_identifier.tree_type)
                 dir_node = ContainerNode(node_identifier)
                 dir_node.identifier = nid
                 stack.append(dir_node)
@@ -272,49 +272,49 @@ class CategoryDisplayTree(DisplayTree):
             parent = ancestor
 
         try:
-            # Finally add the item itself:
+            # Finally add the node itself:
 
             if SUPER_DEBUG:
-                logger.info(f'[{self.tree_id}] Adding node: {item.node_identifier} ({item.identifier}) '
+                logger.info(f'[{self.tree_id}] Adding node: {node.node_identifier} ({node.identifier}) '
                             f'to parent: {parent.node_identifier} ({parent.identifier})')
-            self._category_tree.add_node(node=item, parent=parent)
+            self._category_tree.add_node(node=node, parent=parent)
         except DuplicatedNodeIdError:
-            # TODO: configurable handling of conflicts. Google Drive allows items with the same path and name, which is not allowed on local FS
-            conflict_node = self._category_tree.get_node(item.identifier)
-            if conflict_node.md5 == item.md5:
+            # TODO: configurable handling of conflicts. Google Drive allows nodes with the same path and name, which is not allowed on local FS
+            conflict_node = self._category_tree.get_node(node.identifier)
+            if conflict_node.md5 == node.md5:
                 self.count_conflict_warnings += 1
                 if SUPER_DEBUG:
-                    logger.warning(f'[{self.tree_id}] Duplicate nodes for the same path! However, items have same MD5, so we will just ignore the new'
-                                   f' item: existing={conflict_node} new={item}')
+                    logger.warning(f'[{self.tree_id}] Duplicate nodes for the same path! However, nodes have same MD5, so we will just ignore the new'
+                                   f' node: existing={conflict_node} new={node}')
             else:
                 self.count_conflict_errors += 1
                 if SUPER_DEBUG:
-                    logger.error(f'[{self.tree_id}] Duplicate nodes for the same path and different content: existing={conflict_node} new={item}')
+                    logger.error(f'[{self.tree_id}] Duplicate nodes for the same path and different content: existing={conflict_node} new={node}')
                 # raise
 
         if SUPER_DEBUG:
             logger.debug(f'[{self.tree_id}] CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))
 
-    def get_parent_for_item(self, item: DisplayNode) -> Optional[DisplayNode]:
-        if not self._category_tree.get_node(item.identifier):
+    def get_parent_for_node(self, node: DisplayNode) -> Optional[DisplayNode]:
+        if not self._category_tree.get_node(node.identifier):
             return None
 
-        ancestor: ContainerNode = self._category_tree.parent(item.identifier)
+        ancestor: ContainerNode = self._category_tree.parent(node.identifier)
         if ancestor:
             # Do not include CategoryNode and above
             if not isinstance(ancestor, CategoryNode):
                 return ancestor
         return None
 
-    def get_full_path_for_item(self, item: DisplayNode) -> str:
-        """Gets the absolute path for the item"""
-        assert item.full_path
-        return item.full_path
+    def get_full_path_for_node(self, node: DisplayNode) -> str:
+        """Gets the absolute path for the node"""
+        assert node.full_path
+        return node.full_path
 
     def __repr__(self):
         return f'CategoryDisplayTree(tree_id=[{self.tree_id}], {self.get_summary()})'
 
-    def get_relative_path_for_item(self, item):
+    def get_relative_path_for_node(self, node):
         raise NotImplementedError
 
     def get_for_path(self, path: str, include_ignored=False) -> List[DisplayNode]:
@@ -376,11 +376,11 @@ class CategoryDisplayTree(DisplayTree):
 
         # go down tree, zeroing out existing stats and adding children to stack
         while len(queue) > 0:
-            item: DisplayNode = queue.popleft()
-            assert isinstance(item, ContainerNode)
-            item.zero_out_stats()
+            node: DisplayNode = queue.popleft()
+            assert isinstance(node, ContainerNode)
+            node.zero_out_stats()
 
-            children = self.get_children(item)
+            children = self.get_children(node)
             if children:
                 for child in children:
                     if child.is_dir():
@@ -390,13 +390,13 @@ class CategoryDisplayTree(DisplayTree):
 
         # now go back up the tree by popping the stack and building stats as we go:
         while len(stack) > 0:
-            item = stack.pop()
-            assert item.is_dir() and isinstance(item, ContainerNode)
+            node = stack.pop()
+            assert node.is_dir() and isinstance(node, ContainerNode)
 
-            children = self.get_children(item)
+            children = self.get_children(node)
             if children:
                 for child in children:
-                    item.add_meta_metrics(child)
+                    node.add_meta_metrics(child)
 
         self._stats_loaded = True
         dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)

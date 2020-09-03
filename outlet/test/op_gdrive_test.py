@@ -98,7 +98,7 @@ class OpGDriveTest(OpTestBase):
         # delete all files which may have been uploaded to GDrive. Goes around the program cache
         logger.info('Connecting to GDrive to find files in remote test folder')
         client = GDriveClient(self.app)
-        parent_node: DisplayNode = self.app.cache_manager.get_item_for_uid(self.right_tree_root_uid, TREE_TYPE_GDRIVE)
+        parent_node: DisplayNode = self.app.cache_manager.get_node_for_uid(self.right_tree_root_uid, TREE_TYPE_GDRIVE)
         assert isinstance(parent_node, GDriveNode)
         children = client.get_all_children_for_parent(parent_node.goog_id)
         logger.info(f'Found {len(children)} child nodes for parent: {parent_node.name}')

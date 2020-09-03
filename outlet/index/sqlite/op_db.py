@@ -260,10 +260,10 @@ class OpDatabase(MetaDatabase):
         nodes_by_action_uid[action_uid] = obj
 
     def _tuple_to_gdrive_folder(self, nodes_by_action_uid: Dict[UID, DisplayNode], row: Tuple) -> GDriveFolder:
-        action_uid_int, uid_int, goog_id, item_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched, parent_uid_int, \
+        action_uid_int, uid_int, goog_id, node_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched, parent_uid_int, \
             parent_goog_id = row
 
-        obj = GDriveFolder(GDriveIdentifier(uid=UID(uid_int), full_path=None), goog_id=goog_id, item_name=item_name, trashed=item_trashed,
+        obj = GDriveFolder(GDriveIdentifier(uid=UID(uid_int), full_path=None), goog_id=goog_id, node_name=node_name, trashed=item_trashed,
                            drive_id=drive_id, my_share=my_share, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
 
         self._store_gdrive_object(obj, goog_id, parent_uid_int, action_uid_int, nodes_by_action_uid)
@@ -271,10 +271,10 @@ class OpDatabase(MetaDatabase):
         return obj
 
     def _tuple_to_gdrive_file(self, nodes_by_action_uid: Dict[UID, DisplayNode], row: Tuple) -> GDriveFile:
-        action_uid_int, uid_int, goog_id, item_name, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_id, drive_id, my_share, \
+        action_uid_int, uid_int, goog_id, node_name, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_id, drive_id, my_share, \
             version, head_revision_id, sync_ts, parent_uid_int, parent_goog_id = row
 
-        obj = GDriveFile(GDriveIdentifier(uid=UID(uid_int), full_path=None), goog_id=goog_id, item_name=item_name,
+        obj = GDriveFile(GDriveIdentifier(uid=UID(uid_int), full_path=None), goog_id=goog_id, node_name=node_name,
                          trashed=item_trashed, drive_id=drive_id, my_share=my_share, version=version,
                          head_revision_id=head_revision_id, md5=md5,
                          create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes, owner_id=owner_id, sync_ts=sync_ts)

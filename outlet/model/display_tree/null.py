@@ -18,13 +18,13 @@ class NullDisplayTree(DisplayTree):
     def get_children(self, parent: DisplayNode) -> Iterable[DisplayNode]:
         return []
 
-    def get_parent_for_item(self, item) -> Optional[DisplayNode]:
+    def get_parent_for_node(self, item) -> Optional[DisplayNode]:
         raise RuntimeError('Should not do this')
 
-    def get_full_path_for_item(self, item) -> str:
+    def get_full_path_for_node(self, item) -> str:
         raise RuntimeError('Should not do this')
 
-    def get_relative_path_for_item(self, item):
+    def get_relative_path_for_node(self, item):
         raise RuntimeError('Should not do this')
 
     def get_for_path(self, path: str, include_ignored=False) -> List[DisplayNode]:

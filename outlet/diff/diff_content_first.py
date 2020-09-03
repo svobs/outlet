@@ -112,7 +112,7 @@ class ContentFirstDiffer(ChangeMaker):
 
         # List of list of items which do not have a matching md5 on the other side.
         # We will compare these by path.
-        # Note: each list within this list contains duplicates (item with the same md5)
+        # Note: each list within this list contains duplicates (nodes with the same md5)
         list_of_lists_of_left_items_for_given_md5: List[Iterable[DisplayNode]] = []
         list_of_lists_of_right_items_for_given_md5: List[Iterable[DisplayNode]] = []
 
@@ -192,9 +192,9 @@ class ContentFirstDiffer(ChangeMaker):
                         if path_match_right.exists():  # treat items which don't exist...as if they don't exist
                             # UPDATED
                             assert path_match_right.md5 != left_item.md5, \
-                                f'Expected different MD5 for left item ({left_item}) and right item ({path_match_right})'
+                                f'Expected different MD5 for left node ({left_item}) and right node ({path_match_right})'
                             if logger.isEnabledFor(logging.DEBUG):
-                                left_path = self.left_side.underlying_tree.get_full_path_for_item(left_item)
+                                left_path = self.left_side.underlying_tree.get_full_path_for_node(left_item)
                                 logger.debug(f'File updated: {left_item.md5} <- "{left_path}" -> {path_matches_right[0].md5}')
                             # Same path, different md5 -> Updated
                             self.append_update_right_to_left(path_matches_right[0], left_item)
@@ -204,7 +204,7 @@ class ContentFirstDiffer(ChangeMaker):
                     # No match? fall through
                 # DUPLICATE ADDED on right + DELETED on left
                 if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f'Left has new file: "{self.left_side.underlying_tree.get_full_path_for_item(left_item)}"')
+                    logger.debug(f'Left has new file: "{self.left_side.underlying_tree.get_full_path_for_node(left_item)}"')
                 self.append_copy_left_to_right(left_item)
 
                 # Dead node walking:
@@ -223,7 +223,7 @@ class ContentFirstDiffer(ChangeMaker):
                         continue
                 # DUPLICATE ADDED on right + DELETED on left
                 if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f'Right has new file: "{self.right_side.underlying_tree.get_full_path_for_item(right_item)}"')
+                    logger.debug(f'Right has new file: "{self.right_side.underlying_tree.get_full_path_for_node(right_item)}"')
                 self.append_copy_right_to_left(right_item)
 
                 # Dead node walking:
@@ -253,14 +253,14 @@ class ContentFirstDiffer(ChangeMaker):
         for item in left_selected_changes:
             op = self.left_side.underlying_tree.get_op_for_node(item)
             if op:
-                merged_tree.add_item(item, op, self.left_side.underlying_tree)
+                merged_tree.add_node(item, op, self.left_side.underlying_tree)
             else:
                 logger.debug(f'Skipping node because it is not associated with a Op: {item}')
 
         for item in right_selected_changes:
             op = self.right_side.underlying_tree.get_op_for_node(item)
             if op:
-                merged_tree.add_item(item, op, self.right_side.underlying_tree)
+                merged_tree.add_node(item, op, self.right_side.underlying_tree)
             else:
                 logger.debug(f'Skipping node because it is not associated with a Op: {item}')
 

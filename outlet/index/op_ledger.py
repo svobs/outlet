@@ -95,9 +95,9 @@ class OpLedger:
         if planning_node:
             self.cacheman.add_or_update_node(planning_node)
         else:
-            assert self.cacheman.get_item_for_uid(op.src_node.uid), f'Expected src node already present for: {op}'
+            assert self.cacheman.get_node_for_uid(op.src_node.uid), f'Expected src node already present for: {op}'
             if op.dst_node:
-                assert self.cacheman.get_item_for_uid(op.dst_node.uid), f'Expected dst node already present for op: {op}'
+                assert self.cacheman.get_node_for_uid(op.dst_node.uid), f'Expected dst node already present for op: {op}'
 
     # Reduce Changes logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -207,7 +207,7 @@ class OpLedger:
             if cp_dst_dict.get(src_ancestor.uid, None):
                 raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being copied to!')
 
-            src_ancestor = self.application.cache_manager.get_parent_for_item(src_ancestor)
+            src_ancestor = self.application.cache_manager.get_parent_for_node(src_ancestor)
 
         while dst_ancestor:
             if SUPER_DEBUG:
@@ -217,12 +217,12 @@ class OpLedger:
             if cp_src_dict.get(dst_ancestor.uid, None):
                 raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being copied from!')
 
-            dst_ancestor = self.application.cache_manager.get_parent_for_item(dst_ancestor)
+            dst_ancestor = self.application.cache_manager.get_parent_for_node(dst_ancestor)
 
     def _check_ancestors(self, op: Op, eval_func: Callable[[Op, DisplayNode], bool]):
         ancestor = op.src_node
         while True:
-            ancestor = self.application.cache_manager.get_parent_for_item(ancestor)
+            ancestor = self.application.cache_manager.get_parent_for_node(ancestor)
             if not ancestor:
                 return
             if SUPER_DEBUG:

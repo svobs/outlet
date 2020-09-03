@@ -86,7 +86,7 @@ class GDriveMasterCache:
         if not subtree_root.uid:
             # TODO: raise something
             return None
-        root: GDriveNode = self._my_gdrive.get_item_for_uid(subtree_root.uid)
+        root: GDriveNode = self._my_gdrive.get_node_for_uid(subtree_root.uid)
         if not root:
             return None
 
@@ -128,7 +128,7 @@ class GDriveMasterCache:
         with self._struct_lock:
             self._my_gdrive.refresh_stats(tree_id, subtree_root_node)
 
-    # Individual item cache updates
+    # Individual node cache updates
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def upsert_gdrive_node(self, node: GDriveNode):
@@ -154,7 +154,7 @@ class GDriveMasterCache:
                 raise RuntimeError(f'Node is missing parent UIDs: {node}')
 
             # Detect whether it's already in the cache
-            existing_node = self._my_gdrive.get_item_for_uid(node.uid)
+            existing_node = self._my_gdrive.get_node_for_uid(node.uid)
             if existing_node:
                 # it is ok if we have an existing node which doesn't have a goog_id; that will be replaced
                 if existing_node.goog_id and existing_node.goog_id != node.goog_id:
@@ -167,15 +167,15 @@ class GDriveMasterCache:
                     return
 
                 if existing_node == node:
-                    # FIXME: it's not clear that we have implemented __eq__ for all necessary items
-                    logger.info(f'Item being added (uid={node.uid}) is identical to item already in the cache; ignoring')
+                    # FIXME: it's not clear that we have implemented __eq__ for all necessary nodes
+                    logger.info(f'Item being added (uid={node.uid}) is identical to node already in the cache; ignoring')
                     return
                 logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')
             elif node.goog_id:
                 previous_uid = self.get_uid_for_goog_id(goog_id=node.goog_id)
                 if previous_uid and node.uid != previous_uid:
                     logger.warning(f'Found node in cache with same GoogID ({node.goog_id}) but different UID ('
-                                   f'{previous_uid}). Changing UID of item (was: {node.uid}) to match and overwrite previous node')
+                                   f'{previous_uid}). Changing UID of node (was: {node.uid}) to match and overwrite previous node')
                     node.uid = previous_uid
 
             if node.exists():
@@ -185,7 +185,7 @@ class GDriveMasterCache:
                     parent_mappings = []
                     if len(node.get_parent_uids()) != len(parent_goog_ids):
                         raise RuntimeError(f'Internal error: could not map all parent goog_ids ({len(parent_goog_ids)}) to parent UIDs '
-                                           f'({len(parent_uids)}) for item: {node}')
+                                           f'({len(parent_uids)}) for node: {node}')
                     for parent_uid, parent_goog_id in zip(node.get_parent_uids(), parent_goog_ids):
                         parent_mappings.append((node.uid, parent_uid, parent_goog_id, node.sync_ts))
 
@@ -204,15 +204,15 @@ class GDriveMasterCache:
                             assert isinstance(node, GDriveFile)
                             cache.upsert_gdrive_file_list([node])
                 else:
-                    logger.debug(f'Save to disk is disabled: skipping add/update of item with UID={node.uid}')
+                    logger.debug(f'Save to disk is disabled: skipping add/update of node with UID={node.uid}')
             else:
                 logger.debug(f'Node does not exist; skipping save to disk: {node}')
 
             # Finally, update in-memory cache (tree):
-            self._my_gdrive.add_item(node)
+            self._my_gdrive.add_node(node)
 
-            # Generate full_path for item, if not already done (we assume this is a newly created node)
-            self._my_gdrive.get_full_path_for_item(node)
+            # Generate full_path for node, if not already done (we assume this is a newly created node)
+            self._my_gdrive.get_full_path_for_node(node)
 
             logger.debug(f'Sending signal: {actions.NODE_UPSERTED}')
             dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
@@ -252,9 +252,9 @@ class GDriveMasterCache:
             self.upsert_gdrive_node(node)
         else:
             # Remove from in-memory cache:
-            existing_node = self._my_gdrive.get_item_for_uid(node.uid)
+            existing_node = self._my_gdrive.get_node_for_uid(node.uid)
             if existing_node:
-                self._my_gdrive.remove_item(existing_node)
+                self._my_gdrive.remove_node(existing_node)
 
             # Remove from disk cache:
             if self.application.cache_manager.enable_save_to_disk:
@@ -266,7 +266,7 @@ class GDriveMasterCache:
                     else:
                         cache.delete_gdrive_file_with_uid(node.uid)
             else:
-                logger.debug(f'Save to disk is disabled: skipping removal of item with UID={node.uid}')
+                logger.debug(f'Save to disk is disabled: skipping removal of node with UID={node.uid}')
 
         dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
 
@@ -286,22 +286,23 @@ class GDriveMasterCache:
     def get_uid_for_goog_id(self, goog_id: str, uid_suggestion: Optional[UID] = None) -> UID:
         return self._uid_mapper.get_uid_for_goog_id(goog_id, uid_suggestion)
 
-    def get_item_for_goog_id(self, goog_id: str) -> Optional[GDriveNode]:
+    def get_node_for_goog_id(self, goog_id: str) -> Optional[GDriveNode]:
         uid = self._uid_mapper.get_uid_for_goog_id(goog_id)
-        return self._my_gdrive.get_item_for_uid(uid)
+        return self._my_gdrive.get_node_for_uid(uid)
 
-    def get_item_for_uid(self, uid: UID) -> Optional[GDriveNode]:
+    def get_node_for_uid(self, uid: UID) -> Optional[GDriveNode]:
         if not self._my_gdrive:
-            raise RuntimeError(f'Cannot retrieve item (UID={uid}(: GDrive cache not loaded!')
-        return self._my_gdrive.get_item_for_uid(uid)
+            raise RuntimeError(f'Cannot retrieve node (UID={uid}(: GDrive cache not loaded!')
+        return self._my_gdrive.get_node_for_uid(uid)
 
-    def get_item_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GDriveNode]:
-        return self._my_gdrive.get_item_for_name_and_parent_uid(name, parent_uid)
+    def get_node_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GDriveNode]:
+        with self._struct_lock:
+            return self._my_gdrive.get_node_for_name_and_parent_uid(name, parent_uid)
 
     def get_goog_id_for_uid(self, uid: UID) -> Optional[str]:
-        item = self.get_item_for_uid(uid)
-        if item:
-            return item.goog_id
+        node = self.get_node_for_uid(uid)
+        if node:
+            return node.goog_id
         return None
 
     def _get_cache_path_for_master(self) -> str:
@@ -315,9 +316,9 @@ class GDriveMasterCache:
         assert isinstance(node, GDriveNode)
         return self._my_gdrive.get_children(node)
 
-    def get_parent_for_item(self, item: DisplayNode, required_subtree_path: str = None):
-        assert isinstance(item, GDriveNode)
-        return self._my_gdrive.get_parent_for_item(item, required_subtree_path)
+    def get_parent_for_node(self, node: DisplayNode, required_subtree_path: str = None):
+        assert isinstance(node, GDriveNode)
+        return self._my_gdrive.get_parent_for_node(node, required_subtree_path)
 
     def download_all_gdrive_meta(self, tree_id):
         root_identifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()

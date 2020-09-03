@@ -122,7 +122,7 @@ class DisplayNode(Node, ABC):
         self._update_tag()
 
     def get_relative_path(self, parent_tree):
-        return parent_tree.get_relative_path_for_item(self)
+        return parent_tree.get_relative_path_for_node(self)
 
     def get_icon(self):
         if self.exists():
