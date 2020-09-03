@@ -2,6 +2,7 @@ import collections
 import logging
 import os
 import threading
+import time
 import unittest
 from functools import partial
 from typing import Callable, Deque, Iterable, List, Optional, Tuple
@@ -383,6 +384,8 @@ class OpTestBase(unittest.TestCase):
         if wait_for_right:
             if not right_stats_updated.wait(LOAD_TIMEOUT_SEC):
                 raise RuntimeError('Timed out waiting for Right stats to update!')
+        # logger.info('Sleeping')
+        # time.sleep(10)  # in seconds
 
         self.verify(self.left_con, expected_left)
         self.verify(self.right_con, expected_right)

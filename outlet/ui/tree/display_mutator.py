@@ -415,7 +415,7 @@ class DisplayMutator:
     def _on_subtree_stats_updated(self, sender: str):
         """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes
         with the current values from the cache."""
-        def refresh_displayed_node(tree_iter):
+        def redraw_displayed_node(tree_iter):
             if self.con.app.shutdown:
                 # try to prevent junk errors during shutdown
                 return
@@ -430,16 +430,23 @@ class DisplayMutator:
             assert node, f'For tree_id="{sender} and row={self.con.display_store.model[tree_iter]}'
             if node.is_ephemereal():
                 return
+
+            # Need to get fresh node from cacheman. This is crucial for just-updated nodes (e.g. from completed operations)
+            updated_node = self.con.app.cache_manager.get_item_for_uid(node.uid, node.get_tree_type())
+            if not updated_node:
+                raise RuntimeError(f'Could not find up-to-date node in memcache: {node}')
+            node = updated_node
+
             tree_path = ds.model.get_path(tree_iter)
-            if self.con.tree_id == actions.ID_RIGHT_TREE:
-                logger.warning(f'Redrawing stats for node: {node}; path={tree_path}; size={node.get_size_bytes()} etc={node.get_etc()}')    # TODO
+            # logger.debug(f'Redrawing stats for node: {node}; path={tree_path}; size={node.get_size_bytes()} etc={node.get_etc()}')
             ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(node)
             ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = node.get_etc()
+            ds.model[tree_iter][self.con.treeview_meta.col_num_data] = node
 
         def do_in_ui():
             with self._lock:
                 if not self.con.app.shutdown:
-                    self.con.display_store.recurse_over_tree(action_func=refresh_displayed_node)
+                    self.con.display_store.recurse_over_tree(action_func=redraw_displayed_node)
                     logger.debug(f'[{self.con.tree_id}] Completely done redrawing display tree stats in UI')
                     # currently this is only used for functional tests
                     dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, sender=self.con.tree_id)
@@ -533,7 +540,7 @@ class DisplayMutator:
             icon = op.get_icon_for_node(node.uid)
         else:
             icon = node.get_icon()
-        logger.warning(f'[{self.con.tree_id}] Got icon "{icon}" for node {node}')
+        # logger.debug(f'[{self.con.tree_id}] Got icon "{icon}" for node {node}')
         return icon
 
     def generate_display_cols(self, parent_iter, node: DisplayNode):

@@ -5,7 +5,7 @@ from typing import Optional
 from util import format
 from constants import ICON_ADD_DIR, ICON_ADD_FILE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE, NOT_TRASHED, \
     OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS, TREE_TYPE_GDRIVE
-from model.node.display_node import DisplayNode, HasChildren, HasParentList
+from model.node.display_node import DisplayNode, HasChildList, HasParentList
 from model.node_identifier import ensure_int, GDriveIdentifier
 
 logger = logging.getLogger(__name__)
@@ -88,17 +88,17 @@ class GDriveNode(HasParentList, DisplayNode, ABC):
 """
 
 
-class GDriveFolder(HasChildren, GDriveNode):
+class GDriveFolder(HasChildList, GDriveNode):
     def __init__(self, node_identifier: GDriveIdentifier, goog_id, item_name, trashed, drive_id, my_share, sync_ts, all_children_fetched):
         GDriveNode.__init__(self, node_identifier, goog_id, item_name, trashed, drive_id, my_share, sync_ts)
-        HasChildren.__init__(self)
+        HasChildList.__init__(self)
 
         self.all_children_fetched = all_children_fetched
         """If true, all its children have been fetched from Google"""
 
     def __repr__(self):
         return f'GDriveFolder:(uid="{self.uid}" goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
-               f'my_share={self.my_share} sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()} children_fetched={self.all_children_fetched} ]'
+               f'my_share={self.my_share} sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()} children_fetched={self.all_children_fetched}]'
 
     @classmethod
     def has_tuple(cls) -> bool:

@@ -87,6 +87,8 @@ class Op(Node):
             self.create_ts = int(time.time())
 
         self._completed: bool = False
+        """This is only briefly used in a brief interval right after the op has completed, but not yet updated everywhere"""
+
         self.tag = repr(self)
 
     def is_completed(self):

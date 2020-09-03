@@ -173,10 +173,10 @@ class HasParentList(ABC):
             self._parent_uids = current_parent_ids
 
 
-# CLASS HasChildren
+# ABSTRACT CLASS HasChildList
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class HasChildren:
+class HasChildList(ABC):
     """
     Represents a generic directory (i.e. not an LocalFileNode or domain object)
     """
@@ -205,7 +205,7 @@ class HasChildren:
                 self._size_bytes += child_node.get_size_bytes()
 
             if child_node.is_dir():
-                assert isinstance(child_node, HasChildren)
+                assert isinstance(child_node, HasChildList)
                 self.dir_count += child_node.dir_count + 1
                 self.file_count += child_node.file_count
             else:
@@ -213,7 +213,7 @@ class HasChildren:
         else:
             # trashed:
             if child_node.is_dir():
-                assert isinstance(child_node, HasChildren)
+                assert isinstance(child_node, HasChildList)
                 if child_node.get_size_bytes():
                     self.trashed_bytes += child_node.get_size_bytes()
                 if child_node.trashed_bytes:

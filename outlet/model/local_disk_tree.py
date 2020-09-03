@@ -8,7 +8,7 @@ import treelib
 from index.uid.uid import UID
 from model.node.container_node import ContainerNode
 from util import file_util
-from model.node.display_node import DisplayNode
+from model.node.display_node import DisplayNode, HasChildList
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from util.stopwatch_sec import Stopwatch
@@ -112,7 +112,7 @@ class LocalDiskTree(treelib.Tree):
         logger.debug(f'Returning {len(file_list)} files and {len(dir_list)} dirs')
         return file_list, dir_list
     
-    def get_children(self, node: DisplayNode):
+    def get_children(self, node: DisplayNode) -> List[DisplayNode]:
         return self.children(node.uid)
 
     def refresh_stats(self, tree_id: str, subtree_root_node: DisplayNode):

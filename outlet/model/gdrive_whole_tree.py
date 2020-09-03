@@ -90,9 +90,9 @@ class GDriveWholeTree:
         existing_node = self.id_dict.get(node.uid, None)
         if existing_node:
             logger.debug(f'add_node(): found existing node with same ID (will attempt to merge nodes): existing: {existing_node}; new={node}')
-            new_parent_uids = _merge_parents_into_new(existing_node, node)
-
-        self.id_dict[node.uid] = node
+            new_parent_uids = _merge_into_existing(existing_node, node)
+        else:
+            self.id_dict[node.uid] = node
 
         # build reverse dictionary
         if len(new_parent_uids) > 0:
@@ -539,26 +539,28 @@ class GDriveWholeTree:
                     queue.append(root)
                     stack.append(root)
 
-            while len(queue) > 0:
-                item: GDriveFolder = queue.popleft()
-                item.zero_out_stats()
+        while len(queue) > 0:
+            node: GDriveFolder = queue.popleft()
+            node.zero_out_stats()
 
-                children = self.get_children(item)
-                if children:
-                    for child in children:
-                        if child.is_dir():
-                            assert isinstance(child, GDriveFolder)
-                            queue.append(child)
-                            stack.append(child)
-
-        while len(stack) > 0:
-            item = stack.pop()
-            assert item.is_dir()
-
-            children = self.get_children(item)
+            children = self.get_children(node)
             if children:
                 for child in children:
-                    item.add_meta_metrics(child)
+                    if child.is_dir():
+                        assert isinstance(child, GDriveFolder)
+                        queue.append(child)
+                        stack.append(child)
+
+        while len(stack) > 0:
+            node = stack.pop()
+            assert node.is_dir()
+
+            children = self.get_children(node)
+            if children:
+                for child in children:
+                    node.add_meta_metrics(child)
+
+            # logger.debug(f'Node {node.uid} ("{node.name}") has size={node.get_size_bytes()}, etc={node.get_etc()}')
 
         # TODO: make use of this later
         if constants.FIND_DUPLICATE_GDRIVE_NODE_NAMES:
@@ -573,7 +575,7 @@ class GDriveWholeTree:
         logger.debug(f'{stats_sw} Refreshed stats for Google Drive tree')
 
 
-def _merge_parents_into_new(existing_node: GDriveNode, new_node: GDriveNode) -> List[UID]:
+def _merge_into_existing(existing_node: GDriveNode, new_node: GDriveNode) -> List[UID]:
     # Assume nodes are identical but each references a different parent (most likely flattened for SQL)
     assert len(existing_node.get_parent_uids()) >= 1 and len(
         new_node.get_parent_uids()) == 1, f'Expected 1 parent each but found: {existing_node.get_parent_uids()} and {new_node.get_parent_uids()}'
@@ -583,11 +585,14 @@ def _merge_parents_into_new(existing_node: GDriveNode, new_node: GDriveNode) -> 
         if parent_uid not in existing_node.get_parent_uids():
             new_parent_ids.append(parent_uid)
 
-    # Merge into new node:
+    # Merge parents into new node:
     new_node.set_parent_uids(existing_node.get_parent_uids() + new_parent_ids)
 
     if existing_node.goog_id and existing_node.goog_id != new_node.goog_id:
         raise RuntimeError(f'Existing node goog_id ({existing_node.goog_id}) does not match new node goog_id ({new_node.goog_id})')
+
+    # Now the magic copy command:
+    existing_node.__dict__.update(new_node.__dict__)
 
     # Need to return these so they can be added to reverse dict
     return new_parent_ids
