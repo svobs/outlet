@@ -18,7 +18,7 @@ from model.node.gdrive_node import GDriveNode
 from test import op_test_base
 from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, INITIAL_LOCAL_TREE_RIGHT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
 from ui import actions
-from ui.actions import DELETE_SUBTREE, DRAG_AND_DROP_DIRECT
+from ui.actions import DELETE_SUBTREE, DRAG_AND_DROP_DIRECT, ID_RIGHT_TREE
 from ui.tree.ui_listeners import DragAndDropData
 
 gi.require_version("Gtk", "3.0")
@@ -63,6 +63,10 @@ class OpGDriveTest(OpTestBase):
 
         self.do_setup(do_before_verify_func=self._cleanup_gdrive_local_and_remote)
 
+    def tearDown(self) -> None:
+        self._cleanup_gdrive_local_and_remote()
+        super(OpGDriveTest, self).tearDown()
+
     def _cleanup_gdrive_local_and_remote(self):
         displayed_rows: List[DisplayNode] = list(self.right_con.display_store.displayed_rows.values())
         if displayed_rows:
@@ -72,23 +76,27 @@ class OpGDriveTest(OpTestBase):
             right_stats_updated = threading.Event()
 
             def on_stats_updated(sender):
-                logger.info(f'Got signal: {actions.REFRESH_SUBTREE_STATS_DONE} for "{sender}"')
+                logger.info(f'Got signal: {actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE} for "{sender}"')
                 if sender == self.right_con.tree_id:
                     right_stats_updated.set()
 
-            dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=on_stats_updated)
+            dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, receiver=on_stats_updated, sender=ID_RIGHT_TREE)
 
             for node in displayed_rows:
                 logger.warning(f'Deleting node via cacheman: {node}')
                 self.app.cache_manager.remove_gdrive_subtree(node, to_trash=False)
 
+            logger.info('Waiting for Right tree stats to be completely done...')
             if not right_stats_updated.wait(LOAD_TIMEOUT_SEC):
                 raise RuntimeError('Timed out waiting for Right stats to update!')
+
+            logger.info('Done with displayed rows cleanup')
 
         self._delete_all_files_in_gdrive_test_folder()
 
     def _delete_all_files_in_gdrive_test_folder(self):
         # delete all files which may have been uploaded to GDrive. Goes around the program cache
+        logger.info('Connecting to GDrive to find files in remote test folder')
         client = GDriveClient(self.app)
         parent_node: DisplayNode = self.app.cache_manager.get_item_for_uid(self.right_tree_root_uid, TREE_TYPE_GDRIVE)
         assert isinstance(parent_node, GDriveNode)
@@ -98,10 +106,7 @@ class OpGDriveTest(OpTestBase):
         for child in children:
             logger.warning(f'Deleting node via GDrive API: {child}')
             client.hard_delete(child.goog_id)
-
-    def tearDown(self) -> None:
-        self._cleanup_gdrive_local_and_remote()
-        super(OpGDriveTest, self).tearDown()
+        logger.info('Done with GDrive remote cleanup')
 
     # TESTS
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -189,7 +194,6 @@ class OpGDriveTest(OpTestBase):
             self.assertFalse(True, 'If we got here we failed!')
 
     def test_dd_one_dir_tree_cp(self):
-        # FIXME: we have a bug when deleting the 'Art' tree from right-click
         # FIXME: we have a bug which causes the visible rows in GDrive trees to fail to update stats and icon
         logger.info('Testing drag & drop copy of 1 dir tree local left to GDrive right')
         self.app.executor.start_op_execution_thread()

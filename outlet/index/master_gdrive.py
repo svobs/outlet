@@ -128,6 +128,7 @@ class GDriveMasterCache:
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def upsert_gdrive_node(self, node: GDriveNode):
+        logger.debug(f'Upserting node to caches: {node}')
         with self._struct_lock:
             # try to prevent cache corruption by doing some sanity checks
             if not node:
@@ -217,7 +218,8 @@ class GDriveMasterCache:
 
         with self._struct_lock:
             if not subtree_root.is_dir():
-                self.remove_gdrive_node(subtree_root, to_trash=to_trash)
+                logger.debug(f'Requested subtree is not a folder; calling remove_gdrive_node()')
+                self._remove_gdrive_node_nolock(subtree_root, to_trash=to_trash)
                 return
 
             subtree_nodes = self._my_gdrive.get_subtree_bfs(subtree_root)
@@ -231,6 +233,7 @@ class GDriveMasterCache:
             self._remove_gdrive_node_nolock(node, to_trash)
 
     def _remove_gdrive_node_nolock(self, node: DisplayNode, to_trash):
+        logger.debug(f'Removing node from caches: {node}')
         assert isinstance(node, GDriveNode), f'For node: {node}'
 
         if node.is_dir():

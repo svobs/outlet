@@ -429,7 +429,8 @@ class DisplayMutator:
             if node.is_ephemereal():
                 return
             tree_path = ds.model.get_path(tree_iter)
-            logger.warning(f'Refreshing stats for node: {node}; path={tree_path}; size={node.get_size_bytes()} etc={node.get_etc()}')    # TODO
+            if self.con.tree_id == actions.ID_RIGHT_TREE:
+                logger.warning(f'Refreshing stats for node: {node}; path={tree_path}; size={node.get_size_bytes()} etc={node.get_etc()}')    # TODO
             ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(node)
             ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = node.get_etc()
 
