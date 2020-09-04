@@ -210,13 +210,13 @@ class OpGraph:
                                        f'for "{op_type}"')
 
                 # Special check for GDrive dst nodes, since they will not have a reliable UID - must check for uniqueness using parent and name.
-                # May want to refactor this in the future... kind of a kludge
-                if op_node.is_dst() and tgt_node.get_tree_type() == TREE_TYPE_GDRIVE:
-                    assert isinstance(tgt_node, GDriveNode) and tgt_node.get_parent_uids(), f'Bad data: {tgt_node}'
-                    existing_node = self.cacheman.get_goog_node_for_name_and_parent_uid(tgt_node.name, tgt_node.get_parent_uids()[0])
-                    if existing_node and existing_node.uid != tgt_node.uid:
-                        raise RuntimeError(f'Cannot add batch (UID={batch_uid}): it is attempting to CP/MV/UP to a node (UID={tgt_node.uid}) '
-                                           f'which has a different UID than one with the same name and parent (UID={existing_node.uid})')
+                # NOTE: disabled, as this may cause unwanted errors when copying over trees where dirs in hierarchy have same names
+                # if op_node.is_dst() and tgt_node.get_tree_type() == TREE_TYPE_GDRIVE:
+                #     assert isinstance(tgt_node, GDriveNode) and tgt_node.get_parent_uids(), f'Bad data: {tgt_node}'
+                #     existing_node = self.cacheman.get_goog_node_for_name_and_parent_uid(tgt_node.name, tgt_node.get_parent_uids()[0])
+                #     if existing_node and existing_node.uid != tgt_node.uid:
+                #         raise RuntimeError(f'Cannot add batch (UID={batch_uid}): it is attempting to CP/MV/UP to a node (UID={tgt_node.uid}) '
+                #                            f'which has a different UID than one with the same name and parent (UID={existing_node.uid})')
 
             with self._struct_lock:
                 # More of Rule 2: ensure target node is not scheduled for deletion:
@@ -277,7 +277,8 @@ class OpGraph:
 
             # Sometimes the nodes are not inserted in exactly the right order. Pick up any nodes which fell through cuz their child was inserted first
             last_parent_op = self._get_lowest_priority_op_node(parent_uid)
-            if last_parent_op:
+            if last_parent_op and last_parent_op.is_remove_type():
+                logger.debug(f'Found potentially unlinked child: {last_parent_op}; linking as parent to node being inserted ({node_to_insert})')
                 last_parent_op.link_parent(node_to_insert)
 
             # First, see if we can find child nodes of the target node (which in our rules would be the parents of the RM op):
@@ -491,6 +492,9 @@ class OpGraph:
             if src_op_node.op.action_uid != op.action_uid:
                 raise RuntimeError(f'Completed op (UID {op.action_uid}) does not match first node popped from src queue '
                                    f'(UID {src_op_node.op.action_uid})')
+            if not src_node_list:
+                # Remove queue if it is empty:
+                self._node_q_dict.pop(op.src_node.uid, None)
 
             # I-2. Remove src node from op graph
 
@@ -523,10 +527,14 @@ class OpGraph:
                 dst_node_list: Deque[OpGraphNode] = self._node_q_dict.get(op.dst_node.uid)
                 if not dst_node_list:
                     raise RuntimeError(f'Dst node for completed op not found in master dict (dst node UID {op.dst_node.uid}')
+
                 dst_op_node = dst_node_list.popleft()
                 if dst_op_node.op.action_uid != op.action_uid:
                     raise RuntimeError(f'Completed op (UID {op.action_uid}) does not match first node popped from dst queue '
                                        f'(UID {dst_op_node.op.action_uid})')
+                if not dst_node_list:
+                    # Remove queue if it is empty:
+                    self._node_q_dict.pop(op.dst_node.uid, None)
 
                 # II-2. Remove dst node from op graph
 

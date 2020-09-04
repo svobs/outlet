@@ -251,6 +251,7 @@ class GDriveWholeTree:
         return path.startswith(subtree_root_path)
 
     def get_parent_for_node(self, node: GDriveNode, required_subtree_path: str = None) -> Optional[GDriveNode]:
+        assert isinstance(node, GDriveNode)
         parent_uids = node.get_parent_uids()
         if parent_uids:
             resolved_parents = []

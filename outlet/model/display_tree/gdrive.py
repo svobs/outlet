@@ -4,10 +4,10 @@ from typing import Deque, List, Optional
 
 from pydispatch import dispatcher
 
+from constants import TREE_TYPE_GDRIVE
 from ui import actions
 from util import file_util, format
 from index.two_level_dict import Md5BeforeUidDict
-from model.node.display_node import DisplayNode
 from model.gdrive_whole_tree import GDriveItemNotFoundError, GDriveWholeTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.display_tree.display_tree import DisplayTree
@@ -85,7 +85,10 @@ class GDriveDisplayTree(DisplayTree):
         return list(map(lambda x: self._whole_tree.get_node_for_uid(x.uid), identifiers))
 
     def get_parent_for_node(self, node: GDriveNode) -> Optional[GDriveNode]:
-        return self._whole_tree.get_parent_for_node(node, self.root_path)
+        if node.get_tree_type() != TREE_TYPE_GDRIVE:
+            return None
+
+        return self.cache_manager.get_parent_for_node(node, self.root_path)
 
     def get_relative_path_for_node(self, goog_node: GDriveNode):
         """Get the path for the given ID, relative to the root of this subtree"""

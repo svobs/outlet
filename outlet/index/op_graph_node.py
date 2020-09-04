@@ -176,7 +176,8 @@ class HasSingleParent(ABC):
     def link_parent(self, parent: OpGraphNode):
         if self._parent:
             if self._parent.node_uid != parent.node_uid:
-                raise RuntimeError('Cannot link parent: HasSingleParent already has a different parent linked!')
+                raise RuntimeError(f'Cannot link parent (to UID {parent.node_uid}): HasSingleParent already has a different parent linked '
+                                   f'(to UID {self._parent.node_uid})!')
         else:
             self._parent = parent
             parent.link_child(self)
@@ -187,7 +188,7 @@ class HasSingleParent(ABC):
                 self._parent = None
                 parent.unlink_child(self)
             else:
-                raise RuntimeError(f'unlink_parent(): given parent ({parent}) does not match actual parent ({self._parent})')
+                raise RuntimeError(f'Cannot unlink parent: given parent ({parent}) does not match actual parent ({self._parent})')
 
     def clear_relationships(self):
         self._parent = None

@@ -557,11 +557,11 @@ class CacheManager:
             parent_path = str(pathlib.Path(node.full_path).parent)
             return self.get_uid_for_path(parent_path)
 
-    def get_parent_for_node(self, node: DisplayNode):
+    def get_parent_for_node(self, node: DisplayNode, required_subtree_path: str = None):
         if node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
-            return self._gdrive_cache.get_parent_for_node(node)
+            return self._gdrive_cache.get_parent_for_node(node, required_subtree_path)
         elif node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-            return self._local_disk_cache.get_parent_for_node(node)
+            return self._local_disk_cache.get_parent_for_node(node, required_subtree_path)
         else:
             raise RuntimeError(f'Unknown tree type: {node.node_identifier.tree_type} for {node}')
 
