@@ -16,24 +16,24 @@ GDRIVE_ICON_PATH = get_resource_path("resources/google-drive-logo-48px-scaled.pn
 LOCAL_DISK_PATH = get_resource_path("resources/Filesystems-hd-linux-icon-48px.png")
 CHOOSE_ROOT_ICON_PATH = LOCAL_DISK_PATH  # get_resource_path("resources/Folder-tree-flat-40px.png")
 WINDOW_ICON_PATH = get_resource_path("resources/app_icon.png")
-REFRESH_ICON_PATH = get_resource_path('resources/Refresh-icon-48px.png')
+REFRESH_ICON_PATH = get_resource_path('resources/Badge/Refresh-icon-48px.png')
 
 
 def _build_icons(icon_size):
     icons = dict()
     icons[ICON_GDRIVE] = GdkPixbuf.Pixbuf.new_from_file(GDRIVE_ICON_PATH)
     icons[ICON_LOCAL_DISK] = GdkPixbuf.Pixbuf.new_from_file(CHOOSE_ROOT_ICON_PATH)
-    icons[ICON_GENERIC_FILE] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
-    icons[ICON_GENERIC_DIR] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Folder-icon-{icon_size}px.png'))
+    icons[ICON_GENERIC_FILE] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Node/Document-icon-{icon_size}px.png'))
+    icons[ICON_GENERIC_DIR] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Node/Folder-icon-{icon_size}px.png'))
     icons[ICON_ADD_DIR] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Folder_add_{icon_size}px.png'))
     icons[ICON_TRASHED_DIR] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/recycle-bag-{icon_size}px.png'))
     icons[ICON_TRASHED_FILE] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/icons8-paper-waste-{icon_size}px.png'))
     icons[OpType.CP.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-Add-icon-{icon_size}px.png'))
     icons[ICON_ADD_FILE] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-Add-icon-{icon_size}px.png'))
     icons[OpType.RM.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-Delete-icon-{icon_size}px.png'))
-    icons[ICON_MODIFY_FILE] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
-    icons[OpType.MV.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
-    icons[OpType.UP.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Document-icon-{icon_size}px.png'))
+    icons[ICON_MODIFY_FILE] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Node/Document-icon-{icon_size}px.png'))
+    icons[OpType.MV.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Node/Document-icon-{icon_size}px.png'))
+    icons[OpType.UP.name] = GdkPixbuf.Pixbuf.new_from_file(get_resource_path(f'resources/Node/Document-icon-{icon_size}px.png'))
     return icons
 
 

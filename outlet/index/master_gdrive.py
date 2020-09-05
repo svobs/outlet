@@ -1,7 +1,6 @@
 import logging
 import threading
-from collections import deque
-from typing import Deque, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from pydispatch import dispatcher
 

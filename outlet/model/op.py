@@ -63,12 +63,12 @@ class Op(Node):
                           OpType.UP: ICON_MODIFY_FILE,
                           OpType.CP: ICON_ADD_FILE}
     icon_src_dir_dict = {OpType.MKDIR: ICON_ADD_DIR,
-                         OpType.RM: ICON_GENERIC_DIR,
+                         OpType.RM: ICON_GENERIC_DIR,  # TODO
                          OpType.MV: ICON_GENERIC_DIR,
                          OpType.UP: ICON_GENERIC_DIR,
                          OpType.CP: ICON_GENERIC_DIR}
     icon_dst_dir_dict = {OpType.MV: ICON_ADD_DIR,
-                         OpType.UP: ICON_GENERIC_DIR,
+                         OpType.UP: ICON_GENERIC_DIR,  # TODO
                          OpType.CP: ICON_ADD_DIR}
 
     def __init__(self, op_uid: UID, batch_uid: UID, op_type: OpType, src_node: DisplayNode,
@@ -114,7 +114,7 @@ class Op(Node):
             return Op.icon_src_file_dict[self.op_type]
 
     def get_planning_node(self) -> Optional[DisplayNode]:
-        """Returns the "planning node" (i.e., the node to be created by this transcation), if any"""
+        """Returns the "planning node" (i.e., the node to be mutated by this transcation), if any"""
         if self.op_type == OpType.MKDIR:
             assert not self.src_node.exists(), f'Expected to not exist: {self.src_node}'
             return self.src_node
@@ -124,10 +124,12 @@ class Op(Node):
         elif self.op_type == OpType.MV:
             assert not self.dst_node.exists(), f'Expected to not exist: {self.dst_node}'
             return self.dst_node
+        elif self.op_type == OpType.UP:
+            assert self.dst_node.exists(), f'Expected to exist: {self.dst_node}'
+            return self.dst_node
         elif self.op_type == OpType.RM:
             assert self.src_node.exists(), f'Expected to exist: {self.src_node}'
             return self.src_node
-        # Note: no updates included for "UP" type
         return None
 
     def __repr__(self):
