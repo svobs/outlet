@@ -2,7 +2,6 @@ import collections
 import logging
 import os
 import threading
-import time
 import unittest
 from functools import partial
 from typing import Callable, Deque, Iterable, List, Optional, Tuple
@@ -24,7 +23,7 @@ from ui.tree import root_path_config
 from ui.tree.controller import TreePanelController
 from util import file_util
 
-LOAD_TIMEOUT_SEC = 100000000
+LOAD_TIMEOUT_SEC = 60
 ENABLE_CHANGE_EXECUTION_THREAD = True
 
 TEST_BASE_DIR = file_util.get_resource_path('test')
@@ -392,11 +391,12 @@ class OpTestBase(unittest.TestCase):
         logger.info('Done!')
 
     def expand_visible_node(self, tree_con, node_name: str):
-        # Need to first expand tree in order to find child nodes
+        # Need to first expand tree in order to find child nodes. This func does nothing if the row is already expanded
         tree_iter = self.find_iter_by_name(tree_con, node_name)
         tree_path = tree_con.display_store.model.get_path(tree_iter)
 
-        def action_func():
-            tree_con.tree_view.expand_row(path=tree_path, open_all=True)
+        if not tree_con.tree_view.row_expanded(tree_path):
+            def action_func():
+                tree_con.tree_view.expand_row(path=tree_path, open_all=True)
 
-        do_and_wait_for_signal(action_func, actions.NODE_EXPANSION_DONE, tree_con.tree_id)
+            do_and_wait_for_signal(action_func, actions.NODE_EXPANSION_DONE, tree_con.tree_id)

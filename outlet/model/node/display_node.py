@@ -78,7 +78,6 @@ class DisplayNode(Node, ABC):
     def trashed(self):
         return NOT_TRASHED
 
-    @abstractmethod
     def get_etc(self):
         return None
 
@@ -90,9 +89,11 @@ class DisplayNode(Node, ABC):
     def sha256(self):
         return None
 
-    @abstractmethod
     def get_size_bytes(self):
         return None
+
+    def set_size_bytes(self, size_bytes: int):
+        pass
 
     @property
     @abstractmethod
@@ -254,4 +255,7 @@ class HasChildList(ABC):
 
     def get_size_bytes(self):
         return self._size_bytes
+
+    def set_size_bytes(self, size_bytes: int):
+        self._size_bytes = size_bytes
 

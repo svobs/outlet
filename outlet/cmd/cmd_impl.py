@@ -22,8 +22,8 @@ class CopyFileLocallyCommand(CopyNodeCommand):
 
     def __init__(self, uid: UID, op: Op, overwrite: bool = False):
         super().__init__(uid, op, overwrite)
-        self.tag = f'{__class__.__name__}(uid={self.identifier}, ow={self.overwrite} src="{self.op.src_node.full_path}", ' \
-                   f'dst="{self.op.dst_node.full_path}")'
+        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, ow={self.overwrite} ' \
+                   f'src="{self.op.src_node.full_path}", dst="{self.op.dst_node.full_path}")'
         assert op.op_type == OpType.CP
 
     def get_total_work(self) -> int:
@@ -68,8 +68,8 @@ class DeleteLocalFileCommand(DeleteNodeCommand):
 
     def __init__(self, uid: UID, op: Op, to_trash=True, delete_empty_parent=False):
         super().__init__(uid, op, to_trash, delete_empty_parent)
-        self.tag = f'{__class__.__name__}(uid={self.identifier}, tgt_uid={self.op.src_node.uid} to_trash={self.to_trash}, ' \
-                   f'delete_empty_parent={self.delete_empty_parent})'
+        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, tgt_uid={self.op.src_node.uid} ' \
+                   f'to_trash={self.to_trash}, delete_empty_parent={self.delete_empty_parent})'
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -118,7 +118,7 @@ class MoveFileLocallyCommand(TwoNodeCommand):
 
     def __init__(self, uid: UID, op: Op):
         super().__init__(uid, op)
-        self.tag = f'{__class__.__name__}(uid={self.identifier}, act={op.op_type} tgt_uid={self.op.dst_node.uid}, ' \
+        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, op={op.op_type.name} tgt_uid={self.op.dst_node.uid}, ' \
                    f'src_uid={self.op.src_node.uid}'
 
     def get_total_work(self) -> int:
@@ -154,7 +154,8 @@ class CreatLocalDirCommand(Command):
 
     def __init__(self, uid: UID, op: Op):
         super().__init__(uid, op)
-        self.tag = f'{__class__.__name__}(uid={self.identifier}, act={op.op_type}'
+        assert op.op_type == OpType.MKDIR
+        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}'
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -187,7 +188,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
     def __init__(self, uid: UID, op: Op, overwrite: bool):
         super().__init__(uid, op, overwrite)
         assert isinstance(self.op.dst_node, GDriveNode)
-        self.tag = f'{__class__.__name__}(uid={self.identifier}, op={op.op_type.name} src_uid={self.op.src_node.uid} ' \
+        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, op={op.op_type.name} src_uid={self.op.src_node.uid} ' \
                    f'dst_uid={self.op.dst_node.uid} dst_parent_ids="{self.op.dst_node.get_parent_uids()} overwrite={overwrite}'
 
     def get_total_work(self) -> int:
@@ -241,7 +242,7 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
         super().__init__(uid, op, overwrite)
         assert isinstance(self.op.src_node, GDriveNode), f'For {self.op.src_node}'
         assert isinstance(self.op.dst_node, LocalFileNode), f'For {self.op.dst_node}'
-        self.tag = f'{__class__.__name__}(uid={self.identifier}, act={op.op_type} tgt_uid={self.op.dst_node.uid} ' \
+        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, op={op.op_type.name} tgt_uid={self.op.dst_node.uid} ' \
                    f'src_uid={self.op.src_node.uid} overwrite={overwrite}'
 
     def get_total_work(self) -> int:
@@ -307,7 +308,7 @@ class CreateGDriveFolderCommand(Command):
     def __init__(self, uid: UID, op: Op):
         super().__init__(uid, op)
         assert op.op_type == OpType.MKDIR
-        self.tag = f'{__class__.__name__}(uid={self.identifier}, act={op.op_type}'
+        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, src_node_uid={self.op.src_node.uid}'
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -347,7 +348,7 @@ class MoveFileGDriveCommand(TwoNodeCommand):
     def __init__(self, uid: UID, op: Op):
         super().__init__(uid, op)
         assert op.op_type == OpType.MV
-        self.tag = f'{__class__.__name__}(uid={self.identifier}, act={op.op_type} dst_uid={self.op.dst_node.uid}, ' \
+        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, dst_uid={self.op.dst_node.uid}, ' \
                    f'src_uid={self.op.src_node.uid}'
 
     def get_total_work(self) -> int:
@@ -402,7 +403,8 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
 
     def __init__(self, uid: UID, op: Op, to_trash=True, delete_empty_parent=False):
         super().__init__(uid, op, to_trash, delete_empty_parent)
-        self.tag = f'{__class__.__name__}(uid={self.identifier}, to_trash={self.to_trash}, delete_empty_parent={self.delete_empty_parent})'
+        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, to_trash={self.to_trash}, ' \
+                   f'delete_empty_parent={self.delete_empty_parent})'
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT

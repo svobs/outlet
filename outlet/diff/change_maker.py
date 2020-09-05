@@ -72,7 +72,7 @@ class OneSide:
 
     def _create_op(self, op_type: OpType, src_node: DisplayNode, dst_node: DisplayNode = None):
         assert src_node, f'No src node!'
-        return Op(action_uid=self.uid_generator.next_uid(), batch_uid=self.batch_uid, op_type=op_type,
+        return Op(op_uid=self.uid_generator.next_uid(), batch_uid=self.batch_uid, op_type=op_type,
                   src_node=src_node, dst_node=dst_node)
 
     def add_op(self, op_type: OpType, src_node: DisplayNode, dst_node: DisplayNode = None):

@@ -36,8 +36,8 @@ class OpType(IntEnum):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class OpRef:
-    def __init__(self, action_uid: UID, batch_uid: UID, op_type: OpType, src_uid: UID, dst_uid: UID = None, create_ts: int = None):
-        self.action_uid: UID = action_uid
+    def __init__(self, op_uid: UID, batch_uid: UID, op_type: OpType, src_uid: UID, dst_uid: UID = None, create_ts: int = None):
+        self.op_uid: UID = op_uid
         self.batch_uid: UID = batch_uid
         self.op_type: OpType = op_type
         self.src_uid: UID = src_uid
@@ -47,7 +47,7 @@ class OpRef:
             self.create_ts = int(time.time())
 
     def __repr__(self):
-        return f'OpRef(uid={self.action_uid} type={self.op_type.name} src={self.src_uid} dst={self.dst_uid}'
+        return f'OpRef(uid={self.op_uid} type={self.op_type.name} src={self.src_uid} dst={self.dst_uid}'
 
 
 # Class Op
@@ -71,11 +71,11 @@ class Op(Node):
                          OpType.UP: ICON_GENERIC_DIR,
                          OpType.CP: ICON_ADD_DIR}
 
-    def __init__(self, action_uid: UID, batch_uid: UID, op_type: OpType, src_node: DisplayNode,
+    def __init__(self, op_uid: UID, batch_uid: UID, op_type: OpType, src_node: DisplayNode,
                  dst_node: DisplayNode = None, create_ts: int = None):
         assert src_node, 'No src node!'
-        Node.__init__(self, identifier=action_uid)
-        self.action_uid: UID = action_uid
+        Node.__init__(self, identifier=op_uid)
+        self.op_uid: UID = op_uid
         self.batch_uid: UID = batch_uid
         self.op_type: OpType = op_type
         self.src_node: DisplayNode = src_node
@@ -131,5 +131,5 @@ class Op(Node):
             dst = self.dst_node.node_identifier
         else:
             dst = 'None'
-        return f'Op(uid={self.action_uid} batch={self.batch_uid} type={self.op_type.name} src={self.src_node.node_identifier} ' \
+        return f'Op(uid={self.op_uid} batch={self.batch_uid} type={self.op_type.name} src={self.src_node.node_identifier} ' \
                f'dst={dst}'

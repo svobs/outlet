@@ -24,7 +24,7 @@ ARCHIVE = 'archive'
 SRC = 'src'
 DST = 'dst'
 
-ACTION_UID_COL_NAME = 'action_uid'
+ACTION_UID_COL_NAME = 'op_uid'
 
 
 def _pending_op_to_tuple(e: Op):
@@ -37,7 +37,7 @@ def _pending_op_to_tuple(e: Op):
     if e.dst_node:
         dst_uid = e.dst_node.uid
 
-    return e.action_uid, e.batch_uid, e.op_type, src_uid, dst_uid, e.create_ts
+    return e.op_uid, e.batch_uid, e.op_type, src_uid, dst_uid, e.create_ts
 
 
 def _completed_op_to_tuple(e: Op, current_time):
@@ -50,7 +50,7 @@ def _completed_op_to_tuple(e: Op, current_time):
     if e.dst_node:
         dst_uid = e.dst_node.uid
 
-    return e.action_uid, e.batch_uid, e.op_type, src_uid, dst_uid, e.create_ts, current_time
+    return e.op_uid, e.batch_uid, e.op_type, src_uid, dst_uid, e.create_ts, current_time
 
 
 def _failed_op_to_tuple(e: Op, current_time, error_msg):
@@ -254,10 +254,10 @@ class OpDatabase(MetaDatabase):
         if not parent_uid_int:
             raise RuntimeError(f'Cannot store GDrive object: it has no parent! Object: {obj}')
         obj.set_parent_uids(UID(parent_uid_int))
-        action_uid = UID(action_uid_int)
-        if nodes_by_action_uid.get(action_uid, None):
-            raise RuntimeError(f'Duplicate node for action_uid: {action_uid}')
-        nodes_by_action_uid[action_uid] = obj
+        op_uid = UID(action_uid_int)
+        if nodes_by_action_uid.get(op_uid, None):
+            raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')
+        nodes_by_action_uid[op_uid] = obj
 
     def _tuple_to_gdrive_folder(self, nodes_by_action_uid: Dict[UID, DisplayNode], row: Tuple) -> GDriveFolder:
         action_uid_int, uid_int, goog_id, node_name, item_trashed, drive_id, my_share, sync_ts, all_children_fetched, parent_uid_int, \
@@ -288,10 +288,10 @@ class OpDatabase(MetaDatabase):
         uid = self.cache_manager.get_uid_for_path(full_path, uid_int)
         assert uid == uid_int, f'UID conflict! Got {uid} but read {row}'
         obj = LocalDirNode(LocalFsIdentifier(uid=uid, full_path=full_path), bool(exists))
-        action_uid = UID(action_uid_int)
-        if nodes_by_action_uid.get(action_uid, None):
-            raise RuntimeError(f'Duplicate node for action_uid: {action_uid}')
-        nodes_by_action_uid[action_uid] = obj
+        op_uid = UID(action_uid_int)
+        if nodes_by_action_uid.get(op_uid, None):
+            raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')
+        nodes_by_action_uid[op_uid] = obj
         return obj
 
     def _tuple_to_local_file(self, nodes_by_action_uid: Dict[UID, DisplayNode], row: Tuple) -> LocalFileNode:
@@ -302,13 +302,13 @@ class OpDatabase(MetaDatabase):
             raise RuntimeError(f'UID conflict! Cache man returned {uid} but op cache returned {uid_int} (from row: {row})')
         node_identifier = LocalFsIdentifier(uid=uid, full_path=full_path)
         obj = LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, exists)
-        action_uid = UID(action_uid_int)
-        if nodes_by_action_uid.get(action_uid, None):
-            raise RuntimeError(f'Duplicate node for action_uid: {action_uid}')
-        nodes_by_action_uid[action_uid] = obj
+        op_uid = UID(action_uid_int)
+        if nodes_by_action_uid.get(op_uid, None):
+            raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')
+        nodes_by_action_uid[op_uid] = obj
         return obj
 
-    def _action_node_to_tuple(self, obj: DisplayNode, action_uid: UID) -> Tuple:
+    def _action_node_to_tuple(self, obj: DisplayNode, op_uid: UID) -> Tuple:
         if not obj.has_tuple():
             raise RuntimeError(f'Node cannot be converted to tuple: {obj}')
         if obj.get_tree_type() == TREE_TYPE_GDRIVE:
@@ -323,9 +323,9 @@ class OpDatabase(MetaDatabase):
                         parent_goog_id = parent_goog_id_list[0]
                 except RuntimeError:
                     logger.debug(f'Could not resolve parent_uid to goog_id: {parent_uid}')
-            return action_uid, *obj.to_tuple(), parent_uid, parent_goog_id
+            return op_uid, *obj.to_tuple(), parent_uid, parent_goog_id
 
-        return action_uid, *obj.to_tuple()
+        return op_uid, *obj.to_tuple()
 
     def _copy_and_augment_table(self, src_table: Table, prefix: str, suffix: str) -> LiveTable:
         table: Table = copy.deepcopy(src_table)
@@ -404,8 +404,8 @@ class OpDatabase(MetaDatabase):
         logger.debug(f'Found {len(rows)} pending ops in table {self.table_pending_op.name}')
         for row in rows:
             ref = OpRef(UID(row[0]), UID(row[1]), OpType(row[2]), UID(row[3]), _ensure_uid(row[4]), int(row[5]))
-            src_node = src_node_by_action_uid.get(ref.action_uid, None)
-            dst_node = dst_node_by_action_uid.get(ref.action_uid, None)
+            src_node = src_node_by_action_uid.get(ref.op_uid, None)
+            dst_node = dst_node_by_action_uid.get(ref.op_uid, None)
 
             if not src_node:
                 raise RuntimeError(f'No src node found for: {ref}')
@@ -418,7 +418,7 @@ class OpDatabase(MetaDatabase):
                 if dst_node.uid != ref.dst_uid:
                     raise RuntimeError(f'Dst node UID ({dst_node.uid}) does not match ref in: {ref}')
 
-            entries.append(Op(ref.action_uid, ref.batch_uid, ref.op_type, src_node, dst_node))
+            entries.append(Op(ref.op_uid, ref.batch_uid, ref.op_type, src_node, dst_node))
         return entries
 
     def _make_tuple_list(self, entries: Iterable[Op], lifecycle_state: str) -> TableMultiMap:
@@ -428,12 +428,12 @@ class OpDatabase(MetaDatabase):
             assert isinstance(e, Op), f'Expected Op; got instead: {e}'
 
             node = e.src_node
-            node_tuple = self._action_node_to_tuple(node, e.action_uid)
+            node_tuple = self._action_node_to_tuple(node, e.op_uid)
             tuple_list_multimap.append(lifecycle_state, SRC, node.node_identifier.tree_type, node.get_obj_type(), node_tuple)
 
             if e.dst_node:
                 node = e.dst_node
-                node_tuple = self._action_node_to_tuple(node, e.action_uid)
+                node_tuple = self._action_node_to_tuple(node, e.op_uid)
                 tuple_list_multimap.append(lifecycle_state, DST, node.node_identifier.tree_type, node.get_obj_type(), node_tuple)
 
         return tuple_list_multimap
@@ -469,7 +469,7 @@ class OpDatabase(MetaDatabase):
         self.table_pending_op.upsert_many(change_tuple_list, commit)
 
     def delete_pending_ops(self, changes: Iterable[Op], commit=True):
-        uid_tuple_list = list(map(lambda x: (x.action_uid,), changes))
+        uid_tuple_list = list(map(lambda x: (x.op_uid,), changes))
 
         # Delete for all child tables (src and dst nodes):
         for table in itertools.chain(self.table_lists.src_pending, self.table_lists.dst_pending):

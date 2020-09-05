@@ -197,9 +197,6 @@ class GDriveFile(GDriveNode):
         # A file can never be the parent of anything
         return False
 
-    def get_etc(self):
-        return None
-
     @property
     def md5(self):
         return self._md5

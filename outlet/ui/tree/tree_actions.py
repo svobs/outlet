@@ -166,10 +166,10 @@ class TreeActions:
                 for node in expanded_node_list:
                     # somewhere in this returned list is the subtree root. Need to check so we don't include a duplicate:
                     if node.uid != node_to_delete.uid:
-                        op_list.append(Op(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
+                        op_list.append(Op(op_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
                                           op_type=OpType.RM, src_node=node))
 
-            op_list.append(Op(action_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
+            op_list.append(Op(op_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
                               op_type=OpType.RM, src_node=node_to_delete))
 
         self.con.parent_win.application.cache_manager.enqueue_op_list(op_list)
@@ -183,4 +183,5 @@ class TreeActions:
             self.con.display_store.set_row_checked(tree_path, False)
 
     def _refresh_subtree_stats(self, sender):
+        logger.info(f'[{self.con.tree_id}] Enqueuing task to refresh stats')
         self.con.parent_win.application.executor.submit_async_task(self.con.get_tree().refresh_stats, self.con.tree_id)

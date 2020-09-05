@@ -54,12 +54,6 @@ class EphemeralNode(DisplayNode, ABC):
     def get_obj_type(cls):
         raise RuntimeError('Invalid operation for EphemeralNode!')
 
-    def get_etc(self):
-        return None
-
-    def get_size_bytes(self):
-        return None
-
     @property
     def sync_ts(self):
         return None

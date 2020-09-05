@@ -57,8 +57,8 @@ class LocalFileNode(DisplayNode):
     def get_size_bytes(self):
         return self._size_bytes
 
-    def get_etc(self):
-        return None
+    def set_size_bytes(self, size_bytes: int):
+        self._size_bytes = size_bytes
 
     @property
     def md5(self):

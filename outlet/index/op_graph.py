@@ -89,9 +89,9 @@ class OpGraph:
         last_uid = 0
         for op in op_batch:
             # Changes MUST be sorted in ascending time of creation!
-            if op.action_uid < last_uid:
-                raise RuntimeError(f'Batch items are not in order! ({op.action_uid} < {last_uid}')
-            last_uid = op.action_uid
+            if op.op_uid < last_uid:
+                raise RuntimeError(f'Batch items are not in order! ({op.op_uid} < {last_uid}')
+            last_uid = op.op_uid
 
         # Put all in dict as wrapped OpGraphNodes
         non_mutex_node_q_dict: DefaultDict[UID, List[OpGraphNode]] = collections.defaultdict(lambda: list())
@@ -379,7 +379,7 @@ class OpGraph:
             with self._struct_lock:
                 succeeded = self._nq_single_node(node_to_nq)
                 if not succeeded:
-                    discarded_op_dict[node_to_nq.op.action_uid] = node_to_nq.op
+                    discarded_op_dict[node_to_nq.op.op_uid] = node_to_nq.op
 
         logger.debug(f'Done adding batch {batch_uid}')
         self._print_current_state()
@@ -406,14 +406,14 @@ class OpGraph:
                         logger.error(f'Could not find entry for op src (op={op_node.op}); raising error')
                         raise RuntimeError(f'Serious error: master dict has no entries for op src ({op_node.op.src_node.uid})!')
                     src_op_node = pending_ops_for_src_node[0]
-                    if src_op_node.op.action_uid != op_node.op.action_uid:
+                    if src_op_node.op.op_uid != op_node.op.op_uid:
                         if SUPER_DEBUG:
-                            logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): it is not next in src node queue')
+                            logger.debug(f'Skipping Op (UID {op_node.op.op_uid}): it is not next in src node queue')
                         continue
 
                     if not src_op_node.is_child_of_root():
                         if SUPER_DEBUG:
-                            logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): src node is not child of root')
+                            logger.debug(f'Skipping Op (UID {op_node.op.op_uid}): src node is not child of root')
                         continue
 
                 else:
@@ -424,19 +424,19 @@ class OpGraph:
                         raise RuntimeError(f'Serious error: master dict has no entries for op dst ({op_node.op.dst_node.uid})!')
 
                     dst_op_node = pending_ops_for_node[0]
-                    if dst_op_node.op.action_uid != op_node.op.action_uid:
+                    if dst_op_node.op.op_uid != op_node.op.op_uid:
                         if SUPER_DEBUG:
-                            logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): it is not next in dst node queue')
+                            logger.debug(f'Skipping Op (UID {op_node.op.op_uid}): it is not next in dst node queue')
                         continue
 
                     if not dst_op_node.is_child_of_root():
                         if SUPER_DEBUG:
-                            logger.debug(f'Skipping Op (UID {op_node.op.action_uid}): dst node is not child of root')
+                            logger.debug(f'Skipping Op (UID {op_node.op.op_uid}): dst node is not child of root')
                         continue
 
             # Make sure the node has not already been checked out:
-            if not self._outstanding_actions.get(op_node.op.action_uid, None):
-                self._outstanding_actions[op_node.op.action_uid] = op_node.op
+            if not self._outstanding_actions.get(op_node.op.op_uid, None):
+                self._outstanding_actions[op_node.op.op_uid] = op_node.op
                 return op_node.op
             else:
                 if SUPER_DEBUG:
@@ -475,10 +475,10 @@ class OpGraph:
         logger.debug(f'Entered pop_op() for op {op}')
 
         with self._struct_lock:
-            if self._outstanding_actions.get(op.action_uid, None):
-                self._outstanding_actions.pop(op.action_uid)
+            if self._outstanding_actions.get(op.op_uid, None):
+                self._outstanding_actions.pop(op.op_uid)
             else:
-                raise RuntimeError(f'Complated op not found in outstanding op list (action UID {op.action_uid}')
+                raise RuntimeError(f'Complated op not found in outstanding op list (action UID {op.op_uid}')
 
             # I. SRC Node
 
@@ -489,9 +489,9 @@ class OpGraph:
                 raise RuntimeError(f'Src node for completed op not found in master dict (src node UID {op.src_node.uid}')
 
             src_op_node: OpGraphNode = src_node_list.popleft()
-            if src_op_node.op.action_uid != op.action_uid:
-                raise RuntimeError(f'Completed op (UID {op.action_uid}) does not match first node popped from src queue '
-                                   f'(UID {src_op_node.op.action_uid})')
+            if src_op_node.op.op_uid != op.op_uid:
+                raise RuntimeError(f'Completed op (UID {op.op_uid}) does not match first node popped from src queue '
+                                   f'(UID {src_op_node.op.op_uid})')
             if not src_node_list:
                 # Remove queue if it is empty:
                 self._node_q_dict.pop(op.src_node.uid, None)
@@ -529,9 +529,9 @@ class OpGraph:
                     raise RuntimeError(f'Dst node for completed op not found in master dict (dst node UID {op.dst_node.uid}')
 
                 dst_op_node = dst_node_list.popleft()
-                if dst_op_node.op.action_uid != op.action_uid:
-                    raise RuntimeError(f'Completed op (UID {op.action_uid}) does not match first node popped from dst queue '
-                                       f'(UID {dst_op_node.op.action_uid})')
+                if dst_op_node.op.op_uid != op.op_uid:
+                    raise RuntimeError(f'Completed op (UID {op.op_uid}) does not match first node popped from dst queue '
+                                       f'(UID {dst_op_node.op.op_uid})')
                 if not dst_node_list:
                     # Remove queue if it is empty:
                     self._node_q_dict.pop(op.dst_node.uid, None)

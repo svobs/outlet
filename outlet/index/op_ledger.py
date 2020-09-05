@@ -199,7 +199,7 @@ class OpLedger:
         logger.debug(f'Evaluating ancestors for op: {op}')
         while src_ancestor:
             if SUPER_DEBUG:
-                logger.debug(f'Evaluating src ancestor (op={op.action_uid}): {src_ancestor}')
+                logger.debug(f'Evaluating src ancestor (op={op.op_uid}): {src_ancestor}')
             if mkdir_dict.get(src_ancestor.uid, None):
                 raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being created!')
             if rm_dict.get(src_ancestor.uid, None):
@@ -211,7 +211,7 @@ class OpLedger:
 
         while dst_ancestor:
             if SUPER_DEBUG:
-                logger.debug(f'Evaluating dst ancestor (op={op.action_uid}): {dst_ancestor}')
+                logger.debug(f'Evaluating dst ancestor (op={op.op_uid}): {dst_ancestor}')
             if rm_dict.get(dst_ancestor.uid, None):
                 raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being deleted!')
             if cp_src_dict.get(dst_ancestor.uid, None):
