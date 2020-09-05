@@ -333,6 +333,8 @@ class LocalDiskMasterCache:
             update_to.set_exists(True)
 
     def upsert_local_node(self, node: DisplayNode, fire_listeners=True):
+        logger.debug(f'Upserting node to caches: {node}')
+
         # 1. Validate UID:
         if not node.uid:
             raise RuntimeError(f'Cannot upsert node to cache because it has no UID: {node}')
@@ -348,8 +350,10 @@ class LocalDiskMasterCache:
             if existing:
                 if existing.exists() and not node.exists():
                     # In the future, let's close this hole with more elegant logic
-                    logger.warning(f'Cannot replace a node which exists with one which does not exist; ignoring: {node}')
-                    return
+                    logger.warning(f'Cannot replace a node which exists with one which does not exist; skipping cache update')
+                    if fire_listeners:
+                        dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
+                        return
 
                 if existing.is_dir():
                     if not node.is_dir():

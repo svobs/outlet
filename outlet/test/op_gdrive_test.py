@@ -423,8 +423,8 @@ class OpGDriveTest(OpTestBase):
         self.do_and_verify(drop_both_sides, count_expected_cmds=12, wait_for_left=True, wait_for_right=True,
                            expected_left=final_tree_left, expected_right=final_tree_right)
 
-    def test_dd_then_rm(self):
-        logger.info('Testing CP tree to right followed by RM of copied nodes')
+    def test_dd_then_rm_subtree(self):
+        logger.info('Testing CP subtree to right followed by RM of copied nodes')
 
         self.expand_visible_node(self.left_con, 'Art')
 
@@ -433,7 +433,7 @@ class OpGDriveTest(OpTestBase):
         ]
 
         def drop_both_sides():
-            logger.info('Submitting first drag & drop signal')
+            logger.info('Submitting first drag & drop signal of "Modern" dir')
             dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes_batch_1)
             dst_tree_path = None
 
@@ -476,7 +476,7 @@ class OpGDriveTest(OpTestBase):
             ]
 
             # Now delete the nodes which were just dropped
-            logger.info('Submitting delete signal')
+            logger.info('Submitting delete signal of "Modern" dir')
             dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_RIGHT_TREE, node_list=nodes_batch_2)
 
         # The end result should be that nothing has changed
@@ -495,7 +495,7 @@ class OpGDriveTest(OpTestBase):
         ]
 
         def delete():
-            logger.info('Submitting delete signal')
+            logger.info('Submitting delete signal for "Modern" dir')
             dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_RIGHT_TREE, node_list=nodes)
 
         final_tree_right = [
@@ -515,7 +515,7 @@ class OpGDriveTest(OpTestBase):
     def test_delete_superset(self):
         logger.info('Testing delete tree followed by superset of tree (on right)')
 
-        # Setup: cp 'Art' tree to right:
+        # Setup: cp 'Art' tree to right and expand node:
         self._cp_single_tree_into_right()
         self.expand_visible_node(self.right_con, 'Art')
 
@@ -537,31 +537,24 @@ class OpGDriveTest(OpTestBase):
 
     # TODO
     def test_delete_subset(self):
-        logger.info('Testing delete tree followed by subset of tree (on left)')
+        logger.info('Testing delete tree followed by subset of tree (on right)')
 
-        self.expand_visible_node(self.left_con, 'Art')
+        # Setup: cp 'Art' tree to right and expand node:
+        self._cp_single_tree_into_right()
+        self.expand_visible_node(self.right_con, 'Art')
 
         nodes_batch_1 = [
-            self.find_node_by_name_in_left_tree('Art')
+            self.find_node_by_name(self.right_con, 'Art')
         ]
         nodes_batch_2 = [
-            self.find_node_by_name_in_left_tree('Modern')
+            self.find_node_by_name(self.right_con, 'Modern')
         ]
 
         def delete():
             logger.info('Submitting delete signal 1: RM "Art"')
-            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_LEFT_TREE, node_list=nodes_batch_1)
+            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_RIGHT_TREE, node_list=nodes_batch_1)
             logger.info('Submitting delete signal 1: RM "Modern"')
-            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_LEFT_TREE, node_list=nodes_batch_2)
+            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_RIGHT_TREE, node_list=nodes_batch_2)
 
-        final_tree_left = [
-            FNode('American_Gothic.jpg', 2061397),
-            FNode('Angry-Clown.jpg', 824641),
-            FNode('Egypt.jpg', 154564),
-            FNode('George-Floyd.png', 27601),
-            FNode('Geriatric-Clown.jpg', 89182),
-            FNode('Keep-calm-and-carry-on.jpg', 745698),
-        ]
-
-        self.do_and_verify(delete, count_expected_cmds=12, wait_for_left=True, wait_for_right=False,
-                           expected_left=final_tree_left, expected_right=INITIAL_LOCAL_TREE_RIGHT)
+        self.do_and_verify(delete, count_expected_cmds=12, wait_for_left=False, wait_for_right=True,
+                           expected_left=INITIAL_LOCAL_TREE_LEFT, expected_right=INITIAL_GDRIVE_TREE_RIGHT)

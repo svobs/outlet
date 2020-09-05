@@ -300,6 +300,7 @@ class DisplayStore:
 
         if not child_data.is_ephemereal():
             logger.error(f'Expected LoadingNode but found: {child_data}')
+            return
 
         # remove the first child
         self.model.remove(first_child_iter)

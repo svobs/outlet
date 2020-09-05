@@ -124,6 +124,10 @@ class Op(Node):
         elif self.op_type == OpType.MV:
             assert not self.dst_node.exists(), f'Expected to not exist: {self.dst_node}'
             return self.dst_node
+        elif self.op_type == OpType.RM:
+            assert self.src_node.exists(), f'Expected to exist: {self.src_node}'
+            return self.src_node
+        # Note: no updates included for "UP" type
         return None
 
     def __repr__(self):

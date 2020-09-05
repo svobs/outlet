@@ -90,7 +90,8 @@ class OpLedger:
             op_db.archive_completed_ops(op_list)
 
     def _add_planning_nodes_to_memcache(self, op: Op):
-        """Looks at the given Op and adds any non-existent "planning nodes" to it."""
+        """Looks at the given Op and adds any non-existent "planning nodes" to it. Also "adds" existing nodes which are planned to
+        be removed - need to notify cacheman so that it can redraw the icon for RM"""
         planning_node = op.get_planning_node()
         if planning_node:
             self.cacheman.add_or_update_node(planning_node)
