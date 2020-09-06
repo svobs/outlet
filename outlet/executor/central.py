@@ -1,7 +1,7 @@
 import threading
 import logging
 
-from cmd.cmd_executor import CommandExecutor
+from command.cmd_executor import CommandExecutor
 from global_actions import GlobalActions
 from task_runner import CentralTaskRunner
 

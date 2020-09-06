@@ -4,7 +4,7 @@ import pathlib
 
 from util import file_util
 from model.op import Op, OpType
-from cmd.cmd_interface import Command, CommandContext, CommandResult, CommandStatus, CopyNodeCommand, DeleteNodeCommand, TwoNodeCommand
+from command.cmd_interface import Command, CommandContext, CommandResult, CommandStatus, CopyNodeCommand, DeleteNodeCommand, TwoNodeCommand
 from constants import EXPLICITLY_TRASHED, FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, NOT_TRASHED
 from index.uid.uid import UID
 from model.node.local_disk_node import LocalDirNode, LocalFileNode

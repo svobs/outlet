@@ -1,13 +1,13 @@
 import logging
 from typing import Callable, Dict
 
-from cmd.cmd_impl import CopyFileLocallyCommand, CreateGDriveFolderCommand, \
+from command.cmd_impl import CopyFileLocallyCommand, CreateGDriveFolderCommand, \
     CreatLocalDirCommand, DeleteGDriveNodeCommand, DeleteLocalFileCommand, \
     DownloadFromGDriveCommand, \
     MoveFileGDriveCommand, \
     MoveFileLocallyCommand, \
     UploadToGDriveCommand
-from cmd.cmd_interface import Command
+from command.cmd_interface import Command
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.op import Op, OpType
 

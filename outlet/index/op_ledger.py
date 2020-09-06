@@ -8,8 +8,8 @@ from pydispatch import dispatcher
 
 from index.op_graph import OpGraph
 from model.op import Op, OpType
-from cmd.cmd_builder import CommandBuilder
-from cmd.cmd_interface import Command, CommandStatus
+from command.cmd_builder import CommandBuilder
+from command.cmd_interface import Command, CommandStatus
 from constants import OPS_FILE_NAME
 from index.sqlite.op_db import OpDatabase
 from index.uid.uid import UID

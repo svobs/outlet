@@ -10,7 +10,7 @@ from py7zr import SevenZipFile
 from pydispatch import dispatcher
 
 from app_config import AppConfig
-from cmd.cmd_interface import Command
+from command.cmd_interface import Command
 from constants import OPS_FILE_NAME
 from index import cache_manager
 from index.sqlite.op_db import OpDatabase
@@ -23,7 +23,7 @@ from ui.tree import root_path_config
 from ui.tree.controller import TreePanelController
 from util import file_util
 
-LOAD_TIMEOUT_SEC = 60000
+LOAD_TIMEOUT_SEC = 60
 ENABLE_CHANGE_EXECUTION_THREAD = True
 
 TEST_BASE_DIR = file_util.get_resource_path('test')

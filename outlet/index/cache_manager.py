@@ -8,7 +8,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from cmd.cmd_interface import Command
+from command.cmd_interface import Command
 from ui.tree.controller import TreePanelController
 from util import file_util
 from model.op import Op
