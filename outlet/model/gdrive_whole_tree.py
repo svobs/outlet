@@ -592,15 +592,7 @@ def _merge_into_existing(existing_node: GDriveNode, new_node: GDriveNode) -> Lis
     if existing_node.goog_id and existing_node.goog_id != new_node.goog_id:
         raise RuntimeError(f'Existing node goog_id ({existing_node.goog_id}) does not match new node goog_id ({new_node.goog_id})')
 
-    # Save generated fields. Better to use stale values than to make the fields flash blank in the UI
-    existing_size_bytes = existing_node.get_size_bytes()
-
-    # Now the magic copy command:
-    existing_node.__dict__.update(new_node.__dict__)
-
-    if not existing_node.get_size_bytes() and existing_size_bytes:
-        # overwrite only if blank
-        existing_node.set_size_bytes(existing_size_bytes)
+    existing_node.update_from(new_node)
 
     # Need to return these so they can be added to reverse dict
     return new_parent_ids

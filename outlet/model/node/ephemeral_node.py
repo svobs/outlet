@@ -58,6 +58,8 @@ class EphemeralNode(DisplayNode, ABC):
     def sync_ts(self):
         return None
 
+    def update_from(self, other_node):
+        DisplayNode.update_from(self, other_node)
 
 # CLASS LoadingNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

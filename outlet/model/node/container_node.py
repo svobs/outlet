@@ -18,6 +18,10 @@ class ContainerNode(HasChildList, DisplayNode):
         DisplayNode.__init__(self, node_identifier)
         HasChildList.__init__(self)
 
+    def update_from(self, other_node):
+        HasChildList.update_from(self, other_node)
+        DisplayNode.update_from(self, other_node)
+
     @classmethod
     def get_obj_type(cls):
         return OBJ_TYPE_DIR

@@ -326,12 +326,6 @@ class LocalDiskMasterCache:
         with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
             return cache.get_file_or_dir_for_path(full_path)
 
-    def _update_dir_fields(self, update_to: LocalDirNode, update_from: LocalDirNode):
-        # We only have one field to update for dirs so far
-        if update_from.exists():
-            # Only update to True. Do not overwrite with False
-            update_to.set_exists(True)
-
     def upsert_local_node(self, node: DisplayNode, fire_listeners=True):
         logger.debug(f'Upserting node to caches: {node}')
 
@@ -355,21 +349,14 @@ class LocalDiskMasterCache:
                         dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
                         return
 
-                if existing.is_dir():
-                    if not node.is_dir():
-                        # need to replace all descendants...not ready to do this yet
-                        raise RuntimeError(f'Cannot replace a directory with a file: "{node.full_path}"')
-                    else:
-                        assert isinstance(existing, LocalDirNode)
-                        assert isinstance(node, LocalDirNode)
-                        # just update the existing - much easier
-                        self._update_dir_fields(existing, node)
-                        node = existing
-                else:
-                    # replace a file with either file or dir
-                    assert isinstance(existing, LocalFileNode)
-                    self.dir_tree.remove_node(existing.identifier)
-                    self.dir_tree.add_to_tree(node)
+                if existing.is_dir() and not node.is_dir():
+                    # need to replace all descendants...not ready to do this yet
+                    raise RuntimeError(f'Cannot replace a directory with a file: "{node.full_path}"')
+
+                # just update the existing - much easier
+                logger.debug(f'Merging node (type {type(node)}) into existing (type {type(existing)})')
+                existing.update_from(node)
+                node = existing
             else:
                 # new file or directory insert
                 self.dir_tree.add_to_tree(node)

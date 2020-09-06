@@ -2,6 +2,7 @@ import collections
 import logging
 import os
 import threading
+import time
 import unittest
 from functools import partial
 from typing import Callable, Deque, Iterable, List, Optional, Tuple
@@ -299,6 +300,7 @@ class OpTestBase(unittest.TestCase):
         dir_deque: Deque[Tuple[List[FNode], Iterable[DisplayNode]]] = collections.deque()
         """Each entry contains the expected and actual contents of a single dir"""
 
+        logger.info(f'Verifying nodes in memcache for "{tree_con.tree_id}"...')
         actual_list: Iterable[DisplayNode] = backing_tree.get_children_for_root()
 
         # Cached nodes (in tree model)
@@ -315,6 +317,7 @@ class OpTestBase(unittest.TestCase):
         logger.info(f'Verified {count_dir} dirs in memcache for "{tree_con.tree_id}"')
 
         # Displayed nodes
+        logger.info(f'Verifying nodes in display tree for "{tree_con.tree_id}"...')
         count_dir = 0
         actual_list: List[DisplayNode] = tree_con.display_store.get_displayed_children_of(None)
         dir_deque.append((expected_list_root, actual_list))

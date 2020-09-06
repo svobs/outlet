@@ -34,6 +34,12 @@ class LocalFileNode(DisplayNode):
         self._change_ts: int = ensure_int(change_ts)
         self._exists = _ensure_bool(exists)
 
+    def update_from(self, other_node):
+        assert isinstance(other_node, LocalFileNode)
+        DisplayNode.update_from(self, other_node)
+        # Now the magic copy command:
+        self.__dict__.update(other_node.__dict__)
+
     def is_parent(self, potential_child_node: DisplayNode) -> bool:
         # A file can never be the parent of anything
         return False
@@ -144,6 +150,11 @@ class LocalDirNode(ContainerNode):
         super().__init__(node_identifier)
         self._exists = exists
 
+    def update_from(self, other_node):
+        assert isinstance(other_node, LocalDirNode)
+        ContainerNode.update_from(self, other_node)
+        self._exists = other_node.exists()
+
     def is_parent(self, potential_child_node: DisplayNode):
         if potential_child_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
             rel_path = re.sub(self.full_path, '', potential_child_node.full_path, count=1)
@@ -167,4 +178,4 @@ class LocalDirNode(ContainerNode):
         return self.uid, self.full_path, self.exists()
 
     def __repr__(self):
-        return f'LocalDirNode({self.node_identifier} exists={self.exists()} {self.get_summary()})'
+        return f'LocalDirNode({self.node_identifier} exists={self.exists()} size_bytes={self.get_size_bytes()} summary="{self.get_summary()}")'

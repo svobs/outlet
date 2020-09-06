@@ -435,10 +435,10 @@ class DisplayMutator:
             updated_node = self.con.app.cache_manager.get_node_for_uid(node.uid, node.get_tree_type())
             if not updated_node:
                 raise RuntimeError(f'Could not find up-to-date node in memcache: {node}')
+            # logger.debug(f'NodeID={hex(id(node))}; UpdatedNodeID={hex(id(updated_node))}')
             node = updated_node
 
-            tree_path = ds.model.get_path(tree_iter)
-            # logger.debug(f'Redrawing stats for node: {node}; path={tree_path}; size={node.get_size_bytes()} etc={node.get_etc()}')
+            logger.debug(f'Redrawing stats for node: {node}; path={ds.model.get_path(tree_iter)}; size={node.get_size_bytes()} etc={node.get_etc()}')
             ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(node)
             ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = node.get_etc()
             ds.model[tree_iter][self.con.treeview_meta.col_num_data] = node

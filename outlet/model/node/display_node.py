@@ -130,6 +130,12 @@ class DisplayNode(Node, ABC):
             return ICON_GENERIC_FILE
         return ICON_ADD_FILE
 
+    @abstractmethod
+    def update_from(self, other_node):
+        assert other_node.uid == self.uid
+        self.node_identifier.full_path = other_node.full_path
+        self.identifier = other_node.identifier
+
 
 # ABSTRACT CLASS HasParentList
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -137,6 +143,11 @@ class DisplayNode(Node, ABC):
 class HasParentList(ABC):
     def __init__(self, parent_uids: Optional[List[UID]] = None):
         self._parent_uids: Optional[List[UID]] = parent_uids
+
+    def update_from(self, other_node):
+        if not isinstance(other_node, HasParentList):
+            raise RuntimeError(f'Bad: {other_node} (we are: {self})')
+        self._parent_uids = other_node.get_parent_uids()
 
     def get_parent_uids(self) -> List[UID]:
         if self._parent_uids:
@@ -190,6 +201,16 @@ class HasChildList(ABC):
         self.trashed_bytes = 0
         self._size_bytes = None
         """Set this to None to signify that stats are not yet calculated"""
+
+    def update_from(self, other_node):
+        if not isinstance(other_node, HasChildList):
+            raise RuntimeError(f'Bad: {other_node} (we are: {self})')
+        self.file_count = other_node.file_count
+        self.trashed_file_count = other_node.trashed_file_count
+        self.trashed_dir_count = other_node.trashed_dir_count
+        self.dir_count = other_node.dir_count
+        self.trashed_bytes = other_node.trashed_bytes
+        self._size_bytes = other_node.get_size_bytes()
 
     def zero_out_stats(self):
         self._size_bytes = None

@@ -43,6 +43,19 @@ class GDriveNode(HasParentList, DisplayNode, ABC):
 
         self._sync_ts = ensure_int(sync_ts)
 
+    @abstractmethod
+    def update_from(self, other_node):
+        if not isinstance(other_node, GDriveNode):
+            raise RuntimeError(f'Bad: {other_node} (we are: {self})')
+        HasParentList.update_from(self, other_node)
+        DisplayNode.update_from(self, other_node)
+        self.goog_id = other_node.goog_id
+        self._name = other_node.name
+        self._trashed = other_node.trashed
+        self.drive_id = other_node.drive_id
+        self.my_share = other_node.my_share
+        self._sync_ts = other_node.sync_ts
+
     @property
     def sync_ts(self):
         return self._sync_ts
@@ -99,6 +112,13 @@ class GDriveFolder(HasChildList, GDriveNode):
     def __repr__(self):
         return f'GDriveFolder:(uid="{self.uid}" goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
                f'my_share={self.my_share} sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()} children_fetched={self.all_children_fetched}]'
+
+    def update_from(self, other_node):
+        if not isinstance(other_node, GDriveFolder):
+            raise RuntimeError(f'Bad: {other_node} (we are: {self})')
+        GDriveNode.update_from(self, other_node)
+        HasChildList.update_from(self, other_node)
+        self.all_children_fetched = other_node.all_children_fetched
 
     @classmethod
     def has_tuple(cls) -> bool:
@@ -168,7 +188,6 @@ class GDriveFile(GDriveNode):
         self.version = ensure_int(version)
         self.head_revision_id = head_revision_id
         self._md5 = md5
-        self.my_share = my_share
         self.create_ts = ensure_int(create_ts)
         self._modify_ts = ensure_int(modify_ts)
         self._size_bytes = ensure_int(size_bytes)
@@ -192,6 +211,18 @@ class GDriveFile(GDriveNode):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def update_from(self, other_node):
+        if not isinstance(other_node, GDriveFile):
+            raise RuntimeError(f'Bad: {other_node} (we are: {self})')
+        GDriveNode.update_from(self, other_node)
+        self.version = other_node.version
+        self.head_revision_id = other_node.head_revision_id
+        self._md5 = other_node.md5
+        self.create_ts = other_node.create_ts
+        self._modify_ts = other_node.modify_ts
+        self._size_bytes = other_node.get_size_bytes()
+        self.owner_id = other_node.owner_id
 
     def is_parent(self, potential_child_node: DisplayNode) -> bool:
         # A file can never be the parent of anything
