@@ -275,12 +275,6 @@ class OpGraph:
             # Special handling for RM-type nodes.
             # We want to find the lowest RM node in the tree.
 
-            # Sometimes the nodes are not inserted in exactly the right order. Pick up any nodes which fell through cuz their child was inserted first
-            last_parent_op = self._get_lowest_priority_op_node(parent_uid)
-            if last_parent_op and last_parent_op.is_remove_type():
-                logger.debug(f'Found potentially unlinked child: {last_parent_op}; linking as parent to node being inserted ({node_to_insert})')
-                last_parent_op.link_parent(node_to_insert)
-
             # First, see if we can find child nodes of the target node (which in our rules would be the parents of the RM op):
             op_for_child_node_list: List[OpGraphNode] = self._find_child_nodes_in_tree_for_rm(node_to_insert)
             if op_for_child_node_list:
@@ -323,6 +317,15 @@ class OpGraph:
             else:
                 logger.debug(f'Found no previous ops for target node {target_uid} or its children; adding to root')
                 self._graph_root.link_child(node_to_insert)
+
+            # Sometimes the nodes are not inserted in exactly the right order. Link any nodes which fell through cuz their child was inserted first
+            # (do this after we have a chance to return False):
+            last_parent_op = self._get_lowest_priority_op_node(parent_uid)
+            if last_parent_op and last_parent_op.is_remove_type():
+                logger.debug(f'Found potentially unlinked op for parent: {last_parent_op}; linking as child to node being inserted'
+                             f' ({node_to_insert})')
+                last_parent_op.link_parent(node_to_insert)
+
         else:
             # Not an RM node:
             last_parent_op = self._get_lowest_priority_op_node(parent_uid)
@@ -516,6 +519,11 @@ class OpGraph:
 
                 if not child.get_parent_list():
                     self._graph_root.link_child(child)
+                else:
+                    # Sanity check:
+                    for par in child.get_parent_list():
+                        if not par.get_parent_list():
+                            logger.error(f'Node has no parents: {par}')
 
             # I-3. Delete src node
             del src_op_node
@@ -560,7 +568,7 @@ class OpGraph:
                 # II-3. Delete dst node
                 del dst_op_node
 
-            logger.debug(f'Done with op_completed() for op: {op}')
+            logger.debug(f'Done with pop_op() for op: {op}')
             self._print_current_state()
 
         with self._cv_can_get:

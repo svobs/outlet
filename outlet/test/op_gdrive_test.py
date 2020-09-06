@@ -511,7 +511,6 @@ class OpGDriveTest(OpTestBase):
         self.do_and_verify(delete, count_expected_cmds=6, wait_for_left=False, wait_for_right=True,
                            expected_left=INITIAL_LOCAL_TREE_LEFT, expected_right=final_tree_right)
 
-    # TODO
     def test_delete_superset(self):
         logger.info('Testing delete tree followed by superset of tree (on right)')
 
@@ -535,7 +534,6 @@ class OpGDriveTest(OpTestBase):
         self.do_and_verify(delete, count_expected_cmds=12, wait_for_left=False, wait_for_right=True,
                            expected_left=INITIAL_LOCAL_TREE_LEFT, expected_right=INITIAL_GDRIVE_TREE_RIGHT)
 
-    # TODO
     def test_delete_subset(self):
         logger.info('Testing delete tree followed by subset of tree (on right)')
 

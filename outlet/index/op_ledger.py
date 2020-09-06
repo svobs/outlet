@@ -331,11 +331,11 @@ class OpLedger:
 
         if command.status() == CommandStatus.STOPPED_ON_ERROR:
             # TODO: notify/display error messages somewhere in the UI?
-            logger.error(f'Command failed with error: {command.get_error()}')
+            logger.error(f'Command {command.uid} (op {command.op.op_uid}) failed with error: {command.get_error()}')
             # TODO: how to recover?
             return
         else:
-            logger.info(f'Command returned with status: "{command.status().name}"')
+            logger.info(f'Command {command.uid} (op {command.op.op_uid}) returned with status: "{command.status().name}"')
 
         # Need to set this here to resolve chicken-and-egg scenario.
         # When we tell cacheman to upsert node, it will notify DisplayMutator which will then look up here, and we have not yet popped the op.

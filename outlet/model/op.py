@@ -116,19 +116,14 @@ class Op(Node):
     def get_planning_node(self) -> Optional[DisplayNode]:
         """Returns the "planning node" (i.e., the node to be mutated by this transcation), if any"""
         if self.op_type == OpType.MKDIR:
-            assert not self.src_node.exists(), f'Expected to not exist: {self.src_node}'
             return self.src_node
         elif self.op_type == OpType.CP:
-            assert not self.dst_node.exists(), f'Expected to not exist: {self.dst_node}'
             return self.dst_node
         elif self.op_type == OpType.MV:
-            assert not self.dst_node.exists(), f'Expected to not exist: {self.dst_node}'
             return self.dst_node
         elif self.op_type == OpType.UP:
-            assert self.dst_node.exists(), f'Expected to exist: {self.dst_node}'
             return self.dst_node
         elif self.op_type == OpType.RM:
-            assert self.src_node.exists(), f'Expected to exist: {self.src_node}'
             return self.src_node
         return None
 
