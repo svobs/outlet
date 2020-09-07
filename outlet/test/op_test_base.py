@@ -24,7 +24,7 @@ from ui.tree import root_path_config
 from ui.tree.controller import TreePanelController
 from util import file_util
 
-LOAD_TIMEOUT_SEC = 60
+LOAD_TIMEOUT_SEC = 6000
 ENABLE_CHANGE_EXECUTION_THREAD = True
 
 TEST_BASE_DIR = file_util.get_resource_path('test')

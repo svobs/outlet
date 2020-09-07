@@ -343,6 +343,8 @@ class OpLocalTest(OpTestBase):
                 logger.info(f'Got upserted node (total: {on_node_upserted.count}, expecting: {expected_count})')
                 if on_node_upserted.count >= expected_count:
                     drop_complete.set()
+                    # disconnect this listener; it will cause confusion in the next stage
+                    dispatcher.disconnect(signal=actions.NODE_UPSERTED, receiver=on_node_upserted)
 
             on_node_upserted.count = 0
 

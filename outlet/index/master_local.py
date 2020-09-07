@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 import threading
 import time
 from typing import List, Optional, Tuple
@@ -455,7 +456,14 @@ class LocalDiskMasterCache:
     def get_parent_for_node(self, node: DisplayNode, required_subtree_path: str = None):
         try:
             with self._struct_lock:
-                parent: DisplayNode = self.dir_tree.parent(nid=node.uid)
+                try:
+                    parent: DisplayNode = self.dir_tree.parent(nid=node.uid)
+                except KeyError:
+                    # parent not found in tree... maybe we can derive it however
+                    parent_path = str(pathlib.Path(node.full_path).parent)
+                    parent_uid = self.get_uid_for_path(parent_path)
+                    parent = self.dir_tree.get_node(parent_uid)
+                    logger.debug(f'Parent not found for node ({node.uid}) but found parent derived from path: {parent_uid}')
                 if not required_subtree_path or parent.full_path.startswith(required_subtree_path):
                     return parent
                 return None
