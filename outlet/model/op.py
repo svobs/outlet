@@ -107,10 +107,15 @@ class Op(Node):
 
     def get_icon_for_node(self, node_uid: UID):
         if self.has_dst() and self.dst_node.uid == node_uid:
+            op_type = self.op_type
+            if op_type == OpType.MV and not self.dst_node.exists():
+                # Use an add-like icon if it exists:
+                op_type = OpType.CP
+
             if self.dst_node.is_dir():
-                return Op.icon_dst_dir_dict[self.op_type]
+                return Op.icon_dst_dir_dict[op_type]
             else:
-                return Op.icon_dst_file_dict[self.op_type]
+                return Op.icon_dst_file_dict[op_type]
 
         assert self.src_node.uid == node_uid
         if self.src_node.is_dir():
