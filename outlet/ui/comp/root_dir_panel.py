@@ -9,7 +9,9 @@ from util import file_util
 from index.error import CacheNotLoadedError, GDriveItemNotFoundError
 from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 
-from constants import GDRIVE_PATH_PREFIX, ICON_ALERT, ICON_CHOOSE_ROOT, ICON_GDRIVE, ICON_REFRESH, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
+from constants import BTN_GDRIVE, BTN_LOCAL_DISK_LINUX, GDRIVE_PATH_PREFIX, ICON_ALERT, ICON_REFRESH, NULL_UID, \
+    TREE_TYPE_GDRIVE, \
+    TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from model.node_identifier import NodeIdentifier
 from ui.dialog.base_dialog import BaseDialog
 import ui.actions as actions
@@ -249,11 +251,11 @@ class RootDirPanel:
             self.label_event_box.connect('button_press_event', self._on_label_clicked)
 
         if new_root.tree_type == TREE_TYPE_LOCAL_DISK:
-            self.path_icon.set_from_file(self.parent_win.application.assets.get_path(ICON_CHOOSE_ROOT))
+            self.path_icon.set_from_file(self.parent_win.application.assets.get_path(BTN_LOCAL_DISK_LINUX))
         elif new_root.tree_type == TREE_TYPE_GDRIVE:
-            self.path_icon.set_from_file(self.parent_win.application.assets.get_path(ICON_GDRIVE))
+            self.path_icon.set_from_file(self.parent_win.application.assets.get_path(BTN_GDRIVE))
         elif new_root.tree_type == TREE_TYPE_MIXED:
-            self.path_icon.set_from_file(self.parent_win.application.assets.get_path(ICON_CHOOSE_ROOT))
+            self.path_icon.set_from_file(self.parent_win.application.assets.get_path(BTN_LOCAL_DISK_LINUX))
         else:
             raise RuntimeError(f'Unrecognized tree type: {new_root.tree_type}')
 

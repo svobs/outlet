@@ -2,12 +2,13 @@ import os
 import logging
 from typing import Dict, List
 
-from constants import BADGE_ICON_BASE_DIR, COMPOSITE_ICON_BASE_DIR, ICON_ALERT, ICON_CHOOSE_ROOT, ICON_DIR_CP_DST, ICON_DIR_CP_SRC, ICON_DIR_MK, \
+from constants import BADGE_ICON_BASE_DIR, BASE_ICON_BASE_DIR, BTN_GDRIVE, BTN_LOCAL_DISK_LINUX, COMPOSITE_ICON_BASE_DIR, ICON_ALERT, ICON_DIR_CP_DST, \
+    ICON_DIR_CP_SRC, ICON_DIR_MK, \
     ICON_DIR_MV_DST, \
     ICON_DIR_MV_SRC, ICON_DIR_RM, \
     ICON_DIR_TRASHED, ICON_DIR_UP_DST, ICON_DIR_UP_SRC, ICON_FILE_CP_DST, ICON_FILE_CP_SRC, ICON_FILE_MV_DST, \
     ICON_FILE_MV_SRC, ICON_FILE_RM, ICON_FILE_TRASHED, ICON_FILE_UP_DST, ICON_FILE_UP_SRC, ICON_GDRIVE, ICON_GENERIC_DIR, \
-    ICON_GENERIC_FILE, ICON_LOCAL_DISK, ICON_REFRESH, ICON_WINDOW
+    ICON_GENERIC_FILE, ICON_LOCAL_DISK_LINUX, ICON_REFRESH, ICON_WINDOW
 from model.node_identifier import ensure_int
 
 from util.file_util import get_resource_path
@@ -20,6 +21,7 @@ from gi.repository import GdkPixbuf
 logger = logging.getLogger(__name__)
 
 REBUILD_IMAGES = True
+VALID_ICON_SIZES = [16, 24, 32, 48, 64, 128, 256, 512, 1024]
 
 
 # CLASS SimpleIcon
@@ -83,15 +85,19 @@ class CompositeIcon(SimpleIcon):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 def _build_icons(icon_size: int, badge_size: int):
-    file_base: str = f'resources/Node/Document-icon-{icon_size}px.png'
-    dir_base: str = f'resources/Node/Folder-icon-{icon_size}px.png'
+    file_base: str = f'{BASE_ICON_BASE_DIR}/File-{icon_size}.png'
+    dir_base: str = f'{BASE_ICON_BASE_DIR}/Dir-{icon_size}.png'
+    hdisk_base: str = f'{BASE_ICON_BASE_DIR}/HDisk-{icon_size}.png'
 
     icon_list = [
+        # Misc UI
         SimpleIcon(name=ICON_ALERT, path=f'resources/Dialog-error-icon-24px.png'),
-        SimpleIcon(name=ICON_CHOOSE_ROOT, path=f'resources/Filesystems-hd-linux-icon-48px.png'),
         SimpleIcon(name=ICON_WINDOW, path=f'resources/app_icon.png'),
         SimpleIcon(name=ICON_REFRESH, path=f'resources/Badge/Refresh-icon-48px.png'),
+        SimpleIcon(name=BTN_GDRIVE, path="resources/google-drive-logo-48px-scaled.png"),
+        CompositeIcon(name=BTN_LOCAL_DISK_LINUX, base_path=f'{BASE_ICON_BASE_DIR}/HDisk-48.png', badges=[f'linux-outline-{badge_size}']),
 
+        # File
         SimpleIcon(name=ICON_GENERIC_FILE, path=file_base),
         CompositeIcon(name=ICON_FILE_RM, base_path=file_base, badges=[f'RM-{badge_size}']),
         SimpleIcon(name=ICON_FILE_MV_SRC, path=file_base),
@@ -102,6 +108,7 @@ def _build_icons(icon_size: int, badge_size: int):
         CompositeIcon(name=ICON_FILE_CP_DST, base_path=file_base, badges=[f'CP-dst-{badge_size}']),
         SimpleIcon(name=ICON_FILE_TRASHED, path=f'resources/icons8-paper-waste-{icon_size}px.png'),
 
+        # Dir
         SimpleIcon(name=ICON_GENERIC_DIR, path=dir_base),
         CompositeIcon(name=ICON_DIR_MK, base_path=dir_base, badges=[f'MKDIR-{badge_size}']),
         CompositeIcon(name=ICON_DIR_RM, base_path=dir_base, badges=[f'RM-{badge_size}']),
@@ -113,8 +120,9 @@ def _build_icons(icon_size: int, badge_size: int):
         CompositeIcon(name=ICON_DIR_CP_DST, base_path=dir_base, badges=[f'CP-dst-{badge_size}']),
         SimpleIcon(name=ICON_DIR_TRASHED, path=f'resources/recycle-bag-{icon_size}px.png'),
 
+        # Drive
         SimpleIcon(name=ICON_GDRIVE, path="resources/google-drive-logo-48px-scaled.png"),
-        SimpleIcon(name=ICON_LOCAL_DISK, path="resources/Filesystems-hd-linux-icon-48px.png"),
+        CompositeIcon(name=ICON_LOCAL_DISK_LINUX, base_path=hdisk_base, badges=[f'linux-outline-{badge_size}']),
     ]
 
     icon_dict = dict()

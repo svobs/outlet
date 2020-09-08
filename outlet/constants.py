@@ -37,12 +37,12 @@ PROGRESS_BAR_SLEEP_TIME_SEC = 0.5
 PROGRESS_BAR_PULSE_STEP = 0.5
 PROGRESS_BAR_MAX_MSG_LENGTH = 80
 
+BASE_ICON_BASE_DIR = 'resources/Base'
 COMPOSITE_ICON_BASE_DIR = 'resources/Composite'
 BADGE_ICON_BASE_DIR = 'resources/Badge'
 
 # Various icon names:
 ICON_ALERT = 'alert'
-ICON_CHOOSE_ROOT = 'root'
 ICON_WINDOW = 'win'
 ICON_REFRESH = 'refresh'
 
@@ -71,7 +71,10 @@ ICON_DIR_TRASHED = 'dir-trashed'
 
 # Root icon names:
 ICON_GDRIVE = 'gdrive'
-ICON_LOCAL_DISK = 'localdisk'
+ICON_LOCAL_DISK_LINUX = 'localdisk-linux'
+
+BTN_GDRIVE = 'gdrive-btn'
+BTN_LOCAL_DISK_LINUX = 'localdisk-linux-btn'
 
 FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT = 100
 
