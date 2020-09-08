@@ -37,15 +37,32 @@ PROGRESS_BAR_SLEEP_TIME_SEC = 0.5
 PROGRESS_BAR_PULSE_STEP = 0.5
 PROGRESS_BAR_MAX_MSG_LENGTH = 80
 
+# File icon names:
 ICON_GENERIC_FILE = 'file'
-ICON_ADD_FILE = 'add-file'
-ICON_MODIFY_FILE = 'mod-file'
-ICON_TRASHED_DIR = 'trash-dir'
-ICON_TRASHED_FILE = 'trash-file'
-ICON_GENERIC_DIR = 'folder'
-ICON_ADD_DIR = 'add-dir'
+ICON_FILE_RM = 'file-rm'
+ICON_FILE_MV_SRC = 'file-mv-src'
+ICON_FILE_UP_SRC = 'file-up-src'
+ICON_FILE_CP_SRC = 'file-cp-src'
+ICON_FILE_MV_DST = 'file-mv-dst'
+ICON_FILE_UP_DST = 'file-up-dst'
+ICON_FILE_CP_DST = 'file-cp-dst'
+ICON_FILE_TRASHED = 'file-trashed'
+
+# Dir icon names:
+ICON_GENERIC_DIR = 'dir'
+ICON_DIR_MK = 'dir-mk'
+ICON_DIR_RM = 'dir-rm'
+ICON_DIR_MV_SRC = 'dir-mv-src'
+ICON_DIR_UP_SRC = 'dir-up-src'
+ICON_DIR_CP_SRC = 'dir-cp-src'
+ICON_DIR_MV_DST = 'dir-mv-dst'
+ICON_DIR_UP_DST = 'dir-up-dst'
+ICON_DIR_CP_DST = 'dir-cp-dst'
+ICON_DIR_TRASHED = 'dir-trashed'
+
+# Root icon names:
 ICON_GDRIVE = 'gdrive'
-ICON_LOCAL_DISK = 'local'
+ICON_LOCAL_DISK = 'localdisk'
 
 FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT = 100
 

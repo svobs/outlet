@@ -4,7 +4,13 @@ from typing import Optional
 
 from treelib import Node
 
-from constants import ICON_ADD_DIR, ICON_ADD_FILE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_MODIFY_FILE
+from constants import ICON_DIR_CP_DST, ICON_DIR_CP_SRC, ICON_DIR_MK, ICON_DIR_MV_DST, ICON_DIR_MV_SRC, ICON_DIR_RM, ICON_DIR_UP_DST, ICON_DIR_UP_SRC, \
+    ICON_FILE_CP_DST, \
+    ICON_FILE_CP_SRC, \
+    ICON_FILE_MV_DST, \
+    ICON_FILE_MV_SRC, ICON_FILE_RM, \
+    ICON_FILE_UP_DST, \
+    ICON_FILE_UP_SRC
 from index.uid.uid import UID
 from model.node.display_node import DisplayNode
 
@@ -54,22 +60,21 @@ class OpRef:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class Op(Node):
-    # TODO: add additional icons
-    icon_src_file_dict = {OpType.RM: OpType.RM.name,
-                          OpType.MV: ICON_GENERIC_FILE,
-                          OpType.UP: ICON_GENERIC_FILE,
-                          OpType.CP: ICON_GENERIC_FILE}
-    icon_dst_file_dict = {OpType.MV: ICON_ADD_FILE,
-                          OpType.UP: ICON_MODIFY_FILE,
-                          OpType.CP: ICON_ADD_FILE}
-    icon_src_dir_dict = {OpType.MKDIR: ICON_ADD_DIR,
-                         OpType.RM: ICON_GENERIC_DIR,  # TODO
-                         OpType.MV: ICON_GENERIC_DIR,
-                         OpType.UP: ICON_GENERIC_DIR,
-                         OpType.CP: ICON_GENERIC_DIR}
-    icon_dst_dir_dict = {OpType.MV: ICON_ADD_DIR,
-                         OpType.UP: ICON_GENERIC_DIR,  # TODO
-                         OpType.CP: ICON_ADD_DIR}
+    icon_src_file_dict = {OpType.RM: ICON_FILE_RM,
+                          OpType.MV: ICON_FILE_MV_SRC,
+                          OpType.UP: ICON_FILE_UP_SRC,
+                          OpType.CP: ICON_FILE_CP_SRC}
+    icon_dst_file_dict = {OpType.MV: ICON_FILE_MV_DST,
+                          OpType.UP: ICON_FILE_UP_DST,
+                          OpType.CP: ICON_FILE_CP_DST}
+    icon_src_dir_dict = {OpType.MKDIR: ICON_DIR_MK,
+                         OpType.RM: ICON_DIR_RM,
+                         OpType.MV: ICON_DIR_MV_SRC,
+                         OpType.UP: ICON_DIR_UP_SRC,
+                         OpType.CP: ICON_DIR_CP_SRC}
+    icon_dst_dir_dict = {OpType.MV: ICON_DIR_MV_DST,
+                         OpType.UP: ICON_DIR_UP_DST,
+                         OpType.CP: ICON_DIR_CP_DST}
 
     def __init__(self, op_uid: UID, batch_uid: UID, op_type: OpType, src_node: DisplayNode,
                  dst_node: DisplayNode = None, create_ts: int = None):

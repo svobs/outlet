@@ -1,7 +1,7 @@
 import os
 
 from model.op import OpType
-from constants import ICON_ADD_DIR, ICON_GDRIVE, ICON_GENERIC_DIR, ICON_LOCAL_DISK, OBJ_TYPE_DIR, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import ICON_DIR_MK, ICON_GDRIVE, ICON_GENERIC_DIR, ICON_LOCAL_DISK, OBJ_TYPE_DIR, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.display_node import DisplayNode, HasChildList
 from model.node_identifier import NodeIdentifier
 

@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple
 from treelib import Node
 
 from util import format
-from constants import ICON_ADD_FILE, ICON_GENERIC_FILE, NOT_TRASHED
+from constants import ICON_FILE_CP_DST, ICON_GENERIC_FILE, NOT_TRASHED
 from index.uid.uid_generator import UID
 from model.node_identifier import NodeIdentifier
 
@@ -128,7 +128,7 @@ class DisplayNode(Node, ABC):
     def get_icon(self):
         if self.exists():
             return ICON_GENERIC_FILE
-        return ICON_ADD_FILE
+        return ICON_FILE_CP_DST
 
     @abstractmethod
     def update_from(self, other_node):

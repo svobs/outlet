@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from util import format
-from constants import ICON_ADD_DIR, ICON_ADD_FILE, ICON_GENERIC_DIR, ICON_GENERIC_FILE, ICON_TRASHED_DIR, ICON_TRASHED_FILE, NOT_TRASHED, \
-    OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS, TREE_TYPE_GDRIVE
+from constants import ICON_DIR_MK, ICON_DIR_TRASHED, ICON_FILE_CP_DST, ICON_FILE_TRASHED, ICON_GENERIC_DIR, ICON_GENERIC_FILE, \
+    NOT_TRASHED, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS, TREE_TYPE_GDRIVE
 from model.node.display_node import DisplayNode, HasChildList, HasParentList
 from model.node_identifier import ensure_int, GDriveIdentifier
 
@@ -150,8 +150,8 @@ class GDriveFolder(HasChildList, GDriveNode):
             if self.exists():
                 return ICON_GENERIC_DIR
             else:
-                return ICON_ADD_DIR
-        return ICON_TRASHED_DIR
+                return ICON_DIR_MK
+        return ICON_DIR_TRASHED
 
     def get_summary(self):
         if not self._size_bytes and not self.file_count and not self.dir_count:
@@ -270,8 +270,8 @@ class GDriveFile(GDriveNode):
             if self.exists():
                 return ICON_GENERIC_FILE
             else:
-                return ICON_ADD_FILE
-        return ICON_TRASHED_FILE
+                return ICON_FILE_CP_DST
+        return ICON_FILE_TRASHED
 
     @classmethod
     def has_tuple(cls) -> bool:
