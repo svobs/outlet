@@ -89,16 +89,12 @@ class OpLedger:
         with OpDatabase(self.op_db_path, self.application) as op_db:
             op_db.archive_completed_ops(op_list)
 
-    def _add_planning_nodes_to_memcache(self, op: Op):
-        """Looks at the given Op and adds any non-existent "planning nodes" to it. Also "adds" existing nodes which are planned to
-        be removed - need to notify cacheman so that it can redraw the icon for RM"""
-        planning_node = op.get_planning_node()
-        if planning_node:
-            self.cacheman.add_or_update_node(planning_node)
-        else:
-            assert self.cacheman.get_node_for_uid(op.src_node.uid), f'Expected src node already present for: {op}'
-            if op.dst_node:
-                assert self.cacheman.get_node_for_uid(op.dst_node.uid), f'Expected dst node already present for op: {op}'
+    def _update_nodes_in_memcache(self, op: Op):
+        """Looks at the given Op and notifies cacheman so that it can send out update notifications. The nodes involved may not have
+        actually changed (i.e., only their statuses have changed)"""
+        self.cacheman.add_or_update_node(op.src_node)
+        if op.has_dst():
+            self.cacheman.add_or_update_node(op.dst_node)
 
     # Reduce Changes logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -300,7 +296,7 @@ class OpLedger:
 
         # Add dst nodes for to-be-created nodes if they are not present
         for op in reduced_batch:
-            self._add_planning_nodes_to_memcache(op)
+            self._update_nodes_in_memcache(op)
 
         self._add_batch_to_op_graph_and_remove_discarded(batch_root, batch_uid)
 

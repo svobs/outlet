@@ -123,20 +123,6 @@ class Op(Node):
         else:
             return Op.icon_src_file_dict[self.op_type]
 
-    def get_planning_node(self) -> Optional[DisplayNode]:
-        """Returns the "planning node" (i.e., the node to be mutated by this transcation), if any"""
-        if self.op_type == OpType.MKDIR:
-            return self.src_node
-        elif self.op_type == OpType.CP:
-            return self.dst_node
-        elif self.op_type == OpType.MV:
-            return self.dst_node
-        elif self.op_type == OpType.UP:
-            return self.dst_node
-        elif self.op_type == OpType.RM:
-            return self.src_node
-        return None
-
     def __repr__(self):
         if self.dst_node:
             dst = self.dst_node.node_identifier
