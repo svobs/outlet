@@ -37,8 +37,13 @@ class LocalFileNode(DisplayNode):
     def update_from(self, other_node):
         assert isinstance(other_node, LocalFileNode)
         DisplayNode.update_from(self, other_node)
-        # Now the magic copy command:
-        self.__dict__.update(other_node.__dict__)
+        self._md5: Optional[str] = other_node.md5
+        self._sha256: Optional[str] = other_node.sha256
+        self._size_bytes: int = ensure_int(other_node.get_size_bytes())
+        self._sync_ts: int = ensure_int(other_node.sync_ts)
+        self._modify_ts: int = ensure_int(other_node.modify_ts)
+        self._change_ts: int = ensure_int(other_node.change_ts)
+        self._exists = _ensure_bool(other_node.exists())
 
     def is_parent(self, potential_child_node: DisplayNode) -> bool:
         # A file can never be the parent of anything

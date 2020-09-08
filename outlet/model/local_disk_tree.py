@@ -8,7 +8,7 @@ import treelib
 from index.uid.uid import UID
 from model.node.container_node import ContainerNode
 from util import file_util
-from model.node.display_node import DisplayNode, HasChildList
+from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from util.stopwatch_sec import Stopwatch
@@ -58,6 +58,8 @@ class LocalDiskTree(treelib.Tree):
         child: DisplayNode = self.get_node(nid=node.uid)
         assert not child, f'For old={child}, new={node}, path_segments={path_segments}'
         if not child:
+            if not parent:
+                logger.error(f'Parent is None for node: {node}')
             self.add_node(node=node, parent=parent)
 
     def bfs(self, subtree_root_uid: UID = None) -> Iterator[DisplayNode]:

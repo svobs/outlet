@@ -392,6 +392,8 @@ class LocalDiskMasterCache:
             dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
 
     def remove_node(self, node: LocalFileNode, to_trash=False, fire_listeners=True):
+        logger.debug(f'Removing node from caches (to_trash={to_trash}): {node}')
+
         # 1. Validate
         if not node.uid:
             raise RuntimeError(f'Cannot remove node from cache because it has no UID: {node}')
