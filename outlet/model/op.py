@@ -109,7 +109,7 @@ class Op(Node):
         if self.has_dst() and self.dst_node.uid == node_uid:
             op_type = self.op_type
             if op_type == OpType.MV and not self.dst_node.exists():
-                # Use an add-like icon if it exists:
+                # Use an add-like icon if nothing there right now:
                 op_type = OpType.CP
 
             if self.dst_node.is_dir():
