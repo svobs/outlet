@@ -37,6 +37,9 @@ PROGRESS_BAR_SLEEP_TIME_SEC = 0.5
 PROGRESS_BAR_PULSE_STEP = 0.5
 PROGRESS_BAR_MAX_MSG_LENGTH = 80
 
+COMPOSITE_ICON_BASE_DIR = 'resources/Composite'
+BADGE_ICON_BASE_DIR = 'resources/Badge'
+
 # Various icon names:
 ICON_ALERT = 'alert'
 ICON_CHOOSE_ROOT = 'root'
