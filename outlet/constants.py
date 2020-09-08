@@ -37,6 +37,12 @@ PROGRESS_BAR_SLEEP_TIME_SEC = 0.5
 PROGRESS_BAR_PULSE_STEP = 0.5
 PROGRESS_BAR_MAX_MSG_LENGTH = 80
 
+# Various icon names:
+ICON_ALERT = 'alert'
+ICON_CHOOSE_ROOT = 'root'
+ICON_WINDOW = 'win'
+ICON_REFRESH = 'refresh'
+
 # File icon names:
 ICON_GENERIC_FILE = 'file'
 ICON_FILE_RM = 'file-rm'

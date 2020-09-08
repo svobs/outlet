@@ -9,11 +9,10 @@ from util import file_util
 from index.error import CacheNotLoadedError, GDriveItemNotFoundError
 from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 
-from constants import GDRIVE_PATH_PREFIX, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
+from constants import GDRIVE_PATH_PREFIX, ICON_ALERT, ICON_CHOOSE_ROOT, ICON_GDRIVE, ICON_REFRESH, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from model.node_identifier import NodeIdentifier
 from ui.dialog.base_dialog import BaseDialog
 import ui.actions as actions
-from ui.assets import ALERT_ICON_PATH, CHOOSE_ROOT_ICON_PATH, GDRIVE_ICON_PATH, REFRESH_ICON_PATH
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
@@ -48,7 +47,7 @@ class RootDirPanel:
 
         self.path_icon = Gtk.Image()
         self.refresh_icon = Gtk.Image()
-        self.refresh_icon.set_from_file(REFRESH_ICON_PATH)
+        self.refresh_icon.set_from_file(self.parent_win.application.assets.get_path(ICON_REFRESH))
         if self.can_change_root:
             self.change_btn = Gtk.MenuButton()
             self.change_btn.set_image(image=self.path_icon)
@@ -80,7 +79,7 @@ class RootDirPanel:
         self.path_box.pack_start(self.alert_image_box, expand=False, fill=False, padding=0)
 
         self.alert_image = Gtk.Image()
-        self.alert_image.set_from_file(ALERT_ICON_PATH)
+        self.alert_image.set_from_file(self.parent_win.application.assets.get_path(ICON_ALERT))
 
         self.entry_box_focus_eid = None
         self.entry = None
@@ -250,11 +249,11 @@ class RootDirPanel:
             self.label_event_box.connect('button_press_event', self._on_label_clicked)
 
         if new_root.tree_type == TREE_TYPE_LOCAL_DISK:
-            self.path_icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
+            self.path_icon.set_from_file(self.parent_win.application.assets.get_path(ICON_CHOOSE_ROOT))
         elif new_root.tree_type == TREE_TYPE_GDRIVE:
-            self.path_icon.set_from_file(GDRIVE_ICON_PATH)
+            self.path_icon.set_from_file(self.parent_win.application.assets.get_path(ICON_GDRIVE))
         elif new_root.tree_type == TREE_TYPE_MIXED:
-            self.path_icon.set_from_file(CHOOSE_ROOT_ICON_PATH)
+            self.path_icon.set_from_file(self.parent_win.application.assets.get_path(ICON_CHOOSE_ROOT))
         else:
             raise RuntimeError(f'Unrecognized tree type: {new_root.tree_type}')
 
