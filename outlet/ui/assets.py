@@ -71,7 +71,13 @@ class CompositeIcon(SimpleIcon):
 
             height_offset = img_composite.height - img_badge.height
             box = (0, height_offset)
-            img_composite.paste(img_badge, box=box, mask=img_badge)
+
+            try:
+                img_composite.paste(img_badge, box=box, mask=img_badge)
+            except ValueError:
+                logger.debug(f'Composite paste() failed - converting to RGBA and trying again: "{badge_path}"')
+                img_badge = img_badge.convert("RGBA")
+                img_composite.paste(img_badge, box=box, mask=img_badge)
 
         logger.debug(f'Saving composite image: "{self.icon_path}"')
         comp_dir = get_resource_path(COMPOSITE_ICON_BASE_DIR)
