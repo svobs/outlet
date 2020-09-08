@@ -2,22 +2,14 @@ import logging
 import re
 from typing import Optional, Tuple
 
-from constants import ICON_GENERIC_FILE, NOT_TRASHED, OBJ_TYPE_FILE, TREE_TYPE_LOCAL_DISK
+from constants import NOT_TRASHED, OBJ_TYPE_FILE, TREE_TYPE_LOCAL_DISK
 from model.node.container_node import ContainerNode
-from model.node_identifier import ensure_int, LocalFsIdentifier, NodeIdentifier
+from model.node_identifier import ensure_bool, ensure_int, LocalFsIdentifier, NodeIdentifier
 from model.node.display_node import DisplayNode
 
 logger = logging.getLogger(__name__)
 
 SUPER_DEBUG = False
-
-
-def _ensure_bool(val):
-    try:
-        return bool(val)
-    except ValueError:
-        pass
-    return val
 
 
 # CLASS LocalFileNode
@@ -32,7 +24,7 @@ class LocalFileNode(DisplayNode):
         self._sync_ts: int = ensure_int(sync_ts)
         self._modify_ts: int = ensure_int(modify_ts)
         self._change_ts: int = ensure_int(change_ts)
-        self._exists = _ensure_bool(exists)
+        self._exists = ensure_bool(exists)
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalFileNode)
@@ -43,7 +35,7 @@ class LocalFileNode(DisplayNode):
         self._sync_ts: int = ensure_int(other_node.sync_ts)
         self._modify_ts: int = ensure_int(other_node.modify_ts)
         self._change_ts: int = ensure_int(other_node.change_ts)
-        self._exists = _ensure_bool(other_node.exists())
+        self._exists = ensure_bool(other_node.exists())
 
     def is_parent(self, potential_child_node: DisplayNode) -> bool:
         # A file can never be the parent of anything

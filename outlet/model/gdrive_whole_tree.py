@@ -80,7 +80,7 @@ class GDriveWholeTree:
             node.node_identifier.full_path = full_paths
         return full_paths
 
-    def add_node(self, node: GDriveNode):
+    def add_node(self, node: GDriveNode) -> GDriveNode:
         """Adds a node. Assumes that the node has all necessary parent info filled in already,
         and does the heavy lifting and populates all data structures appropriately."""
 
@@ -91,6 +91,7 @@ class GDriveWholeTree:
         if existing_node:
             logger.debug(f'add_node(): found existing node with same ID (will attempt to merge nodes): existing: {existing_node}; new={node}')
             new_parent_uids = _merge_into_existing(existing_node, node)
+            node = existing_node
         else:
             self.id_dict[node.uid] = node
 
@@ -102,6 +103,9 @@ class GDriveWholeTree:
         # FIXME: prevent duplicate roots
         if not node.get_parent_uids():
             self.roots.append(node)
+
+        # this may actually be an existing node (we favor that if it exists)
+        return node
 
     def remove_node(self, node: GDriveNode):
         """Remove given node from all data structures in this tree."""

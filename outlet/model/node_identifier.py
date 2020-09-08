@@ -17,6 +17,14 @@ def ensure_int(val):
     return val
 
 
+def ensure_bool(val):
+    try:
+        return bool(val)
+    except ValueError:
+        pass
+    return val
+
+
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
     ABSTRACT CLASS NodeIdentifier

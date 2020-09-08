@@ -211,8 +211,8 @@ class GDriveMasterCache:
             else:
                 logger.debug(f'Node does not exist; skipping save to disk: {node}')
 
-            # Finally, update in-memory cache (tree):
-            self._my_gdrive.add_node(node)
+            # Finally, update in-memory cache (tree). If an existing node is found with the same UID, it will update and return that instead:
+            node = self._my_gdrive.add_node(node)
 
             # Generate full_path for node, if not already done (we assume this is a newly created node)
             self._my_gdrive.get_full_path_for_node(node)
