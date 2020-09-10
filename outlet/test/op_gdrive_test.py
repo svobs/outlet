@@ -12,6 +12,7 @@ from pydispatch import dispatcher
 
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from gdrive.client import GDriveClient
+from gdrive.query_observer import SimpleNodeCollector
 from index.uid.uid import UID
 from model.node.display_node import DisplayNode
 from model.node.gdrive_node import GDriveNode
@@ -557,3 +558,13 @@ class OpGDriveTest(OpTestBase):
 
         self.do_and_verify(delete, count_expected_cmds=12, wait_for_left=False, wait_for_right=True,
                            expected_left=INITIAL_LOCAL_TREE_LEFT, expected_right=INITIAL_GDRIVE_TREE_RIGHT)
+
+    def test_xxx(self):
+        client = GDriveClient(self.app)
+        # token = client.get_changes_start_token()
+        token = 1684958
+        logger.info(f'Token: {token}')
+
+        sync_ts = int(time.time())
+
+        change_list = client.get_changes_list(start_page_token=token, sync_ts=sync_ts)

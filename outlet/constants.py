@@ -124,5 +124,5 @@ GDRIVE_WEB_VIEW_LINK = 'https://drive.google.com/file/d/{id}/view?usp=drivesdk'
 GDRIVE_WEB_CONTENT_LINK = 'https://drive.google.com/uc?id={id}&export=download'
 
 GDRIVE_FOLDER_FIELDS = 'id, name, trashed, explicitlyTrashed, driveId, shared'
-GDRIVE_FILE_FIELDS = 'id, name, trashed, explicitlyTrashed, driveId, shared, version, createdTime, ' \
-                     'modifiedTime, owners, md5Checksum, size, headRevisionId, shortcutDetails, mimeType, sharingUser'
+GDRIVE_FILE_FIELDS = f'{GDRIVE_FOLDER_FIELDS}, version, createdTime, modifiedTime, owners, md5Checksum, size, headRevisionId, ' \
+                     f'shortcutDetails, mimeType, sharingUser'

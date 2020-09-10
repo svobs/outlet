@@ -29,6 +29,23 @@ from util.stopwatch_sec import Stopwatch
 logger = logging.getLogger(__name__)
 
 
+class GDriveChange:
+    def __init__(self, change_ts, goog_id: str):
+        self.change_ts = change_ts
+        self.goog_id = goog_id
+
+
+class GDriveRM(GDriveChange):
+    def __init__(self, change_ts, goog_id: str):
+        super().__init__(change_ts, goog_id)
+
+
+class GDriveNodeChange(GDriveChange):
+    def __init__(self, change_ts, goog_id: str, node: GDriveNode):
+        super().__init__(change_ts, goog_id)
+        self.node = node
+
+
 def _load_google_client_service(config):
     def request():
         logger.debug('Trying to authenticate against GDrive API...')
@@ -104,6 +121,14 @@ def _convert_trashed(result):
         return NOT_TRASHED
 
 
+def _parse_gdrive_date(result, field_name) -> Optional[int]:
+    timestamp = result.get(field_name, None)
+    if timestamp:
+        timestamp = dateutil.parser.parse(timestamp)
+        timestamp = int(timestamp.timestamp() * 1000)
+    return timestamp
+
+
 # CLASS MemoryCache
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -173,15 +198,9 @@ class GDriveClient:
         else:
             owner_id = None
 
-        create_ts = item.get('createdTime', None)
-        if create_ts:
-            create_ts = dateutil.parser.parse(create_ts)
-            create_ts = int(create_ts.timestamp() * 1000)
+        create_ts = _parse_gdrive_date(item, 'createdTime')
 
-        modify_ts = item.get('modifiedTime', None)
-        if modify_ts:
-            modify_ts = dateutil.parser.parse(modify_ts)
-            modify_ts = int(modify_ts.timestamp() * 1000)
+        modify_ts = _parse_gdrive_date(item, 'modifiedTime')
 
         head_revision_id = item.get('headRevisionId', None)
         size_str = item.get('size', None)
@@ -586,8 +605,84 @@ class GDriveClient:
         def request():
             return self.service.changes().getStartPageToken().execute()
 
-        token = _try_repeatedly(request)
+        response: Dict = _try_repeatedly(request)
+
+        token = response.get('startPageToken', None)
 
         logger.debug(f'Got token: "{token}"')
         return token
+
+    def get_changes_list(self, start_page_token: str, sync_ts: int) -> List[GDriveChange]:
+        logger.debug(f'Sending request to get changes from start_page_token: "{start_page_token}"')
+
+        change_list: List[GDriveChange] = []
+
+        # Google Drive only; not app data or Google Photos:
+        spaces = 'drive'
+
+        def request():
+            m = f'Sending request for files, page {request.page_count}...'
+            logger.debug(m)
+            if self.tree_id:
+                dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
+
+            # Call the Drive v3 API
+            response = self.service.changes().list(pageToken=start_page_token, fields=f'changes(changeType, time, removed, fileId, driveId, '
+                                                                                      f'file({GDRIVE_FILE_FIELDS}, parents))', spaces=spaces,
+                                                   pageSize=self.page_size).execute()
+            request.page_count += 1
+            return response
+
+        request.page_token = start_page_token
+        request.page_count = 0
+
+        stopwatch_retrieval = Stopwatch()
+
+        while True:
+            response_dict: dict = _try_repeatedly(request)
+
+            # TODO: how will we know if the token is invalid?
+
+            items: list = response_dict.get('changes', [])
+            if not items:
+                logger.debug('Request returned no changes')
+                break
+
+            msg = f'Received {len(items)} changes'
+            logger.debug(msg)
+            if self.tree_id:
+                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+
+            for item in items:
+                logger.debug(f'ITEM: {item}')
+
+                goog_id = item['fileId']
+                change_ts = item['time']
+
+                is_removed = item['removed']
+                if is_removed:
+                    change: GDriveRM = GDriveRM(change_ts, goog_id)
+                else:
+                    if item['changeType'] == 'file':
+                        file = item['file']
+                        mime_type = file['mimeType']
+                        if mime_type == MIME_TYPE_FOLDER:
+                            goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(file, sync_ts=sync_ts)
+                        else:
+                            goog_node: GDriveFile = self._convert_dict_to_gdrive_file(file, sync_ts=sync_ts)
+                        change: GDriveNodeChange = GDriveNodeChange(change_ts, goog_id, goog_node)
+                    else:
+                        logger.error(f'Strange item: {item}')
+                        raise RuntimeError(f'is_removed==true but changeType is not "file" (got "{item["changeType"]}" instead')
+
+                change_list.append(change)
+
+            request.page_token = response_dict.get('nextPageToken')
+
+            if not request.page_token:
+                logger.debug('Done!')
+                break
+
+        logger.debug(f'{stopwatch_retrieval} Query returned {len(change_list)} changes')
+        return change_list
 
