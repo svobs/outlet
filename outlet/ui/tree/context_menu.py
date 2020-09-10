@@ -33,7 +33,7 @@ class TreeContextMenu:
         # Show number of items selected
         item = Gtk.MenuItem(label='')
         label = item.get_child()
-        display = GObject.markup_escape_text(f'{len(selected_items)} items selected')
+        display = GLib.markup_escape_text(f'{len(selected_items)} items selected')
         label.set_markup(f'<i>{display}</i>')
         item.set_sensitive(False)
         menu.append(item)

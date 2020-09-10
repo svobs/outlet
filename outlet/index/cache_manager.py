@@ -9,10 +9,11 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from command.cmd_interface import Command
+from index.error import CacheNotLoadedError, GDriveItemNotFoundError
 from ui.tree.controller import TreePanelController
 from util import file_util
 from model.op import Op
-from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from util.file_util import get_resource_path
 from index.cache_info import CacheInfoEntry, PersistedCacheInfo
 from index.op_ledger import OpLedger
@@ -442,21 +443,37 @@ class CacheManager:
     def build_local_file_node(self, full_path: str, staging_path=None) -> Optional[LocalFileNode]:
         return self._local_disk_cache.build_local_file_node(full_path, staging_path)
 
-    def resolve_path(self, full_path: str = None, node_identifier: Optional[NodeIdentifier] = None) -> List[NodeIdentifier]:
-        """Resolves the given path into either a local file, a set of Google Drive matches, or raises a GDriveItemNotFoundError"""
-        full_path = file_util.normalize_path(full_path)
-        if not node_identifier:
+    def resolve_root_from_path(self, full_path: str) -> Tuple[NodeIdentifier, Exception]:
+        """Resolves the given path into either a local file, a set of Google Drive matches, or generates a GDriveItemNotFoundError,
+        then sends a actions.ROOT_PATH_UPDATED signal with the new info"""
+        try:
+            full_path = file_util.normalize_path(full_path)
             node_identifier = self.application.node_identifier_factory.for_values(full_path=full_path)
-        if node_identifier.tree_type == TREE_TYPE_GDRIVE:
-            # Need to wait until all caches are loaded:
-            self._wait_for_startup_done()
+            if node_identifier.tree_type == TREE_TYPE_GDRIVE:
+                # Need to wait until all caches are loaded:
+                self._wait_for_startup_done()
 
-            return self._gdrive_cache.get_all_for_path(node_identifier.full_path)
-        else:
-            if not os.path.exists(full_path):
-                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
-            uid = self.get_uid_for_path(full_path)
-            return [LocalFsIdentifier(full_path=full_path, uid=uid)]
+                identifiers = self._gdrive_cache.get_all_for_path(node_identifier.full_path)
+            else:
+                if not os.path.exists(full_path):
+                    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
+                uid = self.get_uid_for_path(full_path)
+                identifiers = [LocalFsIdentifier(full_path=full_path, uid=uid)]
+
+            assert len(identifiers) > 0, f'Got no identifiers (not even NULL) for path: {full_path}'
+            new_root: NodeIdentifier = identifiers[0]
+            err = None
+        except GDriveItemNotFoundError as ginf:
+            new_root = ginf.node_identifier
+            err = ginf
+        except FileNotFoundError as fnf:
+            new_root = self.application.node_identifier_factory.for_values(full_path=full_path)
+            err = fnf
+        except CacheNotLoadedError as cnlf:
+            err = cnlf
+            new_root = self.application.node_identifier_factory.for_values(full_path=full_path, uid=NULL_UID)
+
+        return new_root, err
 
     def get_goog_id_for_parent(self, node: GDriveNode) -> str:
         """Fails if there is not exactly 1 parent"""

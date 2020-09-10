@@ -320,10 +320,14 @@ class LocalDiskMasterCache:
     # Individual node operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def load_node_for_path(self, full_path: str) -> DisplayNode:
+    def load_node_for_path(self, full_path: str) -> Optional[DisplayNode]:
         """This actually reads directly from the disk cache"""
+        logger.debug(f'Loading single node for path: "{full_path}"')
         cache_man = self.application.cache_manager
         cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_supertree_for_subtree(full_path, TREE_TYPE_LOCAL_DISK)
+        if not cache_info:
+            logger.debug(f'Could not find cache containing path: "{full_path}"')
+            return None
         with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
             return cache.get_file_or_dir_for_path(full_path)
 

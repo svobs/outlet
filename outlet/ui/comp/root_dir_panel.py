@@ -125,21 +125,7 @@ class RootDirPanel:
         # Triggered when the user submits a root via the text entry box
         new_root_path: str = self.entry.get_text()
         logger.info(f'User entered root path: "{new_root_path}" for tree_id={tree_id}')
-        err = None
-        try:
-            identifiers = self.cache_manager.resolve_path(new_root_path)
-            assert len(identifiers) > 0, f'Got no identifiers (not even NULL) for path: {new_root_path}'
-            new_root: NodeIdentifier = identifiers[0]
-            self.err = None
-        except GDriveItemNotFoundError as ginf:
-            new_root = ginf.node_identifier
-            self.err = ginf
-        except FileNotFoundError as fnf:
-            new_root = self.parent_win.application.node_identifier_factory.for_values(full_path=new_root_path)
-            self.err = fnf
-        except CacheNotLoadedError as cnlf:
-            self.err = cnlf
-            new_root = self.parent_win.application.node_identifier_factory.for_values(full_path=new_root_path, uid=NULL_UID)
+        new_root, err = self.cache_manager.resolve_root_from_path(new_root_path)
 
         if new_root == self.current_root:
             logger.debug('No change to root')
@@ -259,7 +245,7 @@ class RootDirPanel:
         else:
             raise RuntimeError(f'Unrecognized tree type: {new_root.tree_type}')
 
-        root_exists = not err and new_root.uid != 'NULL'
+        root_exists = not err and new_root.uid != NULL_UID
         if root_exists:
             pre = ''
             color = ''
