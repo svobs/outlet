@@ -1,6 +1,6 @@
 from enum import IntEnum
-
 from index.uid.uid import UID
+
 
 APP_NAME = 'Outlet'
 
@@ -40,6 +40,10 @@ PROGRESS_BAR_MAX_MSG_LENGTH = 80
 BASE_ICON_BASE_DIR = 'resources/Base'
 COMPOSITE_ICON_BASE_DIR = 'resources/Composite'
 BADGE_ICON_BASE_DIR = 'resources/Badge'
+
+PROJECT_DIR = '.'
+CONFIG_DIR = f'{PROJECT_DIR}/config'
+DEFAULT_CONFIG_PATH = f'{CONFIG_DIR}/outlet-default.cfg'
 
 # Various icon names:
 ICON_ALERT = 'alert'

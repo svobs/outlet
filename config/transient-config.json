@@ -1,0 +1,33 @@
+{
+    "diff_win": {
+        "height": 836,
+        "width": 1600,
+        "x": 0,
+        "y": 2187
+    },
+    "global": {
+        "last_uid": 6155251
+    },
+    "left_tree": {
+        "expanded_state": {
+            "CP": false,
+            "MV": true,
+            "RM": false,
+            "UP": true
+        },
+        "root_path": "/media/msvoboda/sdcard-msvoboda/DVD Your Memories/Images/Good",
+        "root_uid": 6148244,
+        "tree_type": 1
+    },
+    "right_tree": {
+        "expanded_state": {
+            "CP": true,
+            "MV": true,
+            "RM": true,
+            "UP": true
+        },
+        "root_path": "/My Drive/Test",
+        "root_uid": 5800000,
+        "tree_type": 2
+    }
+}

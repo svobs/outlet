@@ -555,13 +555,12 @@ class GDriveClient:
         return goog_node
 
     def trash(self, goog_id: str):
+        """Changes the trashed status of the given goog_id"""
         logger.debug(f'Sending request to trash file with goog_id="{goog_id}"')
 
         file_metadata = {'trashed': True}
 
         def request():
-            # Put the given file in the trash
-            # Send the request to the API.
             return self.service.files().update(fileId=goog_id, body=file_metadata, fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
 
         file_meta = _try_repeatedly(request)
@@ -580,3 +579,15 @@ class GDriveClient:
 
         _try_repeatedly(request)
         logger.debug(f'Successfully deleted GDriveNode: {goog_id}')
+
+    def get_changes_start_token(self) -> str:
+        logger.debug(f'Sending request to get startPageToken from Changes API"')
+
+        def request():
+            return self.service.changes().getStartPageToken().execute()
+
+        token = _try_repeatedly(request)
+
+        logger.debug(f'Got token: "{token}"')
+        return token
+
