@@ -62,7 +62,7 @@ class RootDirPanel:
                 if self._ui_enabled and event.keyval == Gdk.KEY_Escape and self.entry:
                     # cancel
                     logger.debug(f'Escape pressed! Cancelling root path entry box')
-                    self._update_root_label(self.current_root, self.err)
+                    self._redraw_root_display()
                     return True
                 return False
 
@@ -90,18 +90,18 @@ class RootDirPanel:
         self.toolbar = None
         self.refresh_button = None
 
-        actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
-        actions.connect(actions.ROOT_PATH_UPDATED, self._on_root_path_updated, self.tree_id)
+        dispatcher.connect(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
+        dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.tree_id)
 
         # Need to call this to do the initial UI draw:
-        logger.debug(f'Building panel: {self.tree_id} with current root {self.current_root}')
+        logger.debug(f'[{self.tree_id}] Building panel with current root {self.current_root}')
 
         if self.current_root.tree_type == TREE_TYPE_LOCAL_DISK and not os.path.exists(self.current_root.full_path):
             self.err = FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.current_root.full_path)
         else:
             self.err = None
 
-        GLib.idle_add(self._update_root_label, current_root, self.err)
+        GLib.idle_add(self._redraw_root_display)
 
     def __del__(self):
         if self.entry_box_focus_eid:
@@ -128,8 +128,8 @@ class RootDirPanel:
         new_root, err = self.cache_manager.resolve_root_from_path(new_root_path)
 
         if new_root == self.current_root:
-            logger.debug('No change to root')
-            self._update_root_label(self.current_root, err=self.err)
+            logger.debug(f'[{tree_id}] No change to root')
+            self._redraw_root_display()
             return
 
         logger.info(f'[{tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root={new_root}, err={err}')
@@ -172,7 +172,7 @@ class RootDirPanel:
                 self.entry.disconnect(self.entry_box_focus_eid)
                 self.entry_box_focus_eid = None
             logger.debug(f'Focus lost! Cancelling root path entry box')
-            self._update_root_label(self.current_root, self.err)
+            self._redraw_root_display()
 
         self.entry_box_focus_eid = self.entry.connect('focus-out-event', cancel_edit)
         self.entry.show()
@@ -192,10 +192,13 @@ class RootDirPanel:
             self.change_btn.set_sensitive(enable)
         GLib.idle_add(change_button)
 
-    def _update_root_label(self, new_root: NodeIdentifier, err=None):
+    def _redraw_root_display(self):
         """Updates the UI to reflect the new root and tree type.
         Expected to be called from the UI thread.
         """
+        new_root = self.current_root
+        err = self.err
+        logger.debug(f'[{self.tree_id}] Redrawing root display for new_root={new_root}, err={err}')
         if self.entry:
             if self.entry_box_focus_eid:
                 self.entry.disconnect(self.entry_box_focus_eid)
@@ -258,15 +261,18 @@ class RootDirPanel:
             if err and isinstance(err, GDriveItemNotFoundError):
                 root_part_regular = err.offending_path
                 root_part_bold = file_util.strip_root(new_root.full_path, err.offending_path)
-            if len(self.alert_image_box.get_children()) == 0:
+            if not self.alert_image_box.get_children():
                 self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
             color = f"foreground='gray'"
-            pre = f"<span foreground='red' size='small'>Not found:  </span>"
+            pre = f"<span foreground='red' size='medium'>Not found:  </span>"
             self.alert_image.show()
 
         if root_part_regular != '/':
             root_part_regular = root_part_regular + '/'
         self._set_label_markup(pre, color, root_part_regular, root_part_bold)
+
+        self.current_root = new_root
+        self.err = err
 
     def _set_label_markup(self, pre, color, root_part_regular, root_part_bold):
         """Sets the content of the label only. Expected to be called from the UI thread"""
@@ -278,17 +284,18 @@ class RootDirPanel:
 
     def _on_root_path_updated(self, sender, new_root: NodeIdentifier, err=None):
         """Callback for actions.ROOT_PATH_UPDATED"""
-        logger.debug(f'[{sender}] Received signal "{actions.ROOT_PATH_UPDATED}": type={new_root.tree_type} path="{new_root.full_path}"')
+        logger.debug(f'[{sender}] Received signal "{actions.ROOT_PATH_UPDATED}" with new_root={new_root}, err={err}')
         if not new_root or not new_root.full_path:
             raise RuntimeError(f'Root path cannot be empty! (tree_id={sender})')
 
-        if self.current_root != new_root:
+        if self.current_root != new_root or err != self.err:
             self.current_root = new_root
+            self.err = err
             if not err and not self.cache_manager.reload_tree_on_root_path_update:
                 self.needs_load = True
 
             # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html
-            GLib.idle_add(self._update_root_label, new_root, err)
+            GLib.idle_add(self._redraw_root_display)
 
     def _open_localdisk_root_chooser_dialog(self, menu_item):
         """Creates and displays a LocalRootDirChooserDialog.
@@ -321,10 +328,10 @@ class RootDirPanel:
         # Launch in a non-UI thread:
         dispatcher.send(signal=actions.LOAD_UI_TREE, sender=self.tree_id)
         # Hide Refresh button
-        GLib.idle_add(self._update_root_label, self.current_root, self.err)
+        GLib.idle_add(self._redraw_root_display)
 
     def _on_load_started(self, sender):
         if self.needs_load:
             self.needs_load = False
             # Hide Refresh button
-            GLib.idle_add(self._update_root_label, self.current_root, self.err)
+            GLib.idle_add(self._redraw_root_display)

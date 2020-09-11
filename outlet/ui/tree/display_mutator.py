@@ -181,6 +181,8 @@ class DisplayMutator:
         except GDriveItemNotFoundError as err:
             # Not found: signal error to UI and cancel
             logger.warning(f'[{self.con.tree_id}] Could not populate root: GDrive node not found: {self.con.lazy_tree.get_root_identifier()}')
+            logger.debug(f'[{self.con.tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root='
+                         f'{self.con.lazy_tree.get_root_identifier()}, err={err}')
             dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.con.tree_id, new_root=self.con.lazy_tree.get_root_identifier(), err=err)
             return
 

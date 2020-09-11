@@ -55,6 +55,7 @@ class RootPathConfigPersister:
                 new_root, err = self.application.cache_manager.resolve_root_from_path(root_path)
                 root_uid = new_root.uid
                 self.root_identifier = new_root
+                logger.info(f'[{tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root={new_root}, err={err}')
                 dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root, err=err)
 
         self.root_identifier = self.application.node_identifier_factory.for_values(tree_type=tree_type, full_path=root_path, uid=root_uid)
