@@ -11,6 +11,7 @@ from pydispatch.errors import DispatcherKeyError
 
 from constants import HOLDOFF_TIME_MS, LARGE_NUMBER_OF_CHILDREN
 from index.error import GDriveItemNotFoundError
+from index.uid.uid import UID
 from model.op import Op
 from util.holdoff_timer import HoldOffTimer
 from model.node.container_node import CategoryNode
@@ -108,10 +109,7 @@ class DisplayMutator:
 
                 tree_iter = None
                 for ancestor in ancestor_list:
-                    if tree_iter is None:
-                        tree_iter = self.con.display_store.find_uid_in_top_level(target_uid=ancestor.uid)
-                    else:
-                        tree_iter = self.con.display_store.find_uid_in_children(target_uid=ancestor.uid, parent_iter=tree_iter)
+                    tree_iter = self.con.display_store.find_uid_in_tree(ancestor.uid, tree_iter)
                     if not tree_iter:
                         logger.error(f'[{self.con.tree_id}] Could not expand ancestor node: could not find node in tree for: {ancestor}')
                         return
@@ -119,7 +117,7 @@ class DisplayMutator:
                     if not self.con.tree_view.row_expanded(tree_path):
                         self._expand_subtree(tree_path, expand_all=False)
 
-                tree_iter = self.con.display_store.find_uid_in_children(target_uid=selection.uid, parent_iter=tree_iter)
+                tree_iter = self.con.display_store.find_uid_in_tree(selection.uid, tree_iter)
                 if not tree_iter:
                     logger.error(f'[{self.con.tree_id}] Could not expand node: could not find node in tree for: {selection}')
                     return
