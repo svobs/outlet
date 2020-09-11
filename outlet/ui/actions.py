@@ -38,7 +38,7 @@ ROOT_PATH_UPDATED = 'root-path-updated'
 NODE_UPSERTED = 'node-upserted'
 NODE_REMOVED = 'node-removed'
 EXIT_DIFF_MODE = 'diff-cancelled'
-REFRESH_SUBTREE_STATS_DONE = 'subtree-stats-updated'
+REFRESH_SUBTREE_STATS_DONE = 'refresh-subtree-stats-done'
 REFRESH_SUBTREE_STATS_COMPLETELY_DONE = 'refresh-subtree-stats-completely-done'
 """Indicates that the central cache has updated the stats for the subtree, and the subtree should redraw the nodes"""
 

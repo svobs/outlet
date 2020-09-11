@@ -50,7 +50,6 @@ class GDriveMasterCache:
         self.md5_dict = Md5BeforeUidDict()
         self._my_gdrive: Optional[GDriveWholeTree] = None
 
-        # TODO: use this
         self._struct_lock = threading.Lock()
 
         self._uid_mapper = UidGoogIdMapper(application)

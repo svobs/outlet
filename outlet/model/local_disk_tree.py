@@ -156,6 +156,6 @@ class LocalDiskTree(treelib.Tree):
                 for child in children:
                     node.add_meta_metrics(child)
 
-            logger.debug(f'Node {node.uid} ("{node.name}") has size={node.get_size_bytes()}, etc={node.get_etc()}')
+            # logger.debug(f'[{tree_id}] Node {node.uid} ("{node.name}") has size={node.get_size_bytes()}, etc={node.get_etc()}')
 
         logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for tree')

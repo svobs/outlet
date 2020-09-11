@@ -547,7 +547,7 @@ class GDriveWholeTree:
 
     def refresh_stats(self, tree_id, subtree_root: Optional[GDriveFolder] = None):
         # Calculates the stats for all the directories
-        logger.debug(f'[{tree_id}] Refreshing stats for GDrive tree')
+        logger.debug(f'[{tree_id}] Refreshing stats for GDrive tree (subtree={subtree_root})')
         stats_sw = Stopwatch()
         queue: Deque[GDriveFolder] = deque()
         stack: Deque[GDriveFolder] = deque()
@@ -593,6 +593,7 @@ class GDriveWholeTree:
 
         if not subtree_root:
             # whole tree
+            logger.debug(f'[{tree_id}] Stats done for whole GDrive tree: sending signals')
             self._stats_loaded = True
             dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
             dispatcher.send(signal=actions.SET_STATUS, sender=tree_id, status_msg=self.get_summary())

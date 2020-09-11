@@ -88,6 +88,7 @@ class LocalDiskSubtree(DisplayTree):
             return 'Loading stats...'
 
     def refresh_stats(self, tree_id: str):
+        logger.debug(f'[{tree_id}] Refreshing stats...')
         self.cache_manager.refresh_stats(tree_id, self.root_node)
         self._stats_loaded = True
         dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)

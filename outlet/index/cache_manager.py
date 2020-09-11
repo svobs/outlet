@@ -409,6 +409,7 @@ class CacheManager:
 
     def refresh_stats(self, tree_id: str, subtree_root_node: DisplayNode):
         """Does not send signals. The caller is responsible for sending REFRESH_SUBTREE_STATS_DONE and SET_STATUS themselves"""
+        logger.debug(f'[{tree_id}] Refreshing stats for subtree: {subtree_root_node}')
         if subtree_root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
             self._local_disk_cache.refresh_stats(tree_id, subtree_root_node)
         elif subtree_root_node.get_tree_type() == TREE_TYPE_GDRIVE:
@@ -443,7 +444,7 @@ class CacheManager:
 
     def resolve_root_from_path(self, full_path: str) -> Tuple[NodeIdentifier, Exception]:
         """Resolves the given path into either a local file, a set of Google Drive matches, or generates a GDriveItemNotFoundError,
-        then sends a actions.ROOT_PATH_UPDATED signal with the new info"""
+        and returns a tuple of both"""
         try:
             full_path = file_util.normalize_path(full_path)
             node_identifier = self.application.node_identifier_factory.for_values(full_path=full_path)

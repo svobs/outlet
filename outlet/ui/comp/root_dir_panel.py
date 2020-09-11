@@ -124,7 +124,7 @@ class RootDirPanel:
             self.entry_box_focus_eid = None
         # Triggered when the user submits a root via the text entry box
         new_root_path: str = self.entry.get_text()
-        logger.info(f'User entered root path: "{new_root_path}" for tree_id={tree_id}')
+        logger.info(f'[{tree_id}] User entered root path: "{new_root_path}"')
         new_root, err = self.cache_manager.resolve_root_from_path(new_root_path)
 
         if new_root == self.current_root:
@@ -132,6 +132,7 @@ class RootDirPanel:
             self._update_root_label(self.current_root, err=self.err)
             return
 
+        logger.info(f'[{tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root={new_root}, err={err}')
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root, err=err)
 
     def _on_change_btn_clicked(self, widget):

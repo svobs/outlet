@@ -10,6 +10,7 @@ from typing import Deque, Iterable, List, Optional
 from pydispatch.errors import DispatcherKeyError
 
 from constants import HOLDOFF_TIME_MS, LARGE_NUMBER_OF_CHILDREN
+from index.error import GDriveItemNotFoundError
 from model.op import Op
 from util.holdoff_timer import HoldOffTimer
 from model.node.container_node import CategoryNode
@@ -78,7 +79,7 @@ class DisplayMutator:
             dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled,
                                sender=self.con.treeview_meta.tree_id)
 
-        dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_subtree_stats_updated)
+        dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_subtree_stats_updated, sender=self.con.treeview_meta.tree_id)
         """This signal comes from the cacheman after it has finished updating all the nodes in the subtree,
         notfiying us that we can now refresh our display from it"""
 
@@ -175,7 +176,13 @@ class DisplayMutator:
         Draws from the undelying data store as needed, to populate the display store."""
 
         # This may be a long task
-        children: List[DisplayNode] = self.con.lazy_tree.get_children_for_root()
+        try:
+            children: List[DisplayNode] = self.con.lazy_tree.get_children_for_root()
+        except GDriveItemNotFoundError as err:
+            # Not found: signal error to UI and cancel
+            logger.warning(f'[{self.con.tree_id}] Could not populate root: GDrive node not found: {self.con.lazy_tree.get_root_identifier()}')
+            dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.con.tree_id, new_root=self.con.lazy_tree.get_root_identifier(), err=err)
+            return
 
         def update_ui():
             self._enable_state_listeners = False
@@ -415,6 +422,8 @@ class DisplayMutator:
     def _on_subtree_stats_updated(self, sender: str):
         """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes
         with the current values from the cache."""
+        logger.debug(f'[{self.con.tree_id}] Got signal: "{actions.REFRESH_SUBTREE_STATS_DONE}"')
+
         def redraw_displayed_node(tree_iter):
             if self.con.app.shutdown:
                 # try to prevent junk errors during shutdown
@@ -475,7 +484,7 @@ class DisplayMutator:
 
             tree_iter = self.con.display_store.model.iter_next(tree_iter)
 
-        logger.debug(f'[{self.con.tree_id}]Displayed rows count: {len(self.con.display_store.displayed_rows)}')
+        logger.debug(f'[{self.con.tree_id}] Displayed rows count: {len(self.con.display_store.displayed_rows)}')
 
     def _append_dir_node_and_loading_child(self, parent_iter, node_data: DisplayNode):
         dir_node_iter = self._append_dir_node(parent_iter, node_data)
