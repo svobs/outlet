@@ -87,7 +87,8 @@ NOT_TRASHED = 0
 EXPLICITLY_TRASHED = 1
 IMPLICITLY_TRASHED = 2
 
-GDRIVE_DOWNLOAD_TYPE_LOAD_ALL = 1
+GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD = 1
+GDRIVE_DOWNLOAD_TYPE_CHANGES = 2
 
 GDRIVE_DOWNLOAD_STATE_NOT_STARTED = 0
 GDRIVE_DOWNLOAD_STATE_GETTING_DIRS = 1
@@ -123,6 +124,6 @@ QUERY_NON_FOLDERS_ONLY = f"not {QUERY_FOLDERS_ONLY}"
 GDRIVE_WEB_VIEW_LINK = 'https://drive.google.com/file/d/{id}/view?usp=drivesdk'
 GDRIVE_WEB_CONTENT_LINK = 'https://drive.google.com/uc?id={id}&export=download'
 
-GDRIVE_FOLDER_FIELDS = 'id, name, trashed, explicitlyTrashed, driveId, shared'
+GDRIVE_FOLDER_FIELDS = 'id, name, mimeType, trashed, explicitlyTrashed, driveId, shared'
 GDRIVE_FILE_FIELDS = f'{GDRIVE_FOLDER_FIELDS}, version, createdTime, modifiedTime, owners, md5Checksum, size, headRevisionId, ' \
-                     f'shortcutDetails, mimeType, sharingUser'
+                     f'shortcutDetails, sharingUser'

@@ -34,10 +34,18 @@ class GDriveChange:
         self.change_ts = change_ts
         self.goog_id = goog_id
 
+    @classmethod
+    def is_removed(cls):
+        return False
+
 
 class GDriveRM(GDriveChange):
     def __init__(self, change_ts, goog_id: str):
         super().__init__(change_ts, goog_id)
+
+    @classmethod
+    def is_removed(cls):
+        return True
 
 
 class GDriveNodeChange(GDriveChange):
@@ -191,10 +199,9 @@ class GDriveClient:
         if not sync_ts:
             sync_ts = int(time.time())
 
-        owners = item['owners']
-        owner = None if len(owners) == 0 else owners[0]
-        if owner:
-            owner_id = owner.get('permissionId', None)
+        owners = item.get('owners', None)
+        if owners:
+            owner_id = owners[0].get('permissionId', None)
         else:
             owner_id = None
 
@@ -621,13 +628,14 @@ class GDriveClient:
         spaces = 'drive'
 
         def request():
-            m = f'Sending request for files, page {request.page_count}...'
+            m = f'Sending request for changes, page {request.page_count} (token: {request.page_token})...'
             logger.debug(m)
             if self.tree_id:
                 dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
 
             # Call the Drive v3 API
-            response = self.service.changes().list(pageToken=start_page_token, fields=f'changes(changeType, time, removed, fileId, driveId, '
+            response = self.service.changes().list(pageToken=request.page_token, fields=f'nextPageToken, newStartPageToken, '
+                                                                                      f'changes(changeType, time, removed, fileId, driveId, '
                                                                                       f'file({GDRIVE_FILE_FIELDS}, parents))', spaces=spaces,
                                                    pageSize=self.page_size).execute()
             request.page_count += 1
@@ -654,7 +662,7 @@ class GDriveClient:
                 actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             for item in items:
-                logger.debug(f'ITEM: {item}')
+                # logger.debug(f'ITEM: {item}')
 
                 goog_id = item['fileId']
                 change_ts = item['time']
@@ -677,12 +685,14 @@ class GDriveClient:
 
                 change_list.append(change)
 
-            request.page_token = response_dict.get('nextPageToken')
+            request.page_token = response_dict.get('nextPageToken', None)
 
             if not request.page_token:
-                logger.debug('Done!')
-                break
+                request.page_token = response_dict.get('newStartPageToken', None)
+                if not request.page_token:
+                    logger.debug('Done receiving changes!')
+                    break
 
-        logger.debug(f'{stopwatch_retrieval} Query returned {len(change_list)} changes')
+        logger.debug(f'{stopwatch_retrieval} Requests returned {len(change_list)} changes')
         return change_list
 

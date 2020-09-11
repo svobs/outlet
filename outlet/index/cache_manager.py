@@ -27,7 +27,6 @@ from model.node.local_disk_node import LocalFileNode
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
-from model.node_identifier_factory import NodeIdentifierFactory
 from model.display_tree.display_tree import DisplayTree
 from util.stopwatch_sec import Stopwatch
 from ui import actions
@@ -287,7 +286,7 @@ class CacheManager:
             else:
                 self._local_disk_cache.load_local_subtree(existing_disk_cache.subtree_root, ID_GLOBAL_CACHE)
         elif cache_type == TREE_TYPE_GDRIVE:
-            self._gdrive_cache.load_gdrive_cache(existing_disk_cache, ID_GLOBAL_CACHE)
+            self._gdrive_cache.load_gdrive_cache(existing_disk_cache, False, ID_GLOBAL_CACHE)
 
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -310,7 +309,7 @@ class CacheManager:
             subtree = self._local_disk_cache.load_local_subtree(node_identifier, tree_id)
         elif node_identifier.tree_type == TREE_TYPE_GDRIVE:
             assert self._gdrive_cache
-            subtree = self._gdrive_cache.load_gdrive_subtree(node_identifier, tree_id)
+            subtree = self._gdrive_cache.load_gdrive_subtree(node_identifier, invalidate_cache=False, tree_id=tree_id)
         else:
             raise RuntimeError(f'Unrecognized tree type: {node_identifier.tree_type}')
 
@@ -433,12 +432,11 @@ class CacheManager:
         return self._op_ledger.get_next_command()
 
     def download_all_gdrive_meta(self, tree_id):
-        return self._gdrive_cache.download_all_gdrive_meta(tree_id)
+        return self._gdrive_cache.load_gdrive_subtree(subtree_root=None, invalidate_cache=True, tree_id=tree_id)
 
     def get_gdrive_whole_tree(self, tree_id) -> GDriveWholeTree:
         """Will load if necessary"""
-        root_identifier: NodeIdentifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
-        return self._gdrive_cache.load_gdrive_subtree(root_identifier, tree_id)
+        return self._gdrive_cache.load_gdrive_subtree(subtree_root=None, invalidate_cache=False, tree_id=tree_id)
 
     def build_local_file_node(self, full_path: str, staging_path=None) -> Optional[LocalFileNode]:
         return self._local_disk_cache.build_local_file_node(full_path, staging_path)

@@ -90,8 +90,13 @@ class GDriveWholeTree:
         existing_node = self.id_dict.get(node.uid, None)
         if existing_node:
             logger.debug(f'add_node(): found existing node with same ID (will attempt to merge nodes): existing: {existing_node}; new={node}')
-            new_parent_uids = _merge_into_existing(existing_node, node)
+            new_parent_uids, removed_parent_uids = _merge_into_existing(existing_node, node)
             node = existing_node
+
+            if len(removed_parent_uids) > 0:
+                for parent_uid in removed_parent_uids:
+                    self._remove_from_parent_dict(parent_uid, node)
+
         else:
             self.id_dict[node.uid] = node
 
@@ -100,9 +105,7 @@ class GDriveWholeTree:
             for parent_uid in new_parent_uids:
                 self._add_to_parent_dict(parent_uid, node)
 
-        # FIXME: prevent duplicate roots
-        if not node.get_parent_uids():
-            self.roots.append(node)
+        self._add_root(node)
 
         # this may actually be an existing node (we favor that if it exists)
         return node
@@ -146,12 +149,29 @@ class GDriveWholeTree:
         # Add ref in node:
         node.add_parent(parent_uid)
 
-    def _add_to_parent_dict(self, parent_uid: UID, node):
+    def _add_root(self, node: GDriveNode):
+        if not node.get_parent_uids():
+            for root in self.roots:
+                if root.uid == node.uid:
+                    # already present: do nothing
+                    return
+            self.roots.append(node)
+
+    def _add_to_parent_dict(self, parent_uid: UID, node: GDriveNode):
         child_list: List[GDriveNode] = self.first_parent_dict.get(parent_uid)
         if not child_list:
             child_list: List[GDriveNode] = []
             self.first_parent_dict[parent_uid] = child_list
         child_list.append(node)
+
+    def _remove_from_parent_dict(self, parent_uid: UID, node: GDriveNode):
+        child_list: List[GDriveNode] = self.first_parent_dict.get(parent_uid)
+        if child_list:
+            for child in child_list:
+                if child.uid == node.uid:
+                    logger.debug(f'Unlinking child {child.uid} from parent {parent_uid}')
+                    child_list.remove(child)
+                    return
 
     def get_all_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
         file_list: List[GDriveFile] = []
@@ -580,18 +600,23 @@ class GDriveWholeTree:
         logger.debug(f'{stats_sw} Refreshed stats for Google Drive tree')
 
 
-def _merge_into_existing(existing_node: GDriveNode, new_node: GDriveNode) -> List[UID]:
+def _merge_into_existing(existing_node: GDriveNode, new_node: GDriveNode) -> Tuple[List[UID], List[UID]]:
     # Assume nodes are identical but each references a different parent (most likely flattened for SQL)
     assert len(existing_node.get_parent_uids()) >= 1 and len(
         new_node.get_parent_uids()) == 1, f'Expected 1 parent each but found: {existing_node.get_parent_uids()} and {new_node.get_parent_uids()}'
 
-    new_parent_ids: List[UID] = []
+    new_parent_uids: List[UID] = []
     for parent_uid in new_node.get_parent_uids():
         if parent_uid not in existing_node.get_parent_uids():
-            new_parent_ids.append(parent_uid)
+            new_parent_uids.append(parent_uid)
+
+    removed_parent_uids: List[UID] = []
+    for parent_uid in existing_node.get_parent_uids():
+        if parent_uid not in new_parent_uids:
+            removed_parent_uids.append(parent_uid)
 
     # Merge parents into new node:
-    new_node.set_parent_uids(existing_node.get_parent_uids() + new_parent_ids)
+    new_node.set_parent_uids(existing_node.get_parent_uids() + new_parent_uids)
 
     if existing_node.goog_id and existing_node.goog_id != new_node.goog_id:
         raise RuntimeError(f'Existing node goog_id ({existing_node.goog_id}) does not match new node goog_id ({new_node.goog_id})')
@@ -599,4 +624,4 @@ def _merge_into_existing(existing_node: GDriveNode, new_node: GDriveNode) -> Lis
     existing_node.update_from(new_node)
 
     # Need to return these so they can be added to reverse dict
-    return new_parent_ids
+    return new_parent_uids, removed_parent_uids

@@ -6,8 +6,8 @@ from typing import Dict, List, Tuple
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
-    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_LOAD_ALL, GDRIVE_ROOT_UID
-from gdrive.client import GDriveClient
+    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID
+from gdrive.client import GDriveChange, GDriveClient, GDriveNodeChange
 from gdrive.query_observer import FileMetaPersister, FolderMetaPersister
 from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from index.uid.uid import UID
@@ -46,7 +46,7 @@ class GDriveTreeLoader:
         return None
 
     def load_all(self, invalidate_cache=False) -> GDriveWholeTree:
-        logger.debug('GDrive: load_all() called')
+        logger.debug(f'GDrive: load_all() called with invalidate_cache={invalidate_cache}')
         # This will create a new file if not found:
         with GDriveDatabase(self.cache_path, self.application) as self.cache:
             try:
@@ -64,13 +64,20 @@ class GDriveTreeLoader:
 
         sync_ts: int = int(time.time())
 
-        download: CurrentDownload = self._get_previous_download_state(GDRIVE_DOWNLOAD_TYPE_LOAD_ALL)
-        if not download or invalidate_cache:
-            logger.debug(f'Starting a fresh download for entire Google Drive tree meta (invalidate_cache={invalidate_cache}')
-            download = CurrentDownload(GDRIVE_DOWNLOAD_TYPE_LOAD_ALL, GDRIVE_DOWNLOAD_STATE_NOT_STARTED, None, sync_ts)
-            self.cache.create_or_update_download(download)
+        changes_download: CurrentDownload = self._get_previous_download_state(GDRIVE_DOWNLOAD_TYPE_CHANGES)
+        if not changes_download or invalidate_cache:
+            logger.debug(f'Getting a new start token for changes (invalidate_cache={invalidate_cache})')
+            token: str = self.gdrive_client.get_changes_start_token()
+            changes_download = CurrentDownload(GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_STATE_NOT_STARTED, token, sync_ts)
+            self.cache.create_or_update_download(changes_download)
 
-        if download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
+        initial_download: CurrentDownload = self._get_previous_download_state(GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD)
+        if not initial_download or invalidate_cache:
+            logger.debug(f'Starting a fresh download for entire Google Drive tree meta (invalidate_cache={invalidate_cache})')
+            initial_download = CurrentDownload(GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_DOWNLOAD_STATE_NOT_STARTED, None, sync_ts)
+            self.cache.create_or_update_download(initial_download)
+
+        if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             # completely fresh tree
             tree = GDriveWholeTree(self.node_identifier_factory)
         else:
@@ -81,44 +88,44 @@ class GDriveTreeLoader:
             if self.tree_id:
                 actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
-            tree: GDriveWholeTree = self._load_tree_from_cache(download.is_complete())
+            tree: GDriveWholeTree = self._load_tree_from_cache(initial_download.is_complete())
 
         # TODO
         tree.me = self.gdrive_client.get_about()
 
-        if not download.is_complete():
-            state = 'Starting' if download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED else 'Resuming'
-            logger.info(f'{state} download of all Google Drive tree (state={download.current_state})')
+        if not initial_download.is_complete():
+            state = 'Starting' if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED else 'Resuming'
+            logger.info(f'{state} download of all Google Drive tree (state={initial_download.current_state})')
 
         # BEGIN STATE MACHINE:
 
-        if download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
+        if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             self.cache.delete_all_gdrive_data()
 
             # Need to make a special call to get the root node 'My Drive'. This node will not be included
             # in the "list files" call:
-            download.update_ts = sync_ts
-            drive_root: GDriveFolder = self.gdrive_client.get_my_drive_root(download.update_ts)
+            initial_download.update_ts = sync_ts
+            drive_root: GDriveFolder = self.gdrive_client.get_my_drive_root(initial_download.update_ts)
             tree.id_dict[drive_root.uid] = drive_root
 
-            download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
-            download.page_token = None
+            initial_download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
+            initial_download.page_token = None
             self.cache.insert_gdrive_folder_list(folder_list=[drive_root], commit=False)
-            self.cache.create_or_update_download(download=download)
+            self.cache.create_or_update_download(download=initial_download)
             # fall through
 
-        if download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
-            observer = FolderMetaPersister(tree, download, self.cache)
-            self.gdrive_client.get_all_folders(download.page_token, download.update_ts, observer)
+        if initial_download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
+            observer = FolderMetaPersister(tree, initial_download, self.cache)
+            self.gdrive_client.get_all_folders(initial_download.page_token, initial_download.update_ts, observer)
             # fall through
 
-        if download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS:
-            observer = FileMetaPersister(tree, download, self.cache)
-            self.gdrive_client.get_all_non_folders(download.page_token, download.update_ts, observer)
+        if initial_download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS:
+            observer = FileMetaPersister(tree, initial_download, self.cache)
+            self.gdrive_client.get_all_non_folders(initial_download.page_token, initial_download.update_ts, observer)
             # fall through
 
-        if download.current_state <= GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE:
-            download.current_state = GDRIVE_DOWNLOAD_STATE_COMPLETE
+        if initial_download.current_state <= GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE:
+            initial_download.current_state = GDRIVE_DOWNLOAD_STATE_COMPLETE
 
             # Some post-processing needed...
 
@@ -139,7 +146,7 @@ class GDriveTreeLoader:
             logger.debug(f'Updated {len(parent_mappings)} id-parent mappings')
 
             # (3) mark download finished
-            self.cache.create_or_update_download(download=download)
+            self.cache.create_or_update_download(download=initial_download)
             logger.debug('GDrive data download complete.')
 
             # fall through
@@ -150,6 +157,35 @@ class GDriveTreeLoader:
 
         logger.debug('GDrive: load_all() done')
         return tree
+
+    def sync_latest_changes(self):
+        with GDriveDatabase(self.cache_path, self.application) as self.cache:
+            changes_download: CurrentDownload = self._get_previous_download_state(GDRIVE_DOWNLOAD_TYPE_CHANGES)
+            self._sync_latest_changes(changes_download)
+
+    def _sync_latest_changes(self, changes_download: CurrentDownload):
+        # Get new page token BEFORE getting latest changes, so that we don't miss anything:
+        most_recent_token: str = self.gdrive_client.get_changes_start_token()
+
+        sync_ts = int(time.time())
+        change_list: List[GDriveChange] = self.gdrive_client.get_changes_list(changes_download.page_token, sync_ts)
+        for change in change_list:
+            if change.is_removed():
+                node = self.cache_manager.get_node_for_goog_id(change.goog_id)
+                if node:
+                    self.cache_manager.remove_node(node, to_trash=False)
+                else:
+                    logger.debug(f'No node found in cache for goog_id: "{change.goog_id}"')
+            else:
+                assert isinstance(change, GDriveNodeChange)
+                self.cache_manager.add_or_update_node(change.node)
+
+        logger.debug(f'Finished {len(change_list)} cache updates')
+
+        # Now finally update download token
+        changes_download.page_token = most_recent_token
+        self.cache.create_or_update_download(changes_download)
+        logger.debug(f'Updated changes download with token: {most_recent_token}')
 
     def _load_tree_from_cache(self, is_complete: bool) -> GDriveWholeTree:
         """

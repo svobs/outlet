@@ -40,8 +40,8 @@ class MetaCollector:
 
     def process(self, goog_node: GDriveNode, item: Dict[str, Any]):
         # Collect owners
-        owners = item['owners']
-        if len(owners) > 0:
+        owners = item.get('owners', None)
+        if owners:
             owner = owners[0]
             owner_id = owner.get('permissionId', None)
             owner_name = owner.get('displayName', None)
@@ -51,8 +51,9 @@ class MetaCollector:
             self.owner_dict[owner_id] = (owner_name, owner_email, owner_photo_link, owner_is_me)
 
         # Collect MIME types
-        mime_type = item['mimeType']
-        self.mime_types[mime_type] = goog_node
+        mime_type = item.get('mimeType', None)
+        if mime_type:
+            self.mime_types[mime_type] = goog_node
 
         # web_view_link = item.get('webViewLink', None)
         # if web_view_link:
