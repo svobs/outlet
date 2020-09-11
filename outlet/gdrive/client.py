@@ -54,6 +54,14 @@ class GDriveNodeChange(GDriveChange):
         self.node = node
 
 
+class GDriveChangeList:
+    def __init__(self, change_list: List[GDriveChange] = None, new_start_token: str = None):
+        self.change_list: List[GDriveChange] = change_list
+        if not self.change_list:
+            self.change_list = []
+        self.new_start_token: str = new_start_token
+
+
 def _load_google_client_service(config):
     def request():
         logger.debug('Trying to authenticate against GDrive API...')
@@ -621,10 +629,10 @@ class GDriveClient:
         logger.debug(f'Got token: "{token}"')
         return token
 
-    def get_changes_list(self, start_page_token: str, sync_ts: int) -> List[GDriveChange]:
+    def get_changes_list(self, start_page_token: str, sync_ts: int) -> GDriveChangeList:
         logger.debug(f'Sending request to get changes from start_page_token: "{start_page_token}"')
 
-        change_list: List[GDriveChange] = []
+        change_struct: GDriveChangeList = GDriveChangeList()
 
         # Google Drive only; not app data or Google Photos:
         spaces = 'drive'
@@ -656,6 +664,7 @@ class GDriveClient:
             items: list = response_dict.get('changes', [])
             if not items:
                 logger.debug('Request returned no changes')
+                change_struct.new_start_token = response_dict.get('newStartPageToken', None)
                 break
 
             msg = f'Received {len(items)} changes'
@@ -685,15 +694,14 @@ class GDriveClient:
                         logger.error(f'Strange item: {item}')
                         raise RuntimeError(f'is_removed==true but changeType is not "file" (got "{item["changeType"]}" instead')
 
-                change_list.append(change)
+                change_struct.change_list.append(change)
 
             request.page_token = response_dict.get('nextPageToken', None)
 
             if not request.page_token:
-                request.page_token = response_dict.get('newStartPageToken', None)
-                if not request.page_token:
-                    logger.debug('Done receiving changes!')
-                    break
+                change_struct.new_start_token = response_dict.get('newStartPageToken', None)
+                break
 
-        logger.debug(f'{stopwatch_retrieval} Requests returned {len(change_list)} changes')
-        return change_list
+        logger.debug(f'{stopwatch_retrieval} Requests returned {len(change_struct.change_list)} changes '
+                     f'(newStartPageToken="{change_struct.new_start_token}")')
+        return change_struct
