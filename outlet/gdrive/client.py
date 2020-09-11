@@ -664,7 +664,7 @@ class GDriveClient:
                 actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             for item in items:
-                # logger.debug(f'ITEM: {item}')
+                logger.debug(f'CHANGE: {item}')
 
                 goog_id = item['fileId']
                 change_ts = item['time']

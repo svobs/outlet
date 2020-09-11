@@ -613,7 +613,7 @@ def _merge_into_existing(existing_node: GDriveNode, new_node: GDriveNode) -> Tup
 
     removed_parent_uids: List[UID] = []
     for parent_uid in existing_node.get_parent_uids():
-        if parent_uid not in new_parent_uids:
+        if parent_uid not in new_node.get_parent_uids():
             removed_parent_uids.append(parent_uid)
 
     # Merge parents into new node:
