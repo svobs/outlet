@@ -527,7 +527,8 @@ class GDriveClient:
         file_meta = _try_repeatedly(request)
         gdrive_file = self._convert_dict_to_gdrive_file(file_meta, uid=uid)
 
-        logger.info(f'File uploaded successfully) Returned name="{gdrive_file.name}", version="{gdrive_file.version}", goog_id="{gdrive_file.goog_id}",')
+        logger.info(
+            f'File uploaded successfully) Returned name="{gdrive_file.name}", version="{gdrive_file.version}", goog_id="{gdrive_file.goog_id}",')
 
         return gdrive_file
 
@@ -543,7 +544,8 @@ class GDriveClient:
             logger.debug(f'Updating node "{goog_id}" with local file: "{local_full_path}"')
 
             # Send the request to the API.
-            return self.service.files().update(fileId=goog_id, body=file_metadata, media_body=media, fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
+            return self.service.files().update(fileId=goog_id, body=file_metadata, media_body=media,
+                                               fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
 
         updated_file_meta = _try_repeatedly(request)
         gdrive_file: GDriveFile = self._convert_dict_to_gdrive_file(updated_file_meta)
@@ -635,8 +637,8 @@ class GDriveClient:
 
             # Call the Drive v3 API
             response = self.service.changes().list(pageToken=request.page_token, fields=f'nextPageToken, newStartPageToken, '
-                                                                                      f'changes(changeType, time, removed, fileId, driveId, '
-                                                                                      f'file({GDRIVE_FILE_FIELDS}, parents))', spaces=spaces,
+                                                                                        f'changes(changeType, time, removed, fileId, driveId, '
+                                                                                        f'file({GDRIVE_FILE_FIELDS}, parents))', spaces=spaces,
                                                    pageSize=self.page_size).execute()
             request.page_count += 1
             return response
@@ -695,4 +697,3 @@ class GDriveClient:
 
         logger.debug(f'{stopwatch_retrieval} Requests returned {len(change_list)} changes')
         return change_list
-

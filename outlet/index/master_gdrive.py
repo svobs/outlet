@@ -79,10 +79,12 @@ class GDriveMasterCache:
         cache_info.is_loaded = True
 
     def load_gdrive_subtree(self, subtree_root: GDriveIdentifier, invalidate_cache: bool, tree_id: str) -> Optional[GDriveDisplayTree]:
+        my_gdrive_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         if not subtree_root:
-            subtree_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
-        logger.debug(f'Getting meta for subtree: "{subtree_root}"')
-        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(subtree_root)
+            subtree_root = my_gdrive_root
+        logger.debug(f'[{tree_id}] Getting meta for subtree: "{subtree_root}" (invalidate_cache={invalidate_cache})')
+        # Always load ROOT:
+        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(my_gdrive_root)
         if not cache_info.is_loaded or invalidate_cache:
             self.load_gdrive_cache(cache_info, invalidate_cache, tree_id)
 
@@ -107,10 +109,12 @@ class GDriveMasterCache:
 
     def _slice_off_subtree_from_master(self, subtree_root: GDriveIdentifier) -> Optional[GDriveDisplayTree]:
         if not subtree_root.uid:
+            logger.debug(f'_slice_off_subtree_from_master(): subtree_root.uid is empty!')
             return None
 
         root: GDriveNode = self._my_gdrive.get_node_for_uid(subtree_root.uid)
         if not root:
+            logger.debug(f'_slice_off_subtree_from_master(): could not find root node with UID {subtree_root.uid}')
             return None
 
         return GDriveDisplayTree(cache_manager=self, whole_tree=self._my_gdrive, root_node=root)

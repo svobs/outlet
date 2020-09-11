@@ -231,7 +231,7 @@ class CacheManager:
         # MUST read GDrive first, because currently we assign incrementing integer UIDs for local files dynamically,
         # and we won't know which are reserved until we have read in all the existing GDrive caches
         existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_GDRIVE).values())
-        assert len(existing_caches) <= 1
+        assert len(existing_caches) <= 1, f'Expected at most 1 GDrive cache in registry but found: {len(existing_caches)}'
 
         local_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_LOCAL_DISK).values())
         consolidated_local_caches, registry_needs_update = self._local_disk_cache.consolidate_local_caches(local_caches, ID_GLOBAL_CACHE)

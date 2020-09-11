@@ -192,7 +192,7 @@ class FileMetaPersister(GDriveQueryObserver):
             assert self.download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
             self.download.current_state = GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE
 
-            if len(self.folder_list) > 0:
+            if len(self.file_list) > 0:
                 self.meta_collector.summarize()
             # fall through
 
