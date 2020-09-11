@@ -57,45 +57,48 @@ class GDriveMasterCache:
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def load_gdrive_cache(self, cache_info: PersistedCacheInfo, invalidate_cache: bool, tree_id: str):
+    def load_gdrive_cache(self, invalidate_cache: bool, tree_id: str):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
         if not self.application.cache_manager.enable_load_from_disk:
             logger.debug('Skipping cache load because cache.enable_cache_load is False')
             return None
-        status = f'Loading meta for "{cache_info.subtree_root.full_path}" from cache: "{cache_info.cache_location}"'
-        logger.debug(status)
-        dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
+
+        # Always load ROOT:
+        my_gdrive_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
+        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(my_gdrive_root)
 
         stopwatch_total = Stopwatch()
 
         tree_loader = GDriveTreeLoader(application=self.application, cache_path=cache_info.cache_location, tree_id=tree_id)
 
-        self._my_gdrive = tree_loader.load_all(invalidate_cache=invalidate_cache)
+        if not cache_info.is_loaded or invalidate_cache:
+            status = f'Loading meta for "{cache_info.subtree_root.full_path}" from cache: "{cache_info.cache_location}"'
+            logger.debug(status)
+            dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
+
+            self._my_gdrive = tree_loader.load_all(invalidate_cache=invalidate_cache)
+
+        # Always do this to bring tree up-to-date:
         tree_loader.sync_latest_changes()
 
         logger.info(f'{stopwatch_total} GDrive cache for {cache_info.subtree_root.full_path} loaded')
-
         cache_info.is_loaded = True
 
     def load_gdrive_subtree(self, subtree_root: GDriveIdentifier, invalidate_cache: bool, tree_id: str) -> Optional[GDriveDisplayTree]:
-        my_gdrive_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         if not subtree_root:
-            subtree_root = my_gdrive_root
+            subtree_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         logger.debug(f'[{tree_id}] Getting meta for subtree: "{subtree_root}" (invalidate_cache={invalidate_cache})')
-        # Always load ROOT:
-        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(my_gdrive_root)
-        if not cache_info.is_loaded or invalidate_cache:
-            self.load_gdrive_cache(cache_info, invalidate_cache, tree_id)
+
+        self.load_gdrive_cache(invalidate_cache, tree_id)
 
         if subtree_root.uid == GDRIVE_ROOT_UID:
             # Special case. GDrive does not have a single root (it treats shared drives as roots, for example).
             # We'll use this special token to represent "everything"
             gdrive_meta = self._my_gdrive
         else:
-            slice_timer = Stopwatch()
-            gdrive_meta = self._slice_off_subtree_from_master(subtree_root)
+            gdrive_meta = self._make_gdrive_display_tree(subtree_root)
             if gdrive_meta:
-                logger.debug(f'{slice_timer} Sliced off {gdrive_meta}')
+                logger.debug(f'[{tree_id}] Made display tree: {gdrive_meta}')
             else:
                 raise GDriveItemNotFoundError(node_identifier=subtree_root,
                                               msg=f'Cannot load subtree because it does not exist: "{subtree_root}"',
@@ -106,14 +109,14 @@ class GDriveMasterCache:
         with self._struct_lock:
             self._my_gdrive.refresh_stats(tree_id, subtree_root_node)
 
-    def _slice_off_subtree_from_master(self, subtree_root: GDriveIdentifier) -> Optional[GDriveDisplayTree]:
+    def _make_gdrive_display_tree(self, subtree_root: GDriveIdentifier) -> Optional[GDriveDisplayTree]:
         if not subtree_root.uid:
-            logger.debug(f'_slice_off_subtree_from_master(): subtree_root.uid is empty!')
+            logger.debug(f'_make_gdrive_display_tree(): subtree_root.uid is empty!')
             return None
 
         root: GDriveNode = self._my_gdrive.get_node_for_uid(subtree_root.uid)
         if not root:
-            logger.debug(f'_slice_off_subtree_from_master(): could not find root node with UID {subtree_root.uid}')
+            logger.debug(f'_make_gdrive_display_tree(): could not find root node with UID {subtree_root.uid}')
             return None
 
         return GDriveDisplayTree(cache_manager=self, whole_tree=self._my_gdrive, root_node=root)

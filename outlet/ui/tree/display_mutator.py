@@ -113,7 +113,7 @@ class DisplayMutator:
                     else:
                         tree_iter = self.con.display_store.find_uid_in_children(target_uid=ancestor.uid, parent_iter=tree_iter)
                     if not tree_iter:
-                        logger.error(f'Could not expand node: could not find node in tree for: {ancestor}')
+                        logger.error(f'[{self.con.tree_id}] Could not expand ancestor node: could not find node in tree for: {ancestor}')
                         return
                     tree_path = self.con.display_store.model.get_path(tree_iter)
                     if not self.con.tree_view.row_expanded(tree_path):
@@ -121,7 +121,7 @@ class DisplayMutator:
 
                 tree_iter = self.con.display_store.find_uid_in_children(target_uid=selection.uid, parent_iter=tree_iter)
                 if not tree_iter:
-                    logger.error(f'Could not expand node: could not find node in tree for: {selection}')
+                    logger.error(f'[{self.con.tree_id}] Could not expand node: could not find node in tree for: {selection}')
                     return
                 tree_view_selection: Gtk.TreeSelection = self.con.tree_view.get_selection()
                 # tree_view_selection.unselect_all()

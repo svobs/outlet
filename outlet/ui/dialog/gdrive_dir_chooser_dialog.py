@@ -51,7 +51,6 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         if current_selection.tree_type == TREE_TYPE_GDRIVE:
             logger.debug(f'[{actions.ID_GDRIVE_DIR_SELECT}] Connecting listener to signal: {actions.LOAD_UI_TREE_DONE}')
             dispatcher.connect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
-        self.tree_controller.reload()
 
         self.connect("response", self.on_response)
         self.show_all()
@@ -95,6 +94,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
             raise
         finally:
             # Clean up:
+            dispatcher.disconnect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
             self.tree_controller.destroy()
             self.tree_controller = None
             dialog.destroy()

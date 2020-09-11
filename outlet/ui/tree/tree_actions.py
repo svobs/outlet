@@ -59,6 +59,7 @@ class TreeActions:
         self.con.app.executor.submit_async_task(self.con.display_mutator.populate_root)
 
     def _expand_and_select_node(self, nid: NodeIdentifier):
+        logger.debug(f'[{self.con.tree_id}] Got signal: "{actions.EXPAND_AND_SELECT_NODE}"')
         self.con.display_mutator.expand_and_select_node(nid)
 
     def _call_exiftool_list(self, sender, node_list: List[DisplayNode]):
