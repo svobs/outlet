@@ -152,7 +152,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
         def on_goog_btn_clicked(widget):
             logger.debug('DownloadGDrive btn clicked!')
-            actions.send_signal(signal=actions.DOWNLOAD_GDRIVE_META, sender=self.win_id)
+            actions.send_signal(signal=actions.DOWNLOAD_ALL_GDRIVE_META, sender=self.win_id)
         gdrive_btn = Gtk.Button(label="Download Google Drive Meta")
         gdrive_btn.connect("clicked", on_goog_btn_clicked)
 

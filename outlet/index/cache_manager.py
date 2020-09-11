@@ -10,6 +10,7 @@ from pydispatch import dispatcher
 
 from command.cmd_interface import Command
 from index.error import CacheNotLoadedError, GDriveItemNotFoundError
+from model.display_tree.gdrive import GDriveDisplayTree
 from model.node_identifier_factory import NodeIdentifierFactory
 from ui.tree.controller import TreePanelController
 from util import file_util
@@ -437,7 +438,7 @@ class CacheManager:
     def download_all_gdrive_meta(self, tree_id):
         self._gdrive_cache.load_gdrive_cache(invalidate_cache=True, tree_id=tree_id)
 
-    def get_gdrive_whole_tree(self, tree_id) -> GDriveWholeTree:
+    def get_gdrive_whole_tree(self, tree_id) -> GDriveDisplayTree:
         """Will load if necessary"""
         return self._gdrive_cache.load_gdrive_subtree(subtree_root=None, invalidate_cache=False, tree_id=tree_id)
 

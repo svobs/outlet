@@ -34,15 +34,15 @@ class GlobalActions:
         except DispatcherKeyError:
             pass
         try:
-            dispatcher.disconnect(signal=actions.DOWNLOAD_GDRIVE_META, receiver=self._on_gdrive_requested)
+            dispatcher.disconnect(signal=actions.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_gdrive_requested)
         except DispatcherKeyError:
             pass
         try:
-            dispatcher.disconnect(signal=actions.SHOW_GDRIVE_ROOT_DIALOG, receiver=self._on_gdrive_root_dialog_requested)
+            dispatcher.disconnect(signal=actions.SHOW_GDRIVE_CHOOSER_DIALOG, receiver=self._on_gdrive_root_dialog_requested)
         except DispatcherKeyError:
             pass
         try:
-            dispatcher.disconnect(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, receiver=self._on_gdrive_download_complete)
+            dispatcher.disconnect(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, receiver=self._on_gdrive_chooser_dialog_load_complete)
         except DispatcherKeyError:
             pass
         try:
@@ -58,9 +58,10 @@ class GlobalActions:
     def start(self):
         logger.debug('Starting global action listeners')
         dispatcher.connect(signal=actions.START_DIFF_TREES, receiver=self._on_diff_requested)
-        dispatcher.connect(signal=actions.DOWNLOAD_GDRIVE_META, receiver=self._on_gdrive_requested)
-        dispatcher.connect(signal=actions.SHOW_GDRIVE_ROOT_DIALOG, receiver=self._on_gdrive_root_dialog_requested)
-        dispatcher.connect(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, receiver=self._on_gdrive_download_complete)
+        dispatcher.connect(signal=actions.SYNC_GDRIVE_CHANGES, receiver=self._on_gdrive_sync_changes_requested)
+        dispatcher.connect(signal=actions.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_download_all_gdrive_meta_requested)
+        dispatcher.connect(signal=actions.SHOW_GDRIVE_CHOOSER_DIALOG, receiver=self._on_gdrive_root_dialog_requested)
+        dispatcher.connect(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, receiver=self._on_gdrive_chooser_dialog_load_complete)
         dispatcher.connect(signal=actions.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
 
     """
@@ -78,42 +79,55 @@ class GlobalActions:
         logger.debug(f'Received signal: "{actions.START_CACHEMAN}"')
         self.application.executor.submit_async_task(self.application.cache_manager.start, sender)
 
-    def _on_gdrive_requested(self, sender):
-        logger.debug(f'Received signal: "{actions.DOWNLOAD_GDRIVE_META}"')
+    def _on_download_all_gdrive_meta_requested(self, sender):
+        """See below. Invalidates the GDrive cache and starts a new download of all the GDrive metadata"""
+        logger.debug(f'Received signal: "{actions.DOWNLOAD_ALL_GDRIVE_META}"')
         self.application.executor.submit_async_task(self.download_all_gdrive_meta, sender)
 
     def download_all_gdrive_meta(self, tree_id):
-        """Executed by Task Runner. NOT UI thread"""
+        """See above. Executed by Task Runner. NOT UI thread"""
         actions.disable_ui(sender=tree_id)
         try:
             self.application.cache_manager.download_all_gdrive_meta(tree_id)
-
-            tree = self.application.cache_manager.get_gdrive_whole_tree(tree_id)
-            actions.get_dispatcher().send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, tree=tree)
         except Exception as err:
             self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
             logger.exception(err)
         finally:
             actions.enable_ui(sender=tree_id)
 
-    def load_gdrive_root_meta(self, tree_id: str, current_selection: NodeIdentifier):
-        """Executed by Task Runner. NOT UI thread"""
+    def _on_gdrive_sync_changes_requested(self, sender):
+        """See below. This will load the GDrive tree (if it is not loaded already), then sync to the latest changes from GDrive"""
+        logger.debug(f'Received signal: "{actions.SYNC_GDRIVE_CHANGES}"')
+        self.application.executor.submit_async_task(self.load_data_for_gdrive_dir_chooser_dialog, sender)
+
+    def sync_gdrive_changes(self, tree_id: str):
+        """See above. Executed by Task Runner. NOT UI thread"""
+        try:
+            # This will send out the necessary notifications if anything has changed
+            self.application.cache_manager.get_gdrive_whole_tree(tree_id)
+        except Exception as err:
+            self.show_error_ui('Sync from GDrive failed due to unexpected error', repr(err))
+            logger.exception(err)
+
+    def _on_gdrive_root_dialog_requested(self, sender, current_selection: NodeIdentifier):
+        """See below."""
+        logger.debug(f'Received signal: "{actions.SHOW_GDRIVE_CHOOSER_DIALOG}"')
+        self.application.executor.submit_async_task(self.load_data_for_gdrive_dir_chooser_dialog, sender, current_selection)
+
+    def load_data_for_gdrive_dir_chooser_dialog(self, tree_id: str, current_selection: NodeIdentifier):
+        """See above. Executed by Task Runner. NOT UI thread"""
         actions.disable_ui(sender=tree_id)
         try:
             tree = self.application.cache_manager.get_gdrive_whole_tree(tree_id)
-            dispatcher.send(signal=actions.GDRIVE_DOWNLOAD_COMPLETE, sender=tree_id, tree=tree, current_selection=current_selection)
+            dispatcher.send(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, sender=tree_id, tree=tree, current_selection=current_selection)
         except Exception as err:
             self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
             logger.exception(err)
         finally:
             actions.enable_ui(sender=tree_id)
 
-    def _on_gdrive_root_dialog_requested(self, sender, current_selection: NodeIdentifier):
-        logger.debug(f'Received signal: "{actions.SHOW_GDRIVE_ROOT_DIALOG}"')
-        self.application.executor.submit_async_task(self.load_gdrive_root_meta, sender, current_selection)
-
-    def _on_gdrive_download_complete(self, sender, tree: DisplayTree, current_selection: NodeIdentifier):
-        logger.debug(f'Received signal: "{actions.GDRIVE_DOWNLOAD_COMPLETE}"')
+    def _on_gdrive_chooser_dialog_load_complete(self, sender, tree: DisplayTree, current_selection: NodeIdentifier):
+        logger.debug(f'Received signal: "{actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE}"')
         assert type(sender) == str
 
         def open_dialog():

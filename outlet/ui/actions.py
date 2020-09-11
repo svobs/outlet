@@ -7,9 +7,10 @@ LOAD_REGISTRY_DONE = 'load-registry-done'
 START_CACHEMAN_DONE = 'start-cacheman-done'
 START_DIFF_TREES = 'start-tree-diff'
 DIFF_TREES_DONE = 'tree-diff_done'
-SHOW_GDRIVE_ROOT_DIALOG = 'show-gdrive-root-dialog'
-DOWNLOAD_GDRIVE_META = 'download-gdrive-meta'
-GDRIVE_DOWNLOAD_COMPLETE = 'gdrive-download-complete'
+SYNC_GDRIVE_CHANGES = 'sync-gdrive-changes'
+SHOW_GDRIVE_CHOOSER_DIALOG = 'show-gdrive-dir-chooser-dialog'
+DOWNLOAD_ALL_GDRIVE_META = 'download-all-gdrive-meta'
+GDRIVE_CHOOSER_DIALOG_LOAD_DONE = 'gdrive-dir-chooser-load-complete'
 COMMAND_COMPLETE = 'command-complete'
 
 # --- Tree actions: requests ---

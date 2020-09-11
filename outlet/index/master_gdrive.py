@@ -79,12 +79,13 @@ class GDriveMasterCache:
             self._my_gdrive = tree_loader.load_all(invalidate_cache=invalidate_cache)
 
         # Always do this to bring tree up-to-date:
+        # TODO: make this asynchronous. It's slowing down the UI
         tree_loader.sync_latest_changes()
 
         logger.info(f'{stopwatch_total} GDrive cache for {cache_info.subtree_root.full_path} loaded')
         cache_info.is_loaded = True
 
-    def load_gdrive_subtree(self, subtree_root: GDriveIdentifier, invalidate_cache: bool, tree_id: str) -> Optional[GDriveDisplayTree]:
+    def load_gdrive_subtree(self, subtree_root: GDriveIdentifier, invalidate_cache: bool, tree_id: str) -> GDriveDisplayTree:
         if not subtree_root:
             subtree_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         logger.debug(f'[{tree_id}] Getting meta for subtree: "{subtree_root}" (invalidate_cache={invalidate_cache})')

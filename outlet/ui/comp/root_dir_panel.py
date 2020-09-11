@@ -309,7 +309,7 @@ class RootDirPanel:
         open_dialog.show()
 
     def _open_gdrive_root_chooser_dialog(self, menu_item):
-        dispatcher.send(signal=actions.SHOW_GDRIVE_ROOT_DIALOG, sender=self.tree_id, current_selection=self.current_root)
+        dispatcher.send(signal=actions.SHOW_GDRIVE_CHOOSER_DIALOG, sender=self.tree_id, current_selection=self.current_root)
 
     def _build_source_menu(self):
         source_menu = Gtk.Menu()
