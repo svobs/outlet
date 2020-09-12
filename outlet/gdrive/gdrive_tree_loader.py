@@ -184,7 +184,7 @@ class GDriveTreeLoader:
         logger.debug(f'Finished {len(changes.change_list)} cache updates')
 
         # Now finally update download token
-        if changes.new_start_token:
+        if changes.new_start_token and changes.new_start_token != changes_download.page_token:
             changes_download.page_token = changes.new_start_token
             self.cache.create_or_update_download(changes_download)
             logger.debug(f'Updated changes download with token: {changes.new_start_token}')
