@@ -10,6 +10,7 @@ from pydispatch import dispatcher
 
 from command.cmd_interface import Command
 from index.error import CacheNotLoadedError, GDriveItemNotFoundError
+from index.live_monitor import LiveMonitor
 from model.display_tree.gdrive import GDriveDisplayTree
 from model.node_identifier_factory import NodeIdentifierFactory
 from ui.tree.controller import TreePanelController
@@ -26,7 +27,6 @@ from index.two_level_dict import TwoLevelDict
 from index.uid.uid import UID
 from model.node.display_node import DisplayNode, HasParentList
 from model.node.local_disk_node import LocalFileNode
-from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from model.display_tree.display_tree import DisplayTree
@@ -79,6 +79,7 @@ class CacheManager:
         self.sync_from_local_disk_on_cache_load = application.config.get('cache.sync_from_local_disk_on_cache_load')
         self.reload_tree_on_root_path_update = application.config.get('cache.load_cache_when_tree_root_selected')
         self.cancel_all_pending_ops_on_startup = application.config.get('cache.cancel_all_pending_ops_on_startup')
+        self._is_live_capture_enabled = application.config.get('cache.live_capture_enabled')
 
         if not self.load_all_caches_on_startup:
             logger.info('Configured not to fetch all caches on startup; will lazy load instead')
@@ -91,6 +92,10 @@ class CacheManager:
 
         self._op_ledger = None
         """Sub-module of Cache Manager which manages commands which have yet to execute"""
+
+        self._live_monitor = None
+        """Sub-module of Cache Manager which, for displayed trees, provides [close to] real-time notifications for changes
+         which originated from outside this app"""
 
         self._tree_controllers: Dict[str, TreePanelController] = {}
         """Keep track of live UI tree controllers, so that we can look them up by ID (e.g. for use in automated testing)"""
@@ -115,15 +120,16 @@ class CacheManager:
             pass
 
         try:
-            if self._local_disk_cache:
-                self._local_disk_cache.shutdown()
-        except NameError:
-            pass
-
-        try:
             if self._tree_controllers:
                 for controller in list(self._tree_controllers.values()):
                     controller.destroy()
+        except NameError:
+            pass
+
+        # Do this after destroying controllers, for a more orderly shutdown:
+        try:
+            if self._live_monitor:
+                self._live_monitor.shutdown()
         except NameError:
             pass
 
@@ -147,6 +153,7 @@ class CacheManager:
             self._local_disk_cache = LocalDiskMasterCache(self.application)
             self._gdrive_cache = GDriveMasterCache(self.application)
             self._op_ledger = OpLedger(self.application)
+            self._live_monitor = LiveMonitor(self.application)
 
             # Load registry. Do validation along the way
             caches_from_registry: List[CacheInfoEntry] = self._get_cache_info_from_registry()
@@ -314,6 +321,9 @@ class CacheManager:
 
         dispatcher.send(signal=actions.LOAD_SUBTREE_STARTED, sender=tree_id)
 
+        if self._is_live_capture_enabled:
+            self._live_monitor.start_capture(node_identifier, tree_id)
+
         if node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
             assert self._local_disk_cache
             subtree = self._local_disk_cache.load_local_subtree(node_identifier, tree_id)
@@ -406,6 +416,9 @@ class CacheManager:
         self._tree_controllers[controller.tree_id] = controller
 
     def unregister_tree_controller(self, controller: TreePanelController):
+        if self._is_live_capture_enabled and self._live_monitor:
+            self._live_monitor.stop_capture(controller.tree_id)
+
         try:
             self._tree_controllers.pop(controller.tree_id)
         except KeyError:

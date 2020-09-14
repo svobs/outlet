@@ -4,34 +4,31 @@ import pathlib
 import threading
 import time
 from typing import List, Optional, Tuple
-from watchdog.observers import Observer
-from watchdog.events import LoggingEventHandler
 
 import treelib
 from pydispatch import dispatcher
 from treelib.exceptions import NodeIDAbsentError
 
-from local.event_handler import LocalChangeEventHandler
-from util import file_util
 import local.content_hasher
 from constants import LOCAL_ROOT_UID, ROOT_PATH, TREE_TYPE_LOCAL_DISK
-from local.local_disk_scanner import LocalDiskScanner
 from index.cache_manager import PersistedCacheInfo
 from index.sqlite.local_db import LocalDiskDatabase
 from index.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
 from index.uid.uid_generator import UID
 from index.uid.uid_mapper import UidPathMapper
+from local.local_disk_scanner import LocalDiskScanner
+from model.display_tree.display_tree import DisplayTree
+from model.display_tree.local_disk import LocalDiskSubtree
+from model.display_tree.null import NullDisplayTree
+from model.local_disk_tree import LocalDiskTree
 from model.node.container_node import ContainerNode, RootTypeNode
 from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
-from model.display_tree.local_disk import LocalDiskSubtree
-from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
-from model.display_tree.null import NullDisplayTree
-from model.display_tree.display_tree import DisplayTree
-from util.stopwatch_sec import Stopwatch
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
+from util import file_util
+from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
@@ -69,26 +66,6 @@ class LocalDiskMasterCache:
             self.dir_tree = LocalDiskTree(self.application)
             root_node = RootTypeNode(node_identifier=LocalFsIdentifier(full_path=ROOT_PATH, uid=LOCAL_ROOT_UID))
             self.dir_tree.add_node(node=root_node, parent=None)
-
-    def start(self):
-        event_handler = LoggingEventHandler()
-        observer = Observer()
-        observer.schedule(LocalChangeEventHandler, path, recursive=True)
-        observer.start()
-
-        try:
-            while observer.isAlive():
-                observer.join(1)
-        except KeyboardInterrupt:
-            observer.stop()
-        observer.join()
-
-    def __del__(self):
-        self.shutdown()
-
-    def shutdown(self):
-        # TODO
-        pass
 
     # Disk access
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

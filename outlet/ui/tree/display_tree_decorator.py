@@ -27,6 +27,7 @@ class LazyLoadDisplayTreeDecorator:
     def _ensure_is_loaded(self):
         """Performs a SYNCHRONOUS load if needed"""
         if not self._loaded:
+            # This will also start live monitoring if configured:
             logger.debug(f'[{self.con.tree_id}] Tree was requested. Loading: {self._root}')
             self._tree = self.con.cache_manager.load_subtree(self._root, self.con.tree_id)
             self._loaded = True

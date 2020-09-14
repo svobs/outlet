@@ -32,6 +32,7 @@ Create a virtual environment within this directory (`{project_name}`)  following
     make init
 
 ### Future Major Features (TODO)
+* Separate signature generation into background process
 * Detach service
 * Run multiple concurrent ops
 * Pause/resume ops
@@ -41,4 +42,3 @@ Create a virtual environment within this directory (`{project_name}`)  following
 * Filter by Trashed, Shared, etc.
 * Filter by name
 * Put GDrive files in trash
-* Kloudless (
