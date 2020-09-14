@@ -106,8 +106,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self._set_default_button_bar()
 
         # Subscribe to signals:
-        actions.connect(signal=actions.TOGGLE_UI_ENABLEMENT, handler=self._on_enable_ui_toggled)
-        actions.connect(signal=actions.DIFF_TREES_DONE, handler=self._after_diff_completed)
+        dispatcher.connect(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
+        dispatcher.connect(signal=actions.DIFF_TREES_DONE, receiver=self._after_diff_completed)
 
         # Need to add an extra listener to each tree, to reload when the other one's root changes
         # if displaying the results of a diff
@@ -119,6 +119,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # window *stops* being resized, so we can persist the value semi-efficiently
         self._connect_resize_event()
 
+        self.connect('destroy', self.shutdown)
+
         # Docs: https://developer.gnome.org/pygtk/stable/class-gdkdisplay.html
         display: Gdk.Display = self.get_display()
         logger.debug(f'Display has {display.get_n_monitors()} monitors:')
@@ -126,6 +128,24 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             monitor = display.get_monitor(monitor_num)
             size_rect: Gdk.Rectangle = monitor.get_geometry()
             logger.debug(f'        Monitor #{monitor_num} is {size_rect.width}x{size_rect.height}')
+
+    def shutdown(self, arg=None):
+        """Overrides Gtk.Window.close()"""
+        logger.debug(f'TwoPanelWindow.shutdown() called')
+        # Clean up:
+        if self.tree_con_left:
+            self.tree_con_left.destroy()
+            self.tree_con_left = None
+
+        if self.tree_con_right:
+            self.tree_con_right.destroy()
+            self.tree_con_right = None
+
+        if self.application:
+            # swap into local var to prevent infinite cycle
+            app = self.application
+            self.application = None
+            app.quit()
 
     def replace_bottom_button_panel(self, *buttons):
         for child in self.bottom_button_panel.get_children():

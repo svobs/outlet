@@ -55,6 +55,17 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         self.connect("response", self.on_response)
         self.show_all()
 
+    def destroy(self):
+        """Overrides Gtk.Dialog.destroy()"""
+        logger.debug(f'GDriveDirChooserDialog.destroy() called')
+        # Clean up:
+        dispatcher.disconnect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
+        self.tree_controller.destroy()
+        self.tree_controller = None
+
+        # call super method
+        Gtk.Dialog.destroy(self)
+
     def _on_load_complete(self, sender):
         logger.debug(f'[{actions.ID_GDRIVE_DIR_SELECT}] Load complete! Sending signal: {actions.EXPAND_AND_SELECT_NODE}')
         dispatcher.send(actions.EXPAND_AND_SELECT_NODE, sender=actions.ID_GDRIVE_DIR_SELECT, nid=self._initial_selection_nid)
@@ -93,8 +104,4 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
             self.show_error_ui('Diff task failed due to unexpected error', detail)
             raise
         finally:
-            # Clean up:
-            dispatcher.disconnect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
-            self.tree_controller.destroy()
-            self.tree_controller = None
             dialog.destroy()

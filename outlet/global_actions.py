@@ -34,7 +34,7 @@ class GlobalActions:
         except DispatcherKeyError:
             pass
         try:
-            dispatcher.disconnect(signal=actions.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_gdrive_requested)
+            dispatcher.disconnect(signal=actions.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_download_all_gdrive_meta_requested)
         except DispatcherKeyError:
             pass
         try:

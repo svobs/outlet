@@ -51,22 +51,29 @@ class OutletApplication(Gtk.Application):
         dispatcher.send(actions.START_CACHEMAN, sender=actions.ID_CENTRAL_EXEC)
 
     def quit(self):
+        if self.shutdown:
+            return
+
         logger.info('Shutting down app')
         self.shutdown = True
 
-        if self.window:
-            self.window.close()
-            self.window = None
-
-        Gtk.Application.quit(self)
-
         # This will emit a cascade of events which will shut down the Executor too:
-        self.cache_manager.shutdown()
-        self.cache_manager = None
-        # Just to be sure:
-        self.executor.shutdown()
-        self.executor = None
+        if self.cache_manager:
+            self.cache_manager.shutdown()
+            self.cache_manager = None
 
+        # Just to be sure:
+        if self.executor:
+            self.executor.shutdown()
+            self.executor = None
+
+        if self.window:
+            # swap into local var to prevent infinite cycle
+            win = self.window
+            self.window = None
+            win.close()
+
+        # Gtk.main_quit()
         logger.info('App shut down')
 
     def do_activate(self):

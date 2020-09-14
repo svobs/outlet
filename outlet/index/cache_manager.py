@@ -294,7 +294,8 @@ class CacheManager:
             else:
                 self._local_disk_cache.load_local_subtree(existing_disk_cache.subtree_root, ID_GLOBAL_CACHE)
         elif cache_type == TREE_TYPE_GDRIVE:
-            assert existing_disk_cache.subtree_root == NodeIdentifierFactory.get_gdrive_root_constant_identifier()
+            assert existing_disk_cache.subtree_root == NodeIdentifierFactory.get_gdrive_root_constant_identifier(), \
+                f'Expected GDrive root ({NodeIdentifierFactory.get_gdrive_root_constant_identifier()}) but found: {existing_disk_cache.subtree_root}'
             self._gdrive_cache.load_gdrive_cache(invalidate_cache=False, tree_id=ID_GLOBAL_CACHE)
 
     # Subtree-level stuff

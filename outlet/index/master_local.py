@@ -11,6 +11,7 @@ import treelib
 from pydispatch import dispatcher
 from treelib.exceptions import NodeIDAbsentError
 
+from local.event_handler import LocalChangeEventHandler
 from util import file_util
 import local.content_hasher
 from constants import LOCAL_ROOT_UID, ROOT_PATH, TREE_TYPE_LOCAL_DISK
@@ -72,7 +73,7 @@ class LocalDiskMasterCache:
     def start(self):
         event_handler = LoggingEventHandler()
         observer = Observer()
-        observer.schedule(event_handler, path, recursive=True)
+        observer.schedule(LocalChangeEventHandler, path, recursive=True)
         observer.start()
 
         try:
