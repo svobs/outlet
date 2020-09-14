@@ -51,7 +51,7 @@ ICON_WINDOW = 'win'
 ICON_REFRESH = 'refresh'
 
 # File icon names:
-ICON_GENERIC_FILE = 'file'
+ICON_GENERIC_FILE = 'local'
 ICON_FILE_RM = 'file-rm'
 ICON_FILE_MV_SRC = 'file-mv-src'
 ICON_FILE_UP_SRC = 'file-up-src'

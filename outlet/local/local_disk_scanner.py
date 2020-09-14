@@ -6,7 +6,7 @@ from pathlib import Path
 from pydispatch import dispatcher
 
 import ui.actions as actions
-from fmeta.file_tree_recurser import FileTreeRecurser
+from local.file_tree_recurser import FileTreeRecurser
 from model.node.local_disk_node import LocalFileNode, LocalDirNode
 from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier

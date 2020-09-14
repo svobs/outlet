@@ -115,6 +115,12 @@ class CacheManager:
             pass
 
         try:
+            if self._local_disk_cache:
+                self._local_disk_cache.shutdown()
+        except NameError:
+            pass
+
+        try:
             if self._tree_controllers:
                 for controller in list(self._tree_controllers.values()):
                     controller.destroy()

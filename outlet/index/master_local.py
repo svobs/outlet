@@ -4,15 +4,17 @@ import pathlib
 import threading
 import time
 from typing import List, Optional, Tuple
+from watchdog.observers import Observer
+from watchdog.events import LoggingEventHandler
 
 import treelib
 from pydispatch import dispatcher
 from treelib.exceptions import NodeIDAbsentError
 
 from util import file_util
-import fmeta.content_hasher
+import local.content_hasher
 from constants import LOCAL_ROOT_UID, ROOT_PATH, TREE_TYPE_LOCAL_DISK
-from fmeta.local_disk_scanner import LocalDiskScanner
+from local.local_disk_scanner import LocalDiskScanner
 from index.cache_manager import PersistedCacheInfo
 from index.sqlite.local_db import LocalDiskDatabase
 from index.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
@@ -66,6 +68,26 @@ class LocalDiskMasterCache:
             self.dir_tree = LocalDiskTree(self.application)
             root_node = RootTypeNode(node_identifier=LocalFsIdentifier(full_path=ROOT_PATH, uid=LOCAL_ROOT_UID))
             self.dir_tree.add_node(node=root_node, parent=None)
+
+    def start(self):
+        event_handler = LoggingEventHandler()
+        observer = Observer()
+        observer.schedule(event_handler, path, recursive=True)
+        observer.start()
+
+        try:
+            while observer.isAlive():
+                observer.join(1)
+        except KeyboardInterrupt:
+            observer.stop()
+        observer.join()
+
+    def __del__(self):
+        self.shutdown()
+
+    def shutdown(self):
+        # TODO
+        pass
 
     # Disk access
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -492,9 +514,9 @@ class LocalDiskMasterCache:
         try:
             # Open,close, read file and calculate hash of its contents
             if staging_path:
-                md5 = fmeta.content_hasher.md5(staging_path)
+                md5 = local.content_hasher.md5(staging_path)
             else:
-                md5 = fmeta.content_hasher.md5(full_path)
+                md5 = local.content_hasher.md5(full_path)
             # sha256 = fmeta.content_hasher.dropbox_hash(full_path)
             sha256 = None
         except FileNotFoundError:
