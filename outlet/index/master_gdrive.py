@@ -57,7 +57,7 @@ class GDriveMasterCache:
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def load_gdrive_cache(self, invalidate_cache: bool, tree_id: str):
+    def load_gdrive_cache(self, invalidate_cache: bool, sync_latest_changes: bool, tree_id: str):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
         if not self.application.cache_manager.enable_load_from_disk:
             logger.debug('Skipping cache load because cache.enable_cache_load is False')
@@ -78,15 +78,20 @@ class GDriveMasterCache:
 
             self._my_gdrive = tree_loader.load_all(invalidate_cache=invalidate_cache)
 
+        if sync_latest_changes:
+            # This may add a noticeable delay:
+            tree_loader.sync_latest_changes()
+
         logger.info(f'{stopwatch_total} GDrive cache for {cache_info.subtree_root.full_path} loaded')
         cache_info.is_loaded = True
 
-    def load_gdrive_subtree(self, subtree_root: GDriveIdentifier, invalidate_cache: bool, tree_id: str) -> GDriveDisplayTree:
+    def load_gdrive_subtree(self, subtree_root: GDriveIdentifier, invalidate_cache: bool, sync_latest_changes: bool, tree_id: str)\
+            -> GDriveDisplayTree:
         if not subtree_root:
             subtree_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         logger.debug(f'[{tree_id}] Getting meta for subtree: "{subtree_root}" (invalidate_cache={invalidate_cache})')
 
-        self.load_gdrive_cache(invalidate_cache, tree_id)
+        self.load_gdrive_cache(invalidate_cache, sync_latest_changes, tree_id)
 
         if subtree_root.uid == GDRIVE_ROOT_UID:
             # Special case. GDrive does not have a single root (it treats shared drives as roots, for example).

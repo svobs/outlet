@@ -112,6 +112,10 @@ class LiveMonitor:
             logger.warning('GDriveCaptureThread is already running!')
             return
 
+        if not self.enable_gdrive_polling_thread:
+            logger.debug(f'Not starting GDrivePollingThread: cache.enable_gdrive_polling_thread is disabled')
+            return
+
         self._count_threads += 1
         self._gdrive_polling_thread = GDrivePollingThread(self, self._count_threads)
         self._gdrive_polling_thread.start()
