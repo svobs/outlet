@@ -78,10 +78,6 @@ class GDriveMasterCache:
 
             self._my_gdrive = tree_loader.load_all(invalidate_cache=invalidate_cache)
 
-        # Always do this to bring tree up-to-date:
-        # TODO: make this asynchronous. It's slowing down the UI
-        tree_loader.sync_latest_changes()
-
         logger.info(f'{stopwatch_total} GDrive cache for {cache_info.subtree_root.full_path} loaded')
         cache_info.is_loaded = True
 
