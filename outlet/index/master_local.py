@@ -18,7 +18,7 @@ from index.uid.uid_generator import UID
 from index.uid.uid_mapper import UidPathMapper
 from local.local_disk_scanner import LocalDiskScanner
 from model.display_tree.display_tree import DisplayTree
-from model.display_tree.local_disk import LocalDiskSubtree
+from model.display_tree.local_disk import LocalDiskDisplayTree
 from model.display_tree.null import NullDisplayTree
 from model.local_disk_tree import LocalDiskTree
 from model.node.container_node import ContainerNode, RootTypeNode
@@ -208,7 +208,7 @@ class LocalDiskMasterCache:
             assert cache_info is not None
             return self._load_subtree(cache_info, tree_id)
 
-    def _load_subtree(self, cache_info: PersistedCacheInfo, tree_id, requested_subtree_root: LocalFsIdentifier = None) -> LocalDiskSubtree:
+    def _load_subtree(self, cache_info: PersistedCacheInfo, tree_id, requested_subtree_root: LocalFsIdentifier = None) -> LocalDiskDisplayTree:
         """requested_subtree_root, if present, is a subset of the cache_info's subtree and it will be used. Otherwise cache_info's will be used"""
         assert cache_info
         stopwatch_total = Stopwatch()
@@ -264,7 +264,7 @@ class LocalDiskMasterCache:
 
         with self._struct_lock:
             root_node = self.dir_tree.get_node(requested_subtree_root.uid)
-        fmeta_tree = LocalDiskSubtree(root_node=root_node, application=self.application)
+        fmeta_tree = LocalDiskDisplayTree(root_node=root_node, application=self.application)
         logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {fmeta_tree.node_identifier.full_path}')
         return fmeta_tree
 

@@ -124,7 +124,7 @@ class LocalDiskTree(treelib.Tree):
         return self.children(node.uid)
 
     def refresh_stats(self, tree_id: str, subtree_root_node: LocalNode):
-        logger.debug(f'[{tree_id}] Refreshing stats for local disk tree with root UID {subtree_root_node.uid}')
+        logger.debug(f'[{tree_id}] Refreshing stats for local disk tree with root: {subtree_root_node.node_identifier}')
         stats_sw = Stopwatch()
         queue: Deque[LocalNode] = deque()
         stack: Deque[LocalNode] = deque()
@@ -154,7 +154,6 @@ class LocalDiskTree(treelib.Tree):
         # now go back up the tree by popping the stack and building stats as we go:
         while len(stack) > 0:
             node = stack.pop()
-            logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for tree')
             assert node.is_dir() and isinstance(node, HasChildList) and isinstance(node, LocalNode)
 
             children = self.get_children(node)
@@ -164,4 +163,4 @@ class LocalDiskTree(treelib.Tree):
 
             # logger.debug(f'[{tree_id}] Node {node.uid} ("{node.name}") has size={node.get_size_bytes()}, etc={node.get_etc()}')
 
-        logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for tree')
+        logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for local tree ("{subtree_root_node.node_identifier}")')

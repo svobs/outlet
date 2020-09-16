@@ -157,14 +157,14 @@ class LocalFileNode(LocalNode):
 # CLASS LocalDirNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class LocalDirNode(LocalNode, HasChildList):
+class LocalDirNode(HasChildList, LocalNode):
     """
     Represents a generic local directory.
     """
 
     def __init__(self, node_identifier: LocalFsIdentifier, exists: bool):
-        LocalNode.__init__(self, node_identifier, exists)
         HasChildList.__init__(self)
+        LocalNode.__init__(self, node_identifier, exists)
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalDirNode)

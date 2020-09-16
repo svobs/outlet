@@ -559,8 +559,8 @@ class CacheManager:
             raise RuntimeError('get_uid_for_goog_id(): no goog_id specified!')
         return self._gdrive_cache.get_uid_for_goog_id(goog_id, uid_suggestion)
 
-    def get_node_for_local_path(self, path: str) -> DisplayNode:
-        uid = self.get_uid_for_path(path)
+    def get_node_for_local_path(self, full_path: str) -> DisplayNode:
+        uid = self.get_uid_for_path(full_path)
         return self._local_disk_cache.get_node(uid)
 
     def get_goog_node_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GDriveNode]:

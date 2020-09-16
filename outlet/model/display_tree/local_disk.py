@@ -18,12 +18,12 @@ logger = logging.getLogger(__name__)
 
 """
 ━━━━━━━━━━━━━━━━━┛ ✠ ┗━━━━━━━━━━━━━━━━━
-           LocalDiskSubtree
+           LocalDiskDisplayTree
 ━━━━━━━━━━━━━━━━━┓ ✠ ┏━━━━━━━━━━━━━━━━━
 """
 
 
-class LocalDiskSubtree(DisplayTree):
+class LocalDiskDisplayTree(DisplayTree):
     """🢄 Just a shell of its former self!"""
 
     def __init__(self, root_node: LocalDirNode, application):
@@ -78,7 +78,7 @@ class LocalDiskSubtree(DisplayTree):
         return self.get_relative_path_for_full_path(node.full_path)
 
     def remove(self, node: LocalFileNode):
-        raise RuntimeError('Can no longer do this in LocalDiskSubtree!')
+        raise RuntimeError('Can no longer do this in LocalDiskDisplayTree!')
 
     def get_summary(self):
         if self._stats_loaded:
@@ -95,4 +95,4 @@ class LocalDiskSubtree(DisplayTree):
         dispatcher.send(signal=actions.SET_STATUS, sender=tree_id, status_msg=self.get_summary())
 
     def __repr__(self):
-        return f'LocalDiskSubtree(root="{self.node_identifier}"])'
+        return f'LocalDiskDisplayTree(root="{self.node_identifier}"])'
