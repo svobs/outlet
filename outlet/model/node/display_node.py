@@ -34,10 +34,8 @@ class DisplayNode(Node, ABC):
         # TODO: custom exception class, 'InvalidOperationError'
         raise RuntimeError('Not allowed!')
 
-    @classmethod
-    def get_tree_type(cls) -> int:
-        # TODO: custom exception class, 'InvalidOperationError'
-        raise RuntimeError('Not allowed!')
+    def get_tree_type(self) -> int:
+        return self.node_identifier.tree_type
 
     @classmethod
     @abstractmethod

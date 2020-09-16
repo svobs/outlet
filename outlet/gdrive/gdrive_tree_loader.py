@@ -1,5 +1,6 @@
 import logging
 import os
+import threading
 import time
 from collections import deque
 from typing import Dict, List, Tuple
@@ -23,6 +24,10 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class GDriveTreeLoader:
+    __class_lock = threading.Lock()
+    """Coarse-grained lock which ensures that (1) load operations and (2) change sync operations do not step on each other or
+    on multiple instances of themselves."""
+
     def __init__(self, application, cache_path, tree_id=None):
         self.application = application
         self.node_identifier_factory = application.node_identifier_factory
@@ -47,15 +52,17 @@ class GDriveTreeLoader:
 
     def load_all(self, invalidate_cache=False) -> GDriveWholeTree:
         logger.debug(f'GDrive: load_all() called with invalidate_cache={invalidate_cache}')
-        # This will create a new file if not found:
-        with GDriveDatabase(self.cache_path, self.application) as self.cache:
-            try:
-                # scroll down ⯆⯆⯆
-                return self._load_all(invalidate_cache)
-            finally:
-                if self.tree_id:
-                    logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
-                    actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id)
+
+        with GDriveTreeLoader.__class_lock:
+            # This will create a new file if not found:
+            with GDriveDatabase(self.cache_path, self.application) as self.cache:
+                try:
+                    # scroll down ⯆⯆⯆
+                    return self._load_all(invalidate_cache)
+                finally:
+                    if self.tree_id:
+                        logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
+                        actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id)
 
     def _load_all(self, invalidate_cache: bool) -> GDriveWholeTree:
         if self.tree_id:
@@ -159,9 +166,10 @@ class GDriveTreeLoader:
         return tree
 
     def sync_latest_changes(self):
-        with GDriveDatabase(self.cache_path, self.application) as self.cache:
-            changes_download: CurrentDownload = self._get_previous_download_state(GDRIVE_DOWNLOAD_TYPE_CHANGES)
-            self._sync_latest_changes(changes_download)
+        with GDriveTreeLoader.__class_lock:
+            with GDriveDatabase(self.cache_path, self.application) as self.cache:
+                changes_download: CurrentDownload = self._get_previous_download_state(GDRIVE_DOWNLOAD_TYPE_CHANGES)
+                self._sync_latest_changes(changes_download)
 
     def _sync_latest_changes(self, changes_download: CurrentDownload):
         if not changes_download.page_token:

@@ -84,8 +84,8 @@ class LiveMonitor:
         self._stop_gdrive_capture()
 
     def _start_local_disk_capture(self, full_path: str, tree_id: str):
-        # TODO!
-        event_handler = LoggingEventHandler()
+        logger.debug(f'[{tree_id}] Starting disk capture for path="{full_path}"')
+        event_handler = LocalChangeEventHandler(self.app)
         watch: ObservedWatch = self._watchdog_observer.schedule(event_handler, full_path, recursive=True)
         self._local_tree_watcher_dict[full_path] = watch
 

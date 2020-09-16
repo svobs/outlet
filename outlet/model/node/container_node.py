@@ -34,9 +34,6 @@ class ContainerNode(HasChildList, DisplayNode):
     def is_dir(cls):
         return True
 
-    def get_tree_type(self) -> int:
-        return self.node_identifier.tree_type
-
     def is_parent(self, potential_child_node: DisplayNode) -> bool:
         # This is not currently possible to determine without access to the containing tree
         # TODO: extend from HasParentList to add this support
@@ -44,7 +41,6 @@ class ContainerNode(HasChildList, DisplayNode):
         raise RuntimeError('Not allowed!')
 
     def get_icon(self):
-        # FIXME: allow custom icon for Category Tree nodes ("To Add", "To Delete", etc)
         return ICON_GENERIC_DIR
 
     @property
@@ -60,8 +56,7 @@ class ContainerNode(HasChildList, DisplayNode):
         if not isinstance(other, ContainerNode):
             return False
 
-        return other.uid == self.uid and self.node_identifier.tree_type == other.node_identifier.tree_type and self.full_path == other.full_path \
-            and other.name == self.name and other.trashed == self.trashed and self.get_size_bytes() == other.get_size_bytes()
+        return other.node_identifier == other.node_identifier and other.name == self.name and other.trashed == self.trashed
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -96,6 +91,7 @@ class CategoryNode(ContainerNode):
         return CategoryNode.display_names[self.op_type]
 
     def get_icon(self):
+        # FIXME: allow custom icon for Category Tree nodes ("To Add", "To Delete", etc)
         return ICON_GENERIC_DIR
 
 

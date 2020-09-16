@@ -6,10 +6,9 @@ import logging
 import treelib
 
 from index.uid.uid import UID
-from model.node.container_node import ContainerNode
 from util import file_util
-from model.node.display_node import DisplayNode
-from model.node.local_disk_node import LocalDirNode, LocalFileNode
+from model.node.display_node import HasChildList
+from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from util.stopwatch_sec import Stopwatch
 
@@ -25,11 +24,11 @@ class LocalDiskTree(treelib.Tree):
         super().__init__()
         self.application = application
 
-    def add_to_tree(self, node: DisplayNode):
-        root_node: DisplayNode = self.get_node(self.root)
+    def add_to_tree(self, node: LocalNode):
+        root_node: LocalNode = self.get_node(self.root)
         root_node_identifier: NodeIdentifier = root_node.node_identifier
         path_so_far: str = root_node_identifier.full_path
-        parent: DisplayNode = self.get_node(root_node_identifier.uid)
+        parent: LocalNode = self.get_node(root_node_identifier.uid)
 
         # A trailing '/' will really screw us up:
         assert file_util.is_normalized(root_node_identifier.full_path), f'Path: {root_node_identifier.full_path}'
@@ -43,7 +42,7 @@ class LocalDiskTree(treelib.Tree):
             for dir_name in path_segments:
                 path_so_far: str = os.path.join(path_so_far, dir_name)
                 uid = self.application.cache_manager.get_uid_for_path(path_so_far)
-                child: DisplayNode = self.get_node(nid=uid)
+                child: LocalNode = self.get_node(nid=uid)
                 if not child:
                     # logger.debug(f'Creating dir node: nid={uid}')
                     child = LocalDirNode(node_identifier=LocalFsIdentifier(full_path=path_so_far, uid=uid), exists=True)
@@ -55,14 +54,14 @@ class LocalDiskTree(treelib.Tree):
                 parent = child
 
         # Finally, add the node itself:
-        child: DisplayNode = self.get_node(nid=node.uid)
+        child: LocalNode = self.get_node(nid=node.uid)
         assert not child, f'For old={child}, new={node}, path_segments={path_segments}'
         if not child:
             if not parent:
                 logger.error(f'Parent is None for node: {node}')
             self.add_node(node=node, parent=parent)
 
-    def bfs(self, subtree_root_uid: UID = None) -> Iterator[DisplayNode]:
+    def get_subtree_bfs(self, subtree_root_uid: UID = None) -> List[LocalNode]:
         """Returns an iterator which will do a breadth-first traversal of the tree. If subtree_root is provided, do a breadth-first traversal
         of the subtree whose root is subtree_root (returning None if this tree does not contain subtree_root).
         """
@@ -70,26 +69,33 @@ class LocalDiskTree(treelib.Tree):
             subtree_root_uid = self.root
 
         if not self.contains(subtree_root_uid):
-            return None
+            return []
 
-        queue: Deque[DisplayNode] = deque()
-        node = self.get_node(nid=subtree_root_uid)
+        node: LocalNode = self.get_node(nid=subtree_root_uid)
+
+        queue: Deque[LocalNode] = deque()
+        bfs_list: List[LocalNode] = []
+
         queue.append(node)
+        bfs_list.append(node)
+
         while len(queue) > 0:
             node = queue.popleft()
-            yield node
+            bfs_list.append(node)
             if node.is_dir():
                 for child in self.children(node.uid):
                     queue.append(child)
 
+        return bfs_list
+
     def replace_subtree(self, sub_tree: treelib.Tree):
         if not self.contains(sub_tree.root):
             # quick and dirty way to add any missing parents:
-            sub_tree_root_node: DisplayNode = sub_tree.get_node(sub_tree.root)
+            sub_tree_root_node: LocalNode = sub_tree.get_node(sub_tree.root)
             logger.debug(f'Super-tree does not contain sub-tree root ({sub_tree_root_node.node_identifier}): it and its ancestors will be added')
             self.add_to_tree(sub_tree_root_node)
 
-        parent_of_subtree: DisplayNode = self.parent(sub_tree.root)
+        parent_of_subtree: LocalNode = self.parent(sub_tree.root)
         count_removed = self.remove_node(sub_tree.root)
         logger.debug(f'Removed {count_removed} nodes from super-tree, to be replaced with {len(sub_tree)} nodes')
         self.paste(nid=parent_of_subtree.uid, new_tree=sub_tree)
@@ -97,7 +103,7 @@ class LocalDiskTree(treelib.Tree):
     def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalFsIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
         file_list: List[LocalFileNode] = []
         dir_list: List[LocalDirNode] = []
-        queue: Deque[DisplayNode] = deque()
+        queue: Deque[LocalNode] = deque()
         node = self.get_node(nid=subtree_root.uid)
         queue.append(node)
         while len(queue) > 0:
@@ -114,14 +120,14 @@ class LocalDiskTree(treelib.Tree):
         logger.debug(f'Returning {len(file_list)} files and {len(dir_list)} dirs')
         return file_list, dir_list
     
-    def get_children(self, node: DisplayNode) -> List[DisplayNode]:
+    def get_children(self, node: LocalNode) -> List[LocalNode]:
         return self.children(node.uid)
 
-    def refresh_stats(self, tree_id: str, subtree_root_node: DisplayNode):
+    def refresh_stats(self, tree_id: str, subtree_root_node: LocalNode):
         logger.debug(f'[{tree_id}] Refreshing stats for local disk tree with root UID {subtree_root_node.uid}')
         stats_sw = Stopwatch()
-        queue: Deque[DisplayNode] = deque()
-        stack: Deque[DisplayNode] = deque()
+        queue: Deque[LocalNode] = deque()
+        stack: Deque[LocalNode] = deque()
 
         if subtree_root_node:
             root_node = subtree_root_node
@@ -133,15 +139,15 @@ class LocalDiskTree(treelib.Tree):
 
         # go down tree, zeroing out existing stats and adding children to stack
         while len(queue) > 0:
-            node: DisplayNode = queue.popleft()
-            assert isinstance(node, ContainerNode)
+            node: LocalNode = queue.popleft()
+            assert isinstance(node, HasChildList) and isinstance(node, LocalNode) and node.is_dir()
             node.zero_out_stats()
 
             children = self.get_children(node)
             if children:
                 for child in children:
                     if child.is_dir():
-                        assert isinstance(child, ContainerNode)
+                        assert isinstance(child, HasChildList) and isinstance(child, LocalNode)
                         queue.append(child)
                         stack.append(child)
 
@@ -149,7 +155,7 @@ class LocalDiskTree(treelib.Tree):
         while len(stack) > 0:
             node = stack.pop()
             logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for tree')
-            assert node.is_dir() and isinstance(node, ContainerNode)
+            assert node.is_dir() and isinstance(node, HasChildList) and isinstance(node, LocalNode)
 
             children = self.get_children(node)
             if children:

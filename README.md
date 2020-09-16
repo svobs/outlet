@@ -42,3 +42,5 @@ Create a virtual environment within this directory (`{project_name}`)  following
 * Filter by Trashed, Shared, etc.
 * Filter by name
 * Put GDrive files in trash
+* Put local files in trash
+* Bulk delete dir trees instead of one by one

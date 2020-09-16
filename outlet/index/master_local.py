@@ -23,7 +23,7 @@ from model.display_tree.null import NullDisplayTree
 from model.local_disk_tree import LocalDiskTree
 from model.node.container_node import ContainerNode, RootTypeNode
 from model.node.display_node import DisplayNode
-from model.node.local_disk_node import LocalDirNode, LocalFileNode
+from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
@@ -139,7 +139,7 @@ class LocalDiskMasterCache:
 
     def _cp_planning_nodes_into(self, tree: treelib.Tree):
         count = 0
-        for node in self.dir_tree.bfs(tree.root):
+        for node in self.dir_tree.get_subtree_bfs(tree.root):
             if not node.exists() and not tree.contains(node.uid):
                 parent: DisplayNode = self.dir_tree.parent(node.identifier)
                 if tree.contains(parent.identifier):
@@ -186,7 +186,7 @@ class LocalDiskMasterCache:
 
         if not os.path.exists(subtree_root.full_path):
             logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root.full_path}"')
-            root_node = ContainerNode(subtree_root)
+            root_node = RootTypeNode(subtree_root)
             return NullDisplayTree(root_node)
 
         existing_uid = subtree_root.uid
@@ -395,9 +395,13 @@ class LocalDiskMasterCache:
         if fire_listeners:
             dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
 
-    def remove_node(self, node: LocalFileNode, to_trash=False, fire_listeners=True):
+    def remove_node(self, node: LocalNode, to_trash=False, fire_listeners=True):
         logger.debug(f'Removing node from caches (to_trash={to_trash}): {node}')
 
+        with self._struct_lock:
+            self._remove_node_nolock(node, to_trash, fire_listeners)
+
+    def _remove_node_nolock(self, node: LocalNode, to_trash=False, fire_listeners=True):
         # 1. Validate
         if not node.uid:
             raise RuntimeError(f'Cannot remove node from cache because it has no UID: {node}')
@@ -406,25 +410,28 @@ class LocalDiskMasterCache:
             raise RuntimeError(f'Internal error while trying to remove node ({node}): UID did not match expected '
                                f'({self._uid_mapper.get_uid_for_path(node.full_path)})')
 
+        if to_trash:
+            # TODO
+            raise RuntimeError(f'Not supported: to_trash=true!')
+
         # 2. update in-memory cache
-        with self._struct_lock:
-            existing: DisplayNode = self.dir_tree.get_node(node.uid)
-            if existing:
-                if existing.is_dir():
-                    children = self.dir_tree.children(existing.identifier)
-                    if children:
-                        # maybe allow deletion of dir with children in the future, but for now be careful
-                        raise RuntimeError(f'Cannot remove dir from cache because it has {len(children)} children: {node}')
+        existing: DisplayNode = self.dir_tree.get_node(node.uid)
+        if existing:
+            if existing.is_dir():
+                children = self.dir_tree.children(existing.identifier)
+                if children:
+                    # maybe allow deletion of dir with children in the future, but for now be careful
+                    raise RuntimeError(f'Cannot remove dir from cache because it has {len(children)} children: {node}')
 
-                count_removed = self.dir_tree.remove_node(node.uid)
-                assert count_removed <= 1, f'Deleted {count_removed} nodes at {node.full_path}'
-            else:
-                logger.warning(f'Cannot remove node because it has already been removed from cache: {node}')
+            count_removed = self.dir_tree.remove_node(node.uid)
+            assert count_removed <= 1, f'Deleted {count_removed} nodes at {node.full_path}'
+        else:
+            logger.warning(f'Cannot remove node because it has already been removed from cache: {node}')
 
-            if self.use_md5 and node.md5:
-                self.md5_dict.remove(node.md5, node.full_path)
-            if self.use_sha256 and node.sha256:
-                self.sha256_dict.remove(node.sha256, node.full_path)
+        if self.use_md5 and node.md5:
+            self.md5_dict.remove(node.md5, node.full_path)
+        if self.use_sha256 and node.sha256:
+            self.sha256_dict.remove(node.sha256, node.full_path)
 
         # 3. Update on-disk cache:
         cache_man = self.application.cache_manager
@@ -445,6 +452,35 @@ class LocalDiskMasterCache:
         # 4. Notify UI:
         if fire_listeners:
             dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
+
+    def remove_local_subtree(self, subtree_root: LocalNode, to_trash: bool):
+        logger.debug(f'Removing subtree_root from caches (to_trash={to_trash}): {subtree_root}')
+
+        # 1. Validate
+        if not subtree_root.uid:
+            raise RuntimeError(f'Cannot remove subtree_root from cache because it has no UID: {subtree_root}')
+
+        if subtree_root.uid != self._uid_mapper.get_uid_for_path(subtree_root.full_path):
+            raise RuntimeError(f'Internal error while trying to remove subtree_root ({subtree_root}): UID did not match expected '
+                               f'({self._uid_mapper.get_uid_for_path(subtree_root.full_path)})')
+
+        if not subtree_root.is_dir():
+            raise RuntimeError(f'Not a folder: {subtree_root}')
+
+        if to_trash:
+            # TODO
+            raise RuntimeError(f'Not supported: to_trash=true!')
+
+        assert isinstance(subtree_root, LocalDirNode)
+
+        # 2. Loop through tree and remove items one by one
+        with self._struct_lock:
+            # TODO: optimize by allowing bulk delete
+            subtree_nodes: List[LocalNode] = self.dir_tree.get_subtree_bfs(subtree_root.uid)
+            logger.info(f'Removing subtree with {len(subtree_nodes)} nodes')
+
+            for node in reversed(subtree_nodes):
+                self._remove_node_nolock(node, to_trash=to_trash)
 
     # Various public getters
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -485,6 +521,11 @@ class LocalDiskMasterCache:
         else:
             md5 = 'disabled'
         return f'LocalDiskMasterCache tree_size={len(self.dir_tree):n} md5={md5}'
+
+    def build_local_dir_node(self, full_path: str) -> LocalDirNode:
+        uid = self.get_uid_for_path(full_path)
+        # logger.debug(f'Creating dir node: nid={uid}')
+        return LocalDirNode(node_identifier=LocalFsIdentifier(full_path=full_path, uid=uid), exists=True)
 
     def build_local_file_node(self, full_path: str, staging_path=None) -> Optional[LocalFileNode]:
         uid = self.get_uid_for_path(full_path)

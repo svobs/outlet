@@ -7,8 +7,7 @@ from typing import Deque, Dict, List
 from util import file_util
 from model.op import Op, OpType
 from constants import NOT_TRASHED, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from model.node.container_node import ContainerNode
-from model.node.display_node import DisplayNode
+from model.node.display_node import DisplayNode, HasChildList
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier
@@ -45,7 +44,7 @@ class OneSide:
         self.uid_generator = application.uid_generator
         self.change_tree: CategoryDisplayTree = CategoryDisplayTree(application, self.underlying_tree.node_identifier, tree_id)
         self.batch_uid = self.uid_generator.next_uid()
-        self.added_folders: Dict[str, ContainerNode] = {}
+        self.added_folders: Dict[str, DisplayNode] = {}
 
     def migrate_single_node_to_this_side(self, src_node: DisplayNode, new_path: str) -> DisplayNode:
         dst_tree_type = self.underlying_tree.tree_type
@@ -92,7 +91,7 @@ class OneSide:
         Appends the migrated node as well, but the op for it is omitted so that the caller can provide its own"""
 
         # Lowest node in the stack will always be orig node. Stack size > 1 iff need to add parent folders
-        ancestor_stack: Deque[ContainerNode] = self._generate_missing_ancestor_nodes(new_node)
+        ancestor_stack: Deque[DisplayNode] = self._generate_missing_ancestor_nodes(new_node)
         while len(ancestor_stack) > 0:
             ancestor: DisplayNode = ancestor_stack.pop()
             # Create an accompanying MKDIR action which will create the new folder/dir

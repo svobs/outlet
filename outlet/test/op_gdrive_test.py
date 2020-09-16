@@ -85,7 +85,8 @@ class OpGDriveTest(OpTestBase):
 
             for node in displayed_rows:
                 logger.warning(f'Deleting node via cacheman: {node}')
-                self.app.cache_manager.remove_gdrive_subtree(node, to_trash=False)
+                assert isinstance(node, GDriveNode)
+                self.app.cache_manager.remove_subtree(node, to_trash=False)
 
             logger.info('Waiting for Right tree stats to be completely done...')
             if not right_stats_updated.wait(LOAD_TIMEOUT_SEC):

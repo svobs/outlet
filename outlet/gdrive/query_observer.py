@@ -150,6 +150,7 @@ class FolderMetaPersister(GDriveQueryObserver):
                 self.meta_collector.summarize()
             # fall through
 
+        # Insert all objects for the preceding page into the database:
         self.cache.insert_gdrive_folder_list_and_parents(folder_list=self.folder_list, parent_mappings=self.id_parent_mappings,
                                                          current_download=self.download)
 
@@ -196,6 +197,7 @@ class FileMetaPersister(GDriveQueryObserver):
                 self.meta_collector.summarize()
             # fall through
 
+        # Insert all objects for the preceding page into the database:
         self.cache.insert_gdrive_files_and_parents(file_list=self.file_list, parent_mappings=self.id_parent_mappings,
                                                    current_download=self.download)
 

@@ -1,30 +1,64 @@
 import logging
+import os
 import re
+from abc import ABC
 from typing import Optional, Tuple
 
-from constants import NOT_TRASHED, OBJ_TYPE_FILE, TREE_TYPE_LOCAL_DISK
-from model.node.container_node import ContainerNode
-from model.node_identifier import ensure_bool, ensure_int, LocalFsIdentifier, NodeIdentifier
-from model.node.display_node import DisplayNode
+from constants import ICON_GENERIC_DIR, NOT_TRASHED, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TREE_TYPE_LOCAL_DISK
+from model.node_identifier import ensure_bool, ensure_int, LocalFsIdentifier
+from model.node.display_node import DisplayNode, HasChildList
 
 logger = logging.getLogger(__name__)
 
 SUPER_DEBUG = False
 
 
+# CLASS LocalNode
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class LocalNode(DisplayNode, ABC):
+    def __init__(self, node_identifier: LocalFsIdentifier, exists: bool):
+        super().__init__(node_identifier)
+        self._exists = ensure_bool(exists)
+
+    @classmethod
+    def get_tree_type(cls) -> int:
+        return TREE_TYPE_LOCAL_DISK
+
+    @property
+    def trashed(self):
+        # TODO: add support for trash
+        return NOT_TRASHED
+
+    def exists(self) -> bool:
+        """Whether the object represented by this node actually exists currently, or it is just planned to exist or is an ephemeral node."""
+        return self._exists
+
+    def set_exists(self, does_exist: bool):
+        self._exists = does_exist
+
+    def update_from(self, other_node):
+        DisplayNode.update_from(self, other_node)
+        self._exists = other_node.exists()
+
+    @property
+    def name(self):
+        assert self.node_identifier.full_path, f'For {type(self)}, uid={self.uid}'
+        return os.path.basename(self.node_identifier.full_path)
+
+
 # CLASS LocalFileNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class LocalFileNode(DisplayNode):
+class LocalFileNode(LocalNode):
     def __init__(self, node_identifier: LocalFsIdentifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, exists: bool):
-        super().__init__(node_identifier)
+        super().__init__(node_identifier, exists)
         self._md5: Optional[str] = md5
         self._sha256: Optional[str] = sha256
         self._size_bytes: int = ensure_int(size_bytes)
         self._sync_ts: int = ensure_int(sync_ts)
         self._modify_ts: int = ensure_int(modify_ts)
         self._change_ts: int = ensure_int(change_ts)
-        self._exists = ensure_bool(exists)
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalFileNode)
@@ -40,10 +74,6 @@ class LocalFileNode(DisplayNode):
     def is_parent(self, potential_child_node: DisplayNode) -> bool:
         # A file can never be the parent of anything
         return False
-
-    @classmethod
-    def get_tree_type(cls) -> int:
-        return TREE_TYPE_LOCAL_DISK
 
     @classmethod
     def get_obj_type(cls):
@@ -99,10 +129,6 @@ class LocalFileNode(DisplayNode):
     def change_ts(self, change_ts):
         self._change_ts = change_ts
 
-    @property
-    def trashed(self):
-        return NOT_TRASHED
-
     def is_content_equal(self, other_entry):
         assert isinstance(other_entry, LocalFileNode)
         return self.sha256 == other_entry.sha256 \
@@ -115,13 +141,6 @@ class LocalFileNode(DisplayNode):
 
     def matches(self, other_entry):
         return self.is_content_equal(other_entry) and self.is_meta_equal(other_entry)
-
-    def exists(self) -> bool:
-        """Whether the object represented by this node actually exists currently, or it is just planned to exist or is an ephemeral node."""
-        return self._exists
-
-    def set_exists(self, does_exist: bool):
-        self._exists = does_exist
 
     @classmethod
     def has_tuple(cls) -> bool:
@@ -138,19 +157,19 @@ class LocalFileNode(DisplayNode):
 # CLASS LocalDirNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class LocalDirNode(ContainerNode):
+class LocalDirNode(LocalNode, HasChildList):
     """
     Represents a generic local directory.
     """
 
-    def __init__(self, node_identifier: NodeIdentifier, exists: bool):
-        super().__init__(node_identifier)
-        self._exists = exists
+    def __init__(self, node_identifier: LocalFsIdentifier, exists: bool):
+        LocalNode.__init__(self, node_identifier, exists)
+        HasChildList.__init__(self)
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalDirNode)
-        ContainerNode.update_from(self, other_node)
-        self._exists = other_node.exists()
+        HasChildList.update_from(self, other_node)
+        LocalNode.update_from(self, other_node)
 
     def is_parent(self, potential_child_node: DisplayNode):
         if potential_child_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
@@ -159,13 +178,6 @@ class LocalDirNode(ContainerNode):
                 rel_path = rel_path[1:]
             return rel_path == potential_child_node.name
         return False
-
-    def exists(self) -> bool:
-        """Whether the object represented by this node actually exists currently, or it is just planned to exist or is an ephemeral node."""
-        return self._exists
-
-    def set_exists(self, does_exist: bool):
-        self._exists = does_exist
 
     @classmethod
     def has_tuple(cls) -> bool:
@@ -176,3 +188,33 @@ class LocalDirNode(ContainerNode):
 
     def __repr__(self):
         return f'LocalDirNode({self.node_identifier} exists={self.exists()} size_bytes={self.get_size_bytes()} summary="{self.get_summary()}")'
+
+    @classmethod
+    def get_obj_type(cls):
+        return OBJ_TYPE_DIR
+
+    def get_icon(self):
+        return ICON_GENERIC_DIR
+
+    @classmethod
+    def is_file(cls):
+        return False
+
+    @classmethod
+    def is_dir(cls):
+        return True
+
+    @property
+    def sync_ts(self):
+        # Local dirs are not currently synced to disk
+        return None
+
+    def __eq__(self, other):
+        if not isinstance(other, LocalDirNode):
+            return False
+
+        return other.node_identifier == self.node_identifier and other.name == self.name and other.trashed == self.trashed \
+            and other.exists() == self.exists()
+
+    def __ne__(self, other):
+        return not self.__eq__(other)

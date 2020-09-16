@@ -1,6 +1,5 @@
 import time
 from enum import IntEnum
-from typing import Optional
 
 from treelib import Node
 

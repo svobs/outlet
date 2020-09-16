@@ -26,7 +26,7 @@ from index.sqlite.cache_registry_db import CacheRegistry
 from index.two_level_dict import TwoLevelDict
 from index.uid.uid import UID
 from model.node.display_node import DisplayNode, HasParentList
-from model.node.local_disk_node import LocalFileNode
+from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.gdrive_node import GDriveNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from model.display_tree.display_tree import DisplayTree
@@ -154,6 +154,7 @@ class CacheManager:
             self._gdrive_cache = GDriveMasterCache(self.application)
             self._op_ledger = OpLedger(self.application)
             self._live_monitor = LiveMonitor(self.application)
+            self._live_monitor.start()
 
             # Load registry. Do validation along the way
             caches_from_registry: List[CacheInfoEntry] = self._get_cache_info_from_registry()
@@ -385,7 +386,7 @@ class CacheManager:
 
         return cache_info
 
-    # Individual node cache updates
+    # Main cache CRUD
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def add_or_update_node(self, node: DisplayNode):
@@ -397,8 +398,14 @@ class CacheManager:
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
-    def remove_gdrive_subtree(self, subtree_root: DisplayNode, to_trash):
-        self._gdrive_cache.remove_gdrive_subtree(subtree_root, to_trash)
+    def remove_subtree(self, node: DisplayNode, to_trash: bool):
+        tree_type = node.node_identifier.tree_type
+        if tree_type == TREE_TYPE_GDRIVE:
+            self._gdrive_cache.remove_gdrive_subtree(node, to_trash)
+        elif tree_type == TREE_TYPE_LOCAL_DISK:
+            self._local_disk_cache.remove_local_subtree(node, to_trash)
+        else:
+            raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
     def remove_node(self, node: DisplayNode, to_trash):
         tree_type = node.node_identifier.tree_type
@@ -465,6 +472,9 @@ class CacheManager:
 
     def build_local_file_node(self, full_path: str, staging_path=None) -> Optional[LocalFileNode]:
         return self._local_disk_cache.build_local_file_node(full_path, staging_path)
+
+    def build_local_dir_node(self, full_path: str) -> LocalDirNode:
+        return self._local_disk_cache.build_local_dir_node(full_path)
 
     def resolve_root_from_path(self, full_path: str) -> Tuple[NodeIdentifier, Exception]:
         """Resolves the given path into either a local file, a set of Google Drive matches, or generates a GDriveItemNotFoundError,

@@ -17,7 +17,7 @@ from model.op import Op, OpType
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from index.uid.uid import UID
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
-from model.node.display_node import DisplayNode
+from model.node.display_node import DisplayNode, HasChildList
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.display_tree.display_tree import DisplayTree
@@ -107,7 +107,7 @@ class CategoryDisplayTree(DisplayTree):
 
         return ancestors
 
-    def _get_subroot_node(self, node_identifier: NodeIdentifier) -> Optional[ContainerNode]:
+    def _get_subroot_node(self, node_identifier: NodeIdentifier) -> Optional[DisplayNode]:
         for child in self._category_tree.children(self.root_node.identifier):
             if child.node_identifier.tree_type == node_identifier.tree_type:
                 return child
@@ -237,7 +237,7 @@ class CategoryDisplayTree(DisplayTree):
 
         parent: DisplayNode = self._get_or_create_pre_ancestors(node, op_type_for_display, source_tree)
 
-        if isinstance(parent, ContainerNode):
+        if isinstance(parent, HasChildList):
             parent.add_meta_metrics(node)
 
         stack: Deque = deque()
@@ -377,7 +377,7 @@ class CategoryDisplayTree(DisplayTree):
         # go down tree, zeroing out existing stats and adding children to stack
         while len(queue) > 0:
             node: DisplayNode = queue.popleft()
-            assert isinstance(node, ContainerNode)
+            assert isinstance(node, HasChildList) and isinstance(node, DisplayNode)
             node.zero_out_stats()
 
             children = self.get_children(node)
@@ -391,7 +391,7 @@ class CategoryDisplayTree(DisplayTree):
         # now go back up the tree by popping the stack and building stats as we go:
         while len(stack) > 0:
             node = stack.pop()
-            assert node.is_dir() and isinstance(node, ContainerNode)
+            assert node.is_dir() and isinstance(node, HasChildList) and isinstance(node, DisplayNode)
 
             children = self.get_children(node)
             if children:

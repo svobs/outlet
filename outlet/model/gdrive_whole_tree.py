@@ -366,8 +366,6 @@ class GDriveWholeTree:
         queue: Deque[GDriveNode] = deque()
         bfs_list: List[GDriveNode] = []
 
-        duplicates: List[List[GDriveNode]] = []
-
         queue.append(subtree_root)
         bfs_list.append(subtree_root)
 
