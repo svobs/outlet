@@ -3,7 +3,6 @@ import time
 from typing import Dict, Optional, Set
 
 from watchdog.observers import Observer
-from watchdog.events import LoggingEventHandler
 from watchdog.observers.api import ObservedWatch
 
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
@@ -17,6 +16,9 @@ from ui import actions
 
 logger = logging.getLogger(__name__)
 
+
+# CLASS GDrivePollingThread
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class GDrivePollingThread(threading.Thread):
     def __init__(self, parent, thread_num):

@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 from util import file_util
 
 
-class FileTreeRecurser:
+class LocalTreeRecurser:
     def __init__(self, root_path, valid_suffixes: Optional[Tuple[str]]):
         self.root_path: str = root_path
         self.valid_suffixes: Optional[Tuple[str]] = valid_suffixes

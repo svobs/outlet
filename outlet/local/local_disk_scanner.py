@@ -6,7 +6,7 @@ from pathlib import Path
 from pydispatch import dispatcher
 
 import ui.actions as actions
-from local.file_tree_recurser import FileTreeRecurser
+from local.local_tree_recurser import LocalTreeRecurser
 from model.node.local_disk_node import LocalFileNode, LocalDirNode
 from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
@@ -49,13 +49,13 @@ def _check_update_sanity(old_fmeta, new_fmeta):
 # SUPPORT CLASSES ####################
 
 
-class FileCounter(FileTreeRecurser):
+class FileCounter(LocalTreeRecurser):
     """
     Does a quick walk of the filesystem and counts the files which are of interest
     """
 
     def __init__(self, root_path):
-        FileTreeRecurser.__init__(self, root_path, valid_suffixes=None)
+        LocalTreeRecurser.__init__(self, root_path, valid_suffixes=None)
         self.files_to_scan = 0
 
     def handle_target_file_type(self, file_path):
@@ -65,14 +65,14 @@ class FileCounter(FileTreeRecurser):
         self.files_to_scan += 1
 
 
-class LocalDiskScanner(FileTreeRecurser):
+class LocalDiskScanner(LocalTreeRecurser):
     """
     Walks the filesystem for a subtree (LocalDiskDisplayTree), using a cache if configured,
     to generate an up-to-date list of FMetas.
     """
 
     def __init__(self, application, root_node_identifer: NodeIdentifier, tree_id=None):
-        FileTreeRecurser.__init__(self, Path(root_node_identifer.full_path), valid_suffixes=None)
+        LocalTreeRecurser.__init__(self, Path(root_node_identifer.full_path), valid_suffixes=None)
         assert isinstance(root_node_identifer, LocalFsIdentifier), f'type={type(root_node_identifer)}, for {root_node_identifer}'
         self.cache_manager = application.cache_manager
         self.root_node_identifier: LocalFsIdentifier = root_node_identifer
@@ -80,9 +80,9 @@ class LocalDiskScanner(FileTreeRecurser):
         self.progress = 0
         self.total = 0
 
-        self.dir_tree: LocalDiskTree = LocalDiskTree(application)
+        self._local_tree: LocalDiskTree = LocalDiskTree(application)
         root_node = LocalDirNode(node_identifier=root_node_identifer, exists=os.path.exists(root_node_identifer.full_path))
-        self.dir_tree.add_node(node=root_node, parent=None)
+        self._local_tree.add_node(node=root_node, parent=None)
 
         self.added_count = 0
         self.updated_count = 0
@@ -121,7 +121,7 @@ class LocalDiskScanner(FileTreeRecurser):
                 self.added_count += 1
 
         if target_fmeta:
-            self.dir_tree.add_to_tree(target_fmeta)
+            self._local_tree.add_to_tree(target_fmeta)
 
         if self.tree_id:
             actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=self.tree_id, progress=1)
@@ -154,7 +154,7 @@ class LocalDiskScanner(FileTreeRecurser):
             logger.info(f'Result: {self.added_count} new, {self.updated_count} updated, ? deleted, '
                         f'and {self.unchanged_count} unchanged from cache')
 
-            return self.dir_tree
+            return self._local_tree
         finally:
             if self.tree_id:
                 logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')

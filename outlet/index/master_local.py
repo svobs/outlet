@@ -63,9 +63,9 @@ class LocalDiskMasterCache:
         # self.parent_path_dict = ParentPathBeforeFileNameDict()
         # But we still need a dir tree to look up child dirs:
         with self._struct_lock:
-            self.dir_tree = LocalDiskTree(self.application)
+            self._master_tree = LocalDiskTree(self.application)
             root_node = RootTypeNode(node_identifier=LocalFsIdentifier(full_path=ROOT_PATH, uid=LOCAL_ROOT_UID))
-            self.dir_tree.add_node(node=root_node, parent=None)
+            self._master_tree.add_node(node=root_node, parent=None)
 
     # Disk access
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -139,9 +139,9 @@ class LocalDiskMasterCache:
 
     def _cp_planning_nodes_into(self, tree: treelib.Tree):
         count = 0
-        for node in self.dir_tree.get_subtree_bfs(tree.root):
+        for node in self._master_tree.get_subtree_bfs(tree.root):
             if not node.exists() and not tree.contains(node.uid):
-                parent: DisplayNode = self.dir_tree.parent(node.identifier)
+                parent: DisplayNode = self._master_tree.parent(node.identifier)
                 if tree.contains(parent.identifier):
                     tree.add_node(node=node, parent=parent.identifier)
                     count += 1
@@ -154,7 +154,7 @@ class LocalDiskMasterCache:
     def _save_subtree_to_disk(self, cache_info: PersistedCacheInfo, tree_id):
         assert isinstance(cache_info.subtree_root, LocalFsIdentifier)
         with self._struct_lock:
-            file_list, dir_list = self.dir_tree.get_all_files_and_dirs_for_subtree(cache_info.subtree_root)
+            file_list, dir_list = self._master_tree.get_all_files_and_dirs_for_subtree(cache_info.subtree_root)
 
         stopwatch_write_cache = Stopwatch()
         with LocalDiskDatabase(cache_info.cache_location, self.application) as fmeta_disk_cache:
@@ -173,7 +173,7 @@ class LocalDiskMasterCache:
 
         with self._struct_lock:
             self._cp_planning_nodes_into(fresh_tree)
-            self.dir_tree.replace_subtree(sub_tree=fresh_tree)
+            self._master_tree.replace_subtree(sub_tree=fresh_tree)
 
     # Subtree-level methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -236,7 +236,7 @@ class LocalDiskMasterCache:
                 tree = self._load_subtree_from_disk(cache_info, tree_id)
                 if tree:
                     with self._struct_lock:
-                        self.dir_tree.replace_subtree(tree)
+                        self._master_tree.replace_subtree(tree)
                         logger.debug(f'[{tree_id}] Updated in-memory cache: {self.get_summary()}')
             else:
                 logger.debug(f'[{tree_id}] Skipping cache disk load because cache.enable_load_from_disk is false')
@@ -263,7 +263,7 @@ class LocalDiskMasterCache:
                 logger.debug(f'[{tree_id}] Skipping cache save because it is disabled')
 
         with self._struct_lock:
-            root_node = self.dir_tree.get_node(requested_subtree_root.uid)
+            root_node = self._master_tree.get_node(requested_subtree_root.uid)
         fmeta_tree = LocalDiskDisplayTree(root_node=root_node, application=self.application)
         logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {fmeta_tree.node_identifier.full_path}')
         return fmeta_tree
@@ -302,7 +302,7 @@ class LocalDiskMasterCache:
 
                 # 5. We already loaded it into memory; add it to the in-memory cache:
                 with self._struct_lock:
-                    self.dir_tree.replace_subtree(super_tree)
+                    self._master_tree.replace_subtree(super_tree)
 
                 # this will resync with file system and/or save if configured
                 supertree_cache.needs_save = True
@@ -315,9 +315,9 @@ class LocalDiskMasterCache:
 
     def refresh_stats(self, tree_id: str, subtree_root_node: LocalNode):
         with self._struct_lock:
-            self.dir_tree.refresh_stats(tree_id, subtree_root_node)
+            self._master_tree.refresh_stats(tree_id, subtree_root_node)
 
-    # Individual node operations
+    # Cache CRUD operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def load_node_for_path(self, full_path: str) -> Optional[LocalNode]:
@@ -345,7 +345,7 @@ class LocalDiskMasterCache:
 
         # 2. Update in-memory cache:
         with self._struct_lock:
-            existing_node: LocalNode = self.dir_tree.get_node(node.uid)
+            existing_node: LocalNode = self._master_tree.get_node(node.uid)
             if existing_node:
                 if existing_node.exists() and not node.exists():
                     # In the future, let's close this hole with more elegant logic
@@ -369,7 +369,7 @@ class LocalDiskMasterCache:
                 node = existing_node
             else:
                 # new file or directory insert
-                self.dir_tree.add_to_tree(node)
+                self._master_tree.add_to_tree(node)
 
             # do this after the above, to avoid cache corruption in case of failure
             if self.use_md5 and node.md5:
@@ -377,28 +377,28 @@ class LocalDiskMasterCache:
             if self.use_sha256 and node.sha256:
                 self.sha256_dict.put(node, existing_node)
 
-        # 3. Update on-disk cache:
-        if node.exists():
-            cache_man = self.application.cache_manager
-            if cache_man.enable_save_to_disk:
-                assert node.get_tree_type() == TREE_TYPE_LOCAL_DISK
-                cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_supertree_for_subtree(node.full_path, node.get_tree_type())
-                if cache_info:
-                    with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
-                        if node.is_dir():
-                            cache.upsert_local_dir(node)
-                        else:
-                            cache.upsert_local_file(node)
+            # 3. Update on-disk cache:
+            if node.exists():
+                cache_man = self.application.cache_manager
+                if cache_man.enable_save_to_disk:
+                    assert node.get_tree_type() == TREE_TYPE_LOCAL_DISK
+                    cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_supertree_for_subtree(node.full_path, node.get_tree_type())
+                    if cache_info:
+                        with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
+                            if node.is_dir():
+                                cache.upsert_local_dir(node)
+                            else:
+                                cache.upsert_local_file(node)
+                    else:
+                        logger.error(f'Could not find a cache associated with file path: {node.full_path}')
                 else:
-                    logger.error(f'Could not find a cache associated with file path: {node.full_path}')
+                    logger.debug(f'Save to disk is disabled: skipping add/update of node with UID={node.uid}')
             else:
-                logger.debug(f'Save to disk is disabled: skipping add/update of node with UID={node.uid}')
-        else:
-            logger.debug(f'Node does not exist; skipping save to disk: {node}')
+                logger.debug(f'Node does not exist; skipping save to disk: {node}')
 
-        # 4. Notify UI:
-        if fire_listeners:
-            dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
+            # 4. Notify UI:
+            if fire_listeners:
+                dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
 
     def remove_node(self, node: LocalNode, to_trash=False, fire_listeners=True):
         logger.debug(f'Removing node from caches (to_trash={to_trash}): {node}')
@@ -420,15 +420,15 @@ class LocalDiskMasterCache:
             raise RuntimeError(f'Not supported: to_trash=true!')
 
         # 2. update in-memory cache
-        existing: DisplayNode = self.dir_tree.get_node(node.uid)
+        existing: DisplayNode = self._master_tree.get_node(node.uid)
         if existing:
             if existing.is_dir():
-                children = self.dir_tree.children(existing.identifier)
+                children = self._master_tree.children(existing.identifier)
                 if children:
                     # maybe allow deletion of dir with children in the future, but for now be careful
                     raise RuntimeError(f'Cannot remove dir from cache because it has {len(children)} children: {node}')
 
-            count_removed = self.dir_tree.remove_node(node.uid)
+            count_removed = self._master_tree.remove_node(node.uid)
             assert count_removed <= 1, f'Deleted {count_removed} nodes at {node.full_path}'
         else:
             logger.warning(f'Cannot remove node because it has already been removed from cache: {node}')
@@ -481,7 +481,7 @@ class LocalDiskMasterCache:
         # 2. Loop through tree and remove items one by one
         with self._struct_lock:
             # TODO: optimize by allowing bulk delete
-            subtree_nodes: List[LocalNode] = self.dir_tree.get_subtree_bfs(subtree_root.uid)
+            subtree_nodes: List[LocalNode] = self._master_tree.get_subtree_bfs(subtree_root.uid)
             logger.info(f'Removing subtree with {len(subtree_nodes)} nodes')
 
             for node in reversed(subtree_nodes):
@@ -489,27 +489,32 @@ class LocalDiskMasterCache:
 
     # Various public getters
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalFsIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
+        with self._struct_lock:
+            return self._master_tree.get_all_files_and_dirs_for_subtree(subtree_root)
+
     def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
         return self._uid_mapper.get_uid_for_path(path, uid_suggestion)
 
     def get_children(self, node: DisplayNode):
         with self._struct_lock:
-            return self.dir_tree.children(node.uid)
+            return self._master_tree.children(node.uid)
 
     def get_node(self, uid: UID) -> DisplayNode:
         with self._struct_lock:
-            return self.dir_tree.get_node(uid)
+            return self._master_tree.get_node(uid)
 
     def get_parent_for_node(self, node: DisplayNode, required_subtree_path: str = None):
         try:
             with self._struct_lock:
                 try:
-                    parent: DisplayNode = self.dir_tree.parent(nid=node.uid)
+                    parent: DisplayNode = self._master_tree.parent(nid=node.uid)
                 except KeyError:
                     # parent not found in tree... maybe we can derive it however
                     parent_path = str(pathlib.Path(node.full_path).parent)
                     parent_uid = self.get_uid_for_path(parent_path)
-                    parent = self.dir_tree.get_node(parent_uid)
+                    parent = self._master_tree.get_node(parent_uid)
                     logger.debug(f'Parent not found for node ({node.uid}) but found parent derived from path: {parent_uid}')
                 if not required_subtree_path or parent.full_path.startswith(required_subtree_path):
                     return parent
@@ -525,7 +530,7 @@ class LocalDiskMasterCache:
             md5 = str(self.md5_dict.total_entries)
         else:
             md5 = 'disabled'
-        return f'LocalDiskMasterCache tree_size={len(self.dir_tree):n} md5={md5}'
+        return f'LocalDiskMasterCache tree_size={len(self._master_tree):n} md5={md5}'
 
     def build_local_dir_node(self, full_path: str) -> LocalDirNode:
         uid = self.get_uid_for_path(full_path)

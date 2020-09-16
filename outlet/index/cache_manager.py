@@ -619,6 +619,7 @@ class CacheManager:
         if subtree_root.tree_type == TREE_TYPE_GDRIVE:
             return self._gdrive_cache.get_all_gdrive_files_and_folders_for_subtree(subtree_root)
         elif subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
-            return self._local_disk_cache.dir_tree.get_all_files_and_dirs_for_subtree(subtree_root)
+            assert isinstance(subtree_root, LocalFsIdentifier)
+            return self._local_disk_cache.get_all_files_and_dirs_for_subtree(subtree_root)
         else:
             raise RuntimeError(f'Unknown tree type: {subtree_root.tree_type} for {subtree_root}')
