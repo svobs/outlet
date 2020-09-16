@@ -21,7 +21,7 @@ from model.display_tree.display_tree import DisplayTree
 from model.display_tree.local_disk import LocalDiskDisplayTree
 from model.display_tree.null import NullDisplayTree
 from model.local_disk_tree import LocalDiskTree
-from model.node.container_node import ContainerNode, RootTypeNode
+from model.node.container_node import RootTypeNode
 from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
@@ -313,14 +313,14 @@ class LocalDiskMasterCache:
         registry_needs_update = len(supertree_sets) > 0
         return local_caches, registry_needs_update
 
-    def refresh_stats(self, tree_id: str, subtree_root_node: DisplayNode):
+    def refresh_stats(self, tree_id: str, subtree_root_node: LocalNode):
         with self._struct_lock:
             self.dir_tree.refresh_stats(tree_id, subtree_root_node)
 
     # Individual node operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def load_node_for_path(self, full_path: str) -> Optional[DisplayNode]:
+    def load_node_for_path(self, full_path: str) -> Optional[LocalNode]:
         """This actually reads directly from the disk cache"""
         logger.debug(f'Loading single node for path: "{full_path}"')
         cache_man = self.application.cache_manager
@@ -331,7 +331,7 @@ class LocalDiskMasterCache:
         with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
             return cache.get_file_or_dir_for_path(full_path)
 
-    def upsert_local_node(self, node: DisplayNode, fire_listeners=True):
+    def upsert_local_node(self, node: LocalNode, fire_listeners=True):
         logger.debug(f'Upserting node to caches: {node}')
 
         # 1. Validate UID:
@@ -345,32 +345,37 @@ class LocalDiskMasterCache:
 
         # 2. Update in-memory cache:
         with self._struct_lock:
-            existing: DisplayNode = self.dir_tree.get_node(node.uid)
-            if existing:
-                if existing.exists() and not node.exists():
+            existing_node: LocalNode = self.dir_tree.get_node(node.uid)
+            if existing_node:
+                if existing_node.exists() and not node.exists():
                     # In the future, let's close this hole with more elegant logic
                     logger.warning(f'Cannot replace a node which exists with one which does not exist; skipping cache update')
                     if fire_listeners:
                         dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
                         return
 
-                if existing.is_dir() and not node.is_dir():
+                if existing_node.is_dir() and not node.is_dir():
                     # need to replace all descendants...not ready to do this yet
                     raise RuntimeError(f'Cannot replace a directory with a file: "{node.full_path}"')
 
+                if existing_node == node:
+                    logger.info(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
+                    if fire_listeners:
+                        dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
+                    return
                 # just update the existing - much easier
-                logger.debug(f'Merging node (type {type(node)}) into existing (type {type(existing)})')
-                existing.update_from(node)
-                node = existing
+                logger.debug(f'Merging node (type {type(node)}) into existing_node (type {type(existing_node)})')
+                existing_node.update_from(node)
+                node = existing_node
             else:
                 # new file or directory insert
                 self.dir_tree.add_to_tree(node)
 
             # do this after the above, to avoid cache corruption in case of failure
             if self.use_md5 and node.md5:
-                self.md5_dict.put(node, existing)
+                self.md5_dict.put(node, existing_node)
             if self.use_sha256 and node.sha256:
-                self.sha256_dict.put(node, existing)
+                self.sha256_dict.put(node, existing_node)
 
         # 3. Update on-disk cache:
         if node.exists():

@@ -126,10 +126,6 @@ class GDriveMasterCache:
     # Individual node cache updates
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def _send_node_upserted_signal(self, node: GDriveNode):
-        logger.debug(f'Sending signal: {actions.NODE_UPSERTED}')
-        dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
-
     def upsert_gdrive_node(self, node: GDriveNode):
         logger.debug(f'Upserting node to caches: {node}')
         with self._struct_lock:
@@ -165,9 +161,13 @@ class GDriveMasterCache:
                     logger.warning(f'Cannot replace a node which exists with one which does not exist; ignoring: {node}')
                     return
 
+                if existing_node.is_dir() and not node.is_dir():
+                    # need to replace all descendants...not ready to do this yet
+                    raise RuntimeError(f'Cannot replace a folder with a file: "{node.full_path}"')
+
                 if existing_node == node:
-                    logger.info(f'Item being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
-                    self._send_node_upserted_signal(node)
+                    logger.info(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
+                    dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
                     return
                 logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')
             elif node.goog_id:
@@ -213,7 +213,7 @@ class GDriveMasterCache:
             # Generate full_path for node, if not already done (we assume this is a newly created node)
             self._my_gdrive.get_full_path_for_node(node)
 
-            self._send_node_upserted_signal(node)
+            dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
 
     def remove_gdrive_subtree(self, subtree_root: DisplayNode, to_trash):
         assert isinstance(subtree_root, GDriveNode), f'For node: {subtree_root}'

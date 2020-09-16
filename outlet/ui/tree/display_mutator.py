@@ -440,14 +440,8 @@ class DisplayMutator:
             if node.is_ephemereal():
                 return
 
+            # Node in cacheman should always reference the same object as the node in our tree
             assert id(self.con.app.cache_manager.get_node_for_uid(node.uid, node.get_tree_type())) == id(node)
-            # TODO: remove the below commented-out code when it's clear this is stable
-            # Need to get fresh node from cacheman. This is crucial for just-updated nodes (e.g. from completed operations)
-            # updated_node = self.con.app.cache_manager.get_node_for_uid(node.uid, node.get_tree_type())
-            # if not updated_node:
-            #     raise RuntimeError(f'Could not find up-to-date node in memcache: {node}')
-            # logger.debug(f'NodeID={hex(id(node))}; UpdatedNodeID={hex(id(updated_node))} EQ={id(node) == id(updated_node)}')
-            # node = updated_node
 
             logger.debug(f'Redrawing stats for node: {node}; path={ds.model.get_path(tree_iter)}; size={node.get_size_bytes()} etc={node.get_etc()}')
             ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(node)

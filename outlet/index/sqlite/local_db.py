@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple, Union
 
 from index.sqlite.base_db import LiveTable, MetaDatabase, Table
 from index.uid.uid import UID
-from model.node.local_disk_node import LocalDirNode, LocalFileNode
+from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalFsIdentifier
 
 logger = logging.getLogger(__name__)
@@ -106,7 +106,7 @@ class LocalDiskDatabase(MetaDatabase):
 
     # Other ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
-    def get_file_or_dir_for_path(self, full_path: str) -> Optional[Union[LocalDirNode, LocalFileNode]]:
+    def get_file_or_dir_for_path(self, full_path: str) -> Optional[LocalNode]:
         dir_list = self.table_local_dir.select_object_list(where_clause='WHERE full_path = ?', where_tuple=(full_path,))
         if dir_list:
             return dir_list[0]
