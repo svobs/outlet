@@ -25,7 +25,7 @@ class LocalChangeEventHandler(FileSystemEventHandler):
             super(LocalChangeEventHandler, self).on_moved(event)
             logger.info(f'Moved {_what(event)}: from "{event.src_path}" to "{event.dest_path}"')
 
-            self.cacheman.move_local_subtree(event.src_path, event.dest_path)
+            self.cacheman.move_local_subtree(event.src_path, event.dest_path, is_from_watchdog=True)
         except Exception as err:
             self.app.window.show_error_ui(f'Error processing external "MOV {_what(event)}" from "{event.src_path}" to "{event.dest_path}"', repr(err))
             logger.exception(err)

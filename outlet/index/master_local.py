@@ -1,9 +1,10 @@
+import copy
 import logging
 import os
 import pathlib
 import threading
 import time
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import treelib
 from pydispatch import dispatcher
@@ -46,6 +47,12 @@ class LocalDiskMasterCache:
         self._struct_lock = threading.Lock()
 
         self._uid_mapper = UidPathMapper(application)
+
+        self._expected_node_moves: Dict[str, str] = {}
+        """When the FileSystemEventHandler gives us MOVE notifications for a tree, it gives us a separate notification for each
+        and every node. Since we want our tree move to be an atomic operation, we do it all at once, but then keep track of the
+        nodes we've moved so that we know exactly which notifications to ignore after that.
+        Dict is key-value pair of [old_file_path -> new_file_path]"""
 
         self.use_md5 = application.config.get('cache.enable_md5_lookup')
         if self.use_md5:
@@ -458,24 +465,55 @@ class LocalDiskMasterCache:
         if fire_listeners:
             dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
 
-    def move_local_subtree(self, src_full_path: str, dst_full_path: str):
-        src_uid: UID = self.get_uid_for_path(src_full_path)
-        src_node = self.get_node(src_uid)
-        if not src_node:
-            logger.error(f'Could not find node: {src_node}')
+    def move_local_subtree(self, src_full_path: str, dst_full_path: str, is_from_watchdog=False):
+        with self._struct_lock:
+            if is_from_watchdog:
+                # Can we safely ignore this?
+                expected_move_dst = self._expected_node_moves.pop(src_full_path, None)
+                if expected_move_dst:
+                    if expected_move_dst == dst_full_path:
+                        logger.debug(f'Ignoring MV ("{src_full_path}" -> "{dst_full_path}") because it was already done')
+                        return
+                    else:
+                        logger.error(f'MV ("{src_full_path}" -> "{dst_full_path}"): was expecting dst = "{expected_move_dst}"!')
 
-        src_node = self.get_node(src_uid)
+            src_uid: UID = self.get_uid_for_path(src_full_path)
+            src_node: LocalNode = self._master_tree.get_node(src_uid)
+            if not src_node:
+                # TODO: recover from this by re-scanning the src tree
+                logger.error(f'TODO: if we are seeing this we have a corrupt cache!')
+                raise RuntimeError(f'Cannot move node because it was not found: {src_node}')
 
-        # self.cacheman.add_or_update_node(node)
-        # # FIXME
-        # node_before_move: LocalNode = self.cacheman.get_node_for_local_path(event.src_path)
-        # if node_before_move:
-        #     self.cacheman.remove_node(node_before_move, to_trash=False)
-        # else:
-        #     logger.debug(f'Cannot remove moved src node from cache: node not found in cache for path: {event.src_path}')
-        #
-        # node: LocalNode = self.cacheman.build_local_file_node(event.dest_path)
-        # self.cacheman.add_or_update_node(node)
+            dst_uid: UID = self.get_uid_for_path(dst_full_path)
+            dst_node: LocalNode = self._master_tree.get_node(dst_uid)
+            if dst_node:
+                # TODO: bulk delete from DB without commit
+                logger.debug(f'Subtree already exists at MV dst; removing: {dst_full_path}')
+                self._remove_local_subtree_no_lock(dst_node, to_trash=False)
+
+            subtree_node_list: List[LocalNode] = self._master_tree.get_subtree_bfs(src_uid)
+            first = True
+            for node in subtree_node_list:
+                new_node_full_path: str = file_util.change_path_to_new_root(node.full_path, src_full_path, dst_full_path)
+                new_node_uid: UID = self.get_uid_for_path(new_node_full_path)
+
+                new_node = copy.deepcopy(node)
+                new_node.set_node_identifier(LocalFsIdentifier(full_path=new_node_full_path, uid=new_node_uid))
+
+                logger.debug(f'Migrating copy of node {node.node_identifier} to {new_node.node_identifier}')
+                self._master_tree.add_to_tree(new_node)
+
+                if is_from_watchdog:
+                    if first:
+                        # ignore subroot
+                        first = False
+                    else:
+                        self._expected_node_moves[node.full_path] = new_node.full_path
+            logger.debug(f'Added {len(subtree_node_list)} nodes to dst "{dst_full_path}"')
+
+            # Now remove the root node, thus removing the entire tree
+            removed_count = self._master_tree.remove_node(src_uid)
+            logger.debug(f'Removed {removed_count} nodes from src "{src_full_path}"')
 
     def remove_local_subtree(self, subtree_root: LocalNode, to_trash: bool):
         logger.debug(f'Removing subtree_root from caches (to_trash={to_trash}): {subtree_root}')
@@ -484,13 +522,17 @@ class LocalDiskMasterCache:
         if not subtree_root.uid:
             raise RuntimeError(f'Cannot remove subtree_root from cache because it has no UID: {subtree_root}')
 
-        if subtree_root.uid != self._uid_mapper.get_uid_for_path(subtree_root.full_path):
+        if subtree_root.uid != self.get_uid_for_path(subtree_root.full_path):
             raise RuntimeError(f'Internal error while trying to remove subtree_root ({subtree_root}): UID did not match expected '
-                               f'({self._uid_mapper.get_uid_for_path(subtree_root.full_path)})')
+                               f'({self.get_uid_for_path(subtree_root.full_path)})')
 
         if not subtree_root.is_dir():
             raise RuntimeError(f'Not a folder: {subtree_root}')
 
+        with self._struct_lock:
+            self._remove_local_subtree_no_lock(subtree_root, to_trash)
+
+    def _remove_local_subtree_no_lock(self, subtree_root: LocalNode, to_trash: bool):
         if to_trash:
             # TODO
             raise RuntimeError(f'Not supported: to_trash=true!')
@@ -498,13 +540,12 @@ class LocalDiskMasterCache:
         assert isinstance(subtree_root, LocalDirNode)
 
         # 2. Loop through tree and remove items one by one
-        with self._struct_lock:
-            # TODO: optimize by allowing bulk delete
-            subtree_nodes: List[LocalNode] = self._master_tree.get_subtree_bfs(subtree_root.uid)
-            logger.info(f'Removing subtree with {len(subtree_nodes)} nodes')
+        # TODO: optimize by allowing bulk delete
+        subtree_nodes: List[LocalNode] = self._master_tree.get_subtree_bfs(subtree_root.uid)
+        logger.info(f'Removing subtree with {len(subtree_nodes)} nodes')
 
-            for node in reversed(subtree_nodes):
-                self._remove_node_nolock(node, to_trash=to_trash)
+        for node in reversed(subtree_nodes):
+            self._remove_node_nolock(node, to_trash=to_trash)
 
     # Various public getters
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -516,11 +557,11 @@ class LocalDiskMasterCache:
     def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
         return self._uid_mapper.get_uid_for_path(path, uid_suggestion)
 
-    def get_children(self, node: DisplayNode):
+    def get_children(self, node: LocalNode) -> List[LocalNode]:
         with self._struct_lock:
             return self._master_tree.children(node.uid)
 
-    def get_node(self, uid: UID) -> DisplayNode:
+    def get_node(self, uid: UID) -> LocalNode:
         with self._struct_lock:
             return self._master_tree.get_node(uid)
 
@@ -531,7 +572,7 @@ class LocalDiskMasterCache:
                     parent: DisplayNode = self._master_tree.parent(nid=node.uid)
                 except KeyError:
                     # parent not found in tree... maybe we can derive it however
-                    parent_path = str(pathlib.Path(node.full_path).parent)
+                    parent_path = _derive_parent_path(node.full_path)
                     parent_uid = self.get_uid_for_path(parent_path)
                     parent = self._master_tree.get_node(parent_uid)
                     logger.debug(f'Parent not found for node ({node.uid}) but found parent derived from path: {parent_uid}')
@@ -593,3 +634,8 @@ class LocalDiskMasterCache:
 
         node_identifier = LocalFsIdentifier(uid=uid, full_path=full_path)
         return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, True)
+
+
+def _derive_parent_path(full_path: str) -> str:
+    return str(pathlib.Path(full_path).parent)
+

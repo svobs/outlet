@@ -28,6 +28,14 @@ def is_target_type(file_path: str, valid_suffixes: Tuple[str]):
     return False
 
 
+def change_path_to_new_root(full_path: str, old_root: str, new_root: str) -> str:
+    new_path = os.path.join(new_root, strip_root(full_path, old_root))
+    if new_path.endswith('/'):
+        # strip off trailing '/' from root:
+        new_path = new_path[:-1]
+    return new_path
+
+
 def rm_tree(tree_root_path: str):
     logger.warning(f'Removing dir tree: {tree_root_path}')
     shutil.rmtree(tree_root_path)

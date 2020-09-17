@@ -1,6 +1,6 @@
 import logging
 from collections import OrderedDict
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 
 from index.sqlite.base_db import LiveTable, MetaDatabase, Table
 from index.uid.uid import UID

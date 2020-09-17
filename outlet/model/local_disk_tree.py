@@ -77,7 +77,6 @@ class LocalDiskTree(treelib.Tree):
         bfs_list: List[LocalNode] = []
 
         queue.append(node)
-        bfs_list.append(node)
 
         while len(queue) > 0:
             node = queue.popleft()

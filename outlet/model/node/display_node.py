@@ -22,8 +22,7 @@ class DisplayNode(Node, ABC):
     def __init__(self, node_identifier: NodeIdentifier):
         # Look at this next line. It is very important.
         Node.__init__(self, identifier=node_identifier.uid)
-        self.node_identifier = node_identifier
-
+        self.node_identifier: NodeIdentifier = node_identifier
         self._update_tag()
 
     def _update_tag(self):
@@ -66,6 +65,11 @@ class DisplayNode(Node, ABC):
 
     def to_tuple(self) -> Tuple:
         raise RuntimeError('Operation not supported for this object: "to_tuple()"')
+
+    def set_node_identifier(self, node_identifier: NodeIdentifier):
+        self.node_identifier = node_identifier
+        self._update_tag()
+        self.identifier = node_identifier.uid
 
     @property
     def name(self):
