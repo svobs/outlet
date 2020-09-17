@@ -304,6 +304,9 @@ class DisplayStore:
 
         def remove_node_from_lists(tree_iter):
             node = self.get_node_data(tree_iter)
+            if node.is_ephemereal():
+                return
+
             uid = node.uid
             if uid in self.checked_rows: del self.checked_rows[uid]
             if uid in self.inconsistent_rows: del self.inconsistent_rows[uid]

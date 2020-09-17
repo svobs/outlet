@@ -143,14 +143,14 @@ class LocalDiskTree(treelib.Tree):
         # go down tree, zeroing out existing stats and adding children to stack
         while len(queue) > 0:
             node: LocalNode = queue.popleft()
-            logger.debug(f'[{tree_id}] Zeroing out stats for node: {node}')
+            # logger.debug(f'[{tree_id}] Zeroing out stats for node: {node}')
             assert isinstance(node, HasChildList) and isinstance(node, LocalNode) and node.is_dir()
             node.zero_out_stats()
 
             children = self.get_children(node)
             if children:
                 for child in children:
-                    logger.debug(f'[{tree_id}] Appending child to stats queue: {child}')
+                    # logger.debug(f'[{tree_id}] Appending child to stats queue: {child}')
                     if child.is_dir():
                         assert isinstance(child, HasChildList) and isinstance(child, LocalNode)
                         queue.append(child)

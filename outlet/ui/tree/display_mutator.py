@@ -436,7 +436,8 @@ class DisplayMutator:
             # Node in cacheman should always reference the same object as the node in our tree
             assert id(self.con.app.cache_manager.get_node_for_uid(node.uid, node.get_tree_type())) == id(node)
 
-            logger.debug(f'Redrawing stats for node: {node}; path={ds.model.get_path(tree_iter)}; size={node.get_size_bytes()} etc={node.get_etc()}')
+            logger.debug(f'[{self.con.tree_id}] Redrawing stats for node: {node}; path={ds.model.get_path(tree_iter)}; '
+                         f'size={node.get_size_bytes()} etc={node.get_etc()}')
             ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(node)
             ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = node.get_etc()
             ds.model[tree_iter][self.con.treeview_meta.col_num_data] = node
