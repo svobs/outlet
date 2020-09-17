@@ -407,6 +407,9 @@ class CacheManager:
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
+    def move_local_subtree(self, src_full_path: str, dst_full_path: str):
+        self._local_disk_cache.move_local_subtree(src_full_path, dst_full_path)
+
     def remove_node(self, node: DisplayNode, to_trash):
         tree_type = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:

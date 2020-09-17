@@ -458,6 +458,25 @@ class LocalDiskMasterCache:
         if fire_listeners:
             dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
 
+    def move_local_subtree(self, src_full_path: str, dst_full_path: str):
+        src_uid: UID = self.get_uid_for_path(src_full_path)
+        src_node = self.get_node(src_uid)
+        if not src_node:
+            logger.error(f'Could not find node: {src_node}')
+
+        src_node = self.get_node(src_uid)
+
+        # self.cacheman.add_or_update_node(node)
+        # # FIXME
+        # node_before_move: LocalNode = self.cacheman.get_node_for_local_path(event.src_path)
+        # if node_before_move:
+        #     self.cacheman.remove_node(node_before_move, to_trash=False)
+        # else:
+        #     logger.debug(f'Cannot remove moved src node from cache: node not found in cache for path: {event.src_path}')
+        #
+        # node: LocalNode = self.cacheman.build_local_file_node(event.dest_path)
+        # self.cacheman.add_or_update_node(node)
+
     def remove_local_subtree(self, subtree_root: LocalNode, to_trash: bool):
         logger.debug(f'Removing subtree_root from caches (to_trash={to_trash}): {subtree_root}')
 

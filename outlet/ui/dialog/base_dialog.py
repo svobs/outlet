@@ -22,7 +22,7 @@ class BaseDialog:
         if self.application.shutdown:
             logger.debug('Application shutting down; discarding msg: {msg}')
             return
-        dialog = Gtk.MessageDialog(parent=self, modal=True, message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CANCEL, text=msg)
+        dialog = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CANCEL, text=msg)
         dialog.set_default_response(Gtk.ResponseType.CANCEL)
         if secondary_msg is None:
             logger.debug(f'Displaying error: {msg}')
@@ -38,7 +38,7 @@ class BaseDialog:
         run_on_ui_thread()
 
     def show_question_dialog(self, msg, secondary_msg=None):
-        dialog = Gtk.MessageDialog(parent=self, modal=True, message_type=Gtk.MessageType.QUESTION, buttons=Gtk.ButtonsType.YES_NO, text=msg)
+        dialog = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.QUESTION, buttons=Gtk.ButtonsType.YES_NO, text=msg)
         if secondary_msg is None:
             logger.debug(f'Q: {msg}')
         else:
