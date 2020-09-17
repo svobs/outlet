@@ -127,8 +127,12 @@ def main():
         config = AppConfig()
 
     application = OutletApplication(config)
-    exit_status = application.run(sys.argv)
-    sys.exit(exit_status)
+    try:
+        exit_status = application.run(sys.argv)
+        sys.exit(exit_status)
+    except KeyboardInterrupt:
+        logger.info('Caught KeyboardInterrupt. Quitting')
+        application.quit()
 
 
 if __name__ == '__main__':

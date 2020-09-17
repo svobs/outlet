@@ -491,17 +491,29 @@ class LocalDiskMasterCache:
                 logger.debug(f'Subtree already exists at MV dst; removing: {dst_full_path}')
                 self._remove_local_subtree_no_lock(dst_node, to_trash=False)
 
-            subtree_node_list: List[LocalNode] = self._master_tree.get_subtree_bfs(src_uid)
+            subtree_node_src_list: List[LocalNode] = self._master_tree.get_subtree_bfs(src_uid)
+            subtree_node_dst_list: List[LocalNode] = []
             first = True
-            for node in subtree_node_list:
+            for node in subtree_node_src_list:
                 new_node_full_path: str = file_util.change_path_to_new_root(node.full_path, src_full_path, dst_full_path)
                 new_node_uid: UID = self.get_uid_for_path(new_node_full_path)
 
                 new_node = copy.deepcopy(node)
+                # new_node.reset_pointers(self._master_tree.identifier)
+                new_node._predecessor.clear()
+                new_node._successors.clear()
                 new_node.set_node_identifier(LocalFsIdentifier(full_path=new_node_full_path, uid=new_node_uid))
 
                 logger.debug(f'Migrating copy of node {node.node_identifier} to {new_node.node_identifier}')
                 self._master_tree.add_to_tree(new_node)
+                subtree_node_dst_list.append(new_node)
+
+                if self.use_md5 and node.md5:
+                    self.md5_dict.remove(node.md5, node.full_path)
+                    self.md5_dict.put(new_node)
+                if self.use_sha256 and node.sha256:
+                    self.sha256_dict.remove(node.sha256, node.full_path)
+                    self.md5_dict.put(new_node)
 
                 if is_from_watchdog:
                     if first:
@@ -509,7 +521,35 @@ class LocalDiskMasterCache:
                         first = False
                     else:
                         self._expected_node_moves[node.full_path] = new_node.full_path
-            logger.debug(f'Added {len(subtree_node_list)} nodes to dst "{dst_full_path}"')
+            logger.debug(f'Added {len(subtree_node_dst_list)} nodes to memcache dst "{dst_full_path}"')
+
+            # Update on-disk cache:
+            cache_man = self.application.cache_manager
+            if cache_man.enable_save_to_disk:
+                cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_supertree_for_subtree(src_node.full_path, src_node.get_tree_type())
+                if cache_info:
+                    with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
+                        for src_node, dst_node in zip(subtree_node_src_list, subtree_node_dst_list):
+                            assert src_node.get_tree_type() == TREE_TYPE_LOCAL_DISK and dst_node.get_tree_type() == TREE_TYPE_LOCAL_DISK
+                            if src_node.is_dir():
+                                cache.delete_local_dir_with_uid(src_node.uid, commit=False)
+                            else:
+                                cache.delete_local_file_with_uid(src_node.uid, commit=False)
+
+                            if dst_node.is_dir():
+                                cache.upsert_local_dir(dst_node, commit=False)
+                            else:
+                                cache.upsert_local_file(dst_node, commit=False)
+                        cache.commit()
+                else:
+                    logger.error(f'Could not find a cache associated with file path: {src_node.full_path}')
+            else:
+                logger.debug(f'Save to disk is disabled: skipping add/update of node with UID={node.uid}')
+
+            for src_node, dst_node in zip(subtree_node_src_list, subtree_node_dst_list):
+                # FIXME: NODE_MOVED
+                dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=src_node)
+                dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=dst_node)
 
             # Now remove the root node, thus removing the entire tree
             removed_count = self._master_tree.remove_node(src_uid)

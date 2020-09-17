@@ -4,6 +4,7 @@ from typing import Deque, Iterator, List, Tuple
 import logging
 
 import treelib
+from treelib.exceptions import NodeIDAbsentError
 
 from index.uid.uid import UID
 from util import file_util
@@ -120,7 +121,10 @@ class LocalDiskTree(treelib.Tree):
         return file_list, dir_list
     
     def get_children(self, node: LocalNode) -> List[LocalNode]:
-        return self.children(node.uid)
+        try:
+            return self.children(node.uid)
+        except NodeIDAbsentError:
+            raise RuntimeError(f'Node is not in the tree: {node} (uid={node.uid})')
 
     def refresh_stats(self, tree_id: str, subtree_root_node: LocalNode):
         logger.debug(f'[{tree_id}] Refreshing stats for local disk tree with root: {subtree_root_node.node_identifier}')
@@ -139,12 +143,14 @@ class LocalDiskTree(treelib.Tree):
         # go down tree, zeroing out existing stats and adding children to stack
         while len(queue) > 0:
             node: LocalNode = queue.popleft()
+            logger.debug(f'[{tree_id}] Zeroing out stats for node: {node}')
             assert isinstance(node, HasChildList) and isinstance(node, LocalNode) and node.is_dir()
             node.zero_out_stats()
 
             children = self.get_children(node)
             if children:
                 for child in children:
+                    logger.debug(f'[{tree_id}] Appending child to stats queue: {child}')
                     if child.is_dir():
                         assert isinstance(child, HasChildList) and isinstance(child, LocalNode)
                         queue.append(child)
@@ -160,6 +166,6 @@ class LocalDiskTree(treelib.Tree):
                 for child in children:
                     node.add_meta_metrics(child)
 
-            # logger.debug(f'[{tree_id}] Node {node.uid} ("{node.name}") has size={node.get_size_bytes()}, etc={node.get_etc()}')
+            logger.debug(f'[{tree_id}] Node {node.uid} ("{node.name}") has size={node.get_size_bytes()}, etc={node.get_etc()}')
 
         logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for local tree ("{subtree_root_node.node_identifier}")')

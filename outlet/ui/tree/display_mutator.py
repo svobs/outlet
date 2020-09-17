@@ -399,15 +399,8 @@ class DisplayMutator:
                 if not displayed_item:
                     return
 
-                self.con.display_store.remove_from_lists(node.uid)
-
-                # TODO: this can be optimized to search only the paths of the ancestors
-                tree_iter = self.con.display_store.find_uid_in_tree(target_uid=displayed_item.uid)
-                if not tree_iter:
-                    raise RuntimeError(f'[{self.con.tree_id}] Cannot remove node: Could not find node in display tree: {displayed_item}')
-
                 logger.debug(f'[{self.con.tree_id}] Removing node from display store: {displayed_item.uid}')
-                self.con.display_store.model.remove(tree_iter)
+                self.con.display_store.remove_node(node.uid)
                 logger.debug(f'[{self.con.tree_id}] Node removed: {displayed_item.uid}')
 
                 self._stats_refresh_timer.start_or_delay()

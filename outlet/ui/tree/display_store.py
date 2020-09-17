@@ -254,24 +254,35 @@ class DisplayStore:
                 self.recurse_over_tree(child_iter, action_func)
             tree_iter = self.model.iter_next(tree_iter)
 
-    def do_for_descendants(self, tree_path, action_func):
-        tree_iter = self.model.get_iter(tree_path)
+    def do_for_descendants(self, tree_path: Union[Gtk.TreeIter, Gtk.TreePath], action_func: Callable[[Gtk.TreeIter], None]):
+        if isinstance(tree_path, Gtk.TreeIter):
+            tree_iter = tree_path
+        else:
+            tree_iter = self.model.get_iter(tree_path)
         child_iter = self.model.iter_children(tree_iter)
         if child_iter:
             self.recurse_over_tree(child_iter, action_func)
 
-    def do_for_self_and_descendants(self, tree_path, action_func):
-        tree_iter = self.model.get_iter(tree_path)
+    def do_for_self_and_descendants(self, tree_path: Union[Gtk.TreeIter, Gtk.TreePath], action_func: Callable[[Gtk.TreeIter], None]):
+        if isinstance(tree_path, Gtk.TreeIter):
+            tree_iter = tree_path
+        else:
+            tree_iter = self.model.get_iter(tree_path)
         action_func(tree_iter)
 
         child_iter = self.model.iter_children(tree_iter)
         if child_iter:
             self.recurse_over_tree(child_iter, action_func)
 
-    def do_for_subtree_and_following_sibling_subtrees(self, tree_path, action_func):
+    def do_for_subtree_and_following_sibling_subtrees(self, tree_path: Union[Gtk.TreeIter, Gtk.TreePath],
+                                                      action_func: Callable[[Gtk.TreeIter], None]):
         """
         Includes self and all descendents, and then does the same for all following siblings and their descendants.
         """
+        if isinstance(tree_path, Gtk.TreeIter):
+            tree_iter = tree_path
+        else:
+            tree_iter = self.model.get_iter(tree_path)
         tree_iter = self.model.get_iter(tree_path)
         self.recurse_over_tree(tree_iter, action_func)
 
@@ -283,10 +294,24 @@ class DisplayStore:
 
         return self.model.append(parent_node_iter, row_values)
 
-    def remove_from_lists(self, uid: UID):
-        if uid in self.checked_rows: del self.checked_rows[uid]
-        if uid in self.inconsistent_rows: del self.inconsistent_rows[uid]
-        if uid in self.displayed_rows: del self.displayed_rows[uid]
+    def remove_node(self, node_uid: UID):
+        """Also removes itself and any descendents from the lists"""
+
+        # TODO: this can be optimized to search only the paths of the ancestors
+        initial_tree_iter = self.find_uid_in_tree(target_uid=node_uid)
+        if not initial_tree_iter:
+            raise RuntimeError(f'Could not find node in display tree with UID: {node_uid}')
+
+        def remove_node_from_lists(tree_iter):
+            node = self.get_node_data(tree_iter)
+            uid = node.uid
+            if uid in self.checked_rows: del self.checked_rows[uid]
+            if uid in self.inconsistent_rows: del self.inconsistent_rows[uid]
+            if uid in self.displayed_rows: del self.displayed_rows[uid]
+
+        self.do_for_self_and_descendants(initial_tree_iter, remove_node_from_lists)
+
+        self.model.remove(initial_tree_iter)
 
     def remove_loading_node(self, parent_iter):
         """The Loading Node must be the first child"""

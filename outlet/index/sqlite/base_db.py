@@ -292,6 +292,10 @@ class MetaDatabase:
 
     # Utility Functions ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
+    def commit(self):
+        logger.debug('Committing!')
+        self.conn.commit()
+
     def close(self):
         # We can also close the connection if we are done with it.
         # Just be sure any changes have been committed or they will be lost.

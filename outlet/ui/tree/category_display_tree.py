@@ -1,6 +1,5 @@
 import copy
 import logging
-import os
 import pathlib
 from collections import deque
 from typing import Callable, Deque, Dict, Iterable, List, Optional
@@ -9,8 +8,6 @@ import treelib
 from pydispatch import dispatcher
 from treelib.exceptions import DuplicatedNodeIdError
 
-from model.node.gdrive_node import GDriveFolder
-from model.node.local_disk_node import LocalDirNode
 from ui import actions
 from util import file_util
 from model.op import Op, OpType
