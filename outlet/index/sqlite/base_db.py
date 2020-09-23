@@ -280,8 +280,7 @@ class MetaDatabase:
     def __init__(self, db_path):
         logger.debug(f'Opening database: {db_path}')
         self.conn = sqlite3.connect(db_path)
-        if logger.isEnabledFor(logging.DEBUG):
-            self.db_path = db_path
+        self.db_path = db_path
 
     def __enter__(self):
         assert self.conn is not None

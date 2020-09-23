@@ -61,6 +61,7 @@ class EphemeralNode(DisplayNode, ABC):
     def update_from(self, other_node):
         DisplayNode.update_from(self, other_node)
 
+
 # CLASS LoadingNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
