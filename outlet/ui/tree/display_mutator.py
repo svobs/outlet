@@ -625,7 +625,8 @@ class DisplayMutator:
 
 
 def _format_size_bytes(node: DisplayNode):
-    if not node.get_size_bytes():
+    # remember that 0 and None mean different things here:
+    if node.get_size_bytes() is None:
         return None
     else:
         return humanfriendly.format_size(node.get_size_bytes())
