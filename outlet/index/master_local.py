@@ -569,7 +569,8 @@ class LocalDiskMasterCache:
 
     def _apply_to_memcache(self, subtree_operation: SubtreeOperation):
         if subtree_operation.is_delete:
-            for node in subtree_operation.node_list:
+            # Deletes must occur from bottom up:
+            for node in reversed(subtree_operation.node_list):
                 self._remove_single_node_from_memory_cache(node)
         else:
             for node in subtree_operation.node_list:
@@ -684,8 +685,12 @@ class LocalDiskMasterCache:
             operation: SubtreeOperation = self._build_subtree_removal_operation(subtree_root, to_trash)
             logger.info(f'Removing subtree with {len(operation.node_list)} nodes')
 
-            for node in reversed(operation.node_list):
-                self._remove_node_nolock(node, to_trash=to_trash)
+            self._apply_to_memcache(operation)
+
+            self._update_disk_cache([operation])
+
+            for node in operation.node_list:
+                dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
 
     def _build_subtree_removal_operation(self, subtree_root: LocalNode, to_trash: bool) -> SubtreeOperation:
         if to_trash:
