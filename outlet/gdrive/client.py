@@ -213,7 +213,8 @@ class GDriveClient:
         # TODO: add fields for owner_id, sharing_user_id, create_ts, modify_ts
 
         goog_node = GDriveFolder(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, node_name=item['name'], trashed=_convert_trashed(item),
-                                 drive_id=item.get('driveId', None), is_shared=item.get('shared', None), sync_ts=sync_ts, all_children_fetched=False)
+                                 create_ts=create_ts, modify_ts=modify_ts, owner_id=owner_id, drive_id=item.get('driveId', None),
+                                 is_shared=item.get('shared', None), shared_by_user_id=sharing_user_id, sync_ts=sync_ts, all_children_fetched=False)
 
         parent_goog_ids = item.get('parents', [])
         parent_uids = self.cache_manager.get_uid_list_for_goog_id_list(parent_goog_ids)
@@ -256,7 +257,7 @@ class GDriveClient:
                                            trashed=_convert_trashed(item), drive_id=item.get('driveId', None), version=version,
                                            head_revision_id=head_revision_id, md5=item.get('md5Checksum', None),
                                            is_shared=item.get('shared', None), create_ts=create_ts, modify_ts=modify_ts, size_bytes=size,
-                                           owner_id=owner_id, sync_ts=sync_ts)
+                                           shared_by_user_id=sharing_user_id, owner_id=owner_id, sync_ts=sync_ts)
 
         parent_goog_ids = item.get('parents', [])
         parent_uids = self.cache_manager.get_uid_list_for_goog_id_list(parent_goog_ids)
@@ -281,6 +282,8 @@ class GDriveClient:
 
             # Call the Drive v3 API
             response = self.service.files().list(q=query, fields=fields, spaces=spaces, pageSize=self.page_size,
+                                                 # include items from shared drives
+                                                 includeItemsFromAllDrives=True, supportsAllDrives=True,
                                                  pageToken=request.page_token).execute()
             request.page_count += 1
             return response

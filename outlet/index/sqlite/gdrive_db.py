@@ -12,11 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 def _tuple_to_gdrive_folder(row: Tuple) -> GDriveFolder:
-    uid_int, goog_id, node_name, item_trashed, drive_id, is_shared, sync_ts, all_children_fetched = row
+    uid_int, goog_id, node_name, item_trashed, create_ts, modify_ts, owner_id, drive_id, is_shared, shared_by_user_id, sync_ts, \
+        all_children_fetched = row
     uid_from_cache = UID(uid_int)
 
     return GDriveFolder(GDriveIdentifier(uid=uid_from_cache, full_path=None), goog_id=goog_id, node_name=node_name,
-                        trashed=item_trashed, drive_id=drive_id, is_shared=is_shared, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
+                        trashed=item_trashed, create_ts=create_ts, modify_ts=modify_ts, owner_id=owner_id, drive_id=drive_id, is_shared=is_shared,
+                        shared_by_user_id=shared_by_user_id, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
 
 
 def _gdrive_folder_to_tuple(folder: GDriveFolder) -> Tuple:
@@ -24,15 +26,15 @@ def _gdrive_folder_to_tuple(folder: GDriveFolder) -> Tuple:
 
 
 def _tuple_to_gdrive_file(row: Tuple) -> GDriveFile:
-    uid_int, goog_id, node_name, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_id, drive_id, is_shared, version, head_revision_id, \
-        sync_ts = row
+    uid_int, goog_id, node_name, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_id, drive_id, is_shared, shared_by_user_id, version, \
+        head_revision_id, sync_ts = row
 
     uid_from_cache = UID(uid_int)
 
     return GDriveFile(GDriveIdentifier(uid=uid_from_cache, full_path=None), goog_id=goog_id, node_name=node_name,
                       trashed=item_trashed, drive_id=drive_id, is_shared=is_shared, version=version,
-                      head_revision_id=head_revision_id, md5=md5,
-                      create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes, owner_id=owner_id, sync_ts=sync_ts)
+                      head_revision_id=head_revision_id, md5=md5, create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes,
+                      owner_id=owner_id, shared_by_user_id=shared_by_user_id, sync_ts=sync_ts)
 
 
 def _gdrive_file_to_tuple(file: GDriveFile) -> Tuple:
@@ -87,8 +89,12 @@ class GDriveDatabase(MetaDatabase):
                                     ('goog_id', 'TEXT'),
                                     ('name', 'TEXT'),
                                     ('trashed', 'INTEGER'),
+                                    ('create_ts', 'INTEGER'),
+                                    ('modify_ts', 'INTEGER'),
+                                    ('owner_id', 'INTEGER'),
                                     ('drive_id', 'TEXT'),
                                     ('is_shared', 'INTEGER'),
+                                    ('shared_by_user_id', 'INTEGER'),
                                     ('sync_ts', 'INTEGER'),
                                     ('all_children_fetched', 'INTEGER')
                                 ]))
@@ -106,6 +112,7 @@ class GDriveDatabase(MetaDatabase):
                                   ('owner_id', 'TEXT'),
                                   ('drive_id', 'TEXT'),
                                   ('is_shared', 'INTEGER'),
+                                  ('shared_by_user_id', 'INTEGER'),
                                   ('version', 'INTEGER'),
                                   ('head_revision_id', 'TEXT'),
                                   ('sync_ts', 'INTEGER')
