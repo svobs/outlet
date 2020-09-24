@@ -323,16 +323,17 @@ class DisplayMutator:
                 # TODO: this can be optimized to search only the paths of the ancestors
                 parent = self.con.get_tree().get_parent_for_node(node)
 
-                if logger.isEnabledFor(logging.DEBUG):
-                    if parent:
-                        text = 'Received'
-                    else:
-                        text = 'Ignoring'
-                    logger.debug(f'[{self.con.tree_id}] {text} signal {actions.NODE_UPSERTED} with node {node}')
-
                 if not parent:
                     # logger.debug(f'[{self.con.tree_id}] No parent for node: {node}')
+                    if self.con.get_tree().in_this_subtree(node.full_path):
+                        # At least in subtree? If so, refresh stats to reflect change
+                        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_UPSERTED} for node {node.node_identifier}')
+                        self._stats_refresh_timer.start_or_delay()
+                    elif logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(f'[{self.con.tree_id}] Ignoring signal {actions.NODE_UPSERTED} for node {node.node_identifier}')
                     return
+                elif logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_UPSERTED} for displayed node {node.node_identifier}')
 
                 parent_uid = parent.uid
 
@@ -351,7 +352,7 @@ class DisplayMutator:
                             # Probably an ancestor isn't expanded. Just skip
                             assert parent_uid not in self.con.display_store.displayed_rows, \
                                 f'DisplayedRows ({self.con.display_store.displayed_rows}) contains UID ({parent_uid})!'
-                            logger.debug(f'[{self.con.tree_id}] Will not add/update node: Could not find parent node in display tree: {parent}')
+                            logger.debug(f'[{self.con.tree_id}] Will not add/update node: Could not find parent node in display tree: {j}')
                             return
                         parent_path = self.con.display_store.model.get_path(parent_iter)
                         if not self.con.tree_view.row_expanded(parent_path):
@@ -389,21 +390,28 @@ class DisplayMutator:
         def update_ui():
             with self._lock:
                 displayed_item = self.con.display_store.displayed_rows.get(node.uid, None)
-                if logger.isEnabledFor(logging.DEBUG):
-                    if displayed_item:
-                        text = 'Received'
-                    else:
-                        text = 'Ignoring'
-                    logger.debug(f'[{self.con.tree_id}] {text} signal {actions.NODE_REMOVED} with node {node.node_identifier}')
 
-                if not displayed_item:
-                    return
+                if displayed_item:
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_REMOVED} for displayed node {node.node_identifier}')
 
-                logger.debug(f'[{self.con.tree_id}] Removing node from display store: {displayed_item.uid}')
-                self.con.display_store.remove_node(node.uid)
-                logger.debug(f'[{self.con.tree_id}] Node removed: {displayed_item.uid}')
+                    stats_refresh_needed = True
 
-                self._stats_refresh_timer.start_or_delay()
+                    logger.debug(f'[{self.con.tree_id}] Removing node from display store: {displayed_item.uid}')
+                    self.con.display_store.remove_node(node.uid)
+                    logger.debug(f'[{self.con.tree_id}] Node removed: {displayed_item.uid}')
+                elif self.con.get_tree().in_this_subtree(node.full_path):
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_REMOVED} for node {node.node_identifier}')
+
+                    stats_refresh_needed = True
+                else:
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(f'[{self.con.tree_id}] Ignoring signal {actions.NODE_REMOVED} for node {node.node_identifier}')
+                    stats_refresh_needed = False
+
+                if stats_refresh_needed:
+                    self._stats_refresh_timer.start_or_delay()
 
         GLib.idle_add(update_ui)
 

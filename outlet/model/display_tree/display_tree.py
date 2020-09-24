@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from collections import deque
-from typing import Callable, Deque, Iterable, List, Optional
+from typing import Callable, Deque, Iterable, List, Optional, Union
 
 from model.node.display_node import DisplayNode
 
@@ -42,15 +42,15 @@ class DisplayTree(ABC):
     def uid(self):
         return self.root_node.node_identifier.uid
 
-    def in_this_subtree(self, path: str):
-        if isinstance(path, list):
-            for p in path:
-                # i.e. any
+    def in_this_subtree(self, full_path: Union[str, List[str]]):
+        if isinstance(full_path, list):
+            for p in full_path:
+                # i.e. if any paths start with
                 if p.startswith(self.root_path):
                     return True
             return False
 
-        return path.startswith(self.root_path)
+        return full_path.startswith(self.root_path)
 
     # Getters & search
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
