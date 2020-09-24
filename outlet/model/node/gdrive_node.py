@@ -22,7 +22,7 @@ class GDriveNode(HasParentList, DisplayNode, ABC):
     # ▲▲ Remember, Method Resolution Order places greatest priority to the first in the list, then goes down ▲▲
 
     def __init__(self, node_identifier: GDriveIdentifier, goog_id: Optional[str], node_name: str, trashed: int, drive_id: Optional[str],
-                 my_share: bool, sync_ts: Optional[int]):
+                 is_shared: bool, sync_ts: Optional[int]):
         DisplayNode.__init__(self, node_identifier)
         HasParentList.__init__(self, None)
         self.goog_id: Optional[str] = goog_id
@@ -38,7 +38,7 @@ class GDriveNode(HasParentList, DisplayNode, ABC):
         self.drive_id = drive_id
         """This will only ever contain other users' drive_ids."""
 
-        self.my_share = my_share
+        self.is_shared = is_shared
         """If true, I own it but I have shared it with other users"""
 
         self._sync_ts = ensure_int(sync_ts)
@@ -53,7 +53,7 @@ class GDriveNode(HasParentList, DisplayNode, ABC):
         self._name = other_node.name
         self._trashed = other_node.trashed
         self.drive_id = other_node.drive_id
-        self.my_share = other_node.my_share
+        self.is_shared = other_node.is_shared
         self._sync_ts = other_node.sync_ts
 
     @property
@@ -102,8 +102,8 @@ class GDriveNode(HasParentList, DisplayNode, ABC):
 
 
 class GDriveFolder(HasChildList, GDriveNode):
-    def __init__(self, node_identifier: GDriveIdentifier, goog_id, node_name, trashed, drive_id, my_share, sync_ts, all_children_fetched):
-        GDriveNode.__init__(self, node_identifier, goog_id, node_name, trashed, drive_id, my_share, sync_ts)
+    def __init__(self, node_identifier: GDriveIdentifier, goog_id, node_name, trashed, drive_id, is_shared, sync_ts, all_children_fetched):
+        GDriveNode.__init__(self, node_identifier, goog_id, node_name, trashed, drive_id, is_shared, sync_ts)
         HasChildList.__init__(self)
 
         self.all_children_fetched = all_children_fetched
@@ -111,7 +111,7 @@ class GDriveFolder(HasChildList, GDriveNode):
 
     def __repr__(self):
         return f'GDriveFolder:(uid="{self.uid}" goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str} drive_id={self.drive_id} ' \
-               f'my_share={self.my_share} sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()} children_fetched={self.all_children_fetched}]'
+               f'is_shared={self.is_shared} sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()} children_fetched={self.all_children_fetched}]'
 
     def update_from(self, other_node):
         if not isinstance(other_node, GDriveFolder):
@@ -125,7 +125,7 @@ class GDriveFolder(HasChildList, GDriveNode):
         return True
 
     def to_tuple(self):
-        return self.uid, self.goog_id, self.name, self.trashed, self.drive_id, self.my_share, self.sync_ts, self.all_children_fetched
+        return self.uid, self.goog_id, self.name, self.trashed, self.drive_id, self.is_shared, self.sync_ts, self.all_children_fetched
 
     def is_parent(self, potential_child_node: DisplayNode) -> bool:
         if potential_child_node.get_tree_type() == TREE_TYPE_GDRIVE:
@@ -164,7 +164,7 @@ class GDriveFolder(HasChildList, GDriveNode):
             return False
 
         return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name and other.trashed == self.trashed \
-            and other.drive_id == self.drive_id and other.my_share == self.my_share and other.all_children_fetched == self.all_children_fetched
+            and other.drive_id == self.drive_id and other.is_shared == self.is_shared and other.all_children_fetched == self.all_children_fetched
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -182,8 +182,8 @@ class GDriveFile(GDriveNode):
     # TODO: handling of special chars in file systems
 
     def __init__(self, node_identifier: GDriveIdentifier, goog_id, node_name, trashed, drive_id, version, head_revision_id, md5,
-                 my_share, create_ts, modify_ts, size_bytes, owner_id, sync_ts):
-        GDriveNode.__init__(self, node_identifier, goog_id, node_name, trashed, drive_id, my_share, sync_ts)
+                 is_shared, create_ts, modify_ts, size_bytes, owner_id, sync_ts):
+        GDriveNode.__init__(self, node_identifier, goog_id, node_name, trashed, drive_id, is_shared, sync_ts)
 
         self.version = ensure_int(version)
         self.head_revision_id = head_revision_id
@@ -197,7 +197,7 @@ class GDriveFile(GDriveNode):
     def __repr__(self):
         return f'GDriveFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str} ' \
                f'size={self.get_size_bytes()} md5={self._md5} create_ts={self.create_ts} modify_ts={self.modify_ts} owner_id={self.owner_id} ' \
-               f'drive_id={self.drive_id} my_share={self.my_share} version={self.version} head_rev_id="{self.head_revision_id}" ' \
+               f'drive_id={self.drive_id} is_shared={self.is_shared} version={self.version} head_rev_id="{self.head_revision_id}" ' \
                f'sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()})'
 
     def __eq__(self, other):
@@ -206,7 +206,7 @@ class GDriveFile(GDriveNode):
 
         return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name and other.md5 == self._md5 and \
             other.trashed == self.trashed and other.drive_id == self.drive_id and other.version == self.version and \
-            other.head_revision_id == self.head_revision_id and other.my_share == self.my_share and other.get_size_bytes() == self.get_size_bytes() \
+            other.head_revision_id == self.head_revision_id and other.is_shared == self.is_shared and other.get_size_bytes() == self.get_size_bytes() \
             and other.create_ts == self.create_ts and other.modify_ts == self.modify_ts
 
     def __ne__(self, other):
@@ -279,4 +279,4 @@ class GDriveFile(GDriveNode):
 
     def to_tuple(self):
         return (self.uid, self.goog_id, self.name, self.trashed, self._size_bytes, self._md5, self.create_ts, self.modify_ts,
-                self.owner_id, self.drive_id, self.my_share, self.version, self.head_revision_id, self.sync_ts)
+                self.owner_id, self.drive_id, self.is_shared, self.version, self.head_revision_id, self.sync_ts)

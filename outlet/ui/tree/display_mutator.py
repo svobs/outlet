@@ -352,7 +352,7 @@ class DisplayMutator:
                             # Probably an ancestor isn't expanded. Just skip
                             assert parent_uid not in self.con.display_store.displayed_rows, \
                                 f'DisplayedRows ({self.con.display_store.displayed_rows}) contains UID ({parent_uid})!'
-                            logger.debug(f'[{self.con.tree_id}] Will not add/update node: Could not find parent node in display tree: {j}')
+                            logger.debug(f'[{self.con.tree_id}] Will not add/update node: Could not find parent node in display tree: {parent_uid}')
                             return
                         parent_path = self.con.display_store.model.get_path(parent_iter)
                         if not self.con.tree_view.row_expanded(parent_path):

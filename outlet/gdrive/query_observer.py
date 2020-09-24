@@ -34,21 +34,29 @@ class GDriveQueryObserver(ABC):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class MetaCollector:
     def __init__(self):
-        self.owner_dict: Dict[str, Tuple[str, str, str, bool]] = {}
+        self.user_dict: Dict[str, Tuple[str, str, str, bool]] = {}
         self.mime_types: Dict[str, GDriveNode] = {}
         self.shortcuts: Dict[str, GDriveNode] = {}
+        
+    def _collect_user(self, user: Dict[str, Any]):
+        user_id = user.get('permissionId', None)
+        user_name = user.get('displayName', None)
+        user_email = user.get('emailAddress', None)
+        user_photo_link = user.get('photoLink', None)
+        user_is_me = user.get('me', None)
+        self.user_dict[user_id] = (user_name, user_email, user_photo_link, user_is_me)
 
     def process(self, goog_node: GDriveNode, item: Dict[str, Any]):
-        # Collect owners
+        # Collect users
         owners = item.get('owners', None)
         if owners:
-            owner = owners[0]
-            owner_id = owner.get('permissionId', None)
-            owner_name = owner.get('displayName', None)
-            owner_email = owner.get('emailAddress', None)
-            owner_photo_link = owner.get('photoLink', None)
-            owner_is_me = owner.get('me', None)
-            self.owner_dict[owner_id] = (owner_name, owner_email, owner_photo_link, owner_is_me)
+            user = owners[0]
+            self._collect_user(user)
+
+        sharing_user = item.get('sharingUser', None)
+        if sharing_user:
+            logger.debug(f'Found sharingUser: "{sharing_user}" for goog_node: {goog_node}')
+            self._collect_user(sharing_user)
 
         # Collect MIME types
         mime_type = item.get('mimeType', None)
@@ -62,10 +70,6 @@ class MetaCollector:
         # web_content_link = item.get('webContentLink', None)
         # if web_content_link:
         #     logger.debug(f'Found webContentLink: "{web_content_link}" for goog_node: {goog_node}')
-
-        sharing_user = item.get('sharingUser', None)
-        if sharing_user:
-            logger.debug(f'Found sharingUser: "{sharing_user}" for goog_node: {goog_node}')
 
         is_shortcut = mime_type == MIME_TYPE_SHORTCUT
         if is_shortcut:
@@ -82,9 +86,9 @@ class MetaCollector:
 
     def summarize(self):
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f'Found {len(self.owner_dict)} distinct owners')
-            for owner_id, owner in self.owner_dict.items():
-                logger.debug(f'Found owner: id={owner_id} name={owner[0]} email={owner[1]} is_me={owner[2]}')
+            logger.debug(f'Found {len(self.user_dict)} distinct users')
+            for user_id, user in self.user_dict.items():
+                logger.debug(f'Found user: id={user_id} name={user[0]} email={user[1]} is_me={user[3]}')
 
             logger.debug(f'Found {len(self.mime_types)} distinct MIME types')
             for mime_type, item in self.mime_types.items():

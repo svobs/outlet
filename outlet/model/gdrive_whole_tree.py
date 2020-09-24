@@ -600,9 +600,6 @@ class GDriveWholeTree:
 
 
 def _merge_into_existing(existing_node: GDriveNode, new_node: GDriveNode) -> Tuple[List[UID], List[UID]]:
-    # Assume nodes are identical but each references a different parent (most likely flattened for SQL)
-    assert len(existing_node.get_parent_uids()) >= 1 and len(
-        new_node.get_parent_uids()) == 1, f'Expected 1 parent each but found: {existing_node.get_parent_uids()} and {new_node.get_parent_uids()}'
 
     new_parent_uids: List[UID] = []
     for parent_uid in new_node.get_parent_uids():

@@ -194,8 +194,26 @@ class GDriveClient:
         goog_id = item['id']
         uid = self.cache_manager.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
 
+        owners = item.get('owners', None)
+        if owners:
+            owner_id = owners[0].get('permissionId', None)
+        else:
+            owner_id = None
+
+        sharing_user = item.get('sharingUser', None)
+        if sharing_user:
+            sharing_user_id = sharing_user.get('permissionId', None)
+        else:
+            sharing_user_id = None
+
+        create_ts = _parse_gdrive_date(item, 'createdTime')
+
+        modify_ts = _parse_gdrive_date(item, 'modifiedTime')
+
+        # TODO: add fields for owner_id, sharing_user_id, create_ts, modify_ts
+
         goog_node = GDriveFolder(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, node_name=item['name'], trashed=_convert_trashed(item),
-                                 drive_id=item.get('driveId', None), my_share=item.get('shared', None), sync_ts=sync_ts, all_children_fetched=False)
+                                 drive_id=item.get('driveId', None), is_shared=item.get('shared', None), sync_ts=sync_ts, all_children_fetched=False)
 
         parent_goog_ids = item.get('parents', [])
         parent_uids = self.cache_manager.get_uid_list_for_goog_id_list(parent_goog_ids)
@@ -213,6 +231,14 @@ class GDriveClient:
         else:
             owner_id = None
 
+        sharing_user = item.get('sharingUser', None)
+        if sharing_user:
+            sharing_user_id = sharing_user.get('permissionId', None)
+        else:
+            sharing_user_id = None
+
+        # TODO: add field for sharing_user_id
+
         create_ts = _parse_gdrive_date(item, 'createdTime')
 
         modify_ts = _parse_gdrive_date(item, 'modifiedTime')
@@ -229,7 +255,7 @@ class GDriveClient:
         goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, node_name=item["name"],
                                            trashed=_convert_trashed(item), drive_id=item.get('driveId', None), version=version,
                                            head_revision_id=head_revision_id, md5=item.get('md5Checksum', None),
-                                           my_share=item.get('shared', None), create_ts=create_ts, modify_ts=modify_ts, size_bytes=size,
+                                           is_shared=item.get('shared', None), create_ts=create_ts, modify_ts=modify_ts, size_bytes=size,
                                            owner_id=owner_id, sync_ts=sync_ts)
 
         parent_goog_ids = item.get('parents', [])
@@ -302,7 +328,7 @@ class GDriveClient:
                 logger.debug('Done!')
                 break
 
-        logger.debug(f'{stopwatch_retrieval} Query returned {item_count} files')
+        logger.debug(f'{stopwatch_retrieval} Query returned {item_count} nodes')
 
     # API CALLS
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -362,6 +388,15 @@ class GDriveClient:
         root_node = self._convert_dict_to_gdrive_folder(result, sync_ts)
         logger.debug(f'Drive root: {root_node}')
         return root_node
+
+    def get_all_shared_with_me(self) -> List[GDriveNode]:
+        query = f"sharedWithMe"
+        fields = f'nextPageToken, incompleteSearch, files({GDRIVE_FILE_FIELDS}, parents)'
+
+        sync_ts = int(time.time())
+        observer = SimpleNodeCollector()
+        self._execute_query(query, fields, None, sync_ts, observer)
+        return observer.nodes
 
     def get_all_children_for_parent(self, parent_goog_id: str) -> List[GDriveNode]:
         """Gets all nodes (files, folders, etc) for the given parent"""
@@ -647,6 +682,8 @@ class GDriveClient:
             response = self.service.changes().list(pageToken=request.page_token, fields=f'nextPageToken, newStartPageToken, '
                                                                                         f'changes(changeType, time, removed, fileId, driveId, '
                                                                                         f'file({GDRIVE_FILE_FIELDS}, parents))', spaces=spaces,
+                                                   # include changes from shared drives
+                                                   includeItemsFromAllDrives=True, supportsAllDrives=True,
                                                    pageSize=self.page_size).execute()
             request.page_count += 1
             return response

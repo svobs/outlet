@@ -176,6 +176,12 @@ class GDriveTreeLoader:
             # covering all our bases here in case we are recovering from corruption
             changes_download.page_token = self.gdrive_client.get_changes_start_token()
 
+        shared_with_me: List[GDriveNode] = self.gdrive_client.get_all_shared_with_me()
+        logger.debug(f'Found {len(shared_with_me)} shared with me')
+        for node in shared_with_me:
+            logger.debug(f'Shared with me: {node}')
+            self.cache_manager.add_or_update_node(node)
+
         sync_ts = int(time.time())
         changes: GDriveChangeList = self.gdrive_client.get_changes_list(changes_download.page_token, sync_ts)
         for change in changes.change_list:

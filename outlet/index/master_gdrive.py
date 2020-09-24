@@ -121,6 +121,7 @@ class GDriveMasterCache:
             logger.debug(f'_make_gdrive_display_tree(): could not find root node with UID {subtree_root.uid}')
             return None
 
+        assert isinstance(root, GDriveFolder)
         return GDriveDisplayTree(cache_manager=self, whole_tree=self._my_gdrive, root_node=root)
 
     # Individual node cache updates
@@ -145,8 +146,7 @@ class GDriveMasterCache:
             # Validate parent mappings
             parent_uids = node.get_parent_uids()
             if not parent_uids:
-                # Adding a new root is currently not allowed (which is fine because there should be no way to do this via the UI)
-                raise RuntimeError(f'Node is missing parent UIDs: {node}')
+                logger.debug(f'Node has no parents; assuming it is a root node: {node}')
 
             # Detect whether it's already in the cache
             existing_node = self._my_gdrive.get_node_for_uid(node.uid)
@@ -180,20 +180,23 @@ class GDriveMasterCache:
             if node.exists():
                 if self.application.cache_manager.enable_save_to_disk:
 
-                    parent_goog_ids = self._my_gdrive.resolve_uids_to_goog_ids(parent_uids)
                     parent_mappings = []
-                    if len(node.get_parent_uids()) != len(parent_goog_ids):
-                        raise RuntimeError(f'Internal error: could not map all parent goog_ids ({len(parent_goog_ids)}) to parent UIDs '
-                                           f'({len(parent_uids)}) for node: {node}')
-                    for parent_uid, parent_goog_id in zip(node.get_parent_uids(), parent_goog_ids):
-                        parent_mappings.append((node.uid, parent_uid, parent_goog_id, node.sync_ts))
+                    if parent_uids:
+                        parent_goog_ids = self._my_gdrive.resolve_uids_to_goog_ids(parent_uids)
+                        if len(node.get_parent_uids()) != len(parent_goog_ids):
+                            raise RuntimeError(f'Internal error: could not map all parent goog_ids ({len(parent_goog_ids)}) to parent UIDs '
+                                               f'({len(parent_uids)}) for node: {node}')
+                        for parent_uid, parent_goog_id in zip(node.get_parent_uids(), parent_goog_ids):
+                            parent_mappings.append((node.uid, parent_uid, parent_goog_id, node.sync_ts))
 
                     cache_path: str = self._get_cache_path_for_master()
 
                     # Write new values:
                     with GDriveDatabase(cache_path, self.application) as cache:
-                        logger.debug(f'Writing id-parent mappings to the GDrive master cache: {parent_mappings}')
-                        cache.upsert_parent_mappings_for_id(parent_mappings, node.uid, commit=False)
+                        if parent_mappings:
+                            logger.debug(f'Writing id-parent mappings to the GDrive master cache: {parent_mappings}')
+                            cache.upsert_parent_mappings_for_id(parent_mappings, node.uid, commit=False)
+
                         if node.is_dir():
                             logger.debug(f'Writing folder node to the GDrive master cache: {node}')
                             assert isinstance(node, GDriveFolder)
