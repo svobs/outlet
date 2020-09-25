@@ -5,7 +5,7 @@ from typing import Callable, List, Optional, Tuple
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_ME_USER_UID
 from index.sqlite.base_db import ensure_int, LiveTable, MetaDatabase, Table
 from index.uid.uid import UID
-from model.gdrive_whole_tree import MimeType, UserMeta
+from model.gdrive_whole_tree import MimeType, GDriveUser
 from model.node.gdrive_node import GDriveFile, GDriveFolder
 from model.node_identifier import GDriveIdentifier
 
@@ -42,13 +42,13 @@ def _gdrive_file_to_tuple(file: GDriveFile) -> Tuple:
     return file.to_tuple()
 
 
-def _tuple_to_gdrive_user(row: Tuple) -> UserMeta:
+def _tuple_to_gdrive_user(row: Tuple) -> GDriveUser:
     uid_int, display_name, permission_id, email_address, photo_link = row
-    return UserMeta(display_name=display_name, permission_id=permission_id, email_address=email_address, photo_link=photo_link,
+    return GDriveUser(display_name=display_name, permission_id=permission_id, email_address=email_address, photo_link=photo_link,
                     is_me=(uid_int==GDRIVE_ME_USER_UID), user_uid=UID(uid_int))
 
 
-def _gdrive_user_to_tuple(user: UserMeta) -> Tuple:
+def _gdrive_user_to_tuple(user: GDriveUser) -> Tuple:
     return user.uid, user.permission_id, user.display_name, user.email_address, user.photo_link
 
 
@@ -268,11 +268,11 @@ class GDriveDatabase(MetaDatabase):
     # GDriveUser operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def get_all_users(self) -> List[UserMeta]:
+    def get_all_users(self) -> List[GDriveUser]:
         self.table_gdrive_user.create_table_if_not_exist()
         return self.table_gdrive_user.select_object_list()
 
-    def upsert_user(self, user: UserMeta, commit=True):
+    def upsert_user(self, user: GDriveUser, commit=True):
         self.table_gdrive_user.create_table_if_not_exist()
         self.table_gdrive_user.upsert_object(user, commit=commit)
 

@@ -21,12 +21,12 @@ SUPER_DEBUG = False
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    CLASS UserMeta
+    CLASS GDriveUser
 ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
 """
 
 
-class UserMeta:
+class GDriveUser:
     def __init__(self, display_name, permission_id, email_address, photo_link, is_me: bool = False, user_uid: UID = None):
         self.uid = user_uid
         self.display_name = display_name
@@ -75,7 +75,7 @@ class GDriveWholeTree:
         self.first_parent_dict: Dict[UID, List[GDriveNode]] = {}
         """ Reverse lookup table: 'parent_uid' -> list of child nodes """
 
-        self.me: Optional[UserMeta] = None
+        self.me: Optional[GDriveUser] = None
 
     def get_full_path_for_node(self, node: GDriveNode) -> List[str]:
         """Gets the absolute path for the node. Also sets its 'full_path' attribute for future use"""

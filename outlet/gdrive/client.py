@@ -19,7 +19,7 @@ from constants import EXPLICITLY_TRASHED, GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQU
     IMPLICITLY_TRASHED, MIME_TYPE_FOLDER, NOT_TRASHED, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY
 from gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
 from index.uid.uid import UID
-from model.gdrive_whole_tree import MimeType, UserMeta
+from model.gdrive_whole_tree import MimeType, GDriveUser
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier
 from ui import actions
@@ -184,9 +184,9 @@ class GDriveClient:
             self.service._http.http.close()
             self.service = None
 
-    def _store_user(self, user: Dict) -> UserMeta:
+    def _store_user(self, user: Dict) -> GDriveUser:
         permission_id = user.get('permissionId', None)
-        gdrive_user: Optional[UserMeta] = self.cache_manager.get_gdrive_user_for_permission_id(permission_id)
+        gdrive_user: Optional[GDriveUser] = self.cache_manager.get_gdrive_user_for_permission_id(permission_id)
         if not gdrive_user:
             # Completely new user
             permission_id = user.get('permissionId', None)
@@ -194,7 +194,7 @@ class GDriveClient:
             user_email = user.get('emailAddress', None)
             user_photo_link = user.get('photoLink', None)
             user_is_me = user.get('me', None)
-            gdrive_user: UserMeta = UserMeta(display_name=user_name, permission_id=permission_id, email_address=user_email,
+            gdrive_user: GDriveUser = GDriveUser(display_name=user_name, permission_id=permission_id, email_address=user_email,
                                              photo_link=user_photo_link, is_me=user_is_me)
             self.cache_manager.create_gdrive_user(gdrive_user)
         return gdrive_user
@@ -350,7 +350,7 @@ class GDriveClient:
     # API CALLS
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def get_about(self) -> UserMeta:
+    def get_about(self) -> GDriveUser:
         """
         self.service.about().get()
         Returns: info about the current user and its storage usage
@@ -367,7 +367,7 @@ class GDriveClient:
         about = _try_repeatedly(request)
         logger.debug(f'ABOUT: {about}')
 
-        user: UserMeta = self._store_user(about['user'])
+        user: GDriveUser = self._store_user(about['user'])
         logger.info(f'Logged in as user {user.display_name} <{user.email_address}> (user_id={user.permission_id})')
         logger.debug(f'User photo link: {user.photo_link}')
 

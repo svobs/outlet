@@ -13,7 +13,7 @@ from index.uid.uid import UID
 from index.uid.uid_mapper import UidGoogIdMapper
 from model.node.display_node import DisplayNode
 from model.display_tree.gdrive import GDriveDisplayTree
-from model.gdrive_whole_tree import GDriveWholeTree, MimeType, UserMeta
+from model.gdrive_whole_tree import GDriveWholeTree, MimeType, GDriveUser
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
@@ -56,8 +56,8 @@ class GDriveMasterCache:
         self._mime_type_for_str_dict: Dict[str, MimeType] = {}
         self._mime_type_for_uid_dict: Dict[UID, MimeType] = {}
         self._user_uid_nextval: int = GDRIVE_ME_USER_UID + 1
-        self._user_for_permission_id_dict: Dict[str, UserMeta] = {}
-        self._user_for_uid_dict: Dict[UID, UserMeta] = {}
+        self._user_for_permission_id_dict: Dict[str, GDriveUser] = {}
+        self._user_for_uid_dict: Dict[UID, GDriveUser] = {}
 
         self._uid_mapper = UidGoogIdMapper(application)
 
@@ -364,15 +364,15 @@ class GDriveMasterCache:
     def get_all_gdrive_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
         return self._my_gdrive.get_all_files_and_folders_for_subtree(subtree_root)
 
-    def get_gdrive_user_for_permission_id(self, permission_id: str):
+    def get_gdrive_user_for_permission_id(self, permission_id: str) -> GDriveUser:
         with self._meta_lock:
             return self._user_for_permission_id_dict.get(permission_id, None)
 
-    def get_gdrive_user_for_user_uid(self, uid: UID) -> UserMeta:
+    def get_gdrive_user_for_user_uid(self, uid: UID) -> GDriveUser:
         with self._meta_lock:
             return self._user_for_uid_dict.get(uid, None)
 
-    def create_gdrive_user(self, user: UserMeta):
+    def create_gdrive_user(self, user: GDriveUser):
         if user.uid:
             raise RuntimeError(f'create_gdrive_user(): user already has UID! (UID={user.uid})')
         if user.is_me:

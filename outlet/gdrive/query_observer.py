@@ -7,7 +7,7 @@ from constants import GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_
 from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from index.uid.uid import UID
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.gdrive_whole_tree import GDriveWholeTree, MimeType, UserMeta
+from model.gdrive_whole_tree import GDriveWholeTree, MimeType, GDriveUser
 
 logger = logging.getLogger(__name__)
 
@@ -36,79 +36,11 @@ class MetaCollector:
     def __init__(self, cacheman):
         self.cacheman = cacheman
 
-        # self.new_user_dict: Dict[str, UserMeta] = {}
-        # """Dict of [permission_id -> UserMeta]"""
-        #
-        # self.new_mime_type_dict: Dict[str, MimeType] = {}
-        # """Dict of [mime_type_string -> MimeType]"""
-
         self.shortcuts: Dict[str, GDriveNode] = {}
         """Dict of [goog_id -> node]"""
-        
-    # def _collect_user(self, user: Dict[str, Any]) -> UserMeta:
-    #     permission_id = user.get('permissionId', None)
-    #     gdrive_user: Optional[UserMeta] = self.cacheman.get_gdrive_user_for_permission_id(permission_id)
-    #
-    #     if not gdrive_user:
-    #         # Not in central cache. Is it already in our local list?
-    #         gdrive_user = self.new_user_dict.get(permission_id, None)
-    #
-    #     if not gdrive_user:
-    #         # Completely new user
-    #         user_uid: UID = self.cacheman.get_gdrive_user_uid_for_permission_id(permission_id)
-    #         user_name = user.get('displayName', None)
-    #         user_email = user.get('emailAddress', None)
-    #         user_photo_link = user.get('photoLink', None)
-    #         user_is_me = user.get('me', None)
-    #         gdrive_user = UserMeta(display_name=user_name, permission_id=permission_id, email_address=user_email, photo_link=user_photo_link,
-    #                                is_me=user_is_me, user_uid=user_uid)
-    #         self.new_user_dict[permission_id] = gdrive_user
-    #
-    #     return gdrive_user
-    #
-    # def _collect_mime_type(self, mime_type_string: str) -> MimeType:
-    #     mime_type: Optional[MimeType] = self.cacheman.get_gdrive_mime_type(mime_type_string)
-    #
-    #     if not mime_type:
-    #         # Not in central cache. Is it already in our local list?
-    #         mime_type = self.new_mime_type_dict.get(mime_type_string, None)
-    #
-    #     if not mime_type:
-    #         # Completely new MIME type
-    #         mime_type_uid: UID = self.cacheman.get_gdrive_mime_type_uid_for_mime_type(mime_type_string)
-    #         mime_type = MimeType(mime_type_uid, mime_type_string)
-    #         self.new_mime_type_dict[mime_type.type_string] = mime_type
-    #
-    #     return mime_type
 
     def process(self, goog_node: GDriveNode, item: Dict[str, Any]):
-        # Collect users
-        # owners = item.get('owners', None)
-        # if owners:
-        #     gdrive_user: UserMeta = self._collect_user(owners[0])
-        #     goog_node.owner_uid = gdrive_user.user_uid
-        #
-        # sharing_user = item.get('sharingUser', None)
-        # if sharing_user:
-        #     logger.debug(f'Found sharingUser: "{sharing_user}" for goog_node: {goog_node}')
-        #     gdrive_user: UserMeta = self._collect_user(sharing_user)
-        #     goog_node.shared_by_user_uid = gdrive_user.user_uid
-        #
         mime_type_string = item.get('mimeType', None)
-        # if not goog_node.is_dir():
-        #     # Collect MIME types
-        #     if mime_type_string:
-        #         mime_type: MimeType = self._collect_mime_type(mime_type_string)
-        #         assert isinstance(goog_node, GDriveFile)
-        #         goog_node.mime_type_uid = mime_type.uid
-
-        # web_view_link = item.get('webViewLink', None)
-        # if web_view_link:
-        #     logger.debug(f'Found webViewLink: "{web_view_link}" for goog_node: {goog_node}')
-        #
-        # web_content_link = item.get('webContentLink', None)
-        # if web_content_link:
-        #     logger.debug(f'Found webContentLink: "{web_content_link}" for goog_node: {goog_node}')
 
         is_shortcut = mime_type_string == MIME_TYPE_SHORTCUT
         if is_shortcut:
@@ -122,17 +54,6 @@ class MetaCollector:
                 else:
                     logger.debug(f'Found shortcut: id="{goog_node.uid}" name="{goog_node.name}" -> target_id="{target_id}"')
                     self.shortcuts[goog_node.goog_id] = target_id
-
-    def summarize(self):
-        pass
-        # if logger.isEnabledFor(logging.DEBUG):
-        #     logger.debug(f'Found {len(self.new_user_dict)} distinct users')
-        #     for permission_id, user in self.new_user_dict.items():
-        #         logger.debug(f'Found user: id={permission_id} name={user.display_name} email={user.email_address} is_me={user.is_me}')
-        #
-        #     logger.debug(f'Found {len(self.new_mime_type_dict)} distinct MIME types')
-        #     for mime_type_string, item in self.new_mime_type_dict.items():
-        #         logger.debug(f'MIME type: {mime_type_string}')
 
 
 # CLASS SimpleNodeCollector
