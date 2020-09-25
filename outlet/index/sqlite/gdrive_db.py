@@ -291,10 +291,9 @@ class GDriveDatabase(MetaDatabase):
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def delete_all_gdrive_data(self):
-        # Not the downloads table though
+        # Not the current_download table though!
         self.table_gdrive_file.drop_table_if_exists(self.conn)
         self.table_gdrive_folder.drop_table_if_exists(self.conn)
         self.id_parent_mapping.drop_table_if_exists(self.conn)
-        self.table_current_download.drop_table_if_exists(self.conn)
         self.table_gdrive_user.drop_table_if_exists(self.conn)
         self.table_mime_type.drop_table_if_exists(self.conn)

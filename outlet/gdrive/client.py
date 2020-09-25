@@ -189,13 +189,12 @@ class GDriveClient:
         gdrive_user: Optional[GDriveUser] = self.cache_manager.get_gdrive_user_for_permission_id(permission_id)
         if not gdrive_user:
             # Completely new user
-            permission_id = user.get('permissionId', None)
             user_name = user.get('displayName', None)
             user_email = user.get('emailAddress', None)
             user_photo_link = user.get('photoLink', None)
             user_is_me = user.get('me', None)
             gdrive_user: GDriveUser = GDriveUser(display_name=user_name, permission_id=permission_id, email_address=user_email,
-                                             photo_link=user_photo_link, is_me=user_is_me)
+                                                 photo_link=user_photo_link, is_me=user_is_me)
             self.cache_manager.create_gdrive_user(gdrive_user)
         return gdrive_user
 

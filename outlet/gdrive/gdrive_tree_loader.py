@@ -171,6 +171,8 @@ class GDriveTreeLoader:
         with GDriveTreeLoader.__class_lock:
             with GDriveDatabase(self.cache_path, self.application) as self.cache:
                 changes_download: CurrentDownload = self._get_previous_download_state(GDRIVE_DOWNLOAD_TYPE_CHANGES)
+                if not changes_download:
+                    raise RuntimeError(f'Download state not found for GDrive change log!')
                 self._sync_latest_changes(changes_download)
 
     def _sync_latest_changes(self, changes_download: CurrentDownload):

@@ -166,7 +166,6 @@ class GDriveMasterCache:
             if node.node_identifier.tree_type != TREE_TYPE_GDRIVE:
                 raise RuntimeError(f'Unrecognized tree type: {node.node_identifier.tree_type}')
             if not self._my_gdrive:
-                # TODO: give more thought to lifecycle
                 raise RuntimeError('GDriveWholeTree not loaded!')
             if not isinstance(node, GDriveNode):
                 raise RuntimeError(f'Unrecognized node type: {node}')
