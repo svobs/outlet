@@ -392,7 +392,7 @@ class GDriveClient:
         def request():
             return self.service.files().get(fileId='root', fields=fields).execute()
 
-        fields = 'id, name, trashed, explicitlyTrashed, shared, driveId'
+        fields = GDRIVE_FOLDER_FIELDS
 
         result = _try_repeatedly(request)
 

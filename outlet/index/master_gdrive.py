@@ -171,6 +171,9 @@ class GDriveMasterCache:
             if not isinstance(node, GDriveNode):
                 raise RuntimeError(f'Unrecognized node type: {node}')
 
+            # ensure full_path is populated
+            self._my_gdrive.get_full_path_for_node(node)
+
             # Validate parent mappings
             parent_uids = node.get_parent_uids()
             if not parent_uids:
@@ -255,6 +258,7 @@ class GDriveMasterCache:
                 self._remove_gdrive_node_nolock(subtree_root, to_trash=to_trash)
                 return
 
+            # TODO: add support for tree remove as single op
             subtree_nodes = self._my_gdrive.get_subtree_bfs(subtree_root)
 
             logger.info(f'Removing subtree with {len(subtree_nodes)} nodes')
@@ -268,6 +272,9 @@ class GDriveMasterCache:
     def _remove_gdrive_node_nolock(self, node: DisplayNode, to_trash):
         logger.debug(f'Removing node from caches: {node}')
         assert isinstance(node, GDriveNode), f'For node: {node}'
+
+        # ensure full_path is populated
+        self._my_gdrive.get_full_path_for_node(node)
 
         if node.is_dir():
             children: List[GDriveNode] = self._my_gdrive.get_children(node)

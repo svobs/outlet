@@ -631,10 +631,10 @@ class CacheManager:
         return self._gdrive_cache.get_gdrive_user_for_permission_id(permission_id)
 
     def create_gdrive_user(self, user):
-        self._gdrive_cache.create_gdrive_user(user)
+        return self._gdrive_cache.create_gdrive_user(user)
 
     def get_or_create_gdrive_mime_type(self, mime_type_string: str):
-        self._gdrive_cache.get_or_create_gdrive_mime_type(mime_type_string)
+        return self._gdrive_cache.get_or_create_gdrive_mime_type(mime_type_string)
 
     def delete_all_gdrive_meta(self):
-        self._gdrive_cache.delete_all_gdrive_meta()
+        return self._gdrive_cache.delete_all_gdrive_meta()

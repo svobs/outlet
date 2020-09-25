@@ -172,7 +172,7 @@ class GDriveDatabase(MetaDatabase):
         self.table_gdrive_file = LiveTable(GDriveDatabase.TABLE_GRDIVE_FILE, self.conn, _gdrive_file_to_tuple, _tuple_to_gdrive_file)
         self.id_parent_mapping = LiveTable(GDriveDatabase.TABLE_GRDIVE_ID_PARENT_MAPPING, self.conn, None, None)
         self.table_gdrive_user = LiveTable(GDriveDatabase.TABLE_GDRIVE_USER, self.conn, _gdrive_user_to_tuple, _tuple_to_gdrive_user)
-        self.table_mime_type = LiveTable(GDriveDatabase.TABLE_GRDIVE_FILE, self.conn, _mime_type_to_tuple, _tuple_to_mime_type)
+        self.table_mime_type = LiveTable(GDriveDatabase.TABLE_MIME_TYPE, self.conn, _mime_type_to_tuple, _tuple_to_mime_type)
 
     # GDRIVE_FOLDER operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

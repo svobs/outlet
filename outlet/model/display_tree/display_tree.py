@@ -43,6 +43,9 @@ class DisplayTree(ABC):
         return self.root_node.node_identifier.uid
 
     def in_this_subtree(self, full_path: Union[str, List[str]]):
+        if not full_path:
+            raise RuntimeError('in_this_subtree(): full_path not provided!')
+
         if isinstance(full_path, list):
             for p in full_path:
                 # i.e. if any paths start with
