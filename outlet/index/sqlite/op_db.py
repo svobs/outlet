@@ -260,25 +260,25 @@ class OpDatabase(MetaDatabase):
         nodes_by_action_uid[op_uid] = obj
 
     def _tuple_to_gdrive_folder(self, nodes_by_action_uid: Dict[UID, DisplayNode], row: Tuple) -> GDriveFolder:
-        action_uid_int, uid_int, goog_id, node_name, item_trashed, create_ts, modify_ts, owner_id, drive_id, is_shared, shared_by_user_id, \
+        action_uid_int, uid_int, goog_id, node_name, item_trashed, create_ts, modify_ts, owner_uid, drive_id, is_shared, shared_by_user_uid, \
             sync_ts, all_children_fetched, parent_uid_int, parent_goog_id = row
 
         obj = GDriveFolder(GDriveIdentifier(uid=UID(uid_int), full_path=None), goog_id=goog_id, node_name=node_name, trashed=item_trashed,
-                           create_ts=create_ts, modify_ts=modify_ts, owner_id=owner_id, drive_id=drive_id, is_shared=is_shared,
-                           shared_by_user_id=shared_by_user_id, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
+                           create_ts=create_ts, modify_ts=modify_ts, owner_uid=owner_uid, drive_id=drive_id, is_shared=is_shared,
+                           shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
 
         self._store_gdrive_object(obj, goog_id, parent_uid_int, action_uid_int, nodes_by_action_uid)
 
         return obj
 
     def _tuple_to_gdrive_file(self, nodes_by_action_uid: Dict[UID, DisplayNode], row: Tuple) -> GDriveFile:
-        action_uid_int, uid_int, goog_id, node_name, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_id, drive_id, is_shared, \
-            shared_by_user_id, version, head_revision_id, sync_ts, parent_uid_int, parent_goog_id = row
+        action_uid_int, uid_int, goog_id, node_name, mime_type_uid, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_uid, drive_id, \
+            is_shared, shared_by_user_uid, version, head_revision_id, sync_ts, parent_uid_int, parent_goog_id = row
 
-        obj = GDriveFile(GDriveIdentifier(uid=UID(uid_int), full_path=None), goog_id=goog_id, node_name=node_name,
+        obj = GDriveFile(GDriveIdentifier(uid=UID(uid_int), full_path=None), goog_id=goog_id, node_name=node_name, mime_type_uid=mime_type_uid,
                          trashed=item_trashed, drive_id=drive_id, version=version,
                          head_revision_id=head_revision_id, md5=md5, is_shared=is_shared,
-                         create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes, owner_id=owner_id, shared_by_user_id=shared_by_user_id,
+                         create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes, owner_uid=owner_uid, shared_by_user_uid=shared_by_user_uid,
                          sync_ts=sync_ts)
 
         self._store_gdrive_object(obj, goog_id, parent_uid_int, action_uid_int, nodes_by_action_uid)

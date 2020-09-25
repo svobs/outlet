@@ -124,6 +124,10 @@ QUERY_NON_FOLDERS_ONLY = f"not {QUERY_FOLDERS_ONLY}"
 GDRIVE_WEB_VIEW_LINK = 'https://drive.google.com/file/d/{id}/view?usp=drivesdk'
 GDRIVE_WEB_CONTENT_LINK = 'https://drive.google.com/uc?id={id}&export=download'
 
-GDRIVE_FOLDER_FIELDS = 'id, name, mimeType, trashed, explicitlyTrashed, driveId, shared'
+GDRIVE_FOLDER_FIELDS = 'id, name, mimeType, trashed, explicitlyTrashed, driveId, shared, owners, sharingUser, createdTime, modifiedTime'
 GDRIVE_FILE_FIELDS = f'{GDRIVE_FOLDER_FIELDS}, version, createdTime, modifiedTime, owners, md5Checksum, size, headRevisionId, ' \
                      f'shortcutDetails, sharingUser'
+
+GDRIVE_FOLDER_MIME_TYPE_UID = 1
+
+GDRIVE_ME_USER_UID = 1

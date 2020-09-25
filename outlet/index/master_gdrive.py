@@ -1,12 +1,11 @@
 import logging
 import threading
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from constants import NOT_TRASHED, ROOT_PATH, GDRIVE_ROOT_UID, TREE_TYPE_GDRIVE
+from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID, NOT_TRASHED, ROOT_PATH, GDRIVE_ROOT_UID, TREE_TYPE_GDRIVE
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
-from index.cache_manager import PersistedCacheInfo
 from index.error import CacheNotLoadedError, GDriveItemNotFoundError
 from index.sqlite.gdrive_db import GDriveDatabase
 from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
@@ -14,7 +13,7 @@ from index.uid.uid import UID
 from index.uid.uid_mapper import UidGoogIdMapper
 from model.node.display_node import DisplayNode
 from model.display_tree.gdrive import GDriveDisplayTree
-from model.gdrive_whole_tree import GDriveWholeTree
+from model.gdrive_whole_tree import GDriveWholeTree, MimeType, UserMeta
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
@@ -52,7 +51,20 @@ class GDriveMasterCache:
 
         self._struct_lock = threading.Lock()
 
+        self._meta_lock = threading.Lock()
+        self._mime_type_uid_nextval: int = GDRIVE_FOLDER_MIME_TYPE_UID + 1
+        self._mime_type_for_str_dict: Dict[str, MimeType] = {}
+        self._mime_type_for_uid_dict: Dict[UID, MimeType] = {}
+        self._user_uid_nextval: int = GDRIVE_ME_USER_UID + 1
+        self._user_for_permission_id_dict: Dict[str, UserMeta] = {}
+        self._user_for_uid_dict: Dict[UID, UserMeta] = {}
+
         self._uid_mapper = UidGoogIdMapper(application)
+
+    def _get_gdrive_cache_path(self) -> str:
+        my_gdrive_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
+        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(my_gdrive_root)
+        return cache_info.cache_location
 
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -75,6 +87,22 @@ class GDriveMasterCache:
             status = f'Loading meta for "{cache_info.subtree_root.full_path}" from cache: "{cache_info.cache_location}"'
             logger.debug(status)
             dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
+
+            with GDriveDatabase(cache_info.cache_location, self.application) as cache:
+                with self._struct_lock:
+                    # Load all users
+                    for user in cache.get_all_users():
+                        if user.uid > self._user_uid_nextval:
+                            self._user_uid_nextval = user.uid + 1
+                        self._user_for_permission_id_dict[user.permission_id] = user
+                        self._user_for_uid_dict[user.uid] = user
+                with self._struct_lock:
+                    # Load all MIME types:
+                    for mime_type in cache.get_all_mime_types():
+                        if mime_type.uid > self._mime_type_uid_nextval:
+                            self._mime_type_uid_nextval = mime_type.uid + 1
+                        self._mime_type_for_str_dict[mime_type.type_string] = mime_type
+                        self._mime_type_for_uid_dict[mime_type.uid] = mime_type
 
             self._my_gdrive = tree_loader.load_all(invalidate_cache=invalidate_cache)
 
@@ -328,3 +356,63 @@ class GDriveMasterCache:
 
     def get_all_gdrive_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
         return self._my_gdrive.get_all_files_and_folders_for_subtree(subtree_root)
+
+    def get_gdrive_user_for_permission_id(self, permission_id: str):
+        with self._meta_lock:
+            return self._user_for_permission_id_dict.get(permission_id, None)
+
+    def get_gdrive_user_for_user_uid(self, uid: UID) -> UserMeta:
+        with self._meta_lock:
+            return self._user_for_uid_dict.get(uid, None)
+
+    def create_gdrive_user(self, user: UserMeta):
+        if user.uid:
+            raise RuntimeError(f'create_gdrive_user(): user already has UID! (UID={user.uid})')
+        if user.is_me:
+            if not user.uid:
+                user.uid = GDRIVE_ME_USER_UID
+            elif user.uid != GDRIVE_ME_USER_UID:
+                raise RuntimeError(f'create_gdrive_user(): cannot set is_me=true AND UID={user.uid}')
+
+        with self._meta_lock:
+            user_from_permission_id = self._user_for_permission_id_dict.get(user.permission_id, None)
+            if user_from_permission_id:
+                assert user_from_permission_id.permission_id == user.permission_id and user_from_permission_id.uid
+                user.uid = user_from_permission_id.uid
+                return
+            if not user.is_me:
+                user.uid = UID(self._user_uid_nextval)
+            if self.application.cache_manager.enable_save_to_disk:
+                with GDriveDatabase(self._get_gdrive_cache_path(), self.application) as cache:
+                    cache.upsert_user(user)
+            # wait until after DB write is successful:
+            if not user.is_me:
+                self._user_uid_nextval += 1
+            self._user_for_permission_id_dict[user.permission_id] = user
+            self._user_for_uid_dict[user.uid] = user
+
+    def get_or_create_gdrive_mime_type(self, mime_type_string: str) -> MimeType:
+        with self._meta_lock:
+            mime_type: Optional[MimeType] = self._mime_type_for_str_dict.get(mime_type_string, None)
+            if not mime_type:
+                mime_type = MimeType(UID(self._mime_type_uid_nextval), mime_type_string)
+                if self.application.cache_manager.enable_save_to_disk:
+                    with GDriveDatabase(self._get_gdrive_cache_path(), self.application) as cache:
+                        cache.upsert_mime_type(mime_type)
+                self._mime_type_uid_nextval += 1
+                self._mime_type_for_str_dict[mime_type_string] = mime_type
+                self._mime_type_for_uid_dict[mime_type.uid] = mime_type
+            return mime_type
+
+    def get_mime_type_for_uid(self, uid: UID) -> Optional[MimeType]:
+        with self._meta_lock:
+            return self._mime_type_for_uid_dict.get(uid, None)
+
+    def delete_all_gdrive_meta(self):
+        with self._meta_lock:
+            self._mime_type_uid_nextval = GDRIVE_FOLDER_MIME_TYPE_UID + 1
+            self._mime_type_for_str_dict.clear()
+            self._mime_type_for_uid_dict.clear()
+            self._user_uid_nextval = GDRIVE_ME_USER_UID + 1
+            self._user_for_permission_id_dict.clear()
+            self._user_for_uid_dict.clear()

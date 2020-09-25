@@ -108,6 +108,8 @@ class GDriveTreeLoader:
 
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             self.cache.delete_all_gdrive_data()
+            # TODO: put this in the GDriveWholeTree instead
+            self.cache_manager.delete_all_gdrive_meta()
 
             # Need to make a special call to get the root node 'My Drive'. This node will not be included
             # in the "list files" call:
@@ -122,12 +124,12 @@ class GDriveTreeLoader:
             # fall through
 
         if initial_download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
-            observer = FolderMetaPersister(tree, initial_download, self.cache)
+            observer = FolderMetaPersister(tree, initial_download, self.cache, self.cache_manager)
             self.gdrive_client.get_all_folders(initial_download.page_token, initial_download.update_ts, observer)
             # fall through
 
         if initial_download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS:
-            observer = FileMetaPersister(tree, initial_download, self.cache)
+            observer = FileMetaPersister(tree, initial_download, self.cache, self.cache_manager)
             self.gdrive_client.get_all_non_folders(initial_download.page_token, initial_download.update_ts, observer)
             # fall through
 

@@ -19,7 +19,7 @@ from constants import EXPLICITLY_TRASHED, GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQU
     IMPLICITLY_TRASHED, MIME_TYPE_FOLDER, NOT_TRASHED, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY
 from gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
 from index.uid.uid import UID
-from model.gdrive_whole_tree import UserMeta
+from model.gdrive_whole_tree import MimeType, UserMeta
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier
 from ui import actions
@@ -184,9 +184,23 @@ class GDriveClient:
             self.service._http.http.close()
             self.service = None
 
+    def _store_user(self, user: Dict) -> UserMeta:
+        permission_id = user.get('permissionId', None)
+        gdrive_user: Optional[UserMeta] = self.cache_manager.get_gdrive_user_for_permission_id(permission_id)
+        if not gdrive_user:
+            # Completely new user
+            permission_id = user.get('permissionId', None)
+            user_name = user.get('displayName', None)
+            user_email = user.get('emailAddress', None)
+            user_photo_link = user.get('photoLink', None)
+            user_is_me = user.get('me', None)
+            gdrive_user: UserMeta = UserMeta(display_name=user_name, permission_id=permission_id, email_address=user_email,
+                                             photo_link=user_photo_link, is_me=user_is_me)
+            self.cache_manager.create_gdrive_user(gdrive_user)
+        return gdrive_user
+
     def _convert_dict_to_gdrive_folder(self, item: Dict, sync_ts: int = 0, uid: UID = None) -> GDriveFolder:
         # 'driveId' only populated for items which someone has shared with me
-        # 'shared' only populated for items which are owned by me
 
         if not sync_ts:
             sync_ts = int(time.time())
@@ -196,25 +210,25 @@ class GDriveClient:
 
         owners = item.get('owners', None)
         if owners:
-            owner_id = owners[0].get('permissionId', None)
+            user = self._store_user(owners[0])
+            owner_uid = user.uid
         else:
-            owner_id = None
+            owner_uid = None
 
         sharing_user = item.get('sharingUser', None)
         if sharing_user:
-            sharing_user_id = sharing_user.get('permissionId', None)
+            user = self._store_user(sharing_user)
+            sharing_user_uid = user.uid
         else:
-            sharing_user_id = None
+            sharing_user_uid = None
 
         create_ts = _parse_gdrive_date(item, 'createdTime')
 
         modify_ts = _parse_gdrive_date(item, 'modifiedTime')
 
-        # TODO: add fields for owner_id, sharing_user_id, create_ts, modify_ts
-
         goog_node = GDriveFolder(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, node_name=item['name'], trashed=_convert_trashed(item),
-                                 create_ts=create_ts, modify_ts=modify_ts, owner_id=owner_id, drive_id=item.get('driveId', None),
-                                 is_shared=item.get('shared', None), shared_by_user_id=sharing_user_id, sync_ts=sync_ts, all_children_fetched=False)
+                                 create_ts=create_ts, modify_ts=modify_ts, owner_uid=owner_uid, drive_id=item.get('driveId', None),
+                                 is_shared=item.get('shared', None), shared_by_user_uid=sharing_user_uid, sync_ts=sync_ts, all_children_fetched=False)
 
         parent_goog_ids = item.get('parents', [])
         parent_uids = self.cache_manager.get_uid_list_for_goog_id_list(parent_goog_ids)
@@ -228,17 +242,17 @@ class GDriveClient:
 
         owners = item.get('owners', None)
         if owners:
-            owner_id = owners[0].get('permissionId', None)
+            user = self._store_user(owners[0])
+            owner_uid = user.uid
         else:
-            owner_id = None
+            owner_uid = None
 
         sharing_user = item.get('sharingUser', None)
         if sharing_user:
-            sharing_user_id = sharing_user.get('permissionId', None)
+            user = self._store_user(sharing_user)
+            sharing_user_uid = user.uid
         else:
-            sharing_user_id = None
-
-        # TODO: add field for sharing_user_id
+            sharing_user_uid = None
 
         create_ts = _parse_gdrive_date(item, 'createdTime')
 
@@ -248,16 +262,16 @@ class GDriveClient:
         size_str = item.get('size', None)
         size = None if size_str is None else int(size_str)
         version = item.get('version', None)
-        if version:
-            version = int(version)
+        mime_type_string = item.get('mimeType', None)
+        mime_type: MimeType = self.cache_manager.get_or_create_gdrive_mime_type(mime_type_string)
 
         goog_id = item['id']
         uid = self.cache_manager.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
         goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, node_name=item["name"],
-                                           trashed=_convert_trashed(item), drive_id=item.get('driveId', None), version=version,
-                                           head_revision_id=head_revision_id, md5=item.get('md5Checksum', None),
+                                           mime_type_uid=mime_type.uid, trashed=_convert_trashed(item), drive_id=item.get('driveId', None),
+                                           version=version, head_revision_id=head_revision_id, md5=item.get('md5Checksum', None),
                                            is_shared=item.get('shared', None), create_ts=create_ts, modify_ts=modify_ts, size_bytes=size,
-                                           shared_by_user_id=sharing_user_id, owner_id=owner_id, sync_ts=sync_ts)
+                                           shared_by_user_uid=sharing_user_uid, owner_uid=owner_uid, sync_ts=sync_ts)
 
         parent_goog_ids = item.get('parents', [])
         parent_uids = self.cache_manager.get_uid_list_for_goog_id_list(parent_goog_ids)
@@ -353,15 +367,9 @@ class GDriveClient:
         about = _try_repeatedly(request)
         logger.debug(f'ABOUT: {about}')
 
-        user = about['user']
-        display_name = user['displayName']
-        photo_link = user['photoLink']
-        is_me = user['me']
-        owner_id = user['permissionId']
-        email_address = user['emailAddress']
-        logger.info(f'Logged in as user {display_name} <{email_address}> (owner_id={owner_id})')
-        logger.debug(f'User photo link: {photo_link}')
-        user_meta = UserMeta(display_name=display_name, permission_id=owner_id, email_address=email_address, photo_link=photo_link)
+        user: UserMeta = self._store_user(about['user'])
+        logger.info(f'Logged in as user {user.display_name} <{user.email_address}> (user_id={user.permission_id})')
+        logger.debug(f'User photo link: {user.photo_link}')
 
         storage_quota = about['storageQuota']
         storage_total = storage_quota['limit']
@@ -374,7 +382,7 @@ class GDriveClient:
         drive_trash_used = humanfriendly.format_size(int(storage_used_in_drive_trash))
 
         logger.info(f'{used} of {total} used (including {drive_used} for Drive files; of which {drive_trash_used} is trash)')
-        return user_meta
+        return user
 
     def get_my_drive_root(self, sync_ts: int) -> GDriveFolder:
         """

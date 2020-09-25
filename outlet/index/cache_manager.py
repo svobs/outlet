@@ -626,3 +626,15 @@ class CacheManager:
             return self._local_disk_cache.get_all_files_and_dirs_for_subtree(subtree_root)
         else:
             raise RuntimeError(f'Unknown tree type: {subtree_root.tree_type} for {subtree_root}')
+
+    def get_gdrive_user_for_permission_id(self, permission_id: str):
+        return self._gdrive_cache.get_gdrive_user_for_permission_id(permission_id)
+
+    def create_gdrive_user(self, user):
+        self._gdrive_cache.create_gdrive_user(user)
+
+    def get_or_create_gdrive_mime_type(self, mime_type_string: str):
+        self._gdrive_cache.get_or_create_gdrive_mime_type(mime_type_string)
+
+    def delete_all_gdrive_meta(self):
+        self._gdrive_cache.delete_all_gdrive_meta()
