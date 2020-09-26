@@ -7,7 +7,7 @@ from constants import GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_
 from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from index.uid.uid import UID
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.gdrive_whole_tree import GDriveWholeTree, MimeType, GDriveUser
+from model.gdrive_whole_tree import GDriveWholeTree
 
 logger = logging.getLogger(__name__)
 
@@ -111,19 +111,6 @@ class FolderMetaPersister(GDriveQueryObserver):
             assert self.download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
             self.download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
 
-            # if len(self.folder_list) > 0:
-            #     self.meta_collector.summarize()
-            # fall through
-
-        # Insert rows for any accumulated users and MIME types:
-        # if len(self.meta_collector.new_mime_type_dict) > 0:
-        #     self.cache.insert_mime_type_list(self.meta_collector.new_mime_type_dict.values(), commit=False)
-        #     self.meta_collector.new_mime_type_dict.clear()
-        #
-        # if len(self.meta_collector.new_user_dict) > 0:
-        #     self.cache.insert_user_list(self.meta_collector.new_user_dict.values(), commit=False)
-        #     self.meta_collector.new_user_dict.clear()
-
         # Insert all objects for the preceding page into the database:
         self.cache.insert_gdrive_folder_list_and_parents(folder_list=self.folder_list, parent_mappings=self.id_parent_mappings,
                                                          current_download=self.download, commit=True)
@@ -166,10 +153,6 @@ class FileMetaPersister(GDriveQueryObserver):
             # done
             assert self.download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
             self.download.current_state = GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE
-
-            # if len(self.file_list) > 0:
-            #     self.meta_collector.summarize()
-            # fall through
 
         # Insert all objects for the preceding page into the database:
         self.cache.insert_gdrive_files_and_parents(file_list=self.file_list, parent_mappings=self.id_parent_mappings,

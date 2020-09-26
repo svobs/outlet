@@ -6,6 +6,7 @@ from model.node.gdrive_node import GDriveNode
 
 logger = logging.getLogger(__name__)
 
+
 # CLASS GDriveChange
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class GDriveChange:
