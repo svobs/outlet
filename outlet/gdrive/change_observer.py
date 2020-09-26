@@ -79,6 +79,7 @@ class PagePersistingChangeObserver(GDriveChangeObserver):
         self.change_list.append(change)
 
     def end_of_page(self, next_page_token: str):
+        self.application.cache_manager.apply_gdrive_changes(self.change_list)
         # TODO: add reduce()
         for change in self.change_list:
             if change.is_removed():

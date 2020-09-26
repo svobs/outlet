@@ -304,7 +304,7 @@ class CacheManager:
         elif cache_type == TREE_TYPE_GDRIVE:
             assert existing_disk_cache.subtree_root == NodeIdentifierFactory.get_gdrive_root_constant_identifier(), \
                 f'Expected GDrive root ({NodeIdentifierFactory.get_gdrive_root_constant_identifier()}) but found: {existing_disk_cache.subtree_root}'
-            self._gdrive_cache.load_gdrive_cache(invalidate_cache=False, sync_latest_changes=True, tree_id=ID_GLOBAL_CACHE)
+            self._gdrive_cache.load_gdrive_master_cache(invalidate_cache=False, sync_latest_changes=True, tree_id=ID_GLOBAL_CACHE)
 
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -467,7 +467,7 @@ class CacheManager:
 
     def download_all_gdrive_meta(self, tree_id):
         """Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-        self._gdrive_cache.load_gdrive_cache(invalidate_cache=True, sync_latest_changes=True, tree_id=tree_id)
+        self._gdrive_cache.load_gdrive_master_cache(invalidate_cache=True, sync_latest_changes=True, tree_id=tree_id)
 
     def get_gdrive_whole_tree(self, tree_id) -> GDriveDisplayTree:
         """Will load from disk or even GDrive server if necessary. Always updates with latest changes."""
@@ -638,3 +638,6 @@ class CacheManager:
 
     def delete_all_gdrive_meta(self):
         return self._gdrive_cache.delete_all_gdrive_meta()
+
+    def apply_gdrive_changes(self, gdrive_change_list):
+        self._gdrive_cache.apply_gdrive_changes(gdrive_change_list)

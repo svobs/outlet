@@ -6,7 +6,7 @@ from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_ME_USER_UID
 from index.sqlite.base_db import ensure_int, LiveTable, MetaDatabase, Table
 from index.uid.uid import UID
 from model.gdrive_whole_tree import MimeType, GDriveUser
-from model.node.gdrive_node import GDriveFile, GDriveFolder
+from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier
 
 logger = logging.getLogger(__name__)
@@ -297,3 +297,10 @@ class GDriveDatabase(MetaDatabase):
         self.id_parent_mapping.drop_table_if_exists(self.conn)
         self.table_gdrive_user.drop_table_if_exists(self.conn)
         self.table_mime_type.drop_table_if_exists(self.conn)
+
+    def delete_single_node(self, node: GDriveNode, commit=True):
+        self.delete_parent_mappings_for_uid(node.uid, commit=False)
+        if node.is_dir():
+            self.delete_gdrive_folder_with_uid(node.uid, commit=False)
+        else:
+            self.delete_gdrive_file_with_uid(node.uid, commit=commit)

@@ -567,7 +567,7 @@ class LocalDiskMasterCache:
         if fire_listeners:
             dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
 
-    def _apply_to_memcache(self, subtree_operation: SubtreeOperation):
+    def _update_memory_cache(self, subtree_operation: SubtreeOperation):
         if subtree_operation.is_delete:
             # Deletes must occur from bottom up:
             for node in reversed(subtree_operation.node_list):
@@ -623,7 +623,7 @@ class LocalDiskMasterCache:
 
             # 1. Update memory cache:
             if rm_existing_tree_op:
-                self._apply_to_memcache(rm_existing_tree_op)
+                self._update_memory_cache(rm_existing_tree_op)
 
             first = True
             # Let's collate these two operations so that in case of failure, we have less inconsistent state
@@ -685,7 +685,7 @@ class LocalDiskMasterCache:
             operation: SubtreeOperation = self._build_subtree_removal_operation(subtree_root, to_trash)
             logger.info(f'Removing subtree with {len(operation.node_list)} nodes')
 
-            self._apply_to_memcache(operation)
+            self._update_memory_cache(operation)
 
             self._update_disk_cache([operation])
 
