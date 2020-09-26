@@ -106,6 +106,9 @@ class GDriveMasterCache:
 
             self._my_gdrive = tree_loader.load_all(invalidate_cache=invalidate_cache)
 
+            # Notify UI trees that their old roots are invalid:
+            dispatcher.send(signal=actions.GDRIVE_RELOADED, sender=tree_id)
+
         if sync_latest_changes:
             # This may add a noticeable delay:
             tree_loader.sync_latest_changes()
@@ -247,6 +250,8 @@ class GDriveMasterCache:
             self._my_gdrive.get_full_path_for_node(node)
 
             dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
+
+    # TODO: add support for Move
 
     def remove_gdrive_subtree(self, subtree_root: DisplayNode, to_trash):
         assert isinstance(subtree_root, GDriveNode), f'For node: {subtree_root}'

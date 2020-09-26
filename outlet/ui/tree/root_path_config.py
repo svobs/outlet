@@ -2,9 +2,10 @@ import logging
 
 from pydispatch import dispatcher
 
-from constants import TREE_TYPE_LOCAL_DISK
+from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from index.uid.uid_generator import NULL_UID
 from model.node_identifier import NodeIdentifier
+from model.node_identifier_factory import NodeIdentifierFactory
 from ui import actions
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,7 @@ class RootPathConfigPersister:
         self._tree_type_config_key = make_tree_type_config_key(tree_id)
         self._root_path_config_key = make_root_path_config_key(tree_id)
         self._root_uid_config_key = make_root_uid_config_key(tree_id)
+        self._tree_id = tree_id
         self.application = application
         self._config = application.config
         tree_type = self._config.get(self._tree_type_config_key)
@@ -61,6 +63,7 @@ class RootPathConfigPersister:
         self.root_identifier = self.application.node_identifier_factory.for_values(tree_type=tree_type, full_path=root_path, uid=root_uid)
 
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=tree_id)
+        dispatcher.connect(signal=actions.GDRIVE_RELOADED, receiver=self._on_gdrive_reloaded)
 
     def _on_root_path_updated(self, sender: str, new_root: NodeIdentifier, err=None):
         logger.info(f'Received signal: "{actions.ROOT_PATH_UPDATED}" with root: {new_root}, err: {err}')
@@ -77,3 +80,16 @@ class RootPathConfigPersister:
                 self._config.write(transient_path=self._root_uid_config_key, value=new_root.uid)
         # always, just to be safe
         self.root_identifier = new_root
+
+    def _on_gdrive_reloaded(self, sender: str):
+        logger.info(f'Received signal: "{actions.GDRIVE_RELOADED}"')
+        if self.root_identifier.tree_type == TREE_TYPE_GDRIVE:
+            # If GDrive was reloaded, our previous selection was almost certainly invalid. Just reset to GDrive root.
+            new_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
+            if new_root != self.root_identifier:
+                self.root_identifier = new_root
+                err = None
+                logger.info(f'[{self._tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root={new_root}, err={err}')
+                dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self._tree_id, new_root=new_root, err=err)
+
+

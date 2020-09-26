@@ -152,20 +152,6 @@ class LocalDiskMasterCache:
             cache_info.is_loaded = True
             return tree
 
-    def _cp_planning_nodes_into(self, tree: treelib.Tree):
-        count = 0
-        for node in self._master_tree.get_subtree_bfs(tree.root):
-            if not node.exists() and not tree.contains(node.uid):
-                parent: DisplayNode = self._master_tree.parent(node.identifier)
-                if tree.contains(parent.identifier):
-                    tree.add_node(node=node, parent=parent.identifier)
-                    count += 1
-                else:
-                    # This will cause an error cascade. Need a strategy to handle it
-                    logger.error(f'Dropping planning node because its parent does not exist: {node}')
-
-        logger.debug(f'Transferred {count} planning nodes into new tree with root {tree.get_node(tree.root).full_path})')
-
     def _save_subtree_to_disk(self, cache_info: PersistedCacheInfo, tree_id):
         assert isinstance(cache_info.subtree_root, LocalFsIdentifier)
         with self._struct_lock:
@@ -179,6 +165,20 @@ class LocalDiskMasterCache:
 
         cache_info.needs_save = False
         logger.info(f'[{tree_id}] {stopwatch_write_cache} Wrote {len(file_list)} files and {len(dir_list)} dirs to "{cache_info.cache_location}"')
+
+    def _cp_planning_nodes_into(self, tree: treelib.Tree):
+        count = 0
+        for node in self._master_tree.get_subtree_bfs(tree.root):
+            if not node.exists() and not tree.contains(node.uid):
+                parent: DisplayNode = self._master_tree.parent(node.identifier)
+                if tree.contains(parent.identifier):
+                    tree.add_node(node=node, parent=parent.identifier)
+                    count += 1
+                else:
+                    # This will cause an error cascade. Need a strategy to handle it
+                    logger.error(f'Dropping planning node because its parent does not exist: {node}')
+
+        logger.debug(f'Transferred {count} planning nodes into new tree with root {tree.get_node(tree.root).full_path})')
 
     def _resync_with_file_system(self, subtree_root: LocalFsIdentifier, tree_id: str):
         # Scan directory tree and update where needed.
