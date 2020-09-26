@@ -173,9 +173,6 @@ class GDriveMasterCache:
             if not isinstance(node, GDriveNode):
                 raise RuntimeError(f'Unrecognized node type: {node}')
 
-            # ensure full_path is populated
-            self._my_gdrive.get_full_path_for_node(node)
-
             # Validate parent mappings
             parent_uids = node.get_parent_uids()
             if not parent_uids:

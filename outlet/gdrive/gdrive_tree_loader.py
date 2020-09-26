@@ -8,7 +8,8 @@ from typing import Dict, List, Tuple
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
     GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID
-from gdrive.client import GDriveChange, GDriveChangeList, GDriveClient, GDriveNodeChange
+from gdrive.change_observer import PagePersistingChangeObserver
+from gdrive.client import GDriveClient
 from gdrive.query_observer import FileMetaPersister, FolderMetaPersister
 from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from index.uid.uid import UID
@@ -180,32 +181,24 @@ class GDriveTreeLoader:
             # covering all our bases here in case we are recovering from corruption
             changes_download.page_token = self.gdrive_client.get_changes_start_token()
 
-        shared_with_me: List[GDriveNode] = self.gdrive_client.get_all_shared_with_me()
-        logger.debug(f'Found {len(shared_with_me)} shared with me')
-        for node in shared_with_me:
-            logger.debug(f'Shared with me: {node}')
-            self.cache_manager.add_or_update_node(node)
+        # TODO: is this needed?
+        # shared_with_me: List[GDriveNode] = self.gdrive_client.get_all_shared_with_me()
+        # logger.debug(f'Found {len(shared_with_me)} shared with me')
+        # for node in shared_with_me:
+        #     logger.debug(f'Shared with me: {node}')
+        #     self.cache_manager.add_or_update_node(node)
 
+        observer: PagePersistingChangeObserver = PagePersistingChangeObserver(self.application)
         sync_ts = int(time.time())
-        changes: GDriveChangeList = self.gdrive_client.get_changes_list(changes_download.page_token, sync_ts)
-        for change in changes.change_list:
-            if change.is_removed():
-                node = self.cache_manager.get_node_for_goog_id(change.goog_id)
-                if node:
-                    self.cache_manager.remove_node(node, to_trash=False)
-                else:
-                    logger.debug(f'No node found in cache for goog_id: "{change.goog_id}"')
-            else:
-                assert isinstance(change, GDriveNodeChange)
-                self.cache_manager.add_or_update_node(change.node)
+        self.gdrive_client.get_changes_list(changes_download.page_token, sync_ts, observer)
 
-        logger.debug(f'Finished {len(changes.change_list)} cache updates')
+        logger.debug(f'Finished cache updates')
 
         # Now finally update download token
-        if changes.new_start_token and changes.new_start_token != changes_download.page_token:
-            changes_download.page_token = changes.new_start_token
+        if observer.new_start_token and observer.new_start_token != changes_download.page_token:
+            changes_download.page_token = observer.new_start_token
             self.cache.create_or_update_download(changes_download)
-            logger.debug(f'Updated changes download with token: {changes.new_start_token}')
+            logger.debug(f'Updated changes download with token: {observer.new_start_token}')
         else:
             logger.debug(f'Changes download did not return a new start token. Will not update download.')
 

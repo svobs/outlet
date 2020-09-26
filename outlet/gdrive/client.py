@@ -17,6 +17,7 @@ from pydispatch import dispatcher
 
 from constants import EXPLICITLY_TRASHED, GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_FILE_FIELDS, GDRIVE_FOLDER_FIELDS, \
     IMPLICITLY_TRASHED, MIME_TYPE_FOLDER, NOT_TRASHED, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY
+from gdrive.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
 from gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
 from index.uid.uid import UID
 from model.gdrive_whole_tree import MimeType, GDriveUser
@@ -27,39 +28,6 @@ from util import file_util
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
-
-
-class GDriveChange:
-    def __init__(self, change_ts, goog_id: str):
-        self.change_ts = change_ts
-        self.goog_id = goog_id
-
-    @classmethod
-    def is_removed(cls):
-        return False
-
-
-class GDriveRM(GDriveChange):
-    def __init__(self, change_ts, goog_id: str):
-        super().__init__(change_ts, goog_id)
-
-    @classmethod
-    def is_removed(cls):
-        return True
-
-
-class GDriveNodeChange(GDriveChange):
-    def __init__(self, change_ts, goog_id: str, node: GDriveNode):
-        super().__init__(change_ts, goog_id)
-        self.node = node
-
-
-class GDriveChangeList:
-    def __init__(self, change_list: List[GDriveChange] = None, new_start_token: str = None):
-        self.change_list: List[GDriveChange] = change_list
-        if not self.change_list:
-            self.change_list = []
-        self.new_start_token: str = new_start_token
 
 
 def _load_google_client_service(config):
@@ -674,10 +642,8 @@ class GDriveClient:
         logger.debug(f'Got token: "{token}"')
         return token
 
-    def get_changes_list(self, start_page_token: str, sync_ts: int) -> GDriveChangeList:
+    def get_changes_list(self, start_page_token: str, sync_ts: int, observer: GDriveChangeObserver):
         logger.debug(f'Sending request to get changes from start_page_token: "{start_page_token}"')
-
-        change_struct: GDriveChangeList = GDriveChangeList()
 
         # Google Drive only; not app data or Google Photos:
         spaces = 'drive'
@@ -703,6 +669,7 @@ class GDriveClient:
 
         stopwatch_retrieval = Stopwatch()
 
+        count: int = 0
         while True:
             response_dict: dict = _try_repeatedly(request)
 
@@ -711,9 +678,10 @@ class GDriveClient:
             items: list = response_dict.get('changes', [])
             if not items:
                 logger.debug('Request returned no changes')
-                change_struct.new_start_token = response_dict.get('newStartPageToken', None)
+                observer.new_start_token = response_dict.get('newStartPageToken', None)
                 break
 
+            count += len(items)
             msg = f'Received {len(items)} changes'
             logger.debug(msg)
             if self.tree_id:
@@ -741,14 +709,15 @@ class GDriveClient:
                         logger.error(f'Strange item: {item}')
                         raise RuntimeError(f'is_removed==true but changeType is not "file" (got "{item["changeType"]}" instead')
 
-                change_struct.change_list.append(change)
+                observer.change_received(change, item)
 
             request.page_token = response_dict.get('nextPageToken', None)
 
+            observer.end_of_page(request.page_token)
+
             if not request.page_token:
-                change_struct.new_start_token = response_dict.get('newStartPageToken', None)
+                observer.new_start_token = response_dict.get('newStartPageToken', None)
                 break
 
-        logger.debug(f'{stopwatch_retrieval} Requests returned {len(change_struct.change_list)} changes '
-                     f'(newStartPageToken="{change_struct.new_start_token}")')
-        return change_struct
+        logger.debug(f'{stopwatch_retrieval} Requests returned {count} changes '
+                     f'(newStartPageToken="{observer.new_start_token}")')
