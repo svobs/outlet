@@ -71,6 +71,11 @@ class GDriveWholeTree:
         # Build forward dictionary
         existing_node = self.id_dict.get(node.uid, None)
         if existing_node:
+            if node == existing_node:
+                logger.debug(f'add_node(): identical to existing; updating node {node.uid} sync_ts={node.sync_ts}')
+                existing_node.set_sync_ts(node.sync_ts)
+                return existing_node
+
             logger.debug(f'add_node(): found existing node with same ID (will attempt to merge nodes): existing: {existing_node}; new={node}')
             new_parent_uids, removed_parent_uids = _merge_into_existing(existing_node, node)
             node = existing_node
@@ -370,7 +375,7 @@ class GDriveWholeTree:
         assert uid
         return self.id_dict.get(uid, None)
 
-    def resolve_uids_to_goog_ids(self, uids: List[UID]):
+    def resolve_uids_to_goog_ids(self, uids: List[UID]) -> List[str]:
         goog_ids: List[str] = []
         for uid in uids:
             node = self.get_node_for_uid(uid)

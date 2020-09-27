@@ -1,12 +1,13 @@
 import logging
 import threading
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Tuple
+from collections import defaultdict
+from typing import DefaultDict, Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID, NOT_TRASHED, ROOT_PATH, GDRIVE_ROOT_UID, TREE_TYPE_GDRIVE
-from gdrive.change_observer import GDriveChange
+from gdrive.change_observer import GDriveChange, GDriveNodeChange
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index.error import CacheNotLoadedError, GDriveItemNotFoundError
 from index.sqlite.gdrive_db import GDriveDatabase
@@ -27,6 +28,8 @@ from ui.actions import ID_GLOBAL_CACHE
 logger = logging.getLogger(__name__)
 
 # TODO: lots of work to do to support drag & drop from GDrive to GDrive (e.g. "move" is really just changing parents)
+# - support Move
+# - support Delete Subtree
 
 
 # ABSTRACT CLASS BatchOperation
@@ -87,32 +90,95 @@ class DeleteSubtreeOp(BatchOperation):
             dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
 
 
+def _reduce_changes(change_list: List[GDriveChange]) -> List[GDriveChange]:
+    change_list_by_goog_id: DefaultDict[str, List[GDriveChange]] = defaultdict(lambda: list())
+    for change in change_list:
+        assert change.goog_id, f'No goog_id for change: {change}'
+        change_list_by_goog_id[change.goog_id].append(change)
+
+    reduced_changes: List[GDriveChange] = []
+    for single_goog_id_change_list in change_list_by_goog_id.values():
+        reduced_changes.append(single_goog_id_change_list[-1])
+
+    logger.debug(f'Reduced {len(change_list)} changes into {len(reduced_changes)} changes')
+    return reduced_changes
+
+
 # CLASS BatchChangesOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class BatchChangesOp(BatchOperation):
-    def __init__(self, change_list: List[GDriveChange]):
-        self.change_list = self._reduce_changes(change_list)
-
-    def _reduce_changes(self, change_list: List[GDriveChange]) -> List[GDriveChange]:
-        reduced_changes: List[GDriveChange] = []
-
-        # TODO
-        return reduced_changes
+    def __init__(self, gdrive_master_cache, change_list: List[GDriveChange]):
+        self.gdrive_master_cache = gdrive_master_cache
+        self.change_list = _reduce_changes(change_list)
 
     def update_memory_cache(self, my_gdrive: GDriveWholeTree):
         for change in self.change_list:
             if change.is_removed():
-                pass
-                # TODO
-                # existing_node = my_gdrive.get_node_for_uid(change.uid)
-                # if existing_node:
-                #     my_gdrive.remove_node(existing_node)
+                if change.node:
+                    my_gdrive.remove_node(change.node)
+                else:
+                    logger.debug(f'No node found in cache for goog_id: "{change.goog_id}"')
+            else:
+                assert isinstance(change, GDriveNodeChange)
+                my_gdrive.add_node(change.node)
 
     def update_disk_cache(self, cache: GDriveDatabase):
-        pass
+        mappings_list_list: List[List[Tuple]] = []
+        file_uid_to_delete_list: List[UID] = []
+        folder_uid_to_delete_list: List[UID] = []
+        files_to_upsert: List[GDriveFile] = []
+        folders_to_upsert: List[GDriveFolder] = []
+
+        for change in self.change_list:
+            if change.is_removed():
+                if change.node:
+                    if change.node.is_dir():
+                        folder_uid_to_delete_list.append(change.node.uid)
+                    else:
+                        file_uid_to_delete_list.append(change.node.uid)
+                else:
+                    logger.warning(f'No node found in cache for goog_id: "{change.goog_id}"')
+            else:
+                parent_mapping_list = []
+                parent_uids = change.node.get_parent_uids()
+                if parent_uids:
+                    parent_goog_ids = self.gdrive_master_cache.resolve_uids_to_goog_ids(parent_uids)
+                    if len(change.node.get_parent_uids()) != len(parent_goog_ids):
+                        raise RuntimeError(f'Internal error: could not map all parent goog_ids ({len(parent_goog_ids)}) to parent UIDs '
+                                           f'({len(parent_uids)}) for node: {change.node}')
+                    for parent_uid, parent_goog_id in zip(change.node.get_parent_uids(), parent_goog_ids):
+                        parent_mapping_list.append((change.node.uid, parent_uid, parent_goog_id, change.node.sync_ts))
+                mappings_list_list.append(parent_mapping_list)
+
+                if change.node.is_dir():
+                    assert isinstance(change.node, GDriveFolder)
+                    folders_to_upsert.append(change.node)
+                else:
+                    assert isinstance(change.node, GDriveFile)
+                    files_to_upsert.append(change.node)
+
+        if mappings_list_list:
+            logger.debug(f'Upserting id-parent mappings for {len(mappings_list_list)} nodes to the GDrive master cache')
+            cache.upsert_parent_mappings(mappings_list_list, commit=False)
+
+        if len(file_uid_to_delete_list) + len(folder_uid_to_delete_list) > 0:
+            logger.debug(f'Removing {len(file_uid_to_delete_list)} files and {len(folder_uid_to_delete_list)} folders from the GDrive master cache')
+            cache.delete_nodes(file_uid_to_delete_list, folder_uid_to_delete_list, commit=False)
+
+        if len(folders_to_upsert) > 0:
+            logger.debug(f'Upserting {len(folders_to_upsert)} folders to the GDrive master cache')
+            cache.upsert_gdrive_folder_list(folders_to_upsert, commit=False)
+
+        if len(files_to_upsert) > 0:
+            logger.debug(f'Upserting {len(files_to_upsert)} files to the GDrive master cache')
+            cache.upsert_gdrive_file_list(files_to_upsert, commit=False)
 
     def send_signals(self):
-        pass
+        for change in self.change_list:
+            if change.is_removed():
+                dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=change.node)
+            else:
+                dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=change.node)
 
 
 """
@@ -426,7 +492,7 @@ class GDriveMasterCache:
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def apply_gdrive_changes(self, gdrive_change_list: List[GDriveChange]):
-        operation: BatchChangesOp = BatchChangesOp(gdrive_change_list)
+        operation: BatchChangesOp = BatchChangesOp(self, gdrive_change_list)
 
         with self._struct_lock:
             self._execute(operation)
@@ -462,6 +528,9 @@ class GDriveMasterCache:
         if node:
             return node.goog_id
         return None
+
+    def resolve_uids_to_goog_ids(self, uids: List[UID]) -> List[str]:
+        return self._my_gdrive.resolve_uids_to_goog_ids(uids)
 
     def _get_cache_path_for_master(self) -> str:
         # Open master database...

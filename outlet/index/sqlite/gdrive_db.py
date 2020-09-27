@@ -1,11 +1,11 @@
 import logging
 from collections import OrderedDict
-from typing import Callable, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_ME_USER_UID
 from index.sqlite.base_db import ensure_int, LiveTable, MetaDatabase, Table
 from index.uid.uid import UID
-from model.gdrive_whole_tree import MimeType, GDriveUser
+from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier
 
@@ -45,7 +45,7 @@ def _gdrive_file_to_tuple(file: GDriveFile) -> Tuple:
 def _tuple_to_gdrive_user(row: Tuple) -> GDriveUser:
     uid_int, display_name, permission_id, email_address, photo_link = row
     return GDriveUser(display_name=display_name, permission_id=permission_id, email_address=email_address, photo_link=photo_link,
-                    is_me=(uid_int==GDRIVE_ME_USER_UID), user_uid=UID(uid_int))
+                      is_me=(uid_int == GDRIVE_ME_USER_UID), user_uid=UID(uid_int))
 
 
 def _gdrive_user_to_tuple(user: GDriveUser) -> Tuple:
@@ -174,7 +174,7 @@ class GDriveDatabase(MetaDatabase):
         self.table_gdrive_user = LiveTable(GDriveDatabase.TABLE_GDRIVE_USER, self.conn, _gdrive_user_to_tuple, _tuple_to_gdrive_user)
         self.table_mime_type = LiveTable(GDriveDatabase.TABLE_MIME_TYPE, self.conn, _mime_type_to_tuple, _tuple_to_mime_type)
 
-    # GDRIVE_FOLDER operations
+    # FOLDER operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def insert_gdrive_folder_list(self, folder_list: List[GDriveFolder], overwrite=False, commit=True):
@@ -193,7 +193,7 @@ class GDriveDatabase(MetaDatabase):
     def delete_gdrive_folder_with_uid(self, uid: UID, commit=True):
         self.table_gdrive_folder.delete_for_uid(uid, commit=commit)
 
-    # GDRIVE_FILE operations
+    # FILE operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def has_gdrive_files(self):
@@ -223,6 +223,28 @@ class GDriveDatabase(MetaDatabase):
         self.id_parent_mapping.create_table_if_not_exist(commit=False)
         logger.debug(f'Inserting {len(id_parent_mappings)} id-par mappings into DB, commit={commit}')
         self.id_parent_mapping.insert_many(id_parent_mappings, commit=commit)
+
+    def _delete_parent_mappings(self, uid_list: List[UID], commit=True):
+        uid_str_list: List[str] = list(map(lambda uid: str(uid), uid_list))
+        sql = self.id_parent_mapping.build_delete() + f' WHERE item_uid IN ({",".join(uid_str_list)})'
+        logger.debug(f'Executing SQL: {sql}')
+        self.conn.execute(sql)
+
+        if commit:
+            logger.debug('Committing!')
+            self.conn.commit()
+
+    def upsert_parent_mappings(self, mapping_list_list: List[List[Tuple]], commit=True):
+        uid_list: List[UID] = []
+        flattened_list: List[Tuple] = []
+        for mapping_list in mapping_list_list:
+            uid_list.append(mapping_list[0][0])
+            for mapping in mapping_list:
+                flattened_list.append(mapping)
+        self._delete_parent_mappings(uid_list, commit=False)
+
+        logger.debug(f'Inserting {len(flattened_list)} parent mappings into DB, commit={commit}')
+        self.id_parent_mapping.insert_many(flattened_list, commit=commit)
 
     def upsert_parent_mappings_for_id(self, id_parent_mappings: List[Tuple], uid: UID, commit=True):
         # just do this the easy way for now. Need to replace all mappings for this UID
@@ -297,6 +319,15 @@ class GDriveDatabase(MetaDatabase):
         self.id_parent_mapping.drop_table_if_exists(self.conn)
         self.table_gdrive_user.drop_table_if_exists(self.conn)
         self.table_mime_type.drop_table_if_exists(self.conn)
+
+    def delete_nodes(self, file_uid_list: List[UID], folder_uid_list: List[UID], commit=True):
+        folder_uid_tuple_list = list(map(lambda uid: (uid,), folder_uid_list))
+        self.table_gdrive_folder.delete_for_uid_list(folder_uid_tuple_list, commit=False)
+
+        file_uid_tuple_list = list(map(lambda uid: (uid,), file_uid_list))
+        self.table_gdrive_file.delete_for_uid_list(file_uid_tuple_list, commit=False)
+
+        self._delete_parent_mappings(file_uid_list + folder_uid_list, commit=commit)
 
     def delete_single_node(self, node: GDriveNode, commit=True):
         self.delete_parent_mappings_for_uid(node.uid, commit=False)

@@ -20,7 +20,7 @@ from constants import EXPLICITLY_TRASHED, GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQU
 from gdrive.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
 from gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
 from index.uid.uid import UID
-from model.gdrive_whole_tree import MimeType, GDriveUser
+from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier
 from ui import actions
@@ -695,7 +695,9 @@ class GDriveClient:
 
                 is_removed = item['removed']
                 if is_removed:
-                    change: GDriveRM = GDriveRM(change_ts, goog_id)
+                    # Fill in node for removal change;
+                    node = self.cache_manager.get_node_for_goog_id(goog_id)
+                    change: GDriveRM = GDriveRM(change_ts, goog_id, node)
                 else:
                     if item['changeType'] == 'file':
                         file = item['file']

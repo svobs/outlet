@@ -186,6 +186,22 @@ class HasParentList(ABC):
             current_parent_ids.append(parent_uid)
             self._parent_uids = current_parent_ids
 
+    def has_same_parents(self, other):
+        assert isinstance(other, HasParentList)
+        my_parents = self.get_parent_uids()
+        other_parents = other.get_parent_uids()
+        num_parents = len(my_parents)
+        if num_parents != len(other_parents):
+            return False
+
+        if num_parents == 0:
+            return True
+
+        if num_parents == 1:
+            return my_parents[0] == other_parents[0]
+
+        return sorted(my_parents) == sorted(other_parents)
+
 
 # ABSTRACT CLASS HasChildList
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

@@ -10,9 +10,10 @@ logger = logging.getLogger(__name__)
 # CLASS GDriveChange
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class GDriveChange:
-    def __init__(self, change_ts, goog_id: str):
+    def __init__(self, change_ts, goog_id: str, node: GDriveNode = None):
         self.change_ts = change_ts
         self.goog_id = goog_id
+        self.node: Optional[GDriveNode] = node
 
     @classmethod
     def is_removed(cls):
@@ -22,8 +23,8 @@ class GDriveChange:
 # CLASS GDriveRM
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class GDriveRM(GDriveChange):
-    def __init__(self, change_ts, goog_id: str):
-        super().__init__(change_ts, goog_id)
+    def __init__(self, change_ts, goog_id: str, node: GDriveNode):
+        super().__init__(change_ts, goog_id, node)
 
     @classmethod
     def is_removed(cls):
@@ -34,8 +35,7 @@ class GDriveRM(GDriveChange):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class GDriveNodeChange(GDriveChange):
     def __init__(self, change_ts, goog_id: str, node: GDriveNode):
-        super().__init__(change_ts, goog_id)
-        self.node = node
+        super().__init__(change_ts, goog_id, node)
 
 
 # CLASS GDriveChangeList
@@ -80,16 +80,5 @@ class PagePersistingChangeObserver(GDriveChangeObserver):
 
     def end_of_page(self, next_page_token: str):
         self.application.cache_manager.apply_gdrive_changes(self.change_list)
-        # TODO: add reduce()
-        for change in self.change_list:
-            if change.is_removed():
-                node = self.application.cache_manager.get_node_for_goog_id(change.goog_id)
-                if node:
-                    self.application.cache_manager.remove_node(node, to_trash=False)
-                else:
-                    logger.debug(f'No node found in cache for goog_id: "{change.goog_id}"')
-            else:
-                assert isinstance(change, GDriveNodeChange)
-                self.application.cache_manager.add_or_update_node(change.node)
 
 

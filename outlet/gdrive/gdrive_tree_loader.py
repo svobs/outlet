@@ -177,6 +177,8 @@ class GDriveTreeLoader:
                 self._sync_latest_changes(changes_download)
 
     def _sync_latest_changes(self, changes_download: CurrentDownload):
+        sw = Stopwatch()
+
         if not changes_download.page_token:
             # covering all our bases here in case we are recovering from corruption
             changes_download.page_token = self.gdrive_client.get_changes_start_token()
@@ -192,8 +194,6 @@ class GDriveTreeLoader:
         sync_ts = int(time.time())
         self.gdrive_client.get_changes_list(changes_download.page_token, sync_ts, observer)
 
-        logger.debug(f'Finished cache updates')
-
         # Now finally update download token
         if observer.new_start_token and observer.new_start_token != changes_download.page_token:
             changes_download.page_token = observer.new_start_token
@@ -201,6 +201,8 @@ class GDriveTreeLoader:
             logger.debug(f'Updated changes download with token: {observer.new_start_token}')
         else:
             logger.debug(f'Changes download did not return a new start token. Will not update download.')
+
+        logger.debug(f'{sw} Finished syncing GDrive changes from server')
 
     def _load_tree_from_cache(self, is_complete: bool) -> GDriveWholeTree:
         """

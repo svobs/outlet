@@ -11,7 +11,6 @@ from pydispatch.errors import DispatcherKeyError
 
 from constants import HOLDOFF_TIME_MS, LARGE_NUMBER_OF_CHILDREN
 from index.error import GDriveItemNotFoundError
-from index.uid.uid import UID
 from model.op import Op
 from util.holdoff_timer import HoldOffTimer
 from model.node.container_node import CategoryNode
@@ -26,6 +25,7 @@ from gi.repository import GLib, Gtk
 from gi.repository.Gtk import TreeIter
 
 logger = logging.getLogger(__name__)
+SUPER_DEBUG = False
 
 
 # CLASS DisplayMutator
@@ -281,7 +281,8 @@ class DisplayMutator:
         logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node}"')
 
         if not self._enable_state_listeners:
-            logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_EXPANSION_TOGGLED}: listeners disabled"')
+            if SUPER_DEBUG:
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_EXPANSION_TOGGLED}: listeners disabled"')
             return
 
         def expand_or_contract():
@@ -315,7 +316,8 @@ class DisplayMutator:
         assert node is not None
         if not self._enable_state_listeners:
             # TODO: is this still necessary here now that we use a lock?
-            logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_UPSERTED}: listeners disabled"')
+            if SUPER_DEBUG:
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_UPSERTED}: listeners disabled"')
             return
 
         def update_ui():
@@ -384,7 +386,8 @@ class DisplayMutator:
     def _on_node_removed_from_cache(self, sender: str, node: DisplayNode):
         if not self._enable_state_listeners:
             # TODO: is this still necessary here now that we use a lock?
-            logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_REMOVED}: listeners disabled"')
+            if SUPER_DEBUG:
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_REMOVED}: listeners disabled"')
             return
 
         def update_ui():

@@ -85,6 +85,9 @@ class GDriveNode(HasParentList, DisplayNode, ABC):
     def sync_ts(self):
         return self._sync_ts
 
+    def set_sync_ts(self, sync_ts: int):
+        self._sync_ts = sync_ts
+
     @classmethod
     def get_tree_type(cls) -> int:
         return TREE_TYPE_GDRIVE
@@ -196,10 +199,12 @@ class GDriveFolder(HasChildList, GDriveNode):
         if not isinstance(other, GDriveFolder):
             return False
 
+        if not other.has_same_parents(self):
+            return False
+
         return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name and other.trashed == self.trashed \
             and other.create_ts == self.create_ts and other._modify_ts == self._modify_ts and other.owner_uid == self.owner_uid \
-            and other.drive_id == self.drive_id and other.is_shared == self.is_shared and other.shared_by_user_uid \
-            and other.all_children_fetched == self.all_children_fetched
+            and other.drive_id == self.drive_id and other.is_shared == self.is_shared and other.shared_by_user_uid
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -235,6 +240,9 @@ class GDriveFile(GDriveNode):
 
     def __eq__(self, other):
         if not isinstance(other, GDriveFile):
+            return False
+
+        if not other.has_same_parents(self):
             return False
 
         return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name and other.md5 == self._md5 and \
