@@ -426,12 +426,11 @@ class CacheManager:
         self._tree_controllers[controller.tree_id] = controller
 
     def unregister_tree_controller(self, controller: TreePanelController):
-        if self._is_live_capture_enabled and self._live_monitor:
-            self._live_monitor.stop_capture(controller.tree_id)
-
-        try:
-            self._tree_controllers.pop(controller.tree_id)
-        except KeyError:
+        popped_con = self._tree_controllers.pop(controller.tree_id, None)
+        if popped_con:
+            if self._is_live_capture_enabled and self._live_monitor:
+                self._live_monitor.stop_capture(controller.tree_id)
+        else:
             logger.debug(f'Could not unregister TreeController; it was not found: {controller.tree_id}')
 
     def get_tree_controller(self, tree_id: str) -> Optional[TreePanelController]:

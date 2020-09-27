@@ -60,7 +60,8 @@ class OpGDriveTest(OpTestBase):
         self.right_tree_initial = INITIAL_GDRIVE_TREE_RIGHT
         self.right_tree_type = TREE_TYPE_GDRIVE
         self.right_tree_root_path = '/My Drive/Test'
-        self.right_tree_root_uid = 5800000
+        # IMPORTANT NOTE: currently need to manually inspect the GDrive database and get UID of 'Test' folder
+        self.right_tree_root_uid = 8847219
 
         self.do_setup(do_before_verify_func=self._cleanup_gdrive_local_and_remote)
 
@@ -483,7 +484,7 @@ class OpGDriveTest(OpTestBase):
             dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_RIGHT_TREE, node_list=nodes_batch_2)
 
         # The end result should be that nothing has changed
-        self.do_and_verify(drop_both_sides, count_expected_cmds=12, wait_for_left=True, wait_for_right=True,
+        self.do_and_verify(drop_both_sides, count_expected_cmds=12, wait_for_left=False, wait_for_right=True,
                            expected_left=INITIAL_LOCAL_TREE_LEFT, expected_right=INITIAL_GDRIVE_TREE_RIGHT)
 
     def test_delete_subtree(self):

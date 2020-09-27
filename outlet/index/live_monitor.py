@@ -170,7 +170,7 @@ class LiveMonitor:
 
     def stop_capture(self, tree_id: str):
         with self._struct_lock:
-            prev_identifier: NodeIdentifier = self._active_tree_dict.get(tree_id, None)
+            prev_identifier: NodeIdentifier = self._active_tree_dict.pop(tree_id, None)
             if prev_identifier:
                 logger.debug(f'[{tree_id}] Removing capture tree (was: ({prev_identifier})')
                 assert tree_id in self._active_gdrive_tree_set or self._local_tree_watcher_dict.get(prev_identifier.full_path, None),\

@@ -76,16 +76,21 @@ class DeleteSubtreeOp(BatchOperation):
         self.node_list: List[GDriveNode] = node_list
 
     def update_memory_cache(self, my_gdrive: GDriveWholeTree):
+        logger.debug(f'DeleteSubtreeOp: removing {len(self.node_list)} nodes from memory cache')
         for node in reversed(self.node_list):
             existing_node = my_gdrive.get_node_for_uid(node.uid)
             if existing_node:
                 my_gdrive.remove_node(existing_node)
+        logger.debug(f'DeleteSubtreeOp: done removing nodes from memory cache')
 
     def update_disk_cache(self, cache: GDriveDatabase):
+        logger.debug(f'DeleteSubtreeOp: removing {len(self.node_list)} nodes from disk cache')
         for node in self.node_list:
             cache.delete_single_node(node, commit=False)
+        logger.debug(f'DeleteSubtreeOp: done removing nodes from disk cache')
 
     def send_signals(self):
+        logger.debug(f'DeleteSubtreeOp: sending "{actions.NODE_REMOVED}" signal for {len(self.node_list)} nodes')
         for node in self.node_list:
             dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
 
@@ -98,7 +103,12 @@ def _reduce_changes(change_list: List[GDriveChange]) -> List[GDriveChange]:
 
     reduced_changes: List[GDriveChange] = []
     for single_goog_id_change_list in change_list_by_goog_id.values():
-        reduced_changes.append(single_goog_id_change_list[-1])
+        last_change = single_goog_id_change_list[-1]
+        if last_change.node:
+            reduced_changes.append(last_change)
+        else:
+            # skip this node
+            logger.debug(f'No node found in cache for removed goog_id: "{last_change.goog_id}"')
 
     logger.debug(f'Reduced {len(change_list)} changes into {len(reduced_changes)} changes')
     return reduced_changes
@@ -114,13 +124,16 @@ class BatchChangesOp(BatchOperation):
     def update_memory_cache(self, my_gdrive: GDriveWholeTree):
         for change in self.change_list:
             if change.is_removed():
-                if change.node:
-                    my_gdrive.remove_node(change.node)
-                else:
-                    logger.debug(f'No node found in cache for goog_id: "{change.goog_id}"')
+                removed_node = my_gdrive.remove_node(change.node)
+                if removed_node:
+                    change.node = removed_node
             else:
                 assert isinstance(change, GDriveNodeChange)
-                my_gdrive.add_node(change.node)
+                # need to use existing object if available to fulfill our contract (node will be sent via signals below)
+                change.node = my_gdrive.add_node(change.node)
+
+                # ensure full_path is populated
+                my_gdrive.get_full_path_for_node(change.node)
 
     def update_disk_cache(self, cache: GDriveDatabase):
         mappings_list_list: List[List[Tuple]] = []
@@ -131,13 +144,10 @@ class BatchChangesOp(BatchOperation):
 
         for change in self.change_list:
             if change.is_removed():
-                if change.node:
-                    if change.node.is_dir():
-                        folder_uid_to_delete_list.append(change.node.uid)
-                    else:
-                        file_uid_to_delete_list.append(change.node.uid)
+                if change.node.is_dir():
+                    folder_uid_to_delete_list.append(change.node.uid)
                 else:
-                    logger.warning(f'No node found in cache for goog_id: "{change.goog_id}"')
+                    file_uid_to_delete_list.append(change.node.uid)
             else:
                 parent_mapping_list = []
                 parent_uids = change.node.get_parent_uids()
@@ -263,9 +273,6 @@ class GDriveMasterCache:
                         self._mime_type_for_uid_dict[mime_type.uid] = mime_type
 
             self._my_gdrive = tree_loader.load_all(invalidate_cache=invalidate_cache)
-
-            # Notify UI trees that their old roots are invalid:
-            dispatcher.send(signal=actions.GDRIVE_RELOADED, sender=tree_id)
 
         if sync_latest_changes:
             # This may add a noticeable delay:

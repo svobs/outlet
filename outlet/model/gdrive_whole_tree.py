@@ -97,11 +97,12 @@ class GDriveWholeTree:
         # this may actually be an existing node (we favor that if it exists)
         return node
 
-    def remove_node(self, node: GDriveNode):
-        """Remove given node from all data structures in this tree."""
+    def remove_node(self, node: GDriveNode) -> Optional[GDriveNode]:
+        """Remove given node from all data structures in this tree. Returns the node which was removed (which may be a different object
+        than the parameter) or None if node is not in tree"""
         if node.uid not in self.id_dict:
             logger.warning(f'Cannot remove node from in-memory tree: it was not found in the tree: {node}')
-            return
+            return None
 
         if node.is_dir():
             child_list = self.get_children(node)
@@ -114,11 +115,15 @@ class GDriveWholeTree:
                 # this may get expensive for folders with lots of nodes...may want to monitor performance
                 child_list.remove(node)
 
-        if node in self.roots:
-            self.roots.remove(node)
+        # Remove from roots if present (if not, do nothing)
+        self._remove_root(node)
 
-        self.id_dict.pop(node.uid, None)
-        logger.debug(f'GDriveNode removed from in-memory tree: {node}')
+        removed_node = self.id_dict.pop(node.uid, None)
+
+        if SUPER_DEBUG:
+            logger.debug(f'GDriveNode removed from in-memory tree: {removed_node}')
+
+        return removed_node
 
     def add_parent_mapping(self, node_uid: UID, parent_uid: UID):
         """Assuming that an node with the given UID has already been added to this tree, this method
@@ -135,6 +140,14 @@ class GDriveWholeTree:
 
         # Add ref in node:
         node.add_parent(parent_uid)
+
+    def _remove_root(self, node: GDriveNode):
+        if not node.get_parent_uids():
+            for root in self.roots:
+                if root.uid == node.uid:
+                    self.roots.remove(root)
+                    return root
+        return None
 
     def _add_root(self, node: GDriveNode):
         if not node.get_parent_uids():
@@ -256,6 +269,9 @@ class GDriveWholeTree:
         return full_path.startswith(constants.ROOT_PATH)
 
     def is_in_subtree(self, full_path: Union[str, List[str]], subtree_root_path: str):
+        if not full_path:
+            raise RuntimeError('is_in_subtree(): full_path not provided!')
+
         if isinstance(full_path, list):
             for p in full_path:
                 # i.e. any

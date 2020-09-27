@@ -5,6 +5,8 @@ import time
 from collections import deque
 from typing import Dict, List, Tuple
 
+from pydispatch import dispatcher
+
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
     GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID
@@ -84,6 +86,9 @@ class GDriveTreeLoader:
             logger.debug(f'Starting a fresh download for entire Google Drive tree meta (invalidate_cache={invalidate_cache})')
             initial_download = CurrentDownload(GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_DOWNLOAD_STATE_NOT_STARTED, None, sync_ts)
             self.cache.create_or_update_download(initial_download)
+
+            # Notify UI trees that their old roots are invalid:
+            dispatcher.send(signal=actions.GDRIVE_RELOADED, sender=self.tree_id)
 
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             # completely fresh tree
