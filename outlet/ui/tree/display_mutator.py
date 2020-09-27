@@ -358,6 +358,10 @@ class DisplayMutator:
                             return
                         parent_path = self.con.display_store.model.get_path(parent_iter)
                         if not self.con.tree_view.row_expanded(parent_path):
+                            if not self.con.display_store.model.iter_has_child(parent_iter):
+                                logger.debug(f'[{self.con.tree_id}] Parent ({parent.uid}) is not expanded; adding loading node')
+                                self._append_loading_child(parent_iter)
+                                return
                             logger.debug(f'[{self.con.tree_id}] Will not add/update node {node.uid}: Parent is not expanded: {parent.uid}')
                             return
 

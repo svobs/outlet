@@ -95,11 +95,11 @@ class LocalDiskScanner(LocalTreeRecurser):
 
     def _find_total_files_to_scan(self):
         # First survey our local files:
-        logger.info(f'Scanning path: {self.root_path}')
+        logger.info(f'[{self.tree_id}] Scanning path: {self.root_path}')
         file_counter = FileCounter(self.root_path)
         file_counter.recurse_through_dir_tree()
 
-        logger.debug(f'Found {file_counter.files_to_scan} files and {file_counter.dirs_to_scan} dirs to scan.')
+        logger.debug(f'[{self.tree_id}] Found {file_counter.files_to_scan} files and {file_counter.dirs_to_scan} dirs to scan.')
         return file_counter.files_to_scan
 
     def handle_file(self, file_path: str):
@@ -139,15 +139,16 @@ class LocalDiskScanner(LocalTreeRecurser):
         self.handle_file(file_path)
 
     def handle_dir(self, dir_path: str):
-        stale_dir: LocalDirNode = self.cache_manager.get_node_for_local_path(dir_path)
-        if stale_dir:
-            # logger.debug(f'Found existing dir node: {stale_dir.node_identifier}')
-            stale_dir.set_exists(True)
+        dir_node: LocalDirNode = self.cache_manager.get_node_for_local_path(dir_path)
+        if dir_node:
+            logger.debug(f'[{self.tree_id}] Found existing dir node: {dir_node.node_identifier}')
+            dir_node.set_exists(True)
         else:
             uid = self.cache_manager.get_uid_for_path(dir_path)
             dir_node = LocalDirNode(node_identifier=LocalFsIdentifier(full_path=dir_path, uid=uid), exists=True)
-            logger.debug(f'Adding dir node: {dir_node.node_identifier}')
-            self._local_tree.add_to_tree(dir_node)
+            logger.debug(f'[{self.tree_id}] Adding dir node: {dir_node.node_identifier}')
+
+        self._local_tree.add_to_tree(dir_node)
 
     def scan(self) -> LocalDiskTree:
         """Recurse over disk tree. Gather current stats for each file, and compare to the stale tree.
