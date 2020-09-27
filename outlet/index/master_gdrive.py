@@ -282,18 +282,13 @@ class GDriveMasterCache:
 
         self.load_gdrive_master_cache(invalidate_cache, sync_latest_changes, tree_id)
 
-        if subtree_root.uid == GDRIVE_ROOT_UID:
-            # Special case. GDrive does not have a single root (it treats shared drives as roots, for example).
-            # We'll use this special token to represent "everything"
-            gdrive_meta = self._my_gdrive
+        gdrive_meta = self._make_gdrive_display_tree(subtree_root)
+        if gdrive_meta:
+            logger.debug(f'[{tree_id}] Made display tree: {gdrive_meta}')
         else:
-            gdrive_meta = self._make_gdrive_display_tree(subtree_root)
-            if gdrive_meta:
-                logger.debug(f'[{tree_id}] Made display tree: {gdrive_meta}')
-            else:
-                raise GDriveItemNotFoundError(node_identifier=subtree_root,
-                                              msg=f'Cannot load subtree because it does not exist: "{subtree_root}"',
-                                              offending_path=subtree_root.full_path)
+            raise GDriveItemNotFoundError(node_identifier=subtree_root,
+                                          msg=f'Cannot load subtree because it does not exist: "{subtree_root}"',
+                                          offending_path=subtree_root.full_path)
         return gdrive_meta
 
     def refresh_stats(self, tree_id: str, subtree_root_node: GDriveFolder):

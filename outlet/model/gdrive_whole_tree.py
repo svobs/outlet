@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict, deque
-from typing import Callable, DefaultDict, Deque, Dict, List, Optional, Tuple
+from typing import Callable, DefaultDict, Deque, Dict, List, Optional, Tuple, Union
 
 from pydispatch import dispatcher
 
@@ -251,17 +251,25 @@ class GDriveWholeTree:
                 tree_type=constants.TREE_TYPE_GDRIVE, full_path=path), offending_path=path_so_far)
         return matching_ids
 
-    def is_in_subtree(self, path: str, subtree_root_path: str):
-        if isinstance(path, list):
-            for p in path:
+    def in_this_subtree(self, full_path: Union[str, List[str]]):
+        # basically always true
+        return full_path.startswith(constants.ROOT_PATH)
+
+    def is_in_subtree(self, full_path: Union[str, List[str]], subtree_root_path: str):
+        if isinstance(full_path, list):
+            for p in full_path:
                 # i.e. any
                 if p.startswith(subtree_root_path):
                     return True
             return False
 
-        return path.startswith(subtree_root_path)
+        return full_path.startswith(subtree_root_path)
 
     def get_parent_for_node(self, node: GDriveNode, required_subtree_path: str = None) -> Optional[GDriveNode]:
+        if node.get_tree_type() != constants.TREE_TYPE_GDRIVE:
+            logger.debug(f'get_parent_for_node(): node has wrong tree type ({node.get_tree_type()}); returning None')
+            return None
+
         assert isinstance(node, GDriveNode)
         parent_uids = node.get_parent_uids()
         if parent_uids:
@@ -323,6 +331,8 @@ class GDriveWholeTree:
         return self.roots
 
     def get_children(self, node: GDriveNode) -> List[GDriveNode]:
+        if node.uid == constants.GDRIVE_ROOT_UID:
+            return self.get_children_for_root()
         return self.first_parent_dict.get(node.uid, [])
 
     def get_node_for_goog_id_and_parent_uid(self, goog_id: str, parent_uid: UID) -> Optional[GDriveNode]:
@@ -373,6 +383,10 @@ class GDriveWholeTree:
 
     def get_node_for_uid(self, uid: UID) -> Optional[GDriveNode]:
         assert uid
+        if uid == constants.GDRIVE_ROOT_UID:
+            # fake root:
+            return GDriveFolder(NodeIdentifierFactory.get_gdrive_root_constant_identifier(), None, None, constants.NOT_TRASHED, None, None,
+                                None, None, None, None, None, None)
         return self.id_dict.get(uid, None)
 
     def resolve_uids_to_goog_ids(self, uids: List[UID]) -> List[str]:

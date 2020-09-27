@@ -99,9 +99,8 @@ class LocalDiskScanner(LocalTreeRecurser):
         file_counter = FileCounter(self.root_path)
         file_counter.recurse_through_dir_tree()
 
-        total = file_counter.files_to_scan
-        logger.debug(f'Found {total} files to scan.')
-        return total
+        logger.debug(f'Found {file_counter.files_to_scan} files and {file_counter.dirs_to_scan} dirs to scan.')
+        return file_counter.files_to_scan
 
     def handle_file(self, file_path: str):
         stale_fmeta: LocalFileNode = self.cache_manager.get_node_for_local_path(file_path)

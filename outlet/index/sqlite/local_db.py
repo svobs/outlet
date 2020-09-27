@@ -74,8 +74,15 @@ class LocalDiskDatabase(MetaDatabase):
     def upsert_local_file(self, item, commit=True):
         self.table_local_file.upsert_object(item, commit=commit)
 
+    def upsert_local_file_list(self, file_list: List[LocalFileNode], commit=True):
+        self.table_local_file.upsert_object_list(file_list, commit=commit)
+
     def delete_local_file_with_uid(self, uid: UID, commit=True):
         self.table_local_file.delete_for_uid(uid, commit=commit)
+
+    def delete_local_files_for_uid_list(self, uid_list: List[UID], commit=True):
+        uid_tuple_list = list(map(lambda uid: (uid,), uid_list))
+        self.table_local_file.delete_for_uid_list(uid_tuple_list, commit=commit)
 
     # LOCAL_DIR operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
@@ -97,12 +104,15 @@ class LocalDiskDatabase(MetaDatabase):
     def upsert_local_dir(self, item, commit=True):
         self.table_local_dir.upsert_object(item, commit=commit)
 
+    def upsert_local_dir_list(self, dir_list: List[LocalDirNode], commit=True):
+        self.table_local_dir.upsert_object_list(dir_list, commit=commit)
+
     def delete_local_dir_with_uid(self, uid: UID, commit=True):
-        sql = self.table_local_dir.build_delete() + f' WHERE uid = ?'
-        self.conn.execute(sql, (uid,))
-        if commit:
-            logger.debug('Committing!')
-            self.conn.commit()
+        self.table_local_dir.delete_for_uid(uid, commit=commit)
+
+    def delete_local_dirs_for_uid_list(self, uid_list: List[UID], commit=True):
+        uid_tuple_list = list(map(lambda uid: (uid,), uid_list))
+        self.table_local_dir.delete_for_uid_list(uid_tuple_list, commit=commit)
 
     # Other ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
