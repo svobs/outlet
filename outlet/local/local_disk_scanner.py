@@ -141,7 +141,7 @@ class LocalDiskScanner(LocalTreeRecurser):
     def handle_dir(self, dir_path: str):
         dir_node: LocalDirNode = self.cache_manager.get_node_for_local_path(dir_path)
         if dir_node:
-            logger.debug(f'[{self.tree_id}] Found existing dir node: {dir_node.node_identifier}')
+            # logger.debug(f'[{self.tree_id}] Found existing dir node: {dir_node.node_identifier}')
             dir_node.set_exists(True)
         else:
             uid = self.cache_manager.get_uid_for_path(dir_path)

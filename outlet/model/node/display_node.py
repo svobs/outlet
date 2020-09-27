@@ -235,6 +235,11 @@ class HasChildList(ABC):
         self.file_count = 0
         self.dir_count = 0
 
+    def set_stats_for_no_children(self):
+        self._size_bytes = 0
+        self.file_count = 0
+        self.dir_count = 0
+
     def add_meta_metrics(self, child_node: DisplayNode):
         if self._size_bytes is None:
             self._size_bytes = 0

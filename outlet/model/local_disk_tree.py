@@ -160,6 +160,7 @@ class LocalDiskTree(treelib.Tree):
         while len(stack) > 0:
             node = stack.pop()
             assert node.is_dir() and isinstance(node, HasChildList) and isinstance(node, LocalNode)
+            node.set_stats_for_no_children()
 
             children = self.get_children(node)
             if children:

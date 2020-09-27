@@ -583,6 +583,8 @@ class GDriveWholeTree:
             if children:
                 for child in children:
                     node.add_meta_metrics(child)
+            else:
+                node.set_stats_for_no_children()
 
             # logger.debug(f'Node {node.uid} ("{node.name}") has size={node.get_size_bytes()}, etc={node.get_etc()}')
 

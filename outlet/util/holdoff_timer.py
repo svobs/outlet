@@ -62,3 +62,4 @@ class HoldOffTimer:
 
             logger.debug(f'{self._thread.name} finished')
             self._finished.set()
+            self._thread = None
