@@ -240,7 +240,7 @@ class LiveTable(Table):
                 entries.append(self.tuple_to_obj_func(row))
         else:
             entries = rows
-        logger.debug(f'Retrieved {len(entries)} objects')
+        logger.debug(f'Retrieved {len(entries)} objects from table {self.name}')
         return entries
 
     def delete_for_uid(self, uid: UID, uid_col_name: str = 'uid', commit=True):

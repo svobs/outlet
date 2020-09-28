@@ -38,7 +38,6 @@ Create a virtual environment within this directory (`{project_name}`)  following
 * Pause/resume ops
 * CommandBuilder: look up MD5 for src_node and use a closer node
 * OpLedger: simplify the op tree each time the next change is requested
-* Monitor dirs with Watchdog
 * Filter by Trashed, Shared, etc.
 * Filter by name
 * Put GDrive files in trash
