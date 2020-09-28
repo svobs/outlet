@@ -133,6 +133,12 @@ class CacheManager:
         except NameError:
             pass
 
+        try:
+            if self._local_disk_cache:
+                self._local_disk_cache.shutdown()
+        except NameError:
+            pass
+
     # Startup loading/maintenance
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -472,8 +478,8 @@ class CacheManager:
         """Will load from disk or even GDrive server if necessary. Always updates with latest changes."""
         return self._gdrive_cache.load_gdrive_subtree(subtree_root=None, sync_latest_changes=True, invalidate_cache=False, tree_id=tree_id)
 
-    def build_local_file_node(self, full_path: str, staging_path=None) -> Optional[LocalFileNode]:
-        return self._local_disk_cache.build_local_file_node(full_path, staging_path)
+    def build_local_file_node(self, full_path: str, staging_path=None, must_scan_signature=False) -> Optional[LocalFileNode]:
+        return self._local_disk_cache.build_local_file_node(full_path, staging_path, must_scan_signature)
 
     def build_local_dir_node(self, full_path: str) -> LocalDirNode:
         return self._local_disk_cache.build_local_dir_node(full_path)

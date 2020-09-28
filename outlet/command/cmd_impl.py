@@ -286,7 +286,7 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
         cxt.gdrive_client.download_file(file_id=src_goog_id, dest_path=staging_path)
 
         # verify contents:
-        node: LocalFileNode = cxt.cache_manager.build_local_file_node(full_path=dst_path, staging_path=staging_path)
+        node: LocalFileNode = cxt.cache_manager.build_local_file_node(full_path=dst_path, staging_path=staging_path, must_scan_signature=True)
         if node.md5 != self.op.src_node.md5:
             raise RuntimeError(f'Downloaded MD5 ({node.md5}) does not matched expected ({self.op.src_node.md5})!')
 

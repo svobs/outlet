@@ -34,7 +34,7 @@ class CentralExecutor:
 
     def start_op_execution_thread(self):
         if not self._op_execution_thread.is_alive():
-            logger.debug('Starting op execution thread...')
+            logger.debug(f'Starting {self._op_execution_thread.name}...')
             self._op_execution_thread.start()
 
     def submit_async_task(self, task_func, *args):

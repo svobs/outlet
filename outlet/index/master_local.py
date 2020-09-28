@@ -4,7 +4,8 @@ import os
 import pathlib
 import threading
 import time
-from typing import Dict, List, Optional, Tuple
+from collections import deque
+from typing import Deque, Dict, List, Optional, Tuple
 
 import treelib
 from pydispatch import dispatcher
@@ -34,6 +35,28 @@ from util.stopwatch_sec import Stopwatch
 logger = logging.getLogger(__name__)
 
 
+def _calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Optional[str], Optional[str]]:
+    try:
+        # Open,close, read file and calculate hash of its contents
+        if staging_path:
+            md5: Optional[str] = local.content_hasher.md5(staging_path)
+        else:
+            md5: Optional[str] = local.content_hasher.md5(full_path)
+        # sha256 = local.content_hasher.dropbox_hash(full_path)
+        sha256: Optional[str] = None
+        return md5, sha256
+    except FileNotFoundError as err:
+        if os.path.islink(full_path):
+            target = os.readlink(full_path)
+            logger.error(f'Broken link, skipping: "{full_path}" -> "{target}"')
+        else:
+            logger.error(f'While building LocalFileNode: file not found; skipping: {full_path}')
+        # Return None. Will be assumed to be a deleted file
+        raise
+
+
+# CLASS SubtreeOperation
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class SubtreeOperation:
     def __init__(self, subtree_root_path: str, is_delete: bool, node_list: List[LocalNode]):
         self.subtree_root_path = subtree_root_path
@@ -42,10 +65,61 @@ class SubtreeOperation:
         self.node_list: List[LocalNode] = node_list
 
 
+# CLASS ContentScannerThread
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class ContentScannerThread(threading.Thread):
+    """Hasher thread which churns through hasher queue and sends updates to cacheman"""
+    def __init__(self, parent):
+        super().__init__(target=self._run_content_scanner_thread, name='ContentScannerThread', daemon=True)
+        self._shutdown: bool = False
+        self.master_cache = parent
+        self._node_queue: Deque[LocalFileNode] = deque()
+        self._cv_can_get = threading.Condition()
+        self._struct_lock = threading.Lock()
+
+    def enqueue(self, node: LocalFileNode):
+        assert not node.md5 and not node.sha256
+        with self._struct_lock:
+            self._node_queue.append(node)
+
+        with self._cv_can_get:
+            self._cv_can_get.notifyAll()
+
+    def request_shutdown(self):
+        logger.debug(f'Requesting shutdown of thread {self.name}')
+        self._shutdown = True
+        with self._cv_can_get:
+            # unblock thread:
+            self._cv_can_get.notifyAll()
+
+    def _process_single_node(self, node: LocalFileNode):
+        md5, sha256 = _calculate_signatures(node.full_path)
+        node.md5 = md5
+        node.sha256 = sha256
+
+        # Send back to ourselves to be re-stored in memory & disk caches:
+        dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
+
+    def _run_content_scanner_thread(self):
+        logger.info(f'Starting {self.name}...')
+
+        while not self._shutdown:
+            with self._struct_lock:
+                node: LocalFileNode = self._node_queue.popleft()
+            if node:
+                logger.debug(f'Got next node: {node.node_identifier}')
+                self._process_single_node(node)
+            else:
+                logger.debug(f'No pending ops; sleeping until notified')
+                with self._cv_can_get:
+                    self._cv_can_get.wait()
+
+
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 # CLASS LocalDiskMasterCache
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
+# TODO: consider scanning only root dir at first, then enqueuing subdirectories
 
 class LocalDiskMasterCache:
     def __init__(self, application):
@@ -61,6 +135,10 @@ class LocalDiskMasterCache:
         and every node. Since we want our tree move to be an atomic operation, we do it all at once, but then keep track of the
         nodes we've moved so that we know exactly which notifications to ignore after that.
         Dict is key-value pair of [old_file_path -> new_file_path]"""
+
+        self.lazy_load_signatures: bool = application.config.get('cache.lazy_load_local_file_signatures')
+
+        self._content_scanner_thread = ContentScannerThread(self)
 
         self.use_md5 = application.config.get('cache.enable_md5_lookup')
         if self.use_md5:
@@ -82,6 +160,16 @@ class LocalDiskMasterCache:
             root_node = RootTypeNode(node_identifier=LocalFsIdentifier(full_path=ROOT_PATH, uid=LOCAL_ROOT_UID))
             self._master_tree.add_node(node=root_node, parent=None)
 
+        if self.lazy_load_signatures:
+            self.start_content_scanner_thread()
+
+    def start_content_scanner_thread(self):
+        if not self._content_scanner_thread.is_alive():
+            self._content_scanner_thread.start()
+
+    def shutdown(self):
+        self._content_scanner_thread.request_shutdown()
+
     # Disk access
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -91,8 +179,8 @@ class LocalDiskMasterCache:
         stopwatch_load = Stopwatch()
 
         # Load cache from file, and update with any local FS ops found:
-        with LocalDiskDatabase(cache_info.cache_location, self.application) as fmeta_disk_cache:
-            if not fmeta_disk_cache.has_local_files() and not fmeta_disk_cache.has_local_dirs():
+        with LocalDiskDatabase(cache_info.cache_location, self.application) as disk_cache:
+            if not disk_cache.has_local_files() and not disk_cache.has_local_dirs():
                 logger.debug(f'No meta found in cache ({cache_info.cache_location}) - will skip loading it')
                 return None
 
@@ -112,7 +200,7 @@ class LocalDiskMasterCache:
 
             missing_nodes: List[DisplayNode] = []
 
-            dir_list: List[LocalDirNode] = fmeta_disk_cache.get_local_dirs()
+            dir_list: List[LocalDirNode] = disk_cache.get_local_dirs()
             if len(dir_list) == 0:
                 logger.debug('No dirs found in disk cache')
 
@@ -127,7 +215,7 @@ class LocalDiskMasterCache:
                 elif existing.full_path != dir_node.full_path:
                     raise RuntimeError(f'Existing={existing}, FromCache={dir_node}')
 
-            file_list: List[LocalFileNode] = fmeta_disk_cache.get_local_files()
+            file_list: List[LocalFileNode] = disk_cache.get_local_files()
             if len(file_list) == 0:
                 logger.debug('No files found in disk cache')
 
@@ -158,10 +246,10 @@ class LocalDiskMasterCache:
             file_list, dir_list = self._master_tree.get_all_files_and_dirs_for_subtree(cache_info.subtree_root)
 
         stopwatch_write_cache = Stopwatch()
-        with LocalDiskDatabase(cache_info.cache_location, self.application) as fmeta_disk_cache:
+        with LocalDiskDatabase(cache_info.cache_location, self.application) as disk_cache:
             # Update cache:
-            fmeta_disk_cache.insert_local_files(file_list, overwrite=True, commit=False)
-            fmeta_disk_cache.insert_local_dirs(dir_list, overwrite=True, commit=True)
+            disk_cache.insert_local_files(file_list, overwrite=True, commit=False)
+            disk_cache.insert_local_dirs(dir_list, overwrite=True, commit=True)
 
         cache_info.needs_save = False
         logger.info(f'[{tree_id}] {stopwatch_write_cache} Wrote {len(file_list)} files and {len(dir_list)} dirs to "{cache_info.cache_location}"')
@@ -514,11 +602,15 @@ class LocalDiskMasterCache:
             # new file or directory insert
             self._master_tree.add_to_tree(node)
 
-        # do this after the above, to avoid cache corruption in case of failure
-        if self.use_md5 and node.md5:
-            self.md5_dict.put(node, existing_node)
-        if self.use_sha256 and node.sha256:
-            self.sha256_dict.put(node, existing_node)
+        if node.is_file() and not node.md5 and not node.sha256:
+            assert isinstance(node, LocalFileNode)
+            self._content_scanner_thread.enqueue(node)
+        else:
+            # do this after the above, to avoid cache corruption in case of failure
+            if self.use_md5 and node.md5:
+                self.md5_dict.put(node, existing_node)
+            if self.use_sha256 and node.sha256:
+                self.sha256_dict.put(node, existing_node)
 
         return True
 
@@ -676,9 +768,7 @@ class LocalDiskMasterCache:
                     dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=removed_node)
 
             for src_node, dst_node in zip(rm_src_tree_op.node_list, add_dst_tree_op.node_list):
-                # FIXME: NODE_MOVED
-                dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=src_node)
-                dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=dst_node)
+                dispatcher.send(signal=actions.NODE_MOVED, sender=ID_GLOBAL_CACHE, src_node=src_node, dst_node=dst_node)
 
             # Now remove the root node, thus removing the entire tree
             removed_count = self._master_tree.remove_node(src_uid)
@@ -769,25 +859,25 @@ class LocalDiskMasterCache:
         # logger.debug(f'Creating dir node: nid={uid}')
         return LocalDirNode(node_identifier=LocalFsIdentifier(full_path=full_path, uid=uid), exists=True)
 
-    def build_local_file_node(self, full_path: str, staging_path=None) -> Optional[LocalFileNode]:
+    def build_local_file_node(self, full_path: str, staging_path: str = None, must_scan_signature=False) -> Optional[LocalFileNode]:
         uid = self.get_uid_for_path(full_path)
 
-        try:
-            # Open,close, read file and calculate hash of its contents
-            if staging_path:
-                md5 = local.content_hasher.md5(staging_path)
-            else:
-                md5 = local.content_hasher.md5(full_path)
-            # sha256 = fmeta.content_hasher.dropbox_hash(full_path)
-            sha256 = None
-        except FileNotFoundError:
-            if os.path.islink(full_path):
-                target = os.readlink(full_path)
+        if os.path.islink(full_path):
+            target = os.readlink(full_path)
+            if not os.path.exists(target):
                 logger.error(f'Broken link, skipping: "{full_path}" -> "{target}"')
-            else:
-                logger.error(f'While building LocalFileNode: file not found; skipping: {full_path}')
-            # Return None. Will be assumed to be a deleted file
-            return None
+                return None
+
+        if self.lazy_load_signatures and not must_scan_signature:
+            # Skip MD5 and set it NULL for now. Node will be added to content scanning queue when it is upserted into cache (above)
+            md5 = None
+            sha256 = None
+        else:
+            try:
+                md5, sha256 = _calculate_signatures(full_path, staging_path)
+            except FileNotFoundError:
+                # bad link
+                return None
 
         # Get "now" in UNIX time:
         sync_ts = int(time.time())

@@ -71,6 +71,11 @@ class DisplayMutator:
         except DispatcherKeyError:
             pass
 
+        try:
+            dispatcher.disconnect(signal=actions.NODE_MOVED, receiver=self._on_node_moved_in_cache)
+        except DispatcherKeyError:
+            pass
+
     def init(self):
         """Do post-wiring stuff like connect listeners."""
         logger.debug(f'[{self.con.tree_id}] DisplayMutator init')
@@ -87,6 +92,7 @@ class DisplayMutator:
         if self.con.treeview_meta.can_modify_tree:
             dispatcher.connect(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
             dispatcher.connect(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
+            dispatcher.connect(signal=actions.NODE_MOVED, receiver=self._on_node_moved_in_cache)
 
     def _populate_recursively(self, parent_iter, node: DisplayNode, node_count: int = 0) -> int:
         # Do a DFS of the change tree and populate the UI tree along the way
@@ -421,6 +427,10 @@ class DisplayMutator:
                     self._stats_refresh_timer.start_or_delay()
 
         GLib.idle_add(update_ui)
+
+    def _on_node_moved_in_cache(self, sender: str, src_node: DisplayNode, dst_node: DisplayNode):
+        self._on_node_removed_from_cache(sender, src_node)
+        self._on_node_upserted_in_cache(sender, dst_node)
 
     def _refresh_subtree_stats(self):
         # Requests the cacheman to recalculate stats for this subtree. Sends actions.REFRESH_SUBTREE_STATS_DONE when done
