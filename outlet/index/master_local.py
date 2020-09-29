@@ -97,6 +97,8 @@ class ContentScannerThread(threading.Thread):
         node.md5 = md5
         node.sha256 = sha256
 
+        logger.debug(f'[{self.name}] Node {node.uid} has MD5: {node.md5}')
+
         # Send back to ourselves to be re-stored in memory & disk caches:
         dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
 
@@ -105,14 +107,16 @@ class ContentScannerThread(threading.Thread):
 
         while not self._shutdown:
             with self._struct_lock:
-                node: LocalFileNode = self._node_queue.popleft()
-            if node:
-                logger.debug(f'Got next node: {node.node_identifier}')
-                self._process_single_node(node)
-            else:
-                logger.debug(f'No pending ops; sleeping until notified')
-                with self._cv_can_get:
-                    self._cv_can_get.wait()
+                if len(self._node_queue) > 0:
+                    node: LocalFileNode = self._node_queue.popleft()
+                    if node:
+                        logger.debug(f'[{self.name}] Calculating signature for node: {node.node_identifier}')
+                        self._process_single_node(node)
+                        continue
+                else:
+                    logger.debug(f'[{self.name}] No pending ops; sleeping until notified')
+            with self._cv_can_get:
+                self._cv_can_get.wait()
 
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛

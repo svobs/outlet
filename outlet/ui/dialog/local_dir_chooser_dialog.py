@@ -41,7 +41,7 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
 
 class LocalRootDirChooserDialog(Gtk.FileChooserDialog):
     def __init__(self, title, parent_win, tree_id, current_dir):
-        Gtk.FileChooserDialog.__init__(self, title=title, parent=parent_win, action=Gtk.FileChooserAction.SELECT_FOLDER)
+        Gtk.FileChooserDialog.__init__(self, title=title, transient_for=parent_win, action=Gtk.FileChooserAction.SELECT_FOLDER)
         self.tree_id = tree_id
         self.parent_win = parent_win
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
