@@ -50,9 +50,10 @@ def _calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Opt
             target = os.readlink(full_path)
             logger.error(f'Broken link, skipping: "{full_path}" -> "{target}"')
         else:
-            logger.error(f'While building LocalFileNode: file not found; skipping: {full_path}')
+            # Can happen often if temp files are rapidly created/destroyed. Assume it will be cleaned up elsewhere
+            logger.debug(f'Could not calculate signature: file not found; skipping: {full_path}')
         # Return None. Will be assumed to be a deleted file
-        raise
+        return None, None
 
 
 # CLASS SubtreeOperation
@@ -111,7 +112,10 @@ class ContentScannerThread(threading.Thread):
                     node: LocalFileNode = self._node_queue.popleft()
                     if node:
                         logger.debug(f'[{self.name}] Calculating signature for node: {node.node_identifier}')
-                        self._process_single_node(node)
+                        try:
+                            self._process_single_node(node)
+                        except Exception:
+                            logger.exception(f'Unexpected error while processing node: {node}')
                         continue
                 else:
                     logger.debug(f'[{self.name}] No pending ops; sleeping until notified')
@@ -715,16 +719,16 @@ class LocalDiskMasterCache:
             src_uid: UID = self.get_uid_for_path(src_full_path)
             src_node: LocalNode = self._master_tree.get_node(src_uid)
             if not src_node:
-                # TODO: recover from this by re-scanning the src tree
-                logger.error(f'TODO: if we are seeing this we have a corrupt cache!')
-                raise RuntimeError(f'Cannot move node because it was not found: {src_node}')
+                # FIXME: recover from this by re-scanning the src tree and processing as an ADD
+                # FIXME
+                raise RuntimeError(f'Cannot move node because it was not found in cache: {src_uid}')
 
             # Create up to 3 tree operations which should be executed in a single transaction if possible
             rm_existing_tree_op: Optional[SubtreeOperation] = None
             dst_uid: UID = self.get_uid_for_path(dst_full_path)
             dst_node: LocalNode = self._master_tree.get_node(dst_uid)
             if dst_node:
-                logger.debug(f'Subtree already exists at MV dst; will remove: {dst_full_path}')
+                logger.debug(f'Node already exists at MV dst; will remove: {dst_node.node_identifier}')
                 rm_existing_tree_op = self._build_subtree_removal_operation(dst_node, to_trash=False)
 
             rm_src_tree_op: SubtreeOperation = self._build_subtree_removal_operation(src_node, to_trash=False)
@@ -804,11 +808,10 @@ class LocalDiskMasterCache:
                 dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
 
     def _build_subtree_removal_operation(self, subtree_root: LocalNode, to_trash: bool) -> SubtreeOperation:
+        """subtree_root can be either a file or dir"""
         if to_trash:
             # TODO
             raise RuntimeError(f'Not supported: to_trash=true!')
-
-        assert isinstance(subtree_root, LocalDirNode)
 
         subtree_nodes: List[LocalNode] = self._master_tree.get_subtree_bfs(subtree_root.uid)
         return SubtreeOperation(subtree_root.full_path, is_delete=True, node_list=subtree_nodes)

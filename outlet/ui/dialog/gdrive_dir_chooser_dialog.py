@@ -2,6 +2,7 @@ import logging
 
 import gi
 from pydispatch import dispatcher
+from pydispatch.errors import DispatcherKeyError
 
 from constants import TREE_TYPE_GDRIVE
 from model.node_identifier import NodeIdentifier
@@ -59,7 +60,10 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         """Overrides Gtk.Dialog.destroy()"""
         logger.debug(f'GDriveDirChooserDialog.destroy() called')
         # Clean up:
-        dispatcher.disconnect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
+        try:
+            dispatcher.disconnect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
+        except DispatcherKeyError:
+            pass
         self.tree_controller.destroy()
         self.tree_controller = None
 

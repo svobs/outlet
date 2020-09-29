@@ -63,8 +63,12 @@ class TreeActions:
         self.con.display_mutator.expand_and_select_node(nid)
 
     def _call_exiftool_list(self, sender, node_list: List[DisplayNode]):
-        for item in node_list:
-            self._call_exiftool(sender, item.full_path)
+
+        def call_exiftool():
+            for item in node_list:
+                self._call_exiftool(sender, item.full_path)
+
+        self.con.app.executor.submit_async_task(call_exiftool, sender)
 
     def _call_exiftool(self, sender, full_path):
         """exiftool -AllDates="2001:01:01 12:00:00" *
