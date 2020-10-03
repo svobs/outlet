@@ -2,11 +2,10 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 from typing import Callable
 
+from constants import TASK_RUNNER_MAX_WORKERS
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
-
-MAX_WORKERS = 1
 
 
 # CLASS Task
@@ -37,7 +36,7 @@ class Task:
 class CentralTaskRunner:
     def __init__(self, application):
         self.application = application
-        self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix='TaskRunner-')
+        self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=TASK_RUNNER_MAX_WORKERS, thread_name_prefix='TaskRunner-')
 
     def enqueue(self, task_func, *args):
         logger.debug(f'Submitting new task to executor: "{task_func.__name__}"')

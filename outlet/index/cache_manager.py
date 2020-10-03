@@ -429,9 +429,11 @@ class CacheManager:
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def register_tree_controller(self, controller: TreePanelController):
+        logger.debug(f'[{controller.tree_id}] Registering controller')
         self._tree_controllers[controller.tree_id] = controller
 
     def unregister_tree_controller(self, controller: TreePanelController):
+        logger.debug(f'[{controller.tree_id}] Unregistering controller')
         popped_con = self._tree_controllers.pop(controller.tree_id, None)
         if popped_con:
             if self._is_live_capture_enabled and self._live_monitor:

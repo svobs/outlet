@@ -50,6 +50,7 @@ class TreePanelController:
         self.tree_actions = None
 
     def init(self):
+        logger.debug(f'[{self.tree_id}] Controller init')
         self._set_column_visibilities()
 
         """Should be called after all controller components have been wired together"""

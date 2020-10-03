@@ -6,6 +6,8 @@ APP_NAME = 'Outlet'
 
 VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp4', 'mpeg', 'mpg', 'm4v', 'avi', 'pdf', 'nef', 'vob')
 
+TASK_RUNNER_MAX_WORKERS = 1
+
 READ_CHUNK_SIZE = 1024 * 1024
 
 LARGE_NUMBER_OF_CHILDREN = 20000

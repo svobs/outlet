@@ -65,6 +65,12 @@ class SubtreeOperation:
         """If true, is a delete operation. If false, is upsert op."""
         self.node_list: List[LocalNode] = node_list
 
+    def get_summary(self) -> str:
+        if self.is_delete:
+            return f'RM "{self.subtree_root_path}" ({len(self.node_list)} nodes)'
+        else:
+            return f'UP "{self.subtree_root_path}" ({len(self.node_list)} nodes)'
+
 
 # CLASS ContentScannerThread
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -276,11 +282,16 @@ class LocalDiskMasterCache:
 
         logger.debug(f'Transferred {count} planning nodes into new tree with root {tree.get_node(tree.root).full_path})')
 
-    def _resync_with_file_system(self, subtree_root: LocalFsIdentifier, tree_id: str):
-        # Scan directory tree and update where needed.
+    def _scan_file_tree(self, subtree_root: LocalFsIdentifier, tree_id: str) -> LocalDiskTree:
+        if not os.path.isdir(subtree_root.full_path):
+            raise RuntimeError(f'Not a dir: {subtree_root.full_path}')
         logger.debug(f'[{tree_id}] Scanning filesystem subtree: {subtree_root}')
         scanner = LocalDiskScanner(application=self.application, root_node_identifer=subtree_root, tree_id=tree_id)
-        fresh_tree: treelib.Tree = scanner.scan()
+        return scanner.scan()
+
+    def _resync_with_file_system(self, subtree_root: LocalFsIdentifier, tree_id: str):
+        """Scan directory tree and update master tree where needed."""
+        fresh_tree: LocalDiskTree = self._scan_file_tree(subtree_root, tree_id)
 
         with self._struct_lock:
             self._cp_planning_nodes_into(fresh_tree)
@@ -684,14 +695,21 @@ class LocalDiskMasterCache:
         if fire_listeners:
             dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
 
-    def _update_memory_cache(self, subtree_operation: SubtreeOperation):
-        if subtree_operation.is_delete:
-            # Deletes must occur from bottom up:
-            for node in reversed(subtree_operation.node_list):
-                self._remove_single_node_from_memory_cache(node)
-        else:
-            for node in subtree_operation.node_list:
-                self._upsert_single_node_in_memory_cache(node)
+    def _update_memory_cache(self, subtree_op_list: List[SubtreeOperation]):
+        for subtree_operation in subtree_op_list:
+            try:
+                if subtree_operation.is_delete:
+                    # Deletes must occur from bottom up:
+                    for node in reversed(subtree_operation.node_list):
+                        self._remove_single_node_from_memory_cache(node)
+                    logger.debug(f'Removed {len(subtree_operation.node_list)} nodes to memcache dst "{subtree_operation.subtree_root_path}"')
+                else:
+                    for node in subtree_operation.node_list:
+                        self._upsert_single_node_in_memory_cache(node)
+                    logger.debug(f'Added {len(subtree_operation.node_list)} nodes to memcache dst "{subtree_operation.subtree_root_path}"')
+            except Exception:
+                # TODO: clean up after exception
+                logger.exception(f'Failed to update memory cache for operation: {subtree_operation.get_summary()}')
 
     def _migrate_node(self, node: LocalNode, src_full_path: str, dst_full_path: str) -> LocalNode:
         new_node_full_path: str = file_util.change_path_to_new_root(node.full_path, src_full_path, dst_full_path)
@@ -703,6 +721,17 @@ class LocalDiskMasterCache:
         new_node._successors.clear()
         new_node.set_node_identifier(LocalFsIdentifier(full_path=new_node_full_path, uid=new_node_uid))
         return new_node
+
+    def _add_to_expected_node_moves(self, rm_src_tree_op, add_dst_tree_op):
+        first = True
+        # Let's collate these two operations so that in case of failure, we have less inconsistent state
+        for src_node, dst_node in zip(rm_src_tree_op.node_list, add_dst_tree_op.node_list):
+            logger.debug(f'Migrating copy of node {src_node.node_identifier} to {dst_node.node_identifier}')
+            if first:
+                # ignore subroot
+                first = False
+            else:
+                self._expected_node_moves[src_node.full_path] = dst_node.full_path
 
     def move_local_subtree(self, src_full_path: str, dst_full_path: str, is_from_watchdog=False):
         with self._struct_lock:
@@ -718,10 +747,11 @@ class LocalDiskMasterCache:
 
             src_uid: UID = self.get_uid_for_path(src_full_path)
             src_node: LocalNode = self._master_tree.get_node(src_uid)
-            if not src_node:
-                # FIXME: recover from this by re-scanning the src tree and processing as an ADD
-                # FIXME
-                raise RuntimeError(f'Cannot move node because it was not found in cache: {src_uid}')
+            if src_node:
+                rm_src_tree_op: Optional[SubtreeOperation] = self._build_subtree_removal_operation(src_node, to_trash=False)
+            else:
+                rm_src_tree_op = None
+                logger.debug(f'MV src node does not exist: UID={src_uid}, path={src_full_path}')
 
             # Create up to 3 tree operations which should be executed in a single transaction if possible
             rm_existing_tree_op: Optional[SubtreeOperation] = None
@@ -731,43 +761,38 @@ class LocalDiskMasterCache:
                 logger.debug(f'Node already exists at MV dst; will remove: {dst_node.node_identifier}')
                 rm_existing_tree_op = self._build_subtree_removal_operation(dst_node, to_trash=False)
 
-            rm_src_tree_op: SubtreeOperation = self._build_subtree_removal_operation(src_node, to_trash=False)
             add_dst_tree_op: SubtreeOperation = SubtreeOperation(dst_full_path, is_delete=False, node_list=[])
 
-            for src_node in rm_src_tree_op.node_list:
-                dst_node = self._migrate_node(src_node, src_full_path, dst_full_path)
-                add_dst_tree_op.node_list.append(dst_node)
+            if rm_src_tree_op:
+                for src_node in rm_src_tree_op.node_list:
+                    dst_node = self._migrate_node(src_node, src_full_path, dst_full_path)
+                    add_dst_tree_op.node_list.append(dst_node)
+            else:
+                # Rescan dir in dst_full_path for nodes
+                if os.path.isdir(dst_full_path):
+                    dst_node_identifier: LocalFsIdentifier = LocalFsIdentifier(dst_full_path, dst_uid)
+                    fresh_tree: LocalDiskTree = self._scan_file_tree(dst_node_identifier, ID_GLOBAL_CACHE)
+                    for dst_node in fresh_tree.get_subtree_bfs():
+                        add_dst_tree_op.node_list.append(dst_node)
+                    logger.debug(f'Added node list contains {len(add_dst_tree_op.node_list)} nodes')
+                else:
+                    local_node: LocalFileNode = self.build_local_file_node(dst_full_path)
+                    add_dst_tree_op.node_list.append(local_node)
 
-            # 1. Update memory cache:
-            if rm_existing_tree_op:
-                self._update_memory_cache(rm_existing_tree_op)
-
-            first = True
-            # Let's collate these two operations so that in case of failure, we have less inconsistent state
-            for src_node, dst_node in zip(rm_src_tree_op.node_list, add_dst_tree_op.node_list):
-                logger.debug(f'Migrating copy of node {src_node.node_identifier} to {dst_node.node_identifier}')
-
-                self._master_tree.add_to_tree(dst_node)
-                if self.use_md5 and src_node.md5:
-                    self.md5_dict.remove(src_node.md5, src_node.full_path)
-                    self.md5_dict.put(dst_node)
-                if self.use_sha256 and src_node.sha256:
-                    self.sha256_dict.remove(src_node.sha256, src_node.full_path)
-                    self.md5_dict.put(dst_node)
-
-                if is_from_watchdog:
-                    if first:
-                        # ignore subroot
-                        first = False
-                    else:
-                        self._expected_node_moves[src_node.full_path] = dst_node.full_path
-            logger.debug(f'Added {len(add_dst_tree_op.node_list)} nodes to memcache dst "{dst_full_path}"')
-
-            # 2. Update on-disk cache:
-            subtree_op_list: List[SubtreeOperation] = [rm_src_tree_op, add_dst_tree_op]
+            subtree_op_list: List[SubtreeOperation] = [add_dst_tree_op]
+            if rm_src_tree_op:
+                subtree_op_list.append(rm_src_tree_op)
             if rm_existing_tree_op:
                 subtree_op_list.append(rm_existing_tree_op)
 
+            # 1. Update memory cache:
+            self._update_memory_cache(subtree_op_list)
+
+            # 1a. housekeeping
+            if rm_src_tree_op and is_from_watchdog:
+                self._add_to_expected_node_moves(rm_src_tree_op, add_dst_tree_op)
+
+            # 2. Update on-disk cache:
             self._update_disk_cache(subtree_op_list)
 
             # 3. Send notifications:
@@ -775,12 +800,14 @@ class LocalDiskMasterCache:
                 for removed_node in rm_existing_tree_op.node_list:
                     dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=removed_node)
 
-            for src_node, dst_node in zip(rm_src_tree_op.node_list, add_dst_tree_op.node_list):
-                dispatcher.send(signal=actions.NODE_MOVED, sender=ID_GLOBAL_CACHE, src_node=src_node, dst_node=dst_node)
-
-            # Now remove the root node, thus removing the entire tree
-            removed_count = self._master_tree.remove_node(src_uid)
-            logger.debug(f'Removed {removed_count} nodes from src "{src_full_path}"')
+            if rm_src_tree_op:
+                # MOVE from src to dst
+                for src_node, dst_node in zip(rm_src_tree_op.node_list, add_dst_tree_op.node_list):
+                    dispatcher.send(signal=actions.NODE_MOVED, sender=ID_GLOBAL_CACHE, src_node=src_node, dst_node=dst_node)
+            else:
+                # UPSERT at destination only
+                for dst_node in add_dst_tree_op.node_list:
+                    dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=dst_node)
 
     def remove_local_subtree(self, subtree_root: LocalNode, to_trash: bool):
         logger.debug(f'Removing subtree_root from caches (to_trash={to_trash}): {subtree_root}')
@@ -800,7 +827,7 @@ class LocalDiskMasterCache:
             operation: SubtreeOperation = self._build_subtree_removal_operation(subtree_root, to_trash)
             logger.info(f'Removing subtree with {len(operation.node_list)} nodes')
 
-            self._update_memory_cache(operation)
+            self._update_memory_cache([operation])
 
             self._update_disk_cache([operation])
 

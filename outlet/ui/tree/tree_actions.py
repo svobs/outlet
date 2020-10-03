@@ -68,12 +68,10 @@ class TreeActions:
             for item in node_list:
                 self._call_exiftool(sender, item.full_path)
 
-        self.con.app.executor.submit_async_task(call_exiftool, sender)
+        self.con.app.executor.submit_async_task(call_exiftool)
 
     def _call_exiftool(self, sender, full_path):
-        """exiftool -AllDates="2001:01:01 12:00:00" *
-        exiftool -Comment="Hawaii" {target_dir}
-        find . -name "*jpg_original" -exec rm -fv {} \;
+        """See "Misc EXIF Tool Notes" in README.md
         """
         if not os.path.exists(full_path):
             self.con.parent_win.show_error_msg(f'Cannot manipulate dir', f'Dir not found: {full_path}')

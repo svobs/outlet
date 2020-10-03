@@ -63,7 +63,7 @@ class TreeFactory:
 
     def build(self):
         """Builds a single instance of a tree panel, and configures all its components as specified."""
-        logger.debug(f'Building controller for tree: {self.tree_id}')
+        logger.debug(f'[{self.tree_id}] Building controller for tree')
 
         if self.allow_multiple_selection:
             gtk_selection_mode = Gtk.SelectionMode.MULTIPLE
