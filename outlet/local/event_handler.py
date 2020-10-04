@@ -15,10 +15,11 @@ def _what(event):
 
 class LocalChangeEventHandler(FileSystemEventHandler):
     """Logs all the events captured."""
-    def __init__(self, application):
+    def __init__(self, application, batching_thread):
         super().__init__()
         self.app = application
         self.cacheman = self.app.cache_manager
+        self.batching_thread = batching_thread
 
     def on_moved(self, event):
         try:
@@ -40,7 +41,7 @@ class LocalChangeEventHandler(FileSystemEventHandler):
                 node: LocalNode = self.cacheman.build_local_file_node(event.src_path)
             self.cacheman.add_or_update_node(node)
         except FileNotFoundError as err:
-            logger.warning(f'Could not process external event (MK {_what(event)} "{event.src_path}"): file not found: "{err.filename}"')
+            logger.debug(f'Could not process external event (MK {_what(event)} "{event.src_path}"): file not found: "{err.filename}"')
         except Exception:
             logger.exception(f'Error processing external event: MK {_what(event)} "{event.src_path}"')
 
@@ -62,16 +63,13 @@ class LocalChangeEventHandler(FileSystemEventHandler):
             logger.exception(f'Error processing external event: RM {_what(event)} "{event.src_path}"')
 
     def on_modified(self, event):
-        # FIXME: when a watched file is modified, it hammers us with events. Batch these at some small interval to avoid thrashing
+        # When a watched file is modified, it hammers us with events. Wait a small interval between updates to avoid unnecessary CPU churn
         try:
             super(LocalChangeEventHandler, self).on_modified(event)
-            logger.info(f'Detected CH {_what(event)}: {event.src_path}')
+            # logger.debug(f'Detected CH {_what(event)}: {event.src_path}')
 
             # We don't currently track meta for local dirs
             if not event.is_directory:
-                node: LocalNode = self.cacheman.build_local_file_node(event.src_path)
-                self.cacheman.add_or_update_node(node)
-        except FileNotFoundError as err:
-            logger.warning(f'Cannot process external event (CH {event.src_path}): file not found: "{err.filename}"')
+                self.batching_thread.enqueue(event.src_path)
         except Exception:
             logger.exception(f'Error processing external event: CH {_what(event)} "{event.src_path}"')
