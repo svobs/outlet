@@ -72,7 +72,7 @@ class LocalChangeBatchingThread(threading.Thread):
             change_set = self.change_set
             self.change_set = set()
 
-            count = len(self.change_set)
+            count = len(change_set)
             if count > 0:
                 logger.debug(f'{self.name}: applying {count} local file updates...')
                 for change_path in change_set:
@@ -81,7 +81,7 @@ class LocalChangeBatchingThread(threading.Thread):
                         node: LocalNode = self.cacheman.build_local_file_node(change_path)
                         self.cacheman.add_or_update_node(node)
                     except FileNotFoundError as err:
-                        logger.warning(f'Cannot process external event (CH {change_path}): file not found: "{err.filename}"')
+                        logger.debug(f'Cannot process external CH event: file not found: "{err.filename}"')
 
                 # TODO: maybe combine with condition variable so we aren't excessively waking
                 logger.debug(f'{self.name}: sleeping for {self.local_change_batch_interval_ms} ms')
