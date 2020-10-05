@@ -329,7 +329,7 @@ class CacheManager:
         dispatcher.send(signal=actions.LOAD_SUBTREE_STARTED, sender=tree_id)
 
         if self._is_live_capture_enabled:
-            self._live_monitor.start_capture(node_identifier, tree_id)
+            self._live_monitor.start_or_update_capture(node_identifier, tree_id)
 
         if node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
             assert self._local_disk_cache

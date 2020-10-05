@@ -25,7 +25,7 @@ GDRIVE_DIR_CHOOSER_DIALOG_DEFAULT_HEIGHT = 800
 class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
 
     def __init__(self, parent_win: BaseDialog, tree, tree_id: str, current_selection: NodeIdentifier):
-        Gtk.Dialog.__init__(self, "Select GDrive Root", parent_win, 0)
+        Gtk.Dialog.__init__(self, title="Select GDrive Root", transient_for=parent_win, flags=0)
         BaseDialog.__init__(self, application=parent_win.application)
 
         self.tree_id = tree_id

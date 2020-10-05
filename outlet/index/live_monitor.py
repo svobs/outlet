@@ -181,7 +181,7 @@ class LiveMonitor:
             self._gdrive_polling_thread.request_shutdown()
             self._gdrive_polling_thread = None
 
-    def start_capture(self, node_identifier: NodeIdentifier, tree_id: str):
+    def start_or_update_capture(self, node_identifier: NodeIdentifier, tree_id: str):
         """Also updates existing capture"""
         with self._struct_lock:
             prev_identifier: NodeIdentifier = self._active_tree_dict.get(tree_id, None)
@@ -223,6 +223,7 @@ class LiveMonitor:
                 self._start_local_disk_capture(node_identifier.full_path, tree_id)
 
     def stop_capture(self, tree_id: str):
+        """If capture doesn't exist, does nothing"""
         with self._struct_lock:
             prev_identifier: NodeIdentifier = self._active_tree_dict.pop(tree_id, None)
             if prev_identifier:
@@ -242,7 +243,7 @@ class LiveMonitor:
                     self._stop_local_disk_capture(prev_identifier.full_path, tree_id)
 
             else:
-                logger.error(f'[{tree_id}] Trying to remove capture which was not found!')
+                logger.debug(f'[{tree_id}] Trying to remove capture which was not found')
                 assert tree_id not in self._active_gdrive_tree_set, \
                     f'Expected not to find "{self._active_gdrive_tree_set}" in active GDrive tree set!'
 

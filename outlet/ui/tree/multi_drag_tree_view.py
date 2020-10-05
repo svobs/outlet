@@ -25,11 +25,13 @@ def get_primary_accel_mod():
     return Gtk.accelerator_parse("<Primary>")[1]
 
 
-def is_accel(event, *accels):
+def is_accel(display: Gdk.Display, event, *accels):
     """Checks if the given keypress Gdk.Event matches
     any of accelerator strings.
     example: is_accel(event, "<shift><ctrl>z")
     Args:
+        display: current display
+        event: event
         *accels: one ore more `str`
     Returns:
         bool
@@ -49,7 +51,7 @@ def is_accel(event, *accels):
         keyval = ord(chr(keyval).lower())
 
     default_mod = Gtk.accelerator_get_default_mod_mask()
-    keymap = Gdk.Keymap.get_for_display()
+    keymap = Gdk.Keymap.get_for_display(display)
 
     for accel in accels:
         accel_keyval, accel_mod = Gtk.accelerator_parse(accel)
@@ -124,7 +126,8 @@ class BaseView(Gtk.TreeView):
         self.connect("button-release-event", on_button_release_event)
 
     def do_key_press_event(self, event):
-        if is_accel(event, "space", "KP_Space"):
+        display = self.get_display()
+        if is_accel(display, event, "space", "KP_Space"):
             return False
         return Gtk.TreeView.do_key_press_event(self, event)
 
@@ -135,11 +138,12 @@ class BaseView(Gtk.TreeView):
             model, paths = selection.get_selected_rows()
             return paths and paths[0] or None
 
-        if is_accel(event, "Right") or is_accel(event, "<Primary>Right"):
+        display = self.get_display()
+        if is_accel(display, event, "Right") or is_accel(display, event, "<Primary>Right"):
             first = get_first_selected()
             if first:
                 self.expand_row(first, False)
-        elif is_accel(event, "Left") or is_accel(event, "<Primary>Left"):
+        elif is_accel(display, event, "Left") or is_accel(display, event, "<Primary>Left"):
             first = get_first_selected()
             if first:
                 if self.row_expanded(first):
