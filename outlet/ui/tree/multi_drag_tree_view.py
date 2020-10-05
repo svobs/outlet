@@ -49,7 +49,7 @@ def is_accel(event, *accels):
         keyval = ord(chr(keyval).lower())
 
     default_mod = Gtk.accelerator_get_default_mod_mask()
-    keymap = Gdk.Keymap.get_default()
+    keymap = Gdk.Keymap.get_for_display()
 
     for accel in accels:
         accel_keyval, accel_mod = Gtk.accelerator_parse(accel)
