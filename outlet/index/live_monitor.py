@@ -46,12 +46,12 @@ class GDrivePollingThread(threading.Thread):
             time.sleep(self.gdrive_thread_polling_interval_sec)
 
 
-# CLASS LocalChangeBatchingThread
+# CLASS LocalFileChangeBatchingThread
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class LocalChangeBatchingThread(threading.Thread):
+class LocalFileChangeBatchingThread(threading.Thread):
     def __init__(self, parent):
-        super().__init__(target=self._run, name=f'LocalChangeBatchingThread', daemon=True)
+        super().__init__(target=self._run, name=f'LocalFileChangeBatchingThread', daemon=True)
         self._shutdown: bool = False
         self.cacheman = parent.app.cache_manager
         self.local_change_batch_interval_ms: int = parent.local_change_batch_interval_ms
@@ -116,7 +116,7 @@ class LiveMonitor:
 
         self._gdrive_polling_thread: Optional[GDrivePollingThread] = None
         self._count_gdrive_threads: int = 0
-        self._local_change_batching_thread: Optional[LocalChangeBatchingThread] = None
+        self._local_change_batching_thread: Optional[LocalFileChangeBatchingThread] = None
 
         self._watchdog_observer = Observer()
 
@@ -138,7 +138,7 @@ class LiveMonitor:
         logger.debug(f'[{tree_id}] Starting disk capture for path="{full_path}"')
 
         if not self._local_change_batching_thread or not self._local_change_batching_thread.is_alive():
-            self._local_change_batching_thread = LocalChangeBatchingThread(self)
+            self._local_change_batching_thread = LocalFileChangeBatchingThread(self)
             self._local_change_batching_thread.start()
 
         event_handler = LocalChangeEventHandler(self.app, self._local_change_batching_thread)

@@ -32,14 +32,13 @@ Create a virtual environment within this directory (`{project_name}`)  following
     make init
 
 ### Future Major Features (TODO)
-* Separate signature generation into background process
 * Detach service
 * Run multiple concurrent ops
 * Pause/resume ops
 * CommandBuilder: look up MD5 for src_node and use a closer node
 * OpLedger: simplify the op tree each time the next change is requested
-* Filter by Trashed, Shared, etc.
-* Filter by name
+* Filter UI by Trashed, Shared, etc.
+* Filter by name (aka search)
 * Put GDrive files in trash
 * Put local files in trash
 * Bulk delete dir trees instead of one by one
