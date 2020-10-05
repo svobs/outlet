@@ -560,7 +560,7 @@ class DisplayMutator:
         return self.con.display_store.append_node(parent_node_iter, row_values)
 
     def _get_icon_for_node(self, node: DisplayNode) -> str:
-        op: Op = self.con.app.cache_manager.get_last_pending_op_for_node(node.uid)
+        op: Optional[Op] = self.con.app.cache_manager.get_last_pending_op_for_node(node.uid)
         if op and not op.is_completed():
             logger.debug(f'[{self.con.tree_id}] Found pending op for node {node.uid}: {op.op_type.name}')
             icon = op.get_icon_for_node(node.uid)

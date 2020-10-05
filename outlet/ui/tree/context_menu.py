@@ -4,13 +4,14 @@ import re
 from typing import List, Optional
 
 import gi
-from gi.overrides import GLib
+from gi.repository import GLib
 from pydispatch import dispatcher
 
 from constants import GDRIVE_PATH_PREFIX, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.container_node import CategoryNode
 from model.node.display_node import DisplayNode
 from model.node.gdrive_node import GDriveNode
+from model.op import Op
 from ui import actions
 from ui.tree.tree_actions import DATE_REGEX
 
@@ -150,25 +151,28 @@ class TreeContextMenu:
 
         menu = Gtk.Menu()
 
-        if False:  # FIXME isinstance(node, FileDecoratorNode): Look up in OpLedger
-            # Source:
-            item = TreeContextMenu.build_full_path_display_item(menu, 'Src: ', node.src_node)
-            if node.exists():
+        op: Optional[Op] = self.con.app.cache_manager.get_last_pending_op_for_node(node.uid)
+        if op and not op.is_completed() and op.has_dst():
+            # Split into separate entries for src and dst.
+
+            # (1/2) Source:
+            item = TreeContextMenu.build_full_path_display_item(menu, 'Src: ', op.src_node)
+            if op.src_node.exists():
                 src_submenu = Gtk.Menu()
                 item.set_submenu(src_submenu)
-                self._build_menu_items_for_single_node(src_submenu, tree_path, node.src_node)
+                self._build_menu_items_for_single_node(src_submenu, tree_path, op.src_node)
             else:
                 item.set_sensitive(False)
 
             item = Gtk.SeparatorMenuItem()
             menu.append(item)
 
-            # Destination:
-            item = TreeContextMenu.build_full_path_display_item(menu, 'Dst: ', node)
-            if node.exists():
+            # (2/2) Destination:
+            item = TreeContextMenu.build_full_path_display_item(menu, 'Dst: ', op.dst_node)
+            if op.dst_node.exists():
                 dst_submenu = Gtk.Menu()
                 item.set_submenu(dst_submenu)
-                self._build_menu_items_for_single_node(dst_submenu, tree_path, node)
+                self._build_menu_items_for_single_node(dst_submenu, tree_path, op.dst_node)
             else:
                 item.set_sensitive(False)
 
