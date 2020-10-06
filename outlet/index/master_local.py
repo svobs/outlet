@@ -702,11 +702,11 @@ class LocalDiskMasterCache:
                     # Deletes must occur from bottom up:
                     for node in reversed(subtree_operation.node_list):
                         self._remove_single_node_from_memory_cache(node)
-                    logger.debug(f'Removed {len(subtree_operation.node_list)} nodes to memcache dst "{subtree_operation.subtree_root_path}"')
+                    logger.debug(f'Removed {len(subtree_operation.node_list)} nodes from memcache path "{subtree_operation.subtree_root_path}"')
                 else:
                     for node in subtree_operation.node_list:
                         self._upsert_single_node_in_memory_cache(node)
-                    logger.debug(f'Added {len(subtree_operation.node_list)} nodes to memcache dst "{subtree_operation.subtree_root_path}"')
+                    logger.debug(f'Added {len(subtree_operation.node_list)} nodes to memcache path "{subtree_operation.subtree_root_path}"')
             except Exception:
                 # TODO: clean up after exception
                 logger.exception(f'Failed to update memory cache for operation: {subtree_operation.get_summary()}')

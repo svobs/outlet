@@ -366,9 +366,9 @@ class TreeUiListeners:
         return False
 
     def on_single_row_activated(self, tree_view, tree_path):
-        """Fired when an item is double-clicked or when an item is selected and Enter is pressed"""
-        item: DisplayNode = self.con.display_store.get_node_data(tree_path)
-        if item.is_dir():
+        """Fired when an node is double-clicked or when an node is selected and Enter is pressed"""
+        node: DisplayNode = self.con.display_store.get_node_data(tree_path)
+        if node.is_dir():
             # Expand/collapse row:
             if tree_view.row_expanded(tree_path):
                 tree_view.collapse_row(tree_path)
@@ -378,26 +378,26 @@ class TreeUiListeners:
         else:
             # Attempt to open it no matter where it is.
             # In the future, we should enhance this so that it will find the most convenient copy anywhere and open that
-            if item.exists():
-                if item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-                    dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, full_path=item.full_path)
+            if node.exists():
+                if node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+                    dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, node=node)
                     return True
-                elif item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
-                    dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=item)
+                elif node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
+                    dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=node)
                     return True
             # FIXME: Look up in Cacheman based on signature
-            # elif isinstance(item, FileDecoratorNode):
+            # elif isinstance(node, FileDecoratorNode):
             #     # if it references a source node, maybe that is accessible instead?
-            #     item = item.src_node
-            #     if TreeContextMenu.file_exists(item):
-            #         if item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-            #             dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, full_path=item.full_path)
+            #     node = node.src_node
+            #     if TreeContextMenu.file_exists(node):
+            #         if node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+            #             dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, full_path=node.full_path)
             #             return True
-            #         elif item.node_identifier.tree_type == TREE_TYPE_GDRIVE:
-            #             dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=item)
+            #         elif node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
+            #             dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=node)
             #             return True
             else:
-                logger.debug(f'Aborting activation: file does not exist: {item}')
+                logger.debug(f'Aborting activation: file does not exist: {node}')
         return False
 
     def on_multiple_rows_activated(self, tree_view, tree_paths):

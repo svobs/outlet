@@ -49,6 +49,7 @@ class TreeActions:
         dispatcher.connect(signal=actions.DELETE_SUBTREE, sender=self.con.tree_id, receiver=self._delete_subtree)
         dispatcher.connect(signal=actions.SET_ROWS_CHECKED, sender=self.con.tree_id, receiver=self._check_rows)
         dispatcher.connect(signal=actions.SET_ROWS_UNCHECKED, sender=self.con.tree_id, receiver=self._uncheck_rows)
+        dispatcher.connect(signal=actions.REFRESH_SUBTREE, sender=self.con.tree_id, receiver=self._refresh_subtree)
         dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id, receiver=self._refresh_subtree_stats)
 
     # ACTIONS begin
@@ -128,7 +129,8 @@ class TreeActions:
         finally:
             gdrive_client.shutdown()
 
-    def _call_xdg_open(self, sender, full_path):
+    def _call_xdg_open(self, sender, node: DisplayNode):
+        full_path: str = node.full_path
         if os.path.exists(full_path):
             logger.info(f'[{self.con.tree_id}] Calling xdg-open for: {full_path}')
             subprocess.run(["xdg-open", full_path])
@@ -184,6 +186,14 @@ class TreeActions:
     def _uncheck_rows(self, sender, tree_paths: List[Gtk.TreePath] = None):
         for tree_path in tree_paths:
             self.con.display_store.set_row_checked(tree_path, False)
+
+    def _refresh_subtree(self, sender, node: DisplayNode):
+        logger.info(f'[{self.con.tree_id}] Enqueuing task to refresh subtree at {node.node_identifier}')
+        self.con.parent_win.application.executor.submit_async_task(self._refresh_subtree_async_task, node, self.con.tree_id)
+
+    def _refresh_subtree_async_task(self, node: DisplayNode, tree_id: str):
+        # TODO
+        pass
 
     def _refresh_subtree_stats(self, sender):
         logger.info(f'[{self.con.tree_id}] Enqueuing task to refresh stats')

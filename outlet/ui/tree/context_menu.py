@@ -117,6 +117,7 @@ class TreeContextMenu:
             item.connect('activate', self.send_signal, actions.ROOT_PATH_UPDATED, {'new_root': node.node_identifier})
             menu.append(item)
 
+        # MenuItem: 'Use EXIFTool on dir'
         if file_exists and is_dir and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
             match = re.match(DATE_REGEX, file_name)
             if match:
@@ -124,6 +125,7 @@ class TreeContextMenu:
                 item.connect('activate', self.send_signal, actions.CALL_EXIFTOOL, {'full_path': full_path})
                 menu.append(item)
 
+        # MenuItem: 'Delete tree'
         if file_exists and is_dir and not is_category_node:
             label = f'Delete tree "{file_name}"'
             if is_gdrive:
@@ -133,6 +135,7 @@ class TreeContextMenu:
             item.connect('activate', self.send_signal, actions.DELETE_SUBTREE, {'node': node})
             menu.append(item)
 
+        # MenuItem: 'Delete'
         if file_exists and not is_dir:
             label = f'Delete "{file_name}"'
             if is_gdrive:
@@ -141,18 +144,25 @@ class TreeContextMenu:
             item.connect('activate', self.send_signal, actions.DELETE_SINGLE_FILE, {'node': node})
             menu.append(item)
 
+        # MenuItem: 'Refresh'
+        if True:
+            item = Gtk.MenuItem(label='Refresh')
+            item.connect('activate', self.send_signal, actions.REFRESH_SUBTREE, {'node': node})
+            menu.append(item)
+
     def build_context_menu(self, tree_path: Gtk.TreePath, node: DisplayNode) -> Optional[Gtk.Menu]:
-        """Dynamic context menu (right-click on tree item)"""
+        """Dynamic context menu (right-click on tree item) for the given 'node' at 'tree_path'"""
 
         if node.is_ephemereal():
             # 'Loading' node, 'Empty' node, etc.
-            return
+            return None
         is_dir = os.path.isdir(node.full_path)
 
         menu = Gtk.Menu()
 
         op: Optional[Op] = self.con.app.cache_manager.get_last_pending_op_for_node(node.uid)
         if op and not op.is_completed() and op.has_dst():
+            logger.warning('TODO: test this!')
             # Split into separate entries for src and dst.
 
             # (1/2) Source:
