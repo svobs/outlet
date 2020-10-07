@@ -18,47 +18,6 @@ logger = logging.getLogger(__name__)
 VALID_SUFFIXES = None
 
 
-def meta_matches(file_path: str, node: LocalFileNode):
-    stat = os.stat(file_path)
-    size_bytes = int(stat.st_size)
-    modify_ts = int(stat.st_mtime * 1000)
-    assert modify_ts > 100000000000, f'modify_ts too small: {modify_ts} (for path: {file_path})'
-    change_ts = int(stat.st_ctime * 1000)
-    assert change_ts > 100000000000, f'change_ts too small: {change_ts} (for path: {file_path})'
-
-    is_equal = node.exists() and node.get_size_bytes() == size_bytes and node.modify_ts == modify_ts and node.change_ts == change_ts
-
-    if False and logger.isEnabledFor(logging.DEBUG):
-        logger.debug(f'Meta Exp=[{node.get_size_bytes()} {node.modify_ts} {node.change_ts}]' +
-                     f' Act=[{size_bytes} {modify_ts} {change_ts}] -> {is_equal}')
-
-    return is_equal
-
-
-def _check_update_sanity(old_node: LocalFileNode, new_node: LocalFileNode):
-    try:
-        if not isinstance(old_node, LocalFileNode):
-            # Internal error; try to recover
-            logger.error(f'Invalid node type for old_node: {type(old_node)}. Will overwrite cache entry')
-            return
-
-        if not isinstance(new_node, LocalFileNode):
-            raise RuntimeError(f'Invalid node type for new_node: {type(new_node)}')
-
-        if new_node.modify_ts < old_node.modify_ts:
-            logger.warning(f'File "{new_node.full_path}": update has older modify_ts ({new_node.modify_ts}) than prev version ({old_node.modify_ts})')
-
-        if new_node.change_ts < old_node.change_ts:
-            logger.warning(f'File "{new_node.full_path}": update has older change_ts ({new_node.change_ts}) than prev version ({old_node.change_ts})')
-
-        if new_node.get_size_bytes() != old_node.get_size_bytes() and new_node.md5 == old_node.md5 and old_node.md5:
-            logger.warning(f'File "{new_node.full_path}": update has same MD5 ({new_node.md5}) ' +
-                           f'but different size: (old={old_node.get_size_bytes()}, new={new_node.get_size_bytes()})')
-    except Exception:
-        logger.error(f'Error checking update sanity! Old={old_node} New={new_node}')
-        raise
-
-
 # SUPPORT CLASSES ####################
 
 

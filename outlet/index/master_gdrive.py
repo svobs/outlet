@@ -558,11 +558,11 @@ class GDriveMasterCache:
         return self._master_tree.get_all_files_and_folders_for_subtree(subtree_root)
 
     def get_gdrive_user_for_permission_id(self, permission_id: str) -> GDriveUser:
-        with self._meta_lock:
+        with self._struct_lock:
             return self._user_for_permission_id_dict.get(permission_id, None)
 
     def get_gdrive_user_for_user_uid(self, uid: UID) -> GDriveUser:
-        with self._meta_lock:
+        with self._struct_lock:
             return self._user_for_uid_dict.get(uid, None)
 
     def create_gdrive_user(self, user: GDriveUser):
@@ -574,7 +574,7 @@ class GDriveMasterCache:
             elif user.uid != GDRIVE_ME_USER_UID:
                 raise RuntimeError(f'create_gdrive_user(): cannot set is_me=true AND UID={user.uid}')
 
-        with self._meta_lock:
+        with self._struct_lock:
             user_from_permission_id = self._user_for_permission_id_dict.get(user.permission_id, None)
             if user_from_permission_id:
                 assert user_from_permission_id.permission_id == user.permission_id and user_from_permission_id.uid
@@ -592,7 +592,7 @@ class GDriveMasterCache:
             self._user_for_uid_dict[user.uid] = user
 
     def get_or_create_gdrive_mime_type(self, mime_type_string: str) -> MimeType:
-        with self._meta_lock:
+        with self._struct_lock:
             mime_type: Optional[MimeType] = self._mime_type_for_str_dict.get(mime_type_string, None)
             if not mime_type:
                 mime_type = MimeType(UID(self._mime_type_uid_nextval), mime_type_string)
@@ -605,11 +605,11 @@ class GDriveMasterCache:
             return mime_type
 
     def get_mime_type_for_uid(self, uid: UID) -> Optional[MimeType]:
-        with self._meta_lock:
+        with self._struct_lock:
             return self._mime_type_for_uid_dict.get(uid, None)
 
     def delete_all_gdrive_meta(self):
-        with self._meta_lock:
+        with self._struct_lock:
             self._mime_type_uid_nextval = GDRIVE_FOLDER_MIME_TYPE_UID + 1
             self._mime_type_for_str_dict.clear()
             self._mime_type_for_uid_dict.clear()

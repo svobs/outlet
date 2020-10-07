@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 from collections import deque
 from typing import Deque, Dict, List, Optional, Tuple
 
-import treelib
 from pydispatch import dispatcher
 from treelib.exceptions import NodeIDAbsentError
 
@@ -35,7 +34,7 @@ from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
-SUPER_DEBUG = True
+SUPER_DEBUG = False
 
 
 def _calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Optional[str], Optional[str]]:
@@ -97,13 +96,15 @@ class ContentScannerThread(threading.Thread):
     """Hasher thread which churns through hasher queue and sends updates to cacheman"""
     def __init__(self, parent):
         super().__init__(target=self._run_content_scanner_thread, name='ContentScannerThread', daemon=True)
-        self._shutdown: bool = False
         self.master_cache = parent
+        self._shutdown: bool = False
+        self._initial_sleep_sec: float = self.master_cache.application.config.get('cache.lazy_load_local_file_signatures_initial_delay_ms') / 1000.0
         self._node_queue: Deque[LocalFileNode] = deque()
         self._cv_can_get = threading.Condition()
         self._struct_lock = threading.Lock()
 
     def enqueue(self, node: LocalFileNode):
+        logger.debug(f'[{self.name}] Enqueuing node: {node.node_identifier}')
         assert not node.md5 and not node.sha256
         with self._struct_lock:
             self._node_queue.append(node)
@@ -125,25 +126,41 @@ class ContentScannerThread(threading.Thread):
 
         logger.debug(f'[{self.name}] Node {node.uid} has MD5: {node.md5}')
 
+        # TODO: consider batching writes
         # Send back to ourselves to be re-stored in memory & disk caches:
-        dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
+        self.master_cache.upsert_local_node(node)
 
     def _run_content_scanner_thread(self):
         logger.info(f'Starting {self.name}...')
 
+        # Wait for CacheMan to finish starting up so as not to deprive it of resources:
+        self.master_cache.application.cache_manager.wait_for_startup_done()
+
+        logger.debug(f'[{self.name}] Doing inital sleep {self._initial_sleep_sec} sec to let things settle...')
+        time.sleep(self._initial_sleep_sec)  # in seconds
+
         while not self._shutdown:
+            node: Optional[LocalFileNode] = None
+
             with self._struct_lock:
                 if len(self._node_queue) > 0:
-                    node: LocalFileNode = self._node_queue.popleft()
-                    if node:
-                        logger.debug(f'[{self.name}] Calculating signature for node: {node.node_identifier}')
-                        try:
-                            self._process_single_node(node)
-                        except Exception:
-                            logger.exception(f'Unexpected error while processing node: {node}')
+                    node = self._node_queue.popleft()
+
+            if node:
+                try:
+                    if node.md5 or node.sha256:
+                        logger.warning(f'Node already has signature; skipping; {node}')
                         continue
-                else:
-                    logger.debug(f'[{self.name}] No pending ops; sleeping until notified')
+
+                    logger.debug(f'[{self.name}] Calculating signature for node: {node.node_identifier}')
+                    self._process_single_node(node)
+                except Exception:
+                    logger.exception(f'Unexpected error while processing node: {node}')
+                continue
+            else:
+                logger.debug(f'[{self.name}] No pending ops; sleeping {self._initial_sleep_sec} sec then waiting till notified...')
+                time.sleep(self._initial_sleep_sec)  # in seconds
+
             with self._cv_can_get:
                 self._cv_can_get.wait()
 
@@ -511,13 +528,15 @@ class LocalDiskMasterCache:
 
         # 2. Update in-memory cache:
         with self._struct_lock:
-            updated_node: Optional[LocalNode] = self._upsert_single_node_in_memory_cache(node)
+            updated_node, needs_persistence = self._upsert_single_node_in_memory_cache(node)
             if updated_node:
                 node = updated_node
+
+            if needs_persistence:
                 # 3. Update on-disk cache:
                 self._upsert_single_node_in_disk_cache(node)
 
-            if fire_listeners:
+            if updated_node and fire_listeners:
                 # Even if update was not needed in cache, certain transient properties (e.g. icon) may have changed
                 dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
 
@@ -642,14 +661,15 @@ class LocalDiskMasterCache:
         if self.use_sha256 and node.sha256:
             self.sha256_dict.remove(node.sha256, node.full_path)
 
-    def _upsert_single_node_in_memory_cache(self, node: LocalNode) -> Optional[LocalNode]:
-        """Returns True if update was needed and successful; False if otherwise"""
+    def _upsert_single_node_in_memory_cache(self, node: LocalNode) -> Tuple[Optional[LocalNode], bool]:
+        """If a node already exists, the new node is merged into it and returned; otherwise the given node is returned.
+        Second item in the tuple is True if update contained changes which should be saved to disk; False if otherwise"""
         existing_node: LocalNode = self._master_tree.get_node(node.uid)
         if existing_node:
             if existing_node.exists() and not node.exists():
                 # In the future, let's close this hole with more elegant logic
                 logger.warning(f'Cannot replace a node which exists with one which does not exist; skipping cache update')
-                return None
+                return None, False
 
             if existing_node.is_dir() and not node.is_dir():
                 # need to replace all descendants...not ready to do this yet
@@ -658,12 +678,17 @@ class LocalDiskMasterCache:
             if existing_node == node:
                 if SUPER_DEBUG:
                     logger.debug(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
-                return None
+                return existing_node, False
 
             # just update the existing - much easier
-            logger.debug(f'Merging node (PyID {id(node)}) into existing_node (PyID {id(existing_node)})')
+            if SUPER_DEBUG:
+                logger.debug(f'Merging node (PyID {id(node)}) into existing_node (PyID {id(existing_node)})')
+            if node.is_file() and existing_node.is_file():
+                assert isinstance(node, LocalFileNode) and isinstance(existing_node, LocalFileNode)
+                _copy_signature_if_possible(existing_node, node)
+                if SUPER_DEBUG:
+                    _check_update_sanity(existing_node, node)
             existing_node.update_from(node)
-            node = existing_node
         else:
             # new file or directory insert
             self._master_tree.add_to_tree(node)
@@ -678,7 +703,9 @@ class LocalDiskMasterCache:
             if self.use_sha256 and node.sha256:
                 self.sha256_dict.put(node, existing_node)
 
-        return node
+        if existing_node:
+            return existing_node, True
+        return node, True
 
     def _remove_single_node_from_disk_cache(self, node: LocalNode):
         cache_man = self.application.cache_manager
@@ -752,7 +779,7 @@ class LocalDiskMasterCache:
                     logger.debug(f'Removed {len(subtree_operation.node_list)} nodes from memcache path "{subtree_operation.subtree_root_path}"')
                 else:
                     for index, node in enumerate(subtree_operation.node_list):
-                        updated_node = self._upsert_single_node_in_memory_cache(node)
+                        updated_node, needs_persistence = self._upsert_single_node_in_memory_cache(node)
                         if updated_node:
                             subtree_operation.node_list[index] = updated_node
                     logger.debug(f'Added {len(subtree_operation.node_list)} nodes to memcache path "{subtree_operation.subtree_root_path}"')
@@ -1000,3 +1027,48 @@ class LocalDiskMasterCache:
 def _derive_parent_path(full_path: str) -> str:
     return str(pathlib.Path(full_path).parent)
 
+
+def _copy_signature_if_possible(src: LocalFileNode, dst: LocalFileNode):
+    if src.modify_ts == dst.modify_ts and src.change_ts == dst.change_ts and src.get_size_bytes() == dst.get_size_bytes():
+        # It is possible for the stored cache copy to be missing a signature. If so, the src may not have an MD5/SHA256.
+        # In that case, do not overwrite possible real data with null values, but do check to make sure we don't overwrite one value with a different
+        if dst.md5:
+            if src.md5 and dst.md5 != src.md5:
+                logger.error(f'Dst node already has MD5 but it is unexpected: {dst} (expected {src}')
+        else:
+            if SUPER_DEBUG:
+                logger.debug(f'Copying MD5 for: {dst.node_identifier}')
+            dst.md5 = src.md5
+        if dst.sha256:
+            if src.sha256 and dst.sha256 != src.sha256:
+                logger.error(f'Dst node already has SHA256 but it is unexpected: {dst} (expected {src}')
+        else:
+            if SUPER_DEBUG:
+                logger.debug(f'Copying SHA256 for: {dst.node_identifier}')
+            dst.sha256 = src.sha256
+
+
+def _check_update_sanity(old_node: LocalFileNode, new_node: LocalFileNode):
+    try:
+        if not isinstance(old_node, LocalFileNode):
+            # Internal error; try to recover
+            logger.error(f'Invalid node type for old_node: {type(old_node)}. Will overwrite cache entry')
+            return
+
+        if not isinstance(new_node, LocalFileNode):
+            raise RuntimeError(f'Invalid node type for new_node: {type(new_node)}')
+
+        if new_node.modify_ts < old_node.modify_ts:
+            logger.warning(
+                f'File "{new_node.full_path}": update has older modify_ts ({new_node.modify_ts}) than prev version ({old_node.modify_ts})')
+
+        if new_node.change_ts < old_node.change_ts:
+            logger.warning(
+                f'File "{new_node.full_path}": update has older change_ts ({new_node.change_ts}) than prev version ({old_node.change_ts})')
+
+        if new_node.get_size_bytes() != old_node.get_size_bytes() and new_node.md5 == old_node.md5 and old_node.md5:
+            logger.warning(f'File "{new_node.full_path}": update has same MD5 ({new_node.md5}) ' +
+                           f'but different size: (old={old_node.get_size_bytes()}, new={new_node.get_size_bytes()})')
+    except Exception:
+        logger.error(f'Error checking update sanity! Old={old_node} New={new_node}')
+        raise

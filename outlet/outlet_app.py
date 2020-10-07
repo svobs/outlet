@@ -83,8 +83,10 @@ class OutletApplication(Gtk.Application):
             # when the last one is closed the application shuts down
             self.start()
 
+            logger.debug(f'Creating main window')
             self.window = TwoPanelWindow(application=self, win_id=ID_DIFF_WINDOW)
             self.window.show_all()
+            logger.debug(f'Finished window.show_all()')
 
         self.window.present()
 

@@ -25,8 +25,11 @@ class LocalDiskTree(treelib.Tree):
         super().__init__()
         self.application = application
 
+    def get_root_node(self) -> LocalNode:
+        return self.get_node(self.root)
+
     def add_to_tree(self, node: LocalNode):
-        root_node: LocalNode = self.get_node(self.root)
+        root_node: LocalNode = self.get_root_node()
         root_node_identifier: NodeIdentifier = root_node.node_identifier
         path_so_far: str = root_node_identifier.full_path
         parent: LocalNode = self.get_node(root_node_identifier.uid)
@@ -92,12 +95,13 @@ class LocalDiskTree(treelib.Tree):
         if not self.contains(sub_tree.root):
             # quick and dirty way to add any missing parents:
             sub_tree_root_node: LocalNode = sub_tree.get_node(sub_tree.root)
-            logger.debug(f'Super-tree does not contain sub-tree root ({sub_tree_root_node.node_identifier}): it and its ancestors will be added')
+            logger.debug(f'This tree (root: {self.get_root_node().node_identifier}) does not contain sub-tree '
+                         f'(root: {sub_tree_root_node.node_identifier}): it and its ancestors will be added')
             self.add_to_tree(sub_tree_root_node)
 
         parent_of_subtree: LocalNode = self.parent(sub_tree.root)
         count_removed = self.remove_node(sub_tree.root)
-        logger.debug(f'Removed {count_removed} nodes from super-tree, to be replaced with {len(sub_tree)} nodes')
+        logger.debug(f'Removed {count_removed} nodes from this tree, to be replaced with {len(sub_tree)} subtree nodes')
         self.paste(nid=parent_of_subtree.uid, new_tree=sub_tree)
 
     def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalFsIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
@@ -167,6 +171,6 @@ class LocalDiskTree(treelib.Tree):
                 for child in children:
                     node.add_meta_metrics(child)
 
-            logger.debug(f'[{tree_id}] Node {node.uid} ("{node.name}") has size={node.get_size_bytes()}, etc={node.get_etc()}')
+            # logger.debug(f'[{tree_id}] Node {node.uid} ("{node.name}") has size={node.get_size_bytes()}, etc={node.get_etc()}')
 
         logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for local tree ("{subtree_root_node.node_identifier}")')

@@ -107,7 +107,7 @@ class CacheManager:
 
         # (Optional) variables needed for producer/consumer behavior if Load All Caches needed
         self.load_all_caches_done: threading.Event = threading.Event()
-        self._all_caches_loading: bool = False
+        self._load_all_caches_in_process: bool = False
 
     def __del__(self):
         self.shutdown()
@@ -224,7 +224,7 @@ class CacheManager:
             else:
                 logger.error('Timed out waiting for CacheManager to finish loading the registry!')
 
-    def _wait_for_startup_done(self):
+    def wait_for_startup_done(self):
         if not self._startup_done.is_set():
             logger.info('Waiting for CacheManager startup to complete')
         if not self._startup_done.wait(CACHE_LOAD_TIMEOUT_SEC):
@@ -236,8 +236,8 @@ class CacheManager:
         if not self.application.cache_manager.enable_load_from_disk:
             raise RuntimeError('Cannot load all caches; loading caches from disk is disabled in config!')
 
-        if self._all_caches_loading:
-            logger.info('Waiting for all caches to load')
+        if self._load_all_caches_in_process:
+            logger.info('Waiting for all caches to finish loading in other thread')
             # Wait for the other thread to complete. (With no timeout, it will never return):
             if not self.load_all_caches_done.wait(CACHE_LOAD_TIMEOUT_SEC):
                 logger.error('Timed out waiting for all caches to load!')
@@ -245,7 +245,7 @@ class CacheManager:
             # Other thread completed
             return
 
-        self._all_caches_loading = True
+        self._load_all_caches_in_process = True
         logger.info('Loading all caches from disk')
 
         stopwatch = Stopwatch()
@@ -278,7 +278,7 @@ class CacheManager:
                 logger.exception(f'Failed to load cache: {existing_disk_cache.cache_location}')
 
         logger.info(f'{stopwatch} Load All Caches complete')
-        self._all_caches_loading = False
+        self._load_all_caches_in_process = False
         self.load_all_caches_done.set()
 
     def _overwrite_all_caches_in_registry(self, cache_info_list: List[CacheInfoEntry]):
@@ -474,7 +474,7 @@ class CacheManager:
 
     def get_next_command(self) -> Optional[Command]:
         # blocks !
-        self._wait_for_startup_done()
+        self.wait_for_startup_done()
         # also blocks !
         return self._op_ledger.get_next_command()
 
@@ -500,7 +500,7 @@ class CacheManager:
             node_identifier = self.application.node_identifier_factory.for_values(full_path=full_path)
             if node_identifier.tree_type == TREE_TYPE_GDRIVE:
                 # Need to wait until all caches are loaded:
-                self._wait_for_startup_done()
+                self.wait_for_startup_done()
 
                 identifiers = self._gdrive_cache.get_all_for_path(node_identifier.full_path)
             else:
