@@ -342,7 +342,7 @@ class CacheManager:
 
         return subtree
 
-    def find_existing_supertree_for_subtree(self, full_path: str, tree_type: int) -> Optional[PersistedCacheInfo]:
+    def find_existing_cache_info_for_subtree(self, full_path: str, tree_type: int) -> Optional[PersistedCacheInfo]:
         existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(tree_type).values())
 
         for existing_cache in existing_caches:

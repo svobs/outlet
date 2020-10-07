@@ -32,9 +32,9 @@ logger = logging.getLogger(__name__)
 # - support Delete Subtree
 
 
-# ABSTRACT CLASS BatchOperation
+# ABSTRACT CLASS GDriveOperation
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class BatchOperation(ABC):
+class GDriveOperation(ABC):
     @abstractmethod
     def update_memory_cache(self, my_gdrive: GDriveWholeTree):
         pass
@@ -50,7 +50,7 @@ class BatchOperation(ABC):
 
 # CLASS DeleteSingleNodeOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class DeleteSingleNodeOp(BatchOperation):
+class DeleteSingleNodeOp(GDriveOperation):
     def __init__(self, node: GDriveNode, to_trash: bool = False):
         self.node = node
         self.to_trash: bool = to_trash
@@ -69,7 +69,7 @@ class DeleteSingleNodeOp(BatchOperation):
 
 # CLASS DeleteSubtreeOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class DeleteSubtreeOp(BatchOperation):
+class DeleteSubtreeOp(GDriveOperation):
     def __init__(self, subtree_root_node: GDriveNode, node_list: List[GDriveNode]):
         self.subtree_root_node = subtree_root_node
         """If true, is a delete operation. If false, is upsert op."""
@@ -116,7 +116,7 @@ def _reduce_changes(change_list: List[GDriveChange]) -> List[GDriveChange]:
 
 # CLASS BatchChangesOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class BatchChangesOp(BatchOperation):
+class BatchChangesOp(GDriveOperation):
     def __init__(self, gdrive_master_cache, change_list: List[GDriveChange]):
         self.gdrive_master_cache = gdrive_master_cache
         self.change_list = _reduce_changes(change_list)
@@ -424,10 +424,10 @@ class GDriveMasterCache:
                 assert isinstance(node, GDriveFile)
                 cache.upsert_gdrive_file_list([node])
 
-    def _update_memory_cache(self, subtree_operation: BatchOperation):
+    def _update_memory_cache(self, subtree_operation: GDriveOperation):
         subtree_operation.update_memory_cache(self._my_gdrive)
 
-    def _update_disk_cache(self, subtree_operation: BatchOperation):
+    def _update_disk_cache(self, subtree_operation: GDriveOperation):
         if not self.application.cache_manager.enable_save_to_disk:
             logger.debug(f'Save to disk is disabled: skipping disk update')
             return
@@ -438,8 +438,8 @@ class GDriveMasterCache:
 
             cache.commit()
 
-    def _execute(self, operation: BatchOperation):
-        """Executes a signal BatchOperation."""
+    def _execute(self, operation: GDriveOperation):
+        """Executes a signal GDriveOperation."""
         self._update_memory_cache(operation)
 
         self._update_disk_cache(operation)

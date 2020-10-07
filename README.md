@@ -32,9 +32,10 @@ Create a virtual environment within this directory (`{project_name}`)  following
     make init
 
 ### Future Major Features (TODO)
+* Reload GDrive
+* Pause/resume ops
 * Detach service
 * Run multiple concurrent ops
-* Pause/resume ops
 * CommandBuilder: look up MD5 for src_node and use a closer node
 * OpLedger: simplify the op tree each time the next change is requested
 * Filter UI by Trashed, Shared, etc.

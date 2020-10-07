@@ -34,6 +34,8 @@ from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
+SUPER_DEBUG = True
+
 
 def _calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Optional[str], Optional[str]]:
     try:
@@ -334,7 +336,7 @@ class LocalDiskMasterCache:
 
         # If we have already loaded this subtree as part of a larger cache, use that:
         cache_man = self.application.cache_manager
-        supertree_cache: Optional[PersistedCacheInfo] = cache_man.find_existing_supertree_for_subtree(subtree_root.full_path, subtree_root.tree_type)
+        supertree_cache: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_subtree(subtree_root.full_path, subtree_root.tree_type)
         if supertree_cache:
             logger.debug(f'Subtree ({subtree_root.full_path}) is part of existing cached supertree ({supertree_cache.subtree_root.full_path})')
             assert isinstance(subtree_root, LocalFsIdentifier)
@@ -368,7 +370,7 @@ class LocalDiskMasterCache:
                                f' changing it to "{uid}"')
             requested_subtree_root.uid = uid
 
-        # LOAD
+        # LOAD into master tree
         if not cache_info.is_loaded:
             if self.application.cache_manager.enable_load_from_disk:
                 tree = self._load_subtree_from_disk(cache_info, tree_id)
@@ -472,7 +474,7 @@ class LocalDiskMasterCache:
         """This actually reads directly from the disk cache"""
         logger.debug(f'Loading single node for path: "{full_path}"')
         cache_man = self.application.cache_manager
-        cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_supertree_for_subtree(full_path, TREE_TYPE_LOCAL_DISK)
+        cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_subtree(full_path, TREE_TYPE_LOCAL_DISK)
         if not cache_info:
             logger.debug(f'Could not find cache containing path: "{full_path}"')
             return None
@@ -569,7 +571,7 @@ class LocalDiskMasterCache:
         logical_cache_list: List[PersistedCacheInfo] = []
 
         for subtree_op in subtree_op_list:
-            cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_supertree_for_subtree(subtree_op.subtree_root_path,
+            cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_subtree(subtree_op.subtree_root_path,
                                                                                                      TREE_TYPE_LOCAL_DISK)
             if not cache_info:
                 raise RuntimeError(f'Could not find a cache associated with file path: {subtree_op.subtree_root_path}')
@@ -638,7 +640,8 @@ class LocalDiskMasterCache:
                 raise RuntimeError(f'Cannot replace a directory with a file: "{node.full_path}"')
 
             if existing_node == node:
-                logger.debug(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
+                if SUPER_DEBUG:
+                    logger.debug(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
                 return None
 
             # just update the existing - much easier
@@ -668,7 +671,7 @@ class LocalDiskMasterCache:
             return
 
         assert node.get_tree_type() == TREE_TYPE_LOCAL_DISK
-        cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_supertree_for_subtree(node.full_path, node.get_tree_type())
+        cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_subtree(node.full_path, node.get_tree_type())
         if not cache_info:
             logger.error(f'Could not find a cache associated with file path: {node.full_path}')
             return
@@ -690,7 +693,7 @@ class LocalDiskMasterCache:
             return
 
         assert node.get_tree_type() == TREE_TYPE_LOCAL_DISK
-        cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_supertree_for_subtree(node.full_path, node.get_tree_type())
+        cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_subtree(node.full_path, node.get_tree_type())
         if not cache_info:
             raise RuntimeError(f'Could not find a cache associated with file path: {node.full_path}')
 
