@@ -4,6 +4,7 @@ import os
 import pathlib
 import threading
 import time
+from abc import ABC, abstractmethod
 from collections import deque
 from typing import Deque, Dict, List, Optional, Tuple
 
@@ -56,6 +57,22 @@ def _calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Opt
             logger.debug(f'Could not calculate signature: file not found; skipping: {full_path}')
         # Return None. Will be assumed to be a deleted file
         return None, None
+
+
+# ABSTRACT CLASS LocalDiskOperation
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class LocalDiskOperation(ABC):
+    @abstractmethod
+    def update_memory_cache(self, master_cache):
+        pass
+
+    @abstractmethod
+    def update_disk_cache(self, cache: LocalDiskDatabase):
+        pass
+
+    @abstractmethod
+    def send_signals(self):
+        pass
 
 
 # CLASS SubtreeOperation
@@ -142,9 +159,9 @@ class LocalDiskMasterCache:
         """Singleton in-memory cache for local filesystem"""
         self.application = application
 
-        self._struct_lock = threading.Lock()
-
         self._uid_mapper = UidPathMapper(application)
+
+        self._struct_lock = threading.Lock()
 
         self._expected_node_moves: Dict[str, str] = {}
         """When the FileSystemEventHandler gives us MOVE notifications for a tree, it gives us a separate notification for each
@@ -171,10 +188,9 @@ class LocalDiskMasterCache:
         # Each node inserted here will have an entry created for its dir.
         # self.parent_path_dict = ParentPathBeforeFileNameDict()
         # But we still need a dir tree to look up child dirs:
-        with self._struct_lock:
-            self._master_tree = LocalDiskTree(self.application)
-            root_node = RootTypeNode(node_identifier=LocalFsIdentifier(full_path=ROOT_PATH, uid=LOCAL_ROOT_UID))
-            self._master_tree.add_node(node=root_node, parent=None)
+        self._master_tree = LocalDiskTree(self.application)
+        root_node = RootTypeNode(node_identifier=LocalFsIdentifier(full_path=ROOT_PATH, uid=LOCAL_ROOT_UID))
+        self._master_tree.add_node(node=root_node, parent=None)
 
         if self.lazy_load_signatures:
             self.start_content_scanner_thread()
