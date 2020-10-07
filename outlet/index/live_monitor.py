@@ -155,7 +155,10 @@ class LiveMonitor:
 
     def _stop_local_disk_capture(self, full_path: str, tree_id: str):
         tree_id_set: Set[str] = self._active_local_tree_dict.get(full_path, None)
-        assert tree_id_set, f'Expected non-empty tree_id_set for: {full_path}'
+        if not tree_id_set:
+            logger.debug(f'Ignoring request to stop local capture; tree_id_set is empty for path "{full_path}"')
+            return
+
         tree_id_set.discard(tree_id)
         if not tree_id_set:
             # removed the last tree relying on this path: remove watcher

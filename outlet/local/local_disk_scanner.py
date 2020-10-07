@@ -2,6 +2,7 @@ import errno
 import logging
 import os
 from pathlib import Path
+from typing import Optional
 
 from pydispatch import dispatcher
 
@@ -90,15 +91,14 @@ class LocalDiskScanner(LocalTreeRecurser):
     def __init__(self, application, root_node_identifer: NodeIdentifier, tree_id=None):
         LocalTreeRecurser.__init__(self, Path(root_node_identifer.full_path), valid_suffixes=None)
         assert isinstance(root_node_identifer, LocalFsIdentifier), f'type={type(root_node_identifer)}, for {root_node_identifer}'
+        self.application = application
         self.cache_manager = application.cache_manager
         self.root_node_identifier: LocalFsIdentifier = root_node_identifer
         self.tree_id = tree_id  # For sending progress updates
         self.progress = 0
         self.total = 0
 
-        self._local_tree: LocalDiskTree = LocalDiskTree(application)
-        root_node = LocalDirNode(node_identifier=root_node_identifer, exists=os.path.exists(root_node_identifer.full_path))
-        self._local_tree.add_node(node=root_node, parent=None)
+        self._local_tree: Optional[LocalDiskTree] = None
 
         self.added_count = 0
         self.updated_count = 0
@@ -115,28 +115,29 @@ class LocalDiskScanner(LocalTreeRecurser):
         return file_counter.files_to_scan
 
     def handle_file(self, file_path: str):
-        stale_fmeta: LocalFileNode = self.cache_manager.get_node_for_local_path(file_path)
+        # FIXME: we are duplicating work with the Cache Manager. Remove all this logic and just build nodes
+        stale_node: LocalFileNode = self.cache_manager.get_node_for_local_path(file_path)
 
-        if stale_fmeta:
-            if meta_matches(file_path, stale_fmeta):
+        if stale_node:
+            if meta_matches(file_path, stale_node):
                 # No change from cache
                 self.unchanged_count += 1
-                target_fmeta = stale_fmeta
+                target_node = stale_node
             else:
                 # this can fail (e.g. broken symlink). If it does, we'll treat it like a deleted file
-                target_fmeta = self.cache_manager.build_local_file_node(full_path=file_path)
-                if target_fmeta:
+                target_node = self.cache_manager.build_local_file_node(full_path=file_path)
+                if target_node:
                     self.updated_count += 1
                     if logger.isEnabledFor(logging.DEBUG):
-                        _check_update_sanity(stale_fmeta, target_fmeta)
+                        _check_update_sanity(stale_node, target_node)
         else:
             # Not in cache (i.e. new):
-            target_fmeta = self.cache_manager.build_local_file_node(full_path=file_path)
-            if target_fmeta:
+            target_node = self.cache_manager.build_local_file_node(full_path=file_path)
+            if target_node:
                 self.added_count += 1
 
-        if target_fmeta:
-            self._local_tree.add_to_tree(target_fmeta)
+        if target_node:
+            self._local_tree.add_to_tree(target_node)
 
         if self.tree_id:
             actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=self.tree_id, progress=1)
@@ -167,12 +168,26 @@ class LocalDiskScanner(LocalTreeRecurser):
         For each current file found, remove from the stale tree.
         When recursion is complete, what's left in the stale tree will be deleted/moved files"""
 
-        if not os.path.exists(self.root_path):
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.root_path)
+        assert self.root_node_identifier.full_path == str(self.root_path), \
+            f'Expected match: (1)="{self.root_node_identifier.full_path}", (2)="{self.root_path}"'
+        if not os.path.exists(self.root_node_identifier.full_path):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.root_node_identifier.full_path)
+
+        self._local_tree = LocalDiskTree(self.application)
+        if os.path.isdir(self.root_node_identifier.full_path):
+            root_node = LocalDirNode(node_identifier=self.root_node_identifier, exists=True)
+        else:
+            # file:
+            root_node = self.cache_manager.build_local_file_node(full_path=self.root_node_identifier.full_path)
+        self._local_tree.add_node(node=root_node, parent=None)
+
+        if not root_node.is_dir():
+            logger.debug(f'[{self.tree_id}] Root is a file; returning tree with a single node')
+            return self._local_tree
 
         if self.tree_id:
             self.total = self._find_total_files_to_scan()
-            logger.debug(f'Sending START_PROGRESS with total={self.total} for tree_id: {self.tree_id}')
+            logger.debug(f'[{self.tree_id}] Sending START_PROGRESS with total={self.total}')
             dispatcher.send(signal=actions.START_PROGRESS, sender=self.tree_id, total=self.total)
         try:
             self.recurse_through_dir_tree()

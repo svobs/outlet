@@ -348,11 +348,7 @@ class CacheManager:
         for existing_cache in existing_caches:
             # Is existing_cache an ancestor of target tree?
             if full_path.startswith(existing_cache.subtree_root.full_path):
-                if existing_cache.subtree_root.full_path == full_path:
-                    # Exact match exists: just return from here and allow exact match logic to work
-                    return None
-                else:
-                    return existing_cache
+                return existing_cache
         # Nothing in the cache contains subtree
         return None
 
@@ -446,6 +442,16 @@ class CacheManager:
 
     # Various public methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def refresh_subtree(self, node: DisplayNode, tree_id: str):
+        """Called asynchronously via actions.REFRESH_SUBTREE"""
+        logger.debug(f'[{tree_id}] Refreshing subtree: {node}')
+        if node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
+            self._local_disk_cache.refresh_subtree(node, tree_id)
+        elif node.get_tree_type() == TREE_TYPE_GDRIVE:
+            self._gdrive_cache.refresh_subtree(node, tree_id)
+        else:
+            assert False
 
     def refresh_stats(self, tree_id: str, subtree_root_node: DisplayNode):
         """Does not send signals. The caller is responsible for sending REFRESH_SUBTREE_STATS_DONE and SET_STATUS themselves"""

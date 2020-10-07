@@ -88,11 +88,13 @@ class TreeContextMenu:
         is_dir = node.is_dir()
         is_gdrive = node.node_identifier.tree_type == TREE_TYPE_GDRIVE
 
+        # MenuItem: 'Show in Nautilus'
         if file_exists and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
             item = Gtk.MenuItem(label='Show in Nautilus')
             item.connect('activate', self.send_signal, actions.SHOW_IN_NAUTILUS, {'full_path': full_path})
             menu.append(item)
 
+        # MenuItem: 'Download from Google Drive' [GDrive] OR 'Open with default application' [Local]
         if file_exists and not is_dir:
             if is_gdrive:
                 item = Gtk.MenuItem(label=f'Download from Google Drive')
@@ -103,12 +105,12 @@ class TreeContextMenu:
                 item.connect('activate', self.send_signal, actions.CALL_XDG_OPEN, {'node': node})
                 menu.append(item)
 
-        # Label: Path not found
+        # Label: Does not exist
         if not file_exists:
             # FIXME: this is not entirely correct when examining logical nodes which represent real paths
             item = Gtk.MenuItem(label='')
             label = item.get_child()
-            label.set_markup(f'<i>Path not found</i>')
+            label.set_markup(f'<i>Does not exist</i>')
             item.set_sensitive(False)
             menu.append(item)
 
@@ -145,16 +147,6 @@ class TreeContextMenu:
             item.connect('activate', self.send_signal, actions.DELETE_SINGLE_FILE, {'node': node})
             menu.append(item)
 
-        if True:
-            # MenuItem: ---
-            item = Gtk.SeparatorMenuItem()
-            menu.append(item)
-
-            # MenuItem: Refresh
-            item = Gtk.MenuItem(label='Refresh')
-            item.connect('activate', self.send_signal, actions.REFRESH_SUBTREE, {'node': node})
-            menu.append(item)
-
     def build_context_menu(self, tree_path: Gtk.TreePath, node: DisplayNode) -> Optional[Gtk.Menu]:
         """Dynamic context menu (right-click on tree item) for the given 'node' at 'tree_path'"""
 
@@ -178,6 +170,7 @@ class TreeContextMenu:
             else:
                 item.set_sensitive(False)
 
+            # MenuItem: ---
             item = Gtk.SeparatorMenuItem()
             menu.append(item)
 
@@ -198,6 +191,7 @@ class TreeContextMenu:
             # gray it out
             item.set_sensitive(False)
 
+            # MenuItem: ---
             item = Gtk.SeparatorMenuItem()
             menu.append(item)
 
@@ -206,6 +200,16 @@ class TreeContextMenu:
         if node.is_dir():
             item = Gtk.MenuItem(label=f'Expand all')
             item.connect('activate', self.send_signal, actions.EXPAND_ALL, {'tree_path': tree_path})
+            menu.append(item)
+
+        if True:
+            # MenuItem: ---
+            item = Gtk.SeparatorMenuItem()
+            menu.append(item)
+
+            # MenuItem: Refresh
+            item = Gtk.MenuItem(label='Refresh')
+            item.connect('activate', self.send_signal, actions.REFRESH_SUBTREE, {'node': node})
             menu.append(item)
 
         menu.show_all()
