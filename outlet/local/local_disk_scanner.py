@@ -100,11 +100,6 @@ class LocalDiskScanner(LocalTreeRecurser):
 
         self._local_tree: Optional[LocalDiskTree] = None
 
-        self.added_count = 0
-        self.updated_count = 0
-        self.deleted_count = 0
-        self.unchanged_count = 0
-
     def _find_total_files_to_scan(self):
         # First survey our local files:
         logger.info(f'[{self.tree_id}] Scanning path: {self.root_path}')
@@ -115,27 +110,7 @@ class LocalDiskScanner(LocalTreeRecurser):
         return file_counter.files_to_scan
 
     def handle_file(self, file_path: str):
-        # FIXME: we are duplicating work with the Cache Manager. Remove all this logic and just build nodes
-        stale_node: LocalFileNode = self.cache_manager.get_node_for_local_path(file_path)
-
-        if stale_node:
-            if meta_matches(file_path, stale_node):
-                # No change from cache
-                self.unchanged_count += 1
-                target_node = stale_node
-            else:
-                # this can fail (e.g. broken symlink). If it does, we'll treat it like a deleted file
-                target_node = self.cache_manager.build_local_file_node(full_path=file_path)
-                if target_node:
-                    self.updated_count += 1
-                    if logger.isEnabledFor(logging.DEBUG):
-                        _check_update_sanity(stale_node, target_node)
-        else:
-            # Not in cache (i.e. new):
-            target_node = self.cache_manager.build_local_file_node(full_path=file_path)
-            if target_node:
-                self.added_count += 1
-
+        target_node = self.cache_manager.build_local_file_node(full_path=file_path)
         if target_node:
             self._local_tree.add_to_tree(target_node)
 
@@ -174,28 +149,22 @@ class LocalDiskScanner(LocalTreeRecurser):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.root_node_identifier.full_path)
 
         self._local_tree = LocalDiskTree(self.application)
-        if os.path.isdir(self.root_node_identifier.full_path):
-            root_node = LocalDirNode(node_identifier=self.root_node_identifier, exists=True)
-        else:
-            # file:
-            root_node = self.cache_manager.build_local_file_node(full_path=self.root_node_identifier.full_path)
-        self._local_tree.add_node(node=root_node, parent=None)
-
-        if not root_node.is_dir():
+        if not os.path.isdir(self.root_node_identifier.full_path):
             logger.debug(f'[{self.tree_id}] Root is a file; returning tree with a single node')
+            root_node = self.cache_manager.build_local_file_node(full_path=self.root_node_identifier.full_path)
+            self._local_tree.add_node(node=root_node, parent=None)
             return self._local_tree
 
+        root_node = LocalDirNode(node_identifier=self.root_node_identifier, exists=True)
+        self._local_tree.add_node(node=root_node, parent=None)
+
+        self.total = self._find_total_files_to_scan()
         if self.tree_id:
-            self.total = self._find_total_files_to_scan()
             logger.debug(f'[{self.tree_id}] Sending START_PROGRESS with total={self.total}')
             dispatcher.send(signal=actions.START_PROGRESS, sender=self.tree_id, total=self.total)
         try:
             self.recurse_through_dir_tree()
-
-            # FIXME: deleted_count never actually populated
-            logger.info(f'Result: {self.added_count} new, {self.updated_count} updated, ? deleted, '
-                        f'and {self.unchanged_count} unchanged from cache')
-
+            logger.debug(f'Scanned {self.total} files')
             return self._local_tree
         finally:
             if self.tree_id:
