@@ -1,3 +1,4 @@
+import os
 import threading
 import time
 from typing import Dict, Optional, Set
@@ -220,7 +221,11 @@ class LiveMonitor:
             else:
                 # Local
                 assert node_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Expected tree type LOCAL_DISK but is: {node_identifier}'
-                self._start_local_disk_capture(node_identifier.full_path, tree_id)
+
+                if os.path.exists(node_identifier.full_path):
+                    self._start_local_disk_capture(node_identifier.full_path, tree_id)
+                else:
+                    logger.debug(f'[{tree_id}]] Ignoring request to start local disk capture: path does not exist: {node_identifier.full_path}')
 
     def stop_capture(self, tree_id: str):
         """If capture doesn't exist, does nothing"""

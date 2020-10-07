@@ -1,5 +1,5 @@
 import logging
-from collections import defaultdict, deque
+from collections import Counter, defaultdict, deque
 from typing import Callable, DefaultDict, Deque, Dict, List, Optional, Tuple, Union
 
 from pydispatch import dispatcher
@@ -560,6 +560,16 @@ class GDriveWholeTree:
 
         logger.info(f'Tree contains {len(duplicates)} filename conflicts')
 
+    def count_multiple_parents(self):
+        counter: Counter = Counter()
+        for uid, node in self.id_dict.items():
+            assert uid == node.uid
+            num_parents: int = len(node.get_parent_uids())
+            counter.update([num_parents])
+
+        for num_parents, node_count in counter.items():
+            logger.info(f'Nodes with {num_parents} parents: {node_count}')
+
     def refresh_stats(self, tree_id, subtree_root: Optional[GDriveFolder] = None):
         # Calculates the stats for all the directories
         logger.debug(f'[{tree_id}] Refreshing stats for GDrive tree (subtree={subtree_root})')
@@ -607,6 +617,9 @@ class GDriveWholeTree:
         # TODO: make use of this later
         if constants.FIND_DUPLICATE_GDRIVE_NODE_NAMES:
             self.find_duplicate_node_names(tree_id)
+
+        if constants.COUNT_MULTIPLE_GDRIVE_PARENTS:
+            self.count_multiple_parents()
 
         if not subtree_root:
             # whole tree

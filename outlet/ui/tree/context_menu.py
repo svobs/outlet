@@ -156,7 +156,6 @@ class TreeContextMenu:
         if node.is_ephemereal():
             # 'Loading' node, 'Empty' node, etc.
             return None
-        is_dir = os.path.isdir(node.full_path)
 
         menu = Gtk.Menu()
 
@@ -199,7 +198,7 @@ class TreeContextMenu:
 
             self._build_menu_items_for_single_node(menu, tree_path, node)
 
-        if is_dir:
+        if node.is_dir():
             item = Gtk.MenuItem(label=f'Expand all')
             item.connect('activate', self.send_signal, actions.EXPAND_ALL, {'tree_path': tree_path})
             menu.append(item)
@@ -209,7 +208,7 @@ class TreeContextMenu:
 
     @staticmethod
     def build_full_path_display_item(menu: Gtk.Menu, preamble: str, node: DisplayNode) -> Gtk.MenuItem:
-        if isinstance(node, GDriveNode):
+        if node.get_tree_type() == TREE_TYPE_GDRIVE:
             full_path_display = GDRIVE_PATH_PREFIX + node.full_path
         else:
             full_path_display = node.full_path
