@@ -86,7 +86,6 @@ class TreeContextMenu:
         is_category_node = type(node) == CategoryNode
         file_exists = node.exists()
         is_dir = node.is_dir()
-        file_name = os.path.basename(full_path)
         is_gdrive = node.node_identifier.tree_type == TREE_TYPE_GDRIVE
 
         if file_exists and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
@@ -104,6 +103,7 @@ class TreeContextMenu:
                 item.connect('activate', self.send_signal, actions.CALL_XDG_OPEN, {'node': node})
                 menu.append(item)
 
+        # Label: Path not found
         if not file_exists:
             # FIXME: this is not entirely correct when examining logical nodes which represent real paths
             item = Gtk.MenuItem(label='')
@@ -112,14 +112,15 @@ class TreeContextMenu:
             item.set_sensitive(False)
             menu.append(item)
 
+        # MenuItem: 'Go into {dir}'
         if file_exists and is_dir:
-            item = Gtk.MenuItem(label=f'Go into "{file_name}"')
+            item = Gtk.MenuItem(label=f'Go into "{node.name}"')
             item.connect('activate', self.send_signal, actions.ROOT_PATH_UPDATED, {'new_root': node.node_identifier})
             menu.append(item)
 
         # MenuItem: 'Use EXIFTool on dir'
         if file_exists and is_dir and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-            match = re.match(DATE_REGEX, file_name)
+            match = re.match(DATE_REGEX, node.name)
             if match:
                 item = Gtk.MenuItem(label=f'Use EXIFTool on dir')
                 item.connect('activate', self.send_signal, actions.CALL_EXIFTOOL, {'full_path': full_path})
@@ -127,7 +128,7 @@ class TreeContextMenu:
 
         # MenuItem: 'Delete tree'
         if file_exists and is_dir and not is_category_node:
-            label = f'Delete tree "{file_name}"'
+            label = f'Delete tree "{node.name}"'
             if is_gdrive:
                 label += ' from Google Drive'
             item = Gtk.MenuItem(label=label)
@@ -137,15 +138,19 @@ class TreeContextMenu:
 
         # MenuItem: 'Delete'
         if file_exists and not is_dir:
-            label = f'Delete "{file_name}"'
+            label = f'Delete "{node.name}"'
             if is_gdrive:
                 label += ' from Google Drive'
             item = Gtk.MenuItem(label=label)
             item.connect('activate', self.send_signal, actions.DELETE_SINGLE_FILE, {'node': node})
             menu.append(item)
 
-        # MenuItem: 'Refresh'
         if True:
+            # MenuItem: ---
+            item = Gtk.SeparatorMenuItem()
+            menu.append(item)
+
+            # MenuItem: Refresh
             item = Gtk.MenuItem(label='Refresh')
             item.connect('activate', self.send_signal, actions.REFRESH_SUBTREE, {'node': node})
             menu.append(item)
@@ -209,7 +214,15 @@ class TreeContextMenu:
     @staticmethod
     def build_full_path_display_item(menu: Gtk.Menu, preamble: str, node: DisplayNode) -> Gtk.MenuItem:
         if node.get_tree_type() == TREE_TYPE_GDRIVE:
-            full_path_display = GDRIVE_PATH_PREFIX + node.full_path
+            assert isinstance(node, GDriveNode)
+            # assert isinstance(node.full_path, str), f'Expected single str for full_path but got: {node.full_path} (goog_id={node.goog_id})'
+            if isinstance(node.full_path, List):
+                full_path_list = []
+                for full_path in node.full_path:
+                    full_path_list.append(GDRIVE_PATH_PREFIX + full_path)
+                full_path_display = '\n'.join(full_path_list)
+            else:
+                full_path_display = GDRIVE_PATH_PREFIX + node.full_path
         else:
             full_path_display = node.full_path
 
