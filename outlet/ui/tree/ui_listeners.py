@@ -378,24 +378,20 @@ class TreeUiListeners:
         else:
             # Attempt to open it no matter where it is.
             # In the future, we should enhance this so that it will find the most convenient copy anywhere and open that
-            if node.exists():
-                if node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-                    dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, node=node)
+
+            op: Optional[Op] = self.con.app.cache_manager.get_last_pending_op_for_node(node.uid)
+            if op and not op.is_completed() and op.has_dst():
+                logger.warning('TODO: test this!')
+
+                if op.src_node.exists():
+                    _do_default_action_for_node(op.src_node, self.con.tree_id)
                     return True
-                elif node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
-                    dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=node)
+                elif op.dst_node.exists():
+                    _do_default_action_for_node(op.dst_node, self.con.tree_id)
                     return True
-            # FIXME: Look up in Cacheman based on signature
-            # elif isinstance(node, FileDecoratorNode):
-            #     # if it references a source node, maybe that is accessible instead?
-            #     node = node.src_node
-            #     if TreeContextMenu.file_exists(node):
-            #         if node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-            #             dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, full_path=node.full_path)
-            #             return True
-            #         elif node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
-            #             dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, node=node)
-            #             return True
+            elif node.exists():
+                _do_default_action_for_node(node, self.con.tree_id)
+                return True
             else:
                 logger.debug(f'Aborting activation: file does not exist: {node}')
         return False
@@ -479,3 +475,12 @@ def _get_items_type(selected_items: List):
         return TREE_TYPE_GDRIVE
     else:
         return TREE_TYPE_LOCAL_DISK
+
+def _do_default_action_for_node(node: DisplayNode, tree_id: str):
+    if node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+        dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=tree_id, node=node)
+        return True
+    elif node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
+        dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=tree_id, node=node)
+        return True
+
