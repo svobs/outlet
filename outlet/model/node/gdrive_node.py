@@ -159,7 +159,7 @@ class GDriveFolder(HasChildList, GDriveNode):
         return self.uid, self.goog_id, self.name, self.trashed, self.create_ts, self._modify_ts, self.owner_uid, self.drive_id, self.is_shared, \
                self.shared_by_user_uid, self.sync_ts, self.all_children_fetched
 
-    def is_parent(self, potential_child_node: DisplayNode) -> bool:
+    def is_parent_of(self, potential_child_node: DisplayNode) -> bool:
         if potential_child_node.get_tree_type() == TREE_TYPE_GDRIVE:
             assert isinstance(potential_child_node, GDriveNode)
             return self.uid in potential_child_node.get_parent_uids()
@@ -264,7 +264,7 @@ class GDriveFile(GDriveNode):
         self._md5 = other_node.md5
         self._size_bytes = other_node.get_size_bytes()
 
-    def is_parent(self, potential_child_node: DisplayNode) -> bool:
+    def is_parent_of(self, potential_child_node: DisplayNode) -> bool:
         # A file can never be the parent of anything
         return False
 

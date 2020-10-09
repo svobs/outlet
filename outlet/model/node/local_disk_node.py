@@ -71,7 +71,7 @@ class LocalFileNode(LocalNode):
         self._change_ts: int = ensure_int(other_node.change_ts)
         self._exists = ensure_bool(other_node.exists())
 
-    def is_parent(self, potential_child_node: DisplayNode) -> bool:
+    def is_parent_of(self, potential_child_node: DisplayNode) -> bool:
         # A file can never be the parent of anything
         return False
 
@@ -171,7 +171,7 @@ class LocalDirNode(HasChildList, LocalNode):
         HasChildList.update_from(self, other_node)
         LocalNode.update_from(self, other_node)
 
-    def is_parent(self, potential_child_node: DisplayNode):
+    def is_parent_of(self, potential_child_node: DisplayNode):
         if potential_child_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
             rel_path = re.sub(self.full_path, '', potential_child_node.full_path, count=1)
             if len(rel_path) > 0 and rel_path.startswith('/'):

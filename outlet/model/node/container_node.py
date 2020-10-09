@@ -1,5 +1,6 @@
 import os
 
+from index.error import InvalidOperationError
 from model.op import OpType
 from constants import ICON_DIR_MK, ICON_GDRIVE, ICON_GENERIC_DIR, ICON_LOCAL_DISK_LINUX, OBJ_TYPE_DIR, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.display_node import DisplayNode, HasChildList
@@ -34,11 +35,8 @@ class ContainerNode(HasChildList, DisplayNode):
     def is_dir(cls):
         return True
 
-    def is_parent(self, potential_child_node: DisplayNode) -> bool:
-        # This is not currently possible to determine without access to the containing tree
-        # TODO: extend from HasParentList to add this support
-        # TODO: custom exception class, 'InvalidOperationError'
-        raise RuntimeError('Not allowed!')
+    def is_parent_of(self, potential_child_node: DisplayNode) -> bool:
+        raise InvalidOperationError('is_parent_of')
 
     def get_icon(self):
         return ICON_GENERIC_DIR

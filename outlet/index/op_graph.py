@@ -241,7 +241,7 @@ class OpGraph:
             if node_queue:
                 existing_op_node = node_queue[-1]
                 potential_child: DisplayNode = existing_op_node.get_target_node()
-                if potential_parent.is_parent(potential_child):
+                if potential_parent.is_parent_of(potential_child):
                     if not existing_op_node.is_remove_type():
                         # This is not allowed. Cannot remove parent dir (aka child op node) unless *all* its children are first removed
                         raise RuntimeError(f'Found child node for RM-type node which is not RM type: {existing_op_node}')

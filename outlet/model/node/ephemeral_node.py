@@ -19,7 +19,7 @@ class EphemeralNode(DisplayNode, ABC):
     def __repr__(self):
         return self.name
 
-    def is_parent(self, potential_child_node):
+    def is_parent_of(self, potential_child_node):
         return False
 
     @property

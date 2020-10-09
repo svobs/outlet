@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple
 
 from treelib import Node
 
+from index.error import InvalidOperationError
 from util import format
 from constants import ICON_FILE_CP_DST, ICON_GENERIC_FILE, NOT_TRASHED
 from index.uid.uid_generator import UID
@@ -29,9 +30,8 @@ class DisplayNode(Node, ABC):
         self.tag = f'{self.node_identifier}: "{self.identifier}"'
 
     @abstractmethod
-    def is_parent(self, potential_child_node) -> bool:
-        # TODO: custom exception class, 'InvalidOperationError'
-        raise RuntimeError('Not allowed!')
+    def is_parent_of(self, potential_child_node) -> bool:
+        raise InvalidOperationError('is_parent_of')
 
     def get_tree_type(self) -> int:
         return self.node_identifier.tree_type

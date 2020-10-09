@@ -13,11 +13,6 @@ from constants import ROOT_PATH
 logger = logging.getLogger(__name__)
 
 
-class IdenticalFileExistsError(Exception):
-    def __init__(self, *args, **kwargs):
-        pass
-
-
 def is_target_type(file_path: str, valid_suffixes: Tuple[str]):
     """Returns True iff the given file_path ends in one of the suffixes provided (case-insensitive"""
     file_path_lower = file_path.lower()

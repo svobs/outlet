@@ -17,10 +17,26 @@ class GDriveItemNotFoundError(RuntimeError):
 #    CLASS CacheNotLoadedError
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-
 class CacheNotLoadedError(RuntimeError):
     def __init__(self, msg: str = None):
         if msg is None:
             # Set some default useful error message
             msg = f'Cache not loaded!'
         super(CacheNotLoadedError, self).__init__(msg)
+
+
+#    CLASS IdenticalFileExistsError
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class IdenticalFileExistsError(Exception):
+    def __init__(self, *args, **kwargs):
+        pass
+
+
+class InvalidOperationError(RuntimeError):
+    def __init__(self, operation_name: str = None):
+        if not operation_name:
+            msg = f'Invalid operation!'
+        else:
+            msg = f'Invalid operation: "{operation_name}"'
+        super(InvalidOperationError, self).__init__(msg)
+
