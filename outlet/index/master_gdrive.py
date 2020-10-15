@@ -11,7 +11,6 @@ from gdrive.change_observer import GDriveChange, GDriveNodeChange
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index.error import CacheNotLoadedError, GDriveItemNotFoundError
 from index.sqlite.gdrive_db import GDriveDatabase
-from index.two_level_dict import FullPathBeforeUidDict, Md5BeforeUidDict
 from index.uid.uid import UID
 from index.uid.uid_mapper import UidGoogIdMapper
 from model.gdrive_meta import GDriveUser, MimeType
@@ -273,13 +272,13 @@ class GDriveMasterCache:
                         self._mime_type_for_uid_dict[mime_type.uid] = mime_type
 
             self._master_tree = tree_loader.load_all(invalidate_cache=invalidate_cache)
+            cache_info.is_loaded = True
 
         if sync_latest_changes:
             # This may add a noticeable delay:
             tree_loader.sync_latest_changes()
 
         logger.info(f'{stopwatch_total} GDrive cache for {cache_info.subtree_root.full_path} loaded')
-        cache_info.is_loaded = True
 
     def load_gdrive_subtree(self, subtree_root: GDriveIdentifier, invalidate_cache: bool, sync_latest_changes: bool, tree_id: str)\
             -> GDriveDisplayTree:

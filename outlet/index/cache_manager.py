@@ -9,6 +9,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from command.cmd_interface import Command
+from gdrive.client import GDriveClient
 from index.error import CacheNotLoadedError, GDriveItemNotFoundError
 from index.live_monitor import LiveMonitor
 from model.display_tree.gdrive import GDriveDisplayTree
@@ -69,6 +70,7 @@ class CacheManager:
 
         self.cache_dir_path = ensure_cache_dir_path(self.application.config)
         self.main_registry_path = os.path.join(self.cache_dir_path, MAIN_REGISTRY_FILE_NAME)
+        self.gdrive_client: Optional[GDriveClient] = None
 
         self.caches_by_type: CacheInfoByType = CacheInfoByType()
 
@@ -114,6 +116,12 @@ class CacheManager:
 
     def shutdown(self):
         try:
+            if self.gdrive_client:
+                self.gdrive_client.shutdown()
+        except NameError:
+            pass
+
+        try:
             if self._op_ledger:
                 self._op_ledger.shutdown()
         except NameError:
@@ -155,6 +163,8 @@ class CacheManager:
         dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=ID_GLOBAL_CACHE)
 
         try:
+            self.gdrive_client = GDriveClient(self.application, ID_GLOBAL_CACHE)
+
             # Init sub-modules:
             self._local_disk_cache = LocalDiskMasterCache(self.application)
             self._gdrive_cache = GDriveMasterCache(self.application)
@@ -203,7 +213,7 @@ class CacheManager:
             dispatcher.send(signal=actions.LOAD_REGISTRY_DONE, sender=ID_GLOBAL_CACHE)
 
             # Now load all caches (if configured):
-            if self.application.cache_manager.enable_load_from_disk and self.load_all_caches_on_startup:
+            if self.enable_load_from_disk and self.load_all_caches_on_startup:
                 self.load_all_caches()
             else:
                 logger.info(f'{stopwatch} Found {unique_cache_count} existing caches but configured not to load on startup')
@@ -233,7 +243,7 @@ class CacheManager:
     def load_all_caches(self):
         """Load ALL the caches into memory. This is needed in certain circumstances, such as when a UID is being derefernced but we
         don't know which cache it belongs to."""
-        if not self.application.cache_manager.enable_load_from_disk:
+        if not self.enable_load_from_disk:
             raise RuntimeError('Cannot load all caches; loading caches from disk is disabled in config!')
 
         if self._load_all_caches_in_process:

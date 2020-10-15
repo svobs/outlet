@@ -3,7 +3,7 @@ import os
 import threading
 import time
 from collections import deque
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
@@ -31,21 +31,17 @@ class GDriveTreeLoader:
     """Coarse-grained lock which ensures that (1) load operations and (2) change sync operations do not step on each other or
     on multiple instances of themselves."""
 
-    def __init__(self, application, cache_path, tree_id=None):
+    def __init__(self, application, cache_path: str, tree_id: str = None):
         self.application = application
         self.node_identifier_factory = application.node_identifier_factory
-        self.uid_generator = application.uid_generator
         self.cache_manager = application.cache_manager
-        self.config = application.config
-        self.tree_id = tree_id
-        self.cache_path = cache_path
-        self.cache = None
-        self.gdrive_client = GDriveClient(application, tree_id)
+        self.tree_id: str = tree_id
+        self.cache_path: str = cache_path
+        self.cache: Optional[GDriveDatabase] = None
+        self.gdrive_client: GDriveClient = self.application.cache_manager.gdrive_client
 
     def __del__(self):
-        if self.gdrive_client:
-            self.gdrive_client.shutdown()
-            self.gdrive_client = None
+        pass
 
     def _get_previous_download_state(self, download_type: int):
         for download in self.cache.get_current_downloads():
@@ -301,7 +297,7 @@ class GDriveTreeLoader:
 
         logger.debug(f'{sw_total} Loaded {len(tree.id_dict):n} items from {count_files_loaded:n} files and {count_folders_loaded:n} folders')
 
-        self.uid_generator.ensure_next_uid_greater_than(max_uid)
+        self.application.uid_generator.ensure_next_uid_greater_than(max_uid)
         return tree
 
     def _determine_roots(self, tree: GDriveWholeTree):
@@ -313,7 +309,7 @@ class GDriveTreeLoader:
             if item.uid >= max_uid:
                 max_uid = item.uid
 
-        self.uid_generator.ensure_next_uid_greater_than(max_uid + 1)
+        self.application.uid_generator.ensure_next_uid_greater_than(max_uid + 1)
 
     def _translate_parent_ids(self, tree: GDriveWholeTree, id_parent_mappings: List[Tuple[UID, None, str, int]]) -> List[Tuple]:
         sw = Stopwatch()

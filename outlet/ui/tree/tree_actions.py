@@ -116,7 +116,7 @@ class TreeActions:
         os.makedirs(name=self.download_dir, exist_ok=True)
         dest_file = os.path.join(self.download_dir, node.name)
 
-        gdrive_client = GDriveClient(self.con.parent_win.application)
+        gdrive_client: GDriveClient = self.con.parent_win.application.cache_manager.gdrive_client
         try:
             gdrive_client.download_file(node.goog_id, dest_file)
             if self.post_download_action == OPEN:
@@ -126,11 +126,8 @@ class TreeActions:
         except Exception as err:
             self.con.parent_win.show_error_msg('Download failed', repr(err))
             raise
-        finally:
-            gdrive_client.shutdown()
 
-    def _call_xdg_open(self, sender, node: DisplayNode):
-        full_path: str = node.full_path
+    def _call_xdg_open(self, sender, full_path: str):
         if os.path.exists(full_path):
             logger.info(f'[{self.con.tree_id}] Calling xdg-open for: {full_path}')
             subprocess.run(["xdg-open", full_path])

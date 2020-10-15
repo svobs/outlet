@@ -74,6 +74,50 @@ class LocalDiskOperation(ABC):
         pass
 
 
+class DeleteSingleNodeOp(LocalDiskOperation):
+    def __init__(self, node: LocalNode, to_trash: bool = False):
+        self.node = node
+        self.to_trash: bool = to_trash
+
+    def update_memory_cache(self, master_tree: LocalDiskTree):
+        existing_node = master_tree.get_node_for_uid(self.node.uid)
+        if existing_node:
+            master_tree.remove_node(existing_node)
+
+    def update_disk_cache(self, cache: LocalDiskDatabase):
+        cache.delete_single_node(self.node, commit=False)
+
+    def send_signals(self):
+        dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=self.node)
+
+
+# CLASS DeleteSubtreeOp
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class DeleteSubtreeOp(LocalDiskOperation):
+    def __init__(self, subtree_root_node: LocalNode, node_list: List[LocalNode]):
+        self.subtree_root_node = subtree_root_node
+        """If true, is a delete operation. If false, is upsert op."""
+        self.node_list: List[LocalNode] = node_list
+
+    def update_memory_cache(self, master_tree: LocalDiskTree):
+        logger.debug(f'DeleteSubtreeOp: removing {len(self.node_list)} nodes from memory cache')
+        for node in reversed(self.node_list):
+            existing_node = master_tree.get_node_for_uid(node.uid)
+            if existing_node:
+                master_tree.remove_node(existing_node)
+        logger.debug(f'DeleteSubtreeOp: done removing nodes from memory cache')
+
+    def update_disk_cache(self, cache: LocalDiskDatabase):
+        logger.debug(f'DeleteSubtreeOp: removing {len(self.node_list)} nodes from disk cache')
+        for node in self.node_list:
+            cache.delete_single_node(node, commit=False)
+        logger.debug(f'DeleteSubtreeOp: done removing nodes from disk cache')
+
+    def send_signals(self):
+        logger.debug(f'DeleteSubtreeOp: sending "{actions.NODE_REMOVED}" signal for {len(self.node_list)} nodes')
+        for node in self.node_list:
+            dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
+
 # CLASS SubtreeOperation
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class SubtreeOperation:
@@ -345,7 +389,7 @@ class LocalDiskMasterCache:
 
             operation_list: List[SubtreeOperation] = [remove_nodes_op, upsert_nodes_op]
 
-            self._update_memory_and_disk_and_notify(operation_list)
+            self._execute(operation_list)
 
     # Subtree-level methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -892,7 +936,7 @@ class LocalDiskMasterCache:
                 for node in operation.node_list:
                     dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
 
-    def _update_memory_and_disk_and_notify(self, op_list: List[SubtreeOperation]):
+    def _execute(self, op_list: List[SubtreeOperation]):
         self._update_memory_cache(op_list)
 
         self._update_disk_cache(op_list)
@@ -918,7 +962,7 @@ class LocalDiskMasterCache:
             logger.info(f'Removing subtree with {len(operation.node_list)} nodes')
             op_list = [operation]
 
-            self._update_memory_and_disk_and_notify(op_list)
+            self._execute(op_list)
 
     def _build_subtree_removal_operation(self, subtree_root: LocalNode, to_trash: bool) -> SubtreeOperation:
         """subtree_root can be either a file or dir"""

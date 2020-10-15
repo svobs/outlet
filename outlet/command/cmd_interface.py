@@ -35,18 +35,16 @@ class CommandContext:
         self.cache_manager = application.cache_manager
         self.uid_generator = application.uid_generator
         if needs_gdrive:
-            self.gdrive_client = GDriveClient(application=application, tree_id=None)
+            self.gdrive_client: Optional[GDriveClient] = self.cache_manager.gdrive_client
             self.gdrive_tree: GDriveWholeTree = self.cache_manager.get_gdrive_whole_tree(tree_id=tree_id)
         else:
-            self.gdrive_client = None
+            self.gdrive_client: Optional[GDriveClient] = None
 
     def __del__(self):
         self.shutdown()
 
     def shutdown(self):
-        if self.gdrive_client:
-            self.gdrive_client.shutdown()
-            self.gdrive_client = None
+        pass
 
 
 # CLASS CommandResult
