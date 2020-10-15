@@ -29,7 +29,7 @@ class LazyLoadDisplayTreeDecorator:
         if not self._loaded:
             # This will also start live monitoring if configured:
             logger.debug(f'[{self.con.tree_id}] Tree was requested. Loading: {self._root}')
-            self._tree = self.con.cache_manager.load_subtree(self._root, self.con.tree_id)
+            self._tree = self.con.cacheman.load_subtree(self._root, self.con.tree_id)
             self._loaded = True
 
     def get_root_identifier(self) -> NodeIdentifier:

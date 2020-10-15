@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 class OutletApplication(Gtk.Application):
 
-    """Main application.
+    """Main app.
     See: https://athenajc.gitbooks.io/python-gtk-3-api/content/gtk-group/gtkapplication.html"""
     def __init__(self, config):
         self.config = config
@@ -41,7 +41,7 @@ class OutletApplication(Gtk.Application):
 
         self.uid_generator: UidGenerator = PersistentAtomicIntUidGenerator(self.config)
         self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self)
-        self.cache_manager: CacheManager = CacheManager(self)
+        self.cacheman: CacheManager = CacheManager(self)
 
     def start(self):
         logger.info('Starting app')
@@ -58,9 +58,9 @@ class OutletApplication(Gtk.Application):
         self.shutdown = True
 
         # This will emit a cascade of events which will shut down the Executor too:
-        if self.cache_manager:
-            self.cache_manager.shutdown()
-            self.cache_manager = None
+        if self.cacheman:
+            self.cacheman.shutdown()
+            self.cacheman = None
 
         # Just to be sure:
         if self.executor:
@@ -79,12 +79,12 @@ class OutletApplication(Gtk.Application):
     def do_activate(self):
         # We only allow a single window and raise any existing ones
         if not self.window:
-            # Windows are associated with the application
-            # when the last one is closed the application shuts down
+            # Windows are associated with the app
+            # when the last one is closed the app shuts down
             self.start()
 
             logger.debug(f'Creating main window')
-            self.window = TwoPanelWindow(application=self, win_id=ID_DIFF_WINDOW)
+            self.window = TwoPanelWindow(app=self, win_id=ID_DIFF_WINDOW)
             self.window.show_all()
             logger.debug(f'Finished window.show_all()')
 
@@ -128,13 +128,13 @@ def main():
     else:
         config = AppConfig()
 
-    application = OutletApplication(config)
+    app = OutletApplication(config)
     try:
-        exit_status = application.run(sys.argv)
+        exit_status = app.run(sys.argv)
         sys.exit(exit_status)
     except KeyboardInterrupt:
         logger.info('Caught KeyboardInterrupt. Quitting')
-        application.quit()
+        app.quit()
 
 
 if __name__ == '__main__':

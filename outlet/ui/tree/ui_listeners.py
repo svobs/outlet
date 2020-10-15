@@ -56,16 +56,16 @@ class TreeUiListeners:
         targeted_signals = []
         general_signals = [actions.TOGGLE_UI_ENABLEMENT]
 
-        if self.con.cache_manager.reload_tree_on_root_path_update:
+        if self.con.cacheman.reload_tree_on_root_path_update:
             dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.tree_id)
             targeted_signals.append(actions.ROOT_PATH_UPDATED)
 
-        if self.con.cache_manager.load_all_caches_on_startup or self.con.cache_manager.load_caches_for_displayed_trees_at_startup:
-            logger.debug(f'[{self.con.tree_id}] LoadAllAtStartup={self.con.cache_manager.load_all_caches_on_startup}, '
-                         f'LoadDisplayedAtStartup={self.con.cache_manager.load_caches_for_displayed_trees_at_startup}')
+        if self.con.cacheman.load_all_caches_on_startup or self.con.cacheman.load_caches_for_displayed_trees_at_startup:
+            logger.debug(f'[{self.con.tree_id}] LoadAllAtStartup={self.con.cacheman.load_all_caches_on_startup}, '
+                         f'LoadDisplayedAtStartup={self.con.cacheman.load_caches_for_displayed_trees_at_startup}')
             # Either enabled for this tree to be loaded automatically
             actions.connect(signal=actions.START_CACHEMAN_DONE, handler=self._after_all_caches_loaded)
-            if self.con.app.cache_manager.load_all_caches_done:
+            if self.con.app.cacheman.load_all_caches_done:
                 # If cacheman finished loading before we even started listening, just execute here.
                 # Possible race condition? Should be ok for CPython...
                 # FIXME: this is nasty. Find a better solution. Something like a queuing solution for signals...
@@ -147,7 +147,7 @@ class TreeUiListeners:
         selected_nodes: List[DisplayNode] = self.con.get_multiple_selection()
         if selected_nodes:
             # Avoid complicated, undocumented GTK3 garbage by just sending a UID along with needed data via the dispatcher. See _check_drop()
-            dd_uid = self.con.parent_win.application.uid_generator.next_uid()
+            dd_uid = self.con.parent_win.app.uid_generator.next_uid()
             action = drag_context.get_selected_action()
             drag_data = DragAndDropData(dd_uid, self.con, selected_nodes)
             dispatcher.send(signal=actions.DRAG_AND_DROP, sender=self.con.tree_id, data=drag_data)
@@ -198,9 +198,9 @@ class TreeUiListeners:
         if is_into:
             if dest_node and not dest_node.is_dir():
                 # cannot drop into a file; just use parent in this case
-                dest_node = self.con.cache_manager.get_parent_for_node(dest_node)
+                dest_node = self.con.cacheman.get_parent_for_node(dest_node)
         else:
-            dest_node = self.con.cache_manager.get_parent_for_node(dest_node)
+            dest_node = self.con.cacheman.get_parent_for_node(dest_node)
 
         if not dest_node:
             logger.error(f'[{self.con.tree_id}] Cancelling drop: no parent node for dropped location!')
@@ -211,11 +211,11 @@ class TreeUiListeners:
             # So far we only support COPY.
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
             change_maker = ChangeMaker(left_tree=drag_data.src_tree_controller.get_tree(), right_tree=self.con.get_tree(),
-                                       application=self.con.parent_win.application)
+                                       app=self.con.parent_win.app)
             change_maker.copy_nodes_left_to_right(drag_data.nodes, dest_node, OpType.CP)
             # This should fire listeners which ultimately populate the tree:
             op_list: Iterable[Op] = change_maker.right_side.change_tree.get_ops()
-            self.con.parent_win.application.cache_manager.enqueue_op_list(op_list)
+            self.con.parent_win.app.cacheman.enqueue_op_list(op_list)
 
     def _check_drop(self):
         """Drag & Drop 4/4: Check UID of the dragged data against the UID of the dropped data.
@@ -244,7 +244,7 @@ class TreeUiListeners:
         logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.ROOT_PATH_UPDATED}"')
 
         # Reload subtree and refresh display
-        if not err and self.con.cache_manager.reload_tree_on_root_path_update:
+        if not err and self.con.cacheman.reload_tree_on_root_path_update:
             logger.debug(f'[{self.con.tree_id}] Got new root. Reloading subtree for: {new_root}')
             # Loads from disk if necessary:
             self.con.reload(new_root, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, hide_checkboxes=True)
@@ -379,7 +379,7 @@ class TreeUiListeners:
             # Attempt to open it no matter where it is.
             # In the future, we should enhance this so that it will find the most convenient copy anywhere and open that
 
-            op: Optional[Op] = self.con.app.cache_manager.get_last_pending_op_for_node(node.uid)
+            op: Optional[Op] = self.con.app.cacheman.get_last_pending_op_for_node(node.uid)
             if op and not op.is_completed() and op.has_dst():
                 logger.warning('TODO: test this!')
 

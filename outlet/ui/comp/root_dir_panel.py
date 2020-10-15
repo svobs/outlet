@@ -32,14 +32,14 @@ class RootDirPanel:
         self.con = controller
         assert type(tree_id) == str
         self.tree_id = tree_id
-        self.cache_manager = self.con.cache_manager
+        self.cacheman = self.con.cacheman
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.current_root: NodeIdentifier = current_root
         self.can_change_root = can_change_root
         self._ui_enabled = can_change_root
         """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
 
-        if is_loaded or self.cache_manager.load_all_caches_on_startup or self.cache_manager.load_caches_for_displayed_trees_at_startup:
+        if is_loaded or self.cacheman.load_all_caches_on_startup or self.cacheman.load_caches_for_displayed_trees_at_startup:
             # the actual load will be handled in TreeUiListeners:
             self.needs_load = False
         else:
@@ -49,7 +49,7 @@ class RootDirPanel:
 
         self.path_icon = Gtk.Image()
         self.refresh_icon = Gtk.Image()
-        self.refresh_icon.set_from_file(self.parent_win.application.assets.get_path(ICON_REFRESH))
+        self.refresh_icon.set_from_file(self.parent_win.app.assets.get_path(ICON_REFRESH))
         if self.can_change_root:
             self.change_btn = Gtk.MenuButton()
             self.change_btn.set_image(image=self.path_icon)
@@ -81,7 +81,7 @@ class RootDirPanel:
         self.path_box.pack_start(self.alert_image_box, expand=False, fill=False, padding=0)
 
         self.alert_image = Gtk.Image()
-        self.alert_image.set_from_file(self.parent_win.application.assets.get_path(ICON_ALERT))
+        self.alert_image.set_from_file(self.parent_win.app.assets.get_path(ICON_ALERT))
 
         self.entry_box_focus_eid = None
         self.entry = None
@@ -114,7 +114,7 @@ class RootDirPanel:
                 self.parent_win.disconnect(self.key_press_event_eid)
             self.key_press_event_eid = None
 
-        self.cache_manager = None
+        self.cacheman = None
         self.parent_win = None
         self.con = None
 
@@ -125,7 +125,7 @@ class RootDirPanel:
         # Triggered when the user submits a root via the text entry box
         new_root_path: str = self.entry.get_text()
         logger.info(f'[{tree_id}] User entered root path: "{new_root_path}"')
-        new_root, err = self.cache_manager.resolve_root_from_path(new_root_path)
+        new_root, err = self.cacheman.resolve_root_from_path(new_root_path)
 
         if new_root == self.current_root:
             logger.debug(f'[{tree_id}] No change to root')
@@ -241,11 +241,11 @@ class RootDirPanel:
             self.label_event_box.connect('button_press_event', self._on_label_clicked)
 
         if new_root.tree_type == TREE_TYPE_LOCAL_DISK:
-            self.path_icon.set_from_file(self.parent_win.application.assets.get_path(BTN_LOCAL_DISK_LINUX))
+            self.path_icon.set_from_file(self.parent_win.app.assets.get_path(BTN_LOCAL_DISK_LINUX))
         elif new_root.tree_type == TREE_TYPE_GDRIVE:
-            self.path_icon.set_from_file(self.parent_win.application.assets.get_path(BTN_GDRIVE))
+            self.path_icon.set_from_file(self.parent_win.app.assets.get_path(BTN_GDRIVE))
         elif new_root.tree_type == TREE_TYPE_MIXED:
-            self.path_icon.set_from_file(self.parent_win.application.assets.get_path(BTN_LOCAL_DISK_LINUX))
+            self.path_icon.set_from_file(self.parent_win.app.assets.get_path(BTN_LOCAL_DISK_LINUX))
         else:
             raise RuntimeError(f'Unrecognized tree type: {new_root.tree_type}')
 
@@ -291,7 +291,7 @@ class RootDirPanel:
         if self.current_root != new_root or err != self.err:
             self.current_root = new_root
             self.err = err
-            if not err and not self.cache_manager.reload_tree_on_root_path_update:
+            if not err and not self.cacheman.reload_tree_on_root_path_update:
                 self.needs_load = True
 
             # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html

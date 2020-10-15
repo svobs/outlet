@@ -110,7 +110,7 @@ class DisplayMutator:
     def expand_and_select_node(self, selection: NodeIdentifier):
         def do_in_ui():
             with self._lock:
-                item = self.con.parent_win.application.cache_manager.get_node_for_uid(selection.uid, selection.tree_type)
+                item = self.con.parent_win.app.cacheman.get_node_for_uid(selection.uid, selection.tree_type)
                 ancestor_list: Iterable[DisplayNode] = self.con.get_tree().get_ancestors(item)
 
                 tree_iter = None
@@ -459,7 +459,7 @@ class DisplayMutator:
                 return
 
             # Node in cacheman should always reference the same object as the node in our tree
-            cached_node = self.con.app.cache_manager.get_node_for_uid(node.uid, node.get_tree_type())
+            cached_node = self.con.app.cacheman.get_node_for_uid(node.uid, node.get_tree_type())
             assert id(cached_node) == id(node), \
                 f'Object mismatch for node: (cacheman: id={id(cached_node)}, node={cached_node}, displayed: id={id(node)}, node={node})'
 
@@ -560,7 +560,7 @@ class DisplayMutator:
         return self.con.display_store.append_node(parent_node_iter, row_values)
 
     def _get_icon_for_node(self, node: DisplayNode) -> str:
-        op: Optional[Op] = self.con.app.cache_manager.get_last_pending_op_for_node(node.uid)
+        op: Optional[Op] = self.con.app.cacheman.get_last_pending_op_for_node(node.uid)
         if op and not op.is_completed():
             logger.debug(f'[{self.con.tree_id}] Found pending op for node {node.uid}: {op.op_type.name}')
             icon = op.get_icon_for_node(node.uid)

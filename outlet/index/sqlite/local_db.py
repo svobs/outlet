@@ -43,9 +43,9 @@ class LocalDiskDatabase(MetaDatabase):
         ('exist', 'INTEGER')
     ]))
 
-    def __init__(self, db_path, application):
+    def __init__(self, db_path, app):
         super().__init__(db_path)
-        self.cache_manager = application.cache_manager
+        self.cacheman = app.cacheman
         self.table_local_file = LiveTable(LocalDiskDatabase.TABLE_LOCAL_FILE, self.conn, _file_to_tuple, self._tuple_to_file)
         self.table_local_dir = LiveTable(LocalDiskDatabase.TABLE_LOCAL_DIR, self.conn, _dir_to_tuple, self._tuple_to_dir)
 
@@ -54,7 +54,7 @@ class LocalDiskDatabase(MetaDatabase):
     def _tuple_to_file(self, row: Tuple) -> LocalFileNode:
         uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, exists = row
 
-        uid = self.cache_manager.get_uid_for_path(full_path, uid_int)
+        uid = self.cacheman.get_uid_for_path(full_path, uid_int)
         assert uid == row[0], f'UID conflict! Got {uid} but read {uid_int} in row: {row}'
         node_identifier = LocalFsIdentifier(uid=uid, full_path=full_path)
         return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, exists)
@@ -88,7 +88,7 @@ class LocalDiskDatabase(MetaDatabase):
 
     def _tuple_to_dir(self, row: Tuple) -> LocalDirNode:
         full_path = row[1]
-        uid = self.cache_manager.get_uid_for_path(full_path, row[0])
+        uid = self.cacheman.get_uid_for_path(full_path, row[0])
         assert uid == row[0], f'UID conflict! Got {uid} from memcache but read from disk: {row}'
         return LocalDirNode(LocalFsIdentifier(uid=uid, full_path=full_path), bool(row[2]))
 

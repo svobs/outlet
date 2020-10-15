@@ -9,9 +9,9 @@ logger = logging.getLogger(__name__)
 
 
 class BaseDialog:
-    def __init__(self, application):
-        self.application = application
-        self.config: AppConfig = application.config
+    def __init__(self, app):
+        self.app = app
+        self.config: AppConfig = app.config
 
     def show_error_ui(self, msg, secondary_msg=None):
         def do_on_ui_thread(m, sm):
@@ -19,7 +19,7 @@ class BaseDialog:
         do_on_ui_thread(msg, secondary_msg)
 
     def show_error_msg(self, msg, secondary_msg=None):
-        if self.application.shutdown:
+        if self.app.shutdown:
             logger.debug('Application shutting down; discarding msg: {msg}')
             return
         dialog = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CANCEL, text=msg)

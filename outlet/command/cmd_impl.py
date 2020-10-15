@@ -48,11 +48,11 @@ class CopyFileLocallyCommand(CopyNodeCommand):
             except file_util.IdenticalFileExistsError:
                 # Not a real error. Nothing to do.
                 # However make sure we still keep the cache manager in the loop - it's likely out of date. Calculate fresh stats:
-                local_node = cxt.cache_manager.build_local_file_node(full_path=dst_path)
+                local_node = cxt.cacheman.build_local_file_node(full_path=dst_path)
                 return CommandResult(CommandStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, local_node])
 
         # update cache:
-        local_node = cxt.cache_manager.build_local_file_node(full_path=dst_path)
+        local_node = cxt.cacheman.build_local_file_node(full_path=dst_path)
         assert local_node.uid == self.op.dst_node.uid, f'LocalNode={local_node}, DstNode={self.op.dst_node}'
         return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[self.op.src_node, local_node])
 
@@ -94,7 +94,7 @@ class DeleteLocalFileCommand(DeleteNodeCommand):
                 if self.to_trash:
                     logger.warning(f'MoveEmptyDirToTrash not implemented!')
                 else:
-                    dir_node = cxt.cache_manager.get_node_for_local_path(parent_dir_path)
+                    dir_node = cxt.cacheman.get_node_for_local_path(parent_dir_path)
                     if dir_node:
                         deleted_nodes_list.append(dir_node)
                         os.rmdir(parent_dir_path)
@@ -132,12 +132,12 @@ class MoveFileLocallyCommand(TwoNodeCommand):
         file_util.move_file(self.op.src_node.full_path, self.op.dst_node.full_path)
 
         # Add to cache:
-        local_node: LocalFileNode = cxt.cache_manager.build_local_file_node(full_path=self.op.dst_node.full_path)
+        local_node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=self.op.dst_node.full_path)
         to_upsert = [self.op.src_node, local_node]
         to_delete = []
         if not os.path.exists(self.op.src_node.full_path):
             to_delete = [self.op.src_node]
-            cxt.cache_manager.remove_node(local_node)
+            cxt.cacheman.remove_node(local_node)
         else:
             logger.warning(f'Src node still exists after move: {self.op.src_node.full_path}')
         return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=to_upsert, to_delete=to_delete)
@@ -223,7 +223,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
             if existing:
                 return self.set_error_result(f'While trying to add: found unexpected node(s) with the same name and parent: {existing}')
             else:
-                parent_goog_id: str = cxt.cache_manager.get_goog_id_for_parent(self.op.dst_node)
+                parent_goog_id: str = cxt.cacheman.get_goog_id_for_parent(self.op.dst_node)
                 goog_node: GDriveNode = cxt.gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id, uid=self.op.dst_node.uid)
 
         return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[self.op.src_node, goog_node])
@@ -257,7 +257,7 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
         dst_path = self.op.dst_node.full_path
 
         if os.path.exists(dst_path):
-            node: LocalFileNode = cxt.cache_manager.build_local_file_node(full_path=dst_path)
+            node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path)
             if node and node.md5 == self.op.src_node.md5:
                 logger.debug(f'Item already exists and appears valid: skipping download; will update cache and return ({dst_path})')
                 return CommandResult(CommandStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, node])
@@ -274,7 +274,7 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
         staging_path = os.path.join(cxt.staging_dir, self.op.src_node.md5)
 
         if os.path.exists(staging_path):
-            node: LocalFileNode = cxt.cache_manager.build_local_file_node(full_path=dst_path)
+            node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path)
             if node and node.md5 == self.op.src_node.md5:
                 logger.debug(f'Found target node in staging dir; will move: ({staging_path} -> {dst_path})')
                 file_util.move_to_dst(staging_path=staging_path, dst_path=dst_path)
@@ -286,7 +286,7 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
         cxt.gdrive_client.download_file(file_id=src_goog_id, dest_path=staging_path)
 
         # verify contents:
-        node: LocalFileNode = cxt.cache_manager.build_local_file_node(full_path=dst_path, staging_path=staging_path, must_scan_signature=True)
+        node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path, staging_path=staging_path, must_scan_signature=True)
         if node.md5 != self.op.src_node.md5:
             raise RuntimeError(f'Downloaded MD5 ({node.md5}) does not matched expected ({self.op.src_node.md5})!')
 
@@ -319,7 +319,7 @@ class CreateGDriveFolderCommand(Command):
     def execute(self, cxt: CommandContext):
         assert isinstance(self.op.src_node, GDriveNode) and self.op.src_node.is_dir(), f'For {self.op.src_node}'
 
-        parent_goog_id: str = cxt.cache_manager.get_goog_id_for_parent(self.op.src_node)
+        parent_goog_id: str = cxt.cacheman.get_goog_id_for_parent(self.op.src_node)
         name = self.op.src_node.name
         existing = cxt.gdrive_client.get_folders_with_parent_and_name(parent_goog_id=parent_goog_id, name=name)
         if len(existing.nodes) > 0:
@@ -361,8 +361,8 @@ class MoveFileGDriveCommand(TwoNodeCommand):
         assert isinstance(self.op.dst_node, GDriveFile), f'For {self.op.dst_node}'
         assert isinstance(self.op.src_node, GDriveFile), f'For {self.op.src_node}'
         # this requires that any parents have been created and added to the in-memory cache (and will fail otherwise)
-        src_parent_goog_id: str = cxt.cache_manager.get_goog_id_for_parent(self.op.src_node)
-        dst_parent_goog_id: str = cxt.cache_manager.get_goog_id_for_parent(self.op.dst_node)
+        src_parent_goog_id: str = cxt.cacheman.get_goog_id_for_parent(self.op.src_node)
+        dst_parent_goog_id: str = cxt.cacheman.get_goog_id_for_parent(self.op.dst_node)
         src_goog_id = self.op.src_node.goog_id
         assert not self.op.dst_node.goog_id
         dst_name = self.op.dst_node.name

@@ -13,12 +13,12 @@ logger = logging.getLogger(__name__)
 
 class CentralExecutor:
     """Half-baked proto-module which will at least let me see all execution in one place"""
-    def __init__(self, application):
-        self.app = application
+    def __init__(self, app):
+        self.app = app
         self._command_executor = CommandExecutor(self.app)
         self._global_actions = GlobalActions(self.app)
         self._task_runner = CentralTaskRunner(self.app)
-        self.enable_op_execution_thread = application.config.get('executor.enable_op_execution_thread')
+        self.enable_op_execution_thread = app.config.get('executor.enable_op_execution_thread')
 
         self._op_execution_thread = threading.Thread(target=self._run_op_execution_thread, name='OpExecutionThread', daemon=True)
         """Executes changes as needed in its own thread, which blocks until a change is available."""
@@ -63,7 +63,7 @@ class CentralExecutor:
             # Should be ok to do simple infinite loop, because get_next_command() will block until work is available.
             # May need to throttle here in the future however if we are seeing hiccups in the UI for large numbers of operations
 
-            command = self.app.cache_manager.get_next_command()
+            command = self.app.cacheman.get_next_command()
             if not command:
                 logger.debug('Got None for next command. Shutting down')
                 self.shutdown()

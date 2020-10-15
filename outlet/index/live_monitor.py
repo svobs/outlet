@@ -37,8 +37,8 @@ class GDrivePollingThread(threading.Thread):
         logger.info(f'Starting {self.name}...')
 
         my_gdrive_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
-        cache_info = self.app.cache_manager.get_or_create_cache_info_entry(my_gdrive_root)
-        gdrive_tree_loader = GDriveTreeLoader(application=self.app, cache_path=cache_info.cache_location, tree_id=actions.ID_GLOBAL_CACHE)
+        cache_info = self.app.cacheman.get_or_create_cache_info_entry(my_gdrive_root)
+        gdrive_tree_loader = GDriveTreeLoader(app=self.app, cache_path=cache_info.cache_location, tree_id=actions.ID_GLOBAL_CACHE)
 
         while not self._shutdown:
             gdrive_tree_loader.sync_latest_changes()
@@ -54,7 +54,7 @@ class LocalFileChangeBatchingThread(threading.Thread):
     def __init__(self, parent):
         super().__init__(target=self._run, name=f'LocalFileChangeBatchingThread', daemon=True)
         self._shutdown: bool = False
-        self.cacheman = parent.app.cache_manager
+        self.cacheman = parent.app.cacheman
         self.local_change_batch_interval_ms: int = parent.local_change_batch_interval_ms
         self.change_set: Set = set()
 
@@ -93,8 +93,8 @@ class LocalFileChangeBatchingThread(threading.Thread):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class LiveMonitor:
-    def __init__(self, application):
-        self.app = application
+    def __init__(self, app):
+        self.app = app
 
         self.enable_gdrive_polling_thread: bool = ensure_bool(self.app.config.get('cache.enable_gdrive_polling_thread'))
         self.gdrive_thread_polling_interval_sec: int = ensure_int(self.app.config.get('cache.gdrive_thread_polling_interval_sec'))

@@ -205,9 +205,9 @@ class OpDatabase(MetaDatabase):
                                     ('error_msg', 'TEXT')
                                 ]))
 
-    def __init__(self, db_path, application):
+    def __init__(self, db_path, app):
         super().__init__(db_path)
-        self.cache_manager = application.cache_manager
+        self.cacheman = app.cacheman
 
         self.table_lists: TableListCollection = TableListCollection()
         # We do not use OpRef to Tuple, because we convert Op to Tuple instead
@@ -242,7 +242,7 @@ class OpDatabase(MetaDatabase):
     def _verify_goog_id_consistency(self, goog_id: str, obj_uid: UID):
         if goog_id:
             # Sanity check: make sure pending change cache matches GDrive cache
-            uid_from_cacheman = self.cache_manager.get_uid_for_goog_id(goog_id, obj_uid)
+            uid_from_cacheman = self.cacheman.get_uid_for_goog_id(goog_id, obj_uid)
             if uid_from_cacheman != obj_uid:
                 raise RuntimeError(f'UID from cacheman ({uid_from_cacheman}) does not match UID from change cache ({obj_uid}) '
                                    f'for goog_id "{goog_id}"')
@@ -287,7 +287,7 @@ class OpDatabase(MetaDatabase):
     def _tuple_to_local_dir(self, nodes_by_action_uid: Dict[UID, DisplayNode], row: Tuple) -> LocalDirNode:
         action_uid_int, uid_int, full_path, exists = row
 
-        uid = self.cache_manager.get_uid_for_path(full_path, uid_int)
+        uid = self.cacheman.get_uid_for_path(full_path, uid_int)
         assert uid == uid_int, f'UID conflict! Got {uid} but read {row}'
         obj = LocalDirNode(LocalFsIdentifier(uid=uid, full_path=full_path), bool(exists))
         op_uid = UID(action_uid_int)
@@ -299,7 +299,7 @@ class OpDatabase(MetaDatabase):
     def _tuple_to_local_file(self, nodes_by_action_uid: Dict[UID, DisplayNode], row: Tuple) -> LocalFileNode:
         action_uid_int, uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, exists = row
 
-        uid = self.cache_manager.get_uid_for_path(full_path, uid_int)
+        uid = self.cacheman.get_uid_for_path(full_path, uid_int)
         if uid != uid_int:
             raise RuntimeError(f'UID conflict! Cache man returned {uid} but op cache returned {uid_int} (from row: {row})')
         node_identifier = LocalFsIdentifier(uid=uid, full_path=full_path)
@@ -320,7 +320,7 @@ class OpDatabase(MetaDatabase):
             if obj.get_parent_uids():
                 parent_uid = obj.get_parent_uids()[0]
                 try:
-                    parent_goog_id_list = self.cache_manager.get_goog_ids_for_uids([parent_uid])
+                    parent_goog_id_list = self.cacheman.get_goog_ids_for_uids([parent_uid])
                     if parent_goog_id_list:
                         parent_goog_id = parent_goog_id_list[0]
                 except RuntimeError:

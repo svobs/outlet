@@ -30,8 +30,8 @@ class DisplayNodePair:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class ContentFirstDiffer(ChangeMaker):
-    def __init__(self, left_tree: DisplayTree, right_tree: DisplayTree, application):
-        super().__init__(left_tree, right_tree, application)
+    def __init__(self, left_tree: DisplayTree, right_tree: DisplayTree, app):
+        super().__init__(left_tree, right_tree, app)
 
     def _compare_paths_for_same_md5(self, lefts: Iterable[DisplayNode], rights: Iterable[DisplayNode]) -> Iterable[DisplayNodePair]:
         compare_result: List[DisplayNodePair] = []
@@ -244,11 +244,11 @@ class ContentFirstDiffer(ChangeMaker):
         if is_mixed_tree:
             root_node_identifier = LogicalNodeIdentifier(uid=SUPER_ROOT_UID, full_path=ROOT_PATH, tree_type=TREE_TYPE_MIXED)
         else:
-            root_node_identifier: NodeIdentifier = self.application.node_identifier_factory.for_values(
+            root_node_identifier: NodeIdentifier = self.app.node_identifier_factory.for_values(
                 tree_type=self.left_side.underlying_tree.tree_type, full_path=ROOT_PATH)
 
         merged_tree = CategoryDisplayTree(root_node_identifier=root_node_identifier, show_whole_forest=True,
-                                          application=self.application, tree_id=ID_MERGE_TREE)
+                                          app=self.app, tree_id=ID_MERGE_TREE)
 
         for item in left_selected_changes:
             op = self.left_side.underlying_tree.get_op_for_node(item)

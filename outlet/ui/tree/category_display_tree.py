@@ -49,14 +49,14 @@ class PreAncestorDict:
 class CategoryDisplayTree(DisplayTree):
     """Note: this doesn't completely map to DisplayTree, but it's close enough for it to be useful to
     inherit its functionality"""
-    def __init__(self, application, root_node_identifier: NodeIdentifier, tree_id: str, show_whole_forest=False):
+    def __init__(self, app, root_node_identifier: NodeIdentifier, tree_id: str, show_whole_forest=False):
         # Root node will never be displayed in the UI, but treelib requires a root node, as does parent class
         super().__init__(ContainerNode(root_node_identifier))
 
         self.tree_id = tree_id
-        self.cache_manager = application.cache_manager
-        self.uid_generator = application.uid_generator
-        self.node_identifier_factory = application.node_identifier_factory
+        self.cacheman = app.cacheman
+        self.uid_generator = app.uid_generator
+        self.node_identifier_factory = app.node_identifier_factory
 
         self._category_tree: treelib.Tree = treelib.Tree()
         self._category_tree.add_node(self.root_node, parent=None)
@@ -146,7 +146,7 @@ class CategoryDisplayTree(DisplayTree):
         if not cat_node:
             # Create category display node. This may be the "last pre-ancestor".
             # Note that we can use this for GDrive paths because we are combining it with tree_type and OpType (below) into a new identifier:
-            uid = self.cache_manager.get_uid_for_path(self.root_path)
+            uid = self.cacheman.get_uid_for_path(self.root_path)
             nid = NodeIdentifierFactory.nid(uid, node.node_identifier.tree_type, op_type)
 
             node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=self.root_path, uid=uid)
@@ -172,7 +172,7 @@ class CategoryDisplayTree(DisplayTree):
                         break
 
                 if not child_node:
-                    uid = self.cache_manager.get_uid_for_path(path_so_far)
+                    uid = self.cacheman.get_uid_for_path(path_so_far)
                     nid = NodeIdentifierFactory.nid(uid, node.node_identifier.tree_type, op_type)
                     node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=uid)
                     child_node = ContainerNode(node_identifier=node_identifier)
@@ -247,7 +247,7 @@ class CategoryDisplayTree(DisplayTree):
             full_path: str = str(pathlib.Path(full_path).parent)
             # Get standard UID for path (note: this is a kludge for non-local trees, but should be OK because we just need a UID which
             # is unique for this tree)
-            uid = self.cache_manager.get_uid_for_path(full_path)
+            uid = self.cacheman.get_uid_for_path(full_path)
             nid = NodeIdentifierFactory.nid(uid, node.node_identifier.tree_type, op_type_for_display)
             parent = self._category_tree.get_node(nid=nid)
             if parent:

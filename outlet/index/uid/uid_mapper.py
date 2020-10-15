@@ -16,9 +16,9 @@ class UidPathMapper:
     """
     Maps a UID (int) to a file tree path (string)
     """
-    def __init__(self, application):
+    def __init__(self, app):
         self._uid_lock = threading.Lock()
-        self.uid_generator = application.uid_generator
+        self.uid_generator = app.uid_generator
         # Every unique path must map to one unique UID
         self._full_path_uid_dict: Dict[str, UID] = {ROOT_PATH: LOCAL_ROOT_UID}
 
@@ -46,9 +46,9 @@ class UidGoogIdMapper:
     """
     Maps a UID (int) to a GoogId (hash string)
     """
-    def __init__(self, application):
+    def __init__(self, app):
         self._uid_lock = threading.Lock()
-        self.uid_generator = application.uid_generator
+        self.uid_generator = app.uid_generator
         # Every unique GoogId must map to one unique UID
         self._goog_uid_dict: Dict[str, UID] = {}
 

@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class Task:
-    def __init__(self, application, task_func: Callable, *args):
-        self.application = application
+    def __init__(self, app, task_func: Callable, *args):
+        self.app = app
         self.task_func: Callable = task_func
         self.args = args
 
@@ -24,7 +24,7 @@ class Task:
         except Exception as err:
             msg = f'Task "{self.task_func.__name__}" failed during execution'
             logger.exception(msg)
-            self.application.window.show_error_ui(msg, repr(err))
+            self.app.window.show_error_ui(msg, repr(err))
             raise
         finally:
             logger.info(f'{task_time} Task returned: "{self.task_func.__name__}"')
@@ -34,13 +34,13 @@ class Task:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class CentralTaskRunner:
-    def __init__(self, application):
-        self.application = application
+    def __init__(self, app):
+        self.app = app
         self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=TASK_RUNNER_MAX_WORKERS, thread_name_prefix='TaskRunner-')
 
     def enqueue(self, task_func, *args):
         logger.debug(f'Submitting new task to executor: "{task_func.__name__}"')
-        task = Task(self.application, task_func, *args)
+        task = Task(self.app, task_func, *args)
         future = self._executor.submit(task.run)
         return future
 
@@ -52,5 +52,5 @@ class CentralTaskRunner:
             self._executor.shutdown(wait=True)
             self._executor = None
 
-        self.application = None
+        self.app = None
 

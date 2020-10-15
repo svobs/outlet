@@ -94,14 +94,14 @@ class TreeContextMenu:
             item.connect('activate', self.send_signal, actions.SHOW_IN_NAUTILUS, {'full_path': full_path})
             menu.append(item)
 
-        # MenuItem: 'Download from Google Drive' [GDrive] OR 'Open with default application' [Local]
+        # MenuItem: 'Download from Google Drive' [GDrive] OR 'Open with default app' [Local]
         if file_exists and not is_dir:
             if is_gdrive:
                 item = Gtk.MenuItem(label=f'Download from Google Drive')
                 item.connect('activate', self.send_signal, actions.DOWNLOAD_FROM_GDRIVE, {'node': node})
                 menu.append(item)
             elif node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-                item = Gtk.MenuItem(label=f'Open with default application')
+                item = Gtk.MenuItem(label=f'Open with default app')
                 item.connect('activate', self.send_signal, actions.CALL_XDG_OPEN, {'node': node})
                 menu.append(item)
 
@@ -156,7 +156,7 @@ class TreeContextMenu:
 
         menu = Gtk.Menu()
 
-        op: Optional[Op] = self.con.app.cache_manager.get_last_pending_op_for_node(node.uid)
+        op: Optional[Op] = self.con.app.cacheman.get_last_pending_op_for_node(node.uid)
         if op and not op.is_completed() and op.has_dst():
             logger.warning('TODO: test this!')
             # Split into separate entries for src and dst.

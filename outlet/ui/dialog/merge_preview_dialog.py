@@ -20,7 +20,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
     def __init__(self, parent_win, tree):
         Gtk.Dialog.__init__(self, "Confirm Merge", parent_win, 0)
-        BaseDialog.__init__(self, parent_win.application)
+        BaseDialog.__init__(self, parent_win.app)
         self.parent_win = parent_win
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_APPLY, Gtk.ResponseType.APPLY)
@@ -72,5 +72,5 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
             dialog.destroy()
 
     def on_apply_clicked(self):
-        self.parent_win.application.cache_manager.enqueue_op_list(op_list=self.tree.get_ops())
+        self.parent_win.app.cacheman.enqueue_op_list(op_list=self.tree.get_ops())
         dispatcher.send(signal=actions.EXIT_DIFF_MODE, sender=actions.ID_MERGE_TREE)

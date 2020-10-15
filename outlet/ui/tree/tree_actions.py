@@ -116,7 +116,7 @@ class TreeActions:
         os.makedirs(name=self.download_dir, exist_ok=True)
         dest_file = os.path.join(self.download_dir, node.name)
 
-        gdrive_client: GDriveClient = self.con.parent_win.application.cache_manager.gdrive_client
+        gdrive_client: GDriveClient = self.con.parent_win.app.cacheman.gdrive_client
         try:
             gdrive_client.download_file(node.goog_id, dest_file)
             if self.post_download_action == OPEN:
@@ -150,7 +150,7 @@ class TreeActions:
     def _get_subtree_for_node(self, subtree_root: DisplayNode) -> List[DisplayNode]:
         assert subtree_root.is_dir(), f'Expected a dir: {subtree_root}'
 
-        subtree_files, subtree_dirs = self.con.app.cache_manager.get_all_files_and_dirs_for_subtree(subtree_root.node_identifier)
+        subtree_files, subtree_dirs = self.con.app.cacheman.get_all_files_and_dirs_for_subtree(subtree_root.node_identifier)
         return subtree_files + subtree_dirs
 
     def _delete_subtree(self, sender, node: DisplayNode = None, node_list: List[DisplayNode] = None):
@@ -174,7 +174,7 @@ class TreeActions:
             op_list.append(Op(op_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
                               op_type=OpType.RM, src_node=node_to_delete))
 
-        self.con.parent_win.application.cache_manager.enqueue_op_list(op_list)
+        self.con.parent_win.app.cacheman.enqueue_op_list(op_list)
 
     def _check_rows(self, sender, tree_paths: List[Gtk.TreePath] = None):
         for tree_path in tree_paths:
@@ -186,9 +186,9 @@ class TreeActions:
 
     def _refresh_subtree(self, sender, node: DisplayNode):
         logger.info(f'[{self.con.tree_id}] Enqueuing task to refresh subtree at {node.node_identifier}')
-        self.con.parent_win.application.executor.submit_async_task(self.con.parent_win.application.cache_manager.refresh_subtree,
+        self.con.parent_win.app.executor.submit_async_task(self.con.parent_win.app.cacheman.refresh_subtree,
                                                                    node, self.con.tree_id)
 
     def _refresh_subtree_stats(self, sender):
         logger.info(f'[{self.con.tree_id}] Enqueuing task to refresh stats')
-        self.con.parent_win.application.executor.submit_async_task(self.con.get_tree().refresh_stats, self.con.tree_id)
+        self.con.parent_win.app.executor.submit_async_task(self.con.get_tree().refresh_stats, self.con.tree_id)

@@ -33,14 +33,14 @@ class ErrorHandlingBehavior(IntEnum):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class OpLedger:
-    def __init__(self, application):
-        self.application = application
-        self.cacheman = self.application.cache_manager
-        self._cmd_builder = CommandBuilder(self.application)
+    def __init__(self, app):
+        self.app = app
+        self.cacheman = self.app.cacheman
+        self._cmd_builder = CommandBuilder(self.app)
 
-        self.op_db_path = os.path.join(self.application.cache_manager.cache_dir_path, OPS_FILE_NAME)
+        self.op_db_path = os.path.join(self.app.cacheman.cache_dir_path, OPS_FILE_NAME)
 
-        self.op_graph: OpGraph = OpGraph(self.application)
+        self.op_graph: OpGraph = OpGraph(self.app)
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
 
         dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
@@ -53,10 +53,10 @@ class OpLedger:
             self.op_graph.shutdown()
 
         self.cacheman = None
-        self.application = None
+        self.app = None
 
     def _cancel_pending_ops_from_disk(self):
-        with OpDatabase(self.op_db_path, self.application) as op_db:
+        with OpDatabase(self.op_db_path, self.app) as op_db:
             op_list: List[Op] = op_db.get_all_pending_ops()
             if op_list:
                 op_db.archive_failed_ops(op_list, 'Cancelled on startup per user config')
@@ -64,7 +64,7 @@ class OpLedger:
 
     def _load_pending_ops_from_disk(self, error_handling_behavior: ErrorHandlingBehavior) -> List[Op]:
         # first load refs from disk
-        with OpDatabase(self.op_db_path, self.application) as op_db:
+        with OpDatabase(self.op_db_path, self.app) as op_db:
             op_list: List[Op] = op_db.get_all_pending_ops()
 
         if not op_list:
@@ -77,16 +77,16 @@ class OpLedger:
         return op_list
 
     def _remove_pending_ops(self, op_list: Iterable[Op]):
-        with OpDatabase(self.op_db_path, self.application) as op_db:
+        with OpDatabase(self.op_db_path, self.app) as op_db:
             op_db.delete_pending_ops(op_list)
 
     def _save_pending_ops_to_disk(self, op_list: Iterable[Op]):
-        with OpDatabase(self.op_db_path, self.application) as op_db:
+        with OpDatabase(self.op_db_path, self.app) as op_db:
             # This will save each of the planning nodes, if any:
             op_db.upsert_pending_ops(op_list, overwrite=False)
 
     def _archive_pending_ops_to_disk(self, op_list: Iterable[Op]):
-        with OpDatabase(self.op_db_path, self.application) as op_db:
+        with OpDatabase(self.op_db_path, self.app) as op_db:
             op_db.archive_completed_ops(op_list)
 
     def _update_nodes_in_memcache(self, op: Op):
@@ -204,7 +204,7 @@ class OpLedger:
             if cp_dst_dict.get(src_ancestor.uid, None):
                 raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being copied to!')
 
-            src_ancestor = self.application.cache_manager.get_parent_for_node(src_ancestor)
+            src_ancestor = self.app.cacheman.get_parent_for_node(src_ancestor)
 
         while dst_ancestor:
             if SUPER_DEBUG:
@@ -214,12 +214,12 @@ class OpLedger:
             if cp_src_dict.get(dst_ancestor.uid, None):
                 raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being copied from!')
 
-            dst_ancestor = self.application.cache_manager.get_parent_for_node(dst_ancestor)
+            dst_ancestor = self.app.cacheman.get_parent_for_node(dst_ancestor)
 
     def _check_ancestors(self, op: Op, eval_func: Callable[[Op, DisplayNode], bool]):
         ancestor = op.src_node
         while True:
-            ancestor = self.application.cache_manager.get_parent_for_node(ancestor)
+            ancestor = self.app.cacheman.get_parent_for_node(ancestor)
             if not ancestor:
                 return
             if SUPER_DEBUG:

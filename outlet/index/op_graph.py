@@ -22,9 +22,9 @@ SUPER_DEBUG = False
 class OpGraph:
     """Dependency tree, currently with emphasis on Ops"""
 
-    def __init__(self, application):
-        self.cacheman = application.cache_manager
-        self.uid_generator = application.uid_generator
+    def __init__(self, app):
+        self.cacheman = app.cacheman
+        self.uid_generator = app.uid_generator
 
         self._struct_lock = threading.Lock()
 

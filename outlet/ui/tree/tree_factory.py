@@ -102,7 +102,7 @@ class TreeFactory:
 
         controller.tree_actions = TreeActions(controller=controller)
 
-        assets = self.parent_win.application.assets
+        assets = self.parent_win.app.assets
         controller.tree_view = tree_factory_templates.build_treeview(display_store, assets)
 
         controller.root_dir_panel = RootDirPanel(parent_win=self.parent_win,

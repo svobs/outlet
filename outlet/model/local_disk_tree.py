@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 
 class LocalDiskTree(treelib.Tree):
     """Tree data structure, representing a subtree on a local disk, backed by a treelib.Tree data structure."""
-    def __init__(self, application):
+    def __init__(self, app):
         super().__init__()
-        self.application = application
+        self.app = app
 
     def get_root_node(self) -> LocalNode:
         return self.get_node(self.root)
@@ -45,7 +45,7 @@ class LocalDiskTree(treelib.Tree):
         if path_segments:
             for dir_name in path_segments:
                 path_so_far: str = os.path.join(path_so_far, dir_name)
-                uid = self.application.cache_manager.get_uid_for_path(path_so_far)
+                uid = self.app.cacheman.get_uid_for_path(path_so_far)
                 child: LocalNode = self.get_node(nid=uid)
                 if not child:
                     # logger.debug(f'Creating dir node: nid={uid}')

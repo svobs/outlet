@@ -39,33 +39,33 @@ def _migrate_file_node(node_identifier: NodeIdentifier, src_node: DisplayNode) -
 # CLASS OneSide
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class OneSide:
-    def __init__(self, underlying_tree: DisplayTree, application, tree_id: str):
+    def __init__(self, underlying_tree: DisplayTree, app, tree_id: str):
         self.underlying_tree: DisplayTree = underlying_tree
-        self.application = application
-        self.uid_generator = application.uid_generator
-        self.change_tree: CategoryDisplayTree = CategoryDisplayTree(application, self.underlying_tree.node_identifier, tree_id)
+        self.app = app
+        self.uid_generator = app.uid_generator
+        self.change_tree: CategoryDisplayTree = CategoryDisplayTree(app, self.underlying_tree.node_identifier, tree_id)
         self.batch_uid = self.uid_generator.next_uid()
         self.added_folders: Dict[str, DisplayNode] = {}
 
     def migrate_single_node_to_this_side(self, src_node: DisplayNode, new_path: str) -> DisplayNode:
         dst_tree_type = self.underlying_tree.tree_type
         # (Kludge) just assign the NULL UID for now, so we don't auto-generate a new UID. It will just get overwritten anyway if GDrive
-        dst_node_identifier = self.application.node_identifier_factory.for_values(tree_type=dst_tree_type, full_path=new_path, uid=NULL_UID)
+        dst_node_identifier = self.app.node_identifier_factory.for_values(tree_type=dst_tree_type, full_path=new_path, uid=NULL_UID)
         dst_node: DisplayNode = _migrate_file_node(node_identifier=dst_node_identifier, src_node=src_node)
         self.add_needed_ancestors(dst_node)
 
         if dst_tree_type == TREE_TYPE_LOCAL_DISK:
-            dst_node.uid = self.application.cache_manager.get_uid_for_path(new_path)
+            dst_node.uid = self.app.cacheman.get_uid_for_path(new_path)
         elif dst_tree_type == TREE_TYPE_GDRIVE:
             assert isinstance(dst_node, GDriveNode) and dst_node.get_parent_uids(), f'Bad data: {dst_node}'
-            existing_node = self.application.cache_manager.get_goog_node_for_name_and_parent_uid(dst_node.name, dst_node.get_parent_uids()[0])
+            existing_node = self.app.cacheman.get_goog_node_for_name_and_parent_uid(dst_node.name, dst_node.get_parent_uids()[0])
             if existing_node:
                 # If node is already there with given name, use its identification; we will overwrite its content with a new version
                 dst_node.uid = existing_node.uid
                 dst_node.goog_id = existing_node.goog_id
             else:
                 # Not exist: assign new UID. We will later associate this with a goog_id once it's made existent
-                dst_node.uid = self.application.uid_generator.next_uid()
+                dst_node.uid = self.app.uid_generator.next_uid()
 
         logger.debug(f'Migrated single node (UID={dst_node.uid} path="{new_path}")')
         return dst_node
@@ -134,7 +134,7 @@ class OneSide:
                                           drive_id=None, is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=True)
             elif tree_type == TREE_TYPE_LOCAL_DISK:
                 logger.debug(f'Creating LocalDirToAdd for {parent_path}')
-                new_uid = self.application.cache_manager.get_uid_for_path(parent_path)
+                new_uid = self.app.cacheman.get_uid_for_path(parent_path)
                 node_identifier = LocalFsIdentifier(parent_path, new_uid)
                 new_parent = LocalDirNode(node_identifier, exists=False)
             else:
@@ -156,12 +156,12 @@ class OneSide:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class ChangeMaker:
-    def __init__(self, left_tree: DisplayTree, right_tree: DisplayTree, application):
-        self.left_side = OneSide(left_tree, application, ID_LEFT_TREE)
-        self.right_side = OneSide(right_tree, application, ID_RIGHT_TREE)
+    def __init__(self, left_tree: DisplayTree, right_tree: DisplayTree, app):
+        self.left_side = OneSide(left_tree, app, ID_LEFT_TREE)
+        self.right_side = OneSide(right_tree, app, ID_RIGHT_TREE)
 
-        self.application = application
-        self.uid_generator = application.uid_generator
+        self.app = app
+        self.uid_generator = app.uid_generator
 
     def copy_nodes_left_to_right(self, src_node_list: List[DisplayNode], dst_parent: DisplayNode, op_type: OpType):
         """Populates the destination parent in "change_tree_right" with the given source nodes."""
@@ -180,7 +180,7 @@ class ChangeMaker:
                 # Add all its descendants. Assume that we came from a display tree which may not have all its children.
                 # Need to look things up in the central cache. We will focus on copying files, and add prerequisite parent dirs
                 # as needed
-                subtree_files, subtree_dirs = self.application.cache_manager.get_all_files_and_dirs_for_subtree(src_node.node_identifier)
+                subtree_files, subtree_dirs = self.app.cacheman.get_all_files_and_dirs_for_subtree(src_node.node_identifier)
                 src_path_minus_dirname = str(pathlib.Path(src_node.full_path).parent)
                 logger.debug(f'Unpacking subtree with {len(subtree_files)} nodes for copy...')
                 for node in subtree_files:

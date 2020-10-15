@@ -63,25 +63,25 @@ class CacheInfoByType(TwoLevelDict):
 
 class CacheManager:
     """
-    This is the central source of truth for the application (or attempts to be as much as possible).
+    This is the central source of truth for the app (or attempts to be as much as possible).
     """
-    def __init__(self, application):
-        self.application = application
+    def __init__(self, app):
+        self.app = app
 
-        self.cache_dir_path = ensure_cache_dir_path(self.application.config)
+        self.cache_dir_path = ensure_cache_dir_path(self.app.config)
         self.main_registry_path = os.path.join(self.cache_dir_path, MAIN_REGISTRY_FILE_NAME)
         self.gdrive_client: Optional[GDriveClient] = None
 
         self.caches_by_type: CacheInfoByType = CacheInfoByType()
 
-        self.enable_load_from_disk = application.config.get(CFG_ENABLE_LOAD_FROM_DISK)
-        self.enable_save_to_disk = application.config.get('cache.enable_cache_save')
-        self.load_all_caches_on_startup = application.config.get('cache.load_all_caches_on_startup')
-        self.load_caches_for_displayed_trees_at_startup = application.config.get('cache.load_caches_for_displayed_trees_on_startup')
-        self.sync_from_local_disk_on_cache_load = application.config.get('cache.sync_from_local_disk_on_cache_load')
-        self.reload_tree_on_root_path_update = application.config.get('cache.load_cache_when_tree_root_selected')
-        self.cancel_all_pending_ops_on_startup = application.config.get('cache.cancel_all_pending_ops_on_startup')
-        self._is_live_capture_enabled = application.config.get('cache.live_capture_enabled')
+        self.enable_load_from_disk = app.config.get(CFG_ENABLE_LOAD_FROM_DISK)
+        self.enable_save_to_disk = app.config.get('cache.enable_cache_save')
+        self.load_all_caches_on_startup = app.config.get('cache.load_all_caches_on_startup')
+        self.load_caches_for_displayed_trees_at_startup = app.config.get('cache.load_caches_for_displayed_trees_on_startup')
+        self.sync_from_local_disk_on_cache_load = app.config.get('cache.sync_from_local_disk_on_cache_load')
+        self.reload_tree_on_root_path_update = app.config.get('cache.load_cache_when_tree_root_selected')
+        self.cancel_all_pending_ops_on_startup = app.config.get('cache.cancel_all_pending_ops_on_startup')
+        self._is_live_capture_enabled = app.config.get('cache.live_capture_enabled')
 
         if not self.load_all_caches_on_startup:
             logger.info('Configured not to fetch all caches on startup; will lazy load instead')
@@ -163,13 +163,13 @@ class CacheManager:
         dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=ID_GLOBAL_CACHE)
 
         try:
-            self.gdrive_client = GDriveClient(self.application, ID_GLOBAL_CACHE)
+            self.gdrive_client = GDriveClient(self.app, ID_GLOBAL_CACHE)
 
             # Init sub-modules:
-            self._local_disk_cache = LocalDiskMasterCache(self.application)
-            self._gdrive_cache = GDriveMasterCache(self.application)
-            self._op_ledger = OpLedger(self.application)
-            self._live_monitor = LiveMonitor(self.application)
+            self._local_disk_cache = LocalDiskMasterCache(self.app)
+            self._gdrive_cache = GDriveMasterCache(self.app)
+            self._op_ledger = OpLedger(self.app)
+            self._live_monitor = LiveMonitor(self.app)
             self._live_monitor.start()
 
             # Load registry. Do validation along the way
@@ -219,7 +219,7 @@ class CacheManager:
                 logger.info(f'{stopwatch} Found {unique_cache_count} existing caches but configured not to load on startup')
 
             # Finally, add any queued changes (asynchronously)
-            self.application.executor.submit_async_task(self._op_ledger.load_pending_ops)
+            self.app.executor.submit_async_task(self._op_ledger.load_pending_ops)
 
         finally:
             dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
@@ -293,11 +293,11 @@ class CacheManager:
 
     def _overwrite_all_caches_in_registry(self, cache_info_list: List[CacheInfoEntry]):
         logger.info(f'Overwriting all cache entries in persisted registry with {len(cache_info_list)} entries')
-        with CacheRegistry(self.main_registry_path, self.application.node_identifier_factory) as cache_registry_db:
+        with CacheRegistry(self.main_registry_path, self.app.node_identifier_factory) as cache_registry_db:
             cache_registry_db.insert_cache_info(cache_info_list, append=False, overwrite=True)
 
     def _get_cache_info_from_registry(self) -> List[CacheInfoEntry]:
-        with CacheRegistry(self.main_registry_path, self.application.node_identifier_factory) as cache_registry_db:
+        with CacheRegistry(self.main_registry_path, self.app.node_identifier_factory) as cache_registry_db:
             if cache_registry_db.has_cache_info():
                 exisiting_caches = cache_registry_db.get_cache_info()
                 logger.debug(f'Found {len(exisiting_caches)} caches listed in registry')
@@ -387,7 +387,7 @@ class CacheManager:
                                   subtree_root=subtree_root, sync_ts=now_ms,
                                   is_complete=True)
 
-        with CacheRegistry(self.main_registry_path, self.application.node_identifier_factory) as cache_registry_db:
+        with CacheRegistry(self.main_registry_path, self.app.node_identifier_factory) as cache_registry_db:
             logger.info(f'Inserting new cache info into registry: {subtree_root}')
             cache_registry_db.insert_cache_info(db_entry, append=True, overwrite=False)
 
@@ -507,7 +507,7 @@ class CacheManager:
         and returns a tuple of both"""
         try:
             full_path = file_util.normalize_path(full_path)
-            node_identifier = self.application.node_identifier_factory.for_values(full_path=full_path)
+            node_identifier = self.app.node_identifier_factory.for_values(full_path=full_path)
             if node_identifier.tree_type == TREE_TYPE_GDRIVE:
                 # Need to wait until all caches are loaded:
                 self.wait_for_startup_done()
@@ -526,11 +526,11 @@ class CacheManager:
             new_root = ginf.node_identifier
             err = ginf
         except FileNotFoundError as fnf:
-            new_root = self.application.node_identifier_factory.for_values(full_path=full_path)
+            new_root = self.app.node_identifier_factory.for_values(full_path=full_path)
             err = fnf
         except CacheNotLoadedError as cnlf:
             err = cnlf
-            new_root = self.application.node_identifier_factory.for_values(full_path=full_path, uid=NULL_UID)
+            new_root = self.app.node_identifier_factory.for_values(full_path=full_path, uid=NULL_UID)
 
         return new_root, err
 

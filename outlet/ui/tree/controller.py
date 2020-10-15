@@ -33,7 +33,7 @@ class TreePanelController:
     """
     def __init__(self, parent_win, display_store, treeview_meta):
         self.parent_win: BaseDialog = parent_win
-        self.app = parent_win.application
+        self.app = parent_win.app
         self.lazy_tree = None
         self.display_store = display_store
         self.treeview_meta = treeview_meta
@@ -60,12 +60,12 @@ class TreePanelController:
         # Need to start TreeUiListeners AFTER TreeActions... Need a better solution
         self.tree_ui_listeners.init()
 
-        self.app.cache_manager.register_tree_controller(self)
+        self.app.cacheman.register_tree_controller(self)
 
     def destroy(self):
         logger.debug(f'[{self.tree_id}] Destroying controller')
-        if self.app.cache_manager:
-            self.app.cache_manager.unregister_tree_controller(self)
+        if self.app.cacheman:
+            self.app.cacheman.unregister_tree_controller(self)
 
         if self.tree_ui_listeners:
             self.tree_ui_listeners.disconnect_gtk_listeners()
@@ -100,7 +100,7 @@ class TreePanelController:
                 self.treeview_meta = self.treeview_meta.but_with_checkboxes(checkboxes_visible)
                 self.display_store = DisplayStore(self.treeview_meta)
 
-                assets = self.parent_win.application.assets
+                assets = self.parent_win.app.assets
                 new_treeview = tree_factory_templates.build_treeview(self.display_store, assets)
                 tree_factory_templates.replace_widget(self.tree_view, new_treeview)
                 self.tree_view = new_treeview
@@ -182,8 +182,8 @@ class TreePanelController:
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     @property
-    def cache_manager(self):
-        return self.parent_win.application.cache_manager
+    def cacheman(self):
+        return self.parent_win.app.cacheman
 
     @property
     def config(self):

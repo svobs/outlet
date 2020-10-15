@@ -13,7 +13,7 @@ from pydispatch import dispatcher
 from app_config import AppConfig
 from command.cmd_interface import Command
 from constants import OPS_FILE_NAME
-from index import cache_manager
+from index import cacheman
 from index.sqlite.op_db import OpDatabase
 from index.uid.uid import UID
 from model.display_tree.display_tree import DisplayTree
@@ -162,7 +162,7 @@ class OpTestBase(unittest.TestCase):
         config = AppConfig()
 
         # Delete ops cache, so that prev run doesn't contaminate us:
-        cache_dir_path = cache_manager.ensure_cache_dir_path(config)
+        cache_dir_path = cacheman.ensure_cache_dir_path(config)
         self.op_db_path = os.path.join(cache_dir_path, OPS_FILE_NAME)
         if os.path.exists(self.op_db_path):
             file_util.rm_file(self.op_db_path)
@@ -207,8 +207,8 @@ class OpTestBase(unittest.TestCase):
             raise RuntimeError('Timed out waiting for left to load!')
         if not load_right_done.wait(LOAD_TIMEOUT_SEC):
             raise RuntimeError('Timed out waiting for right to load!')
-        self.left_con: TreePanelController = self.app.cache_manager.get_tree_controller(actions.ID_LEFT_TREE)
-        self.right_con: TreePanelController = self.app.cache_manager.get_tree_controller(actions.ID_RIGHT_TREE)
+        self.left_con: TreePanelController = self.app.cacheman.get_tree_controller(actions.ID_LEFT_TREE)
+        self.right_con: TreePanelController = self.app.cacheman.get_tree_controller(actions.ID_RIGHT_TREE)
 
         if do_before_verify_func:
             do_before_verify_func()

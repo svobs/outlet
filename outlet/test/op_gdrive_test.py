@@ -86,7 +86,7 @@ class OpGDriveTest(OpTestBase):
             for node in displayed_rows:
                 logger.warning(f'Deleting node via cacheman: {node}')
                 assert isinstance(node, GDriveNode)
-                self.app.cache_manager.remove_subtree(node, to_trash=False)
+                self.app.cacheman.remove_subtree(node, to_trash=False)
 
             logger.info('Waiting for Right tree stats to be completely done...')
             if not right_stats_updated.wait(LOAD_TIMEOUT_SEC):
@@ -99,8 +99,8 @@ class OpGDriveTest(OpTestBase):
     def _delete_all_files_in_gdrive_test_folder(self):
         # delete all files which may have been uploaded to GDrive. Goes around the program cache
         logger.info('Connecting to GDrive to find files in remote test folder')
-        client = self.app.cache_manager.gdrive_client
-        parent_node: DisplayNode = self.app.cache_manager.get_node_for_uid(self.right_tree_root_uid, TREE_TYPE_GDRIVE)
+        client = self.app.cacheman.gdrive_client
+        parent_node: DisplayNode = self.app.cacheman.get_node_for_uid(self.right_tree_root_uid, TREE_TYPE_GDRIVE)
         assert isinstance(parent_node, GDriveNode)
         children = client.get_all_children_for_parent(parent_node.goog_id)
         logger.info(f'Found {len(children)} child nodes for parent: {parent_node.name}')

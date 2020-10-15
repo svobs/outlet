@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class GlobalActions:
-    def __init__(self, application):
-        self.application = application
+    def __init__(self, app):
+        self.app = app
 
     def shutdown(self):
         try:
@@ -69,7 +69,7 @@ class GlobalActions:
     """
 
     def show_error_ui(self, *args, **kwargs):
-        self.application.window.show_error_ui(*args, *kwargs)
+        self.app.window.show_error_ui(*args, *kwargs)
 
     """
     🡻🡻🡻 ③ Actions 🡻🡻🡻
@@ -77,18 +77,18 @@ class GlobalActions:
 
     def _on_start_cacheman_requested(self, sender):
         logger.debug(f'Received signal: "{actions.START_CACHEMAN}"')
-        self.application.executor.submit_async_task(self.application.cache_manager.start, sender)
+        self.app.executor.submit_async_task(self.app.cacheman.start, sender)
 
     def _on_download_all_gdrive_meta_requested(self, sender):
         """See below. Invalidates the GDrive cache and starts a new download of all the GDrive metadata"""
         logger.debug(f'Received signal: "{actions.DOWNLOAD_ALL_GDRIVE_META}"')
-        self.application.executor.submit_async_task(self.download_all_gdrive_meta, sender)
+        self.app.executor.submit_async_task(self.download_all_gdrive_meta, sender)
 
     def download_all_gdrive_meta(self, tree_id):
         """See above. Executed by Task Runner. NOT UI thread"""
         actions.disable_ui(sender=tree_id)
         try:
-            self.application.cache_manager.download_all_gdrive_meta(tree_id)
+            self.app.cacheman.download_all_gdrive_meta(tree_id)
         except Exception as err:
             self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
             logger.exception(err)
@@ -98,13 +98,13 @@ class GlobalActions:
     def _on_gdrive_sync_changes_requested(self, sender):
         """See below. This will load the GDrive tree (if it is not loaded already), then sync to the latest changes from GDrive"""
         logger.debug(f'Received signal: "{actions.SYNC_GDRIVE_CHANGES}"')
-        self.application.executor.submit_async_task(self.load_data_for_gdrive_dir_chooser_dialog, sender)
+        self.app.executor.submit_async_task(self.load_data_for_gdrive_dir_chooser_dialog, sender)
 
     def sync_gdrive_changes(self, tree_id: str):
         """See above. Executed by Task Runner. NOT UI thread"""
         try:
             # This will send out the necessary notifications if anything has changed
-            self.application.cache_manager.get_gdrive_whole_tree(tree_id)
+            self.app.cacheman.get_gdrive_whole_tree(tree_id)
         except Exception as err:
             self.show_error_ui('Sync from GDrive failed due to unexpected error', repr(err))
             logger.exception(err)
@@ -112,13 +112,13 @@ class GlobalActions:
     def _on_gdrive_root_dialog_requested(self, sender, current_selection: NodeIdentifier):
         """See below."""
         logger.debug(f'Received signal: "{actions.SHOW_GDRIVE_CHOOSER_DIALOG}"')
-        self.application.executor.submit_async_task(self.load_data_for_gdrive_dir_chooser_dialog, sender, current_selection)
+        self.app.executor.submit_async_task(self.load_data_for_gdrive_dir_chooser_dialog, sender, current_selection)
 
     def load_data_for_gdrive_dir_chooser_dialog(self, tree_id: str, current_selection: NodeIdentifier):
         """See above. Executed by Task Runner. NOT UI thread"""
         actions.disable_ui(sender=tree_id)
         try:
-            tree = self.application.cache_manager.get_gdrive_whole_tree(tree_id)
+            tree = self.app.cacheman.get_gdrive_whole_tree(tree_id)
             dispatcher.send(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, sender=tree_id, tree=tree, current_selection=current_selection)
         except Exception as err:
             self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
@@ -133,7 +133,7 @@ class GlobalActions:
         def open_dialog():
             try:
                 # Preview ops in UI pop-up. Change tree_id so that listeners don't step on existing trees
-                dialog = GDriveDirChooserDialog(self.application.window, tree, sender, current_selection)
+                dialog = GDriveDirChooserDialog(self.app.window, tree, sender, current_selection)
                 response_id = dialog.run()
                 if response_id == Gtk.ResponseType.OK:
                     logger.debug('User clicked OK!')
@@ -146,7 +146,7 @@ class GlobalActions:
 
     def _on_diff_requested(self, sender, tree_con_left, tree_con_right):
         logger.debug(f'Received signal: "{actions.START_DIFF_TREES}"')
-        self.application.executor.submit_async_task(self.do_tree_diff, sender, tree_con_left, tree_con_right)
+        self.app.executor.submit_async_task(self.do_tree_diff, sender, tree_con_left, tree_con_right)
 
     def do_tree_diff(self, sender, tree_con_left, tree_con_right):
         stopwatch_diff_total = Stopwatch()
@@ -173,7 +173,7 @@ class GlobalActions:
             actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, msg=msg)
 
             stopwatch_diff = Stopwatch()
-            differ = ContentFirstDiffer(left_fmeta_tree, right_fmeta_tree, self.application)
+            differ = ContentFirstDiffer(left_fmeta_tree, right_fmeta_tree, self.app)
             op_tree_left, op_tree_right, = differ.diff(compare_paths_also=True)
             logger.info(f'{stopwatch_diff} Diff completed')
 

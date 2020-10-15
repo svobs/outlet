@@ -210,10 +210,10 @@ returning
 
 class GDriveMasterCache:
     """Singleton in-memory cache for Google Drive"""
-    def __init__(self, application):
-        self.application = application
+    def __init__(self, app):
+        self.app = app
 
-        self._uid_mapper = UidGoogIdMapper(application)
+        self._uid_mapper = UidGoogIdMapper(app)
         """Single source of UID<->GoogID mappings and UID assignments. Thread-safe."""
 
         self._struct_lock = threading.Lock()
@@ -230,7 +230,7 @@ class GDriveMasterCache:
 
     def _get_gdrive_cache_path(self) -> str:
         master_tree_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
-        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(master_tree_root)
+        cache_info = self.app.cacheman.get_or_create_cache_info_entry(master_tree_root)
         return cache_info.cache_location
 
     # Subtree-level stuff
@@ -238,24 +238,24 @@ class GDriveMasterCache:
 
     def load_gdrive_master_cache(self, invalidate_cache: bool, sync_latest_changes: bool, tree_id: str):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
-        if not self.application.cache_manager.enable_load_from_disk:
+        if not self.app.cacheman.enable_load_from_disk:
             logger.debug('Skipping cache load because cache.enable_cache_load is False')
             return None
 
         # Always load ROOT:
         master_tree_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
-        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(master_tree_root)
+        cache_info = self.app.cacheman.get_or_create_cache_info_entry(master_tree_root)
 
         stopwatch_total = Stopwatch()
 
-        tree_loader = GDriveTreeLoader(application=self.application, cache_path=cache_info.cache_location, tree_id=tree_id)
+        tree_loader = GDriveTreeLoader(app=self.app, cache_path=cache_info.cache_location, tree_id=tree_id)
 
         if not cache_info.is_loaded or invalidate_cache:
             status = f'Loading meta for "{cache_info.subtree_root.full_path}" from cache: "{cache_info.cache_location}"'
             logger.debug(status)
             dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
 
-            with GDriveDatabase(cache_info.cache_location, self.application) as cache:
+            with GDriveDatabase(cache_info.cache_location, self.app) as cache:
                 with self._struct_lock:
                     # Load all users
                     for user in cache.get_all_users():
@@ -312,7 +312,7 @@ class GDriveMasterCache:
             return None
 
         assert isinstance(root, GDriveFolder)
-        return GDriveDisplayTree(cache_manager=self, whole_tree=self._master_tree, root_node=root)
+        return GDriveDisplayTree(cacheman=self, whole_tree=self._master_tree, root_node=root)
 
     # Individual node cache updates
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -388,7 +388,7 @@ class GDriveMasterCache:
             logger.debug(f'Node does not exist; skipping save to disk: {node}')
             return
 
-        cache_man = self.application.cache_manager
+        cache_man = self.app.cacheman
         if not cache_man.enable_save_to_disk:
             logger.debug(f'Save to disk is disabled: skipping add/update of node with UID={node.uid}')
             return
@@ -409,7 +409,7 @@ class GDriveMasterCache:
         cache_path: str = self._get_cache_path_for_master()
 
         # Write new values:
-        with GDriveDatabase(cache_path, self.application) as cache:
+        with GDriveDatabase(cache_path, self.app) as cache:
             if parent_mappings:
                 logger.debug(f'Writing id-parent mappings to the GDrive master cache: {parent_mappings}')
                 cache.upsert_parent_mappings_for_id(parent_mappings, node.uid, commit=False)
@@ -427,12 +427,12 @@ class GDriveMasterCache:
         subtree_operation.update_memory_cache(self._master_tree)
 
     def _update_disk_cache(self, subtree_operation: GDriveOperation):
-        if not self.application.cache_manager.enable_save_to_disk:
+        if not self.app.cacheman.enable_save_to_disk:
             logger.debug(f'Save to disk is disabled: skipping disk update')
             return
 
         cache_path: str = self._get_cache_path_for_master()
-        with GDriveDatabase(cache_path, self.application) as cache:
+        with GDriveDatabase(cache_path, self.app) as cache:
             subtree_operation.update_disk_cache(cache)
 
             cache.commit()
@@ -536,7 +536,7 @@ class GDriveMasterCache:
     def _get_cache_path_for_master(self) -> str:
         # Open master database...
         root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
-        cache_info = self.application.cache_manager.get_or_create_cache_info_entry(root)
+        cache_info = self.app.cacheman.get_or_create_cache_info_entry(root)
         cache_path = cache_info.cache_location
         return cache_path
 
@@ -581,8 +581,8 @@ class GDriveMasterCache:
                 return
             if not user.is_me:
                 user.uid = UID(self._user_uid_nextval)
-            if self.application.cache_manager.enable_save_to_disk:
-                with GDriveDatabase(self._get_gdrive_cache_path(), self.application) as cache:
+            if self.app.cacheman.enable_save_to_disk:
+                with GDriveDatabase(self._get_gdrive_cache_path(), self.app) as cache:
                     cache.upsert_user(user)
             # wait until after DB write is successful:
             if not user.is_me:
@@ -595,8 +595,8 @@ class GDriveMasterCache:
             mime_type: Optional[MimeType] = self._mime_type_for_str_dict.get(mime_type_string, None)
             if not mime_type:
                 mime_type = MimeType(UID(self._mime_type_uid_nextval), mime_type_string)
-                if self.application.cache_manager.enable_save_to_disk:
-                    with GDriveDatabase(self._get_gdrive_cache_path(), self.application) as cache:
+                if self.app.cacheman.enable_save_to_disk:
+                    with GDriveDatabase(self._get_gdrive_cache_path(), self.app) as cache:
                         cache.upsert_mime_type(mime_type)
                 self._mime_type_uid_nextval += 1
                 self._mime_type_for_str_dict[mime_type_string] = mime_type

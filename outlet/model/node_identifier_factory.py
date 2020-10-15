@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 class NodeIdentifierFactory:
-    def __init__(self, application):
-        self.application = application
+    def __init__(self, app):
+        self.app = app
 
     @staticmethod
     def nid(uid: UID, tree_type: int, op_type: OpType):
@@ -53,14 +53,14 @@ class NodeIdentifierFactory:
                 return GDriveIdentifier(uid=uid, full_path=gdrive_path)
             else:
                 if not uid:
-                    uid = self.application.cache_manager.get_uid_for_path(full_path)
+                    uid = self.app.cacheman.get_uid_for_path(full_path)
 
                 return LocalFsIdentifier(uid=uid, full_path=full_path)
         else:
             raise RuntimeError('no tree_type and no full_path supplied')
 
     def _for_tree_type_local(self, full_path: str = None, uid: UID = None) -> LocalFsIdentifier:
-        uid = self.application.cache_manager.get_uid_for_path(full_path, uid)
+        uid = self.app.cacheman.get_uid_for_path(full_path, uid)
 
         return LocalFsIdentifier(uid=uid, full_path=full_path)
 
@@ -69,7 +69,7 @@ class NodeIdentifierFactory:
             if full_path == ROOT_PATH:
                 uid = GDRIVE_ROOT_UID
             else:
-                uid = self.application.uid_generator.next_uid()
+                uid = self.app.uid_generator.next_uid()
         elif uid == GDRIVE_ROOT_UID and not full_path:
             full_path = ROOT_PATH
 

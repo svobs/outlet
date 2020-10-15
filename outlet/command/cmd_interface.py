@@ -29,14 +29,14 @@ class CommandStatus(IntEnum):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class CommandContext:
-    def __init__(self, staging_dir: str, application, tree_id: str, needs_gdrive: bool):
+    def __init__(self, staging_dir: str, app, tree_id: str, needs_gdrive: bool):
         self.staging_dir = staging_dir
-        self.config = application.config
-        self.cache_manager = application.cache_manager
-        self.uid_generator = application.uid_generator
+        self.config = app.config
+        self.cacheman = app.cacheman
+        self.uid_generator = app.uid_generator
         if needs_gdrive:
-            self.gdrive_client: Optional[GDriveClient] = self.cache_manager.gdrive_client
-            self.gdrive_tree: GDriveWholeTree = self.cache_manager.get_gdrive_whole_tree(tree_id=tree_id)
+            self.gdrive_client: Optional[GDriveClient] = self.cacheman.gdrive_client
+            self.gdrive_tree: GDriveWholeTree = self.cacheman.get_gdrive_whole_tree(tree_id=tree_id)
         else:
             self.gdrive_client: Optional[GDriveClient] = None
 

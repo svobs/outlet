@@ -26,7 +26,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
 
     def __init__(self, parent_win: BaseDialog, tree, tree_id: str, current_selection: NodeIdentifier):
         Gtk.Dialog.__init__(self, title="Select GDrive Root", transient_for=parent_win, flags=0)
-        BaseDialog.__init__(self, application=parent_win.application)
+        BaseDialog.__init__(self, app=parent_win.app)
 
         self.tree_id = tree_id
         """Note: this is the ID of the tree for which this dialog is ultimately selecting for, not this dialog's tree (see tree_controller below)"""

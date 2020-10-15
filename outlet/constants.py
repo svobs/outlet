@@ -117,8 +117,8 @@ class TreeDisplayMode(IntEnum):
 # GDRIVE_AUTH_SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 GDRIVE_AUTH_SCOPES = ['https://www.googleapis.com/auth/drive']
 
-MIME_TYPE_SHORTCUT = 'application/vnd.google-apps.shortcut'
-MIME_TYPE_FOLDER = 'application/vnd.google-apps.folder'
+MIME_TYPE_SHORTCUT = 'app/vnd.google-apps.shortcut'
+MIME_TYPE_FOLDER = 'app/vnd.google-apps.folder'
 
 QUERY_FOLDERS_ONLY = f"mimeType='{MIME_TYPE_FOLDER}'"
 QUERY_NON_FOLDERS_ONLY = f"not {QUERY_FOLDERS_ONLY}"

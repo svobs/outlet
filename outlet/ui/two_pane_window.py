@@ -34,21 +34,21 @@ logger = logging.getLogger(__name__)
 
 class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
     """🢄🢄🢄 2-panel window for comparing one file tree to another"""
-    def __init__(self, application, win_id):
-        Gtk.Window.__init__(self, application=application)
-        BaseDialog.__init__(self, application)
+    def __init__(self, app, win_id):
+        Gtk.Window.__init__(self, application=app)
+        BaseDialog.__init__(self, app)
 
         self.win_id = win_id
         self.set_title(APP_NAME)
         # program icon:
-        self.set_icon_from_file(self.application.assets.get_path(ICON_WINDOW))
+        self.set_icon_from_file(self.app.assets.get_path(ICON_WINDOW))
         # Set minimum width and height
 
         # Restore previous window location:
         self.x_loc_cfg_path = f'transient.{self.win_id}.x'
         self.y_loc_cfg_path = f'transient.{self.win_id}.y'
-        self.x_loc = self.application.config.get(self.x_loc_cfg_path, 50)
-        self.y_loc = self.application.config.get(self.y_loc_cfg_path, 50)
+        self.x_loc = self.app.config.get(self.x_loc_cfg_path, 50)
+        self.y_loc = self.app.config.get(self.y_loc_cfg_path, 50)
         self.move(x=self.x_loc, y=self.y_loc)
 
         self.set_hide_titlebar_when_maximized(True)
@@ -57,8 +57,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.width_cfg_path = f'transient.{self.win_id}.width'
         self.height_cfg_path = f'transient.{self.win_id}.height'
 
-        width = self.application.config.get(self.width_cfg_path, 1200)
-        height = self.application.config.get(self.height_cfg_path, 500)
+        width = self.app.config.get(self.width_cfg_path, 1200)
+        height = self.app.config.get(self.height_cfg_path, 500)
         allocation = Gdk.Rectangle()
         allocation.width = width
         allocation.height = height
@@ -77,13 +77,13 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Tree Left:
-        self.root_path_persister_left = RootPathConfigPersister(application=self.application, tree_id=actions.ID_LEFT_TREE)
+        self.root_path_persister_left = RootPathConfigPersister(app=self.app, tree_id=actions.ID_LEFT_TREE)
         saved_root_left = self.root_path_persister_left.root_identifier
         self.tree_con_left = tree_factory.build_editor_tree(parent_win=self, tree_id=actions.ID_LEFT_TREE, root=saved_root_left)
         diff_tree_panes.pack1(self.tree_con_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
-        self.root_path_persister_right = RootPathConfigPersister(application=self.application, tree_id=actions.ID_RIGHT_TREE)
+        self.root_path_persister_right = RootPathConfigPersister(app=self.app, tree_id=actions.ID_RIGHT_TREE)
         saved_root_right = self.root_path_persister_right.root_identifier
         self.tree_con_right = tree_factory.build_editor_tree(parent_win=self, tree_id=actions.ID_RIGHT_TREE, root=saved_root_right)
         diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)
@@ -141,10 +141,10 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             self.tree_con_right.destroy()
             self.tree_con_right = None
 
-        if self.application:
+        if self.app:
             # swap into local var to prevent infinite cycle
-            app = self.application
-            self.application = None
+            app = self.app
+            self.app = None
             app.quit()
 
     def replace_bottom_button_panel(self, *buttons):
@@ -208,15 +208,15 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         if self._remembered_size.equal(curr):  # == doesn't work here
             # logger.debug('RESIZING FINISHED')
 
-            self.application.config.write(self.width_cfg_path, curr.width)
-            self.application.config.write(self.height_cfg_path, curr.height)
+            self.app.config.write(self.width_cfg_path, curr.width)
+            self.app.config.write(self.height_cfg_path, curr.height)
 
             # Store position also
             x, y = self.get_position()
             if x != self.x_loc or y != self.y_loc:
                 # logger.debug(f'Win position changed to {x}, {y}')
-                self.application.config.write(self.x_loc_cfg_path, x)
-                self.application.config.write(self.y_loc_cfg_path, y)
+                self.app.config.write(self.x_loc_cfg_path, x)
+                self.app.config.write(self.y_loc_cfg_path, y)
                 self.x_loc = x
                 self.y_loc = y
 
@@ -239,7 +239,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             self.show_error_msg('You must select change(s) first.')
             return None
 
-        differ = ContentFirstDiffer(self.tree_con_left.get_tree(), self.tree_con_right.get_tree(), self.application)
+        differ = ContentFirstDiffer(self.tree_con_left.get_tree(), self.tree_con_right.get_tree(), self.app)
         merged_changes_tree: CategoryDisplayTree = differ.merge_change_trees(left_selected_changes, right_selected_changes)
 
         conflict_pairs = []

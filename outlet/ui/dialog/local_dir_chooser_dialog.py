@@ -19,7 +19,7 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
     if response_id == Gtk.ResponseType.OK:
         filename = open_dialog.get_filename()
         logger.info(f'User selected dir: {filename}')
-        uid = open_dialog.parent_win.application.cache_manager.get_uid_for_path(filename)
+        uid = open_dialog.parent_win.app.cacheman.get_uid_for_path(filename)
         node_identifier = LocalFsIdentifier(full_path=filename, uid=uid)
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.tree_id, new_root=node_identifier)
     # if response is "CANCEL" (the button "Cancel" has been clicked)

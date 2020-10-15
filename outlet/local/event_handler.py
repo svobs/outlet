@@ -15,10 +15,10 @@ def _what(event):
 
 class LocalChangeEventHandler(FileSystemEventHandler):
     """Logs all the events captured."""
-    def __init__(self, application, batching_thread):
+    def __init__(self, app, batching_thread):
         super().__init__()
-        self.app = application
-        self.cacheman = self.app.cache_manager
+        self.app = app
+        self.cacheman = self.app.cacheman
         self.batching_thread = batching_thread
 
     def on_moved(self, event):

@@ -31,14 +31,14 @@ class GDriveTreeLoader:
     """Coarse-grained lock which ensures that (1) load operations and (2) change sync operations do not step on each other or
     on multiple instances of themselves."""
 
-    def __init__(self, application, cache_path: str, tree_id: str = None):
-        self.application = application
-        self.node_identifier_factory = application.node_identifier_factory
-        self.cache_manager = application.cache_manager
+    def __init__(self, app, cache_path: str, tree_id: str = None):
+        self.app = app
+        self.node_identifier_factory = app.node_identifier_factory
+        self.cacheman = app.cacheman
         self.tree_id: str = tree_id
         self.cache_path: str = cache_path
         self.cache: Optional[GDriveDatabase] = None
-        self.gdrive_client: GDriveClient = self.application.cache_manager.gdrive_client
+        self.gdrive_client: GDriveClient = self.app.cacheman.gdrive_client
 
     def __del__(self):
         pass
@@ -54,7 +54,7 @@ class GDriveTreeLoader:
 
         with GDriveTreeLoader.__class_lock:
             # This will create a new file if not found:
-            with GDriveDatabase(self.cache_path, self.application) as self.cache:
+            with GDriveDatabase(self.cache_path, self.app) as self.cache:
                 try:
                     # scroll down ⯆⯆⯆
                     return self._load_all(invalidate_cache)
@@ -111,7 +111,7 @@ class GDriveTreeLoader:
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             self.cache.delete_all_gdrive_data()
             # TODO: put this in the GDriveWholeTree instead
-            self.cache_manager.delete_all_gdrive_meta()
+            self.cacheman.delete_all_gdrive_meta()
 
             # Need to make a special call to get the root node 'My Drive'. This node will not be included
             # in the "list files" call:
@@ -126,12 +126,12 @@ class GDriveTreeLoader:
             # fall through
 
         if initial_download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
-            observer = FolderMetaPersister(tree, initial_download, self.cache, self.cache_manager)
+            observer = FolderMetaPersister(tree, initial_download, self.cache, self.cacheman)
             self.gdrive_client.get_all_folders(initial_download.page_token, initial_download.update_ts, observer)
             # fall through
 
         if initial_download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS:
-            observer = FileMetaPersister(tree, initial_download, self.cache, self.cache_manager)
+            observer = FileMetaPersister(tree, initial_download, self.cache, self.cacheman)
             self.gdrive_client.get_all_non_folders(initial_download.page_token, initial_download.update_ts, observer)
             # fall through
 
@@ -171,7 +171,7 @@ class GDriveTreeLoader:
 
     def sync_latest_changes(self):
         with GDriveTreeLoader.__class_lock:
-            with GDriveDatabase(self.cache_path, self.application) as self.cache:
+            with GDriveDatabase(self.cache_path, self.app) as self.cache:
                 changes_download: CurrentDownload = self._get_previous_download_state(GDRIVE_DOWNLOAD_TYPE_CHANGES)
                 if not changes_download:
                     raise RuntimeError(f'Download state not found for GDrive change log!')
@@ -189,9 +189,9 @@ class GDriveTreeLoader:
         # logger.debug(f'Found {len(shared_with_me)} shared with me')
         # for node in shared_with_me:
         #     logger.debug(f'Shared with me: {node}')
-        #     self.cache_manager.add_or_update_node(node)
+        #     self.cacheman.add_or_update_node(node)
 
-        observer: PagePersistingChangeObserver = PagePersistingChangeObserver(self.application)
+        observer: PagePersistingChangeObserver = PagePersistingChangeObserver(self.app)
         sync_ts = int(time.time())
         self.gdrive_client.get_changes_list(changes_download.page_token, sync_ts, observer)
 
@@ -226,7 +226,7 @@ class GDriveTreeLoader:
         count_folders_loaded = 0
         for folder in folder_list:
             if folder.goog_id:
-                uid = self.cache_manager.get_uid_for_goog_id(folder.goog_id, folder.uid)
+                uid = self.cacheman.get_uid_for_goog_id(folder.goog_id, folder.uid)
                 if folder.uid != uid:
                     # Duplicate entry with same goog_id. Here's a useful SQLite query:
                     # "SELECT goog_id, COUNT(*) c FROM gdrive_file GROUP BY goog_id HAVING c > 1;"
@@ -255,7 +255,7 @@ class GDriveTreeLoader:
         count_files_loaded = 0
         for file in file_list:
             if file.goog_id:
-                uid = self.cache_manager.get_uid_for_goog_id(file.goog_id, file.uid)
+                uid = self.cacheman.get_uid_for_goog_id(file.goog_id, file.uid)
                 if file.uid != uid:
                     # Duplicate entry with same goog_id. Here's a useful SQLite query:
                     # "SELECT goog_id, COUNT(*) c FROM gdrive_file GROUP BY goog_id HAVING c > 1;"
@@ -297,7 +297,7 @@ class GDriveTreeLoader:
 
         logger.debug(f'{sw_total} Loaded {len(tree.id_dict):n} items from {count_files_loaded:n} files and {count_folders_loaded:n} folders')
 
-        self.application.uid_generator.ensure_next_uid_greater_than(max_uid)
+        self.app.uid_generator.ensure_next_uid_greater_than(max_uid)
         return tree
 
     def _determine_roots(self, tree: GDriveWholeTree):
@@ -309,7 +309,7 @@ class GDriveTreeLoader:
             if item.uid >= max_uid:
                 max_uid = item.uid
 
-        self.application.uid_generator.ensure_next_uid_greater_than(max_uid + 1)
+        self.app.uid_generator.ensure_next_uid_greater_than(max_uid + 1)
 
     def _translate_parent_ids(self, tree: GDriveWholeTree, id_parent_mappings: List[Tuple[UID, None, str, int]]) -> List[Tuple]:
         sw = Stopwatch()
@@ -322,7 +322,7 @@ class GDriveTreeLoader:
             parent_goog_id: str = mapping[2]
 
             # Add parent UID to tuple for later DB update:
-            parent_uid = self.cache_manager.get_uid_for_goog_id(parent_goog_id)
+            parent_uid = self.cacheman.get_uid_for_goog_id(parent_goog_id)
             mapping = mapping[0], parent_uid, mapping[2], mapping[3]
             tree.add_parent_mapping(mapping[0], parent_uid)
             new_mappings.append(mapping)

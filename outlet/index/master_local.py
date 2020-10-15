@@ -142,7 +142,7 @@ class ContentScannerThread(threading.Thread):
         super().__init__(target=self._run_content_scanner_thread, name='ContentScannerThread', daemon=True)
         self.master_cache = parent
         self._shutdown: bool = False
-        self._initial_sleep_sec: float = self.master_cache.application.config.get('cache.lazy_load_local_file_signatures_initial_delay_ms') / 1000.0
+        self._initial_sleep_sec: float = self.master_cache.app.config.get('cache.lazy_load_local_file_signatures_initial_delay_ms') / 1000.0
         self._node_queue: Deque[LocalFileNode] = deque()
         self._cv_can_get = threading.Condition()
         self._struct_lock = threading.Lock()
@@ -178,7 +178,7 @@ class ContentScannerThread(threading.Thread):
         logger.info(f'Starting {self.name}...')
 
         # Wait for CacheMan to finish starting up so as not to deprive it of resources:
-        self.master_cache.application.cache_manager.wait_for_startup_done()
+        self.master_cache.app.cacheman.wait_for_startup_done()
 
         logger.debug(f'[{self.name}] Doing inital sleep {self._initial_sleep_sec} sec to let things settle...')
         time.sleep(self._initial_sleep_sec)  # in seconds
@@ -216,11 +216,11 @@ class ContentScannerThread(threading.Thread):
 # TODO: consider scanning only root dir at first, then enqueuing subdirectories
 
 class LocalDiskMasterCache:
-    def __init__(self, application):
+    def __init__(self, app):
         """Singleton in-memory cache for local filesystem"""
-        self.application = application
+        self.app = app
 
-        self._uid_mapper = UidPathMapper(application)
+        self._uid_mapper = UidPathMapper(app)
 
         self._struct_lock = threading.Lock()
 
@@ -230,17 +230,17 @@ class LocalDiskMasterCache:
         nodes we've moved so that we know exactly which notifications to ignore after that.
         Dict is key-value pair of [old_file_path -> new_file_path]"""
 
-        self.lazy_load_signatures: bool = application.config.get('cache.lazy_load_local_file_signatures')
+        self.lazy_load_signatures: bool = app.config.get('cache.lazy_load_local_file_signatures')
 
         self._content_scanner_thread = ContentScannerThread(self)
 
-        self.use_md5 = application.config.get('cache.enable_md5_lookup')
+        self.use_md5 = app.config.get('cache.enable_md5_lookup')
         if self.use_md5:
             self.md5_dict = Md5BeforePathDict()
         else:
             self.md5_dict = None
 
-        self.use_sha256 = application.config.get('cache.enable_sha256_lookup')
+        self.use_sha256 = app.config.get('cache.enable_sha256_lookup')
         if self.use_sha256:
             self.sha256_dict = Sha256BeforePathDict()
         else:
@@ -249,7 +249,7 @@ class LocalDiskMasterCache:
         # Each node inserted here will have an entry created for its dir.
         # self.parent_path_dict = ParentPathBeforeFileNameDict()
         # But we still need a dir tree to look up child dirs:
-        self._master_tree = LocalDiskTree(self.application)
+        self._master_tree = LocalDiskTree(self.app)
         root_node = RootTypeNode(node_identifier=LocalFsIdentifier(full_path=ROOT_PATH, uid=LOCAL_ROOT_UID))
         self._master_tree.add_node(node=root_node, parent=None)
 
@@ -272,7 +272,7 @@ class LocalDiskMasterCache:
         stopwatch_load = Stopwatch()
 
         # Load cache from file, and update with any local FS ops found:
-        with LocalDiskDatabase(cache_info.cache_location, self.application) as disk_cache:
+        with LocalDiskDatabase(cache_info.cache_location, self.app) as disk_cache:
             if not disk_cache.has_local_files() and not disk_cache.has_local_dirs():
                 logger.debug(f'No meta found in cache ({cache_info.cache_location}) - will skip loading it')
                 return None
@@ -287,7 +287,7 @@ class LocalDiskMasterCache:
             cache_info.subtree_root.uid = uid
 
             root_node_identifer = LocalFsIdentifier(full_path=cache_info.subtree_root.full_path, uid=uid)
-            tree: LocalDiskTree = LocalDiskTree(self.application)
+            tree: LocalDiskTree = LocalDiskTree(self.app)
             root_node = LocalDirNode(node_identifier=root_node_identifer, exists=True)
             tree.add_node(node=root_node, parent=None)
 
@@ -339,7 +339,7 @@ class LocalDiskMasterCache:
             file_list, dir_list = self._master_tree.get_all_files_and_dirs_for_subtree(cache_info.subtree_root)
 
         stopwatch_write_cache = Stopwatch()
-        with LocalDiskDatabase(cache_info.cache_location, self.application) as disk_cache:
+        with LocalDiskDatabase(cache_info.cache_location, self.app) as disk_cache:
             # Update cache:
             disk_cache.insert_local_files(file_list, overwrite=True, commit=False)
             disk_cache.insert_local_dirs(dir_list, overwrite=True, commit=True)
@@ -350,7 +350,7 @@ class LocalDiskMasterCache:
     def _scan_file_tree(self, subtree_root: LocalFsIdentifier, tree_id: str) -> LocalDiskTree:
         """If subtree_root is a file, then a tree is returned with only 1 node"""
         logger.debug(f'[{tree_id}] Scanning filesystem subtree: {subtree_root}')
-        scanner = LocalDiskScanner(application=self.application, root_node_identifer=subtree_root, tree_id=tree_id)
+        scanner = LocalDiskScanner(app=self.app, root_node_identifer=subtree_root, tree_id=tree_id)
         return scanner.scan()
 
     def _resync_with_file_system(self, subtree_root: LocalFsIdentifier, tree_id: str, is_live_refresh: bool = False):
@@ -412,7 +412,7 @@ class LocalDiskMasterCache:
         subtree_root.uid = new_uid
 
         # If we have already loaded this subtree as part of a larger cache, use that:
-        cache_man = self.application.cache_manager
+        cache_man = self.app.cacheman
         supertree_cache: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_subtree(subtree_root.full_path, subtree_root.tree_type)
         if supertree_cache:
             logger.debug(f'Subtree ({subtree_root.full_path}) is part of existing cached supertree ({supertree_cache.subtree_root.full_path})')
@@ -449,7 +449,7 @@ class LocalDiskMasterCache:
 
         # LOAD into master tree
         if not cache_info.is_loaded:
-            if self.application.cache_manager.enable_load_from_disk:
+            if self.app.cacheman.enable_load_from_disk:
                 tree = self._load_subtree_from_disk(cache_info, tree_id)
                 if tree:
                     with self._struct_lock:
@@ -460,9 +460,9 @@ class LocalDiskMasterCache:
 
         # FS SYNC
         if is_live_refresh or not cache_info.is_loaded or \
-                (cache_info.needs_refresh and self.application.cache_manager.sync_from_local_disk_on_cache_load):
+                (cache_info.needs_refresh and self.app.cacheman.sync_from_local_disk_on_cache_load):
             logger.debug(f'[{tree_id}] Will resync with file system (is_loaded={cache_info.is_loaded}, sync_on_cache_load='
-                         f'{self.application.cache_manager.sync_from_local_disk_on_cache_load}, needs_refresh={cache_info.needs_refresh},'
+                         f'{self.app.cacheman.sync_from_local_disk_on_cache_load}, needs_refresh={cache_info.needs_refresh},'
                          f'is_live_refresh={is_live_refresh})')
             # Update from the file system, and optionally save any changes back to cache:
             self._resync_with_file_system(requested_subtree_root, tree_id, is_live_refresh=is_live_refresh)
@@ -471,7 +471,7 @@ class LocalDiskMasterCache:
                 cache_info.needs_refresh = False
             if not is_live_refresh:
                 cache_info.needs_save = True
-        elif not self.application.cache_manager.sync_from_local_disk_on_cache_load:
+        elif not self.app.cacheman.sync_from_local_disk_on_cache_load:
             logger.debug(f'[{tree_id}] Skipping filesystem sync because it is disabled for cache loads')
         elif not cache_info.needs_refresh:
             logger.debug(f'[{tree_id}] Skipping filesystem sync because the cache is still fresh for path: {cache_info.subtree_root}')
@@ -480,7 +480,7 @@ class LocalDiskMasterCache:
         if cache_info.needs_save:
             if not cache_info.is_loaded:
                 logger.warning(f'[{tree_id}] Skipping cache save: cache was never loaded!')
-            elif self.application.cache_manager.enable_save_to_disk:
+            elif self.app.cacheman.enable_save_to_disk:
                 # Save the updates back to local disk cache:
                 self._save_subtree_to_disk(cache_info, tree_id)
             else:
@@ -488,7 +488,7 @@ class LocalDiskMasterCache:
 
         with self._struct_lock:
             root_node = self._master_tree.get_node(requested_subtree_root.uid)
-        fmeta_tree = LocalDiskDisplayTree(root_node=root_node, application=self.application)
+        fmeta_tree = LocalDiskDisplayTree(root_node=root_node, app=self.app)
         logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {fmeta_tree.node_identifier.full_path}')
         return fmeta_tree
 
@@ -550,12 +550,12 @@ class LocalDiskMasterCache:
     def load_node_for_path(self, full_path: str) -> Optional[LocalNode]:
         """This actually reads directly from the disk cache"""
         logger.debug(f'Loading single node for path: "{full_path}"')
-        cache_man = self.application.cache_manager
+        cache_man = self.app.cacheman
         cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_subtree(full_path, TREE_TYPE_LOCAL_DISK)
         if not cache_info:
             logger.debug(f'Could not find cache containing path: "{full_path}"')
             return None
-        with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
+        with LocalDiskDatabase(cache_info.cache_location, self.app) as cache:
             return cache.get_file_or_dir_for_path(full_path)
 
     def upsert_local_node(self, node: LocalNode, fire_listeners=True):
@@ -638,7 +638,7 @@ class LocalDiskMasterCache:
 
     def _update_disk_cache(self, subtree_op_list: List[SubtreeOperation]):
         """Attempt to come close to a transactional behavior by writing to all caches at once, and then committing all at the end"""
-        cache_man = self.application.cache_manager
+        cache_man = self.app.cacheman
         if not cache_man.enable_save_to_disk:
             logger.debug(f'Save to disk is disabled: skipping upsert of {len(subtree_op_list)} subtree operations')
             return
@@ -661,20 +661,20 @@ class LocalDiskMasterCache:
             logical_cache_list.append(cache_info)
 
         if len(physical_cache_list) == 1:
-            with LocalDiskDatabase(physical_cache_list[0].cache_location, self.application) as cache0:
+            with LocalDiskDatabase(physical_cache_list[0].cache_location, self.app) as cache0:
                 caches = [cache0]
                 self._update_multiple_cache_files(caches, logical_cache_list, physical_cache_list, subtree_op_list)
 
         elif len(physical_cache_list) == 2:
-            with LocalDiskDatabase(physical_cache_list[0].cache_location, self.application) as cache0, \
-                    LocalDiskDatabase(physical_cache_list[1].cache_location, self.application) as cache1:
+            with LocalDiskDatabase(physical_cache_list[0].cache_location, self.app) as cache0, \
+                    LocalDiskDatabase(physical_cache_list[1].cache_location, self.app) as cache1:
                 caches = [cache0, cache1]
                 self._update_multiple_cache_files(caches, logical_cache_list, physical_cache_list, subtree_op_list)
 
         elif len(physical_cache_list) == 3:
-            with LocalDiskDatabase(physical_cache_list[0].cache_location, self.application) as cache0, \
-                    LocalDiskDatabase(physical_cache_list[1].cache_location, self.application) as cache1, \
-                    LocalDiskDatabase(physical_cache_list[2].cache_location, self.application) as cache2:
+            with LocalDiskDatabase(physical_cache_list[0].cache_location, self.app) as cache0, \
+                    LocalDiskDatabase(physical_cache_list[1].cache_location, self.app) as cache1, \
+                    LocalDiskDatabase(physical_cache_list[2].cache_location, self.app) as cache2:
                 caches = [cache0, cache1, cache2]
                 self._update_multiple_cache_files(caches, logical_cache_list, physical_cache_list, subtree_op_list)
 
@@ -752,7 +752,7 @@ class LocalDiskMasterCache:
         return node, True
 
     def _remove_single_node_from_disk_cache(self, node: LocalNode):
-        cache_man = self.application.cache_manager
+        cache_man = self.app.cacheman
         if not cache_man.enable_save_to_disk:
             logger.debug(f'Save to disk is disabled: skipping removal of node with UID={node.uid}')
             return
@@ -763,7 +763,7 @@ class LocalDiskMasterCache:
             logger.error(f'Could not find a cache associated with file path: {node.full_path}')
             return
 
-        with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
+        with LocalDiskDatabase(cache_info.cache_location, self.app) as cache:
             if node.is_dir():
                 cache.delete_local_dir_with_uid(node.uid)
             else:
@@ -774,7 +774,7 @@ class LocalDiskMasterCache:
             logger.debug(f'Node does not exist; skipping save to disk: {node}')
             return
 
-        cache_man = self.application.cache_manager
+        cache_man = self.app.cacheman
         if not cache_man.enable_save_to_disk:
             logger.debug(f'Save to disk is disabled: skipping add/update of node with UID={node.uid}')
             return
@@ -784,7 +784,7 @@ class LocalDiskMasterCache:
         if not cache_info:
             raise RuntimeError(f'Could not find a cache associated with file path: {node.full_path}')
 
-        with LocalDiskDatabase(cache_info.cache_location, self.application) as cache:
+        with LocalDiskDatabase(cache_info.cache_location, self.app) as cache:
             if node.is_dir():
                 cache.upsert_local_dir(node)
             else:
