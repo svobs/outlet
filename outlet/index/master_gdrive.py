@@ -443,7 +443,7 @@ class GDriveMasterCache:
 
         with self._struct_lock:
             if not subtree_root.is_dir():
-                logger.debug(f'Requested subtree is not a folder; calling remove_gdrive_node()')
+                logger.debug(f'Requested subtree is not a folder; calling remove_single_node()')
                 self._remove_single_node_nolock(subtree_root, to_trash=to_trash)
                 return
 
@@ -456,7 +456,7 @@ class GDriveMasterCache:
             logger.info(f'Removing subtree with {len(operation.node_list)} nodes')
             self._execute(operation)
 
-    def remove_gdrive_node(self, node: GDriveNode, to_trash):
+    def remove_single_node(self, node: GDriveNode, to_trash):
         with self._struct_lock:
             self._remove_single_node_nolock(node, to_trash)
 

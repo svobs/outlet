@@ -82,7 +82,7 @@ class DeleteSingleNodeOp(LocalDiskOperation):
     def update_memory_cache(self, master_tree: LocalDiskTree):
         existing_node = master_tree.get_node_for_uid(self.node.uid)
         if existing_node:
-            master_tree.remove_node(existing_node)
+            master_tree.remove_single_node(existing_node)
 
     def update_disk_cache(self, cache: LocalDiskDatabase):
         cache.delete_single_node(self.node, commit=False)
@@ -104,7 +104,7 @@ class DeleteSubtreeOp(LocalDiskOperation):
         for node in reversed(self.node_list):
             existing_node = master_tree.get_node_for_uid(node.uid)
             if existing_node:
-                master_tree.remove_node(existing_node)
+                master_tree.remove_single_node(existing_node)
         logger.debug(f'DeleteSubtreeOp: done removing nodes from memory cache')
 
     def update_disk_cache(self, cache: LocalDiskDatabase):
@@ -320,7 +320,7 @@ class LocalDiskMasterCache:
                     if not change.exists():
                         missing_nodes.append(change)
                 elif existing.sync_ts < change.sync_ts:
-                    tree.remove_node(change.identifier)
+                    tree.remove_single_node(change.identifier)
                     tree.add_to_tree(change)
 
             # logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
@@ -358,11 +358,11 @@ class LocalDiskMasterCache:
         fresh_tree: LocalDiskTree = self._scan_file_tree(subtree_root, tree_id)
 
         with self._struct_lock:
-            remove_nodes_op: SubtreeOperation = SubtreeOperation(subtree_root.full_path, is_delete=True, node_list=[])
+            remove_single_nodes_op: SubtreeOperation = SubtreeOperation(subtree_root.full_path, is_delete=True, node_list=[])
             # Just upsert all nodes in the updated tree and let God (or some logic) sort them out
             upsert_nodes_op: SubtreeOperation = SubtreeOperation(subtree_root.full_path, is_delete=False, node_list=fresh_tree.get_subtree_bfs())
 
-            # Find removed nodes and append them to remove_nodes_op
+            # Find removed nodes and append them to remove_single_nodes_op
             root_node: LocalNode = fresh_tree.get_node(fresh_tree.root)
             if root_node.is_dir():
                 for existing_node in self._master_tree.get_subtree_bfs(subtree_root.uid):
@@ -382,12 +382,12 @@ class LocalDiskMasterCache:
                                 elif not ancestor or ancestor.exists():
                                     # FIXME: need a strategy for handling an error like this. This will likely muck up the op graph
                                     logger.error(f'Removing node belonging to a pending op because its ancestor was deleted: {existing_node}')
-                                    remove_nodes_op.node_list.append(existing_node)
+                                    remove_single_nodes_op.node_list.append(existing_node)
                                     break
                                 # We can ignore any "pending op" ancestors we encounter:
                                 assert not ancestor.exists()
 
-            operation_list: List[SubtreeOperation] = [remove_nodes_op, upsert_nodes_op]
+            operation_list: List[SubtreeOperation] = [remove_single_nodes_op, upsert_nodes_op]
 
             self._execute(operation_list)
 
@@ -678,11 +678,11 @@ class LocalDiskMasterCache:
                 caches = [cache0, cache1, cache2]
                 self._update_multiple_cache_files(caches, logical_cache_list, physical_cache_list, subtree_op_list)
 
-    def remove_node(self, node: LocalNode, to_trash=False, fire_listeners=True):
+    def remove_single_node(self, node: LocalNode, to_trash=False, fire_listeners=True):
         logger.debug(f'Removing node from caches (to_trash={to_trash}): {node}')
 
         with self._struct_lock:
-            self._remove_node_nolock(node, to_trash, fire_listeners)
+            self._remove_single_node_nolock(node, to_trash, fire_listeners)
 
     def _remove_single_node_from_memory_cache(self, node: LocalNode):
         """Removes the given node from all in-memory structs (does nothing if it is not found in some or any of them).
@@ -695,7 +695,7 @@ class LocalDiskMasterCache:
                     # maybe allow deletion of dir with children in the future, but for now be careful
                     raise RuntimeError(f'Cannot remove dir from cache because it has {len(children)} children: {node}')
 
-            count_removed = self._master_tree.remove_node(node.uid)
+            count_removed = self._master_tree.remove_single_node(node.uid)
             assert count_removed <= 1, f'Deleted {count_removed} nodes at {node.full_path}'
         else:
             logger.warning(f'Cannot remove node because it has already been removed from cache: {node}')
@@ -790,7 +790,7 @@ class LocalDiskMasterCache:
             else:
                 cache.upsert_local_file(node)
 
-    def _remove_node_nolock(self, node: LocalNode, to_trash=False, fire_listeners=True):
+    def _remove_single_node_nolock(self, node: LocalNode, to_trash=False, fire_listeners=True):
         # 1. Validate
         if not node.uid:
             raise RuntimeError(f'Cannot remove node from cache because it has no UID: {node}')

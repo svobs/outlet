@@ -338,22 +338,8 @@ class OpLedger:
         # Need a way for DisplayMutator to know that it's complete.
         command.op.set_completed()
 
-        # Add/update nodes in central cache:
-        if command.result.nodes_to_upsert:
-            logger.debug(f'Upserted {len(command.result.nodes_to_upsert)} nodes: notifying cacheman')
-            for upsert_node in command.result.nodes_to_upsert:
-                self.cacheman.add_or_update_node(upsert_node)
-
-        # Remove nodes in central cache:
-        if command.result.nodes_to_delete:
-            try:
-                to_trash = command.to_trash
-            except AttributeError:
-                to_trash = False
-
-            logger.debug(f'Deleted {len(command.result.nodes_to_delete)} nodes: notifying cacheman')
-            for deleted_node in command.result.nodes_to_delete:
-                self.cacheman.remove_node(deleted_node, to_trash)
+        # Add/update/remove affected nodes in central cache:
+        self.cacheman.update_from(command.result)
 
         logger.debug(f'Archiving op: {command.op}')
         self._archive_pending_ops_to_disk([command.op])

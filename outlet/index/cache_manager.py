@@ -8,7 +8,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from command.cmd_interface import Command
+from command.cmd_interface import Command, CommandResult
 from gdrive.client import GDriveClient
 from index.error import CacheNotLoadedError, GDriveItemNotFoundError
 from index.live_monitor import LiveMonitor
@@ -425,9 +425,9 @@ class CacheManager:
     def remove_node(self, node: DisplayNode, to_trash):
         tree_type = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
-            self._gdrive_cache.remove_gdrive_node(node, to_trash)
+            self._gdrive_cache.remove_single_node(node, to_trash)
         elif tree_type == TREE_TYPE_LOCAL_DISK:
-            self._local_disk_cache.remove_node(node, to_trash)
+            self._local_disk_cache.remove_single_node(node, to_trash)
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
@@ -452,6 +452,25 @@ class CacheManager:
 
     # Various public methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def update_from(self, cmd_result: CommandResult):
+        """Updates the in-memory cache, on-disk cache, and UI with the nodes from the given CommandResult"""
+        # TODO: refactor so that we can attempt to create (close to) an atomic operation which combines GDrive and Local functionality
+
+        if cmd_result.nodes_to_upsert:
+            logger.debug(f'Upserted {len(cmd_result.nodes_to_upsert)} nodes: notifying cacheman')
+            for upsert_node in cmd_result.nodes_to_upsert:
+                self.add_or_update_node(upsert_node)
+
+        if cmd_result.nodes_to_delete:
+            try:
+                to_trash = cmd_result.to_trash
+            except AttributeError:
+                to_trash = False
+
+            logger.debug(f'Deleted {len(cmd_result.nodes_to_delete)} nodes: notifying cacheman')
+            for deleted_node in cmd_result.nodes_to_delete:
+                self.remove_node(deleted_node, to_trash)
 
     def refresh_subtree(self, node: DisplayNode, tree_id: str):
         """Called asynchronously via actions.REFRESH_SUBTREE"""
