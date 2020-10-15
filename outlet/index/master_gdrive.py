@@ -6,7 +6,7 @@ from typing import DefaultDict, Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID, NOT_TRASHED, ROOT_PATH, GDRIVE_ROOT_UID, TREE_TYPE_GDRIVE
+from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID, NOT_TRASHED, TREE_TYPE_GDRIVE
 from gdrive.change_observer import GDriveChange, GDriveNodeChange
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index.error import CacheNotLoadedError, GDriveItemNotFoundError
@@ -45,6 +45,97 @@ class GDriveOperation(ABC):
     @abstractmethod
     def send_signals(self):
         pass
+
+
+# CLASS UpsertSingleNodeOp
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class UpsertSingleNodeOp(GDriveOperation):
+    def __init__(self, node: GDriveNode, uid_mapper):
+        self.node = node
+        self.uid_mapper = uid_mapper
+        self.parent_goog_ids = []
+
+        # try to prevent cache corruption by doing some sanity checks
+        if not node:
+            raise RuntimeError(f'No node supplied!')
+        if not node.uid:
+            raise RuntimeError(f'Node is missing UID: {node}')
+        if node.node_identifier.tree_type != TREE_TYPE_GDRIVE:
+            raise RuntimeError(f'Unrecognized tree type: {node.node_identifier.tree_type}')
+        if not isinstance(node, GDriveNode):
+            raise RuntimeError(f'Unrecognized node type: {node}')
+
+    def update_memory_cache(self, master_tree: GDriveWholeTree):
+        # Detect whether it's already in the cache
+        existing_node = master_tree.get_node_for_uid(self.node.uid)
+        if existing_node:
+            # it is ok if we have an existing node which doesn't have a goog_id; that will be replaced
+            if existing_node.goog_id and existing_node.goog_id != self.node.goog_id:
+                raise RuntimeError(f'Serious error: cache already contains UID {self.node.uid} but Google ID does not match '
+                                   f'(existing="{existing_node.goog_id}"; new="{self.node.goog_id}")')
+
+            if existing_node.exists() and not self.node.exists():
+                # In the future, let's close this hole with more elegant logic
+                logger.warning(f'Cannot replace a node which exists with one which does not exist; ignoring: {self.node}')
+                return None
+
+            if existing_node.is_dir() and not self.node.is_dir():
+                # need to replace all descendants...not ready to do this yet
+                raise RuntimeError(f'Cannot replace a folder with a file: "{self.node.full_path}"')
+
+            if existing_node == self.node:
+                logger.info(f'Node being added (uid={self.node.uid}) is identical to node already in the cache; skipping cache update')
+                dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=self.node)
+                return None
+            logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')
+        elif self.node.goog_id:
+            previous_uid = self.uid_mapper.get_uid_for_goog_id(goog_id=self.node.goog_id)
+            if previous_uid and self.node.uid != previous_uid:
+                logger.warning(f'Found node in cache with same GoogID ({self.node.goog_id}) but different UID ('
+                               f'{previous_uid}). Changing UID of node (was: {self.node.uid}) to match and overwrite previous node')
+                self.node.uid = previous_uid
+
+        # Finally, update in-memory cache (tree). If an existing node is found with the same UID, it will update and return that instead:
+        self.node = master_tree.add_node(self.node)
+
+        # Generate full_path for node, if not already done (we assume this is a newly created node)
+        master_tree.get_full_path_for_node(self.node)
+
+        parent_uids = self.node.get_parent_uids()
+        if not parent_uids:
+            logger.debug(f'Node has no parents; assuming it is a root node: {self.node}')
+        else:
+            self.parent_goog_ids = master_tree.resolve_uids_to_goog_ids(parent_uids)
+
+    def update_disk_cache(self, cache: GDriveDatabase):
+        if not self.node.exists():
+            logger.debug(f'Node does not exist; skipping save to disk: {self.node}')
+            return
+
+        parent_mappings = []
+        parent_uids = self.node.get_parent_uids()
+        if len(parent_uids) != len(self.parent_goog_ids):
+            raise RuntimeError(f'Internal error: could not map all parent goog_ids ({len(self.parent_goog_ids)}) to parent UIDs '
+                               f'({len(parent_uids)}) for node: {self.node}')
+        for parent_uid, parent_goog_id in zip(parent_uids, self.parent_goog_ids):
+            parent_mappings.append((self.node.uid, parent_uid, parent_goog_id, self.node.sync_ts))
+
+        # Write new values:
+        if parent_mappings:
+            logger.debug(f'Writing id-parent mappings to the GDrive master cache: {parent_mappings}')
+            cache.upsert_parent_mappings_for_id(parent_mappings, self.node.uid, commit=False)
+
+        if self.node.is_dir():
+            logger.debug(f'Writing folder node to the GDrive master cache: {self.node}')
+            assert isinstance(self.node, GDriveFolder)
+            cache.upsert_gdrive_folder_list([self.node])
+        else:
+            logger.debug(f'Writing file node to the GDrive master cache: {self.node}')
+            assert isinstance(self.node, GDriveFile)
+            cache.upsert_gdrive_file_list([self.node])
+
+    def send_signals(self):
+        dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=self.node)
 
 
 # CLASS DeleteSingleNodeOp
@@ -319,109 +410,11 @@ class GDriveMasterCache:
 
     def upsert_gdrive_node(self, node: GDriveNode):
         with self._struct_lock:
-            self._upsert_gdrive_node_nolock(node)
+            self._upsert_single_node_nolock(node)
 
-    def _upsert_gdrive_node_nolock(self, node: GDriveNode):
+    def _upsert_single_node_nolock(self, node: GDriveNode):
         logger.debug(f'Upserting node to caches: {node}')
-
-        # try to prevent cache corruption by doing some sanity checks
-        if not node:
-            raise RuntimeError(f'No node supplied!')
-        if not node.uid:
-            raise RuntimeError(f'Node is missing UID: {node}')
-        if node.node_identifier.tree_type != TREE_TYPE_GDRIVE:
-            raise RuntimeError(f'Unrecognized tree type: {node.node_identifier.tree_type}')
-        if not self._master_tree:
-            raise RuntimeError('GDriveWholeTree not loaded!')
-        if not isinstance(node, GDriveNode):
-            raise RuntimeError(f'Unrecognized node type: {node}')
-
-        updated_node = self._upsert_single_node_in_memory_cache(node)
-
-        if updated_node:
-            node = updated_node
-            self._upsert_single_node_in_disk_cache(node)
-
-        # Generate full_path for node, if not already done (we assume this is a newly created node)
-        self._master_tree.get_full_path_for_node(node)
-
-        dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
-
-    def _upsert_single_node_in_memory_cache(self, node: GDriveNode) -> Optional[GDriveNode]:
-        """Returns a GDriveNode if update was needed and successful; None if otherwise"""
-        # Detect whether it's already in the cache
-        existing_node = self._master_tree.get_node_for_uid(node.uid)
-        if existing_node:
-            # it is ok if we have an existing node which doesn't have a goog_id; that will be replaced
-            if existing_node.goog_id and existing_node.goog_id != node.goog_id:
-                raise RuntimeError(f'Serious error: cache already contains UID {node.uid} but Google ID does not match '
-                                   f'(existing="{existing_node.goog_id}"; new="{node.goog_id}")')
-
-            if existing_node.exists() and not node.exists():
-                # In the future, let's close this hole with more elegant logic
-                logger.warning(f'Cannot replace a node which exists with one which does not exist; ignoring: {node}')
-                return None
-
-            if existing_node.is_dir() and not node.is_dir():
-                # need to replace all descendants...not ready to do this yet
-                raise RuntimeError(f'Cannot replace a folder with a file: "{node.full_path}"')
-
-            if existing_node == node:
-                logger.info(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
-                dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
-                return None
-            logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')
-        elif node.goog_id:
-            previous_uid = self.get_uid_for_goog_id(goog_id=node.goog_id)
-            if previous_uid and node.uid != previous_uid:
-                logger.warning(f'Found node in cache with same GoogID ({node.goog_id}) but different UID ('
-                               f'{previous_uid}). Changing UID of node (was: {node.uid}) to match and overwrite previous node')
-                node.uid = previous_uid
-
-        # Finally, update in-memory cache (tree). If an existing node is found with the same UID, it will update and return that instead:
-        node = self._master_tree.add_node(node)
-
-        return node
-
-    def _upsert_single_node_in_disk_cache(self, node: GDriveNode):
-        if not node.exists():
-            logger.debug(f'Node does not exist; skipping save to disk: {node}')
-            return
-
-        cache_man = self.app.cacheman
-        if not cache_man.enable_save_to_disk:
-            logger.debug(f'Save to disk is disabled: skipping add/update of node with UID={node.uid}')
-            return
-
-        parent_uids = node.get_parent_uids()
-        if not parent_uids:
-            logger.debug(f'Node has no parents; assuming it is a root node: {node}')
-
-        parent_mappings = []
-        if parent_uids:
-            parent_goog_ids = self._master_tree.resolve_uids_to_goog_ids(parent_uids)
-            if len(node.get_parent_uids()) != len(parent_goog_ids):
-                raise RuntimeError(f'Internal error: could not map all parent goog_ids ({len(parent_goog_ids)}) to parent UIDs '
-                                   f'({len(parent_uids)}) for node: {node}')
-            for parent_uid, parent_goog_id in zip(node.get_parent_uids(), parent_goog_ids):
-                parent_mappings.append((node.uid, parent_uid, parent_goog_id, node.sync_ts))
-
-        cache_path: str = self._get_cache_path_for_master()
-
-        # Write new values:
-        with GDriveDatabase(cache_path, self.app) as cache:
-            if parent_mappings:
-                logger.debug(f'Writing id-parent mappings to the GDrive master cache: {parent_mappings}')
-                cache.upsert_parent_mappings_for_id(parent_mappings, node.uid, commit=False)
-
-            if node.is_dir():
-                logger.debug(f'Writing folder node to the GDrive master cache: {node}')
-                assert isinstance(node, GDriveFolder)
-                cache.upsert_gdrive_folder_list([node])
-            else:
-                logger.debug(f'Writing file node to the GDrive master cache: {node}')
-                assert isinstance(node, GDriveFile)
-                cache.upsert_gdrive_file_list([node])
+        self._execute(UpsertSingleNodeOp(node, self._uid_mapper))
 
     def _update_memory_cache(self, subtree_operation: GDriveOperation):
         subtree_operation.update_memory_cache(self._master_tree)
@@ -448,15 +441,15 @@ class GDriveMasterCache:
     def remove_gdrive_subtree(self, subtree_root: GDriveNode, to_trash):
         assert isinstance(subtree_root, GDriveNode), f'For node: {subtree_root}'
 
-        if to_trash:
-            # TODO
-            raise RuntimeError(f'Not supported: to_trash=true!')
-
         with self._struct_lock:
             if not subtree_root.is_dir():
                 logger.debug(f'Requested subtree is not a folder; calling remove_gdrive_node()')
-                self._remove_gdrive_node_nolock(subtree_root, to_trash=to_trash)
+                self._remove_single_node_nolock(subtree_root, to_trash=to_trash)
                 return
+
+            if to_trash:
+                # TODO
+                raise RuntimeError(f'Not supported: to_trash=true!')
 
             subtree_nodes: List[GDriveNode] = self._master_tree.get_subtree_bfs(subtree_root)
             operation: DeleteSubtreeOp = DeleteSubtreeOp(subtree_root, node_list=subtree_nodes)
@@ -465,9 +458,9 @@ class GDriveMasterCache:
 
     def remove_gdrive_node(self, node: GDriveNode, to_trash):
         with self._struct_lock:
-            self._remove_gdrive_node_nolock(node, to_trash)
+            self._remove_single_node_nolock(node, to_trash)
 
-    def _remove_gdrive_node_nolock(self, node: GDriveNode, to_trash):
+    def _remove_single_node_nolock(self, node: GDriveNode, to_trash):
         logger.debug(f'Removing node from caches: {node}')
         assert isinstance(node, GDriveNode), f'For node: {node}'
 
@@ -483,7 +476,7 @@ class GDriveMasterCache:
             if node.trashed == NOT_TRASHED:
                 raise RuntimeError(f'Trying to trash Google node which is not marked as trashed: {node}')
             # this is actually an update
-            self._upsert_gdrive_node_nolock(node)
+            self._upsert_single_node_nolock(node)
             dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
         else:
             operation: DeleteSingleNodeOp = DeleteSingleNodeOp(node, to_trash)

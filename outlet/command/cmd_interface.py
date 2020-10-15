@@ -36,9 +36,10 @@ class CommandContext:
         self.uid_generator = app.uid_generator
         if needs_gdrive:
             self.gdrive_client: Optional[GDriveClient] = self.cacheman.gdrive_client
-            self.gdrive_tree: GDriveWholeTree = self.cacheman.get_gdrive_whole_tree(tree_id=tree_id)
+            self.gdrive_tree: Optional[GDriveWholeTree] = self.cacheman.get_gdrive_whole_tree(tree_id=tree_id)
         else:
             self.gdrive_client: Optional[GDriveClient] = None
+            self.gdrive_tree: Optional[GDriveWholeTree] = None
 
     def __del__(self):
         self.shutdown()
