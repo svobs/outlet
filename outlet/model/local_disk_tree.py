@@ -130,7 +130,7 @@ class LocalDiskTree(treelib.Tree):
         except NodeIDAbsentError:
             raise RuntimeError(f'Node is not in the tree: {node} (uid={node.uid})')
 
-    def refresh_stats(self, tree_id: str, subtree_root_node: LocalNode):
+    def refresh_stats(self, subtree_root_node: LocalNode, tree_id: str):
         logger.debug(f'[{tree_id}] Refreshing stats for local disk tree with root: {subtree_root_node.node_identifier}')
         stats_sw = Stopwatch()
         queue: Deque[LocalNode] = deque()

@@ -89,7 +89,7 @@ class LocalDiskDisplayTree(DisplayTree):
 
     def refresh_stats(self, tree_id: str):
         logger.debug(f'[{tree_id}] Refreshing stats...')
-        self.cacheman.refresh_stats(tree_id, self.root_node)
+        self.cacheman.refresh_stats(self.root_node, tree_id)
         self._stats_loaded = True
         dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
         dispatcher.send(signal=actions.SET_STATUS, sender=tree_id, status_msg=self.get_summary())

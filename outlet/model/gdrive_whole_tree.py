@@ -570,7 +570,7 @@ class GDriveWholeTree:
         for num_parents, node_count in counter.items():
             logger.info(f'Nodes with {num_parents} parents: {node_count}')
 
-    def refresh_stats(self, tree_id, subtree_root: Optional[GDriveFolder] = None):
+    def refresh_stats(self, subtree_root: Optional[GDriveFolder] = None, tree_id: str = None):
         # Calculates the stats for all the directories
         logger.debug(f'[{tree_id}] Refreshing stats for GDrive tree (subtree={subtree_root})')
         stats_sw = Stopwatch()

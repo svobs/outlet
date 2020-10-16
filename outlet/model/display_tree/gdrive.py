@@ -26,10 +26,9 @@ SUPER_DEBUG = False
 
 
 class GDriveDisplayTree(DisplayTree):
-    def __init__(self, cacheman,  whole_tree: GDriveWholeTree, root_node: GDriveFolder):
+    def __init__(self,  whole_tree: GDriveWholeTree, root_node: GDriveFolder):
         DisplayTree.__init__(self, root_node=root_node)
 
-        self.cacheman = cacheman
         self._whole_tree = whole_tree
         self._root_node: GDriveFolder = root_node
 
@@ -88,7 +87,7 @@ class GDriveDisplayTree(DisplayTree):
         if node.get_tree_type() != TREE_TYPE_GDRIVE:
             return None
 
-        return self.cacheman.get_parent_for_node(node, self.root_path)
+        return self._whole_tree.get_parent_for_node(node, self.root_path)
 
     def get_relative_path_for_node(self, goog_node: GDriveNode):
         """Get the path for the given ID, relative to the root of this subtree"""
@@ -122,7 +121,8 @@ class GDriveDisplayTree(DisplayTree):
 
     def refresh_stats(self, tree_id: str):
         logger.debug(f'[{tree_id}] Refreshing stats...')
-        self.cacheman.refresh_stats(tree_id, self.root_node)
+        assert isinstance(self.root_node, GDriveFolder)
+        self._whole_tree.refresh_stats(self.root_node, tree_id)
         self._stats_loaded = True
         logger.debug(f'[{tree_id}] Sending signal "{actions.REFRESH_SUBTREE_STATS_DONE}"')
         dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)

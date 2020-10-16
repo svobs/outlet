@@ -14,6 +14,8 @@ from treelib.exceptions import NodeIDAbsentError
 import local.content_hasher
 from constants import LOCAL_ROOT_UID, ROOT_PATH, TREE_TYPE_LOCAL_DISK
 from index.cache_manager import PersistedCacheInfo
+from index.error import InvalidOperationError
+from index.master import MasterCache
 from index.sqlite.local_db import LocalDiskDatabase
 from index.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
 from index.uid.uid_generator import UID
@@ -118,7 +120,8 @@ class DeleteSubtreeOp(LocalDiskOperation):
         for node in self.node_list:
             dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
 
-# CLASS SubtreeOperation
+
+# CLASS SubtreeOperation TODO: obsolete
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class SubtreeOperation:
     def __init__(self, subtree_root_path: str, is_delete: bool, node_list: List[LocalNode]):
@@ -134,12 +137,12 @@ class SubtreeOperation:
             return f'UP "{self.subtree_root_path}" ({len(self.node_list)} nodes)'
 
 
-# CLASS ContentScannerThread
+# CLASS SignatureCalcThread
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class ContentScannerThread(threading.Thread):
-    """Hasher thread which churns through hasher queue and sends updates to cacheman"""
+class SignatureCalcThread(threading.Thread):
+    """Hasher thread which churns through signature queue and sends updates to cacheman"""
     def __init__(self, parent):
-        super().__init__(target=self._run_content_scanner_thread, name='ContentScannerThread', daemon=True)
+        super().__init__(target=self._run_content_scanner_thread, name='SignatureCalcThread', daemon=True)
         self.master_cache = parent
         self._shutdown: bool = False
         self._initial_sleep_sec: float = self.master_cache.app.config.get('cache.lazy_load_local_file_signatures_initial_delay_ms') / 1000.0
@@ -172,7 +175,7 @@ class ContentScannerThread(threading.Thread):
 
         # TODO: consider batching writes
         # Send back to ourselves to be re-stored in memory & disk caches:
-        self.master_cache.upsert_local_node(node)
+        self.master_cache.upsert_single_node(node)
 
     def _run_content_scanner_thread(self):
         logger.info(f'Starting {self.name}...')
@@ -215,7 +218,7 @@ class ContentScannerThread(threading.Thread):
 
 # TODO: consider scanning only root dir at first, then enqueuing subdirectories
 
-class LocalDiskMasterCache:
+class LocalDiskMasterCache(MasterCache):
     def __init__(self, app):
         """Singleton in-memory cache for local filesystem"""
         self.app = app
@@ -232,7 +235,7 @@ class LocalDiskMasterCache:
 
         self.lazy_load_signatures: bool = app.config.get('cache.lazy_load_local_file_signatures')
 
-        self._content_scanner_thread = ContentScannerThread(self)
+        self._signature_calc_thread = SignatureCalcThread(self)
 
         self.use_md5 = app.config.get('cache.enable_md5_lookup')
         if self.use_md5:
@@ -254,14 +257,14 @@ class LocalDiskMasterCache:
         self._master_tree.add_node(node=root_node, parent=None)
 
         if self.lazy_load_signatures:
-            self.start_content_scanner_thread()
+            self.start_signature_calc_thread()
 
-    def start_content_scanner_thread(self):
-        if not self._content_scanner_thread.is_alive():
-            self._content_scanner_thread.start()
+    def start_signature_calc_thread(self):
+        if not self._signature_calc_thread.is_alive():
+            self._signature_calc_thread.start()
 
     def shutdown(self):
-        self._content_scanner_thread.request_shutdown()
+        self._signature_calc_thread.request_shutdown()
 
     # Disk access
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -394,7 +397,10 @@ class LocalDiskMasterCache:
     # Subtree-level methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def load_local_subtree(self, subtree_root: NodeIdentifier, tree_id: str, is_live_refresh: bool = False) -> DisplayTree:
+    def get_display_tree(self, subtree_root: LocalFsIdentifier, tree_id: str) -> DisplayTree:
+        return self._get_display_tree(subtree_root, tree_id, is_live_refresh=False)
+
+    def _get_display_tree(self, subtree_root: NodeIdentifier, tree_id: str, is_live_refresh: bool = False) -> DisplayTree:
         """
         Performs a read-through retrieval of all the LocalFileNodes in the given subtree
         on the local filesystem.
@@ -538,11 +544,11 @@ class LocalDiskMasterCache:
         return local_caches, registry_needs_update
     
     def refresh_subtree(self, node: LocalNode, tree_id: str):
-        self.load_local_subtree(node.node_identifier, tree_id, is_live_refresh=True)
+        self._get_display_tree(node.node_identifier, tree_id, is_live_refresh=True)
 
-    def refresh_stats(self, tree_id: str, subtree_root_node: LocalNode):
+    def refresh_subtree_stats(self, subtree_root_node: LocalNode, tree_id: str):
         with self._struct_lock:
-            self._master_tree.refresh_stats(tree_id, subtree_root_node)
+            self._master_tree.refresh_stats(subtree_root_node, tree_id)
 
     # Cache CRUD operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -558,7 +564,7 @@ class LocalDiskMasterCache:
         with LocalDiskDatabase(cache_info.cache_location, self.app) as cache:
             return cache.get_file_or_dir_for_path(full_path)
 
-    def upsert_local_node(self, node: LocalNode, fire_listeners=True):
+    def upsert_single_node(self, node: LocalNode):
         logger.debug(f'Upserting node to caches: {node}')
 
         # 1. Validate UID:
@@ -580,7 +586,7 @@ class LocalDiskMasterCache:
                 # 3. Update on-disk cache:
                 self._upsert_single_node_in_disk_cache(node)
 
-            if updated_node and fire_listeners:
+            if updated_node:
                 # Even if update was not needed in cache, certain transient properties (e.g. icon) may have changed
                 dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
 
@@ -678,11 +684,11 @@ class LocalDiskMasterCache:
                 caches = [cache0, cache1, cache2]
                 self._update_multiple_cache_files(caches, logical_cache_list, physical_cache_list, subtree_op_list)
 
-    def remove_single_node(self, node: LocalNode, to_trash=False, fire_listeners=True):
+    def remove_single_node(self, node: LocalNode, to_trash=False):
         logger.debug(f'Removing node from caches (to_trash={to_trash}): {node}')
 
         with self._struct_lock:
-            self._remove_single_node_nolock(node, to_trash, fire_listeners)
+            self._remove_single_node_nolock(node, to_trash)
 
     def _remove_single_node_from_memory_cache(self, node: LocalNode):
         """Removes the given node from all in-memory structs (does nothing if it is not found in some or any of them).
@@ -739,7 +745,7 @@ class LocalDiskMasterCache:
 
         if node.is_file() and not node.md5 and not node.sha256:
             assert isinstance(node, LocalFileNode)
-            self._content_scanner_thread.enqueue(node)
+            self._signature_calc_thread.enqueue(node)
         else:
             # do this after the above, to avoid cache corruption in case of failure
             if self.use_md5 and node.md5:
@@ -790,7 +796,7 @@ class LocalDiskMasterCache:
             else:
                 cache.upsert_local_file(node)
 
-    def _remove_single_node_nolock(self, node: LocalNode, to_trash=False, fire_listeners=True):
+    def _remove_single_node_nolock(self, node: LocalNode, to_trash=False):
         # 1. Validate
         if not node.uid:
             raise RuntimeError(f'Cannot remove node from cache because it has no UID: {node}')
@@ -810,8 +816,7 @@ class LocalDiskMasterCache:
         self._remove_single_node_from_disk_cache(node)
 
         # 4. Notify UI:
-        if fire_listeners:
-            dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
+        dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
 
     def _update_memory_cache(self, subtree_op_list: List[SubtreeOperation]):
         for subtree_operation in subtree_op_list:
@@ -943,7 +948,7 @@ class LocalDiskMasterCache:
 
         self._send_notifications(op_list)
 
-    def remove_local_subtree(self, subtree_root: LocalNode, to_trash: bool):
+    def remove_subtree(self, subtree_root: LocalNode, to_trash: bool):
         logger.debug(f'Removing subtree_root from caches (to_trash={to_trash}): {subtree_root}')
 
         # 1. Validate
@@ -981,18 +986,28 @@ class LocalDiskMasterCache:
     # Various public getters
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
+    def get_master_tree(self, invalidate_cache: bool = False, tree_id: str = None):
+        raise InvalidOperationError('get_master_tree()')
+
     def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalFsIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
         with self._struct_lock:
             return self._master_tree.get_all_files_and_dirs_for_subtree(subtree_root)
 
+    def get_uid_for_domain_id(self, domain_id: str, uid_suggestion: Optional[UID] = None) -> UID:
+        return self._uid_mapper.get_uid_for_path(domain_id, uid_suggestion)
+
     def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
         return self._uid_mapper.get_uid_for_path(path, uid_suggestion)
+
+    def get_node_for_domain_id(self, domain_id: str) -> LocalNode:
+        uid: UID = self.get_uid_for_domain_id(domain_id)
+        return self.get_node_for_uid(uid)
 
     def get_children(self, node: LocalNode) -> List[LocalNode]:
         with self._struct_lock:
             return self._master_tree.children(node.uid)
 
-    def get_node(self, uid: UID) -> LocalNode:
+    def get_node_for_uid(self, uid: UID) -> LocalNode:
         with self._struct_lock:
             return self._master_tree.get_node(uid)
 

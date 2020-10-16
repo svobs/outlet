@@ -187,7 +187,7 @@ class TreeActions:
     def _refresh_subtree(self, sender, node: DisplayNode):
         logger.info(f'[{self.con.tree_id}] Enqueuing task to refresh subtree at {node.node_identifier}')
         self.con.parent_win.app.executor.submit_async_task(self.con.parent_win.app.cacheman.refresh_subtree,
-                                                                   node, self.con.tree_id)
+                                                           node, self.con.tree_id)
 
     def _refresh_subtree_stats(self, sender):
         logger.info(f'[{self.con.tree_id}] Enqueuing task to refresh stats')

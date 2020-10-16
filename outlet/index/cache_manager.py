@@ -316,19 +316,18 @@ class CacheManager:
                 logger.info(f'Subtree not found; will defer loading: "{existing_disk_cache.subtree_root}"')
                 existing_disk_cache.needs_refresh = True
             else:
-                self._local_disk_cache.load_local_subtree(existing_disk_cache.subtree_root, ID_GLOBAL_CACHE)
+                self._local_disk_cache.get_display_tree(existing_disk_cache.subtree_root, ID_GLOBAL_CACHE)
         elif cache_type == TREE_TYPE_GDRIVE:
             assert existing_disk_cache.subtree_root == NodeIdentifierFactory.get_gdrive_root_constant_identifier(), \
                 f'Expected GDrive root ({NodeIdentifierFactory.get_gdrive_root_constant_identifier()}) but found: {existing_disk_cache.subtree_root}'
-            self._gdrive_cache.load_gdrive_master_cache(invalidate_cache=False, sync_latest_changes=True, tree_id=ID_GLOBAL_CACHE)
+            self._gdrive_cache.get_master_tree(tree_id=ID_GLOBAL_CACHE)
 
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def load_subtree(self, node_identifier: NodeIdentifier, tree_id: str) -> DisplayTree:
         """
-        Performs a read-through retreival of all the FMetas in the given subtree
-        on the local filesystem.
+        Performs a read-through retreival of all the nodes in the given subtree.
         """
         logger.debug(f'Got request to load subtree: {node_identifier}')
 
@@ -343,10 +342,10 @@ class CacheManager:
 
         if node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
             assert self._local_disk_cache
-            subtree = self._local_disk_cache.load_local_subtree(node_identifier, tree_id)
+            subtree = self._local_disk_cache.get_display_tree(node_identifier, tree_id)
         elif node_identifier.tree_type == TREE_TYPE_GDRIVE:
             assert self._gdrive_cache
-            subtree = self._gdrive_cache.load_gdrive_subtree(node_identifier, sync_latest_changes=False, invalidate_cache=False, tree_id=tree_id)
+            subtree = self._gdrive_cache.get_display_tree(node_identifier, tree_id=tree_id)
         else:
             raise RuntimeError(f'Unrecognized tree type: {node_identifier.tree_type}')
 
@@ -404,18 +403,18 @@ class CacheManager:
     def add_or_update_node(self, node: DisplayNode):
         tree_type = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
-            self._gdrive_cache.upsert_gdrive_node(node)
+            self._gdrive_cache.upsert_single_node(node)
         elif tree_type == TREE_TYPE_LOCAL_DISK:
-            self._local_disk_cache.upsert_local_node(node)
+            self._local_disk_cache.upsert_single_node(node)
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
     def remove_subtree(self, node: DisplayNode, to_trash: bool):
         tree_type = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
-            self._gdrive_cache.remove_gdrive_subtree(node, to_trash)
+            self._gdrive_cache.remove_subtree(node, to_trash)
         elif tree_type == TREE_TYPE_LOCAL_DISK:
-            self._local_disk_cache.remove_local_subtree(node, to_trash)
+            self._local_disk_cache.remove_subtree(node, to_trash)
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
@@ -482,13 +481,13 @@ class CacheManager:
         else:
             assert False
 
-    def refresh_stats(self, tree_id: str, subtree_root_node: DisplayNode):
+    def refresh_stats(self, subtree_root_node: DisplayNode, tree_id: str):
         """Does not send signals. The caller is responsible for sending REFRESH_SUBTREE_STATS_DONE and SET_STATUS themselves"""
         logger.debug(f'[{tree_id}] Refreshing stats for subtree: {subtree_root_node}')
         if subtree_root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
-            self._local_disk_cache.refresh_stats(tree_id, subtree_root_node)
+            self._local_disk_cache.refresh_subtree_stats(subtree_root_node, tree_id)
         elif subtree_root_node.get_tree_type() == TREE_TYPE_GDRIVE:
-            self._gdrive_cache.refresh_stats(tree_id, subtree_root_node)
+            self._gdrive_cache.refresh_subtree_stats(subtree_root_node, tree_id)
         else:
             assert False
 
@@ -509,11 +508,11 @@ class CacheManager:
 
     def download_all_gdrive_meta(self, tree_id):
         """Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-        self._gdrive_cache.load_gdrive_master_cache(invalidate_cache=True, sync_latest_changes=True, tree_id=tree_id)
+        self._gdrive_cache.get_master_tree(invalidate_cache=True, tree_id=tree_id)
 
     def get_gdrive_whole_tree(self, tree_id) -> GDriveDisplayTree:
         """Will load from disk or even GDrive server if necessary. Always updates with latest changes."""
-        return self._gdrive_cache.load_gdrive_subtree(subtree_root=None, sync_latest_changes=True, invalidate_cache=False, tree_id=tree_id)
+        return self._gdrive_cache.get_master_tree(tree_id=tree_id)
 
     def build_local_file_node(self, full_path: str, staging_path=None, must_scan_signature=False) -> Optional[LocalFileNode]:
         return self._local_disk_cache.build_local_file_node(full_path, staging_path, must_scan_signature)
@@ -606,7 +605,7 @@ class CacheManager:
 
     def get_node_for_local_path(self, full_path: str) -> DisplayNode:
         uid = self.get_uid_for_path(full_path)
-        return self._local_disk_cache.get_node(uid)
+        return self._local_disk_cache.get_node_for_uid(uid)
 
     def get_goog_node_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GDriveNode]:
         """Returns the first GDrive node found with the given name and parent.
@@ -614,19 +613,19 @@ class CacheManager:
         return self._gdrive_cache.get_node_for_name_and_parent_uid(name, parent_uid)
 
     def get_node_for_goog_id(self, goog_id: str) -> UID:
-        return self._gdrive_cache.get_node_for_goog_id(goog_id)
+        return self._gdrive_cache.get_node_for_domain_id(goog_id)
 
     def get_node_for_uid(self, uid: UID, tree_type: int = None):
         if tree_type:
             if tree_type == TREE_TYPE_LOCAL_DISK:
-                return self._local_disk_cache.get_node(uid)
+                return self._local_disk_cache.get_node_for_uid(uid)
             elif tree_type == TREE_TYPE_GDRIVE:
                 return self._gdrive_cache.get_node_for_uid(uid)
             else:
                 raise RuntimeError(f'Unknown tree type: {tree_type} for UID {uid}')
 
         # no tree type provided? -> just try all trees:
-        node = self._local_disk_cache.get_node(uid)
+        node = self._local_disk_cache.get_node_for_uid(uid)
         if not node:
             node = self._gdrive_cache.get_node_for_uid(uid)
         return node
