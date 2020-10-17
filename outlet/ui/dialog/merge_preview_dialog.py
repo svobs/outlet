@@ -4,7 +4,7 @@ from pydispatch import dispatcher
 
 from ui.actions import ID_MERGE_TREE
 from ui.tree import tree_factory
-from ui.tree.category_display_tree import CategoryDisplayTree
+from model.display_tree.category import CategoryDisplayTree
 
 from ui import actions
 from ui.dialog.base_dialog import BaseDialog

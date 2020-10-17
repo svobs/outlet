@@ -4,7 +4,7 @@ import time
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from model.op import OpType
-from constants import ROOT_PATH, LOCAL_ROOT_UID, SUPER_ROOT_UID, TREE_TYPE_MIXED
+from constants import ROOT_PATH, SUPER_ROOT_UID, TREE_TYPE_MIXED
 from diff.change_maker import ChangeMaker
 from index.two_level_dict import TwoLevelDict
 from model.node.display_node import DisplayNode
@@ -12,7 +12,7 @@ from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 from model.display_tree.display_tree import DisplayTree
 from util.stopwatch_sec import Stopwatch
 from ui.actions import ID_MERGE_TREE
-from ui.tree.category_display_tree import CategoryDisplayTree
+from model.display_tree.category import CategoryDisplayTree
 
 logger = logging.getLogger(__name__)
 

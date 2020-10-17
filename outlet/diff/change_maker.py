@@ -14,7 +14,7 @@ from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier
 from model.display_tree.display_tree import DisplayTree
 from ui.actions import ID_LEFT_TREE, ID_RIGHT_TREE
-from ui.tree.category_display_tree import CategoryDisplayTree
+from model.display_tree.category import CategoryDisplayTree
 
 logger = logging.getLogger(__name__)
 

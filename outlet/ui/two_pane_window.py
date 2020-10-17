@@ -8,7 +8,7 @@ from constants import APP_NAME, ICON_WINDOW, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
 from model.node_identifier import NodeIdentifier
 from model.node.display_node import DisplayNode
-from ui.tree.category_display_tree import CategoryDisplayTree
+from model.display_tree.category import CategoryDisplayTree
 
 from ui.tree.root_path_config import RootPathConfigPersister
 
