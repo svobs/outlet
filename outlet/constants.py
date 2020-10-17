@@ -97,6 +97,7 @@ GDRIVE_DOWNLOAD_STATE_COMPLETE = 10
 
 TRASHED_STATUS_STR = ['No', 'UserTrashed', 'Trashed', 'Deleted']
 
+
 # Trashed state
 class TrashStatus(IntEnum):
     NOT_TRASHED = 0

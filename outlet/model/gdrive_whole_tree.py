@@ -33,7 +33,6 @@ class GDriveWholeTree:
     """
     def __init__(self, node_identifier_factory: NodeIdentifierFactory):
         self.node_identifier_factory: NodeIdentifierFactory = node_identifier_factory
-        self.node_identifier = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         """This is sometimes needed for lookups"""
 
         self._stats_loaded = False
@@ -47,6 +46,10 @@ class GDriveWholeTree:
         """ Reverse lookup table: 'parent_uid' -> list of child nodes """
 
         self.me: Optional[GDriveUser] = None
+
+    @property
+    def node_identifier(self):
+        return NodeIdentifierFactory.get_gdrive_root_constant_identifier()
 
     def get_full_path_for_node(self, node: GDriveNode) -> List[str]:
         """Gets the absolute path for the node. Also sets its 'full_path' attribute for future use"""

@@ -214,8 +214,8 @@ def _reduce_changes(change_list: List[GDriveChange]) -> List[GDriveChange]:
 # CLASS BatchChangesOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class BatchChangesOp(GDriveCacheOp):
-    def __init__(self, gdrive_master_cache, change_list: List[GDriveChange]):
-        self.gdrive_master_cache = gdrive_master_cache
+    def __init__(self, master_tree, change_list: List[GDriveChange]):
+        self.master_tree = master_tree
         self.change_list = _reduce_changes(change_list)
 
     def update_memory_cache(self, master_tree: GDriveWholeTree):
@@ -249,7 +249,7 @@ class BatchChangesOp(GDriveCacheOp):
                 parent_mapping_list = []
                 parent_uids = change.node.get_parent_uids()
                 if parent_uids:
-                    parent_goog_ids = self.gdrive_master_cache.resolve_uids_to_goog_ids(parent_uids)
+                    parent_goog_ids = self.master_tree.resolve_uids_to_goog_ids(parent_uids)
                     if len(change.node.get_parent_uids()) != len(parent_goog_ids):
                         raise RuntimeError(f'Internal error: could not map all parent goog_ids ({len(parent_goog_ids)}) to parent UIDs '
                                            f'({len(parent_uids)}) for node: {change.node}')
@@ -489,7 +489,7 @@ class GDriveMasterCache(MasterCache):
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def apply_gdrive_changes(self, gdrive_change_list: List[GDriveChange]):
-        operation: BatchChangesOp = BatchChangesOp(self, gdrive_change_list)
+        operation: BatchChangesOp = BatchChangesOp(self._master_tree, gdrive_change_list)
 
         with self._struct_lock:
             self._execute(operation)

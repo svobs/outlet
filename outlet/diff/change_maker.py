@@ -4,6 +4,7 @@ import pathlib
 from collections import deque
 from typing import Deque, Dict, List
 
+from index.uid.uid import UID
 from util import file_util
 from model.op import Op, OpType
 from constants import NULL_UID, TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
@@ -42,10 +43,10 @@ class OneSide:
     def __init__(self, underlying_tree: DisplayTree, app, tree_id: str):
         self.underlying_tree: DisplayTree = underlying_tree
         self.app = app
-        self.uid_generator = app.uid_generator
         self.change_tree: CategoryDisplayTree = CategoryDisplayTree(app, self.underlying_tree.node_identifier, tree_id)
-        self.batch_uid = self.uid_generator.next_uid()
-        self.added_folders: Dict[str, DisplayNode] = {}
+        # TODO: shouldn't batch_uid be the same for both sides ?
+        self._batch_uid: UID = self.app.uid_generator.next_uid()
+        self._added_folders: Dict[str, DisplayNode] = {}
 
     def migrate_single_node_to_this_side(self, src_node: DisplayNode, new_path: str) -> DisplayNode:
         dst_tree_type = self.underlying_tree.tree_type
@@ -72,7 +73,7 @@ class OneSide:
 
     def _create_op(self, op_type: OpType, src_node: DisplayNode, dst_node: DisplayNode = None):
         assert src_node, f'No src node!'
-        return Op(op_uid=self.uid_generator.next_uid(), batch_uid=self.batch_uid, op_type=op_type,
+        return Op(op_uid=self.app.uid_generator.next_uid(), batch_uid=self._batch_uid, op_type=op_type,
                   src_node=src_node, dst_node=dst_node)
 
     def add_op(self, op_type: OpType, src_node: DisplayNode, dst_node: DisplayNode = None):
@@ -112,7 +113,7 @@ class OneSide:
             parent_path = str(pathlib.Path(child_path).parent)
 
             # AddedFolder already generated and added?
-            existing_ancestor = self.added_folders.get(parent_path, None)
+            existing_ancestor = self._added_folders.get(parent_path, None)
             if existing_ancestor:
                 if tree_type == TREE_TYPE_GDRIVE:
                     child.set_parent_uids(existing_ancestor.uid)
@@ -127,7 +128,7 @@ class OneSide:
 
             if tree_type == TREE_TYPE_GDRIVE:
                 logger.debug(f'Creating GoogFolderToAdd for {parent_path}')
-                new_uid = self.uid_generator.next_uid()
+                new_uid = self.app.uid_generator.next_uid()
                 folder_name = os.path.basename(parent_path)
                 new_parent = GDriveFolder(GDriveIdentifier(uid=new_uid, full_path=parent_path), goog_id=None, node_name=folder_name,
                                           trashed=False, create_ts=None, modify_ts=None, owner_uid=None,
@@ -140,7 +141,7 @@ class OneSide:
             else:
                 raise RuntimeError(f'Invalid tree type: {tree_type} for node {new_node}')
 
-            self.added_folders[parent_path] = new_parent
+            self._added_folders[parent_path] = new_parent
             ancestor_stack.append(new_parent)
 
             if tree_type == TREE_TYPE_GDRIVE:
@@ -157,11 +158,9 @@ class OneSide:
 
 class ChangeMaker:
     def __init__(self, left_tree: DisplayTree, right_tree: DisplayTree, app):
+        self.app = app
         self.left_side = OneSide(left_tree, app, ID_LEFT_TREE)
         self.right_side = OneSide(right_tree, app, ID_RIGHT_TREE)
-
-        self.app = app
-        self.uid_generator = app.uid_generator
 
     def copy_nodes_left_to_right(self, src_node_list: List[DisplayNode], dst_parent: DisplayNode, op_type: OpType):
         """Populates the destination parent in "change_tree_right" with the given source nodes."""

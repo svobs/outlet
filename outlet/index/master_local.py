@@ -304,7 +304,6 @@ class LocalDiskOpExecutor:
         self._data: MasterCacheData = data
 
     def execute(self, operation: LocalDiskOp):
-
         operation.update_memory_cache(self._data)
 
         cacheman = self.app.cacheman
@@ -428,7 +427,8 @@ class LocalDiskMasterCache(MasterCache):
 
         self._executor = LocalDiskOpExecutor(app, self._data)
 
-        self._signature_calc_thread = SignatureCalcThread(self)
+        initial_sleep_sec: float = self.app.config.get('cache.lazy_load_local_file_signatures_initial_delay_ms') / 1000.0
+        self._signature_calc_thread = SignatureCalcThread(self.app, initial_sleep_sec)
 
         self.lazy_load_signatures: bool = app.config.get('cache.lazy_load_local_file_signatures')
         if self.lazy_load_signatures:
@@ -439,6 +439,7 @@ class LocalDiskMasterCache(MasterCache):
             self._signature_calc_thread.start()
 
     def shutdown(self):
+        # TODO: change to a signal
         if self._signature_calc_thread:
             self._signature_calc_thread.request_shutdown()
 

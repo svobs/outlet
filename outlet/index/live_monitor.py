@@ -23,11 +23,11 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class GDrivePollingThread(threading.Thread):
-    def __init__(self, parent, thread_num):
+    def __init__(self, app, thread_num):
         super().__init__(target=self._run_gdrive_polling_thread, name=f'GDrivePollingThread-{thread_num}', daemon=True)
         self._shutdown: bool = False
-        self.app = parent.app
-        self.gdrive_thread_polling_interval_sec: int = parent.gdrive_thread_polling_interval_sec
+        self.app = app
+        self.gdrive_thread_polling_interval_sec: int = ensure_int(self.app.config.get('cache.gdrive_thread_polling_interval_sec'))
 
     def request_shutdown(self):
         logger.debug(f'Requesting shutdown of thread {self.name}')
@@ -51,11 +51,11 @@ class GDrivePollingThread(threading.Thread):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class LocalFileChangeBatchingThread(threading.Thread):
-    def __init__(self, parent):
+    def __init__(self, app):
         super().__init__(target=self._run, name=f'LocalFileChangeBatchingThread', daemon=True)
         self._shutdown: bool = False
-        self.cacheman = parent.app.cacheman
-        self.local_change_batch_interval_ms: int = parent.local_change_batch_interval_ms
+        self.app = app
+        self.local_change_batch_interval_ms: int = ensure_int(self.app.config.get('cache.local_change_batch_interval_ms'))
         self.change_set: Set = set()
 
     def enqueue(self, file_path: str):
@@ -79,8 +79,8 @@ class LocalFileChangeBatchingThread(threading.Thread):
                 for change_path in change_set:
                     try:
                         logger.debug(f'Applying CH file: {change_path}')
-                        node: LocalNode = self.cacheman.build_local_file_node(change_path)
-                        self.cacheman.add_or_update_node(node)
+                        node: LocalNode = self.app.cacheman.build_local_file_node(change_path)
+                        self.app.cacheman.add_or_update_node(node)
                     except FileNotFoundError as err:
                         logger.debug(f'Cannot process external CH event: file not found: "{err.filename}"')
 
@@ -95,10 +95,6 @@ class LocalFileChangeBatchingThread(threading.Thread):
 class LiveMonitor:
     def __init__(self, app):
         self.app = app
-
-        self.enable_gdrive_polling_thread: bool = ensure_bool(self.app.config.get('cache.enable_gdrive_polling_thread'))
-        self.gdrive_thread_polling_interval_sec: int = ensure_int(self.app.config.get('cache.gdrive_thread_polling_interval_sec'))
-        self.local_change_batch_interval_ms: int = ensure_int(self.app.config.get('cache.local_change_batch_interval_ms'))
 
         self._struct_lock = threading.Lock()
         """Locks the following data structures"""
@@ -115,6 +111,7 @@ class LiveMonitor:
         self._active_local_tree_dict: Dict[str, Set[str]] = {}
         """A dict of [local_path -> set of tree_ids]"""
 
+        self.enable_gdrive_polling_thread: bool = ensure_bool(self.app.config.get('cache.enable_gdrive_polling_thread'))
         self._gdrive_polling_thread: Optional[GDrivePollingThread] = None
         self._count_gdrive_threads: int = 0
         self._local_change_batching_thread: Optional[LocalFileChangeBatchingThread] = None
@@ -139,7 +136,7 @@ class LiveMonitor:
         logger.debug(f'[{tree_id}] Starting disk capture for path="{full_path}"')
 
         if not self._local_change_batching_thread or not self._local_change_batching_thread.is_alive():
-            self._local_change_batching_thread = LocalFileChangeBatchingThread(self)
+            self._local_change_batching_thread = LocalFileChangeBatchingThread(self.app)
             self._local_change_batching_thread.start()
 
         event_handler = LocalChangeEventHandler(self.app, self._local_change_batching_thread)
@@ -177,7 +174,7 @@ class LiveMonitor:
             return
 
         self._count_gdrive_threads += 1
-        self._gdrive_polling_thread = GDrivePollingThread(self, self._count_gdrive_threads)
+        self._gdrive_polling_thread = GDrivePollingThread(self.app, self._count_gdrive_threads)
         self._gdrive_polling_thread.start()
 
     def _stop_gdrive_capture(self):

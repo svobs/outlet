@@ -20,11 +20,11 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class SignatureCalcThread(threading.Thread):
     """Hasher thread which churns through signature queue and sends updates to cacheman"""
-    def __init__(self, parent):
+    def __init__(self, app, initial_sleep_sec: float):
         super().__init__(target=self._run_content_scanner_thread, name='SignatureCalcThread', daemon=True)
-        self.master_cache = parent
+        self.app = app
+        self._initial_sleep_sec = initial_sleep_sec
         self._shutdown: bool = False
-        self._initial_sleep_sec: float = self.master_cache.app.config.get('cache.lazy_load_local_file_signatures_initial_delay_ms') / 1000.0
         self._node_queue: Deque[LocalFileNode] = deque()
         self._cv_can_get = threading.Condition()
         self._struct_lock = threading.Lock()
@@ -60,7 +60,7 @@ class SignatureCalcThread(threading.Thread):
 
         # TODO: consider batching writes
         # Send back to ourselves to be re-stored in memory & disk caches:
-        self.master_cache.upsert_single_node(node)
+        self.app.cacheman.upsert_single_node(node)
 
     def _on_node_upserted_in_cache(self, sender: str, node: DisplayNode):
         if node.get_tree_type() == TREE_TYPE_LOCAL_DISK and node.is_file() and not node.md5 and not node.sha256:
@@ -73,7 +73,7 @@ class SignatureCalcThread(threading.Thread):
         dispatcher.connect(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
 
         # Wait for CacheMan to finish starting up so as not to deprive it of resources:
-        self.master_cache.app.cacheman.wait_for_startup_done()
+        self.app.cacheman.wait_for_startup_done()
 
         logger.debug(f'[{self.name}] Doing inital sleep {self._initial_sleep_sec} sec to let things settle...')
         time.sleep(self._initial_sleep_sec)  # in seconds

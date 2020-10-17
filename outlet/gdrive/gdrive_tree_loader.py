@@ -33,15 +33,16 @@ class GDriveTreeLoader:
 
     def __init__(self, app, cache_path: str, tree_id: str = None):
         self.app = app
-        self.node_identifier_factory = app.node_identifier_factory
-        self.cacheman = app.cacheman
         self.tree_id: str = tree_id
         self.cache_path: str = cache_path
         self.cache: Optional[GDriveDatabase] = None
-        self.gdrive_client: GDriveClient = self.app.cacheman.gdrive_client
 
     def __del__(self):
         pass
+
+    @property
+    def gdrive_client(self) -> GDriveClient:
+        return self.app.cacheman.gdrive_client
 
     def _get_previous_download_state(self, download_type: int):
         for download in self.cache.get_current_downloads():
@@ -88,7 +89,7 @@ class GDriveTreeLoader:
 
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             # completely fresh tree
-            tree = GDriveWholeTree(self.node_identifier_factory)
+            tree = GDriveWholeTree(self.app.node_identifier_factory)
         else:
             # Start/resume: read cache
             msg = 'Reading cache...'
@@ -110,8 +111,8 @@ class GDriveTreeLoader:
 
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             self.cache.delete_all_gdrive_data()
-            # TODO: put this in the GDriveWholeTree instead
-            self.cacheman.delete_all_gdrive_meta()
+            # TODO: put in-memory meta in GDriveWholeTree instead
+            self.app.cacheman.delete_all_gdrive_meta()
 
             # Need to make a special call to get the root node 'My Drive'. This node will not be included
             # in the "list files" call:
@@ -126,12 +127,12 @@ class GDriveTreeLoader:
             # fall through
 
         if initial_download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
-            observer = FolderMetaPersister(tree, initial_download, self.cache, self.cacheman)
+            observer = FolderMetaPersister(tree, initial_download, self.cache, self.app.cacheman)
             self.gdrive_client.get_all_folders(initial_download.page_token, initial_download.update_ts, observer)
             # fall through
 
         if initial_download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS:
-            observer = FileMetaPersister(tree, initial_download, self.cache, self.cacheman)
+            observer = FileMetaPersister(tree, initial_download, self.cache, self.app.cacheman)
             self.gdrive_client.get_all_non_folders(initial_download.page_token, initial_download.update_ts, observer)
             # fall through
 
@@ -184,13 +185,6 @@ class GDriveTreeLoader:
             # covering all our bases here in case we are recovering from corruption
             changes_download.page_token = self.gdrive_client.get_changes_start_token()
 
-        # TODO: is this needed?
-        # shared_with_me: List[GDriveNode] = self.gdrive_client.get_all_shared_with_me()
-        # logger.debug(f'Found {len(shared_with_me)} shared with me')
-        # for node in shared_with_me:
-        #     logger.debug(f'Shared with me: {node}')
-        #     self.cacheman.add_or_update_node(node)
-
         observer: PagePersistingChangeObserver = PagePersistingChangeObserver(self.app)
         sync_ts = int(time.time())
         self.gdrive_client.get_changes_list(changes_download.page_token, sync_ts, observer)
@@ -212,7 +206,7 @@ class GDriveTreeLoader:
         """
         sw_total = Stopwatch()
         max_uid = GDRIVE_ROOT_UID + 1
-        tree = GDriveWholeTree(self.node_identifier_factory)
+        tree = GDriveWholeTree(self.app.node_identifier_factory)
         invalidate_uids: Dict[UID, str] = {}
 
         items_without_goog_ids: List[GDriveNode] = []
@@ -226,7 +220,7 @@ class GDriveTreeLoader:
         count_folders_loaded = 0
         for folder in folder_list:
             if folder.goog_id:
-                uid = self.cacheman.get_uid_for_goog_id(folder.goog_id, folder.uid)
+                uid = self.app.cacheman.get_uid_for_goog_id(folder.goog_id, folder.uid)
                 if folder.uid != uid:
                     # Duplicate entry with same goog_id. Here's a useful SQLite query:
                     # "SELECT goog_id, COUNT(*) c FROM gdrive_file GROUP BY goog_id HAVING c > 1;"
@@ -255,7 +249,7 @@ class GDriveTreeLoader:
         count_files_loaded = 0
         for file in file_list:
             if file.goog_id:
-                uid = self.cacheman.get_uid_for_goog_id(file.goog_id, file.uid)
+                uid = self.app.cacheman.get_uid_for_goog_id(file.goog_id, file.uid)
                 if file.uid != uid:
                     # Duplicate entry with same goog_id. Here's a useful SQLite query:
                     # "SELECT goog_id, COUNT(*) c FROM gdrive_file GROUP BY goog_id HAVING c > 1;"
@@ -322,7 +316,7 @@ class GDriveTreeLoader:
             parent_goog_id: str = mapping[2]
 
             # Add parent UID to tuple for later DB update:
-            parent_uid = self.cacheman.get_uid_for_goog_id(parent_goog_id)
+            parent_uid = self.app.cacheman.get_uid_for_goog_id(parent_goog_id)
             mapping = mapping[0], parent_uid, mapping[2], mapping[3]
             tree.add_parent_mapping(mapping[0], parent_uid)
             new_mappings.append(mapping)
