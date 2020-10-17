@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 import constants
 from ui import actions
 from util import file_util, format
-from store.two_level_dict import Md5BeforePathDict
+from util.two_level_dict import Md5BeforePathDict
 from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node_identifier import LocalFsIdentifier

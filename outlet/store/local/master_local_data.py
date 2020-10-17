@@ -8,7 +8,7 @@ from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalFileNode, LocalNode
 from model.node_identifier import LocalFsIdentifier
 from store.local.master_local import SUPER_DEBUG
-from store.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
+from util.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
 from store.uid.uid_mapper import UidPathMapper
 
 logger = logging.getLogger(__name__)

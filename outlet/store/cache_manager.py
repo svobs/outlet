@@ -24,7 +24,7 @@ from store.op.op_ledger import OpLedger
 from store.gdrive.master_gdrive import GDriveMasterCache
 from store.local.master_local import LocalDiskMasterCache
 from store.sqlite.cache_registry_db import CacheRegistry
-from store.two_level_dict import TwoLevelDict
+from util.two_level_dict import TwoLevelDict
 from model.uid import UID
 from model.node.display_node import DisplayNode, HasParentList
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
