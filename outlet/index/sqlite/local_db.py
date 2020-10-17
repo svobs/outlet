@@ -68,9 +68,6 @@ class LocalDiskDatabase(MetaDatabase):
     def insert_local_files(self, entries: List[LocalFileNode], overwrite, commit=True):
         self.table_local_file.insert_object_list(entries, overwrite=overwrite, commit=commit)
 
-    def truncate_local_files(self):
-        self.table_local_file.truncate_table(self.conn)
-
     def upsert_local_file(self, item, commit=True):
         self.table_local_file.upsert_object(item, commit=commit)
 
@@ -83,6 +80,9 @@ class LocalDiskDatabase(MetaDatabase):
     def delete_local_files_for_uid_list(self, uid_list: List[UID], commit=True):
         uid_tuple_list = list(map(lambda uid: (uid,), uid_list))
         self.table_local_file.delete_for_uid_list(uid_tuple_list, commit=commit)
+
+    def truncate_local_files(self, commit=True):
+        self.table_local_file.truncate_table(commit=commit)
 
     # LOCAL_DIR operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
@@ -113,6 +113,9 @@ class LocalDiskDatabase(MetaDatabase):
     def delete_local_dirs_for_uid_list(self, uid_list: List[UID], commit=True):
         uid_tuple_list = list(map(lambda uid: (uid,), uid_list))
         self.table_local_dir.delete_for_uid_list(uid_tuple_list, commit=commit)
+
+    def truncate_local_dirs(self, commit=True):
+        self.table_local_dir.truncate_table(commit=commit)
 
     # Mixed type operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 

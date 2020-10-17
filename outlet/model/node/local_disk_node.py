@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 import re
 from abc import ABC
 from typing import Optional, Tuple
@@ -45,6 +46,9 @@ class LocalNode(DisplayNode, ABC):
     def name(self):
         assert self.node_identifier.full_path, f'For {type(self)}, uid={self.uid}'
         return os.path.basename(self.node_identifier.full_path)
+
+    def derive_parent_path(self) -> str:
+        return str(pathlib.Path(self.full_path).parent)
 
 
 # CLASS LocalFileNode

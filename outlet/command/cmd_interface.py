@@ -30,10 +30,8 @@ class CommandStatus(IntEnum):
 
 class CommandContext:
     def __init__(self, staging_dir: str, app, tree_id: str, needs_gdrive: bool):
-        self.staging_dir = staging_dir
-        self.config = app.config
+        self.staging_dir: str = staging_dir
         self.cacheman = app.cacheman
-        self.uid_generator = app.uid_generator
         if needs_gdrive:
             self.gdrive_client: Optional[GDriveClient] = self.cacheman.gdrive_client
             self.gdrive_tree: Optional[GDriveWholeTree] = self.cacheman.get_gdrive_whole_tree(tree_id=tree_id)

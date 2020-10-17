@@ -35,7 +35,7 @@ from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
-SUPER_DEBUG = False
+SUPER_DEBUG = True
 
 
 # CLASS MasterCacheData
@@ -72,6 +72,8 @@ class MasterCacheData:
     def remove_single_node(self, node: LocalNode):
         """Removes the given node from all in-memory structs (does nothing if it is not found in some or any of them).
         Will raise an exception if trying to remove a non-empty directory."""
+        logger.debug(f'Removing LocalNode from memory cache: {node}')
+
         existing: DisplayNode = self.master_tree.get_node(node.uid)
         if existing:
             if existing.is_dir():
@@ -80,7 +82,7 @@ class MasterCacheData:
                     # maybe allow deletion of dir with children in the future, but for now be careful
                     raise RuntimeError(f'Cannot remove dir from cache because it has {len(children)} children: {node}')
 
-            count_removed = self.master_tree.remove_single_node(node.uid)
+            count_removed = self.master_tree.remove_node(node.uid)
             assert count_removed <= 1, f'Deleted {count_removed} nodes at {node.full_path}'
         else:
             logger.warning(f'Cannot remove node because it has already been removed from cache: {node}')
@@ -110,7 +112,7 @@ class MasterCacheData:
         if existing_node:
             if existing_node.exists() and not node.exists():
                 # In the future, let's close this hole with more elegant logic
-                logger.warning(f'Cannot replace a node which exists with one which does not exist; skipping cache update')
+                logger.warning(f'Cannot replace a node which exists with one which does not exist; skipping cache update for {node.node_identifier}')
                 return None, False
 
             if existing_node.is_dir() and not node.is_dir():
@@ -180,6 +182,7 @@ class LocalDiskOp(ABC):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class LocalDiskSingleNodeOp(LocalDiskOp, ABC):
     def __init__(self, node: LocalNode):
+        assert node, f'No node for operation: {type(self)}'
         self.node: LocalNode = node
 
     @abstractmethod
@@ -211,7 +214,11 @@ class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
         self.was_updated: bool = True
 
     def update_memory_cache(self, data: MasterCacheData):
-        self.node, self.was_updated = data.upsert_single_node(self.node)
+        node, self.was_updated = data.upsert_single_node(self.node)
+        if node:
+            self.node = node
+        elif SUPER_DEBUG:
+            logger.debug(f'upsert_single_node() returned None for input node: {self.node}')
 
     def update_disk_cache(self, cache: LocalDiskDatabase):
         if self.was_updated:
@@ -270,17 +277,17 @@ class BatchChangesOp(LocalDiskSubtreeOp):
 
     def update_memory_cache(self, data: MasterCacheData):
         for subtree in self.subtree_list:
+            logger.debug(f'Upserting {len(subtree.upsert_node_list)} and removing {len(subtree.remove_node_list)} nodes at memcache subroot '
+                         f'"{subtree.subtree_root.full_path}"')
             # Deletes must occur from bottom up:
             if subtree.remove_node_list:
                 for node in reversed(subtree.remove_node_list):
                     data.remove_single_node(node)
-                logger.debug(f'Removed {len(subtree.remove_node_list)} nodes from memcache path "{subtree.subtree_root.full_path}"')
             if subtree.upsert_node_list:
                 for node_index, node in enumerate(subtree.upsert_node_list):
                     master_node, was_updated = data.upsert_single_node(node)
                     if master_node:
                         subtree.upsert_node_list[node_index] = master_node
-                logger.debug(f'Upserted {len(subtree.upsert_node_list)} nodes to memcache path "{subtree.subtree_root.full_path}"')
 
     def update_disk_cache(self, cache: LocalDiskDatabase, subtree: Subtree):
         if subtree.remove_node_list:
@@ -320,6 +327,7 @@ class LocalDiskOpExecutor:
                 self._update_disk_cache_for_subtree(operation)
             else:
                 assert isinstance(operation, LocalDiskSingleNodeOp)
+                assert operation.node, f'No node for operation: {type(operation)}'
                 cache_info: Optional[PersistedCacheInfo] = cacheman.find_existing_cache_info_for_subtree(operation.node.full_path,
                                                                                                          operation.node.get_tree_type())
                 if not cache_info:
@@ -528,9 +536,11 @@ class LocalDiskMasterCache(MasterCache):
         stopwatch_write_cache = Stopwatch()
         with self._struct_lock:
             with LocalDiskDatabase(cache_info.cache_location, self.app) as disk_cache:
-                # Update cache:
-                disk_cache.insert_local_files(file_list, overwrite=True, commit=False)
-                disk_cache.insert_local_dirs(dir_list, overwrite=True, commit=True)
+                # Overwrite cache:
+                disk_cache.truncate_local_files(commit=False)
+                disk_cache.truncate_local_dirs(commit=False)
+                disk_cache.insert_local_files(file_list, overwrite=False, commit=False)
+                disk_cache.insert_local_dirs(dir_list, overwrite=False, commit=True)
 
         cache_info.needs_save = False
         logger.info(f'[{tree_id}] {stopwatch_write_cache} Wrote {len(file_list)} files and {len(dir_list)} dirs to "{cache_info.cache_location}"')
@@ -541,9 +551,12 @@ class LocalDiskMasterCache(MasterCache):
         scanner = LocalDiskScanner(app=self.app, root_node_identifer=subtree_root, tree_id=tree_id)
         return scanner.scan()
 
-    def _resync_with_file_system(self, subtree_root: LocalFsIdentifier, tree_id: str, is_live_refresh: bool = False):
+    def _resync_with_file_system(self, subtree_root: LocalFsIdentifier, tree_id: str):
         """Scan directory tree and update master tree where needed."""
         fresh_tree: LocalDiskTree = self._scan_file_tree(subtree_root, tree_id)
+
+        if SUPER_DEBUG:
+            logger.debug(f'[{tree_id}] Scanned fresh tree: \n{fresh_tree.show(stdout=False)}')
 
         with self._struct_lock:
             # Just upsert all nodes in the updated tree and let God (or some logic) sort them out
@@ -553,27 +566,25 @@ class LocalDiskMasterCache(MasterCache):
             # Find removed nodes and append them to remove_single_nodes_op
             root_node: LocalNode = fresh_tree.get_node(fresh_tree.root)
             if root_node.is_dir():
+                # "Pending op" nodes are not stored in the regular cache (they should all have exists()==False)
+                pending_op_nodes: List[LocalNode] = []
+
                 for existing_node in self._data.master_tree.get_subtree_bfs(subtree_root.uid):
                     if not fresh_tree.get_node(existing_node.uid):
-                        if not existing_node.exists():
-                            # If {not existing_node.exists()}, assume it's a "pending op" node.
-                            ancestor = existing_node
-                            # Iterate up the tree until we (a) encounter a "normal" ancestor which is also present in the fresh tree,
-                            # or (b) pass the root of the master tree or encounter a "normal" ancestor in the master tree which doesn't exist in the
-                            # fresh tree, which means its descendants are all removed.
-                            while True:
-                                ancestor = self.get_parent_for_node(ancestor)
-                                if ancestor and fresh_tree.contains(ancestor.uid):
-                                    assert ancestor.exists()
-                                    # no need to remove
-                                    break
-                                elif not ancestor or ancestor.exists():
-                                    # FIXME: clean up the op graph when ancestors of src or dst are removed
-                                    logger.error(f'Removing node belonging to a pending op because its ancestor was deleted: {existing_node}')
-                                    subtree.remove_node_list.append(existing_node)
-                                    break
-                                # We can ignore any "pending op" ancestors we encounter:
-                                assert not ancestor.exists()
+                        if existing_node.exists():
+                            subtree.remove_node_list.append(existing_node)
+                        else:
+                            pending_op_nodes.append(existing_node)
+
+                if pending_op_nodes:
+                    logger.debug(f'Attempting to transfer {len(pending_op_nodes)} pending op src/dst nodes to the newly synced tree')
+                    for pending_op_node in pending_op_nodes:
+                        assert not pending_op_node.exists()
+                        if fresh_tree.can_add_without_mkdir(pending_op_node):
+                            fresh_tree.add_node(pending_op_node)
+                        else:
+                            # TODO: notify the OpLedger and devise a recovery strategy
+                            logger.error(f'Cannot add pending op node (its parent is gone): {pending_op_node}')
 
             self._executor.execute(batch_changes_op)
 
@@ -642,6 +653,8 @@ class LocalDiskMasterCache(MasterCache):
             if self.app.cacheman.enable_load_from_disk:
                 tree = self._load_subtree_from_disk(cache_info, tree_id)
                 if tree:
+                    if SUPER_DEBUG:
+                        logger.debug(f'[{tree_id}] Loaded cached tree: \n{tree.show(stdout=False)}')
                     with self._struct_lock:
                         self._data.master_tree.replace_subtree(tree)
                         logger.debug(f'[{tree_id}] Updated in-memory cache: {self.get_summary()}')
@@ -655,12 +668,10 @@ class LocalDiskMasterCache(MasterCache):
                          f'{self.app.cacheman.sync_from_local_disk_on_cache_load}, needs_refresh={cache_info.needs_refresh},'
                          f'is_live_refresh={is_live_refresh})')
             # Update from the file system, and optionally save any changes back to cache:
-            self._resync_with_file_system(requested_subtree_root, tree_id, is_live_refresh=is_live_refresh)
+            self._resync_with_file_system(requested_subtree_root, tree_id)
             # We can only mark this as 'done' (False) if the entire cache contents has been refreshed:
             if requested_subtree_root.uid == cache_info.subtree_root.uid:
                 cache_info.needs_refresh = False
-            if not is_live_refresh:
-                cache_info.needs_save = True
         elif not self.app.cacheman.sync_from_local_disk_on_cache_load:
             logger.debug(f'[{tree_id}] Skipping filesystem sync because it is disabled for cache loads')
         elif not cache_info.needs_refresh:
@@ -749,11 +760,12 @@ class LocalDiskMasterCache(MasterCache):
             return cache.get_file_or_dir_for_path(full_path)
 
     def upsert_single_node(self, node: LocalNode):
-        # 2. Update in-memory cache:
+        assert node, 'Cannot upsert node: no node provided!'
         with self._struct_lock:
             self._executor.execute(UpsertSingleNodeOp(node))
 
     def remove_single_node(self, node: LocalNode, to_trash=False):
+        assert node, 'Cannot remove node: no node provided!'
         logger.debug(f'Removing node from caches (to_trash={to_trash}): {node}')
 
         with self._struct_lock:
@@ -892,8 +904,8 @@ class LocalDiskMasterCache(MasterCache):
                     parent: LocalNode = self._data.master_tree.parent(nid=node.uid)
                 except KeyError:
                     # parent not found in tree... maybe we can derive it however
-                    parent_path = _derive_parent_path(node.full_path)
-                    parent_uid = self.get_uid_for_path(parent_path)
+                    parent_path: str = node.derive_parent_path()
+                    parent_uid: UID = self.get_uid_for_path(parent_path)
                     parent = self._data.master_tree.get_node(parent_uid)
                     if not parent:
                         logger.debug(f'Parent not found for node ({node.uid})')
@@ -959,10 +971,6 @@ class LocalDiskMasterCache(MasterCache):
         return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, True)
 
 
-def _derive_parent_path(full_path: str) -> str:
-    return str(pathlib.Path(full_path).parent)
-
-
 def _copy_signature_if_possible(src: LocalFileNode, dst: LocalFileNode):
     if src.modify_ts == dst.modify_ts and src.change_ts == dst.change_ts and src.get_size_bytes() == dst.get_size_bytes():
         # It is possible for the stored cache copy to be missing a signature. If so, the src may not have an MD5/SHA256.
@@ -985,25 +993,39 @@ def _copy_signature_if_possible(src: LocalFileNode, dst: LocalFileNode):
 
 def _check_update_sanity(old_node: LocalFileNode, new_node: LocalFileNode):
     try:
+        if not old_node:
+            raise RuntimeError(f'old_node is empty!')
+
         if not isinstance(old_node, LocalFileNode):
             # Internal error; try to recover
             logger.error(f'Invalid node type for old_node: {type(old_node)}. Will overwrite cache entry')
             return
 
+        if not new_node:
+            raise RuntimeError(f'new_node is empty!')
+
         if not isinstance(new_node, LocalFileNode):
             raise RuntimeError(f'Invalid node type for new_node: {type(new_node)}')
 
-        if new_node.modify_ts < old_node.modify_ts:
+        if not old_node.modify_ts:
+            logger.info(f'old_node has no modify_ts. Skipping modify_ts comparison (Old={old_node} New={new_node}')
+        elif not new_node.modify_ts:
+            raise RuntimeError(f'new_node is missing modify_ts!')
+        elif new_node.modify_ts < old_node.modify_ts:
             logger.warning(
                 f'File "{new_node.full_path}": update has older modify_ts ({new_node.modify_ts}) than prev version ({old_node.modify_ts})')
 
-        if new_node.change_ts < old_node.change_ts:
+        if not old_node.change_ts:
+            logger.info(f'old_node has no change_ts. Skipping change_ts comparison (Old={old_node} New={new_node}')
+        elif not new_node.change_ts:
+            raise RuntimeError(f'new_node is missing change_ts!')
+        elif new_node.change_ts < old_node.change_ts:
             logger.warning(
                 f'File "{new_node.full_path}": update has older change_ts ({new_node.change_ts}) than prev version ({old_node.change_ts})')
 
         if new_node.get_size_bytes() != old_node.get_size_bytes() and new_node.md5 == old_node.md5 and old_node.md5:
             logger.warning(f'File "{new_node.full_path}": update has same MD5 ({new_node.md5}) ' +
                            f'but different size: (old={old_node.get_size_bytes()}, new={new_node.get_size_bytes()})')
-    except Exception:
-        logger.error(f'Error checking update sanity! Old={old_node} New={new_node}')
+    except Exception as e:
+        logger.error(f'Error checking update sanity! Old={old_node} New={new_node}: {repr(e)}')
         raise

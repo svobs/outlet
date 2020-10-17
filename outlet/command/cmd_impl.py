@@ -1,11 +1,13 @@
 import logging
 import os
 import pathlib
+import local.content_hasher
+from model.node_identifier import LocalFsIdentifier
 
 from util import file_util
 from model.op import Op, OpType
 from command.cmd_interface import Command, CommandContext, CommandResult, CommandStatus, CopyNodeCommand, DeleteNodeCommand, TwoNodeCommand
-from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
+from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, TrashStatus
 from index.uid.uid import UID
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.gdrive_node import GDriveFile, GDriveNode
@@ -32,19 +34,24 @@ class CopyFileLocallyCommand(CopyNodeCommand):
     def execute(self, cxt: CommandContext) -> CommandResult:
         src_path = self.op.src_node.full_path
         dst_path = self.op.dst_node.full_path
+        if not self.op.src_node.md5:
+            # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
+            assert isinstance(self.op.src_node, LocalFileNode)
+            self.op.src_node.md5 = local.content_hasher.compute_md5(src_path)
+        md5 = self.op.src_node.md5
         # TODO: what if staging dir is not on same file system?
-        staging_path = os.path.join(cxt.staging_dir, self.op.dst_node.md5)
+        staging_path = os.path.join(cxt.staging_dir, md5)
         logger.debug(f'CP: src={src_path}')
         logger.debug(f'    stg={staging_path}')
         logger.debug(f'    dst={dst_path}')
         if self.overwrite:
             file_util.copy_file_update(src_path=src_path, staging_path=staging_path,
-                                       md5_expected=self.op.dst_node.md5, dst_path=dst_path,
-                                       md5_src=self.op.src_node.md5, verify=True)
+                                       md5_expected=md5, dst_path=dst_path,
+                                       md5_src=md5, verify=True)
         else:
             try:
                 file_util.copy_file_new(src_path=src_path, staging_path=staging_path, dst_path=dst_path,
-                                        md5_src=self.op.dst_node.md5, verify=True)
+                                        md5_src=md5, verify=True)
             except file_util.IdenticalFileExistsError:
                 # Not a real error. Nothing to do.
                 # However make sure we still keep the cache manager in the loop - it's likely out of date. Calculate fresh stats:
@@ -165,6 +172,7 @@ class CreatLocalDirCommand(Command):
         os.makedirs(name=self.op.src_node.full_path, exist_ok=True)
 
         # Add to cache:
+        assert isinstance(self.op.src_node.node_identifier, LocalFsIdentifier)
         local_node = LocalDirNode(self.op.src_node.node_identifier, True)
         return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[local_node])
 
@@ -252,12 +260,12 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
         return True
 
     def execute(self, cxt: CommandContext):
-        assert isinstance(self.op.src_node, GDriveFile), f'For {self.op.src_node}'
+        assert isinstance(self.op.src_node, GDriveFile) and self.op.src_node.md5, f'Bad src node: {self.op.src_node}'
         src_goog_id = self.op.src_node.goog_id
         dst_path = self.op.dst_node.full_path
 
         if os.path.exists(dst_path):
-            node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path)
+            node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path, must_scan_signature=True)
             if node and node.md5 == self.op.src_node.md5:
                 logger.debug(f'Item already exists and appears valid: skipping download; will update cache and return ({dst_path})')
                 return CommandResult(CommandStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, node])
@@ -430,7 +438,7 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
 
         if self.to_trash:
             cxt.gdrive_client.trash(self.op.src_node.goog_id)
-            self.op.src_node.trashed = EXPLICITLY_TRASHED
+            self.op.src_node.trashed = TrashStatus.EXPLICITLY_TRASHED
         else:
             cxt.gdrive_client.hard_delete(self.op.src_node.goog_id)
 

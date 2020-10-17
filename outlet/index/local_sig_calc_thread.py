@@ -88,7 +88,8 @@ class SignatureCalcThread(threading.Thread):
             if node:
                 try:
                     if node.md5 or node.sha256:
-                        logger.warning(f'Node already has signature; skipping; {node}')
+                        # Other threads, e.g., CommandExecutor, can also fill this in asynchronously
+                        logger.debug(f'Node already has signature; skipping; {node}')
                         continue
 
                     logger.debug(f'[{self.name}] Calculating signature for node: {node.node_identifier}')

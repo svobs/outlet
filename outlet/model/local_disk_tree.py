@@ -28,6 +28,11 @@ class LocalDiskTree(treelib.Tree):
     def get_root_node(self) -> LocalNode:
         return self.get_node(self.root)
 
+    def can_add_without_mkdir(self, node: LocalNode) -> bool:
+        parent_path: str = node.derive_parent_path()
+        uid = self.app.cacheman.get_uid_for_path(parent_path)
+        return self.get_node(uid) is not None
+
     def add_to_tree(self, node: LocalNode):
         root_node: LocalNode = self.get_root_node()
         root_node_identifier: NodeIdentifier = root_node.node_identifier

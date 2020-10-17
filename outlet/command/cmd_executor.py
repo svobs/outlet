@@ -17,8 +17,9 @@ class CommandExecutor:
     def __init__(self, app):
         self.app = app
         val = self.app.config.get('staging_dir')
-        self.staging_dir = file_util.get_resource_path(val)
-        # TODO: clean staging dir at startup
+        self.staging_dir: str = file_util.get_resource_path(val)
+        logger.debug(f'Staging dir: "{self.staging_dir}"')
+        # TODO: optionally clean staging dir at startup
 
     def execute_command(self, command: Command):
         if not command:
