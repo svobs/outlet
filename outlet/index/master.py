@@ -7,10 +7,12 @@ from model.node.display_node import DisplayNode
 from model.node_identifier import NodeIdentifier
 
 
+# ABSTRACT CLASS MasterCache
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class MasterCache(ABC):
-    @abstractmethod
-    def get_master_tree(self, invalidate_cache: bool = False, tree_id: str = None):
-        pass
+    # Getters / Loaders
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @abstractmethod
     def get_display_tree(self, subtree_root: NodeIdentifier, tree_id: str) -> DisplayTree:
@@ -29,6 +31,13 @@ class MasterCache(ABC):
         pass
 
     @abstractmethod
+    def refresh_subtree(self, subtree_root_node: DisplayNode, tree_id: str):
+        pass
+
+    # Mutators
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    @abstractmethod
     def upsert_single_node(self, node: DisplayNode):
         pass
 
@@ -41,12 +50,11 @@ class MasterCache(ABC):
         pass
 
     @abstractmethod
-    def refresh_subtree(self, subtree_root_node: DisplayNode, tree_id: str):
-        pass
-
-    @abstractmethod
     def refresh_subtree_stats(self, subtree_root_node: DisplayNode, tree_id: str):
         pass
+
+    # UID <-> DomainID mapping
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @abstractmethod
     def get_node_for_domain_id(self, domain_id: str) -> DisplayNode:

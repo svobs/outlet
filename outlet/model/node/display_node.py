@@ -7,7 +7,7 @@ from treelib import Node
 
 from index.error import InvalidOperationError
 from util import format
-from constants import ICON_FILE_CP_DST, ICON_GENERIC_FILE, NOT_TRASHED
+from constants import ICON_FILE_CP_DST, ICON_GENERIC_FILE, TrashStatus
 from index.uid.uid_generator import UID
 from model.node_identifier import NodeIdentifier
 
@@ -76,9 +76,8 @@ class DisplayNode(Node, ABC):
         assert type(self.node_identifier.full_path) == str, f'Not a string: {self.node_identifier.full_path} (this={self})'
         return os.path.basename(self.node_identifier.full_path)
 
-    @property
-    def trashed(self):
-        return NOT_TRASHED
+    def trashed(self) -> Optional[TrashStatus]:
+        return TrashStatus.NOT_TRASHED
 
     def get_etc(self):
         return None
@@ -244,7 +243,7 @@ class HasChildList(ABC):
         if self._size_bytes is None:
             self._size_bytes = 0
 
-        if child_node.trashed == NOT_TRASHED:
+        if child_node.trashed == TrashStatus.NOT_TRASHED:
             # not trashed:
             if child_node.get_size_bytes():
                 self._size_bytes += child_node.get_size_bytes()

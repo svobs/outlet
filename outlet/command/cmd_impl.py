@@ -5,7 +5,7 @@ import pathlib
 from util import file_util
 from model.op import Op, OpType
 from command.cmd_interface import Command, CommandContext, CommandResult, CommandStatus, CopyNodeCommand, DeleteNodeCommand, TwoNodeCommand
-from constants import EXPLICITLY_TRASHED, FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, NOT_TRASHED
+from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 from index.uid.uid import UID
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.gdrive_node import GDriveFile, GDriveNode
@@ -424,7 +424,7 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
             # TODO
             logger.error('delete_empty_parent is not implemented!')
 
-        if self.to_trash and existing.trashed != NOT_TRASHED:
+        if self.to_trash and existing.trashed != TrashStatus.NOT_TRASHED:
             logger.info(f'Item is already trashed: {existing}')
             return CommandResult(CommandStatus.COMPLETED_NO_OP, to_delete=[existing])
 

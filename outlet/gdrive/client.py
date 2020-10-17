@@ -15,8 +15,8 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from pydispatch import dispatcher
 
-from constants import EXPLICITLY_TRASHED, GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_FILE_FIELDS, GDRIVE_FOLDER_FIELDS, \
-    IMPLICITLY_TRASHED, MIME_TYPE_FOLDER, NOT_TRASHED, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY
+from constants import GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_FILE_FIELDS, GDRIVE_FOLDER_FIELDS, \
+    MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, TrashStatus
 from gdrive.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
 from gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
 from index.uid.uid import UID
@@ -91,18 +91,18 @@ def _try_repeatedly(request_func):
             retries_remaining -= 1
 
 
-def _convert_trashed(result):
+def _convert_trashed(result) -> Optional[TrashStatus]:
     x_trashed = result.get('explicitlyTrashed', None)
     trashed = result.get('trashed', None)
     if x_trashed is None and trashed is None:
         return None
 
     if x_trashed:
-        return EXPLICITLY_TRASHED
+        return TrashStatus.EXPLICITLY_TRASHED
     elif trashed:
-        return IMPLICITLY_TRASHED
+        return TrashStatus.IMPLICITLY_TRASHED
     else:
-        return NOT_TRASHED
+        return TrashStatus.NOT_TRASHED
 
 
 def _parse_gdrive_date(result, field_name) -> Optional[int]:

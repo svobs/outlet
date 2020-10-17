@@ -11,12 +11,16 @@ Note: this file was copied from the excellent Maestral Dropbox project
 
 import hashlib
 
-
 # From: https://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file
+import logging
+import os
+from typing import Optional, Tuple
 from constants import READ_CHUNK_SIZE
 
+logger = logging.getLogger(__name__)
 
-def md5(filename):
+
+def compute_md5(filename):
     hash_md5 = hashlib.md5()
     with open(filename, "rb") as f:
         for chunk in iter(lambda: f.read(READ_CHUNK_SIZE), b""):
@@ -24,7 +28,7 @@ def md5(filename):
     return hash_md5.hexdigest()
 
 
-def dropbox_hash(filename):
+def compute_dropbox_hash(filename):
     hasher = DropboxContentHasher()
     with open(filename, 'rb') as f:
         while True:
@@ -33,6 +37,27 @@ def dropbox_hash(filename):
                 break
             hasher.update(chunk)
     return hasher.hexdigest()
+
+
+def calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Optional[str], Optional[str]]:
+    try:
+        # Open,close, read file and calculate hash of its contents
+        if staging_path:
+            md5: Optional[str] = compute_md5(staging_path)
+        else:
+            md5: Optional[str] = compute_md5(full_path)
+        # sha256 = local.content_hasher.dropbox_hash(full_path)
+        sha256: Optional[str] = None
+        return md5, sha256
+    except FileNotFoundError as err:
+        if os.path.islink(full_path):
+            target = os.readlink(full_path)
+            logger.error(f'Broken link, skipping: "{full_path}" -> "{target}"')
+        else:
+            # Can happen often if temp files are rapidly created/destroyed. Assume it will be cleaned up elsewhere
+            logger.debug(f'Could not calculate signature: file not found; skipping: {full_path}')
+        # Return None. Will be assumed to be a deleted file
+        return None, None
 
 
 class DropboxContentHasher(object):

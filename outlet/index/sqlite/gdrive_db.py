@@ -238,9 +238,13 @@ class GDriveDatabase(MetaDatabase):
         uid_list: List[UID] = []
         flattened_list: List[Tuple] = []
         for mapping_list in mapping_list_list:
-            uid_list.append(mapping_list[0][0])
-            for mapping in mapping_list:
-                flattened_list.append(mapping)
+            try:
+                uid_list.append(mapping_list[0][0])
+                for mapping in mapping_list:
+                    flattened_list.append(mapping)
+            except IndexError:
+                logger.error(f'For mapping_list: {mapping_list}, in list_list: {mapping_list_list}')
+                raise
         self._delete_parent_mappings(uid_list, commit=False)
 
         logger.debug(f'Inserting {len(flattened_list)} parent mappings into DB, commit={commit}')

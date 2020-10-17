@@ -114,7 +114,50 @@ class LocalDiskDatabase(MetaDatabase):
         uid_tuple_list = list(map(lambda uid: (uid,), uid_list))
         self.table_local_dir.delete_for_uid_list(uid_tuple_list, commit=commit)
 
-    # Other ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
+    # Mixed type operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
+
+    def upsert_single_node(self, node: LocalNode, commit=True):
+        if node.is_dir():
+            self.upsert_local_dir(node, commit)
+        else:
+            self.upsert_local_file(node, commit)
+
+    def delete_single_node(self, node: LocalNode, commit=True):
+        if node.is_dir():
+            self.delete_local_dir_with_uid(node.uid, commit)
+        else:
+            self.delete_local_file_with_uid(node.uid, commit)
+
+    def upsert_files_and_dirs(self, node_list: List[LocalNode], commit=True):
+        """Sorts files from dirs in the given list and batches them. Much faster than single-node operations."""
+        dir_list: List[LocalDirNode] = []
+        file_list: List[LocalFileNode] = []
+        for node in node_list:
+            if node.is_dir():
+                assert isinstance(node, LocalDirNode)
+                dir_list.append(node)
+            else:
+                assert isinstance(node, LocalFileNode)
+                file_list.append(node)
+        if dir_list:
+            self.upsert_local_dir_list(dir_list, commit=False)
+        if file_list:
+            self.upsert_local_file_list(file_list, commit=commit)
+
+    def delete_files_and_dirs(self, node_list: List[LocalNode], commit=True):
+        """Sorts files from dirs in the given list and batches them. Much faster than single-node operations."""
+        dir_uid_list: List[UID] = []
+        file_uid_list: List[UID] = []
+        for node in node_list:
+            if node.is_dir():
+                dir_uid_list.append(node.uid)
+            else:
+                file_uid_list.append(node.uid)
+
+        if dir_uid_list:
+            self.delete_local_dirs_for_uid_list(dir_uid_list, commit=False)
+        if file_uid_list:
+            self.delete_local_files_for_uid_list(file_uid_list, commit=commit)
 
     def get_file_or_dir_for_path(self, full_path: str) -> Optional[LocalNode]:
         dir_list = self.table_local_dir.select_object_list(where_clause='WHERE full_path = ?', where_tuple=(full_path,))

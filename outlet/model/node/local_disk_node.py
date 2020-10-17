@@ -4,7 +4,7 @@ import re
 from abc import ABC
 from typing import Optional, Tuple
 
-from constants import ICON_GENERIC_DIR, NOT_TRASHED, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TREE_TYPE_LOCAL_DISK
+from constants import ICON_GENERIC_DIR, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TREE_TYPE_LOCAL_DISK
 from model.node_identifier import ensure_bool, ensure_int, LocalFsIdentifier
 from model.node.display_node import DisplayNode, HasChildList
 
@@ -28,7 +28,7 @@ class LocalNode(DisplayNode, ABC):
     @property
     def trashed(self):
         # TODO: add support for trash
-        return NOT_TRASHED
+        return TrashStatus.NOT_TRASHED
 
     def exists(self) -> bool:
         """Whether the object represented by this node actually exists currently, or it is just planned to exist or is an ephemeral node."""

@@ -9,6 +9,7 @@ from typing import List, Tuple
 
 import local.content_hasher
 from constants import ROOT_PATH
+from index.error import IdenticalFileExistsError
 
 logger = logging.getLogger(__name__)
 
@@ -225,7 +226,7 @@ def _do_copy_to_staging(src_path, staging_path, dst_path, md5_src, verify):
 
     if verify:
         # sha256 = fmeta.content_hasher.dropbox_hash(staging_path)
-        md5 = local.content_hasher.md5(staging_path)
+        md5 = local.content_hasher.compute_md5(staging_path)
         if md5_src != md5:
             raise RuntimeError(f'MD5 of copied file does not match: src_path="{src_path}", '
                                f'src_md5={md5_src}, dst_path="{dst_path}", dst_md5={md5}')
@@ -250,7 +251,7 @@ def copy_file_new(src_path, staging_path, dst_path, md5_src, verify):
     has been verified."""
     if os.path.exists(dst_path):
         # sha256 = fmeta.content_hasher.dropbox_hash(dst_path)
-        md5_encountered = local.content_hasher.md5(dst_path)
+        md5_encountered = local.content_hasher.compute_md5(dst_path)
         if md5_src == md5_encountered:
             # TODO: what about if stats are different?
             msg = f'Identical file already exists at dst; skipping: {dst_path}'
@@ -272,7 +273,7 @@ def copy_file_update(src_path: str, md5_src: str, staging_path: str, md5_expecte
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), dst_path)
 
     # sha256 = fmeta.content_hasher.dropbox_hash(dst_path)
-    md5_encountered = local.content_hasher.md5(dst_path)
+    md5_encountered = local.content_hasher.compute_md5(dst_path)
     if md5_encountered != md5_expected:
         raise RuntimeError(f'Expected MD5 ({md5_expected}) does not match actual ({md5_encountered})')
 

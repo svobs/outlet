@@ -5,8 +5,7 @@ import pathlib
 import threading
 import time
 from abc import ABC, abstractmethod
-from collections import deque
-from typing import Deque, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 from treelib.exceptions import NodeIDAbsentError
@@ -14,7 +13,7 @@ from treelib.exceptions import NodeIDAbsentError
 import local.content_hasher
 from constants import LOCAL_ROOT_UID, ROOT_PATH, TREE_TYPE_LOCAL_DISK
 from index.cache_manager import PersistedCacheInfo
-from index.error import InvalidOperationError
+from index.local_sig_calc_thread import SignatureCalcThread
 from index.master import MasterCache
 from index.sqlite.local_db import LocalDiskDatabase
 from index.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
@@ -36,206 +35,14 @@ from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
-SUPER_DEBUG = False
+SUPER_DEBUG = True
 
 
-def _calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Optional[str], Optional[str]]:
-    try:
-        # Open,close, read file and calculate hash of its contents
-        if staging_path:
-            md5: Optional[str] = local.content_hasher.md5(staging_path)
-        else:
-            md5: Optional[str] = local.content_hasher.md5(full_path)
-        # sha256 = local.content_hasher.dropbox_hash(full_path)
-        sha256: Optional[str] = None
-        return md5, sha256
-    except FileNotFoundError as err:
-        if os.path.islink(full_path):
-            target = os.readlink(full_path)
-            logger.error(f'Broken link, skipping: "{full_path}" -> "{target}"')
-        else:
-            # Can happen often if temp files are rapidly created/destroyed. Assume it will be cleaned up elsewhere
-            logger.debug(f'Could not calculate signature: file not found; skipping: {full_path}')
-        # Return None. Will be assumed to be a deleted file
-        return None, None
-
-
-# ABSTRACT CLASS LocalDiskOperation
+# CLASS MasterCacheData
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class LocalDiskOperation(ABC):
-    @abstractmethod
-    def update_memory_cache(self, master_cache):
-        pass
-
-    @abstractmethod
-    def update_disk_cache(self, cache: LocalDiskDatabase):
-        pass
-
-    @abstractmethod
-    def send_signals(self):
-        pass
-
-
-class DeleteSingleNodeOp(LocalDiskOperation):
-    def __init__(self, node: LocalNode, to_trash: bool = False):
-        self.node = node
-        self.to_trash: bool = to_trash
-
-    def update_memory_cache(self, master_tree: LocalDiskTree):
-        existing_node = master_tree.get_node_for_uid(self.node.uid)
-        if existing_node:
-            master_tree.remove_single_node(existing_node)
-
-    def update_disk_cache(self, cache: LocalDiskDatabase):
-        cache.delete_single_node(self.node, commit=False)
-
-    def send_signals(self):
-        dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=self.node)
-
-
-# CLASS DeleteSubtreeOp
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class DeleteSubtreeOp(LocalDiskOperation):
-    def __init__(self, subtree_root_node: LocalNode, node_list: List[LocalNode]):
-        self.subtree_root_node = subtree_root_node
-        """If true, is a delete operation. If false, is upsert op."""
-        self.node_list: List[LocalNode] = node_list
-
-    def update_memory_cache(self, master_tree: LocalDiskTree):
-        logger.debug(f'DeleteSubtreeOp: removing {len(self.node_list)} nodes from memory cache')
-        for node in reversed(self.node_list):
-            existing_node = master_tree.get_node_for_uid(node.uid)
-            if existing_node:
-                master_tree.remove_single_node(existing_node)
-        logger.debug(f'DeleteSubtreeOp: done removing nodes from memory cache')
-
-    def update_disk_cache(self, cache: LocalDiskDatabase):
-        logger.debug(f'DeleteSubtreeOp: removing {len(self.node_list)} nodes from disk cache')
-        for node in self.node_list:
-            cache.delete_single_node(node, commit=False)
-        logger.debug(f'DeleteSubtreeOp: done removing nodes from disk cache')
-
-    def send_signals(self):
-        logger.debug(f'DeleteSubtreeOp: sending "{actions.NODE_REMOVED}" signal for {len(self.node_list)} nodes')
-        for node in self.node_list:
-            dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
-
-
-# CLASS SubtreeOperation TODO: obsolete
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class SubtreeOperation:
-    def __init__(self, subtree_root_path: str, is_delete: bool, node_list: List[LocalNode]):
-        self.subtree_root_path = subtree_root_path
-        self.is_delete: bool = is_delete
-        """If true, is a delete operation. If false, is upsert op."""
-        self.node_list: List[LocalNode] = node_list
-
-    def get_summary(self) -> str:
-        if self.is_delete:
-            return f'RM "{self.subtree_root_path}" ({len(self.node_list)} nodes)'
-        else:
-            return f'UP "{self.subtree_root_path}" ({len(self.node_list)} nodes)'
-
-
-# CLASS SignatureCalcThread
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class SignatureCalcThread(threading.Thread):
-    """Hasher thread which churns through signature queue and sends updates to cacheman"""
-    def __init__(self, parent):
-        super().__init__(target=self._run_content_scanner_thread, name='SignatureCalcThread', daemon=True)
-        self.master_cache = parent
-        self._shutdown: bool = False
-        self._initial_sleep_sec: float = self.master_cache.app.config.get('cache.lazy_load_local_file_signatures_initial_delay_ms') / 1000.0
-        self._node_queue: Deque[LocalFileNode] = deque()
-        self._cv_can_get = threading.Condition()
-        self._struct_lock = threading.Lock()
-
-    def enqueue(self, node: LocalFileNode):
-        logger.debug(f'[{self.name}] Enqueuing node: {node.node_identifier}')
-        assert not node.md5 and not node.sha256
-        with self._struct_lock:
-            self._node_queue.append(node)
-
-        with self._cv_can_get:
-            self._cv_can_get.notifyAll()
-
-    def request_shutdown(self):
-        logger.debug(f'Requesting shutdown of thread {self.name}')
-        self._shutdown = True
-        with self._cv_can_get:
-            # unblock thread:
-            self._cv_can_get.notifyAll()
-
-    def _process_single_node(self, node: LocalFileNode):
-        md5, sha256 = _calculate_signatures(node.full_path)
-        node.md5 = md5
-        node.sha256 = sha256
-
-        logger.debug(f'[{self.name}] Node {node.uid} has MD5: {node.md5}')
-
-        # TODO: consider batching writes
-        # Send back to ourselves to be re-stored in memory & disk caches:
-        self.master_cache.upsert_single_node(node)
-
-    def _run_content_scanner_thread(self):
-        logger.info(f'Starting {self.name}...')
-
-        # Wait for CacheMan to finish starting up so as not to deprive it of resources:
-        self.master_cache.app.cacheman.wait_for_startup_done()
-
-        logger.debug(f'[{self.name}] Doing inital sleep {self._initial_sleep_sec} sec to let things settle...')
-        time.sleep(self._initial_sleep_sec)  # in seconds
-
-        while not self._shutdown:
-            node: Optional[LocalFileNode] = None
-
-            with self._struct_lock:
-                if len(self._node_queue) > 0:
-                    node = self._node_queue.popleft()
-
-            if node:
-                try:
-                    if node.md5 or node.sha256:
-                        logger.warning(f'Node already has signature; skipping; {node}')
-                        continue
-
-                    logger.debug(f'[{self.name}] Calculating signature for node: {node.node_identifier}')
-                    self._process_single_node(node)
-                except Exception:
-                    logger.exception(f'Unexpected error while processing node: {node}')
-                continue
-            else:
-                logger.debug(f'[{self.name}] No pending ops; sleeping {self._initial_sleep_sec} sec then waiting till notified...')
-                time.sleep(self._initial_sleep_sec)  # in seconds
-
-            with self._cv_can_get:
-                self._cv_can_get.wait()
-
-
-# ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
-# CLASS LocalDiskMasterCache
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-# TODO: consider scanning only root dir at first, then enqueuing subdirectories
-
-class LocalDiskMasterCache(MasterCache):
+class MasterCacheData:
     def __init__(self, app):
-        """Singleton in-memory cache for local filesystem"""
-        self.app = app
-
-        self._uid_mapper = UidPathMapper(app)
-
-        self._struct_lock = threading.Lock()
-
-        self._expected_node_moves: Dict[str, str] = {}
-        """When the FileSystemEventHandler gives us MOVE notifications for a tree, it gives us a separate notification for each
-        and every node. Since we want our tree move to be an atomic operation, we do it all at once, but then keep track of the
-        nodes we've moved so that we know exactly which notifications to ignore after that.
-        Dict is key-value pair of [old_file_path -> new_file_path]"""
-
-        self.lazy_load_signatures: bool = app.config.get('cache.lazy_load_local_file_signatures')
-
-        self._signature_calc_thread = SignatureCalcThread(self)
+        self.uid_mapper = UidPathMapper(app)
 
         self.use_md5 = app.config.get('cache.enable_md5_lookup')
         if self.use_md5:
@@ -252,10 +59,378 @@ class LocalDiskMasterCache(MasterCache):
         # Each node inserted here will have an entry created for its dir.
         # self.parent_path_dict = ParentPathBeforeFileNameDict()
         # But we still need a dir tree to look up child dirs:
-        self._master_tree = LocalDiskTree(self.app)
+        self.master_tree = LocalDiskTree(app)
         root_node = RootTypeNode(node_identifier=LocalFsIdentifier(full_path=ROOT_PATH, uid=LOCAL_ROOT_UID))
-        self._master_tree.add_node(node=root_node, parent=None)
+        self.master_tree.add_node(node=root_node, parent=None)
 
+        self.expected_node_moves: Dict[str, str] = {}
+        """When the FileSystemEventHandler gives us MOVE notifications for a tree, it gives us a separate notification for each
+        and every node. Since we want our tree move to be an atomic operation, we do it all at once, but then keep track of the
+        nodes we've moved so that we know exactly which notifications to ignore after that.
+        Dict is key-value pair of [old_file_path -> new_file_path]"""
+
+    def remove_single_node(self, node: LocalNode):
+        """Removes the given node from all in-memory structs (does nothing if it is not found in some or any of them).
+        Will raise an exception if trying to remove a non-empty directory."""
+        existing: DisplayNode = self.master_tree.get_node(node.uid)
+        if existing:
+            if existing.is_dir():
+                children = self.master_tree.children(existing.identifier)
+                if children:
+                    # maybe allow deletion of dir with children in the future, but for now be careful
+                    raise RuntimeError(f'Cannot remove dir from cache because it has {len(children)} children: {node}')
+
+            count_removed = self.master_tree.remove_single_node(node.uid)
+            assert count_removed <= 1, f'Deleted {count_removed} nodes at {node.full_path}'
+        else:
+            logger.warning(f'Cannot remove node because it has already been removed from cache: {node}')
+
+        if self.use_md5 and node.md5:
+            self.md5_dict.remove(node.md5, node.full_path)
+        if self.use_sha256 and node.sha256:
+            self.sha256_dict.remove(node.sha256, node.full_path)
+
+    def upsert_single_node(self, node: LocalNode) -> Tuple[Optional[LocalNode], bool]:
+        """If a node already exists, the new node is merged into it and returned; otherwise the given node is returned.
+        Second item in the tuple is True if update contained changes which should be saved to disk; False if otherwise"""
+
+        if SUPER_DEBUG:
+            logger.debug(f'Upserting LocalNode to memory cache: {node}')
+
+        # 1. Validate UID:
+        if not node.uid:
+            raise RuntimeError(f'Cannot upsert node to cache because it has no UID: {node}')
+
+        uid = self.uid_mapper.get_uid_for_path(node.full_path, node.uid)
+        if node.uid != uid:
+            raise RuntimeError(f'Internal error while trying to upsert node to cache: UID did not match expected '
+                               f'({uid}); node={node}')
+
+        existing_node: LocalNode = self.master_tree.get_node(node.uid)
+        if existing_node:
+            if existing_node.exists() and not node.exists():
+                # In the future, let's close this hole with more elegant logic
+                logger.warning(f'Cannot replace a node which exists with one which does not exist; skipping cache update')
+                return None, False
+
+            if existing_node.is_dir() and not node.is_dir():
+                # need to replace all descendants...not ready to do this yet
+                raise RuntimeError(f'Cannot replace a directory with a file: "{node.full_path}"')
+
+            if existing_node == node:
+                if SUPER_DEBUG:
+                    logger.debug(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
+                return existing_node, False
+
+            # just update the existing - much easier
+            if SUPER_DEBUG:
+                logger.debug(f'Merging node (PyID {id(node)}) into existing_node (PyID {id(existing_node)})')
+            if node.is_file() and existing_node.is_file():
+                assert isinstance(node, LocalFileNode) and isinstance(existing_node, LocalFileNode)
+                _copy_signature_if_possible(existing_node, node)
+                if SUPER_DEBUG:
+                    _check_update_sanity(existing_node, node)
+            existing_node.update_from(node)
+        else:
+            # new file or directory insert
+            self.master_tree.add_to_tree(node)
+
+        # do this after the above, to avoid cache corruption in case of failure
+        if node.md5 and self.use_md5:
+            self.md5_dict.put(node, existing_node)
+        if node.sha256 and self.use_sha256:
+            self.sha256_dict.put(node, existing_node)
+
+        if existing_node:
+            return existing_node, True
+        return node, True
+
+
+# CLASS Subtree
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class Subtree(ABC):
+    def __init__(self, subtree_root: NodeIdentifier, upsert_node_list: List[LocalNode], remove_node_list: List[LocalNode]):
+        self.subtree_root: NodeIdentifier = subtree_root
+        self.upsert_node_list: List[LocalNode] = upsert_node_list
+        self.remove_node_list: List[LocalNode] = remove_node_list
+
+
+# ABSTRACT CLASS LocalDiskOp
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class LocalDiskOp(ABC):
+    @abstractmethod
+    def update_memory_cache(self, data: MasterCacheData):
+        pass
+
+    @classmethod
+    def is_subtree_op(cls) -> bool:
+        return False
+
+    @abstractmethod
+    def send_signals(self):
+        pass
+
+
+# ABSTRACT CLASS LocalDiskOp
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class LocalDiskSingleNodeOp(LocalDiskOp, ABC):
+    def __init__(self, node: LocalNode):
+        self.node: LocalNode = node
+
+    @abstractmethod
+    def update_disk_cache(self, cache: LocalDiskDatabase):
+        pass
+
+
+# ABSTRACT CLASS LocalDiskOp
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class LocalDiskSubtreeOp(LocalDiskOp, ABC):
+    @abstractmethod
+    def get_subtree_list(self) -> List[Subtree]:
+        pass
+
+    @abstractmethod
+    def update_disk_cache(self, cache: LocalDiskDatabase, subtree: Subtree):
+        pass
+
+    @classmethod
+    def is_subtree_op(cls) -> bool:
+        return True
+
+
+# CLASS UpsertSingleNodeOp
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
+    def __init__(self, node: LocalNode):
+        super().__init__(node)
+        self.was_updated: bool = True
+
+    def update_memory_cache(self, data: MasterCacheData):
+        self.was_updated = data.upsert_single_node(self.node)
+
+    def update_disk_cache(self, cache: LocalDiskDatabase):
+        if self.was_updated:
+            if SUPER_DEBUG:
+                logger.debug(f'Upserting LocalNode to disk cache: {self.node}')
+            cache.upsert_single_node(self.node, commit=False)
+
+    def send_signals(self):
+        if self.was_updated:
+            dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=self.node)
+
+
+# CLASS DeleteSingleNodeOp
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class DeleteSingleNodeOp(UpsertSingleNodeOp):
+    def __init__(self, node: LocalNode, to_trash: bool = False):
+        super().__init__(node)
+        self.to_trash: bool = to_trash
+
+        # 1. Validate
+        if not node.uid:
+            raise RuntimeError(f'Cannot remove node from cache because it has no UID: {node}')
+
+        if to_trash:
+            # TODO
+            raise RuntimeError(f'Not supported: to_trash=true!')
+
+    def update_memory_cache(self, data: MasterCacheData):
+        if self.node.uid != data.uid_mapper.get_uid_for_path(self.node.full_path):
+            raise RuntimeError(f'Internal error while trying to remove node ({self.node}): UID did not match expected '
+                               f'({data.uid_mapper.get_uid_for_path(self.node.full_path)})')
+
+        data.remove_single_node(self.node)
+
+    def update_disk_cache(self, cache: LocalDiskDatabase):
+        cache.delete_single_node(self.node, commit=False)
+
+    def send_signals(self):
+        dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=self.node)
+
+
+# CLASS BatchChangesOp
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class BatchChangesOp(LocalDiskSubtreeOp):
+    """ALWAYS REMOVE BEFORE ADDING!"""
+
+    def __init__(self, subtree_list: List[Subtree] = None,
+                 subtree_root: LocalFsIdentifier = None, upsert_node_list: List[LocalNode] = None, remove_node_list: List[LocalNode] = None):
+        if subtree_list:
+            self.subtree_list = subtree_list
+        else:
+            self.subtree_list = [Subtree(subtree_root, upsert_node_list, remove_node_list)]
+
+    def get_subtree_list(self) -> List[Subtree]:
+        return self.subtree_list
+
+    def update_memory_cache(self, data: MasterCacheData):
+        for subtree in self.subtree_list:
+            # Deletes must occur from bottom up:
+            if subtree.remove_node_list:
+                for node in reversed(subtree.remove_node_list):
+                    data.remove_single_node(node)
+                logger.debug(f'Removed {len(subtree.remove_node_list)} nodes from memcache path "{subtree.subtree_root.full_path}"')
+            if subtree.upsert_node_list:
+                for node in subtree.upsert_node_list:
+                    data.upsert_single_node(node)
+                logger.debug(f'Upserted {len(subtree.upsert_node_list)} nodes to memcache path "{subtree.subtree_root.full_path}"')
+
+    def update_disk_cache(self, cache: LocalDiskDatabase, subtree: Subtree):
+        if subtree.remove_node_list:
+            cache.delete_files_and_dirs(subtree.remove_node_list, commit=False)
+        if subtree.upsert_node_list:
+            cache.upsert_files_and_dirs(subtree.upsert_node_list, commit=False)
+
+    def send_signals(self):
+        for subtree in self.subtree_list:
+            for node in reversed(subtree.remove_node_list):
+                dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
+            for node in subtree.upsert_node_list:
+                dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
+
+
+# CLASS DeleteSubtreeOp
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class DeleteSubtreeOp(BatchChangesOp):
+    def __init__(self, subtree_root: LocalFsIdentifier, node_list: List[LocalNode]):
+        super().__init__(subtree_root=subtree_root, upsert_node_list=[], remove_node_list=node_list)
+
+
+# CLASS LocalDiskOpExecutor
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class LocalDiskOpExecutor:
+    def __init__(self, app, data: MasterCacheData):
+        self.app = app
+        self._data: MasterCacheData = data
+
+    def execute(self, operation: LocalDiskOp):
+
+        operation.update_memory_cache(self._data)
+
+        cacheman = self.app.cacheman
+        if cacheman.enable_save_to_disk:
+            if operation.is_subtree_op():
+                assert isinstance(operation, LocalDiskSubtreeOp)
+                self._update_disk_cache_for_subtree(operation)
+            else:
+                assert isinstance(operation, LocalDiskSingleNodeOp)
+                cache_info: Optional[PersistedCacheInfo] = cacheman.find_existing_cache_info_for_subtree(operation.node.full_path,
+                                                                                                         operation.node.get_tree_type())
+                if not cache_info:
+                    raise RuntimeError(f'Could not find a cache associated with file path: {operation.node.full_path}')
+
+                with LocalDiskDatabase(cache_info.cache_location, self.app) as cache:
+                    operation.update_disk_cache(cache)
+
+        else:
+            logger.debug(f'Save to disk is disabled: skipping save to disk for operation')
+
+        operation.send_signals()
+
+    def _update_disk_cache_for_subtree(self, op: LocalDiskSubtreeOp):
+        """Attempt to come close to a transactional behavior by writing to all caches at once, and then committing all at the end"""
+        cache_man = self.app.cacheman
+        if not cache_man.enable_save_to_disk:
+            logger.debug(f'Save to disk is disabled: skipping save of {len(op.get_subtree_list())} subtrees')
+            return
+
+        physical_cache_list: List[PersistedCacheInfo] = []
+        logical_cache_list: List[PersistedCacheInfo] = []
+
+        for subtree in op.get_subtree_list():
+            cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_subtree(subtree.subtree_root.full_path,
+                                                                                                      TREE_TYPE_LOCAL_DISK)
+            if not cache_info:
+                raise RuntimeError(f'Could not find a cache associated with file path: {subtree.subtree_root.full_path}')
+
+            if not _is_cache_info_in_list(cache_info, physical_cache_list):
+                physical_cache_list.append(cache_info)
+
+            logical_cache_list.append(cache_info)
+
+        if len(physical_cache_list) > 3:
+            raise RuntimeError(f'Cannot update more than 3 disk caches simultaneously ({len(physical_cache_list)} needed)')
+
+        if len(physical_cache_list) == 1:
+            with LocalDiskDatabase(physical_cache_list[0].cache_location, self.app) as cache0:
+                phys_cache_list = [cache0]
+                log_cache_list = _map_physical_cache_list(phys_cache_list, logical_cache_list, physical_cache_list)
+                _update_multiple_cache_files(log_cache_list, op)
+                _commit(phys_cache_list)
+
+        elif len(physical_cache_list) == 2:
+            with LocalDiskDatabase(physical_cache_list[0].cache_location, self.app) as cache0, \
+                    LocalDiskDatabase(physical_cache_list[1].cache_location, self.app) as cache1:
+                phys_cache_list = [cache0, cache1]
+                log_cache_list = _map_physical_cache_list(phys_cache_list, logical_cache_list, physical_cache_list)
+                _update_multiple_cache_files(log_cache_list, op)
+                _commit(phys_cache_list)
+
+        elif len(physical_cache_list) == 3:
+            with LocalDiskDatabase(physical_cache_list[0].cache_location, self.app) as cache0, \
+                    LocalDiskDatabase(physical_cache_list[1].cache_location, self.app) as cache1, \
+                    LocalDiskDatabase(physical_cache_list[2].cache_location, self.app) as cache2:
+                phys_cache_list = [cache0, cache1, cache2]
+                log_cache_list = _map_physical_cache_list(phys_cache_list, logical_cache_list, physical_cache_list)
+                _update_multiple_cache_files(log_cache_list, op)
+                _commit(phys_cache_list)
+
+
+def _is_cache_info_in_list(cache_info, cache_list):
+    for existing_cache in cache_list:
+        if cache_info.cache_location == existing_cache.cache_location:
+            return True
+    return False
+
+
+def _map_physical_cache(logical_cache: PersistedCacheInfo, cache_list: List[LocalDiskDatabase], physical_cache_list: List[PersistedCacheInfo]) \
+        -> LocalDiskDatabase:
+    for physical_index, physical_cache_info in enumerate(physical_cache_list):
+        if logical_cache.cache_location == physical_cache_info.cache_location:
+            return cache_list[physical_index]
+    raise RuntimeError(f'Bad: {logical_cache}')
+
+
+def _map_physical_cache_list(cache_list: List[LocalDiskDatabase], physical_cache_list: List[PersistedCacheInfo],
+                             logical_cache_list: List[PersistedCacheInfo]) -> List[LocalDiskDatabase]:
+    mapped_list: List[LocalDiskDatabase] = []
+    for logical_cache in logical_cache_list:
+        mapped_list.append(_map_physical_cache(logical_cache, cache_list, physical_cache_list))
+
+    return mapped_list
+
+
+def _commit(cache_list):
+    for logical_index, cache in enumerate(cache_list):
+        logger.debug(f'Committing cache {logical_index}: "{cache.db_path}"')
+        cache.commit()
+
+
+def _update_multiple_cache_files(logical_cache_list: List[LocalDiskDatabase], op: LocalDiskSubtreeOp):
+    for cache, subtree in zip(logical_cache_list, op.get_subtree_list()):
+        logger.debug(f'Writing subtree_root="{subtree.subtree_root.full_path}"')
+        op.update_disk_cache(cache, subtree)
+
+
+# ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
+# CLASS LocalDiskMasterCache
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+# TODO: consider scanning only root dir at first, then enqueuing subdirectories
+
+class LocalDiskMasterCache(MasterCache):
+    def __init__(self, app):
+        """Singleton in-memory cache for local filesystem"""
+        self.app = app
+
+        self._struct_lock = threading.Lock()
+        self._data: MasterCacheData = MasterCacheData(app)
+
+        self._executor = LocalDiskOpExecutor(app, self._data)
+
+        self._signature_calc_thread = SignatureCalcThread(self)
+
+        self.lazy_load_signatures: bool = app.config.get('cache.lazy_load_local_file_signatures')
         if self.lazy_load_signatures:
             self.start_signature_calc_thread()
 
@@ -264,7 +439,8 @@ class LocalDiskMasterCache(MasterCache):
             self._signature_calc_thread.start()
 
     def shutdown(self):
-        self._signature_calc_thread.request_shutdown()
+        if self._signature_calc_thread:
+            self._signature_calc_thread.request_shutdown()
 
     # Disk access
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -338,14 +514,15 @@ class LocalDiskMasterCache(MasterCache):
 
     def _save_subtree_to_disk(self, cache_info: PersistedCacheInfo, tree_id):
         assert isinstance(cache_info.subtree_root, LocalFsIdentifier)
-        with self._struct_lock:
-            file_list, dir_list = self._master_tree.get_all_files_and_dirs_for_subtree(cache_info.subtree_root)
+
+        file_list, dir_list = self.get_all_files_and_dirs_for_subtree(cache_info.subtree_root)
 
         stopwatch_write_cache = Stopwatch()
-        with LocalDiskDatabase(cache_info.cache_location, self.app) as disk_cache:
-            # Update cache:
-            disk_cache.insert_local_files(file_list, overwrite=True, commit=False)
-            disk_cache.insert_local_dirs(dir_list, overwrite=True, commit=True)
+        with self._struct_lock:
+            with LocalDiskDatabase(cache_info.cache_location, self.app) as disk_cache:
+                # Update cache:
+                disk_cache.insert_local_files(file_list, overwrite=True, commit=False)
+                disk_cache.insert_local_dirs(dir_list, overwrite=True, commit=True)
 
         cache_info.needs_save = False
         logger.info(f'[{tree_id}] {stopwatch_write_cache} Wrote {len(file_list)} files and {len(dir_list)} dirs to "{cache_info.cache_location}"')
@@ -361,14 +538,14 @@ class LocalDiskMasterCache(MasterCache):
         fresh_tree: LocalDiskTree = self._scan_file_tree(subtree_root, tree_id)
 
         with self._struct_lock:
-            remove_single_nodes_op: SubtreeOperation = SubtreeOperation(subtree_root.full_path, is_delete=True, node_list=[])
             # Just upsert all nodes in the updated tree and let God (or some logic) sort them out
-            upsert_nodes_op: SubtreeOperation = SubtreeOperation(subtree_root.full_path, is_delete=False, node_list=fresh_tree.get_subtree_bfs())
+            subtree = Subtree(subtree_root, fresh_tree.get_subtree_bfs(), [])
+            batch_changes_op: BatchChangesOp = BatchChangesOp(subtree_list=[subtree])
 
             # Find removed nodes and append them to remove_single_nodes_op
             root_node: LocalNode = fresh_tree.get_node(fresh_tree.root)
             if root_node.is_dir():
-                for existing_node in self._master_tree.get_subtree_bfs(subtree_root.uid):
+                for existing_node in self._data.master_tree.get_subtree_bfs(subtree_root.uid):
                     if not fresh_tree.get_node(existing_node.uid):
                         if not existing_node.exists():
                             # If {not existing_node.exists()}, assume it's a "pending op" node.
@@ -377,22 +554,20 @@ class LocalDiskMasterCache(MasterCache):
                             # or (b) pass the root of the master tree or encounter a "normal" ancestor in the master tree which doesn't exist in the
                             # fresh tree, which means its descendants are all removed.
                             while True:
-                                ancestor = self._get_parent_node_from_master_tree(ancestor)
+                                ancestor = self.get_parent_for_node(ancestor)
                                 if ancestor and fresh_tree.contains(ancestor.uid):
                                     assert ancestor.exists()
                                     # no need to remove
                                     break
                                 elif not ancestor or ancestor.exists():
-                                    # FIXME: need a strategy for handling an error like this. This will likely muck up the op graph
+                                    # FIXME: clean up the op graph when ancestors of src or dst are removed
                                     logger.error(f'Removing node belonging to a pending op because its ancestor was deleted: {existing_node}')
-                                    remove_single_nodes_op.node_list.append(existing_node)
+                                    subtree.remove_node_list.append(existing_node)
                                     break
                                 # We can ignore any "pending op" ancestors we encounter:
                                 assert not ancestor.exists()
 
-            operation_list: List[SubtreeOperation] = [remove_single_nodes_op, upsert_nodes_op]
-
-            self._execute(operation_list)
+            self._executor.execute(batch_changes_op)
 
     # Subtree-level methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -453,13 +628,13 @@ class LocalDiskMasterCache(MasterCache):
                                f' changing it to "{uid}"')
             requested_subtree_root.uid = uid
 
-        # LOAD into master tree
+        # LOAD into master tree. Only for first load!
         if not cache_info.is_loaded:
             if self.app.cacheman.enable_load_from_disk:
                 tree = self._load_subtree_from_disk(cache_info, tree_id)
                 if tree:
                     with self._struct_lock:
-                        self._master_tree.replace_subtree(tree)
+                        self._data.master_tree.replace_subtree(tree)
                         logger.debug(f'[{tree_id}] Updated in-memory cache: {self.get_summary()}')
             else:
                 logger.debug(f'[{tree_id}] Skipping cache disk load because cache.enable_load_from_disk is false')
@@ -493,7 +668,7 @@ class LocalDiskMasterCache(MasterCache):
                 logger.debug(f'[{tree_id}] Skipping cache save because it is disabled')
 
         with self._struct_lock:
-            root_node = self._master_tree.get_node(requested_subtree_root.uid)
+            root_node = self._data.master_tree.get_node(requested_subtree_root.uid)
         fmeta_tree = LocalDiskDisplayTree(root_node=root_node, app=self.app)
         logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {fmeta_tree.node_identifier.full_path}')
         return fmeta_tree
@@ -532,7 +707,7 @@ class LocalDiskMasterCache(MasterCache):
 
                 # 5. We already loaded it into memory; add it to the in-memory cache:
                 with self._struct_lock:
-                    self._master_tree.replace_subtree(super_tree)
+                    self._data.master_tree.replace_subtree(super_tree)
 
                 # this will resync with file system and/or save if configured
                 supertree_cache.needs_save = True
@@ -548,7 +723,7 @@ class LocalDiskMasterCache(MasterCache):
 
     def refresh_subtree_stats(self, subtree_root_node: LocalNode, tree_id: str):
         with self._struct_lock:
-            self._master_tree.refresh_stats(subtree_root_node, tree_id)
+            self._data.master_tree.refresh_stats(subtree_root_node, tree_id)
 
     # Cache CRUD operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -565,276 +740,15 @@ class LocalDiskMasterCache(MasterCache):
             return cache.get_file_or_dir_for_path(full_path)
 
     def upsert_single_node(self, node: LocalNode):
-        logger.debug(f'Upserting node to caches: {node}')
-
-        # 1. Validate UID:
-        if not node.uid:
-            raise RuntimeError(f'Cannot upsert node to cache because it has no UID: {node}')
-
-        uid = self._uid_mapper.get_uid_for_path(node.full_path, node.uid)
-        if node.uid != uid:
-            raise RuntimeError(f'Internal error while trying to upsert node to cache: UID did not match expected '
-                               f'({self._uid_mapper.get_uid_for_path(node.full_path)}); node={node}')
-
         # 2. Update in-memory cache:
         with self._struct_lock:
-            updated_node, needs_persistence = self._upsert_single_node_in_memory_cache(node)
-            if updated_node:
-                node = updated_node
-
-            if needs_persistence:
-                # 3. Update on-disk cache:
-                self._upsert_single_node_in_disk_cache(node)
-
-            if updated_node:
-                # Even if update was not needed in cache, certain transient properties (e.g. icon) may have changed
-                dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
-
-    def _map_physical_cache(self, caches: List[LocalDiskDatabase], physical_cache_list: List[PersistedCacheInfo],
-                            logical_cache_list: List[PersistedCacheInfo], logical_index: int) -> LocalDiskDatabase:
-        for physical_index, physical_cache_info in enumerate(physical_cache_list):
-            if logical_cache_list[logical_index].cache_location == physical_cache_info.cache_location:
-                return caches[physical_index]
-        raise RuntimeError(f'Could not map physical cache for index {logical_index} and location '
-                           f'"{logical_cache_list[logical_index].cache_location}"')
-
-    def _update_multiple_cache_files(self, caches: List[LocalDiskDatabase], physical_cache_list: List[PersistedCacheInfo],
-                                     logical_cache_list: List[PersistedCacheInfo], subtree_op_list: List[SubtreeOperation]):
-        for logical_index, op in enumerate(subtree_op_list):
-            logger.debug(f'Writing subtree operation {logical_index} (subtree_root="{op.subtree_root_path}")')
-            cache = self._map_physical_cache(caches, logical_cache_list, physical_cache_list, logical_index)
-
-            if op.is_delete:
-                dir_uid_list: List[UID] = []
-                file_uid_list: List[UID] = []
-                for node in op.node_list:
-                    if node.is_dir():
-                        dir_uid_list.append(node.uid)
-                    else:
-                        file_uid_list.append(node.uid)
-
-                if dir_uid_list:
-                    cache.delete_local_dirs_for_uid_list(dir_uid_list, commit=False)
-                if file_uid_list:
-                    cache.delete_local_files_for_uid_list(file_uid_list, commit=False)
-
-            else:
-                dir_list: List[LocalDirNode] = []
-                file_list: List[LocalFileNode] = []
-                for node in op.node_list:
-                    if node.is_dir():
-                        assert isinstance(node, LocalDirNode)
-                        dir_list.append(node)
-                    else:
-                        assert isinstance(node, LocalFileNode)
-                        file_list.append(node)
-                if dir_list:
-                    cache.upsert_local_dir_list(dir_list, commit=False)
-                if file_list:
-                    cache.upsert_local_file_list(file_list, commit=False)
-        for logical_index, cache in enumerate(caches):
-            logger.debug(f'Committing cache {logical_index}: "{cache.db_path}"')
-            cache.commit()
-
-    def _is_cache_info_in_list(self, cache_info, cache_list):
-        for existing_cache in cache_list:
-            if cache_info.cache_location == existing_cache.cache_location:
-                return True
-        return False
-
-    def _update_disk_cache(self, subtree_op_list: List[SubtreeOperation]):
-        """Attempt to come close to a transactional behavior by writing to all caches at once, and then committing all at the end"""
-        cache_man = self.app.cacheman
-        if not cache_man.enable_save_to_disk:
-            logger.debug(f'Save to disk is disabled: skipping upsert of {len(subtree_op_list)} subtree operations')
-            return
-
-        if len(subtree_op_list) > 3:
-            raise RuntimeError(f'Cannot update more than 3 disk caches simultaneously ({len(subtree_op_list)} specified)')
-
-        physical_cache_list: List[PersistedCacheInfo] = []
-        logical_cache_list: List[PersistedCacheInfo] = []
-
-        for subtree_op in subtree_op_list:
-            cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_subtree(subtree_op.subtree_root_path,
-                                                                                                     TREE_TYPE_LOCAL_DISK)
-            if not cache_info:
-                raise RuntimeError(f'Could not find a cache associated with file path: {subtree_op.subtree_root_path}')
-
-            if not self._is_cache_info_in_list(cache_info, physical_cache_list):
-                physical_cache_list.append(cache_info)
-
-            logical_cache_list.append(cache_info)
-
-        if len(physical_cache_list) == 1:
-            with LocalDiskDatabase(physical_cache_list[0].cache_location, self.app) as cache0:
-                caches = [cache0]
-                self._update_multiple_cache_files(caches, logical_cache_list, physical_cache_list, subtree_op_list)
-
-        elif len(physical_cache_list) == 2:
-            with LocalDiskDatabase(physical_cache_list[0].cache_location, self.app) as cache0, \
-                    LocalDiskDatabase(physical_cache_list[1].cache_location, self.app) as cache1:
-                caches = [cache0, cache1]
-                self._update_multiple_cache_files(caches, logical_cache_list, physical_cache_list, subtree_op_list)
-
-        elif len(physical_cache_list) == 3:
-            with LocalDiskDatabase(physical_cache_list[0].cache_location, self.app) as cache0, \
-                    LocalDiskDatabase(physical_cache_list[1].cache_location, self.app) as cache1, \
-                    LocalDiskDatabase(physical_cache_list[2].cache_location, self.app) as cache2:
-                caches = [cache0, cache1, cache2]
-                self._update_multiple_cache_files(caches, logical_cache_list, physical_cache_list, subtree_op_list)
+            self._executor.execute(UpsertSingleNodeOp(node))
 
     def remove_single_node(self, node: LocalNode, to_trash=False):
         logger.debug(f'Removing node from caches (to_trash={to_trash}): {node}')
 
         with self._struct_lock:
-            self._remove_single_node_nolock(node, to_trash)
-
-    def _remove_single_node_from_memory_cache(self, node: LocalNode):
-        """Removes the given node from all in-memory structs (does nothing if it is not found in some or any of them).
-        Will raise an exception if trying to remove a non-empty directory."""
-        existing: DisplayNode = self._master_tree.get_node(node.uid)
-        if existing:
-            if existing.is_dir():
-                children = self._master_tree.children(existing.identifier)
-                if children:
-                    # maybe allow deletion of dir with children in the future, but for now be careful
-                    raise RuntimeError(f'Cannot remove dir from cache because it has {len(children)} children: {node}')
-
-            count_removed = self._master_tree.remove_single_node(node.uid)
-            assert count_removed <= 1, f'Deleted {count_removed} nodes at {node.full_path}'
-        else:
-            logger.warning(f'Cannot remove node because it has already been removed from cache: {node}')
-
-        if self.use_md5 and node.md5:
-            self.md5_dict.remove(node.md5, node.full_path)
-        if self.use_sha256 and node.sha256:
-            self.sha256_dict.remove(node.sha256, node.full_path)
-
-    def _upsert_single_node_in_memory_cache(self, node: LocalNode) -> Tuple[Optional[LocalNode], bool]:
-        """If a node already exists, the new node is merged into it and returned; otherwise the given node is returned.
-        Second item in the tuple is True if update contained changes which should be saved to disk; False if otherwise"""
-        existing_node: LocalNode = self._master_tree.get_node(node.uid)
-        if existing_node:
-            if existing_node.exists() and not node.exists():
-                # In the future, let's close this hole with more elegant logic
-                logger.warning(f'Cannot replace a node which exists with one which does not exist; skipping cache update')
-                return None, False
-
-            if existing_node.is_dir() and not node.is_dir():
-                # need to replace all descendants...not ready to do this yet
-                raise RuntimeError(f'Cannot replace a directory with a file: "{node.full_path}"')
-
-            if existing_node == node:
-                if SUPER_DEBUG:
-                    logger.debug(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
-                return existing_node, False
-
-            # just update the existing - much easier
-            if SUPER_DEBUG:
-                logger.debug(f'Merging node (PyID {id(node)}) into existing_node (PyID {id(existing_node)})')
-            if node.is_file() and existing_node.is_file():
-                assert isinstance(node, LocalFileNode) and isinstance(existing_node, LocalFileNode)
-                _copy_signature_if_possible(existing_node, node)
-                if SUPER_DEBUG:
-                    _check_update_sanity(existing_node, node)
-            existing_node.update_from(node)
-        else:
-            # new file or directory insert
-            self._master_tree.add_to_tree(node)
-
-        if node.is_file() and not node.md5 and not node.sha256:
-            assert isinstance(node, LocalFileNode)
-            self._signature_calc_thread.enqueue(node)
-        else:
-            # do this after the above, to avoid cache corruption in case of failure
-            if self.use_md5 and node.md5:
-                self.md5_dict.put(node, existing_node)
-            if self.use_sha256 and node.sha256:
-                self.sha256_dict.put(node, existing_node)
-
-        if existing_node:
-            return existing_node, True
-        return node, True
-
-    def _remove_single_node_from_disk_cache(self, node: LocalNode):
-        cache_man = self.app.cacheman
-        if not cache_man.enable_save_to_disk:
-            logger.debug(f'Save to disk is disabled: skipping removal of node with UID={node.uid}')
-            return
-
-        assert node.get_tree_type() == TREE_TYPE_LOCAL_DISK
-        cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_subtree(node.full_path, node.get_tree_type())
-        if not cache_info:
-            logger.error(f'Could not find a cache associated with file path: {node.full_path}')
-            return
-
-        with LocalDiskDatabase(cache_info.cache_location, self.app) as cache:
-            if node.is_dir():
-                cache.delete_local_dir_with_uid(node.uid)
-            else:
-                cache.delete_local_file_with_uid(node.uid)
-
-    def _upsert_single_node_in_disk_cache(self, node: LocalNode):
-        if not node.exists():
-            logger.debug(f'Node does not exist; skipping save to disk: {node}')
-            return
-
-        cache_man = self.app.cacheman
-        if not cache_man.enable_save_to_disk:
-            logger.debug(f'Save to disk is disabled: skipping add/update of node with UID={node.uid}')
-            return
-
-        assert node.get_tree_type() == TREE_TYPE_LOCAL_DISK
-        cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_subtree(node.full_path, node.get_tree_type())
-        if not cache_info:
-            raise RuntimeError(f'Could not find a cache associated with file path: {node.full_path}')
-
-        with LocalDiskDatabase(cache_info.cache_location, self.app) as cache:
-            if node.is_dir():
-                cache.upsert_local_dir(node)
-            else:
-                cache.upsert_local_file(node)
-
-    def _remove_single_node_nolock(self, node: LocalNode, to_trash=False):
-        # 1. Validate
-        if not node.uid:
-            raise RuntimeError(f'Cannot remove node from cache because it has no UID: {node}')
-
-        if node.uid != self._uid_mapper.get_uid_for_path(node.full_path):
-            raise RuntimeError(f'Internal error while trying to remove node ({node}): UID did not match expected '
-                               f'({self._uid_mapper.get_uid_for_path(node.full_path)})')
-
-        if to_trash:
-            # TODO
-            raise RuntimeError(f'Not supported: to_trash=true!')
-
-        # 2. Update in-memory cache:
-        self._remove_single_node_from_memory_cache(node)
-
-        # 3. Update on-disk cache:
-        self._remove_single_node_from_disk_cache(node)
-
-        # 4. Notify UI:
-        dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
-
-    def _update_memory_cache(self, subtree_op_list: List[SubtreeOperation]):
-        for subtree_operation in subtree_op_list:
-            try:
-                if subtree_operation.is_delete:
-                    # Deletes must occur from bottom up:
-                    for node in reversed(subtree_operation.node_list):
-                        self._remove_single_node_from_memory_cache(node)
-                    logger.debug(f'Removed {len(subtree_operation.node_list)} nodes from memcache path "{subtree_operation.subtree_root_path}"')
-                else:
-                    for index, node in enumerate(subtree_operation.node_list):
-                        updated_node, needs_persistence = self._upsert_single_node_in_memory_cache(node)
-                        if updated_node:
-                            subtree_operation.node_list[index] = updated_node
-                    logger.debug(f'Added {len(subtree_operation.node_list)} nodes to memcache path "{subtree_operation.subtree_root_path}"')
-            except Exception:
-                # TODO: clean up after exception
-                logger.exception(f'Failed to update memory cache for operation: {subtree_operation.get_summary()}')
+            self._executor.execute(DeleteSingleNodeOp(node, to_trash=to_trash))
 
     def _migrate_node(self, node: LocalNode, src_full_path: str, dst_full_path: str) -> LocalNode:
         new_node_full_path: str = file_util.change_path_to_new_root(node.full_path, src_full_path, dst_full_path)
@@ -847,22 +761,22 @@ class LocalDiskMasterCache(MasterCache):
         new_node.set_node_identifier(LocalFsIdentifier(full_path=new_node_full_path, uid=new_node_uid))
         return new_node
 
-    def _add_to_expected_node_moves(self, rm_src_tree_op, add_dst_tree_op):
+    def _add_to_expected_node_moves(self, src_node_list: List[LocalNode], dst_node_list: List[LocalNode]):
         first = True
         # Let's collate these two operations so that in case of failure, we have less inconsistent state
-        for src_node, dst_node in zip(rm_src_tree_op.node_list, add_dst_tree_op.node_list):
+        for src_node, dst_node in zip(src_node_list, dst_node_list):
             logger.debug(f'Migrating copy of node {src_node.node_identifier} to {dst_node.node_identifier}')
             if first:
                 # ignore subroot
                 first = False
             else:
-                self._expected_node_moves[src_node.full_path] = dst_node.full_path
+                self._data.expected_node_moves[src_node.full_path] = dst_node.full_path
 
     def move_local_subtree(self, src_full_path: str, dst_full_path: str, is_from_watchdog=False):
         with self._struct_lock:
             if is_from_watchdog:
                 # See if we safely ignore this:
-                expected_move_dst = self._expected_node_moves.pop(src_full_path, None)
+                expected_move_dst = self._data.expected_node_moves.pop(src_full_path, None)
                 if expected_move_dst:
                     if expected_move_dst == dst_full_path:
                         logger.debug(f'Ignoring MV ("{src_full_path}" -> "{dst_full_path}") because it was already done')
@@ -871,133 +785,84 @@ class LocalDiskMasterCache(MasterCache):
                         logger.error(f'MV ("{src_full_path}" -> "{dst_full_path}"): was expecting dst = "{expected_move_dst}"!')
 
             src_uid: UID = self.get_uid_for_path(src_full_path)
-            src_node: LocalNode = self._master_tree.get_node(src_uid)
+            src_node: LocalNode = self._data.master_tree.get_node(src_uid)
             if src_node:
-                rm_src_tree_op: Optional[SubtreeOperation] = self._build_subtree_removal_operation(src_node, to_trash=False)
+                src_nodes: List[LocalNode] = self._data.master_tree.get_subtree_bfs(src_node.uid)
+                src_subtree: Subtree = Subtree(src_node.node_identifier, upsert_node_list=[], remove_node_list=src_nodes)
             else:
-                rm_src_tree_op = None
-                logger.debug(f'MV src node does not exist: UID={src_uid}, path={src_full_path}')
+                logger.error(f'MV src node does not exist: UID={src_uid}, path={src_full_path}')
+                return
 
             # Create up to 3 tree operations which should be executed in a single transaction if possible
-            rm_existing_tree_op: Optional[SubtreeOperation] = None
             dst_uid: UID = self.get_uid_for_path(dst_full_path)
-            dst_node: LocalNode = self._master_tree.get_node(dst_uid)
-            if dst_node:
-                logger.debug(f'Node already exists at MV dst; will remove: {dst_node.node_identifier}')
-                rm_existing_tree_op = self._build_subtree_removal_operation(dst_node, to_trash=False)
+            dst_node_identifier: LocalFsIdentifier = LocalFsIdentifier(dst_full_path, dst_uid)
+            dst_subtree: Subtree = Subtree(dst_node_identifier, [], [])
 
-            add_dst_tree_op: SubtreeOperation = SubtreeOperation(dst_full_path, is_delete=False, node_list=[])
+            existing_dst_node: LocalNode = self._data.master_tree.get_node(dst_uid)
+            if existing_dst_node:
+                logger.debug(f'Node already exists at MV dst; will remove: {existing_dst_node.node_identifier}')
+                existing_dst_nodes: List[LocalNode] = self._data.master_tree.get_subtree_bfs(dst_uid)
+                dst_subtree.remove_node_list = existing_dst_nodes
 
-            if rm_src_tree_op:
-                for src_node in rm_src_tree_op.node_list:
+            if src_subtree:
+                for src_node in src_subtree.remove_node_list:
                     dst_node = self._migrate_node(src_node, src_full_path, dst_full_path)
-                    add_dst_tree_op.node_list.append(dst_node)
+                    dst_subtree.upsert_node_list.append(dst_node)
             else:
                 # Rescan dir in dst_full_path for nodes
                 if os.path.isdir(dst_full_path):
-                    dst_node_identifier: LocalFsIdentifier = LocalFsIdentifier(dst_full_path, dst_uid)
                     fresh_tree: LocalDiskTree = self._scan_file_tree(dst_node_identifier, ID_GLOBAL_CACHE)
                     for dst_node in fresh_tree.get_subtree_bfs():
-                        add_dst_tree_op.node_list.append(dst_node)
-                    logger.debug(f'Added node list contains {len(add_dst_tree_op.node_list)} nodes')
+                        dst_subtree.upsert_node_list.append(dst_node)
+                    logger.debug(f'Added node list contains {len(dst_subtree.upsert_node_list)} nodes')
                 else:
                     local_node: LocalFileNode = self.build_local_file_node(dst_full_path)
-                    add_dst_tree_op.node_list.append(local_node)
+                    dst_subtree.upsert_node_list.append(local_node)
 
-            subtree_op_list: List[SubtreeOperation] = [add_dst_tree_op]
-            if rm_src_tree_op:
-                subtree_op_list.append(rm_src_tree_op)
-            if rm_existing_tree_op:
-                subtree_op_list.append(rm_existing_tree_op)
+            subtree_list: List[Subtree] = [src_subtree, dst_subtree]
 
-            # 1. Update memory cache:
-            self._update_memory_cache(subtree_op_list)
+            if is_from_watchdog:
+                self._add_to_expected_node_moves(src_subtree.remove_node_list, dst_subtree.upsert_node_list)
 
-            # 1a. housekeeping
-            if rm_src_tree_op and is_from_watchdog:
-                self._add_to_expected_node_moves(rm_src_tree_op, add_dst_tree_op)
-
-            # 2. Update on-disk cache:
-            self._update_disk_cache(subtree_op_list)
-
-            # 3. Send notifications:
-            if rm_existing_tree_op:
-                self._send_notifications([rm_existing_tree_op])
-
-            if rm_src_tree_op:
-                # MOVE from src to dst
-                for src_node, dst_node in zip(rm_src_tree_op.node_list, add_dst_tree_op.node_list):
-                    dispatcher.send(signal=actions.NODE_MOVED, sender=ID_GLOBAL_CACHE, src_node=src_node, dst_node=dst_node)
-            else:
-                # UPSERT at destination only
-                self._send_notifications([add_dst_tree_op])
-
-    def _send_notifications(self, operation_list: List[SubtreeOperation]):
-        for operation in operation_list:
-            if operation.is_delete:
-                for node in operation.node_list:
-                    dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
-            else:
-                for node in operation.node_list:
-                    dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
-
-    def _execute(self, op_list: List[SubtreeOperation]):
-        self._update_memory_cache(op_list)
-
-        self._update_disk_cache(op_list)
-
-        self._send_notifications(op_list)
+            operation = BatchChangesOp(subtree_list=subtree_list)
+            self._executor.execute(operation)
 
     def remove_subtree(self, subtree_root: LocalNode, to_trash: bool):
         logger.debug(f'Removing subtree_root from caches (to_trash={to_trash}): {subtree_root}')
 
-        # 1. Validate
-        if not subtree_root.uid:
-            raise RuntimeError(f'Cannot remove subtree_root from cache because it has no UID: {subtree_root}')
-
-        if subtree_root.uid != self.get_uid_for_path(subtree_root.full_path):
-            raise RuntimeError(f'Internal error while trying to remove subtree_root ({subtree_root}): UID did not match expected '
-                               f'({self.get_uid_for_path(subtree_root.full_path)})')
-
-        if not subtree_root.is_dir():
-            raise RuntimeError(f'Not a folder: {subtree_root}')
-
         with self._struct_lock:
-            operation: SubtreeOperation = self._build_subtree_removal_operation(subtree_root, to_trash)
-            logger.info(f'Removing subtree with {len(operation.node_list)} nodes')
-            op_list = [operation]
+            operation: DeleteSubtreeOp = self._build_subtree_removal_operation(subtree_root, to_trash)
+            self._executor.execute(operation)
 
-            self._execute(op_list)
-
-    def _build_subtree_removal_operation(self, subtree_root: LocalNode, to_trash: bool) -> SubtreeOperation:
+    def _build_subtree_removal_operation(self, subtree_root_node: LocalNode, to_trash: bool) -> DeleteSubtreeOp:
         """subtree_root can be either a file or dir"""
         if to_trash:
             # TODO
             raise RuntimeError(f'Not supported: to_trash=true!')
 
-        subtree_nodes: List[LocalNode] = self._master_tree.get_subtree_bfs(subtree_root.uid)
-        return SubtreeOperation(subtree_root.full_path, is_delete=True, node_list=subtree_nodes)
+        if not subtree_root_node.uid:
+            raise RuntimeError(f'Cannot remove subtree_root from cache because it has no UID: {subtree_root_node}')
 
-    def _get_parent_node_from_master_tree(self, node: LocalNode):
-        parent_path = _derive_parent_path(node.full_path)
-        parent_uid = self.get_uid_for_path(parent_path)
-        return self._master_tree.get_node(parent_uid)
+        if subtree_root_node.uid != self.get_uid_for_path(subtree_root_node.full_path):
+            raise RuntimeError(f'Internal error while trying to remove subtree_root ({subtree_root_node}): UID did not match expected '
+                               f'({self.get_uid_for_path(subtree_root_node.full_path)})')
+
+        subtree_nodes: List[LocalNode] = self._data.master_tree.get_subtree_bfs(subtree_root_node.uid)
+        assert isinstance(subtree_root_node.node_identifier, LocalFsIdentifier)
+        return DeleteSubtreeOp(subtree_root_node.node_identifier, node_list=subtree_nodes)
 
     # Various public getters
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def get_master_tree(self, invalidate_cache: bool = False, tree_id: str = None):
-        raise InvalidOperationError('get_master_tree()')
-
     def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalFsIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
         with self._struct_lock:
-            return self._master_tree.get_all_files_and_dirs_for_subtree(subtree_root)
+            return self._data.master_tree.get_all_files_and_dirs_for_subtree(subtree_root)
 
     def get_uid_for_domain_id(self, domain_id: str, uid_suggestion: Optional[UID] = None) -> UID:
-        return self._uid_mapper.get_uid_for_path(domain_id, uid_suggestion)
+        return self._data.uid_mapper.get_uid_for_path(domain_id, uid_suggestion)
 
     def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
-        return self._uid_mapper.get_uid_for_path(path, uid_suggestion)
+        return self._data.uid_mapper.get_uid_for_path(path, uid_suggestion)
 
     def get_node_for_domain_id(self, domain_id: str) -> LocalNode:
         uid: UID = self.get_uid_for_domain_id(domain_id)
@@ -1005,20 +870,22 @@ class LocalDiskMasterCache(MasterCache):
 
     def get_children(self, node: LocalNode) -> List[LocalNode]:
         with self._struct_lock:
-            return self._master_tree.children(node.uid)
+            return self._data.master_tree.children(node.uid)
 
     def get_node_for_uid(self, uid: UID) -> LocalNode:
         with self._struct_lock:
-            return self._master_tree.get_node(uid)
+            return self._data.master_tree.get_node(uid)
 
     def get_parent_for_node(self, node: LocalNode, required_subtree_path: str = None):
         try:
             with self._struct_lock:
                 try:
-                    parent: LocalNode = self._master_tree.parent(nid=node.uid)
+                    parent: LocalNode = self._data.master_tree.parent(nid=node.uid)
                 except KeyError:
                     # parent not found in tree... maybe we can derive it however
-                    parent = self._get_parent_node_from_master_tree(node)
+                    parent_path = _derive_parent_path(node.full_path)
+                    parent_uid = self.get_uid_for_path(parent_path)
+                    parent = self._data.master_tree.get_node(parent_uid)
                     if not parent:
                         logger.debug(f'Parent not found for node ({node.uid})')
                         return None
@@ -1033,11 +900,11 @@ class LocalDiskMasterCache(MasterCache):
             raise
 
     def get_summary(self):
-        if self.use_md5:
-            md5 = str(self.md5_dict.total_entries)
+        if self._data.use_md5:
+            md5 = str(self._data.md5_dict.total_entries)
         else:
             md5 = 'disabled'
-        return f'LocalDiskMasterCache tree_size={len(self._master_tree):n} md5={md5}'
+        return f'LocalDiskMasterCache tree_size={len(self._data.master_tree):n} md5={md5}'
 
     def build_local_dir_node(self, full_path: str) -> LocalDirNode:
         uid = self.get_uid_for_path(full_path)
@@ -1059,7 +926,7 @@ class LocalDiskMasterCache(MasterCache):
             sha256 = None
         else:
             try:
-                md5, sha256 = _calculate_signatures(full_path, staging_path)
+                md5, sha256 = local.content_hasher.calculate_signatures(full_path, staging_path)
             except FileNotFoundError:
                 # bad link
                 return None

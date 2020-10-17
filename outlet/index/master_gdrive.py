@@ -6,7 +6,7 @@ from typing import DefaultDict, Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID, NOT_TRASHED, TREE_TYPE_GDRIVE
+from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID, TREE_TYPE_GDRIVE
 from gdrive.change_observer import GDriveChange, GDriveNodeChange
 from gdrive.gdrive_tree_loader import GDriveTreeLoader
 from index.error import CacheNotLoadedError, GDriveItemNotFoundError
@@ -32,9 +32,9 @@ logger = logging.getLogger(__name__)
 # - support Delete Subtree
 
 
-# ABSTRACT CLASS GDriveOperation
+# ABSTRACT CLASS GDriveCacheOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class GDriveOperation(ABC):
+class GDriveCacheOp(ABC):
     @abstractmethod
     def update_memory_cache(self, master_tree: GDriveWholeTree):
         pass
@@ -50,9 +50,9 @@ class GDriveOperation(ABC):
 
 # CLASS UpsertSingleNodeOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class UpsertSingleNodeOp(GDriveOperation):
+class UpsertSingleNodeOp(GDriveCacheOp):
     def __init__(self, node: GDriveNode, uid_mapper):
-        self.node = node
+        self.node: GDriveNode = node
         self.uid_mapper = uid_mapper
         self.parent_goog_ids = []
 
@@ -141,12 +141,18 @@ class UpsertSingleNodeOp(GDriveOperation):
 
 # CLASS DeleteSingleNodeOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class DeleteSingleNodeOp(GDriveOperation):
+class DeleteSingleNodeOp(GDriveCacheOp):
     def __init__(self, node: GDriveNode, to_trash: bool = False):
-        self.node = node
+        assert isinstance(node, GDriveNode), f'For node: {node}'
+        self.node: GDriveNode = node
         self.to_trash: bool = to_trash
 
     def update_memory_cache(self, master_tree: GDriveWholeTree):
+        if self.node.is_dir():
+            children: List[GDriveNode] = master_tree.get_children(self.node)
+            if children:
+                raise RuntimeError(f'Cannot remove GDrive folder from cache: it contains {len(children)} children!')
+
         existing_node = master_tree.get_node_for_uid(self.node.uid)
         if existing_node:
             master_tree.remove_node(existing_node)
@@ -160,9 +166,9 @@ class DeleteSingleNodeOp(GDriveOperation):
 
 # CLASS DeleteSubtreeOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class DeleteSubtreeOp(GDriveOperation):
+class DeleteSubtreeOp(GDriveCacheOp):
     def __init__(self, subtree_root_node: GDriveNode, node_list: List[GDriveNode]):
-        self.subtree_root_node = subtree_root_node
+        self.subtree_root_node: GDriveNode = subtree_root_node
         """If true, is a delete operation. If false, is upsert op."""
         self.node_list: List[GDriveNode] = node_list
 
@@ -207,7 +213,7 @@ def _reduce_changes(change_list: List[GDriveChange]) -> List[GDriveChange]:
 
 # CLASS BatchChangesOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class BatchChangesOp(GDriveOperation):
+class BatchChangesOp(GDriveCacheOp):
     def __init__(self, gdrive_master_cache, change_list: List[GDriveChange]):
         self.gdrive_master_cache = gdrive_master_cache
         self.change_list = _reduce_changes(change_list)
@@ -249,7 +255,7 @@ class BatchChangesOp(GDriveOperation):
                                            f'({len(parent_uids)}) for node: {change.node}')
                     for parent_uid, parent_goog_id in zip(change.node.get_parent_uids(), parent_goog_ids):
                         parent_mapping_list.append((change.node.uid, parent_uid, parent_goog_id, change.node.sync_ts))
-                mappings_list_list.append(parent_mapping_list)
+                    mappings_list_list.append(parent_mapping_list)
 
                 if change.node.is_dir():
                     assert isinstance(change.node, GDriveFolder)
@@ -324,6 +330,24 @@ class GDriveMasterCache(MasterCache):
         master_tree_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
         cache_info = self.app.cacheman.get_or_create_cache_info_entry(master_tree_root)
         return cache_info.cache_location
+
+    def _execute(self, operation: GDriveCacheOp):
+        """Executes a single GDriveCacheOp."""
+
+        # 1. Update memory cache
+        operation.update_memory_cache(self._master_tree)
+
+        # 2. Update disk cache
+        if self.app.cacheman.enable_save_to_disk:
+            cache_path: str = self._get_gdrive_cache_path()
+            with GDriveDatabase(cache_path, self.app) as cache:
+                operation.update_disk_cache(cache)
+                cache.commit()
+        else:
+            logger.debug(f'Save to disk is disabled: skipping disk update')
+
+        # 3. Send signals
+        operation.send_signals()
 
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -426,30 +450,8 @@ class GDriveMasterCache(MasterCache):
             self._upsert_single_node_nolock(node)
 
     def _upsert_single_node_nolock(self, node: GDriveNode):
-        logger.debug(f'Upserting node to caches: {node}')
+        logger.debug(f'Upserting GDrive node to caches: {node}')
         self._execute(UpsertSingleNodeOp(node, self._uid_mapper))
-
-    def _update_memory_cache(self, subtree_operation: GDriveOperation):
-        subtree_operation.update_memory_cache(self._master_tree)
-
-    def _update_disk_cache(self, subtree_operation: GDriveOperation):
-        if not self.app.cacheman.enable_save_to_disk:
-            logger.debug(f'Save to disk is disabled: skipping disk update')
-            return
-
-        cache_path: str = self._get_gdrive_cache_path()
-        with GDriveDatabase(cache_path, self.app) as cache:
-            subtree_operation.update_disk_cache(cache)
-
-            cache.commit()
-
-    def _execute(self, operation: GDriveOperation):
-        """Executes a signal GDriveOperation."""
-        self._update_memory_cache(operation)
-
-        self._update_disk_cache(operation)
-
-        operation.send_signals()
 
     def remove_subtree(self, subtree_root: GDriveNode, to_trash):
         assert isinstance(subtree_root, GDriveNode), f'For node: {subtree_root}'
@@ -465,9 +467,8 @@ class GDriveMasterCache(MasterCache):
                 raise RuntimeError(f'Not supported: to_trash=true!')
 
             subtree_nodes: List[GDriveNode] = self._master_tree.get_subtree_bfs(subtree_root)
-            operation: DeleteSubtreeOp = DeleteSubtreeOp(subtree_root, node_list=subtree_nodes)
-            logger.info(f'Removing subtree with {len(operation.node_list)} nodes')
-            self._execute(operation)
+            logger.info(f'Removing subtree with {len(subtree_nodes)} nodes')
+            self._execute(DeleteSubtreeOp(subtree_root, node_list=subtree_nodes))
 
     def remove_single_node(self, node: GDriveNode, to_trash):
         with self._struct_lock:
@@ -475,25 +476,14 @@ class GDriveMasterCache(MasterCache):
 
     def _remove_single_node_nolock(self, node: GDriveNode, to_trash):
         logger.debug(f'Removing node from caches: {node}')
-        assert isinstance(node, GDriveNode), f'For node: {node}'
-
-        # ensure full_path is populated
-        self._master_tree.get_full_path_for_node(node)
-
-        if node.is_dir():
-            children: List[GDriveNode] = self._master_tree.get_children(node)
-            if children:
-                raise RuntimeError(f'Cannot remove GDrive folder from cache: it contains {len(children)} children!')
 
         if to_trash:
-            if node.trashed == NOT_TRASHED:
+            if node.trashed.not_trashed():
                 raise RuntimeError(f'Trying to trash Google node which is not marked as trashed: {node}')
             # this is actually an update
             self._upsert_single_node_nolock(node)
-            dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=node)
         else:
-            operation: DeleteSingleNodeOp = DeleteSingleNodeOp(node, to_trash)
-            self._execute(operation)
+            self._execute(DeleteSingleNodeOp(node, to_trash))
 
     # Various public methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

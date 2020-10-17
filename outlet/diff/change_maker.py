@@ -6,8 +6,8 @@ from typing import Deque, Dict, List
 
 from util import file_util
 from model.op import Op, OpType
-from constants import NOT_TRASHED, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from model.node.display_node import DisplayNode, HasChildList
+from constants import NULL_UID, TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier
@@ -30,7 +30,7 @@ def _migrate_file_node(node_identifier: NodeIdentifier, src_node: DisplayNode) -
         return LocalFileNode(node_identifier, md5, sha256, size_bytes, None, None, None, False)
     elif tree_type == TREE_TYPE_GDRIVE:
         assert isinstance(node_identifier, GDriveIdentifier)
-        return GDriveFile(node_identifier, None, src_node.name, None, NOT_TRASHED, None, None, None, md5, False, None, None,
+        return GDriveFile(node_identifier, None, src_node.name, None, TrashStatus.NOT_TRASHED, None, None, None, md5, False, None, None,
                           size_bytes, None, None, None)
     else:
         raise RuntimeError(f"Cannot create file node for tree type: {tree_type} (node_identifier={node_identifier}")

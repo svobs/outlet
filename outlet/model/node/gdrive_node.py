@@ -4,8 +4,7 @@ from typing import Optional
 
 from util import format
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, ICON_DIR_MK, ICON_DIR_TRASHED, ICON_FILE_CP_DST, ICON_FILE_TRASHED, ICON_GENERIC_DIR, \
-    ICON_GENERIC_FILE, \
-    NOT_TRASHED, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS, TREE_TYPE_GDRIVE
+    ICON_GENERIC_FILE, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TREE_TYPE_GDRIVE
 from model.node.display_node import DisplayNode, HasChildList, HasParentList
 from model.node_identifier import ensure_bool, ensure_int, GDriveIdentifier
 
@@ -35,7 +34,7 @@ class GDriveNode(HasParentList, DisplayNode, ABC):
 
         if trashed < 0 or trashed > 2:
             raise RuntimeError(f'Invalid value for "trashed": {trashed}')
-        self._trashed: int = trashed
+        self._trashed: TrashStatus = TrashStatus(trashed)
 
         self.create_ts = ensure_int(create_ts)
         self._modify_ts = ensure_int(modify_ts)
@@ -101,18 +100,19 @@ class GDriveNode(HasParentList, DisplayNode, ABC):
         self._name = name
 
     @property
-    def trashed(self) -> int:
+    def trashed(self) -> Optional[TrashStatus]:
+        assert not self._trashed or isinstance(self._trashed, TrashStatus)
         return self._trashed
 
     @trashed.setter
-    def trashed(self, trashed: int):
+    def trashed(self, trashed: TrashStatus):
         self._trashed = trashed
 
     @property
     def trashed_str(self):
         if self.trashed is None:
             return 'None'
-        return TRASHED_STATUS[self.trashed]
+        return TRASHED_STATUS_STR[self.trashed]
 
     @abstractmethod
     def to_tuple(self):
@@ -182,7 +182,7 @@ class GDriveFolder(HasChildList, GDriveNode):
         return True
 
     def get_icon(self):
-        if self.trashed == NOT_TRASHED:
+        if self.trashed == TrashStatus.NOT_TRASHED:
             if self.exists():
                 return ICON_GENERIC_DIR
             else:
@@ -295,7 +295,7 @@ class GDriveFile(GDriveNode):
         return False
 
     def get_icon(self):
-        if self.trashed == NOT_TRASHED:
+        if self.trashed == TrashStatus.NOT_TRASHED:
             if self.exists():
                 return ICON_GENERIC_FILE
             else:

@@ -401,7 +401,7 @@ class GDriveWholeTree:
         assert uid
         if uid == constants.GDRIVE_ROOT_UID:
             # fake root:
-            return GDriveFolder(NodeIdentifierFactory.get_gdrive_root_constant_identifier(), None, None, constants.NOT_TRASHED, None, None,
+            return GDriveFolder(NodeIdentifierFactory.get_gdrive_root_constant_identifier(), None, None, constants.TrashStatus.NOT_TRASHED, None, None,
                                 None, None, None, None, None, None)
         return self.id_dict.get(uid, None)
 
@@ -480,7 +480,7 @@ class GDriveWholeTree:
             trashed_file_count = 0
             trashed_dir_count = 0
             for root in self.roots:
-                if root.trashed == constants.NOT_TRASHED:
+                if root.trashed == constants.TrashStatus.NOT_TRASHED:
                     if root.get_size_bytes():
                         size_bytes += root.get_size_bytes()
 
