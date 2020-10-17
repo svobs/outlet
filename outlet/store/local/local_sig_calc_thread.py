@@ -1,13 +1,13 @@
 import logging
 import threading
 import time
+import store.local.content_hasher
 from collections import deque
 from typing import Deque, Optional
 
 from pydispatch import dispatcher
 from pydispatch.errors import DispatcherKeyError
 
-import local.content_hasher
 from constants import TREE_TYPE_LOCAL_DISK
 from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalFileNode
@@ -52,7 +52,7 @@ class SignatureCalcThread(threading.Thread):
             self._cv_can_get.notifyAll()
 
     def _process_single_node(self, node: LocalFileNode):
-        md5, sha256 = local.content_hasher.calculate_signatures(node.full_path)
+        md5, sha256 = store.local.content_hasher.calculate_signatures(node.full_path)
         if not node.md5 and not node.sha256:
             logger.debug(f'[{self.name}] Failed to calculate signature for node {node.uid}: assuming it was deleted')
             return

@@ -7,7 +7,7 @@ from pydispatch import dispatcher
 from constants import TREE_TYPE_GDRIVE
 from ui import actions
 from util import file_util, format
-from index.two_level_dict import Md5BeforeUidDict
+from store.two_level_dict import Md5BeforeUidDict
 from model.gdrive_whole_tree import GDriveItemNotFoundError, GDriveWholeTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.display_tree.display_tree import DisplayTree

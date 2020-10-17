@@ -5,8 +5,8 @@ from typing import List, Optional
 
 import treelib
 
-from gdrive.client import GDriveClient
-from index.uid.uid import UID
+from store.gdrive.client import GDriveClient
+from model.uid import UID
 from model.op import Op, OpType
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.display_node import DisplayNode

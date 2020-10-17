@@ -10,7 +10,7 @@ from typing import Deque, Iterable, List, Optional
 from pydispatch.errors import DispatcherKeyError
 
 from constants import HOLDOFF_TIME_MS, LARGE_NUMBER_OF_CHILDREN
-from index.error import GDriveItemNotFoundError
+from error import GDriveItemNotFoundError
 from model.op import Op
 from util.holdoff_timer import HoldOffTimer
 from model.node.container_node import CategoryNode

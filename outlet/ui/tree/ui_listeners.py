@@ -9,7 +9,7 @@ import ui.actions as actions
 from model.op import Op, OpType
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
 from diff.change_maker import ChangeMaker
-from index.uid.uid import UID
+from model.uid import UID
 from model.node_identifier import NodeIdentifier
 from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalFileNode

@@ -6,7 +6,7 @@ from treelib import Node
 from constants import ICON_DIR_CP_DST, ICON_DIR_CP_SRC, ICON_DIR_MK, ICON_DIR_MV_DST, ICON_DIR_MV_SRC, ICON_DIR_RM, \
     ICON_DIR_UP_DST, ICON_DIR_UP_SRC, ICON_FILE_CP_DST, ICON_FILE_CP_SRC, \
     ICON_FILE_MV_DST, ICON_FILE_MV_SRC, ICON_FILE_RM, ICON_FILE_UP_DST, ICON_FILE_UP_SRC
-from index.uid.uid import UID
+from model.uid import UID
 from model.node.display_node import DisplayNode
 
 

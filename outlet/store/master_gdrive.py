@@ -7,13 +7,13 @@ from typing import DefaultDict, Dict, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID, TREE_TYPE_GDRIVE
-from gdrive.change_observer import GDriveChange, GDriveNodeChange
-from gdrive.gdrive_tree_loader import GDriveTreeLoader
-from index.error import CacheNotLoadedError, GDriveItemNotFoundError
-from index.master import MasterCache
-from index.sqlite.gdrive_db import GDriveDatabase
-from index.uid.uid import UID
-from index.uid.uid_mapper import UidGoogIdMapper
+from store.gdrive.change_observer import GDriveChange, GDriveNodeChange
+from store.gdrive.gdrive_tree_loader import GDriveTreeLoader
+from error import CacheNotLoadedError, GDriveItemNotFoundError
+from store.master import MasterCache
+from store.sqlite.gdrive_db import GDriveDatabase
+from model.uid import UID
+from store.uid.uid_mapper import UidGoogIdMapper
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.display_node import DisplayNode
 from model.display_tree.gdrive import GDriveDisplayTree

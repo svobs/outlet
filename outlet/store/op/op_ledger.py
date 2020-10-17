@@ -6,13 +6,13 @@ from typing import Callable, DefaultDict, Dict, Iterable, List, Optional
 
 from pydispatch import dispatcher
 
-from index.op_graph import OpGraph
+from store.op.op_graph import OpGraph
 from model.op import Op, OpType
 from command.cmd_builder import CommandBuilder
 from command.cmd_interface import Command, CommandStatus
 from constants import OPS_FILE_NAME
-from index.sqlite.op_db import OpDatabase
-from index.uid.uid import UID
+from store.sqlite.op_db import OpDatabase
+from model.uid import UID
 from model.node.display_node import DisplayNode
 from ui import actions
 

@@ -3,11 +3,10 @@ import logging
 import threading
 from typing import DefaultDict, Deque, Dict, Iterable, List, Optional
 
-from constants import SUPER_ROOT_UID, TREE_TYPE_GDRIVE
-from index.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, SrcOpNode
-from index.uid.uid import UID
+from constants import SUPER_ROOT_UID
+from store.op.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, SrcOpNode
+from model.uid import UID
 from model.node.display_node import DisplayNode
-from model.node.gdrive_node import GDriveNode
 from model.op import Op, OpType
 from util.stopwatch_sec import Stopwatch
 

@@ -2,7 +2,7 @@ import logging
 
 from model.op import OpType
 from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, ROOT_PATH
-from index.uid.uid import UID
+from model.uid import UID
 
 from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, LogicalNodeIdentifier, NodeIdentifier
 

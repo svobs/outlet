@@ -1,10 +1,10 @@
 import collections
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Deque, Dict, Iterable, List, Optional
+from typing import Any, Deque, Dict, List, Optional
 
 from constants import OP_TREE_INDENT_STR, SUPER_ROOT_UID
-from index.uid.uid import UID
+from model.uid import UID
 from model.op import Op, OpType
 
 logger = logging.getLogger(__name__)

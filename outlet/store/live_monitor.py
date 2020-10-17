@@ -7,13 +7,13 @@ from watchdog.observers import Observer
 from watchdog.observers.api import ObservedWatch
 
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from gdrive.gdrive_tree_loader import GDriveTreeLoader
-from local.event_handler import LocalChangeEventHandler
+from store.gdrive.gdrive_tree_loader import GDriveTreeLoader
 from model.node.local_disk_node import LocalNode
 from model.node_identifier import ensure_bool, ensure_int, NodeIdentifier
 import logging
 
 from model.node_identifier_factory import NodeIdentifierFactory
+from store.local.event_handler import LocalChangeEventHandler
 from ui import actions
 
 logger = logging.getLogger(__name__)

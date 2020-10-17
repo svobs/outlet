@@ -3,8 +3,8 @@ from collections import OrderedDict
 from typing import List, Optional, Tuple
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_ME_USER_UID
-from index.sqlite.base_db import ensure_int, LiveTable, MetaDatabase, Table
-from index.uid.uid import UID
+from store.sqlite.base_db import ensure_int, LiveTable, MetaDatabase, Table
+from model.uid import UID
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier

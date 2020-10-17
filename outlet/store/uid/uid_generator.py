@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import logging
 
 from constants import NULL_UID, GDRIVE_ROOT_UID
-from index.uid.uid import UID
+from model.uid import UID
 
 logger = logging.getLogger(__name__)
 

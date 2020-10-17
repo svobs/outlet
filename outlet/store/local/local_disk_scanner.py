@@ -7,10 +7,10 @@ from typing import Optional
 from pydispatch import dispatcher
 
 import ui.actions as actions
-from local.local_tree_recurser import LocalTreeRecurser
-from model.node.local_disk_node import LocalFileNode, LocalDirNode
+from model.node.local_disk_node import LocalDirNode
 from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
+from store.local.local_tree_recurser import LocalTreeRecurser
 
 logger = logging.getLogger(__name__)
 

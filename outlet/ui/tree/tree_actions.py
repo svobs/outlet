@@ -9,7 +9,7 @@ from pydispatch import dispatcher
 from model.node_identifier import NodeIdentifier
 from util import file_util
 from model.op import Op, OpType
-from gdrive.client import GDriveClient
+from store.gdrive.client import GDriveClient
 from model.node.display_node import DisplayNode
 from model.node.gdrive_node import GDriveFile
 from ui import actions

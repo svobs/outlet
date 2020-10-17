@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 import gi
 
 from util import file_util
-from index.error import CacheNotLoadedError, GDriveItemNotFoundError
+from error import GDriveItemNotFoundError
 from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 
 from constants import BTN_GDRIVE, BTN_LOCAL_DISK_LINUX, GDRIVE_PATH_PREFIX, ICON_ALERT, ICON_REFRESH, NULL_UID, \

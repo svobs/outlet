@@ -1,14 +1,13 @@
 import logging
 import os
 import pathlib
-import local.content_hasher
 from model.node_identifier import LocalFsIdentifier
 
 from util import file_util
 from model.op import Op, OpType
 from command.cmd_interface import Command, CommandContext, CommandResult, CommandStatus, CopyNodeCommand, DeleteNodeCommand, TwoNodeCommand
 from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, TrashStatus
-from index.uid.uid import UID
+from model.uid import UID
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.gdrive_node import GDriveFile, GDriveNode
 
@@ -37,7 +36,7 @@ class CopyFileLocallyCommand(CopyNodeCommand):
         if not self.op.src_node.md5:
             # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
             assert isinstance(self.op.src_node, LocalFileNode)
-            self.op.src_node.md5 = local.content_hasher.compute_md5(src_path)
+            self.op.src_node.md5 = store.local.content_hasher.compute_md5(src_path)
         md5 = self.op.src_node.md5
         # TODO: what if staging dir is not on same file system?
         staging_path = os.path.join(cxt.staging_dir, md5)

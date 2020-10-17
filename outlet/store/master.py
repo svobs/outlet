@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from index.uid.uid import UID
+from model.uid import UID
 from model.display_tree.display_tree import DisplayTree
 from model.node.display_node import DisplayNode
 from model.node_identifier import NodeIdentifier

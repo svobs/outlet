@@ -7,8 +7,8 @@ from pydispatch import dispatcher
 import constants
 from model.gdrive_meta import GDriveUser
 from util import file_util, format
-from index.error import GDriveItemNotFoundError
-from index.uid.uid import UID
+from error import GDriveItemNotFoundError
+from model.uid import UID
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory

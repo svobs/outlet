@@ -7,10 +7,10 @@ from functools import partial
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from constants import OBJ_TYPE_DIR, OBJ_TYPE_FILE, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from index.sqlite.base_db import LiveTable, MetaDatabase, Table
-from index.sqlite.gdrive_db import GDriveDatabase
-from index.sqlite.local_db import LocalDiskDatabase
-from index.uid.uid import UID
+from store.sqlite.base_db import LiveTable, MetaDatabase, Table
+from store.sqlite.gdrive_db import GDriveDatabase
+from store.sqlite.local_db import LocalDiskDatabase
+from model.uid import UID
 from model.op import Op, OpRef, OpType
 from model.node.display_node import DisplayNode
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode

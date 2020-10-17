@@ -1,12 +1,12 @@
 import os
 from collections import deque
-from typing import Deque, Iterator, List, Tuple
+from typing import Deque, List, Tuple
 import logging
 
 import treelib
 from treelib.exceptions import NodeIDAbsentError
 
-from index.uid.uid import UID
+from model.uid import UID
 from util import file_util
 from model.node.display_node import HasChildList
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode

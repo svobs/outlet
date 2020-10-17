@@ -17,9 +17,9 @@ from pydispatch import dispatcher
 
 from constants import GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_FILE_FIELDS, GDRIVE_FOLDER_FIELDS, \
     MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, TrashStatus
-from gdrive.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
-from gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
-from index.uid.uid import UID
+from store.gdrive.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
+from store.gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
+from model.uid import UID
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier

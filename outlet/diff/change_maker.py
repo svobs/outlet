@@ -4,7 +4,7 @@ import pathlib
 from collections import deque
 from typing import Deque, Dict, List
 
-from index.uid.uid import UID
+from model.uid import UID
 from util import file_util
 from model.op import Op, OpType
 from constants import NULL_UID, TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK

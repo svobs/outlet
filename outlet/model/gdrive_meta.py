@@ -1,5 +1,5 @@
 
-from index.uid.uid import UID
+from model.uid import UID
 from model.node_identifier import ensure_bool
 
 

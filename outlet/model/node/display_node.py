@@ -5,10 +5,10 @@ from typing import List, Optional, Tuple
 
 from treelib import Node
 
-from index.error import InvalidOperationError
+from error import InvalidOperationError
 from util import format
 from constants import ICON_FILE_CP_DST, ICON_GENERIC_FILE, TrashStatus
-from index.uid.uid_generator import UID
+from store.uid.uid_generator import UID
 from model.node_identifier import NodeIdentifier
 
 logger = logging.getLogger(__name__)

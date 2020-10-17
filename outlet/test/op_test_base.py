@@ -12,9 +12,9 @@ from pydispatch import dispatcher
 from app_config import AppConfig
 from command.cmd_interface import Command
 from constants import OPS_FILE_NAME
-from index import cache_manager
-from index.sqlite.op_db import OpDatabase
-from index.uid.uid import UID
+from store import cache_manager
+from store.sqlite.op_db import OpDatabase
+from model.uid import UID
 from model.display_tree.display_tree import DisplayTree
 from model.node.display_node import DisplayNode
 from outlet_app import OutletApplication

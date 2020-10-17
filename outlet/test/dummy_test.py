@@ -1,5 +1,5 @@
 from app_config import AppConfig
-from gdrive.client import GDriveClient
+from store.gdrive.client import GDriveClient
 import logging
 from outlet_app import OutletApplication
 

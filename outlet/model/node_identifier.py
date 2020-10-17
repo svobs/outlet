@@ -2,8 +2,8 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from constants import ROOT_PATH, LOCAL_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from index.uid.uid import UID
+from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from model.uid import UID
 
 logger = logging.getLogger(__name__)
 

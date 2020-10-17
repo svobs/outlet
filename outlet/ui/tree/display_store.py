@@ -2,7 +2,7 @@ import logging
 from functools import partial
 from typing import Callable, Dict, List, Optional, Union
 
-from index.uid.uid import UID
+from model.uid import UID
 from model.node.display_node import DisplayNode
 
 import gi

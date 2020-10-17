@@ -3,7 +3,7 @@ import logging
 from pydispatch import dispatcher
 
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from index.uid.uid_generator import NULL_UID
+from store.uid.uid_generator import NULL_UID
 from model.node_identifier import NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from ui import actions

@@ -10,11 +10,11 @@ from pydispatch import dispatcher
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
     GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID
-from gdrive.change_observer import PagePersistingChangeObserver
-from gdrive.client import GDriveClient
-from gdrive.query_observer import FileMetaPersister, FolderMetaPersister
-from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
-from index.uid.uid import UID
+from store.gdrive.change_observer import PagePersistingChangeObserver
+from store.gdrive.client import GDriveClient
+from store.gdrive.query_observer import FileMetaPersister, FolderMetaPersister
+from store.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
+from model.uid import UID
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from util.stopwatch_sec import Stopwatch

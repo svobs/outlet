@@ -1,25 +1,24 @@
 import copy
 import logging
 import os
-import pathlib
 import threading
 import time
+import store.local.content_hasher
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 from treelib.exceptions import NodeIDAbsentError
 
-import local.content_hasher
 from constants import LOCAL_ROOT_UID, ROOT_PATH, TREE_TYPE_LOCAL_DISK
-from index.cache_manager import PersistedCacheInfo
-from index.local_sig_calc_thread import SignatureCalcThread
-from index.master import MasterCache
-from index.sqlite.local_db import LocalDiskDatabase
-from index.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
-from index.uid.uid_generator import UID
-from index.uid.uid_mapper import UidPathMapper
-from local.local_disk_scanner import LocalDiskScanner
+from store.cache_manager import PersistedCacheInfo
+from store.local.local_disk_scanner import LocalDiskScanner
+from store.local.local_sig_calc_thread import SignatureCalcThread
+from store.master import MasterCache
+from store.sqlite.local_db import LocalDiskDatabase
+from store.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
+from store.uid.uid_generator import UID
+from store.uid.uid_mapper import UidPathMapper
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.local_disk import LocalDiskDisplayTree
 from model.display_tree.null import NullDisplayTree
@@ -970,7 +969,7 @@ class LocalDiskMasterCache(MasterCache):
             sha256 = None
         else:
             try:
-                md5, sha256 = local.content_hasher.calculate_signatures(full_path, staging_path)
+                md5, sha256 = store.local.content_hasher.calculate_signatures(full_path, staging_path)
             except FileNotFoundError:
                 # bad link
                 return None

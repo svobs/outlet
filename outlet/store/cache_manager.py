@@ -9,9 +9,9 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from command.cmd_interface import Command, CommandResult
-from gdrive.client import GDriveClient
-from index.error import CacheNotLoadedError, GDriveItemNotFoundError
-from index.live_monitor import LiveMonitor
+from store.gdrive.client import GDriveClient
+from error import CacheNotLoadedError, GDriveItemNotFoundError
+from store.live_monitor import LiveMonitor
 from model.display_tree.gdrive import GDriveDisplayTree
 from model.node_identifier_factory import NodeIdentifierFactory
 from ui.tree.controller import TreePanelController
@@ -19,13 +19,13 @@ from util import file_util
 from model.op import Op
 from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from util.file_util import get_resource_path
-from index.cache_info import CacheInfoEntry, PersistedCacheInfo
-from index.op_ledger import OpLedger
-from index.master_gdrive import GDriveMasterCache
-from index.master_local import LocalDiskMasterCache
-from index.sqlite.cache_registry_db import CacheRegistry
-from index.two_level_dict import TwoLevelDict
-from index.uid.uid import UID
+from model.cache_info import CacheInfoEntry, PersistedCacheInfo
+from store.op.op_ledger import OpLedger
+from store.master_gdrive import GDriveMasterCache
+from store.master_local import LocalDiskMasterCache
+from store.sqlite.cache_registry_db import CacheRegistry
+from store.two_level_dict import TwoLevelDict
+from model.uid import UID
 from model.node.display_node import DisplayNode, HasParentList
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.gdrive_node import GDriveNode

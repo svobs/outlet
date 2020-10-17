@@ -4,8 +4,8 @@ import logging
 
 from constants import GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, \
     MIME_TYPE_SHORTCUT
-from index.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
-from index.uid.uid import UID
+from store.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
+from model.uid import UID
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.gdrive_whole_tree import GDriveWholeTree
 

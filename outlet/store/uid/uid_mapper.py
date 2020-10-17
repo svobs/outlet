@@ -4,7 +4,7 @@ from typing import Dict, Optional
 
 from util import file_util
 from constants import LOCAL_ROOT_UID, ROOT_PATH
-from index.uid.uid import UID
+from model.uid import UID
 
 logger = logging.getLogger(__name__)
 

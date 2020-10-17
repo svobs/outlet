@@ -1,4 +1,3 @@
-import copy
 import logging
 import os
 import threading
@@ -11,12 +10,11 @@ import gi
 from pydispatch import dispatcher
 
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from gdrive.client import GDriveClient
-from index.uid.uid import UID
+from model.uid import UID
 from model.node.display_node import DisplayNode
 from model.node.gdrive_node import GDriveNode
 from test import op_test_base
-from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, INITIAL_LOCAL_TREE_RIGHT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
+from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
 from ui import actions
 from ui.actions import DELETE_SUBTREE, DRAG_AND_DROP_DIRECT, ID_RIGHT_TREE
 from ui.tree.ui_listeners import DragAndDropData

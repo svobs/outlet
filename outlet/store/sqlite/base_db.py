@@ -1,8 +1,8 @@
 import sqlite3
 import logging
-from typing import Any, Callable, Dict, Iterable, List, Optional, OrderedDict, Tuple, Union
+from typing import Any, Callable, Iterable, List, Optional, OrderedDict, Tuple, Union
 
-from index.uid.uid import UID
+from model.uid import UID
 
 logger = logging.getLogger(__name__)
 

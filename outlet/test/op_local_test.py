@@ -1,4 +1,3 @@
-import os
 import logging
 import os
 import threading
@@ -10,7 +9,7 @@ import gi
 from pydispatch import dispatcher
 
 from constants import TREE_TYPE_LOCAL_DISK
-from index.uid.uid import UID
+from model.uid import UID
 from model.node.display_node import DisplayNode
 from test import op_test_base
 from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, INITIAL_LOCAL_TREE_RIGHT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR

@@ -3,12 +3,12 @@ import gi
 from pydispatch import dispatcher
 
 from executor.central import CentralExecutor
-from index.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
+from store.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
 from model.node_identifier_factory import NodeIdentifierFactory
 from ui import actions
 from ui.actions import ID_DIFF_WINDOW
 
-from index.cache_manager import CacheManager
+from store.cache_manager import CacheManager
 
 import logging
 

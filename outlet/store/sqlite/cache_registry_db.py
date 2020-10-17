@@ -3,8 +3,8 @@ from collections import OrderedDict
 from typing import List, Tuple, Union
 
 from util import file_util
-from index.cache_info import CacheInfoEntry
-from index.sqlite.base_db import ensure_int, LiveTable, MetaDatabase, Table
+from model.cache_info import CacheInfoEntry
+from store.sqlite.base_db import ensure_int, LiveTable, MetaDatabase, Table
 
 logger = logging.getLogger(__name__)
 

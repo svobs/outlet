@@ -8,12 +8,12 @@ import treelib
 from pydispatch import dispatcher
 from treelib.exceptions import DuplicatedNodeIdError
 
-from index.error import InvalidOperationError
+from error import InvalidOperationError
 from ui import actions
 from util import file_util
 from model.op import Op, OpType
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
-from index.uid.uid import UID
+from model.uid import UID
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.display_node import DisplayNode, HasChildList
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
