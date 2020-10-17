@@ -92,7 +92,7 @@ class MasterCacheData:
         if self.use_sha256 and node.sha256:
             self.sha256_dict.remove(node.sha256, node.full_path)
 
-    def upsert_single_node(self, node: LocalNode) -> Tuple[Optional[LocalNode], bool]:
+    def upsert_single_node(self, node: LocalNode, update_only: bool = False) -> Tuple[Optional[LocalNode], bool]:
         """If a node already exists, the new node is merged into it and returned; otherwise the given node is returned.
         Second item in the tuple is True if update contained changes which should be saved to disk; False if otherwise"""
 
@@ -140,6 +140,10 @@ class MasterCacheData:
                     _check_update_sanity(existing_node, node)
             existing_node.update_from(node)
             node = existing_node
+        elif update_only:
+            if SUPER_DEBUG:
+                logger.debug(f'Skipping update of node {node.uid} because it is not in the cache')
+            return node, False
         else:
             # new file or directory insert
             self.master_tree.add_to_tree(node)
@@ -156,10 +160,13 @@ class MasterCacheData:
 # CLASS Subtree
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class Subtree(ABC):
-    def __init__(self, subtree_root: NodeIdentifier, upsert_node_list: List[LocalNode], remove_node_list: List[LocalNode]):
+    def __init__(self, subtree_root: NodeIdentifier, remove_node_list: List[LocalNode], upsert_node_list: List[LocalNode]):
         self.subtree_root: NodeIdentifier = subtree_root
-        self.upsert_node_list: List[LocalNode] = upsert_node_list
         self.remove_node_list: List[LocalNode] = remove_node_list
+        self.upsert_node_list: List[LocalNode] = upsert_node_list
+
+    def __repr__(self):
+        return f'Subtree({self.subtree_root} remove_nodes={len(self.remove_node_list)} upsert_nodes={len(self.upsert_node_list)}'
 
 
 # ABSTRACT CLASS LocalDiskOp
@@ -209,12 +216,13 @@ class LocalDiskSubtreeOp(LocalDiskOp, ABC):
 # CLASS UpsertSingleNodeOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
-    def __init__(self, node: LocalNode):
+    def __init__(self, node: LocalNode, update_only: bool = False):
         super().__init__(node)
         self.was_updated: bool = True
+        self.update_only: bool = update_only
 
     def update_memory_cache(self, data: MasterCacheData):
-        node, self.was_updated = data.upsert_single_node(self.node)
+        node, self.was_updated = data.upsert_single_node(self.node, self.update_only)
         if node:
             self.node = node
         elif SUPER_DEBUG:
@@ -229,6 +237,9 @@ class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
     def send_signals(self):
         if self.was_updated:
             dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=self.node)
+
+    def __repr__(self):
+        return f'UpsertSingleNodeOp({self.node.node_identifier}, update_only={self.update_only})'
 
 
 # CLASS DeleteSingleNodeOp
@@ -259,6 +270,9 @@ class DeleteSingleNodeOp(UpsertSingleNodeOp):
     def send_signals(self):
         dispatcher.send(signal=actions.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=self.node)
 
+    def __repr__(self):
+        return f'DeleteSingleNodeOp({self.node.node_identifier} to_trash={self.to_trash})'
+
 
 # CLASS BatchChangesOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -270,7 +284,7 @@ class BatchChangesOp(LocalDiskSubtreeOp):
         if subtree_list:
             self.subtree_list = subtree_list
         else:
-            self.subtree_list = [Subtree(subtree_root, upsert_node_list, remove_node_list)]
+            self.subtree_list = [Subtree(subtree_root, remove_node_list, upsert_node_list)]
 
     def get_subtree_list(self) -> List[Subtree]:
         return self.subtree_list
@@ -302,6 +316,9 @@ class BatchChangesOp(LocalDiskSubtreeOp):
             for node in subtree.upsert_node_list:
                 dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
 
+    def __repr__(self):
+        return f'BatchChangesOp({self.subtree_list})'
+
 
 # CLASS DeleteSubtreeOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -319,7 +336,7 @@ class LocalDiskOpExecutor:
 
     def execute(self, operation: LocalDiskOp):
         if SUPER_DEBUG:
-            logger.debug(f'Executing operation: {type(operation)}')
+            logger.debug(f'Executing operation: {operation}')
         operation.update_memory_cache(self._data)
 
         cacheman = self.app.cacheman
@@ -562,7 +579,7 @@ class LocalDiskMasterCache(MasterCache):
 
         with self._struct_lock:
             # Just upsert all nodes in the updated tree and let God (or some logic) sort them out
-            subtree = Subtree(subtree_root, fresh_tree.get_subtree_bfs(), [])
+            subtree = Subtree(subtree_root, [], fresh_tree.get_subtree_bfs())
             batch_changes_op: BatchChangesOp = BatchChangesOp(subtree_list=[subtree])
 
             # Find removed nodes and append them to remove_single_nodes_op
@@ -594,7 +611,8 @@ class LocalDiskMasterCache(MasterCache):
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def show_tree(self, subtree_root: LocalFsIdentifier) -> str:
-        return self._data.master_tree.show(stdout=False, nid=subtree_root.uid)
+        with self._struct_lock:
+            return self._data.master_tree.show(stdout=False, nid=subtree_root.uid)
 
     def get_display_tree(self, subtree_root: LocalFsIdentifier, tree_id: str) -> DisplayTree:
         logger.debug(f'DisplayTree requested for root: {subtree_root}')
@@ -814,7 +832,7 @@ class LocalDiskMasterCache(MasterCache):
             src_node: LocalNode = self._data.master_tree.get_node(src_uid)
             if src_node:
                 src_nodes: List[LocalNode] = self._data.master_tree.get_subtree_bfs(src_node.uid)
-                src_subtree: Subtree = Subtree(src_node.node_identifier, upsert_node_list=[], remove_node_list=src_nodes)
+                src_subtree: Subtree = Subtree(src_node.node_identifier, remove_node_list=[], upsert_node_list=src_nodes)
             else:
                 logger.error(f'MV src node does not exist: UID={src_uid}, path={src_full_path}')
                 return

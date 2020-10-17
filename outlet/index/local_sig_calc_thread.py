@@ -53,6 +53,10 @@ class SignatureCalcThread(threading.Thread):
 
     def _process_single_node(self, node: LocalFileNode):
         md5, sha256 = local.content_hasher.calculate_signatures(node.full_path)
+        if not node.md5 and not node.sha256:
+            logger.debug(f'[{self.name}] Failed to calculate signature for node {node.uid}: assuming it was deleted')
+            return
+
         node.md5 = md5
         node.sha256 = sha256
 
@@ -60,7 +64,7 @@ class SignatureCalcThread(threading.Thread):
 
         # TODO: consider batching writes
         # Send back to ourselves to be re-stored in memory & disk caches:
-        self.app.cacheman.upsert_single_node(node)
+        self.app.cacheman.update_single_node(node)
 
     def _on_node_upserted_in_cache(self, sender: str, node: DisplayNode):
         if node.get_tree_type() == TREE_TYPE_LOCAL_DISK and node.is_file() and not node.md5 and not node.sha256:

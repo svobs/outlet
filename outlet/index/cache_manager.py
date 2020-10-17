@@ -410,6 +410,16 @@ class CacheManager:
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
+    def update_single_node(self, node: DisplayNode):
+        """Simliar to upsert, but fails silently if node does not already exist in caches. Useful for things such as asynch MD5 filling"""
+        tree_type = node.node_identifier.tree_type
+        if tree_type == TREE_TYPE_GDRIVE:
+            self._gdrive_cache.update_single_node(node)
+        elif tree_type == TREE_TYPE_LOCAL_DISK:
+            self._local_disk_cache.update_single_node(node)
+        else:
+            raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
+
     def remove_subtree(self, node: DisplayNode, to_trash: bool):
         tree_type = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:

@@ -95,7 +95,7 @@ class LocalDiskDisplayTree(DisplayTree):
         dispatcher.send(signal=actions.SET_STATUS, sender=tree_id, status_msg=self.get_summary())
 
     def print_tree_contents_debug(self):
-        logger.debug(f'[{self.tree_id}] Contents of LocalDiskTree for "{self.node_identifier}": \n' +
+        logger.debug(f'[{self.tree_id}] Contents of LocalDiskDisplayTree for "{self.node_identifier}": \n' +
                      self.app.cacheman.show_tree(self.node_identifier))
 
     def __repr__(self):

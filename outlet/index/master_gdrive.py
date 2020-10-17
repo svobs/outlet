@@ -51,10 +51,12 @@ class GDriveCacheOp(ABC):
 # CLASS UpsertSingleNodeOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class UpsertSingleNodeOp(GDriveCacheOp):
-    def __init__(self, node: GDriveNode, uid_mapper):
+    def __init__(self, node: GDriveNode, uid_mapper, update_only: bool = False):
         self.node: GDriveNode = node
         self.uid_mapper = uid_mapper
+        self.was_updated: bool = True
         self.parent_goog_ids = []
+        self.update_only: bool = update_only
 
         # try to prevent cache corruption by doing some sanity checks
         if not node:
@@ -68,6 +70,13 @@ class UpsertSingleNodeOp(GDriveCacheOp):
 
     def update_memory_cache(self, master_tree: GDriveWholeTree):
         # Detect whether it's already in the cache
+        if self.node.goog_id:
+            uid_from_mapper = self.uid_mapper.get_uid_for_goog_id(goog_id=self.node.goog_id)
+            if self.node.uid != uid_from_mapper:
+                logger.warning(f'Found node in cache with same GoogID ({self.node.goog_id}) but different UID ('
+                               f'{uid_from_mapper}). Changing UID of node (was: {self.node.uid}) to match and overwrite previous node')
+                self.node.uid = uid_from_mapper
+
         existing_node = master_tree.get_node_for_uid(self.node.uid)
         if existing_node:
             # it is ok if we have an existing node which doesn't have a goog_id; that will be replaced
@@ -87,14 +96,13 @@ class UpsertSingleNodeOp(GDriveCacheOp):
             if existing_node == self.node:
                 logger.info(f'Node being added (uid={self.node.uid}) is identical to node already in the cache; skipping cache update')
                 dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=self.node)
+                self.was_updated = False
                 return
             logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')
-        elif self.node.goog_id:
-            previous_uid = self.uid_mapper.get_uid_for_goog_id(goog_id=self.node.goog_id)
-            if previous_uid and self.node.uid != previous_uid:
-                logger.warning(f'Found node in cache with same GoogID ({self.node.goog_id}) but different UID ('
-                               f'{previous_uid}). Changing UID of node (was: {self.node.uid}) to match and overwrite previous node')
-                self.node.uid = previous_uid
+        elif self.update_only:
+            logger.debug(f'Skipping update for node because it is not in the memory cache: {self.node}')
+            self.was_updated = False
+            return
 
         # Finally, update in-memory cache (tree). If an existing node is found with the same UID, it will update and return that instead:
         self.node = master_tree.add_node(self.node)
@@ -109,6 +117,10 @@ class UpsertSingleNodeOp(GDriveCacheOp):
             self.parent_goog_ids = master_tree.resolve_uids_to_goog_ids(parent_uids)
 
     def update_disk_cache(self, cache: GDriveDatabase):
+        if not self.was_updated:
+            logger.debug(f'Node does not need disk update; skipping save to disk: {self.node}')
+            return
+
         if not self.node.exists():
             logger.debug(f'Node does not exist; skipping save to disk: {self.node}')
             return
@@ -136,7 +148,8 @@ class UpsertSingleNodeOp(GDriveCacheOp):
             cache.upsert_gdrive_file_list([self.node])
 
     def send_signals(self):
-        dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=self.node)
+        if self.was_updated:
+            dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=self.node)
 
 
 # CLASS DeleteSingleNodeOp
@@ -452,6 +465,11 @@ class GDriveMasterCache(MasterCache):
     def _upsert_single_node_nolock(self, node: GDriveNode):
         logger.debug(f'Upserting GDrive node to caches: {node}')
         self._execute(UpsertSingleNodeOp(node, self._uid_mapper))
+
+    def update_single_node(self, node: GDriveNode):
+        with self._struct_lock:
+            logger.debug(f'Updating GDrive node in caches: {node}')
+            self._execute(UpsertSingleNodeOp(node, self._uid_mapper, update_only=True))
 
     def remove_subtree(self, subtree_root: GDriveNode, to_trash):
         assert isinstance(subtree_root, GDriveNode), f'For node: {subtree_root}'

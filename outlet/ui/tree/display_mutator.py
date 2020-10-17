@@ -469,11 +469,15 @@ class DisplayMutator:
             ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = node.get_etc()
             ds.model[tree_iter][self.con.treeview_meta.col_num_data] = node
 
+            redraw_displayed_node.nodes_redrawn += 1
+
+        redraw_displayed_node.nodes_redrawn = 0
+
         def do_in_ui():
             with self._lock:
                 if not self.con.app.shutdown:
                     self.con.display_store.recurse_over_tree(action_func=redraw_displayed_node)
-                    logger.debug(f'[{self.con.tree_id}] Completely done redrawing display tree stats in UI')
+                    logger.debug(f'[{self.con.tree_id}] Completely done redrawing stats in UI (for {redraw_displayed_node.nodes_redrawn} nodes)')
                     # currently this is only used for functional tests
                     dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, sender=self.con.tree_id)
 
