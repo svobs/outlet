@@ -318,6 +318,8 @@ class LocalDiskOpExecutor:
         self._data: MasterCacheData = data
 
     def execute(self, operation: LocalDiskOp):
+        if SUPER_DEBUG:
+            logger.debug(f'Executing operation: {type(operation)}')
         operation.update_memory_cache(self._data)
 
         cacheman = self.app.cacheman
@@ -591,6 +593,9 @@ class LocalDiskMasterCache(MasterCache):
     # Subtree-level methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
+    def show_tree(self, subtree_root: LocalFsIdentifier) -> str:
+        return self._data.master_tree.show(stdout=False, nid=subtree_root.uid)
+
     def get_display_tree(self, subtree_root: LocalFsIdentifier, tree_id: str) -> DisplayTree:
         logger.debug(f'DisplayTree requested for root: {subtree_root}')
         return self._get_display_tree(subtree_root, tree_id, is_live_refresh=False)
@@ -689,7 +694,7 @@ class LocalDiskMasterCache(MasterCache):
 
         with self._struct_lock:
             root_node = self._data.master_tree.get_node(requested_subtree_root.uid)
-        fmeta_tree = LocalDiskDisplayTree(root_node=root_node, app=self.app)
+        fmeta_tree = LocalDiskDisplayTree(root_node=root_node, app=self.app, tree_id=tree_id)
         logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {fmeta_tree.node_identifier.full_path}')
         return fmeta_tree
 

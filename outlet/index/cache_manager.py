@@ -453,6 +453,14 @@ class CacheManager:
     # Various public methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
+    def show_tree(self, subtree_root: LocalFsIdentifier) -> str:
+        if subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
+            return self._local_disk_cache.show_tree(subtree_root)
+        elif subtree_root.tree_type == TREE_TYPE_GDRIVE:
+            raise
+        else:
+            assert False
+
     def update_from(self, cmd_result: CommandResult):
         """Updates the in-memory cache, on-disk cache, and UI with the nodes from the given CommandResult"""
         # TODO: refactor so that we can attempt to create (close to) an atomic operation which combines GDrive and Local functionality

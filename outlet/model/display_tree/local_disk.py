@@ -1,5 +1,4 @@
 import logging
-import pathlib
 from typing import Iterable, List, Optional
 
 from pydispatch import dispatcher
@@ -26,11 +25,12 @@ logger = logging.getLogger(__name__)
 class LocalDiskDisplayTree(DisplayTree):
     """🢄 Just a shell of its former self!"""
 
-    def __init__(self, root_node: LocalDirNode, app):
+    def __init__(self, root_node: LocalDirNode, app, tree_id: str):
         assert isinstance(root_node.node_identifier, LocalFsIdentifier)
         super().__init__(root_node)
         self.root_node: LocalDirNode = root_node
-        self.cacheman = app.cacheman
+        self.app = app
+        self.tree_id = tree_id
 
         self._stats_loaded = False
 
@@ -38,21 +38,21 @@ class LocalDiskDisplayTree(DisplayTree):
         if node.get_tree_type() != constants.TREE_TYPE_LOCAL_DISK:
             return None
 
-        return self.cacheman.get_parent_for_node(node, self.root_path)
+        return self.app.cacheman.get_parent_for_node(node, self.root_path)
 
     def get_children_for_root(self) -> Iterable[DisplayNode]:
-        return self.cacheman.get_children(self.root_node)
+        return self.app.cacheman.get_children(self.root_node)
 
     def get_children(self, parent: DisplayNode) -> Iterable[DisplayNode]:
         assert parent.node_identifier.tree_type == constants.TREE_TYPE_LOCAL_DISK, f'For: {parent.node_identifier}'
-        return self.cacheman.get_children(parent)
+        return self.app.cacheman.get_children(parent)
 
     def get_full_path_for_node(self, node: LocalFileNode) -> str:
         # Trivial for FMetas
         return node.full_path
 
     def get_for_path(self, path: str, include_ignored=False) -> List[LocalFileNode]:
-        node = self.cacheman.get_node_for_local_path(path)
+        node = self.app.cacheman.get_node_for_local_path(path)
         if node:
             if node.full_path.startswith(self.root_path):
                 return [node]
@@ -62,7 +62,7 @@ class LocalDiskDisplayTree(DisplayTree):
         md5_set_stopwatch = Stopwatch()
 
         md5_dict: Md5BeforePathDict = Md5BeforePathDict()
-        files_list, dir_list = self.cacheman.get_all_files_and_dirs_for_subtree(self.node_identifier)
+        files_list, dir_list = self.app.cacheman.get_all_files_and_dirs_for_subtree(self.node_identifier)
         for node in files_list:
             if node.exists() and node.md5:
                 md5_dict.put(node)
@@ -89,10 +89,14 @@ class LocalDiskDisplayTree(DisplayTree):
 
     def refresh_stats(self, tree_id: str):
         logger.debug(f'[{tree_id}] Refreshing stats...')
-        self.cacheman.refresh_stats(self.root_node, tree_id)
+        self.app.cacheman.refresh_stats(self.root_node, tree_id)
         self._stats_loaded = True
         dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
         dispatcher.send(signal=actions.SET_STATUS, sender=tree_id, status_msg=self.get_summary())
+
+    def print_tree_contents_debug(self):
+        logger.debug(f'[{self.tree_id}] Contents of LocalDiskTree for "{self.node_identifier}": \n' +
+                     self.app.cacheman.show_tree(self.node_identifier))
 
     def __repr__(self):
         return f'LocalDiskDisplayTree(root="{self.node_identifier}"])'

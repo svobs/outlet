@@ -26,11 +26,12 @@ SUPER_DEBUG = False
 
 
 class GDriveDisplayTree(DisplayTree):
-    def __init__(self,  whole_tree: GDriveWholeTree, root_node: GDriveFolder):
+    def __init__(self,  whole_tree: GDriveWholeTree, root_node: GDriveFolder, tree_id: str):
         DisplayTree.__init__(self, root_node=root_node)
 
         self._whole_tree = whole_tree
         self._root_node: GDriveFolder = root_node
+        self.tree_id = tree_id
 
         # See refresh_stats() for the following
         self._stats_loaded = False
@@ -108,7 +109,7 @@ class GDriveDisplayTree(DisplayTree):
             id_count_str = f' id_count={self._root_node.file_count + self._root_node.dir_count}'
         else:
             id_count_str = ''
-        return f'GDriveDisplayTree(root_uid={self.root_uid} root_path="{self.root_path}"{id_count_str})'
+        return f'GDriveDisplayTree(tree_id={self.tree_id} root_uid={self.root_uid} root_path="{self.root_path}"{id_count_str})'
 
     def get_summary(self):
         if self._stats_loaded:
@@ -118,6 +119,10 @@ class GDriveDisplayTree(DisplayTree):
                    f'{self._root_node.trashed_file_count:n} trashed)'
         else:
             return 'Loading stats...'
+
+    def print_tree_contents_debug(self):
+        # TODO
+        logger.debug(f'[{self.tree_id}] GDriveDisplayTree for "{self.node_identifier}": NOT IMPLEMENTED')
 
     def refresh_stats(self, tree_id: str):
         logger.debug(f'[{tree_id}] Refreshing stats...')

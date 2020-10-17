@@ -240,6 +240,8 @@ class OpTestBase(unittest.TestCase):
             try:
                 actual_node: DisplayNode = next(actual_iter)
                 logger.info(f'Examining: {actual_node} (expecting: {expected_node})')
+                if actual_node.name != expected_node.name:
+                    logger.debug('XXX')
                 self.assertEqual(expected_node.name, actual_node.name)
                 self.assertEqual(expected_node.size_bytes, actual_node.get_size_bytes())
                 self.assertEqual(expected_node.is_dir(), actual_node.is_dir())
@@ -292,6 +294,7 @@ class OpTestBase(unittest.TestCase):
 
     def verify(self, tree_con: TreePanelController, expected_list_root: List[FNode]):
         logger.info(f'Verifying "{tree_con.tree_id}"')
+        tree_con.get_tree().print_tree_contents_debug()
 
         # Verify that all nodes loaded correctly into the cache, which will be reflected by the state of the DisplayTree:
         backing_tree: DisplayTree = tree_con.get_tree()

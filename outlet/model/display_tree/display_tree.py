@@ -42,6 +42,9 @@ class DisplayTree(ABC):
     def uid(self):
         return self.root_node.node_identifier.uid
 
+    def print_tree_contents_debug(self):
+        logger.debug('print_tree_contents_debug() not implemented for this tree')
+
     def in_this_subtree(self, full_path: Union[str, List[str]]):
         if not full_path:
             raise RuntimeError('in_this_subtree(): full_path not provided!')

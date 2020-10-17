@@ -396,7 +396,7 @@ class GDriveMasterCache(MasterCache):
 
         logger.info(f'{stopwatch_total} GDrive cache for {cache_info.subtree_root.full_path} loaded')
 
-    def _make_gdrive_display_tree(self, subtree_root: GDriveIdentifier) -> Optional[GDriveDisplayTree]:
+    def _make_gdrive_display_tree(self, subtree_root: GDriveIdentifier, tree_id: str) -> Optional[GDriveDisplayTree]:
         if not subtree_root.uid:
             logger.debug(f'_make_gdrive_display_tree(): subtree_root.uid is empty!')
             return None
@@ -407,7 +407,7 @@ class GDriveMasterCache(MasterCache):
             return None
 
         assert isinstance(root, GDriveFolder)
-        return GDriveDisplayTree(whole_tree=self._master_tree, root_node=root)
+        return GDriveDisplayTree(whole_tree=self._master_tree, root_node=root, tree_id=tree_id)
 
     def _load_gdrive_subtree(self, subtree_root: Optional[GDriveIdentifier], invalidate_cache: bool, sync_latest_changes: bool, tree_id: str)\
             -> GDriveDisplayTree:
@@ -417,7 +417,7 @@ class GDriveMasterCache(MasterCache):
 
         self._load_master_cache_from_disk(invalidate_cache, sync_latest_changes, tree_id)
 
-        gdrive_meta = self._make_gdrive_display_tree(subtree_root)
+        gdrive_meta = self._make_gdrive_display_tree(subtree_root, tree_id)
         if gdrive_meta:
             logger.debug(f'[{tree_id}] Made display tree: {gdrive_meta}')
         else:

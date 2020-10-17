@@ -8,6 +8,7 @@ import treelib
 from pydispatch import dispatcher
 from treelib.exceptions import DuplicatedNodeIdError
 
+from index.error import InvalidOperationError
 from ui import actions
 from util import file_util
 from model.op import Op, OpType
@@ -82,9 +83,12 @@ class CategoryDisplayTree(DisplayTree):
             return self._category_tree.children(parent.identifier)
         except Exception:
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f'[{self.tree_id}] CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))
+                self.print_tree_contents_debug()
             logger.error(f'[{self.tree_id}] While retrieving children for: {parent.identifier}')
             raise
+
+    def print_tree_contents_debug(self):
+        logger.debug(f'[{self.tree_id}] CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))
 
     def get_ancestors(self, node: DisplayNode, stop_before_func: Callable[[DisplayNode], bool] = None) -> Deque[DisplayNode]:
         ancestors: Deque[DisplayNode] = deque()
@@ -312,13 +316,13 @@ class CategoryDisplayTree(DisplayTree):
         return f'CategoryDisplayTree(tree_id=[{self.tree_id}], {self.get_summary()})'
 
     def get_relative_path_for_node(self, node):
-        raise NotImplementedError
+        raise InvalidOperationError('CategoryDisplayTree.get_relative_path_for_node()')
 
     def get_for_path(self, path: str, include_ignored=False) -> List[DisplayNode]:
-        raise NotImplementedError
+        raise InvalidOperationError('CategoryDisplayTree.get_for_path()')
 
     def get_md5_dict(self):
-        raise NotImplementedError
+        raise InvalidOperationError('CategoryDisplayTree.get_md5_dict()')
 
     def get_summary(self) -> str:
         def make_cat_map():
