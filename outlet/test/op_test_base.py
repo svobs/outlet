@@ -2,7 +2,6 @@ import collections
 import logging
 import os
 import threading
-import time
 import unittest
 from functools import partial
 from typing import Callable, Deque, Iterable, List, Optional, Tuple
@@ -13,7 +12,7 @@ from pydispatch import dispatcher
 from app_config import AppConfig
 from command.cmd_interface import Command
 from constants import OPS_FILE_NAME
-from index import cacheman
+from index import cache_manager
 from index.sqlite.op_db import OpDatabase
 from index.uid.uid import UID
 from model.display_tree.display_tree import DisplayTree
@@ -162,7 +161,7 @@ class OpTestBase(unittest.TestCase):
         config = AppConfig()
 
         # Delete ops cache, so that prev run doesn't contaminate us:
-        cache_dir_path = cacheman.ensure_cache_dir_path(config)
+        cache_dir_path = cache_manager.ensure_cache_dir_path(config)
         self.op_db_path = os.path.join(cache_dir_path, OPS_FILE_NAME)
         if os.path.exists(self.op_db_path):
             file_util.rm_file(self.op_db_path)

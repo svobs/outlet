@@ -92,9 +92,9 @@ class OpLedger:
     def _update_nodes_in_memcache(self, op: Op):
         """Looks at the given Op and notifies cacheman so that it can send out update notifications. The nodes involved may not have
         actually changed (i.e., only their statuses have changed)"""
-        self.cacheman.add_or_update_node(op.src_node)
+        self.cacheman.upsert_single_node(op.src_node)
         if op.has_dst():
-            self.cacheman.add_or_update_node(op.dst_node)
+            self.cacheman.upsert_single_node(op.dst_node)
 
     # Reduce Changes logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -232,10 +232,6 @@ class OpLedger:
 
     def load_pending_ops(self):
         """Call this at startup, to resume pending ops which have not yet been applied."""
-
-        # We may need various things from the cacheman...
-        # For now, just tell the CacheManager to load all the caches. Can optimize in the future.
-        self.cacheman.load_all_caches()
 
         if self.cacheman.cancel_all_pending_ops_on_startup:
             logger.debug(f'User configuration specifies cancelling all pending ops on startup')

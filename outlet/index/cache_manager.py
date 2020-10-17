@@ -280,10 +280,7 @@ class CacheManager:
             try:
                 self.caches_by_type.put(existing_disk_cache)
                 logger.info(f'Init cache {(cache_num + 1)}/{len(existing_caches)}: id={existing_disk_cache.subtree_root}')
-                if existing_disk_cache.is_loaded:
-                    logger.debug('Cache is already loaded; skipping')
-                else:
-                    self._init_existing_cache(existing_disk_cache)
+                self._init_existing_cache(existing_disk_cache)
             except Exception:
                 logger.exception(f'Failed to load cache: {existing_disk_cache.cache_location}')
 
@@ -307,6 +304,10 @@ class CacheManager:
                 return []
 
     def _init_existing_cache(self, existing_disk_cache: PersistedCacheInfo):
+        if existing_disk_cache.is_loaded:
+            logger.debug('Cache is already loaded; skipping')
+            return
+
         cache_type = existing_disk_cache.subtree_root.tree_type
         if cache_type != TREE_TYPE_LOCAL_DISK and cache_type != TREE_TYPE_GDRIVE:
             raise RuntimeError(f'Unrecognized tree type: {cache_type}')
@@ -400,7 +401,7 @@ class CacheManager:
     # Main cache CRUD
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def add_or_update_node(self, node: DisplayNode):
+    def upsert_single_node(self, node: DisplayNode):
         tree_type = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
             self._gdrive_cache.upsert_single_node(node)
@@ -459,7 +460,7 @@ class CacheManager:
         if cmd_result.nodes_to_upsert:
             logger.debug(f'Upserted {len(cmd_result.nodes_to_upsert)} nodes: notifying cacheman')
             for upsert_node in cmd_result.nodes_to_upsert:
-                self.add_or_update_node(upsert_node)
+                self.upsert_single_node(upsert_node)
 
         if cmd_result.nodes_to_delete:
             try:

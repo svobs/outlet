@@ -35,7 +35,7 @@ from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
-SUPER_DEBUG = True
+SUPER_DEBUG = False
 
 
 # CLASS MasterCacheData
@@ -121,6 +121,12 @@ class MasterCacheData:
                 if SUPER_DEBUG:
                     logger.debug(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
                 return existing_node, False
+            else:
+                # Signature may have changed. Simplify things by just removing prev node before worrying about updated node
+                if existing_node.md5 and self.use_md5:
+                    self.md5_dict.remove(existing_node)
+                if existing_node.sha256 and self.use_sha256:
+                    self.sha256_dict.remove(existing_node)
 
             # just update the existing - much easier
             if SUPER_DEBUG:
@@ -131,18 +137,17 @@ class MasterCacheData:
                 if SUPER_DEBUG:
                     _check_update_sanity(existing_node, node)
             existing_node.update_from(node)
+            node = existing_node
         else:
             # new file or directory insert
             self.master_tree.add_to_tree(node)
 
         # do this after the above, to avoid cache corruption in case of failure
         if node.md5 and self.use_md5:
-            self.md5_dict.put(node, existing_node)
+            self.md5_dict.put(node)
         if node.sha256 and self.use_sha256:
-            self.sha256_dict.put(node, existing_node)
+            self.sha256_dict.put(node)
 
-        if existing_node:
-            return existing_node, True
         return node, True
 
 
@@ -206,7 +211,7 @@ class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
         self.was_updated: bool = True
 
     def update_memory_cache(self, data: MasterCacheData):
-        self.was_updated = data.upsert_single_node(self.node)
+        self.node, self.was_updated = data.upsert_single_node(self.node)
 
     def update_disk_cache(self, cache: LocalDiskDatabase):
         if self.was_updated:
@@ -271,8 +276,10 @@ class BatchChangesOp(LocalDiskSubtreeOp):
                     data.remove_single_node(node)
                 logger.debug(f'Removed {len(subtree.remove_node_list)} nodes from memcache path "{subtree.subtree_root.full_path}"')
             if subtree.upsert_node_list:
-                for node in subtree.upsert_node_list:
-                    data.upsert_single_node(node)
+                for node_index, node in enumerate(subtree.upsert_node_list):
+                    master_node, was_updated = data.upsert_single_node(node)
+                    if master_node:
+                        subtree.upsert_node_list[node_index] = master_node
                 logger.debug(f'Upserted {len(subtree.upsert_node_list)} nodes to memcache path "{subtree.subtree_root.full_path}"')
 
     def update_disk_cache(self, cache: LocalDiskDatabase, subtree: Subtree):
@@ -574,6 +581,7 @@ class LocalDiskMasterCache(MasterCache):
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def get_display_tree(self, subtree_root: LocalFsIdentifier, tree_id: str) -> DisplayTree:
+        logger.debug(f'DisplayTree requested for root: {subtree_root}')
         return self._get_display_tree(subtree_root, tree_id, is_live_refresh=False)
 
     def _get_display_tree(self, subtree_root: NodeIdentifier, tree_id: str, is_live_refresh: bool = False) -> DisplayTree:

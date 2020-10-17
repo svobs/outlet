@@ -39,7 +39,7 @@ class LocalChangeEventHandler(FileSystemEventHandler):
                 node: LocalDirNode = self.cacheman.build_local_dir_node(event.src_path)
             else:
                 node: LocalNode = self.cacheman.build_local_file_node(event.src_path)
-            self.cacheman.add_or_update_node(node)
+            self.cacheman.upsert_single_node(node)
         except FileNotFoundError as err:
             logger.debug(f'Could not process external event (MK {_what(event)} "{event.src_path}"): file not found: "{err.filename}"')
         except Exception:
