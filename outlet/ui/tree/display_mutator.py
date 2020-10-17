@@ -9,7 +9,7 @@ from typing import Deque, Iterable, List, Optional
 
 from pydispatch.errors import DispatcherKeyError
 
-from constants import HOLDOFF_TIME_MS, LARGE_NUMBER_OF_CHILDREN
+from constants import HOLDOFF_TIME_MS, LARGE_NUMBER_OF_CHILDREN, SUPER_DEBUG
 from error import GDriveItemNotFoundError
 from model.op import Op
 from util.holdoff_timer import HoldOffTimer
@@ -25,7 +25,6 @@ from gi.repository import GLib, Gtk
 from gi.repository.Gtk import TreeIter
 
 logger = logging.getLogger(__name__)
-SUPER_DEBUG = False
 
 
 # CLASS DisplayMutator

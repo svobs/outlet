@@ -21,8 +21,8 @@ from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, NULL_UID,
 from util.file_util import get_resource_path
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from store.op.op_ledger import OpLedger
-from store.master_gdrive import GDriveMasterCache
-from store.master_local import LocalDiskMasterCache
+from store.gdrive.master_gdrive import GDriveMasterCache
+from store.local.master_local import LocalDiskMasterCache
 from store.sqlite.cache_registry_db import CacheRegistry
 from store.two_level_dict import TwoLevelDict
 from model.uid import UID

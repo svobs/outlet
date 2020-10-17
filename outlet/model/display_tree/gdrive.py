@@ -15,7 +15,6 @@ from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
-SUPER_DEBUG = False
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥

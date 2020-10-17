@@ -10,15 +10,13 @@ from store.op.op_graph import OpGraph
 from model.op import Op, OpType
 from command.cmd_builder import CommandBuilder
 from command.cmd_interface import Command, CommandStatus
-from constants import OPS_FILE_NAME
+from constants import OPS_FILE_NAME, SUPER_DEBUG
 from store.sqlite.op_db import OpDatabase
 from model.uid import UID
 from model.node.display_node import DisplayNode
 from ui import actions
 
 logger = logging.getLogger(__name__)
-
-SUPER_DEBUG = False
 
 
 # ENUM FailureBehavior

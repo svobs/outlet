@@ -1,6 +1,7 @@
 from enum import IntEnum
 from model.uid import UID
 
+SUPER_DEBUG = False
 
 APP_NAME = 'Outlet'
 

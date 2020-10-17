@@ -11,8 +11,6 @@ from model.node.display_node import DisplayNode, HasChildList
 
 logger = logging.getLogger(__name__)
 
-SUPER_DEBUG = False
-
 
 # CLASS LocalNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

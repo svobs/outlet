@@ -17,8 +17,6 @@ from ui import actions
 
 logger = logging.getLogger(__name__)
 
-SUPER_DEBUG = False
-
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
@@ -123,7 +121,7 @@ class GDriveWholeTree:
 
         removed_node = self.id_dict.pop(node.uid, None)
 
-        if SUPER_DEBUG:
+        if constants.SUPER_DEBUG:
             logger.debug(f'GDriveNode removed from in-memory tree: {removed_node}')
 
         return removed_node

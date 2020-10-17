@@ -12,7 +12,7 @@ from error import InvalidOperationError
 from ui import actions
 from util import file_util
 from model.op import Op, OpType
-from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
+from constants import SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from model.uid import UID
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.display_node import DisplayNode, HasChildList
@@ -24,8 +24,6 @@ from util.stopwatch_sec import Stopwatch
 logger = logging.getLogger(__name__)
 
 CHANGE_TYPES = [OpType.CP, OpType.RM, OpType.UP, OpType.MV]
-
-SUPER_DEBUG = False
 
 
 # CLASS TreeTypeBeforeCategoryDict
