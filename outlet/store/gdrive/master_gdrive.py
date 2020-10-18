@@ -178,7 +178,8 @@ class GDriveMasterCache(MasterCache):
     def get_display_tree(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveDisplayTree:
         return self._load_gdrive_subtree(subtree_root, sync_latest_changes=False, invalidate_cache=False, tree_id=tree_id)
 
-    def get_master_tree(self, invalidate_cache: bool = False, tree_id: str = None):
+    def get_synced_master_tree(self, invalidate_cache: bool = False, tree_id: str = None):
+        """This will sync the latest changes before returning."""
         return self._load_gdrive_subtree(subtree_root=None, sync_latest_changes=True, invalidate_cache=invalidate_cache, tree_id=tree_id)
 
     def refresh_subtree_stats(self, subtree_root_node: GDriveFolder, tree_id: str):
@@ -243,13 +244,30 @@ class GDriveMasterCache(MasterCache):
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def apply_gdrive_changes(self, gdrive_change_list: List[GDriveChange]):
-        operation: BatchChangesOp = BatchChangesOp(self._master_tree, gdrive_change_list)
+        operation: BatchChangesOp = BatchChangesOp(self.app, gdrive_change_list)
 
         with self._struct_lock:
-            self._execute(operation)
+            try:
+                self._execute(operation)
+            except RuntimeError:
+                logger.error(f'While executing GDrive change list: {gdrive_change_list}')
+                raise
 
-    def get_goog_ids_for_uids(self, uids: List[UID]) -> List[str]:
-        return self._master_tree.resolve_uids_to_goog_ids(uids)
+    def get_goog_id_list_for_uid_list(self, uid_list: List[UID], fail_if_missing: bool = True) -> List[str]:
+        try:
+            return self._master_tree.resolve_uids_to_goog_ids(uid_list, fail_if_missing=fail_if_missing)
+        except RuntimeError:
+            # Unresolved UIDs. This can happen when one cache's node refers to a parent which no longer exists...
+            # TODO: let's make this even more robust by keeping track of tombstones
+            logger.warning(f'Failed to find UIDs in master tree; assuming they were deleted. Trying uid_mapper...')
+            goog_id_list: List[str] = []
+            for uid in uid_list:
+                goog_id = self._uid_mapper.get_goog_id_for_uid(uid)
+                if goog_id:
+                    goog_id_list.append(goog_id)
+                else:
+                    raise RuntimeError(f'Could not find goog_id for UID: {uid}')
+            return goog_id_list
 
     def get_uid_list_for_goog_id_list(self, goog_ids: List[str]) -> List[UID]:
         uid_list = []
@@ -282,9 +300,6 @@ class GDriveMasterCache(MasterCache):
         if node:
             return node.goog_id
         return None
-
-    def resolve_uids_to_goog_ids(self, uids: List[UID]) -> List[str]:
-        return self._master_tree.resolve_uids_to_goog_ids(uids)
 
     def get_children(self, node: DisplayNode) -> List[GDriveNode]:
         assert isinstance(node, GDriveNode)

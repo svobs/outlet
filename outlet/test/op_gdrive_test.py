@@ -16,7 +16,7 @@ from model.node.gdrive_node import GDriveNode
 from test import op_test_base
 from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
 from ui import actions
-from ui.actions import DELETE_SUBTREE, DRAG_AND_DROP_DIRECT, ID_RIGHT_TREE
+from ui.actions import DELETE_SUBTREE, DRAG_AND_DROP_DIRECT, ID_GLOBAL_CACHE, ID_RIGHT_TREE
 from ui.tree.ui_listeners import DragAndDropData
 
 gi.require_version("Gtk", "3.0")
@@ -67,46 +67,61 @@ class OpGDriveTest(OpTestBase):
         super(OpGDriveTest, self).tearDown()
 
     def _cleanup_gdrive_local_and_remote(self):
-        displayed_rows: List[DisplayNode] = list(self.right_con.display_store.displayed_rows.values())
-        if displayed_rows:
-            logger.info(f'Found {len(displayed_rows)} displayed rows (will delete) for right tree: {self.right_tree_root_path}')
-
-            # If we have displayed rows to delete, then need to wait for StatsUpdated signal before we proceed
-            right_stats_updated = threading.Event()
-
-            def on_stats_updated(sender):
-                logger.info(f'Got signal: {actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE} for "{sender}"')
-                if sender == self.right_con.tree_id:
-                    right_stats_updated.set()
-
-            dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, receiver=on_stats_updated, sender=ID_RIGHT_TREE)
-
-            for node in displayed_rows:
-                logger.warning(f'Deleting node via cacheman: {node}')
-                assert isinstance(node, GDriveNode)
-                self.app.cacheman.remove_subtree(node, to_trash=False)
-
-            logger.info('Waiting for Right tree stats to be completely done...')
-            if not right_stats_updated.wait(LOAD_TIMEOUT_SEC):
-                raise RuntimeError('Timed out waiting for Right stats to update!')
-
-            logger.info('Done with displayed rows cleanup')
+        # self._delete_all_right_tree_displayed_rows_from_cacheman()
 
         self._delete_all_files_in_gdrive_test_folder()
+
+    def _delete_all_right_tree_displayed_rows_from_cacheman(self):
+        displayed_rows: List[DisplayNode] = list(self.right_con.display_store.displayed_rows.values())
+        if not displayed_rows:
+            logger.info('No displayed rows found in right tree; nothing to clean up')
+            return
+
+        logger.info(f'Found {len(displayed_rows)} displayed rows (will delete) for right tree: {self.right_tree_root_path}')
+
+        # If we have displayed rows to delete, then need to wait for StatsUpdated signal before we proceed
+        right_stats_updated = threading.Event()
+
+        def on_stats_updated(sender):
+            logger.info(f'Got signal: {actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE} for "{sender}"')
+            if sender == self.right_con.tree_id:
+                right_stats_updated.set()
+
+        dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, receiver=on_stats_updated, sender=ID_RIGHT_TREE)
+
+        for node in displayed_rows:
+            logger.warning(f'Deleting node via cacheman: {node}')
+            assert isinstance(node, GDriveNode)
+            self.app.cacheman.remove_subtree(node, to_trash=False)
+
+        logger.info('Waiting for Right tree stats to be completely done...')
+        if not right_stats_updated.wait(LOAD_TIMEOUT_SEC):
+            raise RuntimeError('Timed out waiting for Right stats to update!')
+
+        logger.info('Done with displayed rows cleanup')
 
     def _delete_all_files_in_gdrive_test_folder(self):
         # delete all files which may have been uploaded to GDrive. Goes around the program cache
         logger.info('Connecting to GDrive to find files in remote test folder')
-        client = self.app.cacheman.gdrive_client
+
         parent_node: DisplayNode = self.app.cacheman.get_node_for_uid(self.right_tree_root_uid, TREE_TYPE_GDRIVE)
         assert isinstance(parent_node, GDriveNode)
+        # VERY IMPORTANT: fail if name doesn't match - don't want to delete the wrong folder!
+        self.assertEqual(parent_node.name, 'Test')
+
+        client = self.app.cacheman.gdrive_client
         children = client.get_all_children_for_parent(parent_node.goog_id)
-        logger.info(f'Found {len(children)} child nodes for parent: {parent_node.name}')
+        logger.info(f'GDrive server query found {len(children)} child nodes for parent: {parent_node.name}')
 
         for child in children:
             logger.warning(f'Deleting node via GDrive API: {child}')
             client.hard_delete(child.goog_id)
         logger.info('Done with GDrive remote cleanup')
+
+        # Now download latest changes from server so our local cacheman is up-to-date
+        logger.info('Syncing latest changes from GDrive server...')
+        # FIXME: need to sort changes
+        self.app.cacheman.get_synced_gdrive_master_tree(ID_GLOBAL_CACHE)
 
     # TESTS
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -227,6 +242,8 @@ class OpGDriveTest(OpTestBase):
                            expected_left=INITIAL_LOCAL_TREE_LEFT, expected_right=final_tree_right)
 
     def test_dd_one_dir_tree_cp(self):
+        """INTERESTING NOTE: try alternating execution of test_dd_one_dir_tree_cp() and test_dd_two_dir_trees_cp()
+        to illuminate an interesting GDrive sync race condition"""
         logger.info('Testing drag & drop copy of 1 dir tree local left to GDrive right')
         self.app.executor.start_op_execution_thread()
 

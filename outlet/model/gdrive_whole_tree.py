@@ -407,15 +407,17 @@ class GDriveWholeTree:
                                 None, None, None, None, None, None)
         return self.id_dict.get(uid, None)
 
-    def resolve_uids_to_goog_ids(self, uids: List[UID]) -> List[str]:
+    def resolve_uids_to_goog_ids(self, uids: List[UID], fail_if_missing: bool = True) -> List[str]:
         goog_ids: List[str] = []
         for uid in uids:
             node = self.get_node_for_uid(uid)
-            if not node:
-                raise RuntimeError(f'Could not resolve parent UID: {uid}')
-            if not node.goog_id:
-                raise RuntimeError(f'Item is missing Google ID: {node}')
-            goog_ids.append(node.goog_id)
+            if node and node.goog_id:
+                goog_ids.append(node.goog_id)
+            elif fail_if_missing:
+                if not node:
+                    raise RuntimeError(f'Could not resolve goog_id: could not find node in master GDrive tree with UID: {uid}')
+                if not node.goog_id:
+                    raise RuntimeError(f'Could not resolve goog_id for UID {uid}: node has no goog_id: {node}')
         return goog_ids
 
     def get_all_paths_for_id(self, uid: UID, stop_before_id: str = None) -> List[str]:

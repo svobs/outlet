@@ -310,24 +310,22 @@ class OpDatabase(MetaDatabase):
         nodes_by_action_uid[op_uid] = obj
         return obj
 
-    def _action_node_to_tuple(self, obj: DisplayNode, op_uid: UID) -> Tuple:
-        if not obj.has_tuple():
-            raise RuntimeError(f'Node cannot be converted to tuple: {obj}')
-        if obj.get_tree_type() == TREE_TYPE_GDRIVE:
-            assert isinstance(obj, GDriveNode)
+    def _action_node_to_tuple(self, node: DisplayNode, op_uid: UID) -> Tuple:
+        if not node.has_tuple():
+            raise RuntimeError(f'Node cannot be converted to tuple: {node}')
+        if node.get_tree_type() == TREE_TYPE_GDRIVE:
+            assert isinstance(node, GDriveNode)
             parent_uid: Optional[UID] = None
             parent_goog_id: Optional[str] = None
-            if obj.get_parent_uids():
-                parent_uid = obj.get_parent_uids()[0]
+            if node.get_parent_uids():
+                parent_uid = node.get_parent_uids()[0]
                 try:
-                    parent_goog_id_list = self.cacheman.get_goog_ids_for_uids([parent_uid])
-                    if parent_goog_id_list:
-                        parent_goog_id = parent_goog_id_list[0]
+                    parent_goog_id = self.cacheman.get_goog_id_for_parent(node)
                 except RuntimeError:
-                    logger.debug(f'Could not resolve parent_uid to goog_id: {parent_uid}')
-            return op_uid, *obj.to_tuple(), parent_uid, parent_goog_id
+                    logger.debug(f'Could not resolve goog_id for UID {parent_uid}; assuming parent is not yet created')
+            return op_uid, *node.to_tuple(), parent_uid, parent_goog_id
 
-        return op_uid, *obj.to_tuple()
+        return op_uid, *node.to_tuple()
 
     def _copy_and_augment_table(self, src_table: Table, prefix: str, suffix: str) -> LiveTable:
         table: Table = copy.deepcopy(src_table)

@@ -51,18 +51,22 @@ class UidGoogIdMapper:
         self.uid_generator = app.uid_generator
         # Every unique GoogId must map to one unique UID
         self._goog_uid_dict: Dict[str, UID] = {}
+        self._uid_goog_dict: Dict[UID, str] = {}
 
     def get_uid_for_goog_id(self, goog_id: str, uid_suggestion: Optional[UID] = None) -> UID:
         with self._uid_lock:
             uid = self._goog_uid_dict.get(goog_id, None)
             if not uid:
                 if uid_suggestion:
-                    self._goog_uid_dict[goog_id] = uid_suggestion
                     uid = uid_suggestion
                 else:
                     uid = self.uid_generator.next_uid()
-                    self._goog_uid_dict[goog_id] = uid
+                self._goog_uid_dict[goog_id] = uid
+                self._uid_goog_dict[uid] = goog_id
             elif uid_suggestion and uid_suggestion != uid:
                 logger.warning(f'UID was requested ({uid_suggestion}) but found existing UID ({uid}) for key: "{goog_id}"')
             return uid
 
+    def get_goog_id_for_uid(self, uid: UID) -> str:
+        with self._uid_lock:
+            return self._uid_goog_dict.get(uid, None)

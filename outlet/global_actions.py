@@ -99,7 +99,7 @@ class GlobalActions(HasLifecycle):
         """See above. Executed by Task Runner. NOT UI thread"""
         try:
             # This will send out the necessary notifications if anything has changed
-            self.app.cacheman.get_gdrive_whole_tree(tree_id)
+            self.app.cacheman.get_synced_gdrive_master_tree(tree_id)
         except Exception as err:
             self.show_error_ui('Sync from GDrive failed due to unexpected error', repr(err))
             logger.exception(err)
@@ -113,7 +113,7 @@ class GlobalActions(HasLifecycle):
         """See above. Executed by Task Runner. NOT UI thread"""
         actions.disable_ui(sender=tree_id)
         try:
-            tree = self.app.cacheman.get_gdrive_whole_tree(tree_id)
+            tree = self.app.cacheman.get_synced_gdrive_master_tree(tree_id)
             dispatcher.send(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, sender=tree_id, tree=tree, current_selection=current_selection)
         except Exception as err:
             self.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))

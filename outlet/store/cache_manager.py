@@ -338,7 +338,7 @@ class CacheManager(HasLifecycle):
         elif cache_type == TREE_TYPE_GDRIVE:
             assert existing_disk_cache.subtree_root == NodeIdentifierFactory.get_gdrive_root_constant_identifier(), \
                 f'Expected GDrive root ({NodeIdentifierFactory.get_gdrive_root_constant_identifier()}) but found: {existing_disk_cache.subtree_root}'
-            self._master_gdrive.get_master_tree(tree_id=ID_GLOBAL_CACHE)
+            self._master_gdrive.get_synced_master_tree(tree_id=ID_GLOBAL_CACHE)
 
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -542,13 +542,13 @@ class CacheManager(HasLifecycle):
         # also blocks !
         return self._op_ledger.get_next_command()
 
-    def download_all_gdrive_meta(self, tree_id):
+    def download_all_gdrive_meta(self, tree_id: str):
         """Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-        self._master_gdrive.get_master_tree(invalidate_cache=True, tree_id=tree_id)
+        self._master_gdrive.get_synced_master_tree(invalidate_cache=True, tree_id=tree_id)
 
-    def get_gdrive_whole_tree(self, tree_id) -> GDriveDisplayTree:
-        """Will load from disk or even GDrive server if necessary. Always updates with latest changes."""
-        return self._master_gdrive.get_master_tree(tree_id=tree_id)
+    def get_synced_gdrive_master_tree(self, tree_id: str) -> GDriveDisplayTree:
+        """Will load from disk and sync latest changes from GDrive server before returning."""
+        return self._master_gdrive.get_synced_master_tree(tree_id=tree_id)
 
     def build_local_file_node(self, full_path: str, staging_path=None, must_scan_signature=False) -> Optional[LocalFileNode]:
         return self._master_local.build_local_file_node(full_path, staging_path, must_scan_signature)
@@ -591,23 +591,17 @@ class CacheManager(HasLifecycle):
     def get_goog_id_for_parent(self, node: GDriveNode) -> str:
         """Fails if there is not exactly 1 parent"""
         parent_uids: List[UID] = node.get_parent_uids()
-        if not parent_uids:
-            raise RuntimeError(f'Parents are required but node has no parents: {node}')
+        if len(parent_uids) != 1:
+            raise RuntimeError(f'Only one parent is allowed but node has {len(parent_uids)} parents: {node}')
 
         # This will raise an exception if it cannot resolve:
-        parent_goog_ids: List[str] = self.get_goog_ids_for_uids(parent_uids)
-
-        if len(parent_goog_ids) == 0:
-            raise RuntimeError(f'No parent Google IDs for: {node}')
-        if len(parent_goog_ids) > 1:
-            # not supported at this time
-            raise RuntimeError(f'Too many parent Google IDs for: {node}')
+        parent_goog_ids: List[str] = self.get_goog_id_list_for_uid_list(parent_uids, fail_if_missing=True)
 
         parent_goog_id: str = parent_goog_ids[0]
         return parent_goog_id
 
-    def get_goog_ids_for_uids(self, uids: List[UID]) -> List[str]:
-        return self._master_gdrive.get_goog_ids_for_uids(uids)
+    def get_goog_id_list_for_uid_list(self, uids: List[UID], fail_if_missing: bool = True) -> List[str]:
+        return self._master_gdrive.get_goog_id_list_for_uid_list(uids, fail_if_missing=fail_if_missing)
 
     def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
         """Deterministically gets or creates a UID corresponding to the given path string"""

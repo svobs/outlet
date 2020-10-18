@@ -5,7 +5,7 @@ from typing import DefaultDict, List, Tuple
 
 from pydispatch import dispatcher
 
-from constants import TREE_TYPE_GDRIVE
+from constants import SUPER_DEBUG, TREE_TYPE_GDRIVE
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.uid import UID
@@ -54,6 +54,9 @@ class UpsertSingleNodeOp(GDriveCacheOp):
             raise RuntimeError(f'Unrecognized node type: {node}')
 
     def update_memory_cache(self, master_tree: GDriveWholeTree):
+        if SUPER_DEBUG:
+            logger.debug(f'Upserting GDriveNode to memory cache: {self.node}')
+
         # Detect whether it's already in the cache
         if self.node.goog_id:
             uid_from_mapper = self.uid_mapper.get_uid_for_goog_id(goog_id=self.node.goog_id)
@@ -98,12 +101,18 @@ class UpsertSingleNodeOp(GDriveCacheOp):
         master_tree.get_full_path_for_node(self.node)
 
         parent_uids = self.node.get_parent_uids()
-        if not parent_uids:
-            logger.debug(f'Node has no parents; assuming it is a root node: {self.node}')
+        if parent_uids:
+            try:
+                self.parent_goog_ids = master_tree.resolve_uids_to_goog_ids(parent_uids, fail_if_missing=True)
+            except RuntimeError:
+                logger.debug(f'Could not resolve goog_ids for parent UIDs ({parent_uids}); assuming parents do not exist')
         else:
-            self.parent_goog_ids = master_tree.resolve_uids_to_goog_ids(parent_uids)
+            logger.debug(f'Node has no parents; assuming it is a root node: {self.node}')
 
     def update_disk_cache(self, cache: GDriveDatabase):
+        if SUPER_DEBUG:
+            logger.debug(f'Upserting GDriveNode to disk cache: {self.node}')
+
         if not self.was_updated:
             logger.debug(f'Node does not need disk update; skipping save to disk: {self.node}')
             return
@@ -148,6 +157,9 @@ class DeleteSingleNodeOp(GDriveCacheOp):
         self.to_trash: bool = to_trash
 
     def update_memory_cache(self, master_tree: GDriveWholeTree):
+        if SUPER_DEBUG:
+            logger.debug(f'Removing GDriveNode from memory cache: {self.node}')
+
         if self.node.is_dir():
             children: List[GDriveNode] = master_tree.get_children(self.node)
             if children:
@@ -158,6 +170,9 @@ class DeleteSingleNodeOp(GDriveCacheOp):
             master_tree.remove_node(existing_node)
 
     def update_disk_cache(self, cache: GDriveDatabase):
+        if SUPER_DEBUG:
+            logger.debug(f'Removing GDriveNode from disk cache: {self.node}')
+
         cache.delete_single_node(self.node, commit=False)
 
     def send_signals(self):
@@ -214,8 +229,8 @@ def _reduce_changes(change_list: List[GDriveChange]) -> List[GDriveChange]:
 # CLASS BatchChangesOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class BatchChangesOp(GDriveCacheOp):
-    def __init__(self, master_tree, change_list: List[GDriveChange]):
-        self.master_tree = master_tree
+    def __init__(self, app, change_list: List[GDriveChange]):
+        self.app = app
         self.change_list = _reduce_changes(change_list)
 
     def update_memory_cache(self, master_tree: GDriveWholeTree):
@@ -249,7 +264,7 @@ class BatchChangesOp(GDriveCacheOp):
                 parent_mapping_list = []
                 parent_uids = change.node.get_parent_uids()
                 if parent_uids:
-                    parent_goog_ids = self.master_tree.resolve_uids_to_goog_ids(parent_uids)
+                    parent_goog_ids = self.app.cacheman.get_goog_id_list_for_uid_list(parent_uids)
                     if len(change.node.get_parent_uids()) != len(parent_goog_ids):
                         raise RuntimeError(f'Internal error: could not map all parent goog_ids ({len(parent_goog_ids)}) to parent UIDs '
                                            f'({len(parent_uids)}) for node: {change.node}')

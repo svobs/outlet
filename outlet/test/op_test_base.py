@@ -214,7 +214,7 @@ class OpTestBase(unittest.TestCase):
 
         self.verify(self.left_con, self.left_tree_initial)
         self.verify(self.right_con, self.right_tree_initial)
-        logger.info(f'LOAD COMPLETE')
+        logger.warning(f'LOAD COMPLETE')
 
     def tearDown(self) -> None:
         with OpDatabase(self.op_db_path, self.app) as op_db:

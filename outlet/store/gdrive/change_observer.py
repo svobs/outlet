@@ -19,6 +19,9 @@ class GDriveChange:
     def is_removed(cls):
         return False
 
+    def __repr__(self):
+        return f'GDriveChange(goog_id="{self.goog_id}" node={self.node} change_ts={self.change_ts})'
+
 
 # CLASS GDriveRM
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -30,12 +33,18 @@ class GDriveRM(GDriveChange):
     def is_removed(cls):
         return True
 
+    def __repr__(self):
+        return f'GDriveRM(goog_id="{self.goog_id}" node={self.node}) change_ts={self.change_ts}'
+
 
 # CLASS GDriveNodeChange
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class GDriveNodeChange(GDriveChange):
     def __init__(self, change_ts, goog_id: str, node: GDriveNode):
         super().__init__(change_ts, goog_id, node)
+
+    def __repr__(self):
+        return f'GDriveNodeChange(node={self.node}) change_ts={self.change_ts}'
 
 
 # CLASS GDriveChangeList
