@@ -1,6 +1,7 @@
 import logging
 import os
 import pathlib
+import store.local.content_hasher
 from model.node_identifier import LocalFsIdentifier
 
 from util import file_util

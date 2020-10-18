@@ -5,6 +5,7 @@ import re
 import errno
 import platform
 import logging
+import store.local.content_hasher
 from typing import List, Tuple
 
 from constants import ROOT_PATH

@@ -430,8 +430,8 @@ class OpLocalTest(OpTestBase):
             self.find_node_by_name(self.left_con, 'Modern')
         ]
 
-        def drop_both_sides():
-            logger.info('Submitting first drag & drop signal')
+        def drop_then_delete():
+            logger.info('Submitting drag & drop signal')
             dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes_batch_1)
             dst_tree_path = Gtk.TreePath.new_from_string('2')
 
@@ -478,7 +478,7 @@ class OpLocalTest(OpTestBase):
             dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_RIGHT_TREE, node_list=nodes_batch_2)
 
         # The end result should be that nothing has changed
-        self.do_and_verify(drop_both_sides, count_expected_cmds=12, wait_for_left=True, wait_for_right=True,
+        self.do_and_verify(drop_then_delete, count_expected_cmds=12, wait_for_left=False, wait_for_right=True,
                            expected_left=INITIAL_LOCAL_TREE_LEFT, expected_right=INITIAL_LOCAL_TREE_RIGHT)
 
     def test_delete_subtree(self):
