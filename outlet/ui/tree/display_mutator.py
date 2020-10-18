@@ -458,9 +458,11 @@ class DisplayMutator:
                 return
 
             # Node in cacheman should always reference the same object as the node in our tree
-            cached_node = self.con.app.cacheman.get_node_for_uid(node.uid, node.get_tree_type())
-            assert id(cached_node) == id(node), \
-                f'Object mismatch for node: (cacheman: id={id(cached_node)}, node={cached_node}, displayed: id={id(node)}, node={node})'
+            if SUPER_DEBUG:
+                cached_node = self.con.app.cacheman.get_node_for_uid(node.uid, node.get_tree_type())
+                # allow for the possibility that object may no longer be in cache, which is ok. But if in cache, it should always be the same obj
+                assert not cached_node or id(cached_node) == id(node), \
+                    f'Object mismatch for node: (cacheman: id={id(cached_node)}, node={cached_node}, displayed: id={id(node)}, node={node})'
 
             logger.debug(f'[{self.con.tree_id}] Redrawing stats for node: {node}; path={ds.model.get_path(tree_iter)}; '
                          f'size={node.get_size_bytes()} etc={node.get_etc()}')

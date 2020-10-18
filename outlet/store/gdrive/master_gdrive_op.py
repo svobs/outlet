@@ -72,6 +72,7 @@ class UpsertSingleNodeOp(GDriveCacheOp):
             if existing_node.exists() and not self.node.exists():
                 # In the future, let's close this hole with more elegant logic
                 logger.warning(f'Cannot replace a node which exists with one which does not exist; ignoring: {self.node}')
+                self.was_updated = False
                 return
 
             if existing_node.is_dir() and not self.node.is_dir():
@@ -81,6 +82,7 @@ class UpsertSingleNodeOp(GDriveCacheOp):
             if existing_node == self.node:
                 logger.info(f'Node being added (uid={self.node.uid}) is identical to node already in the cache; skipping cache update')
                 dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=self.node)
+                self.node = existing_node
                 self.was_updated = False
                 return
             logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')

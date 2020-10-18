@@ -3,7 +3,6 @@ import threading
 from typing import Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
-from pydispatch.errors import DispatcherKeyError
 
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID
 from error import CacheNotLoadedError, GDriveItemNotFoundError
