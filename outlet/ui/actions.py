@@ -30,7 +30,7 @@ REFRESH_SUBTREE = 'refresh-subtree'
 LOAD_UI_TREE = 'load-ui-tree'
 """Requests that the central cache update the stats for all nodes in the given subtree.
 When done, the central cache will send the signal REFRESH_SUBTREE_STATS_DONE to notify the tree that it can redraw the displayed nodes"""
-LOAD_UI_TREE_DONE = 'load-ui-tree-done'
+SHUTDOWN_APP = 'shutdown-app'
 
 # --- Tree actions: notifications ---
 LOAD_SUBTREE_STARTED = 'load-subtree-started'
@@ -46,6 +46,7 @@ REFRESH_SUBTREE_STATS_DONE = 'refresh-subtree-stats-done'
 REFRESH_SUBTREE_STATS_COMPLETELY_DONE = 'refresh-subtree-stats-completely-done'
 REFRESH_SUBTREE_DONE = 'refresh-subtree-done'
 """Indicates that the central cache has updated the stats for the subtree, and the subtree should redraw the nodes"""
+LOAD_UI_TREE_DONE = 'load-ui-tree-done'
 
 DRAG_AND_DROP = 'drag-and-drop'
 DRAG_AND_DROP_DIRECT = 'drag-and-drop-direct'

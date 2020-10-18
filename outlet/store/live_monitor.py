@@ -15,6 +15,7 @@ import logging
 from model.node_identifier_factory import NodeIdentifierFactory
 from store.local.event_handler import LocalChangeEventHandler
 from ui import actions
+from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
 
@@ -22,15 +23,20 @@ logger = logging.getLogger(__name__)
 # CLASS GDrivePollingThread
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class GDrivePollingThread(threading.Thread):
+class GDrivePollingThread(HasLifecycle, threading.Thread):
     def __init__(self, app, thread_num):
         super().__init__(target=self._run_gdrive_polling_thread, name=f'GDrivePollingThread-{thread_num}', daemon=True)
         self._shutdown: bool = False
         self.app = app
         self.gdrive_thread_polling_interval_sec: int = ensure_int(self.app.config.get('cache.gdrive_thread_polling_interval_sec'))
 
-    def request_shutdown(self):
-        logger.debug(f'Requesting shutdown of thread {self.name}')
+    def start(self):
+        HasLifecycle.start(self)
+        threading.Thread.start(self)
+
+    def shutdown(self):
+        logger.debug(f'Shutting down {self.name}')
+        HasLifecycle.shutdown(self)
         self._shutdown = True
 
     def _run_gdrive_polling_thread(self):
@@ -50,7 +56,7 @@ class GDrivePollingThread(threading.Thread):
 # CLASS LocalFileChangeBatchingThread
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class LocalFileChangeBatchingThread(threading.Thread):
+class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
     def __init__(self, app):
         super().__init__(target=self._run, name=f'LocalFileChangeBatchingThread', daemon=True)
         self._shutdown: bool = False
@@ -61,8 +67,13 @@ class LocalFileChangeBatchingThread(threading.Thread):
     def enqueue(self, file_path: str):
         self.change_set.add(file_path)
 
-    def request_shutdown(self):
-        logger.debug(f'Requesting shutdown of thread {self.name}')
+    def start(self):
+        HasLifecycle.start(self)
+        threading.Thread.start(self)
+
+    def shutdown(self):
+        logger.debug(f'Shutting down {self.name}')
+        HasLifecycle.shutdown(self)
         self._shutdown = True
 
     def _run(self):
@@ -92,7 +103,7 @@ class LocalFileChangeBatchingThread(threading.Thread):
 # CLASS LiveMonitor
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class LiveMonitor:
+class LiveMonitor(HasLifecycle):
     def __init__(self, app):
         self.app = app
 
@@ -118,18 +129,17 @@ class LiveMonitor:
 
         self._watchdog_observer = Observer()
 
-    def __del__(self):
-        self.shutdown()
-
     def start(self):
+        HasLifecycle.start(self)
         self._watchdog_observer.start()
 
     def shutdown(self):
+        HasLifecycle.shutdown(self)
         self._watchdog_observer.stop()
         self._stop_gdrive_capture()
 
         if self._local_change_batching_thread:
-            self._local_change_batching_thread.request_shutdown()
+            self._local_change_batching_thread.shutdown()
             self._local_change_batching_thread = None
 
     def _start_local_disk_capture(self, full_path: str, tree_id: str):
@@ -179,7 +189,7 @@ class LiveMonitor:
 
     def _stop_gdrive_capture(self):
         if self._gdrive_polling_thread:
-            self._gdrive_polling_thread.request_shutdown()
+            self._gdrive_polling_thread.shutdown()
             self._gdrive_polling_thread = None
 
     def start_or_update_capture(self, node_identifier: NodeIdentifier, tree_id: str):

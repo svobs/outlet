@@ -9,8 +9,10 @@ from model.node_identifier import NodeIdentifier
 
 # ABSTRACT CLASS MasterCache
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+from util.has_lifecycle import HasLifecycle
 
-class MasterCache(ABC):
+
+class MasterCache(HasLifecycle, ABC):
     # Getters / Loaders
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 

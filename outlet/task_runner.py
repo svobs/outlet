@@ -3,6 +3,7 @@ import logging
 from typing import Callable
 
 from constants import TASK_RUNNER_MAX_WORKERS
+from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ class Task:
 # CLASS CentralTaskRunner
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class CentralTaskRunner:
+class CentralTaskRunner(HasLifecycle):
     def __init__(self, app):
         self.app = app
         self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=TASK_RUNNER_MAX_WORKERS, thread_name_prefix='TaskRunner-')
@@ -48,6 +49,8 @@ class CentralTaskRunner:
         """Note: setting wait to False will not decrease the shutdown time.
         Rather, wait=True just means block here until all running tasks are completed (i.e. the thread
         pool threads appear to not be daemon threads."""
+        HasLifecycle.shutdown(self)
+
         if self._executor:
             self._executor.shutdown(wait=True)
             self._executor = None

@@ -20,6 +20,7 @@ from ui.tree import tree_factory
 
 from ui.dialog.merge_preview_dialog import MergePreviewDialog
 from ui.dialog.base_dialog import BaseDialog
+from util.has_lifecycle import HasLifecycle
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk
@@ -132,14 +133,10 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
     def shutdown(self, arg=None):
         """Overrides Gtk.Window.close()"""
         logger.debug(f'TwoPanelWindow.shutdown() called')
-        # Clean up:
-        if self.tree_con_left:
-            self.tree_con_left.destroy()
-            self.tree_con_left = None
 
-        if self.tree_con_right:
-            self.tree_con_right.destroy()
-            self.tree_con_right = None
+        # Clean up:
+        self.tree_con_left = None
+        self.tree_con_right = None
 
         if self.app:
             # swap into local var to prevent infinite cycle

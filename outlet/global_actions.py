@@ -9,6 +9,7 @@ from constants import TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
 from model.node_identifier import NodeIdentifier
 from model.display_tree.display_tree import DisplayTree
+from util.has_lifecycle import HasLifecycle
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
@@ -24,11 +25,13 @@ logger = logging.getLogger(__name__)
 # CLASS GlobalActions
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class GlobalActions:
+class GlobalActions(HasLifecycle):
     def __init__(self, app):
         self.app = app
 
     def shutdown(self):
+        HasLifecycle.shutdown(self)
+
         try:
             dispatcher.disconnect(signal=actions.START_DIFF_TREES, receiver=self._on_diff_requested)
         except DispatcherKeyError:
@@ -45,10 +48,6 @@ class GlobalActions:
             dispatcher.disconnect(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, receiver=self._on_gdrive_chooser_dialog_load_complete)
         except DispatcherKeyError:
             pass
-        try:
-            dispatcher.disconnect(signal=actions.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
-        except DispatcherKeyError:
-            pass
         logger.debug('Global actions shut down')
 
     """
@@ -57,12 +56,12 @@ class GlobalActions:
 
     def start(self):
         logger.debug('Starting global action listeners')
+        HasLifecycle.start(self)
         dispatcher.connect(signal=actions.START_DIFF_TREES, receiver=self._on_diff_requested)
         dispatcher.connect(signal=actions.SYNC_GDRIVE_CHANGES, receiver=self._on_gdrive_sync_changes_requested)
         dispatcher.connect(signal=actions.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_download_all_gdrive_meta_requested)
         dispatcher.connect(signal=actions.SHOW_GDRIVE_CHOOSER_DIALOG, receiver=self._on_gdrive_root_dialog_requested)
         dispatcher.connect(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, receiver=self._on_gdrive_chooser_dialog_load_complete)
-        dispatcher.connect(signal=actions.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
 
     """
     🡻🡻🡻 ② Utility functions 🡻🡻🡻
@@ -74,10 +73,6 @@ class GlobalActions:
     """
     🡻🡻🡻 ③ Actions 🡻🡻🡻
     """
-
-    def _on_start_cacheman_requested(self, sender):
-        logger.debug(f'Received signal: "{actions.START_CACHEMAN}"')
-        self.app.executor.submit_async_task(self.app.cacheman.start, sender)
 
     def _on_download_all_gdrive_meta_requested(self, sender):
         """See below. Invalidates the GDrive cache and starts a new download of all the GDrive metadata"""

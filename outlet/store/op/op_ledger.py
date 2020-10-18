@@ -5,6 +5,7 @@ from enum import IntEnum
 from typing import Callable, DefaultDict, Dict, Iterable, List, Optional
 
 from pydispatch import dispatcher
+from pydispatch.errors import DispatcherKeyError
 
 from store.op.op_graph import OpGraph
 from model.op import Op, OpType
@@ -15,6 +16,7 @@ from store.sqlite.op_db import OpDatabase
 from model.uid import UID
 from model.node.display_node import DisplayNode
 from ui import actions
+from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +32,9 @@ class ErrorHandlingBehavior(IntEnum):
 # CLASS OpLedger
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class OpLedger:
+class OpLedger(HasLifecycle):
     def __init__(self, app):
         self.app = app
-        self.cacheman = self.app.cacheman
         self._cmd_builder = CommandBuilder(self.app)
 
         self.op_db_path = os.path.join(self.app.cacheman.cache_dir_path, OPS_FILE_NAME)
@@ -41,17 +42,24 @@ class OpLedger:
         self.op_graph: OpGraph = OpGraph(self.app)
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
 
+    def start(self):
+        HasLifecycle.start(self)
+
         dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
 
-    def __del__(self):
-        self.shutdown()
+        self.op_graph.start()
 
     def shutdown(self):
-        if self.op_graph:
-            self.op_graph.shutdown()
+        HasLifecycle.shutdown(self)
 
-        self.cacheman = None
+        try:
+            dispatcher.disconnect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
+        except DispatcherKeyError:
+            pass
+
         self.app = None
+        self._cmd_builder = None
+        self.op_graph = None
 
     def _cancel_pending_ops_from_disk(self):
         with OpDatabase(self.op_db_path, self.app) as op_db:
@@ -90,15 +98,15 @@ class OpLedger:
     def _update_nodes_in_memcache(self, op: Op):
         """Looks at the given Op and notifies cacheman so that it can send out update notifications. The nodes involved may not have
         actually changed (i.e., only their statuses have changed)"""
-        self.cacheman.upsert_single_node(op.src_node)
+        self.app.cacheman.upsert_single_node(op.src_node)
         if op.has_dst():
-            self.cacheman.upsert_single_node(op.dst_node)
+            self.app.cacheman.upsert_single_node(op.dst_node)
 
     # Reduce Changes logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _derive_cp_dst_key(self, dst_node: DisplayNode) -> str:
-        parent_uid = self.cacheman.get_parent_uid_for_node(dst_node)
+        parent_uid = self.app.cacheman.get_parent_uid_for_node(dst_node)
         return f'{parent_uid}/{dst_node.name}'
 
     def _reduce_ops(self, op_list: Iterable[Op]) -> Iterable[Op]:
@@ -231,7 +239,7 @@ class OpLedger:
     def load_pending_ops(self):
         """Call this at startup, to resume pending ops which have not yet been applied."""
 
-        if self.cacheman.cancel_all_pending_ops_on_startup:
+        if self.app.cacheman.cancel_all_pending_ops_on_startup:
             logger.debug(f'User configuration specifies cancelling all pending ops on startup')
             self._cancel_pending_ops_from_disk()
             return
@@ -333,7 +341,7 @@ class OpLedger:
         command.op.set_completed()
 
         # Add/update/remove affected nodes in central cache:
-        self.cacheman.update_from(command.result)
+        self.app.cacheman.update_from(command.result)
 
         logger.debug(f'Archiving op: {command.op}')
         self._archive_pending_ops_to_disk([command.op])

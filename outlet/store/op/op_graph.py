@@ -8,6 +8,7 @@ from store.op.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, S
 from model.uid import UID
 from model.node.display_node import DisplayNode
 from model.op import Op, OpType
+from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -16,12 +17,11 @@ logger = logging.getLogger(__name__)
 # CLASS OpGraph
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class OpGraph:
+class OpGraph(HasLifecycle):
     """Dependency tree, currently with emphasis on Ops"""
 
     def __init__(self, app):
-        self.cacheman = app.cacheman
-        self.uid_generator = app.uid_generator
+        self.app = app
 
         self._struct_lock = threading.Lock()
 
@@ -38,11 +38,12 @@ class OpGraph:
         self._outstanding_actions: Dict[UID, Op] = {}
         """Contains entries for all Ops which have running operations. Keyed by action UID"""
 
-    def __del__(self):
-        self.shutdown()
-
     def shutdown(self):
         """Need to call this for try_get() to return"""
+        if self._shutdown:
+            return
+        
+        HasLifecycle.shutdown(self)
         self._shutdown = True
         with self._cv_can_get:
             # unblock any get() task which is waiting
@@ -95,9 +96,9 @@ class OpGraph:
         mutex_node_q_dict: Dict[UID, OpGraphNode] = {}
         for op in op_batch:
             if op.op_type == OpType.RM:
-                src_node = RmOpNode(self.uid_generator.next_uid(), op)
+                src_node = RmOpNode(self.app.uid_generator.next_uid(), op)
             else:
-                src_node = SrcOpNode(self.uid_generator.next_uid(), op)
+                src_node = SrcOpNode(self.app.uid_generator.next_uid(), op)
 
             if src_node.is_mutually_exclusive():
                 existing = mutex_node_q_dict.get(src_node.get_target_node().uid, None)
@@ -108,7 +109,7 @@ class OpGraph:
                 non_mutex_node_q_dict[src_node.get_target_node().uid].append(src_node)
 
             if op.has_dst():
-                dst_node = DstOpNode(self.uid_generator.next_uid(), op)
+                dst_node = DstOpNode(self.app.uid_generator.next_uid(), op)
                 assert dst_node.is_mutually_exclusive()
                 existing = mutex_node_q_dict.get(dst_node.get_target_node().uid, None)
                 if existing:
@@ -128,7 +129,7 @@ class OpGraph:
         
         # mutually exclusive nodes have dependencies on each other:
         for potential_child_op in mutex_node_q_dict.values():
-            parent_uid = self.cacheman.get_parent_uid_for_node(potential_child_op.get_target_node())
+            parent_uid = self.app.cacheman.get_parent_uid_for_node(potential_child_op.get_target_node())
             op_for_parent_node: OpGraphNode = mutex_node_q_dict.get(parent_uid, None)
             if potential_child_op.is_remove_type():
                 # Special handling for RM-type nodes:
@@ -190,8 +191,8 @@ class OpGraph:
 
             if op_node.is_create_type():
                 # Enforce Rule 1: ensure parent of target is valid:
-                parent_uid = self.cacheman.get_parent_uid_for_node(tgt_node)
-                if not self.cacheman.get_node_for_uid(parent_uid, tgt_node.get_tree_type()) and not mkdir_dict.get(parent_uid, None):
+                parent_uid = self.app.cacheman.get_parent_uid_for_node(tgt_node)
+                if not self.app.cacheman.get_node_for_uid(parent_uid, tgt_node.get_tree_type()) and not mkdir_dict.get(parent_uid, None):
                     logger.error(f'Could not find parent in cache with UID {parent_uid} for "{op_type}" operation node: {tgt_node}')
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find parent in cache with UID {parent_uid} '
                                        f'for "{op_type}"')
@@ -201,7 +202,7 @@ class OpGraph:
                     mkdir_dict[op_node.op.src_node.uid] = op_node.op.src_node
             else:
                 # Enforce Rule 2: ensure target node is valid
-                if not self.cacheman.get_node_for_uid(tgt_node.uid, tgt_node.get_tree_type()):
+                if not self.app.cacheman.get_node_for_uid(tgt_node.uid, tgt_node.get_tree_type()):
                     logger.error(f'Could not find node in cache for "{op_type}" operation node: {tgt_node}')
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find node in cache with UID {tgt_node.uid} '
                                        f'for "{op_type}"')
@@ -210,7 +211,7 @@ class OpGraph:
                 # NOTE: disabled, as this may cause unwanted errors when copying over trees where dirs in hierarchy have same names
                 # if op_node.is_dst() and tgt_node.get_tree_type() == TREE_TYPE_GDRIVE:
                 #     assert isinstance(tgt_node, GDriveNode) and tgt_node.get_parent_uids(), f'Bad data: {tgt_node}'
-                #     existing_node = self.cacheman.get_goog_node_for_name_and_parent_uid(tgt_node.name, tgt_node.get_parent_uids()[0])
+                #     existing_node = self.app.cacheman.get_goog_node_for_name_and_parent_uid(tgt_node.name, tgt_node.get_parent_uids()[0])
                 #     if existing_node and existing_node.uid != tgt_node.uid:
                 #         raise RuntimeError(f'Cannot add batch (UID={batch_uid}): it is attempting to CP/MV/UP to a node (UID={tgt_node.uid}) '
                 #                            f'which has a different UID than one with the same name and parent (UID={existing_node.uid})')
@@ -263,7 +264,7 @@ class OpGraph:
 
         target_node: DisplayNode = node_to_insert.get_target_node()
         target_uid: UID = target_node.uid
-        parent_uid: UID = self.cacheman.get_parent_uid_for_node(target_node)
+        parent_uid: UID = self.app.cacheman.get_parent_uid_for_node(target_node)
 
         # First check whether the target node is known and has pending operations
         last_target_op = self._get_lowest_priority_op_node(target_uid)

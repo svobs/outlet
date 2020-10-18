@@ -4,6 +4,7 @@ import logging
 from command.cmd_executor import CommandExecutor
 from global_actions import GlobalActions
 from task_runner import CentralTaskRunner
+from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 # CLASS CentralExecutor
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class CentralExecutor:
+class CentralExecutor(HasLifecycle):
     """Half-baked proto-module which will at least let me see all execution in one place"""
     def __init__(self, app):
         self.app = app
@@ -25,6 +26,8 @@ class CentralExecutor:
 
     def start(self):
         logger.debug('Central Executor starting')
+        HasLifecycle.start(self)
+
         self._global_actions.start()
 
         if self.enable_op_execution_thread:
@@ -44,14 +47,11 @@ class CentralExecutor:
         self._task_runner.enqueue(task_func, *args)
 
     def shutdown(self):
-        if self._task_runner:
-            self._task_runner.shutdown()
-            self._task_runner = None
-
-        # Kill listeners by dereferencing parent:
-        if self._global_actions:
-            self._global_actions.shutdown()
-            self._global_actions = None
+        HasLifecycle.shutdown(self)
+        self.app = None
+        self._command_executor = None
+        self._global_actions = None
+        self._task_runner = None
 
         logger.debug('CentralExecutor shut down')
 

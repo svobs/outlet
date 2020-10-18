@@ -7,6 +7,7 @@ import time
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from pydispatch import dispatcher
+from pydispatch.errors import DispatcherKeyError
 
 from command.cmd_interface import Command, CommandResult
 from store.gdrive.client import GDriveClient
@@ -24,6 +25,7 @@ from store.op.op_ledger import OpLedger
 from store.gdrive.master_gdrive import GDriveMasterCache
 from store.local.master_local import LocalDiskMasterCache
 from store.sqlite.cache_registry_db import CacheRegistry
+from util.has_lifecycle import HasLifecycle
 from util.two_level_dict import TwoLevelDict
 from model.uid import UID
 from model.node.display_node import DisplayNode, HasParentList
@@ -61,7 +63,7 @@ class CacheInfoByType(TwoLevelDict):
 # CLASS CacheManager
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class CacheManager:
+class CacheManager(HasLifecycle):
     """
     This is the central source of truth for the app (or attempts to be as much as possible).
     """
@@ -111,19 +113,23 @@ class CacheManager:
         self.load_all_caches_done: threading.Event = threading.Event()
         self._load_all_caches_in_process: bool = False
 
-    def __del__(self):
-        self.shutdown()
+        dispatcher.connect(signal=actions.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
 
     def shutdown(self):
+        logger.debug('CacheManager.shutdown() entered')
+        HasLifecycle.shutdown(self)
+
         try:
             if self.gdrive_client:
                 self.gdrive_client.shutdown()
+                self.gdrive_client = None
         except NameError:
             pass
 
         try:
             if self._op_ledger:
                 self._op_ledger.shutdown()
+                self._op_ledger = None
         except NameError:
             pass
 
@@ -131,6 +137,7 @@ class CacheManager:
             if self._tree_controllers:
                 for controller in list(self._tree_controllers.values()):
                     controller.destroy()
+                self._tree_controllers.clear()
         except NameError:
             pass
 
@@ -138,26 +145,33 @@ class CacheManager:
         try:
             if self._live_monitor:
                 self._live_monitor.shutdown()
+                self._live_monitor = None
         except NameError:
             pass
 
         try:
             if self._local_disk_cache:
                 self._local_disk_cache.shutdown()
+                self._local_disk_cache = None
         except NameError:
             pass
 
     # Startup loading/maintenance
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def start(self, sender):
-        """Should be called during startup. Loop over all caches and load/merge them into a
-        single large in-memory cache"""
+    def _on_start_cacheman_requested(self, sender):
         if self._local_disk_cache:
             logger.info(f'Caches already loaded. Ignoring signal from {sender}.')
             return
 
         logger.debug(f'CacheManager.start() initiated by {sender}')
+        self.start()
+
+    def start(self):
+        """Should be called during startup. Loop over all caches and load/merge them into a
+        single large in-memory cache"""
+        HasLifecycle.start(self)
+
         logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {ID_GLOBAL_CACHE}')
         stopwatch = Stopwatch()
         dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=ID_GLOBAL_CACHE)
@@ -167,8 +181,11 @@ class CacheManager:
 
             # Init sub-modules:
             self._local_disk_cache = LocalDiskMasterCache(self.app)
+            self._local_disk_cache.start()
             self._gdrive_cache = GDriveMasterCache(self.app)
+            self._gdrive_cache.start()
             self._op_ledger = OpLedger(self.app)
+            self._op_ledger.start()
             self._live_monitor = LiveMonitor(self.app)
             self._live_monitor.start()
 

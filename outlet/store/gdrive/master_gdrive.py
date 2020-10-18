@@ -3,6 +3,7 @@ import threading
 from typing import Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
+from pydispatch.errors import DispatcherKeyError
 
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID
 from error import CacheNotLoadedError, GDriveItemNotFoundError
@@ -67,6 +68,13 @@ class GDriveMasterCache(MasterCache):
         self._user_uid_nextval: int = GDRIVE_ME_USER_UID + 1
         self._user_for_permission_id_dict: Dict[str, GDriveUser] = {}
         self._user_for_uid_dict: Dict[UID, GDriveUser] = {}
+
+    def shutdown(self):
+        super(GDriveMasterCache, self).shutdown()
+        try:
+            self.app = None
+        except NameError:
+            pass
 
     def _get_gdrive_cache_path(self) -> str:
         master_tree_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()

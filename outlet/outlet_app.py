@@ -57,16 +57,10 @@ class OutletApplication(Gtk.Application):
         logger.info('Shutting down app')
         self.shutdown = True
 
-        # This will emit a cascade of events which will shut down the Executor too:
-        if self.cacheman:
-            self.cacheman.shutdown()
-            self.cacheman = None
+        dispatcher.send(actions.SHUTDOWN_APP, sender=actions.ID_CENTRAL_EXEC)
 
-        # Just to be sure:
-        if self.executor:
-            self.executor.shutdown()
-            self.executor = None
-
+        self.cacheman = None
+        self.executor = None
         if self.window:
             # swap into local var to prevent infinite cycle
             win = self.window

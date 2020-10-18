@@ -12,13 +12,14 @@ from constants import TREE_TYPE_LOCAL_DISK
 from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalFileNode
 from ui import actions
+from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
 
 
 # CLASS SignatureCalcThread
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class SignatureCalcThread(threading.Thread):
+class SignatureCalcThread(HasLifecycle, threading.Thread):
     """Hasher thread which churns through signature queue and sends updates to cacheman"""
     def __init__(self, app, initial_sleep_sec: float):
         super().__init__(target=self._run_content_scanner_thread, name='SignatureCalcThread', daemon=True)
@@ -29,17 +30,19 @@ class SignatureCalcThread(threading.Thread):
         self._cv_can_get = threading.Condition()
         self._struct_lock = threading.Lock()
 
-    def enqueue(self, node: LocalFileNode):
-        logger.debug(f'[{self.name}] Enqueuing node: {node.node_identifier}')
-        assert not node.md5 and not node.sha256
-        with self._struct_lock:
-            self._node_queue.append(node)
+    def start(self):
+        HasLifecycle.start(self)
+        threading.Thread.start(self)
 
-        with self._cv_can_get:
-            self._cv_can_get.notifyAll()
+        dispatcher.connect(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
 
-    def request_shutdown(self):
-        logger.debug(f'Requesting shutdown of thread {self.name}')
+    def shutdown(self):
+        HasLifecycle.shutdown(self)
+
+        if self._shutdown:
+            return
+
+        logger.debug(f'Shutting down {self.name}')
         self._shutdown = True
 
         try:
@@ -49,6 +52,15 @@ class SignatureCalcThread(threading.Thread):
 
         with self._cv_can_get:
             # unblock thread:
+            self._cv_can_get.notifyAll()
+
+    def enqueue(self, node: LocalFileNode):
+        logger.debug(f'[{self.name}] Enqueuing node: {node.node_identifier}')
+        assert not node.md5 and not node.sha256
+        with self._struct_lock:
+            self._node_queue.append(node)
+
+        with self._cv_can_get:
             self._cv_can_get.notifyAll()
 
     def _process_single_node(self, node: LocalFileNode):
@@ -73,8 +85,6 @@ class SignatureCalcThread(threading.Thread):
 
     def _run_content_scanner_thread(self):
         logger.info(f'Starting {self.name}...')
-
-        dispatcher.connect(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
 
         # Wait for CacheMan to finish starting up so as not to deprive it of resources:
         self.app.cacheman.wait_for_startup_done()

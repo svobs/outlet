@@ -54,17 +54,25 @@ class LocalDiskMasterCache(MasterCache):
         self._signature_calc_thread = SignatureCalcThread(self.app, initial_sleep_sec)
 
         self.lazy_load_signatures: bool = app.config.get('cache.lazy_load_local_file_signatures')
-        if self.lazy_load_signatures:
-            self.start_signature_calc_thread()
 
     def start_signature_calc_thread(self):
         if not self._signature_calc_thread.is_alive():
             self._signature_calc_thread.start()
 
+    def start(self):
+        super(LocalDiskMasterCache, self).start()
+        if self.lazy_load_signatures:
+            self.start_signature_calc_thread()
+
     def shutdown(self):
-        # TODO: change to a signal
-        if self._signature_calc_thread:
-            self._signature_calc_thread.request_shutdown()
+        super(LocalDiskMasterCache, self).shutdown()
+        try:
+            self.app = None
+            self._data = None
+            self._executor = None
+            self._signature_calc_thread = None
+        except NameError:
+            pass
 
     # Disk access
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
