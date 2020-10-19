@@ -9,14 +9,14 @@ from model.uid import UID
 logger = logging.getLogger(__name__)
 
 CONFIG_KEY_ENABLE_LAST_UID = 'cache.enable_uid_lastval_persistence'
-"""If true, read and write the last allocated UID value to 'transient.global.last_uid' so that duplicate UIDs aren't assigned across startups"""
+"""If true, read and write the last allocated UID value to 'ui_state.global.last_uid' so that duplicate UIDs aren't assigned across startups"""
 
 CONFIG_KEY_UID_RESERVATION_BLOCK_SIZE = 'cache.uid_reservation_block_size'
 """The number of sequential UIDs to reserve each time we persist to disk. Setting to a higher number will mean less disk access, but
 the UID numbers will get larger faster if there are a lot of program restarts, which is somewhere between annoying and inconvenient
 when debugging"""
 
-CONFIG_KEY_LAST_UID = 'transient.global.last_uid'
+CONFIG_KEY_LAST_UID = 'ui_state.global.last_uid'
 
 
 # ABSTRACT CLASS UidGenerator

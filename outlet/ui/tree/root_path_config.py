@@ -12,15 +12,15 @@ logger = logging.getLogger(__name__)
 
 
 def make_tree_type_config_key(tree_id: str):
-    return f'transient.{tree_id}.tree_type'
+    return f'ui_state.{tree_id}.tree_type'
 
 
 def make_root_path_config_key(tree_id: str):
-    return f'transient.{tree_id}.root_path'
+    return f'ui_state.{tree_id}.root_path'
 
 
 def make_root_uid_config_key(tree_id: str):
-    return f'transient.{tree_id}.root_uid'
+    return f'ui_state.{tree_id}.root_uid'
 
 
 class RootPathConfigPersister:
@@ -72,12 +72,12 @@ class RootPathConfigPersister:
                          f'= {new_root.tree_type}, {self._root_path_config_key} = "{new_root.full_path}", '
                          f'{self._root_uid_config_key} = "{new_root.uid}"')
             # Root changed. Invalidate the current tree contents
-            self._config.write(transient_path=self._tree_type_config_key, value=new_root.tree_type)
-            self._config.write(transient_path=self._root_path_config_key, value=new_root.full_path)
+            self._config.write(json_path=self._tree_type_config_key, value=new_root.tree_type)
+            self._config.write(json_path=self._root_path_config_key, value=new_root.full_path)
             if err:
-                self._config.write(transient_path=self._root_uid_config_key, value=NULL_UID)
+                self._config.write(json_path=self._root_uid_config_key, value=NULL_UID)
             else:
-                self._config.write(transient_path=self._root_uid_config_key, value=new_root.uid)
+                self._config.write(json_path=self._root_uid_config_key, value=new_root.uid)
         # always, just to be safe
         self.root_identifier = new_root
 

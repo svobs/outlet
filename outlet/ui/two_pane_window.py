@@ -46,8 +46,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # Set minimum width and height
 
         # Restore previous window location:
-        self.x_loc_cfg_path = f'transient.{self.win_id}.x'
-        self.y_loc_cfg_path = f'transient.{self.win_id}.y'
+        self.x_loc_cfg_path = f'ui_state.{self.win_id}.x'
+        self.y_loc_cfg_path = f'ui_state.{self.win_id}.y'
         self.x_loc = self.app.config.get(self.x_loc_cfg_path, 50)
         self.y_loc = self.app.config.get(self.y_loc_cfg_path, 50)
         self.move(x=self.x_loc, y=self.y_loc)
@@ -55,8 +55,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.set_hide_titlebar_when_maximized(True)
 
         # Restore previous width/height:
-        self.width_cfg_path = f'transient.{self.win_id}.width'
-        self.height_cfg_path = f'transient.{self.win_id}.height'
+        self.width_cfg_path = f'ui_state.{self.win_id}.width'
+        self.height_cfg_path = f'ui_state.{self.win_id}.height'
 
         width = self.app.config.get(self.width_cfg_path, 1200)
         height = self.app.config.get(self.height_cfg_path, 500)

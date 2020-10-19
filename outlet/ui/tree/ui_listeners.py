@@ -189,7 +189,7 @@ class TreeUiListeners:
         if tree_path:
             model = self.con.display_store.model
             drop_dest_iter = model.get_iter(tree_path)
-            dest_node = self.con.display_store.get_node_data(drop_dest_iter)
+            dest_node: DisplayNode = self.con.display_store.get_node_data(drop_dest_iter)
         else:
             # Assume we are dropping into the tree root
             is_into = True
@@ -231,12 +231,11 @@ class TreeUiListeners:
         self._drag_data = None
         self._drop_data = None
 
-    def _is_dropping_on_itself(self, dest_node, nodes: List[DisplayNode]):
+    def _is_dropping_on_itself(self, dest_node: DisplayNode, nodes: List[DisplayNode]):
         assert dest_node.full_path
         for node in nodes:
-            parent_path = str(pathlib.Path(node.full_path).parent)
-            logger.debug(f'[{self.con.tree_id}] DestNodePath="{dest_node.full_path}", NodeParentPath="{parent_path}"')
-            if parent_path == dest_node.full_path:
+            logger.debug(f'[{self.con.tree_id}] DestNode="{dest_node.node_identifier}", DroppedNode="{node}"')
+            if dest_node.is_parent_of(node):
                 return True
         return False
 

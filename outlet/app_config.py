@@ -27,8 +27,8 @@ class AppConfig:
             self.cfg = config.Config(config_file_path)
             # Cache JSON in memory rather than risk loading a corrupted JSON file later while we're about
             # to write something
-            with open(self._get_transient_filename()) as f:
-                self.transient_json = json.load(f)
+            with open(self._get_ui_state_filename()) as f:
+                self._ui_state_json = json.load(f)
 
             self.read_only = self.get('read_only_config', False)
         except Exception as err:
@@ -49,25 +49,25 @@ class AppConfig:
             logger.debug(f'Path not found: {cfg_path}')
             return default_val
 
-    def _get_transient_filename(self):
-        filename = self.get('transient_filename')
+    def _get_ui_state_filename(self):
+        filename = self.get('ui_state_filename')
         return os.path.join(self.cfg.rootdir, filename)
 
-    def write(self, transient_path: str, value: Any, insert_new_ok=True):
+    def write(self, json_path: str, value: Any, insert_new_ok=True):
         if self.read_only:
-            logger.debug(f'No change to config "{transient_path}"; we are read-only')
+            logger.debug(f'No change to config "{json_path}"; we are read-only')
             return
 
-        assert transient_path is not None
-        assert value is not None, f'For path "{transient_path}"'
+        assert json_path is not None
+        assert value is not None, f'For path "{json_path}"'
 
         # Update JSON in memory:
-        path_segments = transient_path.split('.')
-        sub_dict = self.transient_json
+        path_segments = json_path.split('.')
+        sub_dict = self._ui_state_json
         last = len(path_segments) - 1
         for num, segment in enumerate(path_segments):
             if num == 0:
-                assert segment == 'transient'
+                assert segment == 'ui_state'
             else:
                 val = sub_dict.get(segment, None)
                 if num == last:
@@ -77,7 +77,7 @@ class AppConfig:
                     sub_dict[segment] = value
                 elif val is None:
                     if not insert_new_ok:
-                        raise RuntimeError(f'Path segment "{segment}" not found in path "{transient_path}"')
+                        raise RuntimeError(f'Path segment "{segment}" not found in path "{json_path}"')
                     else:
                         sub_dict[segment] = {}
                         sub_dict = sub_dict[segment]
@@ -86,10 +86,10 @@ class AppConfig:
                     sub_dict = val
 
         # Dump JSON to file atomically:
-        json_file = self._get_transient_filename()
+        json_file = self._get_ui_state_filename()
         tmp_filename = json_file + '.part'
         with open(tmp_filename, 'w') as f:
-            json.dump(self.transient_json, f, indent=4, sort_keys=True)
+            json.dump(self._ui_state_json, f, indent=4, sort_keys=True)
         os.rename(tmp_filename, json_file)
 
-        logger.info(f'Wrote {transient_path} := "{value}" in file: {json_file}')
+        logger.info(f'Wrote {json_path} := "{value}" in file: {json_file}')

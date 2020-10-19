@@ -32,6 +32,7 @@ Create a virtual environment within this directory (`{project_name}`)  following
     make init
 
 ### Future Major Features (TODO)
+* Tombstones
 * Reload GDrive
 * Pause/resume ops
 * Detach service

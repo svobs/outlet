@@ -1,12 +1,12 @@
 {
     "diff_win": {
-        "height": 836,
-        "width": 1600,
+        "height": 746,
+        "width": 1440,
         "x": 0,
         "y": 2187
     },
     "global": {
-        "last_uid": 6155251
+        "last_uid": 9719221
     },
     "left_tree": {
         "expanded_state": {
@@ -15,8 +15,8 @@
             "RM": false,
             "UP": true
         },
-        "root_path": "/media/msvoboda/sdcard-msvoboda/DVD Your Memories/Images/Good",
-        "root_uid": 6148244,
+        "root_path": "/home/msvoboda/LocalDevel/outlet/test/ChangeTest/Left-Root",
+        "root_uid": 9569933,
         "tree_type": 1
     },
     "right_tree": {
@@ -27,7 +27,7 @@
             "UP": true
         },
         "root_path": "/My Drive/Test",
-        "root_uid": 5800000,
+        "root_uid": 8847219,
         "tree_type": 2
     }
 }
