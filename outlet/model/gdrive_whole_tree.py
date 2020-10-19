@@ -37,12 +37,14 @@ class GDriveWholeTree:
         self._stats_loaded = False
 
         # Keep track of parentless nodes. These include the 'My Drive' node, as well as shared nodes.
-        self.roots: List[GDriveNode] = []
-        self.id_dict: Dict[UID, GDriveNode] = {}
+        self.uid_dict: Dict[UID, GDriveNode] = {}
         """ Forward lookup table: nodes are indexed by GOOG ID"""
 
-        self.first_parent_dict: Dict[UID, List[GDriveNode]] = {}
+        self.parent_child_dict: Dict[UID, List[GDriveNode]] = {}
         """ Reverse lookup table: 'parent_uid' -> list of child nodes """
+
+        # init root list:
+        self.parent_child_dict[GDRIVE_ROOT_UID] = []
 
         self.me: Optional[GDriveUser] = None
 
@@ -71,7 +73,7 @@ class GDriveWholeTree:
         new_parent_uids: List[UID] = node.get_parent_uids()
 
         # Build forward dictionary
-        existing_node = self.id_dict.get(node.uid, None)
+        existing_node = self.uid_dict.get(node.uid, None)
         if existing_node:
             if node == existing_node:
                 logger.debug(f'add_node(): identical to existing; updating node {node.uid} sync_ts={node.sync_ts}')
@@ -87,40 +89,56 @@ class GDriveWholeTree:
                     self._remove_from_parent_dict(parent_uid, node)
 
         else:
-            self.id_dict[node.uid] = node
+            self.uid_dict[node.uid] = node
 
         # build reverse dictionary
         if len(new_parent_uids) > 0:
             for parent_uid in new_parent_uids:
                 self._add_to_parent_dict(parent_uid, node)
 
-        self._add_root(node)
+        self._upsert_root(node)
 
         # this may actually be an existing node (we favor that if it exists)
         return node
 
-    def remove_node(self, node: GDriveNode) -> Optional[GDriveNode]:
+    def remove_node(self, node: GDriveNode, fail_if_children_present: bool = True) -> Optional[GDriveNode]:
         """Remove given node from all data structures in this tree. Returns the node which was removed (which may be a different object
-        than the parameter) or None if node is not in tree"""
-        if node.uid not in self.id_dict:
+        than the parameter) or None if node is not in tree.
+        If fail_if_children_present==True, an exception will be raised if the node is a folder and it has child nodes linked to it.
+        If false and the node is a folder and it has child nodes, the child nodes will be unlinked from the parent, and if it was their
+        only parent, the child nodes will become root nodes"""
+        if node.uid not in self.uid_dict:
             logger.warning(f'Cannot remove node from in-memory tree: it was not found in the tree: {node}')
             return None
 
         if node.is_dir():
             child_list = self.get_children(node)
             if child_list:
-                raise RuntimeError(f'Cannot remove non-empty folder: {node}')
+                if fail_if_children_present:
+                    raise RuntimeError(f'Cannot remove non-empty folder: {node}')
+                else:
+                    # Remove parent->children link from dict...
+                    child_list = self.parent_child_dict.pop(node.uid, [])
+                    if child_list:
+                        # Now remove child->parent link from each child
+                        for child in child_list:
+                            child.remove_parent(node.uid)
+                            # If child has no parents, add as child of pseudo-root.
+                            # May get expensive for very large number of children...
+                            self._upsert_root(child)
 
-        for parent_uid in node.get_parent_uids():
-            child_list = self.first_parent_dict.get(parent_uid, [])
-            if child_list:
-                # this may get expensive for folders with lots of nodes...may want to monitor performance
-                child_list.remove(node)
+        # Unlink node from all its parents
+        if node.get_parent_uids():
+            for parent_uid in node.get_parent_uids():
+                child_list = self.parent_child_dict.get(parent_uid, [])
+                if child_list:
+                    # this may get expensive for folders with lots of nodes...may want to monitor performance
+                    child_list.remove(node)
+        else:
+            # Remove from roots if present (if not, do nothing)
+            self._remove_root(node)
 
-        # Remove from roots if present (if not, do nothing)
-        self._remove_root(node)
-
-        removed_node = self.id_dict.pop(node.uid, None)
+        removed_node = self.uid_dict.pop(node.uid, None)
 
         if SUPER_DEBUG:
             logger.debug(f'GDriveNode removed from in-memory tree: {removed_node}')
@@ -132,7 +150,7 @@ class GDriveWholeTree:
         adds all the references to the various data structures which are needed to assign it a single parent."""
         assert node_uid
         assert parent_uid
-        node = self.id_dict.get(node_uid)
+        node = self.uid_dict.get(node_uid)
         if not node:
             raise RuntimeError(f'Cannot add parent mapping: Item not found with UID: {node_uid} (for parent_uid={parent_uid})')
         assert isinstance(node, GDriveNode)
@@ -144,30 +162,31 @@ class GDriveWholeTree:
         node.add_parent(parent_uid)
 
     def _remove_root(self, node: GDriveNode):
-        if not node.get_parent_uids():
-            for root in self.roots:
-                if root.uid == node.uid:
-                    self.roots.remove(root)
-                    return root
+        root_list = self.get_children_for_root()
+        for root in root_list:
+            if root.uid == node.uid:
+                root_list.remove(root)
+                return root
         return None
 
-    def _add_root(self, node: GDriveNode):
-        if not node.get_parent_uids():
-            for root in self.roots:
+    def _upsert_root(self, node: GDriveNode):
+        if node.has_no_parents():
+            root_list = self.get_children_for_root()
+            for root in root_list:
                 if root.uid == node.uid:
                     # already present: do nothing
                     return
-            self.roots.append(node)
+            root_list.append(node)
 
     def _add_to_parent_dict(self, parent_uid: UID, node: GDriveNode):
-        child_list: List[GDriveNode] = self.first_parent_dict.get(parent_uid)
+        child_list: List[GDriveNode] = self.parent_child_dict.get(parent_uid)
         if not child_list:
             child_list: List[GDriveNode] = []
-            self.first_parent_dict[parent_uid] = child_list
+            self.parent_child_dict[parent_uid] = child_list
         child_list.append(node)
 
     def _remove_from_parent_dict(self, parent_uid: UID, node: GDriveNode):
-        child_list: List[GDriveNode] = self.first_parent_dict.get(parent_uid)
+        child_list: List[GDriveNode] = self.parent_child_dict.get(parent_uid)
         if child_list:
             for child in child_list:
                 if child.uid == node.uid:
@@ -222,7 +241,7 @@ class GDriveWholeTree:
             except StopIteration:
                 seg = ''
         path_so_far = '/' + seg
-        current_seg_nodes: List[GDriveNode] = [x for x in self.roots if x.name.lower() == seg.lower()]
+        current_seg_nodes: List[GDriveNode] = [x for x in self.get_children_for_root() if x.name.lower() == seg.lower()]
         next_seg_nodes: List[GDriveNode] = []
         path_found = '/'
         if current_seg_nodes:
@@ -320,18 +339,18 @@ class GDriveWholeTree:
     def validate(self):
         logger.debug(f'Validating GDriveWholeTree')
         # Validate parent dict:
-        for parent_uid, children in self.first_parent_dict.items():
-            unique_child_ids = {}
+        for parent_uid, children in self.parent_child_dict.items():
+            unique_child_uids = {}
             for child in children:
                 if not self.get_node_for_uid(child.uid):
                     logger.error(f'Child present in child list of parent {parent_uid} but not found in id_dict: {child}')
-                duplicate_child = unique_child_ids.get(child.uid)
+                duplicate_child = unique_child_uids.get(child.uid)
                 if duplicate_child:
                     logger.error(f'Child already present in list of parent {parent_uid}: orig={duplicate_child} dup={child}')
                 else:
-                    unique_child_ids[child.uid] = child
+                    unique_child_uids[child.uid] = child
 
-        for node_uid, node in self.id_dict.items():
+        for node_uid, node in self.uid_dict.items():
             if node_uid != node.uid:
                 logger.error(f'[!!!] Node actual UID does not match its key in the UID dict ({node_uid}): {node}')
             if len(node.get_parent_uids()) > 1:
@@ -346,12 +365,13 @@ class GDriveWholeTree:
         return TREE_TYPE_GDRIVE
 
     def get_children_for_root(self) -> List[GDriveNode]:
-        return self.roots
+        # Pseudo-root GDRIVE_ROOT_UID has the root nodes as its children:
+        return self.parent_child_dict.get(GDRIVE_ROOT_UID, [])
 
     def get_children(self, node: GDriveNode) -> List[GDriveNode]:
         if node.uid == GDRIVE_ROOT_UID:
             return self.get_children_for_root()
-        return self.first_parent_dict.get(node.uid, [])
+        return self.parent_child_dict.get(node.uid, [])
 
     def get_node_for_goog_id_and_parent_uid(self, goog_id: str, parent_uid: UID) -> Optional[GDriveNode]:
         """Finds the GDrive node with the given goog_id. (Parent UID is needed so that we don't have to search the entire tree"""
@@ -405,7 +425,7 @@ class GDriveWholeTree:
             # fake root:
             return GDriveFolder(NodeIdentifierFactory.get_gdrive_root_constant_identifier(), None, None, TrashStatus.NOT_TRASHED, None, None,
                                 None, None, None, None, None, None)
-        return self.id_dict.get(uid, None)
+        return self.uid_dict.get(uid, None)
 
     def resolve_uids_to_goog_ids(self, uids: List[UID], fail_if_missing: bool = True) -> List[str]:
         goog_ids: List[str] = []
@@ -483,7 +503,7 @@ class GDriveWholeTree:
             dir_count = 0
             trashed_file_count = 0
             trashed_dir_count = 0
-            for root in self.roots:
+            for root in self.get_children_for_root():
                 if root.trashed == TrashStatus.NOT_TRASHED:
                     if root.get_size_bytes():
                         size_bytes += root.get_size_bytes()
@@ -531,7 +551,7 @@ class GDriveWholeTree:
         duplicates: List[List[GDriveNode]] = []
 
         # roots ...
-        for root in self.roots:
+        for root in self.root_list:
             if root.is_dir():
                 queue.append(root)
                 stack.append(root)
@@ -566,7 +586,7 @@ class GDriveWholeTree:
 
     def count_multiple_parents(self):
         counter: Counter = Counter()
-        for uid, node in self.id_dict.items():
+        for uid, node in self.uid_dict.items():
             assert uid == node.uid
             num_parents: int = len(node.get_parent_uids())
             counter.update([num_parents])
@@ -587,7 +607,7 @@ class GDriveWholeTree:
             queue.append(subtree_root)
             stack.append(subtree_root)
         else:
-            for root in self.roots:
+            for root in self.root_list:
                 if root.is_dir():
                     assert isinstance(root, GDriveFolder)
                     queue.append(root)

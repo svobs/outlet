@@ -97,7 +97,7 @@ class FolderMetaPersister(GDriveQueryObserver):
 
     def node_received(self, goog_node: GDriveFolder, item):
         parent_google_ids = item.get('parents', [])
-        self.tree.id_dict[goog_node.uid] = goog_node
+        self.tree.uid_dict[goog_node.uid] = goog_node
         self.folder_list.append(goog_node)
 
         self.id_parent_mappings += parent_mappings_tuples(goog_node.uid, parent_google_ids, sync_ts=self.download.update_ts)
@@ -140,7 +140,7 @@ class FileMetaPersister(GDriveQueryObserver):
 
     def node_received(self, goog_node: GDriveFile, item):
         parent_google_ids = item.get('parents', [])
-        self.tree.id_dict[goog_node.uid] = goog_node
+        self.tree.uid_dict[goog_node.uid] = goog_node
         self.file_list.append(goog_node)
 
         self.id_parent_mappings += parent_mappings_tuples(goog_node.uid, parent_google_ids, sync_ts=self.download.update_ts)

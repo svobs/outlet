@@ -236,7 +236,7 @@ class BatchChangesOp(GDriveCacheOp):
     def update_memory_cache(self, master_tree: GDriveWholeTree):
         for change in self.change_list:
             if change.is_removed():
-                removed_node = master_tree.remove_node(change.node)
+                removed_node = master_tree.remove_node(change.node, fail_if_children_present=False)
                 if removed_node:
                     change.node = removed_node
             else:

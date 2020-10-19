@@ -16,7 +16,7 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from pydispatch import dispatcher
 
 from constants import GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_FILE_FIELDS, GDRIVE_FOLDER_FIELDS, \
-    MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, TrashStatus
+    MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, SUPER_DEBUG, TrashStatus
 from store.gdrive.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
 from store.gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
 from model.uid import UID
@@ -620,10 +620,11 @@ class GDriveClient(HasLifecycle):
         return gdrive_file
 
     def hard_delete(self, goog_id: str):
-        logger.debug(f'Sending request to delete file with goog_id="{goog_id}"')
+        """Deletes the node with the given goog_id from Google Drive, skipping the trash. If the node is a folder, then it and all its descendents
+        will be deleted."""
+        logger.debug(f'Sending request to delete node with goog_id="{goog_id}"')
 
         def request():
-            # Delete the item from Google Drive. Skips the trash
             file = self.service.files().delete(fileId=goog_id).execute()
             return file
 
@@ -689,7 +690,8 @@ class GDriveClient(HasLifecycle):
                 actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             for item in items:
-                logger.debug(f'CHANGE: {item}')
+                if SUPER_DEBUG:
+                    logger.debug(f'CHANGE: {item}')
 
                 goog_id = item['fileId']
                 change_ts = item['time']

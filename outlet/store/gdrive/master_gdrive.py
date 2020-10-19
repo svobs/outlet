@@ -259,7 +259,7 @@ class GDriveMasterCache(MasterCache):
         except RuntimeError:
             # Unresolved UIDs. This can happen when one cache's node refers to a parent which no longer exists...
             # TODO: let's make this even more robust by keeping track of tombstones
-            logger.warning(f'Failed to find UIDs in master tree; assuming they were deleted. Trying uid_mapper...')
+            logger.debug(f'Failed to find UIDs in master tree; assuming they were deleted. Trying uid_mapper...')
             goog_id_list: List[str] = []
             for uid in uid_list:
                 goog_id = self._uid_mapper.get_goog_id_for_uid(uid)

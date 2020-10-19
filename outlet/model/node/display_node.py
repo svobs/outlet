@@ -185,6 +185,16 @@ class HasParentList(ABC):
             current_parent_ids.append(parent_uid)
             self._parent_uids = current_parent_ids
 
+    def remove_parent(self, parent_uid_to_remove: UID):
+        current_parent_list: List[UID] = self.get_parent_uids()
+        for current_parent_id in current_parent_list:
+            if current_parent_id == parent_uid_to_remove:
+                current_parent_list.remove(current_parent_id)
+                self.set_parent_uids(current_parent_list)
+                return
+
+        logger.warning(f'Could not remove parent ({parent_uid_to_remove}): it was not found in parent list ({current_parent_list})')
+
     def has_same_parents(self, other):
         assert isinstance(other, HasParentList)
         my_parents = self.get_parent_uids()
@@ -200,6 +210,9 @@ class HasParentList(ABC):
             return my_parents[0] == other_parents[0]
 
         return sorted(my_parents) == sorted(other_parents)
+
+    def has_no_parents(self):
+        return not self._parent_uids
 
 
 # ABSTRACT CLASS HasChildList

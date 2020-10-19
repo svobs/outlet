@@ -118,7 +118,7 @@ class GDriveTreeLoader:
             # in the "list files" call:
             initial_download.update_ts = sync_ts
             drive_root: GDriveFolder = self.gdrive_client.get_my_drive_root(initial_download.update_ts)
-            tree.id_dict[drive_root.uid] = drive_root
+            tree.uid_dict[drive_root.uid] = drive_root
 
             initial_download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
             initial_download.page_token = None
@@ -143,7 +143,7 @@ class GDriveTreeLoader:
 
             # (1) Update all_children_fetched state
             tuples: List[Tuple[int, bool]] = []
-            for goog_node in tree.id_dict.values():
+            for goog_node in tree.uid_dict.values():
                 if goog_node.is_dir():
                     goog_node.all_children_fetched = True
                     tuples.append((goog_node.uid, True))
@@ -230,9 +230,9 @@ class GDriveTreeLoader:
             else:
                 raise RuntimeError(f'GDriveFolder is missing goog_id: {folder}')
 
-            if tree.id_dict.get(folder.uid, None):
-                raise RuntimeError(f'GDrive folder cache conflict for UID: {folder.uid} (1st: {tree.id_dict[folder.uid]}; 2nd: {folder}')
-            tree.id_dict[folder.uid] = folder
+            if tree.uid_dict.get(folder.uid, None):
+                raise RuntimeError(f'GDrive folder cache conflict for UID: {folder.uid} (1st: {tree.uid_dict[folder.uid]}; 2nd: {folder}')
+            tree.uid_dict[folder.uid] = folder
             count_folders_loaded += 1
 
             if folder.uid >= max_uid:
@@ -259,9 +259,9 @@ class GDriveTreeLoader:
             else:
                 raise RuntimeError(f'GDriveFile is missing goog_id: {file}')
 
-            if tree.id_dict.get(file.uid, None):
-                raise RuntimeError(f'GDrive cache conflict for UID: {file.uid} (1st: {tree.id_dict[file.uid]}; 2nd: {file}')
-            tree.id_dict[file.uid] = file
+            if tree.uid_dict.get(file.uid, None):
+                raise RuntimeError(f'GDrive cache conflict for UID: {file.uid} (1st: {tree.uid_dict[file.uid]}; 2nd: {file}')
+            tree.uid_dict[file.uid] = file
             count_files_loaded += 1
 
             if file.uid >= max_uid:
@@ -289,16 +289,16 @@ class GDriveTreeLoader:
 
             logger.debug(f'{sw} Loaded {mapping_count} Google Drive file-folder mappings')
 
-        logger.debug(f'{sw_total} Loaded {len(tree.id_dict):n} items from {count_files_loaded:n} files and {count_folders_loaded:n} folders')
+        logger.debug(f'{sw_total} Loaded {len(tree.uid_dict):n} items from {count_files_loaded:n} files and {count_folders_loaded:n} folders')
 
         self.app.uid_generator.ensure_next_uid_greater_than(max_uid)
         return tree
 
     def _determine_roots(self, tree: GDriveWholeTree):
         max_uid = GDRIVE_ROOT_UID + 1
-        for item in tree.id_dict.values():
+        for item in tree.uid_dict.values():
             if not item.get_parent_uids():
-                tree.roots.append(item)
+                tree.get_children_for_root().append(item)
 
             if item.uid >= max_uid:
                 max_uid = item.uid
@@ -307,7 +307,7 @@ class GDriveTreeLoader:
 
     def _translate_parent_ids(self, tree: GDriveWholeTree, id_parent_mappings: List[Tuple[UID, None, str, int]]) -> List[Tuple]:
         sw = Stopwatch()
-        logger.debug(f'Translating parent IDs for {len(tree.id_dict)} items...')
+        logger.debug(f'Translating parent IDs for {len(tree.uid_dict)} items...')
 
         new_mappings: List[Tuple] = []
         for mapping in id_parent_mappings:
@@ -336,7 +336,7 @@ def _compile_full_paths(tree: GDriveWholeTree):
     path_count: int = 0
 
     queue = deque()
-    for root in tree.roots:
+    for root in tree.get_children_for_root():
         root.node_identifier.full_path = '/' + root.name
         queue.append(root)
         item_count += 1
@@ -344,7 +344,7 @@ def _compile_full_paths(tree: GDriveWholeTree):
 
     while len(queue) > 0:
         item: GDriveNode = queue.popleft()
-        children = tree.first_parent_dict.get(item.uid, None)
+        children = tree.parent_child_dict.get(item.uid, None)
         if children:
             parent_paths = item.full_path
             if type(parent_paths) == str:
