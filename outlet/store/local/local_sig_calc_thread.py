@@ -5,9 +5,6 @@ import store.local.content_hasher
 from collections import deque
 from typing import Deque, Optional
 
-from pydispatch import dispatcher
-from pydispatch.errors import DispatcherKeyError
-
 from constants import TREE_TYPE_LOCAL_DISK
 from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalFileNode
@@ -22,7 +19,8 @@ logger = logging.getLogger(__name__)
 class SignatureCalcThread(HasLifecycle, threading.Thread):
     """Hasher thread which churns through signature queue and sends updates to cacheman"""
     def __init__(self, app, initial_sleep_sec: float):
-        super().__init__(target=self._run_content_scanner_thread, name='SignatureCalcThread', daemon=True)
+        HasLifecycle.__init__(self)
+        threading.Thread.__init__(self, target=self._run_content_scanner_thread, name='SignatureCalcThread', daemon=True)
         self.app = app
         self._initial_sleep_sec = initial_sleep_sec
         self._shutdown: bool = False
@@ -32,9 +30,9 @@ class SignatureCalcThread(HasLifecycle, threading.Thread):
 
     def start(self):
         HasLifecycle.start(self)
-        threading.Thread.start(self)
+        self.connect_dispatch_listener(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
 
-        dispatcher.connect(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
+        threading.Thread.start(self)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
@@ -44,11 +42,6 @@ class SignatureCalcThread(HasLifecycle, threading.Thread):
 
         logger.debug(f'Shutting down {self.name}')
         self._shutdown = True
-
-        try:
-            dispatcher.disconnect(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
-        except DispatcherKeyError:
-            pass
 
         with self._cv_can_get:
             # unblock thread:

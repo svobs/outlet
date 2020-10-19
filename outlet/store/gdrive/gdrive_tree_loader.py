@@ -62,12 +62,12 @@ class GDriveTreeLoader:
                 finally:
                     if self.tree_id:
                         logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
-                        actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id)
+                        dispatcher.send(actions.STOP_PROGRESS, sender=self.tree_id)
 
     def _load_all(self, invalidate_cache: bool) -> GDriveWholeTree:
         if self.tree_id:
             logger.debug(f'Sending START_PROGRESS_INDETERMINATE for tree_id: {self.tree_id}')
-            actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=self.tree_id)
+            dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=self.tree_id)
 
         sync_ts: int = int(time.time())
 
@@ -96,7 +96,7 @@ class GDriveTreeLoader:
             logger.info(msg)
 
             if self.tree_id:
-                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+                dispatcher.send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             tree: GDriveWholeTree = self._load_tree_from_cache(initial_download.is_complete())
 
@@ -215,7 +215,7 @@ class GDriveTreeLoader:
         sw = Stopwatch()
         folder_list: List[GDriveFolder] = self.cache.get_gdrive_folder_object_list()
 
-        actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=f'Retrieved {len(folder_list):n} Google Drive folders')
+        dispatcher.send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=f'Retrieved {len(folder_list):n} Google Drive folders')
 
         count_folders_loaded = 0
         for folder in folder_list:
@@ -244,7 +244,7 @@ class GDriveTreeLoader:
         sw = Stopwatch()
         file_list: List[GDriveFile] = self.cache.get_gdrive_file_object_list()
 
-        actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=f'Retreived {len(file_list):n} Google Drive files')
+        dispatcher.send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=f'Retreived {len(file_list):n} Google Drive files')
 
         count_files_loaded = 0
         for file in file_list:

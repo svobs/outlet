@@ -41,8 +41,9 @@ logger = logging.getLogger(__name__)
 # TODO: consider scanning only root dir at first, then enqueuing subdirectories
 
 class LocalDiskMasterCache(MasterCache):
+    """Singleton in-memory cache for local filesystem"""
     def __init__(self, app):
-        """Singleton in-memory cache for local filesystem"""
+        MasterCache.__init__(self)
         self.app = app
 
         self._struct_lock = threading.Lock()

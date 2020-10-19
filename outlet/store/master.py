@@ -13,6 +13,9 @@ from util.has_lifecycle import HasLifecycle
 
 
 class MasterCache(HasLifecycle, ABC):
+    def __init__(self):
+        HasLifecycle.__init__(self)
+
     # Getters / Loaders
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 

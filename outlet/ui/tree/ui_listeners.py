@@ -18,6 +18,7 @@ import gi
 
 from ui.tree.context_menu import TreeContextMenu
 from ui.tree.controller import TreePanelController
+from util.has_lifecycle import HasLifecycle
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gdk, Gtk
@@ -38,8 +39,9 @@ class DragAndDropData:
 # CLASS TreeUiListeners
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class TreeUiListeners:
+class TreeUiListeners(HasLifecycle):
     def __init__(self, config, controller):
+        HasLifecycle.__init__(self)
         self.con = controller
         self._ui_enabled = True
         self._drag_data: Optional[DragAndDropData] = None
@@ -51,20 +53,21 @@ class TreeUiListeners:
 
     def init(self):
         logger.debug(f'[{self.con.tree_id}] TreeUiListeners init')
-        actions.connect(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
+        HasLifecycle.start(self)
+        self.connect_dispatch_listener(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
 
-        targeted_signals = []
-        general_signals = [actions.TOGGLE_UI_ENABLEMENT]
+        targeted_signals: List[str] = []
+        general_signals: List[str] = [actions.TOGGLE_UI_ENABLEMENT]
 
         if self.con.cacheman.reload_tree_on_root_path_update:
-            dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.tree_id)
+            self.connect_dispatch_listener(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.tree_id)
             targeted_signals.append(actions.ROOT_PATH_UPDATED)
 
         if self.con.cacheman.load_all_caches_on_startup or self.con.cacheman.load_caches_for_displayed_trees_at_startup:
             logger.debug(f'[{self.con.tree_id}] LoadAllAtStartup={self.con.cacheman.load_all_caches_on_startup}, '
                          f'LoadDisplayedAtStartup={self.con.cacheman.load_caches_for_displayed_trees_at_startup}')
             # Either enabled for this tree to be loaded automatically
-            actions.connect(signal=actions.START_CACHEMAN_DONE, handler=self._after_all_caches_loaded)
+            self.connect_dispatch_listener(signal=actions.START_CACHEMAN_DONE, receiver=self._after_all_caches_loaded)
             if self.con.app.cacheman.load_all_caches_done:
                 # If cacheman finished loading before we even started listening, just execute here.
                 # Possible race condition? Should be ok for CPython...
@@ -73,7 +76,7 @@ class TreeUiListeners:
             general_signals.append(actions.START_CACHEMAN_DONE)
 
         # Status bar
-        actions.connect(signal=actions.SET_STATUS, handler=self._on_set_status, sender=self.con.tree_id)
+        self.connect_dispatch_listener(signal=actions.SET_STATUS, receiver=self._on_set_status, sender=self.con.tree_id)
         targeted_signals.append(actions.SET_STATUS)
 
         logger.debug(f'[{self.con.tree_id}] Listening for signals: Any={general_signals}, "{self.con.tree_id}"={targeted_signals}')
@@ -109,8 +112,8 @@ class TreeUiListeners:
             # FIXME Want to remove highlight when dropping in non-dir rows. But this is not the correct way to do this.
             # self.con.tree_view.connect('drag-motion', self._on_drag_motion)
 
-            dispatcher.connect(signal=actions.DRAG_AND_DROP, receiver=self._receive_drag_data_signal)
-            dispatcher.connect(signal=actions.DRAG_AND_DROP_DIRECT, receiver=self._do_drop, sender=self.con.tree_id)
+            self.connect_dispatch_listener(signal=actions.DRAG_AND_DROP, receiver=self._receive_drag_data_signal)
+            self.connect_dispatch_listener(signal=actions.DRAG_AND_DROP_DIRECT, receiver=self._do_drop, sender=self.con.tree_id)
             # ^^^ mostly for testing
 
     def disconnect_gtk_listeners(self):

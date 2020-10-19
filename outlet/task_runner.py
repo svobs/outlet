@@ -36,6 +36,7 @@ class Task:
 
 class CentralTaskRunner(HasLifecycle):
     def __init__(self, app):
+        HasLifecycle.__init__(self)
         self.app = app
         self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=TASK_RUNNER_MAX_WORKERS, thread_name_prefix='TaskRunner-')
 

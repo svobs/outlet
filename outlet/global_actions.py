@@ -27,41 +27,25 @@ logger = logging.getLogger(__name__)
 
 class GlobalActions(HasLifecycle):
     def __init__(self, app):
+        HasLifecycle.__init__(self)
         self.app = app
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
-
-        try:
-            dispatcher.disconnect(signal=actions.START_DIFF_TREES, receiver=self._on_diff_requested)
-        except DispatcherKeyError:
-            pass
-        try:
-            dispatcher.disconnect(signal=actions.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_download_all_gdrive_meta_requested)
-        except DispatcherKeyError:
-            pass
-        try:
-            dispatcher.disconnect(signal=actions.SHOW_GDRIVE_CHOOSER_DIALOG, receiver=self._on_gdrive_root_dialog_requested)
-        except DispatcherKeyError:
-            pass
-        try:
-            dispatcher.disconnect(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, receiver=self._on_gdrive_chooser_dialog_load_complete)
-        except DispatcherKeyError:
-            pass
-        logger.debug('Global actions shut down')
+        logger.debug('GlobalActions shut down')
 
     """
     🡻🡻🡻 ① Connect Listeners 🡻🡻🡻
     """
 
     def start(self):
-        logger.debug('Starting global action listeners')
+        logger.debug('Starting GlobalActions listeners')
         HasLifecycle.start(self)
-        dispatcher.connect(signal=actions.START_DIFF_TREES, receiver=self._on_diff_requested)
-        dispatcher.connect(signal=actions.SYNC_GDRIVE_CHANGES, receiver=self._on_gdrive_sync_changes_requested)
-        dispatcher.connect(signal=actions.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_download_all_gdrive_meta_requested)
-        dispatcher.connect(signal=actions.SHOW_GDRIVE_CHOOSER_DIALOG, receiver=self._on_gdrive_root_dialog_requested)
-        dispatcher.connect(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, receiver=self._on_gdrive_chooser_dialog_load_complete)
+        self.connect_dispatch_listener(signal=actions.START_DIFF_TREES, receiver=self._on_diff_requested)
+        self.connect_dispatch_listener(signal=actions.SYNC_GDRIVE_CHANGES, receiver=self._on_gdrive_sync_changes_requested)
+        self.connect_dispatch_listener(signal=actions.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_download_all_gdrive_meta_requested)
+        self.connect_dispatch_listener(signal=actions.SHOW_GDRIVE_CHOOSER_DIALOG, receiver=self._on_gdrive_root_dialog_requested)
+        self.connect_dispatch_listener(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, receiver=self._on_gdrive_chooser_dialog_load_complete)
 
     """
     🡻🡻🡻 ② Utility functions 🡻🡻🡻
@@ -163,27 +147,27 @@ class GlobalActions(HasLifecycle):
             right_fmeta_tree = tree_con_right.get_tree()
 
             logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {actions.ID_DIFF_WINDOW}')
-            actions.get_dispatcher().send(actions.START_PROGRESS_INDETERMINATE, sender=actions.ID_DIFF_WINDOW)
+            dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=actions.ID_DIFF_WINDOW)
             msg = 'Computing bidrectional content-first diff...'
-            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, msg=msg)
+            dispatcher.send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, msg=msg)
 
             stopwatch_diff = Stopwatch()
             differ = ContentFirstDiffer(left_fmeta_tree, right_fmeta_tree, self.app)
             op_tree_left, op_tree_right, = differ.diff(compare_paths_also=True)
             logger.info(f'{stopwatch_diff} Diff completed')
 
-            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, msg='Populating UI trees...')
+            dispatcher.send(actions.SET_PROGRESS_TEXT, sender=actions.ID_DIFF_WINDOW, msg='Populating UI trees...')
 
             tree_con_left.reload(new_tree=op_tree_left, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY,
                                  show_checkboxes=True)
             tree_con_right.reload(new_tree=op_tree_right, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY,
                                   show_checkboxes=True)
 
-            actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW)
-            actions.get_dispatcher().send(signal=actions.DIFF_TREES_DONE, sender=sender, stopwatch=stopwatch_diff_total)
+            dispatcher.send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW)
+            dispatcher.send(signal=actions.DIFF_TREES_DONE, sender=sender, stopwatch=stopwatch_diff_total)
         except Exception as err:
             # Clean up progress bar:
-            actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW)
+            dispatcher.send(actions.STOP_PROGRESS, sender=actions.ID_DIFF_WINDOW)
             actions.enable_ui(sender=self)
             self.show_error_ui('Diff task failed due to unexpected error', repr(err))
             logger.exception(err)

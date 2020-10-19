@@ -137,6 +137,7 @@ class MemoryCache:
 
 class GDriveClient(HasLifecycle):
     def __init__(self, app, tree_id=None):
+        HasLifecycle.__init__(self)
         self.app = app
         self.tree_id: str = tree_id
         self.page_size: int = self.app.config.get('gdrive.page_size')
@@ -293,7 +294,7 @@ class GDriveClient(HasLifecycle):
             msg = f'Received {len(items)} items'
             logger.debug(msg)
             if self.tree_id:
-                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+                dispatcher.send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             for item in items:
                 mime_type = item['mimeType']
@@ -325,7 +326,7 @@ class GDriveClient(HasLifecycle):
         """
         if self.tree_id:
             msg = 'Getting info for user...'
-            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+            dispatcher.send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
         fields = 'user, storageQuota'
 
@@ -687,7 +688,7 @@ class GDriveClient(HasLifecycle):
             msg = f'Received {len(items)} changes'
             logger.debug(msg)
             if self.tree_id:
-                actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+                dispatcher.send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             for item in items:
                 if SUPER_DEBUG:

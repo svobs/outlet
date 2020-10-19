@@ -77,22 +77,6 @@ ID_CENTRAL_EXEC = 'central-executor'
 logger = logging.getLogger(__name__)
 
 
-def get_dispatcher():
-    return dispatcher
-
-
-def send_signal(signal, sender):
-    """
-    (Convenience method)
-    Send a given signal from the given sender, with no additional args.
-    """
-    dispatcher.send(signal=signal, sender=sender)
-
-
-def connect(signal, handler, sender=dispatcher.Any):
-    dispatcher.connect(handler, signal=signal, sender=sender)
-
-
 def disable_ui(sender):
     logger.debug(f'Sender "{sender}" requested to disable the UI')
     dispatcher.send(signal=TOGGLE_UI_ENABLEMENT, sender=sender, enable=False)

@@ -68,6 +68,7 @@ class CacheManager(HasLifecycle):
     This is the central source of truth for the app (or attempts to be as much as possible).
     """
     def __init__(self, app):
+        HasLifecycle.__init__(self)
         self.app = app
 
         self.cache_dir_path = ensure_cache_dir_path(self.app.config)

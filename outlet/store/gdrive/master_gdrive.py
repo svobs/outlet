@@ -51,6 +51,7 @@ returning
 class GDriveMasterCache(MasterCache):
     """Singleton in-memory cache for Google Drive"""
     def __init__(self, app):
+        MasterCache.__init__(self)
         self.app = app
 
         self._uid_mapper = UidGoogIdMapper(app)

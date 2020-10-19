@@ -32,6 +32,7 @@ SHOW = 2
 class TreeActions:
     def __init__(self, controller):
         self.con = controller
+        self._connected_listeners = []
         self.download_dir = file_util.get_resource_path(self.con.config.get('download_dir'))
         self.post_download_action = OPEN
 

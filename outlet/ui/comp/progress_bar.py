@@ -7,6 +7,7 @@ import logging
 import gi
 
 from constants import PROGRESS_BAR_MAX_MSG_LENGTH, PROGRESS_BAR_PULSE_STEP, PROGRESS_BAR_SLEEP_TIME_SEC
+from util.has_lifecycle import HasLifecycle
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
@@ -14,8 +15,9 @@ from gi.repository import GLib, Gtk
 logger = logging.getLogger(__name__)
 
 
-class ProgressBar:
+class ProgressBar(HasLifecycle):
     def __init__(self, config, sender_list):
+        HasLifecycle.__init__(self)
         self._update_interval_ms = float(config.get('display.max_refresh_interval_sec', 0.001)) * 1000
         self.progressbar = Gtk.ProgressBar()
 
@@ -36,11 +38,13 @@ class ProgressBar:
 
         for sender in sender_list:
             logger.debug(f'ProgressBar will listen for siganls from sender: {sender}')
-            actions.connect(signal=actions.START_PROGRESS_INDETERMINATE, handler=self.on_start_progress_indeterminate, sender=sender)
-            actions.connect(signal=actions.START_PROGRESS, handler=self.on_start_progress, sender=sender)
-            actions.connect(signal=actions.PROGRESS_MADE, handler=self.on_progress_made, sender=sender)
-            actions.connect(signal=actions.STOP_PROGRESS, handler=self.on_stop_progress, sender=sender)
-            actions.connect(signal=actions.SET_PROGRESS_TEXT, handler=self.on_set_progress_text, sender=sender)
+            self.connect_dispatch_listener(signal=actions.START_PROGRESS_INDETERMINATE, receiver=self.on_start_progress_indeterminate, sender=sender)
+            self.connect_dispatch_listener(signal=actions.START_PROGRESS, receiver=self.on_start_progress, sender=sender)
+            self.connect_dispatch_listener(signal=actions.PROGRESS_MADE, receiver=self.on_progress_made, sender=sender)
+            self.connect_dispatch_listener(signal=actions.STOP_PROGRESS, receiver=self.on_stop_progress, sender=sender)
+            self.connect_dispatch_listener(signal=actions.SET_PROGRESS_TEXT, receiver=self.on_set_progress_text, sender=sender)
+
+        HasLifecycle.start(self)
 
     def _start_animation(self, total=None):
         self._start_request_count += 1

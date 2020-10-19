@@ -21,6 +21,7 @@ class OpGraph(HasLifecycle):
     """Dependency tree, currently with emphasis on Ops"""
 
     def __init__(self, app):
+        HasLifecycle.__init__(self)
         self.app = app
 
         self._struct_lock = threading.Lock()

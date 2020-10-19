@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 class CentralExecutor(HasLifecycle):
     """Half-baked proto-module which will at least let me see all execution in one place"""
     def __init__(self, app):
+        HasLifecycle.__init__(self)
         self.app = app
         self._command_executor = CommandExecutor(self.app)
         self._global_actions = GlobalActions(self.app)

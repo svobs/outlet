@@ -58,7 +58,8 @@ class GDrivePollingThread(HasLifecycle, threading.Thread):
 
 class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
     def __init__(self, app):
-        super().__init__(target=self._run, name=f'LocalFileChangeBatchingThread', daemon=True)
+        HasLifecycle.__init__(self)
+        threading.Thread.__init__(self, target=self._run, name=f'LocalFileChangeBatchingThread', daemon=True)
         self._shutdown: bool = False
         self.app = app
         self.local_change_batch_interval_ms: int = ensure_int(self.app.config.get('cache.local_change_batch_interval_ms'))
@@ -105,6 +106,7 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
 
 class LiveMonitor(HasLifecycle):
     def __init__(self, app):
+        HasLifecycle.__init__(self)
         self.app = app
 
         self._struct_lock = threading.Lock()

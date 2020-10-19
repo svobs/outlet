@@ -162,14 +162,13 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             logger.debug('Diff btn clicked!')
             # Disable button bar immediately:
             self._on_enable_ui_toggled(sender=self.win_id, enable=False)
-            dispatcher.send(signal=actions.START_DIFF_TREES, sender=self.win_id,
-                            tree_con_left=self.tree_con_left, tree_con_right=self.tree_con_right)
+            dispatcher.send(signal=actions.START_DIFF_TREES, sender=self.win_id, tree_con_left=self.tree_con_left, tree_con_right=self.tree_con_right)
         diff_action_btn = Gtk.Button(label="Diff (content-first)")
         diff_action_btn.connect("clicked", on_diff_btn_clicked)
 
         def on_goog_btn_clicked(widget):
             logger.debug('DownloadGDrive btn clicked!')
-            actions.send_signal(signal=actions.DOWNLOAD_ALL_GDRIVE_META, sender=self.win_id)
+            dispatcher.send(signal=actions.DOWNLOAD_ALL_GDRIVE_META, sender=self.win_id)
         gdrive_btn = Gtk.Button(label="Download Google Drive Meta")
         gdrive_btn.connect("clicked", on_goog_btn_clicked)
 

@@ -34,6 +34,7 @@ class ErrorHandlingBehavior(IntEnum):
 
 class OpLedger(HasLifecycle):
     def __init__(self, app):
+        HasLifecycle.__init__(self)
         self.app = app
         self._cmd_builder = CommandBuilder(self.app)
 
@@ -44,18 +45,12 @@ class OpLedger(HasLifecycle):
 
     def start(self):
         HasLifecycle.start(self)
-
-        dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
+        self.connect_dispatch_listener(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
 
         self.op_graph.start()
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
-
-        try:
-            dispatcher.disconnect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
-        except DispatcherKeyError:
-            pass
 
         self.app = None
         self._cmd_builder = None

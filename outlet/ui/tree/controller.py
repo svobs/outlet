@@ -37,7 +37,7 @@ class TreePanelController:
         self.lazy_tree = None
         self.display_store = display_store
         self.treeview_meta = treeview_meta
-        self.tree_id = treeview_meta.tree_id
+        self.tree_id: str = treeview_meta.tree_id
         """Cached in controller, in case treeview_meta goes away"""
 
         self.tree_view = None
@@ -73,8 +73,9 @@ class TreePanelController:
         self.tree_actions = None
         self.treeview_meta.destroy()
 
+        self.display_mutator.shutdown()
         try:
-            del self.display_mutator  # make sure no references are left here, cuz listeners
+            del self.display_mutator
         except AttributeError:
             pass
 

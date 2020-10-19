@@ -74,10 +74,10 @@ class LocalDiskScanner(LocalTreeRecurser):
             self._local_tree.add_to_tree(target_node)
 
         if self.tree_id:
-            actions.get_dispatcher().send(actions.PROGRESS_MADE, sender=self.tree_id, progress=1)
+            dispatcher.send(actions.PROGRESS_MADE, sender=self.tree_id, progress=1)
             self.progress += 1
             msg = f'Scanning file {self.progress} of {self.total}'
-            actions.get_dispatcher().send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+            dispatcher.send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
     def handle_target_file_type(self, file_path):
         self.handle_file(file_path)
@@ -128,4 +128,4 @@ class LocalDiskScanner(LocalTreeRecurser):
         finally:
             if self.tree_id:
                 logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
-                actions.get_dispatcher().send(actions.STOP_PROGRESS, sender=self.tree_id)
+                dispatcher.send(actions.STOP_PROGRESS, sender=self.tree_id)

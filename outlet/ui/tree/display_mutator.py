@@ -12,6 +12,7 @@ from pydispatch.errors import DispatcherKeyError
 from constants import HOLDOFF_TIME_MS, LARGE_NUMBER_OF_CHILDREN, SUPER_DEBUG
 from error import GDriveItemNotFoundError
 from model.op import Op
+from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
 from model.node.container_node import CategoryNode
 from model.node.display_node import DisplayNode
@@ -30,12 +31,13 @@ logger = logging.getLogger(__name__)
 # CLASS DisplayMutator
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class DisplayMutator:
+class DisplayMutator(HasLifecycle):
     """
     Cache Manager --> TreeBuilder --> DisplayTree --> DisplayMutator --> DisplayStore (TreeModel)
     TODO: when does the number of display nodes start to slow down? -> add config for live node maximum
     """
     def __init__(self, config, controller=None):
+        HasLifecycle.__init__(self)
         self.con = controller
         self.use_empty_nodes = True
         self._lock = threading.Lock()
@@ -47,51 +49,26 @@ class DisplayMutator:
         Needs to be set to false when modifying the model with certain operations, because leaving enabled would
         result in an infinite loop"""
 
-    def __del__(self):
-        try:
-            if self.con and self.con.treeview_meta:
-                dispatcher.disconnect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled,
-                                      sender=self.con.treeview_meta.tree_id)
-        except DispatcherKeyError:
-            pass
-
-        try:
-            dispatcher.disconnect(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_subtree_stats_updated)
-        except DispatcherKeyError:
-            pass
-
-        try:
-            dispatcher.disconnect(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
-        except DispatcherKeyError:
-            pass
-
-        try:
-            dispatcher.disconnect(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
-        except DispatcherKeyError:
-            pass
-
-        try:
-            dispatcher.disconnect(signal=actions.NODE_MOVED, receiver=self._on_node_moved_in_cache)
-        except DispatcherKeyError:
-            pass
-
     def init(self):
         """Do post-wiring stuff like connect listeners."""
         logger.debug(f'[{self.con.tree_id}] DisplayMutator init')
+        HasLifecycle.start(self)
+
         self.use_empty_nodes = self.con.config.get('display.diff_tree.use_empty_nodes')
+        tree_id = self.con.treeview_meta.tree_id
 
         if self.con.treeview_meta.lazy_load:
-            dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled,
-                               sender=self.con.treeview_meta.tree_id)
+            self.connect_dispatch_listener(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=tree_id)
 
-        dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_subtree_stats_updated, sender=self.con.treeview_meta.tree_id)
+        self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_subtree_stats_updated,
+                                       sender=tree_id)
         """This signal comes from the cacheman after it has finished updating all the nodes in the subtree,
         notfiying us that we can now refresh our display from it"""
 
         if self.con.treeview_meta.can_modify_tree:
-            dispatcher.connect(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
-            dispatcher.connect(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
-            dispatcher.connect(signal=actions.NODE_MOVED, receiver=self._on_node_moved_in_cache)
+            self.connect_dispatch_listener(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
+            self.connect_dispatch_listener(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
+            self.connect_dispatch_listener(signal=actions.NODE_MOVED, receiver=self._on_node_moved_in_cache)
 
     def _populate_recursively(self, parent_iter, node: DisplayNode, node_count: int = 0) -> int:
         # Do a DFS of the change tree and populate the UI tree along the way
