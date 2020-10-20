@@ -55,8 +55,8 @@ class TreePanelController:
 
         """Should be called after all controller components have been wired together"""
         self.treeview_meta.init()
-        self.display_mutator.init()
-        self.tree_actions.start_listeners()
+        self.display_mutator.start()
+        self.tree_actions.start()
         # Need to start TreeUiListeners AFTER TreeActions... Need a better solution
         self.tree_ui_listeners.init()
 
@@ -74,10 +74,6 @@ class TreePanelController:
         self.treeview_meta.destroy()
 
         self.display_mutator.shutdown()
-        try:
-            del self.display_mutator
-        except AttributeError:
-            pass
 
         self.root_dir_panel = None
 

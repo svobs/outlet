@@ -309,6 +309,7 @@ class RootDirPanel:
         open_dialog.show()
 
     def _open_gdrive_root_chooser_dialog(self, menu_item):
+        logger.debug(f'[{self.tree_id}] Sending signal "{actions.SHOW_GDRIVE_CHOOSER_DIALOG}" with current_selection={self.current_root}')
         dispatcher.send(signal=actions.SHOW_GDRIVE_CHOOSER_DIALOG, sender=self.tree_id, current_selection=self.current_root)
 
     def _build_source_menu(self):

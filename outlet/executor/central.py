@@ -34,7 +34,7 @@ class CentralExecutor(HasLifecycle):
         if self.enable_op_execution_thread:
             self.start_op_execution_thread()
         else:
-            logger.warning('OpExecutionThread is disabled!')
+            logger.warning(f'{self._op_execution_thread.name} is disabled!')
 
     def start_op_execution_thread(self):
         if not self._op_execution_thread.is_alive():
@@ -58,8 +58,6 @@ class CentralExecutor(HasLifecycle):
 
     def _run_op_execution_thread(self):
         """This is a consumer thread for the ChangeManager's dependency tree"""
-        logger.info('Starting OpExecutionThread...')
-
         while True:
             # Should be ok to do simple infinite loop, because get_next_command() will block until work is available.
             # May need to throttle here in the future however if we are seeing hiccups in the UI for large numbers of operations

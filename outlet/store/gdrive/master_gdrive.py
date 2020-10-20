@@ -1,6 +1,8 @@
 import logging
+import os
 import threading
-from typing import Dict, List, Optional, Tuple
+from collections import deque
+from typing import Deque, Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
@@ -16,7 +18,7 @@ from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from store.gdrive.change_observer import GDriveChange
 from store.gdrive.gdrive_tree_loader import GDriveTreeLoader
-from store.gdrive.master_gdrive_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, GDriveCacheOp, UpsertSingleNodeOp
+from store.gdrive.master_gdrive_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, GDriveCacheOp, RefreshFolderOp, UpsertSingleNodeOp
 from store.master import MasterCache
 from store.sqlite.gdrive_db import GDriveDatabase
 from store.uid.uid_mapper import UidGoogIdMapper
@@ -83,6 +85,7 @@ class GDriveMasterCache(MasterCache):
 
     def _execute(self, operation: GDriveCacheOp):
         """Executes a single GDriveCacheOp."""
+        assert self._struct_lock.locked()
 
         # 1. Update memory cache
         operation.update_memory_cache(self._master_tree)
@@ -188,13 +191,39 @@ class GDriveMasterCache(MasterCache):
             self._master_tree.refresh_stats(subtree_root_node, tree_id)
 
     def refresh_subtree(self, subtree_root_node: GDriveFolder, tree_id: str):
-        with self._struct_lock:
-            pass
+        # Call into client to get folder. Set has_all_children=False at first, then set to True when it's finished.
+        logger.debug(f'[{tree_id}] Refresh requested. Querying GDrive for latest version of parent folder ({subtree_root_node})')
+        stats_sw = Stopwatch()
 
-        # TODO call into client to get folder. Set has_all_children=False at first, then set to True when it's finished.
-        child_list: List[GDriveNode] = self.app.cacheman.gdrive_client.get_all_children_for_parent(subtree_root_node.goog_id)
+        parent_node: GDriveFolder = self.app.cacheman.gdrive_client.get_existing_node_by_id(subtree_root_node.goog_id)
+        if not parent_node:
+            # TODO: better handling
+            raise RuntimeError(f'Node with goog_id "{subtree_root_node.goog_id}" was not found in Google Drive: {subtree_root_node}')
 
-        # TODO then recursively call into client to download descendants. Only lock the struct when you are doing the modify
+        parent_node.node_identifier.full_path = subtree_root_node.full_path
+
+        folders_to_process: Deque[GDriveFolder] = deque()
+        folders_to_process.append(parent_node)
+
+        count_folders: int = 0
+        count_total: int = 0
+        while len(folders_to_process) > 0:
+            folder: GDriveFolder = folders_to_process.popleft()
+            logger.debug(f'Querying GDrive for children of folder ({folder})')
+            child_list: List[GDriveNode] = self.app.cacheman.gdrive_client.get_all_children_for_parent(folder.goog_id)
+            count_folders += 1
+            count_total += len(child_list)
+            for child in child_list:
+                child.node_identifier.full_path = os.path.join(folder.full_path, child.name)
+                if child.is_dir():
+                    assert isinstance(child, GDriveFolder)
+                    folders_to_process.append(child)
+            folder.all_children_fetched = True
+
+            with self._struct_lock:
+                self._execute(RefreshFolderOp(self.app, parent_node, child_list))
+
+        logger.debug(f'[{tree_id}] {stats_sw} Refresh subtree complete (folders={count_folders}, total={count_total})')
 
     # Individual node cache updates
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

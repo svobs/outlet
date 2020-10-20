@@ -38,8 +38,8 @@ class TreeActions(HasLifecycle):
         self.download_dir = file_util.get_resource_path(self.con.config.get('download_dir'))
         self.post_download_action = OPEN
 
-    def start_listeners(self):
-        logger.debug(f'[{self.con.tree_id}] TreeActions start_listeners')
+    def start(self):
+        logger.debug(f'[{self.con.tree_id}] TreeActions start')
         HasLifecycle.start(self)
         self.connect_dispatch_listener(signal=actions.LOAD_UI_TREE, sender=self.con.tree_id, receiver=self._load_ui_tree)
         self.connect_dispatch_listener(signal=actions.EXPAND_AND_SELECT_NODE, sender=self.con.tree_id, receiver=self._expand_and_select_node)

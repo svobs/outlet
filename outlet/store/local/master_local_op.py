@@ -16,16 +16,17 @@ from ui.actions import ID_GLOBAL_CACHE
 logger = logging.getLogger(__name__)
 
 
-# CLASS Subtree
+# CLASS LocalSubtree
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class Subtree(ABC):
+class LocalSubtree(ABC):
+    """Just a collection of nodes to be upserted and removed, all descendants of the same subtree"""
     def __init__(self, subtree_root: NodeIdentifier, remove_node_list: List[LocalNode], upsert_node_list: List[LocalNode]):
         self.subtree_root: NodeIdentifier = subtree_root
         self.remove_node_list: List[LocalNode] = remove_node_list
         self.upsert_node_list: List[LocalNode] = upsert_node_list
 
     def __repr__(self):
-        return f'Subtree({self.subtree_root} remove_nodes={len(self.remove_node_list)} upsert_nodes={len(self.upsert_node_list)}'
+        return f'LocalSubtree({self.subtree_root} remove_nodes={len(self.remove_node_list)} upsert_nodes={len(self.upsert_node_list)}'
 
 
 # ABSTRACT CLASS LocalDiskOp
@@ -60,11 +61,11 @@ class LocalDiskSingleNodeOp(LocalDiskOp, ABC):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class LocalDiskSubtreeOp(LocalDiskOp, ABC):
     @abstractmethod
-    def get_subtree_list(self) -> List[Subtree]:
+    def get_subtree_list(self) -> List[LocalSubtree]:
         pass
 
     @abstractmethod
-    def update_disk_cache(self, cache: LocalDiskDatabase, subtree: Subtree):
+    def update_disk_cache(self, cache: LocalDiskDatabase, subtree: LocalSubtree):
         pass
 
     @classmethod
@@ -138,14 +139,14 @@ class DeleteSingleNodeOp(UpsertSingleNodeOp):
 class BatchChangesOp(LocalDiskSubtreeOp):
     """ALWAYS REMOVE BEFORE ADDING!"""
 
-    def __init__(self, subtree_list: List[Subtree] = None,
+    def __init__(self, subtree_list: List[LocalSubtree] = None,
                  subtree_root: LocalFsIdentifier = None, upsert_node_list: List[LocalNode] = None, remove_node_list: List[LocalNode] = None):
         if subtree_list:
             self.subtree_list = subtree_list
         else:
-            self.subtree_list = [Subtree(subtree_root, remove_node_list, upsert_node_list)]
+            self.subtree_list = [LocalSubtree(subtree_root, remove_node_list, upsert_node_list)]
 
-    def get_subtree_list(self) -> List[Subtree]:
+    def get_subtree_list(self) -> List[LocalSubtree]:
         return self.subtree_list
 
     def update_memory_cache(self, data: MasterCacheData):
@@ -162,7 +163,7 @@ class BatchChangesOp(LocalDiskSubtreeOp):
                     if master_node:
                         subtree.upsert_node_list[node_index] = master_node
 
-    def update_disk_cache(self, cache: LocalDiskDatabase, subtree: Subtree):
+    def update_disk_cache(self, cache: LocalDiskDatabase, subtree: LocalSubtree):
         if subtree.remove_node_list:
             cache.delete_files_and_dirs(subtree.remove_node_list, commit=False)
         if subtree.upsert_node_list:

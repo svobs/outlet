@@ -159,7 +159,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def _set_default_button_bar(self):
         def on_diff_btn_clicked(widget):
-            logger.debug('Diff btn clicked!')
+            logger.debug(f'Diff btn clicked! Sending signal: "{actions.START_DIFF_TREES}"')
             # Disable button bar immediately:
             self._on_enable_ui_toggled(sender=self.win_id, enable=False)
             dispatcher.send(signal=actions.START_DIFF_TREES, sender=self.win_id, tree_con_left=self.tree_con_left, tree_con_right=self.tree_con_right)

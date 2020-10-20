@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Callable, List, Optional
 
 from pydispatch import dispatcher
+from pydispatch.dispatcher import Any
 from pydispatch.errors import DispatcherKeyError
 
 from ui import actions
@@ -26,6 +27,8 @@ class HasLifecycle(ABC):
         self.shutdown()
 
     def connect_dispatch_listener(self, signal: str, receiver: Callable, sender: Optional[str] = None):
+        if not sender:
+            sender = Any
         self._connected_listeners.append(ListenerInfo(signal, receiver, sender))
         dispatcher.connect(signal=signal, receiver=receiver, sender=sender)
 

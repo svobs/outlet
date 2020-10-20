@@ -421,6 +421,34 @@ class GDriveClient(HasLifecycle):
     # FILES
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
+    def get_existing_node_by_id(self, goog_id: str) -> Optional[GDriveNode]:
+        fields = f'{GDRIVE_FILE_FIELDS}, parents'
+
+        sync_ts = int(time.time())
+
+        def request():
+            logger.debug(f'Getting node with goog_id "{goog_id}"')
+
+            # Call the Drive v3 API
+            return self.service.files().get(fileId=goog_id, fields=fields, supportsAllDrives=True).execute()
+
+        item: dict = GDriveClient._try_repeatedly(request)
+
+        if not item:
+            logger.debug('Request returned no files')
+            return None
+
+        mime_type = item['mimeType']
+        if mime_type == MIME_TYPE_FOLDER:
+            goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item, sync_ts=sync_ts)
+        else:
+            goog_node: GDriveFile = self._convert_dict_to_gdrive_file(item, sync_ts=sync_ts)
+
+        if SUPER_DEBUG:
+            logger.debug(f'Request returned {goog_node}')
+
+        return goog_node
+
     def get_single_file_with_parent_and_name_and_criteria(self, node: GDriveNode, match_func: Callable[[GDriveNode], bool] = None) -> Tuple:
         src_parent_goog_id: str = self.app.cacheman.get_goog_id_for_parent(node)
         result: SimpleNodeCollector = self.get_existing_file_with_parent_and_name(parent_goog_id=src_parent_goog_id, name=node.name)

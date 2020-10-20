@@ -21,7 +21,7 @@ from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from store.cache_manager import PersistedCacheInfo
 from store.local.local_disk_scanner import LocalDiskScanner
 from store.local.local_sig_calc_thread import SignatureCalcThread
-from store.local.master_local_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskOpExecutor, MasterCacheData, Subtree, \
+from store.local.master_local_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskOpExecutor, MasterCacheData, LocalSubtree, \
     UpsertSingleNodeOp
 from store.master import MasterCache
 from store.sqlite.local_db import LocalDiskDatabase
@@ -177,7 +177,7 @@ class LocalDiskMasterCache(MasterCache):
 
         with self._struct_lock:
             # Just upsert all nodes in the updated tree and let God (or some logic) sort them out
-            subtree = Subtree(subtree_root, [], fresh_tree.get_subtree_bfs())
+            subtree = LocalSubtree(subtree_root, [], fresh_tree.get_subtree_bfs())
             batch_changes_op: BatchChangesOp = BatchChangesOp(subtree_list=[subtree])
 
             # Find removed nodes and append them to remove_single_nodes_op
@@ -205,7 +205,7 @@ class LocalDiskMasterCache(MasterCache):
 
             self._executor.execute(batch_changes_op)
 
-    # Subtree-level methods
+    # LocalSubtree-level methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def show_tree(self, subtree_root: LocalFsIdentifier) -> str:
@@ -237,7 +237,7 @@ class LocalDiskMasterCache(MasterCache):
         cache_man = self.app.cacheman
         supertree_cache: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_subtree(subtree_root.full_path, subtree_root.tree_type)
         if supertree_cache:
-            logger.debug(f'Subtree ({subtree_root.full_path}) is part of existing cached supertree ({supertree_cache.subtree_root.full_path})')
+            logger.debug(f'LocalSubtree ({subtree_root.full_path}) is part of existing cached supertree ({supertree_cache.subtree_root.full_path})')
             assert isinstance(subtree_root, LocalFsIdentifier)
             return self._load_subtree(supertree_cache, tree_id, subtree_root, is_live_refresh)
         else:
@@ -430,7 +430,7 @@ class LocalDiskMasterCache(MasterCache):
             src_node: LocalNode = self._data.master_tree.get_node(src_uid)
             if src_node:
                 src_nodes: List[LocalNode] = self._data.master_tree.get_subtree_bfs(src_node.uid)
-                src_subtree: Subtree = Subtree(src_node.node_identifier, remove_node_list=[], upsert_node_list=src_nodes)
+                src_subtree: LocalSubtree = LocalSubtree(src_node.node_identifier, remove_node_list=[], upsert_node_list=src_nodes)
             else:
                 logger.error(f'MV src node does not exist: UID={src_uid}, path={src_full_path}')
                 return
@@ -438,7 +438,7 @@ class LocalDiskMasterCache(MasterCache):
             # Create up to 3 tree operations which should be executed in a single transaction if possible
             dst_uid: UID = self.get_uid_for_path(dst_full_path)
             dst_node_identifier: LocalFsIdentifier = LocalFsIdentifier(dst_full_path, dst_uid)
-            dst_subtree: Subtree = Subtree(dst_node_identifier, [], [])
+            dst_subtree: LocalSubtree = LocalSubtree(dst_node_identifier, [], [])
 
             existing_dst_node: LocalNode = self._data.master_tree.get_node(dst_uid)
             if existing_dst_node:
@@ -461,7 +461,7 @@ class LocalDiskMasterCache(MasterCache):
                     local_node: LocalFileNode = self.build_local_file_node(dst_full_path)
                     dst_subtree.upsert_node_list.append(local_node)
 
-            subtree_list: List[Subtree] = [src_subtree, dst_subtree]
+            subtree_list: List[LocalSubtree] = [src_subtree, dst_subtree]
 
             if is_from_watchdog:
                 self._add_to_expected_node_moves(src_subtree.remove_node_list, dst_subtree.upsert_node_list)

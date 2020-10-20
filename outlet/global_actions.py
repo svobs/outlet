@@ -3,7 +3,6 @@ import os
 
 import gi
 from pydispatch import dispatcher
-from pydispatch.errors import DispatcherKeyError
 
 from constants import TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
@@ -88,7 +87,7 @@ class GlobalActions(HasLifecycle):
             self.show_error_ui('Sync from GDrive failed due to unexpected error', repr(err))
             logger.exception(err)
 
-    def _on_gdrive_root_dialog_requested(self, sender, current_selection: NodeIdentifier):
+    def _on_gdrive_root_dialog_requested(self, sender: str, current_selection: NodeIdentifier):
         """See below."""
         logger.debug(f'Received signal: "{actions.SHOW_GDRIVE_CHOOSER_DIALOG}"')
         self.app.executor.submit_async_task(self.load_data_for_gdrive_dir_chooser_dialog, sender, current_selection)

@@ -7,8 +7,6 @@ from pydispatch import dispatcher
 from datetime import datetime
 from typing import Deque, Iterable, List, Optional
 
-from pydispatch.errors import DispatcherKeyError
-
 from constants import HOLDOFF_TIME_MS, LARGE_NUMBER_OF_CHILDREN, SUPER_DEBUG
 from error import GDriveItemNotFoundError
 from model.op import Op
@@ -49,9 +47,9 @@ class DisplayMutator(HasLifecycle):
         Needs to be set to false when modifying the model with certain operations, because leaving enabled would
         result in an infinite loop"""
 
-    def init(self):
+    def start(self):
         """Do post-wiring stuff like connect listeners."""
-        logger.debug(f'[{self.con.tree_id}] DisplayMutator init')
+        logger.debug(f'[{self.con.tree_id}] DisplayMutator start')
         HasLifecycle.start(self)
 
         self.use_empty_nodes = self.con.config.get('display.diff_tree.use_empty_nodes')
@@ -69,6 +67,10 @@ class DisplayMutator(HasLifecycle):
             self.connect_dispatch_listener(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
             self.connect_dispatch_listener(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
             self.connect_dispatch_listener(signal=actions.NODE_MOVED, receiver=self._on_node_moved_in_cache)
+
+    def shutdown(self):
+        HasLifecycle.shutdown(self)
+        self.con = None
 
     def _populate_recursively(self, parent_iter, node: DisplayNode, node_count: int = 0) -> int:
         # Do a DFS of the change tree and populate the UI tree along the way
@@ -308,8 +310,12 @@ class DisplayMutator(HasLifecycle):
                 parent = self.con.get_tree().get_parent_for_node(node)
 
                 if not parent:
-                    # logger.debug(f'[{self.con.tree_id}] No parent for node: {node}')
-                    if self.con.get_tree().in_this_subtree(node.full_path):
+                    if node.uid in self.con.display_store.displayed_rows:
+                        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_UPSERTED} for node {node.node_identifier}'
+                                     f'but its parent is no longer in the tree; removing node from display store: {node.uid}')
+                        self.con.display_store.remove_node(node.uid)
+                        self._stats_refresh_timer.start_or_delay()
+                    elif self.con.get_tree().in_this_subtree(node.full_path):
                         # At least in subtree? If so, refresh stats to reflect change
                         logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_UPSERTED} for node {node.node_identifier}')
                         self._stats_refresh_timer.start_or_delay()
