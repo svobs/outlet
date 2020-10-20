@@ -223,7 +223,8 @@ class GDriveMasterCache(MasterCache):
             with self._struct_lock:
                 self._execute(RefreshFolderOp(self.app, parent_node, child_list))
 
-        logger.debug(f'[{tree_id}] {stats_sw} Refresh subtree complete (folders={count_folders}, total={count_total})')
+        logger.info(f'[{tree_id}] {stats_sw} Refresh subtree complete (SubtreeRoot={subtree_root_node.node_identifier} '
+                    f'Folders={count_folders} Total={count_total})')
 
     # Individual node cache updates
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

@@ -1,3 +1,4 @@
+import copy
 import logging
 import threading
 import time
@@ -57,19 +58,21 @@ class SignatureCalcThread(HasLifecycle, threading.Thread):
             self._cv_can_get.notifyAll()
 
     def _process_single_node(self, node: LocalFileNode):
-        md5, sha256 = store.local.content_hasher.calculate_signatures(node.full_path)
-        if not node.md5 and not node.sha256:
+        md5, sha256 = store.local.content_hasher.calculate_signatures(full_path=node.full_path)
+        if not md5 and not sha256:
             logger.debug(f'[{self.name}] Failed to calculate signature for node {node.uid}: assuming it was deleted')
             return
 
-        node.md5 = md5
-        node.sha256 = sha256
+        # Do not modify the original node, or cacheman will not detect that it has changed. Edit and submit a copy instead
+        node_with_signature = copy.deepcopy(node)
+        node_with_signature.md5 = md5
+        node_with_signature.sha256 = sha256
 
-        logger.debug(f'[{self.name}] Node {node.uid} has MD5: {node.md5}')
+        logger.debug(f'[{self.name}] Node {node_with_signature.uid} has MD5: {node_with_signature.md5}')
 
         # TODO: consider batching writes
         # Send back to ourselves to be re-stored in memory & disk caches:
-        self.app.cacheman.update_single_node(node)
+        self.app.cacheman.update_single_node(node_with_signature)
 
     def _on_node_upserted_in_cache(self, sender: str, node: DisplayNode):
         if node.get_tree_type() == TREE_TYPE_LOCAL_DISK and node.is_file() and not node.md5 and not node.sha256:

@@ -149,7 +149,18 @@ class LocalFileNode(LocalNode):
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.md5, self.sha256, self.get_size_bytes(), self.sync_ts, self.modify_ts, self.change_ts, self.full_path, self.exists()
+        return self.uid, self.md5, self.sha256, self._size_bytes, self.sync_ts, self.modify_ts, self.change_ts, self.full_path, self._exists
+
+    def __eq__(self, other):
+        if not isinstance(other, LocalFileNode):
+            return False
+
+        return other.node_identifier == self.node_identifier and other._md5 == self._md5 and other._sha256 == self._sha256 \
+            and other._modify_ts == self._modify_ts and other._change_ts == self._change_ts and other.trashed == self.trashed \
+            and other._exists == self._exists
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __repr__(self):
         return f'LocalFileNode({self.node_identifier} md5={self._md5} sha256={self.sha256} size_bytes={self._size_bytes} ' \
@@ -188,9 +199,6 @@ class LocalDirNode(HasChildList, LocalNode):
     def to_tuple(self) -> Tuple:
         return self.uid, self.full_path, self.exists()
 
-    def __repr__(self):
-        return f'LocalDirNode({self.node_identifier} exists={self.exists()} size_bytes={self.get_size_bytes()} summary="{self.get_summary()}")'
-
     @classmethod
     def get_obj_type(cls):
         return OBJ_TYPE_DIR
@@ -216,7 +224,10 @@ class LocalDirNode(HasChildList, LocalNode):
             return False
 
         return other.node_identifier == self.node_identifier and other.name == self.name and other.trashed == self.trashed \
-            and other.exists() == self.exists()
+            and other._exists == self._exists
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def __repr__(self):
+        return f'LocalDirNode({self.node_identifier} exists={self.exists()} size_bytes={self.get_size_bytes()} summary="{self.get_summary()}")'

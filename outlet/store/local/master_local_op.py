@@ -214,6 +214,7 @@ class LocalDiskOpExecutor:
 
                 with LocalDiskDatabase(cache_info.cache_location, self.app) as cache:
                     operation.update_disk_cache(cache)
+                    cache.commit()
 
         else:
             logger.debug(f'Save to disk is disabled: skipping save to disk for operation')

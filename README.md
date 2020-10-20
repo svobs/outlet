@@ -32,15 +32,16 @@ Create a virtual environment within this directory (`{project_name}`)  following
     make init
 
 ### Future Major Features (TODO)
-* Tombstones
-* Reload GDrive
-* Pause/resume ops
-* Detach service
-* Run multiple concurrent ops
-* CommandBuilder: look up MD5 for src_node and use a closer node
-* OpLedger: simplify the op tree each time the next change is requested
-* Filter UI by Trashed, Shared, etc.
+* UID <-> MD5/SHA256
 * Filter by name (aka search)
-* Put GDrive files in trash
-* Put local files in trash
+* [3] Filter UI by Trashed, Shared, etc.
+* [1] Put GDrive files in trash
+* [3] Put local files in trash
+* [3] Tombstone trash support
+* [1] Pause/resume ops
+* [3] Tombstones
+* [3] Detach service
+* [5] Run multiple concurrent ops
+* [3] Optimal Path - CommandBuilder: look up MD5 for src_node and use a closer node
+* OpLedger: simplify the op tree each time the next change is requested
 * Bulk delete dir trees instead of one by one

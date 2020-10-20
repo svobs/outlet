@@ -18,7 +18,8 @@ from model.node_identifier_factory import NodeIdentifierFactory
 from ui.tree.controller import TreePanelController
 from util import file_util
 from model.op import Op
-from constants import CACHE_LOAD_TIMEOUT_SEC, MAIN_REGISTRY_FILE_NAME, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, TREE_TYPE_GDRIVE, \
+    TREE_TYPE_LOCAL_DISK
 from util.file_util import get_resource_path
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from store.op.op_ledger import OpLedger
@@ -392,14 +393,14 @@ class CacheManager(HasLifecycle):
             logger.debug(f'No existing cache entry found for type={subtree_root.tree_type} subtree="{subtree_root.full_path}"')
 
         if subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
-            prefix = 'LO'
+            unique_path = subtree_root.full_path.replace('/', '_')
+            file_name = f'LO_{unique_path}.{INDEX_FILE_SUFFIX}'
         elif subtree_root.tree_type == TREE_TYPE_GDRIVE:
-            prefix = 'GD'
+            file_name = GDRIVE_INDEX_FILE_NAME
         else:
             raise RuntimeError(f'Unrecognized tree type: {subtree_root.tree_type}')
 
-        mangled_file_name = prefix + subtree_root.full_path.replace('/', '_') + '.db'
-        cache_location = os.path.join(self.cache_dir_path, mangled_file_name)
+        cache_location = os.path.join(self.cache_dir_path, file_name)
         now_ms = int(time.time())
         db_entry = CacheInfoEntry(cache_location=cache_location,
                                   subtree_root=subtree_root, sync_ts=now_ms,

@@ -97,7 +97,8 @@ class MasterCacheData:
 
             if existing_node == node:
                 if SUPER_DEBUG:
-                    logger.debug(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
+                    logger.debug(f'Node being upserted is identical to node already in the cache; skipping cache update '
+                                 f'(CachedNode={existing_node}; NewNode={node}')
                 return existing_node, False
             else:
                 # Signature may have changed. Simplify things by just removing prev node before worrying about updated node
@@ -140,14 +141,14 @@ def _copy_signature_if_possible(src: LocalFileNode, dst: LocalFileNode):
         if dst.md5:
             if src.md5 and dst.md5 != src.md5:
                 logger.error(f'Dst node already has MD5 but it is unexpected: {dst} (expected {src}')
-        else:
+        elif src.md5:
             if SUPER_DEBUG:
                 logger.debug(f'Copying MD5 for: {dst.node_identifier}')
             dst.md5 = src.md5
         if dst.sha256:
             if src.sha256 and dst.sha256 != src.sha256:
                 logger.error(f'Dst node already has SHA256 but it is unexpected: {dst} (expected {src}')
-        else:
+        elif src.sha256:
             if SUPER_DEBUG:
                 logger.debug(f'Copying SHA256 for: {dst.node_identifier}')
             dst.sha256 = src.sha256

@@ -385,6 +385,11 @@ class LocalDiskMasterCache(MasterCache):
         with self._struct_lock:
             self._executor.execute(UpsertSingleNodeOp(node))
 
+    def update_single_node(self, node: LocalNode):
+        assert node, 'Cannot update node: no node provided!'
+        with self._struct_lock:
+            self._executor.execute(UpsertSingleNodeOp(node, update_only=True))
+
     def remove_single_node(self, node: LocalNode, to_trash=False):
         assert node, 'Cannot remove node: no node provided!'
         logger.debug(f'Removing node from caches (to_trash={to_trash}): {node}')
