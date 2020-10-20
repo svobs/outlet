@@ -31,89 +31,6 @@ from util.stopwatch_sec import Stopwatch
 logger = logging.getLogger(__name__)
 
 
-def _load_google_client_service(config):
-    def request():
-        logger.debug('Trying to authenticate against GDrive API...')
-        creds = None
-        # The file token.pickle stores the user's access and refresh tokens, and is
-        # created automatically when the authorization flow completes for the first
-        # time.
-        token_file_path = file_util.get_resource_path(config.get('auth.token_file_path'))
-        if os.path.exists(token_file_path):
-            with open(token_file_path, 'rb') as token:
-                creds = pickle.load(token)
-        # If there are no (valid) credentials available, let the user log in.
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                creds_path = file_util.get_resource_path(config.get('auth.credentials_file_path'))
-                if not os.path.exists(creds_path):
-                    raise RuntimeError(f'Could not find credentials file at the specified path ({creds_path})! This file is required to run.')
-                flow = InstalledAppFlow.from_client_secrets_file(creds_path, GDRIVE_AUTH_SCOPES)
-                creds = flow.run_local_server(port=0)
-            # Save the credentials for the next run
-            with open(token_file_path, 'wb') as token:
-                pickle.dump(creds, token)
-
-        service = build('drive', 'v3', credentials=creds, cache=MemoryCache())
-        return service
-
-    result = _try_repeatedly(request)
-    logger.debug('Authentication done!')
-    return result
-
-
-def _try_repeatedly(request_func):
-    retries_remaining = GDRIVE_CLIENT_REQUEST_MAX_RETRIES
-    while True:
-        try:
-            return request_func()
-        except Exception as err:
-            logger.debug(f'Error type: {type(err)}')
-            if isinstance(err, socket.timeout):
-                if retries_remaining == 0:
-                    raise
-                logger.error(f'Request timed out: sleeping 3 secs (retries remaining: {retries_remaining})')
-            else:
-                if isinstance(err, HttpError):
-                    try:
-                        if err.resp and err.resp.status == 403 or err.resp.status == 404:
-                            # TODO: custom error class
-                            raise
-                    except AttributeError as err2:
-                        logger.error(f'Additional error: {err2}')
-
-                if retries_remaining == 0:
-                    raise
-                # Typically a transport error (socket timeout, name server problem...)
-                logger.error(f'Request failed: {repr(err)}: sleeping 3 secs (retries remaining: {retries_remaining})')
-            time.sleep(3)
-            retries_remaining -= 1
-
-
-def _convert_trashed(result) -> Optional[TrashStatus]:
-    x_trashed = result.get('explicitlyTrashed', None)
-    trashed = result.get('trashed', None)
-    if x_trashed is None and trashed is None:
-        return None
-
-    if x_trashed:
-        return TrashStatus.EXPLICITLY_TRASHED
-    elif trashed:
-        return TrashStatus.IMPLICITLY_TRASHED
-    else:
-        return TrashStatus.NOT_TRASHED
-
-
-def _parse_gdrive_date(result, field_name) -> Optional[int]:
-    timestamp = result.get(field_name, None)
-    if timestamp:
-        timestamp = dateutil.parser.parse(timestamp)
-        timestamp = int(timestamp.timestamp() * 1000)
-    return timestamp
-
-
 # CLASS MemoryCache
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -141,7 +58,7 @@ class GDriveClient(HasLifecycle):
         self.app = app
         self.tree_id: str = tree_id
         self.page_size: int = self.app.config.get('gdrive.page_size')
-        self.service = _load_google_client_service(self.app.config)
+        self.service = GDriveClient._load_google_client_service(self.app.config)
 
         HasLifecycle.start(self)
 
@@ -153,6 +70,89 @@ class GDriveClient(HasLifecycle):
             logger.debug(f'Closing GDriveClient')
             self.service._http.http.close()
             self.service = None
+
+    @staticmethod
+    def _load_google_client_service(config):
+        def request():
+            logger.debug('Trying to authenticate against GDrive API...')
+            creds = None
+            # The file token.pickle stores the user's access and refresh tokens, and is
+            # created automatically when the authorization flow completes for the first
+            # time.
+            token_file_path = file_util.get_resource_path(config.get('auth.token_file_path'))
+            if os.path.exists(token_file_path):
+                with open(token_file_path, 'rb') as token:
+                    creds = pickle.load(token)
+            # If there are no (valid) credentials available, let the user log in.
+            if not creds or not creds.valid:
+                if creds and creds.expired and creds.refresh_token:
+                    creds.refresh(Request())
+                else:
+                    creds_path = file_util.get_resource_path(config.get('auth.credentials_file_path'))
+                    if not os.path.exists(creds_path):
+                        raise RuntimeError(f'Could not find credentials file at the specified path ({creds_path})! This file is required to run.')
+                    flow = InstalledAppFlow.from_client_secrets_file(creds_path, GDRIVE_AUTH_SCOPES)
+                    creds = flow.run_local_server(port=0)
+                # Save the credentials for the next run
+                with open(token_file_path, 'wb') as token:
+                    pickle.dump(creds, token)
+
+            service = build('drive', 'v3', credentials=creds, cache=MemoryCache())
+            return service
+
+        result = GDriveClient._try_repeatedly(request)
+        logger.debug('Authentication done!')
+        return result
+
+    @staticmethod
+    def _try_repeatedly(request_func):
+        retries_remaining = GDRIVE_CLIENT_REQUEST_MAX_RETRIES
+        while True:
+            try:
+                return request_func()
+            except Exception as err:
+                logger.debug(f'Error type: {type(err)}')
+                if isinstance(err, socket.timeout):
+                    if retries_remaining == 0:
+                        raise
+                    logger.error(f'Request timed out: sleeping 3 secs (retries remaining: {retries_remaining})')
+                else:
+                    if isinstance(err, HttpError):
+                        try:
+                            if err.resp and err.resp.status == 403 or err.resp.status == 404:
+                                # TODO: custom error class
+                                raise
+                        except AttributeError as err2:
+                            logger.error(f'Additional error: {err2}')
+
+                    if retries_remaining == 0:
+                        raise
+                    # Typically a transport error (socket timeout, name server problem...)
+                    logger.error(f'Request failed: {repr(err)}: sleeping 3 secs (retries remaining: {retries_remaining})')
+                time.sleep(3)
+                retries_remaining -= 1
+
+    @staticmethod
+    def _convert_trashed(result) -> Optional[TrashStatus]:
+        x_trashed = result.get('explicitlyTrashed', None)
+        trashed = result.get('trashed', None)
+        if x_trashed is None and trashed is None:
+            return None
+
+        if x_trashed:
+            return TrashStatus.EXPLICITLY_TRASHED
+        elif trashed:
+            return TrashStatus.IMPLICITLY_TRASHED
+        else:
+            return TrashStatus.NOT_TRASHED
+
+    @staticmethod
+    def _parse_gdrive_date(result, field_name) -> Optional[int]:
+        timestamp = result.get(field_name, None)
+        if timestamp:
+            timestamp = dateutil.parser.parse(timestamp)
+            timestamp = int(timestamp.timestamp() * 1000)
+        return timestamp
 
     def _store_user(self, user: Dict) -> GDriveUser:
         permission_id = user.get('permissionId', None)
@@ -191,13 +191,14 @@ class GDriveClient(HasLifecycle):
         else:
             sharing_user_uid = None
 
-        create_ts = _parse_gdrive_date(item, 'createdTime')
+        create_ts = GDriveClient._parse_gdrive_date(item, 'createdTime')
 
-        modify_ts = _parse_gdrive_date(item, 'modifiedTime')
+        modify_ts = GDriveClient._parse_gdrive_date(item, 'modifiedTime')
 
-        goog_node = GDriveFolder(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, node_name=item['name'], trashed=_convert_trashed(item),
-                                 create_ts=create_ts, modify_ts=modify_ts, owner_uid=owner_uid, drive_id=item.get('driveId', None),
-                                 is_shared=item.get('shared', None), shared_by_user_uid=sharing_user_uid, sync_ts=sync_ts, all_children_fetched=False)
+        goog_node = GDriveFolder(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, node_name=item['name'],
+                                 trashed=GDriveClient._convert_trashed(item), create_ts=create_ts, modify_ts=modify_ts, owner_uid=owner_uid,
+                                 drive_id=item.get('driveId', None), is_shared=item.get('shared', None), shared_by_user_uid=sharing_user_uid,
+                                 sync_ts=sync_ts, all_children_fetched=False)
 
         parent_goog_ids = item.get('parents', [])
         parent_uids = self.app.cacheman.get_uid_list_for_goog_id_list(parent_goog_ids)
@@ -223,9 +224,9 @@ class GDriveClient(HasLifecycle):
         else:
             sharing_user_uid = None
 
-        create_ts = _parse_gdrive_date(item, 'createdTime')
+        create_ts = GDriveClient._parse_gdrive_date(item, 'createdTime')
 
-        modify_ts = _parse_gdrive_date(item, 'modifiedTime')
+        modify_ts = GDriveClient._parse_gdrive_date(item, 'modifiedTime')
 
         head_revision_id = item.get('headRevisionId', None)
         size_str = item.get('size', None)
@@ -237,10 +238,11 @@ class GDriveClient(HasLifecycle):
         goog_id = item['id']
         uid = self.app.cacheman.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
         goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, node_name=item["name"],
-                                           mime_type_uid=mime_type.uid, trashed=_convert_trashed(item), drive_id=item.get('driveId', None),
-                                           version=version, head_revision_id=head_revision_id, md5=item.get('md5Checksum', None),
-                                           is_shared=item.get('shared', None), create_ts=create_ts, modify_ts=modify_ts, size_bytes=size,
-                                           shared_by_user_uid=sharing_user_uid, owner_uid=owner_uid, sync_ts=sync_ts)
+                                           mime_type_uid=mime_type.uid, trashed=GDriveClient._convert_trashed(item),
+                                           drive_id=item.get('driveId', None), version=version, head_revision_id=head_revision_id,
+                                           md5=item.get('md5Checksum', None), is_shared=item.get('shared', None), create_ts=create_ts,
+                                           modify_ts=modify_ts, size_bytes=size, shared_by_user_uid=sharing_user_uid, owner_uid=owner_uid,
+                                           sync_ts=sync_ts)
 
         parent_goog_ids = item.get('parents', [])
         parent_uids = self.app.cacheman.get_uid_list_for_goog_id_list(parent_goog_ids)
@@ -278,7 +280,7 @@ class GDriveClient(HasLifecycle):
         stopwatch_retrieval = Stopwatch()
 
         while True:
-            results: dict = _try_repeatedly(request)
+            results: dict = GDriveClient._try_repeatedly(request)
 
             # TODO: how will we know if the token is invalid?
 
@@ -333,7 +335,7 @@ class GDriveClient(HasLifecycle):
         def request():
             return self.service.about().get(fields=fields).execute()
 
-        about = _try_repeatedly(request)
+        about = GDriveClient._try_repeatedly(request)
         logger.debug(f'ABOUT: {about}')
 
         user: GDriveUser = self._store_user(about['user'])
@@ -363,7 +365,7 @@ class GDriveClient(HasLifecycle):
 
         fields = GDRIVE_FOLDER_FIELDS
 
-        result = _try_repeatedly(request)
+        result = GDriveClient._try_repeatedly(request)
 
         root_node = self._convert_dict_to_gdrive_folder(result, sync_ts)
         logger.debug(f'Drive root: {root_node}')
@@ -492,7 +494,7 @@ class GDriveClient(HasLifecycle):
             response = self.service.files().create(body=file_metadata, fields=f'{GDRIVE_FOLDER_FIELDS}, parents').execute()
             return response
 
-        item = _try_repeatedly(request)
+        item = GDriveClient._try_repeatedly(request)
 
         goog_node: GDriveFolder = self._convert_dict_to_gdrive_folder(item, uid=uid)
         if not goog_node.goog_id:
@@ -526,7 +528,7 @@ class GDriveClient(HasLifecycle):
 
             logger.info(f'GDrive download successful: dest="{dest_path}"')
 
-        _try_repeatedly(download)
+        GDriveClient._try_repeatedly(download)
 
     def upload_new_file(self, local_full_path: str, parent_goog_ids: Union[str, List[str]], uid: UID) -> GDriveFile:
         """Upload a single file based on its path. If successful, returns the newly created GDriveFile"""
@@ -547,7 +549,7 @@ class GDriveClient(HasLifecycle):
             response = self.service.files().create(body=file_metadata, media_body=media, fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
             return response
 
-        file_meta = _try_repeatedly(request)
+        file_meta = GDriveClient._try_repeatedly(request)
         gdrive_file = self._convert_dict_to_gdrive_file(file_meta, uid=uid)
 
         logger.info(
@@ -570,7 +572,7 @@ class GDriveClient(HasLifecycle):
             return self.service.files().update(fileId=goog_id, body=file_metadata, media_body=media,
                                                fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
 
-        updated_file_meta = _try_repeatedly(request)
+        updated_file_meta = GDriveClient._try_repeatedly(request)
         gdrive_file: GDriveFile = self._convert_dict_to_gdrive_file(updated_file_meta)
 
         logger.info(
@@ -596,7 +598,7 @@ class GDriveClient(HasLifecycle):
                                                removeParents=remove_parents, fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
             return file
 
-        item = _try_repeatedly(request)
+        item = GDriveClient._try_repeatedly(request)
 
         mime_type = item['mimeType']
         if mime_type == MIME_TYPE_FOLDER:
@@ -614,7 +616,7 @@ class GDriveClient(HasLifecycle):
         def request():
             return self.service.files().update(fileId=goog_id, body=file_metadata, fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
 
-        file_meta = _try_repeatedly(request)
+        file_meta = GDriveClient._try_repeatedly(request)
         gdrive_file: GDriveFile = self._convert_dict_to_gdrive_file(file_meta)
 
         logger.debug(f'Successfully trashed GDriveNode: {goog_id}: trashed={gdrive_file.trashed}')
@@ -629,7 +631,7 @@ class GDriveClient(HasLifecycle):
             file = self.service.files().delete(fileId=goog_id).execute()
             return file
 
-        _try_repeatedly(request)
+        GDriveClient._try_repeatedly(request)
         logger.debug(f'Successfully deleted GDriveNode: {goog_id}')
 
     def get_changes_start_token(self) -> str:
@@ -638,7 +640,7 @@ class GDriveClient(HasLifecycle):
         def request():
             return self.service.changes().getStartPageToken().execute()
 
-        response: Dict = _try_repeatedly(request)
+        response: Dict = GDriveClient._try_repeatedly(request)
 
         token = response.get('startPageToken', None)
 
@@ -674,7 +676,7 @@ class GDriveClient(HasLifecycle):
 
         count: int = 0
         while True:
-            response_dict: dict = _try_repeatedly(request)
+            response_dict: dict = GDriveClient._try_repeatedly(request)
 
             # TODO: how will we know if the token is invalid?
 

@@ -16,6 +16,8 @@ from ui import actions
 
 import gi
 
+from util.has_lifecycle import HasLifecycle
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -29,29 +31,30 @@ SHOW = 2
 # CLASS TreeActions
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class TreeActions:
+class TreeActions(HasLifecycle):
     def __init__(self, controller):
+        HasLifecycle.__init__(self)
         self.con = controller
-        self._connected_listeners = []
         self.download_dir = file_util.get_resource_path(self.con.config.get('download_dir'))
         self.post_download_action = OPEN
 
     def start_listeners(self):
         logger.debug(f'[{self.con.tree_id}] TreeActions start_listeners')
-        dispatcher.connect(signal=actions.LOAD_UI_TREE, sender=self.con.tree_id, receiver=self._load_ui_tree)
-        dispatcher.connect(signal=actions.EXPAND_AND_SELECT_NODE, sender=self.con.tree_id, receiver=self._expand_and_select_node)
-        dispatcher.connect(signal=actions.CALL_EXIFTOOL, sender=self.con.tree_id, receiver=self._call_exiftool)
-        dispatcher.connect(signal=actions.CALL_EXIFTOOL_LIST, sender=self.con.tree_id, receiver=self._call_exiftool_list)
-        dispatcher.connect(signal=actions.SHOW_IN_NAUTILUS, sender=self.con.tree_id, receiver=self._show_in_nautilus)
-        dispatcher.connect(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, receiver=self._call_xdg_open)
-        dispatcher.connect(signal=actions.EXPAND_ALL, sender=self.con.tree_id, receiver=self._expand_all)
-        dispatcher.connect(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, receiver=self._download_file_from_gdrive)
-        dispatcher.connect(signal=actions.DELETE_SINGLE_FILE, sender=self.con.tree_id, receiver=self._delete_single_file)
-        dispatcher.connect(signal=actions.DELETE_SUBTREE, sender=self.con.tree_id, receiver=self._delete_subtree)
-        dispatcher.connect(signal=actions.SET_ROWS_CHECKED, sender=self.con.tree_id, receiver=self._check_rows)
-        dispatcher.connect(signal=actions.SET_ROWS_UNCHECKED, sender=self.con.tree_id, receiver=self._uncheck_rows)
-        dispatcher.connect(signal=actions.REFRESH_SUBTREE, sender=self.con.tree_id, receiver=self._refresh_subtree)
-        dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id, receiver=self._refresh_subtree_stats)
+        HasLifecycle.start(self)
+        self.connect_dispatch_listener(signal=actions.LOAD_UI_TREE, sender=self.con.tree_id, receiver=self._load_ui_tree)
+        self.connect_dispatch_listener(signal=actions.EXPAND_AND_SELECT_NODE, sender=self.con.tree_id, receiver=self._expand_and_select_node)
+        self.connect_dispatch_listener(signal=actions.CALL_EXIFTOOL, sender=self.con.tree_id, receiver=self._call_exiftool)
+        self.connect_dispatch_listener(signal=actions.CALL_EXIFTOOL_LIST, sender=self.con.tree_id, receiver=self._call_exiftool_list)
+        self.connect_dispatch_listener(signal=actions.SHOW_IN_NAUTILUS, sender=self.con.tree_id, receiver=self._show_in_nautilus)
+        self.connect_dispatch_listener(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, receiver=self._call_xdg_open)
+        self.connect_dispatch_listener(signal=actions.EXPAND_ALL, sender=self.con.tree_id, receiver=self._expand_all)
+        self.connect_dispatch_listener(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, receiver=self._download_file_from_gdrive)
+        self.connect_dispatch_listener(signal=actions.DELETE_SINGLE_FILE, sender=self.con.tree_id, receiver=self._delete_single_file)
+        self.connect_dispatch_listener(signal=actions.DELETE_SUBTREE, sender=self.con.tree_id, receiver=self._delete_subtree)
+        self.connect_dispatch_listener(signal=actions.SET_ROWS_CHECKED, sender=self.con.tree_id, receiver=self._check_rows)
+        self.connect_dispatch_listener(signal=actions.SET_ROWS_UNCHECKED, sender=self.con.tree_id, receiver=self._uncheck_rows)
+        self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE, sender=self.con.tree_id, receiver=self._refresh_subtree)
+        self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id, receiver=self._refresh_subtree_stats)
 
     # ACTIONS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

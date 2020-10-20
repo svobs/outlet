@@ -190,7 +190,9 @@ class GDriveMasterCache(MasterCache):
     def refresh_subtree(self, subtree_root_node: GDriveFolder, tree_id: str):
         with self._struct_lock:
             pass
+
         # TODO call into client to get folder. Set has_all_children=False at first, then set to True when it's finished.
+        child_list: List[GDriveNode] = self.app.cacheman.gdrive_client.get_all_children_for_parent(subtree_root_node.goog_id)
 
         # TODO then recursively call into client to download descendants. Only lock the struct when you are doing the modify
 
