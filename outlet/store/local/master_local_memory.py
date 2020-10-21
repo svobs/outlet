@@ -9,17 +9,14 @@ from model.node.local_disk_node import LocalFileNode, LocalNode
 from model.node_identifier import LocalFsIdentifier
 from store.local.master_local import SUPER_DEBUG
 from util.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
-from store.uid.uid_mapper import UidPathMapper
 
 logger = logging.getLogger(__name__)
 
 
-# CLASS MasterCacheData
+# CLASS LocalDiskMemoryCache
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class MasterCacheData:
+class LocalDiskMemoryCache:
     def __init__(self, app):
-        self.uid_mapper = UidPathMapper(app)
-
         self.use_md5 = app.config.get('cache.enable_md5_lookup')
         if self.use_md5:
             self.md5_dict = Md5BeforePathDict()
@@ -78,11 +75,6 @@ class MasterCacheData:
         # 1. Validate UID:
         if not node.uid:
             raise RuntimeError(f'Cannot upsert node to cache because it has no UID: {node}')
-
-        uid = self.uid_mapper.get_uid_for_path(node.full_path, node.uid)
-        if node.uid != uid:
-            raise RuntimeError(f'Internal error while trying to upsert node to cache: UID did not match expected '
-                               f'({uid}); node={node}')
 
         existing_node: LocalNode = self.master_tree.get_node(node.uid)
         if existing_node:

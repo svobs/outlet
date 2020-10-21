@@ -21,11 +21,12 @@ from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from store.cache_manager import PersistedCacheInfo
 from store.local.local_disk_scanner import LocalDiskScanner
 from store.local.local_sig_calc_thread import SignatureCalcThread
-from store.local.master_local_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskOpExecutor, MasterCacheData, LocalSubtree, \
+from store.local.master_local_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskOpExecutor, LocalDiskMemoryCache, LocalSubtree, \
     UpsertSingleNodeOp
 from store.master import MasterCache
 from store.sqlite.local_db import LocalDiskDatabase
 from store.uid.uid_generator import UID
+from store.uid.uid_mapper import UidPathMapper
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
 from util import file_util
@@ -46,10 +47,12 @@ class LocalDiskMasterCache(MasterCache):
         MasterCache.__init__(self)
         self.app = app
 
-        self._struct_lock = threading.Lock()
-        self._data: MasterCacheData = MasterCacheData(app)
+        self.uid_mapper = UidPathMapper(app)
 
-        self._executor = LocalDiskOpExecutor(app, self._data)
+        self._struct_lock = threading.Lock()
+        self._memcache: LocalDiskMemoryCache = LocalDiskMemoryCache(app)
+
+        self._executor = LocalDiskOpExecutor(app, self._memcache)
 
         initial_sleep_sec: float = self.app.config.get('cache.lazy_load_local_file_signatures_initial_delay_ms') / 1000.0
         self._signature_calc_thread = SignatureCalcThread(self.app, initial_sleep_sec)
@@ -69,7 +72,7 @@ class LocalDiskMasterCache(MasterCache):
         super(LocalDiskMasterCache, self).shutdown()
         try:
             self.app = None
-            self._data = None
+            self._memcache = None
             self._executor = None
             self._signature_calc_thread = None
         except NameError:
@@ -186,7 +189,7 @@ class LocalDiskMasterCache(MasterCache):
                 # "Pending op" nodes are not stored in the regular cache (they should all have exists()==False)
                 pending_op_nodes: List[LocalNode] = []
 
-                for existing_node in self._data.master_tree.get_subtree_bfs(subtree_root.uid):
+                for existing_node in self._memcache.master_tree.get_subtree_bfs(subtree_root.uid):
                     if not fresh_tree.get_node(existing_node.uid):
                         if existing_node.exists():
                             subtree.remove_node_list.append(existing_node)
@@ -210,7 +213,7 @@ class LocalDiskMasterCache(MasterCache):
 
     def show_tree(self, subtree_root: LocalFsIdentifier) -> str:
         with self._struct_lock:
-            return self._data.master_tree.show(stdout=False, nid=subtree_root.uid)
+            return self._memcache.master_tree.show(stdout=False, nid=subtree_root.uid)
 
     def get_display_tree(self, subtree_root: LocalFsIdentifier, tree_id: str) -> DisplayTree:
         logger.debug(f'DisplayTree requested for root: {subtree_root}')
@@ -277,7 +280,7 @@ class LocalDiskMasterCache(MasterCache):
                     if SUPER_DEBUG:
                         logger.debug(f'[{tree_id}] Loaded cached tree: \n{tree.show(stdout=False)}')
                     with self._struct_lock:
-                        self._data.master_tree.replace_subtree(tree)
+                        self._memcache.master_tree.replace_subtree(tree)
                         logger.debug(f'[{tree_id}] Updated in-memory cache: {self.get_summary()}')
             else:
                 logger.debug(f'[{tree_id}] Skipping cache disk load because cache.enable_load_from_disk is false')
@@ -309,13 +312,17 @@ class LocalDiskMasterCache(MasterCache):
                 logger.debug(f'[{tree_id}] Skipping cache save because it is disabled')
 
         with self._struct_lock:
-            root_node = self._data.master_tree.get_node(requested_subtree_root.uid)
+            root_node = self._memcache.master_tree.get_node(requested_subtree_root.uid)
         fmeta_tree = LocalDiskDisplayTree(root_node=root_node, app=self.app, tree_id=tree_id)
         logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {fmeta_tree.node_identifier.full_path}')
         return fmeta_tree
 
-    def consolidate_local_caches(self, local_caches: List[PersistedCacheInfo], tree_id) -> Tuple[List[PersistedCacheInfo], bool]:
+    def consolidate_local_caches(self, local_caches: List[PersistedCacheInfo], tree_id) -> bool:
         supertree_sets: List[Tuple[PersistedCacheInfo, PersistedCacheInfo]] = []
+
+        if not self.app.cacheman.enable_save_to_disk:
+            logger.debug(f'[{tree_id}] Will not consolidate caches; save to disk is disabled')
+            return False
 
         for cache in local_caches:
             for other_cache in local_caches:
@@ -348,7 +355,7 @@ class LocalDiskMasterCache(MasterCache):
 
                 # 5. We already loaded it into memory; add it to the in-memory cache:
                 with self._struct_lock:
-                    self._data.master_tree.replace_subtree(super_tree)
+                    self._memcache.master_tree.replace_subtree(super_tree)
 
                 # this will resync with file system and/or save if configured
                 supertree_cache.needs_save = True
@@ -357,14 +364,14 @@ class LocalDiskMasterCache(MasterCache):
                 file_util.delete_file(subtree_cache.cache_location)
 
         registry_needs_update = len(supertree_sets) > 0
-        return local_caches, registry_needs_update
+        return registry_needs_update
     
     def refresh_subtree(self, node: LocalNode, tree_id: str):
         self._get_display_tree(node.node_identifier, tree_id, is_live_refresh=True)
 
     def refresh_subtree_stats(self, subtree_root_node: LocalNode, tree_id: str):
         with self._struct_lock:
-            self._data.master_tree.refresh_stats(subtree_root_node, tree_id)
+            self._memcache.master_tree.refresh_stats(subtree_root_node, tree_id)
 
     # Cache CRUD operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -382,11 +389,16 @@ class LocalDiskMasterCache(MasterCache):
 
     def upsert_single_node(self, node: LocalNode):
         assert node, 'Cannot upsert node: no node provided!'
+        assert self.uid_mapper.get_uid_for_path(node.full_path, node.uid) == node.uid, \
+            f'Internal error while trying to upsert node to cache: UID did not match expected ' \
+            f'({self.uid_mapper.get_uid_for_path(node.full_path, node.uid)}); node={node}'
+
         with self._struct_lock:
             self._executor.execute(UpsertSingleNodeOp(node))
 
     def update_single_node(self, node: LocalNode):
         assert node, 'Cannot update node: no node provided!'
+
         with self._struct_lock:
             self._executor.execute(UpsertSingleNodeOp(node, update_only=True))
 
@@ -417,13 +429,13 @@ class LocalDiskMasterCache(MasterCache):
                 # ignore subroot
                 first = False
             else:
-                self._data.expected_node_moves[src_node.full_path] = dst_node.full_path
+                self._memcache.expected_node_moves[src_node.full_path] = dst_node.full_path
 
     def move_local_subtree(self, src_full_path: str, dst_full_path: str, is_from_watchdog=False):
         with self._struct_lock:
             if is_from_watchdog:
                 # See if we safely ignore this:
-                expected_move_dst = self._data.expected_node_moves.pop(src_full_path, None)
+                expected_move_dst = self._memcache.expected_node_moves.pop(src_full_path, None)
                 if expected_move_dst:
                     if expected_move_dst == dst_full_path:
                         logger.debug(f'Ignoring MV ("{src_full_path}" -> "{dst_full_path}") because it was already done')
@@ -432,9 +444,9 @@ class LocalDiskMasterCache(MasterCache):
                         logger.error(f'MV ("{src_full_path}" -> "{dst_full_path}"): was expecting dst = "{expected_move_dst}"!')
 
             src_uid: UID = self.get_uid_for_path(src_full_path)
-            src_node: LocalNode = self._data.master_tree.get_node(src_uid)
+            src_node: LocalNode = self._memcache.master_tree.get_node(src_uid)
             if src_node:
-                src_nodes: List[LocalNode] = self._data.master_tree.get_subtree_bfs(src_node.uid)
+                src_nodes: List[LocalNode] = self._memcache.master_tree.get_subtree_bfs(src_node.uid)
                 src_subtree: LocalSubtree = LocalSubtree(src_node.node_identifier, remove_node_list=[], upsert_node_list=src_nodes)
             else:
                 logger.error(f'MV src node does not exist: UID={src_uid}, path={src_full_path}')
@@ -445,10 +457,10 @@ class LocalDiskMasterCache(MasterCache):
             dst_node_identifier: LocalFsIdentifier = LocalFsIdentifier(dst_full_path, dst_uid)
             dst_subtree: LocalSubtree = LocalSubtree(dst_node_identifier, [], [])
 
-            existing_dst_node: LocalNode = self._data.master_tree.get_node(dst_uid)
+            existing_dst_node: LocalNode = self._memcache.master_tree.get_node(dst_uid)
             if existing_dst_node:
                 logger.debug(f'Node already exists at MV dst; will remove: {existing_dst_node.node_identifier}')
-                existing_dst_nodes: List[LocalNode] = self._data.master_tree.get_subtree_bfs(dst_uid)
+                existing_dst_nodes: List[LocalNode] = self._memcache.master_tree.get_subtree_bfs(dst_uid)
                 dst_subtree.remove_node_list = existing_dst_nodes
 
             if src_subtree:
@@ -490,7 +502,7 @@ class LocalDiskMasterCache(MasterCache):
                                f'({self.get_uid_for_path(subtree_root_node.full_path)})')
 
         with self._struct_lock:
-            subtree_nodes: List[LocalNode] = self._data.master_tree.get_subtree_bfs(subtree_root_node.uid)
+            subtree_nodes: List[LocalNode] = self._memcache.master_tree.get_subtree_bfs(subtree_root_node.uid)
             assert isinstance(subtree_root_node.node_identifier, LocalFsIdentifier)
             operation: DeleteSubtreeOp = DeleteSubtreeOp(subtree_root_node.node_identifier, node_list=subtree_nodes)
             self._executor.execute(operation)
@@ -500,13 +512,13 @@ class LocalDiskMasterCache(MasterCache):
 
     def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalFsIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
         with self._struct_lock:
-            return self._data.master_tree.get_all_files_and_dirs_for_subtree(subtree_root)
+            return self._memcache.master_tree.get_all_files_and_dirs_for_subtree(subtree_root)
 
     def get_uid_for_domain_id(self, domain_id: str, uid_suggestion: Optional[UID] = None) -> UID:
-        return self._data.uid_mapper.get_uid_for_path(domain_id, uid_suggestion)
+        return self.uid_mapper.get_uid_for_path(domain_id, uid_suggestion)
 
     def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
-        return self._data.uid_mapper.get_uid_for_path(path, uid_suggestion)
+        return self.uid_mapper.get_uid_for_path(path, uid_suggestion)
 
     def get_node_for_domain_id(self, domain_id: str) -> LocalNode:
         uid: UID = self.get_uid_for_domain_id(domain_id)
@@ -514,22 +526,22 @@ class LocalDiskMasterCache(MasterCache):
 
     def get_children(self, node: LocalNode) -> List[LocalNode]:
         with self._struct_lock:
-            return self._data.master_tree.children(node.uid)
+            return self._memcache.master_tree.children(node.uid)
 
     def get_node_for_uid(self, uid: UID) -> LocalNode:
         with self._struct_lock:
-            return self._data.master_tree.get_node(uid)
+            return self._memcache.master_tree.get_node(uid)
 
     def get_parent_for_node(self, node: LocalNode, required_subtree_path: str = None):
         try:
             with self._struct_lock:
                 try:
-                    parent: LocalNode = self._data.master_tree.parent(nid=node.uid)
+                    parent: LocalNode = self._memcache.master_tree.parent(nid=node.uid)
                 except KeyError:
                     # parent not found in tree... maybe we can derive it however
                     parent_path: str = node.derive_parent_path()
                     parent_uid: UID = self.get_uid_for_path(parent_path)
-                    parent = self._data.master_tree.get_node(parent_uid)
+                    parent = self._memcache.master_tree.get_node(parent_uid)
                     if not parent:
                         logger.debug(f'Parent not found for node ({node.uid})')
                         return None
@@ -544,11 +556,11 @@ class LocalDiskMasterCache(MasterCache):
             raise
 
     def get_summary(self):
-        if self._data.use_md5:
-            md5 = str(self._data.md5_dict.total_entries)
+        if self._memcache.use_md5:
+            md5 = str(self._memcache.md5_dict.total_entries)
         else:
             md5 = 'disabled'
-        return f'LocalDiskMasterCache tree_size={len(self._data.master_tree):n} md5={md5}'
+        return f'LocalDiskMasterCache tree_size={len(self._memcache.master_tree):n} md5={md5}'
 
     def build_local_dir_node(self, full_path: str) -> LocalDirNode:
         uid = self.get_uid_for_path(full_path)

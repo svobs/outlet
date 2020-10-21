@@ -8,7 +8,7 @@ from constants import SUPER_DEBUG, TREE_TYPE_LOCAL_DISK
 from model.node.local_disk_node import LocalNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from store.cache_manager import PersistedCacheInfo
-from store.local.master_local_data import MasterCacheData
+from store.local.master_local_memory import LocalDiskMemoryCache
 from store.sqlite.local_db import LocalDiskDatabase
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
@@ -33,7 +33,7 @@ class LocalSubtree(ABC):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class LocalDiskOp(ABC):
     @abstractmethod
-    def update_memory_cache(self, data: MasterCacheData):
+    def update_memory_cache(self, data: LocalDiskMemoryCache):
         pass
 
     @classmethod
@@ -81,8 +81,8 @@ class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
         self.was_updated: bool = True
         self.update_only: bool = update_only
 
-    def update_memory_cache(self, data: MasterCacheData):
-        node, self.was_updated = data.upsert_single_node(self.node, self.update_only)
+    def update_memory_cache(self, memcache: LocalDiskMemoryCache):
+        node, self.was_updated = memcache.upsert_single_node(self.node, self.update_only)
         if node:
             self.node = node
         elif SUPER_DEBUG:
@@ -117,12 +117,8 @@ class DeleteSingleNodeOp(UpsertSingleNodeOp):
             # TODO
             raise RuntimeError(f'Not supported: to_trash=true!')
 
-    def update_memory_cache(self, data: MasterCacheData):
-        if self.node.uid != data.uid_mapper.get_uid_for_path(self.node.full_path):
-            raise RuntimeError(f'Internal error while trying to remove node ({self.node}): UID did not match expected '
-                               f'({data.uid_mapper.get_uid_for_path(self.node.full_path)})')
-
-        data.remove_single_node(self.node)
+    def update_memory_cache(self, memcache: LocalDiskMemoryCache):
+        memcache.remove_single_node(self.node)
 
     def update_disk_cache(self, cache: LocalDiskDatabase):
         cache.delete_single_node(self.node, commit=False)
@@ -149,17 +145,17 @@ class BatchChangesOp(LocalDiskSubtreeOp):
     def get_subtree_list(self) -> List[LocalSubtree]:
         return self.subtree_list
 
-    def update_memory_cache(self, data: MasterCacheData):
+    def update_memory_cache(self, memcache: LocalDiskMemoryCache):
         for subtree in self.subtree_list:
             logger.debug(f'Upserting {len(subtree.upsert_node_list)} and removing {len(subtree.remove_node_list)} nodes at memcache subroot '
                          f'"{subtree.subtree_root.full_path}"')
             # Deletes must occur from bottom up:
             if subtree.remove_node_list:
                 for node in reversed(subtree.remove_node_list):
-                    data.remove_single_node(node)
+                    memcache.remove_single_node(node)
             if subtree.upsert_node_list:
                 for node_index, node in enumerate(subtree.upsert_node_list):
-                    master_node, was_updated = data.upsert_single_node(node)
+                    master_node, was_updated = memcache.upsert_single_node(node)
                     if master_node:
                         subtree.upsert_node_list[node_index] = master_node
 
@@ -190,14 +186,14 @@ class DeleteSubtreeOp(BatchChangesOp):
 # CLASS LocalDiskOpExecutor
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class LocalDiskOpExecutor:
-    def __init__(self, app, data: MasterCacheData):
+    def __init__(self, app, memcache: LocalDiskMemoryCache):
         self.app = app
-        self._data: MasterCacheData = data
+        self._memcache: LocalDiskMemoryCache = memcache
 
     def execute(self, operation: LocalDiskOp):
         if SUPER_DEBUG:
             logger.debug(f'Executing operation: {operation}')
-        operation.update_memory_cache(self._data)
+        operation.update_memory_cache(self._memcache)
 
         cacheman = self.app.cacheman
         if cacheman.enable_save_to_disk:

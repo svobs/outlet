@@ -285,8 +285,8 @@ class CacheManager(HasLifecycle):
         assert len(existing_caches) <= 1, f'Expected at most 1 GDrive cache in registry but found: {len(existing_caches)}'
 
         local_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_LOCAL_DISK).values())
-        consolidated_local_caches, registry_needs_update = self._master_local.consolidate_local_caches(local_caches, ID_GLOBAL_CACHE)
-        existing_caches += consolidated_local_caches
+        registry_needs_update = self._master_local.consolidate_local_caches(local_caches, ID_GLOBAL_CACHE)
+        existing_caches += local_caches
 
         if registry_needs_update and self.enable_save_to_disk:
             self._overwrite_all_caches_in_registry(existing_caches)

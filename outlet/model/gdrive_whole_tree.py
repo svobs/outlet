@@ -582,7 +582,7 @@ class GDriveWholeTree:
         duplicates: List[List[GDriveNode]] = []
 
         # roots ...
-        for root in self.root_list:
+        for root in self.get_children_for_root():
             if root.is_dir():
                 queue.append(root)
                 stack.append(root)
@@ -638,7 +638,7 @@ class GDriveWholeTree:
             queue.append(subtree_root)
             stack.append(subtree_root)
         else:
-            for root in self.root_list:
+            for root in self.get_children_for_root():
                 if root.is_dir():
                     assert isinstance(root, GDriveFolder)
                     queue.append(root)
