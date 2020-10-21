@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class GDriveTreeLoader:
+    # TODO: refactor this class into master_gdrive_disk
     __class_lock = threading.Lock()
     """Coarse-grained lock which ensures that (1) load operations and (2) change sync operations do not step on each other or
     on multiple instances of themselves."""
@@ -53,6 +54,7 @@ class GDriveTreeLoader:
     def load_all(self, invalidate_cache=False) -> GDriveWholeTree:
         logger.debug(f'GDrive: load_all() called with invalidate_cache={invalidate_cache}')
 
+        # TODO: create long-running connection in diskcache
         with GDriveTreeLoader.__class_lock:
             # This will create a new file if not found:
             with GDriveDatabase(self.cache_path, self.app) as self.cache:
