@@ -18,7 +18,7 @@ from model.uid import UID
 from store.gdrive.change_observer import GDriveChange
 from store.gdrive.gdrive_tree_loader import GDriveTreeLoader
 from store.gdrive.master_gdrive_disk import GDriveDiskCache
-from store.gdrive.master_gdrive_memory import GDriveMemoryCache
+from store.gdrive.master_gdrive_memory import GDriveMemoryStore
 from store.gdrive.master_gdrive_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, GDriveCacheOp, RefreshFolderOp, UpsertSingleNodeOp
 from store.master import MasterCache
 from store.sqlite.gdrive_db import GDriveDatabase
@@ -61,8 +61,8 @@ class GDriveMasterCache(MasterCache):
 
         self._struct_lock = threading.Lock()
         """Must be used to ensure structures below are thread-safe"""
-        self._memcache: GDriveMemoryCache = GDriveMemoryCache(app, self._uid_mapper)
-        self._diskcache: GDriveDiskCache = GDriveDiskCache(app, self._memcache)
+        self._memstore: GDriveMemoryStore = GDriveMemoryStore(app, self._uid_mapper)
+        self._diskcache: GDriveDiskCache = GDriveDiskCache(app, self._memstore)
 
         self._mime_type_uid_nextval: int = GDRIVE_FOLDER_MIME_TYPE_UID + 1
         self._mime_type_for_str_dict: Dict[str, MimeType] = {}
@@ -88,7 +88,7 @@ class GDriveMasterCache(MasterCache):
         assert self._struct_lock.locked()
 
         # 1. Update memory cache
-        operation.update_memory_cache(self._memcache)
+        operation.update_memory_cache(self._memstore)
 
         # 2. Update disk cache
         if self.app.cacheman.enable_save_to_disk:
@@ -140,7 +140,7 @@ class GDriveMasterCache(MasterCache):
                         self._mime_type_for_str_dict[mime_type.type_string] = mime_type
                         self._mime_type_for_uid_dict[mime_type.uid] = mime_type
 
-            self._memcache.master_tree = tree_loader.load_all(invalidate_cache=invalidate_cache)
+            self._memstore.master_tree = tree_loader.load_all(invalidate_cache=invalidate_cache)
             cache_info.is_loaded = True
 
         if sync_latest_changes:
@@ -154,13 +154,13 @@ class GDriveMasterCache(MasterCache):
             logger.debug(f'_make_gdrive_display_tree(): subtree_root.uid is empty!')
             return None
 
-        root: GDriveNode = self._memcache.master_tree.get_node_for_uid(subtree_root.uid)
+        root: GDriveNode = self._memstore.master_tree.get_node_for_uid(subtree_root.uid)
         if not root:
             logger.debug(f'_make_gdrive_display_tree(): could not find root node with UID {subtree_root.uid}')
             return None
 
         assert isinstance(root, GDriveFolder)
-        return GDriveDisplayTree(whole_tree=self._memcache.master_tree, root_node=root, tree_id=tree_id)
+        return GDriveDisplayTree(whole_tree=self._memstore.master_tree, root_node=root, tree_id=tree_id)
 
     def _load_gdrive_subtree(self, subtree_root: Optional[GDriveIdentifier], invalidate_cache: bool, sync_latest_changes: bool, tree_id: str)\
             -> GDriveDisplayTree:
@@ -188,7 +188,7 @@ class GDriveMasterCache(MasterCache):
 
     def refresh_subtree_stats(self, subtree_root_node: GDriveFolder, tree_id: str):
         with self._struct_lock:
-            self._memcache.master_tree.refresh_stats(subtree_root_node, tree_id)
+            self._memstore.master_tree.refresh_stats(subtree_root_node, tree_id)
 
     def refresh_subtree(self, subtree_root_node: GDriveFolder, tree_id: str):
         # Call into client to get folder. Set has_all_children=False at first, then set to True when it's finished.
@@ -251,7 +251,7 @@ class GDriveMasterCache(MasterCache):
                 self._remove_single_node_nolock(subtree_root, to_trash=to_trash)
                 return
 
-            subtree_nodes: List[GDriveNode] = self._memcache.master_tree.get_subtree_bfs(subtree_root)
+            subtree_nodes: List[GDriveNode] = self._memstore.master_tree.get_subtree_bfs(subtree_root)
             logger.info(f'Removing subtree with {len(subtree_nodes)} nodes (to_trash={to_trash})')
             self._execute(DeleteSubtreeOp(subtree_root, node_list=subtree_nodes, to_trash=to_trash))
 
@@ -285,7 +285,7 @@ class GDriveMasterCache(MasterCache):
 
     def get_goog_id_list_for_uid_list(self, uid_list: List[UID], fail_if_missing: bool = True) -> List[str]:
         try:
-            return self._memcache.master_tree.resolve_uids_to_goog_ids(uid_list, fail_if_missing=fail_if_missing)
+            return self._memstore.master_tree.resolve_uids_to_goog_ids(uid_list, fail_if_missing=fail_if_missing)
         except RuntimeError:
             # Unresolved UIDs. This can happen when one cache's node refers to a parent which no longer exists...
             # TODO: let's make this even more robust by keeping track of tombstones
@@ -314,16 +314,16 @@ class GDriveMasterCache(MasterCache):
 
     def get_node_for_domain_id(self, goog_id: str) -> Optional[GDriveNode]:
         uid = self._uid_mapper.get_uid_for_goog_id(goog_id)
-        return self._memcache.master_tree.get_node_for_uid(uid)
+        return self._memstore.master_tree.get_node_for_uid(uid)
 
     def get_node_for_uid(self, uid: UID) -> Optional[GDriveNode]:
-        if not self._memcache.master_tree:
+        if not self._memstore.master_tree:
             raise RuntimeError(f'Cannot retrieve node (UID={uid}(: GDrive cache not loaded!')
-        return self._memcache.master_tree.get_node_for_uid(uid)
+        return self._memstore.master_tree.get_node_for_uid(uid)
 
     def get_node_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GDriveNode]:
         with self._struct_lock:
-            return self._memcache.master_tree.get_node_for_name_and_parent_uid(name, parent_uid)
+            return self._memstore.master_tree.get_node_for_name_and_parent_uid(name, parent_uid)
 
     def get_goog_id_for_uid(self, uid: UID) -> Optional[str]:
         node = self.get_node_for_uid(uid)
@@ -333,19 +333,19 @@ class GDriveMasterCache(MasterCache):
 
     def get_children(self, node: DisplayNode) -> List[GDriveNode]:
         assert isinstance(node, GDriveNode)
-        return self._memcache.master_tree.get_children(node)
+        return self._memstore.master_tree.get_children(node)
 
     def get_parent_for_node(self, node: DisplayNode, required_subtree_path: str = None):
         assert isinstance(node, GDriveNode)
-        return self._memcache.master_tree.get_parent_for_node(node, required_subtree_path)
+        return self._memstore.master_tree.get_parent_for_node(node, required_subtree_path)
 
     def get_all_for_path(self, path: str) -> List[NodeIdentifier]:
-        if not self._memcache.master_tree:
+        if not self._memstore.master_tree:
             raise CacheNotLoadedError()
-        return self._memcache.master_tree.get_all_identifiers_for_path(path)
+        return self._memstore.master_tree.get_all_identifiers_for_path(path)
 
     def get_all_gdrive_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
-        return self._memcache.master_tree.get_all_files_and_folders_for_subtree(subtree_root)
+        return self._memstore.master_tree.get_all_files_and_folders_for_subtree(subtree_root)
 
     def get_gdrive_user_for_permission_id(self, permission_id: str) -> GDriveUser:
         with self._struct_lock:

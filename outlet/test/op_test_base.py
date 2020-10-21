@@ -232,7 +232,7 @@ class OpTestBase(unittest.TestCase):
         self.app_thread.join(LOAD_TIMEOUT_SEC)
         del self.app_thread
 
-    def verify_one_memcache_dir(self, tree_con, expected: List[FNode], actual: Iterable[DisplayNode],
+    def verify_one_memstore_dir(self, tree_con, expected: List[FNode], actual: Iterable[DisplayNode],
                                 dir_deque: Deque[Tuple[List[FNode], Iterable[DisplayNode]]]):
         actual_iter = iter(actual)
         for i in range(0, len(expected)):
@@ -302,7 +302,7 @@ class OpTestBase(unittest.TestCase):
         dir_deque: Deque[Tuple[List[FNode], Iterable[DisplayNode]]] = collections.deque()
         """Each entry contains the expected and actual contents of a single dir"""
 
-        logger.info(f'Verifying nodes in memcache for "{tree_con.tree_id}"...')
+        logger.info(f'Verifying nodes in memstore for "{tree_con.tree_id}"...')
         actual_list: Iterable[DisplayNode] = backing_tree.get_children_for_root()
 
         # Cached nodes (in tree model)
@@ -314,9 +314,9 @@ class OpTestBase(unittest.TestCase):
             # sort the actual list by name, since it is not required to be sorted
             actual_list: List[DisplayNode] = list(actual_list)
             actual_list.sort(key=get_name_lower)
-            self.verify_one_memcache_dir(tree_con, expected_list, actual_list, dir_deque)
+            self.verify_one_memstore_dir(tree_con, expected_list, actual_list, dir_deque)
 
-        logger.info(f'Verified {count_dir} dirs in memcache for "{tree_con.tree_id}"')
+        logger.info(f'Verified {count_dir} dirs in memstore for "{tree_con.tree_id}"')
 
         # Displayed nodes
         logger.info(f'Verifying nodes in display tree for "{tree_con.tree_id}"...')

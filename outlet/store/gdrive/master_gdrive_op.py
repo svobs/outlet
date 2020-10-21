@@ -10,7 +10,7 @@ from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.uid import UID
 from store.gdrive.change_observer import GDriveChange, GDriveNodeChange
-from store.gdrive.master_gdrive_memory import GDriveMemoryCache
+from store.gdrive.master_gdrive_memory import GDriveMemoryStore
 from store.sqlite.gdrive_db import GDriveDatabase
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class GDriveCacheOp(ABC):
     @abstractmethod
-    def update_memory_cache(self, memcache: GDriveMemoryCache):
+    def update_memory_cache(self, memstore: GDriveMemoryStore):
         pass
 
     @abstractmethod
@@ -53,13 +53,13 @@ class UpsertSingleNodeOp(GDriveCacheOp):
         if not isinstance(node, GDriveNode):
             raise RuntimeError(f'Unrecognized node type: {node}')
 
-    def update_memory_cache(self, memcache: GDriveMemoryCache):
-        self.node, self.was_updated = memcache.upsert_single_node(self.node)
+    def update_memory_cache(self, memstore: GDriveMemoryStore):
+        self.node, self.was_updated = memstore.upsert_single_node(self.node)
 
         parent_uids = self.node.get_parent_uids()
         if parent_uids:
             try:
-                self.parent_goog_ids = memcache.master_tree.resolve_uids_to_goog_ids(parent_uids, fail_if_missing=True)
+                self.parent_goog_ids = memstore.master_tree.resolve_uids_to_goog_ids(parent_uids, fail_if_missing=True)
             except RuntimeError:
                 logger.debug(f'Could not resolve goog_ids for parent UIDs ({parent_uids}); assuming parents do not exist')
         else:
@@ -77,7 +77,7 @@ class UpsertSingleNodeOp(GDriveCacheOp):
             logger.debug(f'Node does not exist; skipping save to disk: {self.node}')
             return
 
-        # TODO: need memcache here to resolve UIDs to goog_ids
+        # TODO: need memstore here to resolve UIDs to goog_ids
         parent_mappings = []
         parent_uids = self.node.get_parent_uids()
         if len(parent_uids) != len(self.parent_goog_ids):
@@ -113,8 +113,8 @@ class DeleteSingleNodeOp(GDriveCacheOp):
         self.node: GDriveNode = node
         self.to_trash: bool = to_trash
 
-    def update_memory_cache(self, memcache: GDriveMemoryCache):
-        memcache.remove_single_node(self.node, self.to_trash)
+    def update_memory_cache(self, memstore: GDriveMemoryStore):
+        memstore.remove_single_node(self.node, self.to_trash)
 
     def update_disk_cache(self, cache: GDriveDatabase):
         if SUPER_DEBUG:
@@ -134,10 +134,10 @@ class DeleteSubtreeOp(GDriveCacheOp):
         self.node_list: List[GDriveNode] = node_list
         self.to_trash: bool = to_trash
 
-    def update_memory_cache(self, memcache: GDriveMemoryCache):
+    def update_memory_cache(self, memstore: GDriveMemoryStore):
         logger.debug(f'DeleteSubtreeOp: removing {len(self.node_list)} nodes from memory cache')
         for node in reversed(self.node_list):
-            memcache.remove_single_node(node, self.to_trash)
+            memstore.remove_single_node(node, self.to_trash)
         logger.debug(f'DeleteSubtreeOp: done removing nodes from memory cache')
 
     def update_disk_cache(self, cache: GDriveDatabase):
@@ -179,20 +179,20 @@ class BatchChangesOp(GDriveCacheOp):
         logger.debug(f'Reduced {len(change_list)} changes into {len(reduced_changes)} changes')
         return reduced_changes
 
-    def update_memory_cache(self, memcache: GDriveMemoryCache):
+    def update_memory_cache(self, memstore: GDriveMemoryStore):
         for change in self.change_list:
             if change.is_removed():
                 # Some GDrive deletes (such as a hard delete of a folder) will cause a parent to be deleted before its descendants.
-                removed_node = memcache.master_tree.remove_node(change.node, fail_if_children_present=False)
+                removed_node = memstore.master_tree.remove_node(change.node, fail_if_children_present=False)
                 if removed_node:
                     change.node = removed_node
             else:
                 assert isinstance(change, GDriveNodeChange)
                 # need to use existing object if available to fulfill our contract (node will be sent via signals below)
-                change.node = memcache.master_tree.add_node(change.node)
+                change.node = memstore.master_tree.add_node(change.node)
 
                 # ensure full_path is populated
-                memcache.master_tree.get_full_path_for_node(change.node)
+                memstore.master_tree.get_full_path_for_node(change.node)
 
     def update_disk_cache(self, cache: GDriveDatabase):
         mappings_list_list: List[List[Tuple]] = []
@@ -263,10 +263,10 @@ class RefreshFolderOp(GDriveCacheOp):
         self.child_list: List[GDriveNode] = child_list
         self._updated_node_list: List[GDriveNode] = []
 
-    def update_memory_cache(self, memcache: GDriveMemoryCache):
+    def update_memory_cache(self, memstore: GDriveMemoryStore):
         logger.debug(f'RefreshFolderOp: upserting parent folder ({self.parent_folder}) and its {len(self.child_list)} '
                      f'children in memory cache')
-        self._updated_node_list = memcache.master_tree.upsert_folder_and_children(self.parent_folder, self.child_list)
+        self._updated_node_list = memstore.master_tree.upsert_folder_and_children(self.parent_folder, self.child_list)
         logger.debug(f'RefreshFolderOp: done upserting nodes to memory cache')
 
     def update_disk_cache(self, cache: GDriveDatabase):

@@ -218,7 +218,7 @@ class CacheManager(HasLifecycle):
                     uid_from_mem = self._master_local.get_uid_for_path(info.subtree_root.full_path, info.subtree_root.uid)
                     if uid_from_mem != info.subtree_root.uid:
                         raise RuntimeError(f'Subtree root UID from diskcache registry ({info.subtree_root.uid}) does not match UID '
-                                           f'from memcache ({uid_from_mem}) for path="{info.subtree_root.full_path}"')
+                                           f'from memstore ({uid_from_mem}) for path="{info.subtree_root.full_path}"')
 
                 # Put into map to eliminate possible duplicates
                 self.caches_by_type.put(info)

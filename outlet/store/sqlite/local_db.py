@@ -89,7 +89,7 @@ class LocalDiskDatabase(MetaDatabase):
     def _tuple_to_dir(self, row: Tuple) -> LocalDirNode:
         full_path = row[1]
         uid = self.cacheman.get_uid_for_path(full_path, row[0])
-        assert uid == row[0], f'UID conflict! Got {uid} from memcache but read from disk: {row}'
+        assert uid == row[0], f'UID conflict! Got {uid} from memstore but read from disk: {row}'
         return LocalDirNode(LocalFsIdentifier(uid=uid, full_path=full_path), bool(row[2]))
 
     def has_local_dirs(self):

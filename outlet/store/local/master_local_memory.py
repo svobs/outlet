@@ -13,9 +13,9 @@ from util.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
 logger = logging.getLogger(__name__)
 
 
-# CLASS LocalDiskMemoryCache
+# CLASS LocalDiskMemoryStore
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class LocalDiskMemoryCache:
+class LocalDiskMemoryStore:
     def __init__(self, app):
         self.use_md5 = app.config.get('cache.enable_md5_lookup')
         if self.use_md5:

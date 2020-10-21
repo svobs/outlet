@@ -1,8 +1,8 @@
-from store.gdrive.master_gdrive_memory import GDriveMemoryCache
+from store.gdrive.master_gdrive_memory import GDriveMemoryStore
 
 
 class GDriveDiskCache:
-    def __init__(self, app, memcache: GDriveMemoryCache):
+    def __init__(self, app, memstore: GDriveMemoryStore):
         self.app = app
-        self._memcache = memcache
+        self._memstore = memstore
 

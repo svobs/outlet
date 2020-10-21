@@ -90,7 +90,7 @@ class OpLedger(HasLifecycle):
         with OpDatabase(self.op_db_path, self.app) as op_db:
             op_db.archive_completed_ops(op_list)
 
-    def _update_nodes_in_memcache(self, op: Op):
+    def _update_nodes_in_memstore(self, op: Op):
         """Looks at the given Op and notifies cacheman so that it can send out update notifications. The nodes involved may not have
         actually changed (i.e., only their statuses have changed)"""
         self.app.cacheman.upsert_single_node(op.src_node)
@@ -293,7 +293,7 @@ class OpLedger(HasLifecycle):
 
         # Add dst nodes for to-be-created nodes if they are not present
         for op in reduced_batch:
-            self._update_nodes_in_memcache(op)
+            self._update_nodes_in_memstore(op)
 
         self._add_batch_to_op_graph_and_remove_discarded(batch_root, batch_uid)
 
