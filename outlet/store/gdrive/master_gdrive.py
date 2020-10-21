@@ -20,7 +20,7 @@ from store.gdrive.gdrive_tree_loader import GDriveTreeLoader
 from store.gdrive.master_gdrive_disk import GDriveDiskCache
 from store.gdrive.master_gdrive_memory import GDriveMemoryStore
 from store.gdrive.master_gdrive_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, GDriveCacheOp, RefreshFolderOp, UpsertSingleNodeOp
-from store.master import MasterCache
+from store.master import MasterStore
 from store.sqlite.gdrive_db import GDriveDatabase
 from store.uid.uid_mapper import UidGoogIdMapper
 from ui import actions
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 """
-# CLASS GDriveMasterCache
+# CLASS GDriveMasterStore
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 Some notes:
@@ -50,10 +50,10 @@ returning
 """
 
 
-class GDriveMasterCache(MasterCache):
+class GDriveMasterStore(MasterStore):
     """Singleton in-memory cache for Google Drive"""
     def __init__(self, app):
-        MasterCache.__init__(self)
+        MasterStore.__init__(self)
         self.app = app
 
         self._uid_mapper = UidGoogIdMapper(app)
@@ -72,7 +72,7 @@ class GDriveMasterCache(MasterCache):
         self._user_for_uid_dict: Dict[UID, GDriveUser] = {}
 
     def shutdown(self):
-        super(GDriveMasterCache, self).shutdown()
+        super(GDriveMasterStore, self).shutdown()
         try:
             self.app = None
         except NameError:

@@ -7,12 +7,12 @@ from model.node.display_node import DisplayNode
 from model.node_identifier import NodeIdentifier
 
 
-# ABSTRACT CLASS MasterCache
+# ABSTRACT CLASS MasterStore
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 from util.has_lifecycle import HasLifecycle
 
 
-class MasterCache(HasLifecycle, ABC):
+class MasterStore(HasLifecycle, ABC):
     def __init__(self):
         HasLifecycle.__init__(self)
 

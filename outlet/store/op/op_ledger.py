@@ -1,32 +1,19 @@
 import logging
-import os
 from collections import defaultdict
-from enum import IntEnum
 from typing import Callable, DefaultDict, Dict, Iterable, List, Optional
 
-from pydispatch import dispatcher
-from pydispatch.errors import DispatcherKeyError
-
-from store.op.op_graph import OpGraph
-from model.op import Op, OpType
 from command.cmd_builder import CommandBuilder
 from command.cmd_interface import Command, CommandStatus
-from constants import OPS_FILE_NAME, SUPER_DEBUG
-from store.sqlite.op_db import OpDatabase
-from model.uid import UID
+from constants import SUPER_DEBUG
 from model.node.display_node import DisplayNode
+from model.op import Op, OpType
+from model.uid import UID
+from store.op.op_disk_store import ErrorHandlingBehavior, OpDiskStore
+from store.op.op_graph import OpGraph
 from ui import actions
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
-
-
-# ENUM FailureBehavior
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class ErrorHandlingBehavior(IntEnum):
-    RAISE_ERROR = 1
-    IGNORE = 2
-    DISCARD = 3
 
 
 # CLASS OpLedger
@@ -37,58 +24,23 @@ class OpLedger(HasLifecycle):
         HasLifecycle.__init__(self)
         self.app = app
         self._cmd_builder = CommandBuilder(self.app)
-
-        self.op_db_path = os.path.join(self.app.cacheman.cache_dir_path, OPS_FILE_NAME)
-
-        self.op_graph: OpGraph = OpGraph(self.app)
+        self._disk_store = OpDiskStore(self.app)
+        self._op_graph: OpGraph = OpGraph(self.app)
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
 
     def start(self):
         HasLifecycle.start(self)
+        self._disk_store.start()
         self.connect_dispatch_listener(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
 
-        self.op_graph.start()
+        self._op_graph.start()
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
 
         self.app = None
         self._cmd_builder = None
-        self.op_graph = None
-
-    def _cancel_pending_ops_from_disk(self):
-        with OpDatabase(self.op_db_path, self.app) as op_db:
-            op_list: List[Op] = op_db.get_all_pending_ops()
-            if op_list:
-                op_db.archive_failed_ops(op_list, 'Cancelled on startup per user config')
-                logger.info(f'Cancelled {len(op_list)} pending ops found in cache')
-
-    def _load_pending_ops_from_disk(self, error_handling_behavior: ErrorHandlingBehavior) -> List[Op]:
-        # first load refs from disk
-        with OpDatabase(self.op_db_path, self.app) as op_db:
-            op_list: List[Op] = op_db.get_all_pending_ops()
-
-        if not op_list:
-            return op_list
-
-        logger.debug(f'Found {len(op_list)} pending ops in cache')
-
-        # TODO: check for invalid nodes?
-
-        return op_list
-
-    def _remove_pending_ops(self, op_list: Iterable[Op]):
-        with OpDatabase(self.op_db_path, self.app) as op_db:
-            op_db.delete_pending_ops(op_list)
-
-    def _save_pending_ops_to_disk(self, op_list: Iterable[Op]):
-        with OpDatabase(self.op_db_path, self.app) as op_db:
-            # This will save each of the planning nodes, if any:
-            op_db.upsert_pending_ops(op_list, overwrite=False)
-
-    def _archive_pending_ops_to_disk(self, op_list: Iterable[Op]):
-        with OpDatabase(self.op_db_path, self.app) as op_db:
-            op_db.archive_completed_ops(op_list)
+        self._op_graph = None
 
     def _update_nodes_in_memstore(self, op: Op):
         """Looks at the given Op and notifies cacheman so that it can send out update notifications. The nodes involved may not have
@@ -236,10 +188,10 @@ class OpLedger(HasLifecycle):
 
         if self.app.cacheman.cancel_all_pending_ops_on_startup:
             logger.debug(f'User configuration specifies cancelling all pending ops on startup')
-            self._cancel_pending_ops_from_disk()
+            self._disk_store.cancel_pending_ops_from_disk()
             return
 
-        op_list: List[Op] = self._load_pending_ops_from_disk(ErrorHandlingBehavior.DISCARD)
+        op_list: List[Op] = self._disk_store.load_pending_ops_from_disk(ErrorHandlingBehavior.DISCARD)
         if not op_list:
             logger.debug(f'No pending ops found in the disk cache')
             return
@@ -258,7 +210,7 @@ class OpLedger(HasLifecycle):
         for batch_uid in sorted_keys:
             # Assume batch has already been reduced and reconciled against master tree.
             batch_items: List[Op] = batch_dict[batch_uid]
-            batch_root = self.op_graph.make_graph_from_batch(batch_items)
+            batch_root = self._op_graph.make_graph_from_batch(batch_items)
             self._add_batch_to_op_graph_and_remove_discarded(batch_root, batch_uid)
 
     def append_new_pending_ops(self, op_batch: Iterable[Op]):
@@ -282,14 +234,14 @@ class OpLedger(HasLifecycle):
         # Simplify and remove redundancies in op_list
         reduced_batch: Iterable[Op] = self._reduce_ops(op_batch)
 
-        batch_root = self.op_graph.make_graph_from_batch(reduced_batch)
+        batch_root = self._op_graph.make_graph_from_batch(reduced_batch)
 
         # Reconcile ops against master op tree before adding nodes
-        if not self.op_graph.can_nq_batch(batch_root):
+        if not self._op_graph.can_nq_batch(batch_root):
             raise RuntimeError('Invalid batch!')
 
         # Save ops and their planning nodes to disk
-        self._save_pending_ops_to_disk(reduced_batch)
+        self._disk_store.save_pending_ops_to_disk(reduced_batch)
 
         # Add dst nodes for to-be-created nodes if they are not present
         for op in reduced_batch:
@@ -299,19 +251,19 @@ class OpLedger(HasLifecycle):
 
     def _add_batch_to_op_graph_and_remove_discarded(self, batch_root, batch_uid):
         logger.info(f'Adding batch {batch_uid} to OpTree')
-        discarded_op_list: List[Op] = self.op_graph.nq_batch(batch_root)
+        discarded_op_list: List[Op] = self._op_graph.nq_batch(batch_root)
         if discarded_op_list:
             logger.debug(f'{len(discarded_op_list)} ops were discarded: removing from disk cache')
-            self._remove_pending_ops(discarded_op_list)
+            self._disk_store.remove_pending_ops(discarded_op_list)
 
     def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[Op]:
-        return self.op_graph.get_last_pending_op_for_node(node_uid)
+        return self._op_graph.get_last_pending_op_for_node(node_uid)
 
     def get_next_command(self) -> Optional[Command]:
         # Call this from Executor. Only returns None if shutting down
 
         # This will block until a op is ready:
-        op: Op = self.op_graph.get_next_op()
+        op: Op = self._op_graph.get_next_op()
 
         if not op:
             logger.debug('Received None; looks like we are shutting down')
@@ -339,11 +291,11 @@ class OpLedger(HasLifecycle):
         self.app.cacheman.update_from(command.result)
 
         logger.debug(f'Archiving op: {command.op}')
-        self._archive_pending_ops_to_disk([command.op])
+        self._disk_store.archive_pending_ops_to_disk([command.op])
 
         # Ensure command is one that we are expecting.
         # Important: wait until after we have finished updating cacheman, as popping here will cause the next op to immediately execute:
-        self.op_graph.pop_op(command.op)
+        self._op_graph.pop_op(command.op)
 
 
 

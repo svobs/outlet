@@ -23,8 +23,8 @@ from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, INDEX_FILE
 from util.file_util import get_resource_path
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from store.op.op_ledger import OpLedger
-from store.gdrive.master_gdrive import GDriveMasterCache
-from store.local.master_local import LocalDiskMasterCache
+from store.gdrive.master_gdrive import GDriveMasterStore
+from store.local.master_local import LocalDiskMasterStore
 from store.sqlite.cache_registry_db import CacheRegistry
 from util.has_lifecycle import HasLifecycle
 from util.two_level_dict import TwoLevelDict
@@ -182,9 +182,9 @@ class CacheManager(HasLifecycle):
             self.gdrive_client = GDriveClient(self.app, ID_GLOBAL_CACHE)
 
             # Init sub-modules:
-            self._master_local = LocalDiskMasterCache(self.app)
+            self._master_local = LocalDiskMasterStore(self.app)
             self._master_local.start()
-            self._master_gdrive = GDriveMasterCache(self.app)
+            self._master_gdrive = GDriveMasterStore(self.app)
             self._master_gdrive.start()
             self._op_ledger = OpLedger(self.app)
             self._op_ledger.start()

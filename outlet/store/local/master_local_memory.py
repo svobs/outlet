@@ -104,7 +104,7 @@ class LocalDiskMemoryStore:
                 logger.debug(f'Merging node (PyID {id(node)}) into existing_node (PyID {id(existing_node)})')
             if node.is_file() and existing_node.is_file():
                 assert isinstance(node, LocalFileNode) and isinstance(existing_node, LocalFileNode)
-                _copy_signature_if_possible(existing_node, node)
+                _merge_signature_if_appropriate(existing_node, node)
                 if SUPER_DEBUG:
                     _check_update_sanity(existing_node, node)
             existing_node.update_from(node)
@@ -126,24 +126,33 @@ class LocalDiskMemoryStore:
         return node, True
 
 
-def _copy_signature_if_possible(src: LocalFileNode, dst: LocalFileNode):
-    if src.modify_ts == dst.modify_ts and src.change_ts == dst.change_ts and src.get_size_bytes() == dst.get_size_bytes():
-        # It is possible for the stored cache copy to be missing a signature. If so, the src may not have an MD5/SHA256.
-        # In that case, do not overwrite possible real data with null values, but do check to make sure we don't overwrite one value with a different
-        if dst.md5:
-            if src.md5 and dst.md5 != src.md5:
-                logger.error(f'Dst node already has MD5 but it is unexpected: {dst} (expected {src}')
-        elif src.md5:
+def _merge_signature_if_appropriate(cached: LocalFileNode, fresh: LocalFileNode):
+    if cached.modify_ts == fresh.modify_ts and cached.change_ts == fresh.change_ts and cached.get_size_bytes() == fresh.get_size_bytes():
+        # It is possible for the stored cache copy to be missing a signature. If so, the cached may not have an MD5/SHA256.
+        # It also happens that the fresh copy does not have a signature because it has not been calculated. In this case we fill it in.
+        if fresh.md5 and cached.md5:
+            if fresh.md5 != cached.md5:
+                logger.error(f'Fresh node already has MD5 but it is unexpected: {fresh} (expected {cached}')
+        elif fresh.md5:
             if SUPER_DEBUG:
-                logger.debug(f'Copying MD5 for: {dst.node_identifier}')
-            dst.md5 = src.md5
-        if dst.sha256:
-            if src.sha256 and dst.sha256 != src.sha256:
-                logger.error(f'Dst node already has SHA256 but it is unexpected: {dst} (expected {src}')
-        elif src.sha256:
+                logger.debug(f'Copying MD5 to cached node: {cached.node_identifier}')
+            cached.md5 = fresh.md5
+        elif cached.md5:
             if SUPER_DEBUG:
-                logger.debug(f'Copying SHA256 for: {dst.node_identifier}')
-            dst.sha256 = src.sha256
+                logger.debug(f'Copying MD5 to fresh node: {fresh.node_identifier}')
+            fresh.md5 = cached.md5
+
+        if fresh.sha256 and cached.sha256:
+            if fresh.sha256 != cached.sha256:
+                logger.error(f'Dst node already has SHA256 but it is unexpected: {fresh} (expected {cached}')
+        elif fresh.sha256:
+            if SUPER_DEBUG:
+                logger.debug(f'Copying SHA256 to cached node: {cached.node_identifier}')
+            cached.md5 = fresh.md5
+        elif cached.sha256:
+            if SUPER_DEBUG:
+                logger.debug(f'Copying SHA256 to fresh node: {fresh.node_identifier}')
+            fresh.sha256 = cached.sha256
 
 
 def _check_update_sanity(old_node: LocalFileNode, new_node: LocalFileNode):
