@@ -19,10 +19,9 @@ from store.gdrive.client import GDriveClient
 from store.gdrive.gdrive_tree_loader import GDriveTreeLoader
 from store.gdrive.master_gdrive_disk import GDriveDiskStore
 from store.gdrive.master_gdrive_memory import GDriveMemoryStore
-from store.gdrive.master_gdrive_op import BatchChangesOp, CreateUserOp, DeleteAllDataOp, DeleteSingleNodeOp, DeleteSubtreeOp, GDriveDiskLoadOp, \
-    GDriveWriteThroughOp, \
-    RefreshFolderOp, \
-    UpsertMimeTypeOp, UpsertSingleNodeOp
+from store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
+from store.gdrive.master_gdrive_op_write import BatchChangesOp, CreateUserOp, DeleteAllDataOp, DeleteSingleNodeOp, DeleteSubtreeOp, \
+    GDriveWriteThroughOp, RefreshFolderOp, UpsertMimeTypeOp, UpsertSingleNodeOp
 from store.master import MasterStore
 from store.sqlite.gdrive_db import CurrentDownload
 from store.uid.uid_mapper import UidGoogIdMapper
@@ -100,14 +99,14 @@ class GDriveMasterStore(MasterStore):
         self._diskstore.execute_load_op(operation)
 
         # 2. Update memory store
-        operation.update_memory_cache(self._memstore)
+        operation.update_memstore(self._memstore)
 
     def _execute_write_op(self, operation: GDriveWriteThroughOp):
         """Executes a single GDriveWriteThroughOp ({start}->memory->disk->UI)"""
         assert self._struct_lock.locked()
 
         # 1. Update memory store
-        operation.update_memory_cache(self._memstore)
+        operation.update_memstore(self._memstore)
 
         # 2. Update disk store
         if self.app.cacheman.enable_save_to_disk:

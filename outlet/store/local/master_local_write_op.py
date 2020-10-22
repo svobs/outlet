@@ -28,11 +28,11 @@ class LocalSubtree(ABC):
         return f'LocalSubtree({self.subtree_root} remove_nodes={len(self.remove_node_list)} upsert_nodes={len(self.upsert_node_list)}'
 
 
-# ABSTRACT CLASS LocalDiskOp
+# ABSTRACT CLASS LocalWriteThroughOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class LocalDiskOp(ABC):
+class LocalWriteThroughOp(ABC):
     @abstractmethod
-    def update_memory_cache(self, data: LocalDiskMemoryStore):
+    def update_memstore(self, data: LocalDiskMemoryStore):
         pass
 
     @classmethod
@@ -44,27 +44,27 @@ class LocalDiskOp(ABC):
         pass
 
 
-# ABSTRACT CLASS LocalDiskOp
+# ABSTRACT CLASS LocalWriteThroughOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class LocalDiskSingleNodeOp(LocalDiskOp, ABC):
+class LocalDiskSingleNodeOp(LocalWriteThroughOp, ABC):
     def __init__(self, node: LocalNode):
         assert node, f'No node for operation: {type(self)}'
         self.node: LocalNode = node
 
     @abstractmethod
-    def update_disk_cache(self, cache: LocalDiskDatabase):
+    def update_diskstore(self, cache: LocalDiskDatabase):
         pass
 
 
-# ABSTRACT CLASS LocalDiskOp
+# ABSTRACT CLASS LocalWriteThroughOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class LocalDiskSubtreeOp(LocalDiskOp, ABC):
+class LocalDiskSubtreeOp(LocalWriteThroughOp, ABC):
     @abstractmethod
     def get_subtree_list(self) -> List[LocalSubtree]:
         pass
 
     @abstractmethod
-    def update_disk_cache(self, cache: LocalDiskDatabase, subtree: LocalSubtree):
+    def update_diskstore(self, cache: LocalDiskDatabase, subtree: LocalSubtree):
         pass
 
     @classmethod
@@ -80,14 +80,14 @@ class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
         self.was_updated: bool = True
         self.update_only: bool = update_only
 
-    def update_memory_cache(self, memstore: LocalDiskMemoryStore):
+    def update_memstore(self, memstore: LocalDiskMemoryStore):
         node, self.was_updated = memstore.upsert_single_node(self.node, self.update_only)
         if node:
             self.node = node
         elif SUPER_DEBUG:
             logger.debug(f'upsert_single_node() returned None for input node: {self.node}')
 
-    def update_disk_cache(self, cache: LocalDiskDatabase):
+    def update_diskstore(self, cache: LocalDiskDatabase):
         if self.was_updated:
             if SUPER_DEBUG:
                 logger.debug(f'Upserting LocalNode to disk cache: {self.node}')
@@ -116,10 +116,10 @@ class DeleteSingleNodeOp(UpsertSingleNodeOp):
             # TODO
             raise RuntimeError(f'Not supported: to_trash=true!')
 
-    def update_memory_cache(self, memstore: LocalDiskMemoryStore):
+    def update_memstore(self, memstore: LocalDiskMemoryStore):
         memstore.remove_single_node(self.node)
 
-    def update_disk_cache(self, cache: LocalDiskDatabase):
+    def update_diskstore(self, cache: LocalDiskDatabase):
         cache.delete_single_node(self.node, commit=False)
 
     def send_signals(self):
@@ -144,7 +144,7 @@ class BatchChangesOp(LocalDiskSubtreeOp):
     def get_subtree_list(self) -> List[LocalSubtree]:
         return self.subtree_list
 
-    def update_memory_cache(self, memstore: LocalDiskMemoryStore):
+    def update_memstore(self, memstore: LocalDiskMemoryStore):
         for subtree in self.subtree_list:
             logger.debug(f'Upserting {len(subtree.upsert_node_list)} and removing {len(subtree.remove_node_list)} nodes at memstore subroot '
                          f'"{subtree.subtree_root.full_path}"')
@@ -158,7 +158,7 @@ class BatchChangesOp(LocalDiskSubtreeOp):
                     if master_node:
                         subtree.upsert_node_list[node_index] = master_node
 
-    def update_disk_cache(self, cache: LocalDiskDatabase, subtree: LocalSubtree):
+    def update_diskstore(self, cache: LocalDiskDatabase, subtree: LocalSubtree):
         if subtree.remove_node_list:
             cache.delete_files_and_dirs(subtree.remove_node_list, commit=False)
         else:

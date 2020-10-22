@@ -23,8 +23,6 @@ logger = logging.getLogger(__name__)
 
 
 class LocalDiskDisplayTree(DisplayTree):
-    """🢄 Just a shell of its former self!"""
-
     def __init__(self, root_node: LocalDirNode, app, tree_id: str):
         assert isinstance(root_node.node_identifier, LocalFsIdentifier)
         super().__init__(root_node)

@@ -15,7 +15,7 @@ from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from store.gdrive.client import GDriveClient
 from store.gdrive.master_gdrive_disk import GDriveDiskStore
-from store.gdrive.master_gdrive_op import GDriveLoadAllMetaOp
+from store.gdrive.master_gdrive_op_load import GDriveLoadAllMetaOp
 from store.gdrive.query_observer import FileMetaPersister, FolderMetaPersister
 from store.sqlite.gdrive_db import CurrentDownload
 from ui import actions
@@ -43,7 +43,6 @@ class GDriveTreeLoader:
     def load_all(self, invalidate_cache=False) -> GDriveWholeTree:
         logger.debug(f'GDrive: load_all() called with invalidate_cache={invalidate_cache}')
 
-        # This will create a new file if not found:
         try:
             # scroll down ⯆⯆⯆
             return self._load_all(invalidate_cache)

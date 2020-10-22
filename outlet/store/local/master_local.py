@@ -18,9 +18,9 @@ from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from store.cache_manager import PersistedCacheInfo
 from store.local.local_disk_scanner import LocalDiskScanner
-from store.local.local_disk_store import LocalDiskDiskStore
+from store.local.master_local_disk import LocalDiskDiskStore
 from store.local.local_sig_calc_thread import SignatureCalcThread
-from store.local.master_local_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalDiskOp, \
+from store.local.master_local_write_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalWriteThroughOp, \
     LocalSubtree, UpsertSingleNodeOp
 from store.master import MasterStore
 from store.sqlite.local_db import LocalDiskDatabase
@@ -76,11 +76,15 @@ class LocalDiskMasterStore(MasterStore):
         except NameError:
             pass
 
-    def _execute(self, operation: LocalDiskOp):
+    def _execute_write_op(self, operation: LocalWriteThroughOp):
         if SUPER_DEBUG:
             logger.debug(f'Executing operation: {operation}')
-        operation.update_memory_cache(self._memstore)
+        assert self._struct_lock.locked()
 
+        # 1. Update memory
+        operation.update_memstore(self._memstore)
+
+        # 2. Update disk
         cacheman = self.app.cacheman
         if cacheman.enable_save_to_disk:
             if SUPER_DEBUG:
@@ -90,6 +94,7 @@ class LocalDiskMasterStore(MasterStore):
         else:
             logger.debug(f'Save to disk is disabled: skipping save to disk for operation')
 
+        # 3. Send signals
         if SUPER_DEBUG:
             logger.debug(f'Sending signals for operation {operation}')
         operation.send_signals()
@@ -145,7 +150,7 @@ class LocalDiskMasterStore(MasterStore):
 
             subtree = LocalSubtree(subtree_root, remove_node_list, fresh_tree.get_subtree_bfs())
             batch_changes_op: BatchChangesOp = BatchChangesOp(subtree_list=[subtree])
-            self._execute(batch_changes_op)
+            self._execute_write_op(batch_changes_op)
 
     # LocalSubtree-level methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -337,20 +342,20 @@ class LocalDiskMasterStore(MasterStore):
             f'({self.uid_mapper.get_uid_for_path(node.full_path, node.uid)}); node={node}'
 
         with self._struct_lock:
-            self._execute(UpsertSingleNodeOp(node))
+            self._execute_write_op(UpsertSingleNodeOp(node))
 
     def update_single_node(self, node: LocalNode):
         assert node, 'Cannot update node: no node provided!'
 
         with self._struct_lock:
-            self._execute(UpsertSingleNodeOp(node, update_only=True))
+            self._execute_write_op(UpsertSingleNodeOp(node, update_only=True))
 
     def remove_single_node(self, node: LocalNode, to_trash=False):
         assert node, 'Cannot remove node: no node provided!'
         logger.debug(f'Removing node from caches (to_trash={to_trash}): {node}')
 
         with self._struct_lock:
-            self._execute(DeleteSingleNodeOp(node, to_trash=to_trash))
+            self._execute_write_op(DeleteSingleNodeOp(node, to_trash=to_trash))
 
     def _migrate_node(self, node: LocalNode, src_full_path: str, dst_full_path: str) -> LocalNode:
         new_node_full_path: str = file_util.change_path_to_new_root(node.full_path, src_full_path, dst_full_path)
@@ -427,7 +432,7 @@ class LocalDiskMasterStore(MasterStore):
                 self._add_to_expected_node_moves(src_subtree.remove_node_list, dst_subtree.upsert_node_list)
 
             operation = BatchChangesOp(subtree_list=subtree_list)
-            self._execute(operation)
+            self._execute_write_op(operation)
 
     def remove_subtree(self, subtree_root_node: LocalNode, to_trash: bool):
         """subtree_root can be either a file or dir"""
@@ -448,7 +453,7 @@ class LocalDiskMasterStore(MasterStore):
             subtree_nodes: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs(subtree_root_node.uid)
             assert isinstance(subtree_root_node.node_identifier, LocalFsIdentifier)
             operation: DeleteSubtreeOp = DeleteSubtreeOp(subtree_root_node.node_identifier, node_list=subtree_nodes)
-            self._execute(operation)
+            self._execute_write_op(operation)
 
     # Various public getters
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

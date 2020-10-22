@@ -10,7 +10,7 @@ from model.local_disk_tree import LocalDiskTree
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalFsIdentifier
 from model.uid import UID
-from store.local.master_local_op import LocalDiskSingleNodeOp, LocalDiskSubtreeOp
+from store.local.master_local_write_op import LocalDiskSingleNodeOp, LocalDiskSubtreeOp
 from store.sqlite.local_db import LocalDiskDatabase
 from ui import actions
 from util.has_lifecycle import HasLifecycle
@@ -58,12 +58,12 @@ class LocalDiskDiskStore(HasLifecycle):
         with self._struct_lock:
             if operation.is_subtree_op():
                 assert isinstance(operation, LocalDiskSubtreeOp)
-                self._update_disk_cache_for_subtree(operation)
+                self._update_diskstore_for_subtree(operation)
             else:
                 assert isinstance(operation, LocalDiskSingleNodeOp)
-                self._update_disk_cache_for_single_op(operation)
+                self._update_diskstore_for_single_op(operation)
 
-    def _update_disk_cache_for_subtree(self, op: LocalDiskSubtreeOp):
+    def _update_diskstore_for_subtree(self, op: LocalDiskSubtreeOp):
         """Attempt to come close to a transactional behavior by writing to all caches at once, and then committing all at the end"""
         cache_man = self.app.cacheman
         if not cache_man.enable_save_to_disk:
@@ -81,12 +81,12 @@ class LocalDiskDiskStore(HasLifecycle):
 
             cache = self._get_or_open_db(cache_info)
             cache_dict[cache_info.cache_location] = cache
-            op.update_disk_cache(cache, subtree)
+            op.update_diskstore(cache, subtree)
 
         for cache in cache_dict.values():
             cache.commit()
 
-    def _update_disk_cache_for_single_op(self, operation: LocalDiskSingleNodeOp):
+    def _update_diskstore_for_single_op(self, operation: LocalDiskSingleNodeOp):
         assert operation.node, f'No node for operation: {type(operation)}'
         cache_info: Optional[PersistedCacheInfo] = self.app.cacheman.find_existing_cache_info_for_subtree(operation.node.full_path,
                                                                                                           operation.node.get_tree_type())
@@ -94,7 +94,7 @@ class LocalDiskDiskStore(HasLifecycle):
             raise RuntimeError(f'Could not find a cache associated with file path: {operation.node.full_path}')
 
         cache = self._get_or_open_db(cache_info)
-        operation.update_disk_cache(cache)
+        operation.update_diskstore(cache)
         cache.commit()
 
     def load_subtree(self, cache_info: PersistedCacheInfo, tree_id) -> Optional[LocalDiskTree]:

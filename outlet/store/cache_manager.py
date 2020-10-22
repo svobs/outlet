@@ -23,7 +23,7 @@ from model.node_identifier_factory import NodeIdentifierFactory
 from model.op import Op
 from model.uid import UID
 from store.gdrive.master_gdrive import GDriveMasterStore
-from store.gdrive.master_gdrive_op import GDriveDiskLoadOp
+from store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from store.live_monitor import LiveMonitor
 from store.local.master_local import LocalDiskMasterStore
 from store.op.op_ledger import OpLedger

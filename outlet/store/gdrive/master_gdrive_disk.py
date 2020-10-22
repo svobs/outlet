@@ -10,7 +10,8 @@ from model.node.gdrive_node import GDriveFile, GDriveFolder
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from store.gdrive.master_gdrive_memory import GDriveMemoryStore
-from store.gdrive.master_gdrive_op import GDriveDiskLoadOp, GDriveWriteThroughOp
+from store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
+from store.gdrive.master_gdrive_op_write import GDriveWriteThroughOp
 from store.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
 from ui import actions
 from util.has_lifecycle import HasLifecycle
@@ -18,6 +19,9 @@ from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
+
+# CLASS GDriveDiskStore
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class GDriveDiskStore(HasLifecycle):
     def __init__(self, app, memstore: GDriveMemoryStore):
@@ -136,11 +140,11 @@ class GDriveDiskStore(HasLifecycle):
         return tree
 
     def execute_load_op(self, operation: GDriveDiskLoadOp):
-        operation.load_from_disk_cache(self._db)
+        operation.load_from_diskstore(self._db)
         self._db.commit()
 
     def execute_write_op(self, operation: GDriveWriteThroughOp):
-        operation.update_disk_cache(self._db)
+        operation.update_diskstore(self._db)
         self._db.commit()
 
     def create_or_update_download(self, download: CurrentDownload, commit: bool = True):
