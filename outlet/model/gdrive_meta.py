@@ -7,12 +7,21 @@ from model.node_identifier import ensure_bool
 # CLASS GDriveUser
 class GDriveUser:
     def __init__(self, display_name, permission_id, email_address, photo_link, is_me: bool = False, user_uid: UID = None):
-        self.uid = user_uid
+        # Identifiers:
+        self.uid: UID = user_uid
+        self.permission_id: str = permission_id
+
         self.display_name = display_name
-        self.permission_id = permission_id
         self.email_address = email_address
         self.photo_link = photo_link
         self.is_me = ensure_bool(is_me)
+
+    def update_from(self, other):
+        assert isinstance(other, GDriveUser)
+        self.display_name = other.display_name
+        self.email_address = other.email_address
+        self.photo_link = other.photo_link
+        self.is_me = other.is_me
 
 
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

@@ -58,9 +58,11 @@ class GDriveClient(HasLifecycle):
         self.app = app
         self.tree_id: str = tree_id
         self.page_size: int = self.app.config.get('gdrive.page_size')
-        self.service = GDriveClient._load_google_client_service(self.app.config)
+        self.service = None
 
+    def start(self):
         HasLifecycle.start(self)
+        self.service = GDriveClient._load_google_client_service(self.app.config)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
@@ -236,6 +238,7 @@ class GDriveClient(HasLifecycle):
         mime_type: MimeType = self.app.cacheman.get_or_create_gdrive_mime_type(mime_type_string)
 
         goog_id = item['id']
+
         uid = self.app.cacheman.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
         goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, node_name=item["name"],
                                            mime_type_uid=mime_type.uid, trashed=GDriveClient._convert_trashed(item),

@@ -76,7 +76,7 @@ class GlobalActions(HasLifecycle):
     def _on_gdrive_sync_changes_requested(self, sender):
         """See below. This will load the GDrive tree (if it is not loaded already), then sync to the latest changes from GDrive"""
         logger.debug(f'Received signal: "{actions.SYNC_GDRIVE_CHANGES}"')
-        self.app.executor.submit_async_task(self.load_data_for_gdrive_dir_chooser_dialog, sender)
+        self.app.executor.submit_async_task(self.sync_gdrive_changes, sender)
 
     def sync_gdrive_changes(self, tree_id: str):
         """See above. Executed by Task Runner. NOT UI thread"""

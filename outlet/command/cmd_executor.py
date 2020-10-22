@@ -86,6 +86,13 @@ class CommandExecutor:
                         dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=actions.ID_COMMAND_EXECUTOR, msg=status)
                         logger.info(f'{status}: {repr(command)}')
                         command.result = command.execute(context)
+
+                        # Need to set this here to resolve chicken-and-egg scenario.
+                        # When we tell cacheman to upsert node, it will notify DisplayMutator which will then look up here, and we have not
+                        # yet popped the op.
+                        # Need a way for DisplayMutator to know that it's complete.
+                        command.op.set_completed()
+
                     except Exception as err:
                         logger.exception(f'While executing {command.get_description()}')
                         # Save the error inside the command:

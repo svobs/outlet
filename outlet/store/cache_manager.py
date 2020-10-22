@@ -7,36 +7,35 @@ import time
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from pydispatch import dispatcher
-from pydispatch.errors import DispatcherKeyError
 
 from command.cmd_interface import Command, CommandResult
-from store.gdrive.client import GDriveClient
-from error import CacheNotLoadedError, GDriveItemNotFoundError
-from store.live_monitor import LiveMonitor
-from model.display_tree.gdrive import GDriveDisplayTree
-from model.node_identifier_factory import NodeIdentifierFactory
-from ui.tree.controller import TreePanelController
-from util import file_util
-from model.op import Op
 from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK
-from util.file_util import get_resource_path
+from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
-from store.op.op_ledger import OpLedger
-from store.gdrive.master_gdrive import GDriveMasterStore
-from store.local.master_local import LocalDiskMasterStore
-from store.sqlite.cache_registry_db import CacheRegistry
-from util.has_lifecycle import HasLifecycle
-from util.two_level_dict import TwoLevelDict
-from model.uid import UID
-from model.node.display_node import DisplayNode, HasParentList
-from model.node.local_disk_node import LocalDirNode, LocalFileNode
-from model.node.gdrive_node import GDriveNode
-from model.node_identifier import LocalFsIdentifier, NodeIdentifier
 from model.display_tree.display_tree import DisplayTree
-from util.stopwatch_sec import Stopwatch
+from model.display_tree.gdrive import GDriveDisplayTree
+from model.node.display_node import DisplayNode, HasParentList
+from model.node.gdrive_node import GDriveNode
+from model.node.local_disk_node import LocalDirNode, LocalFileNode
+from model.node_identifier import LocalFsIdentifier, NodeIdentifier
+from model.node_identifier_factory import NodeIdentifierFactory
+from model.op import Op
+from model.uid import UID
+from store.gdrive.master_gdrive import GDriveMasterStore
+from store.gdrive.master_gdrive_op import GDriveDiskLoadOp
+from store.live_monitor import LiveMonitor
+from store.local.master_local import LocalDiskMasterStore
+from store.op.op_ledger import OpLedger
+from store.sqlite.cache_registry_db import CacheRegistry
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
+from ui.tree.controller import TreePanelController
+from util import file_util
+from util.file_util import get_resource_path
+from util.has_lifecycle import HasLifecycle
+from util.stopwatch_sec import Stopwatch
+from util.two_level_dict import TwoLevelDict
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +73,6 @@ class CacheManager(HasLifecycle):
 
         self.cache_dir_path = ensure_cache_dir_path(self.app.config)
         self.main_registry_path = os.path.join(self.cache_dir_path, MAIN_REGISTRY_FILE_NAME)
-        self.gdrive_client: Optional[GDriveClient] = None
 
         self.caches_by_type: CacheInfoByType = CacheInfoByType()
 
@@ -120,13 +118,6 @@ class CacheManager(HasLifecycle):
     def shutdown(self):
         logger.debug('CacheManager.shutdown() entered')
         HasLifecycle.shutdown(self)
-
-        try:
-            if self.gdrive_client:
-                self.gdrive_client.shutdown()
-                self.gdrive_client = None
-        except NameError:
-            pass
 
         try:
             if self._op_ledger:
@@ -179,8 +170,6 @@ class CacheManager(HasLifecycle):
         dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=ID_GLOBAL_CACHE)
 
         try:
-            self.gdrive_client = GDriveClient(self.app, ID_GLOBAL_CACHE)
-
             # Init sub-modules:
             self._master_local = LocalDiskMasterStore(self.app)
             self._master_local.start()
@@ -217,7 +206,7 @@ class CacheManager(HasLifecycle):
                 if info.subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
                     uid_from_mem = self._master_local.get_uid_for_path(info.subtree_root.full_path, info.subtree_root.uid)
                     if uid_from_mem != info.subtree_root.uid:
-                        raise RuntimeError(f'Subtree root UID from diskcache registry ({info.subtree_root.uid}) does not match UID '
+                        raise RuntimeError(f'Subtree root UID from diskstore registry ({info.subtree_root.uid}) does not match UID '
                                            f'from memstore ({uid_from_mem}) for path="{info.subtree_root.full_path}"')
 
                 # Put into map to eliminate possible duplicates
@@ -300,7 +289,7 @@ class CacheManager(HasLifecycle):
                 self.caches_by_type.put(existing_disk_cache)
                 logger.info(f'Init cache {(cache_num + 1)}/{len(existing_caches)}: id={existing_disk_cache.subtree_root}')
                 self._init_existing_cache(existing_disk_cache)
-            except Exception:
+            except RuntimeError:
                 logger.exception(f'Failed to load cache: {existing_disk_cache.cache_location}')
 
         logger.info(f'{stopwatch} Load All Caches complete')
@@ -489,6 +478,9 @@ class CacheManager(HasLifecycle):
             raise
         else:
             assert False
+
+    def execute_gdrive_load_op(self, op: GDriveDiskLoadOp):
+        self._master_gdrive.execute_load_op(op)
 
     def update_from(self, cmd_result: CommandResult):
         """Updates the in-memory cache, on-disk cache, and UI with the nodes from the given CommandResult"""
@@ -714,3 +706,6 @@ class CacheManager(HasLifecycle):
 
     def apply_gdrive_changes(self, gdrive_change_list):
         self._master_gdrive.apply_gdrive_changes(gdrive_change_list)
+
+    def get_gdrive_client(self):
+        return self._master_gdrive.gdrive_client

@@ -3,6 +3,7 @@ import threading
 import time
 from typing import Dict, Optional, Set
 
+from pydispatch import dispatcher
 from watchdog.observers import Observer
 from watchdog.observers.api import ObservedWatch
 
@@ -42,12 +43,9 @@ class GDrivePollingThread(HasLifecycle, threading.Thread):
     def _run_gdrive_polling_thread(self):
         logger.info(f'Starting {self.name}...')
 
-        my_gdrive_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
-        cache_info = self.app.cacheman.get_or_create_cache_info_entry(my_gdrive_root)
-        gdrive_tree_loader = GDriveTreeLoader(app=self.app, cache_path=cache_info.cache_location, tree_id=actions.ID_GLOBAL_CACHE)
-
         while not self._shutdown:
-            gdrive_tree_loader.sync_latest_changes()
+            # FIXME: prevent possible buildup of requests if a sync runs longer than the polling interval
+            dispatcher.send(signal=actions.SYNC_GDRIVE_CHANGES, sender=actions.ID_GDRIVE_POLLING_THREAD)
 
             logger.debug(f'{self.name}: sleeping for {self.gdrive_thread_polling_interval_sec} sec')
             time.sleep(self.gdrive_thread_polling_interval_sec)

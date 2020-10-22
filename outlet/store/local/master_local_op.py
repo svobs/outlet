@@ -1,14 +1,12 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
+from typing import List
 
 from pydispatch import dispatcher
 
-from constants import SUPER_DEBUG, TREE_TYPE_LOCAL_DISK
+from constants import SUPER_DEBUG
 from model.node.local_disk_node import LocalNode
 from model.node_identifier import LocalFsIdentifier, NodeIdentifier
-from store.cache_manager import PersistedCacheInfo
-from store.local.local_disk_store import LocalDiskDiskStore
 from store.local.master_local_memory import LocalDiskMemoryStore
 from store.sqlite.local_db import LocalDiskDatabase
 from ui import actions
@@ -163,8 +161,12 @@ class BatchChangesOp(LocalDiskSubtreeOp):
     def update_disk_cache(self, cache: LocalDiskDatabase, subtree: LocalSubtree):
         if subtree.remove_node_list:
             cache.delete_files_and_dirs(subtree.remove_node_list, commit=False)
+        else:
+            logger.debug(f'No nodes to remove from diskstore')
         if subtree.upsert_node_list:
             cache.upsert_files_and_dirs(subtree.upsert_node_list, commit=False)
+        else:
+            logger.debug(f'No nodes to upsert to diskstore')
 
     def send_signals(self):
         for subtree in self.subtree_list:
@@ -183,60 +185,3 @@ class DeleteSubtreeOp(BatchChangesOp):
     def __init__(self, subtree_root: LocalFsIdentifier, node_list: List[LocalNode]):
         super().__init__(subtree_root=subtree_root, upsert_node_list=[], remove_node_list=node_list)
 
-
-# CLASS LocalDiskOpExecutor
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class LocalDiskOpExecutor:
-    def __init__(self, app, memstore: LocalDiskMemoryStore, disk_store: LocalDiskDiskStore):
-        self.app = app
-        self._memstore: LocalDiskMemoryStore = memstore
-        self._disk_store: LocalDiskDiskStore = disk_store
-
-    def execute(self, operation: LocalDiskOp):
-        if SUPER_DEBUG:
-            logger.debug(f'Executing operation: {operation}')
-        operation.update_memory_cache(self._memstore)
-
-        cacheman = self.app.cacheman
-        if cacheman.enable_save_to_disk:
-            if operation.is_subtree_op():
-                assert isinstance(operation, LocalDiskSubtreeOp)
-                self._update_disk_cache_for_subtree(operation)
-            else:
-                assert isinstance(operation, LocalDiskSingleNodeOp)
-                assert operation.node, f'No node for operation: {type(operation)}'
-                cache_info: Optional[PersistedCacheInfo] = cacheman.find_existing_cache_info_for_subtree(operation.node.full_path,
-                                                                                                         operation.node.get_tree_type())
-                if not cache_info:
-                    raise RuntimeError(f'Could not find a cache associated with file path: {operation.node.full_path}')
-
-                cache = self._disk_store.get_or_open_db(cache_info)
-                operation.update_disk_cache(cache)
-                cache.commit()
-
-        else:
-            logger.debug(f'Save to disk is disabled: skipping save to disk for operation')
-
-        operation.send_signals()
-
-    def _update_disk_cache_for_subtree(self, op: LocalDiskSubtreeOp):
-        """Attempt to come close to a transactional behavior by writing to all caches at once, and then committing all at the end"""
-        cache_man = self.app.cacheman
-        if not cache_man.enable_save_to_disk:
-            logger.debug(f'Save to disk is disabled: skipping save of {len(op.get_subtree_list())} subtrees')
-            return
-
-        cache_dict: Dict[str, LocalDiskDatabase] = {}
-
-        for subtree in op.get_subtree_list():
-            cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_subtree(subtree.subtree_root.full_path,
-                                                                                                      TREE_TYPE_LOCAL_DISK)
-            if not cache_info:
-                raise RuntimeError(f'Could not find a cache associated with file path: {subtree.subtree_root.full_path}')
-
-            cache = self._disk_store.get_or_open_db(cache_info)
-            cache_dict[cache_info.cache_location] = cache
-            op.update_disk_cache(cache, subtree)
-
-        for cache in cache_dict.values():
-            cache.commit()

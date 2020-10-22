@@ -279,7 +279,8 @@ class MetaDatabase:
     """
     def __init__(self, db_path):
         logger.debug(f'Opening database: {db_path}')
-        self.conn = sqlite3.connect(db_path)
+        # Use check_same_thread=False to tell SQLite that we are grownups and can handle multi-threading
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.db_path = db_path
 
     def __enter__(self):

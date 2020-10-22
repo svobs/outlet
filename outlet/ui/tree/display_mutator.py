@@ -156,10 +156,12 @@ class DisplayMutator(HasLifecycle):
         """START HERE.
         More like "repopulate" - clears model before populating.
         Draws from the undelying data store as needed, to populate the display store."""
+        logger.debug(f'[{self.con.tree_id}] Entered populate_root()')
 
         # This may be a long task
         try:
             children: List[DisplayNode] = self.con.lazy_tree.get_children_for_root()
+            logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(children)} children for root')
         except GDriveItemNotFoundError as err:
             # Not found: signal error to UI and cancel
             logger.warning(f'[{self.con.tree_id}] Could not populate root: GDrive node not found: {self.con.lazy_tree.get_root_identifier()}')

@@ -261,18 +261,6 @@ class GDriveDatabase(MetaDatabase):
         logger.debug(f'Retrieved {len(parent_uids)} id-parent mappings')
         return parent_uids
 
-    def insert_gdrive_files_and_parents(self, file_list: List[GDriveFile], parent_mappings: List[Tuple],
-                                        current_download: CurrentDownload, commit: bool = True):
-        self.insert_gdrive_files(file_list=file_list, commit=False)
-        self.insert_id_parent_mappings(parent_mappings, commit=False)
-        self.create_or_update_download(current_download, commit=commit)
-
-    def insert_gdrive_folder_list_and_parents(self, folder_list: List[GDriveFolder], parent_mappings: List[Tuple],
-                                              current_download: CurrentDownload, commit: bool = True):
-        self.insert_gdrive_folder_list(folder_list=folder_list, commit=False)
-        self.insert_id_parent_mappings(parent_mappings, commit=False)
-        self.create_or_update_download(current_download, commit=commit)
-
     def delete_parent_mappings_for_uid(self, uid: UID, commit: bool = True):
         logger.debug(f'Deleting id-parent mappings for {uid}')
         sql = self.id_parent_mapping.build_delete() + f' WHERE item_uid = ?'
@@ -284,11 +272,11 @@ class GDriveDatabase(MetaDatabase):
     # TABLE current_download operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def create_or_update_download(self, download: CurrentDownload, commit: bool = True):
+    def upsert_download(self, download: CurrentDownload, commit: bool = True):
         self.table_current_download.create_table_if_not_exist(commit=False)
         self.table_current_download.upsert_object(download, commit=commit)
 
-    def get_current_downloads(self) -> List[CurrentDownload]:
+    def get_current_download_list(self) -> List[CurrentDownload]:
         return self.table_current_download.select_object_list()
 
     # GDriveUser operations

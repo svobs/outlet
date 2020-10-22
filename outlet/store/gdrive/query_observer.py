@@ -4,7 +4,8 @@ import logging
 
 from constants import GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, \
     MIME_TYPE_SHORTCUT
-from store.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
+from store.gdrive.master_gdrive_disk import GDriveDiskStore
+from store.sqlite.gdrive_db import CurrentDownload
 from model.uid import UID
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.gdrive_whole_tree import GDriveWholeTree
@@ -84,12 +85,12 @@ class SimpleNodeCollector(GDriveQueryObserver):
 class FolderMetaPersister(GDriveQueryObserver):
     """Collect GDrive folder metas for mass insertion into database"""
 
-    def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, cache: GDriveDatabase, cacheman):
+    def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, diskstore: GDriveDiskStore, cacheman):
         super().__init__()
         self.tree = tree
         assert download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_DIRS
         self.download: CurrentDownload = download
-        self.cache: GDriveDatabase = cache
+        self.diskstore: GDriveDiskStore = diskstore
 
         self.meta_collector: MetaCollector = MetaCollector(cacheman)
         self.folder_list: List[GDriveFolder] = []
@@ -112,8 +113,8 @@ class FolderMetaPersister(GDriveQueryObserver):
             self.download.current_state = GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
 
         # Insert all objects for the preceding page into the database:
-        self.cache.insert_gdrive_folder_list_and_parents(folder_list=self.folder_list, parent_mappings=self.id_parent_mappings,
-                                                         current_download=self.download, commit=True)
+        self.diskstore.insert_gdrive_folder_list_and_parents(folder_list=self.folder_list, parent_mappings=self.id_parent_mappings,
+                                                             current_download=self.download, commit=True)
 
         if next_page_token:
             # Clear the buffers for reuse:
@@ -127,12 +128,12 @@ class FolderMetaPersister(GDriveQueryObserver):
 class FileMetaPersister(GDriveQueryObserver):
     """Collect GDrive file metas for mass insertion into database"""
 
-    def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, cache: GDriveDatabase, cacheman):
+    def __init__(self, tree: GDriveWholeTree, download: CurrentDownload, diskstore: GDriveDiskStore, cacheman):
         super().__init__()
         self.tree = tree
         assert download.current_state == GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS
         self.download: CurrentDownload = download
-        self.cache: GDriveDatabase = cache
+        self.diskstore: GDriveDiskStore = diskstore
 
         self.meta_collector: MetaCollector = MetaCollector(cacheman)
         self.file_list: List[GDriveFile] = []
@@ -155,8 +156,8 @@ class FileMetaPersister(GDriveQueryObserver):
             self.download.current_state = GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE
 
         # Insert all objects for the preceding page into the database:
-        self.cache.insert_gdrive_files_and_parents(file_list=self.file_list, parent_mappings=self.id_parent_mappings,
-                                                   current_download=self.download)
+        self.diskstore.insert_gdrive_files_and_parents(file_list=self.file_list, parent_mappings=self.id_parent_mappings,
+                                                       current_download=self.download)
 
         if next_page_token:
             # Clear the buffers for reuse:

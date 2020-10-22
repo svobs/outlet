@@ -33,7 +33,7 @@ class CommandContext:
         self.staging_dir: str = staging_dir
         self.cacheman = app.cacheman
         if needs_gdrive:
-            self.gdrive_client: Optional[GDriveClient] = self.cacheman.gdrive_client
+            self.gdrive_client: Optional[GDriveClient] = self.cacheman.get_gdrive_client()
             # This will sync latest changes before returning, which will be somewhat slow but should keep us consistent
             self.gdrive_tree: Optional[GDriveWholeTree] = self.cacheman.get_synced_gdrive_master_tree(tree_id=tree_id)
         else:

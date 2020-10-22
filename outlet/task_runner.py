@@ -19,6 +19,7 @@ class Task:
         self.args = args
 
     def run(self):
+        logger.debug(f'Starting task: "{self.task_func.__name__}"')
         task_time = Stopwatch()
         try:
             self.task_func(*self.args)

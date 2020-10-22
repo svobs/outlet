@@ -28,26 +28,29 @@ class OpDiskStore(HasLifecycle):
         HasLifecycle.__init__(self)
         self.app = app
         self.op_db_path = os.path.join(self.app.cacheman.cache_dir_path, OPS_FILE_NAME)
-        self._op_db: Optional[OpDatabase] = None
+        self._db: Optional[OpDatabase] = None
 
     def start(self):
         HasLifecycle.start(self)
-        self._op_db = OpDatabase(self.op_db_path, self.app)
+        self._db = OpDatabase(self.op_db_path, self.app)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
-        if self._op_db:
-            self._op_db.close()
+        if self._db:
+            self._db.close()
+            self._db = None
 
     def cancel_pending_ops_from_disk(self):
-        op_list: List[Op] = self._op_db.get_all_pending_ops()
+        logger.debug('Entered cancel_pending_ops_from_disk()')
+        op_list: List[Op] = self._db.get_all_pending_ops()
         if op_list:
-            self._op_db.archive_failed_ops(op_list, 'Cancelled on startup per user config')
+            self._db.archive_failed_ops(op_list, 'Cancelled on startup per user config')
             logger.info(f'Cancelled {len(op_list)} pending ops found in cache')
 
     def load_pending_ops_from_disk(self, error_handling_behavior: ErrorHandlingBehavior) -> List[Op]:
+        logger.debug('Entered load_pending_ops_from_disk()')
         # first load refs from disk
-        op_list: List[Op] = self._op_db.get_all_pending_ops()
+        op_list: List[Op] = self._db.get_all_pending_ops()
 
         if not op_list:
             return op_list
@@ -59,11 +62,11 @@ class OpDiskStore(HasLifecycle):
         return op_list
 
     def remove_pending_ops(self, op_list: Iterable[Op]):
-        self._op_db.delete_pending_ops(op_list)
+        self._db.delete_pending_ops(op_list)
 
     def save_pending_ops_to_disk(self, op_list: Iterable[Op]):
         # This will save each of the planning nodes, if any:
-        self._op_db.upsert_pending_ops(op_list, overwrite=False)
+        self._db.upsert_pending_ops(op_list, overwrite=False)
 
     def archive_pending_ops_to_disk(self, op_list: Iterable[Op]):
-        self._op_db.archive_completed_ops(op_list)
+        self._db.archive_completed_ops(op_list)

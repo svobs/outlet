@@ -109,7 +109,7 @@ class OpGDriveTest(OpTestBase):
         # VERY IMPORTANT: fail if name doesn't match - don't want to delete the wrong folder!
         self.assertEqual(parent_node.name, 'Test')
 
-        client = self.app.cacheman.gdrive_client
+        client = self.app.cacheman.get_gdrive_client()
         children = client.get_all_children_for_parent(parent_node.goog_id)
         logger.info(f'GDrive server query found {len(children)} child nodes for parent: {parent_node.name}')
 

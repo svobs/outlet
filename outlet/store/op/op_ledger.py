@@ -282,11 +282,7 @@ class OpLedger(HasLifecycle):
         else:
             logger.info(f'Command {command.uid} (op {command.op.op_uid}) returned with status: "{command.status().name}"')
 
-        # Need to set this here to resolve chicken-and-egg scenario.
-        # When we tell cacheman to upsert node, it will notify DisplayMutator which will then look up here, and we have not yet popped the op.
-        # Need a way for DisplayMutator to know that it's complete.
-        command.op.set_completed()
-
+        # TODO: replace this calls with another listener for actions.COMMAND_COMPLETE
         # Add/update/remove affected nodes in central cache:
         self.app.cacheman.update_from(command.result)
 

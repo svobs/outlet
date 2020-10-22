@@ -1,12 +1,12 @@
 import logging
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import DefaultDict, List, Tuple
+from typing import DefaultDict, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
 from constants import SUPER_DEBUG, TREE_TYPE_GDRIVE
-from model.gdrive_whole_tree import GDriveWholeTree
+from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.uid import UID
 from store.gdrive.change_observer import GDriveChange, GDriveNodeChange
@@ -18,9 +18,9 @@ from ui.actions import ID_GLOBAL_CACHE
 logger = logging.getLogger(__name__)
 
 
-# ABSTRACT CLASS GDriveCacheOp
+# ABSTRACT CLASS GDriveWriteThroughOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class GDriveCacheOp(ABC):
+class GDriveWriteThroughOp(ABC):
     @abstractmethod
     def update_memory_cache(self, memstore: GDriveMemoryStore):
         pass
@@ -34,9 +34,37 @@ class GDriveCacheOp(ABC):
         pass
 
 
+# ABSTRACT CLASS GDriveDiskLoadOp
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class GDriveDiskLoadOp(ABC):
+    @abstractmethod
+    def load_from_disk_cache(self, cache: GDriveDatabase):
+        pass
+
+    @abstractmethod
+    def update_memory_cache(self, memstore: GDriveMemoryStore):
+        pass
+
+
+# CLASS GDriveDiskLoadOp
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class GDriveLoadAllMetaOp(GDriveDiskLoadOp):
+    def __init__(self):
+        self.users: Optional[List[GDriveUser]] = None
+        self.mime_types: Optional[List[MimeType]] = None
+
+    def load_from_disk_cache(self, cache: GDriveDatabase):
+        self.users = cache.get_all_users()
+        self.mime_types = cache.get_all_mime_types()
+
+    def update_memory_cache(self, memstore: GDriveMemoryStore):
+        memstore.replace_all_users(self.users)
+        memstore.replace_all_mime_types(self.mime_types)
+
+
 # CLASS UpsertSingleNodeOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class UpsertSingleNodeOp(GDriveCacheOp):
+class UpsertSingleNodeOp(GDriveWriteThroughOp):
     def __init__(self, node: GDriveNode, update_only: bool = False):
         self.node: GDriveNode = node
         self.was_updated: bool = True
@@ -107,7 +135,7 @@ class UpsertSingleNodeOp(GDriveCacheOp):
 
 # CLASS DeleteSingleNodeOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class DeleteSingleNodeOp(GDriveCacheOp):
+class DeleteSingleNodeOp(GDriveWriteThroughOp):
     def __init__(self, node: GDriveNode, to_trash: bool = False):
         assert isinstance(node, GDriveNode), f'For node: {node}'
         self.node: GDriveNode = node
@@ -128,7 +156,7 @@ class DeleteSingleNodeOp(GDriveCacheOp):
 
 # CLASS DeleteSubtreeOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class DeleteSubtreeOp(GDriveCacheOp):
+class DeleteSubtreeOp(GDriveWriteThroughOp):
     def __init__(self, subtree_root_node: GDriveNode, node_list: List[GDriveNode], to_trash: bool = False):
         self.subtree_root_node: GDriveNode = subtree_root_node
         self.node_list: List[GDriveNode] = node_list
@@ -155,7 +183,7 @@ class DeleteSubtreeOp(GDriveCacheOp):
 
 # CLASS BatchChangesOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class BatchChangesOp(GDriveCacheOp):
+class BatchChangesOp(GDriveWriteThroughOp):
     def __init__(self, app, change_list: List[GDriveChange]):
         self.app = app
         self.change_list = BatchChangesOp._reduce_changes(change_list)
@@ -252,7 +280,7 @@ class BatchChangesOp(GDriveCacheOp):
 
 # CLASS RefreshFolderOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class RefreshFolderOp(GDriveCacheOp):
+class RefreshFolderOp(GDriveWriteThroughOp):
     """Upserts a given folder and its immediate children to each cache.
     Any previous children which are not referenced in the given child_list will continue to exist but will be unlinked from
     the given parent folder."""
@@ -314,4 +342,55 @@ class RefreshFolderOp(GDriveCacheOp):
         for node in self._updated_node_list:
             dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
 
+
+# CLASS CreateUserOp
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class CreateUserOp(GDriveWriteThroughOp):
+    def __init__(self, user: GDriveUser):
+        self.user: GDriveUser = user
+
+    def update_memory_cache(self, memstore: GDriveMemoryStore):
+        memstore.create_user(self.user)
+
+    def update_disk_cache(self, cache: GDriveDatabase):
+        cache.upsert_user(self.user)
+
+    def send_signals(self):
+        pass
+
+
+# CLASS UpsertMimeTypeOp
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class UpsertMimeTypeOp(GDriveWriteThroughOp):
+    def __init__(self, mime_type_string: str):
+        self._mime_type_string: str = mime_type_string
+        self.mime_type: Optional[MimeType] = None
+        """Note: this is accessed as the return value. Would be good to find a way to remove this dependency"""
+        self._needs_insert: bool = True
+
+    def update_memory_cache(self, memstore: GDriveMemoryStore):
+        self.mime_type, self._needs_insert = memstore.get_or_create_mime_type(self._mime_type_string)
+
+    def update_disk_cache(self, cache: GDriveDatabase):
+        if self._needs_insert:
+            cache.upsert_mime_type(self.mime_type)
+
+    def send_signals(self):
+        pass
+
+
+# CLASS DeleteAllDataOp
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class DeleteAllDataOp(GDriveWriteThroughOp):
+    def __init__(self):
+        pass
+
+    def update_memory_cache(self, memstore: GDriveMemoryStore):
+        memstore.delete_all_gdrive_data()
+
+    def update_disk_cache(self, cache: GDriveDatabase):
+        cache.delete_all_gdrive_data()
+
+    def send_signals(self):
+        pass
 

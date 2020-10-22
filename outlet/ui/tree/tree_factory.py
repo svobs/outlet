@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 
 
-from constants import TreeDisplayMode
+from constants import SUPER_DEBUG, TreeDisplayMode
 from model.node.display_node import DisplayNode
 from model.node_identifier import NodeIdentifier
 from model.display_tree.display_tree import DisplayTree
@@ -136,7 +136,8 @@ class TreeFactory:
 
 def build_gdrive_root_chooser(parent_win, tree_id, tree: DisplayTree):
     """Builds a tree panel for browsing a Google Drive tree, using lazy loading. For the GDrive root chooser dialog"""
-
+    if SUPER_DEBUG:
+        logger.debug(f'[{tree_id}] Entered build_gdrive_root_chooser()')
     factory = TreeFactory(parent_win=parent_win, tree=tree, tree_id=tree_id)
     factory.allow_multiple_selection = False
     factory.can_modify_tree = False
@@ -150,6 +151,8 @@ def build_editor_tree(parent_win,
                       tree_id: str,
                       root: NodeIdentifier = None,
                       tree: DisplayTree = None):
+    if SUPER_DEBUG:
+        logger.debug(f'[{tree_id}] Entered build_editor_tree()')
     factory = TreeFactory(parent_win=parent_win, root=root, tree=tree, tree_id=tree_id)
     factory.has_checkboxes = False  # not initially
     factory.can_modify_tree = True
@@ -160,6 +163,8 @@ def build_editor_tree(parent_win,
 
 
 def build_static_category_file_tree(parent_win, tree_id: str, tree: DisplayTree):
+    if SUPER_DEBUG:
+        logger.debug(f'[{tree_id}] Entered build_static_category_file_tree()')
     # Whole tree is provided here. For Merge Preview dialog
     factory = TreeFactory(parent_win=parent_win, tree=tree, tree_id=tree_id)
     factory.has_checkboxes = False
