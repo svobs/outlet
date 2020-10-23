@@ -1,4 +1,5 @@
 import logging
+import threading
 from typing import Iterable
 
 from model.node.display_node import DisplayNode
@@ -18,6 +19,7 @@ class LazyLoadDisplayTreeDecorator:
         self.con = controller
         self._loaded: bool = False
         self._root: NodeIdentifier = root
+        self._lock: threading.Lock = threading.Lock()
         if tree:
             self._tree: DisplayTree = tree
             self._loaded = True
@@ -27,10 +29,13 @@ class LazyLoadDisplayTreeDecorator:
     def _ensure_is_loaded(self):
         """Performs a SYNCHRONOUS load if needed"""
         if not self._loaded:
-            # This will also start live monitoring if configured:
-            logger.debug(f'[{self.con.tree_id}] Tree was requested. Loading: {self._root}')
-            self._tree = self.con.cacheman.load_subtree(self._root, self.con.tree_id)
-            self._loaded = True
+            with self._lock:
+                if not self._loaded:
+                    # This will also start live monitoring if configured:
+                    logger.debug(f'[{self.con.tree_id}] Tree was requested. Loading: {self._root}')
+                    self._tree = self.con.cacheman.load_subtree(self._root, self.con.tree_id)
+                    self._loaded = True
+                    logger.debug(f'[{self.con.tree_id}] Tree was loaded successfully.')
 
     def get_root_identifier(self) -> NodeIdentifier:
         if self._tree:

@@ -329,8 +329,9 @@ class GDriveClient(HasLifecycle):
         self.service.about().get()
         Returns: info about the current user and its storage usage
         """
+        msg = 'Getting info for user...'
+        logger.debug(msg)
         if self.tree_id:
-            msg = 'Getting info for user...'
             dispatcher.send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
         fields = 'user, storageQuota'

@@ -350,6 +350,12 @@ class DisplayStore:
         self.model.remove(first_child_iter)
         return True
 
+    def ensure_tree_path(self, tree_thing: Union[Gtk.TreeIter, Gtk.TreePath]):
+        if isinstance(tree_thing, Gtk.TreePath):
+            return tree_thing
+        else:
+            return self.model.get_path(tree_thing)
+
     def remove_all_children(self, parent_iter):
         removed_count = 0
         while self.remove_first_child(parent_iter):

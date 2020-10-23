@@ -19,12 +19,8 @@ from ui import actions
 logger = logging.getLogger(__name__)
 
 
-"""
-◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    CLASS GDriveWholeTree
-◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
-"""
-
+# CLASS GDriveWholeTree
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class GDriveWholeTree:
     """

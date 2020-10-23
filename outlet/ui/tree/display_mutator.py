@@ -42,10 +42,13 @@ class DisplayMutator(HasLifecycle):
         self._stats_refresh_timer = HoldOffTimer(holdoff_time_ms=HOLDOFF_TIME_MS, task_func=self._refresh_subtree_stats)
         """Stats for the entire subtree are all connected to each other, so this is a big task. This timer allows us to throttle its frequency"""
 
-        self._enable_state_listeners = False
-        """When true, listen and automatically update the display when a node is added, expanded, etc.
+        self._enable_expand_state_listeners = True
+        """When true, listen and automatically update the display when a node is expanded or contracted.
         Needs to be set to false when modifying the model with certain operations, because leaving enabled would
         result in an infinite loop"""
+
+        self._enable_node_update_signals = False
+        """Set this initially to False because we have no data, and there are too many ways to end up blocking."""
 
     def start(self):
         """Do post-wiring stuff like connect listeners."""
@@ -85,6 +88,15 @@ class DisplayMutator(HasLifecycle):
         node_count += 1
         return node_count
 
+    def _expand_row_without_event_firing(self, tree_path, expand_all):
+        assert self.con.treeview_meta.lazy_load
+
+        self._enable_expand_state_listeners = False
+        try:
+            self.con.tree_view.expand_row(path=tree_path, open_all=expand_all)
+        finally:
+            self._enable_expand_state_listeners = True
+
     def expand_and_select_node(self, selection: NodeIdentifier):
         def do_in_ui():
             with self._lock:
@@ -115,42 +127,39 @@ class DisplayMutator(HasLifecycle):
 
     def expand_all(self, tree_path):
         def expand_me(tree_iter):
-            path = self.con.display_store.model.get_path(tree_iter)
-            self._expand_subtree(path, expand_all=True)
+            self._expand_subtree(tree_iter, expand_all=True)
 
         with self._lock:
-            if not self.con.tree_view.row_expanded(tree_path):
-                self._expand_subtree(tree_path, expand_all=True)
-            else:
-                self.con.display_store.do_for_descendants(tree_path=tree_path, action_func=expand_me)
+            self.con.display_store.do_for_self_and_descendants(tree_path=tree_path, action_func=expand_me)
 
-    def _expand_subtree(self, tree_path: Gtk.TreePath, expand_all: bool):
+    def _expand_subtree(self, tree_iter: Gtk.TreeIter, expand_all: bool):
+        # convert tree_iter to path:
+        tree_path = self.con.display_store.ensure_tree_path(tree_iter)
+
         if not self.con.treeview_meta.lazy_load:
-            # no need to populate. just expand:
+            # We loaded all at once? -> we are already populated. just expand UI:
             self.con.tree_view.expand_row(path=tree_path, open_all=expand_all)
             return
 
         if self.con.tree_view.row_expanded(tree_path):
             return
 
-        self._enable_state_listeners = False
-        try:
-            node = self.con.display_store.get_node_data(tree_path)
-            parent_iter = self.con.display_store.model.get_iter(tree_path)
-            self.con.display_store.remove_loading_node(parent_iter)
-            children: List[DisplayNode] = self.con.lazy_tree.get_children(node)
+        node = self.con.display_store.get_node_data(tree_path)
+        parent_iter = self.con.display_store.model.get_iter(tree_path)
+        self.con.display_store.remove_loading_node(parent_iter)
+        children: List[DisplayNode] = self.con.lazy_tree.get_children(node)
 
-            if expand_all:
-                node_count = 0
-                for child in children:
-                    node_count = self._populate_recursively(parent_iter, child, node_count)
-                logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
-            else:
-                self._append_children(children=children, parent_iter=parent_iter)
+        if expand_all:
+            # populate all descendants
+            node_count = 0
+            for child in children:
+                node_count = self._populate_recursively(parent_iter, child, node_count)
+            logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
+        else:
+            # populate only children
+            self._append_children(children=children, parent_iter=parent_iter)
 
-            self.con.tree_view.expand_row(path=tree_path, open_all=expand_all)
-        finally:
-            self._enable_state_listeners = True
+        self._expand_row_without_event_firing(tree_path=tree_path, expand_all=expand_all)
 
     def populate_root(self):
         """START HERE.
@@ -160,7 +169,10 @@ class DisplayMutator(HasLifecycle):
 
         # This may be a long task
         try:
-            children: List[DisplayNode] = self.con.lazy_tree.get_children_for_root()
+            # Lock this so that node-upserted and node-removed callbacks don't interfere
+            self._enable_node_update_signals = False
+            with self._lock:
+                children: List[DisplayNode] = self.con.lazy_tree.get_children_for_root()
             logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(children)} children for root')
         except GDriveItemNotFoundError as err:
             # Not found: signal error to UI and cancel
@@ -169,28 +181,28 @@ class DisplayMutator(HasLifecycle):
                          f'{self.con.lazy_tree.get_root_identifier()}, err={err}')
             dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.con.tree_id, new_root=self.con.lazy_tree.get_root_identifier(), err=err)
             return
+        finally:
+            self._enable_node_update_signals = True
 
         def update_ui():
-            self._enable_state_listeners = False
-            try:
-                with self._lock:
-                    # Wipe out existing items:
-                    root_iter = self.con.display_store.clear_model()
+            with self._lock:
+                # Wipe out existing items:
+                root_iter = self.con.display_store.clear_model()
 
-                    if self.con.treeview_meta.lazy_load:
-                        # Just append for the root level. Beyond that, we will only load more nodes when
-                        # the expanded state is toggled
-                        self._append_children(children=children, parent_iter=root_iter)
-                    else:
-                        node_count = 0
-                        for ch in children:
-                            node_count = self._populate_recursively(None, ch, node_count)
+                if self.con.treeview_meta.lazy_load:
+                    # Just append for the root level. Beyond that, we will only load more nodes when
+                    # the expanded state is toggled
+                    self._append_children(children=children, parent_iter=root_iter)
+                else:
+                    # NOT lazy: load all at once
+                    node_count = 0
+                    for ch in children:
+                        node_count = self._populate_recursively(None, ch, node_count)
 
-                        logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
+                    logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
 
-                        self.con.tree_view.expand_all()
-            finally:
-                self._enable_state_listeners = True
+                    assert not self.con.treeview_meta.lazy_load
+                    self.con.tree_view.expand_all()
 
             with self._lock:
                 # This should fire expanded state listener to populate nodes as needed:
@@ -262,13 +274,18 @@ class DisplayMutator(HasLifecycle):
     # LISTENERS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def _on_node_expansion_toggled(self, sender: str, parent_iter: Gtk.TreeIter, parent_path, node: DisplayNode, is_expanded: bool):
+    def something_like_search(self, query: str):
+        for displayed_node in self.con.display_store.displayed_rows.values():
+            # TODO
+            pass
+
+    def _on_node_expansion_toggled(self, sender: str, parent_iter: Gtk.TreeIter, parent_path, node: DisplayNode, is_expanded: bool) -> None:
         # Callback for actions.NODE_EXPANSION_TOGGLED:
         logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node}"')
 
-        if not self._enable_state_listeners:
+        if not self._enable_expand_state_listeners:
             if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_EXPANSION_TOGGLED}: listeners disabled"')
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_EXPANSION_TOGGLED}": listeners disabled')
             return
 
         def expand_or_contract():
@@ -284,9 +301,7 @@ class DisplayMutator(HasLifecycle):
                     # and due to a deficiency in GTK this causes the parent to become collapsed again.
                     # So we must wait until after the children have been added, and then disable listeners from firing
                     # and set it to expanded again.
-                    self._enable_state_listeners = False
-                    self.con.tree_view.expand_row(path=parent_path, open_all=False)
-                    self._enable_state_listeners = True
+                    self._expand_row_without_event_firing(tree_path=parent_path, expand_all=False)
                 else:
                     # Collapsed:
                     self.con.display_store.remove_all_children(parent_iter)
@@ -298,18 +313,23 @@ class DisplayMutator(HasLifecycle):
                 dispatcher.send(signal=actions.NODE_EXPANSION_DONE, sender=self.con.tree_id)
         GLib.idle_add(expand_or_contract)
 
-    def _on_node_upserted_in_cache(self, sender: str, node: DisplayNode):
+    def _on_node_upserted_in_cache(self, sender: str, node: DisplayNode) -> None:
+        if SUPER_DEBUG:
+            logger.debug(f'[{self.con.tree_id}] Entered _on_node_upserted_in_cache(): sender={sender}, node={node}')
         assert node is not None
-        if not self._enable_state_listeners:
-            # TODO: is this still necessary here now that we use a lock?
+
+        if not self._enable_node_update_signals:
             if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_UPSERTED}: listeners disabled"')
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_UPSERTED}": updates disabled')
             return
+
+        # Possibly long-running op to load lazy tree. Also has a nasty lock. Do this outside the UI thread.
+        tree = self.con.get_tree()
 
         def update_ui():
             with self._lock:
                 # TODO: this can be optimized to search only the paths of the ancestors
-                parent = self.con.get_tree().get_parent_for_node(node)
+                parent = tree.get_parent_for_node(node)
 
                 if not parent:
                     if node.uid in self.con.display_store.displayed_rows:
@@ -317,7 +337,7 @@ class DisplayMutator(HasLifecycle):
                                      f'but its parent is no longer in the tree; removing node from display store: {node.uid}')
                         self.con.display_store.remove_node(node.uid)
                         self._stats_refresh_timer.start_or_delay()
-                    elif self.con.get_tree().in_this_subtree(node.full_path):
+                    elif tree.in_this_subtree(node.full_path):
                         # At least in subtree? If so, refresh stats to reflect change
                         logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_UPSERTED} for node {node.node_identifier}')
                         self._stats_refresh_timer.start_or_delay()
@@ -332,7 +352,7 @@ class DisplayMutator(HasLifecycle):
                 existing_node: Optional[DisplayNode] = None
 
                 try:
-                    if self.con.get_tree().root_uid == parent_uid:
+                    if tree.root_uid == parent_uid:
                         # Top level? Special case. There will be no parent iter
                         parent_iter = None
                         child_iter = self.con.display_store.find_uid_in_top_level(node.uid)
@@ -378,11 +398,15 @@ class DisplayMutator(HasLifecycle):
         GLib.idle_add(update_ui)
 
     def _on_node_removed_from_cache(self, sender: str, node: DisplayNode):
-        if not self._enable_state_listeners:
-            # TODO: is this still necessary here now that we use a lock?
+        if SUPER_DEBUG:
+            logger.debug(f'[{self.con.tree_id}] Entered _on_node_removed_from_cache(): sender={sender}, node={node}')
+
+        if not self._enable_node_update_signals:
             if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_REMOVED}: listeners disabled"')
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_REMOVED}": updates disabled')
             return
+
+        assert node
 
         def update_ui():
             with self._lock:

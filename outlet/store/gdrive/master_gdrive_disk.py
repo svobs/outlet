@@ -1,5 +1,4 @@
 import logging
-import threading
 from typing import Dict, List, Optional, Tuple
 
 from pydispatch import dispatcher
@@ -51,6 +50,7 @@ class GDriveDiskStore(HasLifecycle):
         Retrieves and reassembles (to the extent it was during the download) a partially or completely downloaded
         GDrive tree.
         """
+        logger.debug(f'[{tree_id}] Loading GDrive tree from disk cache...')
         sw_total = Stopwatch()
         max_uid = GDRIVE_ROOT_UID + 1
         tree = GDriveWholeTree(self.app.node_identifier_factory)
@@ -141,7 +141,7 @@ class GDriveDiskStore(HasLifecycle):
 
     def execute_load_op(self, operation: GDriveDiskLoadOp):
         operation.load_from_diskstore(self._db)
-        self._db.commit()
+        # No need to commit since we only did reads
 
     def execute_write_op(self, operation: GDriveWriteThroughOp):
         operation.update_diskstore(self._db)

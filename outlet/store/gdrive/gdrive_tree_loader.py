@@ -8,7 +8,7 @@ from pydispatch import dispatcher
 
 from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETTING_DIRS, GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS, \
     GDRIVE_DOWNLOAD_STATE_NOT_STARTED, \
-    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID
+    GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID, SUPER_DEBUG
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
@@ -41,7 +41,7 @@ class GDriveTreeLoader:
         return self.app.cacheman.get_gdrive_client()
 
     def load_all(self, invalidate_cache=False) -> GDriveWholeTree:
-        logger.debug(f'GDrive: load_all() called with invalidate_cache={invalidate_cache}')
+        logger.debug(f'GDriveTreeLoader.load_all() called with invalidate_cache={invalidate_cache}')
 
         try:
             # scroll down ⯆⯆⯆
@@ -164,6 +164,8 @@ class GDriveTreeLoader:
         return tree
 
     def _determine_roots(self, tree: GDriveWholeTree):
+        if SUPER_DEBUG:
+            logger.debug(f'Determining roots for {len(tree.uid_dict)} GDrive nodes')
         max_uid = GDRIVE_ROOT_UID + 1
         for item in tree.uid_dict.values():
             if not item.get_parent_uids():
@@ -195,6 +197,9 @@ class GDriveTreeLoader:
 
     @staticmethod
     def _compile_full_paths(tree: GDriveWholeTree):
+        if SUPER_DEBUG:
+            logger.debug(f'Compiling paths for {len(tree.uid_dict)} GDrive nodes')
+
         full_path_stopwatch = Stopwatch()
 
         item_count: int = 0

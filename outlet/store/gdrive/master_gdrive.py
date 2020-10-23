@@ -31,10 +31,6 @@ from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
-# TODO: lots of work to do to support drag & drop from GDrive to GDrive (e.g. "move" is really just changing parents)
-# TODO: clean up the organization of this class
-
-
 """
 # CLASS GDriveMasterStore
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -53,6 +49,7 @@ returning
 """
 
 
+# TODO: support drag & drop from GDrive to GDrive (e.g. "move" is really just changing parents)
 class GDriveMasterStore(MasterStore):
     """Singleton in-memory cache for Google Drive"""
     def __init__(self, app):
@@ -122,15 +119,17 @@ class GDriveMasterStore(MasterStore):
 
     def _load_master_cache(self, invalidate_cache: bool, sync_latest_changes: bool, tree_id: str):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
+        logger.debug(f'Entered _load_master_cache(): locked={self._struct_lock.locked()}, invalidate_cache={invalidate_cache}')
+
         if not self.app.cacheman.enable_load_from_disk:
             logger.debug('Skipping cache load because cache.enable_cache_load is False')
             return None
 
-        logger.debug(f'_load_master_cache(): locked={self._struct_lock.locked()}')
         stopwatch_total = Stopwatch()
 
         if not self._memstore.master_tree or invalidate_cache:
             self._memstore.master_tree = self.tree_loader.load_all(invalidate_cache=invalidate_cache)
+            logger.debug('Master tree set.')
 
         if sync_latest_changes:
             # This may add a noticeable delay:
