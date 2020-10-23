@@ -226,7 +226,6 @@ class DisplayMutator(HasLifecycle):
         """Returns a list which contains the DisplayNodes of the items which are currently checked by the user
         (including collapsed rows). This will be a subset of the DisplayTree which was used to
         populate this tree. Includes file nodes only, with the exception of GDrive FolderToAdd."""
-        assert self.con.treeview_meta.has_checkboxes
         # subtree root will be the same as the current subtree's
         checked_items: List[DisplayNode] = []
 
@@ -238,41 +237,43 @@ class DisplayMutator(HasLifecycle):
         whitelist: Deque[DisplayNode] = collections.deque()
         secondary_screening: Deque[DisplayNode] = collections.deque()
 
-        children: Iterable[DisplayNode] = self.con.lazy_tree.get_children_for_root()
-        for child in children:
-
-            if self.con.display_store.checked_rows.get(child.identifier, None):
-                whitelist.append(child)
-            elif self.con.display_store.inconsistent_rows.get(child.identifier, None):
-                secondary_screening.append(child)
-
-        while len(secondary_screening) > 0:
-            parent: DisplayNode = secondary_screening.popleft()
-            assert parent.is_dir(), f'Expected a dir-type node: {parent}'
-
-            if not parent.exists():
-                # Even an inconsistent FolderToAdd must be included as a checked item:
-                checked_items.append(parent)
-
-            children: Iterable[DisplayNode] = self.con.lazy_tree.get_children(parent)
-
+        with self._lock:
+            assert self.con.treeview_meta.has_checkboxes
+            children: Iterable[DisplayNode] = self.con.lazy_tree.get_children_for_root()
             for child in children:
+
                 if self.con.display_store.checked_rows.get(child.identifier, None):
                     whitelist.append(child)
                 elif self.con.display_store.inconsistent_rows.get(child.identifier, None):
                     secondary_screening.append(child)
 
-        while len(whitelist) > 0:
-            chosen_node: DisplayNode = whitelist.popleft()
-            # non-existent directory must be added
-            if not chosen_node.is_dir() or not chosen_node.exists():
-                checked_items.append(chosen_node)
+            while len(secondary_screening) > 0:
+                parent: DisplayNode = secondary_screening.popleft()
+                assert parent.is_dir(), f'Expected a dir-type node: {parent}'
 
-            children: Iterable[DisplayNode] = self.con.lazy_tree.get_children(chosen_node)
-            for child in children:
-                whitelist.append(child)
+                if not parent.exists():
+                    # Even an inconsistent FolderToAdd must be included as a checked item:
+                    checked_items.append(parent)
 
-        return checked_items
+                children: Iterable[DisplayNode] = self.con.lazy_tree.get_children(parent)
+
+                for child in children:
+                    if self.con.display_store.checked_rows.get(child.identifier, None):
+                        whitelist.append(child)
+                    elif self.con.display_store.inconsistent_rows.get(child.identifier, None):
+                        secondary_screening.append(child)
+
+            while len(whitelist) > 0:
+                chosen_node: DisplayNode = whitelist.popleft()
+                # non-existent directory must be added
+                if not chosen_node.is_dir() or not chosen_node.exists():
+                    checked_items.append(chosen_node)
+
+                children: Iterable[DisplayNode] = self.con.lazy_tree.get_children(chosen_node)
+                for child in children:
+                    whitelist.append(child)
+
+            return checked_items
 
     # LISTENERS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

@@ -292,7 +292,7 @@ class CategoryDisplayTree(DisplayTree):
                 # raise
 
         if SUPER_DEBUG:
-            logger.debug(f'[{self.tree_id}] CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))
+            self.print_tree_contents_debug()
 
     def get_parent_for_node(self, node: DisplayNode) -> Optional[DisplayNode]:
         if not self._category_tree.get_node(node.identifier):
