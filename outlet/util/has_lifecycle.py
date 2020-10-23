@@ -39,6 +39,18 @@ class HasLifecycle(ABC):
         except DispatcherKeyError:
             pass
 
+    def disconnect_listeners(self, signal_list: List[str]):
+        """NOTE: Not thread safe!"""
+        new_connected_listeners = []
+
+        for listener_info in self._connected_listeners:
+            if listener_info.signal in signal_list:
+                self.disconnect_dispatch_listener(listener_info)
+            else:
+                new_connected_listeners.append(listener_info)
+
+        self._connected_listeners = new_connected_listeners
+
     def disconnect_all_listeners(self):
         connected_listeners = self._connected_listeners
         self._connected_listeners = []

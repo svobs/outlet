@@ -47,7 +47,7 @@ class DisplayMutator(HasLifecycle):
         Needs to be set to false when modifying the model with certain operations, because leaving enabled would
         result in an infinite loop"""
 
-        self._enable_node_update_signals = False
+        self._enable_node_signals = False
         """Set this initially to False because we have no data, and there are too many ways to end up blocking."""
 
     def start(self):
@@ -56,6 +56,9 @@ class DisplayMutator(HasLifecycle):
         HasLifecycle.start(self)
 
         self.use_empty_nodes = self.con.config.get('display.diff_tree.use_empty_nodes')
+        self._connect_node_listeners()
+
+    def _connect_node_listeners(self):
         tree_id = self.con.treeview_meta.tree_id
 
         if self.con.treeview_meta.lazy_load:
@@ -170,7 +173,7 @@ class DisplayMutator(HasLifecycle):
         # This may be a long task
         try:
             # Lock this so that node-upserted and node-removed callbacks don't interfere
-            self._enable_node_update_signals = False
+            self._enable_node_signals = False
             with self._lock:
                 children: List[DisplayNode] = self.con.lazy_tree.get_children_for_root()
             logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(children)} children for root')
@@ -182,7 +185,7 @@ class DisplayMutator(HasLifecycle):
             dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.con.tree_id, new_root=self.con.lazy_tree.get_root_identifier(), err=err)
             return
         finally:
-            self._enable_node_update_signals = True
+            self._enable_node_signals = True
 
         def update_ui():
             with self._lock:
@@ -283,7 +286,7 @@ class DisplayMutator(HasLifecycle):
         # Callback for actions.NODE_EXPANSION_TOGGLED:
         logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node}"')
 
-        if not self._enable_expand_state_listeners:
+        if not self._enable_expand_state_listeners or not self._enable_node_signals:
             if SUPER_DEBUG:
                 logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_EXPANSION_TOGGLED}": listeners disabled')
             return
@@ -318,9 +321,9 @@ class DisplayMutator(HasLifecycle):
             logger.debug(f'[{self.con.tree_id}] Entered _on_node_upserted_in_cache(): sender={sender}, node={node}')
         assert node is not None
 
-        if not self._enable_node_update_signals:
+        if not self._enable_node_signals:
             if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_UPSERTED}": updates disabled')
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_UPSERTED}": node listeners disabled')
             return
 
         # Possibly long-running op to load lazy tree. Also has a nasty lock. Do this outside the UI thread.
@@ -401,9 +404,9 @@ class DisplayMutator(HasLifecycle):
         if SUPER_DEBUG:
             logger.debug(f'[{self.con.tree_id}] Entered _on_node_removed_from_cache(): sender={sender}, node={node}')
 
-        if not self._enable_node_update_signals:
+        if not self._enable_node_signals:
             if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_REMOVED}": updates disabled')
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_REMOVED}": node listeners disabled')
             return
 
         assert node
@@ -437,6 +440,11 @@ class DisplayMutator(HasLifecycle):
         GLib.idle_add(update_ui)
 
     def _on_node_moved_in_cache(self, sender: str, src_node: DisplayNode, dst_node: DisplayNode):
+        if not self._enable_node_signals:
+            if SUPER_DEBUG:
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_MOVED}": node listeners disabled')
+            return
+            
         self._on_node_removed_from_cache(sender, src_node)
         self._on_node_upserted_in_cache(sender, dst_node)
 
