@@ -552,6 +552,7 @@ class CacheManager(HasLifecycle):
     def resolve_root_from_path(self, full_path: str) -> Tuple[SinglePathNodeIdentifier, Exception]:
         """Resolves the given path into either a local file, a set of Google Drive matches, or generates a GDriveItemNotFoundError,
         and returns a tuple of both"""
+        logger.debug(f'resolve_root_from_path() called with path="{full_path}"')
         try:
             full_path = file_util.normalize_path(full_path)
             node_identifier: NodeIdentifier = self.app.node_identifier_factory.for_values(path_list=full_path)
@@ -560,18 +561,24 @@ class CacheManager(HasLifecycle):
                 self.wait_for_startup_done()
 
                 identifier_list = self._master_gdrive.get_identifier_list_for_full_path_list(node_identifier.get_path_list())
-            else:
+            else:  # LocalNode
                 if not os.path.exists(full_path):
                     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
                 uid = self.get_uid_for_path(full_path)
                 identifier_list = [LocalNodeIdentifier(uid=uid, path_list=full_path)]
 
             assert len(identifier_list) > 0, f'Got no identifiers for path but no error was raised: {full_path}'
+            logger.debug(f'resolve_root_from_path(): got identifier_list={identifier_list}"')
             if len(identifier_list) > 1:
                 # Create the appropriate
                 candidate_list = []
                 for identifier in identifier_list:
-                    if full_path in identifier.get_path_list():
+                    if identifier.tree_type == TREE_TYPE_GDRIVE:
+                        path_to_find = NodeIdentifierFactory.strip_gdrive(full_path)
+                    else:
+                        path_to_find = full_path
+
+                    if path_to_find in identifier.get_path_list():
                         candidate_list.append(identifier)
                 if len(candidate_list) != 1:
                     raise RuntimeError(f'Serious error: found multiple identifiers with same path ({full_path}): {candidate_list}')
@@ -581,6 +588,8 @@ class CacheManager(HasLifecycle):
 
             if len(new_root.get_path_list()) > 0:
                 # must have single path
+                if new_root.tree_type == TREE_TYPE_GDRIVE:
+                    full_path = NodeIdentifierFactory.strip_gdrive(full_path)
                 new_root = SinglePathNodeIdentifier(uid=new_root.uid, path_list=full_path, tree_type=new_root.tree_type)
 
             err = None
@@ -588,12 +597,13 @@ class CacheManager(HasLifecycle):
             new_root = ginf.node_identifier
             err = ginf
         except FileNotFoundError as fnf:
-            new_root = self.app.node_identifier_factory.for_values(full_path=full_path)
+            new_root = self.app.node_identifier_factory.for_values(path_list=full_path)
             err = fnf
         except CacheNotLoadedError as cnlf:
             err = cnlf
-            new_root = self.app.node_identifier_factory.for_values(full_path=full_path, uid=NULL_UID)
+            new_root = self.app.node_identifier_factory.for_values(path_list=full_path, uid=NULL_UID)
 
+        logger.debug(f'resolve_root_from_path(): returning new_root={new_root}, err={err}"')
         return new_root, err
 
     def get_goog_id_for_parent(self, node: GDriveNode) -> str:

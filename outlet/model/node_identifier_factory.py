@@ -49,31 +49,34 @@ class NodeIdentifierFactory:
             raise RuntimeError('bad')
 
     @staticmethod
-    def _strip_gdrive(path):
+    def strip_gdrive(path):
         stripped = path[len(GDRIVE_PATH_PREFIX):]
-        if stripped != '/' and stripped.endswith('/'):
+        if stripped.endswith('/'):
             stripped = stripped[:-1]
+        if not stripped.startswith('/', 0):
+            # this happens if either the path is '/' or the user mistyped
+            stripped = f'/{stripped}'
         return stripped
 
     @staticmethod
     def _derive_gdrive_path_list(full_path_list):
         derived_list = []
-        for path in ensure_list(full_path_list):
-            derived_list.append(NodeIdentifierFactory._strip_gdrive(path))
+        for path in full_path_list:
+            derived_list.append(NodeIdentifierFactory.strip_gdrive(path))
         return derived_list
 
     def _and_deriving_tree_type_from_path(self, full_path_list: Optional[List[str]], uid: UID, must_be_single_path: bool = False) \
             -> NodeIdentifier:
         if full_path_list:
             if full_path_list[0].startswith(GDRIVE_PATH_PREFIX):
-                derived_list = NodeIdentifierFactory._derive_gdrive_path_list(full_path_list)
+                derived_list: List[str] = NodeIdentifierFactory._derive_gdrive_path_list(full_path_list)
                 if must_be_single_path:
                     if not derived_list or not derived_list[0]:
                         return NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
                     if len(derived_list) > 1:
                         raise RuntimeError(f'Could not make GDrive identifier: must_be_single_path=True but given too many paths:'
-                                           f' {full_path_list}')
-                    return SinglePathNodeIdentifier(uid=uid, path_list=full_path_list, tree_type=TREE_TYPE_GDRIVE)
+                                           f' {derived_list}')
+                    return SinglePathNodeIdentifier(uid=uid, path_list=derived_list, tree_type=TREE_TYPE_GDRIVE)
                 if not derived_list or not derived_list[0]:
                     return NodeIdentifierFactory.get_gdrive_root_constant_identifier()
                 return GDriveIdentifier(path_list=derived_list, uid=uid)

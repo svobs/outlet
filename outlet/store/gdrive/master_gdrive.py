@@ -196,7 +196,7 @@ class GDriveMasterStore(MasterStore):
         else:
             raise GDriveItemNotFoundError(node_identifier=subtree_root,
                                           msg=f'Cannot load subtree because it does not exist: "{subtree_root}"',
-                                          offending_path='???')
+                                          offending_path=subtree_root.get_single_path())
         return gdrive_meta
 
     def get_display_tree(self, subtree_root: SinglePathNodeIdentifier, tree_id: str) -> GDriveDisplayTree:

@@ -1,18 +1,18 @@
 import collections
 import logging
-from typing import Deque, List, Optional, Union
+from typing import Deque, List, Optional
 
 from pydispatch import dispatcher
 
 from constants import TREE_TYPE_GDRIVE
-from model.node_identifier import ensure_list, NodeIdentifier, SinglePathNodeIdentifier
-from ui import actions
-from util import file_util, format
-from util.two_level_dict import Md5BeforeUidDict
-from model.gdrive_whole_tree import GDriveItemNotFoundError, GDriveWholeTree
-from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.display_tree.display_tree import DisplayTree
+from model.gdrive_whole_tree import GDriveWholeTree
+from model.node.gdrive_node import GDriveFolder, GDriveNode
+from model.node_identifier import ensure_list, SinglePathNodeIdentifier
+from ui import actions
+from util import format
 from util.stopwatch_sec import Stopwatch
+from util.two_level_dict import Md5BeforeUidDict
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,7 @@ class GDriveDisplayTree(DisplayTree):
 
         self._whole_tree: GDriveWholeTree = whole_tree
 
+        assert isinstance(root_identifier, SinglePathNodeIdentifier), f'Expected SinglePathNodeIdentifier but got {type(root_identifier)}'
         self._root_identifier: SinglePathNodeIdentifier = root_identifier
         """This is needed to clarify the (albeit very rare) case where the root node resolves to multiple paths.
         Our display tree can only have one path."""

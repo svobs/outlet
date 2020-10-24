@@ -2,25 +2,20 @@ import logging
 from typing import List, Optional
 
 import gi
+from pydispatch import dispatcher
 from pydispatch.dispatcher import Any
 
+import ui.actions as actions
 from constants import APP_NAME, ICON_WINDOW, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
-from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
-from model.node.node import Node
 from model.display_tree.category import CategoryDisplayTree
-
-from ui.tree.root_path_config import RootPathConfigPersister
-
-from pydispatch import dispatcher
-
-import ui.actions as actions
+from model.node.node import Node
+from model.node_identifier import SinglePathNodeIdentifier
 from ui.comp.progress_bar import ProgressBar
-from ui.tree import tree_factory
-
-from ui.dialog.merge_preview_dialog import MergePreviewDialog
 from ui.dialog.base_dialog import BaseDialog
-from util.has_lifecycle import HasLifecycle
+from ui.dialog.merge_preview_dialog import MergePreviewDialog
+from ui.tree import tree_factory
+from ui.tree.root_path_config import RootPathConfigPersister
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk
