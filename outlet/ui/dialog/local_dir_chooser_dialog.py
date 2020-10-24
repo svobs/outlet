@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
-from model.node_identifier import LocalFsIdentifier
+from model.node_identifier import LocalNodeIdentifier
 import ui.actions as actions
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
         filename = open_dialog.get_filename()
         logger.info(f'User selected dir: {filename}')
         uid = open_dialog.parent_win.app.cacheman.get_uid_for_path(filename)
-        node_identifier = LocalFsIdentifier(full_path=filename, uid=uid)
+        node_identifier = LocalNodeIdentifier(path_list=filename, uid=uid)
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.tree_id, new_root=node_identifier)
     # if response is "CANCEL" (the button "Cancel" has been clicked)
     elif response_id == Gtk.ResponseType.CANCEL:

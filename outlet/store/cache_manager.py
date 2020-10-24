@@ -18,7 +18,7 @@ from model.display_tree.gdrive import GDriveDisplayTree
 from model.node.display_node import DisplayNode, HasParentList
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
-from model.node_identifier import LocalFsIdentifier, NodeIdentifier
+from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.op import Op
 from model.uid import UID
@@ -57,7 +57,7 @@ def ensure_cache_dir_path(config):
 class CacheInfoByType(TwoLevelDict):
     """Holds PersistedCacheInfo objects"""
     def __init__(self):
-        super().__init__(lambda x: x.subtree_root.tree_type, lambda x: x.subtree_root.full_path, lambda x, y: True)
+        super().__init__(lambda x: x.subtree_root.tree_type, lambda x: x.subtree_root.get_single_path(), lambda x, y: True)
 
 
 # CLASS CacheManager
@@ -190,7 +190,7 @@ class CacheManager(HasLifecycle):
                     logger.info(f'Skipping non-existent cache info entry: {info.cache_location} (for subtree: {info.subtree_root})')
                     skipped_count += 1
                     continue
-                existing = self.caches_by_type.get_single(info.subtree_root.tree_type, info.subtree_root.full_path)
+                existing = self.caches_by_type.get_single(info.subtree_root.tree_type, info.subtree_root.get_single_path())
                 if existing:
                     if info.sync_ts < existing.sync_ts:
                         logger.info(f'Skipping duplicate cache info entry: {existing.subtree_root}')
@@ -204,10 +204,10 @@ class CacheManager(HasLifecycle):
 
                 # There are up to 4 locations where the subtree root can be stored
                 if info.subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
-                    uid_from_mem = self._master_local.get_uid_for_path(info.subtree_root.full_path, info.subtree_root.uid)
+                    uid_from_mem = self._master_local.get_uid_for_path(info.subtree_root.get_single_path(), info.subtree_root.uid)
                     if uid_from_mem != info.subtree_root.uid:
                         raise RuntimeError(f'Subtree root UID from diskstore registry ({info.subtree_root.uid}) does not match UID '
-                                           f'from memstore ({uid_from_mem}) for path="{info.subtree_root.full_path}"')
+                                           f'from memstore ({uid_from_mem}) for path="{info.subtree_root.get_single_path()}"')
 
                 # Put into map to eliminate possible duplicates
                 self.caches_by_type.put(info)
@@ -321,7 +321,7 @@ class CacheManager(HasLifecycle):
             raise RuntimeError(f'Unrecognized tree type: {cache_type}')
 
         if cache_type == TREE_TYPE_LOCAL_DISK:
-            if not os.path.exists(existing_disk_cache.subtree_root.full_path):
+            if not os.path.exists(existing_disk_cache.subtree_root.get_single_path()):
                 logger.info(f'Subtree not found; will defer loading: "{existing_disk_cache.subtree_root}"')
                 existing_disk_cache.needs_refresh = True
             else:
@@ -340,9 +340,7 @@ class CacheManager(HasLifecycle):
         """
         logger.debug(f'Got request to load subtree: {node_identifier}')
 
-        if not file_util.is_normalized(node_identifier.full_path):
-            node_identifier.full_path = file_util.normalize_path(node_identifier.full_path)
-            logger.debug(f'Normalized path: {node_identifier.full_path}')
+        node_identifier.normalize_paths()
 
         dispatcher.send(signal=actions.LOAD_SUBTREE_STARTED, sender=tree_id)
 
@@ -360,29 +358,29 @@ class CacheManager(HasLifecycle):
 
         return subtree
 
-    def find_existing_cache_info_for_subtree(self, full_path: str, tree_type: int) -> Optional[PersistedCacheInfo]:
-        existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(tree_type).values())
+    def find_existing_cache_info_for_local_subtree(self, full_path: str) -> Optional[PersistedCacheInfo]:
+        existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_LOCAL_DISK).values())
 
         for existing_cache in existing_caches:
             # Is existing_cache an ancestor of target tree?
-            if full_path.startswith(existing_cache.subtree_root.full_path):
+            if full_path.startswith(existing_cache.subtree_root.get_single_path()):
                 return existing_cache
         # Nothing in the cache contains subtree
         return None
 
     def get_cache_info_entry(self, subtree_root: NodeIdentifier) -> PersistedCacheInfo:
-        return self.caches_by_type.get_single(subtree_root.tree_type, subtree_root.full_path)
+        return self.caches_by_type.get_single(subtree_root.tree_type, subtree_root.get_single_path())
 
     def get_or_create_cache_info_entry(self, subtree_root: NodeIdentifier) -> PersistedCacheInfo:
         existing = self.get_cache_info_entry(subtree_root)
         if existing:
-            logger.debug(f'Found existing cache entry for type={subtree_root.tree_type} subtree="{subtree_root.full_path}"')
+            logger.debug(f'Found existing cache entry for subtree: {subtree_root}')
             return existing
         else:
-            logger.debug(f'No existing cache entry found for type={subtree_root.tree_type} subtree="{subtree_root.full_path}"')
+            logger.debug(f'No existing cache entry found for subtree: {subtree_root}')
 
         if subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
-            unique_path = subtree_root.full_path.replace('/', '_')
+            unique_path = subtree_root.get_single_path().replace('/', '_')
             file_name = f'LO_{unique_path}.{INDEX_FILE_SUFFIX}'
         elif subtree_root.tree_type == TREE_TYPE_GDRIVE:
             file_name = GDRIVE_INDEX_FILE_NAME
@@ -471,7 +469,7 @@ class CacheManager(HasLifecycle):
     # Various public methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def show_tree(self, subtree_root: LocalFsIdentifier) -> str:
+    def show_tree(self, subtree_root: LocalNodeIdentifier) -> str:
         if subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
             return self._master_local.show_tree(subtree_root)
         elif subtree_root.tree_type == TREE_TYPE_GDRIVE:
@@ -555,17 +553,17 @@ class CacheManager(HasLifecycle):
         and returns a tuple of both"""
         try:
             full_path = file_util.normalize_path(full_path)
-            node_identifier = self.app.node_identifier_factory.for_values(full_path=full_path)
+            node_identifier = self.app.node_identifier_factory.for_values(path_list=full_path)
             if node_identifier.tree_type == TREE_TYPE_GDRIVE:
                 # Need to wait until all caches are loaded:
                 self.wait_for_startup_done()
 
-                identifiers = self._master_gdrive.get_all_for_path(node_identifier.full_path)
+                identifiers = self._master_gdrive.get_identifier_list_for_full_path_list(node_identifier.full_path)
             else:
                 if not os.path.exists(full_path):
                     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
                 uid = self.get_uid_for_path(full_path)
-                identifiers = [LocalFsIdentifier(full_path=full_path, uid=uid)]
+                identifiers = [LocalNodeIdentifier(uid=uid, path_list=full_path)]
 
             assert len(identifiers) > 0, f'Got no identifiers (not even NULL) for path: {full_path}'
             new_root: NodeIdentifier = identifiers[0]
@@ -597,10 +595,10 @@ class CacheManager(HasLifecycle):
     def get_goog_id_list_for_uid_list(self, uids: List[UID], fail_if_missing: bool = True) -> List[str]:
         return self._master_gdrive.get_goog_id_list_for_uid_list(uids, fail_if_missing=fail_if_missing)
 
-    def get_uid_for_path(self, path: str, uid_suggestion: Optional[UID] = None) -> UID:
+    def get_uid_for_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
         """Deterministically gets or creates a UID corresponding to the given path string"""
-        assert path
-        return self._master_local.get_uid_for_path(path, uid_suggestion)
+        assert full_path
+        return self._master_local.get_uid_for_path(full_path, uid_suggestion)
 
     def read_single_node_from_disk_for_path(self, full_path: str, tree_type: int) -> DisplayNode:
         if not file_util.is_normalized(full_path):
@@ -687,7 +685,7 @@ class CacheManager(HasLifecycle):
         if subtree_root.tree_type == TREE_TYPE_GDRIVE:
             return self._master_gdrive.get_all_gdrive_files_and_folders_for_subtree(subtree_root)
         elif subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
-            assert isinstance(subtree_root, LocalFsIdentifier)
+            assert isinstance(subtree_root, LocalNodeIdentifier)
             return self._master_local.get_all_files_and_dirs_for_subtree(subtree_root)
         else:
             raise RuntimeError(f'Unknown tree type: {subtree_root.tree_type} for {subtree_root}')

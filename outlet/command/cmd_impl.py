@@ -2,7 +2,7 @@ import logging
 import os
 import pathlib
 import store.local.content_hasher
-from model.node_identifier import LocalFsIdentifier
+from model.node_identifier import LocalNodeIdentifier
 
 from util import file_util
 from model.op import Op, OpType
@@ -25,18 +25,19 @@ class CopyFileLocallyCommand(CopyNodeCommand):
     def __init__(self, uid: UID, op: Op, overwrite: bool = False):
         super().__init__(uid, op, overwrite)
         self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, ow={self.overwrite} ' \
-                   f'src="{self.op.src_node.full_path}", dst="{self.op.dst_node.full_path}")'
+                   f'src="{self.op.src_node.get_single_path()}", dst="{self.op.dst_node.get_single_path()}")'
         assert op.op_type == OpType.CP
 
     def get_total_work(self) -> int:
         return self.op.src_node.get_size_bytes()
 
     def execute(self, cxt: CommandContext) -> CommandResult:
-        src_path = self.op.src_node.full_path
-        dst_path = self.op.dst_node.full_path
+        assert isinstance(self.op.src_node, LocalFileNode), f'Got {self.op.src_node}'
+        assert isinstance(self.op.dst_node, LocalFileNode), f'Got {self.op.dst_node}'
+        src_path = self.op.src_node.get_single_path()
+        dst_path = self.op.dst_node.get_single_path()
         if not self.op.src_node.md5:
             # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
-            assert isinstance(self.op.src_node, LocalFileNode)
             self.op.src_node.md5 = store.local.content_hasher.compute_md5(src_path)
         md5 = self.op.src_node.md5
         # TODO: what if staging dir is not on same file system?
@@ -82,20 +83,23 @@ class DeleteLocalFileCommand(DeleteNodeCommand):
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
     def execute(self, cxt: CommandContext):
+        logger.debug(f'RM: tgt={self.op.src_node.get_single_path()}')
+        assert isinstance(self.op.src_node, LocalFileNode), f'Got {self.op.src_node}'
+        assert isinstance(self.op.dst_node, LocalFileNode), f'Got {self.op.dst_node}'
+
         deleted_nodes_list = []
-        logger.debug(f'RM: tgt={self.op.src_node.full_path}')
 
         if self.op.src_node.is_file():
-            file_util.delete_file(self.op.src_node.full_path, self.to_trash)
+            file_util.delete_file(self.op.src_node.get_single_path(), self.to_trash)
         elif self.op.src_node.is_dir():
-            file_util.delete_empty_dir(self.op.src_node.full_path, self.to_trash)
+            file_util.delete_empty_dir(self.op.src_node.get_single_path(), self.to_trash)
         else:
             raise RuntimeError(f'Not a file or dir: {self.op.src_node}')
         deleted_nodes_list.append(self.op.src_node)
 
         # TODO: reconsider deleting empty ancestors...
         if self.delete_empty_parent:
-            parent_dir_path: str = str(pathlib.Path(self.op.src_node.full_path).parent)
+            parent_dir_path: str = self.op.src_node.derive_parent_path()
             # keep going up the dir tree, deleting empty parents
             while os.path.isdir(parent_dir_path) and len(os.listdir(parent_dir_path)) == 0:
                 if self.to_trash:
@@ -132,26 +136,26 @@ class MoveFileLocallyCommand(TwoNodeCommand):
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
     def execute(self, cxt: CommandContext):
-        logger.debug(f'MV: src={self.op.src_node.full_path}')
-        logger.debug(f'    dst={self.op.dst_node.full_path}')
+        logger.debug(f'MV: src={self.op.src_node.get_single_path()}')
+        logger.debug(f'    dst={self.op.dst_node.get_single_path()}')
         assert isinstance(self.op.src_node, LocalFileNode)
         assert isinstance(self.op.dst_node, LocalFileNode)
-        file_util.move_file(self.op.src_node.full_path, self.op.dst_node.full_path)
+        file_util.move_file(self.op.src_node.get_single_path(), self.op.dst_node.get_single_path())
 
         # Add to cache:
-        local_node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=self.op.dst_node.full_path)
+        local_node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=self.op.dst_node.get_single_path())
         to_upsert = [self.op.src_node, local_node]
         to_delete = []
-        if not os.path.exists(self.op.src_node.full_path):
+        if not os.path.exists(self.op.src_node.get_single_path()):
             to_delete = [self.op.src_node]
             cxt.cacheman.remove_node(local_node)
         else:
-            logger.warning(f'Src node still exists after move: {self.op.src_node.full_path}')
+            logger.warning(f'Src node still exists after move: {self.op.src_node.get_single_path()}')
         return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=to_upsert, to_delete=to_delete)
 
     def __repr__(self):
         return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, ' \
-               f'status={self.status()}, dst={self.op.dst_node.full_path}'
+               f'status={self.status()}, dst={self.op.dst_node.get_single_path()}'
 
 
 class CreatLocalDirCommand(Command):
@@ -168,11 +172,11 @@ class CreatLocalDirCommand(Command):
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
     def execute(self, cxt: CommandContext):
-        logger.debug(f'MKDIR: dst={self.op.src_node.full_path}')
-        os.makedirs(name=self.op.src_node.full_path, exist_ok=True)
+        logger.debug(f'MKDIR: dst={self.op.src_node.get_single_path()}')
+        os.makedirs(name=self.op.src_node.get_single_path(), exist_ok=True)
 
         # Add to cache:
-        assert isinstance(self.op.src_node.node_identifier, LocalFsIdentifier)
+        assert isinstance(self.op.src_node.node_identifier, LocalNodeIdentifier)
         local_node = LocalDirNode(self.op.src_node.node_identifier, True)
         return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[local_node])
 
@@ -206,9 +210,10 @@ class UploadToGDriveCommand(CopyNodeCommand):
         return True
 
     def execute(self, cxt: CommandContext):
+        assert isinstance(self.op.src_node, LocalFileNode)
         assert isinstance(self.op.dst_node, GDriveNode)
         # this requires that any parents have been created and added to the in-memory cache (and will fail otherwise)
-        src_file_path = self.op.src_node.full_path
+        src_file_path = self.op.src_node.get_single_path()
         md5 = self.op.src_node.md5
         size_bytes = self.op.src_node.get_size_bytes()
 
@@ -222,7 +227,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
             if existing:
                 logger.info(f'Found existing node in Google Drive with same parent and name, but different content (overwrite={self.overwrite})')
                 goog_node: GDriveNode = cxt.gdrive_client.update_existing_file(name=existing.name, mime_type=existing_raw['mimeType'],
-                                                                               goog_id=existing.goog_id, local_full_path=src_file_path)
+                                                                               goog_id=existing.goog_id, local_file_full_path=src_file_path)
             else:
                 # be cautious and halt
                 return self.set_error_result(f'While trying to update node in Google Drive: could not find node with matching meta!')
@@ -262,7 +267,7 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
     def execute(self, cxt: CommandContext):
         assert isinstance(self.op.src_node, GDriveFile) and self.op.src_node.md5, f'Bad src node: {self.op.src_node}'
         src_goog_id = self.op.src_node.goog_id
-        dst_path = self.op.dst_node.full_path
+        dst_path: str = self.op.dst_node.get_single_path()
 
         if os.path.exists(dst_path):
             node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path, must_scan_signature=True)

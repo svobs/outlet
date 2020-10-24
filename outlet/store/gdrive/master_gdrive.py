@@ -196,7 +196,7 @@ class GDriveMasterStore(MasterStore):
         else:
             raise GDriveItemNotFoundError(node_identifier=subtree_root,
                                           msg=f'Cannot load subtree because it does not exist: "{subtree_root}"',
-                                          offending_path=subtree_root.full_path)
+                                          offending_path='???')
         return gdrive_meta
 
     def get_display_tree(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveDisplayTree:
@@ -225,7 +225,7 @@ class GDriveMasterStore(MasterStore):
             return
 
         assert isinstance(parent_node, GDriveFolder)
-        parent_node.node_identifier.full_path = subtree_root_node.full_path
+        parent_node.node_identifier.set_path_list(subtree_root_node.get_path_list())
 
         folders_to_process: Deque[GDriveFolder] = deque()
         folders_to_process.append(parent_node)
@@ -238,8 +238,13 @@ class GDriveMasterStore(MasterStore):
             child_list: List[GDriveNode] = self.gdrive_client.get_all_children_for_parent(folder.goog_id)
             count_folders += 1
             count_total += len(child_list)
+            # Derive paths with some cleverness:
             for child in child_list:
-                child.node_identifier.full_path = os.path.join(folder.full_path, child.name)
+                child_path_list = []
+                for path in folder.get_path_list():
+                    child_path_list.append(os.path.join(path, child.name))
+                child.node_identifier.set_path_list(child_path_list)
+
                 if child.is_dir():
                     assert isinstance(child, GDriveFolder)
                     folders_to_process.append(child)
@@ -378,10 +383,10 @@ class GDriveMasterStore(MasterStore):
         assert isinstance(node, GDriveNode)
         return self._memstore.master_tree.get_parent_for_node(node, required_subtree_path)
 
-    def get_all_for_path(self, path: str) -> List[NodeIdentifier]:
+    def get_identifier_list_for_full_path_list(self, path: str) -> List[NodeIdentifier]:
         if not self._memstore.master_tree:
             raise CacheNotLoadedError()
-        return self._memstore.master_tree.get_all_identifiers_for_path(path)
+        return self._memstore.master_tree.get_identifier_list_for_single_path(path)
 
     def get_all_gdrive_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
         return self._memstore.master_tree.get_all_files_and_folders_for_subtree(subtree_root)

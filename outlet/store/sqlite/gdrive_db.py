@@ -17,7 +17,7 @@ def _tuple_to_gdrive_folder(row: Tuple) -> GDriveFolder:
         all_children_fetched = row
     uid_from_cache = UID(uid_int)
 
-    return GDriveFolder(GDriveIdentifier(uid=uid_from_cache, full_path=None), goog_id=goog_id, node_name=node_name,
+    return GDriveFolder(GDriveIdentifier(uid=uid_from_cache, path_list=None), goog_id=goog_id, node_name=node_name,
                         trashed=item_trashed, create_ts=create_ts, modify_ts=modify_ts, owner_uid=owner_uid, drive_id=drive_id, is_shared=is_shared,
                         shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
 
@@ -32,7 +32,7 @@ def _tuple_to_gdrive_file(row: Tuple) -> GDriveFile:
 
     uid_from_cache = UID(uid_int)
 
-    return GDriveFile(GDriveIdentifier(uid=uid_from_cache, full_path=None), goog_id=goog_id, node_name=node_name, mime_type_uid=mime_type_uid,
+    return GDriveFile(GDriveIdentifier(uid=uid_from_cache, path_list=None), goog_id=goog_id, node_name=node_name, mime_type_uid=mime_type_uid,
                       trashed=item_trashed, drive_id=drive_id, is_shared=is_shared, version=version,
                       head_revision_id=head_revision_id, md5=md5, create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes,
                       owner_uid=owner_uid, shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts)

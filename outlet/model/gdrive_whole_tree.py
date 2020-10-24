@@ -48,19 +48,17 @@ class GDriveWholeTree:
     def node_identifier(self):
         return NodeIdentifierFactory.get_gdrive_root_constant_identifier()
 
-    def get_full_path_for_node(self, node: GDriveNode) -> List[str]:
-        """Gets the absolute path for the node. Also sets its 'full_path' attribute for future use"""
-        if node.full_path:
+    def compute_path_list_for_node(self, node: GDriveNode) -> List[str]:
+        """Gets the absolute path for the node. Also sets its 'path_list' attribute for future use"""
+        path_list = node.get_path_list()
+        if path_list:
             # Does node already have a full_path? Just return that (huge speed gain):
-            return node.full_path
+            return path_list
 
         # Set in the node for future use:
-        full_paths: List[str] = self.get_all_paths_for_id(node.uid)
-        if len(full_paths) == 1:
-            node.node_identifier.full_path = full_paths[0]
-        else:
-            node.node_identifier.full_path = full_paths
-        return full_paths
+        path_list: List[str] = self._compute_path_list_for_uid(node.uid)
+        node.node_identifier.set_path_list(path_list)
+        return path_list
 
     def upsert_folder_and_children(self, parent_node: GDriveFolder, child_list: List[GDriveNode]) -> List[GDriveNode]:
         """Adds or replaces the given parent_node and its children. Any previous children which are not in the given list are
@@ -242,19 +240,19 @@ class GDriveWholeTree:
 
         return file_list, folder_list
 
-    def get_all_identifiers_for_path(self, path: str) -> List[NodeIdentifier]:
+    def get_identifier_list_for_single_path(self, full_path: str) -> List[NodeIdentifier]:
         """Try to match the given file-system-like path, mapping the root of this tree to the first segment of the path.
         Since GDrive allows for multiple parents per child, it is possible for multiple matches to occur. This
         returns them all.
         NOTE: returns FileNotFoundError if not even one ID could be matched
         """
         if SUPER_DEBUG:
-            logger.debug(f'get_all_identifiers_for_path() requested for path: "{path}"')
-        if path == ROOT_PATH:
+            logger.debug(f'get_identifier_list_for_single_path() requested for full_path: "{full_path}"')
+        if full_path == ROOT_PATH:
             return [NodeIdentifierFactory.get_gdrive_root_constant_identifier()]
-        name_segments = file_util.split_path(path)
+        name_segments = file_util.split_path(full_path)
         if len(name_segments) == 0:
-            raise RuntimeError(f'Bad path: "{path}"')
+            raise RuntimeError(f'Bad path: "{full_path}"')
         # name_segments = list(map(lambda x: x.lower(), name_segments))
         iter_name_segs = iter(name_segments)
         try:
@@ -285,7 +283,7 @@ class GDriveWholeTree:
                     break
                 matches: List[GDriveNode] = [x for x in children if x.name.lower() == name_seg.lower()]
                 if SUPER_DEBUG and len(matches) > 1:
-                    logger.info(f'get_all_identifiers_for_path(): Multiple child IDs ({len(matches)}) found for parent ID "'
+                    logger.info(f'get_identifier_list_for_single_path(): Multiple child IDs ({len(matches)}) found for parent ID "'
                                 f'{current_id}", path_so_far "{path_so_far}"')
                     for num, match in enumerate(matches):
                         logger.info(f'Match {num}: {match}')
@@ -293,9 +291,9 @@ class GDriveWholeTree:
 
             if len(next_seg_nodes) == 0:
                 if SUPER_DEBUG:
-                    logger.debug(f'Segment not found: "{name_seg}" (target_path: "{path}"')
+                    logger.debug(f'Segment not found: "{name_seg}" (target_path: "{full_path}"')
                 raise GDriveItemNotFoundError(node_identifier=self.node_identifier_factory.for_values(
-                    tree_type=TREE_TYPE_GDRIVE, full_path=path), offending_path=path_so_far)
+                    tree_type=TREE_TYPE_GDRIVE, path_list=full_path), offending_path=path_so_far)
             else:
                 path_found = path_found + '/' + next_seg_nodes[0].name
 
@@ -309,14 +307,16 @@ class GDriveWholeTree:
             logger.debug(f'Found for path "{path_so_far}": {matching_ids}')
         if not matching_ids:
             raise GDriveItemNotFoundError(node_identifier=self.node_identifier_factory.for_values(
-                tree_type=TREE_TYPE_GDRIVE, full_path=path), offending_path=path_so_far)
+                tree_type=TREE_TYPE_GDRIVE, path_list=full_path), offending_path=path_so_far)
         return matching_ids
 
-    def in_this_subtree(self, full_path: Union[str, List[str]]):
+    @staticmethod
+    def in_this_subtree(full_path: Union[str, List[str]]):
         # basically always true
         return full_path.startswith(ROOT_PATH)
 
-    def is_in_subtree(self, full_path: Union[str, List[str]], subtree_root_path: str):
+    @staticmethod
+    def is_in_subtree(full_path: Union[str, List[str]], subtree_root_path: str):
         if not full_path:
             raise RuntimeError('is_in_subtree(): full_path not provided!')
 
@@ -340,7 +340,7 @@ class GDriveWholeTree:
             resolved_parents = []
             for par_id in parent_uids:
                 parent = self.get_node_for_uid(par_id)
-                if parent and (not required_subtree_path or self.is_in_subtree(parent.full_path, required_subtree_path)):
+                if parent and (not required_subtree_path or self.is_in_subtree(parent.get_path_list(), required_subtree_path)):
                     resolved_parents.append(parent)
             if len(resolved_parents) > 1:
                 raise RuntimeError(f'Found multiple valid parents for node: {node}: parents={resolved_parents}')
@@ -467,7 +467,7 @@ class GDriveWholeTree:
                     raise RuntimeError(f'Could not resolve goog_id for UID {uid}: node has no goog_id: {node}')
         return goog_ids
 
-    def get_all_paths_for_id(self, uid: UID, stop_before_id: str = None) -> List[str]:
+    def _compute_path_list_for_uid(self, uid: UID, stop_before_id: str = None) -> List[str]:
         """Gets the filesystem-like-path for the node with the given GoogID.
         If stop_before_id is given, treat it as the subtree root and stop before including it; otherwise continue
         until a parent cannot be found, or until the root of the tree is reached"""
@@ -569,7 +569,7 @@ class GDriveWholeTree:
         else:
             return 'Loading stats...'
 
-    def find_duplicate_node_names(self, tree_id):
+    def find_duplicate_node_names(self):
         """Finds and builds a list of all nodes which have the same name inside the same folder"""
         queue: Deque[GDriveNode] = deque()
         stack: Deque[GDriveNode] = deque()
@@ -667,7 +667,7 @@ class GDriveWholeTree:
 
         # TODO: make use of this later
         if FIND_DUPLICATE_GDRIVE_NODE_NAMES:
-            self.find_duplicate_node_names(tree_id)
+            self.find_duplicate_node_names()
 
         if COUNT_MULTIPLE_GDRIVE_PARENTS:
             self.count_multiple_parents()

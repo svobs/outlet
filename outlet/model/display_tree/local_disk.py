@@ -1,15 +1,15 @@
 import logging
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Union
 
 from pydispatch import dispatcher
 
 import constants
 from ui import actions
 from util import file_util, format
-from util.two_level_dict import Md5BeforePathDict
+from util.two_level_dict import Md5BeforeUidDict
 from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
-from model.node_identifier import LocalFsIdentifier
+from model.node_identifier import ensure_list, LocalNodeIdentifier
 from model.display_tree.display_tree import DisplayTree
 from util.stopwatch_sec import Stopwatch
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 class LocalDiskDisplayTree(DisplayTree):
     def __init__(self, root_node: LocalDirNode, app, tree_id: str):
-        assert isinstance(root_node.node_identifier, LocalFsIdentifier)
+        assert isinstance(root_node.node_identifier, LocalNodeIdentifier)
         super().__init__(root_node)
         self.root_node: LocalDirNode = root_node
         self.app = app
@@ -45,21 +45,19 @@ class LocalDiskDisplayTree(DisplayTree):
         assert parent.node_identifier.tree_type == constants.TREE_TYPE_LOCAL_DISK, f'For: {parent.node_identifier}'
         return self.app.cacheman.get_children(parent)
 
-    def get_full_path_for_node(self, node: LocalFileNode) -> str:
-        # Trivial for FMetas
-        return node.full_path
-
-    def get_for_path(self, path: str, include_ignored=False) -> List[LocalFileNode]:
-        node = self.app.cacheman.get_node_for_local_path(path)
-        if node:
-            if node.full_path.startswith(self.root_path):
-                return [node]
-        return []
+    def get_node_list_for_path_list(self, path_list: List[str]) -> List[LocalFileNode]:
+        path_list = ensure_list(path_list)
+        node_list = []
+        for path in path_list:
+            node = self.app.cacheman.get_node_for_local_path(path)
+            if node and node.get_single_path().startswith(self.root_path):
+                node_list.append(node)
+        return node_list
 
     def get_md5_dict(self):
         md5_set_stopwatch = Stopwatch()
 
-        md5_dict: Md5BeforePathDict = Md5BeforePathDict()
+        md5_dict: Md5BeforeUidDict = Md5BeforeUidDict()
         files_list, dir_list = self.app.cacheman.get_all_files_and_dirs_for_subtree(self.node_identifier)
         for node in files_list:
             if node.exists() and node.md5:
@@ -67,13 +65,6 @@ class LocalDiskDisplayTree(DisplayTree):
 
         logger.info(f'{md5_set_stopwatch} Found {md5_dict.total_entries} MD5s in {self.root_path}')
         return md5_dict
-
-    def get_relative_path_for_full_path(self, full_path: str):
-        assert full_path.startswith(self.root_path), f'Full path ({full_path}) does not contain root ({self.root_path})'
-        return file_util.strip_root(full_path, self.root_path)
-
-    def get_relative_path_for_node(self, node: LocalFileNode):
-        return self.get_relative_path_for_full_path(node.full_path)
 
     def remove(self, node: LocalFileNode):
         raise RuntimeError('Can no longer do this in LocalDiskDisplayTree!')

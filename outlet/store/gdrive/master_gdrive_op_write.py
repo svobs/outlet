@@ -192,7 +192,7 @@ class BatchChangesOp(GDriveWriteThroughOp):
                 change.node = memstore.master_tree.add_node(change.node)
 
                 # ensure full_path is populated
-                memstore.master_tree.get_full_path_for_node(change.node)
+                memstore.master_tree.compute_path_list_for_node(change.node)
 
     def update_diskstore(self, cache: GDriveDatabase):
         mappings_list_list: List[List[Tuple]] = []

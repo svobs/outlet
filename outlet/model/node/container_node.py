@@ -16,6 +16,7 @@ class ContainerNode(HasChildList, DisplayNode):
     """
 
     def __init__(self, node_identifier: NodeIdentifier):
+        assert node_identifier.get_single_path(), f'Bad: {node_identifier}'
         DisplayNode.__init__(self, node_identifier)
         HasChildList.__init__(self)
 
@@ -43,8 +44,8 @@ class ContainerNode(HasChildList, DisplayNode):
 
     @property
     def name(self):
-        assert self.node_identifier.full_path, f'For {type(self)}, uid={self.uid}'
-        return os.path.basename(self.node_identifier.full_path)
+        assert self.node_identifier.get_single_path(), f'For {type(self)}, uid={self.uid}'
+        return os.path.basename(self.node_identifier.get_single_path())
 
     @property
     def sync_ts(self):

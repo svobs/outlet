@@ -240,7 +240,7 @@ class GDriveClient(HasLifecycle):
         goog_id = item['id']
 
         uid = self.app.cacheman.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
-        goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, node_name=item["name"],
+        goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, path_list=None), goog_id=goog_id, node_name=item["name"],
                                            mime_type_uid=mime_type.uid, trashed=GDriveClient._convert_trashed(item),
                                            drive_id=item.get('driveId', None), version=version, head_revision_id=head_revision_id,
                                            md5=item.get('md5Checksum', None), is_shared=item.get('shared', None), create_ts=create_ts,
@@ -562,21 +562,21 @@ class GDriveClient(HasLifecycle):
 
         GDriveClient._try_repeatedly(download)
 
-    def upload_new_file(self, local_full_path: str, parent_goog_ids: Union[str, List[str]], uid: UID) -> GDriveFile:
+    def upload_new_file(self, local_file_full_path: str, parent_goog_ids: Union[str, List[str]], uid: UID) -> GDriveFile:
         """Upload a single file based on its path. If successful, returns the newly created GDriveFile"""
-        if not local_full_path:
+        if not local_file_full_path:
             raise RuntimeError(f'No path specified for file!')
 
         if isinstance(parent_goog_ids, str):
             parent_goog_ids = [parent_goog_ids]
 
-        parent_path, file_name = os.path.split(local_full_path)
+        parent_path, file_name = os.path.split(local_file_full_path)
         file_metadata = {'name': file_name, 'parents': parent_goog_ids}
 
-        media = MediaFileUpload(filename=local_full_path, resumable=True)
+        media = MediaFileUpload(filename=local_file_full_path, resumable=True)
 
         def request():
-            logger.debug(f'Uploading local file: "{local_full_path}" to parents: {parent_goog_ids}')
+            logger.debug(f'Uploading local file: "{local_file_full_path}" to parents: {parent_goog_ids}')
 
             response = self.service.files().create(body=file_metadata, media_body=media, fields=f'{GDRIVE_FILE_FIELDS}, parents').execute()
             return response
@@ -589,16 +589,16 @@ class GDriveClient(HasLifecycle):
 
         return gdrive_file
 
-    def update_existing_file(self, name: str, mime_type: str, goog_id: str, local_full_path: str) -> GDriveFile:
-        if not local_full_path:
+    def update_existing_file(self, name: str, mime_type: str, goog_id: str, local_file_full_path: str) -> GDriveFile:
+        if not local_file_full_path:
             raise RuntimeError(f'No path specified for file!')
 
         file_metadata = {'name': name, 'mimeType': mime_type}
 
-        media = MediaFileUpload(filename=local_full_path, resumable=True)
+        media = MediaFileUpload(filename=local_file_full_path, resumable=True)
 
         def request():
-            logger.debug(f'Updating node "{goog_id}" with local file: "{local_full_path}"')
+            logger.debug(f'Updating node "{goog_id}" with local file: "{local_file_full_path}"')
 
             # Send the request to the API.
             return self.service.files().update(fileId=goog_id, body=file_metadata, media_body=media,

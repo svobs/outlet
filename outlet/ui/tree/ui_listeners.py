@@ -235,7 +235,6 @@ class TreeUiListeners(HasLifecycle):
         self._drop_data = None
 
     def _is_dropping_on_itself(self, dest_node: DisplayNode, nodes: List[DisplayNode]):
-        assert dest_node.full_path
         for node in nodes:
             logger.debug(f'[{self.con.tree_id}] DestNode="{dest_node.node_identifier}", DroppedNode="{node}"')
             if dest_node.is_parent_of(node):
@@ -269,9 +268,9 @@ class TreeUiListeners(HasLifecycle):
     def _on_tree_selection_changed(self, selection):
         model, treeiter = selection.get_selected_rows()
         if treeiter is not None and len(treeiter) == 1:
-            meta = self.con.display_store.get_node_data(treeiter)
-            if isinstance(meta, LocalFileNode):
-                logger.info(f'[{self.con.tree_id}] User selected md5="{meta.md5}" path="{meta.full_path}"')
+            node = self.con.display_store.get_node_data(treeiter)
+            if isinstance(node, LocalFileNode):
+                logger.info(f'[{self.con.tree_id}] User selected node={node.node_identifier} md5="{node.md5}"')
             else:
                 logger.info(f'[{self.con.tree_id}] User selected {self.con.display_store.get_node_name(treeiter)}')
         return self.on_selection_changed(treeiter)

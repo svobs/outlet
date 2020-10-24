@@ -6,9 +6,9 @@ from model.local_disk_tree import LocalDiskTree
 from model.node.container_node import RootTypeNode
 from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalFileNode, LocalNode
-from model.node_identifier import LocalFsIdentifier
+from model.node_identifier import LocalNodeIdentifier
 from store.local.master_local import SUPER_DEBUG
-from util.two_level_dict import Md5BeforePathDict, Sha256BeforePathDict
+from util.two_level_dict import Md5BeforeUidDict, Sha256BeforeUidDict
 
 logger = logging.getLogger(__name__)
 
@@ -19,21 +19,20 @@ class LocalDiskMemoryStore:
     def __init__(self, app):
         self.use_md5 = app.config.get('cache.enable_md5_lookup')
         if self.use_md5:
-            self.md5_dict = Md5BeforePathDict()
+            self.md5_dict: Optional[Md5BeforeUidDict] = Md5BeforeUidDict()
         else:
-            self.md5_dict = None
+            self.md5_dict: Optional[Md5BeforeUidDict] = None
 
         self.use_sha256 = app.config.get('cache.enable_sha256_lookup')
         if self.use_sha256:
-            self.sha256_dict = Sha256BeforePathDict()
+            self.sha256_dict: Optional[Sha256BeforeUidDict] = Sha256BeforeUidDict()
         else:
-            self.sha256_dict = None
+            self.sha256_dict: Optional[Sha256BeforeUidDict] = None
 
         # Each node inserted here will have an entry created for its dir.
-        # self.parent_path_dict = ParentPathBeforeFileNameDict()
         # But we still need a dir tree to look up child dirs:
         self.master_tree = LocalDiskTree(app)
-        root_node = RootTypeNode(node_identifier=LocalFsIdentifier(full_path=ROOT_PATH, uid=LOCAL_ROOT_UID))
+        root_node = RootTypeNode(node_identifier=LocalNodeIdentifier(path_list=ROOT_PATH, uid=LOCAL_ROOT_UID))
         self.master_tree.add_node(node=root_node, parent=None)
 
         self.expected_node_moves: Dict[str, str] = {}
@@ -56,14 +55,14 @@ class LocalDiskMemoryStore:
                     raise RuntimeError(f'Cannot remove dir from cache because it has {len(children)} children: {node}')
 
             count_removed = self.master_tree.remove_node(node.uid)
-            assert count_removed <= 1, f'Deleted {count_removed} nodes at {node.full_path}'
+            assert count_removed <= 1, f'Deleted {count_removed} nodes at {node.node_identifier}'
         else:
             logger.warning(f'Cannot remove node because it has already been removed from cache: {node}')
 
         if self.use_md5 and node.md5:
-            self.md5_dict.remove(node.md5, node.full_path)
+            self.md5_dict.remove(node.md5, node.uid)
         if self.use_sha256 and node.sha256:
-            self.sha256_dict.remove(node.sha256, node.full_path)
+            self.sha256_dict.remove(node.sha256, node.uid)
 
     def upsert_single_node(self, node: LocalNode, update_only: bool = False) -> Tuple[Optional[LocalNode], bool]:
         """If a node already exists, the new node is merged into it and returned; otherwise the given node is returned.
@@ -85,7 +84,7 @@ class LocalDiskMemoryStore:
 
             if existing_node.is_dir() and not node.is_dir():
                 # need to replace all descendants...not ready to do this yet
-                raise RuntimeError(f'Cannot replace a directory with a file: "{node.full_path}"')
+                raise RuntimeError(f'Cannot replace a directory with a file: "{node.node_identifier}"')
 
             if existing_node == node:
                 if SUPER_DEBUG:
@@ -95,9 +94,9 @@ class LocalDiskMemoryStore:
             else:
                 # Signature may have changed. Simplify things by just removing prev node before worrying about updated node
                 if existing_node.md5 and self.use_md5:
-                    self.md5_dict.remove(existing_node)
+                    self.md5_dict.remove(node.md5, node.uid)
                 if existing_node.sha256 and self.use_sha256:
-                    self.sha256_dict.remove(existing_node)
+                    self.sha256_dict.remove(node.sha256, node.uid)
 
             # just update the existing - much easier
             if SUPER_DEBUG:
@@ -177,7 +176,7 @@ def _check_update_sanity(old_node: LocalFileNode, new_node: LocalFileNode):
             raise RuntimeError(f'new_node is missing modify_ts!')
         elif new_node.modify_ts < old_node.modify_ts:
             logger.warning(
-                f'File "{new_node.full_path}": update has older modify_ts ({new_node.modify_ts}) than prev version ({old_node.modify_ts})')
+                f'File {new_node.node_identifier}: update has older modify_ts ({new_node.modify_ts}) than prev version ({old_node.modify_ts})')
 
         if not old_node.change_ts:
             logger.info(f'old_node has no change_ts. Skipping change_ts comparison (Old={old_node} New={new_node}')
@@ -185,10 +184,10 @@ def _check_update_sanity(old_node: LocalFileNode, new_node: LocalFileNode):
             raise RuntimeError(f'new_node is missing change_ts!')
         elif new_node.change_ts < old_node.change_ts:
             logger.warning(
-                f'File "{new_node.full_path}": update has older change_ts ({new_node.change_ts}) than prev version ({old_node.change_ts})')
+                f'File {new_node.node_identifier}: update has older change_ts ({new_node.change_ts}) than prev version ({old_node.change_ts})')
 
         if new_node.get_size_bytes() != old_node.get_size_bytes() and new_node.md5 == old_node.md5 and old_node.md5:
-            logger.warning(f'File "{new_node.full_path}": update has same MD5 ({new_node.md5}) ' +
+            logger.warning(f'File {new_node.node_identifier}: update has same MD5 ({new_node.md5}) ' +
                            f'but different size: (old={old_node.get_size_bytes()}, new={new_node.get_size_bytes()})')
     except Exception as e:
         logger.error(f'Error checking update sanity! Old={old_node} New={new_node}: {repr(e)}')

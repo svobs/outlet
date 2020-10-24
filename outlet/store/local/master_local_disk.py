@@ -8,7 +8,7 @@ from constants import TREE_TYPE_LOCAL_DISK
 from model.cache_info import PersistedCacheInfo
 from model.local_disk_tree import LocalDiskTree
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node_identifier import LocalFsIdentifier
+from model.node_identifier import LocalNodeIdentifier
 from model.uid import UID
 from store.local.master_local_write_op import LocalDiskSingleNodeOp, LocalDiskSubtreeOp
 from store.sqlite.local_db import LocalDiskDatabase
@@ -74,10 +74,9 @@ class LocalDiskDiskStore(HasLifecycle):
 
         for subtree in op.get_subtree_list():
             assert subtree.subtree_root.tree_type == TREE_TYPE_LOCAL_DISK
-            cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_subtree(subtree.subtree_root.full_path,
-                                                                                                      subtree.subtree_root.tree_type)
+            cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_local_subtree(subtree.subtree_root.get_single_path())
             if not cache_info:
-                raise RuntimeError(f'Could not find a cache associated with file path: {subtree.subtree_root.full_path}')
+                raise RuntimeError(f'Could not find a cache associated with file path: {subtree.subtree_root.get_single_path()}')
 
             cache = self._get_or_open_db(cache_info)
             cache_dict[cache_info.cache_location] = cache
@@ -88,10 +87,9 @@ class LocalDiskDiskStore(HasLifecycle):
 
     def _update_diskstore_for_single_op(self, operation: LocalDiskSingleNodeOp):
         assert operation.node, f'No node for operation: {type(operation)}'
-        cache_info: Optional[PersistedCacheInfo] = self.app.cacheman.find_existing_cache_info_for_subtree(operation.node.full_path,
-                                                                                                          operation.node.get_tree_type())
+        cache_info: Optional[PersistedCacheInfo] = self.app.cacheman.find_existing_cache_info_for_local_subtree(operation.node.get_single_path())
         if not cache_info:
-            raise RuntimeError(f'Could not find a cache associated with file path: {operation.node.full_path}')
+            raise RuntimeError(f'Could not find a cache associated with node: {operation.node.node_identifier}')
 
         cache = self._get_or_open_db(cache_info)
         operation.update_diskstore(cache)
@@ -112,12 +110,12 @@ class LocalDiskDiskStore(HasLifecycle):
             logger.debug(status)
             dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
 
-            uid: UID = self.app.cacheman.get_uid_for_path(cache_info.subtree_root.full_path, cache_info.subtree_root.uid)
+            uid: UID = self.app.cacheman.get_uid_for_path(cache_info.subtree_root.get_single_path(), cache_info.subtree_root.uid)
             if cache_info.subtree_root.uid != uid:
                 logger.warning(f'Requested UID "{cache_info.subtree_root.uid}" is invalid for given path; changing it to "{uid}"')
             cache_info.subtree_root.uid = uid
 
-            root_node_identifer = LocalFsIdentifier(full_path=cache_info.subtree_root.full_path, uid=uid)
+            root_node_identifer = LocalNodeIdentifier(uid=uid, path_list=cache_info.subtree_root.get_path_list())
             tree: LocalDiskTree = LocalDiskTree(self.app)
             root_node = LocalDirNode(node_identifier=root_node_identifer, exists=True)
             tree.add_node(node=root_node, parent=None)
@@ -130,13 +128,13 @@ class LocalDiskDiskStore(HasLifecycle):
 
             # Dirs first
             for dir_node in dir_list:
-                existing = tree.get_node(dir_node.identifier)
+                existing: LocalNode = tree.get_node(dir_node.identifier)
                 # Overwrite older ops for the same path:
                 if not existing:
                     tree.add_to_tree(dir_node)
                     if not dir_node.exists():
                         missing_nodes.append(dir_node)
-                elif existing.full_path != dir_node.full_path:
+                elif existing.get_single_path() != dir_node.get_single_path():
                     raise RuntimeError(f'Existing={existing}, FromCache={dir_node}')
 
             file_list: List[LocalFileNode] = db.get_local_files()
@@ -165,7 +163,7 @@ class LocalDiskDiskStore(HasLifecycle):
             return tree
 
     def save_subtree(self, cache_info: PersistedCacheInfo, file_list, dir_list, tree_id):
-        assert isinstance(cache_info.subtree_root, LocalFsIdentifier)
+        assert isinstance(cache_info.subtree_root, LocalNodeIdentifier)
         db: LocalDiskDatabase = self._get_or_open_db(cache_info)
 
         with self._struct_lock:

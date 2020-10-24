@@ -1,3 +1,4 @@
+import logging
 import os
 import threading
 import time
@@ -8,12 +9,8 @@ from watchdog.observers import Observer
 from watchdog.observers.api import ObservedWatch
 
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from store.gdrive.gdrive_tree_loader import GDriveTreeLoader
 from model.node.local_disk_node import LocalNode
 from model.node_identifier import ensure_bool, ensure_int, NodeIdentifier
-import logging
-
-from model.node_identifier_factory import NodeIdentifierFactory
 from store.local.event_handler import LocalChangeEventHandler
 from ui import actions
 from util.has_lifecycle import HasLifecycle
@@ -211,7 +208,7 @@ class LiveMonitor(HasLifecycle):
                         self._stop_gdrive_capture()
                 else:
                     assert prev_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Expected tree type LOCAL_DISK but is: {prev_identifier}'
-                    self._stop_local_disk_capture(prev_identifier.full_path, tree_id)
+                    self._stop_local_disk_capture(prev_identifier.get_single_path(), tree_id)
 
             else:
                 logger.debug(f'[{tree_id}] Starting capture of new tree ({node_identifier})')
@@ -232,10 +229,11 @@ class LiveMonitor(HasLifecycle):
                 # Local
                 assert node_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Expected tree type LOCAL_DISK but is: {node_identifier}'
 
-                if os.path.exists(node_identifier.full_path):
-                    self._start_local_disk_capture(node_identifier.full_path, tree_id)
+                if os.path.exists(node_identifier.get_single_path()):
+                    self._start_local_disk_capture(node_identifier.get_single_path(), tree_id)
                 else:
-                    logger.debug(f'[{tree_id}]] Ignoring request to start local disk capture: path does not exist: {node_identifier.full_path}')
+                    logger.debug(f'[{tree_id}]] Ignoring request to start local disk capture: path does not exist: '
+                                 f'{node_identifier.get_single_path()}')
 
     def stop_capture(self, tree_id: str):
         """If capture doesn't exist, does nothing"""
@@ -243,11 +241,10 @@ class LiveMonitor(HasLifecycle):
             prev_identifier: NodeIdentifier = self._active_tree_dict.pop(tree_id, None)
             if prev_identifier:
                 logger.debug(f'[{tree_id}] Removing capture tree (was: ({prev_identifier})')
-                assert tree_id in self._active_gdrive_tree_set or self._local_tree_watcher_dict.get(prev_identifier.full_path, None),\
-                    f'Expected to find "{tree_id}" in active GDrive or local tree dicts!'
 
                 if prev_identifier.tree_type == TREE_TYPE_GDRIVE:
                     # GDrive
+                    assert tree_id in self._active_gdrive_tree_set, f'Expected to find "{tree_id}" in active GDrive tree dict!'
                     self._active_gdrive_tree_set.discard(tree_id)
                     needs_gdrive_stop = len(self._active_gdrive_tree_set) == 0
                     if needs_gdrive_stop:
@@ -255,7 +252,9 @@ class LiveMonitor(HasLifecycle):
                 else:
                     # Local
                     assert prev_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Expected tree type LOCAL_DISK but is: {prev_identifier}'
-                    self._stop_local_disk_capture(prev_identifier.full_path, tree_id)
+                    assert self._local_tree_watcher_dict.get(prev_identifier.get_single_path(), None), \
+                        f'Expected to find "{tree_id}" in active local tree dict!'
+                    self._stop_local_disk_capture(prev_identifier.get_single_path(), tree_id)
 
             else:
                 logger.debug(f'[{tree_id}] Trying to remove capture which was not found')

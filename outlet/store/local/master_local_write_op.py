@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 
 from constants import SUPER_DEBUG
 from model.node.local_disk_node import LocalNode
-from model.node_identifier import LocalFsIdentifier, NodeIdentifier
+from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from store.local.master_local_memory import LocalDiskMemoryStore
 from store.sqlite.local_db import LocalDiskDatabase
 from ui import actions
@@ -135,7 +135,7 @@ class BatchChangesOp(LocalDiskSubtreeOp):
     """ALWAYS REMOVE BEFORE ADDING!"""
 
     def __init__(self, subtree_list: List[LocalSubtree] = None,
-                 subtree_root: LocalFsIdentifier = None, upsert_node_list: List[LocalNode] = None, remove_node_list: List[LocalNode] = None):
+                 subtree_root: LocalNodeIdentifier = None, upsert_node_list: List[LocalNode] = None, remove_node_list: List[LocalNode] = None):
         if subtree_list:
             self.subtree_list = subtree_list
         else:
@@ -147,7 +147,7 @@ class BatchChangesOp(LocalDiskSubtreeOp):
     def update_memstore(self, memstore: LocalDiskMemoryStore):
         for subtree in self.subtree_list:
             logger.debug(f'Upserting {len(subtree.upsert_node_list)} and removing {len(subtree.remove_node_list)} nodes at memstore subroot '
-                         f'"{subtree.subtree_root.full_path}"')
+                         f'"{subtree.subtree_root.get_path_list()}"')
             # Deletes must occur from bottom up:
             if subtree.remove_node_list:
                 for node in reversed(subtree.remove_node_list):
@@ -182,6 +182,6 @@ class BatchChangesOp(LocalDiskSubtreeOp):
 # CLASS DeleteSubtreeOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class DeleteSubtreeOp(BatchChangesOp):
-    def __init__(self, subtree_root: LocalFsIdentifier, node_list: List[LocalNode]):
+    def __init__(self, subtree_root: LocalNodeIdentifier, node_list: List[LocalNode]):
         super().__init__(subtree_root=subtree_root, upsert_node_list=[], remove_node_list=node_list)
 

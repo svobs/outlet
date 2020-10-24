@@ -15,7 +15,7 @@ from model.op import Op, OpRef, OpType
 from model.node.display_node import DisplayNode
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
-from model.node_identifier import GDriveIdentifier, LocalFsIdentifier
+from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier
 
 logger = logging.getLogger(__name__)
 
@@ -263,7 +263,7 @@ class OpDatabase(MetaDatabase):
         action_uid_int, uid_int, goog_id, node_name, item_trashed, create_ts, modify_ts, owner_uid, drive_id, is_shared, shared_by_user_uid, \
             sync_ts, all_children_fetched, parent_uid_int, parent_goog_id = row
 
-        obj = GDriveFolder(GDriveIdentifier(uid=UID(uid_int), full_path=None), goog_id=goog_id, node_name=node_name, trashed=item_trashed,
+        obj = GDriveFolder(GDriveIdentifier(uid=UID(uid_int), path_list=None), goog_id=goog_id, node_name=node_name, trashed=item_trashed,
                            create_ts=create_ts, modify_ts=modify_ts, owner_uid=owner_uid, drive_id=drive_id, is_shared=is_shared,
                            shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts, all_children_fetched=all_children_fetched)
 
@@ -275,7 +275,7 @@ class OpDatabase(MetaDatabase):
         action_uid_int, uid_int, goog_id, node_name, mime_type_uid, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_uid, drive_id, \
             is_shared, shared_by_user_uid, version, head_revision_id, sync_ts, parent_uid_int, parent_goog_id = row
 
-        obj = GDriveFile(GDriveIdentifier(uid=UID(uid_int), full_path=None), goog_id=goog_id, node_name=node_name, mime_type_uid=mime_type_uid,
+        obj = GDriveFile(GDriveIdentifier(uid=UID(uid_int), path_list=None), goog_id=goog_id, node_name=node_name, mime_type_uid=mime_type_uid,
                          trashed=item_trashed, drive_id=drive_id, version=version,
                          head_revision_id=head_revision_id, md5=md5, is_shared=is_shared,
                          create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes, owner_uid=owner_uid, shared_by_user_uid=shared_by_user_uid,
@@ -289,7 +289,7 @@ class OpDatabase(MetaDatabase):
 
         uid = self.cacheman.get_uid_for_path(full_path, uid_int)
         assert uid == uid_int, f'UID conflict! Got {uid} but read {row}'
-        obj = LocalDirNode(LocalFsIdentifier(uid=uid, full_path=full_path), bool(exists))
+        obj = LocalDirNode(LocalNodeIdentifier(uid=uid, path_list=full_path), bool(exists))
         op_uid = UID(action_uid_int)
         if nodes_by_action_uid.get(op_uid, None):
             raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')
@@ -302,7 +302,7 @@ class OpDatabase(MetaDatabase):
         uid = self.cacheman.get_uid_for_path(full_path, uid_int)
         if uid != uid_int:
             raise RuntimeError(f'UID conflict! Cache man returned {uid} but op cache returned {uid_int} (from row: {row})')
-        node_identifier = LocalFsIdentifier(uid=uid, full_path=full_path)
+        node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)
         obj = LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, exists)
         op_uid = UID(action_uid_int)
         if nodes_by_action_uid.get(op_uid, None):

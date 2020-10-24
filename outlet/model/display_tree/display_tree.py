@@ -4,6 +4,7 @@ from collections import deque
 from typing import Callable, Deque, Iterable, List, Optional, Union
 
 from model.node.display_node import DisplayNode
+from util import file_util
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +51,9 @@ class DisplayTree(ABC):
             raise RuntimeError('in_this_subtree(): full_path not provided!')
 
         if isinstance(full_path, list):
-            for p in full_path:
+            for path in full_path:
                 # i.e. if any paths start with
-                if p.startswith(self.root_path):
+                if path.startswith(self.root_path):
                     return True
             return False
 
@@ -73,16 +74,15 @@ class DisplayTree(ABC):
     def get_parent_for_node(self, node) -> Optional[DisplayNode]:
         pass
 
-    @abstractmethod
-    def get_full_path_for_node(self, node) -> str:
-        pass
+    def get_relative_path_list_for_node(self, node: DisplayNode) -> List[str]:
+        relative_path_list: List[str] = []
+        for full_path in node.get_path_list():
+            if full_path.startswith(self.root_path):
+                relative_path_list.append(file_util.strip_root(full_path, self.root_path))
+        return relative_path_list
 
     @abstractmethod
-    def get_relative_path_for_node(self, node):
-        pass
-
-    @abstractmethod
-    def get_for_path(self, path: str, include_ignored=False) -> List[DisplayNode]:
+    def get_node_list_for_path_list(self, path_list: List[str]) -> List[DisplayNode]:
         pass
 
     @abstractmethod

@@ -72,7 +72,7 @@ class GDriveMemoryStore:
         node = self.master_tree.add_node(node)
 
         # Generate full_path for node, if not already done (we assume this is a newly created node)
-        self.master_tree.get_full_path_for_node(node)
+        self.master_tree.compute_path_list_for_node(node)
 
         return node, True
 

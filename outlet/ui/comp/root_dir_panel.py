@@ -96,8 +96,8 @@ class RootDirPanel:
         # Need to call this to do the initial UI draw:
         logger.debug(f'[{self.tree_id}] Building panel with current root {self.current_root}')
 
-        if self.current_root.tree_type == TREE_TYPE_LOCAL_DISK and not os.path.exists(self.current_root.full_path):
-            self.err = FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.current_root.full_path)
+        if self.current_root.tree_type == TREE_TYPE_LOCAL_DISK and not os.path.exists(self.current_root.get_single_path()):
+            self.err = FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.current_root.get_single_path())
         else:
             self.err = None
 
@@ -156,7 +156,7 @@ class RootDirPanel:
 
         self.entry = Gtk.Entry()
 
-        path = self.current_root.full_path
+        path = self.current_root.get_single_path()  # TODO this is probably wrong
         if self.current_root.tree_type == TREE_TYPE_GDRIVE:
             path = GDRIVE_PATH_PREFIX + path
         self.entry.set_text(path)
@@ -253,6 +253,7 @@ class RootDirPanel:
         if root_exists:
             pre = ''
             color = ''
+            # FIXME
             root_part_regular, root_part_bold = os.path.split(new_root.full_path)
             if len(self.alert_image_box.get_children()) > 0:
                 self.alert_image_box.remove(self.alert_image)
@@ -285,7 +286,7 @@ class RootDirPanel:
     def _on_root_path_updated(self, sender, new_root: NodeIdentifier, err=None):
         """Callback for actions.ROOT_PATH_UPDATED"""
         logger.debug(f'[{sender}] Received signal "{actions.ROOT_PATH_UPDATED}" with new_root={new_root}, err={err}')
-        if not new_root or not new_root.full_path:
+        if not new_root or not new_root.get_path_list():
             raise RuntimeError(f'Root path cannot be empty! (tree_id={sender})')
 
         if self.current_root != new_root or err != self.err:
@@ -303,7 +304,7 @@ class RootDirPanel:
         # (buttons, response)"""
         logger.debug('Creating and displaying LocalRootDirChooserDialog')
         open_dialog = LocalRootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, tree_id=self.tree_id,
-                                                current_dir=self.current_root.full_path)
+                                                current_dir=self.current_root.get_single_path())
 
         # show the dialog
         open_dialog.show()

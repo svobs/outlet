@@ -1,10 +1,11 @@
 import collections
 import logging
-from typing import Deque, List, Optional
+from typing import Deque, List, Optional, Union
 
 from pydispatch import dispatcher
 
 from constants import TREE_TYPE_GDRIVE
+from model.node_identifier import ensure_list, NodeIdentifier
 from ui import actions
 from util import file_util, format
 from util.two_level_dict import Md5BeforeUidDict
@@ -65,43 +66,33 @@ class GDriveDisplayTree(DisplayTree):
     def get_children(self, parent: GDriveNode) -> List[GDriveNode]:
         return self._whole_tree.get_children(node=parent)
 
-    def get_full_path_for_node(self, node: GDriveNode) -> List[str]:
-        return self._whole_tree.get_full_path_for_node(node)
+    def get_node_list_for_path_list(self, path_list: List[str]) -> List[GDriveNode]:
+        path_list = ensure_list(path_list)
+        if not self.in_this_subtree(path_list):
+            raise RuntimeError(f'Not in this tree: "{path_list}" (tree root: {self.root_path}')
 
-    def get_for_path(self, path: str, include_ignored=False) -> List[GDriveNode]:
-        if not self.in_this_subtree(path):
-            raise RuntimeError(f'Not in this tree: "{path}" (tree root: {self.root_path}')
-        try:
-            identifiers = self._whole_tree.get_all_identifiers_for_path(path)
-        except GDriveItemNotFoundError:
-            return []
+        identifiers_found: List[NodeIdentifier] = []
 
-        if len(identifiers) == 1:
-            return [self._whole_tree.get_node_for_uid(identifiers[0].uid)]
+        for single_path in path_list:
+            try:
+                identifiers = self._whole_tree.get_identifier_list_for_single_path(single_path)
+                if identifiers:
+                    identifiers_found += identifiers
+            except GDriveItemNotFoundError:
+                return []
+
+        if len(identifiers_found) == 1:
+            return [self._whole_tree.get_node_for_uid(identifiers_found[0].uid)]
 
         # In Google Drive it is legal to have two different files with the same path
-        logger.warning(f'Found {len(identifiers)} identifiers for path: "{path}"). Returning the whole list')
-        return list(map(lambda x: self._whole_tree.get_node_for_uid(x.uid), identifiers))
+        logger.debug(f'Found {len(identifiers_found)} nodes for path list: "{path_list}"). Returning the whole list')
+        return list(map(lambda x: self._whole_tree.get_node_for_uid(x.uid), identifiers_found))
 
     def get_parent_for_node(self, node: GDriveNode) -> Optional[GDriveNode]:
         if node.get_tree_type() != TREE_TYPE_GDRIVE:
             return None
 
         return self._whole_tree.get_parent_for_node(node, self.root_path)
-
-    def get_relative_path_for_node(self, goog_node: GDriveNode):
-        """Get the path for the given ID, relative to the root of this subtree"""
-        if not goog_node.full_path:
-            node_full_path = self._whole_tree.get_all_paths_for_id(goog_node.uid)
-        else:
-            node_full_path = goog_node.full_path
-        if isinstance(node_full_path, list):
-            # Use the first path we find which is under this subtree:
-            for full_path in node_full_path:
-                if self.in_this_subtree(full_path):
-                    return file_util.strip_root(full_path, self.root_path)
-            raise RuntimeError(f'Could not get relative path for {node_full_path} in "{self.root_path}"')
-        return file_util.strip_root(node_full_path, self.root_path)
 
     def __repr__(self):
         if self._stats_loaded:

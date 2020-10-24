@@ -50,8 +50,8 @@ class CacheRegistry(MetaDatabase):
         for row in rows:
             cache_location, cache_type, subtree_root_path, subtree_root_uid, sync_ts, is_complete = row
             subtree_root_path = file_util.normalize_path(subtree_root_path)
-            node_identifier = self.node_identifier_factory.for_values(tree_type=cache_type, full_path=subtree_root_path,
-                                                                      uid=ensure_int(subtree_root_uid))
+            node_identifier = self.node_identifier_factory.for_values(tree_type=cache_type, path_list=subtree_root_path,
+                                                                      uid=subtree_root_uid)
             entries.append(CacheInfoEntry(cache_location=cache_location, subtree_root=node_identifier, sync_ts=sync_ts, is_complete=is_complete))
         return entries
 

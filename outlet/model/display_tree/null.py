@@ -21,13 +21,10 @@ class NullDisplayTree(DisplayTree):
     def get_parent_for_node(self, item) -> Optional[DisplayNode]:
         raise RuntimeError('Should not do this')
 
-    def get_full_path_for_node(self, item) -> str:
+    def get_relative_path_list_for_node(self, item):
         raise RuntimeError('Should not do this')
 
-    def get_relative_path_for_node(self, item):
-        raise RuntimeError('Should not do this')
-
-    def get_for_path(self, path: str, include_ignored=False) -> List[DisplayNode]:
+    def get_node_list_for_path_list(self, path_list: List[str]) -> List[DisplayNode]:
         return []
 
     def get_md5_dict(self):

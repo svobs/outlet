@@ -6,7 +6,7 @@ from abc import ABC
 from typing import Optional, Tuple
 
 from constants import ICON_GENERIC_DIR, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TREE_TYPE_LOCAL_DISK
-from model.node_identifier import ensure_bool, ensure_int, LocalFsIdentifier
+from model.node_identifier import ensure_bool, ensure_int, LocalNodeIdentifier
 from model.node.display_node import DisplayNode, HasChildList
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class LocalNode(DisplayNode, ABC):
-    def __init__(self, node_identifier: LocalFsIdentifier, exists: bool):
+    def __init__(self, node_identifier: LocalNodeIdentifier, exists: bool):
         super().__init__(node_identifier)
         self._exists = ensure_bool(exists)
 
@@ -42,18 +42,18 @@ class LocalNode(DisplayNode, ABC):
 
     @property
     def name(self):
-        assert self.node_identifier.full_path, f'For {type(self)}, uid={self.uid}'
-        return os.path.basename(self.node_identifier.full_path)
+        assert self.get_single_path(), f'For {type(self)}, uid={self.uid}'
+        return os.path.basename(self.get_single_path())
 
     def derive_parent_path(self) -> str:
-        return str(pathlib.Path(self.full_path).parent)
+        return str(pathlib.Path(self.get_single_path()).parent)
 
 
 # CLASS LocalFileNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class LocalFileNode(LocalNode):
-    def __init__(self, node_identifier: LocalFsIdentifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, exists: bool):
+    def __init__(self, node_identifier: LocalNodeIdentifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, exists: bool):
         super().__init__(node_identifier, exists)
         self._md5: Optional[str] = md5
         self._sha256: Optional[str] = sha256
@@ -131,25 +131,12 @@ class LocalFileNode(LocalNode):
     def change_ts(self, change_ts):
         self._change_ts = change_ts
 
-    def is_content_equal(self, other_entry):
-        assert isinstance(other_entry, LocalFileNode)
-        return self.sha256 == other_entry.sha256 \
-            and self._md5 == other_entry._md5 and self._size_bytes == other_entry._size_bytes
-
-    def is_meta_equal(self, other_entry):
-        assert isinstance(other_entry, LocalFileNode)
-        return self.full_path == other_entry.full_path and \
-            self._modify_ts == other_entry._modify_ts and self._change_ts == other_entry._change_ts
-
-    def matches(self, other_entry):
-        return self.is_content_equal(other_entry) and self.is_meta_equal(other_entry)
-
     @classmethod
     def has_tuple(cls) -> bool:
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.md5, self.sha256, self._size_bytes, self.sync_ts, self.modify_ts, self.change_ts, self.full_path, self._exists
+        return self.uid, self.md5, self.sha256, self._size_bytes, self.sync_ts, self.modify_ts, self.change_ts, self.get_single_path(), self._exists
 
     def __eq__(self, other):
         if not isinstance(other, LocalFileNode):
@@ -175,7 +162,7 @@ class LocalDirNode(HasChildList, LocalNode):
     Represents a generic local directory.
     """
 
-    def __init__(self, node_identifier: LocalFsIdentifier, exists: bool):
+    def __init__(self, node_identifier: LocalNodeIdentifier, exists: bool):
         HasChildList.__init__(self)
         LocalNode.__init__(self, node_identifier, exists)
 
@@ -186,7 +173,7 @@ class LocalDirNode(HasChildList, LocalNode):
 
     def is_parent_of(self, potential_child_node: DisplayNode):
         if potential_child_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
-            rel_path = re.sub(self.full_path, '', potential_child_node.full_path, count=1)
+            rel_path = re.sub(self.get_single_path(), '', potential_child_node.get_single_path(), count=1)
             if len(rel_path) > 0 and rel_path.startswith('/'):
                 rel_path = rel_path[1:]
             return rel_path == potential_child_node.name
@@ -197,7 +184,7 @@ class LocalDirNode(HasChildList, LocalNode):
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.full_path, self.exists()
+        return self.uid, self.get_single_path(), self.exists()
 
     @classmethod
     def get_obj_type(cls):

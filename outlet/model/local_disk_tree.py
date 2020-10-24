@@ -10,7 +10,7 @@ from model.uid import UID
 from util import file_util
 from model.node.display_node import HasChildList
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node_identifier import LocalFsIdentifier, NodeIdentifier
+from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -36,12 +36,12 @@ class LocalDiskTree(treelib.Tree):
     def add_to_tree(self, node: LocalNode):
         root_node: LocalNode = self.get_root_node()
         root_node_identifier: NodeIdentifier = root_node.node_identifier
-        path_so_far: str = root_node_identifier.full_path
+        path_so_far: str = root_node_identifier.get_single_path()
         parent: LocalNode = self.get_node(root_node_identifier.uid)
 
         # A trailing '/' will really screw us up:
-        assert file_util.is_normalized(root_node_identifier.full_path), f'Path: {root_node_identifier.full_path}'
-        node_rel_path = file_util.strip_root(node.full_path, root_node_identifier.full_path)
+        assert file_util.is_normalized(root_node_identifier.get_single_path()), f'Path: {root_node_identifier.get_single_path()}'
+        node_rel_path = file_util.strip_root(node.get_single_path(), root_node_identifier.get_single_path())
         path_segments = file_util.split_path(node_rel_path)
         if path_segments:
             # strip off last node (i.e. the target node)
@@ -54,7 +54,7 @@ class LocalDiskTree(treelib.Tree):
                 child: LocalNode = self.get_node(nid=uid)
                 if not child:
                     # logger.debug(f'Creating dir node: nid={uid}')
-                    child = LocalDirNode(node_identifier=LocalFsIdentifier(full_path=path_so_far, uid=uid), exists=True)
+                    child = LocalDirNode(node_identifier=LocalNodeIdentifier(path_list=path_so_far, uid=uid), exists=True)
                     try:
                         self.add_node(node=child, parent=parent)
                     except Exception:
@@ -109,7 +109,7 @@ class LocalDiskTree(treelib.Tree):
         logger.debug(f'Removed {count_removed} nodes from this tree, to be replaced with {len(sub_tree)} subtree nodes')
         self.paste(nid=parent_of_subtree.uid, new_tree=sub_tree)
 
-    def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalFsIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
+    def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalNodeIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
         file_list: List[LocalFileNode] = []
         dir_list: List[LocalDirNode] = []
         queue: Deque[LocalNode] = deque()

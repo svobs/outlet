@@ -11,6 +11,7 @@ from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETT
     GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID, SUPER_DEBUG
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode
+from model.node_identifier import ensure_list
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from store.gdrive.client import GDriveClient
@@ -207,36 +208,25 @@ class GDriveTreeLoader:
 
         queue = deque()
         for root in tree.get_children_for_root():
-            root.node_identifier.full_path = '/' + root.name
+            root.node_identifier.set_path_list(f'/{root.name}')
             queue.append(root)
             item_count += 1
             path_count += 1
 
         while len(queue) > 0:
-            item: GDriveNode = queue.popleft()
-            children = tree.parent_child_dict.get(item.uid, None)
+            parent: GDriveNode = queue.popleft()
+            children = tree.parent_child_dict.get(parent.uid, None)
             if children:
-                parent_paths = item.full_path
-                if type(parent_paths) == str:
-                    parent_paths = [parent_paths]
                 for child in children:
-                    # ensure list
-                    existing_child_paths = child.full_path
-                    if existing_child_paths:
-                        if type(existing_child_paths) == str:
-                            existing_child_paths = [existing_child_paths]
-                    else:
-                        existing_child_paths = []
+                    child_path_list: List[str] = child.get_path_list()
 
-                    # add parents:
-                    for parent_path in parent_paths:
-                        existing_child_paths.append(os.path.join(parent_path, child.name))
+                    # add paths for this parent:
+                    for parent_path in parent.get_path_list():
+                        new_child_path = os.path.join(parent_path, child.name)
+                        child_path_list.append(new_child_path)
                         path_count += 1
 
-                    if len(existing_child_paths) == 1:
-                        child.node_identifier.full_path = existing_child_paths[0]
-                    else:
-                        child.node_identifier.full_path = existing_child_paths
+                    child.node_identifier.full_path = child_path_list
 
                     item_count += 1
 
@@ -248,4 +238,3 @@ class GDriveTreeLoader:
 
 # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 # CLASS GDriveTreeLoader end
-

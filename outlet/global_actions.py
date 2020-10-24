@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 
 from constants import TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
-from model.node_identifier import NodeIdentifier
+from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from model.display_tree.display_tree import DisplayTree
 from util.has_lifecycle import HasLifecycle
 
@@ -126,18 +126,26 @@ class GlobalActions(HasLifecycle):
         logger.debug(f'Received signal: "{actions.START_DIFF_TREES}"')
         self.app.executor.submit_async_task(self.do_tree_diff, sender, tree_con_left, tree_con_right)
 
+    @staticmethod
+    def _tree_exists(node_identifier: NodeIdentifier) -> bool:
+        assert isinstance(node_identifier, LocalNodeIdentifier)
+        for path in node_identifier.get_path_list():
+            if os.path.exists(path):
+                return True
+        return False
+
     def do_tree_diff(self, sender, tree_con_left, tree_con_right):
         stopwatch_diff_total = Stopwatch()
         actions.disable_ui(sender=sender)
         try:
             left_id: NodeIdentifier = tree_con_left.get_root_identifier()
             right_id: NodeIdentifier = tree_con_right.get_root_identifier()
-            if left_id.tree_type == TREE_TYPE_LOCAL_DISK and not os.path.exists(left_id.full_path):
-                logger.info(f'Skipping diff because the left path does not exist: "{left_id.full_path}"')
+            if left_id.tree_type == TREE_TYPE_LOCAL_DISK and not self._tree_exists(left_id):
+                logger.info(f'Skipping diff because the left path does not exist: "{left_id.get_path_list()}"')
                 actions.enable_ui(sender=self)
                 return
-            elif right_id.tree_type == TREE_TYPE_LOCAL_DISK and not os.path.exists(right_id.full_path):
-                logger.info(f'Skipping diff because the right path does not exist: "{right_id.full_path}"')
+            elif right_id.tree_type == TREE_TYPE_LOCAL_DISK and not self._tree_exists(right_id):
+                logger.info(f'Skipping diff because the right path does not exist: "{right_id.get_path_list()}"')
                 actions.enable_ui(sender=self)
                 return
 

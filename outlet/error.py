@@ -32,6 +32,7 @@ class IdenticalFileExistsError(Exception):
         pass
 
 
+# TODO: make into decorator
 class InvalidOperationError(RuntimeError):
     def __init__(self, operation_name: str = None):
         if not operation_name:

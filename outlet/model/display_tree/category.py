@@ -2,7 +2,7 @@ import copy
 import logging
 import pathlib
 from collections import deque
-from typing import Callable, Deque, Dict, Iterable, List, Optional
+from typing import Callable, Deque, Dict, Iterable, List, Optional, Union
 
 import treelib
 from pydispatch import dispatcher
@@ -187,10 +187,6 @@ class CategoryDisplayTree(DisplayTree):
         self._pre_ancestor_dict.put_for(source_tree, op_type, parent_node)
         return parent_node
 
-    def get_relative_path_for_full_path(self, full_path: str):
-        assert full_path.startswith(self.root_path), f'Full path ({full_path}) does not contain root ({self.root_path})'
-        return file_util.strip_root(full_path, self.root_path)
-
     def get_ops(self) -> Iterable[Op]:
         return self._op_list
 
@@ -305,19 +301,14 @@ class CategoryDisplayTree(DisplayTree):
                 return ancestor
         return None
 
-    def get_full_path_for_node(self, node: DisplayNode) -> str:
-        """Gets the absolute path for the node"""
-        assert node.full_path
-        return node.full_path
-
     def __repr__(self):
         return f'CategoryDisplayTree(tree_id=[{self.tree_id}], {self.get_summary()})'
 
-    def get_relative_path_for_node(self, node):
-        raise InvalidOperationError('CategoryDisplayTree.get_relative_path_for_node()')
+    def get_relative_path_list_for_node(self, node) -> List[str]:
+        raise InvalidOperationError('CategoryDisplayTree.get_relative_path_list_for_node()')
 
-    def get_for_path(self, path: str, include_ignored=False) -> List[DisplayNode]:
-        raise InvalidOperationError('CategoryDisplayTree.get_for_path()')
+    def get_node_list_for_path_list(self, path_list: Union[str, List[str]]) -> List[DisplayNode]:
+        raise InvalidOperationError('CategoryDisplayTree.get_node_list_for_path_list()')
 
     def get_md5_dict(self):
         raise InvalidOperationError('CategoryDisplayTree.get_md5_dict()')

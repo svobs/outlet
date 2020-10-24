@@ -9,7 +9,7 @@ from pydispatch import dispatcher
 import ui.actions as actions
 from model.node.local_disk_node import LocalDirNode
 from model.local_disk_tree import LocalDiskTree
-from model.node_identifier import LocalFsIdentifier, NodeIdentifier
+from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from store.local.local_tree_recurser import LocalTreeRecurser
 
 logger = logging.getLogger(__name__)
@@ -47,12 +47,12 @@ class LocalDiskScanner(LocalTreeRecurser):
     to generate an up-to-date list of FMetas.
     """
 
-    def __init__(self, app, root_node_identifer: NodeIdentifier, tree_id=None):
-        LocalTreeRecurser.__init__(self, Path(root_node_identifer.full_path), valid_suffixes=None)
-        assert isinstance(root_node_identifer, LocalFsIdentifier), f'type={type(root_node_identifer)}, for {root_node_identifer}'
+    def __init__(self, app, root_node_identifer: LocalNodeIdentifier, tree_id=None):
+        LocalTreeRecurser.__init__(self, Path(root_node_identifer.get_single_path()), valid_suffixes=None)
+        assert isinstance(root_node_identifer, LocalNodeIdentifier), f'type={type(root_node_identifer)}, for {root_node_identifer}'
         self.app = app
         self.cacheman = app.cacheman
-        self.root_node_identifier: LocalFsIdentifier = root_node_identifer
+        self.root_node_identifier: LocalNodeIdentifier = root_node_identifer
         self.tree_id = tree_id  # For sending progress updates
         self.progress = 0
         self.total = 0
@@ -92,7 +92,7 @@ class LocalDiskScanner(LocalTreeRecurser):
             dir_node.set_exists(True)
         else:
             uid = self.cacheman.get_uid_for_path(dir_path)
-            dir_node = LocalDirNode(node_identifier=LocalFsIdentifier(full_path=dir_path, uid=uid), exists=True)
+            dir_node = LocalDirNode(node_identifier=LocalNodeIdentifier(path_list=dir_path, uid=uid), exists=True)
             logger.debug(f'[{self.tree_id}] Adding dir node: {dir_node.node_identifier}')
 
         self._local_tree.add_to_tree(dir_node)
@@ -102,15 +102,15 @@ class LocalDiskScanner(LocalTreeRecurser):
         For each current file found, remove from the stale tree.
         When recursion is complete, what's left in the stale tree will be deleted/moved files"""
 
-        assert self.root_node_identifier.full_path == str(self.root_path), \
-            f'Expected match: (1)="{self.root_node_identifier.full_path}", (2)="{self.root_path}"'
-        if not os.path.exists(self.root_node_identifier.full_path):
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.root_node_identifier.full_path)
+        assert self.root_node_identifier.get_single_path() == str(self.root_path), \
+            f'Expected match: (1)="{self.root_node_identifier.get_single_path()}", (2)="{self.root_path}"'
+        if not os.path.exists(self.root_node_identifier.get_single_path()):
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.root_node_identifier.get_single_path())
 
         self._local_tree = LocalDiskTree(self.app)
-        if not os.path.isdir(self.root_node_identifier.full_path):
+        if not os.path.isdir(self.root_node_identifier.get_single_path()):
             logger.debug(f'[{self.tree_id}] Root is a file; returning tree with a single node')
-            root_node = self.cacheman.build_local_file_node(full_path=self.root_node_identifier.full_path)
+            root_node = self.cacheman.build_local_file_node(full_path=self.root_node_identifier.get_single_path())
             self._local_tree.add_node(node=root_node, parent=None)
             return self._local_tree
 

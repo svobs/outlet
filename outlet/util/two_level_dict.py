@@ -23,18 +23,6 @@ def get_sha256(item):
     return item.sha256
 
 
-def get_full_path(item):
-    return item.full_path
-
-
-def get_parent_path(item):
-    return os.path.dirname(item.full_path)
-
-
-def get_file_name(item):
-    return os.path.basename(item.full_path)
-
-
 def fmt_ts(ts):
     return datetime.datetime.utcfromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
 
@@ -200,41 +188,12 @@ class TwoLevelDict:
 """
 
 
-class FullPathDict(OneLevelDict):
-    def __init__(self):
-        super().__init__(get_full_path, overwrite_newer_ts)
-
-
-class ParentPathBeforeFileNameDict(TwoLevelDict):
-    def __init__(self):
-        super().__init__(get_parent_path, get_file_name, overwrite_newer_ts)
-
-
-class FullPathBeforeMd5Dict(TwoLevelDict):
-    def __init__(self):
-        super().__init__(get_full_path, get_md5, overwrite_newer_ts)
-
-
-class FullPathBeforeUidDict(TwoLevelDict):
-    def __init__(self):
-        super().__init__(get_full_path, get_uid, overwrite_newer_ts)
-
-
 class Md5BeforeUidDict(TwoLevelDict):
     def __init__(self):
         super().__init__(get_md5, get_uid, overwrite_newer_ts)
 
 
-class Md5BeforePathDict(TwoLevelDict):
+class Sha256BeforeUidDict(TwoLevelDict):
     def __init__(self):
-        super().__init__(get_md5, get_full_path, overwrite_newer_ts)
+        super().__init__(get_sha256, get_uid, overwrite_newer_ts)
 
-
-class Sha256BeforePathDict(TwoLevelDict):
-    def __init__(self):
-        super().__init__(get_sha256, get_full_path, overwrite_newer_ts)
-
-
-class PathBeforeSha256Dict(TwoLevelDict):
-    def __init__(self):
-        super().__init__(get_full_path, get_sha256, overwrite_newer_ts)

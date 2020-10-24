@@ -60,7 +60,7 @@ class RootPathConfigPersister:
                 logger.info(f'[{tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root={new_root}, err={err}')
                 dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root, err=err)
 
-        self.root_identifier = self.app.node_identifier_factory.for_values(tree_type=tree_type, full_path=root_path, uid=root_uid)
+        self.root_identifier = self.app.node_identifier_factory.for_values(tree_type=tree_type, path_list=root_path, uid=root_uid)
 
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=tree_id)
         dispatcher.connect(signal=actions.GDRIVE_RELOADED, receiver=self._on_gdrive_reloaded)
@@ -69,11 +69,11 @@ class RootPathConfigPersister:
         logger.info(f'Received signal: "{actions.ROOT_PATH_UPDATED}" with root: {new_root}, err: {err}')
         if self.root_identifier != new_root:
             logger.debug(f'Root path changed. Saving root to config: {self._tree_type_config_key} '
-                         f'= {new_root.tree_type}, {self._root_path_config_key} = "{new_root.full_path}", '
+                         f'= {new_root.tree_type}, {self._root_path_config_key} = "{new_root.get_single_path()}", '
                          f'{self._root_uid_config_key} = "{new_root.uid}"')
             # Root changed. Invalidate the current tree contents
             self._config.write(json_path=self._tree_type_config_key, value=new_root.tree_type)
-            self._config.write(json_path=self._root_path_config_key, value=new_root.full_path)
+            self._config.write(json_path=self._root_path_config_key, value=new_root.get_single_path())
             if err:
                 self._config.write(json_path=self._root_uid_config_key, value=NULL_UID)
             else:

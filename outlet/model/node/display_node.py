@@ -73,13 +73,14 @@ class DisplayNode(Node, ABC):
 
     @property
     def name(self):
-        assert type(self.node_identifier.full_path) == str, f'Not a string: {self.node_identifier.full_path} (this={self})'
-        return os.path.basename(self.node_identifier.full_path)
+        assert self.node_identifier.get_path_list(), f'Oops - for {self}'
+        return os.path.basename(self.node_identifier.get_path_list()[0])
 
     def trashed(self) -> Optional[TrashStatus]:
         return TrashStatus.NOT_TRASHED
 
-    def get_etc(self):
+    @staticmethod
+    def get_etc():
         return None
 
     @property
@@ -109,9 +110,11 @@ class DisplayNode(Node, ABC):
     def change_ts(self):
         return None
 
-    @property
-    def full_path(self):
-        return self.node_identifier.full_path
+    def get_path_list(self):
+        return self.node_identifier.get_path_list()
+
+    def get_single_path(self):
+        return self.node_identifier.get_single_path()
 
     @property
     def uid(self) -> UID:
@@ -124,7 +127,7 @@ class DisplayNode(Node, ABC):
         self._update_tag()
 
     def get_relative_path(self, parent_tree):
-        return parent_tree.get_relative_path_for_node(self)
+        return parent_tree.get_relative_path_list_for_node(self)
 
     def get_icon(self):
         if self.exists():
@@ -133,8 +136,9 @@ class DisplayNode(Node, ABC):
 
     @abstractmethod
     def update_from(self, other_node):
-        assert other_node.uid == self.uid
-        self.node_identifier.full_path = other_node.full_path
+        assert isinstance(other_node, DisplayNode) and other_node.node_identifier == self.node_identifier
+        # do not change UID or tree type
+        self.node_identifier.set_path_list(other_node.get_path_list())
         self.identifier = other_node.identifier
 
 

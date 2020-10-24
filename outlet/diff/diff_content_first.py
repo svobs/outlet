@@ -183,7 +183,7 @@ class ContentFirstDiffer(ChangeMaker):
             for left_item in list_of_left_items_for_given_md5:
                 if compare_paths_also:
                     left_on_right_path: str = self.get_path_moved_to_right(left_item)
-                    path_matches_right: List[DisplayNode] = self.right_side.underlying_tree.get_for_path(left_on_right_path)
+                    path_matches_right: List[DisplayNode] = self.right_side.underlying_tree.get_node_list_for_path_list(left_on_right_path)
                     if path_matches_right:
                         if len(path_matches_right) > 1:
                             # If this ever happens it is a bug
@@ -194,7 +194,7 @@ class ContentFirstDiffer(ChangeMaker):
                             assert path_match_right.md5 != left_item.md5, \
                                 f'Expected different MD5 for left node ({left_item}) and right node ({path_match_right})'
                             if logger.isEnabledFor(logging.DEBUG):
-                                left_path = self.left_side.underlying_tree.get_full_path_for_node(left_item)
+                                left_path = left_item.get_path_list()
                                 logger.debug(f'File updated: {left_item.md5} <- "{left_path}" -> {path_matches_right[0].md5}')
                             # Same path, different md5 -> Updated
                             self.append_update_right_to_left(path_matches_right[0], left_item)
@@ -204,7 +204,7 @@ class ContentFirstDiffer(ChangeMaker):
                     # No match? fall through
                 # DUPLICATE ADDED on right + DELETED on left
                 if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f'Left has new file: "{self.left_side.underlying_tree.get_full_path_for_node(left_item)}"')
+                    logger.debug(f'Left has new file: "{left_item.get_path_list()}"')
                 self.append_copy_left_to_right(left_item)
 
                 # Dead node walking:
@@ -217,13 +217,13 @@ class ContentFirstDiffer(ChangeMaker):
             for right_item in dup_md5s_right:
                 if compare_paths_also:
                     right_on_left_path: str = self.get_path_moved_to_left(right_item)
-                    matches = self.left_side.underlying_tree.get_for_path(right_on_left_path)
+                    matches = self.left_side.underlying_tree.get_node_list_for_path_list(right_on_left_path)
                     if matches and matches[0].exists():
                         # UPDATED. Logically this has already been covered (above) since our iteration is symmetrical:
                         continue
                 # DUPLICATE ADDED on right + DELETED on left
                 if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f'Right has new file: "{self.right_side.underlying_tree.get_full_path_for_node(right_item)}"')
+                    logger.debug(f'Right has new file: "{right_item.get_path_list()}"')
                 self.append_copy_right_to_left(right_item)
 
                 # Dead node walking:

@@ -11,7 +11,7 @@ from constants import NULL_UID, TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_D
 from model.node.display_node import DisplayNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.node_identifier import GDriveIdentifier, LocalFsIdentifier, NodeIdentifier
+from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier
 from model.display_tree.display_tree import DisplayTree
 from ui.actions import ID_LEFT_TREE, ID_RIGHT_TREE
 from model.display_tree.category import CategoryDisplayTree
@@ -27,7 +27,7 @@ def _migrate_file_node(node_identifier: NodeIdentifier, src_node: DisplayNode) -
 
     tree_type = node_identifier.tree_type
     if tree_type == TREE_TYPE_LOCAL_DISK:
-        assert isinstance(node_identifier, LocalFsIdentifier)
+        assert isinstance(node_identifier, LocalNodeIdentifier)
         return LocalFileNode(node_identifier, md5, sha256, size_bytes, None, None, None, False)
     elif tree_type == TREE_TYPE_GDRIVE:
         assert isinstance(node_identifier, GDriveIdentifier)
@@ -120,7 +120,7 @@ class OneSide:
                 break
 
             # Folder already existed in original tree?
-            existing_ancestor_list = self.underlying_tree.get_for_path(parent_path)
+            existing_ancestor_list = self.underlying_tree.get_node_list_for_path_list(parent_path)
             if existing_ancestor_list and existing_ancestor_list[0].exists():
                 if tree_type == TREE_TYPE_GDRIVE:
                     child.set_parent_uids(list(map(lambda x: x.uid, existing_ancestor_list)))
@@ -136,7 +136,7 @@ class OneSide:
             elif tree_type == TREE_TYPE_LOCAL_DISK:
                 logger.debug(f'Creating LocalDirToAdd for {parent_path}')
                 new_uid = self.app.cacheman.get_uid_for_path(parent_path)
-                node_identifier = LocalFsIdentifier(parent_path, new_uid)
+                node_identifier = LocalNodeIdentifier(parent_path, new_uid)
                 new_parent = LocalDirNode(node_identifier, exists=False)
             else:
                 raise RuntimeError(f'Invalid tree type: {tree_type} for node {new_node}')

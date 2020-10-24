@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple
 from store.sqlite.base_db import LiveTable, MetaDatabase, Table
 from model.uid import UID
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node_identifier import LocalFsIdentifier
+from model.node_identifier import LocalNodeIdentifier
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ class LocalDiskDatabase(MetaDatabase):
 
         uid = self.cacheman.get_uid_for_path(full_path, uid_int)
         assert uid == row[0], f'UID conflict! Got {uid} but read {uid_int} in row: {row}'
-        node_identifier = LocalFsIdentifier(uid=uid, full_path=full_path)
+        node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)
         return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, exists)
 
     def has_local_files(self):
@@ -90,7 +90,7 @@ class LocalDiskDatabase(MetaDatabase):
         full_path = row[1]
         uid = self.cacheman.get_uid_for_path(full_path, row[0])
         assert uid == row[0], f'UID conflict! Got {uid} from memstore but read from disk: {row}'
-        return LocalDirNode(LocalFsIdentifier(uid=uid, full_path=full_path), bool(row[2]))
+        return LocalDirNode(LocalNodeIdentifier(uid=uid, path_list=full_path), bool(row[2]))
 
     def has_local_dirs(self):
         return self.table_local_dir.has_rows()
