@@ -8,7 +8,7 @@ from pydispatch.errors import DispatcherKeyError
 from app_config import AppConfig
 from constants import TreeDisplayMode
 from model.node.container_node import CategoryNode
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from ui import actions
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class TreeViewMeta:
         """If false, make the root path display panel read-only"""
         self.is_display_persisted = is_display_persisted
         """If true, load and save aesthetic things like expanded state of some nodes"""
-        self.is_ignored_func: Callable[[DisplayNode], bool] = is_ignored_func
+        self.is_ignored_func: Callable[[Node], bool] = is_ignored_func
         """This is a function pointer which accepts a data node arg and returns true if it is considered ignored"""
 
         self.tree_display_mode: TreeDisplayMode = tree_display_mode
@@ -135,7 +135,7 @@ class TreeViewMeta:
             except DispatcherKeyError:
                 pass
 
-    def _on_node_expansion_toggled(self, sender: str, parent_iter, parent_path, node: DisplayNode, is_expanded: bool):
+    def _on_node_expansion_toggled(self, sender: str, parent_iter, parent_path, node: Node, is_expanded: bool):
         if type(node) == CategoryNode:
             assert isinstance(node, CategoryNode)
             logger.debug(f'[{self.tree_id}] Detected node expansion toggle: {node.op_type} = {is_expanded}')
@@ -144,7 +144,7 @@ class TreeViewMeta:
         # Allow other listeners to handle this also:
         return False
 
-    def is_category_node_expanded(self, node: DisplayNode):
+    def is_category_node_expanded(self, node: Node):
         if self.is_display_persisted:
             assert isinstance(node, CategoryNode)
             cfg_path = f'ui_state.{self.tree_id}.expanded_state.{node.op_type.name}'

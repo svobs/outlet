@@ -16,7 +16,7 @@ from store import cache_manager
 from store.sqlite.op_db import OpDatabase
 from model.uid import UID
 from model.display_tree.display_tree import DisplayTree
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from outlet_app import OutletApplication
 from ui import actions
 from ui.tree import root_path_config
@@ -105,7 +105,7 @@ INITIAL_LOCAL_TREE_RIGHT = [
 ]
 
 
-def get_name_lower(display_node: DisplayNode):
+def get_name_lower(display_node: Node):
     return display_node.name.lower()
 
 
@@ -232,13 +232,13 @@ class OpTestBase(unittest.TestCase):
         self.app_thread.join(LOAD_TIMEOUT_SEC)
         del self.app_thread
 
-    def verify_one_memstore_dir(self, tree_con, expected: List[FNode], actual: Iterable[DisplayNode],
-                                dir_deque: Deque[Tuple[List[FNode], Iterable[DisplayNode]]]):
+    def verify_one_memstore_dir(self, tree_con, expected: List[FNode], actual: Iterable[Node],
+                                dir_deque: Deque[Tuple[List[FNode], Iterable[Node]]]):
         actual_iter = iter(actual)
         for i in range(0, len(expected)):
             expected_node: FNode = expected[i]
             try:
-                actual_node: DisplayNode = next(actual_iter)
+                actual_node: Node = next(actual_iter)
                 logger.info(f'Examining: {actual_node} (expecting: {expected_node})')
                 if actual_node.name != expected_node.name:
                     logger.debug('XXX')
@@ -250,26 +250,26 @@ class OpTestBase(unittest.TestCase):
                 if expected_node.is_dir():
                     assert isinstance(expected_node, DNode)
                     expected_list: List[FNode] = expected_node.children
-                    actual_list: Iterable[DisplayNode] = tree_con.get_tree().get_children(actual_node)
+                    actual_list: Iterable[Node] = tree_con.get_tree().get_children(actual_node)
                     dir_deque.append((expected_list, actual_list))
 
             except StopIteration:
                 self.fail(f'Tree "{tree_con.tree_id}" is missing node: {expected_node}')
 
         try:
-            actual_node: DisplayNode = next(actual_iter)
+            actual_node: Node = next(actual_iter)
             self.fail(f'Tree "{tree_con.tree_id}" has unexpected node: {actual_node}')
         except StopIteration:
             pass
 
-    def verify_one_display_dir(self, tree_con, expected: List[FNode], actual: List[DisplayNode],
-                               dir_deque: Deque[Tuple[List[FNode], Iterable[DisplayNode]]]):
+    def verify_one_display_dir(self, tree_con, expected: List[FNode], actual: List[Node],
+                               dir_deque: Deque[Tuple[List[FNode], Iterable[Node]]]):
         """Displayed directories may not all be loaded. But we will verify the ones that are"""
         actual_iter = iter(actual)
         for i in range(0, len(expected)):
             expected_node: FNode = expected[i]
             try:
-                actual_node: DisplayNode = next(actual_iter)
+                actual_node: Node = next(actual_iter)
                 logger.info(f'Examining: {actual_node} (expecting: {expected_node})')
                 self.assertEqual(expected_node.name, actual_node.name)
                 self.assertEqual(expected_node.size_bytes, actual_node.get_size_bytes(), f'For expected node: {expected_node}')
@@ -279,7 +279,7 @@ class OpTestBase(unittest.TestCase):
                 if expected_node.is_dir():
                     assert isinstance(expected_node, DNode)
                     expected_list: List[FNode] = expected_node.children
-                    actual_list: Iterable[DisplayNode] = tree_con.display_store.get_displayed_children_of(actual_node.uid)
+                    actual_list: Iterable[Node] = tree_con.display_store.get_displayed_children_of(actual_node.uid)
                     if actual_list:
                         dir_deque.append((expected_list, actual_list))
 
@@ -287,7 +287,7 @@ class OpTestBase(unittest.TestCase):
                 self.fail(f'Tree "{tree_con.tree_id}" is missing displayed node: {expected_node}')
 
         try:
-            actual_node: DisplayNode = next(actual_iter)
+            actual_node: Node = next(actual_iter)
             self.fail(f'Tree "{tree_con.tree_id}" has unexpected displayed node: {actual_node}')
         except StopIteration:
             pass
@@ -299,11 +299,11 @@ class OpTestBase(unittest.TestCase):
         # Verify that all nodes loaded correctly into the cache, which will be reflected by the state of the DisplayTree:
         backing_tree: DisplayTree = tree_con.get_tree()
 
-        dir_deque: Deque[Tuple[List[FNode], Iterable[DisplayNode]]] = collections.deque()
+        dir_deque: Deque[Tuple[List[FNode], Iterable[Node]]] = collections.deque()
         """Each entry contains the expected and actual contents of a single dir"""
 
         logger.info(f'Verifying nodes in memstore for "{tree_con.tree_id}"...')
-        actual_list: Iterable[DisplayNode] = backing_tree.get_children_for_root()
+        actual_list: Iterable[Node] = backing_tree.get_children_for_root()
 
         # Cached nodes (in tree model)
         count_dir = 0
@@ -312,7 +312,7 @@ class OpTestBase(unittest.TestCase):
             count_dir += 1
             expected_list, actual_list = dir_deque.popleft()
             # sort the actual list by name, since it is not required to be sorted
-            actual_list: List[DisplayNode] = list(actual_list)
+            actual_list: List[Node] = list(actual_list)
             actual_list.sort(key=get_name_lower)
             self.verify_one_memstore_dir(tree_con, expected_list, actual_list, dir_deque)
 
@@ -321,13 +321,13 @@ class OpTestBase(unittest.TestCase):
         # Displayed nodes
         logger.info(f'Verifying nodes in display tree for "{tree_con.tree_id}"...')
         count_dir = 0
-        actual_list: List[DisplayNode] = tree_con.display_store.get_displayed_children_of(None)
+        actual_list: List[Node] = tree_con.display_store.get_displayed_children_of(None)
         dir_deque.append((expected_list_root, actual_list))
         while len(dir_deque) > 0:
             count_dir += 1
             expected_list, actual_list = dir_deque.popleft()
             # sort the actual list by name, since it is not required to be sorted
-            actual_list: List[DisplayNode] = list(actual_list)
+            actual_list: List[Node] = list(actual_list)
             actual_list.sort(key=get_name_lower)
             self.verify_one_display_dir(tree_con, expected_list, actual_list, dir_deque)
         logger.info(f'Verified {count_dir} display dirs for "{tree_con.tree_id}"')

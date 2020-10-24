@@ -7,7 +7,7 @@ from constants import ICON_DIR_CP_DST, ICON_DIR_CP_SRC, ICON_DIR_MK, ICON_DIR_MV
     ICON_DIR_UP_DST, ICON_DIR_UP_SRC, ICON_FILE_CP_DST, ICON_FILE_CP_SRC, \
     ICON_FILE_MV_DST, ICON_FILE_MV_SRC, ICON_FILE_RM, ICON_FILE_UP_DST, ICON_FILE_UP_SRC
 from model.uid import UID
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 
 
 # ENUM OpType
@@ -71,15 +71,15 @@ class Op(Node):
                          OpType.UP: ICON_DIR_UP_DST,
                          OpType.CP: ICON_DIR_CP_DST}
 
-    def __init__(self, op_uid: UID, batch_uid: UID, op_type: OpType, src_node: DisplayNode,
-                 dst_node: DisplayNode = None, create_ts: int = None):
+    def __init__(self, op_uid: UID, batch_uid: UID, op_type: OpType, src_node: Node,
+                 dst_node: Node = None, create_ts: int = None):
         assert src_node, 'No src node!'
         Node.__init__(self, identifier=op_uid)
         self.op_uid: UID = op_uid
         self.batch_uid: UID = batch_uid
         self.op_type: OpType = op_type
-        self.src_node: DisplayNode = src_node
-        self.dst_node: DisplayNode = dst_node
+        self.src_node: Node = src_node
+        self.dst_node: Node = dst_node
         """If it exists, this is the target. Otherwise the target is the src node"""
 
         self.create_ts = create_ts

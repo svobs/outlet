@@ -12,7 +12,7 @@ from store.sqlite.gdrive_db import GDriveDatabase
 from store.sqlite.local_db import LocalDiskDatabase
 from model.uid import UID
 from model.op import Op, OpRef, OpType
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier
@@ -145,7 +145,7 @@ class TableListCollection:
         self.dst_pending: List[LiveTable] = []
         self.src_archive: List[LiveTable] = []
         self.dst_archive: List[LiveTable] = []
-        self.tuple_to_obj_func_map: Dict[str, Callable[[Dict[UID, DisplayNode], Tuple], Any]] = {}
+        self.tuple_to_obj_func_map: Dict[str, Callable[[Dict[UID, Node], Tuple], Any]] = {}
         # self.obj_to_tuple_func_map: Dict[str, Callable[[Any, UID], Tuple]] = {}
 
     def put_table(self, lifecycle_state: str, src_or_dst: str, tree_type: int, obj_type: str, table):
@@ -248,7 +248,7 @@ class OpDatabase(MetaDatabase):
                                    f'for goog_id "{goog_id}"')
 
     def _store_gdrive_object(self, obj: GDriveNode, goog_id: str, parent_uid_int: int, action_uid_int: int,
-                             nodes_by_action_uid: Dict[UID, DisplayNode]):
+                             nodes_by_action_uid: Dict[UID, Node]):
         self._verify_goog_id_consistency(goog_id, obj.uid)
 
         if not parent_uid_int:
@@ -259,7 +259,7 @@ class OpDatabase(MetaDatabase):
             raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')
         nodes_by_action_uid[op_uid] = obj
 
-    def _tuple_to_gdrive_folder(self, nodes_by_action_uid: Dict[UID, DisplayNode], row: Tuple) -> GDriveFolder:
+    def _tuple_to_gdrive_folder(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> GDriveFolder:
         action_uid_int, uid_int, goog_id, node_name, item_trashed, create_ts, modify_ts, owner_uid, drive_id, is_shared, shared_by_user_uid, \
             sync_ts, all_children_fetched, parent_uid_int, parent_goog_id = row
 
@@ -271,7 +271,7 @@ class OpDatabase(MetaDatabase):
 
         return obj
 
-    def _tuple_to_gdrive_file(self, nodes_by_action_uid: Dict[UID, DisplayNode], row: Tuple) -> GDriveFile:
+    def _tuple_to_gdrive_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> GDriveFile:
         action_uid_int, uid_int, goog_id, node_name, mime_type_uid, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_uid, drive_id, \
             is_shared, shared_by_user_uid, version, head_revision_id, sync_ts, parent_uid_int, parent_goog_id = row
 
@@ -284,7 +284,7 @@ class OpDatabase(MetaDatabase):
         self._store_gdrive_object(obj, goog_id, parent_uid_int, action_uid_int, nodes_by_action_uid)
         return obj
 
-    def _tuple_to_local_dir(self, nodes_by_action_uid: Dict[UID, DisplayNode], row: Tuple) -> LocalDirNode:
+    def _tuple_to_local_dir(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalDirNode:
         action_uid_int, uid_int, full_path, exists = row
 
         uid = self.cacheman.get_uid_for_path(full_path, uid_int)
@@ -296,7 +296,7 @@ class OpDatabase(MetaDatabase):
         nodes_by_action_uid[op_uid] = obj
         return obj
 
-    def _tuple_to_local_file(self, nodes_by_action_uid: Dict[UID, DisplayNode], row: Tuple) -> LocalFileNode:
+    def _tuple_to_local_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalFileNode:
         action_uid_int, uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, exists = row
 
         uid = self.cacheman.get_uid_for_path(full_path, uid_int)
@@ -310,7 +310,7 @@ class OpDatabase(MetaDatabase):
         nodes_by_action_uid[op_uid] = obj
         return obj
 
-    def _action_node_to_tuple(self, node: DisplayNode, op_uid: UID) -> Tuple:
+    def _action_node_to_tuple(self, node: Node, op_uid: UID) -> Tuple:
         if not node.has_tuple():
             raise RuntimeError(f'Node cannot be converted to tuple: {node}')
         if node.get_tree_type() == TREE_TYPE_GDRIVE:
@@ -377,7 +377,7 @@ class OpDatabase(MetaDatabase):
 
     # PENDING_CHANGE operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
-    def _get_all_in_table(self, table: LiveTable, nodes_by_action_uid: Dict[UID, DisplayNode]):
+    def _get_all_in_table(self, table: LiveTable, nodes_by_action_uid: Dict[UID, Node]):
         # Look up appropriate ORM function and bind its first param to nodes_by_action_uid
         table_func: Callable = partial(self.table_lists.tuple_to_obj_func_map[table.name], nodes_by_action_uid)
 
@@ -390,12 +390,12 @@ class OpDatabase(MetaDatabase):
         if not self.table_pending_op.is_table():
             return entries
 
-        src_node_by_action_uid: Dict[UID, DisplayNode] = {}
+        src_node_by_action_uid: Dict[UID, Node] = {}
         for table in self.table_lists.src_pending:
             logger.debug(f'Getting src nodes from table: "{table.name}"')
             self._get_all_in_table(table, src_node_by_action_uid)
 
-        dst_node_by_action_uid: Dict[UID, DisplayNode] = {}
+        dst_node_by_action_uid: Dict[UID, Node] = {}
         for table in self.table_lists.dst_pending:
             logger.debug(f'Getting dst nodes from table: "{table.name}"')
             self._get_all_in_table(table, dst_node_by_action_uid)

@@ -7,7 +7,7 @@ from pydispatch.dispatcher import Any
 from constants import APP_NAME, ICON_WINDOW, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
 from model.node_identifier import NodeIdentifier
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.display_tree.category import CategoryDisplayTree
 
 from ui.tree.root_path_config import RootPathConfigPersister
@@ -229,8 +229,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         return True
 
     def _generate_merge_tree(self) -> Optional[CategoryDisplayTree]:
-        left_selected_changes: List[DisplayNode] = self.tree_con_left.get_checked_rows_as_list()
-        right_selected_changes: List[DisplayNode] = self.tree_con_right.get_checked_rows_as_list()
+        left_selected_changes: List[Node] = self.tree_con_left.get_checked_rows_as_list()
+        right_selected_changes: List[Node] = self.tree_con_right.get_checked_rows_as_list()
         if len(left_selected_changes) == 0 and len(right_selected_changes) == 0:
             self.show_error_msg('You must select change(s) first.')
             return None

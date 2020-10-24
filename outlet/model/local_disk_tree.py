@@ -8,7 +8,7 @@ from treelib.exceptions import NodeIDAbsentError
 
 from model.uid import UID
 from util import file_util
-from model.node.display_node import HasChildList
+from model.node.node import HasChildList
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from util.stopwatch_sec import Stopwatch

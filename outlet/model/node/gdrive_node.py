@@ -5,7 +5,7 @@ from typing import Optional
 from util import format
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, ICON_DIR_MK, ICON_DIR_TRASHED, ICON_FILE_CP_DST, ICON_FILE_TRASHED, ICON_GENERIC_DIR, \
     ICON_GENERIC_FILE, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TREE_TYPE_GDRIVE
-from model.node.display_node import DisplayNode, HasChildList, HasParentList
+from model.node.node import Node, HasChildList, HasParentList
 from model.node_identifier import ensure_bool, ensure_int, GDriveIdentifier
 
 logger = logging.getLogger(__name__)
@@ -18,13 +18,13 @@ logger = logging.getLogger(__name__)
 """
 
 
-class GDriveNode(HasParentList, DisplayNode, ABC):
+class GDriveNode(HasParentList, Node, ABC):
     # ▲▲ Remember, Method Resolution Order places greatest priority to the first in the list, then goes down ▲▲
 
     def __init__(self, node_identifier: GDriveIdentifier, goog_id: Optional[str], node_name: str, trashed: int,
                  create_ts: Optional[int], modify_ts: Optional[int],
                  owner_uid: Optional[int], drive_id: Optional[str], is_shared: bool, shared_by_user_uid: Optional[int], sync_ts: Optional[int]):
-        DisplayNode.__init__(self, node_identifier)
+        Node.__init__(self, node_identifier)
         HasParentList.__init__(self, None)
         self.goog_id: Optional[str] = goog_id
         """The Google ID - long string. Need this for syncing with Google Drive,
@@ -57,7 +57,7 @@ class GDriveNode(HasParentList, DisplayNode, ABC):
         if not isinstance(other_node, GDriveNode):
             raise RuntimeError(f'Bad: {other_node} (we are: {self})')
         HasParentList.update_from(self, other_node)
-        DisplayNode.update_from(self, other_node)
+        Node.update_from(self, other_node)
         self.goog_id = other_node.goog_id
         self._name = other_node.name
         self._trashed = other_node.trashed
@@ -159,7 +159,7 @@ class GDriveFolder(HasChildList, GDriveNode):
         return self.uid, self.goog_id, self.name, self.trashed, self.create_ts, self._modify_ts, self.owner_uid, self.drive_id, self.is_shared, \
                self.shared_by_user_uid, self.sync_ts, self.all_children_fetched
 
-    def is_parent_of(self, potential_child_node: DisplayNode) -> bool:
+    def is_parent_of(self, potential_child_node: Node) -> bool:
         if potential_child_node.get_tree_type() == TREE_TYPE_GDRIVE:
             assert isinstance(potential_child_node, GDriveNode)
             return self.uid in potential_child_node.get_parent_uids()
@@ -264,7 +264,7 @@ class GDriveFile(GDriveNode):
         self._md5 = other_node.md5
         self._size_bytes = other_node.get_size_bytes()
 
-    def is_parent_of(self, potential_child_node: DisplayNode) -> bool:
+    def is_parent_of(self, potential_child_node: Node) -> bool:
         # A file can never be the parent of anything
         return False
 

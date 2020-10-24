@@ -15,7 +15,7 @@ from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.gdrive import GDriveDisplayTree
-from model.node.display_node import DisplayNode, HasParentList
+from model.node.node import Node, HasParentList
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
@@ -407,7 +407,7 @@ class CacheManager(HasLifecycle):
     # Main cache CRUD
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def upsert_single_node(self, node: DisplayNode):
+    def upsert_single_node(self, node: Node):
         tree_type = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
             self._master_gdrive.upsert_single_node(node)
@@ -416,7 +416,7 @@ class CacheManager(HasLifecycle):
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
-    def update_single_node(self, node: DisplayNode):
+    def update_single_node(self, node: Node):
         """Simliar to upsert, but fails silently if node does not already exist in caches. Useful for things such as asynch MD5 filling"""
         tree_type = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
@@ -426,7 +426,7 @@ class CacheManager(HasLifecycle):
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
-    def remove_subtree(self, node: DisplayNode, to_trash: bool):
+    def remove_subtree(self, node: Node, to_trash: bool):
         tree_type = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
             self._master_gdrive.remove_subtree(node, to_trash)
@@ -438,7 +438,7 @@ class CacheManager(HasLifecycle):
     def move_local_subtree(self, src_full_path: str, dst_full_path: str, is_from_watchdog=False):
         self._master_local.move_local_subtree(src_full_path, dst_full_path, is_from_watchdog)
 
-    def remove_node(self, node: DisplayNode, to_trash):
+    def remove_node(self, node: Node, to_trash):
         tree_type = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
             self._master_gdrive.remove_single_node(node, to_trash)
@@ -499,7 +499,7 @@ class CacheManager(HasLifecycle):
             for deleted_node in cmd_result.nodes_to_delete:
                 self.remove_node(deleted_node, to_trash)
 
-    def refresh_subtree(self, node: DisplayNode, tree_id: str):
+    def refresh_subtree(self, node: Node, tree_id: str):
         """Called asynchronously via actions.REFRESH_SUBTREE"""
         logger.debug(f'[{tree_id}] Refreshing subtree: {node}')
         if node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
@@ -509,7 +509,7 @@ class CacheManager(HasLifecycle):
         else:
             assert False
 
-    def refresh_stats(self, subtree_root_node: DisplayNode, tree_id: str):
+    def refresh_stats(self, subtree_root_node: Node, tree_id: str):
         """Does not send signals. The caller is responsible for sending REFRESH_SUBTREE_STATS_DONE and SET_STATUS themselves"""
         logger.debug(f'[{tree_id}] Refreshing stats for subtree: {subtree_root_node}')
         if subtree_root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
@@ -600,7 +600,7 @@ class CacheManager(HasLifecycle):
         assert full_path
         return self._master_local.get_uid_for_path(full_path, uid_suggestion)
 
-    def read_single_node_from_disk_for_path(self, full_path: str, tree_type: int) -> DisplayNode:
+    def read_single_node_from_disk_for_path(self, full_path: str, tree_type: int) -> Node:
         if not file_util.is_normalized(full_path):
             full_path = file_util.normalize_path(full_path)
             logger.debug(f'Normalized path: {full_path}')
@@ -625,7 +625,7 @@ class CacheManager(HasLifecycle):
             raise RuntimeError('get_uid_for_goog_id(): no goog_id specified!')
         return self._master_gdrive.get_uid_for_goog_id(goog_id, uid_suggestion)
 
-    def get_node_for_local_path(self, full_path: str) -> DisplayNode:
+    def get_node_for_local_path(self, full_path: str) -> Node:
         uid = self.get_uid_for_path(full_path)
         return self._master_local.get_node_for_uid(uid)
 
@@ -652,7 +652,7 @@ class CacheManager(HasLifecycle):
             node = self._master_gdrive.get_node_for_uid(uid)
         return node
 
-    def get_children(self, node: DisplayNode):
+    def get_children(self, node: Node):
         tree_type: int = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
             return self._master_gdrive.get_children(node)
@@ -661,7 +661,7 @@ class CacheManager(HasLifecycle):
         else:
             raise RuntimeError(f'Unknown tree type: {tree_type} for {node.node_identifier}')
 
-    def get_parent_uid_for_node(self, node: DisplayNode) -> UID:
+    def get_parent_uid_for_node(self, node: Node) -> UID:
         """Derives the UID for the parent of the given node"""
         if isinstance(node, HasParentList):
             assert isinstance(node, GDriveNode) and node.node_identifier.tree_type == TREE_TYPE_GDRIVE, f'Node: {node}'
@@ -673,7 +673,7 @@ class CacheManager(HasLifecycle):
             parent_path = str(pathlib.Path(node.full_path).parent)
             return self.get_uid_for_path(parent_path)
 
-    def get_parent_for_node(self, node: DisplayNode, required_subtree_path: str = None):
+    def get_parent_for_node(self, node: Node, required_subtree_path: str = None):
         if node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
             return self._master_gdrive.get_parent_for_node(node, required_subtree_path)
         elif node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
@@ -681,7 +681,7 @@ class CacheManager(HasLifecycle):
         else:
             raise RuntimeError(f'Unknown tree type: {node.node_identifier.tree_type} for {node}')
 
-    def get_all_files_and_dirs_for_subtree(self, subtree_root: NodeIdentifier) -> Tuple[List[DisplayNode], List[DisplayNode]]:
+    def get_all_files_and_dirs_for_subtree(self, subtree_root: NodeIdentifier) -> Tuple[List[Node], List[Node]]:
         if subtree_root.tree_type == TREE_TYPE_GDRIVE:
             return self._master_gdrive.get_all_gdrive_files_and_folders_for_subtree(subtree_root)
         elif subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:

@@ -4,7 +4,7 @@ from typing import List, Tuple
 from pydispatch import dispatcher
 
 from constants import TreeDisplayMode
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.node_identifier import NodeIdentifier
 from model.display_tree.display_tree import DisplayTree
 from util.stopwatch_sec import Stopwatch
@@ -132,7 +132,7 @@ class TreePanelController:
         else:
             raise Exception(f'Selection has more rows than expected: count={len(tree_paths)}')
 
-    def get_multiple_selection(self) -> List[DisplayNode]:
+    def get_multiple_selection(self) -> List[Node]:
         """Returns a list of the selected items (empty if none)"""
         selection = self.tree_view.get_selection()
         model, tree_paths = selection.get_selected_rows()
@@ -142,7 +142,7 @@ class TreePanelController:
             items.append(item)
         return items
 
-    def get_multiple_selection_and_paths(self) -> Tuple[List[DisplayNode], List[Gtk.TreePath]]:
+    def get_multiple_selection_and_paths(self) -> Tuple[List[Node], List[Gtk.TreePath]]:
         """Returns a list of the selected items (empty if none)"""
         selection = self.tree_view.get_selection()
         model, tree_paths = selection.get_selected_rows()
@@ -152,9 +152,9 @@ class TreePanelController:
             items.append(item)
         return items, tree_paths
 
-    def get_checked_rows_as_list(self) -> List[DisplayNode]:
+    def get_checked_rows_as_list(self) -> List[Node]:
         timer = Stopwatch()
-        checked_rows: List[DisplayNode] = self.display_mutator.get_checked_rows_as_list()
+        checked_rows: List[Node] = self.display_mutator.get_checked_rows_as_list()
         logger.debug(f'{timer} Retreived {len(checked_rows)} checked rows')
 
         return checked_rows

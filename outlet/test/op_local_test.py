@@ -10,7 +10,7 @@ from pydispatch import dispatcher
 
 from constants import TREE_TYPE_LOCAL_DISK
 from model.uid import UID
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from test import op_test_base
 from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, INITIAL_LOCAL_TREE_RIGHT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
 from ui import actions
@@ -55,7 +55,7 @@ class OpLocalTest(OpTestBase):
         self.app.executor.start_op_execution_thread()
         # Offset from 0:
         src_tree_path = Gtk.TreePath.new_from_string('1')
-        node: DisplayNode = self.right_con.display_store.get_node_data(src_tree_path)
+        node: Node = self.right_con.display_store.get_node_data(src_tree_path)
         logger.info(f'CP "{node.name}" from right root to left root')
 
         nodes = [node]
@@ -100,7 +100,7 @@ class OpLocalTest(OpTestBase):
         # Simulate drag & drop based on position in list:
         nodes = []
         for num in range(0, 4):
-            node: DisplayNode = self.right_con.display_store.get_node_data(Gtk.TreePath.new_from_string(f'{num}'))
+            node: Node = self.right_con.display_store.get_node_data(Gtk.TreePath.new_from_string(f'{num}'))
             self.assertIsNotNone(node, f'Expected to find node at index {num}')
             nodes.append(node)
             logger.warning(f'CP "{node.name}" (#{num}) from right root to left root')
@@ -337,7 +337,7 @@ class OpLocalTest(OpTestBase):
 
             dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=on_stats_updated)
 
-            def on_node_upserted(sender: str, node: DisplayNode):
+            def on_node_upserted(sender: str, node: Node):
                 on_node_upserted.count += 1
                 logger.info(f'Got upserted node (total: {on_node_upserted.count}, expecting: {expected_count})')
                 if on_node_upserted.count >= expected_count:
@@ -446,7 +446,7 @@ class OpLocalTest(OpTestBase):
 
             dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=on_stats_updated)
 
-            def on_node_upserted(sender: str, node: DisplayNode):
+            def on_node_upserted(sender: str, node: Node):
                 on_node_upserted.count += 1
                 logger.info(f'Got upserted node (total: {on_node_upserted.count}, expecting: {expected_count})')
                 if on_node_upserted.count >= expected_count:

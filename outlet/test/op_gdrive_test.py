@@ -11,7 +11,7 @@ from pydispatch import dispatcher
 
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.uid import UID
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.node.gdrive_node import GDriveNode
 from test import op_test_base
 from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
@@ -72,7 +72,7 @@ class OpGDriveTest(OpTestBase):
         self._delete_all_files_in_gdrive_test_folder()
 
     def _delete_all_right_tree_displayed_rows_from_cacheman(self):
-        displayed_rows: List[DisplayNode] = list(self.right_con.display_store.displayed_rows.values())
+        displayed_rows: List[Node] = list(self.right_con.display_store.displayed_rows.values())
         if not displayed_rows:
             logger.info('No displayed rows found in right tree; nothing to clean up')
             return
@@ -104,7 +104,7 @@ class OpGDriveTest(OpTestBase):
         # delete all files which may have been uploaded to GDrive. Goes around the program cache
         logger.info('Connecting to GDrive to find files in remote test folder')
 
-        parent_node: DisplayNode = self.app.cacheman.get_node_for_uid(self.right_tree_root_uid, TREE_TYPE_GDRIVE)
+        parent_node: Node = self.app.cacheman.get_node_for_uid(self.right_tree_root_uid, TREE_TYPE_GDRIVE)
         assert isinstance(parent_node, GDriveNode)
         # VERY IMPORTANT: fail if name doesn't match - don't want to delete the wrong folder!
         self.assertEqual(parent_node.name, 'Test')
@@ -131,7 +131,7 @@ class OpGDriveTest(OpTestBase):
         self.app.executor.start_op_execution_thread()
         # Offset from 0:
         src_tree_path = Gtk.TreePath.new_from_string('1')
-        node: DisplayNode = self.left_con.display_store.get_node_data(src_tree_path)
+        node: Node = self.left_con.display_store.get_node_data(src_tree_path)
         logger.info(f'CP "{node.name}" from left root to left root')
 
         nodes = [node]
@@ -156,7 +156,7 @@ class OpGDriveTest(OpTestBase):
         # Simulate drag & drop based on position in list:
         nodes = []
         for num in range(3, 7):
-            node: DisplayNode = self.left_con.display_store.get_node_data(Gtk.TreePath.new_from_string(f'{num}'))
+            node: Node = self.left_con.display_store.get_node_data(Gtk.TreePath.new_from_string(f'{num}'))
             self.assertIsNotNone(node, f'Expected to find node at index {num}')
             nodes.append(node)
             logger.warning(f'CP "{node.name}" (#{num}) from left root to right root')
@@ -364,7 +364,7 @@ class OpGDriveTest(OpTestBase):
 
             dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=on_stats_updated)
 
-            def on_node_upserted(sender: str, node: DisplayNode):
+            def on_node_upserted(sender: str, node: Node):
                 on_node_upserted.count += 1
                 logger.info(f'Got upserted node (total: {on_node_upserted.count}, expecting: {expected_count})')
                 if on_node_upserted.count >= expected_count:
@@ -466,7 +466,7 @@ class OpGDriveTest(OpTestBase):
 
             dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=on_stats_updated)
 
-            def on_node_upserted(sender: str, node: DisplayNode):
+            def on_node_upserted(sender: str, node: Node):
                 on_node_upserted.count += 1
                 logger.info(f'Got upserted node (total: {on_node_upserted.count}, expecting: {expected_count})')
                 if on_node_upserted.count >= expected_count:

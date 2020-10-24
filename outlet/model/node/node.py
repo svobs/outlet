@@ -3,7 +3,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
-from treelib import Node
+import treelib
 
 from error import InvalidOperationError
 from util import format
@@ -14,15 +14,15 @@ from model.node_identifier import NodeIdentifier
 logger = logging.getLogger(__name__)
 
 
-# ABSTRACT CLASS DisplayNode
+# ABSTRACT CLASS Node
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class DisplayNode(Node, ABC):
-    """Base class for nodes which are meant to be displayed in a UI tree"""
+class Node(treelib.Node, ABC):
+    """Base class for all data nodes."""
 
     def __init__(self, node_identifier: NodeIdentifier):
         # Look at this next line. It is very important.
-        Node.__init__(self, identifier=node_identifier.uid)
+        treelib.Node.__init__(self, identifier=node_identifier.uid)
         self.node_identifier: NodeIdentifier = node_identifier
         self._update_tag()
 
@@ -100,7 +100,7 @@ class DisplayNode(Node, ABC):
     @property
     @abstractmethod
     def sync_ts(self):
-        raise RuntimeError('sync_ts(): if you are seeing this msg you forgot to implement this in subclass of DisplayNode!')
+        raise RuntimeError('sync_ts(): if you are seeing this msg you forgot to implement this in subclass of Node!')
 
     @property
     def modify_ts(self):
@@ -136,7 +136,7 @@ class DisplayNode(Node, ABC):
 
     @abstractmethod
     def update_from(self, other_node):
-        assert isinstance(other_node, DisplayNode) and other_node.node_identifier == self.node_identifier
+        assert isinstance(other_node, Node) and other_node.node_identifier == self.node_identifier
         # do not change UID or tree type
         self.node_identifier.set_path_list(other_node.get_path_list())
         self.identifier = other_node.identifier
@@ -256,7 +256,7 @@ class HasChildList(ABC):
         self.file_count = 0
         self.dir_count = 0
 
-    def add_meta_metrics(self, child_node: DisplayNode):
+    def add_meta_metrics(self, child_node: Node):
         if self._size_bytes is None:
             self._size_bytes = 0
 

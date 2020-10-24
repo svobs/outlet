@@ -3,7 +3,7 @@ from typing import Optional
 
 
 from constants import SUPER_DEBUG, TreeDisplayMode
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.node_identifier import NodeIdentifier
 from model.display_tree.display_tree import DisplayTree
 from ui.dialog.base_dialog import BaseDialog
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 """
 
 
-def is_ignored_func(data_node: DisplayNode) -> bool:
+def is_ignored_func(data_node: Node) -> bool:
     # not currently used
     return False
 

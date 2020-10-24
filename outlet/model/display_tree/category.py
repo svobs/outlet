@@ -15,7 +15,7 @@ from model.op import Op, OpType
 from constants import SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from model.uid import UID
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
-from model.node.display_node import DisplayNode, HasChildList
+from model.node.node import Node, HasChildList
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.display_tree.display_tree import DisplayTree
@@ -73,10 +73,10 @@ class CategoryDisplayTree(DisplayTree):
         self.count_conflict_warnings = 0
         self.count_conflict_errors = 0
 
-    def get_children_for_root(self) -> Iterable[DisplayNode]:
+    def get_children_for_root(self) -> Iterable[Node]:
         return self.get_children(self.root_node)
 
-    def get_children(self, parent: DisplayNode) -> Iterable[DisplayNode]:
+    def get_children(self, parent: Node) -> Iterable[Node]:
         try:
             return self._category_tree.children(parent.identifier)
         except Exception:
@@ -88,8 +88,8 @@ class CategoryDisplayTree(DisplayTree):
     def print_tree_contents_debug(self):
         logger.debug(f'[{self.tree_id}] CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))
 
-    def get_ancestors(self, node: DisplayNode, stop_before_func: Callable[[DisplayNode], bool] = None) -> Deque[DisplayNode]:
-        ancestors: Deque[DisplayNode] = deque()
+    def get_ancestors(self, node: Node, stop_before_func: Callable[[Node], bool] = None) -> Deque[Node]:
+        ancestors: Deque[Node] = deque()
 
         # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
         # been added to this tree, or the root of the source tree
@@ -106,13 +106,13 @@ class CategoryDisplayTree(DisplayTree):
 
         return ancestors
 
-    def _get_subroot_node(self, node_identifier: NodeIdentifier) -> Optional[DisplayNode]:
+    def _get_subroot_node(self, node_identifier: NodeIdentifier) -> Optional[Node]:
         for child in self._category_tree.children(self.root_node.identifier):
             if child.node_identifier.tree_type == node_identifier.tree_type:
                 return child
         return None
 
-    def _get_or_create_pre_ancestors(self, node: DisplayNode, op_type: OpType, source_tree: DisplayTree) -> ContainerNode:
+    def _get_or_create_pre_ancestors(self, node: Node, op_type: OpType, source_tree: DisplayTree) -> ContainerNode:
         """Pre-ancestors are those nodes (either logical or pointing to real data) which are higher up than the source tree.
         Last pre-ancestor is easily derived and its prescence indicates whether its ancestors were already created"""
 
@@ -190,7 +190,7 @@ class CategoryDisplayTree(DisplayTree):
     def get_ops(self) -> Iterable[Op]:
         return self._op_list
 
-    def get_op_for_node(self, node: DisplayNode) -> Optional[Op]:
+    def get_op_for_node(self, node: Node) -> Optional[Op]:
         return self.op_dict.get(node.uid, None)
 
     def _append_op(self, op: Op):
@@ -205,7 +205,7 @@ class CategoryDisplayTree(DisplayTree):
             self.op_dict[op.src_node.uid] = op
         self._op_list.append(op)
 
-    def add_node(self, node: DisplayNode, op: Op, source_tree: DisplayTree):
+    def add_node(self, node: Node, op: Op, source_tree: DisplayTree):
         """When we add the node, we add any necessary ancestors for it as well.
         1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't
         backed by any actual data nodes. This includes possibly tree-type nodes, category nodes, and ancestors
@@ -230,7 +230,7 @@ class CategoryDisplayTree(DisplayTree):
         node_clone.identifier = NodeIdentifierFactory.nid(node.uid, node.node_identifier.tree_type, op_type_for_display)
         node = node_clone
 
-        parent: DisplayNode = self._get_or_create_pre_ancestors(node, op_type_for_display, source_tree)
+        parent: Node = self._get_or_create_pre_ancestors(node, op_type_for_display, source_tree)
 
         if isinstance(parent, HasChildList):
             parent.add_meta_metrics(node)
@@ -290,7 +290,7 @@ class CategoryDisplayTree(DisplayTree):
         if SUPER_DEBUG:
             self.print_tree_contents_debug()
 
-    def get_parent_for_node(self, node: DisplayNode) -> Optional[DisplayNode]:
+    def get_parent_for_node(self, node: Node) -> Optional[Node]:
         if not self._category_tree.get_node(node.identifier):
             return None
 
@@ -307,7 +307,7 @@ class CategoryDisplayTree(DisplayTree):
     def get_relative_path_list_for_node(self, node) -> List[str]:
         raise InvalidOperationError('CategoryDisplayTree.get_relative_path_list_for_node()')
 
-    def get_node_list_for_path_list(self, path_list: Union[str, List[str]]) -> List[DisplayNode]:
+    def get_node_list_for_path_list(self, path_list: Union[str, List[str]]) -> List[Node]:
         raise InvalidOperationError('CategoryDisplayTree.get_node_list_for_path_list()')
 
     def get_md5_dict(self):
@@ -359,29 +359,29 @@ class CategoryDisplayTree(DisplayTree):
     def refresh_stats(self, tree_id: str):
         logger.debug(f'[{tree_id}] Refreshing stats for display tree')
         stats_sw = Stopwatch()
-        queue: Deque[DisplayNode] = deque()
-        stack: Deque[DisplayNode] = deque()
+        queue: Deque[Node] = deque()
+        stack: Deque[Node] = deque()
         queue.append(self.root_node)
         stack.append(self.root_node)
 
         # go down tree, zeroing out existing stats and adding children to stack
         while len(queue) > 0:
-            node: DisplayNode = queue.popleft()
-            assert isinstance(node, HasChildList) and isinstance(node, DisplayNode)
+            node: Node = queue.popleft()
+            assert isinstance(node, HasChildList) and isinstance(node, Node)
             node.zero_out_stats()
 
             children = self.get_children(node)
             if children:
                 for child in children:
                     if child.is_dir():
-                        assert isinstance(child, DisplayNode)
+                        assert isinstance(child, Node)
                         queue.append(child)
                         stack.append(child)
 
         # now go back up the tree by popping the stack and building stats as we go:
         while len(stack) > 0:
             node = stack.pop()
-            assert node.is_dir() and isinstance(node, HasChildList) and isinstance(node, DisplayNode)
+            assert node.is_dir() and isinstance(node, HasChildList) and isinstance(node, Node)
 
             children = self.get_children(node)
             if children:

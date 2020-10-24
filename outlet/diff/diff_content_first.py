@@ -7,7 +7,7 @@ from model.op import OpType
 from constants import ROOT_PATH, SUPER_ROOT_UID, TREE_TYPE_MIXED
 from diff.change_maker import ChangeMaker
 from util.two_level_dict import TwoLevelDict
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
 from model.display_tree.display_tree import DisplayTree
 from util.stopwatch_sec import Stopwatch
@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class DisplayNodePair:
-    def __init__(self, left: DisplayNode = None, right: DisplayNode = None):
-        self.left: Optional[DisplayNode] = left
-        self.right: Optional[DisplayNode] = right
+    def __init__(self, left: Node = None, right: Node = None):
+        self.left: Optional[Node] = left
+        self.right: Optional[Node] = right
 
 
 #    CLASS ContentFirstDiffer
@@ -33,7 +33,7 @@ class ContentFirstDiffer(ChangeMaker):
     def __init__(self, left_tree: DisplayTree, right_tree: DisplayTree, app):
         super().__init__(left_tree, right_tree, app)
 
-    def _compare_paths_for_same_md5(self, lefts: Iterable[DisplayNode], rights: Iterable[DisplayNode]) -> Iterable[DisplayNodePair]:
+    def _compare_paths_for_same_md5(self, lefts: Iterable[Node], rights: Iterable[Node]) -> Iterable[DisplayNodePair]:
         compare_result: List[DisplayNodePair] = []
 
         if not lefts:
@@ -46,13 +46,13 @@ class ContentFirstDiffer(ChangeMaker):
             return compare_result
 
         # key is a relative path
-        left_dict: Dict[str, DisplayNode] = {}
+        left_dict: Dict[str, Node] = {}
 
         for left in lefts:
             left_rel_path = left.get_relative_path(self.left_side.underlying_tree)
             left_dict[left_rel_path] = left
 
-        right_list: List[DisplayNode] = []
+        right_list: List[Node] = []
         for right in rights:
             right_rel_path = right.get_relative_path(self.right_side.underlying_tree)
             match = left_dict.pop(right_rel_path, None)
@@ -113,8 +113,8 @@ class ContentFirstDiffer(ChangeMaker):
         # List of list of items which do not have a matching md5 on the other side.
         # We will compare these by path.
         # Note: each list within this list contains duplicates (nodes with the same md5)
-        list_of_lists_of_left_items_for_given_md5: List[Iterable[DisplayNode]] = []
-        list_of_lists_of_right_items_for_given_md5: List[Iterable[DisplayNode]] = []
+        list_of_lists_of_left_items_for_given_md5: List[Iterable[Node]] = []
+        list_of_lists_of_right_items_for_given_md5: List[Iterable[Node]] = []
 
         """Compares the two trees, and populates the change sets of both. The order of 'left' and which is 'right'
          is not important, because the changes are computed from each tree's perspective (e.g. a file which is in
@@ -127,8 +127,8 @@ class ContentFirstDiffer(ChangeMaker):
             time.sleep(0.00001)
 
             # Set of items on left with same MD5:
-            left_items_for_given_md5: Iterable[DisplayNode] = left_md5s.get_second_dict(md5).values()
-            right_items_for_given_md5: Iterable[DisplayNode] = right_md5s.get_second_dict(md5).values()
+            left_items_for_given_md5: Iterable[Node] = left_md5s.get_second_dict(md5).values()
+            right_items_for_given_md5: Iterable[Node] = right_md5s.get_second_dict(md5).values()
 
             if not left_items_for_given_md5:
                 # Content is only present on RIGHT side
@@ -146,8 +146,8 @@ class ContentFirstDiffer(ChangeMaker):
                 (newer is assumed to be the rename destination), or for each side to assume it is the destination
                 (similar to how we handle missing signatures above)"""
 
-                orphaned_left_dup_md5: List[DisplayNode] = []
-                orphaned_right_dup_md5: List[DisplayNode] = []
+                orphaned_left_dup_md5: List[Node] = []
+                orphaned_right_dup_md5: List[Node] = []
 
                 compare_result: Iterable[DisplayNodePair] = self._compare_paths_for_same_md5(left_items_for_given_md5, right_items_for_given_md5)
                 for pair in compare_result:
@@ -183,7 +183,7 @@ class ContentFirstDiffer(ChangeMaker):
             for left_item in list_of_left_items_for_given_md5:
                 if compare_paths_also:
                     left_on_right_path: str = self.get_path_moved_to_right(left_item)
-                    path_matches_right: List[DisplayNode] = self.right_side.underlying_tree.get_node_list_for_path_list(left_on_right_path)
+                    path_matches_right: List[Node] = self.right_side.underlying_tree.get_node_list_for_path_list(left_on_right_path)
                     if path_matches_right:
                         if len(path_matches_right) > 1:
                             # If this ever happens it is a bug
@@ -236,7 +236,7 @@ class ContentFirstDiffer(ChangeMaker):
 
         return self.left_side.change_tree, self.right_side.change_tree
 
-    def merge_change_trees(self, left_selected_changes: List[DisplayNode], right_selected_changes: List[DisplayNode],
+    def merge_change_trees(self, left_selected_changes: List[Node], right_selected_changes: List[Node],
                            check_for_conflicts=False) -> CategoryDisplayTree:
 
         # always root path, but tree type may differ

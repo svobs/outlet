@@ -6,7 +6,7 @@ from typing import DefaultDict, Deque, Dict, Iterable, List, Optional
 from constants import SUPER_DEBUG, SUPER_ROOT_UID
 from store.op.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, SrcOpNode
 from model.uid import UID
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.op import Op, OpType
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
@@ -183,11 +183,11 @@ class OpGraph(HasLifecycle):
         # Invert RM nodes when inserting into tree
         batch_uid: UID = op_root.get_first_child().op.batch_uid
 
-        mkdir_dict: Dict[UID, DisplayNode] = {}
+        mkdir_dict: Dict[UID, Node] = {}
         """Keep track of nodes which are to be created, so we can include them in the lookup for valid parents"""
 
         for op_node in _skip_root(op_root.get_all_nodes_in_subtree()):
-            tgt_node: DisplayNode = op_node.get_target_node()
+            tgt_node: Node = op_node.get_target_node()
             op_type: str = op_node.op.op_type.name
 
             if op_node.is_create_type():
@@ -232,14 +232,14 @@ class OpGraph(HasLifecycle):
         sw_total = Stopwatch()
 
         assert isinstance(op_node, RmOpNode)
-        potential_parent: DisplayNode = op_node.get_target_node()
+        potential_parent: Node = op_node.get_target_node()
 
         child_nodes = []
 
         for node_queue in self._node_q_dict.values():
             if node_queue:
                 existing_op_node = node_queue[-1]
-                potential_child: DisplayNode = existing_op_node.get_target_node()
+                potential_child: Node = existing_op_node.get_target_node()
                 if potential_parent.is_parent_of(potential_child):
                     if not existing_op_node.is_remove_type():
                         # This is not allowed. Cannot remove parent dir (aka child op node) unless *all* its children are first removed
@@ -263,7 +263,7 @@ class OpGraph(HasLifecycle):
         # Need to clear out previous relationships before adding to main tree:
         node_to_insert.clear_relationships()
 
-        target_node: DisplayNode = node_to_insert.get_target_node()
+        target_node: Node = node_to_insert.get_target_node()
         target_uid: UID = target_node.uid
         parent_uid: UID = self.app.cacheman.get_parent_uid_for_node(target_node)
 

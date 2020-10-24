@@ -3,7 +3,7 @@ from functools import partial
 from typing import Callable, Dict, List, Optional, Union
 
 from model.uid import UID
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -37,12 +37,12 @@ class DisplayStore:
         #   thus, having a parent which is either checked or unchecked overrides any presence in either of these two lists.
         # - At the same time as an item is checked, the checked & inconsistent state of its all ancestors must be recorded.
         # - The 'inconsistent_rows' list is needed for display purposes.
-        self.checked_rows: Dict[UID, DisplayNode] = {}
-        self.inconsistent_rows: Dict[UID, DisplayNode] = {}
-        self.displayed_rows: Dict[UID, DisplayNode] = {}
+        self.checked_rows: Dict[UID, Node] = {}
+        self.inconsistent_rows: Dict[UID, Node] = {}
+        self.displayed_rows: Dict[UID, Node] = {}
         """Need to track these so that we can remove a node if its src node was removed"""
 
-    def get_node_data(self, tree_path: Union[TreeIter, TreePath]) -> DisplayNode:
+    def get_node_data(self, tree_path: Union[TreeIter, TreePath]) -> Node:
         """
         Args
             tree_path: TreePath, or TreeIter of target node
@@ -75,7 +75,7 @@ class DisplayStore:
 
     def _set_checked_state(self, tree_iter, is_checked, is_inconsistent):
         assert not (is_checked and is_inconsistent)
-        node_data: DisplayNode = self.get_node_data(tree_iter)
+        node_data: Node = self.get_node_data(tree_iter)
 
         if node_data.is_ephemereal():
             # Cannot be checked if no path (LoadingNode, etc.)
@@ -87,7 +87,7 @@ class DisplayStore:
 
         self._update_checked_state_tracking(node_data, is_checked, is_inconsistent)
 
-    def _update_checked_state_tracking(self, node_data: DisplayNode, is_checked: bool, is_inconsistent: bool):
+    def _update_checked_state_tracking(self, node_data: Node, is_checked: bool, is_inconsistent: bool):
         row_id = node_data.identifier
         if is_checked:
             self.checked_rows[row_id] = node_data
@@ -103,7 +103,7 @@ class DisplayStore:
         """LISTENER/CALLBACK: Called when checkbox in treeview is toggled"""
         if isinstance(tree_path, str):
             tree_path = Gtk.TreePath.new_from_string(tree_path)
-        data_node: DisplayNode = self.get_node_data(tree_path)
+        data_node: Node = self.get_node_data(tree_path)
         if data_node.is_ephemereal():
             logger.debug('Disallowing checkbox toggle because node is ephemereal')
             return
@@ -164,12 +164,12 @@ class DisplayStore:
 
     # --- Tree searching & iteration (utility functions) --- #
 
-    def _uid_equals_func(self, target_uid: UID, node: DisplayNode) -> bool:
+    def _uid_equals_func(self, target_uid: UID, node: Node) -> bool:
         # if logger.isEnabledFor(logging.DEBUG) and not node.is_ephemeral():
         #     logger.debug(f'Examining node uid={node.uid} (looking for: {target_uid})')
         return not node.is_ephemereal() and node.uid == target_uid
 
-    def find_in_tree(self, found_func: Callable[[DisplayNode], bool], tree_iter: Optional[Gtk.TreeIter] = None) -> Optional[Gtk.TreeIter]:
+    def find_in_tree(self, found_func: Callable[[Node], bool], tree_iter: Optional[Gtk.TreeIter] = None) -> Optional[Gtk.TreeIter]:
         """Recurses over entire tree and visits every node until is_uid_equals_func() returns True, then returns the data at that node.
         REMEMBER: if this is a lazy-loading tree, this only iterates over the VISIBLE nodes!"""
         if not tree_iter:
@@ -221,7 +221,7 @@ class DisplayStore:
                 child_iter = self.model.iter_next(child_iter)
         return None
 
-    def get_displayed_children_of(self, parent_uid: UID) -> List[DisplayNode]:
+    def get_displayed_children_of(self, parent_uid: UID) -> List[Node]:
         if not parent_uid:
             child_iter = self.model.get_iter_first()
         else:
@@ -230,7 +230,7 @@ class DisplayStore:
                 return []
             child_iter = self.model.iter_children(parent_iter)
 
-        children: List[DisplayNode] = []
+        children: List[Node] = []
         while child_iter is not None:
             node = self.get_node_data(child_iter)
             if not node.is_ephemereal():
@@ -287,7 +287,7 @@ class DisplayStore:
         self.recurse_over_tree(tree_iter, action_func)
 
     def append_node(self, parent_node_iter, row_values: list):
-        data: DisplayNode = row_values[self.treeview_meta.col_num_data]
+        data: Node = row_values[self.treeview_meta.col_num_data]
 
         if not data.is_ephemereal():
             self.displayed_rows[data.uid] = data

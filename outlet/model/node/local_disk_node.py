@@ -7,7 +7,7 @@ from typing import Optional, Tuple
 
 from constants import ICON_GENERIC_DIR, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TREE_TYPE_LOCAL_DISK
 from model.node_identifier import ensure_bool, ensure_int, LocalNodeIdentifier
-from model.node.display_node import DisplayNode, HasChildList
+from model.node.node import Node, HasChildList
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # CLASS LocalNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class LocalNode(DisplayNode, ABC):
+class LocalNode(Node, ABC):
     def __init__(self, node_identifier: LocalNodeIdentifier, exists: bool):
         super().__init__(node_identifier)
         self._exists = ensure_bool(exists)
@@ -37,7 +37,7 @@ class LocalNode(DisplayNode, ABC):
         self._exists = does_exist
 
     def update_from(self, other_node):
-        DisplayNode.update_from(self, other_node)
+        Node.update_from(self, other_node)
         self._exists = other_node.exists()
 
     @property
@@ -64,7 +64,7 @@ class LocalFileNode(LocalNode):
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalFileNode)
-        DisplayNode.update_from(self, other_node)
+        Node.update_from(self, other_node)
         self._md5: Optional[str] = other_node.md5
         self._sha256: Optional[str] = other_node.sha256
         self._size_bytes: int = ensure_int(other_node.get_size_bytes())
@@ -73,7 +73,7 @@ class LocalFileNode(LocalNode):
         self._change_ts: int = ensure_int(other_node.change_ts)
         self._exists = ensure_bool(other_node.exists())
 
-    def is_parent_of(self, potential_child_node: DisplayNode) -> bool:
+    def is_parent_of(self, potential_child_node: Node) -> bool:
         # A file can never be the parent of anything
         return False
 
@@ -171,7 +171,7 @@ class LocalDirNode(HasChildList, LocalNode):
         HasChildList.update_from(self, other_node)
         LocalNode.update_from(self, other_node)
 
-    def is_parent_of(self, potential_child_node: DisplayNode):
+    def is_parent_of(self, potential_child_node: Node):
         if potential_child_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
             rel_path = re.sub(self.get_single_path(), '', potential_child_node.get_single_path(), count=1)
             if len(rel_path) > 0 and rel_path.startswith('/'):

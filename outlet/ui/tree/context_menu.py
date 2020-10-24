@@ -9,7 +9,7 @@ from pydispatch import dispatcher
 
 from constants import GDRIVE_PATH_PREFIX, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.container_node import CategoryNode
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.node.gdrive_node import GDriveNode
 from model.op import Op
 from ui import actions
@@ -28,7 +28,7 @@ class TreeContextMenu:
     def __init__(self, controller):
         self.con = controller
 
-    def build_context_menu_multiple(self, selected_items: List[DisplayNode], selected_tree_paths: List[Gtk.TreePath]) -> Optional[Gtk.Menu]:
+    def build_context_menu_multiple(self, selected_items: List[Node], selected_tree_paths: List[Gtk.TreePath]) -> Optional[Gtk.Menu]:
         menu = Gtk.Menu()
 
         # Show number of items selected
@@ -60,8 +60,8 @@ class TreeContextMenu:
             item.connect('activate', self.send_signal, actions.CALL_EXIFTOOL_LIST, {'node_list': selected_items})
             menu.append(item)
 
-        items_to_delete_local: List[DisplayNode] = []
-        items_to_delete_gdrive: List[DisplayNode] = []
+        items_to_delete_local: List[Node] = []
+        items_to_delete_gdrive: List[Node] = []
         for selected_item in selected_items:
             if selected_item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK and selected_item.exists():
                 items_to_delete_local.append(selected_item)
@@ -81,7 +81,7 @@ class TreeContextMenu:
         menu.show_all()
         return menu
 
-    def _build_menu_items_for_single_node(self, menu, tree_path, node: DisplayNode):
+    def _build_menu_items_for_single_node(self, menu, tree_path, node: Node):
         full_path = node.full_path
         is_category_node = type(node) == CategoryNode
         file_exists = node.exists()
@@ -147,7 +147,7 @@ class TreeContextMenu:
             item.connect('activate', self.send_signal, actions.DELETE_SINGLE_FILE, {'node': node})
             menu.append(item)
 
-    def build_context_menu(self, tree_path: Gtk.TreePath, node: DisplayNode) -> Optional[Gtk.Menu]:
+    def build_context_menu(self, tree_path: Gtk.TreePath, node: Node) -> Optional[Gtk.Menu]:
         """Dynamic context menu (right-click on tree item) for the given 'node' at 'tree_path'"""
 
         if node.is_ephemereal():
@@ -216,7 +216,7 @@ class TreeContextMenu:
         return menu
 
     @staticmethod
-    def build_full_path_display_item(menu: Gtk.Menu, preamble: str, node: DisplayNode) -> Gtk.MenuItem:
+    def build_full_path_display_item(menu: Gtk.Menu, preamble: str, node: Node) -> Gtk.MenuItem:
         if node.get_tree_type() == TREE_TYPE_GDRIVE:
             assert isinstance(node, GDriveNode)
             # assert isinstance(node.full_path, str), f'Expected single str for full_path but got: {node.full_path} (goog_id={node.goog_id})'

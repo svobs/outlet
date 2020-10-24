@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from model.uid import UID
 from model.display_tree.display_tree import DisplayTree
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.node_identifier import NodeIdentifier
 
 
@@ -24,45 +24,45 @@ class MasterStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_node_for_uid(self, uid: UID) -> Optional[DisplayNode]:
+    def get_node_for_uid(self, uid: UID) -> Optional[Node]:
         pass
 
     @abstractmethod
-    def get_children(self, node: DisplayNode) -> List[DisplayNode]:
+    def get_children(self, node: Node) -> List[Node]:
         pass
 
     @abstractmethod
-    def get_parent_for_node(self, node: DisplayNode, required_subtree_path: str = None) -> Optional[DisplayNode]:
+    def get_parent_for_node(self, node: Node, required_subtree_path: str = None) -> Optional[Node]:
         pass
 
     @abstractmethod
-    def refresh_subtree(self, subtree_root_node: DisplayNode, tree_id: str):
+    def refresh_subtree(self, subtree_root_node: Node, tree_id: str):
         pass
 
     # Mutators
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @abstractmethod
-    def upsert_single_node(self, node: DisplayNode):
+    def upsert_single_node(self, node: Node):
         pass
 
     @abstractmethod
-    def remove_single_node(self, node: DisplayNode, to_trash: bool):
+    def remove_single_node(self, node: Node, to_trash: bool):
         pass
 
     @abstractmethod
-    def remove_subtree(self, subtree_root: DisplayNode, to_trash: bool):
+    def remove_subtree(self, subtree_root: Node, to_trash: bool):
         pass
 
     @abstractmethod
-    def refresh_subtree_stats(self, subtree_root_node: DisplayNode, tree_id: str):
+    def refresh_subtree_stats(self, subtree_root_node: Node, tree_id: str):
         pass
 
     # UID <-> DomainID mapping
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @abstractmethod
-    def get_node_for_domain_id(self, domain_id: str) -> DisplayNode:
+    def get_node_for_domain_id(self, domain_id: str) -> Node:
         pass
 
     @abstractmethod

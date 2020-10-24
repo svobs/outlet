@@ -10,7 +10,7 @@ from model.node_identifier import NodeIdentifier
 from util import file_util
 from model.op import Op, OpType
 from store.gdrive.client import GDriveClient
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.node.gdrive_node import GDriveFile
 from ui import actions
 
@@ -67,7 +67,7 @@ class TreeActions(HasLifecycle):
         logger.debug(f'[{self.con.tree_id}] Got signal: "{actions.EXPAND_AND_SELECT_NODE}"')
         self.con.display_mutator.expand_and_select_node(nid)
 
-    def _call_exiftool_list(self, sender, node_list: List[DisplayNode]):
+    def _call_exiftool_list(self, sender, node_list: List[Node]):
 
         def call_exiftool():
             for item in node_list:
@@ -148,16 +148,16 @@ class TreeActions(HasLifecycle):
     def _expand_all(self, sender, tree_path):
         self.con.display_mutator.expand_all(tree_path)
 
-    def _delete_single_file(self, sender, node: DisplayNode):
+    def _delete_single_file(self, sender, node: Node):
         self._delete_subtree(sender, node)
 
-    def _get_subtree_for_node(self, subtree_root: DisplayNode) -> List[DisplayNode]:
+    def _get_subtree_for_node(self, subtree_root: Node) -> List[Node]:
         assert subtree_root.is_dir(), f'Expected a dir: {subtree_root}'
 
         subtree_files, subtree_dirs = self.con.app.cacheman.get_all_files_and_dirs_for_subtree(subtree_root.node_identifier)
         return subtree_files + subtree_dirs
 
-    def _delete_subtree(self, sender, node: DisplayNode = None, node_list: List[DisplayNode] = None):
+    def _delete_subtree(self, sender, node: Node = None, node_list: List[Node] = None):
         if not node_list and node:
             node_list = [node]
         logger.debug(f'[{self.con.tree_id}] Setting up delete for {len(node_list)} nodes')
@@ -188,7 +188,7 @@ class TreeActions(HasLifecycle):
         for tree_path in tree_paths:
             self.con.display_store.set_row_checked(tree_path, False)
 
-    def _refresh_subtree(self, sender, node: DisplayNode):
+    def _refresh_subtree(self, sender, node: Node):
         logger.info(f'[{self.con.tree_id}] Enqueuing task to refresh subtree at {node.node_identifier}')
         self.con.parent_win.app.executor.submit_async_task(self.con.parent_win.app.cacheman.refresh_subtree,
                                                            node, self.con.tree_id)

@@ -1,6 +1,6 @@
 from typing import Iterable, List, Optional
 
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.display_tree.display_tree import DisplayTree
 
 
@@ -12,19 +12,19 @@ class NullDisplayTree(DisplayTree):
     def __init__(self, root_identifier):
         super().__init__(root_identifier)
 
-    def get_children_for_root(self) -> Iterable[DisplayNode]:
+    def get_children_for_root(self) -> Iterable[Node]:
         return []
 
-    def get_children(self, parent: DisplayNode) -> Iterable[DisplayNode]:
+    def get_children(self, parent: Node) -> Iterable[Node]:
         return []
 
-    def get_parent_for_node(self, item) -> Optional[DisplayNode]:
+    def get_parent_for_node(self, item) -> Optional[Node]:
         raise RuntimeError('Should not do this')
 
     def get_relative_path_list_for_node(self, item):
         raise RuntimeError('Should not do this')
 
-    def get_node_list_for_path_list(self, path_list: List[str]) -> List[DisplayNode]:
+    def get_node_list_for_path_list(self, path_list: List[str]) -> List[Node]:
         return []
 
     def get_md5_dict(self):

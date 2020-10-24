@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from collections import deque
 from typing import Callable, Deque, Iterable, List, Optional, Union
 
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from util import file_util
 
 logger = logging.getLogger(__name__)
@@ -13,10 +13,10 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class DisplayTree(ABC):
-    def __init__(self, root_node: DisplayNode):
+    def __init__(self, root_node: Node):
         super().__init__()
-        assert isinstance(root_node, DisplayNode)
-        self.root_node: DisplayNode = root_node
+        assert isinstance(root_node, Node)
+        self.root_node: Node = root_node
 
         self._stats_loaded = False
 
@@ -63,18 +63,18 @@ class DisplayTree(ABC):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @abstractmethod
-    def get_children_for_root(self) -> Iterable[DisplayNode]:
+    def get_children_for_root(self) -> Iterable[Node]:
         pass
 
     @abstractmethod
-    def get_children(self, parent: DisplayNode) -> Iterable[DisplayNode]:
+    def get_children(self, parent: Node) -> Iterable[Node]:
         pass
 
     @abstractmethod
-    def get_parent_for_node(self, node) -> Optional[DisplayNode]:
+    def get_parent_for_node(self, node) -> Optional[Node]:
         pass
 
-    def get_relative_path_list_for_node(self, node: DisplayNode) -> List[str]:
+    def get_relative_path_list_for_node(self, node: Node) -> List[str]:
         relative_path_list: List[str] = []
         for full_path in node.get_path_list():
             if full_path.startswith(self.root_path):
@@ -82,15 +82,15 @@ class DisplayTree(ABC):
         return relative_path_list
 
     @abstractmethod
-    def get_node_list_for_path_list(self, path_list: List[str]) -> List[DisplayNode]:
+    def get_node_list_for_path_list(self, path_list: List[str]) -> List[Node]:
         pass
 
     @abstractmethod
     def get_md5_dict(self):
         pass
 
-    def get_ancestors(self, node: DisplayNode, stop_before_func: Callable[[DisplayNode], bool] = None) -> Deque[DisplayNode]:
-        ancestors: Deque[DisplayNode] = deque()
+    def get_ancestors(self, node: Node, stop_before_func: Callable[[Node], bool] = None) -> Deque[Node]:
+        ancestors: Deque[Node] = deque()
 
         # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
         # been added to this tree, or the root of the source tree

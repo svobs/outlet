@@ -4,7 +4,7 @@ from typing import Dict, Optional, Tuple
 from constants import LOCAL_ROOT_UID, ROOT_PATH
 from model.local_disk_tree import LocalDiskTree
 from model.node.container_node import RootTypeNode
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.node.local_disk_node import LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier
 from store.local.master_local import SUPER_DEBUG
@@ -46,7 +46,7 @@ class LocalDiskMemoryStore:
         Will raise an exception if trying to remove a non-empty directory."""
         logger.debug(f'Removing LocalNode from memory cache: {node}')
 
-        existing: DisplayNode = self.master_tree.get_node(node.uid)
+        existing: Node = self.master_tree.get_node(node.uid)
         if existing:
             if existing.is_dir():
                 children = self.master_tree.children(existing.identifier)

@@ -7,7 +7,7 @@ from collections import deque
 from typing import Deque, Optional
 
 from constants import TREE_TYPE_LOCAL_DISK
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.node.local_disk_node import LocalFileNode
 from ui import actions
 from util.has_lifecycle import HasLifecycle
@@ -74,7 +74,7 @@ class SignatureCalcThread(HasLifecycle, threading.Thread):
         # Send back to ourselves to be re-stored in memory & disk caches:
         self.app.cacheman.update_single_node(node_with_signature)
 
-    def _on_node_upserted_in_cache(self, sender: str, node: DisplayNode):
+    def _on_node_upserted_in_cache(self, sender: str, node: Node):
         if node.get_tree_type() == TREE_TYPE_LOCAL_DISK and node.is_file() and not node.md5 and not node.sha256:
             assert isinstance(node, LocalFileNode)
             self.enqueue(node)

@@ -5,7 +5,7 @@ from typing import Callable, DefaultDict, Dict, Iterable, List, Optional
 from command.cmd_builder import CommandBuilder
 from command.cmd_interface import Command, CommandStatus
 from constants import SUPER_DEBUG
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.op import Op, OpType
 from model.uid import UID
 from store.op.op_disk_store import ErrorHandlingBehavior, OpDiskStore
@@ -52,7 +52,7 @@ class OpLedger(HasLifecycle):
     # Reduce Changes logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _derive_cp_dst_key(self, dst_node: DisplayNode) -> str:
+    def _derive_cp_dst_key(self, dst_node: Node) -> str:
         parent_uid = self.app.cacheman.get_parent_uid_for_node(dst_node)
         return f'{parent_uid}/{dst_node.name}'
 
@@ -112,7 +112,7 @@ class OpLedger(HasLifecycle):
                     cp_dst_dict[dst_key] = op
                     final_list.append(op)
 
-        def eval_rm_ancestor_func(op_arg: Op, par: DisplayNode) -> bool:
+        def eval_rm_ancestor_func(op_arg: Op, par: Node) -> bool:
             conflict = mkdir_dict.get(par.uid, None)
             if conflict:
                 logger.error(f'ReduceChanges(): Conflict! Op1={conflict}; Op2={op_arg}')
@@ -120,7 +120,7 @@ class OpLedger(HasLifecycle):
 
             return True
 
-        def eval_mkdir_ancestor_func(op_arg: Op, par: DisplayNode) -> bool:
+        def eval_mkdir_ancestor_func(op_arg: Op, par: Node) -> bool:
             conflict = rm_dict.get(par.uid, None)
             if conflict:
                 logger.error(f'ReduceChanges(): Conflict! Op1={conflict}; Op2={op_arg}')
@@ -169,7 +169,7 @@ class OpLedger(HasLifecycle):
 
             dst_ancestor = self.app.cacheman.get_parent_for_node(dst_ancestor)
 
-    def _check_ancestors(self, op: Op, eval_func: Callable[[Op, DisplayNode], bool]):
+    def _check_ancestors(self, op: Op, eval_func: Callable[[Op, Node], bool]):
         ancestor = op.src_node
         while True:
             ancestor = self.app.cacheman.get_parent_for_node(ancestor)

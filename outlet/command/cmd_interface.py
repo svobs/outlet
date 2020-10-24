@@ -9,7 +9,7 @@ from store.gdrive.client import GDriveClient
 from model.uid import UID
 from model.op import Op, OpType
 from model.gdrive_whole_tree import GDriveWholeTree
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +53,8 @@ class CommandResult:
     def __init__(self, status: CommandStatus, error=None, to_upsert=None, to_delete=None):
         self.status = status
         self.error = error
-        self.nodes_to_upsert: List[DisplayNode] = to_upsert
-        self.nodes_to_delete: List[DisplayNode] = to_delete
+        self.nodes_to_upsert: List[Node] = to_upsert
+        self.nodes_to_delete: List[Node] = to_delete
 
 
 # ABSTRACT CLASS Command

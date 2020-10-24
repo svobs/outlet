@@ -7,7 +7,7 @@ import constants
 from ui import actions
 from util import file_util, format
 from util.two_level_dict import Md5BeforeUidDict
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node_identifier import ensure_list, LocalNodeIdentifier
 from model.display_tree.display_tree import DisplayTree
@@ -32,16 +32,16 @@ class LocalDiskDisplayTree(DisplayTree):
 
         self._stats_loaded = False
 
-    def get_parent_for_node(self, node: LocalFileNode) -> Optional[DisplayNode]:
+    def get_parent_for_node(self, node: LocalFileNode) -> Optional[Node]:
         if node.get_tree_type() != constants.TREE_TYPE_LOCAL_DISK:
             return None
 
         return self.app.cacheman.get_parent_for_node(node, self.root_path)
 
-    def get_children_for_root(self) -> Iterable[DisplayNode]:
+    def get_children_for_root(self) -> Iterable[Node]:
         return self.app.cacheman.get_children(self.root_node)
 
-    def get_children(self, parent: DisplayNode) -> Iterable[DisplayNode]:
+    def get_children(self, parent: Node) -> Iterable[Node]:
         assert parent.node_identifier.tree_type == constants.TREE_TYPE_LOCAL_DISK, f'For: {parent.node_identifier}'
         return self.app.cacheman.get_children(parent)
 

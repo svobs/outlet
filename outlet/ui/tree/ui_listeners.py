@@ -11,7 +11,7 @@ from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, T
 from diff.change_maker import ChangeMaker
 from model.uid import UID
 from model.node_identifier import NodeIdentifier
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.node.local_disk_node import LocalFileNode
 
 import gi
@@ -30,10 +30,10 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class DragAndDropData:
-    def __init__(self, dd_uid: UID, src_tree_controller: TreePanelController, nodes: List[DisplayNode]):
+    def __init__(self, dd_uid: UID, src_tree_controller: TreePanelController, nodes: List[Node]):
         self.dd_uid: UID = dd_uid
         self.src_tree_controller: TreePanelController = src_tree_controller
-        self.nodes: List[DisplayNode] = nodes
+        self.nodes: List[Node] = nodes
 
 
 # CLASS TreeUiListeners
@@ -147,7 +147,7 @@ class TreeUiListeners(HasLifecycle):
 
     def _drag_data_get(self, treeview, drag_context, selection_data, target_id, etime):
         """Drag & Drop 1/4: collect and send data and signal from source"""
-        selected_nodes: List[DisplayNode] = self.con.get_multiple_selection()
+        selected_nodes: List[Node] = self.con.get_multiple_selection()
         if selected_nodes:
             # Avoid complicated, undocumented GTK3 garbage by just sending a UID along with needed data via the dispatcher. See _check_drop()
             dd_uid = self.con.parent_win.app.uid_generator.next_uid()
@@ -192,7 +192,7 @@ class TreeUiListeners(HasLifecycle):
         if tree_path:
             model = self.con.display_store.model
             drop_dest_iter = model.get_iter(tree_path)
-            dest_node: DisplayNode = self.con.display_store.get_node_data(drop_dest_iter)
+            dest_node: Node = self.con.display_store.get_node_data(drop_dest_iter)
         else:
             # Assume we are dropping into the tree root
             is_into = True
@@ -234,7 +234,7 @@ class TreeUiListeners(HasLifecycle):
         self._drag_data = None
         self._drop_data = None
 
-    def _is_dropping_on_itself(self, dest_node: DisplayNode, nodes: List[DisplayNode]):
+    def _is_dropping_on_itself(self, dest_node: Node, nodes: List[Node]):
         for node in nodes:
             logger.debug(f'[{self.con.tree_id}] DestNode="{dest_node.node_identifier}", DroppedNode="{node}"')
             if dest_node.is_parent_of(node):
@@ -368,7 +368,7 @@ class TreeUiListeners(HasLifecycle):
 
     def on_single_row_activated(self, tree_view, tree_path):
         """Fired when an node is double-clicked or when an node is selected and Enter is pressed"""
-        node: DisplayNode = self.con.display_store.get_node_data(tree_path)
+        node: Node = self.con.display_store.get_node_data(tree_path)
         if node.is_dir():
             # Expand/collapse row:
             if tree_view.row_expanded(tree_path):
@@ -408,20 +408,20 @@ class TreeUiListeners(HasLifecycle):
 
     def on_delete_key_pressed(self):
         if self.con.treeview_meta.can_modify_tree:
-            selected_node_list: List[DisplayNode] = self.con.get_multiple_selection()
+            selected_node_list: List[Node] = self.con.get_multiple_selection()
             if selected_node_list:
                 for selected_node in selected_node_list:
                     dispatcher.send(signal=actions.DELETE_SUBTREE, sender=self.con.tree_id, node=selected_node)
                 return True
         return False
 
-    def on_row_right_clicked(self, event, tree_path, node_data: DisplayNode):
+    def on_row_right_clicked(self, event, tree_path, node_data: Node):
         if node_data.is_ephemereal():
             logger.debug(f'[{self.con.tree_id}] User right-clicked on ephemereal node. Ignoring')
             return
         id_clicked = node_data.uid
         sel_items_tuple = self.con.get_multiple_selection_and_paths()
-        selected_items: List[DisplayNode] = sel_items_tuple[0]
+        selected_items: List[Node] = sel_items_tuple[0]
         selected_tree_paths: List[Gtk.TreePath] = sel_items_tuple[1]
 
         clicked_on_selection = False
@@ -478,7 +478,7 @@ def _get_items_type(selected_items: List):
         return TREE_TYPE_LOCAL_DISK
 
 
-def _do_default_action_for_node(node: DisplayNode, tree_id: str):
+def _do_default_action_for_node(node: Node, tree_id: str):
     if node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
         dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=tree_id, full_path=node.full_path)
         return True

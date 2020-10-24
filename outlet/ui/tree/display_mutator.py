@@ -13,7 +13,7 @@ from model.op import Op
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
 from model.node.container_node import CategoryNode
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.node.ephemeral_node import EmptyNode, LoadingNode
 from model.node_identifier import NodeIdentifier
 from ui import actions
@@ -78,7 +78,7 @@ class DisplayMutator(HasLifecycle):
         HasLifecycle.shutdown(self)
         self.con = None
 
-    def _populate_recursively(self, parent_iter, node: DisplayNode, node_count: int = 0) -> int:
+    def _populate_recursively(self, parent_iter, node: Node, node_count: int = 0) -> int:
         # Do a DFS of the change tree and populate the UI tree along the way
         if node.is_dir():
             parent_iter = self._append_dir_node(parent_iter=parent_iter, node=node)
@@ -104,7 +104,7 @@ class DisplayMutator(HasLifecycle):
         def do_in_ui():
             with self._lock:
                 item = self.con.parent_win.app.cacheman.get_node_for_uid(selection.uid, selection.tree_type)
-                ancestor_list: Iterable[DisplayNode] = self.con.get_tree().get_ancestors(item)
+                ancestor_list: Iterable[Node] = self.con.get_tree().get_ancestors(item)
 
                 tree_iter = None
                 for ancestor in ancestor_list:
@@ -150,7 +150,7 @@ class DisplayMutator(HasLifecycle):
         node = self.con.display_store.get_node_data(tree_path)
         parent_iter = self.con.display_store.model.get_iter(tree_path)
         self.con.display_store.remove_loading_node(parent_iter)
-        children: List[DisplayNode] = self.con.lazy_tree.get_children(node)
+        children: List[Node] = self.con.lazy_tree.get_children(node)
 
         if expand_all:
             # populate all descendants
@@ -175,7 +175,7 @@ class DisplayMutator(HasLifecycle):
             # Lock this so that node-upserted and node-removed callbacks don't interfere
             self._enable_node_signals = False
             with self._lock:
-                children: List[DisplayNode] = self.con.lazy_tree.get_children_for_root()
+                children: List[Node] = self.con.lazy_tree.get_children_for_root()
             logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(children)} children for root')
         except GDriveItemNotFoundError as err:
             # Not found: signal error to UI and cancel
@@ -222,24 +222,24 @@ class DisplayMutator(HasLifecycle):
         logger.debug(f'[{self.con.tree_id}] Sending signal "{actions.REFRESH_SUBTREE_STATS}"')
         dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id)
 
-    def get_checked_rows_as_list(self) -> List[DisplayNode]:
+    def get_checked_rows_as_list(self) -> List[Node]:
         """Returns a list which contains the DisplayNodes of the items which are currently checked by the user
         (including collapsed rows). This will be a subset of the DisplayTree which was used to
         populate this tree. Includes file nodes only, with the exception of GDrive FolderToAdd."""
         # subtree root will be the same as the current subtree's
-        checked_items: List[DisplayNode] = []
+        checked_items: List[Node] = []
 
         # Algorithm:
         # Iterate over display nodes. Start with top-level nodes.
         # - Add each checked row to DFS queue (whitelist). It and all of its descendants will be added
         # - Ignore each unchecked row
         # - Each inconsistent row needs to be drilled down into.
-        whitelist: Deque[DisplayNode] = collections.deque()
-        secondary_screening: Deque[DisplayNode] = collections.deque()
+        whitelist: Deque[Node] = collections.deque()
+        secondary_screening: Deque[Node] = collections.deque()
 
         with self._lock:
             assert self.con.treeview_meta.has_checkboxes
-            children: Iterable[DisplayNode] = self.con.lazy_tree.get_children_for_root()
+            children: Iterable[Node] = self.con.lazy_tree.get_children_for_root()
             for child in children:
 
                 if self.con.display_store.checked_rows.get(child.identifier, None):
@@ -248,14 +248,14 @@ class DisplayMutator(HasLifecycle):
                     secondary_screening.append(child)
 
             while len(secondary_screening) > 0:
-                parent: DisplayNode = secondary_screening.popleft()
+                parent: Node = secondary_screening.popleft()
                 assert parent.is_dir(), f'Expected a dir-type node: {parent}'
 
                 if not parent.exists():
                     # Even an inconsistent FolderToAdd must be included as a checked item:
                     checked_items.append(parent)
 
-                children: Iterable[DisplayNode] = self.con.lazy_tree.get_children(parent)
+                children: Iterable[Node] = self.con.lazy_tree.get_children(parent)
 
                 for child in children:
                     if self.con.display_store.checked_rows.get(child.identifier, None):
@@ -264,12 +264,12 @@ class DisplayMutator(HasLifecycle):
                         secondary_screening.append(child)
 
             while len(whitelist) > 0:
-                chosen_node: DisplayNode = whitelist.popleft()
+                chosen_node: Node = whitelist.popleft()
                 # non-existent directory must be added
                 if not chosen_node.is_dir() or not chosen_node.exists():
                     checked_items.append(chosen_node)
 
-                children: Iterable[DisplayNode] = self.con.lazy_tree.get_children(chosen_node)
+                children: Iterable[Node] = self.con.lazy_tree.get_children(chosen_node)
                 for child in children:
                     whitelist.append(child)
 
@@ -283,7 +283,7 @@ class DisplayMutator(HasLifecycle):
             # TODO
             pass
 
-    def _on_node_expansion_toggled(self, sender: str, parent_iter: Gtk.TreeIter, parent_path, node: DisplayNode, is_expanded: bool) -> None:
+    def _on_node_expansion_toggled(self, sender: str, parent_iter: Gtk.TreeIter, parent_path, node: Node, is_expanded: bool) -> None:
         # Callback for actions.NODE_EXPANSION_TOGGLED:
         logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node}"')
 
@@ -317,7 +317,7 @@ class DisplayMutator(HasLifecycle):
                 dispatcher.send(signal=actions.NODE_EXPANSION_DONE, sender=self.con.tree_id)
         GLib.idle_add(expand_or_contract)
 
-    def _on_node_upserted_in_cache(self, sender: str, node: DisplayNode) -> None:
+    def _on_node_upserted_in_cache(self, sender: str, node: Node) -> None:
         if SUPER_DEBUG:
             logger.debug(f'[{self.con.tree_id}] Entered _on_node_upserted_in_cache(): sender={sender}, node={node}')
         assert node is not None
@@ -353,7 +353,7 @@ class DisplayMutator(HasLifecycle):
 
                 parent_uid = parent.uid
 
-                existing_node: Optional[DisplayNode] = None
+                existing_node: Optional[Node] = None
 
                 try:
                     if tree.root_uid == parent_uid:
@@ -401,7 +401,7 @@ class DisplayMutator(HasLifecycle):
 
         GLib.idle_add(update_ui)
 
-    def _on_node_removed_from_cache(self, sender: str, node: DisplayNode):
+    def _on_node_removed_from_cache(self, sender: str, node: Node):
         if SUPER_DEBUG:
             logger.debug(f'[{self.con.tree_id}] Entered _on_node_removed_from_cache(): sender={sender}, node={node}')
 
@@ -440,7 +440,7 @@ class DisplayMutator(HasLifecycle):
 
         GLib.idle_add(update_ui)
 
-    def _on_node_moved_in_cache(self, sender: str, src_node: DisplayNode, dst_node: DisplayNode):
+    def _on_node_moved_in_cache(self, sender: str, src_node: Node, dst_node: Node):
         if not self._enable_node_signals:
             if SUPER_DEBUG:
                 logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_MOVED}": node listeners disabled')
@@ -465,10 +465,10 @@ class DisplayMutator(HasLifecycle):
                 return
 
             ds = self.con.display_store
-            node: DisplayNode = ds.get_node_data(tree_iter)
+            node: Node = ds.get_node_data(tree_iter)
             if not node:
                 par_iter = ds.model.iter_parent(tree_iter)
-                par_node: DisplayNode = ds.get_node_data(par_iter)
+                par_node: Node = ds.get_node_data(par_iter)
                 logger.error(f'[{self.con.tree_id}] No node for child of {par_node}')
                 return
             assert node, f'For tree_id="{sender} and row={self.con.display_store.model[tree_iter]}'
@@ -524,12 +524,12 @@ class DisplayMutator(HasLifecycle):
 
         logger.debug(f'[{self.con.tree_id}] Displayed rows count: {len(self.con.display_store.displayed_rows)}')
 
-    def _append_dir_node_and_loading_child(self, parent_iter, node_data: DisplayNode):
+    def _append_dir_node_and_loading_child(self, parent_iter, node_data: Node):
         dir_node_iter = self._append_dir_node(parent_iter, node_data)
         self._append_loading_child(dir_node_iter)
         return dir_node_iter
 
-    def _append_children(self, children: List[DisplayNode], parent_iter: Gtk.TreeIter):
+    def _append_children(self, children: List[Node], parent_iter: Gtk.TreeIter):
         if children:
             logger.debug(f'[{self.con.tree_id}] Appending {len(children)} child display nodes')
             if len(children) > LARGE_NUMBER_OF_CHILDREN:
@@ -582,7 +582,7 @@ class DisplayMutator(HasLifecycle):
 
         return self.con.display_store.append_node(parent_node_iter, row_values)
 
-    def _get_icon_for_node(self, node: DisplayNode) -> str:
+    def _get_icon_for_node(self, node: Node) -> str:
         op: Optional[Op] = self.con.app.cacheman.get_last_pending_op_for_node(node.uid)
         if op and not op.is_completed():
             logger.debug(f'[{self.con.tree_id}] Found pending op for node {node.uid}: {op.op_type.name}')
@@ -592,7 +592,7 @@ class DisplayMutator(HasLifecycle):
         # logger.debug(f'[{self.con.tree_id}] Got icon "{icon}" for node {node}')
         return icon
 
-    def generate_display_cols(self, parent_iter, node: DisplayNode):
+    def generate_display_cols(self, parent_iter, node: Node):
         """Serializes a node into a list of strings which tell the TreeView how to populate each of the row's columns"""
         row_values = []
 
@@ -644,15 +644,15 @@ class DisplayMutator(HasLifecycle):
 
         return row_values
 
-    def _append_dir_node(self, parent_iter, node: DisplayNode) -> TreeIter:
+    def _append_dir_node(self, parent_iter, node: Node) -> TreeIter:
         row_values = self.generate_display_cols(parent_iter, node)
         return self.con.display_store.append_node(parent_iter, row_values)
 
-    def _append_file_node(self, parent_iter, node: DisplayNode):
+    def _append_file_node(self, parent_iter, node: Node):
         row_values = self.generate_display_cols(parent_iter, node)
         return self.con.display_store.append_node(parent_iter, row_values)
 
-    def _add_checked_columns(self, parent_iter, node: DisplayNode, row_values: List):
+    def _add_checked_columns(self, parent_iter, node: Node, row_values: List):
         """Populates the checkbox and sets its state for a newly added row"""
         if self.con.treeview_meta.has_checkboxes and not node.is_ephemereal():
             if parent_iter:
@@ -674,7 +674,7 @@ class DisplayMutator(HasLifecycle):
             row_values.append(inconsistent)  # Inconsistent
 
 
-def _format_size_bytes(node: DisplayNode):
+def _format_size_bytes(node: Node):
     # remember that 0 and None mean different things here:
     if node.get_size_bytes() is None:
         return None

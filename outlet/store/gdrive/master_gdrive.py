@@ -9,7 +9,7 @@ from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.display_tree.gdrive import GDriveDisplayTree
 from model.gdrive_meta import GDriveUser, MimeType
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
@@ -375,11 +375,11 @@ class GDriveMasterStore(MasterStore):
             return node.goog_id
         return None
 
-    def get_children(self, node: DisplayNode) -> List[GDriveNode]:
+    def get_children(self, node: Node) -> List[GDriveNode]:
         assert isinstance(node, GDriveNode)
         return self._memstore.master_tree.get_children(node)
 
-    def get_parent_for_node(self, node: DisplayNode, required_subtree_path: str = None):
+    def get_parent_for_node(self, node: Node, required_subtree_path: str = None):
         assert isinstance(node, GDriveNode)
         return self._memstore.master_tree.get_parent_for_node(node, required_subtree_path)
 

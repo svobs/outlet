@@ -6,7 +6,7 @@ from pydispatch.errors import DispatcherKeyError
 
 from constants import TREE_TYPE_GDRIVE
 from model.node_identifier import NodeIdentifier
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.node_identifier_factory import NodeIdentifierFactory
 from ui import actions
 from ui.tree import tree_factory
@@ -86,7 +86,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         try:
             if response_id == Gtk.ResponseType.OK:
                 logger.debug("The OK button was clicked")
-                node: DisplayNode = self.tree_controller.get_single_selection()
+                node: Node = self.tree_controller.get_single_selection()
                 if not node:
                     self.on_ok_clicked(NodeIdentifierFactory.get_gdrive_root_constant_identifier())
                 else:

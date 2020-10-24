@@ -2,7 +2,7 @@ import logging
 import threading
 from typing import Iterable
 
-from model.node.display_node import DisplayNode
+from model.node.node import Node
 from model.node_identifier import NodeIdentifier
 from model.display_tree.display_tree import DisplayTree
 
@@ -50,10 +50,10 @@ class LazyLoadDisplayTreeDecorator:
         self._ensure_is_loaded()
         return self._tree
 
-    def get_children_for_root(self) -> Iterable[DisplayNode]:
+    def get_children_for_root(self) -> Iterable[Node]:
         return self.tree.get_children_for_root()
 
-    def get_children(self, node: DisplayNode) -> Iterable[DisplayNode]:
+    def get_children(self, node: Node) -> Iterable[Node]:
         """Return the children for the given parent_uid.
         The children of the given node can look very different depending on value of 'tree_display_mode'"""
         return self.tree.get_children(node)
