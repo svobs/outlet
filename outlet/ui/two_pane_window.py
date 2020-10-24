@@ -6,7 +6,7 @@ from pydispatch.dispatcher import Any
 
 from constants import APP_NAME, ICON_WINDOW, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
-from model.node_identifier import NodeIdentifier
+from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node.node import Node
 from model.display_tree.category import CategoryDisplayTree
 
@@ -275,7 +275,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
                 button.set_sensitive(enable)
         GLib.idle_add(toggle_ui)
 
-    def _on_root_path_updated(self, sender, new_root: NodeIdentifier, err=None):
+    def _on_root_path_updated(self, sender, new_root: SinglePathNodeIdentifier, err=None):
         logger.debug(f'Received signal: "{actions.ROOT_PATH_UPDATED}"')
 
         if sender == actions.ID_RIGHT_TREE and self.tree_con_left.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:

@@ -5,7 +5,7 @@ from pydispatch import dispatcher
 
 from constants import TreeDisplayMode
 from model.node.node import Node
-from model.node_identifier import NodeIdentifier
+from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.display_tree.display_tree import DisplayTree
 from util.stopwatch_sec import Stopwatch
 from ui import actions
@@ -83,7 +83,7 @@ class TreePanelController:
         self.tree_view.get_column(self.treeview_meta.col_num_change_ts_view).set_visible(self.treeview_meta.show_change_ts_col)
         self.tree_view.get_column(self.treeview_meta.col_num_etc_view).set_visible(self.treeview_meta.show_etc_col)
 
-    def reload(self, new_root=None, new_tree=None, tree_display_mode: TreeDisplayMode = None,
+    def reload(self, new_root: SinglePathNodeIdentifier = None, new_tree=None, tree_display_mode: TreeDisplayMode = None,
                show_checkboxes: bool = False, hide_checkboxes: bool = False):
         """Invalidate whatever cache the lazy_tree built up, and re-populate the display tree"""
         def _reload():
@@ -120,6 +120,33 @@ class TreePanelController:
             dispatcher.send(signal=actions.LOAD_UI_TREE, sender=self.tree_id)
 
         GLib.idle_add(_reload)
+
+    def _derive_file_path_from_tree_path(self, tree_path) -> str:
+        path = ''
+
+        while True:
+            node = self.display_store.get_node_data(tree_path)
+            path = f'/{node.name}{path}'
+            # Go up the tree, one level per loop,
+            # with each node updating itself based on its immediate children
+            tree_path.up()
+            if tree_path.get_depth() < 1:
+                # Stop at root
+                break
+        return path
+
+    def get_single_selection_display_identifier(self):
+        selection = self.tree_view.get_selection()
+        model, tree_paths = selection.get_selected_rows()
+        if len(tree_paths) == 1:
+            node = self.display_store.get_node_data(tree_paths)
+            single_path = self._derive_file_path_from_tree_path(tree_paths)
+            logger.debug(f'get_single_selection_display_identifier(): derived path: {single_path}')
+            return SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.get_tree_type())
+        elif len(tree_paths) == 0:
+            return None
+        else:
+            raise Exception(f'Selection has more rows than expected: count={len(tree_paths)}')
 
     def get_single_selection(self):
         """Assumes that only one node can be selected at a given time"""
@@ -162,7 +189,7 @@ class TreePanelController:
     def get_tree(self) -> DisplayTree:
         return self.lazy_tree.get_tree()
 
-    def set_tree(self, root: NodeIdentifier = None, tree: DisplayTree = None, tree_display_mode: TreeDisplayMode = None):
+    def set_tree(self, root: SinglePathNodeIdentifier = None, tree: DisplayTree = None, tree_display_mode: TreeDisplayMode = None):
         # Clear old display (if any)
         GLib.idle_add(self.display_store.clear_model)
 
@@ -187,7 +214,7 @@ class TreePanelController:
         """Convenience method. Retreives the tree_id from the parent_win"""
         return self.parent_win.config
 
-    def get_root_identifier(self):
+    def get_root_identifier(self) -> SinglePathNodeIdentifier:
         return self.lazy_tree.get_root_identifier()
 
     @property

@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
 
-from constants import NULL_UID, TREE_TYPE_NA
 from error import InvalidOperationError
 from model.node.node import Node
-from model.node_identifier import LogicalNodeIdentifier
+from model.node_identifier import NullNodeIdentifier
 
 # ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛
 
@@ -15,7 +14,7 @@ class EphemeralNode(Node, ABC):
     """Does not have an identifier - should not be inserted into a treelib.Tree!"""
 
     def __init__(self):
-        super().__init__(LogicalNodeIdentifier(path_list=None, uid=NULL_UID, tree_type=TREE_TYPE_NA))
+        super().__init__(NullNodeIdentifier())
 
     def __repr__(self):
         return self.name

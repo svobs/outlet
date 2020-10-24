@@ -18,7 +18,7 @@ from model.display_tree.gdrive import GDriveDisplayTree
 from model.node.node import Node, HasParentList
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
-from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
+from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.op import Op
 from model.uid import UID
@@ -334,11 +334,12 @@ class CacheManager(HasLifecycle):
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def load_subtree(self, node_identifier: NodeIdentifier, tree_id: str) -> DisplayTree:
+    def load_subtree(self, node_identifier: SinglePathNodeIdentifier, tree_id: str) -> DisplayTree:
         """
         Performs a read-through retreival of all the nodes in the given subtree.
         """
         logger.debug(f'Got request to load subtree: {node_identifier}')
+        assert isinstance(node_identifier, SinglePathNodeIdentifier), f'Expected SinglePathNodeIdentifier but got {type(node_identifier)}'
 
         node_identifier.normalize_paths()
 
@@ -548,25 +549,40 @@ class CacheManager(HasLifecycle):
     def build_local_dir_node(self, full_path: str) -> LocalDirNode:
         return self._master_local.build_local_dir_node(full_path)
 
-    def resolve_root_from_path(self, full_path: str) -> Tuple[NodeIdentifier, Exception]:
+    def resolve_root_from_path(self, full_path: str) -> Tuple[SinglePathNodeIdentifier, Exception]:
         """Resolves the given path into either a local file, a set of Google Drive matches, or generates a GDriveItemNotFoundError,
         and returns a tuple of both"""
         try:
             full_path = file_util.normalize_path(full_path)
-            node_identifier = self.app.node_identifier_factory.for_values(path_list=full_path)
+            node_identifier: NodeIdentifier = self.app.node_identifier_factory.for_values(path_list=full_path)
             if node_identifier.tree_type == TREE_TYPE_GDRIVE:
                 # Need to wait until all caches are loaded:
                 self.wait_for_startup_done()
 
-                identifiers = self._master_gdrive.get_identifier_list_for_full_path_list(node_identifier.full_path)
+                identifier_list = self._master_gdrive.get_identifier_list_for_full_path_list(node_identifier.get_path_list())
             else:
                 if not os.path.exists(full_path):
                     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
                 uid = self.get_uid_for_path(full_path)
-                identifiers = [LocalNodeIdentifier(uid=uid, path_list=full_path)]
+                identifier_list = [LocalNodeIdentifier(uid=uid, path_list=full_path)]
 
-            assert len(identifiers) > 0, f'Got no identifiers (not even NULL) for path: {full_path}'
-            new_root: NodeIdentifier = identifiers[0]
+            assert len(identifier_list) > 0, f'Got no identifiers for path but no error was raised: {full_path}'
+            if len(identifier_list) > 1:
+                # Create the appropriate
+                candidate_list = []
+                for identifier in identifier_list:
+                    if full_path in identifier.get_path_list():
+                        candidate_list.append(identifier)
+                if len(candidate_list) != 1:
+                    raise RuntimeError(f'Serious error: found multiple identifiers with same path ({full_path}): {candidate_list}')
+                new_root = candidate_list[0]
+            else:
+                new_root = identifier_list[0]
+
+            if len(new_root.get_path_list()) > 0:
+                # must have single path
+                new_root = SinglePathNodeIdentifier(uid=new_root.uid, path_list=full_path, tree_type=new_root.tree_type)
+
             err = None
         except GDriveItemNotFoundError as ginf:
             new_root = ginf.node_identifier

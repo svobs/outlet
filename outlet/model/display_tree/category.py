@@ -16,7 +16,7 @@ from constants import SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_
 from model.uid import UID
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.node import Node, HasChildList
-from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
+from model.node_identifier import SinglePathNodeIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.display_tree.display_tree import DisplayTree
 from util.stopwatch_sec import Stopwatch
@@ -251,7 +251,7 @@ class CategoryDisplayTree(DisplayTree):
             if parent:
                 break
             else:
-                node_identifier = LogicalNodeIdentifier(uid, full_path, node.node_identifier.tree_type)
+                node_identifier = SinglePathNodeIdentifier(uid, full_path, node.node_identifier.tree_type)
                 dir_node = ContainerNode(node_identifier)
                 dir_node.identifier = nid
                 stack.append(dir_node)

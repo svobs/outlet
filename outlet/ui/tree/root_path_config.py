@@ -4,7 +4,7 @@ from pydispatch import dispatcher
 
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from store.uid.uid_generator import NULL_UID
-from model.node_identifier import NodeIdentifier
+from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from ui import actions
 
@@ -60,12 +60,14 @@ class RootPathConfigPersister:
                 logger.info(f'[{tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root={new_root}, err={err}')
                 dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root, err=err)
 
-        self.root_identifier = self.app.node_identifier_factory.for_values(tree_type=tree_type, path_list=root_path, uid=root_uid)
+        self.root_identifier: SinglePathNodeIdentifier = self.app.node_identifier_factory.for_values(tree_type=tree_type,
+                                                                                                     path_list=root_path, uid=root_uid,
+                                                                                                     must_be_single_path=True)
 
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=tree_id)
         dispatcher.connect(signal=actions.GDRIVE_RELOADED, receiver=self._on_gdrive_reloaded)
 
-    def _on_root_path_updated(self, sender: str, new_root: NodeIdentifier, err=None):
+    def _on_root_path_updated(self, sender: str, new_root: SinglePathNodeIdentifier, err=None):
         logger.info(f'Received signal: "{actions.ROOT_PATH_UPDATED}" with root: {new_root}, err: {err}')
         if self.root_identifier != new_root:
             logger.debug(f'Root path changed. Saving root to config: {self._tree_type_config_key} '

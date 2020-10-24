@@ -5,7 +5,7 @@ from pydispatch import dispatcher
 from pydispatch.errors import DispatcherKeyError
 
 from constants import TREE_TYPE_GDRIVE
-from model.node_identifier import NodeIdentifier
+from model.node_identifier import SinglePathNodeIdentifier, NodeIdentifier
 from model.node.node import Node
 from model.node_identifier_factory import NodeIdentifierFactory
 from ui import actions
@@ -74,7 +74,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         logger.debug(f'[{actions.ID_GDRIVE_DIR_SELECT}] Load complete! Sending signal: {actions.EXPAND_AND_SELECT_NODE}')
         dispatcher.send(actions.EXPAND_AND_SELECT_NODE, sender=actions.ID_GDRIVE_DIR_SELECT, nid=self._initial_selection_nid)
 
-    def on_ok_clicked(self, node_identifier: NodeIdentifier):
+    def on_ok_clicked(self, node_identifier: SinglePathNodeIdentifier):
         # TODO: disallow selection of files
         logger.info(f'[{self.tree_id}] User selected dir "{node_identifier}"')
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root=node_identifier)
@@ -86,11 +86,11 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         try:
             if response_id == Gtk.ResponseType.OK:
                 logger.debug("The OK button was clicked")
-                node: Node = self.tree_controller.get_single_selection()
-                if not node:
-                    self.on_ok_clicked(NodeIdentifierFactory.get_gdrive_root_constant_identifier())
+                display_node_identifier: SinglePathNodeIdentifier = self.tree_controller.get_single_selection_display_identifier()
+                if not display_node_identifier:
+                    self.on_ok_clicked(NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier())
                 else:
-                    self.on_ok_clicked(node.node_identifier)
+                    self.on_ok_clicked(display_node_identifier)
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
             elif response_id == Gtk.ResponseType.CLOSE:
@@ -109,3 +109,4 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
             raise
         finally:
             dialog.destroy()
+

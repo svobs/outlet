@@ -240,6 +240,28 @@ class GDriveWholeTree:
 
         return file_list, folder_list
 
+    def get_identifier_list_for_path_list(self, path_list: List[str]):
+        identifiers_found: List[NodeIdentifier] = []
+
+        for single_path in path_list:
+            try:
+                identifiers = self.get_identifier_list_for_single_path(single_path)
+                if identifiers:
+                    identifiers_found += identifiers
+            except GDriveItemNotFoundError:
+                logger.warning(f'No identifier(s) found for path, skipping: "{single_path}"')
+        return identifiers_found
+
+    def get_node_list_for_path_list(self, path_list: List[str]) -> List[GDriveNode]:
+        identifiers_found: List[NodeIdentifier] = self.get_identifier_list_for_path_list(path_list)
+
+        if len(identifiers_found) == 1:
+            return [self.get_node_for_uid(identifiers_found[0].uid)]
+
+        # In Google Drive it is legal to have two different files with the same path
+        logger.debug(f'Found {len(identifiers_found)} nodes for path list: "{path_list}"). Returning the whole list')
+        return list(map(lambda x: self.get_node_for_uid(x.uid), identifiers_found))
+
     def get_identifier_list_for_single_path(self, full_path: str) -> List[NodeIdentifier]:
         """Try to match the given file-system-like path, mapping the root of this tree to the first segment of the path.
         Since GDrive allows for multiple parents per child, it is possible for multiple matches to occur. This

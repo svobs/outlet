@@ -20,7 +20,7 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
         filename = open_dialog.get_filename()
         logger.info(f'User selected dir: {filename}')
         uid = open_dialog.parent_win.app.cacheman.get_uid_for_path(filename)
-        node_identifier = LocalNodeIdentifier(path_list=filename, uid=uid)
+        node_identifier = LocalNodeIdentifier(uid=uid, path_list=filename)
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.tree_id, new_root=node_identifier)
     # if response is "CANCEL" (the button "Cancel" has been clicked)
     elif response_id == Gtk.ResponseType.CANCEL:

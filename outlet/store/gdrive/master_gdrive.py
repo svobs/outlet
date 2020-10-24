@@ -11,7 +11,7 @@ from model.display_tree.gdrive import GDriveDisplayTree
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.node import Node
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.node_identifier import GDriveIdentifier, NodeIdentifier
+from model.node_identifier import GDriveIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from store.gdrive.change_observer import GDriveChange, PagePersistingChangeObserver
@@ -169,7 +169,7 @@ class GDriveMasterStore(MasterStore):
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def _make_gdrive_display_tree(self, subtree_root: GDriveIdentifier, tree_id: str) -> Optional[GDriveDisplayTree]:
+    def _make_gdrive_display_tree(self, subtree_root: SinglePathNodeIdentifier, tree_id: str) -> Optional[GDriveDisplayTree]:
         if not subtree_root.uid:
             logger.debug(f'_make_gdrive_display_tree(): subtree_root.uid is empty!')
             return None
@@ -180,12 +180,12 @@ class GDriveMasterStore(MasterStore):
             return None
 
         assert isinstance(root, GDriveFolder)
-        return GDriveDisplayTree(whole_tree=self._memstore.master_tree, root_node=root, tree_id=tree_id)
+        return GDriveDisplayTree(whole_tree=self._memstore.master_tree, root_node=root, root_identifier=subtree_root, tree_id=tree_id)
 
-    def _load_gdrive_subtree(self, subtree_root: Optional[GDriveIdentifier], invalidate_cache: bool, sync_latest_changes: bool, tree_id: str)\
-            -> GDriveDisplayTree:
+    def _load_gdrive_subtree(self, subtree_root: Optional[SinglePathNodeIdentifier], invalidate_cache: bool,
+                             sync_latest_changes: bool, tree_id: str) -> GDriveDisplayTree:
         if not subtree_root:
-            subtree_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
+            subtree_root = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
         logger.debug(f'[{tree_id}] Getting meta for subtree: "{subtree_root}" (invalidate_cache={invalidate_cache})')
 
         self._load_master_cache(invalidate_cache, sync_latest_changes, tree_id)
@@ -199,7 +199,8 @@ class GDriveMasterStore(MasterStore):
                                           offending_path='???')
         return gdrive_meta
 
-    def get_display_tree(self, subtree_root: GDriveIdentifier, tree_id: str) -> GDriveDisplayTree:
+    def get_display_tree(self, subtree_root: SinglePathNodeIdentifier, tree_id: str) -> GDriveDisplayTree:
+        assert isinstance(subtree_root, SinglePathNodeIdentifier)
         return self._load_gdrive_subtree(subtree_root, sync_latest_changes=False, invalidate_cache=False, tree_id=tree_id)
 
     def get_synced_master_tree(self, invalidate_cache: bool = False, tree_id: str = None):
@@ -383,10 +384,10 @@ class GDriveMasterStore(MasterStore):
         assert isinstance(node, GDriveNode)
         return self._memstore.master_tree.get_parent_for_node(node, required_subtree_path)
 
-    def get_identifier_list_for_full_path_list(self, path: str) -> List[NodeIdentifier]:
+    def get_identifier_list_for_full_path_list(self, path_list: List[str]) -> List[NodeIdentifier]:
         if not self._memstore.master_tree:
             raise CacheNotLoadedError()
-        return self._memstore.master_tree.get_identifier_list_for_single_path(path)
+        return self._memstore.master_tree.get_identifier_list_for_path_list(path_list)
 
     def get_all_gdrive_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
         return self._memstore.master_tree.get_all_files_and_folders_for_subtree(subtree_root)

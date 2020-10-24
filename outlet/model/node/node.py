@@ -126,9 +126,6 @@ class Node(treelib.Node, ABC):
         self.identifier = uid
         self._update_tag()
 
-    def get_relative_path(self, parent_tree):
-        return parent_tree.get_relative_path_list_for_node(self)
-
     def get_icon(self):
         if self.exists():
             return ICON_GENERIC_FILE

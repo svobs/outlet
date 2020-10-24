@@ -5,7 +5,7 @@ from typing import Deque, List, Optional, Union
 from pydispatch import dispatcher
 
 from constants import TREE_TYPE_GDRIVE
-from model.node_identifier import ensure_list, NodeIdentifier
+from model.node_identifier import ensure_list, NodeIdentifier, SinglePathNodeIdentifier
 from ui import actions
 from util import file_util, format
 from util.two_level_dict import Md5BeforeUidDict
@@ -26,15 +26,27 @@ logger = logging.getLogger(__name__)
 
 
 class GDriveDisplayTree(DisplayTree):
-    def __init__(self,  whole_tree: GDriveWholeTree, root_node: GDriveFolder, tree_id: str):
+    def __init__(self,  whole_tree: GDriveWholeTree, root_node: GDriveFolder, root_identifier: SinglePathNodeIdentifier, tree_id: str):
         DisplayTree.__init__(self, root_node=root_node)
 
-        self._whole_tree = whole_tree
-        self._root_node: GDriveFolder = root_node
-        self.tree_id = tree_id
+        self._whole_tree: GDriveWholeTree = whole_tree
+
+        self._root_identifier: SinglePathNodeIdentifier = root_identifier
+        """This is needed to clarify the (albeit very rare) case where the root node resolves to multiple paths.
+        Our display tree can only have one path."""
+
+        self.tree_id: str = tree_id
 
         # See refresh_stats() for the following
         self._stats_loaded = False
+
+    @property
+    def node_identifier(self) -> SinglePathNodeIdentifier:
+        return self._root_identifier
+
+    @property
+    def root_path(self):
+        return self._root_identifier.get_single_path()
 
     def get_md5_dict(self):
         md5_set_stopwatch = Stopwatch()
@@ -71,22 +83,7 @@ class GDriveDisplayTree(DisplayTree):
         if not self.in_this_subtree(path_list):
             raise RuntimeError(f'Not in this tree: "{path_list}" (tree root: {self.root_path}')
 
-        identifiers_found: List[NodeIdentifier] = []
-
-        for single_path in path_list:
-            try:
-                identifiers = self._whole_tree.get_identifier_list_for_single_path(single_path)
-                if identifiers:
-                    identifiers_found += identifiers
-            except GDriveItemNotFoundError:
-                return []
-
-        if len(identifiers_found) == 1:
-            return [self._whole_tree.get_node_for_uid(identifiers_found[0].uid)]
-
-        # In Google Drive it is legal to have two different files with the same path
-        logger.debug(f'Found {len(identifiers_found)} nodes for path list: "{path_list}"). Returning the whole list')
-        return list(map(lambda x: self._whole_tree.get_node_for_uid(x.uid), identifiers_found))
+        return self._whole_tree.get_node_list_for_path_list(path_list)
 
     def get_parent_for_node(self, node: GDriveNode) -> Optional[GDriveNode]:
         if node.get_tree_type() != TREE_TYPE_GDRIVE:
@@ -96,17 +93,19 @@ class GDriveDisplayTree(DisplayTree):
 
     def __repr__(self):
         if self._stats_loaded:
-            id_count_str = f' id_count={self._root_node.file_count + self._root_node.dir_count}'
+            assert isinstance(self.root_node, GDriveFolder)
+            id_count_str = f' id_count={self.root_node.file_count + self.root_node.dir_count}'
         else:
             id_count_str = ''
         return f'GDriveDisplayTree(tree_id={self.tree_id} root_uid={self.root_uid} root_path="{self.root_path}"{id_count_str})'
 
     def get_summary(self):
         if self._stats_loaded:
-            size_hf = format.humanfriendlier_size(self._root_node.get_size_bytes())
-            trashed_size_hf = format.humanfriendlier_size(self._root_node.trashed_bytes)
-            return f'{size_hf} total in {self._root_node.file_count:n} nodes (including {trashed_size_hf} in ' \
-                   f'{self._root_node.trashed_file_count:n} trashed)'
+            assert isinstance(self.root_node, GDriveFolder)
+            size_hf = format.humanfriendlier_size(self.root_node.get_size_bytes())
+            trashed_size_hf = format.humanfriendlier_size(self.root_node.trashed_bytes)
+            return f'{size_hf} total in {self.root_node.file_count:n} nodes (including {trashed_size_hf} in ' \
+                   f'{self.root_node.trashed_file_count:n} trashed)'
         else:
             return 'Loading stats...'
 

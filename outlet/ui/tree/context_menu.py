@@ -117,6 +117,7 @@ class TreeContextMenu:
         # MenuItem: 'Go into {dir}'
         if file_exists and is_dir:
             item = Gtk.MenuItem(label=f'Go into "{node.name}"')
+            # FIXME: need to resolve this to single path. Will break for some GDrive nodes!
             item.connect('activate', self.send_signal, actions.ROOT_PATH_UPDATED, {'new_root': node.node_identifier})
             menu.append(item)
 

@@ -8,7 +8,7 @@ from constants import ROOT_PATH, SUPER_ROOT_UID, TREE_TYPE_MIXED
 from diff.change_maker import ChangeMaker
 from util.two_level_dict import TwoLevelDict
 from model.node.node import Node
-from model.node_identifier import LogicalNodeIdentifier, NodeIdentifier
+from model.node_identifier import SinglePathNodeIdentifier, NodeIdentifier
 from model.display_tree.display_tree import DisplayTree
 from util.stopwatch_sec import Stopwatch
 from ui.actions import ID_MERGE_TREE
@@ -37,28 +37,30 @@ class ContentFirstDiffer(ChangeMaker):
         compare_result: List[DisplayNodePair] = []
 
         if not lefts:
-            for right in rights:
-                compare_result.append(DisplayNodePair(None, right))
+            for right_node in rights:
+                compare_result.append(DisplayNodePair(None, right_node))
             return compare_result
         if not rights:
-            for left in lefts:
-                compare_result.append(DisplayNodePair(None, left))
+            for left_node in lefts:
+                compare_result.append(DisplayNodePair(None, left_node))
             return compare_result
 
         # key is a relative path
         left_dict: Dict[str, Node] = {}
 
-        for left in lefts:
-            left_rel_path = left.get_relative_path(self.left_side.underlying_tree)
-            left_dict[left_rel_path] = left
+        for left_node in lefts:
+            left_rel_path_list: List[str] = self.left_side.underlying_tree.get_relative_path_list_for_node(left_node)
+            for left_rel_path in left_rel_path_list:
+                left_dict[left_rel_path] = left_node
 
         right_list: List[Node] = []
-        for right in rights:
-            right_rel_path = right.get_relative_path(self.right_side.underlying_tree)
-            match = left_dict.pop(right_rel_path, None)
-            # a match means same MD5, same path: we can ignore
-            if not match:
-                right_list.append(right)
+        for right_node in rights:
+            right_rel_path_list: List[str] = self.right_side.underlying_tree.get_relative_path_list_for_node(right_node)
+            for right_rel_path in right_rel_path_list:
+                match = left_dict.pop(right_rel_path, None)
+                # a match means same MD5, same path: we can ignore
+                if not match:
+                    right_list.append(right_node)
 
         # Assign arbitrary items on left and right to pairs (treat as renames/moves):
         while len(left_dict) > 0 and len(right_list) > 0:
@@ -242,7 +244,7 @@ class ContentFirstDiffer(ChangeMaker):
         # always root path, but tree type may differ
         is_mixed_tree = self.left_side.underlying_tree.tree_type != self.right_side.underlying_tree.tree_type
         if is_mixed_tree:
-            root_node_identifier = LogicalNodeIdentifier(uid=SUPER_ROOT_UID, full_path=ROOT_PATH, tree_type=TREE_TYPE_MIXED)
+            root_node_identifier = SinglePathNodeIdentifier(uid=SUPER_ROOT_UID, path=ROOT_PATH, tree_type=TREE_TYPE_MIXED)
         else:
             root_node_identifier: NodeIdentifier = self.app.node_identifier_factory.for_values(
                 tree_type=self.left_side.underlying_tree.tree_type, full_path=ROOT_PATH)

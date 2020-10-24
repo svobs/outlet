@@ -10,7 +10,7 @@ from model.op import Op, OpType
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
 from diff.change_maker import ChangeMaker
 from model.uid import UID
-from model.node_identifier import NodeIdentifier
+from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node.node import Node
 from model.node.local_disk_node import LocalFileNode
 
@@ -241,7 +241,7 @@ class TreeUiListeners(HasLifecycle):
                 return True
         return False
 
-    def _on_root_path_updated(self, sender, new_root: NodeIdentifier, err=None):
+    def _on_root_path_updated(self, sender, new_root: SinglePathNodeIdentifier, err=None):
         logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.ROOT_PATH_UPDATED}"')
 
         # Reload subtree and refresh display

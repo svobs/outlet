@@ -12,7 +12,7 @@ from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 from constants import BTN_GDRIVE, BTN_LOCAL_DISK_LINUX, GDRIVE_PATH_PREFIX, ICON_ALERT, ICON_REFRESH, NULL_UID, \
     TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
-from model.node_identifier import NodeIdentifier
+from model.node_identifier import SinglePathNodeIdentifier
 from ui.dialog.base_dialog import BaseDialog
 import ui.actions as actions
 
@@ -27,14 +27,14 @@ logger = logging.getLogger(__name__)
 
 
 class RootDirPanel:
-    def __init__(self, parent_win, controller, tree_id, current_root: NodeIdentifier, can_change_root, is_loaded):
+    def __init__(self, parent_win, controller, tree_id, current_root: SinglePathNodeIdentifier, can_change_root, is_loaded):
         self.parent_win: BaseDialog = parent_win
         self.con = controller
         assert type(tree_id) == str
         self.tree_id = tree_id
         self.cacheman = self.con.cacheman
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
-        self.current_root: NodeIdentifier = current_root
+        self.current_root: SinglePathNodeIdentifier = current_root
         self.can_change_root = can_change_root
         self._ui_enabled = can_change_root
         """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
@@ -196,7 +196,7 @@ class RootDirPanel:
         """Updates the UI to reflect the new root and tree type.
         Expected to be called from the UI thread.
         """
-        new_root = self.current_root
+        new_root: SinglePathNodeIdentifier = self.current_root
         err = self.err
         logger.debug(f'[{self.tree_id}] Redrawing root display for new_root={new_root}, err={err}')
         if self.entry:
@@ -253,15 +253,14 @@ class RootDirPanel:
         if root_exists:
             pre = ''
             color = ''
-            # FIXME
-            root_part_regular, root_part_bold = os.path.split(new_root.full_path)
+            root_part_regular, root_part_bold = os.path.split(new_root.get_single_path())
             if len(self.alert_image_box.get_children()) > 0:
                 self.alert_image_box.remove(self.alert_image)
         else:
-            root_part_regular, root_part_bold = os.path.split(new_root.full_path)
+            root_part_regular, root_part_bold = os.path.split(new_root.get_single_path())
             if err and isinstance(err, GDriveItemNotFoundError):
                 root_part_regular = err.offending_path
-                root_part_bold = file_util.strip_root(new_root.full_path, err.offending_path)
+                root_part_bold = file_util.strip_root(new_root.get_single_path(), err.offending_path)
             if not self.alert_image_box.get_children():
                 self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
             color = f"foreground='gray'"
@@ -283,7 +282,7 @@ class RootDirPanel:
         self.label.show()
         self.label_event_box.show()
 
-    def _on_root_path_updated(self, sender, new_root: NodeIdentifier, err=None):
+    def _on_root_path_updated(self, sender, new_root: SinglePathNodeIdentifier, err=None):
         """Callback for actions.ROOT_PATH_UPDATED"""
         logger.debug(f'[{sender}] Received signal "{actions.ROOT_PATH_UPDATED}" with new_root={new_root}, err={err}')
         if not new_root or not new_root.get_path_list():

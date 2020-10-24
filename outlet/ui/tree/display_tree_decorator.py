@@ -3,7 +3,7 @@ import threading
 from typing import Iterable
 
 from model.node.node import Node
-from model.node_identifier import NodeIdentifier
+from model.node_identifier import SinglePathNodeIdentifier
 from model.display_tree.display_tree import DisplayTree
 
 logger = logging.getLogger(__name__)
@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 class LazyLoadDisplayTreeDecorator:
     """Wraps a DisplayTree. Can optionally wrap a root identifier instead, in which case it only loads the tree when
      it is requested (either via the "tree" attribute or via one of the get_children() methods"""
-    def __init__(self, controller, root: NodeIdentifier = None, tree: DisplayTree = None):
+    def __init__(self, controller, root: SinglePathNodeIdentifier = None, tree: DisplayTree = None):
         self.con = controller
         self._loaded: bool = False
-        self._root: NodeIdentifier = root
+        self._root: SinglePathNodeIdentifier = root
         self._lock: threading.Lock = threading.Lock()
         if tree:
             self._tree: DisplayTree = tree
@@ -37,7 +37,7 @@ class LazyLoadDisplayTreeDecorator:
                     self._loaded = True
                     logger.debug(f'[{self.con.tree_id}] Tree was loaded successfully.')
 
-    def get_root_identifier(self) -> NodeIdentifier:
+    def get_root_identifier(self) -> SinglePathNodeIdentifier:
         if self._tree:
             return self._tree.node_identifier
         return self._root

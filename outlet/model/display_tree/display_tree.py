@@ -4,6 +4,7 @@ from collections import deque
 from typing import Callable, Deque, Iterable, List, Optional, Union
 
 from model.node.node import Node
+from model.node_identifier import SinglePathNodeIdentifier
 from util import file_util
 
 logger = logging.getLogger(__name__)
@@ -24,16 +25,20 @@ class DisplayTree(ABC):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @property
-    def node_identifier(self):
+    def node_identifier(self) -> SinglePathNodeIdentifier:
+        """Override this if root node's identifier is not SinglePathNodeIdentifier"""
+        assert isinstance(self.root_node.node_identifier, SinglePathNodeIdentifier)
         return self.root_node.node_identifier
+
+    @property
+    def root_path(self):
+        """Override this if root node's identifier is not SinglePathNodeIdentifier"""
+        assert isinstance(self.root_node.node_identifier, SinglePathNodeIdentifier)
+        return self.root_node.node_identifier.get_single_path()
 
     @property
     def tree_type(self) -> int:
         return self.root_node.node_identifier.tree_type
-
-    @property
-    def root_path(self):
-        return self.root_node.node_identifier.full_path
 
     @property
     def root_uid(self):

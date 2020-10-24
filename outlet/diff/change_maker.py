@@ -194,17 +194,17 @@ class ChangeMaker:
                 self.right_side.add_op(op_type=op_type, src_node=src_node, dst_node=dst_node)
 
     def get_path_moved_to_right(self, left_node) -> str:
-        return os.path.join(self.right_side.underlying_tree.root_path, left_node.get_relative_path(self.left_side.underlying_tree))
+        return os.path.join(self.right_side.underlying_tree.root_path, self.left_side.underlying_tree.get_relative_path_list_for_node(left_node))
 
     def get_path_moved_to_left(self, right_node) -> str:
-        return os.path.join(self.left_side.underlying_tree.root_path, right_node.get_relative_path(self.right_side.underlying_tree))
+        return os.path.join(self.left_side.underlying_tree.root_path, self.right_side.underlying_tree.get_relative_path_list_for_node(right_node))
 
     def _migrate_node_to_right(self, left_node) -> Node:
         new_path = self.get_path_moved_to_right(left_node)
         return self.right_side.migrate_single_node_to_this_side(left_node, new_path)
 
     def _migrate_node_to_left(self, right_node) -> Node:
-        new_path = os.path.join(self.left_side.underlying_tree.root_path, right_node.get_relative_path(self.right_side.underlying_tree))
+        new_path = os.path.join(self.left_side.underlying_tree.root_path, self.right_side.underlying_tree.get_relative_path_list_for_node(right_node))
         return self.left_side.migrate_single_node_to_this_side(right_node, new_path)
 
     def append_rename_right_to_right(self, left_node: Node, right_node: Node):
