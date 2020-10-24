@@ -480,7 +480,7 @@ def _get_items_type(selected_items: List):
 
 def _do_default_action_for_node(node: Node, tree_id: str):
     if node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-        dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=tree_id, full_path=node.full_path)
+        dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=tree_id, full_path=node.get_single_path())
         return True
     elif node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
         dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=tree_id, node=node)

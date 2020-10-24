@@ -425,7 +425,7 @@ class DisplayMutator(HasLifecycle):
                     logger.debug(f'[{self.con.tree_id}] Removing node from display store: {displayed_item.uid}')
                     self.con.display_store.remove_node(node.uid)
                     logger.debug(f'[{self.con.tree_id}] Node removed: {displayed_item.uid}')
-                elif self.con.get_tree().in_this_subtree(node.full_path):
+                elif self.con.get_tree().in_this_subtree(node.get_path_list()):
                     if logger.isEnabledFor(logging.DEBUG):
                         logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_REMOVED} for node {node.node_identifier}')
 

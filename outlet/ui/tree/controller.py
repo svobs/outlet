@@ -1,9 +1,10 @@
+import copy
 import logging
 from typing import List, Tuple
 
 from pydispatch import dispatcher
 
-from constants import TreeDisplayMode
+from constants import GDRIVE_PATH_PREFIX, TREE_TYPE_GDRIVE, TreeDisplayMode
 from model.node.node import Node
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.display_tree.display_tree import DisplayTree
@@ -121,27 +122,43 @@ class TreePanelController:
 
         GLib.idle_add(_reload)
 
-    def _derive_file_path_from_tree_path(self, tree_path) -> str:
-        path = ''
+    def derive_single_path_from_tree_path(self, tree_path, include_gdrive_prefix: bool = False) -> str:
+        """Travels up the display tree and constructs a single path for the given node.
+        Some background: while a node can have several paths associated with it, each display tree node can only be associated
+        with a single path - but that information is implicit in the tree structure itself and must be reconstructed from it."""
+        # don't mess up the caller; make a copy before modifying:
+        tree_path_copy = tree_path.copy()
+
+        node = self.display_store.get_node_data(tree_path_copy)
+        is_gdrive: bool = node.get_tree_type() == TREE_TYPE_GDRIVE
+
+        single_path = ''
 
         while True:
-            node = self.display_store.get_node_data(tree_path)
-            path = f'/{node.name}{path}'
+            node = self.display_store.get_node_data(tree_path_copy)
+            single_path = f'/{node.name}{single_path}'
             # Go up the tree, one level per loop,
             # with each node updating itself based on its immediate children
-            tree_path.up()
-            if tree_path.get_depth() < 1:
+            tree_path_copy.up()
+            if tree_path_copy.get_depth() < 1:
                 # Stop at root
                 break
-        return path
+
+        base_path = self.get_tree().node_identifier.get_single_path()
+        if base_path != '/':
+            single_path = f'{base_path}{single_path}'
+
+        if is_gdrive and include_gdrive_prefix:
+            single_path = f'{GDRIVE_PATH_PREFIX}{single_path}'
+        logger.debug(f'derive_single_path_from_tree_path(): derived path: {single_path}')
+        return single_path
 
     def get_single_selection_display_identifier(self):
         selection = self.tree_view.get_selection()
         model, tree_paths = selection.get_selected_rows()
         if len(tree_paths) == 1:
             node = self.display_store.get_node_data(tree_paths)
-            single_path = self._derive_file_path_from_tree_path(tree_paths)
-            logger.debug(f'get_single_selection_display_identifier(): derived path: {single_path}')
+            single_path = self.derive_single_path_from_tree_path(tree_paths)
             return SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.get_tree_type())
         elif len(tree_paths) == 0:
             return None

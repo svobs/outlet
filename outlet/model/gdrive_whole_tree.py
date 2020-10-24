@@ -333,9 +333,9 @@ class GDriveWholeTree:
         return matching_ids
 
     @staticmethod
-    def in_this_subtree(full_path: Union[str, List[str]]):
-        # basically always true
-        return full_path.startswith(ROOT_PATH)
+    def in_this_subtree(path_list: Union[str, List[str]]):
+        # always true
+        return True
 
     @staticmethod
     def is_in_subtree(full_path: Union[str, List[str]], subtree_root_path: str):
