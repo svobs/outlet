@@ -33,6 +33,7 @@ class PreAncestorDict:
     def __init__(self):
         self._dict: Dict[str, ContainerNode] = {}
 
+    # FIXME: UID for GDrive nodes will not be unique in this tree!
     def get_for(self, source_tree: DisplayTree, op_type: OpType) -> Optional[ContainerNode]:
         key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, op_type=op_type)
         return self._dict.get(key, None)
@@ -48,9 +49,9 @@ class PreAncestorDict:
 class CategoryDisplayTree(DisplayTree):
     """Note: this doesn't completely map to DisplayTree, but it's close enough for it to be useful to
     inherit its functionality"""
-    def __init__(self, app, root_node_identifier: SinglePathNodeIdentifier, tree_id: str, show_whole_forest=False):
+    def __init__(self, app, tree_id: str, root_node_identifier: SinglePathNodeIdentifier, show_whole_forest=False):
         # Root node will never be displayed in the UI, but treelib requires a root node, as does parent class
-        super().__init__(app, root_node_identifier, tree_id)
+        super().__init__(app, tree_id, root_node_identifier)
         self.root_node = ContainerNode(root_node_identifier)
 
         self.uid_generator = app.uid_generator

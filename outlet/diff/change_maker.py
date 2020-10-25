@@ -43,7 +43,7 @@ class OneSide:
     def __init__(self, underlying_tree: DisplayTree, app, tree_id: str):
         self.underlying_tree: DisplayTree = underlying_tree
         self.app = app
-        self.change_tree: CategoryDisplayTree = CategoryDisplayTree(app, self.underlying_tree.node_identifier, tree_id)
+        self.change_tree: CategoryDisplayTree = CategoryDisplayTree(app, tree_id, self.underlying_tree.root_identifier)
         # TODO: shouldn't batch_uid be the same for both sides ?
         self._batch_uid: UID = self.app.uid_generator.next_uid()
         self._added_folders: Dict[str, Node] = {}

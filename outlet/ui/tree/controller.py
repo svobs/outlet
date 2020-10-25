@@ -153,7 +153,8 @@ class TreePanelController:
         logger.debug(f'derive_single_path_from_tree_path(): derived path: {single_path}')
         return single_path
 
-    def _do_with_single_selection(self, action_func: Callable[[Gtk.TreePath], Any]):
+    def _execute_on_current_single_selection(self, action_func: Callable[[Gtk.TreePath], Any]):
+        """Assumes that only one node can be selected at a given time"""
         selection = self.tree_view.get_selection()
         model, tree_path_list = selection.get_selected_rows()
         if len(tree_path_list) == 1:
@@ -170,11 +171,10 @@ class TreePanelController:
             single_path = self.derive_single_path_from_tree_path(tree_path)
             return SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.get_tree_type())
 
-        return self._do_with_single_selection(make_identifier)
+        return self._execute_on_current_single_selection(make_identifier)
 
     def get_single_selection(self):
-        """Assumes that only one node can be selected at a given time"""
-        return self._do_with_single_selection(lambda tp: self.display_store.get_node_data(tp))
+        return self._execute_on_current_single_selection(lambda tp: self.display_store.get_node_data(tp))
 
     def get_multiple_selection(self) -> List[Node]:
         """Returns a list of the selected items (empty if none)"""

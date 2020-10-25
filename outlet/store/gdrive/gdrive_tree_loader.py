@@ -226,7 +226,7 @@ class GDriveTreeLoader:
                         child_path_list.append(new_child_path)
                         path_count += 1
 
-                    child.node_identifier.full_path = child_path_list
+                    child.node_identifier.set_path_list(child_path_list)
 
                     item_count += 1
 

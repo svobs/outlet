@@ -58,7 +58,7 @@ class SignatureCalcThread(HasLifecycle, threading.Thread):
             self._cv_can_get.notifyAll()
 
     def _process_single_node(self, node: LocalFileNode):
-        md5, sha256 = store.local.content_hasher.calculate_signatures(full_path=node.full_path)
+        md5, sha256 = store.local.content_hasher.calculate_signatures(full_path=node.get_single_path())
         if not md5 and not sha256:
             logger.debug(f'[{self.name}] Failed to calculate signature for node {node.uid}: assuming it was deleted')
             return

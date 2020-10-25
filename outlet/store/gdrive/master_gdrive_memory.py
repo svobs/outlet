@@ -56,7 +56,7 @@ class GDriveMemoryStore:
 
             if existing_node.is_dir() and not node.is_dir():
                 # need to replace all descendants...not ready to do this yet
-                raise RuntimeError(f'Cannot replace a folder with a file: "{node.full_path}"')
+                raise RuntimeError(f'Cannot replace a folder with a file: "{node.get_path_list()}"')
 
             if existing_node == node:
                 logger.info(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')

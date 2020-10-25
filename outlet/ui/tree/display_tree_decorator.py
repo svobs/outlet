@@ -1,6 +1,6 @@
 import logging
 import threading
-from typing import Iterable
+from typing import Iterable, Optional
 
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
@@ -16,15 +16,18 @@ class LazyLoadDisplayTreeDecorator:
     """Wraps a DisplayTree. Can optionally wrap a root identifier instead, in which case it only loads the tree when
      it is requested (either via the "tree" attribute or via one of the get_children() methods"""
     def __init__(self, controller, root: SinglePathNodeIdentifier = None, tree: DisplayTree = None):
+        assert root or tree, f'Neither root nor tree provided!'
+
         self.con = controller
         self._loaded: bool = False
-        self._root: SinglePathNodeIdentifier = root
         self._lock: threading.Lock = threading.Lock()
         if tree:
-            self._tree: DisplayTree = tree
+            self._tree: Optional[DisplayTree] = tree
+            self._root_identifier: SinglePathNodeIdentifier = self._tree.root_identifier
             self._loaded = True
         else:
-            self._tree = None
+            self._tree: Optional[DisplayTree] = None
+            self._root_identifier: SinglePathNodeIdentifier = root
 
     def _ensure_is_loaded(self):
         """Performs a SYNCHRONOUS load if needed"""
@@ -32,15 +35,14 @@ class LazyLoadDisplayTreeDecorator:
             with self._lock:
                 if not self._loaded:
                     # This will also start live monitoring if configured:
-                    logger.debug(f'[{self.con.tree_id}] Tree was requested. Loading: {self._root}')
-                    self._tree = self.con.cacheman.load_subtree(self._root, self.con.tree_id)
+                    logger.debug(f'[{self.con.tree_id}] Tree was requested. Loading: {self._root_identifier}')
+                    self._tree = self.con.cacheman.load_subtree(self._root_identifier, self.con.tree_id)
+                    self._root_identifier = self._tree.root_identifier
                     self._loaded = True
                     logger.debug(f'[{self.con.tree_id}] Tree was loaded successfully.')
 
     def get_root_identifier(self) -> SinglePathNodeIdentifier:
-        if self._tree:
-            return self._tree.node_identifier
-        return self._root
+        return self._root_identifier
 
     def get_tree(self) -> DisplayTree:
         return self.tree
