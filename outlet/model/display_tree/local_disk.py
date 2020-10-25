@@ -1,17 +1,17 @@
 import logging
-from typing import Iterable, List, Optional, Union
+from typing import Iterable, List, Optional
 
 from pydispatch import dispatcher
 
 import constants
-from ui import actions
-from util import file_util, format
-from util.two_level_dict import Md5BeforeUidDict
-from model.node.node import Node
-from model.node.local_disk_node import LocalDirNode, LocalFileNode
-from model.node_identifier import ensure_list, LocalNodeIdentifier
 from model.display_tree.display_tree import DisplayTree
+from model.node.local_disk_node import LocalFileNode
+from model.node.node import Node
+from model.node_identifier import ensure_list, SinglePathNodeIdentifier
+from ui import actions
+from util import format
 from util.stopwatch_sec import Stopwatch
+from util.two_level_dict import Md5BeforeUidDict
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 class LocalDiskDisplayTree(DisplayTree):
-    def __init__(self, root_node: LocalDirNode, app, tree_id: str):
-        assert isinstance(root_node.node_identifier, LocalNodeIdentifier)
-        super().__init__(root_node)
-        self.root_node: LocalDirNode = root_node
-        self.app = app
-        self.tree_id = tree_id
+    def __init__(self, app, tree_id: str, root_identifier: SinglePathNodeIdentifier):
+        super().__init__(app, tree_id, root_identifier)
 
-        self._stats_loaded = False
+        self._stats_loaded: bool = False
 
     def get_single_parent_for_node(self, node: LocalFileNode) -> Optional[Node]:
         if node.get_tree_type() != constants.TREE_TYPE_LOCAL_DISK:
@@ -39,7 +35,8 @@ class LocalDiskDisplayTree(DisplayTree):
         return self.app.cacheman.get_single_parent_for_node(node, self.root_path)
 
     def get_children_for_root(self) -> Iterable[Node]:
-        return self.app.cacheman.get_children(self.root_node)
+        root_node = self.get_root_node()
+        return self.app.cacheman.get_children(root_node)
 
     def get_children(self, parent: Node) -> Iterable[Node]:
         assert parent.node_identifier.tree_type == constants.TREE_TYPE_LOCAL_DISK, f'For: {parent.node_identifier}'
@@ -71,14 +68,16 @@ class LocalDiskDisplayTree(DisplayTree):
 
     def get_summary(self):
         if self._stats_loaded:
-            size_hf = format.humanfriendlier_size(self.root_node.get_size_bytes())
-            return f'{size_hf} total in {self.root_node.file_count:n} files and {self.root_node.dir_count:n} dirs'
+            root_node = self.get_root_node()
+            size_hf = format.humanfriendlier_size(root_node.get_size_bytes())
+            return f'{size_hf} total in {root_node.file_count:n} files and {root_node.dir_count:n} dirs'
         else:
             return 'Loading stats...'
 
     def refresh_stats(self, tree_id: str):
         logger.debug(f'[{tree_id}] Refreshing stats...')
-        self.app.cacheman.refresh_stats(self.root_node, tree_id)
+        root_node = self.get_root_node()
+        self.app.cacheman.refresh_stats(root_node, tree_id)
         self._stats_loaded = True
         dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
         dispatcher.send(signal=actions.SET_STATUS, sender=tree_id, status_msg=self.get_summary())

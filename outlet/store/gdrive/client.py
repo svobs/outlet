@@ -197,7 +197,7 @@ class GDriveClient(HasLifecycle):
 
         modify_ts = GDriveClient._parse_gdrive_date(item, 'modifiedTime')
 
-        goog_node = GDriveFolder(GDriveIdentifier(uid=uid, full_path=None), goog_id=goog_id, node_name=item['name'],
+        goog_node = GDriveFolder(GDriveIdentifier(uid=uid, path_list=None), goog_id=goog_id, node_name=item['name'],
                                  trashed=GDriveClient._convert_trashed(item), create_ts=create_ts, modify_ts=modify_ts, owner_uid=owner_uid,
                                  drive_id=item.get('driveId', None), is_shared=item.get('shared', None), shared_by_user_uid=sharing_user_uid,
                                  sync_ts=sync_ts, all_children_fetched=False)

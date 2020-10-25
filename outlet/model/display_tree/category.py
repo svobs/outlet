@@ -48,12 +48,11 @@ class PreAncestorDict:
 class CategoryDisplayTree(DisplayTree):
     """Note: this doesn't completely map to DisplayTree, but it's close enough for it to be useful to
     inherit its functionality"""
-    def __init__(self, app, root_node_identifier: NodeIdentifier, tree_id: str, show_whole_forest=False):
+    def __init__(self, app, root_node_identifier: SinglePathNodeIdentifier, tree_id: str, show_whole_forest=False):
         # Root node will never be displayed in the UI, but treelib requires a root node, as does parent class
-        super().__init__(ContainerNode(root_node_identifier))
+        super().__init__(app, root_node_identifier, tree_id)
+        self.root_node = ContainerNode(root_node_identifier)
 
-        self.tree_id = tree_id
-        self.cacheman = app.cacheman
         self.uid_generator = app.uid_generator
         self.node_identifier_factory = app.node_identifier_factory
 
@@ -73,6 +72,9 @@ class CategoryDisplayTree(DisplayTree):
         self.count_conflict_warnings = 0
         self.count_conflict_errors = 0
 
+    def get_root_node(self):
+        return self.root_node
+
     def get_children_for_root(self) -> Iterable[Node]:
         return self.get_children(self.root_node)
 
@@ -88,15 +90,14 @@ class CategoryDisplayTree(DisplayTree):
     def print_tree_contents_debug(self):
         logger.debug(f'[{self.tree_id}] CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))
 
-    def get_ancestors(self, node: Node, stop_before_func: Callable[[Node], bool] = None) -> Deque[Node]:
+    def get_ancestor_list(self, node: Node) -> Deque[Node]:
+        # FIXME this is almost certainly wrong
         ancestors: Deque[Node] = deque()
 
         # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
         # been added to this tree, or the root of the source tree
         ancestor = node
         while ancestor:
-            if stop_before_func is not None and stop_before_func(ancestor):
-                return ancestors
             ancestor = self.get_single_parent_for_node(ancestor)
             if ancestor:
                 if ancestor.uid == self.uid:
@@ -148,7 +149,7 @@ class CategoryDisplayTree(DisplayTree):
         if not cat_node:
             # Create category display node. This may be the "last pre-ancestor".
             # Note that we can use this for GDrive paths because we are combining it with tree_type and OpType (below) into a new identifier:
-            uid = self.cacheman.get_uid_for_path(self.root_path)
+            uid = self.app.cacheman.get_uid_for_path(self.root_path)
             nid = NodeIdentifierFactory.nid(uid, node.node_identifier.tree_type, op_type)
 
             node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=self.root_path, uid=uid)
@@ -174,7 +175,7 @@ class CategoryDisplayTree(DisplayTree):
                         break
 
                 if not child_node:
-                    uid = self.cacheman.get_uid_for_path(path_so_far)
+                    uid = self.app.cacheman.get_uid_for_path(path_so_far)
                     nid = NodeIdentifierFactory.nid(uid, node.node_identifier.tree_type, op_type)
                     node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=uid)
                     child_node = ContainerNode(node_identifier=node_identifier)
@@ -245,7 +246,7 @@ class CategoryDisplayTree(DisplayTree):
             full_path: str = str(pathlib.Path(full_path).parent)
             # Get standard UID for path (note: this is a kludge for non-local trees, but should be OK because we just need a UID which
             # is unique for this tree)
-            uid = self.cacheman.get_uid_for_path(full_path)
+            uid = self.app.cacheman.get_uid_for_path(full_path)
             nid = NodeIdentifierFactory.nid(uid, node.node_identifier.tree_type, op_type_for_display)
             parent = self._category_tree.get_node(nid=nid)
             if parent:

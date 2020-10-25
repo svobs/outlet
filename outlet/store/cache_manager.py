@@ -4,12 +4,14 @@ import os
 import pathlib
 import threading
 import time
-from typing import Dict, Iterable, List, Optional, Tuple
+from collections import deque
+from typing import Deque, Dict, Iterable, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
 from command.cmd_interface import Command, CommandResult
-from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, TREE_TYPE_GDRIVE, \
+from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, ROOT_PATH, \
+    TREE_TYPE_DISPLAY, TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
@@ -17,7 +19,7 @@ from model.display_tree.display_tree import DisplayTree
 from model.display_tree.gdrive import GDriveDisplayTree
 from model.node.node import Node, HasParentList
 from model.node.gdrive_node import GDriveNode
-from model.node.local_disk_node import LocalDirNode, LocalFileNode
+from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.op import Op
@@ -687,18 +689,79 @@ class CacheManager(HasLifecycle):
         else:
             raise RuntimeError(f'Unknown tree type: {tree_type} for {node.node_identifier}')
 
-    def get_parent_uid_for_node(self, node: Node) -> UID:
+    @staticmethod
+    def _derive_parent_path(child_path) -> str:
+        return str(pathlib.Path(child_path).parent)
+
+    def get_parent_list_for_node(self, node: Node) -> List[Node]:
+        if node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
+            return self._master_gdrive.get_parent_list_for_node(node)
+        elif node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+            return self._master_local.get_parent_list_for_node(node)
+        else:
+            raise RuntimeError(f'Unknown tree type: {node.node_identifier.tree_type} for {node}')
+
+    def get_parent_uid_list_for_node(self, node: Node) -> List[UID]:
         """Derives the UID for the parent of the given node"""
         if isinstance(node, HasParentList):
             assert isinstance(node, GDriveNode) and node.node_identifier.tree_type == TREE_TYPE_GDRIVE, f'Node: {node}'
-            parent_uids = node.get_parent_uids()
-            assert len(parent_uids) == 1, f'Expected exactly one parent_uid for node: {node}'
-            return parent_uids[0]
+            return node.get_parent_uids()
         else:
+            assert isinstance(node, LocalNode) and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Node: {node}'
+            parent_path = node.derive_parent_path()
+            uid = self.get_uid_for_path(parent_path)
+            if uid:
+                return [uid]
+            return []
 
-            assert node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Node: {node}'
-            parent_path = str(pathlib.Path(node.full_path).parent)
-            return self.get_uid_for_path(parent_path)
+    def _find_parent_matching_path(self, child_node: Node, parent_path: str) -> Optional[Node]:
+        logger.debug(f'Looking for parent with path "{parent_path}" (child: {child_node.node_identifier})')
+        if parent_path == ROOT_PATH:
+            return None
+        parent_node_list: List[Node] = self.get_parent_list_for_node(child_node)
+        filtered_list: List[Node] = []
+
+        for node in parent_node_list:
+            if node.node_identifier.has_path(parent_path):
+                filtered_list.append(node)
+
+        if len(filtered_list) > 1:
+            raise RuntimeError(f'Expected exactly 1 but found {len(filtered_list)} parents which matched parent path "{parent_path}"')
+        elif len(filtered_list) == 0:
+            raise RuntimeError(f'None of {len(parent_node_list)} parents matched parent path "{parent_path}"')
+        logger.debug(f'Matched path "{parent_path}" with node {filtered_list[0]}')
+        return filtered_list[0]
+
+    def get_single_parent_for_single_path_identfiier(self, single_path_node_identifier: SinglePathNodeIdentifier) -> Optional[Node]:
+        node = self.get_node_for_uid(single_path_node_identifier.uid)
+        path_list = node.get_path_list()
+        if len(path_list) == 1 and path_list[0] == single_path_node_identifier.get_single_path():
+            # only one parent -> easy
+            return self.get_single_parent_for_node(node)
+        else:
+            parent_path: str = self._derive_parent_path(single_path_node_identifier.get_single_path())
+            return self._find_parent_matching_path(node, parent_path)
+
+    def get_ancestor_list_for_single_path_identifier(self, single_path_node_identifier: SinglePathNodeIdentifier,
+                                                     stop_at_path: Optional[str]) -> Deque[Node]:
+        ancestor_deque: Deque[Node] = deque()
+        ancestor: Node = self.get_node_for_uid(single_path_node_identifier.uid)
+        if not ancestor:
+            logger.warning(f'get_ancestor_list_for_single_path_identifier(): Node not found: {single_path_node_identifier}')
+            return ancestor_deque
+
+        parent_path: str = single_path_node_identifier.get_single_path()  # not actually parent's path until it enters loop
+
+        while True:
+            parent_path = self._derive_parent_path(parent_path)
+            if parent_path == stop_at_path:
+                return ancestor_deque
+
+            ancestor: Node = self._find_parent_matching_path(ancestor, parent_path)
+            if ancestor:
+                ancestor_deque.appendleft(ancestor)
+            else:
+                return ancestor_deque
 
     def get_single_parent_for_node(self, node: Node, required_subtree_path: str = None) -> Node:
         if node.node_identifier.tree_type == TREE_TYPE_GDRIVE:

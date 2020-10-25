@@ -1,10 +1,10 @@
 import logging
 from abc import ABC, abstractmethod
-from collections import deque
-from typing import Callable, Deque, Iterable, List, Optional, Union
+from typing import Deque, Iterable, List, Optional, Union
 
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
+from model.uid import UID
 from util import file_util
 
 logger = logging.getLogger(__name__)
@@ -14,39 +14,42 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class DisplayTree(ABC):
-    def __init__(self, root_node: Node):
-        super().__init__()
-        assert isinstance(root_node, Node)
-        self.root_node: Node = root_node
+    def __init__(self, app, tree_id: str, root_identifier: SinglePathNodeIdentifier):
+        self.app = app
+        self.tree_id: str = tree_id
 
-        self._stats_loaded = False
+        assert isinstance(root_identifier, SinglePathNodeIdentifier), f'Expected SinglePathNodeIdentifier but got {type(root_identifier)}'
+        self.root_identifier: SinglePathNodeIdentifier = root_identifier
+        """This is needed to clarify the (albeit very rare) case where the root node resolves to multiple paths.
+        Our display tree can only have one path."""
 
     # From the root node_identifier
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
+    def get_root_node(self):
+        return self.app.cacheman.get_node_for_uid(self.root_identifier.uid)
+
     @property
     def node_identifier(self) -> SinglePathNodeIdentifier:
         """Override this if root node's identifier is not SinglePathNodeIdentifier"""
-        assert isinstance(self.root_node.node_identifier, SinglePathNodeIdentifier)
-        return self.root_node.node_identifier
+        return self.root_identifier
 
     @property
-    def root_path(self):
+    def root_path(self) -> str:
         """Override this if root node's identifier is not SinglePathNodeIdentifier"""
-        assert isinstance(self.root_node.node_identifier, SinglePathNodeIdentifier)
-        return self.root_node.node_identifier.get_single_path()
+        return self.root_identifier.get_single_path()
 
     @property
     def tree_type(self) -> int:
-        return self.root_node.node_identifier.tree_type
-
-    @property
-    def root_uid(self):
-        return self.uid
+        return self.root_identifier.tree_type
 
     @property
     def uid(self):
-        return self.root_node.node_identifier.uid
+        return self.root_identifier.uid
+
+    @property
+    def root_uid(self) -> UID:
+        return self.uid
 
     def print_tree_contents_debug(self):
         logger.debug('print_tree_contents_debug() not implemented for this tree')
@@ -94,23 +97,8 @@ class DisplayTree(ABC):
     def get_md5_dict(self):
         pass
 
-    def get_ancestors(self, node: Node, stop_before_func: Callable[[Node], bool] = None) -> Deque[Node]:
-        ancestors: Deque[Node] = deque()
-
-        # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
-        # been added to this tree, or the root of the source tree
-        ancestor = node
-        while ancestor:
-            if stop_before_func is not None and stop_before_func(ancestor):
-                return ancestors
-            ancestor = self.get_single_parent_for_node(ancestor)
-            if ancestor:
-                if ancestor.uid == self.uid:
-                    # do not include source tree's root node:
-                    return ancestors
-                ancestors.appendleft(ancestor)
-
-        return ancestors
+    def get_ancestor_list(self, single_path_node_identifier: SinglePathNodeIdentifier) -> Deque[Node]:
+        return self.app.cacheman.get_ancestor_list_for_single_path_identifier(single_path_node_identifier, stop_at_path=self.root_path)
 
     # Stats
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

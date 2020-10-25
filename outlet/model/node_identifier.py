@@ -101,6 +101,9 @@ class NodeIdentifier(ABC):
                 logger.debug(f'Added path: {single_path} to node UID {self.uid}')
         self.set_path_list(path_list)
 
+    def has_path(self, path: str) -> bool:
+        return path in self._path_list
+
     def normalize_paths(self):
         path_list = self.get_path_list()
         for index, full_path in enumerate(path_list):

@@ -4,10 +4,8 @@ import re
 from typing import List
 import subprocess
 
-from pydispatch import dispatcher
-
 from model.node.local_disk_node import LocalNode
-from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import SinglePathNodeIdentifier
 from util import file_util
 from model.op import Op, OpType
 from store.gdrive.client import GDriveClient

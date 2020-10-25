@@ -139,11 +139,11 @@ class GDriveMasterStore(MasterStore):
 
     def sync_latest_changes(self):
         logger.debug(f'sync_latest_changes(): locked={self._struct_lock.locked()}')
-        with self._struct_lock:
-            changes_download: CurrentDownload = self._diskstore.get_current_download(GDRIVE_DOWNLOAD_TYPE_CHANGES)
-            if not changes_download:
-                raise RuntimeError(f'Download state not found for GDrive change log!')
-            self._sync_latest_changes(changes_download)
+        changes_download: CurrentDownload = self._diskstore.get_current_download(GDRIVE_DOWNLOAD_TYPE_CHANGES)
+        if not changes_download:
+            raise RuntimeError(f'Download state not found for GDrive change log!')
+
+        self._sync_latest_changes(changes_download)
 
     def _sync_latest_changes(self, changes_download: CurrentDownload):
         sw = Stopwatch()
@@ -178,9 +178,9 @@ class GDriveMasterStore(MasterStore):
         if not root:
             logger.debug(f'_make_gdrive_display_tree(): could not find root node with UID {subtree_root.uid}')
             return None
-
         assert isinstance(root, GDriveFolder)
-        return GDriveDisplayTree(whole_tree=self._memstore.master_tree, root_node=root, root_identifier=subtree_root, tree_id=tree_id)
+
+        return GDriveDisplayTree(app=self.app, tree_id=tree_id, root_identifier=subtree_root, whole_tree=self._memstore.master_tree)
 
     def _load_gdrive_subtree(self, subtree_root: Optional[SinglePathNodeIdentifier], invalidate_cache: bool,
                              sync_latest_changes: bool, tree_id: str) -> GDriveDisplayTree:
@@ -379,6 +379,9 @@ class GDriveMasterStore(MasterStore):
     def get_children(self, node: Node) -> List[GDriveNode]:
         assert isinstance(node, GDriveNode)
         return self._memstore.master_tree.get_children(node)
+
+    def get_parent_list_for_node(self, node: GDriveNode) -> List[GDriveNode]:
+        return self._memstore.master_tree.get_parent_list_for_node(node)
 
     def get_single_parent_for_node(self, node: Node, required_subtree_path: str = None):
         assert isinstance(node, GDriveNode)

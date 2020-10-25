@@ -32,6 +32,10 @@ class MasterStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
+    def get_parent_list_for_node(self, node: Node) -> List[Node]:
+        pass
+
+    @abstractmethod
     def get_single_parent_for_node(self, node: Node, required_subtree_path: str = None) -> Optional[Node]:
         pass
 

@@ -26,28 +26,16 @@ logger = logging.getLogger(__name__)
 
 
 class GDriveDisplayTree(DisplayTree):
-    def __init__(self,  whole_tree: GDriveWholeTree, root_node: GDriveFolder, root_identifier: SinglePathNodeIdentifier, tree_id: str):
-        DisplayTree.__init__(self, root_node=root_node)
+    def __init__(self, app, tree_id: str, root_identifier: SinglePathNodeIdentifier, whole_tree: GDriveWholeTree):
+        DisplayTree.__init__(self, app, tree_id, root_identifier)
 
         self._whole_tree: GDriveWholeTree = whole_tree
-
-        assert isinstance(root_identifier, SinglePathNodeIdentifier), f'Expected SinglePathNodeIdentifier but got {type(root_identifier)}'
-        self._root_identifier: SinglePathNodeIdentifier = root_identifier
-        """This is needed to clarify the (albeit very rare) case where the root node resolves to multiple paths.
-        Our display tree can only have one path."""
-
-        self.tree_id: str = tree_id
 
         # See refresh_stats() for the following
         self._stats_loaded = False
 
-    @property
-    def node_identifier(self) -> SinglePathNodeIdentifier:
-        return self._root_identifier
-
-    @property
-    def root_path(self):
-        return self._root_identifier.get_single_path()
+    def get_root_node(self):
+        return self._whole_tree.get_node_for_uid(self.root_identifier.uid)
 
     def get_md5_dict(self):
         md5_set_stopwatch = Stopwatch()
@@ -55,8 +43,9 @@ class GDriveDisplayTree(DisplayTree):
         md5_dict: Md5BeforeUidDict = Md5BeforeUidDict()
 
         queue: Deque[GDriveNode] = collections.deque()
-        assert isinstance(self.root_node, GDriveFolder)
-        queue.append(self.root_node)
+        root_node = self.get_root_node()
+        assert isinstance(root_node, GDriveFolder)
+        queue.append(root_node)
 
         while len(queue) > 0:
             node: GDriveNode = queue.popleft()
@@ -73,8 +62,9 @@ class GDriveDisplayTree(DisplayTree):
         return md5_dict
 
     def get_children_for_root(self) -> List[GDriveNode]:
-        assert isinstance(self.root_node, GDriveFolder), f'Expected root node to be type GDriveFolder but found instead: {self.root_node}'
-        return self.get_children(self.root_node)
+        root_node = self.get_root_node()
+        assert isinstance(root_node, GDriveFolder), f'Expected root node to be type GDriveFolder but found instead: {root_node}'
+        return self.get_children(root_node)
 
     def get_children(self, parent: GDriveNode) -> List[GDriveNode]:
         return self._whole_tree.get_children(node=parent)
@@ -94,19 +84,21 @@ class GDriveDisplayTree(DisplayTree):
 
     def __repr__(self):
         if self._stats_loaded:
-            assert isinstance(self.root_node, GDriveFolder)
-            id_count_str = f' id_count={self.root_node.file_count + self.root_node.dir_count}'
+            root_node = self.get_root_node()
+            assert isinstance(root_node, GDriveFolder)
+            id_count_str = f' id_count={root_node.file_count + root_node.dir_count}'
         else:
             id_count_str = ''
-        return f'GDriveDisplayTree(tree_id={self.tree_id} root_uid={self.root_uid} root_path="{self.root_path}"{id_count_str})'
+        return f'GDriveDisplayTree(tree_id={self.tree_id} root_identifier={self.root_identifier}{id_count_str})'
 
     def get_summary(self):
         if self._stats_loaded:
-            assert isinstance(self.root_node, GDriveFolder)
-            size_hf = format.humanfriendlier_size(self.root_node.get_size_bytes())
-            trashed_size_hf = format.humanfriendlier_size(self.root_node.trashed_bytes)
-            return f'{size_hf} total in {self.root_node.file_count:n} nodes (including {trashed_size_hf} in ' \
-                   f'{self.root_node.trashed_file_count:n} trashed)'
+            root_node = self.get_root_node()
+            assert isinstance(root_node, GDriveFolder)
+            size_hf = format.humanfriendlier_size(root_node.get_size_bytes())
+            trashed_size_hf = format.humanfriendlier_size(root_node.trashed_bytes)
+            return f'{size_hf} total in {root_node.file_count:n} nodes (including {trashed_size_hf} in ' \
+                   f'{root_node.trashed_file_count:n} trashed)'
         else:
             return 'Loading stats...'
 
@@ -116,8 +108,9 @@ class GDriveDisplayTree(DisplayTree):
 
     def refresh_stats(self, tree_id: str):
         logger.debug(f'[{tree_id}] Refreshing stats...')
-        assert isinstance(self.root_node, GDriveFolder)
-        self._whole_tree.refresh_stats(self.root_node, tree_id)
+        root_node = self.get_root_node()
+        assert isinstance(root_node, GDriveFolder)
+        self._whole_tree.refresh_stats(root_node, tree_id)
         self._stats_loaded = True
         logger.debug(f'[{tree_id}] Sending signal "{actions.REFRESH_SUBTREE_STATS_DONE}"')
         dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)

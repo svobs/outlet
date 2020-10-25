@@ -105,9 +105,7 @@ class DisplayMutator(HasLifecycle):
 
         def do_in_ui():
             with self._lock:
-                # FIXME
-                item = self.con.parent_win.app.cacheman.get_node_for_uid(selection.uid, selection.tree_type)
-                ancestor_list: Iterable[Node] = self.con.get_tree().get_ancestors(item)
+                ancestor_list: Iterable[Node] = self.con.get_tree().get_ancestor_list(selection)
 
                 # Expand all ancestors one by one:
                 tree_iter = None

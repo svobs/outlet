@@ -163,7 +163,7 @@ class LocalDiskMasterStore(MasterStore):
         logger.debug(f'DisplayTree requested for root: {subtree_root}')
         return self._get_display_tree(subtree_root, tree_id, is_live_refresh=False)
 
-    def _get_display_tree(self, subtree_root: NodeIdentifier, tree_id: str, is_live_refresh: bool = False) -> DisplayTree:
+    def _get_display_tree(self, subtree_root: LocalNodeIdentifier, tree_id: str, is_live_refresh: bool = False) -> DisplayTree:
         """
         Performs a read-through retrieval of all the LocalFileNodes in the given subtree
         on the local filesystem.
@@ -171,8 +171,7 @@ class LocalDiskMasterStore(MasterStore):
 
         if not os.path.exists(subtree_root.get_single_path()):
             logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root.get_single_path()}"')
-            root_node = RootTypeNode(subtree_root)
-            return NullDisplayTree(root_node)
+            return NullDisplayTree(self.app, tree_id, subtree_root)
 
         existing_uid = subtree_root.uid
         new_uid = self.get_uid_for_path_list(subtree_root.get_path_list(), existing_uid)
@@ -259,11 +258,9 @@ class LocalDiskMasterStore(MasterStore):
         elif SUPER_DEBUG:
             logger.debug(f'[{tree_id}] Skipping cache save: not needed')
 
-        with self._struct_lock:
-            root_node = self._memstore.master_tree.get_node(requested_subtree_root.uid)
-        fmeta_tree = LocalDiskDisplayTree(root_node=root_node, app=self.app, tree_id=tree_id)
-        logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {fmeta_tree.node_identifier.get_single_path()}')
-        return fmeta_tree
+        display_tree = LocalDiskDisplayTree(app=self.app, tree_id=tree_id, root_identifier=requested_subtree_root)
+        logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {display_tree.root_identifier.get_single_path()}')
+        return display_tree
 
     def consolidate_local_caches(self, local_caches: List[PersistedCacheInfo], tree_id) -> bool:
         supertree_sets: List[Tuple[PersistedCacheInfo, PersistedCacheInfo]] = []
@@ -492,7 +489,13 @@ class LocalDiskMasterStore(MasterStore):
         with self._struct_lock:
             return self._memstore.master_tree.get_node(uid)
 
-    def get_single_parent_for_node(self, node: LocalNode, required_subtree_path: str = None):
+    def get_parent_list_for_node(self, node: LocalNode) -> List[LocalNode]:
+        parent_node = self.get_single_parent_for_node(node)
+        if parent_node:
+            return [parent_node]
+        return []
+
+    def get_single_parent_for_node(self, node: LocalNode, required_subtree_path: str = None) -> LocalNode:
         if SUPER_DEBUG:
             logger.debug(f'Entered get_single_parent_for_node({node.node_identifier}): locked={self._struct_lock.locked()}')
         try:

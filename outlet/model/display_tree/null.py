@@ -9,8 +9,8 @@ from model.display_tree.display_tree import DisplayTree
 
 class NullDisplayTree(DisplayTree):
     """A DisplayTree which has no nodes and does nothing. Useful for representing a tree whose root does not exist."""
-    def __init__(self, root_identifier):
-        super().__init__(root_identifier)
+    def __init__(self, app, tree_id, root_identifier):
+        super().__init__(app, tree_id, root_identifier)
 
     def get_children_for_root(self) -> Iterable[Node]:
         return []
