@@ -1,5 +1,4 @@
 import logging
-import os
 import re
 from typing import List, Optional
 
@@ -10,13 +9,12 @@ from pydispatch import dispatcher
 from constants import GDRIVE_PATH_PREFIX, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.container_node import CategoryNode
 from model.node.node import Node
-from model.node.gdrive_node import GDriveNode
 from model.op import Op
 from ui import actions
 from ui.tree.tree_actions import DATE_REGEX
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GObject
+from gi.repository import Gtk
 
 logger = logging.getLogger(__name__)
 

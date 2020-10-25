@@ -245,7 +245,7 @@ class GDriveWholeTree:
 
         for single_path in path_list:
             try:
-                identifiers = self.get_identifier_list_for_single_path(single_path)
+                identifiers = self._get_identifier_list_for_single_path(single_path)
                 if identifiers:
                     identifiers_found += identifiers
             except GDriveItemNotFoundError:
@@ -262,7 +262,7 @@ class GDriveWholeTree:
         logger.debug(f'Found {len(identifiers_found)} nodes for path list: "{path_list}"). Returning the whole list')
         return list(map(lambda x: self.get_node_for_uid(x.uid), identifiers_found))
 
-    def get_identifier_list_for_single_path(self, full_path: str) -> List[NodeIdentifier]:
+    def _get_identifier_list_for_single_path(self, full_path: str) -> List[NodeIdentifier]:
         """Try to match the given file-system-like path, mapping the root of this tree to the first segment of the path.
         Since GDrive allows for multiple parents per child, it is possible for multiple matches to occur. This
         returns them all.
@@ -321,26 +321,27 @@ class GDriveWholeTree:
 
             current_seg_nodes = next_seg_nodes
             next_seg_nodes = []
-        matching_ids = list(map(lambda x: x.node_identifier, current_seg_nodes))
-        for node_id in matching_ids:
+        matching_node_identifiers: List[NodeIdentifier] = list(map(lambda x: x.node_identifier, current_seg_nodes))
+        for node_identifier in matching_node_identifiers:
             # Needs to be filled in:
-            node_id.full_path = path_found
+            node_identifier.add_path_if_missing(path_found)
         if SUPER_DEBUG:
-            logger.debug(f'Found for path "{path_so_far}": {matching_ids}')
-        if not matching_ids:
+            logger.debug(f'Found for path "{path_so_far}": {matching_node_identifiers}')
+        if not matching_node_identifiers:
             raise GDriveItemNotFoundError(node_identifier=self.node_identifier_factory.for_values(
                 tree_type=TREE_TYPE_GDRIVE, path_list=full_path), offending_path=path_so_far)
-        return matching_ids
+        return matching_node_identifiers
 
     @staticmethod
-    def in_this_subtree(path_list: Union[str, List[str]]):
-        # always true
-        return True
-
-    @staticmethod
-    def is_in_subtree(full_path: Union[str, List[str]], subtree_root_path: str):
+    def is_path_in_subtree(full_path: Union[str, List[str]], subtree_root_path: str = None):
+        """Checks if the given path(s) have this tree's root (or if given, subtree_root_path) as their base path.
+        Note: for GDriveWholeTree, if subtree_root_path is not provided, any non-empty value of full_path will return True."""
         if not full_path:
-            raise RuntimeError('is_in_subtree(): full_path not provided!')
+            raise RuntimeError('is_path_in_subtree(): full_path not provided!')
+
+        if not subtree_root_path:
+            # This tree start with '/': it contains everything
+            return True
 
         if isinstance(full_path, list):
             for p in full_path:
@@ -351,10 +352,44 @@ class GDriveWholeTree:
 
         return full_path.startswith(subtree_root_path)
 
-    def get_parent_for_node(self, node: GDriveNode, required_subtree_path: str = None) -> Optional[GDriveNode]:
-        if node.get_tree_type() != TREE_TYPE_GDRIVE:
-            logger.debug(f'get_parent_for_node(): node has wrong tree type ({node.get_tree_type()}); returning None')
+    @staticmethod
+    def _filter_by_subtree_root(node_list: List[GDriveNode], subtree_root_path: str) -> List[GDriveNode]:
+        filtered_list = []
+
+        for node in node_list:
+            for path in node.get_path_list():
+                if path.startswith(subtree_root_path):
+                    filtered_list.append(node)
+
+        return filtered_list
+
+    def get_single_parent_for_node(self, node: GDriveNode, required_subtree_path: str = None) -> Optional[GDriveNode]:
+        resolved_parents: List[GDriveNode] = self.get_parent_list_for_node(node)
+
+        if required_subtree_path:
+            # FIXME: this needs more thought
+            if len(resolved_parents) > 1:
+                resolved_parents: List[GDriveNode] = self._filter_by_subtree_root(resolved_parents, required_subtree_path)
+
+            if len(resolved_parents) > 1:
+                raise RuntimeError(f'Got more than 1 parent for node {node.uid}: got {resolved_parents}')
+        else:
+            if len(node.get_parent_uids()) > 1:
+                raise RuntimeError(f'get_single_parent_for_node(): node cannot have more than one parent'
+                                   f' when required_subtree_path is not specified: {node}')
+
+            if len(resolved_parents) > 1:
+                raise RuntimeError(f'get_parent_list_for_node() somehow returned more than 1 parent for node {node.uid}: got {resolved_parents}')
+
+        if resolved_parents:
+            return resolved_parents[0]
+        else:
             return None
+
+    def get_parent_list_for_node(self, node: GDriveNode, required_subtree_path: str = None) -> List[GDriveNode]:
+        if node.get_tree_type() != TREE_TYPE_GDRIVE:
+            logger.debug(f'get_single_parent_for_node(): node has wrong tree type ({node.get_tree_type()}); returning None')
+            return []
 
         assert isinstance(node, GDriveNode)
         parent_uids = node.get_parent_uids()
@@ -362,28 +397,10 @@ class GDriveWholeTree:
             resolved_parents = []
             for par_id in parent_uids:
                 parent = self.get_node_for_uid(par_id)
-                if parent and (not required_subtree_path or self.is_in_subtree(parent.get_path_list(), required_subtree_path)):
+                if parent and (not required_subtree_path or self.is_path_in_subtree(parent.get_path_list(), required_subtree_path)):
                     resolved_parents.append(parent)
-            if len(resolved_parents) > 1:
-                raise RuntimeError(f'Found multiple valid parents for node: {node}: parents={resolved_parents}')
-            if len(resolved_parents) == 1:
-                return resolved_parents[0]
-        return None
-
-    def get_ancestors(self, node: GDriveNode, stop_before_func: Callable[[GDriveNode], bool] = None) -> Deque[GDriveNode]:
-        ancestors: Deque[GDriveNode] = deque()
-
-        # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
-        # been added to this tree, or the root of the source tree
-        ancestor = node
-        while ancestor:
-            if stop_before_func is not None and stop_before_func(ancestor):
-                return ancestors
-            ancestor = self.get_parent_for_node(ancestor)
-            if ancestor:
-                ancestors.appendleft(ancestor)
-
-        return ancestors
+            return resolved_parents
+        return []
 
     def validate(self):
         logger.debug(f'Validating GDriveWholeTree')

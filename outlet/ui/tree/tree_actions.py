@@ -6,7 +6,8 @@ import subprocess
 
 from pydispatch import dispatcher
 
-from model.node_identifier import NodeIdentifier
+from model.node.local_disk_node import LocalNode
+from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from util import file_util
 from model.op import Op, OpType
 from store.gdrive.client import GDriveClient
@@ -63,15 +64,15 @@ class TreeActions(HasLifecycle):
         """Just populates the tree with nodes. Executed asyncly by actions.LOAD_UI_TREE"""
         self.con.app.executor.submit_async_task(self.con.display_mutator.populate_root)
 
-    def _expand_and_select_node(self, nid: NodeIdentifier):
+    def _expand_and_select_node(self, nid: SinglePathNodeIdentifier):
         logger.debug(f'[{self.con.tree_id}] Got signal: "{actions.EXPAND_AND_SELECT_NODE}"')
         self.con.display_mutator.expand_and_select_node(nid)
 
-    def _call_exiftool_list(self, sender, node_list: List[Node]):
+    def _call_exiftool_list(self, sender, node_list: List[LocalNode]):
 
         def call_exiftool():
             for item in node_list:
-                self._call_exiftool(sender, item.full_path)
+                self._call_exiftool(sender, item.get_single_path())
 
         self.con.app.executor.submit_async_task(call_exiftool)
 

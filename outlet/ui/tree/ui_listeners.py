@@ -1,21 +1,17 @@
-
 import logging
-import pathlib
 from typing import Iterable, List, Optional
 
+import gi
 from pydispatch import dispatcher
 
 import ui.actions as actions
-from model.op import Op, OpType
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
 from diff.change_maker import ChangeMaker
-from model.uid import UID
-from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
-from model.node.node import Node
 from model.node.local_disk_node import LocalFileNode
-
-import gi
-
+from model.node.node import Node
+from model.node_identifier import SinglePathNodeIdentifier
+from model.op import Op, OpType
+from model.uid import UID
 from ui.tree.context_menu import TreeContextMenu
 from ui.tree.controller import TreePanelController
 from util.has_lifecycle import HasLifecycle
@@ -201,9 +197,9 @@ class TreeUiListeners(HasLifecycle):
         if is_into:
             if dest_node and not dest_node.is_dir():
                 # cannot drop into a file; just use parent in this case
-                dest_node = self.con.cacheman.get_parent_for_node(dest_node)
+                dest_node = self.con.cacheman.get_single_parent_for_node(dest_node)
         else:
-            dest_node = self.con.cacheman.get_parent_for_node(dest_node)
+            dest_node = self.con.cacheman.get_single_parent_for_node(dest_node)
 
         if not dest_node:
             logger.error(f'[{self.con.tree_id}] Cancelling drop: no parent node for dropped location!')

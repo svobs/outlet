@@ -157,7 +157,7 @@ class OpLedger(HasLifecycle):
             if cp_dst_dict.get(src_ancestor.uid, None):
                 raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being copied to!')
 
-            src_ancestor = self.app.cacheman.get_parent_for_node(src_ancestor)
+            src_ancestor = self.app.cacheman.get_single_parent_for_node(src_ancestor)
 
         while dst_ancestor:
             if SUPER_DEBUG:
@@ -167,12 +167,12 @@ class OpLedger(HasLifecycle):
             if cp_src_dict.get(dst_ancestor.uid, None):
                 raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being copied from!')
 
-            dst_ancestor = self.app.cacheman.get_parent_for_node(dst_ancestor)
+            dst_ancestor = self.app.cacheman.get_single_parent_for_node(dst_ancestor)
 
     def _check_ancestors(self, op: Op, eval_func: Callable[[Op, Node], bool]):
         ancestor = op.src_node
         while True:
-            ancestor = self.app.cacheman.get_parent_for_node(ancestor)
+            ancestor = self.app.cacheman.get_single_parent_for_node(ancestor)
             if not ancestor:
                 return
             if SUPER_DEBUG:

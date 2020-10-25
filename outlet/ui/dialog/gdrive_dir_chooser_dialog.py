@@ -24,7 +24,7 @@ GDRIVE_DIR_CHOOSER_DIALOG_DEFAULT_HEIGHT = 800
 
 class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
 
-    def __init__(self, parent_win: BaseDialog, tree, tree_id: str, current_selection: NodeIdentifier):
+    def __init__(self, parent_win: BaseDialog, tree, tree_id: str, current_selection: SinglePathNodeIdentifier):
         Gtk.Dialog.__init__(self, title="Select GDrive Root", transient_for=parent_win, flags=0)
         BaseDialog.__init__(self, app=parent_win.app)
 
@@ -48,7 +48,9 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
 
         self.content_box.pack_start(self.tree_controller.content_box, True, True, 0)
 
-        self._initial_selection_nid: NodeIdentifier = current_selection
+        assert isinstance(current_selection, SinglePathNodeIdentifier), \
+            f'Expected instance of SinglePathNodeIdentifier but got: {type(current_selection)}'
+        self._initial_selection_nid: SinglePathNodeIdentifier = current_selection
         if current_selection.tree_type == TREE_TYPE_GDRIVE:
             logger.debug(f'[{actions.ID_GDRIVE_DIR_SELECT}] Connecting listener to signal: {actions.LOAD_UI_TREE_DONE}')
             dispatcher.connect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)

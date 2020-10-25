@@ -97,7 +97,7 @@ class CategoryDisplayTree(DisplayTree):
         while ancestor:
             if stop_before_func is not None and stop_before_func(ancestor):
                 return ancestors
-            ancestor = self.get_parent_for_node(ancestor)
+            ancestor = self.get_single_parent_for_node(ancestor)
             if ancestor:
                 if ancestor.uid == self.uid:
                     # do not include source tree's root node:
@@ -290,7 +290,7 @@ class CategoryDisplayTree(DisplayTree):
         if SUPER_DEBUG:
             self.print_tree_contents_debug()
 
-    def get_parent_for_node(self, node: Node) -> Optional[Node]:
+    def get_single_parent_for_node(self, node: Node) -> Optional[Node]:
         if not self._category_tree.get_node(node.identifier):
             return None
 

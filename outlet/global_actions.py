@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 
 from constants import TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
-from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
+from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.display_tree.display_tree import DisplayTree
 from util.has_lifecycle import HasLifecycle
 
@@ -87,12 +87,12 @@ class GlobalActions(HasLifecycle):
             self.show_error_ui('Sync from GDrive failed due to unexpected error', repr(err))
             logger.exception(err)
 
-    def _on_gdrive_root_dialog_requested(self, sender: str, current_selection: NodeIdentifier):
+    def _on_gdrive_root_dialog_requested(self, sender: str, current_selection: SinglePathNodeIdentifier):
         """See below."""
         logger.debug(f'Received signal: "{actions.SHOW_GDRIVE_CHOOSER_DIALOG}"')
         self.app.executor.submit_async_task(self.load_data_for_gdrive_dir_chooser_dialog, sender, current_selection)
 
-    def load_data_for_gdrive_dir_chooser_dialog(self, tree_id: str, current_selection: NodeIdentifier):
+    def load_data_for_gdrive_dir_chooser_dialog(self, tree_id: str, current_selection: SinglePathNodeIdentifier):
         """See above. Executed by Task Runner. NOT UI thread"""
         actions.disable_ui(sender=tree_id)
         try:
@@ -104,7 +104,7 @@ class GlobalActions(HasLifecycle):
         finally:
             actions.enable_ui(sender=tree_id)
 
-    def _on_gdrive_chooser_dialog_load_complete(self, sender, tree: DisplayTree, current_selection: NodeIdentifier):
+    def _on_gdrive_chooser_dialog_load_complete(self, sender, tree: DisplayTree, current_selection: SinglePathNodeIdentifier):
         logger.debug(f'Received signal: "{actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE}"')
         assert type(sender) == str
 

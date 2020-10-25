@@ -15,7 +15,7 @@ from util.holdoff_timer import HoldOffTimer
 from model.node.container_node import CategoryNode
 from model.node.node import Node
 from model.node.ephemeral_node import EmptyNode, LoadingNode
-from model.node_identifier import NodeIdentifier
+from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from ui import actions
 
 import gi
@@ -100,12 +100,16 @@ class DisplayMutator(HasLifecycle):
         finally:
             self._enable_expand_state_listeners = True
 
-    def expand_and_select_node(self, selection: NodeIdentifier):
+    def expand_and_select_node(self, selection: SinglePathNodeIdentifier):
+        assert isinstance(selection, SinglePathNodeIdentifier), f'Expected instance of SinglePathNodeIdentifier but got: {type(selection)}'
+
         def do_in_ui():
             with self._lock:
+                # FIXME
                 item = self.con.parent_win.app.cacheman.get_node_for_uid(selection.uid, selection.tree_type)
                 ancestor_list: Iterable[Node] = self.con.get_tree().get_ancestors(item)
 
+                # Expand all ancestors one by one:
                 tree_iter = None
                 for ancestor in ancestor_list:
                     tree_iter = self.con.display_store.find_uid_in_tree(ancestor.uid, tree_iter)
@@ -116,9 +120,10 @@ class DisplayMutator(HasLifecycle):
                     if not self.con.tree_view.row_expanded(tree_path):
                         self._expand_subtree(tree_path, expand_all=False)
 
+                # Now select target node:
                 tree_iter = self.con.display_store.find_uid_in_tree(selection.uid, tree_iter)
                 if not tree_iter:
-                    logger.error(f'[{self.con.tree_id}] Could not expand node: could not find node in tree for: {selection}')
+                    logger.error(f'[{self.con.tree_id}] Could not select node: could not find node in tree for: {selection}')
                     return
                 tree_view_selection: Gtk.TreeSelection = self.con.tree_view.get_selection()
                 # tree_view_selection.unselect_all()
@@ -333,7 +338,7 @@ class DisplayMutator(HasLifecycle):
         def update_ui():
             with self._lock:
                 # TODO: this can be optimized to search only the paths of the ancestors
-                parent = tree.get_parent_for_node(node)
+                parent = tree.get_single_parent_for_node(node)
 
                 if not parent:
                     if node.uid in self.con.display_store.displayed_rows:
@@ -341,7 +346,7 @@ class DisplayMutator(HasLifecycle):
                                      f'but its parent is no longer in the tree; removing node from display store: {node.uid}')
                         self.con.display_store.remove_node(node.uid)
                         self._stats_refresh_timer.start_or_delay()
-                    elif tree.in_this_subtree(node.full_path):
+                    elif tree.is_path_in_subtree(node.get_path_list()):
                         # At least in subtree? If so, refresh stats to reflect change
                         logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_UPSERTED} for node {node.node_identifier}')
                         self._stats_refresh_timer.start_or_delay()
@@ -425,7 +430,7 @@ class DisplayMutator(HasLifecycle):
                     logger.debug(f'[{self.con.tree_id}] Removing node from display store: {displayed_item.uid}')
                     self.con.display_store.remove_node(node.uid)
                     logger.debug(f'[{self.con.tree_id}] Node removed: {displayed_item.uid}')
-                elif self.con.get_tree().in_this_subtree(node.get_path_list()):
+                elif self.con.get_tree().is_path_in_subtree(node.get_path_list()):
                     if logger.isEnabledFor(logging.DEBUG):
                         logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_REMOVED} for node {node.node_identifier}')
 
@@ -608,7 +613,7 @@ class DisplayMutator(HasLifecycle):
 
         # Directory
         if not self.con.treeview_meta.use_dir_tree:
-            directory, name = os.path.split(node.full_path)
+            directory, name = os.path.split(node.get_single_path())
             row_values.append(directory)  # Directory
 
         # Size Bytes

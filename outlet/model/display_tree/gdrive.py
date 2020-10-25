@@ -81,16 +81,16 @@ class GDriveDisplayTree(DisplayTree):
 
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[GDriveNode]:
         path_list = ensure_list(path_list)
-        if not self.in_this_subtree(path_list):
+        if not self.is_path_in_subtree(path_list):
             raise RuntimeError(f'Not in this tree: "{path_list}" (tree root: {self.root_path}')
 
         return self._whole_tree.get_node_list_for_path_list(path_list)
 
-    def get_parent_for_node(self, node: GDriveNode) -> Optional[GDriveNode]:
+    def get_single_parent_for_node(self, node: GDriveNode) -> Optional[GDriveNode]:
         if node.get_tree_type() != TREE_TYPE_GDRIVE:
             return None
 
-        return self._whole_tree.get_parent_for_node(node, self.root_path)
+        return self._whole_tree.get_single_parent_for_node(node, self.root_path)
 
     def __repr__(self):
         if self._stats_loaded:

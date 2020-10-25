@@ -51,18 +51,18 @@ class DisplayTree(ABC):
     def print_tree_contents_debug(self):
         logger.debug('print_tree_contents_debug() not implemented for this tree')
 
-    def in_this_subtree(self, full_path: Union[str, List[str]]):
-        if not full_path:
-            raise RuntimeError('in_this_subtree(): full_path not provided!')
+    def is_path_in_subtree(self, path_list: Union[str, List[str]]):
+        if not path_list:
+            raise RuntimeError('is_path_in_subtree(): full_path not provided!')
 
-        if isinstance(full_path, list):
-            for path in full_path:
+        if isinstance(path_list, list):
+            for path in path_list:
                 # i.e. if any paths start with
                 if path.startswith(self.root_path):
                     return True
             return False
 
-        return full_path.startswith(self.root_path)
+        return path_list.startswith(self.root_path)
 
     # Getters & search
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -76,7 +76,7 @@ class DisplayTree(ABC):
         pass
 
     @abstractmethod
-    def get_parent_for_node(self, node) -> Optional[Node]:
+    def get_single_parent_for_node(self, node) -> Optional[Node]:
         pass
 
     def get_relative_path_list_for_node(self, node: Node) -> List[str]:
@@ -103,7 +103,7 @@ class DisplayTree(ABC):
         while ancestor:
             if stop_before_func is not None and stop_before_func(ancestor):
                 return ancestors
-            ancestor = self.get_parent_for_node(ancestor)
+            ancestor = self.get_single_parent_for_node(ancestor)
             if ancestor:
                 if ancestor.uid == self.uid:
                     # do not include source tree's root node:

@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import List, Optional, Union
 
-from constants import NULL_UID, TREE_TYPE_DISPLAY, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_NA
+from constants import NULL_UID, SUPER_DEBUG, TREE_TYPE_DISPLAY, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_NA
 from model.uid import UID
 from util import file_util
 
@@ -92,6 +92,14 @@ class NodeIdentifier(ABC):
         else:
             assert isinstance(path_list, str), f'Found instead: {path_list}, type={type(path_list)}'
             self._path_list = path_list
+
+    def add_path_if_missing(self, single_path: str):
+        path_list = self.get_path_list()
+        if single_path not in path_list:
+            path_list.append(single_path)
+            if SUPER_DEBUG:
+                logger.debug(f'Added path: {single_path} to node UID {self.uid}')
+        self.set_path_list(path_list)
 
     def normalize_paths(self):
         path_list = self.get_path_list()

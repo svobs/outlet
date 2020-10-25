@@ -380,9 +380,9 @@ class GDriveMasterStore(MasterStore):
         assert isinstance(node, GDriveNode)
         return self._memstore.master_tree.get_children(node)
 
-    def get_parent_for_node(self, node: Node, required_subtree_path: str = None):
+    def get_single_parent_for_node(self, node: Node, required_subtree_path: str = None):
         assert isinstance(node, GDriveNode)
-        return self._memstore.master_tree.get_parent_for_node(node, required_subtree_path)
+        return self._memstore.master_tree.get_single_parent_for_node(node, required_subtree_path)
 
     def get_identifier_list_for_full_path_list(self, path_list: List[str]) -> List[NodeIdentifier]:
         if not self._memstore.master_tree:

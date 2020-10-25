@@ -695,15 +695,16 @@ class CacheManager(HasLifecycle):
             assert len(parent_uids) == 1, f'Expected exactly one parent_uid for node: {node}'
             return parent_uids[0]
         else:
+
             assert node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Node: {node}'
             parent_path = str(pathlib.Path(node.full_path).parent)
             return self.get_uid_for_path(parent_path)
 
-    def get_parent_for_node(self, node: Node, required_subtree_path: str = None):
+    def get_single_parent_for_node(self, node: Node, required_subtree_path: str = None) -> Node:
         if node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
-            return self._master_gdrive.get_parent_for_node(node, required_subtree_path)
+            return self._master_gdrive.get_single_parent_for_node(node, required_subtree_path)
         elif node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-            return self._master_local.get_parent_for_node(node, required_subtree_path)
+            return self._master_local.get_single_parent_for_node(node, required_subtree_path)
         else:
             raise RuntimeError(f'Unknown tree type: {node.node_identifier.tree_type} for {node}')
 
