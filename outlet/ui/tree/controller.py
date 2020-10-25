@@ -1,6 +1,6 @@
 import copy
 import logging
-from typing import List, Tuple
+from typing import Any, Callable, List, Tuple
 
 from pydispatch import dispatcher
 
@@ -122,7 +122,7 @@ class TreePanelController:
 
         GLib.idle_add(_reload)
 
-    def derive_single_path_from_tree_path(self, tree_path, include_gdrive_prefix: bool = False) -> str:
+    def derive_single_path_from_tree_path(self, tree_path: Gtk.TreePath, include_gdrive_prefix: bool = False) -> str:
         """Travels up the display tree and constructs a single path for the given node.
         Some background: while a node can have several paths associated with it, each display tree node can only be associated
         with a single path - but that information is implicit in the tree structure itself and must be reconstructed from it."""
@@ -153,28 +153,28 @@ class TreePanelController:
         logger.debug(f'derive_single_path_from_tree_path(): derived path: {single_path}')
         return single_path
 
-    def get_single_selection_display_identifier(self):
+    def _do_with_single_selection(self, action_func: Callable[[Gtk.TreePath], Any]):
         selection = self.tree_view.get_selection()
-        model, tree_paths = selection.get_selected_rows()
-        if len(tree_paths) == 1:
-            node = self.display_store.get_node_data(tree_paths)
-            single_path = self.derive_single_path_from_tree_path(tree_paths)
-            return SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.get_tree_type())
-        elif len(tree_paths) == 0:
+        model, tree_path_list = selection.get_selected_rows()
+        if len(tree_path_list) == 1:
+            tree_path = tree_path_list[0]
+            return action_func(tree_path)
+        elif len(tree_path_list) == 0:
             return None
         else:
-            raise Exception(f'Selection has more rows than expected: count={len(tree_paths)}')
+            raise Exception(f'Selection has more rows than expected: count={len(tree_path_list)}')
+
+    def get_single_selection_display_identifier(self):
+        def make_identifier(tree_path: Gtk.TreePath):
+            node = self.display_store.get_node_data(tree_path)
+            single_path = self.derive_single_path_from_tree_path(tree_path)
+            return SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.get_tree_type())
+
+        return self._do_with_single_selection(make_identifier)
 
     def get_single_selection(self):
         """Assumes that only one node can be selected at a given time"""
-        selection = self.tree_view.get_selection()
-        model, tree_paths = selection.get_selected_rows()
-        if len(tree_paths) == 1:
-            return self.display_store.get_node_data(tree_paths)
-        elif len(tree_paths) == 0:
-            return None
-        else:
-            raise Exception(f'Selection has more rows than expected: count={len(tree_paths)}')
+        return self._do_with_single_selection(lambda tp: self.display_store.get_node_data(tp))
 
     def get_multiple_selection(self) -> List[Node]:
         """Returns a list of the selected items (empty if none)"""
