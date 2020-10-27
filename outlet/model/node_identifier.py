@@ -61,8 +61,13 @@ class NodeIdentifier(ABC):
     def tree_type(self) -> int:
         return TREE_TYPE_NA
 
+    @staticmethod
+    def is_spid():
+        return False
+
     def get_single_path(self) -> str:
         """Do not use this unless you really mean it"""
+        # TODO: move this method to SinglePathNodeIdentifier
         path_list = self.get_path_list()
         if len(path_list) != 1:
             raise RuntimeError(f'get_single_path(): expected exactly one path for node_identifier: {self}')
@@ -160,6 +165,10 @@ class SinglePathNodeIdentifier(NodeIdentifier):
     @property
     def tree_type(self) -> int:
         return self._tree_type
+
+    @staticmethod
+    def is_spid():
+        return True
 
 
 """

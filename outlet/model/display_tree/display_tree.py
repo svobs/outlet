@@ -1,11 +1,12 @@
+import collections
 import logging
+import os
 from abc import ABC, abstractmethod
-from typing import Deque, Iterable, List, Optional, Union
+from typing import Callable, Deque, Iterable, List, Optional, Union
 
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
-from util import file_util
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +27,11 @@ class DisplayTree(ABC):
     # From the root node_identifier
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
+    def get_root_sn(self) -> SPIDNodePair:
+        return SPIDNodePair(self.root_identifier, self.get_root_node())
+
     def get_root_node(self):
         return self.app.cacheman.get_node_for_uid(self.root_identifier.uid)
-
-    @property
-    def node_identifier(self) -> SinglePathNodeIdentifier:
-        """Override this if root node's identifier is not SinglePathNodeIdentifier"""
-        return self.root_identifier
 
     @property
     def root_path(self) -> str:
@@ -51,8 +50,8 @@ class DisplayTree(ABC):
     def root_uid(self) -> UID:
         return self.uid
 
-    def print_tree_contents_debug(self):
-        logger.debug('print_tree_contents_debug() not implemented for this tree')
+    # Getters & search
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def is_path_in_subtree(self, path_list: Union[str, List[str]]):
         if not path_list:
@@ -67,9 +66,6 @@ class DisplayTree(ABC):
 
         return path_list.startswith(self.root_path)
 
-    # Getters & search
-    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-
     @abstractmethod
     def get_children_for_root(self) -> Iterable[Node]:
         pass
@@ -82,23 +78,40 @@ class DisplayTree(ABC):
     def get_single_parent_for_node(self, node) -> Optional[Node]:
         pass
 
-    def get_relative_path_list_for_node(self, node: Node) -> List[str]:
-        relative_path_list: List[str] = []
-        for full_path in node.get_path_list():
-            if full_path.startswith(self.root_path):
-                relative_path_list.append(file_util.strip_root(full_path, self.root_path))
-        return relative_path_list
-
     @abstractmethod
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[Node]:
         pass
 
-    @abstractmethod
-    def get_md5_dict(self):
-        pass
-
     def get_ancestor_list(self, single_path_node_identifier: SinglePathNodeIdentifier) -> Deque[Node]:
         return self.app.cacheman.get_ancestor_list_for_single_path_identifier(single_path_node_identifier, stop_at_path=self.root_path)
+
+    @staticmethod
+    def _build_child_spid(child_node: Node, parent_path: str):
+        return SinglePathNodeIdentifier(child_node.uid, os.path.join(parent_path, child_node.name), tree_type=child_node.get_tree_type())
+
+    def visit_each_sn_for_subtree(self, on_file_found: Callable[[SPIDNodePair], None], subtree_root: SPIDNodePair = None):
+        if not subtree_root:
+            subtree_root = self.get_root_sn()
+
+        queue: Deque[SPIDNodePair] = collections.deque()
+        queue.append(subtree_root)
+
+        while len(queue) > 0:
+            sn: SPIDNodePair = queue.popleft()
+            if sn.node.exists():  # avoid pending op nodes
+                if sn.node.is_dir():
+                    child_list = self.get_children(sn.node)
+                    if child_list:
+                        for child in child_list:
+                            if child.node_identifier.is_spid():
+                                child_spid = child.node_identifier
+                            else:
+                                child_spid = DisplayTree._build_child_spid(child, sn.spid.get_single_path())
+                            assert child_spid.get_single_path() in child.get_path_list(), \
+                                f'Child path "{child_spid.get_single_path()}" does not correspond to actual node: {child}'
+                            queue.append(SPIDNodePair(child_spid, child))
+                else:
+                    on_file_found(sn)
 
     # Stats
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -110,3 +123,6 @@ class DisplayTree(ABC):
     @abstractmethod
     def refresh_stats(self, tree_id: str):
         pass
+
+    def print_tree_contents_debug(self):
+        logger.debug('print_tree_contents_debug() not implemented for this tree')

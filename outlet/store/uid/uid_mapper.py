@@ -22,13 +22,6 @@ class UidPathMapper:
         # Every unique path must map to one unique UID
         self._full_path_uid_dict: Dict[str, UID] = {ROOT_PATH: LOCAL_ROOT_UID}
 
-    def get_uid_for_path_list(self, path_list: List[str], uid_suggestion: Optional[UID] = None):
-        if len(path_list) != 1:
-            # sanity check
-            raise RuntimeError(f'get_uid_for_path_list(): too many paths supplied: {path_list}')
-
-        return self.get_uid_for_path(path_list[0], uid_suggestion)
-
     def get_uid_for_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
         if not full_path and isinstance(full_path, str):
             raise RuntimeError(f'get_uid_for_path(): full_path is not str: {full_path}')

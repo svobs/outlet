@@ -10,8 +10,6 @@ from model.node.node import Node
 from model.node_identifier import ensure_list, SinglePathNodeIdentifier
 from ui import actions
 from util import format
-from util.stopwatch_sec import Stopwatch
-from util.two_level_dict import Md5BeforeUidDict
 
 logger = logging.getLogger(__name__)
 
@@ -50,18 +48,6 @@ class LocalDiskDisplayTree(DisplayTree):
             if node and node.get_single_path().startswith(self.root_path):
                 node_list.append(node)
         return node_list
-
-    def get_md5_dict(self):
-        md5_set_stopwatch = Stopwatch()
-
-        md5_dict: Md5BeforeUidDict = Md5BeforeUidDict()
-        files_list, dir_list = self.app.cacheman.get_all_files_and_dirs_for_subtree(self.node_identifier)
-        for node in files_list:
-            if node.exists() and node.md5:
-                md5_dict.put(node)
-
-        logger.info(f'{md5_set_stopwatch} Found {md5_dict.total_entries} MD5s in {self.root_path}')
-        return md5_dict
 
     def remove(self, node: LocalFileNode):
         raise RuntimeError('Can no longer do this in LocalDiskDisplayTree!')

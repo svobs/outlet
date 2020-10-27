@@ -1,6 +1,7 @@
 import time
 from enum import IntEnum
 
+import treelib
 from treelib import Node
 
 from constants import ICON_DIR_CP_DST, ICON_DIR_CP_SRC, ICON_DIR_MK, ICON_DIR_MV_DST, ICON_DIR_MV_SRC, ICON_DIR_RM, \
@@ -54,7 +55,7 @@ class OpRef:
 # Class Op
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class Op(Node):
+class Op(treelib.Node):
     icon_src_file_dict = {OpType.RM: ICON_FILE_RM,
                           OpType.MV: ICON_FILE_MV_SRC,
                           OpType.UP: ICON_FILE_UP_SRC,
@@ -74,7 +75,7 @@ class Op(Node):
     def __init__(self, op_uid: UID, batch_uid: UID, op_type: OpType, src_node: Node,
                  dst_node: Node = None, create_ts: int = None):
         assert src_node, 'No src node!'
-        Node.__init__(self, identifier=op_uid)
+        treelib.Node.__init__(self, identifier=op_uid)
         self.op_uid: UID = op_uid
         self.batch_uid: UID = batch_uid
         self.op_type: OpType = op_type

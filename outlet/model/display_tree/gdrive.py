@@ -1,6 +1,5 @@
-import collections
 import logging
-from typing import Deque, List, Optional
+from typing import List, Optional
 
 from pydispatch import dispatcher
 
@@ -11,8 +10,6 @@ from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.node_identifier import ensure_list, SinglePathNodeIdentifier
 from ui import actions
 from util import format
-from util.stopwatch_sec import Stopwatch
-from util.two_level_dict import Md5BeforeUidDict
 
 logger = logging.getLogger(__name__)
 
@@ -36,30 +33,6 @@ class GDriveDisplayTree(DisplayTree):
 
     def get_root_node(self):
         return self._whole_tree.get_node_for_uid(self.root_identifier.uid)
-
-    def get_md5_dict(self):
-        md5_set_stopwatch = Stopwatch()
-
-        md5_dict: Md5BeforeUidDict = Md5BeforeUidDict()
-
-        queue: Deque[GDriveNode] = collections.deque()
-        root_node = self.get_root_node()
-        assert isinstance(root_node, GDriveFolder)
-        queue.append(root_node)
-
-        while len(queue) > 0:
-            node: GDriveNode = queue.popleft()
-            if node.exists():
-                if node.is_dir():
-                    child_list = self._whole_tree.get_children(node)
-                    if child_list:
-                        for child in child_list:
-                            queue.append(child)
-                elif node.md5:
-                    md5_dict.put(node)
-
-        logger.info(f'{md5_set_stopwatch} Found {md5_dict.total_entries} MD5s')
-        return md5_dict
 
     def get_children_for_root(self) -> List[GDriveNode]:
         root_node = self.get_root_node()

@@ -1,3 +1,4 @@
+import collections
 import logging
 import os
 from abc import ABC, abstractmethod
@@ -12,6 +13,10 @@ from store.uid.uid_generator import UID
 from model.node_identifier import NodeIdentifier
 
 logger = logging.getLogger(__name__)
+
+# TYPEDEF SPIDNodePair
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+SPIDNodePair = collections.namedtuple('SPIDNodePair', 'spid node')
 
 
 # ABSTRACT CLASS Node

@@ -11,15 +11,15 @@ from pydispatch import dispatcher
 
 from command.cmd_interface import Command, CommandResult
 from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, ROOT_PATH, \
-    TREE_TYPE_DISPLAY, TREE_TYPE_GDRIVE, \
+    TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.gdrive import GDriveDisplayTree
-from model.node.node import Node, HasParentList
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.node.node import HasParentList, Node, SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.op import Op
@@ -212,7 +212,7 @@ class CacheManager(HasLifecycle):
                                            f'from memstore ({uid_from_mem}) for path="{info.subtree_root.get_single_path()}"')
 
                 # Put into map to eliminate possible duplicates
-                self.caches_by_type.put(info)
+                self.caches_by_type.put_item(info)
 
             # Write back to cache if we need to clean things up:
             if skipped_count > 0:
@@ -284,11 +284,11 @@ class CacheManager(HasLifecycle):
             logger.debug(f'Overwriting in-memory list ({len(self.caches_by_type)}) with {len(existing_caches)} entries')
             self.caches_by_type.clear()
             for cache in existing_caches:
-                self.caches_by_type.put(cache)
+                self.caches_by_type.put_item(cache)
 
         for cache_num, existing_disk_cache in enumerate(existing_caches):
             try:
-                self.caches_by_type.put(existing_disk_cache)
+                self.caches_by_type.put_item(existing_disk_cache)
                 logger.info(f'Init cache {(cache_num + 1)}/{len(existing_caches)}: id={existing_disk_cache.subtree_root}')
                 self._init_existing_cache(existing_disk_cache)
             except RuntimeError:
@@ -403,7 +403,7 @@ class CacheManager(HasLifecycle):
         cache_info = PersistedCacheInfo(db_entry)
 
         # Save reference in memory
-        self.caches_by_type.put(cache_info)
+        self.caches_by_type.put_item(cache_info)
 
         return cache_info
 
@@ -493,14 +493,11 @@ class CacheManager(HasLifecycle):
                 self.upsert_single_node(upsert_node)
 
         if cmd_result.nodes_to_delete:
-            try:
-                to_trash = cmd_result.to_trash
-            except AttributeError:
-                to_trash = False
+            # TODO: to_trash?
 
             logger.debug(f'Deleted {len(cmd_result.nodes_to_delete)} nodes: notifying cacheman')
             for deleted_node in cmd_result.nodes_to_delete:
-                self.remove_node(deleted_node, to_trash)
+                self.remove_node(deleted_node, to_trash=False)
 
     def refresh_subtree(self, node: Node, tree_id: str):
         """Called asynchronously via actions.REFRESH_SUBTREE"""
@@ -625,7 +622,7 @@ class CacheManager(HasLifecycle):
 
     def get_uid_for_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
         """Deterministically gets or creates a UID corresponding to the given path string"""
-        assert full_path
+        assert full_path and isinstance(full_path, str)
         return self._master_local.get_uid_for_path(full_path, uid_suggestion)
 
     def read_single_node_from_disk_for_path(self, full_path: str, tree_type: int) -> Node:
@@ -665,6 +662,9 @@ class CacheManager(HasLifecycle):
     def get_node_for_goog_id(self, goog_id: str) -> UID:
         return self._master_gdrive.get_node_for_domain_id(goog_id)
 
+    def get_node_for_node_identifier(self, node_identifer: NodeIdentifier) -> Optional[Node]:
+        return self.get_node_for_uid(node_identifer.uid, node_identifer.tree_type)
+
     def get_node_for_uid(self, uid: UID, tree_type: int = None):
         if tree_type:
             if tree_type == TREE_TYPE_LOCAL_DISK:
@@ -679,6 +679,15 @@ class CacheManager(HasLifecycle):
         if not node:
             node = self._master_gdrive.get_node_for_uid(uid)
         return node
+
+    def get_node_list_for_path_list(self, path_list: List[str], tree_type: int) -> List[Node]:
+        """Because of GDrive, we cannot guarantee that a single path will have only one node, or a single node will have only one path."""
+        if tree_type == TREE_TYPE_GDRIVE:
+            return self._master_gdrive.get_node_list_for_path_list(path_list)
+        elif tree_type == TREE_TYPE_LOCAL_DISK:
+            return self._master_local.get_node_list_for_path_list(path_list)
+        else:
+            raise RuntimeError(f'Unknown tree type: {tree_type}')
 
     def get_children(self, node: Node):
         tree_type: int = node.node_identifier.tree_type
@@ -731,6 +740,19 @@ class CacheManager(HasLifecycle):
             raise RuntimeError(f'None of {len(parent_node_list)} parents matched parent path "{parent_path}"')
         logger.debug(f'Matched path "{parent_path}" with node {filtered_list[0]}')
         return filtered_list[0]
+
+    def get_parent_sn_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
+        path_list = sn.node.get_path_list()
+        parent_path: str = self._derive_parent_path(sn.spid.get_single_path())
+        if len(path_list) == 1 and path_list[0] == sn.spid.get_single_path():
+            # only one parent -> easy
+            parent_node = self.get_single_parent_for_node(sn.node)
+        else:
+            parent_node = self._find_parent_matching_path(sn.node, parent_path)
+        if not parent_node:
+            return None
+        parent_spid = SinglePathNodeIdentifier(parent_node.uid, parent_path, parent_node.get_tree_type())
+        return SPIDNodePair(parent_spid, parent_node)
 
     def get_single_parent_for_single_path_identfiier(self, single_path_node_identifier: SinglePathNodeIdentifier) -> Optional[Node]:
         node = self.get_node_for_uid(single_path_node_identifier.uid)

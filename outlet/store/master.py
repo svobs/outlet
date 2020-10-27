@@ -72,3 +72,7 @@ class MasterStore(HasLifecycle, ABC):
     @abstractmethod
     def get_uid_for_domain_id(self, domain_id: str, uid_suggestion: Optional[UID] = None) -> UID:
         pass
+
+    @abstractmethod
+    def get_node_list_for_path_list(self, path_list: List[str]) -> List[Node]:
+        pass

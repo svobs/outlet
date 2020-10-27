@@ -1,87 +1,117 @@
 """Content-first diff. See diff function below."""
+import collections
 import logging
+import os
 import time
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Callable, DefaultDict, Deque, Dict, List, Tuple
 
-from model.op import OpType
-from constants import ROOT_PATH, SUPER_ROOT_UID, TREE_TYPE_MIXED
-from diff.change_maker import ChangeMaker
-from util.two_level_dict import TwoLevelDict
-from model.node.node import Node
-from model.node_identifier import SinglePathNodeIdentifier, NodeIdentifier
-from model.display_tree.display_tree import DisplayTree
-from util.stopwatch_sec import Stopwatch
-from ui.actions import ID_MERGE_TREE
+from constants import TREE_TYPE_GDRIVE, TREE_TYPE_MIXED
+from diff.change_maker import ChangeMaker, SPIDNodePair
 from model.display_tree.category import CategoryDisplayTree
+from model.display_tree.display_tree import DisplayTree
+from model.node.node import Node
+from model.node_identifier import SinglePathNodeIdentifier
+from model.node_identifier_factory import NodeIdentifierFactory
+from model.op import OpType
+from ui.actions import ID_MERGE_TREE
+from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
 
-#    CLASS DisplayNodePair
+# CLASS OneSideDiffMeta
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class DisplayNodePair:
-    def __init__(self, left: Node = None, right: Node = None):
-        self.left: Optional[Node] = left
-        self.right: Optional[Node] = right
+class OneSideDiffMeta:
+    def __init__(self, display_tree: DisplayTree):
+        md5_dict, path_dict = self._build_structs(display_tree)
+        self.md5_dict: DefaultDict[str, List[SPIDNodePair]] = md5_dict
+        self.path_dict: DefaultDict[str, List[SPIDNodePair]] = path_dict
+        """Let's build a path dict while we are building the MD5 dict. Performance gain expected to be small for local trees and moderate
+        for GDrive trees"""
+
+    @staticmethod
+    def _build_structs(display_tree: DisplayTree) -> Tuple[DefaultDict[str, List[SPIDNodePair]], DefaultDict[str, List[SPIDNodePair]]]:
+        sw = Stopwatch()
+
+        md5_dict: DefaultDict[str, List[SPIDNodePair]] = collections.defaultdict(lambda: list())
+        path_dict: DefaultDict[str, List[SPIDNodePair]] = collections.defaultdict(lambda: list())
+
+        def on_file_found(sn: SPIDNodePair):
+            if sn.node.md5:
+                md5_dict[sn.node.md5].append(sn)
+                path = sn.spid.get_single_path()
+                if path in path_dict:
+                    logger.warning(f'Found additional node at path: "{sn.spid.get_single_path()}" (tree={display_tree.root_identifier}).')
+                    on_file_found.count_duplicate_paths += 1
+                path_dict[path].append(sn)
+                on_file_found.count_nodes += 1
+
+        on_file_found.count_nodes = 0
+        on_file_found.count_duplicate_paths = 0
+
+        display_tree.visit_each_sn_for_subtree(on_file_found)
+
+        logger.info(f'{sw} Found {len(md5_dict)} MD5s for {on_file_found.count_nodes} nodes (including '
+                    f'{on_file_found.count_duplicate_paths} duplicate paths)')
+        return md5_dict, path_dict
 
 
-#    CLASS ContentFirstDiffer
+# CLASS ContentFirstDiffer
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class ContentFirstDiffer(ChangeMaker):
     def __init__(self, left_tree: DisplayTree, right_tree: DisplayTree, app):
         super().__init__(left_tree, right_tree, app)
 
-    def _compare_paths_for_same_md5(self, lefts: Iterable[Node], rights: Iterable[Node]) -> Iterable[DisplayNodePair]:
-        compare_result: List[DisplayNodePair] = []
-
+    def _process_nonmatching_relative_path_pairs(self, lefts: List[SPIDNodePair], rights: List[SPIDNodePair],
+                                                 on_mismatched_pair: Callable, on_left_only: Callable, on_right_only: Callable) -> None:
+        """This returns a set of pairs for items whose relative paths *do not* match.
+        All elements in both the 'lefts' and 'rights' parameter lists are expected to contain the same MD5."""
+        # Check for the trivial cases first:
         if not lefts:
-            for right_node in rights:
-                compare_result.append(DisplayNodePair(None, right_node))
-            return compare_result
+            for right_sn in rights:
+                on_right_only(right_sn)
+            return
         if not rights:
-            for left_node in lefts:
-                compare_result.append(DisplayNodePair(None, left_node))
-            return compare_result
+            for left_sn in lefts:
+                on_left_only(left_sn)
+            return
 
-        # key is a relative path
-        left_dict: Dict[str, Node] = {}
+        # Put all left identifiers in dict. Key is relative path
+        relpath_sn_dict_s: Dict[str, SPIDNodePair] = {}
+        for sn_s in lefts:
+            relpath_s = self.left_side.derive_relative_path(sn_s.spid)
+            if relpath_s in relpath_sn_dict_s:
+                # GDrive permits this unfortunately. But if node is a complete duplicate, do we really care?
+                assert sn_s.spid.tree_type == TREE_TYPE_GDRIVE, f'Duplicate node with same MD5 and same location but not GDrive: {sn_s.spid}'
+                logger.warning(f'Found node with same MD5 and same location; will ignore for diff: {sn_s.spid}')
+            else:
+                relpath_sn_dict_s[relpath_s] = sn_s
 
-        for left_node in lefts:
-            left_rel_path_list: List[str] = self.left_side.underlying_tree.get_relative_path_list_for_node(left_node)
-            for left_rel_path in left_rel_path_list:
-                left_dict[left_rel_path] = left_node
+        sn_list_only_r: List[SPIDNodePair] = []
+        for sn_r in rights:
+            relpath_r: str = self.left_side.derive_relative_path(sn_r.spid)
+            if relpath_r in relpath_sn_dict_s:
+                # discard left. silently discard right
+                relpath_sn_dict_s.pop(relpath_r, None)
+            else:
+                # no match
+                sn_list_only_r.append(sn_r)
 
-        right_list: List[Node] = []
-        for right_node in rights:
-            right_rel_path_list: List[str] = self.right_side.underlying_tree.get_relative_path_list_for_node(right_node)
-            for right_rel_path in right_rel_path_list:
-                match = left_dict.pop(right_rel_path, None)
-                # a match means same MD5, same path: we can ignore
-                if not match:
-                    right_list.append(right_node)
+        # Pair as many as possible, choosing arbitrary items for each pairing (these will be treated as renames/moves):
+        while len(relpath_sn_dict_s) > 0 and len(sn_list_only_r) > 0:
+            on_mismatched_pair(relpath_sn_dict_s.popitem()[1], sn_list_only_r.pop())
 
-        # Assign arbitrary items on left and right to pairs (treat as renames/moves):
-        while len(left_dict) > 0 and len(right_list) > 0:
-            pair = DisplayNodePair()
-            pair.left = left_dict.popitem()[1]
-            pair.right = right_list.pop()
-            compare_result.append(pair)
+        assert not (len(relpath_sn_dict_s) > 0 and len(sn_list_only_r) > 0)
 
-        # Lefts without a matching right
-        while len(left_dict) > 0:
-            pair = DisplayNodePair()
-            pair.left = left_dict.popitem()[1]
-            compare_result.append(pair)
+        # Remaining lefts are without a matching right
+        while len(relpath_sn_dict_s) > 0:
+            on_left_only(relpath_sn_dict_s.popitem()[1])
 
-        # Rights without a matching left
-        while len(right_list) > 0:
-            pair = DisplayNodePair()
-            pair.right = right_list.pop()
-            compare_result.append(pair)
-
-        return compare_result
+        # Remaining rights are without a matching left
+        while len(sn_list_only_r) > 0:
+            on_right_only(sn_list_only_r.pop())
 
     def diff(self, compare_paths_also=False) -> Tuple[CategoryDisplayTree, CategoryDisplayTree]:
         """Use this method if we mostly care about having the same unique files *somewhere* in
@@ -105,18 +135,20 @@ class ContentFirstDiffer(ChangeMaker):
         count_moved_pairs = 0
         count_updated_pairs = 0
 
-        # the set of MD5s already processed
-        md5_set_stopwatch = Stopwatch()
-        left_md5s: TwoLevelDict = self.left_side.underlying_tree.get_md5_dict()
-        right_md5s: TwoLevelDict = self.right_side.underlying_tree.get_md5_dict()
-        md5_set = left_md5s.keys() | right_md5s.keys()
-        logger.debug(f'{md5_set_stopwatch} Found {len(md5_set)} combined MD5s')
-
         # List of list of items which do not have a matching md5 on the other side.
         # We will compare these by path.
         # Note: each list within this list contains duplicates (nodes with the same md5)
-        list_of_lists_of_left_items_for_given_md5: List[Iterable[Node]] = []
-        list_of_lists_of_right_items_for_given_md5: List[Iterable[Node]] = []
+        sn_list_only_s: List[SPIDNodePair] = []
+        sn_list_only_r: List[SPIDNodePair] = []
+
+        # the set of MD5s already processed
+        md5_set_stopwatch = Stopwatch()
+
+        meta_s: OneSideDiffMeta = OneSideDiffMeta(self.left_side.underlying_tree)
+        meta_r: OneSideDiffMeta = OneSideDiffMeta(self.right_side.underlying_tree)
+
+        md5_union_set = meta_s.md5_dict.keys() | meta_r.md5_dict.keys()
+        logger.debug(f'{md5_set_stopwatch} Found {len(md5_union_set)} combined MD5s')
 
         """Compares the two trees, and populates the change sets of both. The order of 'left' and which is 'right'
          is not important, because the changes are computed from each tree's perspective (e.g. a file which is in
@@ -124,20 +156,20 @@ class ContentFirstDiffer(ChangeMaker):
          file from the perspective of Right)"""
 
         sw = Stopwatch()
-        for md5 in md5_set:
+        for md5 in md5_union_set:
             # Grant just a tiny bit of time to other tasks in the CPython thread (e.g. progress bar):
             time.sleep(0.00001)
 
-            # Set of items on left with same MD5:
-            left_items_for_given_md5: Iterable[Node] = left_md5s.get_second_dict(md5).values()
-            right_items_for_given_md5: Iterable[Node] = right_md5s.get_second_dict(md5).values()
+            # Set of items on S with same MD5:
+            single_md5_sn_list_s: List[SPIDNodePair] = meta_s.md5_dict[md5]
+            single_md5_sn_list_r: List[SPIDNodePair] = meta_r.md5_dict[md5]
 
-            if not left_items_for_given_md5:
+            if not single_md5_sn_list_s:
                 # Content is only present on RIGHT side
-                list_of_lists_of_right_items_for_given_md5.append(right_items_for_given_md5)
-            elif not right_items_for_given_md5:
+                sn_list_only_r += single_md5_sn_list_r
+            elif not single_md5_sn_list_r:
                 # Content is only present on LEFT side
-                list_of_lists_of_left_items_for_given_md5.append(left_items_for_given_md5)
+                sn_list_only_s += single_md5_sn_list_s
             elif compare_paths_also:
                 # Content is present on BOTH sides but paths may be different
                 """If we do this, we care about what the files are named, where they are located, and how many
@@ -148,91 +180,96 @@ class ContentFirstDiffer(ChangeMaker):
                 (newer is assumed to be the rename destination), or for each side to assume it is the destination
                 (similar to how we handle missing signatures above)"""
 
-                orphaned_left_dup_md5: List[Node] = []
-                orphaned_right_dup_md5: List[Node] = []
+                def on_mismatched_pair(_sn: SPIDNodePair, _rn: SPIDNodePair):
+                    # MOVED: the file already exists in each tree, so just do a rename within the tree
+                    # (it is possible that the trees are on different disks, so keep performance in mind)
+                    self.append_mv_op_r_to_r(_sn, _rn)
 
-                compare_result: Iterable[DisplayNodePair] = self._compare_paths_for_same_md5(left_items_for_given_md5, right_items_for_given_md5)
-                for pair in compare_result:
-                    # Did we at least find a pair?
-                    if pair.left and pair.right:
-                        # MOVED: the file already exists in each tree, so just do a rename within the tree
-                        # (it is possible that the trees are on different disks, so keep performance in mind)
-                        self.append_rename_right_to_right(pair.left, pair.right)
+                    self.append_mv_op_s_to_s(_sn, _rn)
+                    on_mismatched_pair.count_moved_pairs += 1
 
-                        self.append_rename_left_to_left(pair.left, pair.right)
-                        count_moved_pairs += 1
-                    else:
-                        """Looks like one side has additional file(s) with same signature 
-                           - essentially a duplicate.. Remember, we know each side already contains
-                           at least one copy with the given signature"""
-                        if not pair.left:
-                            orphaned_right_dup_md5.append(pair.right)
-                        elif not pair.right:
-                            orphaned_left_dup_md5.append(pair.left)
-                if orphaned_left_dup_md5:
-                    list_of_lists_of_left_items_for_given_md5.append(orphaned_left_dup_md5)
-                if orphaned_right_dup_md5:
-                    list_of_lists_of_right_items_for_given_md5.append(orphaned_right_dup_md5)
-        logger.debug(f'{sw} Finished first pass of MD5 set')
+                on_mismatched_pair.count_moved_pairs = 0
+
+                def on_left_only(_sn: SPIDNodePair):
+                    # There is an additional file with same signature on LEFT
+                    sn_list_only_s.append(_sn)
+
+                def on_right_only(_rn: SPIDNodePair):
+                    # There is an additional file with same signature on RIGHT
+                    sn_list_only_r.append(_rn)
+
+                self._process_nonmatching_relative_path_pairs(single_md5_sn_list_s, single_md5_sn_list_r,
+                                                              on_mismatched_pair=on_mismatched_pair, on_left_only=on_left_only,
+                                                              on_right_only=on_right_only)
+                count_moved_pairs += on_mismatched_pair.count_moved_pairs
+
+        logger.debug(f'{sw} Finished first pass of MD5 set (1/3)')
 
         sw = Stopwatch()
-        # Each is a list of duplicate MD5s (but different paths) on left side only (i.e. orphaned):
-        for list_of_left_items_for_given_md5 in list_of_lists_of_left_items_for_given_md5:
-            # TODO: Duplicate content (options):
-            #  - No special handling of duplicates / treat like other files [default]
-            #  - Flag added/missing duplicates as Duplicates
-            #  - For each unique, compare only the best match on each side and ignore the rest
-            for left_item in list_of_left_items_for_given_md5:
-                if compare_paths_also:
-                    left_on_right_path: str = self.get_path_moved_to_right(left_item)
-                    path_matches_right: List[Node] = self.right_side.underlying_tree.get_node_list_for_path_list(left_on_right_path)
-                    if path_matches_right:
-                        if len(path_matches_right) > 1:
-                            # If this ever happens it is a bug
-                            raise RuntimeError(f'More than one match for path: {left_on_right_path}')
-                        path_match_right = path_matches_right[0]
-                        if path_match_right.exists():  # treat items which don't exist...as if they don't exist
-                            # UPDATED
-                            assert path_match_right.md5 != left_item.md5, \
-                                f'Expected different MD5 for left node ({left_item}) and right node ({path_match_right})'
-                            if logger.isEnabledFor(logging.DEBUG):
-                                left_path = left_item.get_path_list()
-                                logger.debug(f'File updated: {left_item.md5} <- "{left_path}" -> {path_matches_right[0].md5}')
-                            # Same path, different md5 -> Updated
-                            self.append_update_right_to_left(path_matches_right[0], left_item)
-                            self.append_update_left_to_right(left_item, path_matches_right[0])
-                            count_updated_pairs += 1
-                            continue
-                    # No match? fall through
-                # DUPLICATE ADDED on right + DELETED on left
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f'Left has new file: "{left_item.get_path_list()}"')
-                self.append_copy_left_to_right(left_item)
+        # List of (possibly non-unique) MD5s (but unique paths) on left side only (i.e. relative path not present on right):
+        for sn_s in sn_list_only_s:
+            # need to look up the actual node
+            if compare_paths_also:
+                # We already examined files with same signature on each side.
+                # So now examine each unmatched signature and see if the paths match. If so, we have UPDATED files.
+                left_on_right_path: str = self.get_path_moved_to_right(sn_s.spid)
+                existing_sn_list_r: List[SPIDNodePair] = meta_r.path_dict.get(left_on_right_path)
+                if existing_sn_list_r:
+                    if len(existing_sn_list_r) > 1:
+                        assert self.right_side.underlying_tree.tree_type == TREE_TYPE_GDRIVE, \
+                            f'Should never see multiple nodes for same path ("{left_on_right_path}") for this tree type, ' \
+                            f'but found: {existing_sn_list_r}'
+                        logger.debug(f'Found {len(existing_sn_list_r)} nodes at path "{left_on_right_path}"; picking the first one')
+                    # GDrive creates a hard problem because it can allow nodes with the same name and path. Just pick first one for now.
+                    # We can try to clean things up in the command executor.
+                    existing_sn_r: SPIDNodePair = existing_sn_list_r[0]
+                    assert existing_sn_r.node.exists(), f'non-existent nodes should have been pre-filtered: {existing_sn_r.node}'
+                    assert existing_sn_r.node.md5 != sn_s.node.md5, \
+                        f'Expected different MD5 for left node ({sn_s.node}) and right node ({existing_sn_r})'
+                    # UPDATED
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(f'File updated: {sn_s.node.md5} <- "{sn_s.spid.get_single_path()}" -> {existing_sn_r.node.md5}')
+                    # Same path, different md5 -> Updated.
+                    # Remember, we don't know which direction is "correct" so we supply ops in both directions:
+                    self.append_up_op_r_to_s(existing_sn_r, sn_s)
+                    self.append_up_op_s_to_r(existing_sn_r, sn_s)
+                    count_updated_pairs += 1
+                    continue
+                # No match? fall through
 
-                # Dead node walking:
-                self.left_side.add_op(OpType.RM, src_node=left_item)
-                count_add_delete_pairs += 1
-        logger.info(f'{sw} Finished path comparison for left tree')
+            # ADDED on right + DELETED on left
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f'Left has new file: "{sn_s.spid.get_single_path()}"')
+            self.append_cp_op_s_to_r(sn_s)
+
+            # Dead node walking:
+            self.left_side.add_op(OpType.RM, sn_s)
+            count_add_delete_pairs += 1
+        logger.info(f'{sw} Finished path comparison for left tree (2/3)')
 
         sw = Stopwatch()
-        for dup_md5s_right in list_of_lists_of_right_items_for_given_md5:
-            for right_item in dup_md5s_right:
-                if compare_paths_also:
-                    right_on_left_path: str = self.get_path_moved_to_left(right_item)
-                    matches = self.left_side.underlying_tree.get_node_list_for_path_list(right_on_left_path)
-                    if matches and matches[0].exists():
-                        # UPDATED. Logically this has already been covered (above) since our iteration is symmetrical:
-                        continue
-                # DUPLICATE ADDED on right + DELETED on left
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f'Right has new file: "{right_item.get_path_list()}"')
-                self.append_copy_right_to_left(right_item)
+        for sn_r in sn_list_only_r:
+            if compare_paths_also:
+                right_on_left_path: str = self.get_path_moved_to_left(sn_r.spid)
+                existing_node_list_s: List[Node] = meta_s.path_dict.get(right_on_left_path)
+                if existing_node_list_s:
+                    # UPDATED. Logically this has already been covered (above) since our iteration is symmetrical:
+                    continue
+            # DUPLICATE ADDED on right + DELETED on left
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f'Right has new file: "{sn_r.spid.get_single_path()}"')
+            self.append_cp_op_r_to_s(sn_r)
 
-                # Dead node walking:
-                self.right_side.add_op(OpType.RM, src_node=right_item)
-                count_add_delete_pairs += 1
+            # Dead node walking:
+            self.right_side.add_op(OpType.RM, sn_r)
+            count_add_delete_pairs += 1
 
-        logger.info(f'Done with diff (pairs: add/del={count_add_delete_pairs} upd={count_updated_pairs} moved={count_moved_pairs})'
+        logger.info(f'{sw} Finished path comparison for right tree (3/3)')
+
+        logger.info(f'Done with diff (pairs: '
+                    f'add/del={count_add_delete_pairs} '
+                    f'upd={count_updated_pairs} '
+                    f'moved={count_moved_pairs})'
                     f' Left:[{self.left_side.change_tree.get_summary()}] Right:[{self.right_side.change_tree.get_summary()}]')
         logger.info(f'{sw} Finished path comparison for right tree')
 
@@ -244,13 +281,13 @@ class ContentFirstDiffer(ChangeMaker):
         # always root path, but tree type may differ
         is_mixed_tree = self.left_side.underlying_tree.tree_type != self.right_side.underlying_tree.tree_type
         if is_mixed_tree:
-            root_node_identifier = SinglePathNodeIdentifier(uid=SUPER_ROOT_UID, path=ROOT_PATH, tree_type=TREE_TYPE_MIXED)
+            tree_type = TREE_TYPE_MIXED
         else:
-            root_node_identifier: NodeIdentifier = self.app.node_identifier_factory.for_values(
-                tree_type=self.left_side.underlying_tree.tree_type, full_path=ROOT_PATH)
+            tree_type = self.left_side.underlying_tree.tree_type
 
-        merged_tree = CategoryDisplayTree(root_node_identifier=root_node_identifier, show_whole_forest=True,
-                                          app=self.app, tree_id=ID_MERGE_TREE)
+        root_node_identifier: SinglePathNodeIdentifier = NodeIdentifierFactory.get_root_constant_single_path_identifier(tree_type)
+
+        merged_tree = CategoryDisplayTree(app=self.app, tree_id=ID_MERGE_TREE, root_node_identifier=root_node_identifier, show_whole_forest=True)
 
         for item in left_selected_changes:
             op = self.left_side.underlying_tree.get_op_for_node(item)

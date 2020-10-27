@@ -349,6 +349,9 @@ class GDriveMasterStore(MasterStore):
 
         return uid_list
 
+    def get_node_list_for_path_list(self, path_list: List[str]) -> List[GDriveNode]:
+        return self._memstore.master_tree.get_node_list_for_path_list(path_list)
+
     def get_uid_for_domain_id(self, domain_id: str, uid_suggestion: Optional[UID] = None) -> UID:
         return self.get_uid_for_goog_id(domain_id, uid_suggestion)
 
@@ -383,7 +386,7 @@ class GDriveMasterStore(MasterStore):
     def get_parent_list_for_node(self, node: GDriveNode) -> List[GDriveNode]:
         return self._memstore.master_tree.get_parent_list_for_node(node)
 
-    def get_single_parent_for_node(self, node: Node, required_subtree_path: str = None):
+    def get_single_parent_for_node(self, node: Node, required_subtree_path: str = None) -> Optional[GDriveNode]:
         assert isinstance(node, GDriveNode)
         return self._memstore.master_tree.get_single_parent_for_node(node, required_subtree_path)
 

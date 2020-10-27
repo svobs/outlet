@@ -111,18 +111,21 @@ class TwoLevelDict:
         self._should_overwrite: Optional[Callable[[Any, Any], bool]] = should_overwrite
         self.total_entries = 0
 
-    def put(self, item, expected_existing=None) -> Optional[Any]:
+    def put_item(self, item, expected_existing=None) -> Optional[Any]:
         assert item, 'trying to insert None!'
         key1 = self._key_func1(item)
+        key2 = self._key_func2(item)
+        return self.put(key1, key2, item, expected_existing)
+
+    def put(self, key1: Union[str, int], key2: Union[str, int], item: Any, expected_existing=None):
         if not key1:
-            raise RuntimeError(f'Key1 is null for item: {item}')
+            raise RuntimeError(f'Key1 is null!')
+        if not key2:
+            raise RuntimeError(f'Key2 is null!')
         dict2 = self._dict.get(key1, None)
         if dict2 is None:
             dict2 = {}
             self._dict[key1] = dict2
-        key2 = self._key_func2(item)
-        if not key2:
-            raise RuntimeError(f'Key2 is null for item: {item}')
         existing = dict2.get(key2, None)
         if not existing:
             dict2[key2] = item

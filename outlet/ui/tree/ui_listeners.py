@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 
 import ui.actions as actions
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
-from diff.change_maker import ChangeMaker
+from diff.change_maker import ChangeMaker, SPIDNodePair
 from model.node.local_disk_node import LocalFileNode
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
@@ -26,10 +26,10 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class DragAndDropData:
-    def __init__(self, dd_uid: UID, src_tree_controller: TreePanelController, nodes: List[Node]):
+    def __init__(self, dd_uid: UID, src_tree_controller: TreePanelController, sn_list: List[SPIDNodePair]):
         self.dd_uid: UID = dd_uid
         self.src_tree_controller: TreePanelController = src_tree_controller
-        self.nodes: List[Node] = nodes
+        self.sn_list: List[SPIDNodePair] = sn_list
 
 
 # CLASS TreeUiListeners
@@ -143,12 +143,12 @@ class TreeUiListeners(HasLifecycle):
 
     def _drag_data_get(self, treeview, drag_context, selection_data, target_id, etime):
         """Drag & Drop 1/4: collect and send data and signal from source"""
-        selected_nodes: List[Node] = self.con.get_multiple_selection()
-        if selected_nodes:
+        selected_sn_list: List[SPIDNodePair] = self.con.get_multiple_selection_sn_list()
+        if selected_sn_list:
             # Avoid complicated, undocumented GTK3 garbage by just sending a UID along with needed data via the dispatcher. See _check_drop()
             dd_uid = self.con.parent_win.app.uid_generator.next_uid()
-            action = drag_context.get_selected_action()
-            drag_data = DragAndDropData(dd_uid, self.con, selected_nodes)
+            action = drag_context.get_selected_action()  # TODO: add support for more actions. For now, assume CP
+            drag_data = DragAndDropData(dd_uid, self.con, selected_sn_list)
             dispatcher.send(signal=actions.DRAG_AND_DROP, sender=self.con.tree_id, data=drag_data)
             selection_data.set_text(str(dd_uid), -1)
         else:
@@ -183,35 +183,30 @@ class TreeUiListeners(HasLifecycle):
 
     def _do_drop(self, sender, drag_data: DragAndDropData, tree_path: Gtk.TreePath, is_into: bool):
         # Puts the drag data into/adjacent to the given tree_path.
-        logger.info(f'[{self.con.tree_id}] We received a drop of {len(drag_data.nodes)} nodes!')
+        logger.info(f'[{self.con.tree_id}] We received a drop of {len(drag_data.sn_list)} nodes!')
 
         if tree_path:
-            model = self.con.display_store.model
-            drop_dest_iter = model.get_iter(tree_path)
-            dest_node: Node = self.con.display_store.get_node_data(drop_dest_iter)
+            sn_dst: SPIDNodePair = self.con.build_sn_from_tree_path(tree_path)
         else:
             # Assume we are dropping into the tree root
             is_into = True
-            dest_node = self.con.get_tree().root_node
+            sn_dst = SPIDNodePair(self.con.get_tree().root_identifier, self.con.get_tree().root_node)
 
-        if is_into:
-            if dest_node and not dest_node.is_dir():
-                # cannot drop into a file; just use parent in this case
-                dest_node = self.con.cacheman.get_single_parent_for_node(dest_node)
-        else:
-            dest_node = self.con.cacheman.get_single_parent_for_node(dest_node)
+        if not is_into or (sn_dst and not sn_dst.node.is_dir()):
+            # cannot drop into a file; just use parent in this case
+            sn_dst = self.con.cacheman.get_parent_sn_for_sn(sn_dst)
 
-        if not dest_node:
+        if not sn_dst:
             logger.error(f'[{self.con.tree_id}] Cancelling drop: no parent node for dropped location!')
-        elif self.con.tree_id == drag_data.src_tree_controller.tree_id and self._is_dropping_on_itself(dest_node, drag_data.nodes):
+        elif self.con.tree_id == drag_data.src_tree_controller.tree_id and self._is_dropping_on_itself(sn_dst, drag_data.sn_list):
             logger.debug(f'[{self.con.tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
         else:
-            logger.debug(f'[{self.con.tree_id}]Dropping into dest: {dest_node.node_identifier}')
+            logger.debug(f'[{self.con.tree_id}]Dropping into dest: {sn_dst.spid}')
             # So far we only support COPY.
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
             change_maker = ChangeMaker(left_tree=drag_data.src_tree_controller.get_tree(), right_tree=self.con.get_tree(),
                                        app=self.con.parent_win.app)
-            change_maker.copy_nodes_left_to_right(drag_data.nodes, dest_node, OpType.CP)
+            change_maker.copy_nodes_left_to_right(drag_data.sn_list, sn_dst, OpType.CP)
             # This should fire listeners which ultimately populate the tree:
             op_list: Iterable[Op] = change_maker.right_side.change_tree.get_ops()
             self.con.parent_win.app.cacheman.enqueue_op_list(op_list)
@@ -230,10 +225,10 @@ class TreeUiListeners(HasLifecycle):
         self._drag_data = None
         self._drop_data = None
 
-    def _is_dropping_on_itself(self, dest_node: Node, nodes: List[Node]):
-        for node in nodes:
-            logger.debug(f'[{self.con.tree_id}] DestNode="{dest_node.node_identifier}", DroppedNode="{node}"')
-            if dest_node.is_parent_of(node):
+    def _is_dropping_on_itself(self, dst_sn: SPIDNodePair, sn_list: List[SPIDNodePair]):
+        for sn in sn_list:
+            logger.debug(f'[{self.con.tree_id}] DestNode="{dst_sn.spid}", DroppedNode="{sn.node}"')
+            if dst_sn.node.is_parent_of(sn.node):
                 return True
         return False
 
@@ -404,10 +399,12 @@ class TreeUiListeners(HasLifecycle):
 
     def on_delete_key_pressed(self):
         if self.con.treeview_meta.can_modify_tree:
-            selected_node_list: List[Node] = self.con.get_multiple_selection()
-            if selected_node_list:
-                for selected_node in selected_node_list:
-                    dispatcher.send(signal=actions.DELETE_SUBTREE, sender=self.con.tree_id, node=selected_node)
+            selected_sn_list: List[SPIDNodePair] = self.con.get_multiple_selection_sn_list()
+            if selected_sn_list:
+                # TODO: change this to DELETE_SUBTREE.
+                # TODO: refactor to send SN instead of node
+                for selected_sn in selected_sn_list:
+                    dispatcher.send(signal=actions.DELETE_SUBTREE, sender=self.con.tree_id, sn=selected_sn.node)
                 return True
         return False
 

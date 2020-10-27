@@ -34,6 +34,7 @@ class PreAncestorDict:
         self._dict: Dict[str, ContainerNode] = {}
 
     # FIXME: UID for GDrive nodes will not be unique in this tree!
+    # TODO: consider a UID mapper for GDrive paths
     def get_for(self, source_tree: DisplayTree, op_type: OpType) -> Optional[ContainerNode]:
         key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, op_type=op_type)
         return self._dict.get(key, None)
@@ -41,6 +42,10 @@ class PreAncestorDict:
     def put_for(self, source_tree: DisplayTree, op_type: OpType, node: ContainerNode):
         key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, op_type=op_type)
         self._dict[key] = node
+
+    # TODO: need to associate node's tree_type + path + op_type with UID
+    def get_uid_for(self, sp_node_identifier: SinglePathNodeIdentifier):
+        key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, op_type=op_type)
 
 
 # CLASS CategoryDisplayTree
@@ -65,6 +70,7 @@ class CategoryDisplayTree(DisplayTree):
         self._pre_ancestor_dict: PreAncestorDict = PreAncestorDict()
 
         self.op_dict: Dict[UID, Op] = {}
+        # TODO: change to spid
         """Lookup for target node UID -> Op. The target node will be the dst node if the Op has one; otherwise
         it will be the source node."""
         self._op_list: List[Op] = []
@@ -72,6 +78,14 @@ class CategoryDisplayTree(DisplayTree):
 
         self.count_conflict_warnings = 0
         self.count_conflict_errors = 0
+
+    def _to_tree_nid(self, spid: SinglePathNodeIdentifier) -> str:
+        path_uid: UID = self.app.cacheman.get_uid_for_path(spid.get_single_path())
+        return f'{spid.tree_type}-{spid.uid}-{path_uid}'
+
+    def get_node_for_spid(self, spid: SinglePathNodeIdentifier):
+        nid: str = self._to_tree_nid(spid)
+        return self._category_tree.get_node(nid)
 
     def get_root_node(self):
         return self.root_node
@@ -114,6 +128,7 @@ class CategoryDisplayTree(DisplayTree):
                 return child
         return None
 
+    # TODO: generate UID for tree_type
     def _get_or_create_pre_ancestors(self, node: Node, op_type: OpType, source_tree: DisplayTree) -> ContainerNode:
         """Pre-ancestors are those nodes (either logical or pointing to real data) which are higher up than the source tree.
         Last pre-ancestor is easily derived and its prescence indicates whether its ancestors were already created"""
@@ -162,7 +177,7 @@ class CategoryDisplayTree(DisplayTree):
 
         if self.show_whole_forest:
             # Create remaining pre-ancestors:
-            full_path = source_tree.node_identifier.full_path
+            full_path = source_tree.root_identifier.full_path
             path_segments: List[str] = file_util.split_path(full_path)
             path_so_far = ''
             # Skip first (already covered by CategoryNode):
@@ -306,14 +321,8 @@ class CategoryDisplayTree(DisplayTree):
     def __repr__(self):
         return f'CategoryDisplayTree(tree_id=[{self.tree_id}], {self.get_summary()})'
 
-    def get_relative_path_list_for_node(self, node) -> List[str]:
-        raise InvalidOperationError('CategoryDisplayTree.get_relative_path_list_for_node()')
-
     def get_node_list_for_path_list(self, path_list: Union[str, List[str]]) -> List[Node]:
         raise InvalidOperationError('CategoryDisplayTree.get_node_list_for_path_list()')
-
-    def get_md5_dict(self):
-        raise InvalidOperationError('CategoryDisplayTree.get_md5_dict()')
 
     def get_summary(self) -> str:
         def make_cat_map():

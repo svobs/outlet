@@ -118,9 +118,9 @@ class LocalDiskMemoryStore:
 
         # do this after the above, to avoid cache corruption in case of failure
         if node.md5 and self.use_md5:
-            self.md5_dict.put(node)
+            self.md5_dict.put_item(node)
         if node.sha256 and self.use_sha256:
-            self.sha256_dict.put(node)
+            self.sha256_dict.put_item(node)
 
         return node, True
 

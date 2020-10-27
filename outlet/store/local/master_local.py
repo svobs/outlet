@@ -13,15 +13,14 @@ from model.display_tree.display_tree import DisplayTree
 from model.display_tree.local_disk import LocalDiskDisplayTree
 from model.display_tree.null import NullDisplayTree
 from model.local_disk_tree import LocalDiskTree
-from model.node.container_node import RootTypeNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
+from model.node_identifier import LocalNodeIdentifier
 from store.cache_manager import PersistedCacheInfo
 from store.local.local_disk_scanner import LocalDiskScanner
-from store.local.master_local_disk import LocalDiskDiskStore
 from store.local.local_sig_calc_thread import SignatureCalcThread
-from store.local.master_local_write_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalWriteThroughOp, \
-    LocalSubtree, UpsertSingleNodeOp
+from store.local.master_local_disk import LocalDiskDiskStore
+from store.local.master_local_write_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
+    LocalWriteThroughOp, UpsertSingleNodeOp
 from store.master import MasterStore
 from store.sqlite.local_db import LocalDiskDatabase
 from store.uid.uid_generator import UID
@@ -174,7 +173,7 @@ class LocalDiskMasterStore(MasterStore):
             return NullDisplayTree(self.app, tree_id, subtree_root)
 
         existing_uid = subtree_root.uid
-        new_uid = self.get_uid_for_path_list(subtree_root.get_path_list(), existing_uid)
+        new_uid = self.get_uid_for_path(subtree_root.get_single_path(), existing_uid)
         if existing_uid != new_uid:
             logger.warning(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
         subtree_root.uid = new_uid
@@ -199,7 +198,7 @@ class LocalDiskMasterStore(MasterStore):
         stopwatch_total = Stopwatch()
 
         # Update UID, assuming this is a new run and it has gone stale
-        uid = self.get_uid_for_path_list(cache_info.subtree_root.get_path_list(), cache_info.subtree_root.uid)
+        uid = self.get_uid_for_path(cache_info.subtree_root.get_single_path(), cache_info.subtree_root.uid)
         if cache_info.subtree_root.uid != uid:
             logger.warning(f'Requested UID "{cache_info.subtree_root.uid}" is invalid for given path; changing it to "{uid}"')
         cache_info.subtree_root.uid = uid
@@ -209,7 +208,7 @@ class LocalDiskMasterStore(MasterStore):
             requested_subtree_root = cache_info.subtree_root
         else:
             # Update UID, assuming this is a new run and it has gone stale
-            uid = self.get_uid_for_path_list(requested_subtree_root.get_path_list(), requested_subtree_root.uid)
+            uid = self.get_uid_for_path(requested_subtree_root.get_single_path(), requested_subtree_root.uid)
             if requested_subtree_root.uid != uid:
                 logger.warning(f'Requested UID "{requested_subtree_root.uid}" is invalid for path "{requested_subtree_root.get_path_list()}";'
                                f' changing it to "{uid}"')
@@ -313,6 +312,7 @@ class LocalDiskMasterStore(MasterStore):
         return registry_needs_update
     
     def refresh_subtree(self, node: LocalNode, tree_id: str):
+        assert isinstance(node.node_identifier, LocalNodeIdentifier)
         self._get_display_tree(node.node_identifier, tree_id, is_live_refresh=True)
 
     def refresh_subtree_stats(self, subtree_root_node: LocalNode, tree_id: str):
@@ -334,10 +334,10 @@ class LocalDiskMasterStore(MasterStore):
             return cache.get_file_or_dir_for_path(full_path)
 
     def upsert_single_node(self, node: LocalNode):
-        assert node, 'Cannot upsert node: no node provided!'
-        assert self.uid_mapper.get_uid_for_path_list(node.get_path_list(), node.uid) == node.uid, \
+        assert node and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Cannot upsert node: invalid node provided: {node}'
+        assert self.uid_mapper.get_uid_for_path(node.get_single_path(), node.uid) == node.uid, \
             f'Internal error while trying to upsert node to cache: UID did not match expected ' \
-            f'({self.uid_mapper.get_uid_for_path_list(node.get_path_list(), node.uid)}); node={node}'
+            f'({self.uid_mapper.get_uid_for_path(node.get_single_path(), node.uid)}); node={node}'
 
         with self._struct_lock:
             self._execute_write_op(UpsertSingleNodeOp(node))
@@ -379,6 +379,7 @@ class LocalDiskMasterStore(MasterStore):
 
     def move_local_subtree(self, src_full_path: str, dst_full_path: str, is_from_watchdog=False):
         with self._struct_lock:
+            # FIXME: refactor to put this in watchdog itself
             if is_from_watchdog:
                 # See if we safely ignore this:
                 expected_move_dst = self._memstore.expected_node_moves.pop(src_full_path, None)
@@ -443,9 +444,9 @@ class LocalDiskMasterStore(MasterStore):
         if not subtree_root_node.uid:
             raise RuntimeError(f'Cannot remove subtree_root from cache because it has no UID: {subtree_root_node}')
 
-        if subtree_root_node.uid != self.get_uid_for_path_list(subtree_root_node.get_path_list()):
+        if subtree_root_node.uid != self.get_uid_for_path(subtree_root_node.get_single_path()):
             raise RuntimeError(f'Internal error while trying to remove subtree_root ({subtree_root_node}): UID did not match expected '
-                               f'({self.get_uid_for_path_list(subtree_root_node.get_path_list())})')
+                               f'({self.get_uid_for_path(subtree_root_node.get_single_path())})')
 
         with self._struct_lock:
             subtree_nodes: List[LocalNode] = self._memstore.master_tree.get_subtree_bfs(subtree_root_node.uid)
@@ -462,12 +463,16 @@ class LocalDiskMasterStore(MasterStore):
         with self._struct_lock:
             return self._memstore.master_tree.get_all_files_and_dirs_for_subtree(subtree_root)
 
+    def get_node_list_for_path_list(self, path_list: List[str]) -> List[LocalNode]:
+        node_list: List[LocalNode] = []
+        for full_path in path_list:
+            node = self.get_node_for_domain_id(full_path)
+            if node:
+                node_list.append(node)
+        return node_list
+
     def get_uid_for_domain_id(self, domain_id: str, uid_suggestion: Optional[UID] = None) -> UID:
         return self.uid_mapper.get_uid_for_path(domain_id, uid_suggestion)
-
-    def get_uid_for_path_list(self, path_list: List[str], uid_suggestion: Optional[UID] = None) -> UID:
-        assert isinstance(path_list, list)
-        return self.uid_mapper.get_uid_for_path_list(path_list, uid_suggestion)
 
     def get_uid_for_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
         assert isinstance(full_path, str)
@@ -495,7 +500,7 @@ class LocalDiskMasterStore(MasterStore):
             return [parent_node]
         return []
 
-    def get_single_parent_for_node(self, node: LocalNode, required_subtree_path: str = None) -> LocalNode:
+    def get_single_parent_for_node(self, node: LocalNode, required_subtree_path: str = None) -> Optional[LocalNode]:
         if SUPER_DEBUG:
             logger.debug(f'Entered get_single_parent_for_node({node.node_identifier}): locked={self._struct_lock.locked()}')
         try:

@@ -1,11 +1,10 @@
 import logging
 from typing import List, Optional, Union
 
-from model.op import OpType
-from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, ROOT_PATH
+from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, LOCAL_ROOT_UID, ROOT_PATH, SUPER_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, \
+    TREE_TYPE_MIXED
+from model.node_identifier import ensure_list, GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
-
-from model.node_identifier import ensure_list, GDriveIdentifier, LocalNodeIdentifier, SinglePathNodeIdentifier, NodeIdentifier
 
 logger = logging.getLogger(__name__)
 
@@ -18,16 +17,29 @@ class NodeIdentifierFactory:
         self.app = app
 
     @staticmethod
-    def nid(uid: UID, tree_type: int, op_type: OpType):
-        return f'{tree_type}-{uid}-{op_type.name}'
-
-    @staticmethod
     def get_gdrive_root_constant_identifier() -> GDriveIdentifier:
         return GDriveIdentifier(uid=GDRIVE_ROOT_UID, path_list=ROOT_PATH)
 
     @staticmethod
+    def get_root_constant_single_path_identifier(tree_type: int) -> SinglePathNodeIdentifier:
+        if tree_type == TREE_TYPE_GDRIVE:
+            return NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
+
+        if tree_type == TREE_TYPE_LOCAL_DISK:
+            return NodeIdentifierFactory.get_local_disk_root_constant_single_path_identifier()
+
+        if tree_type == TREE_TYPE_MIXED:
+            return SinglePathNodeIdentifier(uid=SUPER_ROOT_UID, path_list=ROOT_PATH, tree_type=TREE_TYPE_MIXED)
+
+        raise RuntimeError(f'get_root_constant_single_path_identifier(): invalid tree type: {tree_type}')
+
+    @staticmethod
     def get_gdrive_root_constant_single_path_identifier() -> SinglePathNodeIdentifier:
         return SinglePathNodeIdentifier(uid=GDRIVE_ROOT_UID, path_list=ROOT_PATH, tree_type=TREE_TYPE_GDRIVE)
+
+    @staticmethod
+    def get_local_disk_root_constant_single_path_identifier() -> SinglePathNodeIdentifier:
+        return SinglePathNodeIdentifier(uid=LOCAL_ROOT_UID, path_list=ROOT_PATH, tree_type=TREE_TYPE_LOCAL_DISK)
 
     def for_values(self, tree_type: int = None, path_list:  Union[str, List[str]] = None, uid: UID = None,
                    must_be_single_path: bool = False) -> NodeIdentifier:

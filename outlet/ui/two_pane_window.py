@@ -316,6 +316,4 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
 def _reload_tree(tree_con):
     # need to set root again to trigger a model wipe
-    tree = tree_con.get_tree()
-    root_identifier = tree.node_identifier
-    tree_con.reload(new_root=root_identifier, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, hide_checkboxes=True)
+    tree_con.reload(new_root=tree_con.get_tree().root_identifier, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, hide_checkboxes=True)

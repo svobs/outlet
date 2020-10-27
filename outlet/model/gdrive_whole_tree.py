@@ -255,11 +255,8 @@ class GDriveWholeTree:
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[GDriveNode]:
         identifiers_found: List[NodeIdentifier] = self.get_identifier_list_for_path_list(path_list)
 
-        if len(identifiers_found) == 1:
-            return [self.get_node_for_uid(identifiers_found[0].uid)]
-
         # In Google Drive it is legal to have two different files with the same path
-        logger.debug(f'Found {len(identifiers_found)} nodes for path list: "{path_list}"). Returning the whole list')
+        logger.debug(f'Found {len(identifiers_found)} nodes for path list: "{path_list}"')
         return list(map(lambda x: self.get_node_for_uid(x.uid), identifiers_found))
 
     def _get_identifier_list_for_single_path(self, full_path: str) -> List[NodeIdentifier]:
