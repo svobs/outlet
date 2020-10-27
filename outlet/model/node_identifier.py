@@ -109,6 +109,12 @@ class NodeIdentifier(ABC):
     def has_path(self, path: str) -> bool:
         return path in self._path_list
 
+    def has_path_in_subtree(self, subtree_path: str) -> bool:
+        for path in self._path_list:
+            if path.startswith(subtree_path):
+                return True
+        return False
+
     def normalize_paths(self):
         path_list = self.get_path_list()
         for index, full_path in enumerate(path_list):

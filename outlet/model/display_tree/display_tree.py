@@ -82,8 +82,8 @@ class DisplayTree(ABC):
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[Node]:
         pass
 
-    def get_ancestor_list(self, single_path_node_identifier: SinglePathNodeIdentifier) -> Deque[Node]:
-        return self.app.cacheman.get_ancestor_list_for_single_path_identifier(single_path_node_identifier, stop_at_path=self.root_path)
+    def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
+        return self.app.cacheman.get_ancestor_list_for_single_path_identifier(spid, stop_at_path=self.root_path)
 
     @staticmethod
     def _build_child_spid(child_node: Node, parent_path: str):

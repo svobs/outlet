@@ -79,13 +79,13 @@ class CategoryDisplayTree(DisplayTree):
         self.count_conflict_warnings = 0
         self.count_conflict_errors = 0
 
-    def _to_tree_nid(self, spid: SinglePathNodeIdentifier, op_type: OpType = None) -> str:
+    def _to_tree_nid(self, spid: SinglePathNodeIdentifier) -> str:
         # note: this is kind of a kludge because we're using the local path UID mapper for GDrive paths...but who cares
         path_uid: UID = self.app.cacheman.get_uid_for_path(spid.get_single_path())
-        return f'{spid.tree_type}-{spid.uid}-{path_uid}-{op_type}'
+        return f'{spid.tree_type}-{spid.uid}-{path_uid}'
 
-    def get_node_for_spid(self, spid: SinglePathNodeIdentifier, op_type: OpType = None):
-        nid: str = self._to_tree_nid(spid, op_type)
+    def get_node_for_spid(self, spid: SinglePathNodeIdentifier) -> Optional[Node]:
+        nid: str = self._to_tree_nid(spid)
         return self._category_tree.get_node(nid)
 
     def get_root_node(self):
@@ -104,15 +104,14 @@ class CategoryDisplayTree(DisplayTree):
             raise
 
     def print_tree_contents_debug(self):
-        logger.debug(f'[{self.tree_id}] CategoryTree for "{self.node_identifier}": ' + self._category_tree.show(stdout=False))
+        logger.debug(f'[{self.tree_id}] CategoryTree for "{self.root_identifier}": ' + self._category_tree.show(stdout=False))
 
-    def get_ancestor_list(self, node: Node) -> Deque[Node]:
-        # FIXME this is almost certainly wrong
+    def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
         ancestors: Deque[Node] = deque()
 
         # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
         # been added to this tree, or the root of the source tree
-        ancestor = node
+        ancestor = self.get_node_for_spid(spid)
         while ancestor:
             ancestor = self.get_single_parent_for_node(ancestor)
             if ancestor:

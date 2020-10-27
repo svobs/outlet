@@ -710,17 +710,26 @@ class CacheManager(HasLifecycle):
         else:
             raise RuntimeError(f'Unknown tree type: {node.node_identifier.tree_type} for {node}')
 
-    def get_parent_uid_list_for_node(self, node: Node) -> List[UID]:
+    def get_parent_uid_list_for_node(self, node: Node, whitelist_for_path: str = None) -> List[UID]:
         """Derives the UID for the parent of the given node"""
         if isinstance(node, HasParentList):
-            assert isinstance(node, GDriveNode) and node.node_identifier.tree_type == TREE_TYPE_GDRIVE, f'Node: {node}'
+            assert isinstance(node, GDriveNode) and node.get_tree_type() == TREE_TYPE_GDRIVE, f'Node: {node}'
+            if whitelist_for_path:
+                filtered_parent_uid_list = []
+                for parent_uid in node.get_parent_uids():
+                    parent_node = self.get_node_for_uid(parent_uid, node.get_tree_type())
+                    if parent_node and parent_node.node_identifier.has_path_in_subtree(whitelist_for_path):
+                        filtered_parent_uid_list.append(parent_node)
+                return filtered_parent_uid_list
+
             return node.get_parent_uids()
         else:
             assert isinstance(node, LocalNode) and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Node: {node}'
-            parent_path = node.derive_parent_path()
+            parent_path: str = node.derive_parent_path()
             uid = self.get_uid_for_path(parent_path)
             if uid:
-                return [uid]
+                if not whitelist_for_path or parent_path.startswith(whitelist_for_path):
+                    return [uid]
             return []
 
     def _find_parent_matching_path(self, child_node: Node, parent_path: str) -> Optional[Node]:

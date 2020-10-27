@@ -385,7 +385,7 @@ class GDriveWholeTree:
 
     def get_parent_list_for_node(self, node: GDriveNode, required_subtree_path: str = None) -> List[GDriveNode]:
         if node.get_tree_type() != TREE_TYPE_GDRIVE:
-            logger.debug(f'get_single_parent_for_node(): node has wrong tree type ({node.get_tree_type()}); returning None')
+            logger.debug(f'get_parent_list_for_node(): node has wrong tree type ({node.get_tree_type()}); returning None')
             return []
 
         assert isinstance(node, GDriveNode)

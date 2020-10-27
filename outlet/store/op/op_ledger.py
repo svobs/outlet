@@ -1,6 +1,7 @@
+import collections
 import logging
 from collections import defaultdict
-from typing import Callable, DefaultDict, Dict, Iterable, List, Optional
+from typing import Callable, DefaultDict, Deque, Dict, Iterable, List, Optional
 
 from command.cmd_builder import CommandBuilder
 from command.cmd_interface import Command, CommandStatus
@@ -112,73 +113,64 @@ class OpLedger(HasLifecycle):
                     cp_dst_dict[dst_key] = op
                     final_list.append(op)
 
-        def eval_rm_ancestor_func(op_arg: Op, par: Node) -> bool:
-            conflict = mkdir_dict.get(par.uid, None)
+        def eval_rm_ancestor_func(op_arg: Op, ancestor: Node) -> None:
+            conflict = mkdir_dict.get(ancestor.uid, None)
             if conflict:
                 logger.error(f'ReduceChanges(): Conflict! Op1={conflict}; Op2={op_arg}')
                 raise RuntimeError(f'Batch op conflict: trying to create a node and remove its descendant at the same time!')
 
-            return True
-
-        def eval_mkdir_ancestor_func(op_arg: Op, par: Node) -> bool:
-            conflict = rm_dict.get(par.uid, None)
+        def eval_mkdir_ancestor_func(op_arg: Op, ancestor: Node) -> None:
+            conflict = rm_dict.get(ancestor.uid, None)
             if conflict:
                 logger.error(f'ReduceChanges(): Conflict! Op1={conflict}; Op2={op_arg}')
                 raise RuntimeError(f'Batch op conflict: trying to remove a node and create its descendant at the same time!')
-            return True
+
+        def eval_cp_src_ancestor_func(op_arg: Op, ancestor: Node) -> None:
+            if SUPER_DEBUG:
+                logger.debug(f'Evaluating src ancestor (op={op_arg.op_uid}): {ancestor}')
+            if ancestor.uid in mkdir_dict:
+                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being created!')
+            if ancestor.uid in rm_dict:
+                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being deleted!')
+            if ancestor.uid in cp_dst_dict:
+                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being copied to!')
+
+        def eval_cp_dst_ancestor_func(op_arg: Op, ancestor: Node) -> None:
+            if SUPER_DEBUG:
+                logger.debug(f'Evaluating dst ancestor (op={op.op_uid}): {ancestor}')
+            if ancestor.uid in rm_dict:
+                raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being deleted!')
+            if ancestor.uid in cp_src_dict:
+                raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being copied from!')
 
         # For each element, traverse up the tree and compare each parent node to map
         for op in op_list:
             if op.op_type == OpType.RM:
-                self._check_ancestors(op, eval_rm_ancestor_func)
+                self._check_ancestors(op, op.src_node, eval_rm_ancestor_func)
             elif op.op_type == OpType.MKDIR:
-                self._check_ancestors(op, eval_mkdir_ancestor_func)
+                self._check_ancestors(op, op.src_node, eval_mkdir_ancestor_func)
             elif op.op_type == OpType.CP or op.op_type == OpType.UP or op.op_type == OpType.MV:
-                self._check_cp_ancestors(op, mkdir_dict, rm_dict, cp_src_dict, cp_dst_dict)
+                """Checks all ancestors of both src and dst for mapped Ops. The following are the only valid situations:
+                 1. No ancestors of src or dst correspond to any Ops.
+                 2. Ancestor(s) of the src node correspond to the src node of a CP or UP action (i.e. they will not change)
+                 """
+                self._check_ancestors(op, op.src_node, eval_cp_src_ancestor_func)
+                self._check_ancestors(op, op.dst_node, eval_cp_dst_ancestor_func)
 
         logger.debug(f'Reduced {count_ops_orig} ops to {len(final_list)} ops')
         return final_list
 
-    def _check_cp_ancestors(self, op: Op, mkdir_dict, rm_dict, cp_src_dict, cp_dst_dict):
-        """Checks all ancestors of both src and dst for mapped Ops. The following are the only valid situations:
-         1. No ancestors of src or dst correspond to any Ops.
-         2. Ancestor(s) of the src node correspond to the src node of a CP or UP action (i.e. they will not change)
-         """
-        src_ancestor = op.src_node
-        dst_ancestor = op.dst_node
-        logger.debug(f'Evaluating ancestors for op: {op}')
-        while src_ancestor:
-            if SUPER_DEBUG:
-                logger.debug(f'Evaluating src ancestor (op={op.op_uid}): {src_ancestor}')
-            if mkdir_dict.get(src_ancestor.uid, None):
-                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being created!')
-            if rm_dict.get(src_ancestor.uid, None):
-                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being deleted!')
-            if cp_dst_dict.get(src_ancestor.uid, None):
-                raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being copied to!')
+    def _check_ancestors(self, op: Op, node: Node, eval_func: Callable[[Op, Node], None]):
+        queue: Deque[Node] = collections.deque()
+        queue.append(node)
 
-            src_ancestor = self.app.cacheman.get_single_parent_for_node(src_ancestor)
-
-        while dst_ancestor:
-            if SUPER_DEBUG:
-                logger.debug(f'Evaluating dst ancestor (op={op.op_uid}): {dst_ancestor}')
-            if rm_dict.get(dst_ancestor.uid, None):
-                raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being deleted!')
-            if cp_src_dict.get(dst_ancestor.uid, None):
-                raise RuntimeError(f'Batch op conflict: copy to a descendant of a node being copied from!')
-
-            dst_ancestor = self.app.cacheman.get_single_parent_for_node(dst_ancestor)
-
-    def _check_ancestors(self, op: Op, eval_func: Callable[[Op, Node], bool]):
-        ancestor = op.src_node
-        while True:
-            ancestor = self.app.cacheman.get_single_parent_for_node(ancestor)
-            if not ancestor:
-                return
-            if SUPER_DEBUG:
-                logger.debug(f'(Op={op}): evaluating ancestor: {ancestor}')
-            if not eval_func(op, ancestor):
-                return
+        while len(queue) > 0:
+            node: Node = queue.popleft()
+            for ancestor in self.app.cacheman.get_parent_list_for_node(node):
+                queue.append(ancestor)
+                if SUPER_DEBUG:
+                    logger.debug(f'(Op={op.op_uid}): evaluating ancestor: {ancestor}')
+                eval_func(op, ancestor)
 
     # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
     # Reduce Changes logic

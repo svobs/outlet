@@ -192,18 +192,6 @@ class DisplayStore:
         bound_func: Callable = partial(self._uid_equals_func, target_uid)
         return self.find_in_tree(bound_func, tree_iter)
 
-    def find_uid_in_top_level(self, target_uid: UID) -> Optional[Gtk.TreeIter]:
-        """Searches the children of the given parent_iter for the given UID, then returns the data at that node"""
-        bound_func: Callable = partial(self._uid_equals_func, target_uid)
-
-        tree_iter = self.model.get_iter_first()
-        while tree_iter is not None:
-            node = self.get_node_data(tree_iter)
-            if bound_func(node):
-                return tree_iter
-            tree_iter = self.model.iter_next(tree_iter)
-        return None
-
     def find_uid_in_children(self, target_uid: UID, parent_iter) -> Optional[Gtk.TreeIter]:
         """Searches the children of the given parent_iter for the given UID, then returns the data at that node"""
         bound_func: Callable = partial(self._uid_equals_func, target_uid)
