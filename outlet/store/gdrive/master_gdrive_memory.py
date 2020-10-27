@@ -69,7 +69,7 @@ class GDriveMemoryStore:
             return node, False
 
         # Finally, update in-memory cache (tree). If an existing node is found with the same UID, it will update and return that instead:
-        node = self.master_tree.add_node(node)
+        node = self.master_tree.upsert_node(node)
 
         # Generate full_path for node, if not already done (we assume this is a newly created node)
         self.master_tree.compute_path_list_for_node(node)

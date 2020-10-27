@@ -189,7 +189,7 @@ class BatchChangesOp(GDriveWriteThroughOp):
             else:
                 assert isinstance(change, GDriveNodeChange)
                 # need to use existing object if available to fulfill our contract (node will be sent via signals below)
-                change.node = memstore.master_tree.add_node(change.node)
+                change.node = memstore.master_tree.upsert_node(change.node)
 
                 # ensure full_path is populated
                 memstore.master_tree.compute_path_list_for_node(change.node)

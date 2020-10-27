@@ -63,14 +63,14 @@ class GDriveWholeTree:
     def upsert_folder_and_children(self, parent_node: GDriveFolder, child_list: List[GDriveNode]) -> List[GDriveNode]:
         """Adds or replaces the given parent_node and its children. Any previous children which are not in the given list are
         unlinked from the parent, and if they had no other parents, become root-level nodes."""
-        upserted_node_list: List[GDriveNode] = [self.add_node(parent_node)]
+        upserted_node_list: List[GDriveNode] = [self.upsert_node(parent_node)]
 
         former_child_list: List[GDriveNode] = self.parent_child_dict.get(parent_node.uid)
         if former_child_list:
             self.parent_child_dict[parent_node.uid] = []
 
         for child in child_list:
-            upserted_node_list.append(self.add_node(child))
+            upserted_node_list.append(self.upsert_node(child))
             GDriveWholeTree._remove_from_list(former_child_list, child)
 
         orphan_list = []
@@ -91,7 +91,7 @@ class GDriveWholeTree:
 
         return upserted_node_list
 
-    def add_node(self, node: GDriveNode) -> GDriveNode:
+    def upsert_node(self, node: GDriveNode) -> GDriveNode:
         """Adds a node. Assumes that the node has all necessary parent info filled in already,
         and does the heavy lifting and populates all data structures appropriately."""
 
@@ -99,11 +99,11 @@ class GDriveWholeTree:
         existing_node = self.uid_dict.get(node.uid, None)
         if existing_node:
             if node == existing_node:
-                logger.debug(f'add_node(): identical to existing; updating node {node.uid} sync_ts={node.sync_ts}')
+                logger.debug(f'upsert_node(): identical to existing; updating node {node.uid} sync_ts={node.sync_ts}')
                 existing_node.set_sync_ts(node.sync_ts)
                 return existing_node
 
-            logger.debug(f'add_node(): found existing node with same ID (will attempt to merge nodes): existing: {existing_node}; new={node}')
+            logger.debug(f'upsert_node(): found existing node with same ID (will attempt to merge nodes): existing: {existing_node}; new={node}')
             new_parent_uids, removed_parent_uids = _merge_into_existing(existing_node, node)
             node = existing_node
 

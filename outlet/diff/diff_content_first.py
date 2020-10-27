@@ -1,11 +1,11 @@
 """Content-first diff. See diff function below."""
 import collections
 import logging
-import os
 import time
 from typing import Callable, DefaultDict, Deque, Dict, List, Tuple
 
-from constants import TREE_TYPE_GDRIVE, TREE_TYPE_MIXED
+import store.local.content_hasher
+from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from diff.change_maker import ChangeMaker, SPIDNodePair
 from model.display_tree.category import CategoryDisplayTree
 from model.display_tree.display_tree import DisplayTree
@@ -38,6 +38,13 @@ class OneSideDiffMeta:
         path_dict: DefaultDict[str, List[SPIDNodePair]] = collections.defaultdict(lambda: list())
 
         def on_file_found(sn: SPIDNodePair):
+            if not sn.node.md5 and sn.node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
+                # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
+                sn.node.md5, sn.node.sha256 = store.local.content_hasher.calculate_signatures(sn.node.get_single_path())
+                if not sn.node.md5:
+                    logger.error(f'Unable to calculate signature for file! Skipping: {sn.node.get_single_path()}')
+                    return
+
             if sn.node.md5:
                 md5_dict[sn.node.md5].append(sn)
                 path = sn.spid.get_single_path()
@@ -46,6 +53,8 @@ class OneSideDiffMeta:
                     on_file_found.count_duplicate_paths += 1
                 path_dict[path].append(sn)
                 on_file_found.count_nodes += 1
+            else:
+                logger.debug(f'No MD5 for node; skipping: {sn.spid.get_single_path()}')
 
         on_file_found.count_nodes = 0
         on_file_found.count_duplicate_paths = 0

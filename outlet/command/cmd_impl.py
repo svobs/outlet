@@ -38,7 +38,7 @@ class CopyFileLocallyCommand(CopyNodeCommand):
         dst_path = self.op.dst_node.get_single_path()
         if not self.op.src_node.md5:
             # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
-            self.op.src_node.md5 = store.local.content_hasher.compute_md5(src_path)
+            self.op.src_node.md5, self.op.src_node.sha256 = store.local.content_hasher.calculate_signatures(src_path)
         md5 = self.op.src_node.md5
         # TODO: what if staging dir is not on same file system?
         staging_path = os.path.join(cxt.staging_dir, md5)
@@ -213,7 +213,11 @@ class UploadToGDriveCommand(CopyNodeCommand):
         assert isinstance(self.op.src_node, LocalFileNode)
         assert isinstance(self.op.dst_node, GDriveNode)
         # this requires that any parents have been created and added to the in-memory cache (and will fail otherwise)
-        src_file_path = self.op.src_node.get_single_path()
+        src_file_path: str = self.op.src_node.get_single_path()
+
+        if not self.op.src_node.md5:
+            # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
+            self.op.src_node.md5, self.op.src_node.sha256 = store.local.content_hasher.calculate_signatures(src_file_path)
         md5 = self.op.src_node.md5
         size_bytes = self.op.src_node.get_size_bytes()
 
@@ -287,13 +291,13 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
         staging_path = os.path.join(cxt.staging_dir, self.op.src_node.md5)
 
         if os.path.exists(staging_path):
-            node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path)
+            node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path, staging_path=staging_path, must_scan_signature=True)
             if node and node.md5 == self.op.src_node.md5:
                 logger.debug(f'Found target node in staging dir; will move: ({staging_path} -> {dst_path})')
                 file_util.move_to_dst(staging_path=staging_path, dst_path=dst_path)
                 return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[self.op.src_node, node])
             else:
-                logger.debug(f'Found unknown file in the staging dir; removing: {staging_path}')
+                logger.debug(f'Found unexpected file in the staging dir; removing: {staging_path}')
                 os.remove(staging_path)
 
         cxt.gdrive_client.download_file(file_id=src_goog_id, dest_path=staging_path)

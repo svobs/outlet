@@ -54,7 +54,7 @@ class OneSide:
                 dst_node.goog_id = existing_node.goog_id
             else:
                 if len(existing_node_list) > 1:
-                    logger.warning(f'Found multiple nodes ({len(existing_node_list)}) already present at GDrive dest path ("{dst_path}"). '
+                    logger.warning(f'Found multiple nodes ({len(existing_node_list)}) already present at GDrive dst path ("{dst_path}"). '
                                    f'Will create a new node instead of overwriting them')
                 # Not exist: assign new UID. We will later associate this with a goog_id once it's made existent
                 dst_node.uid = self.app.uid_generator.next_uid()
@@ -185,8 +185,7 @@ class ChangeMaker:
 
         for src_sn in src_sn_list:
             if src_sn.node.is_dir():
-                # Add it and all its descendants. Assume that we came from a DisplayTree which may not have all its children.
-                # We will focus on copying files, and add prerequisite parent dirs as needed.
+                # Unpack dir and add it and its descendants:
                 src_parent_path = str(pathlib.Path(src_sn.spid.get_single_path()).parent)
 
                 subtree_sn_list: List[SPIDNodePair] = self._get_file_sn_list_for_left_subtree(src_sn)

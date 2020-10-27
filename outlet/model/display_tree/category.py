@@ -79,12 +79,13 @@ class CategoryDisplayTree(DisplayTree):
         self.count_conflict_warnings = 0
         self.count_conflict_errors = 0
 
-    def _to_tree_nid(self, spid: SinglePathNodeIdentifier) -> str:
+    def _to_tree_nid(self, spid: SinglePathNodeIdentifier, op_type: OpType = None) -> str:
+        # note: this is kind of a kludge because we're using the local path UID mapper for GDrive paths...but who cares
         path_uid: UID = self.app.cacheman.get_uid_for_path(spid.get_single_path())
-        return f'{spid.tree_type}-{spid.uid}-{path_uid}'
+        return f'{spid.tree_type}-{spid.uid}-{path_uid}-{op_type}'
 
-    def get_node_for_spid(self, spid: SinglePathNodeIdentifier):
-        nid: str = self._to_tree_nid(spid)
+    def get_node_for_spid(self, spid: SinglePathNodeIdentifier, op_type: OpType = None):
+        nid: str = self._to_tree_nid(spid, op_type)
         return self._category_tree.get_node(nid)
 
     def get_root_node(self):
