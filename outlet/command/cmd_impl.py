@@ -38,7 +38,8 @@ class CopyFileLocallyCommand(CopyNodeCommand):
         dst_path = self.op.dst_node.get_single_path()
         if not self.op.src_node.md5:
             # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
-            self.op.src_node.md5, self.op.src_node.sha256 = store.local.content_hasher.calculate_signatures(src_path)
+            if not store.local.content_hasher.try_calculating_signatures(self.op.src_node):
+                return self.set_error_result(f'Failed to calculate signature for src node: {self.op.src_node.node_identifier}')
         md5 = self.op.src_node.md5
         # TODO: what if staging dir is not on same file system?
         staging_path = os.path.join(cxt.staging_dir, md5)
@@ -191,7 +192,7 @@ class CreatLocalDirCommand(Command):
 # GOOGLE DRIVE COMMANDS begin
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-
+# FIXME: When writing to GDrive, check for nodes with identical path and content. Match logic found in ChangeMaker::OneSide
 class UploadToGDriveCommand(CopyNodeCommand):
     """
     Copy Local -> GDrive
@@ -217,7 +218,9 @@ class UploadToGDriveCommand(CopyNodeCommand):
 
         if not self.op.src_node.md5:
             # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
-            self.op.src_node.md5, self.op.src_node.sha256 = store.local.content_hasher.calculate_signatures(src_file_path)
+            if not store.local.content_hasher.try_calculating_signatures(self.op.src_node):
+                return self.set_error_result(f'Failed to calculate signature for src node: {self.op.src_node.node_identifier}')
+
         md5 = self.op.src_node.md5
         size_bytes = self.op.src_node.get_size_bytes()
 

@@ -38,12 +38,9 @@ class OneSideDiffMeta:
         path_dict: DefaultDict[str, List[SPIDNodePair]] = collections.defaultdict(lambda: list())
 
         def on_file_found(sn: SPIDNodePair):
-            if not sn.node.md5 and sn.node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
-                # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
-                sn.node.md5, sn.node.sha256 = store.local.content_hasher.calculate_signatures(sn.node.get_single_path())
-                if not sn.node.md5:
-                    logger.error(f'Unable to calculate signature for file! Skipping: {sn.node.get_single_path()}')
-                    return
+            if not sn.node.md5 and not store.local.content_hasher.try_calculating_signatures(sn.node):
+                logger.error(f'Unable to calculate signature for file! Skipping: {sn.node.get_single_path()}')
+                return
 
             if sn.node.md5:
                 md5_dict[sn.node.md5].append(sn)

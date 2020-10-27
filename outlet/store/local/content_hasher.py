@@ -15,7 +15,9 @@ import hashlib
 import logging
 import os
 from typing import Optional, Tuple
-from constants import READ_CHUNK_SIZE
+from constants import READ_CHUNK_SIZE, TREE_TYPE_LOCAL_DISK
+from model.node.local_disk_node import LocalFileNode
+from model.node.node import Node
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,16 @@ def compute_dropbox_hash(filename):
                 break
             hasher.update(chunk)
     return hasher.hexdigest()
+
+
+def try_calculating_signatures(node: Node) -> bool:
+    if node.is_file() and node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
+        # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
+        assert isinstance(node, LocalFileNode)
+        node.md5, node.sha256 = calculate_signatures(node.get_single_path())
+        if node.md5:
+            return True
+    return False
 
 
 def calculate_signatures(full_path: str, staging_path: str = None) -> Tuple[Optional[str], Optional[str]]:

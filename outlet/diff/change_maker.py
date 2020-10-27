@@ -1,5 +1,4 @@
 import logging
-import logging
 import os
 import pathlib
 from collections import deque
@@ -35,6 +34,15 @@ class OneSide:
     def derive_relative_path(self, spid: SinglePathNodeIdentifier) -> str:
         return file_util.strip_root(spid.get_single_path(), self.change_tree.root_identifier.get_single_path())
 
+    @staticmethod
+    def _all_same(existing_node_list: List[Node]) -> bool:
+        first_node: Node = existing_node_list[0]
+        for node in existing_node_list[1:]:
+            assert isinstance(node, GDriveNode)
+            if node.name != first_node.name or node.md5 != first_node.md5:
+                return False
+        return True
+
     def migrate_single_node_to_this_side(self, sn_src: SPIDNodePair, dst_path: str) -> Node:
         dst_tree_type = self.underlying_tree.tree_type
         dst_node: Node = self._build_migrated_file_node(src_node=sn_src.node, dst_path=dst_path, dst_tree_type=dst_tree_type)
@@ -46,16 +54,24 @@ class OneSide:
             dst_node.uid = self.app.cacheman.get_uid_for_path(dst_path)
         elif dst_tree_type == TREE_TYPE_GDRIVE:
             assert isinstance(dst_node, GDriveNode) and dst_node.get_parent_uids(), f'Bad data: {dst_node}'
-            existing_node_list = self.app.cacheman.get_node_list_for_path_list([dst_path], dst_tree_type)
-            if len(existing_node_list) == 1:
-                existing_node = existing_node_list[0]
+            existing_dst_node_list = self.app.cacheman.get_node_list_for_path_list([dst_path], dst_tree_type)
+            if len(existing_dst_node_list) == 1:
+                existing_node = existing_dst_node_list[0]
                 # If a single node is already there with given name, use its identification; we will overwrite its content with a new version
                 dst_node.uid = existing_node.uid
                 dst_node.goog_id = existing_node.goog_id
+            elif len(existing_dst_node_list) > 1:
+                if self._all_same(existing_dst_node_list):
+                    logger.warning(f'Found {len(existing_dst_node_list)} identical nodes already present at at GDrive dst path '
+                                   f'("{dst_path}"). Will overwrite all starting with UID {existing_dst_node_list[0].uid}')
+                    dst_node.uid = existing_dst_node_list[0].uid
+                    dst_node.goog_id = existing_dst_node_list[0].goog_id
+                else:
+                    # FIXME: what to do in this case? Perhaps collect these errors and display them all to the user.
+                    # TODO: Also do an audit for this issue as soon as all the user's GDrive metadata is downloaded
+                    raise RuntimeError(f'Found multiple non-identical nodes ({len(existing_dst_node_list)}) already present at '
+                                       f'GDrive dst path ("{dst_path}"). Cannot proceed')
             else:
-                if len(existing_node_list) > 1:
-                    logger.warning(f'Found multiple nodes ({len(existing_node_list)}) already present at GDrive dst path ("{dst_path}"). '
-                                   f'Will create a new node instead of overwriting them')
                 # Not exist: assign new UID. We will later associate this with a goog_id once it's made existent
                 dst_node.uid = self.app.uid_generator.next_uid()
         else:
