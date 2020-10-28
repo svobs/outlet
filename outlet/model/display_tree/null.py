@@ -18,9 +18,6 @@ class NullDisplayTree(DisplayTree):
     def get_children(self, parent: Node) -> Iterable[Node]:
         return []
 
-    def get_single_parent_for_node(self, item) -> Optional[Node]:
-        raise RuntimeError('Should not do this')
-
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[Node]:
         return []
 

@@ -501,6 +501,7 @@ class LocalDiskMasterStore(MasterStore):
         return []
 
     def get_single_parent_for_node(self, node: LocalNode, required_subtree_path: str = None) -> Optional[LocalNode]:
+        """LocalNodes are guaranteed to have at most 1 parent."""
         if SUPER_DEBUG:
             logger.debug(f'Entered get_single_parent_for_node({node.node_identifier}): locked={self._struct_lock.locked()}')
         try:

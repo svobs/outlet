@@ -1,5 +1,4 @@
 import logging
-import logging
 import pathlib
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional, Union
@@ -77,20 +76,7 @@ class CategoryDisplayTree(DisplayTree):
         logger.debug(f'[{self.tree_id}] CategoryTree for "{self.root_identifier}": ' + self._category_tree.show(stdout=False))
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
-        ancestors: Deque[Node] = deque()
-
-        # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
-        # been added to this tree, or the root of the source tree
-        ancestor = spid.node
-        while ancestor:
-            ancestor = self.get_single_parent_for_node(ancestor)
-            if ancestor:
-                if ancestor.uid == self.uid:
-                    # do not include source tree's root node:
-                    return ancestors
-                ancestors.appendleft(ancestor)
-
-        return ancestors
+        raise InvalidOperationError('CategoryDisplayTree.get_ancestor_list()')
 
     def _get_or_create_pre_ancestors(self, sn: SPIDNodePair, op_type: OpType, source_tree: DisplayTree) -> ContainerNode:
         """Pre-ancestors are those nodes (either logical or pointing to real data) which are higher up than the source tree.
@@ -251,17 +237,6 @@ class CategoryDisplayTree(DisplayTree):
 
         if SUPER_DEBUG:
             self.print_tree_contents_debug()
-
-    def get_single_parent_for_node(self, node: Node) -> Optional[Node]:
-        if not self._category_tree.get_node(node.identifier):
-            return None
-
-        ancestor: ContainerNode = self._category_tree.parent(node.identifier)
-        if ancestor:
-            # Do not include CategoryNode and above
-            if not isinstance(ancestor, CategoryNode):
-                return ancestor
-        return None
 
     def __repr__(self):
         return f'CategoryDisplayTree(tree_id=[{self.tree_id}], {self.get_summary()})'

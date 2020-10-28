@@ -24,12 +24,6 @@ class LocalDiskDisplayTree(DisplayTree):
     def __init__(self, app, tree_id: str, root_identifier: SinglePathNodeIdentifier):
         super().__init__(app, tree_id, root_identifier)
 
-    def get_single_parent_for_node(self, node: LocalFileNode) -> Optional[Node]:
-        if node.get_tree_type() != constants.TREE_TYPE_LOCAL_DISK:
-            return None
-
-        return self.app.cacheman.get_single_parent_for_node(node, self.root_path)
-
     def get_children_for_root(self) -> Iterable[Node]:
         root_node = self.get_root_node()
         return self.app.cacheman.get_children(root_node)

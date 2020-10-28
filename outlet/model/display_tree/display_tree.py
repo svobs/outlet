@@ -78,10 +78,6 @@ class DisplayTree(ABC):
         pass
 
     @abstractmethod
-    def get_single_parent_for_node(self, node) -> Optional[Node]:
-        pass
-
-    @abstractmethod
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[Node]:
         pass
 

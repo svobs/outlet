@@ -46,12 +46,6 @@ class GDriveDisplayTree(DisplayTree):
 
         return self._whole_tree.get_node_list_for_path_list(path_list)
 
-    def get_single_parent_for_node(self, node: GDriveNode) -> Optional[GDriveNode]:
-        if node.get_tree_type() != TREE_TYPE_GDRIVE:
-            return None
-
-        return self._whole_tree.get_single_parent_for_node(node, self.root_path)
-
     def __repr__(self):
         if self._stats_loaded:
             root_node = self.get_root_node()

@@ -350,40 +350,6 @@ class GDriveWholeTree:
 
         return full_path.startswith(subtree_root_path)
 
-    @staticmethod
-    def _filter_by_subtree_root(node_list: List[GDriveNode], subtree_root_path: str) -> List[GDriveNode]:
-        filtered_list = []
-
-        for node in node_list:
-            for path in node.get_path_list():
-                if path.startswith(subtree_root_path):
-                    filtered_list.append(node)
-
-        return filtered_list
-
-    def get_single_parent_for_node(self, node: GDriveNode, required_subtree_path: str = None) -> Optional[GDriveNode]:
-        resolved_parents: List[GDriveNode] = self.get_parent_list_for_node(node)
-
-        if required_subtree_path:
-            # FIXME: this needs more thought
-            if len(resolved_parents) > 1:
-                resolved_parents: List[GDriveNode] = self._filter_by_subtree_root(resolved_parents, required_subtree_path)
-
-            if len(resolved_parents) > 1:
-                raise RuntimeError(f'Got more than 1 parent for node {node.uid}: got {resolved_parents}')
-        else:
-            if len(node.get_parent_uids()) > 1:
-                raise RuntimeError(f'get_single_parent_for_node(): node cannot have more than one parent'
-                                   f' when required_subtree_path is not specified: {node}')
-
-            if len(resolved_parents) > 1:
-                raise RuntimeError(f'get_parent_list_for_node() somehow returned more than 1 parent for node {node.uid}: got {resolved_parents}')
-
-        if resolved_parents:
-            return resolved_parents[0]
-        else:
-            return None
-
     def get_parent_list_for_node(self, node: GDriveNode, required_subtree_path: str = None) -> List[GDriveNode]:
         if node.get_tree_type() != TREE_TYPE_GDRIVE:
             logger.debug(f'get_parent_list_for_node(): node has wrong tree type ({node.get_tree_type()}); returning None')
