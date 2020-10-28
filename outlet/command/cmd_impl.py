@@ -192,6 +192,8 @@ class CreatLocalDirCommand(Command):
 # GOOGLE DRIVE COMMANDS begin
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
+# FIXME: when updating GDrive, determine when it's necessary to regenerate paths, and do it.
+
 # FIXME: When writing to GDrive, check for nodes with identical path and content. Match logic found in ChangeMaker::OneSide
 class UploadToGDriveCommand(CopyNodeCommand):
     """

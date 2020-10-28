@@ -1,51 +1,26 @@
-import copy
+import logging
 import logging
 import pathlib
 from collections import deque
-from typing import Callable, Deque, Dict, Iterable, List, Optional, Union
+from typing import Deque, Dict, Iterable, List, Optional, Union
 
 import treelib
 from pydispatch import dispatcher
 from treelib.exceptions import DuplicatedNodeIdError
 
+from constants import NULL_UID, ROOT_PATH, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from error import InvalidOperationError
+from model.display_tree.display_tree import DisplayTree
+from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
+from model.node.node import HasChildList, Node, SPIDNodePair
+from model.node_identifier import SinglePathNodeIdentifier
+from model.op import Op, OP_TYPES, OpType
+from model.uid import UID
 from ui import actions
 from util import file_util
-from model.op import Op, OpType
-from constants import SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
-from model.uid import UID
-from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
-from model.node.node import Node, HasChildList
-from model.node_identifier import SinglePathNodeIdentifier, NodeIdentifier
-from model.node_identifier_factory import NodeIdentifierFactory
-from model.display_tree.display_tree import DisplayTree
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
-
-CHANGE_TYPES = [OpType.CP, OpType.RM, OpType.UP, OpType.MV]
-
-
-# CLASS TreeTypeBeforeCategoryDict
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-class PreAncestorDict:
-    def __init__(self):
-        self._dict: Dict[str, ContainerNode] = {}
-
-    # FIXME: UID for GDrive nodes will not be unique in this tree!
-    # TODO: consider a UID mapper for GDrive paths
-    def get_for(self, source_tree: DisplayTree, op_type: OpType) -> Optional[ContainerNode]:
-        key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, op_type=op_type)
-        return self._dict.get(key, None)
-
-    def put_for(self, source_tree: DisplayTree, op_type: OpType, node: ContainerNode):
-        key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, op_type=op_type)
-        self._dict[key] = node
-
-    # TODO: need to associate node's tree_type + path + op_type with UID
-    def get_uid_for(self, sp_node_identifier: SinglePathNodeIdentifier):
-        key = NodeIdentifierFactory.nid(tree_type=source_tree.tree_type, uid=source_tree.uid, op_type=op_type)
 
 
 # CLASS CategoryDisplayTree
@@ -62,15 +37,13 @@ class CategoryDisplayTree(DisplayTree):
         self.uid_generator = app.uid_generator
         self.node_identifier_factory = app.node_identifier_factory
 
+        logger.debug(f'CategoryDisplayTree: adding root node: {self.root_node.node_identifier}')
         self._category_tree: treelib.Tree = treelib.Tree()
         self._category_tree.add_node(self.root_node, parent=None)
 
         self.show_whole_forest: bool = show_whole_forest
-        # saved in a nice dict for easy reference:
-        self._pre_ancestor_dict: PreAncestorDict = PreAncestorDict()
 
         self.op_dict: Dict[UID, Op] = {}
-        # TODO: change to spid
         """Lookup for target node UID -> Op. The target node will be the dst node if the Op has one; otherwise
         it will be the source node."""
         self._op_list: List[Op] = []
@@ -79,14 +52,11 @@ class CategoryDisplayTree(DisplayTree):
         self.count_conflict_warnings = 0
         self.count_conflict_errors = 0
 
-    def _to_tree_nid(self, spid: SinglePathNodeIdentifier) -> str:
+    # TODO: simplify
+    def _build_tree_nid(self, tree_type: int, single_path: str, op: OpType) -> str:
         # note: this is kind of a kludge because we're using the local path UID mapper for GDrive paths...but who cares
-        path_uid: UID = self.app.cacheman.get_uid_for_path(spid.get_single_path())
-        return f'{spid.tree_type}-{spid.uid}-{path_uid}'
-
-    def get_node_for_spid(self, spid: SinglePathNodeIdentifier) -> Optional[Node]:
-        nid: str = self._to_tree_nid(spid)
-        return self._category_tree.get_node(nid)
+        # path_uid: UID = self.app.cacheman.get_uid_for_path(spid.get_single_path())
+        return f'{tree_type}-{op.name}-{single_path}'
 
     def get_root_node(self):
         return self.root_node
@@ -111,7 +81,7 @@ class CategoryDisplayTree(DisplayTree):
 
         # Walk up the source tree, adding ancestors as we go, until we reach either a node which has already
         # been added to this tree, or the root of the source tree
-        ancestor = self.get_node_for_spid(spid)
+        ancestor = spid.node
         while ancestor:
             ancestor = self.get_single_parent_for_node(ancestor)
             if ancestor:
@@ -122,63 +92,44 @@ class CategoryDisplayTree(DisplayTree):
 
         return ancestors
 
-    def _get_subroot_node(self, node_identifier: NodeIdentifier) -> Optional[Node]:
-        for child in self._category_tree.children(self.root_node.identifier):
-            if child.node_identifier.tree_type == node_identifier.tree_type:
-                return child
-        return None
-
-    # TODO: generate UID for tree_type
-    def _get_or_create_pre_ancestors(self, node: Node, op_type: OpType, source_tree: DisplayTree) -> ContainerNode:
+    def _get_or_create_pre_ancestors(self, sn: SPIDNodePair, op_type: OpType, source_tree: DisplayTree) -> ContainerNode:
         """Pre-ancestors are those nodes (either logical or pointing to real data) which are higher up than the source tree.
         Last pre-ancestor is easily derived and its prescence indicates whether its ancestors were already created"""
 
-        tree_type: int = node.node_identifier.tree_type
-        assert tree_type != TREE_TYPE_MIXED, f'For {node.node_identifier}'
+        tree_type: int = sn.spid.tree_type
+        assert tree_type != TREE_TYPE_MIXED, f'For {sn.spid}'
 
-        last_pre_ancestor = self._pre_ancestor_dict.get_for(source_tree, op_type)
+        last_pre_ancestor_nid: str = self._build_tree_nid(tree_type, self.root_path, op_type)
+        last_pre_ancestor = self._category_tree.get_node(last_pre_ancestor_nid)
         if last_pre_ancestor:
             return last_pre_ancestor
 
         # else we need to create pre-ancestors...
 
+        parent_node = self.root_node
         if self.show_whole_forest:
-            # Create sub-root (i.e. 'GDrive' or 'Local Disk')
-            subroot_node = self._get_subroot_node(node.node_identifier)
-            if not subroot_node:
-                uid = self.uid_generator.next_uid()
-                node_identifier = self.node_identifier_factory.for_values(tree_type=node.node_identifier.tree_type, full_path=self.root_path, uid=uid)
-                subroot_node = RootTypeNode(node_identifier=node_identifier)
-                logger.debug(f'[{self.tree_id}] Creating pre-ancestor RootType node: {node_identifier}')
-                self._category_tree.add_node(node=subroot_node, parent=self.root_node)
-            parent_node = subroot_node
-        else:
-            # no sub-root used
-            parent_node = self.root_node
+            # Create tree type root (e.g. 'GDrive' or 'Local Disk')
+            nid = str(tree_type)
+            treetype_node = self._category_tree.get_node(nid)
+            if not treetype_node:
+                treetype_node = RootTypeNode(node_identifier=SinglePathNodeIdentifier(UID(tree_type), ROOT_PATH, tree_type))
+                treetype_node.identifier = nid
+                logger.debug(f'[{self.tree_id}] Creating TreeType node: {treetype_node.node_identifier}')
+                self._category_tree.add_node(node=treetype_node, parent=parent_node)
+            parent_node = treetype_node
 
-        cat_node = None
-        for child in self._category_tree.children(parent_node.identifier):
-            if child.op_type == op_type:
-                cat_node = child
-                break
-
+        cat_node = self._category_tree.get_node(last_pre_ancestor_nid)
         if not cat_node:
             # Create category display node. This may be the "last pre-ancestor".
-            # Note that we can use this for GDrive paths because we are combining it with tree_type and OpType (below) into a new identifier:
-            uid = self.app.cacheman.get_uid_for_path(self.root_path)
-            nid = NodeIdentifierFactory.nid(uid, node.node_identifier.tree_type, op_type)
-
-            node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=self.root_path, uid=uid)
-            cat_node = CategoryNode(node_identifier=node_identifier, op_type=op_type)
-            cat_node.identifier = nid
-            logger.debug(f'Creating pre-ancestor CAT node: {node_identifier}')
+            cat_node = CategoryNode(node_identifier=SinglePathNodeIdentifier(NULL_UID, self.root_path, tree_type), op_type=op_type)
+            cat_node.identifier = last_pre_ancestor_nid
+            logger.debug(f'Creating Category node: {cat_node.node_identifier}')
             self._category_tree.add_node(node=cat_node, parent=parent_node)
         parent_node = cat_node
 
         if self.show_whole_forest:
             # Create remaining pre-ancestors:
-            full_path = source_tree.root_identifier.full_path
-            path_segments: List[str] = file_util.split_path(full_path)
+            path_segments: List[str] = file_util.split_path(self.root_path)
             path_so_far = ''
             # Skip first (already covered by CategoryNode):
             for path in path_segments[1:]:
@@ -191,17 +142,16 @@ class CategoryDisplayTree(DisplayTree):
                         break
 
                 if not child_node:
-                    uid = self.app.cacheman.get_uid_for_path(path_so_far)
-                    nid = NodeIdentifierFactory.nid(uid, node.node_identifier.tree_type, op_type)
-                    node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=uid)
+                    # uid = self.app.cacheman.get_uid_for_path(path_so_far)
+                    nid = self._build_tree_nid(tree_type, path_so_far, op_type)
+                    node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=NULL_UID)
                     child_node = ContainerNode(node_identifier=node_identifier)
                     child_node.identifier = nid
-                    logger.debug(f'[{self.tree_id}] Creating pre-ancestor DIR node: {node_identifier}')
+                    logger.debug(f'[{self.tree_id}] Creating dummy DIR node: {node_identifier}')
                     self._category_tree.add_node(node=child_node, parent=parent_node)
                 parent_node = child_node
 
-        # this is the last pre-ancestor. Cache it:
-        self._pre_ancestor_dict.put_for(source_tree, op_type, parent_node)
+        # this is the last pre-ancestor.
         return parent_node
 
     def get_ops(self) -> Iterable[Op]:
@@ -222,7 +172,7 @@ class CategoryDisplayTree(DisplayTree):
             self.op_dict[op.src_node.uid] = op
         self._op_list.append(op)
 
-    def add_node(self, node: Node, op: Op, source_tree: DisplayTree):
+    def add_node(self, sn: SPIDNodePair, op: Op, source_tree: DisplayTree):
         """When we add the node, we add any necessary ancestors for it as well.
         1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't
         backed by any actual data nodes. This includes possibly tree-type nodes, category nodes, and ancestors
@@ -233,7 +183,7 @@ class CategoryDisplayTree(DisplayTree):
         but in this case it will be a string which includes the OpType name.
         3. Add a node for the node itself
         """
-        assert op is not None, f'For node: {node}'
+        assert op is not None, f'For node: {sn}'
         self._append_op(op)
 
         op_type_for_display = op.op_type
@@ -241,35 +191,30 @@ class CategoryDisplayTree(DisplayTree):
             # Group "mkdir" with "copy" for display purposes:
             op_type_for_display = OpType.CP
 
-        # Clone the node so as not to mutate the source tree. The node category is needed to determine which bra
-        node_clone = copy.copy(node)
-        node_clone.node_identifier = copy.copy(node.node_identifier)
-        node_clone.identifier = NodeIdentifierFactory.nid(node.uid, node.node_identifier.tree_type, op_type_for_display)
-        node = node_clone
-
-        parent: Node = self._get_or_create_pre_ancestors(node, op_type_for_display, source_tree)
+        parent: Node = self._get_or_create_pre_ancestors(sn, op_type_for_display, source_tree)
 
         if isinstance(parent, HasChildList):
-            parent.add_meta_metrics(node)
+            parent.add_meta_metrics(sn.node)
 
         stack: Deque = deque()
-        full_path = node.full_path
+        full_path = sn.spid.get_single_path()
+        tree_type = sn.spid.tree_type
+        assert full_path, f'SPID does not have a path: {sn.spid}'
+        assert full_path.startswith(self.root_path), f'ItemPath="{full_path}", TreeRootPath="{self.root_path}"'
         # Walk up the source tree and compose a list of ancestors:
-        while True:
-            assert full_path, f'Item does not have a path: {node}'
-            assert full_path.startswith(self.root_path), f'ItemPath="{full_path}", TreeRootPath="{self.root_path}"'
+        while full_path != self.root_path:
             # Go up one dir:
             full_path: str = str(pathlib.Path(full_path).parent)
             # Get standard UID for path (note: this is a kludge for non-local trees, but should be OK because we just need a UID which
             # is unique for this tree)
-            uid = self.app.cacheman.get_uid_for_path(full_path)
-            nid = NodeIdentifierFactory.nid(uid, node.node_identifier.tree_type, op_type_for_display)
+            # uid = self.app.cacheman.get_uid_for_path(full_path)
+            ancestor_spid = SinglePathNodeIdentifier(NULL_UID, full_path, tree_type)
+            nid = self._build_tree_nid(tree_type, full_path, op_type_for_display)
             parent = self._category_tree.get_node(nid=nid)
             if parent:
                 break
             else:
-                node_identifier = SinglePathNodeIdentifier(uid, full_path, node.node_identifier.tree_type)
-                dir_node = ContainerNode(node_identifier)
+                dir_node = ContainerNode(ancestor_spid)
                 dir_node.identifier = nid
                 stack.append(dir_node)
 
@@ -284,24 +229,24 @@ class CategoryDisplayTree(DisplayTree):
             parent = ancestor
 
         try:
-            # Finally add the node itself:
+            # Finally add the node itself. No need to muck around with NIDs now - should be unique globally
 
             if SUPER_DEBUG:
-                logger.info(f'[{self.tree_id}] Adding node: {node.node_identifier} ({node.identifier}) '
+                logger.info(f'[{self.tree_id}] Adding node: {sn.node.node_identifier} ({sn.node.identifier}) '
                             f'to parent: {parent.node_identifier} ({parent.identifier})')
-            self._category_tree.add_node(node=node, parent=parent)
+            self._category_tree.add_node(node=sn.node, parent=parent)
         except DuplicatedNodeIdError:
             # TODO: configurable handling of conflicts. Google Drive allows nodes with the same path and name, which is not allowed on local FS
-            conflict_node = self._category_tree.get_node(node.identifier)
-            if conflict_node.md5 == node.md5:
+            conflict_node = self._category_tree.get_node(sn.node.identifier)
+            if conflict_node.md5 == sn.node.md5:
                 self.count_conflict_warnings += 1
                 if SUPER_DEBUG:
                     logger.warning(f'[{self.tree_id}] Duplicate nodes for the same path! However, nodes have same MD5, so we will just ignore the new'
-                                   f' node: existing={conflict_node} new={node}')
+                                   f' node: existing={conflict_node} new={sn.node}')
             else:
                 self.count_conflict_errors += 1
                 if SUPER_DEBUG:
-                    logger.error(f'[{self.tree_id}] Duplicate nodes for the same path and different content: existing={conflict_node} new={node}')
+                    logger.error(f'[{self.tree_id}] Duplicate nodes for the same path and different content: existing={conflict_node} new={sn.node}')
                 # raise
 
         if SUPER_DEBUG:
@@ -327,7 +272,7 @@ class CategoryDisplayTree(DisplayTree):
     def get_summary(self) -> str:
         def make_cat_map():
             cm = {}
-            for c in CHANGE_TYPES:
+            for c in OP_TYPES:
                 cm[c] = f'{CategoryNode.display_names[c]}: 0'
             return cm
 
@@ -350,7 +295,7 @@ class CategoryDisplayTree(DisplayTree):
                 cat_map = type_map.get(tree_type, None)
                 if cat_map:
                     cat_summaries = []
-                    for cat in CHANGE_TYPES:
+                    for cat in OP_TYPES:
                         cat_summaries.append(cat_map[cat])
                     type_summaries.append(f'{tree_type_name}: {",".join(cat_summaries)}')
             return '; '.join(type_summaries)
@@ -363,7 +308,7 @@ class CategoryDisplayTree(DisplayTree):
             if cat_count == 0:
                 return 'Contents are identical'
             cat_summaries = []
-            for cat in CHANGE_TYPES:
+            for cat in OP_TYPES:
                 cat_summaries.append(cat_map[cat])
             return ', '.join(cat_summaries)
 

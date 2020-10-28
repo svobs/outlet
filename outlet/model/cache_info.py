@@ -12,7 +12,7 @@ class CacheInfoEntry:
         self.is_complete = is_complete
 
     def to_tuple(self):
-        return self.cache_location, self.subtree_root.tree_type, self.subtree_root.get_single_path(), self.subtree_root.uid, \
+        return self.cache_location, self.subtree_root.tree_type, self.subtree_root.get_path_list()[0], self.subtree_root.uid, \
                self.sync_ts, self.is_complete
 
     def __repr__(self):

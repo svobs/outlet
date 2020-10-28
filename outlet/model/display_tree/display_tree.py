@@ -24,6 +24,9 @@ class DisplayTree(ABC):
         """This is needed to clarify the (albeit very rare) case where the root node resolves to multiple paths.
         Our display tree can only have one path."""
 
+        # See refresh_stats() for the following
+        self._stats_loaded = False
+
     # From the root node_identifier
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 

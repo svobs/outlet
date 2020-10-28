@@ -34,6 +34,9 @@ class OpType(IntEnum):
         return self == OpType.CP or self == OpType.MV or self == OpType.UP
 
 
+OP_TYPES = [OpType.CP, OpType.RM, OpType.UP, OpType.MV]
+
+
 # Class OpRef
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 

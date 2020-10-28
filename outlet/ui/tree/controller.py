@@ -121,6 +121,7 @@ class TreePanelController:
 
         GLib.idle_add(_reload)
 
+    # TODO: put in display store
     def build_spid_from_tree_path(self, tree_path: Gtk.TreePath) -> SinglePathNodeIdentifier:
         node = self.display_store.get_node_data(tree_path)
         single_path = self.derive_single_path_from_tree_path(tree_path)

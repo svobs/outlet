@@ -4,7 +4,7 @@ from error import InvalidOperationError
 from model.op import OpType
 from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_LOCAL_DISK_LINUX, OBJ_TYPE_DIR, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.node import Node, HasChildList
-from model.node_identifier import NodeIdentifier
+from model.node_identifier import SinglePathNodeIdentifier
 
 
 # CLASS ContainerNode
@@ -15,7 +15,7 @@ class ContainerNode(HasChildList, Node):
     Represents a generic directory (i.e. not a LocalFileNode or domain object)
     """
 
-    def __init__(self, node_identifier: NodeIdentifier):
+    def __init__(self, node_identifier: SinglePathNodeIdentifier):
         assert node_identifier.get_single_path(), f'Bad: {node_identifier}'
         Node.__init__(self, node_identifier)
         HasChildList.__init__(self)
@@ -78,7 +78,7 @@ class CategoryNode(ContainerNode):
         OpType.MV: 'To Move',
     }
 
-    def __init__(self, node_identifier: NodeIdentifier, op_type: OpType):
+    def __init__(self, node_identifier: SinglePathNodeIdentifier, op_type: OpType):
         super().__init__(node_identifier=node_identifier)
         self.op_type = op_type
 
@@ -102,7 +102,7 @@ class RootTypeNode(ContainerNode):
     Represents a type of root in the tree (GDrive, local FS, etc.)
     """
 
-    def __init__(self, node_identifier: NodeIdentifier):
+    def __init__(self, node_identifier: SinglePathNodeIdentifier):
         super().__init__(node_identifier=node_identifier)
 
     @property

@@ -10,7 +10,7 @@ import dateutil.parser
 import humanfriendly
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
+from googleapiclient.discovery import build, Resource
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from pydispatch import dispatcher
@@ -58,7 +58,7 @@ class GDriveClient(HasLifecycle):
         self.app = app
         self.tree_id: str = tree_id
         self.page_size: int = self.app.config.get('gdrive.page_size')
-        self.service = None
+        self.service: Optional[Resource] = None
 
     def start(self):
         HasLifecycle.start(self)
@@ -68,9 +68,6 @@ class GDriveClient(HasLifecycle):
         HasLifecycle.shutdown(self)
         
         if self.service:
-            # Try to suppress warning
-            logger.debug(f'Closing GDriveClient')
-            self.service._http.http.close()
             self.service = None
 
     @staticmethod
@@ -99,7 +96,7 @@ class GDriveClient(HasLifecycle):
                 with open(token_file_path, 'wb') as token:
                     pickle.dump(creds, token)
 
-            service = build('drive', 'v3', credentials=creds, cache=MemoryCache())
+            service: Resource = build('drive', 'v3', credentials=creds, cache=MemoryCache())
             return service
 
         result = GDriveClient._try_repeatedly(request)
@@ -608,7 +605,8 @@ class GDriveClient(HasLifecycle):
         gdrive_file: GDriveFile = self._convert_dict_to_gdrive_file(updated_file_meta)
 
         logger.info(
-            f'File update uploaded successfully) Returned name="{gdrive_file.name}", version="{gdrive_file.version}", goog_id="{gdrive_file.goog_id}",')
+            f'File update uploaded successfully) Returned name="{gdrive_file.name}", version="{gdrive_file.version}", '
+            f'goog_id="{gdrive_file.goog_id}"')
 
         return gdrive_file
 

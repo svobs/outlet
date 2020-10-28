@@ -36,10 +36,6 @@ class MasterStore(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_single_parent_for_node(self, node: Node, required_subtree_path: str = None) -> Optional[Node]:
-        pass
-
-    @abstractmethod
     def refresh_subtree(self, subtree_root_node: Node, tree_id: str):
         pass
 

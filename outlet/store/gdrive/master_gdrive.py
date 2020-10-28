@@ -386,14 +386,10 @@ class GDriveMasterStore(MasterStore):
     def get_parent_list_for_node(self, node: GDriveNode) -> List[GDriveNode]:
         return self._memstore.master_tree.get_parent_list_for_node(node)
 
-    def get_single_parent_for_node(self, node: Node, required_subtree_path: str = None) -> Optional[GDriveNode]:
-        assert isinstance(node, GDriveNode)
-        return self._memstore.master_tree.get_single_parent_for_node(node, required_subtree_path)
-
-    def get_identifier_list_for_full_path_list(self, path_list: List[str]) -> List[NodeIdentifier]:
+    def get_identifier_list_for_full_path_list(self, path_list: List[str], error_if_not_found: bool = False) -> List[NodeIdentifier]:
         if not self._memstore.master_tree:
             raise CacheNotLoadedError()
-        return self._memstore.master_tree.get_identifier_list_for_path_list(path_list)
+        return self._memstore.master_tree.get_identifier_list_for_path_list(path_list, error_if_not_found)
 
     def get_all_gdrive_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:
         return self._memstore.master_tree.get_all_files_and_folders_for_subtree(subtree_root)

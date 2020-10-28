@@ -130,7 +130,8 @@ class OpGraph(HasLifecycle):
         
         # mutually exclusive nodes have dependencies on each other:
         for potential_child_op in mutex_node_q_dict.values():
-            parent_uid = self.app.cacheman.get_parent_uid_list_for_node(potential_child_op.get_target_node())
+            parent_uid_list: List[UID] = self.app.cacheman.get_parent_uid_list_for_node(potential_child_op.get_target_node())
+            # FIXME
             op_for_parent_node: OpGraphNode = mutex_node_q_dict.get(parent_uid, None)
             if potential_child_op.is_remove_type():
                 # Special handling for RM-type nodes:
@@ -192,7 +193,8 @@ class OpGraph(HasLifecycle):
 
             if op_node.is_create_type():
                 # Enforce Rule 1: ensure parent of target is valid:
-                parent_uid = self.app.cacheman.get_parent_uid_list_for_node(tgt_node)
+                parent_uid_list: List[UID] = self.app.cacheman.get_parent_uid_list_for_node(tgt_node)
+                # FIXME
                 if not self.app.cacheman.get_node_for_uid(parent_uid, tgt_node.get_tree_type()) and not mkdir_dict.get(parent_uid, None):
                     logger.error(f'Could not find parent in cache with UID {parent_uid} for "{op_type}" operation node: {tgt_node}')
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find parent in cache with UID {parent_uid} '
@@ -265,7 +267,7 @@ class OpGraph(HasLifecycle):
 
         target_node: Node = node_to_insert.get_target_node()
         target_uid: UID = target_node.uid
-        parent_uid: UID = self.app.cacheman.get_parent_uid_list_for_node(target_node)
+        parent_uid_list: List[UID] = self.app.cacheman.get_parent_uid_list_for_node(target_node)
 
         # First check whether the target node is known and has pending operations
         last_target_op = self._get_lowest_priority_op_node(target_uid)

@@ -24,8 +24,6 @@ class LocalDiskDisplayTree(DisplayTree):
     def __init__(self, app, tree_id: str, root_identifier: SinglePathNodeIdentifier):
         super().__init__(app, tree_id, root_identifier)
 
-        self._stats_loaded: bool = False
-
     def get_single_parent_for_node(self, node: LocalFileNode) -> Optional[Node]:
         if node.get_tree_type() != constants.TREE_TYPE_LOCAL_DISK:
             return None
@@ -69,8 +67,8 @@ class LocalDiskDisplayTree(DisplayTree):
         dispatcher.send(signal=actions.SET_STATUS, sender=tree_id, status_msg=self.get_summary())
 
     def print_tree_contents_debug(self):
-        logger.debug(f'[{self.tree_id}] Contents of LocalDiskDisplayTree for "{self.node_identifier}": \n' +
-                     self.app.cacheman.show_tree(self.node_identifier))
+        logger.debug(f'[{self.tree_id}] Contents of LocalDiskDisplayTree for "{self.root_identifier}": \n' +
+                     self.app.cacheman.show_tree(self.root_identifier))
 
     def __repr__(self):
-        return f'LocalDiskDisplayTree(root="{self.node_identifier}"])'
+        return f'LocalDiskDisplayTree(root="{self.root_identifier}"])'

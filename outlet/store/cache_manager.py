@@ -59,7 +59,7 @@ def ensure_cache_dir_path(config):
 class CacheInfoByType(TwoLevelDict):
     """Holds PersistedCacheInfo objects"""
     def __init__(self):
-        super().__init__(lambda x: x.subtree_root.tree_type, lambda x: x.subtree_root.get_single_path(), lambda x, y: True)
+        super().__init__(lambda x: x.subtree_root.tree_type, lambda x: x.subtree_root.get_path_list()[0], lambda x, y: True)
 
 
 # CLASS CacheManager
@@ -192,7 +192,7 @@ class CacheManager(HasLifecycle):
                     logger.info(f'Skipping non-existent cache info entry: {info.cache_location} (for subtree: {info.subtree_root})')
                     skipped_count += 1
                     continue
-                existing = self.caches_by_type.get_single(info.subtree_root.tree_type, info.subtree_root.get_single_path())
+                existing = self.caches_by_type.get_single(info.subtree_root.tree_type, info.subtree_root.get_path_list()[0])
                 if existing:
                     if info.sync_ts < existing.sync_ts:
                         logger.info(f'Skipping duplicate cache info entry: {existing.subtree_root}')
@@ -206,10 +206,10 @@ class CacheManager(HasLifecycle):
 
                 # There are up to 4 locations where the subtree root can be stored
                 if info.subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
-                    uid_from_mem = self._master_local.get_uid_for_path(info.subtree_root.get_single_path(), info.subtree_root.uid)
+                    uid_from_mem = self._master_local.get_uid_for_path(info.subtree_root.get_path_list()[0], info.subtree_root.uid)
                     if uid_from_mem != info.subtree_root.uid:
                         raise RuntimeError(f'Subtree root UID from diskstore registry ({info.subtree_root.uid}) does not match UID '
-                                           f'from memstore ({uid_from_mem}) for path="{info.subtree_root.get_single_path()}"')
+                                           f'from memstore ({uid_from_mem}) for path="{info.subtree_root.get_path_list()[0]}"')
 
                 # Put into map to eliminate possible duplicates
                 self.caches_by_type.put_item(info)
@@ -323,7 +323,7 @@ class CacheManager(HasLifecycle):
             raise RuntimeError(f'Unrecognized tree type: {cache_type}')
 
         if cache_type == TREE_TYPE_LOCAL_DISK:
-            if not os.path.exists(existing_disk_cache.subtree_root.get_single_path()):
+            if not os.path.exists(existing_disk_cache.subtree_root.get_path_list()[0]):
                 logger.info(f'Subtree not found; will defer loading: "{existing_disk_cache.subtree_root}"')
                 existing_disk_cache.needs_refresh = True
             else:
@@ -366,13 +366,13 @@ class CacheManager(HasLifecycle):
 
         for existing_cache in existing_caches:
             # Is existing_cache an ancestor of target tree?
-            if full_path.startswith(existing_cache.subtree_root.get_single_path()):
+            if full_path.startswith(existing_cache.subtree_root.get_path_list()[0]):
                 return existing_cache
         # Nothing in the cache contains subtree
         return None
 
     def get_cache_info_entry(self, subtree_root: NodeIdentifier) -> PersistedCacheInfo:
-        return self.caches_by_type.get_single(subtree_root.tree_type, subtree_root.get_single_path())
+        return self.caches_by_type.get_single(subtree_root.tree_type, subtree_root.get_path_list()[0])
 
     def get_or_create_cache_info_entry(self, subtree_root: NodeIdentifier) -> PersistedCacheInfo:
         existing = self.get_cache_info_entry(subtree_root)
@@ -383,7 +383,7 @@ class CacheManager(HasLifecycle):
             logger.debug(f'No existing cache entry found for subtree: {subtree_root}')
 
         if subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
-            unique_path = subtree_root.get_single_path().replace('/', '_')
+            unique_path = subtree_root.get_path_list()[0].replace('/', '_')
             file_name = f'LO_{unique_path}.{INDEX_FILE_SUFFIX}'
         elif subtree_root.tree_type == TREE_TYPE_GDRIVE:
             file_name = GDRIVE_INDEX_FILE_NAME
@@ -559,7 +559,7 @@ class CacheManager(HasLifecycle):
                 # Need to wait until all caches are loaded:
                 self.wait_for_startup_done()
 
-                identifier_list = self._master_gdrive.get_identifier_list_for_full_path_list(node_identifier.get_path_list())
+                identifier_list = self._master_gdrive.get_identifier_list_for_full_path_list(node_identifier.get_path_list(), error_if_not_found=True)
             else:  # LocalNode
                 if not os.path.exists(full_path):
                     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
@@ -733,45 +733,52 @@ class CacheManager(HasLifecycle):
             return []
 
     def _find_parent_matching_path(self, child_node: Node, parent_path: str) -> Optional[Node]:
+        """Note: this can return multiple results if two parents with the same name and path contain the same child
+        (cough, cough, GDrive, cough). Although possible, I cannot think of a valid reason for that scenario."""
         logger.debug(f'Looking for parent with path "{parent_path}" (child: {child_node.node_identifier})')
+        filtered_list: List[Node] = []
         if parent_path == ROOT_PATH:
             return None
-        parent_node_list: List[Node] = self.get_parent_list_for_node(child_node)
-        filtered_list: List[Node] = []
 
+        parent_node_list: List[Node] = self.get_parent_list_for_node(child_node)
         for node in parent_node_list:
             if node.node_identifier.has_path(parent_path):
                 filtered_list.append(node)
 
+        # FIXME: audit tree to prevent this case
+        # FIXME: submit to adjudicator
+        if not filtered_list:
+            return None
         if len(filtered_list) > 1:
             raise RuntimeError(f'Expected exactly 1 but found {len(filtered_list)} parents which matched parent path "{parent_path}"')
-        elif len(filtered_list) == 0:
-            raise RuntimeError(f'None of {len(parent_node_list)} parents matched parent path "{parent_path}"')
         logger.debug(f'Matched path "{parent_path}" with node {filtered_list[0]}')
         return filtered_list[0]
 
     def get_parent_sn_for_sn(self, sn: SPIDNodePair) -> Optional[SPIDNodePair]:
+        """Given a single SPIDNodePair, we should be able to guarantee that we get no more than 1 SPIDNodePair as its parent.
+        Having more than one path indicates that not just the node, but also any of its ancestors has multiple parents."""
         path_list = sn.node.get_path_list()
         parent_path: str = self._derive_parent_path(sn.spid.get_single_path())
         if len(path_list) == 1 and path_list[0] == sn.spid.get_single_path():
             # only one parent -> easy
-            parent_node = self.get_single_parent_for_node(sn.node)
+            if sn.spid.tree_type == TREE_TYPE_GDRIVE:
+                parent_list: List[Node] = self._master_gdrive.get_parent_list_for_node(sn.node)
+                if parent_list:
+                    if len(parent_list) > 1:
+                        raise RuntimeError(f'Expected exactly 1 but found {len(parent_list)} parents for node: "{sn.node}"')
+                    parent_node = parent_list[0]
+                else:
+                    return None
+            elif sn.spid.tree_type == TREE_TYPE_LOCAL_DISK:
+                parent_node = self._master_local.get_single_parent_for_node(sn.node)
+            else:
+                raise RuntimeError(f'Unknown tree type: {sn.snid.tree_type} for {sn.node}')
         else:
             parent_node = self._find_parent_matching_path(sn.node, parent_path)
         if not parent_node:
             return None
         parent_spid = SinglePathNodeIdentifier(parent_node.uid, parent_path, parent_node.get_tree_type())
         return SPIDNodePair(parent_spid, parent_node)
-
-    def get_single_parent_for_single_path_identfiier(self, single_path_node_identifier: SinglePathNodeIdentifier) -> Optional[Node]:
-        node = self.get_node_for_uid(single_path_node_identifier.uid)
-        path_list = node.get_path_list()
-        if len(path_list) == 1 and path_list[0] == single_path_node_identifier.get_single_path():
-            # only one parent -> easy
-            return self.get_single_parent_for_node(node)
-        else:
-            parent_path: str = self._derive_parent_path(single_path_node_identifier.get_single_path())
-            return self._find_parent_matching_path(node, parent_path)
 
     def get_ancestor_list_for_single_path_identifier(self, single_path_node_identifier: SinglePathNodeIdentifier,
                                                      stop_at_path: Optional[str]) -> Deque[Node]:
@@ -793,14 +800,6 @@ class CacheManager(HasLifecycle):
                 ancestor_deque.appendleft(ancestor)
             else:
                 return ancestor_deque
-
-    def get_single_parent_for_node(self, node: Node, required_subtree_path: str = None) -> Node:
-        if node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
-            return self._master_gdrive.get_single_parent_for_node(node, required_subtree_path)
-        elif node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-            return self._master_local.get_single_parent_for_node(node, required_subtree_path)
-        else:
-            raise RuntimeError(f'Unknown tree type: {node.node_identifier.tree_type} for {node}')
 
     def get_all_files_and_dirs_for_subtree(self, subtree_root: NodeIdentifier) -> Tuple[List[Node], List[Node]]:
         if subtree_root.tree_type == TREE_TYPE_GDRIVE:

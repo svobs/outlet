@@ -1,11 +1,10 @@
-from model.node_identifier import NodeIdentifier
 
 
 #    CLASS GDriveItemNotFoundError
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class GDriveItemNotFoundError(RuntimeError):
-    def __init__(self, node_identifier: NodeIdentifier, offending_path: str, msg: str = None):
+    def __init__(self, node_identifier, offending_path: str, msg: str = None):
         if msg is None:
             # Set some default useful error message
             msg = f'Google Drive object not found: {offending_path}'

@@ -28,9 +28,6 @@ class GDriveDisplayTree(DisplayTree):
 
         self._whole_tree: GDriveWholeTree = whole_tree
 
-        # See refresh_stats() for the following
-        self._stats_loaded = False
-
     def get_root_node(self):
         return self._whole_tree.get_node_for_uid(self.root_identifier.uid)
 
@@ -77,7 +74,7 @@ class GDriveDisplayTree(DisplayTree):
 
     def print_tree_contents_debug(self):
         # TODO
-        logger.debug(f'[{self.tree_id}] GDriveDisplayTree for "{self.node_identifier}": NOT IMPLEMENTED')
+        logger.debug(f'[{self.tree_id}] GDriveDisplayTree for "{self.root_identifier}": NOT IMPLEMENTED')
 
     def refresh_stats(self, tree_id: str):
         logger.debug(f'[{tree_id}] Refreshing stats...')

@@ -26,9 +26,9 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class DragAndDropData:
-    def __init__(self, dd_uid: UID, src_tree_controller: TreePanelController, sn_list: List[SPIDNodePair]):
+    def __init__(self, dd_uid: UID, src_treecon: TreePanelController, sn_list: List[SPIDNodePair]):
         self.dd_uid: UID = dd_uid
-        self.src_tree_controller: TreePanelController = src_tree_controller
+        self.src_treecon: TreePanelController = src_treecon
         self.sn_list: List[SPIDNodePair] = sn_list
 
 
@@ -198,14 +198,13 @@ class TreeUiListeners(HasLifecycle):
 
         if not sn_dst:
             logger.error(f'[{self.con.tree_id}] Cancelling drop: no parent node for dropped location!')
-        elif self.con.tree_id == drag_data.src_tree_controller.tree_id and self._is_dropping_on_itself(sn_dst, drag_data.sn_list):
+        elif self.con.tree_id == drag_data.src_treecon.tree_id and self._is_dropping_on_itself(sn_dst, drag_data.sn_list):
             logger.debug(f'[{self.con.tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
         else:
             logger.debug(f'[{self.con.tree_id}]Dropping into dest: {sn_dst.spid}')
             # So far we only support COPY.
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
-            change_maker = ChangeMaker(left_tree=drag_data.src_tree_controller.get_tree(), right_tree=self.con.get_tree(),
-                                       app=self.con.parent_win.app)
+            change_maker = ChangeMaker(app=self.con.parent_win.app, left_tree=drag_data.src_treecon.get_tree(), right_tree=self.con.get_tree())
             change_maker.copy_nodes_left_to_right(drag_data.sn_list, sn_dst, OpType.CP)
             # This should fire listeners which ultimately populate the tree:
             op_list: Iterable[Op] = change_maker.right_side.change_tree.get_ops()

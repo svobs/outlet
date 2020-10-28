@@ -54,7 +54,7 @@ class OpLedger(HasLifecycle):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _derive_cp_dst_key(self, dst_node: Node) -> str:
-        parent_uid = self.app.cacheman.get_parent_uid_list_for_node(dst_node)
+        parent_uid_list: List[UID] = self.app.cacheman.get_parent_uid_list_for_node(dst_node)
         return f'{parent_uid}/{dst_node.name}'
 
     def _reduce_ops(self, op_list: Iterable[Op]) -> Iterable[Op]:

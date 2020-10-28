@@ -1,8 +1,10 @@
 import logging
+import pathlib
 from abc import ABC, abstractmethod
 from typing import List, Optional, Union
 
 from constants import NULL_UID, SUPER_DEBUG, TREE_TYPE_DISPLAY, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_NA
+from error import InvalidOperationError
 from model.uid import UID
 from util import file_util
 
@@ -66,12 +68,7 @@ class NodeIdentifier(ABC):
         return False
 
     def get_single_path(self) -> str:
-        """Do not use this unless you really mean it"""
-        # TODO: move this method to SinglePathNodeIdentifier
-        path_list = self.get_path_list()
-        if len(path_list) != 1:
-            raise RuntimeError(f'get_single_path(): expected exactly one path for node_identifier: {self}')
-        return path_list[0]
+        raise InvalidOperationError(f'Cannot call get_single_path() for {type(self)}')
 
     def get_path_list(self) -> List[str]:
         if self._path_list:
@@ -161,6 +158,7 @@ class NullNodeIdentifier(NodeIdentifier):
 
 
 class SinglePathNodeIdentifier(NodeIdentifier):
+    """AKA "SPID" """
     def __init__(self, uid: UID, path_list: Optional[Union[str, List[str]]], tree_type: int):
         """Has only one path. We still name the variable 'path_list' for consistency with the class hierarchy."""
         super().__init__(uid, path_list)
@@ -176,6 +174,15 @@ class SinglePathNodeIdentifier(NodeIdentifier):
     def is_spid():
         return True
 
+    def get_single_path(self) -> str:
+        """This will only work for SPIDs"""
+        path_list = self.get_path_list()
+        if len(path_list) != 1:
+            raise RuntimeError(f'get_single_path(): expected exactly one path for node_identifier: {self}')
+        return path_list[0]
+
+    def get_single_parent_path(self) -> str:
+        return str(pathlib.Path(self.get_single_path()).parent)
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥

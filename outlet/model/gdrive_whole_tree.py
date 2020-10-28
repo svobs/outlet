@@ -240,12 +240,12 @@ class GDriveWholeTree:
 
         return file_list, folder_list
 
-    def get_identifier_list_for_path_list(self, path_list: List[str]):
+    def get_identifier_list_for_path_list(self, path_list: List[str], error_if_not_found: bool = False):
         identifiers_found: List[NodeIdentifier] = []
 
         for single_path in path_list:
             try:
-                identifiers = self._get_identifier_list_for_single_path(single_path)
+                identifiers = self._get_identifier_list_for_single_path(single_path, error_if_not_found)
                 if identifiers:
                     identifiers_found += identifiers
             except GDriveItemNotFoundError:
@@ -259,14 +259,14 @@ class GDriveWholeTree:
         logger.debug(f'Found {len(identifiers_found)} nodes for path list: "{path_list}"')
         return list(map(lambda x: self.get_node_for_uid(x.uid), identifiers_found))
 
-    def _get_identifier_list_for_single_path(self, full_path: str) -> List[NodeIdentifier]:
+    def _get_identifier_list_for_single_path(self, full_path: str, error_if_not_found: bool) -> List[NodeIdentifier]:
         """Try to match the given file-system-like path, mapping the root of this tree to the first segment of the path.
         Since GDrive allows for multiple parents per child, it is possible for multiple matches to occur. This
         returns them all.
         NOTE: returns FileNotFoundError if not even one ID could be matched
         """
         if SUPER_DEBUG:
-            logger.debug(f'get_identifier_list_for_single_path() requested for full_path: "{full_path}"')
+            logger.debug(f'GDriveWholeTree.get_identifier_list_for_single_path() requested for full_path: "{full_path}"')
         if full_path == ROOT_PATH:
             return [NodeIdentifierFactory.get_gdrive_root_constant_identifier()]
         name_segments = file_util.split_path(full_path)
@@ -310,9 +310,10 @@ class GDriveWholeTree:
 
             if len(next_seg_nodes) == 0:
                 if SUPER_DEBUG:
-                    logger.debug(f'Segment not found: "{name_seg}" (target_path: "{full_path}"')
-                raise GDriveItemNotFoundError(node_identifier=self.node_identifier_factory.for_values(
-                    tree_type=TREE_TYPE_GDRIVE, path_list=full_path), offending_path=path_so_far)
+                    logger.debug(f'get_identifier_list_for_single_path(): Segment not found: "{name_seg}" (target_path: "{full_path}"')
+                if error_if_not_found:
+                    raise GDriveItemNotFoundError(node_identifier=self.node_identifier_factory.for_values(
+                        tree_type=TREE_TYPE_GDRIVE, path_list=full_path), offending_path=path_so_far)
             else:
                 path_found = path_found + '/' + next_seg_nodes[0].name
 
@@ -323,8 +324,8 @@ class GDriveWholeTree:
             # Needs to be filled in:
             node_identifier.add_path_if_missing(path_found)
         if SUPER_DEBUG:
-            logger.debug(f'Found for path "{path_so_far}": {matching_node_identifiers}')
-        if not matching_node_identifiers:
+            logger.debug(f'get_identifier_list_for_single_path(): Found for path "{path_so_far}": {matching_node_identifiers}')
+        if error_if_not_found and not matching_node_identifiers:
             raise GDriveItemNotFoundError(node_identifier=self.node_identifier_factory.for_values(
                 tree_type=TREE_TYPE_GDRIVE, path_list=full_path), offending_path=path_so_far)
         return matching_node_identifiers

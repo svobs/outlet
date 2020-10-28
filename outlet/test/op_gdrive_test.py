@@ -135,7 +135,7 @@ class OpGDriveTest(OpTestBase):
         logger.info(f'CP "{node.name}" from left root to left root')
 
         nodes = [node]
-        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.right_con, nodes=nodes)
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, nodes=nodes)
         dst_tree_path = None    # top-level drop
 
         def drop():
@@ -161,7 +161,7 @@ class OpGDriveTest(OpTestBase):
             nodes.append(node)
             logger.warning(f'CP "{node.name}" (#{num}) from left root to right root')
 
-        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes)
         dst_tree_path = None
         dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
@@ -197,7 +197,7 @@ class OpGDriveTest(OpTestBase):
             nodes.append(node)
             logger.warning(f'CP "{node.name}" (#{num}) from left root to right root')
 
-        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes)
         dst_tree_path = None
 
         # Verify that 3 identical nodes causes an error:
@@ -212,7 +212,7 @@ class OpGDriveTest(OpTestBase):
             self.find_node_by_name_in_left_tree('Art')
         ]
 
-        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes)
         dst_tree_path = None
 
         # Drag & drop 1 node, which represents a tree of 10 files and 2 dirs:
@@ -259,7 +259,7 @@ class OpGDriveTest(OpTestBase):
             self.find_node_by_name_in_left_tree('Art')
         ]
 
-        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes)
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes)
         dst_tree_path = None
 
         def drop():
@@ -307,7 +307,7 @@ class OpGDriveTest(OpTestBase):
             self.find_node_by_name(self.left_con, 'George-Floyd.png'),
         ]
 
-        dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.right_con, nodes=nodes)
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, nodes=nodes)
 
         node_iter = self.find_iter_by_name(self.right_con, 'Modern')
         dst_tree_path = self.right_con.display_store.model.get_path(node_iter)
@@ -350,7 +350,7 @@ class OpGDriveTest(OpTestBase):
 
         def drop_both_sides():
             logger.info('Submitting first drag & drop signal')
-            dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes_batch_1)
+            dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes_batch_1)
             dst_tree_path = None
 
             drop_complete = threading.Event()
@@ -392,7 +392,7 @@ class OpGDriveTest(OpTestBase):
                 self.find_node_by_name(self.right_con, 'Modern')
             ]
 
-            dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.right_con, nodes=nodes_batch_2)
+            dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, nodes=nodes_batch_2)
             dst_tree_path = Gtk.TreePath.new_from_string('1')
             # Drop into left tree:
             logger.info('Submitting second drag & drop signal')
@@ -452,7 +452,7 @@ class OpGDriveTest(OpTestBase):
 
         def drop_both_sides():
             logger.info('Submitting first drag & drop signal of "Modern" dir')
-            dd_data = DragAndDropData(dd_uid=UID(100), src_tree_controller=self.left_con, nodes=nodes_batch_1)
+            dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes_batch_1)
             dst_tree_path = None
 
             drop_complete = threading.Event()

@@ -1,5 +1,5 @@
 import sys
-import gi
+import logging
 from pydispatch import dispatcher
 
 from executor.central import CentralExecutor
@@ -10,12 +10,11 @@ from ui.actions import ID_DIFF_WINDOW
 
 from store.cache_manager import CacheManager
 
-import logging
-
 from ui.two_pane_window import TwoPanelWindow
 from app_config import AppConfig
 import ui.assets
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gio
 
