@@ -83,7 +83,7 @@ class CategoryNode(ContainerNode):
         self.op_type = op_type
 
     def __repr__(self):
-        return f'CategoryNode(type={self.op_type.name}, identifier={self.node_identifier})'
+        return f'CategoryNode(type={self.op_type.name}, node_identifier={self.node_identifier})'
 
     @property
     def name(self):

@@ -474,12 +474,13 @@ class DisplayMutator(HasLifecycle):
 
             # Node in cacheman should always reference the same object as the node in our tree
             if SUPER_DEBUG:
-                cached_node = self.con.app.cacheman.get_node_for_uid(node.uid, node.get_tree_type())
-                # allow for the possibility that object may no longer be in cache, which is ok. But if in cache, it should always be the same obj
-                assert not cached_node or id(cached_node) == id(node), \
-                    f'Object mismatch for node: (cacheman: id={id(cached_node)}, node={cached_node}, displayed: id={id(node)}, node={node})'
+                if node.uid:  # don't even try for CategoryDisplayTree nodes - they have fake nodes
+                    cached_node = self.con.app.cacheman.get_node_for_uid(node.uid, node.get_tree_type())
+                    # object may no longer be in cache, which is ok. But if in cache, it should always be the same obj
+                    assert not cached_node or id(cached_node) == id(node), \
+                        f'Object mismatch for node: (cacheman: id={id(cached_node)}, node={cached_node}, displayed: id={id(node)}, node={node})'
 
-            logger.debug(f'[{self.con.tree_id}] Redrawing stats for node: {node}; path={ds.model.get_path(tree_iter)}; '
+            logger.debug(f'[{self.con.tree_id}] Redrawing stats for node: {node}; tree_path="{ds.model.get_path(tree_iter)}"; '
                          f'size={node.get_size_bytes()} etc={node.get_etc()}')
             ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(node)
             ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = node.get_etc()

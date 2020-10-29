@@ -7,7 +7,7 @@ import treelib
 from pydispatch import dispatcher
 from treelib.exceptions import DuplicatedNodeIdError
 
-from constants import NULL_UID, ROOT_PATH, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
+from constants import NULL_UID, ROOT_PATH, SUPER_DEBUG, SUPER_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
@@ -32,6 +32,8 @@ class CategoryDisplayTree(DisplayTree):
         # Root node will never be displayed in the UI, but treelib requires a root node, as does parent class
         super().__init__(app, tree_id, root_node_identifier)
         self.root_node = ContainerNode(root_node_identifier)
+        # Root node is not really important. Do not use its original UID, so as to disallow it from interfering with lookups
+        self.root_node.identifier = SUPER_ROOT_UID
 
         self.uid_generator = app.uid_generator
         self.node_identifier_factory = app.node_identifier_factory
@@ -51,11 +53,10 @@ class CategoryDisplayTree(DisplayTree):
         self.count_conflict_warnings = 0
         self.count_conflict_errors = 0
 
-    # TODO: simplify
     def _build_tree_nid(self, tree_type: int, single_path: str, op: OpType) -> str:
         # note: this is kind of a kludge because we're using the local path UID mapper for GDrive paths...but who cares
         # path_uid: UID = self.app.cacheman.get_uid_for_path(spid.get_single_path())
-        return f'{tree_type}-{op.name}-{single_path}'
+        return f'{tree_type}:{op.name}:{single_path}'
 
     def get_root_node(self):
         return self.root_node
@@ -73,10 +74,28 @@ class CategoryDisplayTree(DisplayTree):
             raise
 
     def print_tree_contents_debug(self):
-        logger.debug(f'[{self.tree_id}] CategoryTree for "{self.root_identifier}": ' + self._category_tree.show(stdout=False))
+        logger.debug(f'[{self.tree_id}] CategoryTree for "{self.root_identifier}": \n' + self._category_tree.show(stdout=False))
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
         raise InvalidOperationError('CategoryDisplayTree.get_ancestor_list()')
+
+    def get_ops(self) -> Iterable[Op]:
+        return self._op_list
+
+    def get_op_for_node(self, node: Node) -> Optional[Op]:
+        return self.op_dict.get(node.uid, None)
+
+    def _append_op(self, op: Op):
+        logger.debug(f'Appending op: {op}')
+        if op.dst_node:
+            if self.op_dict.get(op.dst_node.uid, None):
+                raise RuntimeError(f'Duplicate Op: 1st={op}; 2nd={self.op_dict.get(op.dst_node.uid)}')
+            self.op_dict[op.dst_node.uid] = op
+        else:
+            if self.op_dict.get(op.src_node.uid, None):
+                raise RuntimeError(f'Duplicate Op: 1st={op}; 2nd={self.op_dict.get(op.src_node.uid)}')
+            self.op_dict[op.src_node.uid] = op
+        self._op_list.append(op)
 
     def _get_or_create_pre_ancestors(self, sn: SPIDNodePair, op_type: OpType, source_tree: DisplayTree) -> ContainerNode:
         """Pre-ancestors are those nodes (either logical or pointing to real data) which are higher up than the source tree.
@@ -133,30 +152,60 @@ class CategoryDisplayTree(DisplayTree):
                     node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=NULL_UID)
                     child_node = ContainerNode(node_identifier=node_identifier)
                     child_node.identifier = nid
-                    logger.debug(f'[{self.tree_id}] Creating dummy DIR node: {node_identifier}')
+                    logger.debug(f'[{self.tree_id}] Creating dummy ancestor node: {node_identifier}')
                     self._category_tree.add_node(node=child_node, parent=parent_node)
                 parent_node = child_node
 
         # this is the last pre-ancestor.
         return parent_node
 
-    def get_ops(self) -> Iterable[Op]:
-        return self._op_list
+    def _get_or_create_ancestors(self, sn: SPIDNodePair, op_type: OpType, parent: Node):
+        stack: Deque = deque()
+        full_path = sn.spid.get_single_path()
+        tree_type = sn.spid.tree_type
+        assert full_path, f'SPID does not have a path: {sn.spid}'
+        assert full_path.startswith(self.root_path), f'ItemPath="{full_path}", TreeRootPath="{self.root_path}"'
+        # Walk up the source tree and compose a list of ancestors:
+        while full_path != self.root_path:
+            # Go up one dir:
+            full_path: str = str(pathlib.Path(full_path).parent)
+            # Get standard UID for path (note: this is a kludge for non-local trees, but should be OK because we just need a UID which
+            # is unique for this tree)
+            # uid = self.app.cacheman.get_uid_for_path(full_path)
+            ancestor_spid = SinglePathNodeIdentifier(NULL_UID, full_path, tree_type)
+            nid = self._build_tree_nid(tree_type, full_path, op_type)
+            parent = self._category_tree.get_node(nid=nid)
+            if parent:
+                break
+            else:
+                ancestor_node = ContainerNode(ancestor_spid)
+                ancestor_node.identifier = nid
+                stack.append(ancestor_node)
 
-    def get_op_for_node(self, node: Node) -> Optional[Op]:
-        return self.op_dict.get(node.uid, None)
+        # Walk down the ancestor list and create a node for each ancestor dir:
+        assert parent
+        while len(stack) > 0:
+            child = stack.pop()
+            if SUPER_DEBUG:
+                logger.info(f'[{self.tree_id}] Adding ancestor node: {child.node_identifier} ({child.identifier}) '
+                            f'to parent: {parent.node_identifier} ({parent.identifier})')
+            self._category_tree.add_node(node=child, parent=parent)
+            parent = child
 
-    def _append_op(self, op: Op):
-        logger.debug(f'Appending op: {op}')
-        if op.dst_node:
-            if self.op_dict.get(op.dst_node.uid, None):
-                raise RuntimeError(f'Duplicate Op: 1st={op}; 2nd={self.op_dict.get(op.dst_node.uid)}')
-            self.op_dict[op.dst_node.uid] = op
-        else:
-            if self.op_dict.get(op.src_node.uid, None):
-                raise RuntimeError(f'Duplicate Op: 1st={op}; 2nd={self.op_dict.get(op.src_node.uid)}')
-            self.op_dict[op.src_node.uid] = op
-        self._op_list.append(op)
+        return parent
+
+    def _get_parent_in_tree(self, sn: SPIDNodePair, op_type: OpType) -> Optional[Node]:
+        parent_path = sn.spid.get_single_parent_path()
+
+        # 1. Check for "real" nodes (which use plain UIDs for identifiers):
+        for parent_uid in self.app.cacheman.derive_parent_uid_list_for_node(sn.node):
+            parent = self._category_tree.get_node(nid=parent_uid)
+            if parent and parent_path in parent.get_path_list():
+                return parent
+
+        # 1. Check for "fake" nodes (which use tree-dependent NIDs):
+        nid = self._build_tree_nid(sn.spid.tree_type, parent_path, op_type)
+        return self._category_tree.get_node(nid=nid)
 
     def add_node(self, sn: SPIDNodePair, op: Op, source_tree: DisplayTree):
         """When we add the node, we add any necessary ancestors for it as well.
@@ -177,46 +226,19 @@ class CategoryDisplayTree(DisplayTree):
             # Group "mkdir" with "copy" for display purposes:
             op_type_for_display = OpType.CP
 
-        parent: Node = self._get_or_create_pre_ancestors(sn, op_type_for_display, source_tree)
+        parent: Node = self._get_parent_in_tree(sn, op_type_for_display)
+        if parent:
+            logger.debug(f'[{self.tree_id}] Parent was already added to tree; adding new node as its child: "{sn.node.node_identifier}"')
+        else:
+            parent: Node = self._get_or_create_pre_ancestors(sn, op_type_for_display, source_tree)
 
-        if isinstance(parent, HasChildList):
-            parent.add_meta_metrics(sn.node)
+            if isinstance(parent, HasChildList):
+                parent.add_meta_metrics(sn.node)
 
-        stack: Deque = deque()
-        full_path = sn.spid.get_single_path()
-        tree_type = sn.spid.tree_type
-        assert full_path, f'SPID does not have a path: {sn.spid}'
-        assert full_path.startswith(self.root_path), f'ItemPath="{full_path}", TreeRootPath="{self.root_path}"'
-        # Walk up the source tree and compose a list of ancestors:
-        while full_path != self.root_path:
-            # Go up one dir:
-            full_path: str = str(pathlib.Path(full_path).parent)
-            # Get standard UID for path (note: this is a kludge for non-local trees, but should be OK because we just need a UID which
-            # is unique for this tree)
-            # uid = self.app.cacheman.get_uid_for_path(full_path)
-            ancestor_spid = SinglePathNodeIdentifier(NULL_UID, full_path, tree_type)
-            nid = self._build_tree_nid(tree_type, full_path, op_type_for_display)
-            parent = self._category_tree.get_node(nid=nid)
-            if parent:
-                break
-            else:
-                dir_node = ContainerNode(ancestor_spid)
-                dir_node.identifier = nid
-                stack.append(dir_node)
-
-        # Walk down the ancestor list and create a node for each ancestor dir:
-        assert parent
-        while len(stack) > 0:
-            ancestor = stack.pop()
-            if SUPER_DEBUG:
-                logger.info(f'[{self.tree_id}] Adding dir node: {ancestor.node_identifier} ({ancestor.identifier}) '
-                            f'to parent: {parent.node_identifier} ({parent.identifier})')
-            self._category_tree.add_node(node=ancestor, parent=parent)
-            parent = ancestor
+            parent: Node = self._get_or_create_ancestors(sn, op_type_for_display, parent)
 
         try:
-            # Finally add the node itself. No need to muck around with NIDs now - should be unique globally
-
+            # Finally add the node itself.
             if SUPER_DEBUG:
                 logger.info(f'[{self.tree_id}] Adding node: {sn.node.node_identifier} ({sn.node.identifier}) '
                             f'to parent: {parent.node_identifier} ({parent.identifier})')
@@ -245,6 +267,7 @@ class CategoryDisplayTree(DisplayTree):
         raise InvalidOperationError('CategoryDisplayTree.get_node_list_for_path_list()')
 
     def get_summary(self) -> str:
+        include_empty_op_types = False
         def make_cat_map():
             cm = {}
             for c in OP_TYPES:
@@ -257,8 +280,11 @@ class CategoryDisplayTree(DisplayTree):
             type_summaries = []
             type_map = {}
             for child in self._category_tree.children(self.root_node.identifier):
-                assert isinstance(child, RootTypeNode), f'For {child}'
-                cat_map = make_cat_map()
+                assert isinstance(child, RootTypeNode), f'For {child}
+                if include_empty_op_types:
+                    cat_map = make_cat_map()
+                else:
+                    cat_map = {}
                 for grandchild in self._category_tree.children(child.identifier):
                     assert isinstance(grandchild, CategoryNode), f'For {grandchild}'
                     cat_count += 1
@@ -275,7 +301,10 @@ class CategoryDisplayTree(DisplayTree):
                     type_summaries.append(f'{tree_type_name}: {",".join(cat_summaries)}')
             return '; '.join(type_summaries)
         else:
-            cat_map = make_cat_map()
+            if include_empty_op_types:
+                cat_map = make_cat_map()
+            else:
+                cat_map = {}
             for child in self._category_tree.children(self.root_node.identifier):
                 assert isinstance(child, CategoryNode), f'For {child}'
                 cat_count += 1
@@ -288,7 +317,7 @@ class CategoryDisplayTree(DisplayTree):
             return ', '.join(cat_summaries)
 
     def refresh_stats(self, tree_id: str):
-        logger.debug(f'[{tree_id}] Refreshing stats for display tree')
+        logger.debug(f'[{tree_id}] Refreshing stats for category display tree')
         stats_sw = Stopwatch()
         queue: Deque[Node] = deque()
         stack: Deque[Node] = deque()
