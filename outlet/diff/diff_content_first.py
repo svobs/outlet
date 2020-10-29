@@ -296,16 +296,16 @@ class ContentFirstDiffer(ChangeMaker):
         for sn in left_selected_changes:
             op = self.left_side.underlying_tree.get_op_for_node(sn.node)
             if op:
-                merged_tree.add_node(sn, op, self.left_side.underlying_tree)
+                merged_tree.add_node(sn, op)
             else:
-                logger.debug(f'Skipping node because it is not associated with a Op: {sn.node}')
+                logger.debug(f'merge_change_trees(): Skipping left-side node because it is not associated with an Op: {sn.node}')
 
         for sn in right_selected_changes:
             op = self.right_side.underlying_tree.get_op_for_node(sn.node)
             if op:
-                merged_tree.add_node(sn, op, self.right_side.underlying_tree)
+                merged_tree.add_node(sn, op)
             else:
-                logger.debug(f'Skipping node because it is not associated with a Op: {sn.node}')
+                logger.debug(f'merge_change_trees(): Skipping right-side node because it is not associated with an Op: {sn.node}')
 
         # TODO: check for conflicts
 

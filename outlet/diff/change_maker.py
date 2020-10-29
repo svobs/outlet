@@ -45,7 +45,7 @@ class OneSide:
         op: Op = Op(op_uid=self.app.uid_generator.next_uid(), batch_uid=self._batch_uid, op_type=op_type,
                     src_node=src_sn.node, dst_node=dst_node)
 
-        self.change_tree.add_node(target_sn, op, self.underlying_tree)
+        self.change_tree.add_node(target_sn, op)
 
     def derive_relative_path(self, spid: SinglePathNodeIdentifier) -> str:
         return file_util.strip_root(spid.get_single_path(), self.underlying_tree.root_identifier.get_single_path())

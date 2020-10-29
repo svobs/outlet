@@ -14,7 +14,7 @@ from model.op import Op
 from model.uid import UID
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
-from model.node.container_node import CategoryNode
+from model.node.container_node import CategoryNode, ContainerNode
 from model.node.node import Node, SPIDNodePair
 from model.node.ephemeral_node import EmptyNode, LoadingNode
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
@@ -85,7 +85,7 @@ class DisplayMutator(HasLifecycle):
         if node.is_dir():
             parent_iter = self._append_dir_node(parent_iter=parent_iter, node=node)
 
-            for child in self.con.lazy_tree.get_children(node):
+            for child in self.con.get_tree().get_children(node):
                 node_count = self._populate_recursively(parent_iter, child, node_count)
         else:
             self._append_file_node(parent_iter, node)
@@ -155,7 +155,7 @@ class DisplayMutator(HasLifecycle):
         node = self.con.display_store.get_node_data(tree_path)
         parent_iter = self.con.display_store.model.get_iter(tree_path)
         self.con.display_store.remove_loading_node(parent_iter)
-        children: List[Node] = self.con.lazy_tree.get_children(node)
+        children: List[Node] = self.con.get_tree().get_children(node)
 
         if expand_all:
             # populate all descendants
@@ -180,14 +180,14 @@ class DisplayMutator(HasLifecycle):
             # Lock this so that node-upserted and node-removed callbacks don't interfere
             self._enable_node_signals = False
             with self._lock:
-                children: List[Node] = self.con.lazy_tree.get_children_for_root()
+                children: List[Node] = self.con.get_tree().get_children_for_root()
             logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(children)} children for root')
         except GDriveItemNotFoundError as err:
             # Not found: signal error to UI and cancel
-            logger.warning(f'[{self.con.tree_id}] Could not populate root: GDrive node not found: {self.con.lazy_tree.get_root_identifier()}')
+            logger.warning(f'[{self.con.tree_id}] Could not populate root: GDrive node not found: {self.con.get_tree().get_root_identifier()}')
             logger.debug(f'[{self.con.tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root='
-                         f'{self.con.lazy_tree.get_root_identifier()}, err={err}')
-            dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.con.tree_id, new_root=self.con.lazy_tree.get_root_identifier(), err=err)
+                         f'{self.con.get_tree().get_root_identifier()}, err={err}')
+            dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.con.tree_id, new_root=self.con.get_tree().get_root_identifier(), err=err)
             return
         finally:
             self._enable_node_signals = True
@@ -255,7 +255,7 @@ class DisplayMutator(HasLifecycle):
                 parent: SPIDNodePair = secondary_screening.popleft()
                 assert parent.node.is_dir(), f'Expected a dir-type node: {parent}'
 
-                if not parent.node.exists():
+                if not parent.node.is_display_only() and not parent.node.exists():
                     # Even an inconsistent FolderToAdd must be included as a checked item:
                     checked_items.append(parent)
 
@@ -268,7 +268,7 @@ class DisplayMutator(HasLifecycle):
             while len(whitelist) > 0:
                 chosen_sn: SPIDNodePair = whitelist.popleft()
                 # all files and all non-existent dirs must be added
-                if not chosen_sn.node.is_dir() or not chosen_sn.node.exists():
+                if not parent.node.is_display_only() and not chosen_sn.node.is_dir() or not chosen_sn.node.exists():
                     checked_items.append(chosen_sn)
 
                 # drill down into all descendants of nodes in the whitelist
@@ -300,7 +300,7 @@ class DisplayMutator(HasLifecycle):
                 if is_expanded:
                     self.con.display_store.remove_loading_node(parent_iter)
 
-                    children = self.con.lazy_tree.get_children(node)
+                    children = self.con.get_tree().get_children(node)
                     self._append_children(children=children, parent_iter=parent_iter)
 
                     # Need to call this because removing the Loading node leaves the parent with no children,
@@ -471,7 +471,7 @@ class DisplayMutator(HasLifecycle):
 
             # Node in cacheman should always reference the same object as the node in our tree
             if SUPER_DEBUG:
-                if node.uid:  # don't even try for CategoryDisplayTree nodes - they have fake nodes
+                if node.uid and not isinstance(node, ContainerNode):  # don't even try for CategoryDisplayTree nodes - they have fake nodes
                     cached_node = self.con.app.cacheman.get_node_for_uid(node.uid, node.get_tree_type())
                     # object may no longer be in cache, which is ok. But if in cache, it should always be the same obj
                     assert not cached_node or id(cached_node) == id(node), \

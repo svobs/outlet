@@ -12,12 +12,12 @@ from model.node_identifier import SinglePathNodeIdentifier
 
 class ContainerNode(HasChildList, Node):
     """
-    Represents a generic directory (i.e. not a LocalFileNode or domain object)
+    Represents a generic display-only directory node which is not backed by a cached object.
     """
 
-    def __init__(self, node_identifier: SinglePathNodeIdentifier):
+    def __init__(self, node_identifier: SinglePathNodeIdentifier, nid: str = None):
         assert node_identifier.get_single_path(), f'Bad: {node_identifier}'
-        Node.__init__(self, node_identifier)
+        Node.__init__(self, node_identifier, nid=nid)
         HasChildList.__init__(self)
 
     def update_from(self, other_node):
@@ -34,6 +34,10 @@ class ContainerNode(HasChildList, Node):
 
     @classmethod
     def is_dir(cls):
+        return True
+
+    @classmethod
+    def is_display_only(cls):
         return True
 
     def is_parent_of(self, potential_child_node: Node) -> bool:
@@ -55,13 +59,13 @@ class ContainerNode(HasChildList, Node):
         if not isinstance(other, ContainerNode):
             return False
 
-        return other.node_identifier == other.node_identifier and other.name == self.name and other.trashed == self.trashed
+        return other.node_identifier == other.node_identifier
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return f'ContainerNode({self.node_identifier} {self.get_summary()})'
+        return f'ContainerNode(nid="{self.identifier}" node_id="{self.node_identifier}" {self.get_summary()})'
 
 
 # CLASS CategoryNode
@@ -78,12 +82,18 @@ class CategoryNode(ContainerNode):
         OpType.MV: 'To Move',
     }
 
-    def __init__(self, node_identifier: SinglePathNodeIdentifier, op_type: OpType):
-        super().__init__(node_identifier=node_identifier)
+    def __init__(self, node_identifier: SinglePathNodeIdentifier, op_type: OpType, nid: str = None):
+        super().__init__(node_identifier=node_identifier, nid=nid)
         self.op_type = op_type
 
     def __repr__(self):
-        return f'CategoryNode(type={self.op_type.name}, node_identifier={self.node_identifier})'
+        return f'CategoryNode(nid="{self.identifier}" type={self.op_type.name}, node_id="{self.node_identifier}")'
+
+    def __eq__(self, other):
+        if not isinstance(other, ContainerNode):
+            return False
+
+        return other.node_identifier == other.node_identifier and other.name == self.name
 
     @property
     def name(self):
@@ -102,8 +112,8 @@ class RootTypeNode(ContainerNode):
     Represents a type of root in the tree (GDrive, local FS, etc.)
     """
 
-    def __init__(self, node_identifier: SinglePathNodeIdentifier):
-        super().__init__(node_identifier=node_identifier)
+    def __init__(self, node_identifier: SinglePathNodeIdentifier, nid: str = None):
+        super().__init__(node_identifier=node_identifier, nid=nid)
 
     @property
     def name(self):
@@ -114,7 +124,7 @@ class RootTypeNode(ContainerNode):
         return 'Unknown'
 
     def __repr__(self):
-        return f'RootTypeNode({self.name})'
+        return f'RootTypeNode(nid="{self.identifier}" node_id="{self.node_identifier}")'
 
     def get_icon(self):
         if self.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:

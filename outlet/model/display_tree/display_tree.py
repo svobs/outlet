@@ -81,8 +81,15 @@ class DisplayTree(ABC):
     def _make_child_sn_list(child_node_list: Iterable[Node], parent_path: str) -> Iterable[SPIDNodePair]:
         child_sn_list: List[SPIDNodePair] = []
         for child_node in child_node_list:
-            child_path = os.path.join(parent_path, child_node.name)
-            child_sn = SPIDNodePair(SinglePathNodeIdentifier(child_node.uid, child_path, child_node.get_tree_type()), child_node)
+            if child_node.node_identifier.is_spid():
+                # no need to do extra work!
+                child_sn = SPIDNodePair(child_node.node_identifier, child_node)
+            else:
+                child_path = os.path.join(parent_path, child_node.name)
+                if child_path not in child_node.get_path_list():
+                    # this means we're not following the rules
+                    raise RuntimeError(f'Could not find derived path ("{child_path}") in path list ({child_node.get_path_list()}) of child!')
+                child_sn = SPIDNodePair(SinglePathNodeIdentifier(child_node.uid, child_path, child_node.get_tree_type()), child_node)
             child_sn_list.append(child_sn)
         return child_sn_list
 

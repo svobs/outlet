@@ -4,7 +4,7 @@ from typing import Any, Callable, List, Tuple
 import gi
 from pydispatch import dispatcher
 
-from constants import GDRIVE_PATH_PREFIX, TREE_TYPE_GDRIVE, TreeDisplayMode
+from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TREE_TYPE_GDRIVE, TreeDisplayMode
 from diff.change_maker import SPIDNodePair
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
@@ -34,7 +34,7 @@ class TreePanelController:
     def __init__(self, parent_win, display_store, treeview_meta):
         self.parent_win: BaseDialog = parent_win
         self.app = parent_win.app
-        self.lazy_tree = None
+        self._lazy_tree = None
         self.display_store = display_store
         self.treeview_meta = treeview_meta
         self.tree_id: str = treeview_meta.tree_id
@@ -85,7 +85,7 @@ class TreePanelController:
 
     def reload(self, new_root: SinglePathNodeIdentifier = None, new_tree=None, tree_display_mode: TreeDisplayMode = None,
                show_checkboxes: bool = False, hide_checkboxes: bool = False):
-        """Invalidate whatever cache the lazy_tree built up, and re-populate the display tree"""
+        """Invalidate whatever cache the _lazy_tree built up, and re-populate the display tree"""
         def _reload():
 
             checkboxes_visible = self.treeview_meta.has_checkboxes
@@ -113,7 +113,7 @@ class TreePanelController:
                 self.set_tree(tree=new_tree, tree_display_mode=tree_display_mode)
             else:
                 logger.info(f'[{self.tree_id}] reload() with same tree')
-                tree = self.lazy_tree.get_tree()
+                tree = self._lazy_tree.get_tree()
                 self.set_tree(tree=tree, tree_display_mode=tree_display_mode)
 
             # Back to the non-UI thread with you!
@@ -214,12 +214,16 @@ class TreePanelController:
     def get_checked_rows_as_list(self) -> List[SPIDNodePair]:
         timer = Stopwatch()
         checked_rows: List[SPIDNodePair] = self.display_mutator.get_checked_rows_as_list()
-        logger.debug(f'{timer} Retreived {len(checked_rows)} checked rows')
+        if SUPER_DEBUG:
+            more = ': ' + ', '.join([str(sn.spid.uid) for sn in checked_rows])
+        else:
+            more = ''
+        logger.debug(f'[{self.tree_id}] {timer} Retreived {len(checked_rows)} checked rows{more}')
 
         return checked_rows
 
     def get_tree(self) -> DisplayTree:
-        return self.lazy_tree.get_tree()
+        return self._lazy_tree.get_tree()
 
     def set_tree(self, root: SinglePathNodeIdentifier = None, tree: DisplayTree = None, tree_display_mode: TreeDisplayMode = None):
         # Clear old display (if any)
@@ -229,10 +233,10 @@ class TreePanelController:
             raise RuntimeError('"root" and "tree" are both empty!')
 
         if tree_display_mode:
-            logger.debug(f'Setting TreeDisplayMode={tree_display_mode.name} for root={root}, tree={tree}')
+            logger.debug(f'[{self.tree_id}] Setting TreeDisplayMode={tree_display_mode.name} for root={root}, tree={tree}')
             self.treeview_meta.tree_display_mode = tree_display_mode
 
-        self.lazy_tree = LazyLoadDisplayTreeDecorator(controller=self, root=root, tree=tree)
+        self._lazy_tree = LazyLoadDisplayTreeDecorator(controller=self, root=root, tree=tree)
 
     # CONVENIENCE METHODS
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -247,7 +251,7 @@ class TreePanelController:
         return self.parent_win.config
 
     def get_root_identifier(self) -> SinglePathNodeIdentifier:
-        return self.lazy_tree.get_root_identifier()
+        return self._lazy_tree.get_root_identifier()
 
     @property
     def tree_display_mode(self):

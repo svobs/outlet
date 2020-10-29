@@ -31,15 +31,12 @@ class CategoryDisplayTree(DisplayTree):
     def __init__(self, app, tree_id: str, root_node_identifier: SinglePathNodeIdentifier, show_whole_forest=False):
         # Root node will never be displayed in the UI, but treelib requires a root node, as does parent class
         super().__init__(app, tree_id, root_node_identifier)
-        self.root_node = ContainerNode(root_node_identifier)
-        # Root node is not really important. Do not use its original UID, so as to disallow it from interfering with lookups
-        self.root_node.identifier = SUPER_ROOT_UID
 
-        self.uid_generator = app.uid_generator
-        self.node_identifier_factory = app.node_identifier_factory
-
-        logger.debug(f'CategoryDisplayTree: adding root node: {self.root_node.node_identifier}')
         self._category_tree: treelib.Tree = treelib.Tree()
+
+        # Root node is not really important. Do not use its original UID, so as to disallow it from interfering with lookups
+        self.root_node = ContainerNode(root_node_identifier, nid=SUPER_ROOT_UID)
+        logger.debug(f'[{tree_id}] CategoryDisplayTree: inserting root node: {self.root_node}')
         self._category_tree.add_node(self.root_node, parent=None)
 
         self.show_whole_forest: bool = show_whole_forest
@@ -52,11 +49,6 @@ class CategoryDisplayTree(DisplayTree):
 
         self.count_conflict_warnings = 0
         self.count_conflict_errors = 0
-
-    def _build_tree_nid(self, tree_type: int, single_path: str, op: OpType) -> str:
-        # note: this is kind of a kludge because we're using the local path UID mapper for GDrive paths...but who cares
-        # path_uid: UID = self.app.cacheman.get_uid_for_path(spid.get_single_path())
-        return f'{tree_type}:{op.name}:{single_path}'
 
     def get_root_node(self):
         return self.root_node
@@ -97,7 +89,11 @@ class CategoryDisplayTree(DisplayTree):
             self.op_dict[op.src_node.uid] = op
         self._op_list.append(op)
 
-    def _get_or_create_pre_ancestors(self, sn: SPIDNodePair, op_type: OpType, source_tree: DisplayTree) -> ContainerNode:
+    @staticmethod
+    def _build_tree_nid(tree_type: int, single_path: str, op: OpType) -> str:
+        return f'{tree_type}:{op.name}:{single_path}'
+
+    def _get_or_create_pre_ancestors(self, sn: SPIDNodePair, op_type: OpType) -> ContainerNode:
         """Pre-ancestors are those nodes (either logical or pointing to real data) which are higher up than the source tree.
         Last pre-ancestor is easily derived and its prescence indicates whether its ancestors were already created"""
 
@@ -117,44 +113,20 @@ class CategoryDisplayTree(DisplayTree):
             nid = str(tree_type)
             treetype_node = self._category_tree.get_node(nid)
             if not treetype_node:
-                treetype_node = RootTypeNode(node_identifier=SinglePathNodeIdentifier(UID(tree_type), ROOT_PATH, tree_type))
-                treetype_node.identifier = nid
-                logger.debug(f'[{self.tree_id}] Creating TreeType node: {treetype_node.node_identifier}')
+                # see UID to root_UID of relevant tree
+                treetype_node = RootTypeNode(node_identifier=SinglePathNodeIdentifier(UID(tree_type), ROOT_PATH, tree_type), nid=nid)
+                logger.debug(f'[{self.tree_id}] Inserting new TreeType node with nid="{nid}": {treetype_node.node_identifier}')
                 self._category_tree.add_node(node=treetype_node, parent=parent_node)
             parent_node = treetype_node
 
         cat_node = self._category_tree.get_node(last_pre_ancestor_nid)
         if not cat_node:
-            # Create category display node. This may be the "last pre-ancestor".
-            cat_node = CategoryNode(node_identifier=SinglePathNodeIdentifier(NULL_UID, self.root_path, tree_type), op_type=op_type)
-            cat_node.identifier = last_pre_ancestor_nid
-            logger.debug(f'Creating Category node: {cat_node.node_identifier}')
+            # Create category display node. This may be the "last pre-ancestor". (Use root node UID so its context menu points to root)
+            cat_node = CategoryNode(node_identifier=SinglePathNodeIdentifier(self.root_node.uid, self.root_path, tree_type), op_type=op_type,
+                                    nid=last_pre_ancestor_nid)
+            logger.debug(f'[{self.tree_id}] Inserting new Category node with nid="{last_pre_ancestor_nid}": {cat_node.node_identifier}')
             self._category_tree.add_node(node=cat_node, parent=parent_node)
         parent_node = cat_node
-
-        if self.show_whole_forest:
-            # Create remaining pre-ancestors:
-            path_segments: List[str] = file_util.split_path(self.root_path)
-            path_so_far = ''
-            # Skip first (already covered by CategoryNode):
-            for path in path_segments[1:]:
-                path_so_far += '/' + path
-
-                child_node = None
-                for child in self._category_tree.children(parent_node.identifier):
-                    if child.full_path == path_so_far:
-                        child_node = child
-                        break
-
-                if not child_node:
-                    # uid = self.app.cacheman.get_uid_for_path(path_so_far)
-                    nid = self._build_tree_nid(tree_type, path_so_far, op_type)
-                    node_identifier = self.node_identifier_factory.for_values(tree_type=tree_type, full_path=path_so_far, uid=NULL_UID)
-                    child_node = ContainerNode(node_identifier=node_identifier)
-                    child_node.identifier = nid
-                    logger.debug(f'[{self.tree_id}] Creating dummy ancestor node: {node_identifier}')
-                    self._category_tree.add_node(node=child_node, parent=parent_node)
-                parent_node = child_node
 
         # this is the last pre-ancestor.
         return parent_node
@@ -166,29 +138,24 @@ class CategoryDisplayTree(DisplayTree):
         assert full_path, f'SPID does not have a path: {sn.spid}'
         assert full_path.startswith(self.root_path), f'ItemPath="{full_path}", TreeRootPath="{self.root_path}"'
         # Walk up the source tree and compose a list of ancestors:
+        logger.debug(f'[{self.tree_id}] Looking for ancestors for path "{full_path}"')
         while full_path != self.root_path:
             # Go up one dir:
             full_path: str = str(pathlib.Path(full_path).parent)
-            # Get standard UID for path (note: this is a kludge for non-local trees, but should be OK because we just need a UID which
-            # is unique for this tree)
-            # uid = self.app.cacheman.get_uid_for_path(full_path)
-            ancestor_spid = SinglePathNodeIdentifier(NULL_UID, full_path, tree_type)
             nid = self._build_tree_nid(tree_type, full_path, op_type)
             parent = self._category_tree.get_node(nid=nid)
             if parent:
                 break
             else:
-                ancestor_node = ContainerNode(ancestor_spid)
-                ancestor_node.identifier = nid
-                stack.append(ancestor_node)
+                ancestor_spid = SinglePathNodeIdentifier(NULL_UID, full_path, tree_type)
+                stack.append(ContainerNode(ancestor_spid, nid=nid))
 
         # Walk down the ancestor list and create a node for each ancestor dir:
         assert parent
         while len(stack) > 0:
             child = stack.pop()
             if SUPER_DEBUG:
-                logger.info(f'[{self.tree_id}] Adding ancestor node: {child.node_identifier} ({child.identifier}) '
-                            f'to parent: {parent.node_identifier} ({parent.identifier})')
+                logger.info(f'[{self.tree_id}] Inserting new dummy ancestor: node: {child} under parent: {parent}')
             self._category_tree.add_node(node=child, parent=parent)
             parent = child
 
@@ -207,7 +174,7 @@ class CategoryDisplayTree(DisplayTree):
         nid = self._build_tree_nid(sn.spid.tree_type, parent_path, op_type)
         return self._category_tree.get_node(nid=nid)
 
-    def add_node(self, sn: SPIDNodePair, op: Op, source_tree: DisplayTree):
+    def add_node(self, sn: SPIDNodePair, op: Op):
         """When we add the node, we add any necessary ancestors for it as well.
         1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't
         backed by any actual data nodes. This includes possibly tree-type nodes, category nodes, and ancestors
@@ -231,7 +198,7 @@ class CategoryDisplayTree(DisplayTree):
         if parent:
             logger.debug(f'[{self.tree_id}] Parent was already added to tree; adding new node as its child: "{sn.node.node_identifier}"')
         else:
-            parent: Node = self._get_or_create_pre_ancestors(sn, op_type_for_display, source_tree)
+            parent: Node = self._get_or_create_pre_ancestors(sn, op_type_for_display)
 
             if isinstance(parent, HasChildList):
                 parent.add_meta_metrics(sn.node)

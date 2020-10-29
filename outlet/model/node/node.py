@@ -25,10 +25,12 @@ SPIDNodePair = collections.namedtuple('SPIDNodePair', 'spid node')
 class Node(treelib.Node, ABC):
     """Base class for all data nodes."""
 
-    def __init__(self, node_identifier: NodeIdentifier):
-        # Look at this next line. It is very important.
-        treelib.Node.__init__(self, identifier=node_identifier.uid)
+    def __init__(self, node_identifier: NodeIdentifier, nid=None):
+        # Look at these next 3 lines. They are very important.
+        if not nid:
+            nid = node_identifier.uid
         self.node_identifier: NodeIdentifier = node_identifier
+        treelib.Node.__init__(self, identifier=nid)
         self._update_tag()
 
     def _update_tag(self):
@@ -56,6 +58,10 @@ class Node(treelib.Node, ABC):
         return False
 
     @classmethod
+    def is_display_only(cls):
+        return False
+
+    @classmethod
     def is_ephemereal(cls) -> bool:
         return False
 
@@ -73,8 +79,12 @@ class Node(treelib.Node, ABC):
 
     def set_node_identifier(self, node_identifier: NodeIdentifier):
         self.node_identifier = node_identifier
-        self._update_tag()
+        # This will call self._set_identifier():
         self.identifier = node_identifier.uid
+
+    def _set_identifier(self, value):
+        super()._set_identifier(value)
+        self._update_tag()
 
     @property
     def name(self):

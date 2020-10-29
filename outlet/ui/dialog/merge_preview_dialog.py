@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
     def __init__(self, parent_win, tree):
-        Gtk.Dialog.__init__(self, "Confirm Merge", parent_win, 0)
-        BaseDialog.__init__(self, parent_win.app)
+        Gtk.Dialog.__init__(self, title="Confirm Merge", transient_for=parent_win, flags=0)
+        BaseDialog.__init__(self, app=parent_win.app)
         self.parent_win = parent_win
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_APPLY, Gtk.ResponseType.APPLY)
