@@ -9,7 +9,7 @@ import ui.actions as actions
 from constants import APP_NAME, ICON_WINDOW, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
 from model.display_tree.category import CategoryDisplayTree
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from ui.comp.progress_bar import ProgressBar
 from ui.dialog.base_dialog import BaseDialog
@@ -224,8 +224,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         return True
 
     def _generate_merge_tree(self) -> Optional[CategoryDisplayTree]:
-        left_selected_changes: List[Node] = self.tree_con_left.get_checked_rows_as_list()
-        right_selected_changes: List[Node] = self.tree_con_right.get_checked_rows_as_list()
+        left_selected_changes: List[SPIDNodePair] = self.tree_con_left.get_checked_rows_as_list()
+        right_selected_changes: List[SPIDNodePair] = self.tree_con_right.get_checked_rows_as_list()
         if len(left_selected_changes) == 0 and len(right_selected_changes) == 0:
             self.show_error_msg('You must select change(s) first.')
             return None

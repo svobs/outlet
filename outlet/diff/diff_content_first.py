@@ -281,7 +281,7 @@ class ContentFirstDiffer(ChangeMaker):
 
         return self.left_side.change_tree, self.right_side.change_tree
 
-    def merge_change_trees(self, left_selected_changes: List[Node], right_selected_changes: List[Node],
+    def merge_change_trees(self, left_selected_changes: List[SPIDNodePair], right_selected_changes: List[SPIDNodePair],
                            check_for_conflicts=False) -> CategoryDisplayTree:
 
         # always root path, but tree type may differ
@@ -290,24 +290,22 @@ class ContentFirstDiffer(ChangeMaker):
             tree_type = TREE_TYPE_MIXED
         else:
             tree_type = self.left_side.underlying_tree.tree_type
-
         root_node_identifier: SinglePathNodeIdentifier = NodeIdentifierFactory.get_root_constant_single_path_identifier(tree_type)
-
         merged_tree = CategoryDisplayTree(app=self.app, tree_id=ID_MERGE_TREE, root_node_identifier=root_node_identifier, show_whole_forest=True)
 
-        for item in left_selected_changes:
-            op = self.left_side.underlying_tree.get_op_for_node(item)
+        for sn in left_selected_changes:
+            op = self.left_side.underlying_tree.get_op_for_node(sn.node)
             if op:
-                merged_tree.add_node(item, op, self.left_side.underlying_tree)
+                merged_tree.add_node(sn, op, self.left_side.underlying_tree)
             else:
-                logger.debug(f'Skipping node because it is not associated with a Op: {item}')
+                logger.debug(f'Skipping node because it is not associated with a Op: {sn.node}')
 
-        for item in right_selected_changes:
-            op = self.right_side.underlying_tree.get_op_for_node(item)
+        for sn in right_selected_changes:
+            op = self.right_side.underlying_tree.get_op_for_node(sn.node)
             if op:
-                merged_tree.add_node(item, op, self.right_side.underlying_tree)
+                merged_tree.add_node(sn, op, self.right_side.underlying_tree)
             else:
-                logger.debug(f'Skipping node because it is not associated with a Op: {item}')
+                logger.debug(f'Skipping node because it is not associated with a Op: {sn.node}')
 
         # TODO: check for conflicts
 

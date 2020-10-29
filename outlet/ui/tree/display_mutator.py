@@ -15,7 +15,7 @@ from model.uid import UID
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
 from model.node.container_node import CategoryNode
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from model.node.ephemeral_node import EmptyNode, LoadingNode
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from ui import actions
@@ -227,56 +227,53 @@ class DisplayMutator(HasLifecycle):
         logger.debug(f'[{self.con.tree_id}] Sending signal "{actions.REFRESH_SUBTREE_STATS}"')
         dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id)
 
-    def get_checked_rows_as_list(self) -> List[Node]:
+    def get_checked_rows_as_list(self) -> List[SPIDNodePair]:
         """Returns a list which contains the DisplayNodes of the items which are currently checked by the user
         (including collapsed rows). This will be a subset of the DisplayTree which was used to
         populate this tree. Includes file nodes only, with the exception of GDrive FolderToAdd."""
         # subtree root will be the same as the current subtree's
-        checked_items: List[Node] = []
+        checked_items: List[SPIDNodePair] = []
 
         # Algorithm:
         # Iterate over display nodes. Start with top-level nodes.
         # - Add each checked row to DFS queue (whitelist). It and all of its descendants will be added
         # - Ignore each unchecked row
         # - Each inconsistent row needs to be drilled down into.
-        whitelist: Deque[Node] = collections.deque()
-        secondary_screening: Deque[Node] = collections.deque()
+        whitelist: Deque[SPIDNodePair] = collections.deque()
+        secondary_screening: Deque[SPIDNodePair] = collections.deque()
 
         with self._lock:
             assert self.con.treeview_meta.has_checkboxes
-            children: Iterable[Node] = self.con.lazy_tree.get_children_for_root()
-            for child in children:
-
-                if self.con.display_store.checked_rows.get(child.identifier, None):
-                    whitelist.append(child)
-                elif self.con.display_store.inconsistent_rows.get(child.identifier, None):
-                    secondary_screening.append(child)
+            child_list: Iterable[SPIDNodePair] = self.con.get_tree().get_child_sn_list_for_root()
+            for child_sn in child_list:
+                if self.con.display_store.checked_rows.get(child_sn.node.identifier, None):
+                    whitelist.append(child_sn)
+                elif self.con.display_store.inconsistent_rows.get(child_sn.node.identifier, None):
+                    secondary_screening.append(child_sn)
 
             while len(secondary_screening) > 0:
-                parent: Node = secondary_screening.popleft()
-                assert parent.is_dir(), f'Expected a dir-type node: {parent}'
+                parent: SPIDNodePair = secondary_screening.popleft()
+                assert parent.node.is_dir(), f'Expected a dir-type node: {parent}'
 
-                if not parent.exists():
+                if not parent.node.exists():
                     # Even an inconsistent FolderToAdd must be included as a checked item:
                     checked_items.append(parent)
 
-                children: Iterable[Node] = self.con.lazy_tree.get_children(parent)
-
-                for child in children:
-                    if self.con.display_store.checked_rows.get(child.identifier, None):
-                        whitelist.append(child)
-                    elif self.con.display_store.inconsistent_rows.get(child.identifier, None):
-                        secondary_screening.append(child)
+                for child_sn in self.con.get_tree().get_child_sn_list(parent):
+                    if self.con.display_store.checked_rows.get(child_sn.node.identifier, None):
+                        whitelist.append(child_sn)
+                    elif self.con.display_store.inconsistent_rows.get(child_sn.node.identifier, None):
+                        secondary_screening.append(child_sn)
 
             while len(whitelist) > 0:
-                chosen_node: Node = whitelist.popleft()
-                # non-existent directory must be added
-                if not chosen_node.is_dir() or not chosen_node.exists():
-                    checked_items.append(chosen_node)
+                chosen_sn: SPIDNodePair = whitelist.popleft()
+                # all files and all non-existent dirs must be added
+                if not chosen_sn.node.is_dir() or not chosen_sn.node.exists():
+                    checked_items.append(chosen_sn)
 
-                children: Iterable[Node] = self.con.lazy_tree.get_children(chosen_node)
-                for child in children:
-                    whitelist.append(child)
+                # drill down into all descendants of nodes in the whitelist
+                for child_sn in self.con.get_tree().get_child_sn_list(chosen_sn):
+                    whitelist.append(child_sn)
 
             return checked_items
 

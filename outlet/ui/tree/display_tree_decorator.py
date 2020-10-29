@@ -2,7 +2,7 @@ import logging
 import threading
 from typing import Iterable, Optional
 
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.display_tree.display_tree import DisplayTree
 
@@ -45,7 +45,8 @@ class LazyLoadDisplayTreeDecorator:
         return self._root_identifier
 
     def get_tree(self) -> DisplayTree:
-        return self.tree
+        self._ensure_is_loaded()
+        return self._tree
 
     @property
     def tree(self) -> DisplayTree:
@@ -53,9 +54,15 @@ class LazyLoadDisplayTreeDecorator:
         return self._tree
 
     def get_children_for_root(self) -> Iterable[Node]:
-        return self.tree.get_children_for_root()
+        return self.get_tree().get_children_for_root()
 
     def get_children(self, node: Node) -> Iterable[Node]:
         """Return the children for the given parent_uid.
         The children of the given node can look very different depending on value of 'tree_display_mode'"""
-        return self.tree.get_children(node)
+        return self.get_tree().get_children(node)
+
+    def get_child_sn_list_for_root(self) -> Iterable[SPIDNodePair]:
+        return self.get_tree().get_child_sn_list_for_root()
+
+    def get_child_sn_list(self, parent: SPIDNodePair) -> Iterable[SPIDNodePair]:
+        return self.get_tree().get_child_sn_list(parent)

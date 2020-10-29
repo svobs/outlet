@@ -77,6 +77,23 @@ class DisplayTree(ABC):
     def get_children(self, parent: Node) -> Iterable[Node]:
         pass
 
+    @staticmethod
+    def _make_child_sn_list(child_node_list: Iterable[Node], parent_path: str) -> Iterable[SPIDNodePair]:
+        child_sn_list: List[SPIDNodePair] = []
+        for child_node in child_node_list:
+            child_path = os.path.join(parent_path, child_node.name)
+            child_sn = SPIDNodePair(SinglePathNodeIdentifier(child_node.uid, child_path, child_node.get_tree_type()), child_node)
+            child_sn_list.append(child_sn)
+        return child_sn_list
+
+    def get_child_sn_list_for_root(self) -> Iterable[SPIDNodePair]:
+        child_node_list: Iterable[Node] = self.get_children_for_root()
+        return self._make_child_sn_list(child_node_list, self.root_path)
+
+    def get_child_sn_list(self, parent: SPIDNodePair) -> Iterable[SPIDNodePair]:
+        child_node_list: Iterable[Node] = self.get_children(parent.node)
+        return self._make_child_sn_list(child_node_list, parent.spid.get_single_path())
+
     @abstractmethod
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[Node]:
         pass

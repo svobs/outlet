@@ -218,6 +218,7 @@ class CategoryDisplayTree(DisplayTree):
         but in this case it will be a string which includes the OpType name.
         3. Add a node for the node itself
         """
+        assert isinstance(sn, SPIDNodePair), f'Wrong type: {type(sn)}'
         assert op is not None, f'For node: {sn}'
         self._append_op(op)
 
@@ -266,55 +267,62 @@ class CategoryDisplayTree(DisplayTree):
     def get_node_list_for_path_list(self, path_list: Union[str, List[str]]) -> List[Node]:
         raise InvalidOperationError('CategoryDisplayTree.get_node_list_for_path_list()')
 
-    def get_summary(self) -> str:
-        include_empty_op_types = False
-        def make_cat_map():
-            cm = {}
-            for c in OP_TYPES:
-                cm[c] = f'{CategoryNode.display_names[c]}: 0'
-            return cm
+    @staticmethod
+    def _make_cat_map():
+        cm = {}
+        for c in OP_TYPES:
+            cm[c] = f'{CategoryNode.display_names[c]}: 0'
+        return cm
 
+    @staticmethod
+    def _build_cat_summaries_str(cat_map) -> str:
+        cat_summaries = []
+        for op_type in OP_TYPES:
+            summary = cat_map.get(op_type, None)
+            if summary:
+                cat_summaries.append(summary)
+        return ','.join(cat_summaries)
+
+    def _build_cat_map(self, identifier):
+        include_empty_op_types = False
         cat_count = 0
+        if include_empty_op_types:
+            cat_map = CategoryDisplayTree._make_cat_map()
+        else:
+            cat_map = {}
+        for child in self._category_tree.children(identifier):
+            assert isinstance(child, CategoryNode), f'For {child}'
+            cat_count += 1
+            cat_map[child.op_type] = f'{child.name}: {child.get_summary()}'
+        if cat_count:
+            return cat_map
+        else:
+            return None
+
+    def get_summary(self) -> str:
         if self.show_whole_forest:
             # need to preserve ordering...
             type_summaries = []
             type_map = {}
+            cat_count = 0
             for child in self._category_tree.children(self.root_node.identifier):
-                assert isinstance(child, RootTypeNode), f'For {child}
-                if include_empty_op_types:
-                    cat_map = make_cat_map()
-                else:
-                    cat_map = {}
-                for grandchild in self._category_tree.children(child.identifier):
-                    assert isinstance(grandchild, CategoryNode), f'For {grandchild}'
+                assert isinstance(child, RootTypeNode), f'For {child}'
+                cat_map = self._build_cat_map(child.identifier)
+                if cat_map:
                     cat_count += 1
-                    cat_map[grandchild.op_type] = f'{grandchild.name}: {grandchild.get_summary()}'
-                type_map[child.node_identifier.tree_type] = cat_map
+                    type_map[child.node_identifier.tree_type] = cat_map
             if cat_count == 0:
                 return 'Contents are identical'
             for tree_type, tree_type_name in (TREE_TYPE_LOCAL_DISK, 'Local Disk'), (TREE_TYPE_GDRIVE, 'Google Drive'):
                 cat_map = type_map.get(tree_type, None)
                 if cat_map:
-                    cat_summaries = []
-                    for cat in OP_TYPES:
-                        cat_summaries.append(cat_map[cat])
-                    type_summaries.append(f'{tree_type_name}: {",".join(cat_summaries)}')
+                    type_summaries.append(f'{tree_type_name}: {self._build_cat_summaries_str(cat_map)}')
             return '; '.join(type_summaries)
         else:
-            if include_empty_op_types:
-                cat_map = make_cat_map()
-            else:
-                cat_map = {}
-            for child in self._category_tree.children(self.root_node.identifier):
-                assert isinstance(child, CategoryNode), f'For {child}'
-                cat_count += 1
-                cat_map[child.op_type] = f'{child.name}: {child.get_summary()}'
-            if cat_count == 0:
+            cat_map = self._build_cat_map(self.root_node.identifier)
+            if not cat_map:
                 return 'Contents are identical'
-            cat_summaries = []
-            for cat in OP_TYPES:
-                cat_summaries.append(cat_map[cat])
-            return ', '.join(cat_summaries)
+            return self._build_cat_summaries_str(cat_map)
 
     def refresh_stats(self, tree_id: str):
         logger.debug(f'[{tree_id}] Refreshing stats for category display tree')

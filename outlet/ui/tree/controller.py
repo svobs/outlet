@@ -211,9 +211,9 @@ class TreePanelController:
             items.append(item)
         return items, tree_paths
 
-    def get_checked_rows_as_list(self) -> List[Node]:
+    def get_checked_rows_as_list(self) -> List[SPIDNodePair]:
         timer = Stopwatch()
-        checked_rows: List[Node] = self.display_mutator.get_checked_rows_as_list()
+        checked_rows: List[SPIDNodePair] = self.display_mutator.get_checked_rows_as_list()
         logger.debug(f'{timer} Retreived {len(checked_rows)} checked rows')
 
         return checked_rows
