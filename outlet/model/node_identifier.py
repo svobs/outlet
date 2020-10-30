@@ -121,7 +121,6 @@ class NodeIdentifier(ABC):
         self.set_path_list(path_list)
 
     def __repr__(self):
-        # should never be displayed
         return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-{self.uid}⩨{self.get_path_list()}∣'
 
     def __eq__(self, other):
@@ -183,6 +182,9 @@ class SinglePathNodeIdentifier(NodeIdentifier):
 
     def get_single_parent_path(self) -> str:
         return str(pathlib.Path(self.get_single_path()).parent)
+
+    def __repr__(self):
+        return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-{self.uid}⩨{self.get_single_path()}∣'
 
 """
 ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥

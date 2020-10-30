@@ -1,5 +1,4 @@
 import os
-from enum import IntEnum
 from typing import Iterable, List, Optional
 import logging
 
@@ -9,14 +8,6 @@ from store.sqlite.op_db import OpDatabase
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
-
-
-# ENUM FailureBehavior
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class ErrorHandlingBehavior(IntEnum):
-    RAISE_ERROR = 1
-    IGNORE = 2
-    DISCARD = 3
 
 
 # CLASS OpDiskStore
@@ -51,18 +42,11 @@ class OpDiskStore(HasLifecycle):
         else:
             logger.debug(f'Found no pending ops to cancel')
 
-    def get_pending_ops_from_disk(self, error_handling_behavior: ErrorHandlingBehavior) -> List[UserOp]:
+    def get_pending_ops_from_disk(self) -> List[UserOp]:
         if SUPER_DEBUG:
             logger.debug('Entered get_pending_ops_from_disk()')
 
-        # first load refs from disk
-        op_list: List[UserOp] = self._db.get_all_pending_ops()
-
-        logger.debug(f'Found {len(op_list)} pending ops in cache')
-
-        # TODO: check for invalid nodes?
-
-        return op_list
+        return self._db.get_all_pending_ops()
 
     def remove_pending_ops(self, op_list: Iterable[UserOp]):
         self._db.delete_pending_ops(op_list)

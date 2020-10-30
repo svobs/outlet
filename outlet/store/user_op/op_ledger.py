@@ -1,6 +1,7 @@
 import collections
 import logging
 from collections import defaultdict
+from enum import IntEnum
 from typing import Callable, DefaultDict, Deque, Dict, Iterable, List, Optional
 
 from command.cmd_builder import CommandBuilder
@@ -9,13 +10,21 @@ from constants import SUPER_DEBUG
 from model.node.node import Node
 from model.user_op import UserOp, UserOpType
 from model.uid import UID
-from store.user_op.op_disk_store import ErrorHandlingBehavior, OpDiskStore
+from store.user_op.op_disk_store import OpDiskStore
 from store.user_op.op_graph import OpGraph
 from store.user_op.op_graph_node import RootNode
 from ui import actions
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
+
+
+# ENUM FailureBehavior
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class ErrorHandlingBehavior(IntEnum):
+    RAISE_ERROR = 1
+    IGNORE = 2
+    DISCARD = 3
 
 
 # CLASS OpLedger
@@ -183,10 +192,11 @@ class OpLedger(HasLifecycle):
         """Call this at startup, to RESUME pending ops which have not yet been applied."""
 
         # Load from disk
-        op_list: List[UserOp] = self._disk_store.get_pending_ops_from_disk(ErrorHandlingBehavior.DISCARD)
+        op_list: List[UserOp] = self._disk_store.get_pending_ops_from_disk()
         if not op_list:
             logger.debug(f'No pending ops found in the disk cache')
             return
+
         logger.info(f'Found {len(op_list)} pending ops from the disk cache')
 
         # Sort into batches
@@ -194,15 +204,27 @@ class OpLedger(HasLifecycle):
         for op in op_list:
             batch_dict[op.batch_uid].append(op)
 
+        # Sort batches to make sure they are in correct order
         batch_dict_keys = batch_dict.keys()
         logger.info(f'Sorted ops into {len(batch_dict_keys)} batches')
         sorted_keys = sorted(batch_dict_keys)
 
         for batch_uid in sorted_keys:
             # Assume batch has already been reduced and reconciled against master tree.
-            batch_items: List[UserOp] = batch_dict[batch_uid]
-            batch_root = self._op_graph.make_graph_from_batch(batch_items)
+            batch_op_list: List[UserOp] = batch_dict[batch_uid]
+            self._refresh_batch_nodes(batch_op_list)
+            batch_root = self._op_graph.make_graph_from_batch(batch_op_list)
             self._add_batch_to_op_graph_and_remove_discarded(batch_root, batch_uid)
+
+    def _refresh_batch_nodes(self, batch_op_list: List[UserOp]):
+        big_node_list: List[Node] = []
+        for user_op in batch_op_list:
+            big_node_list.append(user_op.src_node)
+            if user_op.has_dst():
+                big_node_list.append(user_op.dst_node)
+
+        # TODO
+        self.app.cacheman.refresh_node_list(big_node_list)
 
     def append_new_pending_op_batch(self, op_batch: Iterable[UserOp]):
         """
