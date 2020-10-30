@@ -22,13 +22,13 @@ from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import HasParentList, Node, SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
-from model.op import Op
+from model.user_op import UserOp
 from model.uid import UID
 from store.gdrive.master_gdrive import GDriveMasterStore
 from store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from store.live_monitor import LiveMonitor
 from store.local.master_local import LocalDiskMasterStore
-from store.op.op_ledger import OpLedger
+from store.user_op.op_ledger import OpLedger
 from store.sqlite.cache_registry_db import CacheRegistry
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
@@ -524,10 +524,10 @@ class CacheManager(HasLifecycle):
         else:
             assert False
 
-    def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[Op]:
+    def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[UserOp]:
         return self._op_ledger.get_last_pending_op_for_node(node_uid)
 
-    def enqueue_op_list(self, op_list: Iterable[Op]):
+    def enqueue_op_list(self, op_list: Iterable[UserOp]):
         """Attempt to add the given Ops to the execution tree. No need to worry whether some changes overlap or are redundant;
          the OpLedger will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
          that is scheduled for deletion."""

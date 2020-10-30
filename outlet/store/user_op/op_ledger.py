@@ -7,11 +7,11 @@ from command.cmd_builder import CommandBuilder
 from command.cmd_interface import Command, CommandStatus
 from constants import SUPER_DEBUG
 from model.node.node import Node
-from model.op import Op, OpType
+from model.user_op import UserOp, UserOpType
 from model.uid import UID
-from store.op.op_disk_store import ErrorHandlingBehavior, OpDiskStore
-from store.op.op_graph import OpGraph
-from store.op.op_graph_node import RootNode
+from store.user_op.op_disk_store import ErrorHandlingBehavior, OpDiskStore
+from store.user_op.op_graph import OpGraph
+from store.user_op.op_graph_node import RootNode
 from ui import actions
 from util.has_lifecycle import HasLifecycle
 
@@ -44,8 +44,8 @@ class OpLedger(HasLifecycle):
         self._cmd_builder = None
         self._op_graph = None
 
-    def _update_nodes_in_memstore(self, op: Op):
-        """Looks at the given Op and notifies cacheman so that it can send out update notifications. The nodes involved may not have
+    def _update_nodes_in_memstore(self, op: UserOp):
+        """Looks at the given UserOp and notifies cacheman so that it can send out update notifications. The nodes involved may not have
         actually changed (i.e., only their statuses have changed)"""
         self.app.cacheman.upsert_single_node(op.src_node)
         if op.has_dst():
@@ -57,21 +57,21 @@ class OpLedger(HasLifecycle):
     def _derive_dst_parent_key_list(self, dst_node: Node) -> List[str]:
         return [f'{parent_uid}/{dst_node.name}' for parent_uid in self.app.cacheman.get_parent_uid_list_for_node(dst_node)]
 
-    def _reduce_ops(self, op_list: Iterable[Op]) -> Iterable[Op]:
-        final_list: List[Op] = []
+    def _reduce_ops(self, op_list: Iterable[UserOp]) -> Iterable[UserOp]:
+        final_list: List[UserOp] = []
 
         # Put all affected nodes in map.
         # Is there a hit? Yes == there is overlap
-        mkdir_dict: Dict[UID, Op] = {}
-        rm_dict: Dict[UID, Op] = {}
+        mkdir_dict: Dict[UID, UserOp] = {}
+        rm_dict: Dict[UID, UserOp] = {}
         # Uses _derive_cp_dst_key() to make key:
-        cp_dst_dict: Dict[str, Op] = {}
+        cp_dst_dict: Dict[str, UserOp] = {}
         # src node is not necessarily mutually exclusive:
-        cp_src_dict: DefaultDict[UID, List[Op]] = defaultdict(lambda: list())
+        cp_src_dict: DefaultDict[UID, List[UserOp]] = defaultdict(lambda: list())
         count_ops_orig = 0
         for op in op_list:
             count_ops_orig += 1
-            if op.op_type == OpType.MKDIR:
+            if op.op_type == UserOpType.MKDIR:
                 # remove dup MKDIRs (easy)
                 if mkdir_dict.get(op.src_node.uid, None):
                     logger.info(f'ReduceChanges(): Removing duplicate MKDIR for node: {op.src_node}')
@@ -79,7 +79,7 @@ class OpLedger(HasLifecycle):
                     logger.info(f'ReduceChanges(): Adding MKDIR-type: {op}')
                     final_list.append(op)
                     mkdir_dict[op.src_node.uid] = op
-            elif op.op_type == OpType.RM:
+            elif op.op_type == UserOpType.RM:
                 # remove dups
                 if rm_dict.get(op.src_node.uid, None):
                     logger.info(f'ReduceChanges(): Removing duplicate RM for node: {op.src_node}')
@@ -87,7 +87,7 @@ class OpLedger(HasLifecycle):
                     logger.info(f'ReduceChanges(): Adding RM-type: {op}')
                     final_list.append(op)
                     rm_dict[op.src_node.uid] = op
-            elif op.op_type == OpType.CP or op.op_type == OpType.UP or op.op_type == OpType.MV:
+            elif op.op_type == UserOpType.CP or op.op_type == UserOpType.UP or op.op_type == UserOpType.MV:
                 # GDrive nodes' UIDs are derived from their goog_ids; nodes with no goog_id can have different UIDs.
                 # So for GDrive nodes with no goog_id, we must rely on a combination of their parent UID and name to check for uniqueness
                 for dst_parent_key in self._derive_dst_parent_key_list(op.dst_node):
@@ -113,19 +113,19 @@ class OpLedger(HasLifecycle):
                         cp_dst_dict[dst_parent_key] = op
                         final_list.append(op)
 
-        def eval_rm_ancestor_func(op_arg: Op, ancestor: Node) -> None:
+        def eval_rm_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
             conflict = mkdir_dict.get(ancestor.uid, None)
             if conflict:
                 logger.error(f'ReduceChanges(): Conflict! Op1={conflict}; Op2={op_arg}')
                 raise RuntimeError(f'Batch op conflict: trying to create a node and remove its descendant at the same time!')
 
-        def eval_mkdir_ancestor_func(op_arg: Op, ancestor: Node) -> None:
+        def eval_mkdir_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
             conflict = rm_dict.get(ancestor.uid, None)
             if conflict:
                 logger.error(f'ReduceChanges(): Conflict! Op1={conflict}; Op2={op_arg}')
                 raise RuntimeError(f'Batch op conflict: trying to remove a node and create its descendant at the same time!')
 
-        def eval_cp_src_ancestor_func(op_arg: Op, ancestor: Node) -> None:
+        def eval_cp_src_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
             if SUPER_DEBUG:
                 logger.debug(f'Evaluating src ancestor (op={op_arg.op_uid}): {ancestor}')
             if ancestor.uid in mkdir_dict:
@@ -135,7 +135,7 @@ class OpLedger(HasLifecycle):
             if ancestor.uid in cp_dst_dict:
                 raise RuntimeError(f'Batch op conflict: copy from a descendant of a node being copied to!')
 
-        def eval_cp_dst_ancestor_func(op_arg: Op, ancestor: Node) -> None:
+        def eval_cp_dst_ancestor_func(op_arg: UserOp, ancestor: Node) -> None:
             if SUPER_DEBUG:
                 logger.debug(f'Evaluating dst ancestor (op={op.op_uid}): {ancestor}')
             if ancestor.uid in rm_dict:
@@ -145,11 +145,11 @@ class OpLedger(HasLifecycle):
 
         # For each element, traverse up the tree and compare each parent node to map
         for op in op_list:
-            if op.op_type == OpType.RM:
+            if op.op_type == UserOpType.RM:
                 self._check_ancestors(op, op.src_node, eval_rm_ancestor_func)
-            elif op.op_type == OpType.MKDIR:
+            elif op.op_type == UserOpType.MKDIR:
                 self._check_ancestors(op, op.src_node, eval_mkdir_ancestor_func)
-            elif op.op_type == OpType.CP or op.op_type == OpType.UP or op.op_type == OpType.MV:
+            elif op.op_type == UserOpType.CP or op.op_type == UserOpType.UP or op.op_type == UserOpType.MV:
                 """Checks all ancestors of both src and dst for mapped Ops. The following are the only valid situations:
                  1. No ancestors of src or dst correspond to any Ops.
                  2. Ancestor(s) of the src node correspond to the src node of a CP or UP action (i.e. they will not change)
@@ -160,7 +160,7 @@ class OpLedger(HasLifecycle):
         logger.debug(f'Reduced {count_ops_orig} ops to {len(final_list)} ops')
         return final_list
 
-    def _check_ancestors(self, op: Op, node: Node, eval_func: Callable[[Op, Node], None]):
+    def _check_ancestors(self, op: UserOp, node: Node, eval_func: Callable[[UserOp, Node], None]):
         queue: Deque[Node] = collections.deque()
         queue.append(node)
 
@@ -169,7 +169,7 @@ class OpLedger(HasLifecycle):
             for ancestor in self.app.cacheman.get_parent_list_for_node(node):
                 queue.append(ancestor)
                 if SUPER_DEBUG:
-                    logger.debug(f'(Op={op.op_uid}): evaluating ancestor: {ancestor}')
+                    logger.debug(f'(UserOp={op.op_uid}): evaluating ancestor: {ancestor}')
                 eval_func(op, ancestor)
 
     # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
@@ -183,14 +183,14 @@ class OpLedger(HasLifecycle):
         """Call this at startup, to RESUME pending ops which have not yet been applied."""
 
         # Load from disk
-        op_list: List[Op] = self._disk_store.get_pending_ops_from_disk(ErrorHandlingBehavior.DISCARD)
+        op_list: List[UserOp] = self._disk_store.get_pending_ops_from_disk(ErrorHandlingBehavior.DISCARD)
         if not op_list:
             logger.debug(f'No pending ops found in the disk cache')
             return
         logger.info(f'Found {len(op_list)} pending ops from the disk cache')
 
         # Sort into batches
-        batch_dict: DefaultDict[UID, List[Op]] = defaultdict(lambda: list())
+        batch_dict: DefaultDict[UID, List[UserOp]] = defaultdict(lambda: list())
         for op in op_list:
             batch_dict[op.batch_uid].append(op)
 
@@ -200,11 +200,11 @@ class OpLedger(HasLifecycle):
 
         for batch_uid in sorted_keys:
             # Assume batch has already been reduced and reconciled against master tree.
-            batch_items: List[Op] = batch_dict[batch_uid]
+            batch_items: List[UserOp] = batch_dict[batch_uid]
             batch_root = self._op_graph.make_graph_from_batch(batch_items)
             self._add_batch_to_op_graph_and_remove_discarded(batch_root, batch_uid)
 
-    def append_new_pending_op_batch(self, op_batch: Iterable[Op]):
+    def append_new_pending_op_batch(self, op_batch: Iterable[UserOp]):
         """
         Call this after the user requests a new set of ops.
 
@@ -224,7 +224,7 @@ class OpLedger(HasLifecycle):
                 raise RuntimeError(f'Changes in batch do not all contain the same batch_uid (found {op.batch_uid} and {batch_uid})')
 
         # Simplify and remove redundancies in op_list
-        reduced_batch: Iterable[Op] = self._reduce_ops(op_batch)
+        reduced_batch: Iterable[UserOp] = self._reduce_ops(op_batch)
 
         batch_root: RootNode = self._op_graph.make_graph_from_batch(reduced_batch)
 
@@ -243,19 +243,19 @@ class OpLedger(HasLifecycle):
 
     def _add_batch_to_op_graph_and_remove_discarded(self, batch_root, batch_uid):
         logger.info(f'Adding batch {batch_uid} to OpTree')
-        discarded_op_list: List[Op] = self._op_graph.enqueue_batch(batch_root)
+        discarded_op_list: List[UserOp] = self._op_graph.enqueue_batch(batch_root)
         if discarded_op_list:
             logger.debug(f'{len(discarded_op_list)} ops were discarded: removing from disk cache')
             self._disk_store.remove_pending_ops(discarded_op_list)
 
-    def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[Op]:
+    def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[UserOp]:
         return self._op_graph.get_last_pending_op_for_node(node_uid)
 
     def get_next_command(self) -> Optional[Command]:
         # Call this from Executor. Only returns None if shutting down
 
         # This will block until a op is ready:
-        op: Op = self._op_graph.get_next_op()
+        op: UserOp = self._op_graph.get_next_op()
 
         if not op:
             logger.debug('Received None; looks like we are shutting down')

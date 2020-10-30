@@ -13,7 +13,7 @@ from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.node import HasChildList, Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
-from model.op import Op, OP_TYPES, OpType
+from model.user_op import UserOp, USER_OP_TYPES, UserOpType
 from model.uid import UID
 from ui import actions
 from util.stopwatch_sec import Stopwatch
@@ -40,10 +40,10 @@ class CategoryDisplayTree(DisplayTree):
 
         self.show_whole_forest: bool = show_whole_forest
 
-        self.op_dict: Dict[UID, Op] = {}
-        """Lookup for target node UID -> Op. The target node will be the dst node if the Op has one; otherwise
+        self.op_dict: Dict[UID, UserOp] = {}
+        """Lookup for target node UID -> UserOp. The target node will be the dst node if the UserOp has one; otherwise
         it will be the source node."""
-        self._op_list: List[Op] = []
+        self._op_list: List[UserOp] = []
         """We want to keep track of change action creation order."""
 
         self.count_conflict_warnings = 0
@@ -70,29 +70,29 @@ class CategoryDisplayTree(DisplayTree):
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
         raise InvalidOperationError('CategoryDisplayTree.get_ancestor_list()')
 
-    def get_ops(self) -> Iterable[Op]:
+    def get_ops(self) -> Iterable[UserOp]:
         return self._op_list
 
-    def get_op_for_node(self, node: Node) -> Optional[Op]:
+    def get_op_for_node(self, node: Node) -> Optional[UserOp]:
         return self.op_dict.get(node.uid, None)
 
-    def _append_op(self, op: Op):
+    def _append_op(self, op: UserOp):
         logger.debug(f'Appending op: {op}')
         if op.dst_node:
             if self.op_dict.get(op.dst_node.uid, None):
-                raise RuntimeError(f'Duplicate Op: 1st={op}; 2nd={self.op_dict.get(op.dst_node.uid)}')
+                raise RuntimeError(f'Duplicate UserOp: 1st={op}; 2nd={self.op_dict.get(op.dst_node.uid)}')
             self.op_dict[op.dst_node.uid] = op
         else:
             if self.op_dict.get(op.src_node.uid, None):
-                raise RuntimeError(f'Duplicate Op: 1st={op}; 2nd={self.op_dict.get(op.src_node.uid)}')
+                raise RuntimeError(f'Duplicate UserOp: 1st={op}; 2nd={self.op_dict.get(op.src_node.uid)}')
             self.op_dict[op.src_node.uid] = op
         self._op_list.append(op)
 
     @staticmethod
-    def _build_tree_nid(tree_type: int, single_path: str, op: OpType) -> str:
+    def _build_tree_nid(tree_type: int, single_path: str, op: UserOpType) -> str:
         return f'{tree_type}:{op.name}:{single_path}'
 
-    def _get_or_create_pre_ancestors(self, sn: SPIDNodePair, op_type: OpType) -> ContainerNode:
+    def _get_or_create_pre_ancestors(self, sn: SPIDNodePair, op_type: UserOpType) -> ContainerNode:
         """Pre-ancestors are those nodes (either logical or pointing to real data) which are higher up than the source tree.
         Last pre-ancestor is easily derived and its prescence indicates whether its ancestors were already created"""
 
@@ -130,7 +130,7 @@ class CategoryDisplayTree(DisplayTree):
         # this is the last pre-ancestor.
         return parent_node
 
-    def _get_or_create_ancestors(self, sn: SPIDNodePair, op_type: OpType, parent: Node):
+    def _get_or_create_ancestors(self, sn: SPIDNodePair, op_type: UserOpType, parent: Node):
         stack: Deque = deque()
         full_path = sn.spid.get_single_path()
         tree_type = sn.spid.tree_type
@@ -160,7 +160,7 @@ class CategoryDisplayTree(DisplayTree):
 
         return parent
 
-    def _get_parent_in_tree(self, sn: SPIDNodePair, op_type: OpType) -> Optional[Node]:
+    def _get_parent_in_tree(self, sn: SPIDNodePair, op_type: UserOpType) -> Optional[Node]:
         parent_path = sn.spid.get_single_parent_path()
 
         # 1. Check for "real" nodes (which use plain UIDs for identifiers):
@@ -173,14 +173,14 @@ class CategoryDisplayTree(DisplayTree):
         nid = self._build_tree_nid(sn.spid.tree_type, parent_path, op_type)
         return self._category_tree.get_node(nid=nid)
 
-    def add_node(self, sn: SPIDNodePair, op: Op):
+    def add_node(self, sn: SPIDNodePair, op: UserOp):
         """When we add the node, we add any necessary ancestors for it as well.
         1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't
         backed by any actual data nodes. This includes possibly tree-type nodes and category nodes.
         2. Create and add "ancestors": dir nodes from the source tree for display.
-        The "ancestors" are duplicated for each OpType, so we need to generate a separate unique identifier which includes the OpType.
+        The "ancestors" are duplicated for each UserOpType, so we need to generate a separate unique identifier which includes the UserOpType.
         For this, we take advantage of the fact that each node has a separate "identifier" field which is nominally identical to its UID,
-        but in this case it will be a string which includes the OpType name.
+        but in this case it will be a string which includes the UserOpType name.
         3. Add a node for the node itself
         """
         assert isinstance(sn, SPIDNodePair), f'Wrong type: {type(sn)}'
@@ -188,9 +188,9 @@ class CategoryDisplayTree(DisplayTree):
         self._append_op(op)
 
         op_type_for_display = op.op_type
-        if op_type_for_display == OpType.MKDIR:
+        if op_type_for_display == UserOpType.MKDIR:
             # Group "mkdir" with "copy" for display purposes:
-            op_type_for_display = OpType.CP
+            op_type_for_display = UserOpType.CP
 
         # We can easily derive the UID/NID of the node's parent. Check to see if it exists in the tree - if so, we can save a lot of work.
         parent: Node = self._get_parent_in_tree(sn, op_type_for_display)
@@ -236,14 +236,14 @@ class CategoryDisplayTree(DisplayTree):
     @staticmethod
     def _make_cat_map():
         cm = {}
-        for c in OP_TYPES:
+        for c in USER_OP_TYPES:
             cm[c] = f'{CategoryNode.display_names[c]}: 0'
         return cm
 
     @staticmethod
     def _build_cat_summaries_str(cat_map) -> str:
         cat_summaries = []
-        for op_type in OP_TYPES:
+        for op_type in USER_OP_TYPES:
             summary = cat_map.get(op_type, None)
             if summary:
                 cat_summaries.append(summary)

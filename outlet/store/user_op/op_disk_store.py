@@ -4,7 +4,7 @@ from typing import Iterable, List, Optional
 import logging
 
 from constants import OPS_FILE_NAME, SUPER_DEBUG
-from model.op import Op
+from model.user_op import UserOp
 from store.sqlite.op_db import OpDatabase
 from util.has_lifecycle import HasLifecycle
 
@@ -44,19 +44,19 @@ class OpDiskStore(HasLifecycle):
         if SUPER_DEBUG:
             logger.debug('Entered cancel_pending_ops_from_disk()')
 
-        op_list: List[Op] = self._db.get_all_pending_ops()
+        op_list: List[UserOp] = self._db.get_all_pending_ops()
         if op_list:
             self._db.archive_failed_ops(op_list, 'Cancelled on startup per user config')
             logger.info(f'Cancelled {len(op_list)} pending ops found in cache')
         else:
             logger.debug(f'Found no pending ops to cancel')
 
-    def get_pending_ops_from_disk(self, error_handling_behavior: ErrorHandlingBehavior) -> List[Op]:
+    def get_pending_ops_from_disk(self, error_handling_behavior: ErrorHandlingBehavior) -> List[UserOp]:
         if SUPER_DEBUG:
             logger.debug('Entered get_pending_ops_from_disk()')
 
         # first load refs from disk
-        op_list: List[Op] = self._db.get_all_pending_ops()
+        op_list: List[UserOp] = self._db.get_all_pending_ops()
 
         logger.debug(f'Found {len(op_list)} pending ops in cache')
 
@@ -64,12 +64,12 @@ class OpDiskStore(HasLifecycle):
 
         return op_list
 
-    def remove_pending_ops(self, op_list: Iterable[Op]):
+    def remove_pending_ops(self, op_list: Iterable[UserOp]):
         self._db.delete_pending_ops(op_list)
 
-    def save_pending_ops_to_disk(self, op_list: Iterable[Op]):
+    def save_pending_ops_to_disk(self, op_list: Iterable[UserOp]):
         # This will save each of the planning nodes, if any:
         self._db.upsert_pending_ops(op_list, overwrite=False)
 
-    def archive_pending_ops_to_disk(self, op_list: Iterable[Op]):
+    def archive_pending_ops_to_disk(self, op_list: Iterable[UserOp]):
         self._db.archive_completed_ops(op_list)

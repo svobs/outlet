@@ -7,7 +7,7 @@ import treelib
 
 from store.gdrive.client import GDriveClient
 from model.uid import UID
-from model.op import Op, OpType
+from model.user_op import UserOp, UserOpType
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.node import Node
 
@@ -61,20 +61,21 @@ class CommandResult:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class Command(treelib.Node, ABC):
-    """Every command has an associated target node and a Op."""
-    def __init__(self, uid: UID, op: Op):
+    """Every command has an associated target node and a UserOp."""
+    def __init__(self, uid: UID, op: UserOp):
         treelib.Node.__init__(self, identifier=uid)
 
-        self.op: Op = op
+        self.op: UserOp = op
         self.result: Optional[CommandResult] = None
-        self.tag: str = f'{__class__.__name__}(uid={self.identifier})'
+        self.tag: str = f'{self.__class__.__name__}(cmd_uid={self.identifier}) op={op.op_type.name} ({op.op_uid}) ' \
+                        f'tgt={self.op.src_node.node_identifier})'
 
     def get_description(self) -> str:
         # default
         return self.tag
 
     @property
-    def type(self) -> OpType:
+    def type(self) -> UserOpType:
         return self.op.op_type
 
     @property
@@ -113,8 +114,9 @@ class Command(treelib.Node, ABC):
         return None
 
     def __repr__(self):
-        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self.status()}, ' \
-               f'ops={self.op}'
+        # default
+        return f'{self.__class__.__name__}(uid={self.identifier} status={self.status()} total_work={self.get_total_work()} ' \
+               f'user_op={self.op})'
 
 
 # CLASS DeleteNodeCommand
@@ -122,11 +124,17 @@ class Command(treelib.Node, ABC):
 
 class DeleteNodeCommand(Command, ABC):
     """A Command which deletes the target node. If to_trash is true, it's more of a move/update."""
-    def __init__(self, uid: UID, op: Op, to_trash: bool, delete_empty_parent: bool):
+    def __init__(self, uid: UID, op: UserOp, to_trash: bool, delete_empty_parent: bool):
         Command.__init__(self, uid, op)
-        assert op.op_type == OpType.RM
+        assert op.op_type == UserOpType.RM
         self.to_trash = to_trash
         self.delete_empty_parent = delete_empty_parent
+        self.tag = f'{self.__class__.__name__}(cmd_uid={self.identifier} op_uid={op.op_uid} tgt={self.op.src_node.uid} ' \
+                   f'to_trash={self.to_trash} delete_empty_parent={self.delete_empty_parent})'
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}(cmd_uid={self.identifier} status={self.status()} total_work={self.get_total_work()} ' \
+               f'to_trash={self.to_trash} delete_empty_parent={self.delete_empty_parent} tgt={self.op.src_node.node_identifier}'
 
 
 # CLASS TwoNodeCommand
@@ -134,8 +142,14 @@ class DeleteNodeCommand(Command, ABC):
 
 class TwoNodeCommand(Command, ABC):
     """Same functionality as Command but with an additional "source" node. Its "target" node represents the destination node."""
-    def __init__(self, uid: UID, op: Op):
+    def __init__(self, uid: UID, op: UserOp):
         Command.__init__(self, uid, op)
+        self.tag = f'{self.__class__.__name__}(cmd_uid={self.identifier} op_uid={op.op_uid} src={self.op.src_node.uid} ' \
+                   f'dst={self.op.src_node.uid}'
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}(cmd_uid={self.identifier} status={self.status()} total_work={self.get_total_work()}' \
+               f' src={self.op.src_node.node_identifier} dst={self.op.dst_node.node_identifier})'
 
 
 # CLASS CopyNodeCommand
@@ -143,6 +157,12 @@ class TwoNodeCommand(Command, ABC):
 
 class CopyNodeCommand(TwoNodeCommand, ABC):
     """A TwoNodeCommand which does a copy from src to tgt"""
-    def __init__(self, uid: UID, op: Op, overwrite: bool):
+    def __init__(self, uid: UID, op: UserOp, overwrite: bool):
         TwoNodeCommand.__init__(self, uid, op)
         self.overwrite = overwrite
+        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier} op_uid={op.op_uid} overwrite={self.overwrite} ' \
+                   f'src={self.op.src_node.node_identifier} dst={self.op.dst_node.get_single_path()})'
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}(cmd_uid={self.identifier} status={self.status()} total_work={self.get_total_work()}' \
+               f' overwrite={self.overwrite} src={self.op.src_node.node_identifier} dst={self.op.dst_node.node_identifier})'

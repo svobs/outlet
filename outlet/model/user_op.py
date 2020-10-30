@@ -11,10 +11,10 @@ from model.uid import UID
 from model.node.node import Node
 
 
-# ENUM OpType
+# ENUM UserOpType
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class OpType(IntEnum):
+class UserOpType(IntEnum):
     RM = 1
     """Remove src node"""
 
@@ -31,20 +31,20 @@ class OpType(IntEnum):
     """Essentially equivalent to CP, but intention is different. Copy content of src node to dst node, overwriting the contents of dst"""
 
     def has_dst(self) -> bool:
-        return self == OpType.CP or self == OpType.MV or self == OpType.UP
+        return self == UserOpType.CP or self == UserOpType.MV or self == UserOpType.UP
 
 
-OP_TYPES = [OpType.CP, OpType.RM, OpType.UP, OpType.MV]
+USER_OP_TYPES = [UserOpType.CP, UserOpType.RM, UserOpType.UP, UserOpType.MV]
 
 
-# Class OpRef
+# Class UserOpRef
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class OpRef:
-    def __init__(self, op_uid: UID, batch_uid: UID, op_type: OpType, src_uid: UID, dst_uid: UID = None, create_ts: int = None):
+class UserOpRef:
+    def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpType, src_uid: UID, dst_uid: UID = None, create_ts: int = None):
         self.op_uid: UID = op_uid
         self.batch_uid: UID = batch_uid
-        self.op_type: OpType = op_type
+        self.op_type: UserOpType = op_type
         self.src_uid: UID = src_uid
         self.dst_uid: UID = dst_uid
         self.create_ts: int = create_ts
@@ -52,36 +52,36 @@ class OpRef:
             self.create_ts = int(time.time())
 
     def __repr__(self):
-        return f'OpRef(uid={self.op_uid} type={self.op_type.name} src={self.src_uid} dst={self.dst_uid}'
+        return f'UserOpRef(uid={self.op_uid} type={self.op_type.name} src={self.src_uid} dst={self.dst_uid}'
 
 
-# Class Op
+# Class UserOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class Op(treelib.Node):
-    icon_src_file_dict = {OpType.RM: ICON_FILE_RM,
-                          OpType.MV: ICON_FILE_MV_SRC,
-                          OpType.UP: ICON_FILE_UP_SRC,
-                          OpType.CP: ICON_FILE_CP_SRC}
-    icon_dst_file_dict = {OpType.MV: ICON_FILE_MV_DST,
-                          OpType.UP: ICON_FILE_UP_DST,
-                          OpType.CP: ICON_FILE_CP_DST}
-    icon_src_dir_dict = {OpType.MKDIR: ICON_DIR_MK,
-                         OpType.RM: ICON_DIR_RM,
-                         OpType.MV: ICON_DIR_MV_SRC,
-                         OpType.UP: ICON_DIR_UP_SRC,
-                         OpType.CP: ICON_DIR_CP_SRC}
-    icon_dst_dir_dict = {OpType.MV: ICON_DIR_MV_DST,
-                         OpType.UP: ICON_DIR_UP_DST,
-                         OpType.CP: ICON_DIR_CP_DST}
+class UserOp(treelib.Node):
+    icon_src_file_dict = {UserOpType.RM: ICON_FILE_RM,
+                          UserOpType.MV: ICON_FILE_MV_SRC,
+                          UserOpType.UP: ICON_FILE_UP_SRC,
+                          UserOpType.CP: ICON_FILE_CP_SRC}
+    icon_dst_file_dict = {UserOpType.MV: ICON_FILE_MV_DST,
+                          UserOpType.UP: ICON_FILE_UP_DST,
+                          UserOpType.CP: ICON_FILE_CP_DST}
+    icon_src_dir_dict = {UserOpType.MKDIR: ICON_DIR_MK,
+                         UserOpType.RM: ICON_DIR_RM,
+                         UserOpType.MV: ICON_DIR_MV_SRC,
+                         UserOpType.UP: ICON_DIR_UP_SRC,
+                         UserOpType.CP: ICON_DIR_CP_SRC}
+    icon_dst_dir_dict = {UserOpType.MV: ICON_DIR_MV_DST,
+                         UserOpType.UP: ICON_DIR_UP_DST,
+                         UserOpType.CP: ICON_DIR_CP_DST}
 
-    def __init__(self, op_uid: UID, batch_uid: UID, op_type: OpType, src_node: Node,
+    def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpType, src_node: Node,
                  dst_node: Node = None, create_ts: int = None):
         assert src_node, 'No src node!'
         treelib.Node.__init__(self, identifier=op_uid)
         self.op_uid: UID = op_uid
         self.batch_uid: UID = batch_uid
-        self.op_type: OpType = op_type
+        self.op_type: UserOpType = op_type
         self.src_node: Node = src_node
         self.dst_node: Node = dst_node
         """If it exists, this is the target. Otherwise the target is the src node"""
@@ -107,25 +107,25 @@ class Op(treelib.Node):
     def get_icon_for_node(self, node_uid: UID):
         if self.has_dst() and self.dst_node.uid == node_uid:
             op_type = self.op_type
-            if op_type == OpType.MV and not self.dst_node.exists():
+            if op_type == UserOpType.MV and not self.dst_node.exists():
                 # Use an add-like icon if nothing there right now:
-                op_type = OpType.CP
+                op_type = UserOpType.CP
 
             if self.dst_node.is_dir():
-                return Op.icon_dst_dir_dict[op_type]
+                return UserOp.icon_dst_dir_dict[op_type]
             else:
-                return Op.icon_dst_file_dict[op_type]
+                return UserOp.icon_dst_file_dict[op_type]
 
         assert self.src_node.uid == node_uid
         if self.src_node.is_dir():
-            return Op.icon_src_dir_dict[self.op_type]
+            return UserOp.icon_src_dir_dict[self.op_type]
         else:
-            return Op.icon_src_file_dict[self.op_type]
+            return UserOp.icon_src_file_dict[self.op_type]
 
     def __repr__(self):
         if self.dst_node:
             dst = self.dst_node.node_identifier
         else:
             dst = 'None'
-        return f'Op(uid={self.op_uid} batch={self.batch_uid} type={self.op_type.name} src={self.src_node.node_identifier} ' \
+        return f'UserOp(uid={self.op_uid} batch={self.batch_uid} type={self.op_type.name} src={self.src_node.node_identifier} ' \
                f'dst={dst}'

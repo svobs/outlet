@@ -10,7 +10,7 @@ from diff.change_maker import ChangeMaker, SPIDNodePair
 from model.node.local_disk_node import LocalFileNode
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
-from model.op import Op, OpType
+from model.user_op import UserOp, UserOpType
 from model.uid import UID
 from ui.tree.context_menu import TreeContextMenu
 from ui.tree.controller import TreePanelController
@@ -205,9 +205,9 @@ class TreeUiListeners(HasLifecycle):
             # So far we only support COPY.
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
             change_maker = ChangeMaker(app=self.con.parent_win.app, left_tree=drag_data.src_treecon.get_tree(), right_tree=self.con.get_tree())
-            change_maker.copy_nodes_left_to_right(drag_data.sn_list, sn_dst, OpType.CP)
+            change_maker.copy_nodes_left_to_right(drag_data.sn_list, sn_dst, UserOpType.CP)
             # This should fire listeners which ultimately populate the tree:
-            op_list: Iterable[Op] = change_maker.right_side.change_tree.get_ops()
+            op_list: Iterable[UserOp] = change_maker.right_side.change_tree.get_ops()
             self.con.parent_win.app.cacheman.enqueue_op_list(op_list)
 
     def _check_drop(self):
@@ -370,7 +370,7 @@ class TreeUiListeners(HasLifecycle):
             # Attempt to open it no matter where it is.
             # In the future, we should enhance this so that it will find the most convenient copy anywhere and open that
 
-            op: Optional[Op] = self.con.app.cacheman.get_last_pending_op_for_node(node.uid)
+            op: Optional[UserOp] = self.con.app.cacheman.get_last_pending_op_for_node(node.uid)
             if op and not op.is_completed() and op.has_dst():
                 logger.warning('TODO: test this!')
 

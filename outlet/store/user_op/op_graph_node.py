@@ -5,7 +5,7 @@ from typing import Any, Deque, Dict, List, Optional
 
 from constants import OP_TREE_INDENT_STR, SUPER_ROOT_UID
 from model.uid import UID
-from model.op import Op, OpType
+from model.user_op import UserOp, UserOpType
 
 logger = logging.getLogger(__name__)
 
@@ -14,17 +14,17 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class OpGraphNode(ABC):
     """This is a node which represents an operation (or half of an operation, if the operations includes both src and dst nodes)"""
-    def __init__(self, uid: UID, op: Optional[Op]):
+    def __init__(self, uid: UID, op: Optional[UserOp]):
         self.node_uid: UID = uid
-        self.op: Op = op
-        """The Op (i.e. "operation")"""
+        self.op: UserOp = op
+        """The UserOp (i.e. "operation")"""
 
     @property
     def identifier(self):
         return self.node_uid
 
     @abstractmethod
-    def get_target_node(self):
+    def get_tgt_node(self):
         pass
 
     def get_first_parent(self) -> Optional:
@@ -286,7 +286,7 @@ class RootNode(HasMultiChild, OpGraphNode):
     def is_reentrant(self) -> bool:
         return True
 
-    def get_target_node(self):
+    def get_tgt_node(self):
         return None
 
     def clear_relationships(self):
@@ -299,20 +299,20 @@ class RootNode(HasMultiChild, OpGraphNode):
 # CLASS SrcOpNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
-    def __init__(self, uid: UID, op: Op):
+    def __init__(self, uid: UID, op: UserOp):
         OpGraphNode.__init__(self, uid, op=op)
         HasSingleParent.__init__(self)
         HasMultiChild.__init__(self)
 
     def is_reentrant(self) -> bool:
         # Only CP src nodes are reentrant
-        return self.op.op_type == OpType.CP
+        return self.op.op_type == UserOpType.CP
 
-    def get_target_node(self):
+    def get_tgt_node(self):
         return self.op.src_node
 
     def is_create_type(self) -> bool:
-        return self.op.op_type == OpType.MKDIR
+        return self.op.op_type == UserOpType.MKDIR
 
     def clear_relationships(self):
         HasSingleParent.clear_relationships(self)
@@ -329,7 +329,7 @@ class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
 # CLASS DstOpNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
-    def __init__(self, uid: UID, op: Op):
+    def __init__(self, uid: UID, op: UserOp):
         assert op.has_dst()
         OpGraphNode.__init__(self, uid, op=op)
         HasSingleParent.__init__(self)
@@ -338,7 +338,7 @@ class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
     def is_reentrant(self) -> bool:
         return False
 
-    def get_target_node(self):
+    def get_tgt_node(self):
         return self.op.dst_node
 
     @classmethod
@@ -368,8 +368,8 @@ class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class RmOpNode(HasMultiParent, HasSingleChild, OpGraphNode):
     """RM nodes have an inverted structure: the child nodes become the shared parents for their parent dir."""
-    def __init__(self, uid: UID, op: Op):
-        assert op.op_type == OpType.RM
+    def __init__(self, uid: UID, op: UserOp):
+        assert op.op_type == UserOpType.RM
         OpGraphNode.__init__(self, uid, op=op)
         HasMultiParent.__init__(self)
         HasSingleChild.__init__(self)
@@ -380,7 +380,7 @@ class RmOpNode(HasMultiParent, HasSingleChild, OpGraphNode):
     def is_reentrant(self) -> bool:
         return False
 
-    def get_target_node(self):
+    def get_tgt_node(self):
         return self.op.src_node
 
     def clear_relationships(self):

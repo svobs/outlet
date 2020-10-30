@@ -9,7 +9,7 @@ from command.cmd_impl import CopyFileLocallyCommand, CreateGDriveFolderCommand, 
     UploadToGDriveCommand
 from command.cmd_interface import Command
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from model.op import Op, OpType
+from model.user_op import UserOp, UserOpType
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +34,11 @@ GD_LO = _make_key(TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK)
 class CommandBuilder:
     def __init__(self, app):
         self._uid_generator = app.uid_generator
-        self._build_dict: Dict[OpType, Dict[str, Callable]] = _populate_build_dict()
+        self._build_dict: Dict[UserOpType, Dict[str, Callable]] = _populate_build_dict()
 
-    def build_command(self, op: Op) -> Command:
+    def build_command(self, op: UserOp) -> Command:
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f'Building command for Op={op}')
+            logger.debug(f'Building command for UserOp={op}')
 
         # TODO: [improvement] look up MD5 for src_node and use a closer node
 
@@ -51,27 +51,27 @@ class CommandBuilder:
 
         tree_type_dict = self._build_dict.get(op.op_type)
         if not tree_type_dict:
-            raise RuntimeError(f'Unrecognized OpType: {op.op_type}')
+            raise RuntimeError(f'Unrecognized UserOpType: {op.op_type}')
 
         build_func = tree_type_dict.get(tree_type_key, None)
         if not build_func:
-            raise RuntimeError(f'Bad tree type(s): {tree_type_key}, for OpType "{op.op_type.name}"')
+            raise RuntimeError(f'Bad tree type(s): {tree_type_key}, for UserOpType "{op.op_type.name}"')
         uid = self._uid_generator.next_uid()
         return build_func(uid, op)
 
 
 def _populate_build_dict():
-    """Every command has an associated target node and a Op. Many commands also have an associated source node."""
-    return {OpType.MKDIR: {
+    """Every command has an associated target node and a UserOp. Many commands also have an associated source node."""
+    return {UserOpType.MKDIR: {
         GD: lambda uid, change: CreateGDriveFolderCommand(op=change, uid=uid),
         LO: lambda uid, change: CreatLocalDirCommand(op=change, uid=uid)
-    }, OpType.CP: {
+    }, UserOpType.CP: {
         LO_LO: lambda uid, change: CopyFileLocallyCommand(uid, change, overwrite=False),
 
         LO_GD: lambda uid, change: UploadToGDriveCommand(uid, change, overwrite=False),
 
         GD_LO: lambda uid, change: DownloadFromGDriveCommand(uid, change, overwrite=False)
-    }, OpType.MV: {
+    }, UserOpType.MV: {
         LO_LO: lambda uid, change: MoveFileLocallyCommand(uid, change),
 
         GD_GD: lambda uid, change: MoveFileGDriveCommand(uid, change),
@@ -79,12 +79,12 @@ def _populate_build_dict():
         LO_GD: lambda uid, change: UploadToGDriveCommand(uid, change, overwrite=False),
 
         GD_LO: lambda uid, change: DownloadFromGDriveCommand(uid, change, overwrite=False)
-    }, OpType.RM: {
+    }, UserOpType.RM: {
         # TODO: add support for trash
         LO: lambda uid, change: DeleteLocalFileCommand(uid, change, to_trash=False, delete_empty_parent=False),
 
         GD: lambda uid, change: DeleteGDriveNodeCommand(uid, change, to_trash=False, delete_empty_parent=False)
-    }, OpType.UP: {
+    }, UserOpType.UP: {
         LO_LO: lambda uid, change: CopyFileLocallyCommand(uid, change, overwrite=True),
 
         LO_GD: lambda uid, change: UploadToGDriveCommand(uid, change, overwrite=True),

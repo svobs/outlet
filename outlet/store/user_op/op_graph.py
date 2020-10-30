@@ -4,10 +4,10 @@ import threading
 from typing import DefaultDict, Deque, Dict, Iterable, List, Optional
 
 from constants import SUPER_DEBUG, SUPER_ROOT_UID
-from store.op.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, SrcOpNode
+from store.user_op.op_graph_node import DstOpNode, OpGraphNode, RmOpNode, RootNode, SrcOpNode
 from model.uid import UID
 from model.node.node import Node
-from model.op import Op, OpType
+from model.user_op import UserOp, UserOpType
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 
@@ -36,7 +36,7 @@ class OpGraph(HasLifecycle):
         self._graph_root: OpGraphNode = RootNode()
         """Root of tree. Has no useful internal data; we value it for its children"""
 
-        self._outstanding_actions: Dict[UID, Op] = {}
+        self._outstanding_actions: Dict[UID, UserOp] = {}
         """Contains entries for all Ops which have running operations. Keyed by action UID"""
 
     def shutdown(self):
@@ -74,15 +74,15 @@ class OpGraph(HasLifecycle):
             return node_list[-1]
         return None
 
-    def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[Op]:
+    def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[UserOp]:
         """This is a public method."""
         op_node: OpGraphNode = self._get_lowest_priority_op_node(node_uid)
         if op_node:
             return op_node.op
         return None
 
-    def make_graph_from_batch(self, op_batch: Iterable[Op]) -> RootNode:
-        logger.debug(f'Constructing OpNode tree for Op batch...')
+    def make_graph_from_batch(self, op_batch: Iterable[UserOp]) -> RootNode:
+        logger.debug(f'Constructing OpNode tree for UserOp batch...')
 
         # Verify batch sort:
         last_uid = 0
@@ -97,28 +97,28 @@ class OpGraph(HasLifecycle):
         non_reentrant_tgt_node_dict: Dict[UID, OpGraphNode] = {}
         for op in op_batch:
             # make src node
-            if op.op_type == OpType.RM:
+            if op.op_type == UserOpType.RM:
                 src_node: OpGraphNode = RmOpNode(self.app.uid_generator.next_uid(), op)
             else:
                 src_node: OpGraphNode = SrcOpNode(self.app.uid_generator.next_uid(), op)
 
             if src_node.is_reentrant():
-                assert isinstance(src_node, SrcOpNode) and src_node.op.op_type == OpType.CP, f'Not consistent: {src_node}'
-                reentrant_tgt_node_dict[src_node.get_target_node().uid].append(src_node)
+                assert isinstance(src_node, SrcOpNode) and src_node.op.op_type == UserOpType.CP, f'Not consistent: {src_node}'
+                reentrant_tgt_node_dict[src_node.get_tgt_node().uid].append(src_node)
             else:
-                existing = non_reentrant_tgt_node_dict.get(src_node.get_target_node().uid, None)
+                existing = non_reentrant_tgt_node_dict.get(src_node.get_tgt_node().uid, None)
                 if existing:
-                    raise RuntimeError(f'Duplicate node: {src_node.get_target_node()}')
-                non_reentrant_tgt_node_dict[src_node.get_target_node().uid] = src_node
+                    raise RuntimeError(f'Duplicate node: {src_node.get_tgt_node()}')
+                non_reentrant_tgt_node_dict[src_node.get_tgt_node().uid] = src_node
 
             # make dst node (if op has dst)
             if op.has_dst():
                 dst_node = DstOpNode(self.app.uid_generator.next_uid(), op)
                 assert not dst_node.is_reentrant(), f'Expected not reentrant: {dst_node}'
-                existing = non_reentrant_tgt_node_dict.get(dst_node.get_target_node().uid, None)
+                existing = non_reentrant_tgt_node_dict.get(dst_node.get_tgt_node().uid, None)
                 if existing:
-                    raise RuntimeError(f'Duplicate node: {dst_node.get_target_node()}')
-                non_reentrant_tgt_node_dict[dst_node.get_target_node().uid] = dst_node
+                    raise RuntimeError(f'Duplicate node: {dst_node.get_tgt_node()}')
+                non_reentrant_tgt_node_dict[dst_node.get_tgt_node().uid] = dst_node
 
         # Assemble nodes one by one with parent-child relationships.
         root_node = RootNode()
@@ -136,7 +136,7 @@ class OpGraph(HasLifecycle):
 
         # non-reentrant nodes cannot execute concurrently and must have dependencies on each other:
         for potential_child_op in non_reentrant_tgt_node_dict.values():
-            parent_uid_list: List[UID] = self.app.cacheman.get_parent_uid_list_for_node(potential_child_op.get_target_node())
+            parent_uid_list: List[UID] = self.app.cacheman.get_parent_uid_list_for_node(potential_child_op.get_tgt_node())
             if SUPER_DEBUG and len(parent_uid_list) > 1:
                 logger.debug(f'Target node of op has multiple parents: {potential_child_op}')
             for parent_uid in parent_uid_list:
@@ -152,9 +152,9 @@ class OpGraph(HasLifecycle):
                             op_for_parent_node.link_child(potential_child_op)
                             op_parent_unknown = False
                     if op_parent_unknown:
-                        rm_node_dict[potential_child_op.get_target_node().uid] = potential_child_op
+                        rm_node_dict[potential_child_op.get_tgt_node().uid] = potential_child_op
                 else:
-                    # (Nodes which are NOT OpType.RM):
+                    # (Nodes which are NOT UserOpType.RM):
                     if op_for_parent_node:
                         op_for_parent_node.link_child(potential_child_op)
                     else:
@@ -194,7 +194,7 @@ class OpGraph(HasLifecycle):
         """Keep track of nodes which are to be created, so we can include them in the lookup for valid parents"""
 
         for op_node in _skip_root(op_root.get_all_nodes_in_subtree()):
-            tgt_node: Node = op_node.get_target_node()
+            tgt_node: Node = op_node.get_tgt_node()
             op_type: str = op_node.op.op_type.name
 
             if op_node.is_create_type():
@@ -210,7 +210,7 @@ class OpGraph(HasLifecycle):
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find any parents in cache with UIDs {parent_uid_list} '
                                        f'for "{op_type}"')
 
-                if op_node.op.op_type == OpType.MKDIR:
+                if op_node.op.op_type == UserOpType.MKDIR:
                     assert not mkdir_node_dict.get(op_node.op.src_node.uid, None), f'Duplicate MKDIR: {op_node.op.src_node}'
                     mkdir_node_dict[op_node.op.src_node.uid] = op_node.op.src_node
             else:
@@ -223,7 +223,7 @@ class OpGraph(HasLifecycle):
             with self._struct_lock:
                 # More of Rule 2: ensure target node is not scheduled for deletion:
                 most_recent_op = self.get_last_pending_op_for_node(tgt_node.uid)
-                if most_recent_op and most_recent_op.op_type == OpType.RM and op_node.is_src() and op_node.op.has_dst():
+                if most_recent_op and most_recent_op.op_type == UserOpType.RM and op_node.is_src() and op_node.op.has_dst():
                     # CP, MV, and UP ops cannot logically have a src node which is not present:
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): it is attempting to CP/MV/UP from a node (UID={tgt_node.uid}) '
                                        f'which is being removed')
@@ -235,14 +235,14 @@ class OpGraph(HasLifecycle):
         sw_total = Stopwatch()
 
         assert isinstance(op_node, RmOpNode)
-        potential_parent: Node = op_node.get_target_node()
+        potential_parent: Node = op_node.get_tgt_node()
 
         child_nodes = []
 
         for node_queue in self._node_q_dict.values():
             if node_queue:
                 existing_op_node = node_queue[-1]
-                potential_child: Node = existing_op_node.get_target_node()
+                potential_child: Node = existing_op_node.get_tgt_node()
                 if potential_parent.is_parent_of(potential_child):
                     if not existing_op_node.is_remove_type():
                         # This is not allowed. Cannot remove parent dir (aka child op node) unless *all* its children are first removed
@@ -255,7 +255,7 @@ class OpGraph(HasLifecycle):
     def _insert_rm_node_in_tree(self, node_to_insert: OpGraphNode, last_target_op, tgt_parent_uid_list: List[UID]) -> bool:
         # Special handling for RM-type nodes.
         # We want to find the lowest RM node in the tree.
-        target_node: Node = node_to_insert.get_target_node()
+        target_node: Node = node_to_insert.get_tgt_node()
         target_uid: UID = target_node.uid
 
         # First, see if we can find child nodes of the target node (which in our rules would be the parents of the RM op):
@@ -269,7 +269,7 @@ class OpGraph(HasLifecycle):
                 existing_child: Optional[OpGraphNode] = op_for_child_node.get_first_child()
                 if existing_child:
                     assert existing_child.is_remove_type()
-                    if existing_child.get_target_node().uid != target_uid:
+                    if existing_child.get_tgt_node().uid != target_uid:
                         raise RuntimeError(f'Found unexpected child node: {existing_child} (attempting to insert: {node_to_insert})')
                     existing_child_count += 1
                 else:
@@ -287,7 +287,7 @@ class OpGraph(HasLifecycle):
         elif last_target_op:
             # If existing op is found for the target node, add below that.
             if last_target_op.is_remove_type():
-                logger.info(f'Op node being enqueued (UID {node_to_insert.node_uid}, tgt UID {target_uid}) is an RM type which is '
+                logger.info(f'UserOp node being enqueued (UID {node_to_insert.node_uid}, tgt UID {target_uid}) is an RM type which is '
                             f'a dup of already enqueued RM (UID {last_target_op.node_uid}); discarding!')
                 return False
 
@@ -313,7 +313,7 @@ class OpGraph(HasLifecycle):
         return True
 
     def _insert_non_rm_node_in_tree(self, node_to_insert: OpGraphNode, last_target_op, tgt_parent_uid_list: List[UID]) -> bool:
-        target_node: Node = node_to_insert.get_target_node()
+        target_node: Node = node_to_insert.get_tgt_node()
         target_uid: UID = target_node.uid
 
         for parent_uid in tgt_parent_uid_list:
@@ -356,7 +356,7 @@ class OpGraph(HasLifecycle):
         # Need to clear out previous relationships before adding to main tree:
         node_to_insert.clear_relationships()
 
-        target_node: Node = node_to_insert.get_target_node()
+        target_node: Node = node_to_insert.get_tgt_node()
         target_uid: UID = target_node.uid
         # FIXME: parent UID lookup on startup: MUST load subtrees for all parents before looking up parent UID. Maybe new CacheManager API...
         tgt_parent_uid_list: List[UID] = self.app.cacheman.get_parent_uid_list_for_node(target_node)
@@ -382,7 +382,7 @@ class OpGraph(HasLifecycle):
 
         return True
 
-    def enqueue_batch(self, op_root: RootNode) -> List[Op]:
+    def enqueue_batch(self, op_root: RootNode) -> List[UserOp]:
         # 1. Discard root
         # 2. Examine each child of root. Each shall be treated as its own subtree.
         # 3. For each subtree, look up all its nodes in the master dict. Level...?
@@ -399,7 +399,7 @@ class OpGraph(HasLifecycle):
         batch_uid: UID = op_root.get_first_child().op.batch_uid
 
         breadth_first_list: List[OpGraphNode] = op_root.get_all_nodes_in_subtree()
-        discarded_op_dict: Dict[UID, Op] = {}
+        discarded_op_dict: Dict[UID, UserOp] = {}
         for node_to_nq in _skip_root(breadth_first_list):
             with self._struct_lock:
                 succeeded = self._enqueue_single_node(node_to_nq)
@@ -415,7 +415,7 @@ class OpGraph(HasLifecycle):
 
         return list(discarded_op_dict.values())
 
-    def _is_node_ready(self, op: Op, node_uid: UID, node_type_str: str) -> bool:
+    def _is_node_ready(self, op: UserOp, node_uid: UID, node_type_str: str) -> bool:
         pending_ops: Deque[OpGraphNode] = self._node_q_dict.get(node_uid, None)
         if not pending_ops:
             logger.error(f'Could not find entry for op {node_type_str} (op={op}); raising error')
@@ -424,15 +424,15 @@ class OpGraph(HasLifecycle):
         op_node = pending_ops[0]
         if op.op_uid != op_node.op.op_uid:
             if SUPER_DEBUG:
-                logger.debug(f'Skipping Op (UID {op_node.op.op_uid}): it is not next in {node_type_str} node queue')
+                logger.debug(f'Skipping UserOp (UID {op_node.op.op_uid}): it is not next in {node_type_str} node queue')
             return False
 
         if not op_node.is_child_of_root():
             if SUPER_DEBUG:
-                logger.debug(f'Skipping Op (UID {op_node.op.op_uid}): {node_type_str} node is not child of root')
+                logger.debug(f'Skipping UserOp (UID {op_node.op.op_uid}): {node_type_str} node is not child of root')
             return False
 
-    def _try_get(self) -> Optional[Op]:
+    def _try_get(self) -> Optional[UserOp]:
         # We can optimize this later
 
         for op_node in self._graph_root.get_child_list():
@@ -440,7 +440,7 @@ class OpGraph(HasLifecycle):
                 logger.debug(f'TryGet(): Examining {op_node}')
 
             if op_node.op.has_dst():
-                # If the Op has both src and dst nodes, *both* must be next in their queues, and also be just below root.
+                # If the UserOp has both src and dst nodes, *both* must be next in their queues, and also be just below root.
                 if op_node.is_dst():
                     # Dst node is child of root. But verify corresponding src node is also child of root
                     is_other_node_ready = self._is_node_ready(op_node.op, op_node.op.src_node.uid, 'src')
@@ -465,8 +465,8 @@ class OpGraph(HasLifecycle):
             logger.debug(f'TryGet(): Returning None')
         return None
 
-    def get_next_op(self) -> Optional[Op]:
-        """Gets and returns the next available Op from the tree; BLOCKS if no pending ops or all the pending ops have
+    def get_next_op(self) -> Optional[UserOp]:
+        """Gets and returns the next available UserOp from the tree; BLOCKS if no pending ops or all the pending ops have
         already been gotten.
 
         Internally this class keeps track of what this has returned previously, and will expect to be notified when each is complete
@@ -491,7 +491,7 @@ class OpGraph(HasLifecycle):
         parent = node.get_first_parent()
         return parent and parent.node_uid == self._graph_root.node_uid
 
-    def pop_op(self, op: Op):
+    def pop_op(self, op: UserOp):
         """Ensure that we were expecting this op to be copmleted, and remove it from the tree."""
         logger.debug(f'Entered pop_op() for op {op}')
 

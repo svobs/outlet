@@ -11,7 +11,7 @@ from store.sqlite.base_db import LiveTable, MetaDatabase, Table
 from store.sqlite.gdrive_db import GDriveDatabase
 from store.sqlite.local_db import LocalDiskDatabase
 from model.uid import UID
-from model.op import Op, OpRef, OpType
+from model.user_op import UserOp, UserOpRef, UserOpType
 from model.node.node import Node
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
@@ -27,8 +27,8 @@ DST = 'dst'
 ACTION_UID_COL_NAME = 'op_uid'
 
 
-def _pending_op_to_tuple(e: Op):
-    assert isinstance(e, Op), f'Expected Op; got instead: {e}'
+def _pending_op_to_tuple(e: UserOp):
+    assert isinstance(e, UserOp), f'Expected UserOp; got instead: {e}'
     src_uid = None
     dst_uid = None
     if e.src_node:
@@ -40,8 +40,8 @@ def _pending_op_to_tuple(e: Op):
     return e.op_uid, e.batch_uid, e.op_type, src_uid, dst_uid, e.create_ts
 
 
-def _completed_op_to_tuple(e: Op, current_time):
-    assert isinstance(e, Op), f'Expected Op; got instead: {e}'
+def _completed_op_to_tuple(e: UserOp, current_time):
+    assert isinstance(e, UserOp), f'Expected UserOp; got instead: {e}'
     src_uid = None
     dst_uid = None
     if e.src_node:
@@ -53,14 +53,14 @@ def _completed_op_to_tuple(e: Op, current_time):
     return e.op_uid, e.batch_uid, e.op_type, src_uid, dst_uid, e.create_ts, current_time
 
 
-def _failed_op_to_tuple(e: Op, current_time, error_msg):
+def _failed_op_to_tuple(e: UserOp, current_time, error_msg):
     partial_tuple = _completed_op_to_tuple(e, current_time)
     return *partial_tuple, error_msg
 
 
-def _tuple_to_op_ref(row: Tuple) -> OpRef:
+def _tuple_to_op_ref(row: Tuple) -> UserOpRef:
     assert isinstance(row, Tuple), f'Expected Tuple; got instead: {row}'
-    return OpRef(UID(row[0]), UID(row[1]), OpType(row[2]), UID(row[3]), _ensure_uid(row[4]), int(row[5]))
+    return UserOpRef(UID(row[0]), UID(row[1]), UserOpType(row[2]), UID(row[3]), _ensure_uid(row[4]), int(row[5]))
 
 
 # CLASS TableMultiMap
@@ -210,7 +210,7 @@ class OpDatabase(MetaDatabase):
         self.cacheman = app.cacheman
 
         self.table_lists: TableListCollection = TableListCollection()
-        # We do not use OpRef to Tuple, because we convert Op to Tuple instead
+        # We do not use UserOpRef to Tuple, because we convert UserOp to Tuple instead
         self.table_pending_op = LiveTable(OpDatabase.TABLE_PENDING_CHANGE, self.conn, None, _tuple_to_op_ref)
         self.table_completed_op = LiveTable(OpDatabase.TABLE_COMPLETED_CHANGE, self.conn, None, _tuple_to_op_ref)
         self.table_failed_op = LiveTable(OpDatabase.TABLE_FAILED_CHANGE, self.conn, None, _tuple_to_op_ref)
@@ -332,7 +332,7 @@ class OpDatabase(MetaDatabase):
         table.name = f'{prefix}_{table.name}_{suffix}'
         # uid is no longer primary key
         table.cols.update({'uid': 'INTEGER'})
-        # primary key is also foreign key (not enforced) to Op (ergo, only one row per Op):
+        # primary key is also foreign key (not enforced) to UserOp (ergo, only one row per UserOp):
         table.cols.update({ACTION_UID_COL_NAME: 'INTEGER PRIMARY KEY'})
         # move to front:
         table.cols.move_to_end(ACTION_UID_COL_NAME, last=False)
@@ -383,9 +383,9 @@ class OpDatabase(MetaDatabase):
 
         table.select_object_list(tuple_to_obj_func_override=table_func)
 
-    def get_all_pending_ops(self) -> List[Op]:
+    def get_all_pending_ops(self) -> List[UserOp]:
         """ Gets all pending changes, filling int their src and dst nodes as well """
-        entries: List[Op] = []
+        entries: List[UserOp] = []
 
         if not self.table_pending_op.is_table():
             return entries
@@ -403,7 +403,7 @@ class OpDatabase(MetaDatabase):
         rows = self.table_pending_op.get_all_rows()
         logger.debug(f'Found {len(rows)} pending ops in table {self.table_pending_op.name}')
         for row in rows:
-            ref = OpRef(UID(row[0]), UID(row[1]), OpType(row[2]), UID(row[3]), _ensure_uid(row[4]), int(row[5]))
+            ref = UserOpRef(UID(row[0]), UID(row[1]), UserOpType(row[2]), UID(row[3]), _ensure_uid(row[4]), int(row[5]))
             src_node = src_node_by_action_uid.get(ref.op_uid, None)
             dst_node = dst_node_by_action_uid.get(ref.op_uid, None)
 
@@ -418,14 +418,14 @@ class OpDatabase(MetaDatabase):
                 if dst_node.uid != ref.dst_uid:
                     raise RuntimeError(f'Dst node UID ({dst_node.uid}) does not match ref in: {ref}')
 
-            entries.append(Op(ref.op_uid, ref.batch_uid, ref.op_type, src_node, dst_node))
+            entries.append(UserOp(ref.op_uid, ref.batch_uid, ref.op_type, src_node, dst_node))
         return entries
 
-    def _make_tuple_list(self, entries: Iterable[Op], lifecycle_state: str) -> TableMultiMap:
+    def _make_tuple_list(self, entries: Iterable[UserOp], lifecycle_state: str) -> TableMultiMap:
         tuple_list_multimap: TableMultiMap = TableMultiMap()
 
         for e in entries:
-            assert isinstance(e, Op), f'Expected Op; got instead: {e}'
+            assert isinstance(e, UserOp), f'Expected UserOp; got instead: {e}'
 
             node = e.src_node
             node_tuple = self._action_node_to_tuple(node, e.op_uid)
@@ -438,14 +438,14 @@ class OpDatabase(MetaDatabase):
 
         return tuple_list_multimap
 
-    def _upsert_nodes_without_commit(self, entries: Iterable[Op], lifecycle_state: str):
+    def _upsert_nodes_without_commit(self, entries: Iterable[UserOp], lifecycle_state: str):
         tuple_list_multimap = self._make_tuple_list(entries, lifecycle_state)
         for lifecycle_state, src_or_dst, tree_type, obj_type, tuple_list in tuple_list_multimap.entries():
             table: LiveTable = self.table_lists.get_table(lifecycle_state, src_or_dst, tree_type, obj_type)
             assert table, f'No table for values: {lifecycle_state}, {src_or_dst}, {tree_type}, {obj_type}'
             table.upsert_many(tuple_list, commit=False)
 
-    def upsert_pending_ops(self, entries: Iterable[Op], overwrite, commit=True):
+    def upsert_pending_ops(self, entries: Iterable[UserOp], overwrite, commit=True):
         """Inserts or updates a list of Ops (remember that each action's UID is its primary key).
         If overwrite=true, then removes all existing changes first."""
 
@@ -468,7 +468,7 @@ class OpDatabase(MetaDatabase):
             change_tuple_list.append(_pending_op_to_tuple(e))
         self.table_pending_op.upsert_many(change_tuple_list, commit)
 
-    def delete_pending_ops(self, changes: Iterable[Op], commit=True):
+    def delete_pending_ops(self, changes: Iterable[UserOp], commit=True):
         uid_tuple_list = list(map(lambda x: (x.op_uid,), changes))
 
         # Delete for all child tables (src and dst nodes):
@@ -483,7 +483,7 @@ class OpDatabase(MetaDatabase):
 
     # COMPLETED_CHANGE operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
-    def _upsert_completed_ops(self, entries: Iterable[Op], commit=True):
+    def _upsert_completed_ops(self, entries: Iterable[UserOp], commit=True):
         """Inserts or updates a list of Ops (remember that each action's UID is its primary key)."""
 
         self.table_completed_op.create_table_if_not_exist(commit=False)
@@ -495,14 +495,14 @@ class OpDatabase(MetaDatabase):
         current_time = int(time.time())
         change_tuple_list = []
         for e in entries:
-            assert isinstance(e, Op), f'Expected Op; got instead: {e}'
+            assert isinstance(e, UserOp), f'Expected UserOp; got instead: {e}'
             change_tuple_list.append(_completed_op_to_tuple(e, current_time))
         self.table_completed_op.upsert_many(change_tuple_list, commit)
 
     # FAILED_CHANGE operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
-    def _upsert_failed_ops(self, entries: Iterable[Op], error_msg: str, commit=True):
-        """Inserts or updates a list of Op (remember that each action's UID is its primary key)."""
+    def _upsert_failed_ops(self, entries: Iterable[UserOp], error_msg: str, commit=True):
+        """Inserts or updates a list of UserOp (remember that each action's UID is its primary key)."""
 
         self.table_failed_op.create_table_if_not_exist(commit=False)
 
@@ -512,18 +512,18 @@ class OpDatabase(MetaDatabase):
         current_time = int(time.time())
         change_tuple_list = []
         for e in entries:
-            assert isinstance(e, Op), f'Expected Op; got instead: {e}'
+            assert isinstance(e, UserOp), f'Expected UserOp; got instead: {e}'
             change_tuple_list.append(_failed_op_to_tuple(e, current_time, error_msg))
 
         self.table_failed_op.upsert_many(change_tuple_list, commit)
 
     # Compound operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
-    def archive_completed_ops(self, entries: Iterable[Op]):
+    def archive_completed_ops(self, entries: Iterable[UserOp]):
         self.delete_pending_ops(changes=entries, commit=False)
         self._upsert_completed_ops(entries)
 
-    def archive_failed_ops(self, entries: Iterable[Op], error_msg: str):
+    def archive_failed_ops(self, entries: Iterable[UserOp], error_msg: str):
         self.delete_pending_ops(changes=entries, commit=False)
         self._upsert_failed_ops(entries, error_msg)
 

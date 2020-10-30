@@ -9,7 +9,7 @@ from pydispatch import dispatcher
 from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.container_node import CategoryNode
 from model.node.node import Node
-from model.op import Op
+from model.user_op import UserOp
 from ui import actions
 from ui.tree.tree_actions import DATE_REGEX
 
@@ -160,7 +160,7 @@ class TreeContextMenu:
             assert node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK
             single_path = node.get_single_path()
 
-        op: Optional[Op] = self.con.app.cacheman.get_last_pending_op_for_node(node.uid)
+        op: Optional[UserOp] = self.con.app.cacheman.get_last_pending_op_for_node(node.uid)
         if op and not op.is_completed() and op.has_dst():
             if SUPER_DEBUG:
                 logger.debug(f'Building context menu for op: {op}')

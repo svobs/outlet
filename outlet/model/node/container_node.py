@@ -1,7 +1,7 @@
 import os
 
 from error import InvalidOperationError
-from model.op import OpType
+from model.user_op import UserOpType
 from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_LOCAL_DISK_LINUX, OBJ_TYPE_DIR, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.node import Node, HasChildList
 from model.node_identifier import SinglePathNodeIdentifier
@@ -76,13 +76,13 @@ class CategoryNode(ContainerNode):
     Represents a category in the tree (however it can possibly be treated as the root dir)
     """
     display_names = {
-        OpType.CP: 'To Add',
-        OpType.RM: 'To Delete',
-        OpType.UP: 'To Update',
-        OpType.MV: 'To Move',
+        UserOpType.CP: 'To Add',
+        UserOpType.RM: 'To Delete',
+        UserOpType.UP: 'To Update',
+        UserOpType.MV: 'To Move',
     }
 
-    def __init__(self, node_identifier: SinglePathNodeIdentifier, op_type: OpType, nid: str = None):
+    def __init__(self, node_identifier: SinglePathNodeIdentifier, op_type: UserOpType, nid: str = None):
         super().__init__(node_identifier=node_identifier, nid=nid)
         self.op_type = op_type
 

@@ -10,7 +10,7 @@ from typing import Deque, Iterable, List, Optional
 from constants import HOLDOFF_TIME_MS, LARGE_NUMBER_OF_CHILDREN, SUPER_DEBUG
 from error import GDriveItemNotFoundError
 from model.display_tree.display_tree import DisplayTree
-from model.op import Op
+from model.user_op import UserOp
 from model.uid import UID
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
@@ -578,7 +578,7 @@ class DisplayMutator(HasLifecycle):
         return self.con.display_store.append_node(parent_node_iter, row_values)
 
     def _get_icon_for_node(self, node: Node) -> str:
-        op: Optional[Op] = self.con.app.cacheman.get_last_pending_op_for_node(node.uid)
+        op: Optional[UserOp] = self.con.app.cacheman.get_last_pending_op_for_node(node.uid)
         if op and not op.is_completed():
             icon = op.get_icon_for_node(node.uid)
             if SUPER_DEBUG:

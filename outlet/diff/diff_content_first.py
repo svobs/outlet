@@ -12,7 +12,7 @@ from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
-from model.op import OpType
+from model.user_op import UserOpType
 from ui.actions import ID_MERGE_TREE
 from util.stopwatch_sec import Stopwatch
 
@@ -249,7 +249,7 @@ class ContentFirstDiffer(ChangeMaker):
             self.append_cp_op_s_to_r(sn_s)
 
             # Dead node walking:
-            self.left_side.add_op(OpType.RM, sn_s)
+            self.left_side.add_op(UserOpType.RM, sn_s)
             count_add_delete_pairs += 1
         logger.info(f'{sw} Finished path comparison for left tree (2/3)')
 
@@ -267,7 +267,7 @@ class ContentFirstDiffer(ChangeMaker):
             self.append_cp_op_r_to_s(sn_r)
 
             # Dead node walking:
-            self.right_side.add_op(OpType.RM, sn_r)
+            self.right_side.add_op(UserOpType.RM, sn_r)
             count_add_delete_pairs += 1
 
         logger.info(f'{sw} Finished path comparison for right tree (3/3)')
@@ -298,14 +298,14 @@ class ContentFirstDiffer(ChangeMaker):
             if op:
                 merged_tree.add_node(sn, op)
             else:
-                logger.debug(f'merge_change_trees(): Skipping left-side node because it is not associated with an Op: {sn.node}')
+                logger.debug(f'merge_change_trees(): Skipping left-side node because it is not associated with an UserOp: {sn.node}')
 
         for sn in right_selected_changes:
             op = self.right_side.underlying_tree.get_op_for_node(sn.node)
             if op:
                 merged_tree.add_node(sn, op)
             else:
-                logger.debug(f'merge_change_trees(): Skipping right-side node because it is not associated with an Op: {sn.node}')
+                logger.debug(f'merge_change_trees(): Skipping right-side node because it is not associated with an UserOp: {sn.node}')
 
         # TODO: check for conflicts
 

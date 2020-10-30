@@ -11,7 +11,7 @@ from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, SinglePathNodeIdentifier
-from model.op import Op, OpType
+from model.user_op import UserOp, UserOpType
 from model.uid import UID
 from ui.actions import ID_LEFT_TREE, ID_RIGHT_TREE
 from util import file_util
@@ -31,8 +31,8 @@ class OneSide:
             self._batch_uid: UID = self.app.uid_generator.next_uid()
         self._added_folders: Dict[str, SPIDNodePair] = {}
 
-    def add_op(self, op_type: OpType, src_sn: SPIDNodePair, dst_sn: SPIDNodePair = None):
-        """Adds a node to the op tree (dst_node; unless dst_node is None, in which case it will use src_node), and also adds a Op
+    def add_op(self, op_type: UserOpType, src_sn: SPIDNodePair, dst_sn: SPIDNodePair = None):
+        """Adds a node to the op tree (dst_node; unless dst_node is None, in which case it will use src_node), and also adds a UserOp
         of the given type"""
 
         if dst_sn:
@@ -42,7 +42,7 @@ class OneSide:
             target_sn = src_sn
             dst_node = None
 
-        op: Op = Op(op_uid=self.app.uid_generator.next_uid(), batch_uid=self._batch_uid, op_type=op_type,
+        op: UserOp = UserOp(op_uid=self.app.uid_generator.next_uid(), batch_uid=self._batch_uid, op_type=op_type,
                     src_node=src_sn.node, dst_node=dst_node)
 
         self.change_tree.add_node(target_sn, op)
@@ -124,7 +124,7 @@ class OneSide:
         while len(ancestor_stack) > 0:
             ancestor_sn: SPIDNodePair = ancestor_stack.pop()
             # Create an accompanying MKDIR action which will create the new folder/dir
-            self.add_op(op_type=OpType.MKDIR, src_sn=ancestor_sn)
+            self.add_op(op_type=UserOpType.MKDIR, src_sn=ancestor_sn)
 
     def _generate_missing_ancestor_nodes(self, new_sn: SPIDNodePair) -> Deque[Node]:
         tree_type: int = new_sn.spid.tree_type
@@ -193,12 +193,12 @@ class ChangeMaker:
         self.left_side = OneSide(app, left_tree, ID_LEFT_TREE, batch_uid)
         self.right_side = OneSide(app, right_tree, ID_RIGHT_TREE, batch_uid)
 
-    def copy_nodes_left_to_right(self, src_sn_list: List[SPIDNodePair], sn_dst_parent: SPIDNodePair, op_type: OpType):
+    def copy_nodes_left_to_right(self, src_sn_list: List[SPIDNodePair], sn_dst_parent: SPIDNodePair, op_type: UserOpType):
         """Populates the destination parent in "change_tree_right" with the given source nodes.
         We won't deal with update logic here. A node being copied will be treated as an "add" unless a node exists at the given path,
         in which case the conflict strategy determines whether it's it's an update or something else."""
         assert sn_dst_parent and sn_dst_parent.node.is_dir()
-        assert op_type == OpType.CP or op_type == OpType.MV or op_type == OpType.UP
+        assert op_type == UserOpType.CP or op_type == UserOpType.MV or op_type == UserOpType.UP
         dst_parent_path: str = sn_dst_parent.spid.get_single_path()
 
         # We won't deal with update logic here. A node being copied will be treated as an "add"
@@ -257,24 +257,24 @@ class ChangeMaker:
     def append_mv_op_r_to_r(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """Make a dst node which will rename a file within the right tree to match the relative path of the file on the left"""
         dst_sn: SPIDNodePair = self._migrate_node_to_right(sn_s)
-        self.right_side.add_op(op_type=OpType.MV, src_sn=sn_r, dst_sn=dst_sn)
+        self.right_side.add_op(op_type=UserOpType.MV, src_sn=sn_r, dst_sn=dst_sn)
 
     def append_mv_op_s_to_s(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """Make a FileToMove node which will rename a file within the left tree to match the relative path of the file on right"""
-        self.left_side.add_op(op_type=OpType.MV, src_sn=sn_s, dst_sn=self._migrate_node_to_left(sn_r))
+        self.left_side.add_op(op_type=UserOpType.MV, src_sn=sn_s, dst_sn=self._migrate_node_to_left(sn_r))
 
     def append_cp_op_s_to_r(self, sn_s: SPIDNodePair):
         """COPY: Left -> Right"""
-        self.right_side.add_op(op_type=OpType.CP, src_sn=sn_s, dst_sn=self._migrate_node_to_right(sn_s))
+        self.right_side.add_op(op_type=UserOpType.CP, src_sn=sn_s, dst_sn=self._migrate_node_to_right(sn_s))
 
     def append_cp_op_r_to_s(self, sn_r: SPIDNodePair):
         """COPY: Left <- Right"""
-        self.left_side.add_op(op_type=OpType.CP, src_sn=sn_r, dst_sn=self._migrate_node_to_left(sn_r))
+        self.left_side.add_op(op_type=UserOpType.CP, src_sn=sn_r, dst_sn=self._migrate_node_to_left(sn_r))
 
     def append_up_op_s_to_r(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """UPDATE: Left -> Right. Both nodes already exist, but one will overwrite the other"""
-        self.right_side.add_op(op_type=OpType.UP, src_sn=sn_s, dst_sn=sn_r)
+        self.right_side.add_op(op_type=UserOpType.UP, src_sn=sn_s, dst_sn=sn_r)
 
     def append_up_op_r_to_s(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """UPDATE: Left <- Right. Both nodes already exist, but one will overwrite the other"""
-        self.left_side.add_op(op_type=OpType.UP, src_sn=sn_r, dst_sn=sn_s)
+        self.left_side.add_op(op_type=UserOpType.UP, src_sn=sn_r, dst_sn=sn_s)

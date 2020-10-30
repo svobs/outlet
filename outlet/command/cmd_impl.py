@@ -5,7 +5,7 @@ import store.local.content_hasher
 from model.node_identifier import LocalNodeIdentifier
 
 from util import file_util
-from model.op import Op, OpType
+from model.user_op import UserOp, UserOpType
 from command.cmd_interface import Command, CommandContext, CommandResult, CommandStatus, CopyNodeCommand, DeleteNodeCommand, TwoNodeCommand
 from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, TrashStatus
 from model.uid import UID
@@ -22,11 +22,9 @@ logger = logging.getLogger(__name__)
 class CopyFileLocallyCommand(CopyNodeCommand):
     """Local-to-local add or update"""
 
-    def __init__(self, uid: UID, op: Op, overwrite: bool = False):
+    def __init__(self, uid: UID, op: UserOp, overwrite: bool = False):
         super().__init__(uid, op, overwrite)
-        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, ow={self.overwrite} ' \
-                   f'src="{self.op.src_node.get_single_path()}", dst="{self.op.dst_node.get_single_path()}")'
-        assert op.op_type == OpType.CP
+        assert op.op_type == UserOpType.CP
 
     def get_total_work(self) -> int:
         return self.op.src_node.get_size_bytes()
@@ -65,26 +63,19 @@ class CopyFileLocallyCommand(CopyNodeCommand):
         assert local_node.uid == self.op.dst_node.uid, f'LocalNode={local_node}, DstNode={self.op.dst_node}'
         return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[self.op.src_node, local_node])
 
-    def __repr__(self):
-        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, overwrite={self.overwrite}, ' \
-               f'status={self.status()}, dst={self.op.dst_node}'
-
 
 class DeleteLocalFileCommand(DeleteNodeCommand):
     """
     Delete Local. This supports deleting either a single file or an empty dir.
     """
 
-    def __init__(self, uid: UID, op: Op, to_trash=True, delete_empty_parent=False):
+    def __init__(self, uid: UID, op: UserOp, to_trash=True, delete_empty_parent=False):
         super().__init__(uid, op, to_trash, delete_empty_parent)
-        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, tgt_uid={self.op.src_node.uid} ' \
-                   f'to_trash={self.to_trash}, delete_empty_parent={self.delete_empty_parent})'
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
     def execute(self, cxt: CommandContext):
-        logger.debug(f'RM: tgt={self.op.src_node.get_single_path()}')
         assert isinstance(self.op.src_node, LocalFileNode), f'Got {self.op.src_node}'
         assert isinstance(self.op.dst_node, LocalFileNode), f'Got {self.op.dst_node}'
 
@@ -118,27 +109,19 @@ class DeleteLocalFileCommand(DeleteNodeCommand):
 
         return CommandResult(CommandStatus.COMPLETED_OK, to_delete=deleted_nodes_list)
 
-    def __repr__(self):
-        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, to_trash={self.to_trash}, ' \
-               f'delete_empty_parent={self.delete_empty_parent}, status={self.status()}, tgt_node={self.op.src_node}'
-
 
 class MoveFileLocallyCommand(TwoNodeCommand):
     """
     Move/Rename Local -> Local
     """
 
-    def __init__(self, uid: UID, op: Op):
+    def __init__(self, uid: UID, op: UserOp):
         super().__init__(uid, op)
-        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, op={op.op_type.name} tgt_uid={self.op.dst_node.uid}, ' \
-                   f'src_uid={self.op.src_node.uid}'
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
     def execute(self, cxt: CommandContext):
-        logger.debug(f'MV: src={self.op.src_node.get_single_path()}')
-        logger.debug(f'    dst={self.op.dst_node.get_single_path()}')
         assert isinstance(self.op.src_node, LocalFileNode)
         assert isinstance(self.op.dst_node, LocalFileNode)
         file_util.move_file(self.op.src_node.get_single_path(), self.op.dst_node.get_single_path())
@@ -154,20 +137,15 @@ class MoveFileLocallyCommand(TwoNodeCommand):
             logger.warning(f'Src node still exists after move: {self.op.src_node.get_single_path()}')
         return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=to_upsert, to_delete=to_delete)
 
-    def __repr__(self):
-        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, ' \
-               f'status={self.status()}, dst={self.op.dst_node.get_single_path()}'
-
 
 class CreatLocalDirCommand(Command):
     """
     Create Local dir
     """
 
-    def __init__(self, uid: UID, op: Op):
+    def __init__(self, uid: UID, op: UserOp):
         super().__init__(uid, op)
-        assert op.op_type == OpType.MKDIR
-        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}'
+        assert op.op_type == UserOpType.MKDIR
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -180,9 +158,6 @@ class CreatLocalDirCommand(Command):
         assert isinstance(self.op.src_node.node_identifier, LocalNodeIdentifier)
         local_node = LocalDirNode(self.op.src_node.node_identifier, True)
         return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[local_node])
-
-    def __repr__(self):
-        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, status={self.status()}'
 
 
 # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
@@ -200,11 +175,9 @@ class UploadToGDriveCommand(CopyNodeCommand):
     Copy Local -> GDrive
     """
 
-    def __init__(self, uid: UID, op: Op, overwrite: bool):
+    def __init__(self, uid: UID, op: UserOp, overwrite: bool):
         super().__init__(uid, op, overwrite)
         assert isinstance(self.op.dst_node, GDriveNode)
-        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, op={op.op_type.name} src_uid={self.op.src_node.uid} ' \
-                   f'dst_uid={self.op.dst_node.uid} dst_parent_ids="{self.op.dst_node.get_parent_uids()} overwrite={overwrite}'
 
     def get_total_work(self) -> int:
         return self.op.src_node.get_size_bytes()
@@ -250,22 +223,16 @@ class UploadToGDriveCommand(CopyNodeCommand):
 
         return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[self.op.src_node, goog_node])
 
-    def __repr__(self):
-        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, overwrite={self.overwrite}, ' \
-               f'status={self.status()}, src={self.op.src_node} dst={self.op.dst_node}'
-
 
 class DownloadFromGDriveCommand(CopyNodeCommand):
     """
     Copy GDrive -> Local
     """
 
-    def __init__(self, uid: UID, op: Op, overwrite: bool):
+    def __init__(self, uid: UID, op: UserOp, overwrite: bool):
         super().__init__(uid, op, overwrite)
         assert isinstance(self.op.src_node, GDriveNode), f'For {self.op.src_node}'
         assert isinstance(self.op.dst_node, LocalFileNode), f'For {self.op.dst_node}'
-        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, op={op.op_type.name} tgt_uid={self.op.dst_node.uid} ' \
-                   f'src_uid={self.op.src_node.uid} overwrite={overwrite}'
 
     def get_total_work(self) -> int:
         return self.op.src_node.get_size_bytes()
@@ -317,20 +284,15 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
 
         return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[self.op.src_node, node])
 
-    def __repr__(self):
-        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, overwrite={self.overwrite}, ' \
-               f'status={self.status()}, dst_node={self.op.dst_node}'
-
 
 class CreateGDriveFolderCommand(Command):
     """
     Create GDrive FOLDER (sometimes a prerequisite to uploading a file)
     """
 
-    def __init__(self, uid: UID, op: Op):
+    def __init__(self, uid: UID, op: UserOp):
         super().__init__(uid, op)
-        assert op.op_type == OpType.MKDIR
-        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, src_node_uid={self.op.src_node.uid}'
+        assert op.op_type == UserOpType.MKDIR
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -357,21 +319,15 @@ class CreateGDriveFolderCommand(Command):
         assert goog_node.get_parent_uids(), f'Expected some parent_uids for: {goog_node}'
         return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[goog_node])
 
-    def __repr__(self):
-        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, ' \
-               f'status={self.status()}, src_node={self.op.src_node}'
-
 
 class MoveFileGDriveCommand(TwoNodeCommand):
     """
     Move GDrive -> GDrive
     """
 
-    def __init__(self, uid: UID, op: Op):
+    def __init__(self, uid: UID, op: UserOp):
         super().__init__(uid, op)
-        assert op.op_type == OpType.MV
-        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, dst_uid={self.op.dst_node.uid}, ' \
-                   f'src_uid={self.op.src_node.uid}'
+        assert op.op_type == UserOpType.MV
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -413,20 +369,14 @@ class MoveFileGDriveCommand(TwoNodeCommand):
                 raise RuntimeError(f'Could not find expected node in source or dest locations. Looks like the model is out of date '
                                    f'(goog_id={self.op.src_node.goog_id})')
 
-    def __repr__(self):
-        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, ' \
-               f'status={self.status()}, dst_node={self.op.dst_node}'
-
 
 class DeleteGDriveNodeCommand(DeleteNodeCommand):
     """
     Delete GDrive
     """
 
-    def __init__(self, uid: UID, op: Op, to_trash=True, delete_empty_parent=False):
+    def __init__(self, uid: UID, op: UserOp, to_trash=True, delete_empty_parent=False):
         super().__init__(uid, op, to_trash, delete_empty_parent)
-        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier}, op_uid={op.op_uid}, to_trash={self.to_trash}, ' \
-                   f'delete_empty_parent={self.delete_empty_parent})'
 
     def get_total_work(self) -> int:
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
@@ -457,10 +407,6 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
             cxt.gdrive_client.hard_delete(self.op.src_node.goog_id)
 
         return CommandResult(CommandStatus.COMPLETED_OK, to_delete=[self.op.src_node])
-
-    def __repr__(self):
-        return f'{__class__.__name__}(uid={self.identifier}, total_work={self.get_total_work()}, to_trash={self.to_trash}, ' \
-               f'status={self.status()}, model={self.op.src_node}'
 
 # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 # GOOGLE DRIVE COMMANDS end
