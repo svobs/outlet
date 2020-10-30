@@ -470,10 +470,9 @@ class GDriveWholeTree:
                     raise RuntimeError(f'Could not resolve goog_id for UID {uid}: node has no goog_id: {node}')
         return goog_ids
 
-    def _compute_path_list_for_uid(self, uid: UID, stop_before_id: str = None) -> List[str]:
+    def _compute_path_list_for_uid(self, uid: UID) -> List[str]:
         """Gets the filesystem-like-path for the node with the given GoogID.
-        If stop_before_id is given, treat it as the subtree root and stop before including it; otherwise continue
-        until a parent cannot be found, or until the root of the tree is reached"""
+        Stops when a parent cannot be found, or the root of the tree is reached."""
         current_node: GDriveNode = self.get_node_for_uid(uid)
         if not current_node:
             raise RuntimeError(f'Item not found: id={uid}')
@@ -486,13 +485,11 @@ class GDriveWholeTree:
         next_segment_nodes: List[Tuple[GDriveNode, str]] = []
         while current_nodes:
             for node, path_so_far in current_nodes:
-                if node.uid == stop_before_id:
-                    path_list.append(path_so_far)
-                    continue
-
                 if path_so_far == '':
+                    # first node (leaf)
                     path_so_far = node.name
                 else:
+                    # Pre-pend parent name:
                     path_so_far = node.name + '/' + path_so_far
 
                 parent_uids: List[UID] = node.get_parent_uids()
@@ -503,13 +500,13 @@ class GDriveWholeTree:
                         if len(parent_uids) > 1:
                             if SUPER_DEBUG:
                                 logger.debug(f'Multiple parents found for {node.uid} ("{node.name}").')
-                                for parent_num, p in enumerate(parent_uids):
-                                    logger.info(f'Parent {parent_num}: {p}')
+                                for parent_index, parent_uid in enumerate(parent_uids):
+                                    logger.info(f'Parent {parent_index}: {parent_uid}')
                             # pass through
                         elif SUPER_DEBUG:
-                            logger.debug(f'Found multiple parents for node but only one is valid: node={node.uid} ("{node.name}")')
+                            logger.warning(f'Found multiple parents for node but only one could be resolved: node={node.uid} ("{node.name}")')
                     for parent_uid in parent_uids:
-                        parent_node = self.get_node_for_uid(parent_uid)
+                        parent_node: GDriveNode = self.get_node_for_uid(parent_uid)
                         if parent_node:
                             next_segment_nodes.append((parent_node, path_so_far))
                         else:

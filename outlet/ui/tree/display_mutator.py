@@ -580,8 +580,9 @@ class DisplayMutator(HasLifecycle):
     def _get_icon_for_node(self, node: Node) -> str:
         op: Optional[Op] = self.con.app.cacheman.get_last_pending_op_for_node(node.uid)
         if op and not op.is_completed():
-            logger.debug(f'[{self.con.tree_id}] Found pending op for node {node.uid}: {op.op_type.name}')
             icon = op.get_icon_for_node(node.uid)
+            if SUPER_DEBUG:
+                logger.debug(f'[{self.con.tree_id}] Node belongs to pending op ({node.uid}: {op.op_type.name}): returning icon={icon}')
         else:
             icon = node.get_icon()
         # logger.debug(f'[{self.con.tree_id}] Got icon "{icon}" for node {node}')

@@ -228,8 +228,13 @@ class CacheManager(HasLifecycle):
             else:
                 logger.info(f'{stopwatch} Found {unique_cache_count} existing caches but configured not to load on startup')
 
-            # Finally, add any queued changes (asynchronously)
-            self.app.executor.submit_async_task(self._op_ledger.load_pending_ops)
+            # Finally, add or cancel any queued changes (asynchronously)
+            if self.cancel_all_pending_ops_on_startup:
+                logger.debug(f'User configuration specifies cancelling all pending ops on startup')
+                pending_ops_task = self._op_ledger.cancel_pending_ops_from_disk
+            else:
+                pending_ops_task = self._op_ledger.resume_pending_ops_from_disk
+            self.app.executor.submit_async_task(pending_ops_task)
 
         finally:
             dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
@@ -526,7 +531,7 @@ class CacheManager(HasLifecycle):
         """Attempt to add the given Ops to the execution tree. No need to worry whether some changes overlap or are redundant;
          the OpLedger will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
          that is scheduled for deletion."""
-        self._op_ledger.append_new_pending_ops(op_list)
+        self._op_ledger.append_new_pending_op_batch(op_list)
 
     def get_next_command(self) -> Optional[Command]:
         # blocks !

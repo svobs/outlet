@@ -6,7 +6,7 @@ import gi
 from gi.repository import GLib
 from pydispatch import dispatcher
 
-from constants import GDRIVE_PATH_PREFIX, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.container_node import CategoryNode
 from model.node.node import Node
 from model.op import Op
@@ -162,15 +162,22 @@ class TreeContextMenu:
 
         op: Optional[Op] = self.con.app.cacheman.get_last_pending_op_for_node(node.uid)
         if op and not op.is_completed() and op.has_dst():
+            if SUPER_DEBUG:
+                logger.debug(f'Building context menu for op: {op}')
             logger.warning('TODO: test this!')
             # Split into separate entries for src and dst.
 
             # (1/2) Source:
-            item = TreeContextMenu.build_full_path_display_item(menu, 'Src: ', op.src_node, single_path)
+            if op.src_node.uid == node.uid:
+                # src node
+                src_path = single_path
+            else:
+                src_path = op.src_node.get_path_list()[0]
+            item = TreeContextMenu.build_full_path_display_item(menu, 'Src: ', op.src_node, src_path)
             if op.src_node.exists():
                 src_submenu = Gtk.Menu()
                 item.set_submenu(src_submenu)
-                self._build_menu_items_for_single_node(src_submenu, tree_path, op.src_node, single_path)
+                self._build_menu_items_for_single_node(src_submenu, tree_path, op.src_node, src_path)
             else:
                 item.set_sensitive(False)
 
@@ -179,11 +186,16 @@ class TreeContextMenu:
             menu.append(item)
 
             # (2/2) Destination:
-            item = TreeContextMenu.build_full_path_display_item(menu, 'Dst: ', op.dst_node, single_path)
+            if op.dst_node.uid == node.uid:
+                # src node
+                dst_path = single_path
+            else:
+                dst_path = op.src_node.get_path_list()[0]
+            item = TreeContextMenu.build_full_path_display_item(menu, 'Dst: ', op.dst_node, dst_path)
             if op.dst_node.exists():
                 dst_submenu = Gtk.Menu()
                 item.set_submenu(dst_submenu)
-                self._build_menu_items_for_single_node(dst_submenu, tree_path, op.dst_node, single_path)
+                self._build_menu_items_for_single_node(dst_submenu, tree_path, op.dst_node, dst_path)
             else:
                 item.set_sensitive(False)
 

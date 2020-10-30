@@ -85,7 +85,7 @@ class OpGraphNode(ABC):
         return False
 
     @abstractmethod
-    def is_mutually_exclusive(self) -> bool:
+    def is_reentrant(self) -> bool:
         return False
 
     def is_remove_type(self) -> bool:
@@ -283,7 +283,7 @@ class RootNode(HasMultiChild, OpGraphNode):
     def is_root(cls):
         return True
 
-    def is_mutually_exclusive(self) -> bool:
+    def is_reentrant(self) -> bool:
         return True
 
     def get_target_node(self):
@@ -304,9 +304,9 @@ class SrcOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
         HasSingleParent.__init__(self)
         HasMultiChild.__init__(self)
 
-    def is_mutually_exclusive(self) -> bool:
-        # Only CP src nodes are non-mutually-exclusive
-        return self.op.op_type != OpType.CP
+    def is_reentrant(self) -> bool:
+        # Only CP src nodes are reentrant
+        return self.op.op_type == OpType.CP
 
     def get_target_node(self):
         return self.op.src_node
@@ -335,8 +335,8 @@ class DstOpNode(HasSingleParent, HasMultiChild, OpGraphNode):
         HasSingleParent.__init__(self)
         HasMultiChild.__init__(self)
 
-    def is_mutually_exclusive(self) -> bool:
-        return True
+    def is_reentrant(self) -> bool:
+        return False
 
     def get_target_node(self):
         return self.op.dst_node
@@ -377,8 +377,8 @@ class RmOpNode(HasMultiParent, HasSingleChild, OpGraphNode):
     def is_remove_type(self) -> bool:
         return True
 
-    def is_mutually_exclusive(self) -> bool:
-        return True
+    def is_reentrant(self) -> bool:
+        return False
 
     def get_target_node(self):
         return self.op.src_node

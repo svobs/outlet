@@ -11,6 +11,7 @@ from model.op import Op, OpType
 from model.uid import UID
 from store.op.op_disk_store import ErrorHandlingBehavior, OpDiskStore
 from store.op.op_graph import OpGraph
+from store.op.op_graph_node import RootNode
 from ui import actions
 from util.has_lifecycle import HasLifecycle
 
@@ -24,8 +25,8 @@ class OpLedger(HasLifecycle):
     def __init__(self, app):
         HasLifecycle.__init__(self)
         self.app = app
-        self._cmd_builder = CommandBuilder(self.app)
-        self._disk_store = OpDiskStore(self.app)
+        self._cmd_builder: CommandBuilder = CommandBuilder(self.app)
+        self._disk_store: OpDiskStore = OpDiskStore(self.app)
         self._op_graph: OpGraph = OpGraph(self.app)
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
 
@@ -53,9 +54,8 @@ class OpLedger(HasLifecycle):
     # Reduce Changes logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _derive_cp_dst_key(self, dst_node: Node) -> str:
-        parent_uid_list: List[UID] = self.app.cacheman.get_parent_uid_list_for_node(dst_node)
-        return f'{parent_uid}/{dst_node.name}'
+    def _derive_dst_parent_key_list(self, dst_node: Node) -> List[str]:
+        return [f'{parent_uid}/{dst_node.name}' for parent_uid in self.app.cacheman.get_parent_uid_list_for_node(dst_node)]
 
     def _reduce_ops(self, op_list: Iterable[Op]) -> Iterable[Op]:
         final_list: List[Op] = []
@@ -72,7 +72,7 @@ class OpLedger(HasLifecycle):
         for op in op_list:
             count_ops_orig += 1
             if op.op_type == OpType.MKDIR:
-                # remove dups
+                # remove dup MKDIRs (easy)
                 if mkdir_dict.get(op.src_node.uid, None):
                     logger.info(f'ReduceChanges(): Removing duplicate MKDIR for node: {op.src_node}')
                 else:
@@ -90,28 +90,28 @@ class OpLedger(HasLifecycle):
             elif op.op_type == OpType.CP or op.op_type == OpType.UP or op.op_type == OpType.MV:
                 # GDrive nodes' UIDs are derived from their goog_ids; nodes with no goog_id can have different UIDs.
                 # So for GDrive nodes with no goog_id, we must rely on a combination of their parent UID and name to check for uniqueness
-                dst_key: str = self._derive_cp_dst_key(op.dst_node)
-                existing = cp_dst_dict.get(dst_key, None)
-                if existing:
-                    # It is an error for anything but an exact duplicate to share the same dst node; if duplicate, then discard
-                    if existing.src_node.uid != op.src_node.uid:
-                        logger.error(f'ReduceChanges(): Conflict: Change1: {existing}; Change2: {op}')
-                        raise RuntimeError(f'Batch op conflict: trying to copy different nodes into the same destination!')
-                    elif existing.op_type != op.op_type:
-                        logger.error(f'ReduceChanges(): Conflict: Change1: {existing}; Change2: {op}')
-                        raise RuntimeError(f'Batch op conflict: trying to copy different op types into the same destination!')
-                    elif op.dst_node.uid != existing.dst_node.uid:
-                        # GDrive nodes almost certainly
-                        raise RuntimeError(f'Batch op conflict: trying to copy same node into the same destination with a different UID!')
+                for dst_parent_key in self._derive_dst_parent_key_list(op.dst_node):
+                    existing = cp_dst_dict.get(dst_parent_key, None)
+                    if existing:
+                        # It is an error for anything but an exact duplicate to share the same dst node; if duplicate, then discard
+                        if existing.src_node.uid != op.src_node.uid:
+                            logger.error(f'ReduceChanges(): Conflict: Change1: {existing}; Change2: {op}')
+                            raise RuntimeError(f'Batch op conflict: trying to copy different nodes into the same destination!')
+                        elif existing.op_type != op.op_type:
+                            logger.error(f'ReduceChanges(): Conflict: Change1: {existing}; Change2: {op}')
+                            raise RuntimeError(f'Batch op conflict: trying to copy different op types into the same destination!')
+                        elif op.dst_node.uid != existing.dst_node.uid:
+                            # GDrive nodes almost certainly
+                            raise RuntimeError(f'Batch op conflict: trying to copy same node into the same destination with a different UID!')
+                        else:
+                            assert op.dst_node.uid == existing.dst_node.uid and existing.src_node.uid == op.src_node.uid and \
+                                   existing.op_type == op.op_type, f'Conflict: Change1: {existing}; Change2: {op}'
+                            logger.info(f'ReduceChanges(): Discarding op (dup dst): {op}')
                     else:
-                        assert op.dst_node.uid == existing.dst_node.uid and existing.src_node.uid == op.src_node.uid and \
-                               existing.op_type == op.op_type, f'Conflict: Change1: {existing}; Change2: {op}'
-                        logger.info(f'ReduceChanges(): Discarding op (dup dst): {op}')
-                else:
-                    logger.info(f'ReduceChanges(): Adding CP-like type: {op}')
-                    cp_src_dict[op.src_node.uid].append(op)
-                    cp_dst_dict[dst_key] = op
-                    final_list.append(op)
+                        logger.info(f'ReduceChanges(): Adding CP-like type: {op}')
+                        cp_src_dict[op.src_node.uid].append(op)
+                        cp_dst_dict[dst_parent_key] = op
+                        final_list.append(op)
 
         def eval_rm_ancestor_func(op_arg: Op, ancestor: Node) -> None:
             conflict = mkdir_dict.get(ancestor.uid, None)
@@ -175,19 +175,18 @@ class OpLedger(HasLifecycle):
     # ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
     # Reduce Changes logic
 
-    def load_pending_ops(self):
-        """Call this at startup, to resume pending ops which have not yet been applied."""
+    def cancel_pending_ops_from_disk(self):
+        """Call this at startup, to CANCEL pending ops which have not yet been applied (archive them on disk)."""
+        self._disk_store.cancel_pending_ops_from_disk()
 
-        if self.app.cacheman.cancel_all_pending_ops_on_startup:
-            logger.debug(f'User configuration specifies cancelling all pending ops on startup')
-            self._disk_store.cancel_pending_ops_from_disk()
-            return
+    def resume_pending_ops_from_disk(self):
+        """Call this at startup, to RESUME pending ops which have not yet been applied."""
 
-        op_list: List[Op] = self._disk_store.load_pending_ops_from_disk(ErrorHandlingBehavior.DISCARD)
+        # Load from disk
+        op_list: List[Op] = self._disk_store.get_pending_ops_from_disk(ErrorHandlingBehavior.DISCARD)
         if not op_list:
             logger.debug(f'No pending ops found in the disk cache')
             return
-
         logger.info(f'Found {len(op_list)} pending ops from the disk cache')
 
         # Sort into batches
@@ -205,7 +204,7 @@ class OpLedger(HasLifecycle):
             batch_root = self._op_graph.make_graph_from_batch(batch_items)
             self._add_batch_to_op_graph_and_remove_discarded(batch_root, batch_uid)
 
-    def append_new_pending_ops(self, op_batch: Iterable[Op]):
+    def append_new_pending_op_batch(self, op_batch: Iterable[Op]):
         """
         Call this after the user requests a new set of ops.
 
@@ -217,6 +216,7 @@ class OpLedger(HasLifecycle):
         if not op_batch:
             return
 
+        # Validate batch_uid
         op_iter = iter(op_batch)
         batch_uid = next(op_iter).batch_uid
         for op in op_iter:
@@ -226,10 +226,10 @@ class OpLedger(HasLifecycle):
         # Simplify and remove redundancies in op_list
         reduced_batch: Iterable[Op] = self._reduce_ops(op_batch)
 
-        batch_root = self._op_graph.make_graph_from_batch(reduced_batch)
+        batch_root: RootNode = self._op_graph.make_graph_from_batch(reduced_batch)
 
         # Reconcile ops against master op tree before adding nodes
-        if not self._op_graph.can_nq_batch(batch_root):
+        if not self._op_graph.can_enqueue_batch(batch_root):
             raise RuntimeError('Invalid batch!')
 
         # Save ops and their planning nodes to disk
@@ -243,7 +243,7 @@ class OpLedger(HasLifecycle):
 
     def _add_batch_to_op_graph_and_remove_discarded(self, batch_root, batch_uid):
         logger.info(f'Adding batch {batch_uid} to OpTree')
-        discarded_op_list: List[Op] = self._op_graph.nq_batch(batch_root)
+        discarded_op_list: List[Op] = self._op_graph.enqueue_batch(batch_root)
         if discarded_op_list:
             logger.debug(f'{len(discarded_op_list)} ops were discarded: removing from disk cache')
             self._disk_store.remove_pending_ops(discarded_op_list)

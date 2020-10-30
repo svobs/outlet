@@ -68,8 +68,11 @@ class LocalDiskDatabase(MetaDatabase):
     def insert_local_files(self, entries: List[LocalFileNode], overwrite, commit=True):
         self.table_local_file.insert_object_list(entries, overwrite=overwrite, commit=commit)
 
-    def upsert_local_file(self, item, commit=True):
-        self.table_local_file.upsert_object(item, commit=commit)
+    def upsert_local_file(self, node: LocalFileNode, commit=True):
+        if not node.exists():
+            # These don't belong here; they belong in the op DB
+            logger.warning(f'Saving node with exists=False! Check code for bug: {node}')
+        self.table_local_file.upsert_object(node, commit=commit)
 
     def upsert_local_file_list(self, file_list: List[LocalFileNode], commit=True):
         self.table_local_file.upsert_object_list(file_list, commit=commit)
@@ -101,8 +104,11 @@ class LocalDiskDatabase(MetaDatabase):
     def insert_local_dirs(self, entries: List[LocalDirNode], overwrite, commit=True):
         self.table_local_dir.insert_object_list(entries, overwrite=overwrite, commit=commit)
 
-    def upsert_local_dir(self, item, commit=True):
-        self.table_local_dir.upsert_object(item, commit=commit)
+    def upsert_local_dir(self, node: LocalDirNode, commit=True):
+        if not node.exists():
+            # These don't belong here; they belong in the op DB
+            logger.warning(f'Saving node with exists=False! Check code for bug: {node}')
+        self.table_local_dir.upsert_object(node, commit=commit)
 
     def upsert_local_dir_list(self, dir_list: List[LocalDirNode], commit=True):
         self.table_local_dir.upsert_object_list(dir_list, commit=commit)
@@ -121,8 +127,10 @@ class LocalDiskDatabase(MetaDatabase):
 
     def upsert_single_node(self, node: LocalNode, commit=True):
         if node.is_dir():
+            assert isinstance(node, LocalDirNode)
             self.upsert_local_dir(node, commit)
         else:
+            assert isinstance(node, LocalFileNode)
             self.upsert_local_file(node, commit)
 
     def delete_single_node(self, node: LocalNode, commit=True):

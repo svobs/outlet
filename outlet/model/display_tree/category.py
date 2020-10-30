@@ -16,7 +16,6 @@ from model.node_identifier import SinglePathNodeIdentifier
 from model.op import Op, OP_TYPES, OpType
 from model.uid import UID
 from ui import actions
-from util import file_util
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -177,9 +176,8 @@ class CategoryDisplayTree(DisplayTree):
     def add_node(self, sn: SPIDNodePair, op: Op):
         """When we add the node, we add any necessary ancestors for it as well.
         1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't
-        backed by any actual data nodes. This includes possibly tree-type nodes, category nodes, and ancestors
-        which aren't in the source tree.
-        2. Create and add "ancestors": dir nodes from the source tree for display, and possibly any FolderToAdd nodes.
+        backed by any actual data nodes. This includes possibly tree-type nodes and category nodes.
+        2. Create and add "ancestors": dir nodes from the source tree for display.
         The "ancestors" are duplicated for each OpType, so we need to generate a separate unique identifier which includes the OpType.
         For this, we take advantage of the fact that each node has a separate "identifier" field which is nominally identical to its UID,
         but in this case it will be a string which includes the OpType name.
@@ -194,6 +192,7 @@ class CategoryDisplayTree(DisplayTree):
             # Group "mkdir" with "copy" for display purposes:
             op_type_for_display = OpType.CP
 
+        # We can easily derive the UID/NID of the node's parent. Check to see if it exists in the tree - if so, we can save a lot of work.
         parent: Node = self._get_parent_in_tree(sn, op_type_for_display)
         if parent:
             logger.debug(f'[{self.tree_id}] Parent was already added to tree; adding new node as its child: "{sn.node.node_identifier}"')

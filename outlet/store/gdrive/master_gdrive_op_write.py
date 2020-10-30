@@ -77,7 +77,6 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
             logger.debug(f'Node does not exist; skipping save to disk: {self.node}')
             return
 
-        # TODO: need memstore here to resolve UIDs to goog_ids
         parent_mappings = []
         parent_uids = self.node.get_parent_uids()
         if len(parent_uids) != len(self.parent_goog_ids):

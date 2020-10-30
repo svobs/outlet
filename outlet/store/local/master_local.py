@@ -140,9 +140,11 @@ class LocalDiskMasterStore(MasterStore):
                 if pending_op_nodes:
                     logger.debug(f'Attempting to transfer {len(pending_op_nodes)} pending op src/dst nodes to the newly synced tree')
                     for pending_op_node in pending_op_nodes:
+                        if SUPER_DEBUG:
+                            logger.debug(f'Inserting pending op node: {pending_op_node}')
                         assert not pending_op_node.exists()
                         if fresh_tree.can_add_without_mkdir(pending_op_node):
-                            fresh_tree.add_node(pending_op_node)
+                            fresh_tree.add_to_tree(pending_op_node)
                         else:
                             # TODO: notify the OpLedger and devise a recovery strategy
                             logger.error(f'Cannot add pending op node (its parent is gone): {pending_op_node}')

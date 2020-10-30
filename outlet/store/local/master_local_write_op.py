@@ -88,7 +88,10 @@ class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
             logger.debug(f'upsert_single_node() returned None for input node: {self.node}')
 
     def update_diskstore(self, cache: LocalDiskDatabase):
-        if self.was_updated:
+        if not self.node.exists():
+            if SUPER_DEBUG:
+                logger.debug(f'Skipping disk save because node does not exist: {self.node}')
+        elif self.was_updated:
             if SUPER_DEBUG:
                 logger.debug(f'Upserting LocalNode to disk cache: {self.node}')
             cache.upsert_single_node(self.node, commit=False)
@@ -152,17 +155,27 @@ class BatchChangesOp(LocalDiskSubtreeOp):
             if subtree.remove_node_list:
                 for node in reversed(subtree.remove_node_list):
                     memstore.remove_single_node(node)
+
             if subtree.upsert_node_list:
+                new_upsert_list = []
+
                 for node_index, node in enumerate(subtree.upsert_node_list):
                     master_node, was_updated = memstore.upsert_single_node(node)
-                    if master_node:
-                        subtree.upsert_node_list[node_index] = master_node
+                    if was_updated and node.exists():
+                        if master_node:
+                            node = master_node
+                        new_upsert_list.append(node)
+                    elif SUPER_DEBUG:
+                        logger.debug(f'Node was not updated in memcache and will be omitted from disk save: {node}')
+
+                subtree.upsert_node_list = new_upsert_list
 
     def update_diskstore(self, cache: LocalDiskDatabase, subtree: LocalSubtree):
         if subtree.remove_node_list:
             cache.delete_files_and_dirs(subtree.remove_node_list, commit=False)
         else:
             logger.debug(f'No nodes to remove from diskstore')
+
         if subtree.upsert_node_list:
             cache.upsert_files_and_dirs(subtree.upsert_node_list, commit=False)
         else:

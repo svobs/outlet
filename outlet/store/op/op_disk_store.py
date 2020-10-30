@@ -3,7 +3,7 @@ from enum import IntEnum
 from typing import Iterable, List, Optional
 import logging
 
-from constants import OPS_FILE_NAME
+from constants import OPS_FILE_NAME, SUPER_DEBUG
 from model.op import Op
 from store.sqlite.op_db import OpDatabase
 from util.has_lifecycle import HasLifecycle
@@ -41,19 +41,22 @@ class OpDiskStore(HasLifecycle):
             self._db = None
 
     def cancel_pending_ops_from_disk(self):
-        logger.debug('Entered cancel_pending_ops_from_disk()')
+        if SUPER_DEBUG:
+            logger.debug('Entered cancel_pending_ops_from_disk()')
+
         op_list: List[Op] = self._db.get_all_pending_ops()
         if op_list:
             self._db.archive_failed_ops(op_list, 'Cancelled on startup per user config')
             logger.info(f'Cancelled {len(op_list)} pending ops found in cache')
+        else:
+            logger.debug(f'Found no pending ops to cancel')
 
-    def load_pending_ops_from_disk(self, error_handling_behavior: ErrorHandlingBehavior) -> List[Op]:
-        logger.debug('Entered load_pending_ops_from_disk()')
+    def get_pending_ops_from_disk(self, error_handling_behavior: ErrorHandlingBehavior) -> List[Op]:
+        if SUPER_DEBUG:
+            logger.debug('Entered get_pending_ops_from_disk()')
+
         # first load refs from disk
         op_list: List[Op] = self._db.get_all_pending_ops()
-
-        if not op_list:
-            return op_list
 
         logger.debug(f'Found {len(op_list)} pending ops in cache')
 

@@ -64,8 +64,13 @@ class LocalDiskTree(treelib.Tree):
 
         # Finally, add the node itself:
         child: LocalNode = self.get_node(nid=node.uid)
-        assert not child, f'For old={child}, new={node}, path_segments={path_segments}'
-        if not child:
+        if child:
+            if child.is_dir() and node.is_dir():
+                # Just update
+                child.set_exists(node.exists())
+            else:
+                assert False, f'For old={child}, new={node}, path_segments={path_segments}'
+        else:
             if not parent:
                 logger.error(f'Parent is None for node: {node}')
             self.add_node(node=node, parent=parent)

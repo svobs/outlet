@@ -2,10 +2,14 @@ import logging
 from functools import partial
 from typing import Callable, Dict, List, Optional, Union
 
+from constants import SUPER_DEBUG
 from model.uid import UID
 from model.node.node import Node
 
 import gi
+
+from ui.tree.treeview_meta import TreeViewMeta
+
 gi.require_version("Gtk", "3.0")
 from gi.repository.Gtk import TreeIter, TreePath
 from gi.repository import Gtk
@@ -21,8 +25,9 @@ class DisplayStore:
     """(Mostly) encapsulates the nodes inside the TreeView object, which will be a subset of the nodes
     which come from the data store """
     def __init__(self, treeview_meta):
-        self.treeview_meta = treeview_meta
-        self.model = Gtk.TreeStore()
+        self.treeview_meta: TreeViewMeta = treeview_meta
+        self.tree_id: str = treeview_meta.tree_id
+        self.model: Gtk.TreeStore = Gtk.TreeStore()
         self.model.set_column_types(self.treeview_meta.col_types)
         # Sort by name column at program launch:
         self.model.set_sort_column_id(self.treeview_meta.col_num_name, Gtk.SortType.ASCENDING)
@@ -111,7 +116,7 @@ class DisplayStore:
         self.set_row_checked(tree_path, checked_value)
 
     def set_row_checked(self, tree_path: Gtk.TreePath, checked_value: bool):
-        logger.debug(f'Toggling {checked_value}: {self.get_node_name(tree_path)}')
+        logger.debug(f'[{self.tree_id}] Toggling {checked_value}: {self.get_node_name(tree_path)}')
 
         # Need to update all the siblings (children of parent) because their checked state may not be tracked.
         # We can assume that if a parent is not inconsistent (i.e. is either checked or unchecked), the state of its children are implied.
@@ -164,7 +169,8 @@ class DisplayStore:
 
     # --- Tree searching & iteration (utility functions) --- #
 
-    def _uid_equals_func(self, target_uid: UID, node: Node) -> bool:
+    @staticmethod
+    def _uid_equals_func(target_uid: UID, node: Node) -> bool:
         # if logger.isEnabledFor(logging.DEBUG) and not node.is_ephemeral():
         #     logger.debug(f'Examining node uid={node.uid} (looking for: {target_uid})')
         return not node.is_ephemereal() and node.uid == target_uid
@@ -311,11 +317,11 @@ class DisplayStore:
             return False
 
         child_data = self.get_node_data(first_child_iter)
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f'Removing child: {child_data}')
+        if SUPER_DEBUG:
+            logger.debug(f'[{self.tree_id}] RRemoving child: {child_data}')
 
         if not child_data.is_ephemereal():
-            logger.error(f'Expected LoadingNode but found: {child_data}')
+            logger.error(f'[{self.tree_id}] RExpected LoadingNode but found: {child_data}')
             return
 
         # remove the first child
@@ -328,8 +334,8 @@ class DisplayStore:
             return False
 
         child_data = self.get_node_data(first_child_iter)
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f'Removing child: {child_data}')
+        if SUPER_DEBUG:
+            logger.debug(f'[{self.tree_id}] Removing 1st child: {child_data}')
 
         if not child_data.is_ephemereal():
             self.displayed_rows.pop(child_data.uid)
@@ -348,4 +354,4 @@ class DisplayStore:
         removed_count = 0
         while self.remove_first_child(parent_iter):
             removed_count += 1
-        logger.debug(f'Removed {removed_count} children')
+        logger.debug(f'[{self.tree_id}] Removed {removed_count} children')

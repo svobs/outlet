@@ -122,52 +122,47 @@ class LocalDiskDiskStore(HasLifecycle):
 
             missing_nodes: List[LocalNode] = []
 
+            # Dirs first
             dir_list: List[LocalDirNode] = db.get_local_dirs()
             if len(dir_list) == 0:
                 logger.debug('No dirs found in disk cache')
 
-            # Dirs first
             for dir_node in dir_list:
-                existing: LocalNode = tree.get_node(dir_node.identifier)
-                # Overwrite older ops for the same path:
-                if not existing:
-                    tree.add_to_tree(dir_node)
-                    if not dir_node.exists():
+                if dir_node.uid != root_node_identifer.uid:
+                    if dir_node.exists():
+                        tree.add_to_tree(dir_node)
+                    else:
                         missing_nodes.append(dir_node)
-                elif existing.get_single_path() != dir_node.get_single_path():
-                    raise RuntimeError(f'Existing={existing}, FromCache={dir_node}')
 
+            # Files next
             file_list: List[LocalFileNode] = db.get_local_files()
             if len(file_list) == 0:
                 logger.debug('No files found in disk cache')
 
-            for change in file_list:
-                existing = tree.get_node(change.identifier)
-                # Overwrite older changes for the same path:
-                if not existing:
-                    tree.add_to_tree(change)
-                    if not change.exists():
-                        missing_nodes.append(change)
-                elif existing.sync_ts < change.sync_ts:
-                    tree.remove_single_node(change.identifier)
-                    tree.add_to_tree(change)
+            for file_node in file_list:
+                if file_node.exists():
+                    tree.add_to_tree(file_node)
+                else:
+                    missing_nodes.append(file_node)
 
             # logger.debug(f'Reduced {str(len(db_file_changes))} disk cache entries into {str(count_from_disk)} unique entries')
             logger.debug(f'{stopwatch_load} [{tree_id}] Finished loading {len(file_list)} files and {len(dir_list)} dirs from disk')
 
             if len(missing_nodes) > 0:
-                logger.info(f'Found {len(missing_nodes)} cached nodes with exists=false: submitting to adjudicator...')
-            # TODO: add code for adjudicator
+                # TODO: add code for adjudicator
+                logger.warning(f'Found {len(missing_nodes)} cached nodes with exists=false: submitting to adjudicator...TODO: build adjudicator')
+                for node_index, node in enumerate(missing_nodes):
+                    logger.info(f'Nonexistant node #{node_index}: {node}')
 
             cache_info.is_loaded = True
             return tree
 
     def save_subtree(self, cache_info: PersistedCacheInfo, file_list, dir_list, tree_id):
         assert isinstance(cache_info.subtree_root, LocalNodeIdentifier)
-        db: LocalDiskDatabase = self._get_or_open_db(cache_info)
-
         with self._struct_lock:
             sw = Stopwatch()
+
+            db: LocalDiskDatabase = self._get_or_open_db(cache_info)
 
             # Overwrite cache:
             db.truncate_local_files(commit=False)
