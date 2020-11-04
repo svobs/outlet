@@ -1,18 +1,19 @@
-from model.node_identifier import ensure_int, NodeIdentifier
+from model.node_identifier import ensure_int, NodeIdentifier, SinglePathNodeIdentifier
+
 
 # CLASS CacheInfoEntry
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 
 class CacheInfoEntry:
-    def __init__(self, cache_location, subtree_root: NodeIdentifier, sync_ts, is_complete):
+    def __init__(self, cache_location, subtree_root: SinglePathNodeIdentifier, sync_ts, is_complete):
         self.cache_location: str = cache_location
-        self.subtree_root: NodeIdentifier = subtree_root
+        self.subtree_root: SinglePathNodeIdentifier = subtree_root
         self.sync_ts = ensure_int(sync_ts)
         self.is_complete = is_complete
 
     def to_tuple(self):
-        return self.cache_location, self.subtree_root.tree_type, self.subtree_root.get_path_list()[0], self.subtree_root.uid, \
+        return self.cache_location, self.subtree_root.tree_type, self.subtree_root.get_single_path(), self.subtree_root.uid, \
                self.sync_ts, self.is_complete
 
     def __repr__(self):

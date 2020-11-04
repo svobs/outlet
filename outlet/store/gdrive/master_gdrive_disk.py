@@ -41,7 +41,7 @@ class GDriveDiskStore(HasLifecycle):
             self._db = None
 
     def _get_gdrive_cache_path(self) -> str:
-        master_tree_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
+        master_tree_root = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
         cache_info = self.app.cacheman.get_or_create_cache_info_entry(master_tree_root)
         return cache_info.cache_location
 

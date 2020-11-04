@@ -14,7 +14,7 @@ from model.display_tree.local_disk import LocalDiskDisplayTree
 from model.display_tree.null import NullDisplayTree
 from model.local_disk_tree import LocalDiskTree
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node_identifier import LocalNodeIdentifier
+from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from store.cache_manager import PersistedCacheInfo
 from store.local.local_disk_scanner import LocalDiskScanner
 from store.local.local_sig_calc_thread import SignatureCalcThread
@@ -182,16 +182,14 @@ class LocalDiskMasterStore(MasterStore):
 
         # If we have already loaded this subtree as part of a larger cache, use that:
         cache_man = self.app.cacheman
-        supertree_cache: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_local_subtree(subtree_root.get_single_path())
-        if supertree_cache:
-            logger.debug(f'LocalSubtree ({subtree_root}) is part of existing cached supertree ({supertree_cache.subtree_root})')
-            assert isinstance(subtree_root, LocalNodeIdentifier)
-            return self._load_subtree(supertree_cache, tree_id, subtree_root, is_live_refresh)
+        cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_local_subtree(subtree_root.get_single_path())
+        if cache_info:
+            logger.debug(f'LocalSubtree ({subtree_root}) is part of existing cached supertree ({cache_info.subtree_root})')
         else:
-            # no supertree found in cache. use exact match logic:
+            # No supertree found in cache. Create new cache entry:
             cache_info = cache_man.get_or_create_cache_info_entry(subtree_root)
-            assert cache_info is not None
-            return self._load_subtree(cache_info, tree_id, cache_info.subtree_root, is_live_refresh)
+        assert cache_info
+        return self._load_subtree(cache_info, tree_id, subtree_root, is_live_refresh)
 
     def _load_subtree(self, cache_info: PersistedCacheInfo, tree_id: str, requested_subtree_root: LocalNodeIdentifier = None,
                       is_live_refresh: bool = False) -> LocalDiskDisplayTree:
@@ -205,7 +203,7 @@ class LocalDiskMasterStore(MasterStore):
             logger.warning(f'Requested UID "{cache_info.subtree_root.uid}" is invalid for given path; changing it to "{uid}"')
         cache_info.subtree_root.uid = uid
 
-        assert isinstance(cache_info.subtree_root, LocalNodeIdentifier)
+        assert isinstance(cache_info.subtree_root, SinglePathNodeIdentifier), f'Found instead: {type(cache_info.subtree_root)}'
         if not requested_subtree_root:
             requested_subtree_root = cache_info.subtree_root
         else:

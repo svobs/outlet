@@ -2,6 +2,8 @@ import logging
 from collections import OrderedDict
 from typing import List, Tuple, Union
 
+from constants import TREE_TYPE_LOCAL_DISK
+from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from util import file_util
 from model.cache_info import CacheInfoEntry
 from store.sqlite.base_db import ensure_int, LiveTable, MetaDatabase, Table
@@ -50,8 +52,10 @@ class CacheRegistry(MetaDatabase):
         for row in rows:
             cache_location, cache_type, subtree_root_path, subtree_root_uid, sync_ts, is_complete = row
             subtree_root_path = file_util.normalize_path(subtree_root_path)
-            node_identifier = self.node_identifier_factory.for_values(tree_type=cache_type, path_list=subtree_root_path,
-                                                                      uid=subtree_root_uid)
+            if cache_type == TREE_TYPE_LOCAL_DISK:
+                node_identifier = LocalNodeIdentifier(uid=subtree_root_uid, path_list=subtree_root_path)
+            else:
+                node_identifier = SinglePathNodeIdentifier(uid=subtree_root_uid, path_list=subtree_root_path, tree_type=cache_type)
             entries.append(CacheInfoEntry(cache_location=cache_location, subtree_root=node_identifier, sync_ts=sync_ts, is_complete=is_complete))
         return entries
 

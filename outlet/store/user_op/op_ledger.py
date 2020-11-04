@@ -223,8 +223,8 @@ class OpLedger(HasLifecycle):
             if user_op.has_dst():
                 big_node_list.append(user_op.dst_node)
 
-        # TODO
-        self.app.cacheman.refresh_node_list(big_node_list)
+        # Make sure all relevant caches are loaded:
+        self.app.cacheman.ensure_loaded(big_node_list)
 
     def append_new_pending_op_batch(self, op_batch: Iterable[UserOp]):
         """

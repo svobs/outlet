@@ -157,7 +157,7 @@ class GDriveTreeLoader:
         self._compile_full_paths(tree)
 
         # set cache_info.is_loaded=True:
-        master_tree_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
+        master_tree_root = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
         cache_info = self.app.cacheman.get_or_create_cache_info_entry(master_tree_root)
         cache_info.is_loaded = True
 

@@ -358,7 +358,6 @@ class OpGraph(HasLifecycle):
 
         target_node: Node = node_to_insert.get_tgt_node()
         target_uid: UID = target_node.uid
-        # FIXME: parent UID lookup on startup: MUST load subtrees for all parents before looking up parent UID. Maybe new CacheManager API...
         tgt_parent_uid_list: List[UID] = self.app.cacheman.get_parent_uid_list_for_node(target_node)
 
         # First check whether the target node is known and has pending operations

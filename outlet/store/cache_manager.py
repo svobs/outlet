@@ -376,11 +376,32 @@ class CacheManager(HasLifecycle):
         # Nothing in the cache contains subtree
         return None
 
-    def get_cache_info_entry(self, subtree_root: NodeIdentifier) -> PersistedCacheInfo:
-        return self.caches_by_type.get_single(subtree_root.tree_type, subtree_root.get_path_list()[0])
+    def ensure_loaded(self, node_list: List[Node]):
+        needed_cache_dict: Dict[str, PersistedCacheInfo] = {}
 
-    def get_or_create_cache_info_entry(self, subtree_root: NodeIdentifier) -> PersistedCacheInfo:
-        existing = self.get_cache_info_entry(subtree_root)
+        needs_gdrive: bool = False
+        for node in node_list:
+            if node.get_tree_type() == TREE_TYPE_GDRIVE:
+                needs_gdrive = True
+            else:
+                cache: Optional[PersistedCacheInfo] = self.find_existing_cache_info_for_local_subtree(node.get_single_path())
+                if cache:
+                    needed_cache_dict[cache.subtree_root.get_single_path()] = cache
+                else:
+                    raise RuntimeError(f'Could not find a cache file for planning node: {node}')
+
+        if needs_gdrive:
+            self._master_gdrive.get_synced_master_tree(tree_id=ID_GLOBAL_CACHE)
+
+        for cache in needed_cache_dict.values():
+            if not cache.is_loaded:
+                if not os.path.exists(cache.subtree_root.get_single_path()):
+                    raise RuntimeError(f'Could not load planning node(s): cache subtree does not exist: {cache.subtree_root.get_single_path()}')
+                else:
+                    self._master_local.get_display_tree(cache.subtree_root, ID_GLOBAL_CACHE)
+
+    def get_or_create_cache_info_entry(self, subtree_root: SinglePathNodeIdentifier) -> PersistedCacheInfo:
+        existing = self.caches_by_type.get_single(subtree_root.tree_type, subtree_root.get_single_path())
         if existing:
             logger.debug(f'Found existing cache entry for subtree: {subtree_root}')
             return existing
@@ -388,7 +409,7 @@ class CacheManager(HasLifecycle):
             logger.debug(f'No existing cache entry found for subtree: {subtree_root}')
 
         if subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
-            unique_path = subtree_root.get_path_list()[0].replace('/', '_')
+            unique_path = subtree_root.get_single_path().replace('/', '_')
             file_name = f'LO_{unique_path}.{INDEX_FILE_SUFFIX}'
         elif subtree_root.tree_type == TREE_TYPE_GDRIVE:
             file_name = GDRIVE_INDEX_FILE_NAME
