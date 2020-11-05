@@ -6,7 +6,6 @@ from typing import List, Optional, Union
 from constants import NULL_UID, SUPER_DEBUG, TREE_TYPE_DISPLAY, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_NA
 from error import InvalidOperationError
 from model.uid import UID
-from util import file_util
 
 logger = logging.getLogger(__name__)
 
@@ -104,28 +103,20 @@ class NodeIdentifier(ABC):
         self.set_path_list(path_list)
 
     def has_path(self, path: str) -> bool:
-        return path in self._path_list
+        return path in self.get_path_list()
 
     def has_path_in_subtree(self, subtree_path: str) -> bool:
-        for path in self._path_list:
+        for path in self.get_path_list():
             if path.startswith(subtree_path):
                 return True
         return False
-
-    def normalize_paths(self):
-        path_list = self.get_path_list()
-        for index, full_path in enumerate(path_list):
-            if not file_util.is_normalized(full_path):
-                path_list[index] = file_util.normalize_path(full_path)
-                logger.debug(f'Normalized path: {full_path}')
-        self.set_path_list(path_list)
 
     def __repr__(self):
         return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-{self.uid}⩨{self.get_path_list()}∣'
 
     def __eq__(self, other):
         if isinstance(other, NodeIdentifier):
-            return self._path_list == other._path_list and self.uid == other.uid and self.tree_type == other.tree_type
+            return self.get_path_list() == other.get_path_list() and self.uid == other.uid and self.tree_type == other.tree_type
         return False
 
     def __ne__(self, other):

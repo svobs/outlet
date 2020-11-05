@@ -148,7 +148,9 @@ class Node(treelib.Node, ABC):
 
     @abstractmethod
     def update_from(self, other_node):
-        assert isinstance(other_node, Node) and other_node.node_identifier == self.node_identifier
+        assert isinstance(other_node, Node), f'Invalid type: {type(other_node)}'
+        assert other_node.node_identifier.uid == self.node_identifier.uid and other_node.node_identifier.tree_type == self.node_identifier.tree_type,\
+            f'Other identifier ({other_node.node_identifier}) does not match: {self.node_identifier}'
         # do not change UID or tree type
         self.node_identifier.set_path_list(other_node.get_path_list())
         self.identifier = other_node.identifier

@@ -3,13 +3,11 @@ from functools import partial
 from typing import Callable, Dict, List, Optional, Union
 
 from constants import SUPER_DEBUG
-from model.uid import UID
 from model.node.node import Node
-
-import gi
-
+from model.uid import UID
 from ui.tree.treeview_meta import TreeViewMeta
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository.Gtk import TreeIter, TreePath
 from gi.repository import Gtk
@@ -202,17 +200,20 @@ class DisplayStore:
         """Searches the children of the given parent_iter for the given UID, then returns the data at that node"""
         bound_func: Callable = partial(self._uid_equals_func, target_uid)
 
-        if not parent_iter:
+        if parent_iter:
+            if self.model.iter_has_child(parent_iter):
+                child_iter = self.model.iter_children(parent_iter)
+            else:
+                child_iter = None
+        else:
             # top level
-            parent_iter = self.model.get_iter_first()
-        
-        if self.model.iter_has_child(parent_iter):
-            child_iter = self.model.iter_children(parent_iter)
-            while child_iter is not None:
-                node = self.get_node_data(child_iter)
-                if bound_func(node):
-                    return child_iter
-                child_iter = self.model.iter_next(child_iter)
+            child_iter = self.model.get_iter_first()
+
+        while child_iter is not None:
+            node = self.get_node_data(child_iter)
+            if bound_func(node):
+                return child_iter
+            child_iter = self.model.iter_next(child_iter)
         return None
 
     def get_displayed_children_of(self, parent_uid: UID) -> List[Node]:

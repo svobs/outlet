@@ -11,7 +11,7 @@ from pydispatch import dispatcher
 
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.uid import UID
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from model.node.gdrive_node import GDriveNode
 from test import op_test_base
 from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
@@ -120,7 +120,6 @@ class OpGDriveTest(OpTestBase):
 
         # Now download latest changes from server so our local cacheman is up-to-date
         logger.info('Syncing latest changes from GDrive server...')
-        # FIXME: need to sort changes
         self.app.cacheman.get_synced_gdrive_master_tree(ID_GLOBAL_CACHE)
 
     # TESTS
@@ -131,11 +130,11 @@ class OpGDriveTest(OpTestBase):
         self.app.executor.start_op_execution_thread()
         # Offset from 0:
         src_tree_path = Gtk.TreePath.new_from_string('1')
-        node: Node = self.left_con.display_store.get_node_data(src_tree_path)
-        logger.info(f'CP "{node.name}" from left root to left root')
+        sn: SPIDNodePair = self.left_con.build_sn_from_tree_path(src_tree_path)
+        logger.info(f'CP "{sn.node.name}" from left root to left root')
 
-        nodes = [node]
-        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, nodes=nodes)
+        sn_list = [sn]
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, sn_list=sn_list)
         dst_tree_path = None    # top-level drop
 
         def drop():
@@ -154,14 +153,14 @@ class OpGDriveTest(OpTestBase):
         self.app.executor.start_op_execution_thread()
 
         # Simulate drag & drop based on position in list:
-        nodes = []
+        sn_list = []
         for num in range(3, 7):
-            node: Node = self.left_con.display_store.get_node_data(Gtk.TreePath.new_from_string(f'{num}'))
-            self.assertIsNotNone(node, f'Expected to find node at index {num}')
-            nodes.append(node)
-            logger.warning(f'CP "{node.name}" (#{num}) from left root to right root')
+            sn: SPIDNodePair = self.left_con.build_sn_from_tree_path(Gtk.TreePath.new_from_string(f'{num}'))
+            self.assertIsNotNone(sn, f'Expected to find node at index {num}')
+            sn_list.append(sn)
+            logger.warning(f'CP "{sn.node.name}" (#{num}) from left root to right root')
 
-        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes)
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, sn_list=sn_list)
         dst_tree_path = None
         dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
@@ -186,18 +185,16 @@ class OpGDriveTest(OpTestBase):
 
         name_equals_func_bound: Callable = partial(op_test_base.name_equals_func, node_name)
 
-        nodes = []
+        sn_list = []
         # Duplicate the node 3 times. This is a good test of our reduction logic
         for num in range(0, 3):
             tree_iter = self.left_con.display_store.find_in_tree(name_equals_func_bound)
-            node = None
-            if tree_iter:
-                node = self.left_con.display_store.get_node_data(tree_iter)
-            self.assertIsNotNone(node, f'Expected to find node named "{node_name}"')
-            nodes.append(node)
-            logger.warning(f'CP "{node.name}" (#{num}) from left root to right root')
+            sn = self.left_con.build_sn_from_tree_path(tree_iter)
+            self.assertIsNotNone(sn, f'Expected to find node named "{node_name}"')
+            sn_list.append(sn)
+            logger.warning(f'CP "{sn.node.name}" (#{num}) from left root to right root')
 
-        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes)
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, sn_list=sn_list)
         dst_tree_path = None
 
         # Verify that 3 identical nodes causes an error:
@@ -208,11 +205,11 @@ class OpGDriveTest(OpTestBase):
             self.assertFalse(True, 'If we got here we failed!')
 
     def _cp_single_tree_into_right(self):
-        nodes = [
+        sn_list = [
             self.find_node_by_name_in_left_tree('Art')
         ]
 
-        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes)
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, sn_list=sn_list)
         dst_tree_path = None
 
         # Drag & drop 1 node, which represents a tree of 10 files and 2 dirs:
@@ -254,12 +251,12 @@ class OpGDriveTest(OpTestBase):
 
         self.expand_visible_node(self.left_con, 'Art')
 
-        nodes = [
+        sn_list = [
             self.find_node_by_name_in_left_tree('Modern'),
             self.find_node_by_name_in_left_tree('Art')
         ]
 
-        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes)
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, sn_list=sn_list)
         dst_tree_path = None
 
         def drop():
@@ -302,12 +299,12 @@ class OpGDriveTest(OpTestBase):
         # Note: the test code currently will hang if the user has already expanded the node
         self.expand_visible_node(self.right_con, 'Art')
 
-        nodes = [
+        sn_list = [
             self.find_node_by_name(self.left_con, 'American_Gothic.jpg'),
             self.find_node_by_name(self.left_con, 'George-Floyd.png'),
         ]
 
-        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, nodes=nodes)
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, sn_list=sn_list)
 
         node_iter = self.find_iter_by_name(self.right_con, 'Modern')
         dst_tree_path = self.right_con.display_store.model.get_path(node_iter)
@@ -350,7 +347,7 @@ class OpGDriveTest(OpTestBase):
 
         def drop_both_sides():
             logger.info('Submitting first drag & drop signal')
-            dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes_batch_1)
+            dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, sn_list=nodes_batch_1)
             dst_tree_path = None
 
             drop_complete = threading.Event()
@@ -392,7 +389,7 @@ class OpGDriveTest(OpTestBase):
                 self.find_node_by_name(self.right_con, 'Modern')
             ]
 
-            dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, nodes=nodes_batch_2)
+            dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, sn_list=nodes_batch_2)
             dst_tree_path = Gtk.TreePath.new_from_string('1')
             # Drop into left tree:
             logger.info('Submitting second drag & drop signal')
@@ -452,7 +449,7 @@ class OpGDriveTest(OpTestBase):
 
         def drop_both_sides():
             logger.info('Submitting first drag & drop signal of "Modern" dir')
-            dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes_batch_1)
+            dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, sn_list=nodes_batch_1)
             dst_tree_path = None
 
             drop_complete = threading.Event()

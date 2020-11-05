@@ -582,7 +582,7 @@ class GDriveClient(HasLifecycle):
         gdrive_file = self._convert_dict_to_gdrive_file(file_meta, uid=uid)
 
         logger.info(
-            f'File uploaded successfully) Returned name="{gdrive_file.name}", version="{gdrive_file.version}", goog_id="{gdrive_file.goog_id}",')
+            f'File uploaded successfully! Returning {gdrive_file}",')
 
         return gdrive_file
 

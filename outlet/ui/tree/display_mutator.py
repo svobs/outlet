@@ -2,23 +2,24 @@ import collections
 import logging
 import os
 import threading
-import humanfriendly
-from pydispatch import dispatcher
 from datetime import datetime
 from typing import Deque, Iterable, List, Optional
+
+import humanfriendly
+from pydispatch import dispatcher
 
 from constants import HOLDOFF_TIME_MS, LARGE_NUMBER_OF_CHILDREN, SUPER_DEBUG
 from error import GDriveItemNotFoundError
 from model.display_tree.display_tree import DisplayTree
-from model.user_op import UserOp
+from model.node.container_node import CategoryNode, ContainerNode
+from model.node.ephemeral_node import EmptyNode, LoadingNode
+from model.node.node import Node, SPIDNodePair
+from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
+from model.user_op import UserOp
+from ui import actions
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
-from model.node.container_node import CategoryNode, ContainerNode
-from model.node.node import Node, SPIDNodePair
-from model.node.ephemeral_node import EmptyNode, LoadingNode
-from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
-from ui import actions
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -319,6 +320,21 @@ class DisplayMutator(HasLifecycle):
                 dispatcher.send(signal=actions.NODE_EXPANSION_DONE, sender=self.con.tree_id)
         GLib.idle_add(expand_or_contract)
 
+    def _update_or_append(self, node: Node, parent_iter, child_iter):
+        if child_iter:
+            # Node is update:
+            logger.debug(f'[{self.con.tree_id}] Node already exists in tree (uid={node.uid}): doing an update instead')
+            display_vals: list = self.generate_display_cols(parent_iter, node)
+            for col, val in enumerate(display_vals):
+                self.con.display_store.model.set_value(child_iter, col, val)
+        else:
+            logger.debug(f'[{self.con.tree_id}] Appending new node (uid={node.uid}, is_dir={node.is_dir()})')
+            # Node is new
+            if node.is_dir():
+                self._append_dir_node_and_loading_child(parent_iter, node)
+            else:
+                self._append_file_node(parent_iter, node)
+
     def _on_node_upserted_in_cache(self, sender: str, node: Node) -> None:
         if SUPER_DEBUG:
             logger.debug(f'[{self.con.tree_id}] Entered _on_node_upserted_in_cache(): sender={sender}, node={node}')
@@ -341,45 +357,46 @@ class DisplayMutator(HasLifecycle):
 
                 if parent_uid_list:
                     if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_UPSERTED} for displayed node {node.node_identifier}')
+                        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_UPSERTED} for node {node.node_identifier} '
+                                     f'with parents {parent_uid_list}')
 
                     for parent_uid in parent_uid_list:
-                        parent_iter = self.con.display_store.find_uid_in_tree(target_uid=parent_uid)
-                        if parent_iter:
-                            parent_tree_path = self.con.display_store.model.get_path(parent_iter)
-                            if self.con.tree_view.row_expanded(parent_tree_path):
-                                # Parent is present and expanded. Now check whether the "upserted node" already exists:
-                                child_iter = self.con.display_store.find_uid_in_children(node.uid, parent_iter)
-                                if child_iter:
-                                    # Node is update:
-                                    logger.debug(f'[{self.con.tree_id}] Node already exists in tree (uid={node.uid}): doing an update instead')
-                                    display_vals: list = self.generate_display_cols(parent_iter, node)
-                                    for col, val in enumerate(display_vals):
-                                        self.con.display_store.model.set_value(child_iter, col, val)
-                                else:
-                                    # Node is new
-                                    if node.is_dir():
-                                        self._append_dir_node_and_loading_child(parent_iter, node)
-                                    else:
-                                        self._append_file_node(parent_iter, node)
-                            else:
-                                # Parent present but not expanded. Make sure it has a loading node (which allows child toggle):
-                                if self.con.display_store.model.iter_has_child(parent_iter):
-                                    logger.debug(f'[{self.con.tree_id}] Will not add/update node {node.uid}: Parent is not expanded: {parent_uid}')
-                                else:
-                                    # May have added a child to formerly childless parent: add loading node
-                                    logger.debug(f'[{self.con.tree_id}] Parent ({parent_uid}) is not expanded; adding loading node')
-                                    self._append_loading_child(parent_iter)
+                        if SUPER_DEBUG:
+                            logger.debug(f'[{self.con.tree_id}] Examining parent {parent_uid} for displayed node {node.node_identifier}')
+
+                        if self.con.get_tree().root_identifier.uid == parent_uid:
+                            logger.debug(f'[{self.con.tree_id}] Node is topmost level: {node.node_identifier}')
+                            parent_iter = None
+                            child_iter = self.con.display_store.find_uid_in_children(node.uid, parent_iter)
+                            self._update_or_append(node, parent_iter, child_iter)
                         else:
-                            # Not even parent is displayed. Probably an ancestor isn't expanded. Just skip
-                            assert parent_uid not in self.con.display_store.displayed_rows, \
-                                f'DisplayedRows ({self.con.display_store.displayed_rows}) contains UID ({parent_uid})!'
-                            logger.debug(f'[{self.con.tree_id}] Will not add/update node: Could not find parent node in display tree: {parent_uid}')
+                            # Node is not topmost.
+                            logger.debug(f'[{self.con.tree_id}] Node is not topmost: {node.node_identifier}')
+                            parent_iter = self.con.display_store.find_uid_in_tree(target_uid=parent_uid)
+                            if parent_iter:
+                                parent_tree_path = self.con.display_store.model.get_path(parent_iter)
+                                if self.con.tree_view.row_expanded(parent_tree_path):
+                                    # Parent is present and expanded. Now check whether the "upserted node" already exists:
+                                    child_iter = self.con.display_store.find_uid_in_children(node.uid, parent_iter)
+                                    self._update_or_append(node, parent_iter, child_iter)
+                                else:
+                                    # Parent present but not expanded. Make sure it has a loading node (which allows child toggle):
+                                    if self.con.display_store.model.iter_has_child(parent_iter):
+                                        logger.debug(f'[{self.con.tree_id}] Will not upsert node {node.uid}: Parent is not expanded: {parent_uid}')
+                                    else:
+                                        # May have added a child to formerly childless parent: add loading node
+                                        logger.debug(f'[{self.con.tree_id}] Parent ({parent_uid}) is not expanded; adding loading node')
+                                        self._append_loading_child(parent_iter)
+                            else:
+                                # Not even parent is displayed. Probably an ancestor isn't expanded. Just skip
+                                assert parent_uid not in self.con.display_store.displayed_rows, \
+                                    f'DisplayedRows ({self.con.display_store.displayed_rows}) contains UID ({parent_uid})!'
+                                logger.debug(f'[{self.con.tree_id}] Will not upsert node: Could not find parent node in display tree: {parent_uid}')
 
                 else:
                     # No parent found in tree
                     if node.uid in self.con.display_store.displayed_rows:
-                        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_UPSERTED} for node {node.node_identifier}'
+                        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_UPSERTED} for node {node.node_identifier} '
                                      f'but its parent is no longer in the tree; removing node from display store: {node.uid}')
                         self.con.display_store.remove_node(node.uid)
                     elif tree.is_path_in_subtree(node.get_path_list()):

@@ -186,11 +186,11 @@ class TreeUiListeners(HasLifecycle):
         logger.info(f'[{self.con.tree_id}] We received a drop of {len(drag_data.sn_list)} nodes!')
 
         if tree_path:
-            sn_dst: SPIDNodePair = self.con.build_sn_from_tree_path(tree_path)
+            sn_dst: SPIDNodePair = self.con.display_store.build_sn_from_tree_path(tree_path)
         else:
             # Assume we are dropping into the tree root
             is_into = True
-            sn_dst = SPIDNodePair(self.con.get_tree().root_identifier, self.con.get_tree().root_node)
+            sn_dst = SPIDNodePair(self.con.get_tree().root_identifier, self.con.get_tree().get_root_node())
 
         if not is_into or (sn_dst and not sn_dst.node.is_dir()):
             # cannot drop into a file; just use parent in this case

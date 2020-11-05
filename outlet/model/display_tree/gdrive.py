@@ -1,9 +1,8 @@
 import logging
-from typing import List, Optional
+from typing import List
 
 from pydispatch import dispatcher
 
-from constants import TREE_TYPE_GDRIVE
 from model.display_tree.display_tree import DisplayTree
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode

@@ -149,7 +149,7 @@ class LocalDiskTree(treelib.Tree):
         if subtree_root_node:
             root_node = subtree_root_node
         else:
-            root_node = self.root_node
+            root_node = self.get_root_node()
 
         queue.append(root_node)
         stack.append(root_node)

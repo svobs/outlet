@@ -172,10 +172,10 @@ class TreeActions(HasLifecycle):
                     # somewhere in this returned list is the subtree root. Need to check so we don't include a duplicate:
                     if node.uid != node_to_delete.uid:
                         op_list.append(UserOp(op_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
-                                          op_type=UserOpType.RM, src_node=node))
+                                              op_type=UserOpType.RM, src_node=node))
 
             op_list.append(UserOp(op_uid=self.con.app.uid_generator.next_uid(), batch_uid=batch_uid,
-                              op_type=UserOpType.RM, src_node=node_to_delete))
+                                  op_type=UserOpType.RM, src_node=node_to_delete))
 
         self.con.parent_win.app.cacheman.enqueue_op_list(op_list)
 

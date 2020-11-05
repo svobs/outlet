@@ -1,7 +1,6 @@
 import logging
-from typing import Any, Callable, List, Tuple
+from typing import Any, Callable, List, Tuple, Union
 
-import gi
 from pydispatch import dispatcher
 
 from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TREE_TYPE_GDRIVE, TreeDisplayMode
@@ -16,8 +15,10 @@ from ui.tree.display_store import DisplayStore
 from ui.tree.display_tree_decorator import LazyLoadDisplayTreeDecorator
 from util.stopwatch_sec import Stopwatch
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
+from gi.repository.Gtk import TreeIter, TreePath
 
 logger = logging.getLogger(__name__)
 
@@ -121,13 +122,12 @@ class TreePanelController:
 
         GLib.idle_add(_reload)
 
-    # TODO: put in display store
     def build_spid_from_tree_path(self, tree_path: Gtk.TreePath) -> SinglePathNodeIdentifier:
         node = self.display_store.get_node_data(tree_path)
         single_path = self.derive_single_path_from_tree_path(tree_path)
         return SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.get_tree_type())
 
-    def build_sn_from_tree_path(self, tree_path: Gtk.TreePath) -> SPIDNodePair:
+    def build_sn_from_tree_path(self, tree_path: Union[TreeIter, TreePath]) -> SPIDNodePair:
         node = self.display_store.get_node_data(tree_path)
         single_path = self.derive_single_path_from_tree_path(tree_path)
         spid = SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.get_tree_type())

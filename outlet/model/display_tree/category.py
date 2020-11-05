@@ -34,9 +34,9 @@ class CategoryDisplayTree(DisplayTree):
         self._category_tree: treelib.Tree = treelib.Tree()
 
         # Root node is not really important. Do not use its original UID, so as to disallow it from interfering with lookups
-        self.root_node = ContainerNode(root_node_identifier, nid=SUPER_ROOT_UID)
-        logger.debug(f'[{tree_id}] CategoryDisplayTree: inserting root node: {self.root_node}')
-        self._category_tree.add_node(self.root_node, parent=None)
+        root_node = ContainerNode(root_node_identifier, nid=SUPER_ROOT_UID)
+        logger.debug(f'[{tree_id}] CategoryDisplayTree: inserting root node: {root_node}')
+        self._category_tree.add_node(root_node, parent=None)
 
         self.show_whole_forest: bool = show_whole_forest
 
@@ -50,10 +50,10 @@ class CategoryDisplayTree(DisplayTree):
         self.count_conflict_errors = 0
 
     def get_root_node(self):
-        return self.root_node
+        return self._category_tree.get_node(self._category_tree.root)
 
     def get_children_for_root(self) -> Iterable[Node]:
-        return self.get_children(self.root_node)
+        return self.get_children(self.get_root_node())
 
     def get_children(self, parent: Node) -> Iterable[Node]:
         try:
@@ -106,7 +106,7 @@ class CategoryDisplayTree(DisplayTree):
 
         # else we need to create pre-ancestors...
 
-        parent_node = self.root_node
+        parent_node = self.get_root_node()
         if self.show_whole_forest:
             # Create tree type root (e.g. 'GDrive' or 'Local Disk')
             nid = str(tree_type)
@@ -121,7 +121,7 @@ class CategoryDisplayTree(DisplayTree):
         cat_node = self._category_tree.get_node(last_pre_ancestor_nid)
         if not cat_node:
             # Create category display node. This may be the "last pre-ancestor". (Use root node UID so its context menu points to root)
-            cat_node = CategoryNode(node_identifier=SinglePathNodeIdentifier(self.root_node.uid, self.root_path, tree_type), op_type=op_type,
+            cat_node = CategoryNode(node_identifier=SinglePathNodeIdentifier(self.get_root_node().uid, self.root_path, tree_type), op_type=op_type,
                                     nid=last_pre_ancestor_nid)
             logger.debug(f'[{self.tree_id}] Inserting new Category node with nid="{last_pre_ancestor_nid}": {cat_node.node_identifier}')
             self._category_tree.add_node(node=cat_node, parent=parent_node)
@@ -271,7 +271,7 @@ class CategoryDisplayTree(DisplayTree):
             type_summaries = []
             type_map = {}
             cat_count = 0
-            for child in self._category_tree.children(self.root_node.identifier):
+            for child in self._category_tree.children(self.get_root_node().identifier):
                 assert isinstance(child, RootTypeNode), f'For {child}'
                 cat_map = self._build_cat_map(child.identifier)
                 if cat_map:
@@ -285,7 +285,7 @@ class CategoryDisplayTree(DisplayTree):
                     type_summaries.append(f'{tree_type_name}: {self._build_cat_summaries_str(cat_map)}')
             return '; '.join(type_summaries)
         else:
-            cat_map = self._build_cat_map(self.root_node.identifier)
+            cat_map = self._build_cat_map(self.get_root_node().identifier)
             if not cat_map:
                 return 'Contents are identical'
             return self._build_cat_summaries_str(cat_map)
@@ -295,8 +295,8 @@ class CategoryDisplayTree(DisplayTree):
         stats_sw = Stopwatch()
         queue: Deque[Node] = deque()
         stack: Deque[Node] = deque()
-        queue.append(self.root_node)
-        stack.append(self.root_node)
+        queue.append(self.get_root_node())
+        stack.append(self.get_root_node())
 
         # go down tree, zeroing out existing stats and adding children to stack
         while len(queue) > 0:

@@ -16,7 +16,7 @@ from store import cache_manager
 from store.sqlite.op_db import OpDatabase
 from model.uid import UID
 from model.display_tree.display_tree import DisplayTree
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from outlet_app import OutletApplication
 from ui import actions
 from ui.tree import root_path_config
@@ -284,7 +284,7 @@ class OpTestBase(unittest.TestCase):
                         dir_deque.append((expected_list, actual_list))
 
             except StopIteration:
-                self.fail(f'Tree "{tree_con.tree_id}" is missing displayed node: {expected_node}')
+                self.fail(f'Tree "{tree_con.tree_id}" is not displaying expected node: {expected_node}')
 
         try:
             actual_node: Node = next(actual_iter)
@@ -342,13 +342,13 @@ class OpTestBase(unittest.TestCase):
     def find_iter_by_name_in_left_tree(self, node_name):
         return self.find_iter_by_name(self.left_con, node_name)
 
-    def find_node_by_name(self, tree_con, node_name: str):
+    def find_node_by_name(self, tree_con, node_name: str) -> SPIDNodePair:
         tree_iter = self.find_iter_by_name(tree_con, node_name)
-        node = tree_con.display_store.get_node_data(tree_iter)
-        logger.info(f'Found "{node.name}"')
-        return node
+        sn = tree_con.build_sn_from_tree_path(tree_iter)
+        logger.info(f'Found "{sn.node.name}"')
+        return sn
 
-    def find_node_by_name_in_left_tree(self, node_name):
+    def find_node_by_name_in_left_tree(self, node_name) -> SPIDNodePair:
         return self.find_node_by_name(self.left_con, node_name)
 
     def do_and_verify(self, do_func: Callable, count_expected_cmds: int, wait_for_left: bool, wait_for_right: bool,

@@ -11,7 +11,7 @@ from pydispatch import dispatcher
 
 from command.cmd_interface import Command, CommandResult
 from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, ROOT_PATH, \
-    TREE_TYPE_GDRIVE, \
+    SUPER_DEBUG, TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
@@ -348,7 +348,7 @@ class CacheManager(HasLifecycle):
         logger.debug(f'Got request to load subtree: {node_identifier}')
         assert isinstance(node_identifier, SinglePathNodeIdentifier), f'Expected SinglePathNodeIdentifier but got {type(node_identifier)}'
 
-        node_identifier.normalize_paths()
+        self._normalize_paths(node_identifier)
 
         dispatcher.send(signal=actions.LOAD_SUBTREE_STARTED, sender=tree_id)
 
@@ -365,6 +365,15 @@ class CacheManager(HasLifecycle):
             raise RuntimeError(f'Unrecognized tree type: {node_identifier.tree_type}')
 
         return subtree
+
+    @staticmethod
+    def _normalize_paths(node_identifier: NodeIdentifier):
+        path_list = node_identifier.get_path_list()
+        for index, full_path in enumerate(path_list):
+            if not file_util.is_normalized(full_path):
+                path_list[index] = file_util.normalize_path(full_path)
+                logger.debug(f'Normalized path: {full_path}')
+        node_identifier.set_path_list(path_list)
 
     def find_existing_cache_info_for_local_subtree(self, full_path: str) -> Optional[PersistedCacheInfo]:
         existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_LOCAL_DISK).values())
@@ -755,8 +764,14 @@ class CacheManager(HasLifecycle):
                 filtered_parent_uid_list = []
                 for parent_uid in node.get_parent_uids():
                     parent_node = self.get_node_for_uid(parent_uid, node.get_tree_type())
+                    if SUPER_DEBUG:
+                        logger.debug(f'get_parent_uid_list_for_node(): Checking parent_node {parent_node} against path "{whitelist_subtree_path}"')
                     if parent_node and parent_node.node_identifier.has_path_in_subtree(whitelist_subtree_path):
-                        filtered_parent_uid_list.append(parent_node)
+                        filtered_parent_uid_list.append(parent_node.uid)
+                    elif SUPER_DEBUG:
+                        logger.debug(f'get_parent_uid_list_for_node(): Filtered out parent {parent_uid}')
+                if SUPER_DEBUG:
+                    logger.debug(f'get_parent_uid_list_for_node(): Returning parent list: {filtered_parent_uid_list}')
                 return filtered_parent_uid_list
 
             return node.get_parent_uids()
