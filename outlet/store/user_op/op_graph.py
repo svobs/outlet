@@ -52,13 +52,13 @@ class OpGraph(HasLifecycle):
 
     def _print_current_state(self):
         lines = self._graph_root.print_recursively()
-        logger.debug(f'CURRENT STATE: OpGraph is now {len(lines)} items:')
+        logger.debug(f'CURRENT STATE: OpGraph contains {len(lines)} items:')
         for line in lines:
             logger.debug(line)
-        self._print_node_q_dict()
+        self._print_node_queue_dict()
 
-    def _print_node_q_dict(self):
-        logger.debug(f'CURRENT STATE: NodeQueueDict is now: {len(self._node_q_dict)} node queues:')
+    def _print_node_queue_dict(self):
+        logger.debug(f'CURRENT STATE: NodeQueueDict has: {len(self._node_q_dict)} queues:')
         for node_uid, deque in self._node_q_dict.items():
             node_list: List[str] = []
             for node in deque:
@@ -431,6 +431,8 @@ class OpGraph(HasLifecycle):
                 logger.debug(f'Skipping UserOp (UID {op_node.op.op_uid}): {node_type_str} node is not child of root')
             return False
 
+        return True
+
     def _try_get(self) -> Optional[UserOp]:
         # We can optimize this later
 
@@ -449,11 +451,13 @@ class OpGraph(HasLifecycle):
 
                 if not is_other_node_ready:
                     if SUPER_DEBUG:
-                        logger.debug(f'TryGet(): Skipping node because other op graph node is not ready')
+                        logger.debug(f'TryGet(): Skipping node because other op graph node (is_dst={op_node.is_dst()}) is not ready')
                     continue
 
             # Make sure the node has not already been checked out:
             if not self._outstanding_actions.get(op_node.op.op_uid, None):
+                if SUPER_DEBUG:
+                    logger.debug(f'TryGet(): inserting node into OutstandingActionsDict: {op_node}')
                 self._outstanding_actions[op_node.op.op_uid] = op_node.op
                 return op_node.op
             else:

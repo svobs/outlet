@@ -212,11 +212,11 @@ class OpLedger(HasLifecycle):
         for batch_uid in sorted_keys:
             # Assume batch has already been reduced and reconciled against master tree.
             batch_op_list: List[UserOp] = batch_dict[batch_uid]
-            self._refresh_batch_nodes(batch_op_list)
-            batch_root = self._op_graph.make_graph_from_batch(batch_op_list)
-            self._add_batch_to_op_graph_and_remove_discarded(batch_root, batch_uid)
+            self._ensure_batch_nodes_loaded(batch_op_list)
 
-    def _refresh_batch_nodes(self, batch_op_list: List[UserOp]):
+            self._append_batch(batch_uid, batch_op_list, save_to_disk=False)
+
+    def _ensure_batch_nodes_loaded(self, batch_op_list: List[UserOp]):
         big_node_list: List[Node] = []
         for user_op in batch_op_list:
             big_node_list.append(user_op.src_node)
@@ -226,7 +226,7 @@ class OpLedger(HasLifecycle):
         # Make sure all relevant caches are loaded:
         self.app.cacheman.ensure_loaded(big_node_list)
 
-    def append_new_pending_op_batch(self, op_batch: Iterable[UserOp]):
+    def append_new_pending_op_batch(self, batch_op_list: Iterable[UserOp]):
         """
         Call this after the user requests a new set of ops.
 
@@ -235,30 +235,35 @@ class OpLedger(HasLifecycle):
          - When each command completes, cacheman is notified of any node updates required as well.
          - When batch completes, we archive the ops on disk.
         """
-        if not op_batch:
+        if not batch_op_list:
             return
 
         # Validate batch_uid
-        op_iter = iter(op_batch)
+        op_iter = iter(batch_op_list)
         batch_uid = next(op_iter).batch_uid
         for op in op_iter:
             if op.batch_uid != batch_uid:
                 raise RuntimeError(f'Changes in batch do not all contain the same batch_uid (found {op.batch_uid} and {batch_uid})')
 
         # Simplify and remove redundancies in op_list
-        reduced_batch: Iterable[UserOp] = self._reduce_ops(op_batch)
+        reduced_batch: Iterable[UserOp] = self._reduce_ops(batch_op_list)
 
-        batch_root: RootNode = self._op_graph.make_graph_from_batch(reduced_batch)
+        self._append_batch(batch_uid, reduced_batch, save_to_disk=True)
+
+    def _append_batch(self, batch_uid: UID, batch_op_list: Iterable[UserOp], save_to_disk: bool):
+        
+        batch_root: RootNode = self._op_graph.make_graph_from_batch(batch_op_list)
 
         # Reconcile ops against master op tree before adding nodes
         if not self._op_graph.can_enqueue_batch(batch_root):
             raise RuntimeError('Invalid batch!')
 
-        # Save ops and their planning nodes to disk
-        self._disk_store.save_pending_ops_to_disk(reduced_batch)
+        if save_to_disk:
+            # Save ops and their planning nodes to disk
+            self._disk_store.save_pending_ops_to_disk(batch_op_list)
 
-        # Add dst nodes for to-be-created nodes if they are not present
-        for op in reduced_batch:
+        # Upsert src & dst nodes (redraws icons if present; adds missing nodes)
+        for op in batch_op_list:
             self._update_nodes_in_memstore(op)
 
         self._add_batch_to_op_graph_and_remove_discarded(batch_root, batch_uid)
