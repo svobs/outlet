@@ -186,8 +186,8 @@ class UploadToGDriveCommand(CopyNodeCommand):
         return True
 
     def execute(self, cxt: CommandContext):
-        assert isinstance(self.op.src_node, LocalFileNode)
-        assert isinstance(self.op.dst_node, GDriveNode)
+        assert isinstance(self.op.src_node, LocalFileNode), f'Expected LocalFileNode but got: {type(self.op.src_node)} for {self.op.src_node}'
+        assert isinstance(self.op.dst_node, GDriveNode), f'Expected GDriveNode but got: {type(self.op.dst_node)} for {self.op.dst_node}'
         # this requires that any parents have been created and added to the in-memory cache (and will fail otherwise)
         src_file_path: str = self.op.src_node.get_single_path()
 

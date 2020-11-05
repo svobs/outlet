@@ -43,7 +43,7 @@ class OneSide:
             dst_node = None
 
         op: UserOp = UserOp(op_uid=self.app.uid_generator.next_uid(), batch_uid=self._batch_uid, op_type=op_type,
-                    src_node=src_sn.node, dst_node=dst_node)
+                            src_node=src_sn.node, dst_node=dst_node)
 
         self.change_tree.add_node(target_sn, op)
 
@@ -218,8 +218,8 @@ class ChangeMaker:
                     dst_rel_path: str = file_util.strip_root(subtree_sn.spid.get_single_path(), src_parent_path)
                     dst_path = os.path.join(dst_parent_path, dst_rel_path)
                     # this will add any missing ancestors, and populate the parent list if applicable:
-                    dst_sn: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(subtree_sn.node, dst_path)
-                    self.right_side.add_op(op_type=op_type, src_sn=src_sn, dst_sn=dst_sn)
+                    dst_sn: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(subtree_sn, dst_path)
+                    self.right_side.add_op(op_type=op_type, src_sn=subtree_sn, dst_sn=dst_sn)
             else:
                 # Single file; easy case:
                 dst_path = os.path.join(dst_parent_path, src_sn.node.name)
@@ -232,7 +232,7 @@ class ChangeMaker:
         def for_each_file(file_sn):
             subtree_files.append(file_sn)
 
-        self.left_side.underlying_tree.visit_each_sn_for_subtree(for_each_file, src_sn.spid)
+        self.left_side.underlying_tree.visit_each_sn_for_subtree(for_each_file, src_sn)
         return subtree_files
 
     @staticmethod

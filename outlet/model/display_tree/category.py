@@ -77,7 +77,7 @@ class CategoryDisplayTree(DisplayTree):
         return self.op_dict.get(node.uid, None)
 
     def _append_op(self, op: UserOp):
-        logger.debug(f'Appending op: {op}')
+        logger.debug(f'[{self.tree_id}] Appending op: {op}')
         if op.dst_node:
             if self.op_dict.get(op.dst_node.uid, None):
                 raise RuntimeError(f'Duplicate UserOp: 1st={op}; 2nd={self.op_dict.get(op.dst_node.uid)}')

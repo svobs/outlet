@@ -278,7 +278,6 @@ class DisplayStore:
             tree_iter = tree_path
         else:
             tree_iter = self.model.get_iter(tree_path)
-        tree_iter = self.model.get_iter(tree_path)
         self.recurse_over_tree(tree_iter, action_func)
 
     def append_node(self, parent_node_iter, row_values: list):
@@ -345,7 +344,13 @@ class DisplayStore:
         self.model.remove(first_child_iter)
         return True
 
-    def ensure_tree_path(self, tree_thing: Union[Gtk.TreeIter, Gtk.TreePath]):
+    def ensure_tree_iter(self, tree_thing: Union[Gtk.TreeIter, Gtk.TreePath]) -> TreeIter:
+        if isinstance(tree_thing, Gtk.TreeIter):
+            return tree_thing
+        else:
+            return self.model.get_iter(tree_thing)
+
+    def ensure_tree_path(self, tree_thing: Union[Gtk.TreeIter, Gtk.TreePath]) -> TreePath:
         if isinstance(tree_thing, Gtk.TreePath):
             return tree_thing
         else:

@@ -226,7 +226,8 @@ class CacheManager(HasLifecycle):
             if self.enable_load_from_disk and self.load_all_caches_on_startup:
                 self.load_all_caches()
             else:
-                logger.info(f'{stopwatch} Found {unique_cache_count} existing caches but configured not to load on startup')
+                logger.info(f'{stopwatch} Found {unique_cache_count} existing caches (+ {skipped_count} skipped) but configured not to load on'
+                            f' startup')
 
             # Finally, add or cancel any queued changes (asynchronously)
             if self.cancel_all_pending_ops_on_startup:

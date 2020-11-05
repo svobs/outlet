@@ -66,8 +66,7 @@ class GDriveDisplayTree(DisplayTree):
             return 'Loading stats...'
 
     def print_tree_contents_debug(self):
-        # TODO
-        logger.debug(f'[{self.tree_id}] GDriveDisplayTree for "{self.root_identifier}": NOT IMPLEMENTED')
+        logger.debug(f'[{self.tree_id}] GDriveDisplayTree for "{self.root_identifier}": {self._whole_tree.show_tree(self.root_identifier.uid)}')
 
     def refresh_stats(self, tree_id: str):
         logger.debug(f'[{tree_id}] Refreshing stats...')

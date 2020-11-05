@@ -137,6 +137,8 @@ class TreePanelController:
         """Travels up the display tree and constructs a single path for the given node.
         Some background: while a node can have several paths associated with it, each display tree node can only be associated
         with a single path - but that information is implicit in the tree structure itself and must be reconstructed from it."""
+        tree_path = self.display_store.ensure_tree_path(tree_path)
+
         # don't mess up the caller; make a copy before modifying:
         tree_path_copy = tree_path.copy()
 

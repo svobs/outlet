@@ -572,7 +572,6 @@ class GDriveWholeTree:
     def find_duplicate_node_names(self):
         """Finds and builds a list of all nodes which have the same name inside the same folder"""
         queue: Deque[GDriveNode] = deque()
-        stack: Deque[GDriveNode] = deque()
         child_dict: DefaultDict[str, List[GDriveNode]] = defaultdict(list)
 
         duplicates: List[List[GDriveNode]] = []
@@ -581,7 +580,6 @@ class GDriveWholeTree:
         for root in self.get_children_for_root():
             if root.is_dir():
                 queue.append(root)
-                stack.append(root)
             child_dict[root.name].append(root)
 
         for node_list in child_dict.values():
@@ -621,27 +619,25 @@ class GDriveWholeTree:
         for num_parents, node_count in counter.items():
             logger.info(f'Nodes with {num_parents} parents: {node_count}')
 
-    def refresh_stats(self, subtree_root: Optional[GDriveFolder] = None, tree_id: str = None):
-        # Calculates the stats for all the directories
-        logger.debug(f'[{tree_id}] Refreshing stats for GDrive tree (subtree={subtree_root})')
-        stats_sw = Stopwatch()
-        queue: Deque[GDriveFolder] = deque()
-        stack: Deque[GDriveFolder] = deque()
-
-        if subtree_root:
-            # Partial refresh
+    def for_each_node_breadth_first(self, action_func: Callable, subtree_root_uid: Optional[UID] = None):
+        node_queue: Deque[GDriveFolder] = deque()
+        if subtree_root_uid:
+            # Partial
+            subtree_root = self.get_node_for_uid(subtree_root_uid)
+            if not subtree_root:
+                return
             assert isinstance(subtree_root, GDriveFolder)
-            queue.append(subtree_root)
-            stack.append(subtree_root)
+            node_queue.append(subtree_root)
+            action_func(subtree_root)
         else:
             for root in self.get_children_for_root():
                 if root.is_dir():
                     assert isinstance(root, GDriveFolder)
-                    queue.append(root)
-                    stack.append(root)
+                    node_queue.append(root)
+                action_func(root)
 
-        while len(queue) > 0:
-            node: GDriveFolder = queue.popleft()
+        while len(node_queue) > 0:
+            node: GDriveFolder = node_queue.popleft()
             node.zero_out_stats()
 
             children = self.get_children(node)
@@ -649,11 +645,31 @@ class GDriveWholeTree:
                 for child in children:
                     if child.is_dir():
                         assert isinstance(child, GDriveFolder)
-                        queue.append(child)
-                        stack.append(child)
+                        node_queue.append(child)
+                    action_func(child)
 
-        while len(stack) > 0:
-            node = stack.pop()
+
+    def refresh_stats(self, subtree_root: Optional[GDriveFolder] = None, tree_id: str = None):
+        # Calculates the stats for all the directories
+        logger.debug(f'[{tree_id}] Refreshing stats for GDrive tree (subtree={subtree_root})')
+        stats_sw = Stopwatch()
+        second_pass_stack: Deque[GDriveFolder] = deque()
+
+        if subtree_root:
+            subtree_root_uid = subtree_root.uid
+        else:
+            subtree_root_uid = None
+
+        def add_dirs_to_stack(n):
+            if n.is_dir():
+                assert isinstance(n, GDriveFolder)
+                second_pass_stack.append(n)
+
+        self.for_each_node_breadth_first(action_func=add_dirs_to_stack, subtree_root_uid=subtree_root_uid)
+
+        # 2nd pass:
+        while len(second_pass_stack) > 0:
+            node = second_pass_stack.pop()
             assert node.is_dir()
 
             children = self.get_children(node)
@@ -681,6 +697,10 @@ class GDriveWholeTree:
 
         logger.debug(f'{stats_sw} Refreshed stats for Google Drive tree')
 
+    def show_tree(self, subroot_uid: UID) -> str:
+        # TODO
+        return 'TODO'
+    
 
 def _merge_into_existing(existing_node: GDriveNode, new_node: GDriveNode) -> Tuple[List[UID], List[UID]]:
 
