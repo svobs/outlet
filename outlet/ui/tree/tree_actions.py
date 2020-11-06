@@ -9,7 +9,7 @@ from model.node_identifier import SinglePathNodeIdentifier
 from util import file_util
 from model.user_op import UserOp, UserOpType
 from store.gdrive.client import GDriveClient
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from model.node.gdrive_node import GDriveFile
 from ui import actions
 
@@ -165,6 +165,9 @@ class TreeActions(HasLifecycle):
         batch_uid = self.con.app.uid_generator.next_uid()
         op_list = []
         for node_to_delete in node_list:
+            if isinstance(node_to_delete, SPIDNodePair):
+                node_to_delete = node_to_delete.node
+
             if node_to_delete.is_dir():
                 # Expand dir nodes. ChangeManager will not remove non-empty dirs
                 expanded_node_list = self._get_subtree_for_node(node_to_delete)

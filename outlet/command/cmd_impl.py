@@ -9,7 +9,7 @@ from model.user_op import UserOp, UserOpType
 from command.cmd_interface import Command, CommandContext, CommandResult, CommandStatus, CopyNodeCommand, DeleteNodeCommand, TwoNodeCommand
 from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, TrashStatus
 from model.uid import UID
-from model.node.local_disk_node import LocalDirNode, LocalFileNode
+from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.gdrive_node import GDriveFile, GDriveNode
 
 logger = logging.getLogger(__name__)
@@ -76,8 +76,7 @@ class DeleteLocalFileCommand(DeleteNodeCommand):
         return FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT
 
     def execute(self, cxt: CommandContext):
-        assert isinstance(self.op.src_node, LocalFileNode), f'Got {self.op.src_node}'
-        assert isinstance(self.op.dst_node, LocalFileNode), f'Got {self.op.dst_node}'
+        assert isinstance(self.op.src_node, LocalNode), f'Got {self.op.src_node}'
 
         deleted_nodes_list = []
 

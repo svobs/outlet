@@ -10,7 +10,7 @@ from pydispatch import dispatcher
 
 from constants import TREE_TYPE_LOCAL_DISK
 from model.uid import UID
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from test import op_test_base
 from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, INITIAL_LOCAL_TREE_RIGHT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
 from ui import actions
@@ -55,11 +55,11 @@ class OpLocalTest(OpTestBase):
         self.app.executor.start_op_execution_thread()
         # Offset from 0:
         src_tree_path = Gtk.TreePath.new_from_string('1')
-        node: Node = self.right_con.display_store.get_node_data(src_tree_path)
-        logger.info(f'CP "{node.name}" from right root to left root')
+        sn: SPIDNodePair = self.right_con.build_sn_from_tree_path(src_tree_path)
+        logger.info(f'CP "{sn.node.name}" from right root to left root')
 
-        nodes = [node]
-        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, nodes=nodes)
+        sn_list = [sn]
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, sn_list=sn_list)
         dst_tree_path = Gtk.TreePath.new_from_string('1')
 
         def drop():
@@ -98,14 +98,14 @@ class OpLocalTest(OpTestBase):
         self.app.executor.start_op_execution_thread()
 
         # Simulate drag & drop based on position in list:
-        nodes = []
+        sn_list = []
         for num in range(0, 4):
-            node: Node = self.right_con.display_store.get_node_data(Gtk.TreePath.new_from_string(f'{num}'))
-            self.assertIsNotNone(node, f'Expected to find node at index {num}')
-            nodes.append(node)
-            logger.warning(f'CP "{node.name}" (#{num}) from right root to left root')
+            sn: SPIDNodePair = self.right_con.build_sn_from_tree_path(Gtk.TreePath.new_from_string(f'{num}'))
+            self.assertIsNotNone(sn, f'Expected to find node at index {num}')
+            sn_list.append(sn)
+            logger.warning(f'CP "{sn.node.name}" (#{num}) from right root to left root')
 
-        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, nodes=nodes)
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, sn_list=sn_list)
         dst_tree_path = Gtk.TreePath.new_from_string('1')
         dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_LEFT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
@@ -150,18 +150,18 @@ class OpLocalTest(OpTestBase):
 
         name_equals_func_bound: Callable = partial(op_test_base.name_equals_func, node_name)
 
-        nodes = []
+        sn_list = []
         # Duplicate the node 3 times. This is a good test of our reduction logic
         for num in range(0, 3):
             tree_iter = self.left_con.display_store.find_in_tree(name_equals_func_bound)
-            node = None
+            sn = None
             if tree_iter:
-                node = self.left_con.display_store.get_node_data(tree_iter)
-            self.assertIsNotNone(node, f'Expected to find node named "{node_name}"')
-            nodes.append(node)
-            logger.warning(f'CP "{node.name}" (#{num}) from left root to right root')
+                sn = self.left_con.build_sn_from_tree_path(tree_iter)
+            self.assertIsNotNone(sn, f'Expected to find node named "{node_name}"')
+            sn_list.append(sn)
+            logger.warning(f'CP "{sn.node.name}" (#{num}) from left root to right root')
 
-        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes)
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, sn_list=sn_list)
         dst_tree_path = Gtk.TreePath.new_from_string('1')
 
         # Verify that 3 identical nodes causes an error:
@@ -175,11 +175,11 @@ class OpLocalTest(OpTestBase):
         logger.info('Testing drag & drop copy of 1 dir tree local left to local right')
         self.app.executor.start_op_execution_thread()
 
-        nodes = [
+        sn_list = [
             self.find_node_by_name_in_left_tree('Art')
         ]
 
-        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes)
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, sn_list=sn_list)
         dst_tree_path = Gtk.TreePath.new_from_string('1')
 
         # Drag & drop 1 node, which represents a tree of 10 files and 2 dirs:
@@ -219,12 +219,12 @@ class OpLocalTest(OpTestBase):
 
         self.expand_visible_node(self.left_con, 'Art')
 
-        nodes = [
+        sn_list = [
             self.find_node_by_name_in_left_tree('Modern'),
             self.find_node_by_name_in_left_tree('Art')
         ]
 
-        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes)
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, sn_list=sn_list)
         dst_tree_path = Gtk.TreePath.new_from_string('1')
 
         def drop():
@@ -267,13 +267,13 @@ class OpLocalTest(OpTestBase):
     def test_dd_into(self):
         logger.info('Testing drag & drop copy of 3 files into dir node')
 
-        nodes = [
+        sn_list = [
             self.find_node_by_name(self.right_con, 'M83.jpg'),
             self.find_node_by_name(self.right_con, 'Ocean-Wave.jpg'),
             self.find_node_by_name(self.right_con, 'Starry-Night.jpg'),
         ]
 
-        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, nodes=nodes)
+        dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, sn_list=sn_list)
 
         node_iter = self.find_iter_by_name(self.left_con, 'Art')
         dst_tree_path = self.left_con.display_store.model.get_path(node_iter)
@@ -313,17 +313,18 @@ class OpLocalTest(OpTestBase):
                            expected_left=final_tree_left, expected_right=INITIAL_LOCAL_TREE_RIGHT)
 
     def test_dd_left_then_dd_right(self):
+        # FIXME
         logger.info('Testing CP tree to right followed by CP of same tree to left')
 
         self.expand_visible_node(self.left_con, 'Art')
 
-        nodes_batch_1 = [
+        sn_list_batch_1 = [
             self.find_node_by_name(self.left_con, 'Modern')
         ]
 
         def drop_both_sides():
             logger.info('Submitting first drag & drop signal')
-            dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes_batch_1)
+            dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, sn_list=sn_list_batch_1)
             dst_tree_path = Gtk.TreePath.new_from_string('2')
 
             drop_complete = threading.Event()
@@ -362,11 +363,11 @@ class OpLocalTest(OpTestBase):
                 raise RuntimeError('Timed out waiting for stats to update!')
 
             # Now find the dropped nodes in right tree...
-            nodes_batch_2 = [
+            sn_list_batch_2 = [
                 self.find_node_by_name(self.right_con, 'Modern')
             ]
 
-            dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, nodes=nodes_batch_2)
+            dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, sn_list=sn_list_batch_2)
             dst_tree_path = Gtk.TreePath.new_from_string('1')
             # Drop into left tree:
             logger.info('Submitting second drag & drop signal')
@@ -426,13 +427,13 @@ class OpLocalTest(OpTestBase):
 
         self.expand_visible_node(self.left_con, 'Art')
 
-        nodes_batch_1 = [
+        sn_list_batch_1 = [
             self.find_node_by_name(self.left_con, 'Modern')
         ]
 
         def drop_then_delete():
             logger.info('Submitting drag & drop signal')
-            dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, nodes=nodes_batch_1)
+            dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, sn_list=sn_list_batch_1)
             dst_tree_path = Gtk.TreePath.new_from_string('2')
 
             drop_complete = threading.Event()
@@ -469,13 +470,13 @@ class OpLocalTest(OpTestBase):
                 raise RuntimeError('Timed out waiting for stats to update!')
 
             # Now find the dropped nodes in right tree...
-            nodes_batch_2 = [
-                self.find_node_by_name(self.right_con, 'Modern')
+            node_list_batch_2 = [
+                self.find_node_by_name(self.right_con, 'Modern').node
             ]
 
             # Now delete the nodes which were just dropped
             logger.info('Submitting delete signal')
-            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_RIGHT_TREE, node_list=nodes_batch_2)
+            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_RIGHT_TREE, node_list=node_list_batch_2)
 
         # The end result should be that nothing has changed
         self.do_and_verify(drop_then_delete, count_expected_cmds=12, wait_for_left=False, wait_for_right=True,
@@ -519,10 +520,10 @@ class OpLocalTest(OpTestBase):
         self.expand_visible_node(self.left_con, 'Art')
 
         nodes_1 = [
-            self.find_node_by_name_in_left_tree('Modern')
+            self.find_node_by_name_in_left_tree('Modern').node
         ]
         nodes_2 = [
-            self.find_node_by_name_in_left_tree('Art')
+            self.find_node_by_name_in_left_tree('Art').node
         ]
 
         def delete():
@@ -549,10 +550,10 @@ class OpLocalTest(OpTestBase):
         self.expand_visible_node(self.left_con, 'Art')
 
         nodes_batch_1 = [
-            self.find_node_by_name_in_left_tree('Art')
+            self.find_node_by_name_in_left_tree('Art').node
         ]
         nodes_batch_2 = [
-            self.find_node_by_name_in_left_tree('Modern')
+            self.find_node_by_name_in_left_tree('Modern').node
         ]
 
         def delete():

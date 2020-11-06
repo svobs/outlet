@@ -337,6 +337,7 @@ class OpGDriveTest(OpTestBase):
                            expected_left=INITIAL_LOCAL_TREE_LEFT, expected_right=final_tree_right)
 
     def test_dd_left_then_dd_right(self):
+        # FIXME: it seems this test is completely broken. Figure out why
         logger.info('Testing CP tree to right followed by CP of same tree to left')
 
         self.expand_visible_node(self.left_con, 'Art')
@@ -346,7 +347,7 @@ class OpGDriveTest(OpTestBase):
         ]
 
         def drop_both_sides():
-            logger.info('Submitting first drag & drop signal')
+            logger.info('[0] Submitting first drag & drop signal: 6 nodes from left to right')
             dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, sn_list=nodes_batch_1)
             dst_tree_path = None
 
@@ -356,14 +357,14 @@ class OpGDriveTest(OpTestBase):
             right_stats_updated = threading.Event()
 
             def on_stats_updated(sender):
-                logger.info(f'Got signal: {actions.REFRESH_SUBTREE_STATS_DONE} for "{sender}"')
+                logger.info(f'Got signal: {actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE} for "{sender}"')
                 right_stats_updated.set()
 
-            dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=on_stats_updated)
+            dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, receiver=on_stats_updated, sender=actions.ID_RIGHT_TREE)
 
             def on_node_upserted(sender: str, node: Node):
                 on_node_upserted.count += 1
-                logger.info(f'Got upserted node (total: {on_node_upserted.count}, expecting: {expected_count})')
+                logger.info(f'Got upserted node "{node.name}" (total: {on_node_upserted.count}, expecting: {expected_count})')
                 if on_node_upserted.count >= expected_count:
                     drop_complete.set()
                     dispatcher.disconnect(signal=actions.NODE_UPSERTED, receiver=on_node_upserted)
@@ -374,15 +375,19 @@ class OpGDriveTest(OpTestBase):
 
             dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
-            logger.info('Waiting for drop to complete...')
+            logger.info('[1] Waiting for first drop to complete...')
 
             if not drop_complete.wait(LOAD_TIMEOUT_SEC):
                 raise RuntimeError('Timed out waiting for drag to complete!')
+
+            logger.info('[2] First drop complete!')
 
             # Waiting for the upsert signal is not quite enough, because it does not guarantee that the node has been populated.
             # Waiting until stats update should get us there:
             if not right_stats_updated.wait(LOAD_TIMEOUT_SEC):
                 raise RuntimeError('Timed out waiting for stats to update!')
+
+            logger.info('[3] First drop stats updated!')
 
             # Now find the dropped nodes in right tree...
             nodes_batch_2 = [
@@ -392,7 +397,7 @@ class OpGDriveTest(OpTestBase):
             dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.right_con, sn_list=nodes_batch_2)
             dst_tree_path = Gtk.TreePath.new_from_string('1')
             # Drop into left tree:
-            logger.info('Submitting second drag & drop signal')
+            logger.info('[4] Submitting second drag & drop signal')
             dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_LEFT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
         final_tree_left = [
@@ -435,6 +440,7 @@ class OpGDriveTest(OpTestBase):
             ]),
         ]
 
+        # this waits for both the 1st and 2nd drops: 12 commands total
         self.do_and_verify(drop_both_sides, count_expected_cmds=12, wait_for_left=True, wait_for_right=True,
                            expected_left=final_tree_left, expected_right=final_tree_right)
 
@@ -487,7 +493,7 @@ class OpGDriveTest(OpTestBase):
 
             # Now find the dropped nodes in right tree...
             nodes_batch_2 = [
-                self.find_node_by_name(self.right_con, 'Modern')
+                self.find_node_by_name(self.right_con, 'Modern').node
             ]
 
             # Now delete the nodes which were just dropped
@@ -506,7 +512,7 @@ class OpGDriveTest(OpTestBase):
         self.expand_visible_node(self.right_con, 'Art')
 
         nodes = [
-            self.find_node_by_name(self.right_con, 'Modern')
+            self.find_node_by_name(self.right_con, 'Modern').node
         ]
 
         def delete():
@@ -527,7 +533,7 @@ class OpGDriveTest(OpTestBase):
                            expected_left=INITIAL_LOCAL_TREE_LEFT, expected_right=final_tree_right)
 
     def test_delete_superset(self):
-        logger.info('Testing delete tree followed by superset of tree (on right)')
+        logger.info('Testing delete tree followed by delete superset of tree (on right)')
 
         # Setup: cp 'Art' tree to right and expand node:
         self._cp_single_tree_into_right()
@@ -550,7 +556,7 @@ class OpGDriveTest(OpTestBase):
                            expected_left=INITIAL_LOCAL_TREE_LEFT, expected_right=INITIAL_GDRIVE_TREE_RIGHT)
 
     def test_delete_subset(self):
-        logger.info('Testing delete tree followed by subset of tree (on right)')
+        logger.info('Testing delete tree followed by delete subset of tree (on right)')
 
         # Setup: cp 'Art' tree to right and expand node:
         self._cp_single_tree_into_right()

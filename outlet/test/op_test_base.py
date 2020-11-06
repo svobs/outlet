@@ -348,6 +348,7 @@ class OpTestBase(unittest.TestCase):
         logger.info(f'Found "{sn.node.name}"')
         return sn
 
+
     def find_node_by_name_in_left_tree(self, node_name) -> SPIDNodePair:
         return self.find_node_by_name(self.left_con, node_name)
 
