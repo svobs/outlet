@@ -524,14 +524,15 @@ class CacheManager(HasLifecycle):
         # TODO: refactor so that we can attempt to create (close to) an atomic operation which combines GDrive and Local functionality
 
         if cmd_result.nodes_to_upsert:
-            logger.debug(f'Upserted {len(cmd_result.nodes_to_upsert)} nodes: notifying cacheman')
+            # FIXME: icons will not update if nodes are otherwise identical
+            logger.debug(f'Cmd resulted in {len(cmd_result.nodes_to_upsert)} nodes to upsert')
             for upsert_node in cmd_result.nodes_to_upsert:
                 self.upsert_single_node(upsert_node)
 
         if cmd_result.nodes_to_delete:
             # TODO: to_trash?
 
-            logger.debug(f'Deleted {len(cmd_result.nodes_to_delete)} nodes: notifying cacheman')
+            logger.debug(f'Cmd resulted in {len(cmd_result.nodes_to_delete)} nodes to delete')
             for deleted_node in cmd_result.nodes_to_delete:
                 self.remove_node(deleted_node, to_trash=False)
 

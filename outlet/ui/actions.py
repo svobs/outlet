@@ -54,6 +54,10 @@ DRAG_AND_DROP_DIRECT = 'drag-and-drop-direct'
 # All components should listen for this
 TOGGLE_UI_ENABLEMENT = 'toggle-ui-enablement'
 
+PAUSE_OP_EXECUTION = 'pause-op-execution'
+RESUME_OP_EXECUTION = 'resume-op-execution'
+OP_EXECUTION_PLAY_STATE_CHANGED = 'op-execution-play-state-changed'
+
 # --- Progress bar ---
 START_PROGRESS_INDETERMINATE = 'start-progress-indeterminate'
 START_PROGRESS = 'start-progress'

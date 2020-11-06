@@ -57,6 +57,8 @@ DEFAULT_CONFIG_PATH = f'{CONFIG_DIR}/outlet-default.cfg'
 ICON_ALERT = 'alert'
 ICON_WINDOW = 'win'
 ICON_REFRESH = 'refresh'
+ICON_PLAY = 'play'
+ICON_PAUSE = 'pause'
 
 # File icon names:
 ICON_GENERIC_FILE = 'store/local'

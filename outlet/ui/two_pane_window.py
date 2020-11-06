@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 from pydispatch.dispatcher import Any
 
 import ui.actions as actions
-from constants import APP_NAME, ICON_WINDOW, TreeDisplayMode
+from constants import APP_NAME, ICON_PAUSE, ICON_PLAY, ICON_WINDOW, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
 from model.display_tree.category import CategoryDisplayTree
 from model.node.node import Node, SPIDNodePair
@@ -84,12 +84,32 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.tree_con_right = tree_factory.build_editor_tree(parent_win=self, tree_id=actions.ID_RIGHT_TREE, root=saved_root_right)
         diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)
 
-        # Bottom panel: buttons and progress bar
+        # Bottom panel: Bottom Button panel, toolbar and progress bar
         self.bottom_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.content_box.add(self.bottom_panel)
-        # Bottom button panel:
+
+        # Bottom Button panel:
         self.bottom_button_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.bottom_panel.add(self.bottom_button_panel)
+
+        # Toolbar
+        self.pause_icon = Gtk.Image()
+        self.pause_icon.set_from_file(self.app.assets.get_path(ICON_PAUSE))
+        self.play_icon = Gtk.Image()
+        self.play_icon.set_from_file(self.app.assets.get_path(ICON_PLAY))
+
+        self.toolbar = Gtk.Toolbar()
+        self.toolbar.set_style(Gtk.ToolbarStyle.ICONS)
+        self.play_pause_btn = Gtk.ToolButton()
+
+        self._update_play_pause_btn(self.win_id)
+
+        self.play_pause_btn.connect('clicked', self._on_play_pause_btn_clicked)
+        self.toolbar.insert(self.play_pause_btn, -1)
+        # FIXME: for some reason, toolbar seems to have random size. Fix alignment
+        self.bottom_panel.pack_start(self.toolbar, expand=False, fill=True, padding=5)
+        # self.bottom_panel.pack_end(self.toolbar, expand=False, fill=True, padding=5)
+        self.toolbar.show_all()
 
         listen_for = [actions.ID_LEFT_TREE, actions.ID_RIGHT_TREE,
                       self.win_id, actions.ID_GLOBAL_CACHE, actions.ID_COMMAND_EXECUTOR]
@@ -110,6 +130,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=actions.ID_LEFT_TREE)
         dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=actions.ID_RIGHT_TREE)
         dispatcher.connect(signal=actions.EXIT_DIFF_MODE, receiver=self._on_merge_complete, sender=Any)
+        dispatcher.connect(signal=actions.OP_EXECUTION_PLAY_STATE_CHANGED, receiver=self._update_play_pause_btn)
 
         # Connect "resize" event. Lots of excess logic to determine approximately when the
         # window *stops* being resized, so we can persist the value semi-efficiently
@@ -171,6 +192,14 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
     # GTK LISTENERS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def _on_play_pause_btn_clicked(self, widget):
+        if self._is_playing:
+            logger.debug(f'Play/Pause btn clicked! Sending signal "{actions.PAUSE_OP_EXECUTION}"')
+            dispatcher.send(signal=actions.PAUSE_OP_EXECUTION, sender=self.win_id)
+        else:
+            logger.debug(f'Play/Pause btn clicked! Sending signal "{actions.RESUME_OP_EXECUTION}"')
+            dispatcher.send(signal=actions.RESUME_OP_EXECUTION, sender=self.win_id)
 
     def _on_size_allocated(self, widget, alloc):
         # logger.debug('EVENT: GTK "size-allocate" fired')
@@ -269,6 +298,17 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             for button in self.bottom_button_panel.get_children():
                 button.set_sensitive(enable)
         GLib.idle_add(toggle_ui)
+
+    def _update_play_pause_btn(self, sender: str):
+        self._is_playing: bool = self.app.executor.enable_op_execution_thread
+        logger.debug(f'Updating play/pause btn with is_playing={self._is_playing}')
+        if self._is_playing:
+            self.play_pause_btn.set_icon_widget(self.pause_icon)
+            self.play_pause_btn.set_tooltip_text('Pause change operations')
+        else:
+            self.play_pause_btn.set_icon_widget(self.play_icon)
+            self.play_pause_btn.set_tooltip_text('Resume change operations')
+        self.toolbar.show_all()
 
     def _on_root_path_updated(self, sender, new_root: SinglePathNodeIdentifier, err=None):
         logger.debug(f'Received signal: "{actions.ROOT_PATH_UPDATED}"')

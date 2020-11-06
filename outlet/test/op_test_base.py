@@ -222,7 +222,6 @@ class OpTestBase(unittest.TestCase):
             self.assertEqual(0, len(op_list), 'We have ops remaining after quit!')
 
         logger.info('Quitting app!')
-        self.app.window.close()
         self.app.quit()
         self.left_con.destroy()
         self.right_con.destroy()
@@ -347,7 +346,6 @@ class OpTestBase(unittest.TestCase):
         sn = tree_con.build_sn_from_tree_path(tree_iter)
         logger.info(f'Found "{sn.node.name}"')
         return sn
-
 
     def find_node_by_name_in_left_tree(self, node_name) -> SPIDNodePair:
         return self.find_node_by_name(self.left_con, node_name)

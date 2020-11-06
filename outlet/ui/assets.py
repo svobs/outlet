@@ -8,7 +8,7 @@ from constants import BADGE_ICON_BASE_DIR, BASE_ICON_BASE_DIR, BTN_GDRIVE, BTN_L
     ICON_DIR_MV_SRC, ICON_DIR_RM, \
     ICON_DIR_TRASHED, ICON_DIR_UP_DST, ICON_DIR_UP_SRC, ICON_FILE_CP_DST, ICON_FILE_CP_SRC, ICON_FILE_MV_DST, \
     ICON_FILE_MV_SRC, ICON_FILE_RM, ICON_FILE_TRASHED, ICON_FILE_UP_DST, ICON_FILE_UP_SRC, ICON_GDRIVE, ICON_GENERIC_DIR, \
-    ICON_GENERIC_FILE, ICON_LOCAL_DISK_LINUX, ICON_REFRESH, ICON_WINDOW
+    ICON_GENERIC_FILE, ICON_LOCAL_DISK_LINUX, ICON_PAUSE, ICON_PLAY, ICON_REFRESH, ICON_WINDOW
 from model.node_identifier import ensure_int
 
 from util.file_util import get_resource_path
@@ -97,6 +97,8 @@ def _build_icons(icon_size: int, badge_size: int):
 
     icon_list = [
         # Misc UI
+        SimpleIcon(name=ICON_PLAY, path=f'resources/play-button-32px.png'),
+        SimpleIcon(name=ICON_PAUSE, path=f'resources/pause-button-32px.png'),
         SimpleIcon(name=ICON_ALERT, path=f'resources/Dialog-error-icon-24px.png'),
         SimpleIcon(name=ICON_WINDOW, path=f'resources/app_icon.png'),
         SimpleIcon(name=ICON_REFRESH, path=f'resources/Badge/Refresh-icon-48px.png'),

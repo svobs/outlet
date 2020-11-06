@@ -18,4 +18,5 @@ Pipfile.lock
 cache
 test/BiDirMerge
 test/BiDirMerge.7z
-
+test/ChangeTest
+test/TestSet
