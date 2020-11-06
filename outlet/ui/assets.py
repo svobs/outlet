@@ -97,8 +97,8 @@ def _build_icons(icon_size: int, badge_size: int):
 
     icon_list = [
         # Misc UI
-        SimpleIcon(name=ICON_PLAY, path=f'resources/play-button-32px.png'),
-        SimpleIcon(name=ICON_PAUSE, path=f'resources/pause-button-32px.png'),
+        SimpleIcon(name=ICON_PLAY, path=f'resources/play-button-white-32px.png'),
+        SimpleIcon(name=ICON_PAUSE, path=f'resources/pause-button-white-32px.png'),
         SimpleIcon(name=ICON_ALERT, path=f'resources/Dialog-error-icon-24px.png'),
         SimpleIcon(name=ICON_WINDOW, path=f'resources/app_icon.png'),
         SimpleIcon(name=ICON_REFRESH, path=f'resources/Badge/Refresh-icon-48px.png'),

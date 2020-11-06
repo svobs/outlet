@@ -106,18 +106,21 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
         self.play_pause_btn.connect('clicked', self._on_play_pause_btn_clicked)
         self.toolbar.insert(self.play_pause_btn, -1)
-        # FIXME: for some reason, toolbar seems to have random size. Fix alignment
         self.bottom_panel.pack_start(self.toolbar, expand=False, fill=True, padding=5)
-        # self.bottom_panel.pack_end(self.toolbar, expand=False, fill=True, padding=5)
+
         self.toolbar.show_all()
 
-        listen_for = [actions.ID_LEFT_TREE, actions.ID_RIGHT_TREE,
-                      self.win_id, actions.ID_GLOBAL_CACHE, actions.ID_COMMAND_EXECUTOR]
+        filler = Gtk.Box(spacing=0, orientation=Gtk.Orientation.HORIZONTAL)
+        self.bottom_panel.pack_start(filler, expand=True, fill=False, padding=0)
+
+        # Progress bar: just disable for now - deal with this later
+        # listen_for = [actions.ID_LEFT_TREE, actions.ID_RIGHT_TREE,
+        #               self.win_id, actions.ID_GLOBAL_CACHE, actions.ID_COMMAND_EXECUTOR]
         # Remember to hold a reference to this, for signals!
-        self.proress_bar_component = ProgressBar(self.config, listen_for)
-        self.bottom_panel.pack_start(self.proress_bar_component.progressbar, True, True, 0)
+        # self.proress_bar_component = ProgressBar(self.config, listen_for)
+        # self.bottom_panel.pack_start(self.proress_bar_component.progressbar, True, False, 0)
         # Give progress bar exactly half of the window width:
-        self.bottom_panel.set_homogeneous(True)
+        # self.bottom_panel.set_homogeneous(True)
 
         self._set_default_button_bar()
 

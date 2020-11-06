@@ -31,7 +31,7 @@ class RootDirPanel:
         self.parent_win: BaseDialog = parent_win
         self.con = controller
         assert type(tree_id) == str
-        self.tree_id = tree_id
+        self.tree_id: str = tree_id
         self.cacheman = self.con.cacheman
         self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
         self.current_root: SinglePathNodeIdentifier = current_root
