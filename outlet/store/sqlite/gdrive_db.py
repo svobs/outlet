@@ -28,13 +28,13 @@ def _gdrive_folder_to_tuple(folder: GDriveFolder) -> Tuple:
 
 def _tuple_to_gdrive_file(row: Tuple) -> GDriveFile:
     uid_int, goog_id, node_name, mime_type_uid, item_trashed, size_bytes, md5, create_ts, modify_ts, owner_uid, drive_id, is_shared, \
-        shared_by_user_uid, version, head_revision_id, sync_ts = row
+        shared_by_user_uid, version, sync_ts = row
 
     uid_from_cache = UID(uid_int)
 
     return GDriveFile(GDriveIdentifier(uid=uid_from_cache, path_list=None), goog_id=goog_id, node_name=node_name, mime_type_uid=mime_type_uid,
                       trashed=item_trashed, drive_id=drive_id, is_shared=is_shared, version=version,
-                      head_revision_id=head_revision_id, md5=md5, create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes,
+                      md5=md5, create_ts=create_ts, modify_ts=modify_ts, size_bytes=size_bytes,
                       owner_uid=owner_uid, shared_by_user_uid=shared_by_user_uid, sync_ts=sync_ts)
 
 
@@ -150,7 +150,6 @@ class GDriveDatabase(MetaDatabase):
                                   ('is_shared', 'INTEGER'),
                                   ('shared_by_user_uid', 'INTEGER'),
                                   ('version', 'INTEGER'),
-                                  ('head_revision_id', 'TEXT'),
                                   ('sync_ts', 'INTEGER')
                               ]))
 

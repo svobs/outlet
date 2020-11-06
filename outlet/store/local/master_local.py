@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple
 from treelib.exceptions import NodeIDAbsentError
 
 import store.local.content_hasher
-from constants import SUPER_DEBUG, TREE_TYPE_LOCAL_DISK
+from constants import SUPER_DEBUG, TrashStatus, TREE_TYPE_LOCAL_DISK
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.local_disk import LocalDiskDisplayTree
 from model.display_tree.null import NullDisplayTree
@@ -574,5 +574,5 @@ class LocalDiskMasterStore(MasterStore):
         assert change_ts > 100000000000, f'change_ts too small: {change_ts} for path: {path}'
 
         node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)
-        return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, True)
+        return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, TrashStatus.NOT_TRASHED, True)
 

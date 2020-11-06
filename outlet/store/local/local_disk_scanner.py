@@ -7,6 +7,7 @@ from typing import Optional
 from pydispatch import dispatcher
 
 import ui.actions as actions
+from constants import TrashStatus
 from model.node.local_disk_node import LocalDirNode
 from model.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
@@ -92,7 +93,7 @@ class LocalDiskScanner(LocalTreeRecurser):
             dir_node.set_is_live(True)
         else:
             uid = self.cacheman.get_uid_for_path(dir_path)
-            dir_node = LocalDirNode(node_identifier=LocalNodeIdentifier(path_list=dir_path, uid=uid), is_live=True)
+            dir_node = LocalDirNode(node_identifier=LocalNodeIdentifier(path_list=dir_path, uid=uid), trashed=TrashStatus.NOT_TRASHED, is_live=True)
             logger.debug(f'[{self.tree_id}] Adding dir node: {dir_node.node_identifier}')
 
         self._local_tree.add_to_tree(dir_node)
@@ -114,7 +115,7 @@ class LocalDiskScanner(LocalTreeRecurser):
             self._local_tree.add_node(node=root_node, parent=None)
             return self._local_tree
 
-        root_node = LocalDirNode(node_identifier=self.root_node_identifier, is_live=True)
+        root_node = LocalDirNode(node_identifier=self.root_node_identifier, trashed=TrashStatus.NOT_TRASHED, is_live=True)
         self._local_tree.add_node(node=root_node, parent=None)
 
         self.total = self._find_total_files_to_scan()

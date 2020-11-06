@@ -2,6 +2,7 @@ import logging
 from collections import OrderedDict
 from typing import List, Optional, Tuple
 
+from constants import TrashStatus
 from store.sqlite.base_db import LiveTable, MetaDatabase, Table
 from model.uid import UID
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
@@ -33,14 +34,16 @@ class LocalDiskDatabase(MetaDatabase):
         ('modify_ts', 'INTEGER'),
         ('change_ts', 'INTEGER'),
         ('full_path', 'TEXT'),
-        ('exist', 'INTEGER')
+        ('trashed', 'INTEGER'),
+        ('live', 'INTEGER')
     ]))
 
     # 2020-06, So far this is really just a mapping of UIDs to paths, to keep things consistent across runs.
     TABLE_LOCAL_DIR = Table(name='local_dir', cols=OrderedDict([
         ('uid', 'INTEGER PRIMARY KEY'),
         ('full_path', 'TEXT'),
-        ('exist', 'INTEGER')
+        ('trashed', 'INTEGER'),
+        ('live', 'INTEGER')
     ]))
 
     def __init__(self, db_path, app):
@@ -52,12 +55,12 @@ class LocalDiskDatabase(MetaDatabase):
     # LOCAL_FILE operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
     def _tuple_to_file(self, row: Tuple) -> LocalFileNode:
-        uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, is_live = row
+        uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, trashed, is_live = row
 
         uid = self.cacheman.get_uid_for_path(full_path, uid_int)
         assert uid == row[0], f'UID conflict! Got {uid} but read {uid_int} in row: {row}'
         node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)
-        return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, is_live)
+        return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed, is_live)
 
     def has_local_files(self):
         return self.table_local_file.has_rows()
@@ -93,7 +96,7 @@ class LocalDiskDatabase(MetaDatabase):
         full_path = row[1]
         uid = self.cacheman.get_uid_for_path(full_path, row[0])
         assert uid == row[0], f'UID conflict! Got {uid} from memstore but read from disk: {row}'
-        return LocalDirNode(LocalNodeIdentifier(uid=uid, path_list=full_path), bool(row[2]))
+        return LocalDirNode(LocalNodeIdentifier(uid=uid, path_list=full_path), row[2], bool(row[3]))
 
     def has_local_dirs(self):
         return self.table_local_dir.has_rows()

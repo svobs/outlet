@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class LocalNode(Node, ABC):
-    def __init__(self, node_identifier: LocalNodeIdentifier, is_live: bool):
-        super().__init__(node_identifier)
+    def __init__(self, node_identifier: LocalNodeIdentifier, trashed: TrashStatus, is_live: bool):
+        super().__init__(node_identifier, trashed=trashed)
         self._is_live = ensure_bool(is_live)
 
     @classmethod
@@ -48,8 +48,8 @@ class LocalNode(Node, ABC):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class LocalFileNode(LocalNode):
-    def __init__(self, node_identifier: LocalNodeIdentifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, is_live: bool):
-        super().__init__(node_identifier, is_live)
+    def __init__(self, node_identifier: LocalNodeIdentifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed, is_live: bool):
+        super().__init__(node_identifier, trashed, is_live)
         self._md5: Optional[str] = md5
         self._sha256: Optional[str] = sha256
         self._size_bytes: int = ensure_int(size_bytes)
@@ -131,7 +131,8 @@ class LocalFileNode(LocalNode):
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.md5, self.sha256, self._size_bytes, self.sync_ts, self.modify_ts, self.change_ts, self.get_single_path(), self._is_live
+        return self.uid, self.md5, self.sha256, self._size_bytes, self.sync_ts, self.modify_ts, self.change_ts, self.get_single_path(),\
+               self._trashed, self._is_live
 
     def __eq__(self, other):
         if not isinstance(other, LocalFileNode):
@@ -146,7 +147,7 @@ class LocalFileNode(LocalNode):
 
     def __repr__(self):
         return f'LocalFileNode({self.node_identifier} md5={self._md5} sha256={self.sha256} size_bytes={self._size_bytes} ' \
-               f'is_live={self.is_live()} modify_ts={self._modify_ts})'
+               f'trashed={self._trashed} is_live={self.is_live()} modify_ts={self._modify_ts})'
 
 
 # CLASS LocalDirNode
@@ -157,9 +158,9 @@ class LocalDirNode(HasChildList, LocalNode):
     Represents a generic local directory.
     """
 
-    def __init__(self, node_identifier: LocalNodeIdentifier, is_live: bool):
+    def __init__(self, node_identifier: LocalNodeIdentifier, trashed: TrashStatus, is_live: bool):
         HasChildList.__init__(self)
-        LocalNode.__init__(self, node_identifier, is_live)
+        LocalNode.__init__(self, node_identifier, trashed, is_live)
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalDirNode)
@@ -179,7 +180,7 @@ class LocalDirNode(HasChildList, LocalNode):
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.get_single_path(), self.is_live()
+        return self.uid, self.get_single_path(), self.trashed(), self.is_live()
 
     @classmethod
     def get_obj_type(cls):
@@ -212,4 +213,5 @@ class LocalDirNode(HasChildList, LocalNode):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return f'LocalDirNode({self.node_identifier} is_live={self.is_live()} size_bytes={self.get_size_bytes()} summary="{self.get_summary()}")'
+        return f'LocalDirNode({self.node_identifier} trashed={self._trashed} is_live={self.is_live()} size_bytes={self.get_size_bytes()} ' \
+               f'summary="{self.get_summary()}")'

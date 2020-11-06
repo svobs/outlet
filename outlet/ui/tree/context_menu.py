@@ -155,7 +155,7 @@ class TreeContextMenu:
         menu = Gtk.Menu()
 
         if node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
-            single_path = self.con.display_store.derive_single_path_from_tree_path(tree_path, include_gdrive_prefix=False)
+            single_path = self.con.derive_single_path_from_tree_path(tree_path, include_gdrive_prefix=False)
         else:
             assert node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK
             single_path = node.get_single_path()

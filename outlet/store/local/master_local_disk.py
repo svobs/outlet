@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 from pydispatch import dispatcher
 
-from constants import TREE_TYPE_LOCAL_DISK
+from constants import TrashStatus, TREE_TYPE_LOCAL_DISK
 from model.cache_info import PersistedCacheInfo
 from model.local_disk_tree import LocalDiskTree
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
@@ -117,7 +117,7 @@ class LocalDiskDiskStore(HasLifecycle):
 
             root_node_identifer = LocalNodeIdentifier(uid=uid, path_list=cache_info.subtree_root.get_path_list())
             tree: LocalDiskTree = LocalDiskTree(self.app)
-            root_node = LocalDirNode(node_identifier=root_node_identifer, is_live=True)
+            root_node = LocalDirNode(node_identifier=root_node_identifer, trashed=TrashStatus.NOT_TRASHED, is_live=True)
             tree.add_node(node=root_node, parent=None)
 
             missing_nodes: List[LocalNode] = []

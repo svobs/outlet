@@ -21,20 +21,16 @@ logger = logging.getLogger(__name__)
 class GDriveNode(HasParentList, Node, ABC):
     # ▲▲ Remember, Method Resolution Order places greatest priority to the first in the list, then goes down ▲▲
 
-    def __init__(self, node_identifier: GDriveIdentifier, goog_id: Optional[str], node_name: str, trashed: int,
+    def __init__(self, node_identifier: GDriveIdentifier, goog_id: Optional[str], node_name: str, trashed: TrashStatus,
                  create_ts: Optional[int], modify_ts: Optional[int],
                  owner_uid: Optional[int], drive_id: Optional[str], is_shared: bool, shared_by_user_uid: Optional[int], sync_ts: Optional[int]):
-        Node.__init__(self, node_identifier)
+        Node.__init__(self, node_identifier, trashed=trashed)
         HasParentList.__init__(self, None)
         self.goog_id: Optional[str] = goog_id
         """The Google ID - long string. Need this for syncing with Google Drive,
         although the (int) uid will be used internally."""
 
         self._name = node_name
-
-        if trashed < 0 or trashed > 2:
-            raise RuntimeError(f'Invalid value for "trashed": {trashed}')
-        self._trashed: TrashStatus = TrashStatus(trashed)
 
         self.create_ts = ensure_int(create_ts)
         self._modify_ts = ensure_int(modify_ts)
@@ -107,6 +103,10 @@ class GDriveNode(HasParentList, Node, ABC):
     @trashed.setter
     def trashed(self, trashed: TrashStatus):
         self._trashed = trashed
+
+    def is_live(self) -> bool:
+        """Whether the object represented by this node actually exists currently; or it is just e.g. planned to exist or is an ephemeral node."""
+        return self.goog_id is not None
 
     @property
     def trashed_str(self):
@@ -221,14 +221,13 @@ class GDriveFile(GDriveNode):
     # TODO: handling of shortcuts... does a shortcut have an ID?
     # TODO: handling of special chars in file systems
 
-    def __init__(self, node_identifier: GDriveIdentifier, goog_id, node_name, mime_type_uid, trashed, drive_id, version, head_revision_id, md5,
+    def __init__(self, node_identifier: GDriveIdentifier, goog_id, node_name, mime_type_uid, trashed, drive_id, version, md5,
                  is_shared, create_ts, modify_ts, size_bytes, owner_uid, shared_by_user_uid, sync_ts):
         GDriveNode.__init__(self, node_identifier, goog_id, node_name, trashed, create_ts, modify_ts, owner_uid, drive_id, is_shared,
                             shared_by_user_uid, sync_ts)
 
         self.mime_type_uid = ensure_int(mime_type_uid)
         self.version = ensure_int(version)
-        self.head_revision_id = head_revision_id
         self._md5 = md5
         self._size_bytes = ensure_int(size_bytes)
 
@@ -236,7 +235,7 @@ class GDriveFile(GDriveNode):
         return f'GDriveFile(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" mime_type_uid={self.mime_type_uid} ' \
                f'trashed={self.trashed_str} size={self.get_size_bytes()} md5={self._md5} create_ts={self.create_ts} modify_ts={self.modify_ts} ' \
                f'owner_uid={self.owner_uid} drive_id={self.drive_id} is_shared={self.is_shared} shared_by_user_uid={self.shared_by_user_uid} ' \
-               f'version={self.version} head_rev_id="{self.head_revision_id}" sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()})'
+               f'version={self.version} sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()})'
 
     def __eq__(self, other):
         if not isinstance(other, GDriveFile):
@@ -247,7 +246,7 @@ class GDriveFile(GDriveNode):
 
         return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name and other.md5 == self._md5 and \
             other.mime_type_uid == self.mime_type_uid and other.trashed == self.trashed and other.drive_id == self.drive_id and \
-            other.version == self.version and other.head_revision_id == self.head_revision_id and other.is_shared == self.is_shared and \
+            other.version == self.version and other.is_shared == self.is_shared and \
             other.get_size_bytes() == self.get_size_bytes() and other.owner_uid == self.owner_uid and \
             other.shared_by_user_uid == self.shared_by_user_uid and other.create_ts == self.create_ts and other.modify_ts == self.modify_ts
 
@@ -260,7 +259,6 @@ class GDriveFile(GDriveNode):
         GDriveNode.update_from(self, other_node)
         self.mime_type_uid = other_node.mime_type_uid
         self.version = other_node.version
-        self.head_revision_id = other_node.head_revision_id
         self._md5 = other_node.md5
         self._size_bytes = other_node.get_size_bytes()
 
@@ -308,4 +306,4 @@ class GDriveFile(GDriveNode):
 
     def to_tuple(self):
         return (self.uid, self.goog_id, self.name, self.mime_type_uid, self.trashed, self._size_bytes, self._md5, self.create_ts, self.modify_ts,
-                self.owner_uid, self.drive_id, self.is_shared, self.shared_by_user_uid, self.version, self.head_revision_id, self.sync_ts)
+                self.owner_uid, self.drive_id, self.is_shared, self.shared_by_user_uid, self.version, self.sync_ts)

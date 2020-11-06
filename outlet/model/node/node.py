@@ -30,7 +30,14 @@ class Node(treelib.Node, ABC):
         if not nid:
             nid = node_identifier.uid
         self.node_identifier: NodeIdentifier = node_identifier
-        self._trashed: TrashStatus = trashed
+
+        if not trashed:
+            self._trashed: TrashStatus = TrashStatus.NOT_TRASHED
+        elif trashed < TrashStatus.NOT_TRASHED or trashed > TrashStatus.DELETED:
+            raise RuntimeError(f'Invalid value for "trashed": {trashed}')
+        else:
+            self._trashed: TrashStatus = TrashStatus(trashed)
+
         treelib.Node.__init__(self, identifier=nid)
         self._update_tag()
 
@@ -155,6 +162,7 @@ class Node(treelib.Node, ABC):
         # do not change UID or tree type
         self.node_identifier.set_path_list(other_node.get_path_list())
         self.identifier = other_node.identifier
+        self._trashed = other_node._trashed
 
 
 # ABSTRACT CLASS HasParentList

@@ -107,10 +107,10 @@ class OneSide:
         node_identifier = self.app.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=NULL_UID)
         if dst_tree_type == TREE_TYPE_LOCAL_DISK:
             assert isinstance(node_identifier, LocalNodeIdentifier)
-            return LocalFileNode(node_identifier, md5, sha256, size_bytes, None, None, None, False)
+            return LocalFileNode(node_identifier, md5, sha256, size_bytes, None, None, None, TrashStatus.NOT_TRASHED, False)
         elif dst_tree_type == TREE_TYPE_GDRIVE:
             assert isinstance(node_identifier, GDriveIdentifier)
-            return GDriveFile(node_identifier, None, src_node.name, None, TrashStatus.NOT_TRASHED, None, None, None, md5, False, None, None,
+            return GDriveFile(node_identifier, None, src_node.name, None, TrashStatus.NOT_TRASHED, None, None, md5, False, None, None,
                               size_bytes, None, None, None)
         else:
             raise RuntimeError(f"Cannot create file node for tree type: {dst_tree_type} (node_identifier={node_identifier}")
@@ -165,7 +165,8 @@ class OneSide:
             elif tree_type == TREE_TYPE_LOCAL_DISK:
                 logger.debug(f'Creating LocalDirToAdd for {parent_path}')
                 new_uid = self.app.cacheman.get_uid_for_path(parent_path)
-                new_parent_node = LocalDirNode(LocalNodeIdentifier(uid=new_uid, path_list=parent_path), is_live=False)
+                new_parent_node = LocalDirNode(LocalNodeIdentifier(uid=new_uid, path_list=parent_path), trashed=TrashStatus.NOT_TRASHED,
+                                               is_live=False)
             else:
                 raise RuntimeError(f'Invalid tree type: {tree_type} for node {new_sn.node}')
 

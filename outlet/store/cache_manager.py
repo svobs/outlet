@@ -766,14 +766,14 @@ class CacheManager(HasLifecycle):
                 filtered_parent_uid_list = []
                 for parent_uid in node.get_parent_uids():
                     parent_node = self.get_node_for_uid(parent_uid, node.get_tree_type())
-                    if SUPER_DEBUG:
-                        logger.debug(f'get_parent_uid_list_for_node(): Checking parent_node {parent_node} against path "{whitelist_subtree_path}"')
+                    # if SUPER_DEBUG:
+                    #     logger.debug(f'get_parent_uid_list_for_node(): Checking parent_node {parent_node} against path "{whitelist_subtree_path}"')
                     if parent_node and parent_node.node_identifier.has_path_in_subtree(whitelist_subtree_path):
                         filtered_parent_uid_list.append(parent_node.uid)
-                    elif SUPER_DEBUG:
-                        logger.debug(f'get_parent_uid_list_for_node(): Filtered out parent {parent_uid}')
-                if SUPER_DEBUG:
-                    logger.debug(f'get_parent_uid_list_for_node(): Returning parent list: {filtered_parent_uid_list}')
+                    # elif SUPER_DEBUG:
+                    #     logger.debug(f'get_parent_uid_list_for_node(): Filtered out parent {parent_uid}')
+                # if SUPER_DEBUG:
+                #     logger.debug(f'get_parent_uid_list_for_node(): Returning parent list: {filtered_parent_uid_list}')
                 return filtered_parent_uid_list
 
             return node.get_parent_uids()

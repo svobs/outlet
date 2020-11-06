@@ -227,7 +227,6 @@ class GDriveClient(HasLifecycle):
 
         modify_ts = GDriveClient._parse_gdrive_date(item, 'modifiedTime')
 
-        head_revision_id = item.get('headRevisionId', None)
         size_str = item.get('size', None)
         size = None if size_str is None else int(size_str)
         version = item.get('version', None)
@@ -239,7 +238,7 @@ class GDriveClient(HasLifecycle):
         uid = self.app.cacheman.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
         goog_node: GDriveFile = GDriveFile(node_identifier=GDriveIdentifier(uid=uid, path_list=None), goog_id=goog_id, node_name=item["name"],
                                            mime_type_uid=mime_type.uid, trashed=GDriveClient._convert_trashed(item),
-                                           drive_id=item.get('driveId', None), version=version, head_revision_id=head_revision_id,
+                                           drive_id=item.get('driveId', None), version=version,
                                            md5=item.get('md5Checksum', None), is_shared=item.get('shared', None), create_ts=create_ts,
                                            modify_ts=modify_ts, size_bytes=size, shared_by_user_uid=sharing_user_uid, owner_uid=owner_uid,
                                            sync_ts=sync_ts)

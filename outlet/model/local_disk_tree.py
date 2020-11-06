@@ -6,6 +6,7 @@ import logging
 import treelib
 from treelib.exceptions import NodeIDAbsentError
 
+from constants import TrashStatus
 from model.uid import UID
 from util import file_util
 from model.node.node import HasChildList
@@ -54,7 +55,8 @@ class LocalDiskTree(treelib.Tree):
                 child: LocalNode = self.get_node(nid=uid)
                 if not child:
                     # logger.debug(f'Creating dir node: nid={uid}')
-                    child = LocalDirNode(node_identifier=LocalNodeIdentifier(path_list=path_so_far, uid=uid), is_live=True)
+                    child = LocalDirNode(node_identifier=LocalNodeIdentifier(path_list=path_so_far, uid=uid),
+                                         trashed=TrashStatus.NOT_TRASHED, is_live=True)
                     try:
                         self.add_node(node=child, parent=parent)
                     except Exception:
