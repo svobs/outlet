@@ -25,11 +25,12 @@ SPIDNodePair = collections.namedtuple('SPIDNodePair', 'spid node')
 class Node(treelib.Node, ABC):
     """Base class for all data nodes."""
 
-    def __init__(self, node_identifier: NodeIdentifier, nid=None):
+    def __init__(self, node_identifier: NodeIdentifier, nid=None, trashed: TrashStatus = TrashStatus.NOT_TRASHED):
         # Look at these next 3 lines. They are very important.
         if not nid:
             nid = node_identifier.uid
         self.node_identifier: NodeIdentifier = node_identifier
+        self._trashed: TrashStatus = trashed
         treelib.Node.__init__(self, identifier=nid)
         self._update_tag()
 
@@ -66,8 +67,8 @@ class Node(treelib.Node, ABC):
         return False
 
     @classmethod
-    def exists(cls) -> bool:
-        """Whether the object represented by this node actually exists currently, or it is just planned to exist or is an ephemeral node."""
+    def is_live(cls) -> bool:
+        """Whether the object represented by this node actually exists currently; or it is just e.g. planned to exist or is an ephemeral node."""
         return False
 
     @classmethod
@@ -91,8 +92,8 @@ class Node(treelib.Node, ABC):
         assert self.node_identifier.get_path_list(), f'Oops - for {self}'
         return os.path.basename(self.node_identifier.get_path_list()[0])
 
-    def trashed(self) -> Optional[TrashStatus]:
-        return TrashStatus.NOT_TRASHED
+    def trashed(self) -> TrashStatus:
+        return self._trashed
 
     @staticmethod
     def get_etc():
@@ -142,7 +143,7 @@ class Node(treelib.Node, ABC):
         self._update_tag()
 
     def get_icon(self):
-        if self.exists():
+        if self.is_live():
             return ICON_GENERIC_FILE
         return ICON_FILE_CP_DST
 

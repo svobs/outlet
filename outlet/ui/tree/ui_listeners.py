@@ -374,13 +374,13 @@ class TreeUiListeners(HasLifecycle):
             if op and not op.is_completed() and op.has_dst():
                 logger.warning('TODO: test this!')
 
-                if op.src_node.exists():
+                if op.src_node.is_live():
                     _do_default_action_for_node(op.src_node, self.con.tree_id)
                     return True
-                elif op.dst_node.exists():
+                elif op.dst_node.is_live():
                     _do_default_action_for_node(op.dst_node, self.con.tree_id)
                     return True
-            elif node.exists():
+            elif node.is_live():
                 _do_default_action_for_node(node, self.con.tree_id)
                 return True
             else:

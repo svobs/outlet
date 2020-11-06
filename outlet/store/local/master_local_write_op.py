@@ -88,7 +88,7 @@ class UpsertSingleNodeOp(LocalDiskSingleNodeOp):
             logger.debug(f'upsert_single_node() returned None for input node: {self.node}')
 
     def update_diskstore(self, cache: LocalDiskDatabase):
-        if not self.node.exists():
+        if not self.node.is_live():
             if SUPER_DEBUG:
                 logger.debug(f'Skipping disk save because node does not exist: {self.node}')
         elif self.was_updated:
@@ -161,7 +161,7 @@ class BatchChangesOp(LocalDiskSubtreeOp):
 
                 for node_index, node in enumerate(subtree.upsert_node_list):
                     master_node, was_updated = memstore.upsert_single_node(node)
-                    if was_updated and node.exists():
+                    if was_updated and node.is_live():
                         if master_node:
                             node = master_node
                         new_upsert_list.append(node)

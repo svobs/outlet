@@ -77,7 +77,7 @@ class LocalDiskMemoryStore:
 
         existing_node: LocalNode = self.master_tree.get_node(node.uid)
         if existing_node:
-            if existing_node.exists() and not node.exists():
+            if existing_node.is_live() and not node.is_live():
                 # In the future, let's close this hole with more elegant logic
                 logger.warning(f'Cannot replace a node which exists with one which does not exist; skipping cache update for {node.node_identifier}')
                 return None, False

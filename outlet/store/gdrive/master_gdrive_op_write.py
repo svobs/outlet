@@ -73,7 +73,7 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
             logger.debug(f'Node does not need disk update; skipping save to disk: {self.node}')
             return
 
-        if not self.node.exists():
+        if not self.node.is_live():
             logger.debug(f'Node does not exist; skipping save to disk: {self.node}')
             return
 

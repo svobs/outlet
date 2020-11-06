@@ -285,11 +285,11 @@ class OpDatabase(MetaDatabase):
         return obj
 
     def _tuple_to_local_dir(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalDirNode:
-        action_uid_int, uid_int, full_path, exists = row
+        action_uid_int, uid_int, full_path, is_live = row
 
         uid = self.cacheman.get_uid_for_path(full_path, uid_int)
         assert uid == uid_int, f'UID conflict! Got {uid} but read {row}'
-        obj = LocalDirNode(LocalNodeIdentifier(uid=uid, path_list=full_path), bool(exists))
+        obj = LocalDirNode(LocalNodeIdentifier(uid=uid, path_list=full_path), bool(is_live))
         op_uid = UID(action_uid_int)
         if nodes_by_action_uid.get(op_uid, None):
             raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')
@@ -297,13 +297,13 @@ class OpDatabase(MetaDatabase):
         return obj
 
     def _tuple_to_local_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalFileNode:
-        action_uid_int, uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, exists = row
+        action_uid_int, uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, is_live = row
 
         uid = self.cacheman.get_uid_for_path(full_path, uid_int)
         if uid != uid_int:
             raise RuntimeError(f'UID conflict! Cache man returned {uid} but op cache returned {uid_int} (from row: {row})')
         node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)
-        obj = LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, exists)
+        obj = LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, is_live)
         op_uid = UID(action_uid_int)
         if nodes_by_action_uid.get(op_uid, None):
             raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')

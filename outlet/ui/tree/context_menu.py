@@ -61,9 +61,9 @@ class TreeContextMenu:
         items_to_delete_local: List[Node] = []
         items_to_delete_gdrive: List[Node] = []
         for selected_item in selected_items:
-            if selected_item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK and selected_item.exists():
+            if selected_item.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK and selected_item.is_live():
                 items_to_delete_local.append(selected_item)
-            elif selected_item.node_identifier.tree_type == TREE_TYPE_GDRIVE and selected_item.exists():
+            elif selected_item.node_identifier.tree_type == TREE_TYPE_GDRIVE and selected_item.is_live():
                 items_to_delete_gdrive.append(selected_item)
 
         if len(items_to_delete_local) > 0:
@@ -81,7 +81,7 @@ class TreeContextMenu:
 
     def _build_menu_items_for_single_node(self, menu, tree_path, node: Node, single_path: str):
         is_category_node = type(node) == CategoryNode
-        file_exists = node.exists()
+        file_exists = node.is_live()
         is_dir = node.is_dir()
         is_gdrive = node.node_identifier.tree_type == TREE_TYPE_GDRIVE
 
@@ -174,7 +174,7 @@ class TreeContextMenu:
             else:
                 src_path = op.src_node.get_path_list()[0]
             item = TreeContextMenu.build_full_path_display_item(menu, 'Src: ', op.src_node, src_path)
-            if op.src_node.exists():
+            if op.src_node.is_live():
                 src_submenu = Gtk.Menu()
                 item.set_submenu(src_submenu)
                 self._build_menu_items_for_single_node(src_submenu, tree_path, op.src_node, src_path)
@@ -192,7 +192,7 @@ class TreeContextMenu:
             else:
                 dst_path = op.src_node.get_path_list()[0]
             item = TreeContextMenu.build_full_path_display_item(menu, 'Dst: ', op.dst_node, dst_path)
-            if op.dst_node.exists():
+            if op.dst_node.is_live():
                 dst_submenu = Gtk.Menu()
                 item.set_submenu(dst_submenu)
                 self._build_menu_items_for_single_node(dst_submenu, tree_path, op.dst_node, dst_path)

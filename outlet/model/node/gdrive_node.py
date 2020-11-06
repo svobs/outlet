@@ -183,7 +183,7 @@ class GDriveFolder(HasChildList, GDriveNode):
 
     def get_icon(self):
         if self.trashed == TrashStatus.NOT_TRASHED:
-            if self.exists():
+            if self.is_live():
                 return ICON_GENERIC_DIR
             else:
                 return ICON_DIR_MK
@@ -296,7 +296,7 @@ class GDriveFile(GDriveNode):
 
     def get_icon(self):
         if self.trashed == TrashStatus.NOT_TRASHED:
-            if self.exists():
+            if self.is_live():
                 return ICON_GENERIC_FILE
             else:
                 return ICON_FILE_CP_DST

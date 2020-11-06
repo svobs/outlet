@@ -121,7 +121,7 @@ class DisplayTree(ABC):
 
         while len(queue) > 0:
             sn: SPIDNodePair = queue.popleft()
-            if sn.node.exists():  # avoid pending op nodes
+            if sn.node.is_live():  # avoid pending op nodes
                 if sn.node.is_dir():
                     child_list = self.get_children(sn.node)
                     if child_list:

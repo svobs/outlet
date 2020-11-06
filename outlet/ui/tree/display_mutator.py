@@ -256,7 +256,7 @@ class DisplayMutator(HasLifecycle):
                 parent: SPIDNodePair = secondary_screening.popleft()
                 assert parent.node.is_dir(), f'Expected a dir-type node: {parent}'
 
-                if not parent.node.is_display_only() and not parent.node.exists():
+                if not parent.node.is_display_only() and not parent.node.is_live():
                     # Even an inconsistent FolderToAdd must be included as a checked item:
                     checked_items.append(parent)
 
@@ -269,7 +269,7 @@ class DisplayMutator(HasLifecycle):
             while len(whitelist) > 0:
                 chosen_sn: SPIDNodePair = whitelist.popleft()
                 # all files and all non-existent dirs must be added
-                if not parent.node.is_display_only() and not chosen_sn.node.is_dir() or not chosen_sn.node.exists():
+                if not parent.node.is_display_only() and not chosen_sn.node.is_dir() or not chosen_sn.node.is_live():
                     checked_items.append(chosen_sn)
 
                 # drill down into all descendants of nodes in the whitelist

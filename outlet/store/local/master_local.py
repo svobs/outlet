@@ -126,13 +126,13 @@ class LocalDiskMasterStore(MasterStore):
             # Need extra logic to find removed nodes and pending op nodes though:
             root_node: LocalNode = fresh_tree.get_node(fresh_tree.root)
             if root_node.is_dir():
-                # "Pending op" nodes are not stored in the regular cache (they should all have exists()==False)
+                # "Pending op" nodes are not stored in the regular cache (they should all have is_live()==False)
                 pending_op_nodes: List[LocalNode] = []
                 remove_node_list: List[LocalNode] = []
 
                 for existing_node in self._memstore.master_tree.get_subtree_bfs(subtree_root.uid):
                     if not fresh_tree.get_node(existing_node.uid):
-                        if existing_node.exists():
+                        if existing_node.is_live():
                             remove_node_list.append(existing_node)
                         else:
                             pending_op_nodes.append(existing_node)
@@ -142,7 +142,7 @@ class LocalDiskMasterStore(MasterStore):
                     for pending_op_node in pending_op_nodes:
                         if SUPER_DEBUG:
                             logger.debug(f'Inserting pending op node: {pending_op_node}')
-                        assert not pending_op_node.exists()
+                        assert not pending_op_node.is_live()
                         if fresh_tree.can_add_without_mkdir(pending_op_node):
                             fresh_tree.add_to_tree(pending_op_node)
                         else:
@@ -536,7 +536,7 @@ class LocalDiskMasterStore(MasterStore):
     def build_local_dir_node(self, full_path: str) -> LocalDirNode:
         uid = self.get_uid_for_path(full_path)
         # logger.debug(f'Creating dir node: nid={uid}')
-        return LocalDirNode(node_identifier=LocalNodeIdentifier(uid=uid, path_list=full_path), exists=True)
+        return LocalDirNode(node_identifier=LocalNodeIdentifier(uid=uid, path_list=full_path), is_live=True)
 
     def build_local_file_node(self, full_path: str, staging_path: str = None, must_scan_signature=False) -> Optional[LocalFileNode]:
         uid = self.get_uid_for_path(full_path)

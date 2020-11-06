@@ -49,7 +49,7 @@ class GDriveMemoryStore:
                 raise RuntimeError(f'Serious error: cache already contains UID {node.uid} but Google ID does not match '
                                    f'(existing="{existing_node.goog_id}"; new="{node.goog_id}")')
 
-            if existing_node.exists() and not node.exists():
+            if existing_node.is_live() and not node.is_live():
                 # In the future, let's close this hole with more elegant logic
                 logger.warning(f'Cannot replace a node which exists with one which does not exist; ignoring: {node}')
                 return node, False

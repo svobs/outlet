@@ -181,7 +181,7 @@ class OpGraph(HasLifecycle):
 
         Rules:
         1. Parent for MKDIR_SRC and all DST nodes must be present in memcache and not already scheduled for RM
-        2. Except for MKDIR, SRC nodes must all be present in memcache (OK if exists==False due to pending operation)
+        2. Except for MKDIR, SRC nodes must all be present in memcache (OK if is_live==False due to pending operation)
         and not already scheduled for RM
         """
 

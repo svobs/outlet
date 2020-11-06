@@ -16,29 +16,24 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class LocalNode(Node, ABC):
-    def __init__(self, node_identifier: LocalNodeIdentifier, exists: bool):
+    def __init__(self, node_identifier: LocalNodeIdentifier, is_live: bool):
         super().__init__(node_identifier)
-        self._exists = ensure_bool(exists)
+        self._is_live = ensure_bool(is_live)
 
     @classmethod
     def get_tree_type(cls) -> int:
         return TREE_TYPE_LOCAL_DISK
 
-    @property
-    def trashed(self):
-        # TODO: add support for trash
-        return TrashStatus.NOT_TRASHED
+    def is_live(self) -> bool:
+        """Whether the object represented by this node actually is live currently, or it is just planned to exist or is an ephemeral node."""
+        return self._is_live
 
-    def exists(self) -> bool:
-        """Whether the object represented by this node actually exists currently, or it is just planned to exist or is an ephemeral node."""
-        return self._exists
-
-    def set_exists(self, does_exist: bool):
-        self._exists = does_exist
+    def set_is_live(self, does_exist: bool):
+        self._is_live = does_exist
 
     def update_from(self, other_node):
         Node.update_from(self, other_node)
-        self._exists = other_node.exists()
+        self._is_live = other_node.is_live()
 
     @property
     def name(self):
@@ -53,8 +48,8 @@ class LocalNode(Node, ABC):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class LocalFileNode(LocalNode):
-    def __init__(self, node_identifier: LocalNodeIdentifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, exists: bool):
-        super().__init__(node_identifier, exists)
+    def __init__(self, node_identifier: LocalNodeIdentifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, is_live: bool):
+        super().__init__(node_identifier, is_live)
         self._md5: Optional[str] = md5
         self._sha256: Optional[str] = sha256
         self._size_bytes: int = ensure_int(size_bytes)
@@ -71,7 +66,7 @@ class LocalFileNode(LocalNode):
         self._sync_ts: int = ensure_int(other_node.sync_ts)
         self._modify_ts: int = ensure_int(other_node.modify_ts)
         self._change_ts: int = ensure_int(other_node.change_ts)
-        self._exists = ensure_bool(other_node.exists())
+        self._is_live = ensure_bool(other_node.is_live())
 
     def is_parent_of(self, potential_child_node: Node) -> bool:
         # A file can never be the parent of anything
@@ -136,7 +131,7 @@ class LocalFileNode(LocalNode):
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.md5, self.sha256, self._size_bytes, self.sync_ts, self.modify_ts, self.change_ts, self.get_single_path(), self._exists
+        return self.uid, self.md5, self.sha256, self._size_bytes, self.sync_ts, self.modify_ts, self.change_ts, self.get_single_path(), self._is_live
 
     def __eq__(self, other):
         if not isinstance(other, LocalFileNode):
@@ -144,14 +139,14 @@ class LocalFileNode(LocalNode):
 
         return other.node_identifier == self.node_identifier and other._md5 == self._md5 and other._sha256 == self._sha256 \
             and other._modify_ts == self._modify_ts and other._change_ts == self._change_ts and other.trashed == self.trashed \
-            and other._exists == self._exists
+            and other._is_live == self._is_live
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __repr__(self):
         return f'LocalFileNode({self.node_identifier} md5={self._md5} sha256={self.sha256} size_bytes={self._size_bytes} ' \
-               f'exists={self.exists()} modify_ts={self._modify_ts})'
+               f'is_live={self.is_live()} modify_ts={self._modify_ts})'
 
 
 # CLASS LocalDirNode
@@ -162,9 +157,9 @@ class LocalDirNode(HasChildList, LocalNode):
     Represents a generic local directory.
     """
 
-    def __init__(self, node_identifier: LocalNodeIdentifier, exists: bool):
+    def __init__(self, node_identifier: LocalNodeIdentifier, is_live: bool):
         HasChildList.__init__(self)
-        LocalNode.__init__(self, node_identifier, exists)
+        LocalNode.__init__(self, node_identifier, is_live)
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalDirNode)
@@ -184,7 +179,7 @@ class LocalDirNode(HasChildList, LocalNode):
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.get_single_path(), self.exists()
+        return self.uid, self.get_single_path(), self.is_live()
 
     @classmethod
     def get_obj_type(cls):
@@ -211,10 +206,10 @@ class LocalDirNode(HasChildList, LocalNode):
             return False
 
         return other.node_identifier == self.node_identifier and other.name == self.name and other.trashed == self.trashed \
-            and other._exists == self._exists
+            and other._is_live == self._is_live
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return f'LocalDirNode({self.node_identifier} exists={self.exists()} size_bytes={self.get_size_bytes()} summary="{self.get_summary()}")'
+        return f'LocalDirNode({self.node_identifier} is_live={self.is_live()} size_bytes={self.get_size_bytes()} summary="{self.get_summary()}")'

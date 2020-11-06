@@ -229,7 +229,7 @@ class ContentFirstDiffer(ChangeMaker):
                     # GDrive creates a hard problem because it can allow nodes with the same name and path. Just pick first one for now.
                     # We can try to clean things up in the command executor.
                     existing_sn_r: SPIDNodePair = existing_sn_list_r[0]
-                    assert existing_sn_r.node.exists(), f'non-existent nodes should have been pre-filtered: {existing_sn_r.node}'
+                    assert existing_sn_r.node.is_live(), f'non-existent nodes should have been pre-filtered: {existing_sn_r.node}'
                     assert existing_sn_r.node.md5 != sn_s.node.md5, \
                         f'Expected different MD5 for left node ({sn_s.node}) and right node ({existing_sn_r})'
                     # UPDATED

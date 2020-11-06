@@ -52,12 +52,12 @@ class LocalDiskDatabase(MetaDatabase):
     # LOCAL_FILE operations ⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆⯆
 
     def _tuple_to_file(self, row: Tuple) -> LocalFileNode:
-        uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, exists = row
+        uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, is_live = row
 
         uid = self.cacheman.get_uid_for_path(full_path, uid_int)
         assert uid == row[0], f'UID conflict! Got {uid} but read {uid_int} in row: {row}'
         node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)
-        return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, exists)
+        return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, is_live)
 
     def has_local_files(self):
         return self.table_local_file.has_rows()
@@ -69,9 +69,9 @@ class LocalDiskDatabase(MetaDatabase):
         self.table_local_file.insert_object_list(entries, overwrite=overwrite, commit=commit)
 
     def upsert_local_file(self, node: LocalFileNode, commit=True):
-        if not node.exists():
+        if not node.is_live():
             # These don't belong here; they belong in the op DB
-            logger.warning(f'Saving node with exists=False! Check code for bug: {node}')
+            logger.warning(f'Saving node with is_live=False! Check code for bug: {node}')
         self.table_local_file.upsert_object(node, commit=commit)
 
     def upsert_local_file_list(self, file_list: List[LocalFileNode], commit=True):
@@ -105,9 +105,9 @@ class LocalDiskDatabase(MetaDatabase):
         self.table_local_dir.insert_object_list(entries, overwrite=overwrite, commit=commit)
 
     def upsert_local_dir(self, node: LocalDirNode, commit=True):
-        if not node.exists():
+        if not node.is_live():
             # These don't belong here; they belong in the op DB
-            logger.warning(f'Saving node with exists=False! Check code for bug: {node}')
+            logger.warning(f'Saving node with is_live=False! Check code for bug: {node}')
         self.table_local_dir.upsert_object(node, commit=commit)
 
     def upsert_local_dir_list(self, dir_list: List[LocalDirNode], commit=True):

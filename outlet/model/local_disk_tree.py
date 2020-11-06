@@ -54,7 +54,7 @@ class LocalDiskTree(treelib.Tree):
                 child: LocalNode = self.get_node(nid=uid)
                 if not child:
                     # logger.debug(f'Creating dir node: nid={uid}')
-                    child = LocalDirNode(node_identifier=LocalNodeIdentifier(path_list=path_so_far, uid=uid), exists=True)
+                    child = LocalDirNode(node_identifier=LocalNodeIdentifier(path_list=path_so_far, uid=uid), is_live=True)
                     try:
                         self.add_node(node=child, parent=parent)
                     except Exception:
@@ -67,7 +67,7 @@ class LocalDiskTree(treelib.Tree):
         if child:
             if child.is_dir() and node.is_dir():
                 # Just update
-                child.set_exists(node.exists())
+                child.set_is_live(node.is_live())
             else:
                 assert False, f'For old={child}, new={node}, path_segments={path_segments}'
         else:

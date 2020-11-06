@@ -165,7 +165,7 @@ class OneSide:
             elif tree_type == TREE_TYPE_LOCAL_DISK:
                 logger.debug(f'Creating LocalDirToAdd for {parent_path}')
                 new_uid = self.app.cacheman.get_uid_for_path(parent_path)
-                new_parent_node = LocalDirNode(LocalNodeIdentifier(uid=new_uid, path_list=parent_path), exists=False)
+                new_parent_node = LocalDirNode(LocalNodeIdentifier(uid=new_uid, path_list=parent_path), is_live=False)
             else:
                 raise RuntimeError(f'Invalid tree type: {tree_type} for node {new_sn.node}')
 

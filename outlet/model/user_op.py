@@ -107,7 +107,7 @@ class UserOp(treelib.Node):
     def get_icon_for_node(self, node_uid: UID):
         if self.has_dst() and self.dst_node.uid == node_uid:
             op_type = self.op_type
-            if op_type == UserOpType.MV and not self.dst_node.exists():
+            if op_type == UserOpType.MV and not self.dst_node.is_live():
                 # Use an add-like icon if nothing there right now:
                 op_type = UserOpType.CP
 

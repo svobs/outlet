@@ -117,7 +117,7 @@ class LocalDiskDiskStore(HasLifecycle):
 
             root_node_identifer = LocalNodeIdentifier(uid=uid, path_list=cache_info.subtree_root.get_path_list())
             tree: LocalDiskTree = LocalDiskTree(self.app)
-            root_node = LocalDirNode(node_identifier=root_node_identifer, exists=True)
+            root_node = LocalDirNode(node_identifier=root_node_identifer, is_live=True)
             tree.add_node(node=root_node, parent=None)
 
             missing_nodes: List[LocalNode] = []
@@ -129,7 +129,7 @@ class LocalDiskDiskStore(HasLifecycle):
 
             for dir_node in dir_list:
                 if dir_node.uid != root_node_identifer.uid:
-                    if dir_node.exists():
+                    if dir_node.is_live():
                         tree.add_to_tree(dir_node)
                     else:
                         missing_nodes.append(dir_node)
@@ -140,7 +140,7 @@ class LocalDiskDiskStore(HasLifecycle):
                 logger.debug('No files found in disk cache')
 
             for file_node in file_list:
-                if file_node.exists():
+                if file_node.is_live():
                     tree.add_to_tree(file_node)
                 else:
                     missing_nodes.append(file_node)
@@ -150,7 +150,7 @@ class LocalDiskDiskStore(HasLifecycle):
 
             if len(missing_nodes) > 0:
                 # TODO: add code for adjudicator
-                logger.warning(f'Found {len(missing_nodes)} cached nodes with exists=false: submitting to adjudicator...TODO: build adjudicator')
+                logger.warning(f'Found {len(missing_nodes)} cached nodes with is_live=false: submitting to adjudicator...TODO: build adjudicator')
                 for node_index, node in enumerate(missing_nodes):
                     logger.info(f'Nonexistant node #{node_index}: {node}')
 

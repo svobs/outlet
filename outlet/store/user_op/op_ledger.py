@@ -230,7 +230,7 @@ class OpLedger(HasLifecycle):
         """
         Call this after the user requests a new set of ops.
 
-         - First store "planning nodes" to the list of cached nodes (but each will have exists=False until we execute its associated command).
+         - First store "planning nodes" to the list of cached nodes (but each will have is_live=False until we execute its associated command).
          - The list of to-be-completed ops is also cached on disk.
          - When each command completes, cacheman is notified of any node updates required as well.
          - When batch completes, we archive the ops on disk.
