@@ -1,11 +1,11 @@
 import logging
 from typing import Optional
 
-
 from constants import SUPER_DEBUG, TreeDisplayMode
 from model.node.node import Node
 from model.node_identifier import NodeIdentifier
 from model.display_tree.display_tree import DisplayTree
+from ui.comp.filter_panel import TreeFilterPanel
 from ui.dialog.base_dialog import BaseDialog
 from ui.tree import tree_factory_templates
 from ui.tree.tree_actions import TreeActions
@@ -112,11 +112,13 @@ class TreeFactory:
                                                  can_change_root=treeview_meta.can_change_root,
                                                  is_loaded=already_loaded)
 
-        # FIXME: add toggle buttons to GDrive status bar: Show Trashed, Show Shared By Me, Show Shared With Me
+        controller.filter_panel = TreeFilterPanel(parent_win=self.parent_win,
+                                                  controller=controller,
+                                                  tree_id=treeview_meta.tree_id)
 
         controller.status_bar, status_bar_container = tree_factory_templates.build_status_bar()
-        controller.content_box = tree_factory_templates.build_content_box(controller.root_dir_panel.content_box, controller.tree_view,
-                                                                          status_bar_container)
+        controller.content_box = tree_factory_templates.build_content_box(controller.root_dir_panel.content_box, controller.filter_panel.content_box,
+                                                                          controller.tree_view, status_bar_container)
 
         # Line up the following between trees if we are displaying side-by-side trees:
         if hasattr('parent_win', 'sizegroups'):
@@ -124,6 +126,8 @@ class TreeFactory:
                 self.parent_win.sizegroups['tree_status'].add_widget(status_bar_container)
             if self.parent_win.sizegroups.get('root_paths'):
                 self.parent_win.sizegroups['root_paths'].add_widget(controller.root_dir_panel.content_box)
+            if self.parent_win.sizegroups.get('filter_panel'):
+                self.parent_win.sizegroups['filter_panel'].add_widget(controller.filter_panel.content_box)
 
         controller.init()
         return controller

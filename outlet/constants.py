@@ -3,6 +3,10 @@ from model.uid import UID
 
 SUPER_DEBUG = True
 
+# Padding in pixels
+H_PAD = 5
+V_PAD = 5
+
 APP_NAME = 'Outlet'
 
 VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp4', 'mpeg', 'mpg', 'm4v', 'avi', 'pdf', 'nef', 'vob')

@@ -1,15 +1,15 @@
 import logging
 
-import gi
-from gi.repository.Gtk import TreeView
-
+from constants import V_PAD
 from ui.tree.multi_drag_tree_view import MultiDragTreeView
-
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
 
 from ui.tree.treeview_meta import TreeViewMeta
 from ui.tree.display_store import DisplayStore
+
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+from gi.repository.Gtk import TreeView
 
 logger = logging.getLogger(__name__)
 
@@ -23,21 +23,23 @@ def build_status_bar():
     return info_bar, info_bar_container
 
 
-def build_content_box(root_dir_panel, tree_view, status_bar_container):
-    content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
+def build_content_box(root_dir_panel, filter_panel, tree_view, status_bar_container):
+    vbox = Gtk.Box(spacing=0, orientation=Gtk.Orientation.VERTICAL)
 
-    content_box.pack_start(root_dir_panel, False, False, 5)
+    vbox.pack_start(root_dir_panel, False, False, 0)
+
+    vbox.pack_start(filter_panel, False, False, V_PAD)
 
     tree_scroller = Gtk.ScrolledWindow()
     # No horizontal scrolling - only vertical
     tree_scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
     tree_scroller.add(tree_view)
     # child, expand, fill, padding
-    content_box.pack_start(tree_scroller, False, True, 5)
+    vbox.pack_start(tree_scroller, False, True, 0)
 
-    content_box.pack_start(status_bar_container, False, True, 5)
+    vbox.pack_start(status_bar_container, False, True, V_PAD)
 
-    return content_box
+    return vbox
 
 
 def add_checkbox_icon_name_column(treeview: TreeView, display_store: DisplayStore, assets):

@@ -43,6 +43,7 @@ class TreePanelController:
 
         self.tree_view = None
         self.root_dir_panel = None
+        self.filter_panel = None
         self.display_mutator = None
         self.status_bar = None
         self.content_box = None

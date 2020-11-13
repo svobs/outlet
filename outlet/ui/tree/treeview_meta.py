@@ -14,6 +14,9 @@ from ui import actions
 logger = logging.getLogger(__name__)
 
 
+# CLASS TreeViewMeta
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class TreeViewMeta:
     def but_with_checkboxes(self, checkboxes_visible: bool):
         return TreeViewMeta(config=self.config, tree_id=self.tree_id, can_modify_tree=self.can_modify_tree,

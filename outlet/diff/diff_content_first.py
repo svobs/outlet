@@ -97,7 +97,7 @@ class ContentFirstDiffer(ChangeMaker):
 
         sn_list_only_r: List[SPIDNodePair] = []
         for sn_r in rights:
-            relpath_r: str = self.left_side.derive_relative_path(sn_r.spid)
+            relpath_r: str = self.right_side.derive_relative_path(sn_r.spid)
             if relpath_r in relpath_sn_dict_s:
                 # discard left. silently discard right
                 relpath_sn_dict_s.pop(relpath_r, None)

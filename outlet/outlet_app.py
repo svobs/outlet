@@ -1,5 +1,7 @@
+import signal
 import sys
 import logging
+
 from pydispatch import dispatcher
 
 from executor.central import CentralExecutor
@@ -16,7 +18,7 @@ import ui.assets
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gio
+from gi.repository import Gtk, Gio, GLib
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +82,9 @@ class OutletApplication(Gtk.Application):
             self.window = TwoPanelWindow(app=self, win_id=ID_DIFF_WINDOW)
             self.window.show_all()
             logger.debug(f'Finished window.show_all()')
+
+            # Make sure that the application can be stopped from the terminal using Ctrl-C
+            GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, Gtk.main_quit)
 
         self.window.present()
 

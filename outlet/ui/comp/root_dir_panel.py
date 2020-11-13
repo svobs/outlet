@@ -9,7 +9,7 @@ from util import file_util
 from error import GDriveItemNotFoundError
 from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 
-from constants import BTN_GDRIVE, BTN_LOCAL_DISK_LINUX, GDRIVE_PATH_PREFIX, ICON_ALERT, ICON_REFRESH, NULL_UID, \
+from constants import BTN_GDRIVE, BTN_LOCAL_DISK_LINUX, GDRIVE_PATH_PREFIX, H_PAD, ICON_ALERT, ICON_REFRESH, NULL_UID, \
     TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from model.node_identifier import SinglePathNodeIdentifier
@@ -33,7 +33,7 @@ class RootDirPanel:
         assert type(tree_id) == str
         self.tree_id: str = tree_id
         self.cacheman = self.con.cacheman
-        self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        self.content_box = Gtk.Box(spacing=0, orientation=Gtk.Orientation.HORIZONTAL)
         self.current_root: SinglePathNodeIdentifier = current_root
         self.can_change_root = can_change_root
         self._ui_enabled = can_change_root
@@ -53,7 +53,7 @@ class RootDirPanel:
         if self.can_change_root:
             self.change_btn = Gtk.MenuButton()
             self.change_btn.set_image(image=self.path_icon)
-            self.content_box.pack_start(self.change_btn, expand=False, fill=False, padding=5)
+            self.content_box.pack_start(self.change_btn, expand=False, fill=False, padding=0)
             self.change_btn.connect("clicked", self._on_change_btn_clicked)
             self.source_menu = self._build_source_menu()
             self.change_btn.set_popup(self.source_menu)
@@ -77,7 +77,7 @@ class RootDirPanel:
         self.path_box = Gtk.Box(spacing=0, orientation=Gtk.Orientation.HORIZONTAL)
         self.content_box.pack_start(self.path_box, expand=True, fill=True, padding=0)
 
-        self.alert_image_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        self.alert_image_box = Gtk.Box(spacing=H_PAD, orientation=Gtk.Orientation.HORIZONTAL)
         self.path_box.pack_start(self.alert_image_box, expand=False, fill=False, padding=0)
 
         self.alert_image = Gtk.Image()
@@ -234,7 +234,7 @@ class RootDirPanel:
             self.refresh_button.set_tooltip_text('Load meta for tree')
             self.refresh_button.connect('clicked', self._on_refresh_button_clicked)
             self.toolbar.insert(self.refresh_button, -1)
-            self.path_box.pack_end(self.toolbar, expand=False, fill=True, padding=5)
+            self.path_box.pack_end(self.toolbar, expand=False, fill=True, padding=H_PAD)
             self.toolbar.show_all()
 
         if self.can_change_root:

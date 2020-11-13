@@ -6,10 +6,10 @@ from pydispatch import dispatcher
 from pydispatch.dispatcher import Any
 
 import ui.actions as actions
-from constants import APP_NAME, ICON_PAUSE, ICON_PLAY, ICON_WINDOW, TreeDisplayMode
+from constants import APP_NAME, H_PAD, ICON_PAUSE, ICON_PLAY, ICON_WINDOW, TreeDisplayMode, V_PAD
 from diff.diff_content_first import ContentFirstDiffer
 from model.display_tree.category import CategoryDisplayTree
-from model.node.node import Node, SPIDNodePair
+from model.node.node import SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from ui.comp.progress_bar import ProgressBar
 from ui.dialog.base_dialog import BaseDialog
@@ -62,14 +62,15 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # i.e. "minimum" window size allowed:
         self.set_size_request(1200, 500)
 
-        self.set_border_width(10)
-        self.content_box = Gtk.Box(spacing=6, orientation=Gtk.Orientation.VERTICAL)
+        self.set_border_width(H_PAD)
+        self.content_box = Gtk.Box(spacing=0, orientation=Gtk.Orientation.VERTICAL)
         self.add(self.content_box)
 
         diff_tree_panes = Gtk.HPaned()
         self.content_box.add(diff_tree_panes)
 
         self.sizegroups = {'root_paths': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL),
+                           'filter_panel': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL),
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Tree Left:
@@ -85,11 +86,11 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)
 
         # Bottom panel: Bottom Button panel, toolbar and progress bar
-        self.bottom_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        self.bottom_panel = Gtk.Box(spacing=H_PAD, orientation=Gtk.Orientation.HORIZONTAL)
         self.content_box.add(self.bottom_panel)
 
         # Bottom Button panel:
-        self.bottom_button_panel = Gtk.Box(spacing=6, orientation=Gtk.Orientation.HORIZONTAL)
+        self.bottom_button_panel = Gtk.Box(spacing=H_PAD, orientation=Gtk.Orientation.HORIZONTAL)
         self.bottom_panel.add(self.bottom_button_panel)
 
         # Toolbar
@@ -106,12 +107,12 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
         self.play_pause_btn.connect('clicked', self._on_play_pause_btn_clicked)
         self.toolbar.insert(self.play_pause_btn, -1)
-        self.bottom_panel.pack_start(self.toolbar, expand=False, fill=True, padding=5)
+        self.bottom_panel.pack_start(self.toolbar, expand=False, fill=True, padding=H_PAD)
 
         self.toolbar.show_all()
 
         filler = Gtk.Box(spacing=0, orientation=Gtk.Orientation.HORIZONTAL)
-        self.bottom_panel.pack_start(filler, expand=True, fill=False, padding=0)
+        self.bottom_panel.pack_start(filler, expand=True, fill=False, padding=H_PAD)
 
         # Progress bar: just disable for now - deal with this later
         # listen_for = [actions.ID_LEFT_TREE, actions.ID_RIGHT_TREE,
