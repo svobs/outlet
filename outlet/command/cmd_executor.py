@@ -26,34 +26,32 @@ class CommandExecutor:
             logger.error(f'No command!')
             return
 
-        needs_gdrive = command.needs_gdrive()
-
         context = None
         try:
-            context = CommandContext(self.staging_dir, self.app, actions.ID_COMMAND_EXECUTOR, needs_gdrive)
+            context = CommandContext(self.staging_dir, self.app, actions.ID_COMMAND_EXECUTOR, command.needs_gdrive())
 
             if command.status() != CommandStatus.NOT_STARTED:
                 logger.info(f'Skipping command: {command} because it has status {command.status()}')
             else:
-                try:
-                    status_str: str = f'Executing command: {repr(command)}'
-                    dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=actions.ID_COMMAND_EXECUTOR, msg=status_str)
-                    logger.info(status_str)
-                    command.result = command.execute(context)
-                except Exception as err:
-                    logger.exception(f'While executing {command.get_description()}')
-                    # Save the error inside the command:
-                    command.set_error_result(err)
+                status_str: str = f'Executing command: {repr(command)}'
+                dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=actions.ID_COMMAND_EXECUTOR, msg=status_str)
+                logger.info(status_str)
+                command.result = command.execute(context)
+                command.op.set_completed()
+                logger.debug(f'{command.get_description()} completed with status: {command.status().name}')
+        except Exception as err:
+            logger.exception(f'While executing {command.get_description()}')
+            # Save the error inside the command:
+            command.set_error_result(err)
 
-                dispatcher.send(signal=actions.COMMAND_COMPLETE, sender=actions.ID_COMMAND_EXECUTOR, command=command)
-                dispatcher.send(signal=actions.PROGRESS_MADE, sender=actions.ID_COMMAND_EXECUTOR, progress=command.get_total_work())
+        dispatcher.send(signal=actions.COMMAND_COMPLETE, sender=actions.ID_COMMAND_EXECUTOR, command=command)
 
-        finally:
-            dispatcher.send(signal=actions.STOP_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR)
-            if context:
-                context.shutdown()
+        # TODO: this needs to be re-thought:
+        dispatcher.send(signal=actions.PROGRESS_MADE, sender=actions.ID_COMMAND_EXECUTOR, progress=command.get_total_work())
+        dispatcher.send(signal=actions.STOP_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR)
 
-        logger.debug(f'{command.get_description()} completed without error')
+        if context:
+            context.shutdown()
 
     def execute_batch(self, command_batch: List[Command]):
         """deprecated - use execute_command()"""
@@ -86,6 +84,7 @@ class CommandExecutor:
                         dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=actions.ID_COMMAND_EXECUTOR, msg=status)
                         logger.info(f'{status}: {repr(command)}')
                         command.result = command.execute(context)
+                        logger.warning(f'Got result: {command.result}. Setting op complete: {command.op}')
 
                         # Need to set this here to resolve chicken-and-egg scenario.
                         # When we tell cacheman to upsert node, it will notify DisplayMutator which will then look up here, and we have not
@@ -97,6 +96,8 @@ class CommandExecutor:
                         logger.exception(f'While executing {command.get_description()}')
                         # Save the error inside the command:
                         command.set_error_result(err)
+
+                    logger.warning(f'Signalling command complete: {command}')
 
                     dispatcher.send(signal=actions.COMMAND_COMPLETE, sender=actions.ID_COMMAND_EXECUTOR, command=command)
                     dispatcher.send(signal=actions.PROGRESS_MADE, sender=actions.ID_COMMAND_EXECUTOR, progress=command.get_total_work())

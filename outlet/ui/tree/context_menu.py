@@ -2,8 +2,6 @@ import logging
 import re
 from typing import List, Optional
 
-import gi
-from gi.repository import GLib
 from pydispatch import dispatcher
 
 from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
@@ -13,8 +11,9 @@ from model.user_op import UserOp
 from ui import actions
 from ui.tree.tree_actions import DATE_REGEX
 
+import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+from gi.repository import GLib, Gtk
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,6 @@
 import time
 from enum import IntEnum
+import logging
 
 import treelib
 from treelib import Node
@@ -10,6 +11,7 @@ from constants import ICON_DIR_CP_DST, ICON_DIR_CP_SRC, ICON_DIR_MK, ICON_DIR_MV
 from model.uid import UID
 from model.node.node import Node
 
+logger = logging.getLogger(__name__)
 
 # ENUM UserOpType
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -95,10 +97,11 @@ class UserOp(treelib.Node):
 
         self.tag = repr(self)
 
-    def is_completed(self):
+    def is_completed(self) -> bool:
         return self._completed
 
     def set_completed(self):
+        logger.debug(f'Setting op complete: {self}')
         self._completed = True
 
     def has_dst(self) -> bool:

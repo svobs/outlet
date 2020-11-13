@@ -160,7 +160,7 @@ class CopyNodeCommand(TwoNodeCommand, ABC):
     def __init__(self, uid: UID, op: UserOp, overwrite: bool):
         TwoNodeCommand.__init__(self, uid, op)
         self.overwrite = overwrite
-        self.tag = f'{__class__.__name__}(cmd_uid={self.identifier} op_uid={op.op_uid} overwrite={self.overwrite} ' \
+        self.tag = f'{self.__class__.__name__}(cmd_uid={self.identifier} op_uid={op.op_uid} overwrite={self.overwrite} ' \
                    f'src={self.op.src_node.node_identifier} dst={self.op.dst_node.node_identifier})'
 
     def __repr__(self):

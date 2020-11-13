@@ -600,7 +600,7 @@ class DisplayMutator(HasLifecycle):
         if op and not op.is_completed():
             icon = op.get_icon_for_node(node.uid)
             if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Node belongs to pending op ({node.uid}: {op.op_type.name}): returning icon={icon}')
+                logger.debug(f'[{self.con.tree_id}] Node {node.uid} belongs to pending op ({op.op_uid}): {op.op_type.name}): returning icon="{icon}"')
         else:
             icon = node.get_icon()
         # logger.debug(f'[{self.con.tree_id}] Got icon "{icon}" for node {node}')

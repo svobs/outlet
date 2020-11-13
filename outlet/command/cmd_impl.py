@@ -55,13 +55,13 @@ class CopyFileLocallyCommand(CopyNodeCommand):
             except file_util.IdenticalFileExistsError:
                 # Not a real error. Nothing to do.
                 # However make sure we still keep the cache manager in the loop - it's likely out of date. Calculate fresh stats:
-                local_node = cxt.cacheman.build_local_file_node(full_path=dst_path)
-                return CommandResult(CommandStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, local_node])
+                dst_node = cxt.cacheman.build_local_file_node(full_path=dst_path)
+                return CommandResult(CommandStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, dst_node])
 
         # update cache:
-        local_node = cxt.cacheman.build_local_file_node(full_path=dst_path)
-        assert local_node.uid == self.op.dst_node.uid, f'LocalNode={local_node}, DstNode={self.op.dst_node}'
-        return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[self.op.src_node, local_node])
+        dst_node = cxt.cacheman.build_local_file_node(full_path=dst_path)
+        assert dst_node.uid == self.op.dst_node.uid, f'LocalNode={dst_node}, DstNode={self.op.dst_node}'
+        return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[self.op.src_node, dst_node])
 
 
 class DeleteLocalFileCommand(DeleteNodeCommand):

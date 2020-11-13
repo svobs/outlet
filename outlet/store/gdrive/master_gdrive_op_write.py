@@ -100,8 +100,8 @@ class UpsertSingleNodeOp(GDriveWriteThroughOp):
             cache.upsert_gdrive_file_list([self.node])
 
     def send_signals(self):
-        if self.was_updated:
-            dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=self.node)
+        # Always update:
+        dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=self.node)
 
 
 # CLASS DeleteSingleNodeOp
