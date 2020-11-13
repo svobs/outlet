@@ -6,7 +6,7 @@ from model.node_identifier import LocalNodeIdentifier
 
 from util import file_util
 from model.user_op import UserOp, UserOpType
-from command.cmd_interface import Command, CommandContext, CommandResult, CommandStatus, CopyNodeCommand, DeleteNodeCommand, TwoNodeCommand
+from command.cmd_interface import Command, CommandContext, UserOpResult, UserOpStatus, CopyNodeCommand, DeleteNodeCommand, TwoNodeCommand
 from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, TrashStatus
 from model.uid import UID
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
@@ -29,7 +29,8 @@ class CopyFileLocallyCommand(CopyNodeCommand):
     def get_total_work(self) -> int:
         return self.op.src_node.get_size_bytes()
 
-    def execute(self, cxt: CommandContext) -> CommandResult:
+    def execute(self, cxt: CommandContext) -> UserOpResult:
+        assert cxt
         assert isinstance(self.op.src_node, LocalFileNode), f'Got {self.op.src_node}'
         assert isinstance(self.op.dst_node, LocalFileNode), f'Got {self.op.dst_node}'
         src_path = self.op.src_node.get_single_path()
@@ -56,12 +57,12 @@ class CopyFileLocallyCommand(CopyNodeCommand):
                 # Not a real error. Nothing to do.
                 # However make sure we still keep the cache manager in the loop - it's likely out of date. Calculate fresh stats:
                 dst_node = cxt.cacheman.build_local_file_node(full_path=dst_path)
-                return CommandResult(CommandStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, dst_node])
+                return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, dst_node])
 
         # update cache:
         dst_node = cxt.cacheman.build_local_file_node(full_path=dst_path)
         assert dst_node.uid == self.op.dst_node.uid, f'LocalNode={dst_node}, DstNode={self.op.dst_node}'
-        return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[self.op.src_node, dst_node])
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node, dst_node])
 
 
 class DeleteLocalFileCommand(DeleteNodeCommand):
@@ -106,7 +107,7 @@ class DeleteLocalFileCommand(DeleteNodeCommand):
                         break
                 parent_dir_path = str(pathlib.Path(parent_dir_path).parent)
 
-        return CommandResult(CommandStatus.COMPLETED_OK, to_delete=deleted_nodes_list)
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_delete=deleted_nodes_list)
 
 
 class MoveFileLocallyCommand(TwoNodeCommand):
@@ -134,7 +135,7 @@ class MoveFileLocallyCommand(TwoNodeCommand):
             cxt.cacheman.remove_node(local_node)
         else:
             logger.warning(f'Src node still exists after move: {self.op.src_node.get_single_path()}')
-        return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=to_upsert, to_delete=to_delete)
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=to_upsert, to_delete=to_delete)
 
 
 class CreatLocalDirCommand(Command):
@@ -156,7 +157,7 @@ class CreatLocalDirCommand(Command):
         # Add to cache:
         assert isinstance(self.op.src_node.node_identifier, LocalNodeIdentifier)
         local_node = LocalDirNode(self.op.src_node.node_identifier, True)
-        return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[local_node])
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[local_node])
 
 
 # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
@@ -202,7 +203,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
         if existing and existing.md5 == md5 and existing.get_size_bytes() == size_bytes:
             logger.info(f'Identical node already exists in Google Drive: (md5={md5}, size={size_bytes})')
             # Target node will contain invalid UID anyway because it has no goog_id. Just remove it
-            return CommandResult(CommandStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, existing], to_delete=[self.op.dst_node])
+            return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, existing], to_delete=[self.op.dst_node])
 
         if self.overwrite:
             if existing:
@@ -220,7 +221,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
                 parent_goog_id: str = cxt.cacheman.get_goog_id_for_parent(self.op.dst_node)
                 goog_node: GDriveNode = cxt.gdrive_client.upload_new_file(src_file_path, parent_goog_ids=parent_goog_id, uid=self.op.dst_node.uid)
 
-        return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[self.op.src_node, goog_node])
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node, goog_node])
 
 
 class DownloadFromGDriveCommand(CopyNodeCommand):
@@ -248,7 +249,7 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
             node: LocalFileNode = cxt.cacheman.build_local_file_node(full_path=dst_path, must_scan_signature=True)
             if node and node.md5 == self.op.src_node.md5:
                 logger.debug(f'Item already exists and appears valid: skipping download; will update cache and return ({dst_path})')
-                return CommandResult(CommandStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, node])
+                return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, node])
             elif not self.overwrite:
                 raise RuntimeError(f'A different node already exists at the destination path: {dst_path}')
         elif self.overwrite:
@@ -266,7 +267,7 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
             if node and node.md5 == self.op.src_node.md5:
                 logger.debug(f'Found target node in staging dir; will move: ({staging_path} -> {dst_path})')
                 file_util.move_to_dst(staging_path=staging_path, dst_path=dst_path)
-                return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[self.op.src_node, node])
+                return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node, node])
             else:
                 logger.debug(f'Found unexpected file in the staging dir; removing: {staging_path}')
                 os.remove(staging_path)
@@ -281,7 +282,7 @@ class DownloadFromGDriveCommand(CopyNodeCommand):
         # This will overwrite if the file already exists:
         file_util.move_to_dst(staging_path=staging_path, dst_path=dst_path)
 
-        return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[self.op.src_node, node])
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node, node])
 
 
 class CreateGDriveFolderCommand(Command):
@@ -316,7 +317,7 @@ class CreateGDriveFolderCommand(Command):
 
         assert goog_node.is_dir()
         assert goog_node.get_parent_uids(), f'Expected some parent_uids for: {goog_node}'
-        return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[goog_node])
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[goog_node])
 
 
 class MoveFileGDriveCommand(TwoNodeCommand):
@@ -353,7 +354,7 @@ class MoveFileGDriveCommand(TwoNodeCommand):
             assert goog_node.name == self.op.dst_node.name and goog_node.uid == self.op.src_node.uid
 
             # Update master cache. The tgt_node must be removed (it has a different UID). The src_node will be updated.
-            return CommandResult(CommandStatus.COMPLETED_OK, to_upsert=[self.op.src_node, goog_node], to_delete=[self.op.dst_node])
+            return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node, goog_node], to_delete=[self.op.dst_node])
         else:
             # did not find the src file; see if our operation was already completed
             existing_dst, raw = cxt.gdrive_client.get_single_file_with_parent_and_name_and_criteria(self.op.dst_node,
@@ -363,7 +364,7 @@ class MoveFileGDriveCommand(TwoNodeCommand):
                 assert existing_dst.uid == self.op.src_node.uid and existing_dst.goog_id == self.op.src_node.goog_id, \
                     f'For {existing_dst} and {self.op.src_node}'
                 logger.info(f'Identical already exists in Google Drive; will update cache only (goog_id={existing_dst.goog_id})')
-                return CommandResult(CommandStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, existing_dst], to_delete=[self.op.dst_node])
+                return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_upsert=[self.op.src_node, existing_dst], to_delete=[self.op.dst_node])
             else:
                 raise RuntimeError(f'Could not find expected node in source or dest locations. Looks like the model is out of date '
                                    f'(goog_id={self.op.src_node.goog_id})')
@@ -389,7 +390,7 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
 
         existing = cxt.gdrive_client.get_single_node_with_parent_and_name_and_criteria(self.op.src_node, lambda x: x.goog_id == tgt_goog_id)
         if not existing:
-            return CommandResult(CommandStatus.COMPLETED_NO_OP, to_delete=[self.op.src_node])
+            return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_delete=[self.op.src_node])
 
         if self.delete_empty_parent:
             # TODO
@@ -397,7 +398,7 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
 
         if self.to_trash and existing.trashed != TrashStatus.NOT_TRASHED:
             logger.info(f'Item is already trashed: {existing}')
-            return CommandResult(CommandStatus.COMPLETED_NO_OP, to_delete=[existing])
+            return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_delete=[existing])
 
         if self.to_trash:
             cxt.gdrive_client.trash(self.op.src_node.goog_id)
@@ -405,7 +406,7 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
         else:
             cxt.gdrive_client.hard_delete(self.op.src_node.goog_id)
 
-        return CommandResult(CommandStatus.COMPLETED_OK, to_delete=[self.op.src_node])
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_delete=[self.op.src_node])
 
 # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 # GOOGLE DRIVE COMMANDS end

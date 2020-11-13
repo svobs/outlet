@@ -94,7 +94,7 @@ class CentralExecutor(HasLifecycle):
                     return
 
             logger.debug(f'Got a command to execute: {command.__class__.__name__}')
-            self.submit_async_task(self._command_executor.execute_command, command)
+            self.submit_async_task(self._command_executor.execute_command, command, None, True)
 
     def _start_op_execution(self, sender):
         logger.debug(f'Received signal "{actions.RESUME_OP_EXECUTION}" from {sender}')

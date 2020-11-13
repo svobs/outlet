@@ -4,7 +4,7 @@ from pydispatch import dispatcher
 import logging
 
 from util import file_util
-from command.cmd_interface import Command, CommandContext, CommandStatus
+from command.cmd_interface import Command, CommandContext, UserOpStatus
 from ui import actions
 
 logger = logging.getLogger(__name__)
@@ -21,23 +21,25 @@ class CommandExecutor:
         logger.debug(f'Staging dir: "{self.staging_dir}"')
         # TODO: optionally clean staging dir at startup
 
-    def execute_command(self, command: Command):
+    def execute_command(self, command: Command, context: CommandContext = None, start_stop_progress: bool = False):
         if not command:
             logger.error(f'No command!')
             return
 
-        context = None
-        try:
-            context = CommandContext(self.staging_dir, self.app, actions.ID_COMMAND_EXECUTOR, command.needs_gdrive())
+        if start_stop_progress:
+            dispatcher.send(signal=actions.START_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR, total=command.get_total_work())
 
-            if command.status() != CommandStatus.NOT_STARTED:
+        try:
+            if not context:
+                context = CommandContext(self.staging_dir, self.app, actions.ID_COMMAND_EXECUTOR, command.needs_gdrive())
+
+            if command.status() != UserOpStatus.NOT_STARTED:
                 logger.info(f'Skipping command: {command} because it has status {command.status()}')
             else:
                 status_str: str = f'Executing command: {repr(command)}'
                 dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=actions.ID_COMMAND_EXECUTOR, msg=status_str)
                 logger.info(status_str)
-                command.result = command.execute(context)
-                command.op.set_completed()
+                command.op.result = command.execute(context)
                 logger.debug(f'{command.get_description()} completed with status: {command.status().name}')
         except Exception as err:
             logger.exception(f'While executing {command.get_description()}')
@@ -45,13 +47,12 @@ class CommandExecutor:
             command.set_error_result(err)
 
         dispatcher.send(signal=actions.COMMAND_COMPLETE, sender=actions.ID_COMMAND_EXECUTOR, command=command)
-
-        # TODO: this needs to be re-thought:
         dispatcher.send(signal=actions.PROGRESS_MADE, sender=actions.ID_COMMAND_EXECUTOR, progress=command.get_total_work())
-        dispatcher.send(signal=actions.STOP_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR)
 
-        if context:
-            context.shutdown()
+        if start_stop_progress:
+            dispatcher.send(signal=actions.STOP_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR)
+            if context:
+                context.shutdown()
 
     def execute_batch(self, command_batch: List[Command]):
         """deprecated - use execute_command()"""
@@ -76,31 +77,7 @@ class CommandExecutor:
             context = CommandContext(self.staging_dir, self.app, actions.ID_COMMAND_EXECUTOR, needs_gdrive)
 
             for command_num, command in enumerate(command_batch):
-                if command.status() != CommandStatus.NOT_STARTED:
-                    logger.info(f'Skipping command: {command} because it has status {command.status()}')
-                else:
-                    try:
-                        status = f'Executing command {(command_num + 1)} of {len(command_batch)}'
-                        dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=actions.ID_COMMAND_EXECUTOR, msg=status)
-                        logger.info(f'{status}: {repr(command)}')
-                        command.result = command.execute(context)
-                        logger.warning(f'Got result: {command.result}. Setting op complete: {command.op}')
-
-                        # Need to set this here to resolve chicken-and-egg scenario.
-                        # When we tell cacheman to upsert node, it will notify DisplayMutator which will then look up here, and we have not
-                        # yet popped the op.
-                        # Need a way for DisplayMutator to know that it's complete.
-                        command.op.set_completed()
-
-                    except Exception as err:
-                        logger.exception(f'While executing {command.get_description()}')
-                        # Save the error inside the command:
-                        command.set_error_result(err)
-
-                    logger.warning(f'Signalling command complete: {command}')
-
-                    dispatcher.send(signal=actions.COMMAND_COMPLETE, sender=actions.ID_COMMAND_EXECUTOR, command=command)
-                    dispatcher.send(signal=actions.PROGRESS_MADE, sender=actions.ID_COMMAND_EXECUTOR, progress=command.get_total_work())
+                self.execute_command(command, context, False)
 
         finally:
             dispatcher.send(signal=actions.STOP_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR)

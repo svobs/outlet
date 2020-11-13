@@ -6,6 +6,7 @@ from pydispatch import dispatcher
 from pydispatch.dispatcher import Any
 
 import ui.actions as actions
+from command.cmd_interface import Command, UserOpStatus
 from constants import APP_NAME, H_PAD, ICON_PAUSE, ICON_PLAY, ICON_WINDOW, TreeDisplayMode, V_PAD
 from diff.diff_content_first import ContentFirstDiffer
 from model.display_tree.category import CategoryDisplayTree
@@ -128,6 +129,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # Subscribe to signals:
         dispatcher.connect(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
         dispatcher.connect(signal=actions.DIFF_TREES_DONE, receiver=self._after_diff_completed)
+        dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
 
         # Need to add an extra listener to each tree, to reload when the other one's root changes
         # if displaying the results of a diff
@@ -349,6 +351,16 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             actions.enable_ui(sender=self)
             logger.debug(f'Diff time + redraw: {stopwatch}')
         GLib.idle_add(change_button_bar)
+
+    def _on_command_completed(self, sender, command: Command):
+        logger.debug(f'Received signal: "{actions.COMMAND_COMPLETE}"')
+
+        if command.status() == UserOpStatus.STOPPED_ON_ERROR:
+            self.show_error_ui(f'Command {command.uid} (op {command.op.op_uid}) failed with error: {command.get_error()}')
+            # TODO: how to recover?
+            return
+        else:
+            logger.info(f'Command {command.uid} (op {command.op.op_uid}) returned with status: "{command.status().name}"')
 
     def _on_merge_complete(self):
         logger.debug('Received signal that merge completed. Reloading both trees')

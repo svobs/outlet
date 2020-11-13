@@ -9,7 +9,7 @@ from typing import Deque, Dict, Iterable, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from command.cmd_interface import Command, CommandResult
+from command.cmd_interface import Command, UserOpResult
 from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, ROOT_PATH, \
     SUPER_DEBUG, TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK
@@ -116,6 +116,7 @@ class CacheManager(HasLifecycle):
         self._load_all_caches_in_process: bool = False
 
         dispatcher.connect(signal=actions.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
+        dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
 
     def shutdown(self):
         logger.debug('CacheManager.shutdown() entered')
@@ -519,21 +520,23 @@ class CacheManager(HasLifecycle):
     def execute_gdrive_load_op(self, op: GDriveDiskLoadOp):
         self._master_gdrive.execute_load_op(op)
 
-    def update_from(self, cmd_result: CommandResult):
-        """Updates the in-memory cache, on-disk cache, and UI with the nodes from the given CommandResult"""
+    def _on_command_completed(self, sender, command: Command):
+        """Updates the in-memory cache, on-disk cache, and UI with the nodes from the given UserOpResult"""
+        logger.debug(f'Received signal: "{actions.COMMAND_COMPLETE}"')
+        result = command.op.result
+
         # TODO: refactor so that we can attempt to create (close to) an atomic operation which combines GDrive and Local functionality
 
-        if cmd_result.nodes_to_upsert:
-            # FIXME: icons will not update if nodes are otherwise identical
-            logger.debug(f'Cmd resulted in {len(cmd_result.nodes_to_upsert)} nodes to upsert')
-            for upsert_node in cmd_result.nodes_to_upsert:
+        if result.nodes_to_upsert:
+            logger.debug(f'Cmd resulted in {len(result.nodes_to_upsert)} nodes to upsert')
+            for upsert_node in result.nodes_to_upsert:
                 self.upsert_single_node(upsert_node)
 
-        if cmd_result.nodes_to_delete:
+        if result.nodes_to_delete:
             # TODO: to_trash?
 
-            logger.debug(f'Cmd resulted in {len(cmd_result.nodes_to_delete)} nodes to delete')
-            for deleted_node in cmd_result.nodes_to_delete:
+            logger.debug(f'Cmd resulted in {len(result.nodes_to_delete)} nodes to delete')
+            for deleted_node in result.nodes_to_delete:
                 self.remove_node(deleted_node, to_trash=False)
 
     def refresh_subtree(self, node: Node, tree_id: str):

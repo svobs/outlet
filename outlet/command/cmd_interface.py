@@ -7,22 +7,11 @@ import treelib
 
 from store.gdrive.client import GDriveClient
 from model.uid import UID
-from model.user_op import UserOp, UserOpType
+from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpType
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.node import Node
 
 logger = logging.getLogger(__name__)
-
-
-# ENUM CommandStatus
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-class CommandStatus(IntEnum):
-    NOT_STARTED = 1
-    EXECUTING = 2
-    STOPPED_ON_ERROR = 8
-    COMPLETED_NO_OP = 9
-    COMPLETED_OK = 10
 
 
 # CLASS CommandContext
@@ -47,16 +36,6 @@ class CommandContext:
         pass
 
 
-# CLASS CommandResult
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class CommandResult:
-    def __init__(self, status: CommandStatus, error=None, to_upsert=None, to_delete=None):
-        self.status = status
-        self.error = error
-        self.nodes_to_upsert: List[Node] = to_upsert
-        self.nodes_to_delete: List[Node] = to_delete
-
-
 # ABSTRACT CLASS Command
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -64,9 +43,9 @@ class Command(treelib.Node, ABC):
     """Every command has an associated target node and a UserOp."""
     def __init__(self, uid: UID, op: UserOp):
         treelib.Node.__init__(self, identifier=uid)
+        assert op
 
         self.op: UserOp = op
-        self.result: Optional[CommandResult] = None
         self.tag: str = f'{self.__class__.__name__}(cmd_uid={self.identifier}) op={op.op_type.name} ({op.op_uid}) ' \
                         f'tgt={self.op.src_node.node_identifier})'
 
@@ -96,21 +75,21 @@ class Command(treelib.Node, ABC):
 
     def completed_without_error(self):
         status = self.status()
-        return status == CommandStatus.COMPLETED_OK or status == CommandStatus.COMPLETED_NO_OP
+        return status == UserOpStatus.COMPLETED_OK or status == UserOpStatus.COMPLETED_NO_OP
 
-    def status(self) -> CommandStatus:
-        if self.result:
-            return self.result.status
-        return CommandStatus.NOT_STARTED
+    def status(self) -> UserOpStatus:
+        if self.op.result:
+            return self.op.result.status
+        return UserOpStatus.NOT_STARTED
 
-    def set_error_result(self, err) -> CommandResult:
-        result = CommandResult(CommandStatus.STOPPED_ON_ERROR, error=err)
-        self.result = result
+    def set_error_result(self, err) -> UserOpResult:
+        result = UserOpResult(UserOpStatus.STOPPED_ON_ERROR, error=err)
+        self.op.result = result
         return result
 
     def get_error(self):
-        if self.result:
-            return self.result.error
+        if self.op.result:
+            return self.op.result.error
         return None
 
     def __repr__(self):

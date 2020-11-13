@@ -5,7 +5,7 @@ from enum import IntEnum
 from typing import Callable, DefaultDict, Deque, Dict, Iterable, List, Optional
 
 from command.cmd_builder import CommandBuilder
-from command.cmd_interface import Command, CommandStatus
+from command.cmd_interface import Command, UserOpStatus
 from constants import SUPER_DEBUG
 from model.node.node import Node
 from model.user_op import UserOp, UserOpType
@@ -292,18 +292,6 @@ class OpLedger(HasLifecycle):
 
     def _on_command_completed(self, sender, command: Command):
         logger.debug(f'Received signal: "{actions.COMMAND_COMPLETE}"')
-
-        if command.status() == CommandStatus.STOPPED_ON_ERROR:
-            # TODO: notify/display error messages somewhere in the UI?
-            logger.error(f'Command {command.uid} (op {command.op.op_uid}) failed with error: {command.get_error()}')
-            # TODO: how to recover?
-            return
-        else:
-            logger.info(f'Command {command.uid} (op {command.op.op_uid}) returned with status: "{command.status().name}"')
-
-        # TODO: replace this calls with another listener for actions.COMMAND_COMPLETE
-        # Add/update/remove affected nodes in central cache:
-        self.app.cacheman.update_from(command.result)
 
         logger.debug(f'Archiving op: {command.op}')
         self._disk_store.archive_pending_ops_to_disk([command.op])

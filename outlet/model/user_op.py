@@ -1,6 +1,7 @@
 import time
 from enum import IntEnum
 import logging
+from typing import List, Optional
 
 import treelib
 from treelib import Node
@@ -12,6 +13,7 @@ from model.uid import UID
 from model.node.node import Node
 
 logger = logging.getLogger(__name__)
+
 
 # ENUM UserOpType
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -57,6 +59,30 @@ class UserOpRef:
         return f'UserOpRef(uid={self.op_uid} type={self.op_type.name} src={self.src_uid} dst={self.dst_uid}'
 
 
+# ENUM UserOpStatus
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class UserOpStatus(IntEnum):
+    NOT_STARTED = 1
+    EXECUTING = 2
+    STOPPED_ON_ERROR = 8
+    COMPLETED_NO_OP = 9
+    COMPLETED_OK = 10
+
+
+# CLASS UserOpResult
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class UserOpResult:
+    def __init__(self, status: UserOpStatus, error=None, to_upsert=None, to_delete=None):
+        self.status = status
+        self.error = error
+        self.nodes_to_upsert: List[Node] = to_upsert
+        self.nodes_to_delete: List[Node] = to_delete
+
+    def is_completed(self) -> bool:
+        return self.status >= UserOpStatus.STOPPED_ON_ERROR
+
+
 # Class UserOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -92,17 +118,17 @@ class UserOp(treelib.Node):
         if not self.create_ts:
             self.create_ts = int(time.time())
 
-        self._completed: bool = False
-        """This is only briefly used in a brief interval right after the op has completed, but not yet updated everywhere"""
+        self.result: Optional[UserOpResult] = None
 
         self.tag = repr(self)
 
     def is_completed(self) -> bool:
-        return self._completed
+        return self.result and self.result.is_completed()
 
-    def set_completed(self):
-        logger.debug(f'Setting op complete: {self}')
-        self._completed = True
+    def status(self) -> UserOpStatus:
+        if self.result:
+            return self.result.status
+        return UserOpStatus.NOT_STARTED
 
     def has_dst(self) -> bool:
         return self.op_type.has_dst()

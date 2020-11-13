@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class OpGraph(HasLifecycle):
-    """Dependency tree, currently with emphasis on Ops"""
+    """Flow graph for user ops"""
 
     def __init__(self, app):
         HasLifecycle.__init__(self)

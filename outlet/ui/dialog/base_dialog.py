@@ -8,26 +8,31 @@ from app_config import AppConfig
 logger = logging.getLogger(__name__)
 
 
+# CLASS BaseDialog
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class BaseDialog:
+    """Base class for GTK dialogs"""
     def __init__(self, app):
         self.app = app
         self.config: AppConfig = app.config
 
-    def show_error_ui(self, msg, secondary_msg=None):
+    def show_error_ui(self, msg: str, secondary_msg: str = None):
+        """Same as show_error_msg() but on UI thread"""
         def do_on_ui_thread(m, sm):
             GLib.idle_add(lambda: self.show_error_msg(m, sm))
         do_on_ui_thread(msg, secondary_msg)
 
-    def show_error_msg(self, msg, secondary_msg=None):
+    def show_error_msg(self, msg: str, secondary_msg=None):
         if self.app.shutdown:
-            logger.debug('Application shutting down; discarding msg: {msg}')
+            logger.warning(f'Application shutting down; discarding msg: {msg} (secondary_msg: {secondary_msg}')
             return
         dialog = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CANCEL, text=msg)
         dialog.set_default_response(Gtk.ResponseType.CANCEL)
         if secondary_msg is None:
-            logger.debug(f'Displaying error: {msg}')
+            logger.warning(f'Displaying error: {msg}')
         else:
-            logger.debug(f'Displaying error: {msg}: {secondary_msg}')
+            logger.warning(f'Displaying error: {msg}: {secondary_msg}')
             dialog.format_secondary_text(secondary_msg)
 
         def run_on_ui_thread():
