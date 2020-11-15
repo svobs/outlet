@@ -9,8 +9,9 @@ from app_config import AppConfig
 from constants import TreeDisplayMode
 from model.node.container_node import CategoryNode
 from model.node.node import Node
+from model.node_identifier import ensure_bool, ensure_int
 from ui import actions
-from ui.tree.filter_criteria import FilterCriteria
+from ui.tree.filter_criteria import BoolOption, FilterCriteria
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,78 @@ class TreeViewMeta:
                 dispatcher.disconnect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.tree_id)
             except DispatcherKeyError:
                 pass
+
+    def read_filter_criteria_from_config(self):
+        logger.debug(f'[{self.tree_id}] Reading FilterCriteria from config')
+        self.filter_criteria = self._get_filter_criteria_from_config()
+
+    def _get_filter_criteria_from_config(self) -> Optional[FilterCriteria]:
+        config = self.config
+        tree_id = self.tree_id
+        filter_criteria = FilterCriteria()
+
+        search_query = config.get(TreeViewMeta._make_search_query_config_key(tree_id), '')
+        filter_criteria.search_query = search_query
+
+        ignore_case = ensure_bool(config.get(TreeViewMeta._make_ignore_case_config_key(tree_id), False))
+        filter_criteria.ignore_case = ignore_case
+
+        is_trashed = config.get(TreeViewMeta._make_is_trashed_config_key(tree_id), BoolOption.NOT_SPECIFIED)
+        is_trashed = BoolOption(is_trashed)
+        filter_criteria.is_trashed = is_trashed
+
+        is_shared = config.get(TreeViewMeta._make_is_shared_config_key(tree_id), BoolOption.NOT_SPECIFIED)
+        is_shared = BoolOption(is_shared)
+        filter_criteria.is_shared = is_shared
+
+        show_subtrees_of_matches = ensure_bool(config.get(TreeViewMeta._make_show_subtree_config_key(tree_id)))
+        filter_criteria.show_subtrees_of_matches = show_subtrees_of_matches
+
+        if filter_criteria.has_criteria():
+            logger.debug(f'[{self.tree_id}] Read FilterCriteria: ignore_case={filter_criteria.ignore_case} is_trashed={filter_criteria.is_trashed}'
+                         f' is_shared={filter_criteria.is_shared} show_subtrees={filter_criteria.show_subtrees_of_matches}')
+            return filter_criteria
+        return None
+    
+    def write_filter_criteria_to_config(self):
+        if self.filter_criteria:
+            logger.debug(f'[{self.tree_id}] Writing FilterCriteria to config')
+            TreeViewMeta._write_filter_criteria_to_config(config=self.config, tree_id=self.tree_id, filter_criteria=self.filter_criteria)
+
+    @staticmethod
+    def _write_filter_criteria_to_config(config, tree_id: str, filter_criteria: FilterCriteria):
+        search_query = filter_criteria.search_query
+        if not search_query:
+            search_query = ''
+        config.write(TreeViewMeta._make_search_query_config_key(tree_id), search_query)
+
+        config.write(TreeViewMeta._make_ignore_case_config_key(tree_id), filter_criteria.ignore_case)
+
+        config.write(TreeViewMeta._make_is_trashed_config_key(tree_id), filter_criteria.is_trashed)
+
+        config.write(TreeViewMeta._make_is_shared_config_key(tree_id), filter_criteria.is_shared)
+
+        config.write(TreeViewMeta._make_show_subtree_config_key(tree_id), filter_criteria.show_subtrees_of_matches)
+
+    @staticmethod
+    def _make_search_query_config_key(tree_id: str) -> str:
+        return f'ui_state.{tree_id}.filter.search_query'
+
+    @staticmethod
+    def _make_ignore_case_config_key(tree_id: str) -> str:
+        return f'ui_state.{tree_id}.filter.ignore_case'
+
+    @staticmethod
+    def _make_is_trashed_config_key(tree_id: str) -> str:
+        return f'ui_state.{tree_id}.filter.is_trashed'
+
+    @staticmethod
+    def _make_is_shared_config_key(tree_id: str) -> str:
+        return f'ui_state.{tree_id}.filter.is_shared'
+
+    @staticmethod
+    def _make_show_subtree_config_key(tree_id: str) -> str:
+        return f'ui_state.{tree_id}.filter.show_subtrees'
 
     def _on_node_expansion_toggled(self, sender: str, parent_iter, parent_path, node: Node, is_expanded: bool):
         if type(node) == CategoryNode:

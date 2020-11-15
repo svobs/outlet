@@ -81,6 +81,8 @@ class TreeFactory:
                                      is_display_persisted=self.display_persisted,
                                      is_ignored_func=is_ignored_func)
 
+        treeview_meta.read_filter_criteria_from_config()
+
         display_store = DisplayStore(treeview_meta)
 
         # The controller holds all the components in memory. Important for listeners especially,

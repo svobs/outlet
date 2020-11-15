@@ -2,7 +2,7 @@ import collections
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Callable, Deque, Iterable, List, Optional, Union
+from typing import Callable, Deque, Iterable, List, Union
 
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
