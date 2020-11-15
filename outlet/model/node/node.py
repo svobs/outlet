@@ -82,6 +82,10 @@ class Node(treelib.Node, ABC):
     def has_tuple(cls) -> bool:
         return False
 
+    @classmethod
+    def is_shared(cls):
+        return False
+
     def to_tuple(self) -> Tuple:
         raise RuntimeError('Operation not supported for this object: "to_tuple()"')
 

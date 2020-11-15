@@ -7,6 +7,7 @@ from pydispatch import dispatcher
 from constants import COUNT_MULTIPLE_GDRIVE_PARENTS, FIND_DUPLICATE_GDRIVE_NODE_NAMES, GDRIVE_ROOT_UID, ROOT_PATH, SUPER_DEBUG, TrashStatus, \
     TREE_TYPE_GDRIVE
 from model.gdrive_meta import GDriveUser
+from ui.tree.filter_criteria import FilterCriteria
 from util import file_util, format
 from error import GDriveItemNotFoundError
 from model.uid import UID
@@ -398,10 +399,13 @@ class GDriveWholeTree:
         # Pseudo-root GDRIVE_ROOT_UID has the root nodes as its children:
         return self.parent_child_dict.get(GDRIVE_ROOT_UID, [])
 
-    def get_children(self, node: GDriveNode) -> List[GDriveNode]:
+    def get_children(self, node: GDriveNode, filter_criteria: FilterCriteria = None) -> List[GDriveNode]:
         if node.uid == GDRIVE_ROOT_UID:
             return self.get_children_for_root()
-        return self.parent_child_dict.get(node.uid, [])
+        child_list = self.parent_child_dict.get(node.uid, [])
+        if filter_criteria:
+            return filter_criteria.filter(child_list)
+        return child_list
 
     def get_node_for_goog_id_and_parent_uid(self, goog_id: str, parent_uid: UID) -> Optional[GDriveNode]:
         """Finds the GDrive node with the given goog_id. (Parent UID is needed so that we don't have to search the entire tree"""

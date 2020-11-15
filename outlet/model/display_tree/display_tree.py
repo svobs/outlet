@@ -7,6 +7,7 @@ from typing import Callable, Deque, Iterable, List, Optional, Union
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
+from ui.tree.filter_criteria import FilterCriteria
 
 logger = logging.getLogger(__name__)
 
@@ -70,11 +71,11 @@ class DisplayTree(ABC):
         return path_list.startswith(self.root_path)
 
     @abstractmethod
-    def get_children_for_root(self) -> Iterable[Node]:
+    def get_children_for_root(self, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
         pass
 
     @abstractmethod
-    def get_children(self, parent: Node) -> Iterable[Node]:
+    def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
         pass
 
     @staticmethod

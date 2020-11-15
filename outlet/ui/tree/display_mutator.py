@@ -86,7 +86,7 @@ class DisplayMutator(HasLifecycle):
         if node.is_dir():
             parent_iter = self._append_dir_node(parent_iter=parent_iter, node=node)
 
-            for child in self.con.get_tree().get_children(node):
+            for child in self.con.get_tree().get_children(node, self.con.filter_criteria):
                 node_count = self._populate_recursively(parent_iter, child, node_count)
         else:
             self._append_file_node(parent_iter, node)
@@ -156,7 +156,7 @@ class DisplayMutator(HasLifecycle):
         node = self.con.display_store.get_node_data(tree_path)
         parent_iter = self.con.display_store.model.get_iter(tree_path)
         self.con.display_store.remove_loading_node(parent_iter)
-        children: List[Node] = self.con.get_tree().get_children(node)
+        children: List[Node] = self.con.get_tree().get_children(node, self.con.filter_criteria)
 
         if expand_all:
             # populate all descendants
@@ -181,7 +181,7 @@ class DisplayMutator(HasLifecycle):
             # Lock this so that node-upserted and node-removed callbacks don't interfere
             self._enable_node_signals = False
             with self._lock:
-                children: List[Node] = self.con.get_tree().get_children_for_root()
+                children: List[Node] = self.con.get_tree().get_children_for_root(self.con.filter_criteria)
             logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(children)} children for root')
         except GDriveItemNotFoundError as err:
             # Not found: signal error to UI and cancel
@@ -301,7 +301,7 @@ class DisplayMutator(HasLifecycle):
                 if is_expanded:
                     self.con.display_store.remove_loading_node(parent_iter)
 
-                    children = self.con.get_tree().get_children(node)
+                    children = self.con.get_tree().get_children(node, self.con.filter_criteria)
                     self._append_children(children=children, parent_iter=parent_iter)
 
                     # Need to call this because removing the Loading node leaves the parent with no children,

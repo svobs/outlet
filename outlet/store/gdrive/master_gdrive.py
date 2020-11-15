@@ -27,6 +27,7 @@ from store.sqlite.gdrive_db import CurrentDownload
 from store.uid.uid_mapper import UidGoogIdMapper
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
+from ui.tree.filter_criteria import FilterCriteria
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -379,9 +380,9 @@ class GDriveMasterStore(MasterStore):
             return node.goog_id
         return None
 
-    def get_children(self, node: Node) -> List[GDriveNode]:
+    def get_children(self, node: Node, filter_criteria: FilterCriteria = None) -> List[GDriveNode]:
         assert isinstance(node, GDriveNode)
-        return self._memstore.master_tree.get_children(node)
+        return self._memstore.master_tree.get_children(node, filter_criteria)
 
     def get_parent_list_for_node(self, node: GDriveNode) -> List[GDriveNode]:
         return self._memstore.master_tree.get_parent_list_for_node(node)

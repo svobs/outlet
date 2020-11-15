@@ -26,6 +26,7 @@ from store.sqlite.local_db import LocalDiskDatabase
 from store.uid.uid_generator import UID
 from store.uid.uid_mapper import UidPathMapper
 from ui.actions import ID_GLOBAL_CACHE
+from ui.tree.filter_criteria import FilterCriteria
 from util import file_util
 from util.stopwatch_sec import Stopwatch
 
@@ -482,11 +483,14 @@ class LocalDiskMasterStore(MasterStore):
         uid: UID = self.get_uid_for_domain_id(domain_id)
         return self.get_node_for_uid(uid)
 
-    def get_children(self, node: LocalNode) -> List[LocalNode]:
+    def get_children(self, node: LocalNode, filter_criteria: FilterCriteria = None) -> List[LocalNode]:
         if SUPER_DEBUG:
-            logger.debug(f'Entered get_children(): node={node.node_identifier} locked={self._struct_lock.locked()}')
+            logger.debug(f'Entered get_children(): node={node.node_identifier} filter_criteria={filter_criteria} locked={self._struct_lock.locked()}')
         with self._struct_lock:
-            return self._memstore.master_tree.children(node.uid)
+            child_nodes = self._memstore.master_tree.children(node.uid)
+        if filter_criteria:
+            return filter_criteria.filter(child_nodes)
+        return child_nodes
 
     def get_node_for_uid(self, uid: UID) -> LocalNode:
         if SUPER_DEBUG:

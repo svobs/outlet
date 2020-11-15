@@ -107,14 +107,12 @@ class TreeFactory:
 
         controller.root_dir_panel = RootDirPanel(parent_win=self.parent_win,
                                                  controller=controller,
-                                                 tree_id=treeview_meta.tree_id,
                                                  current_root=controller.get_root_identifier(),
                                                  can_change_root=treeview_meta.can_change_root,
                                                  is_loaded=already_loaded)
 
         controller.filter_panel = TreeFilterPanel(parent_win=self.parent_win,
-                                                  controller=controller,
-                                                  tree_id=treeview_meta.tree_id)
+                                                  controller=controller)
 
         controller.status_bar, status_bar_container = tree_factory_templates.build_status_bar()
         controller.content_box = tree_factory_templates.build_content_box(controller.root_dir_panel.content_box, controller.filter_panel.content_box,

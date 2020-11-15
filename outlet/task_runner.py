@@ -58,4 +58,3 @@ class CentralTaskRunner(HasLifecycle):
             self._executor = None
 
         self.app = None
-

@@ -1,6 +1,5 @@
 import logging
 from abc import ABC, abstractmethod
-from enum import IntEnum
 from typing import List, Optional
 
 import treelib
@@ -9,7 +8,6 @@ from store.gdrive.client import GDriveClient
 from model.uid import UID
 from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpType
 from model.gdrive_whole_tree import GDriveWholeTree
-from model.node.node import Node
 
 logger = logging.getLogger(__name__)
 

@@ -27,11 +27,10 @@ logger = logging.getLogger(__name__)
 
 
 class RootDirPanel:
-    def __init__(self, parent_win, controller, tree_id, current_root: SinglePathNodeIdentifier, can_change_root, is_loaded):
+    def __init__(self, parent_win, controller, current_root: SinglePathNodeIdentifier, can_change_root, is_loaded):
         self.parent_win: BaseDialog = parent_win
         self.con = controller
-        assert type(tree_id) == str
-        self.tree_id: str = tree_id
+        self.tree_id: str = self.con.tree_id
         self.cacheman = self.con.cacheman
         self.content_box = Gtk.Box(spacing=0, orientation=Gtk.Orientation.HORIZONTAL)
         self.current_root: SinglePathNodeIdentifier = current_root

@@ -33,6 +33,7 @@ from store.sqlite.cache_registry_db import CacheRegistry
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
 from ui.tree.controller import TreePanelController
+from ui.tree.filter_criteria import FilterCriteria
 from util import file_util
 from util.file_util import get_resource_path
 from util.has_lifecycle import HasLifecycle
@@ -730,12 +731,12 @@ class CacheManager(HasLifecycle):
         else:
             raise RuntimeError(f'Unknown tree type: {tree_type}')
 
-    def get_children(self, node: Node):
+    def get_children(self, node: Node, filter_criteria: FilterCriteria = None):
         tree_type: int = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
-            return self._master_gdrive.get_children(node)
+            return self._master_gdrive.get_children(node, filter_criteria)
         elif tree_type == TREE_TYPE_LOCAL_DISK:
-            return self._master_local.get_children(node)
+            return self._master_local.get_children(node, filter_criteria)
         else:
             raise RuntimeError(f'Unknown tree type: {tree_type} for {node.node_identifier}')
 

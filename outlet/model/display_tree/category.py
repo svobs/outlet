@@ -16,6 +16,7 @@ from model.node_identifier import SinglePathNodeIdentifier
 from model.user_op import UserOp, USER_OP_TYPES, UserOpType
 from model.uid import UID
 from ui import actions
+from ui.tree.filter_criteria import FilterCriteria
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -52,12 +53,15 @@ class CategoryDisplayTree(DisplayTree):
     def get_root_node(self):
         return self._category_tree.get_node(self._category_tree.root)
 
-    def get_children_for_root(self) -> Iterable[Node]:
-        return self.get_children(self.get_root_node())
+    def get_children_for_root(self, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
+        return self.get_children(self.get_root_node(), filter_criteria)
 
-    def get_children(self, parent: Node) -> Iterable[Node]:
+    def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
         try:
-            return self._category_tree.children(parent.identifier)
+            child_list = self._category_tree.children(parent.identifier)
+            if filter_criteria:
+                return filter_criteria.filter(child_list)
+            return child_list
         except Exception:
             if logger.isEnabledFor(logging.DEBUG):
                 self.print_tree_contents_debug()

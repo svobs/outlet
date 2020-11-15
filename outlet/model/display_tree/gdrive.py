@@ -8,6 +8,7 @@ from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.node_identifier import ensure_list, SinglePathNodeIdentifier
 from ui import actions
+from ui.tree.filter_criteria import FilterCriteria
 from util import format
 
 logger = logging.getLogger(__name__)
@@ -30,13 +31,13 @@ class GDriveDisplayTree(DisplayTree):
     def get_root_node(self):
         return self._whole_tree.get_node_for_uid(self.root_identifier.uid)
 
-    def get_children_for_root(self) -> List[GDriveNode]:
+    def get_children_for_root(self, filter_criteria: FilterCriteria = None) -> List[GDriveNode]:
         root_node = self.get_root_node()
         assert isinstance(root_node, GDriveFolder), f'Expected root node to be type GDriveFolder but found instead: {root_node}'
-        return self.get_children(root_node)
+        return self.get_children(root_node, filter_criteria)
 
-    def get_children(self, parent: GDriveNode) -> List[GDriveNode]:
-        return self._whole_tree.get_children(node=parent)
+    def get_children(self, parent: GDriveNode, filter_criteria: FilterCriteria = None) -> List[GDriveNode]:
+        return self._whole_tree.get_children(node=parent, filter_criteria=filter_criteria)
 
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[GDriveNode]:
         path_list = ensure_list(path_list)

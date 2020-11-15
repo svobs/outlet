@@ -9,6 +9,7 @@ from model.node.local_disk_node import LocalFileNode
 from model.node.node import Node
 from model.node_identifier import ensure_list, SinglePathNodeIdentifier
 from ui import actions
+from ui.tree.filter_criteria import FilterCriteria
 from util import format
 
 logger = logging.getLogger(__name__)
@@ -24,13 +25,13 @@ class LocalDiskDisplayTree(DisplayTree):
     def __init__(self, app, tree_id: str, root_identifier: SinglePathNodeIdentifier):
         super().__init__(app, tree_id, root_identifier)
 
-    def get_children_for_root(self) -> Iterable[Node]:
+    def get_children_for_root(self, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
         root_node = self.get_root_node()
-        return self.app.cacheman.get_children(root_node)
+        return self.app.cacheman.get_children(root_node, filter_criteria)
 
-    def get_children(self, parent: Node) -> Iterable[Node]:
+    def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
         assert parent.node_identifier.tree_type == constants.TREE_TYPE_LOCAL_DISK, f'For: {parent.node_identifier}'
-        return self.app.cacheman.get_children(parent)
+        return self.app.cacheman.get_children(parent, filter_criteria)
 
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[LocalFileNode]:
         path_list = ensure_list(path_list)
