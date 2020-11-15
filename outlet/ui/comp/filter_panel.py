@@ -3,7 +3,7 @@ import logging
 from gi.overrides import Pango
 from pydispatch import dispatcher
 
-from constants import HOLDOFF_TIME_MS
+from constants import H_PAD, HOLDOFF_TIME_MS, ICON_FOLDER_TREE, ICON_MATCH_CASE, ICON_REFRESH, ICON_SHARED, ICON_TRASHED
 from ui import actions
 from ui.dialog.base_dialog import BaseDialog
 
@@ -37,41 +37,51 @@ class TreeFilterPanel:
 
         # A text entry for filtering
         self.search_entry = Gtk.Entry()
+        self.search_entry.set_has_frame(True)
         self.search_entry.set_placeholder_text("Filter by name")
         self.search_entry.connect("changed", self.refresh_results)
         self.content_box.pack_start(self.search_entry, True, True, 0)
 
-        self.match_case_checkbox = Gtk.CheckButton(label="Match case")
-        self.match_case_checkbox.connect("toggled", self.refresh_results)
-        self.content_box.pack_start(self.match_case_checkbox, False, False, 0)
+        self.toolbar = Gtk.Toolbar()
+        self.toolbar.set_style(Gtk.ToolbarStyle.ICONS)
+        self.toolbar.set_orientation(Gtk.Orientation.HORIZONTAL)
+        self.toolbar.set_border_width(5)
+        self.content_box.pack_end(self.toolbar, expand=False, fill=True, padding=H_PAD)
+        # See icon size enum at: https://developer.gnome.org/gtk3/stable/gtk3-Themeable-Stock-Images.html
+        # self.toolbar.set_icon_size(Gtk.IconSize.SMALL_TOOLBAR)  # 16px
+        logger.debug(f'ICON SIZE: {self.toolbar.get_icon_size()}')
 
-        self.trashed_checkbox = Gtk.CheckButton(label="Trashed")
-        self.trashed_checkbox.connect("toggled", self.refresh_results)
-        self.content_box.pack_start(self.trashed_checkbox, False, False, 0)
+        self.show_ancestors_btn = self._add_toolbar_toggle_btn('Show ancestors of matches', ICON_FOLDER_TREE, self.refresh_results)
+        self.match_case_btn = self._add_toolbar_toggle_btn('Match case', ICON_MATCH_CASE, self.refresh_results)
+        self.is_trashed_btn = self._add_toolbar_toggle_btn('Is trashed', ICON_TRASHED, self.refresh_results)
+        self.is_shared_btn = self._add_toolbar_toggle_btn('Is shared', ICON_SHARED, self.refresh_results)
 
-        self.is_shared_checkbox = Gtk.CheckButton(label="Is Shared")
-        self.is_shared_checkbox.connect("toggled", self.refresh_results)
-        self.content_box.pack_start(self.is_shared_checkbox, False, False, 0)
-
-        # Add a checkbox for controlling subtree display
-        self.subtree_checkbox = Gtk.CheckButton(label="Show subtrees")
-        self.subtree_checkbox.connect("toggled", self.refresh_results)
-        self.content_box.pack_start(self.subtree_checkbox, False, False, 0)
+        self.toolbar.show_all()
 
         filter_criteria: FilterCriteria = self.con.treeview_meta.filter_criteria
         if filter_criteria:
             if filter_criteria.search_query:
                 self.search_entry.set_text(filter_criteria.search_query)
             if not filter_criteria.ignore_case:
-                self.match_case_checkbox.set_active(True)
+                self.match_case_btn.set_active(True)
             if filter_criteria.is_trashed == BoolOption.TRUE:
-                self.trashed_checkbox.set_active(True)
+                self.is_trashed_btn.set_active(True)
             if filter_criteria.is_shared == BoolOption.TRUE:
-                self.is_shared_checkbox.set_active(True)
+                self.is_shared_btn.set_active(True)
             if filter_criteria.show_subtrees_of_matches:
-                self.subtree_checkbox.set_active(True)
+                self.show_ancestors_btn.set_active(True)
 
         # TODO: close box
+
+    def _add_toolbar_toggle_btn(self, entry_label: str, icon_name: str, on_clicked):
+        btn = Gtk.ToggleToolButton()
+        icon = Gtk.Image()
+        icon.set_from_file(self.parent_win.app.assets.get_path(icon_name))
+        btn.set_icon_widget(icon)
+        btn.set_tooltip_text(entry_label)
+        btn.connect('clicked', on_clicked)
+        self.toolbar.insert(btn, -1)
+        return btn
 
     def _write_to_config(self):
         self.con.treeview_meta.write_filter_criteria_to_config()
@@ -80,14 +90,14 @@ class TreeFilterPanel:
         search_query = self.search_entry.get_text()
         filter_criteria = FilterCriteria(search_query=search_query)
 
-        filter_criteria.ignore_case = not self.match_case_checkbox.get_active()
+        filter_criteria.ignore_case = not self.match_case_btn.get_active()
 
-        filter_criteria.show_subtrees_of_matches = self.subtree_checkbox.get_active()
+        filter_criteria.show_subtrees_of_matches = self.show_ancestors_btn.get_active()
 
-        if self.trashed_checkbox.get_active():
+        if self.is_trashed_btn.get_active():
             filter_criteria.is_trashed = BoolOption.TRUE
 
-        if self.is_shared_checkbox.get_active():
+        if self.is_shared_btn.get_active():
             filter_criteria.is_shared = BoolOption.TRUE
 
         return filter_criteria

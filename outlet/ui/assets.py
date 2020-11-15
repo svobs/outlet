@@ -7,8 +7,8 @@ from constants import BADGE_ICON_BASE_DIR, BASE_ICON_BASE_DIR, BTN_GDRIVE, BTN_L
     ICON_DIR_MV_DST, \
     ICON_DIR_MV_SRC, ICON_DIR_RM, \
     ICON_DIR_TRASHED, ICON_DIR_UP_DST, ICON_DIR_UP_SRC, ICON_FILE_CP_DST, ICON_FILE_CP_SRC, ICON_FILE_MV_DST, \
-    ICON_FILE_MV_SRC, ICON_FILE_RM, ICON_FILE_TRASHED, ICON_FILE_UP_DST, ICON_FILE_UP_SRC, ICON_GDRIVE, ICON_GENERIC_DIR, \
-    ICON_GENERIC_FILE, ICON_LOCAL_DISK_LINUX, ICON_PAUSE, ICON_PLAY, ICON_REFRESH, ICON_WINDOW
+    ICON_FILE_MV_SRC, ICON_FILE_RM, ICON_FILE_TRASHED, ICON_FILE_UP_DST, ICON_FILE_UP_SRC, ICON_FOLDER_TREE, ICON_GDRIVE, ICON_GENERIC_DIR, \
+    ICON_GENERIC_FILE, ICON_LOCAL_DISK_LINUX, ICON_MATCH_CASE, ICON_PAUSE, ICON_PLAY, ICON_REFRESH, ICON_SHARED, ICON_TRASHED, ICON_WINDOW
 from model.node_identifier import ensure_int
 
 from util.file_util import get_resource_path
@@ -102,6 +102,10 @@ def _build_icons(icon_size: int, badge_size: int):
         SimpleIcon(name=ICON_ALERT, path=f'resources/Dialog-error-icon-24px.png'),
         SimpleIcon(name=ICON_WINDOW, path=f'resources/app_icon.png'),
         SimpleIcon(name=ICON_REFRESH, path=f'resources/Badge/Refresh-icon-48px.png'),
+        SimpleIcon(name=ICON_FOLDER_TREE, path=f'resources/Toolbar/FolderTree-24px.png'),
+        SimpleIcon(name=ICON_MATCH_CASE, path=f'resources/Toolbar/MatchCase-24px.png'),
+        SimpleIcon(name=ICON_SHARED, path=f'resources/Toolbar/Shared-24px.png'),
+        SimpleIcon(name=ICON_TRASHED, path=f'resources/Toolbar/Trashed-24px.png'),
         SimpleIcon(name=BTN_GDRIVE, path="resources/google-drive-logo-48px-scaled.png"),
         CompositeIcon(name=BTN_LOCAL_DISK_LINUX, base_path=f'{BASE_ICON_BASE_DIR}/HDisk-48.png', badges=[f'linux-outline-{badge_size}']),
 
