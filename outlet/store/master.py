@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
+from model.has_get_children import HasGetChildren
 from model.uid import UID
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
@@ -12,7 +13,7 @@ from model.node_identifier import NodeIdentifier
 from util.has_lifecycle import HasLifecycle
 
 
-class MasterStore(HasLifecycle, ABC):
+class MasterStore(HasLifecycle, HasGetChildren, ABC):
     def __init__(self):
         HasLifecycle.__init__(self)
 

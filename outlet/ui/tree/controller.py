@@ -42,8 +42,6 @@ class TreePanelController:
         self.tree_id: str = treeview_meta.tree_id
         """Cached in controller, in case treeview_meta goes away"""
 
-        self.filter_criteria: Optional[FilterCriteria] = None
-
         self.tree_view = None
         self.root_dir_panel = None
         self.filter_panel = None
@@ -242,7 +240,7 @@ class TreePanelController:
             logger.debug(f'[{self.tree_id}] Setting TreeDisplayMode={tree_display_mode.name} for root={root}, tree={tree}')
             self.treeview_meta.tree_display_mode = tree_display_mode
 
-        self._lazy_tree = LazyLoadDisplayTreeDecorator(controller=self, root=root, tree=tree)
+        self._lazy_tree = LazyLoadDisplayTreeDecorator(controller=self, root_identifier=root, tree=tree)
 
     # CONVENIENCE METHODS
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

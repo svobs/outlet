@@ -489,7 +489,7 @@ class LocalDiskMasterStore(MasterStore):
         with self._struct_lock:
             child_nodes = self._memstore.master_tree.children(node.uid)
         if filter_criteria:
-            return filter_criteria.filter(child_nodes)
+            return filter_criteria.filter(child_nodes, self)
         return child_nodes
 
     def get_node_for_uid(self, uid: UID) -> LocalNode:

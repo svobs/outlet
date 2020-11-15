@@ -7,6 +7,7 @@ from pydispatch import dispatcher
 from constants import COUNT_MULTIPLE_GDRIVE_PARENTS, FIND_DUPLICATE_GDRIVE_NODE_NAMES, GDRIVE_ROOT_UID, ROOT_PATH, SUPER_DEBUG, TrashStatus, \
     TREE_TYPE_GDRIVE
 from model.gdrive_meta import GDriveUser
+from model.has_get_children import HasGetChildren
 from ui.tree.filter_criteria import FilterCriteria
 from util import file_util, format
 from error import GDriveItemNotFoundError
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 # CLASS GDriveWholeTree
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class GDriveWholeTree:
+class GDriveWholeTree(HasGetChildren):
     """
     Represents the entire GDrive tree. We can't easily map this to DisplayTree, because the GDriveWholeTree can have multiple roots.
     """
@@ -404,7 +405,7 @@ class GDriveWholeTree:
             return self.get_children_for_root()
         child_list = self.parent_child_dict.get(node.uid, [])
         if filter_criteria:
-            return filter_criteria.filter(child_list)
+            return filter_criteria.filter(child_list, self)
         return child_list
 
     def get_node_for_goog_id_and_parent_uid(self, goog_id: str, parent_uid: UID) -> Optional[GDriveNode]:

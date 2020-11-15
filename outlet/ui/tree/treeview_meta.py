@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Optional
 
 from pydispatch import dispatcher
 import logging
@@ -10,6 +10,7 @@ from constants import TreeDisplayMode
 from model.node.container_node import CategoryNode
 from model.node.node import Node
 from ui import actions
+from ui.tree.filter_criteria import FilterCriteria
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +20,13 @@ logger = logging.getLogger(__name__)
 
 class TreeViewMeta:
     def but_with_checkboxes(self, checkboxes_visible: bool):
-        return TreeViewMeta(config=self.config, tree_id=self.tree_id, can_modify_tree=self.can_modify_tree,
-                            has_checkboxes=checkboxes_visible, can_change_root=self.can_change_root,
-                            tree_display_mode=self.tree_display_mode, lazy_load=self.lazy_load, selection_mode=self.selection_mode,
-                            is_display_persisted=self.is_display_persisted, is_ignored_func=self.is_ignored_func)
+        """Return an exact duplicate of this class instance, but with has_checkboxes set to the desired value"""
+        new_inst: TreeViewMeta = TreeViewMeta(config=self.config, tree_id=self.tree_id, can_modify_tree=self.can_modify_tree,
+                                              has_checkboxes=checkboxes_visible, can_change_root=self.can_change_root,
+                                              tree_display_mode=self.tree_display_mode, lazy_load=self.lazy_load, selection_mode=self.selection_mode,
+                                              is_display_persisted=self.is_display_persisted, is_ignored_func=self.is_ignored_func)
+        new_inst.filter_criteria = self.filter_criteria
+        return new_inst
 
     def __init__(self, config: AppConfig, tree_id: str, can_modify_tree: bool, has_checkboxes: bool, can_change_root: bool,
                  tree_display_mode: TreeDisplayMode, lazy_load: bool, selection_mode, is_display_persisted: bool, is_ignored_func):
@@ -54,6 +58,8 @@ class TreeViewMeta:
         self.datetime_format = config.get('display.diff_tree.datetime_format')
         self.extra_indent: int = config.get('display.diff_tree.extra_indent')
         self.row_height: int = config.get('display.diff_tree.row_height')
+
+        self.filter_criteria: Optional[FilterCriteria] = None
 
         # Search for "TREE_VIEW_COLUMNS":
 

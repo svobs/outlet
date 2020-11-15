@@ -6,6 +6,7 @@ import subprocess
 
 from model.node.local_disk_node import LocalNode
 from model.node_identifier import SinglePathNodeIdentifier
+from ui.tree.filter_criteria import FilterCriteria
 from util import file_util
 from model.user_op import UserOp, UserOpType
 from store.gdrive.client import GDriveClient
@@ -54,6 +55,7 @@ class TreeActions(HasLifecycle):
         self.connect_dispatch_listener(signal=actions.SET_ROWS_UNCHECKED, sender=self.con.tree_id, receiver=self._uncheck_rows)
         self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE, sender=self.con.tree_id, receiver=self._refresh_subtree)
         self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id, receiver=self._refresh_subtree_stats)
+        self.connect_dispatch_listener(signal=actions.FILTER_UI_TREE, sender=self.con.tree_id, receiver=self._filter_ui_tree)
 
     # ACTIONS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -198,3 +200,6 @@ class TreeActions(HasLifecycle):
     def _refresh_subtree_stats(self, sender):
         logger.info(f'[{self.con.tree_id}] Enqueuing task to refresh stats')
         self.con.parent_win.app.executor.submit_async_task(self.con.get_tree().refresh_stats, self.con.tree_id)
+
+    def _filter_ui_tree(self, sender: str, filter_criteria: FilterCriteria):
+        self.con.display_mutator.filter_tree(filter_criteria)

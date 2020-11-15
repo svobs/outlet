@@ -27,6 +27,7 @@ SET_ROWS_CHECKED = 'set-rows-checked'
 SET_ROWS_UNCHECKED = 'set-rows-unchecked'
 REFRESH_SUBTREE_STATS = 'refresh-subtree-stats'
 REFRESH_SUBTREE = 'refresh-subtree'
+FILTER_UI_TREE = 'filter-ui-tree'
 LOAD_UI_TREE = 'load-ui-tree'
 """Requests that the central cache update the stats for all nodes in the given subtree.
 When done, the central cache will send the signal REFRESH_SUBTREE_STATS_DONE to notify the tree that it can redraw the displayed nodes"""

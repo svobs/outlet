@@ -18,6 +18,7 @@ from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp
 from ui import actions
+from ui.tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
 
@@ -86,7 +87,7 @@ class DisplayMutator(HasLifecycle):
         if node.is_dir():
             parent_iter = self._append_dir_node(parent_iter=parent_iter, node=node)
 
-            for child in self.con.get_tree().get_children(node, self.con.filter_criteria):
+            for child in self.con.get_tree().get_children(node, self.con.treeview_meta.filter_criteria):
                 node_count = self._populate_recursively(parent_iter, child, node_count)
         else:
             self._append_file_node(parent_iter, node)
@@ -156,7 +157,7 @@ class DisplayMutator(HasLifecycle):
         node = self.con.display_store.get_node_data(tree_path)
         parent_iter = self.con.display_store.model.get_iter(tree_path)
         self.con.display_store.remove_loading_node(parent_iter)
-        children: List[Node] = self.con.get_tree().get_children(node, self.con.filter_criteria)
+        children: List[Node] = self.con.get_tree().get_children(node, self.con.treeview_meta.filter_criteria)
 
         if expand_all:
             # populate all descendants
@@ -170,6 +171,14 @@ class DisplayMutator(HasLifecycle):
 
         self._expand_row_without_event_firing(tree_path=tree_path, expand_all=expand_all)
 
+    def filter_tree(self, filter_criteria: FilterCriteria):
+        if filter_criteria and filter_criteria.has_criteria():
+            self.con.treeview_meta.filter_criteria = filter_criteria
+        else:
+            self.con.treeview_meta.filter_criteria = None
+
+        self.populate_root()
+
     def populate_root(self):
         """START HERE.
         More like "repopulate" - clears model before populating.
@@ -181,7 +190,7 @@ class DisplayMutator(HasLifecycle):
             # Lock this so that node-upserted and node-removed callbacks don't interfere
             self._enable_node_signals = False
             with self._lock:
-                children: List[Node] = self.con.get_tree().get_children_for_root(self.con.filter_criteria)
+                children: List[Node] = self.con.get_tree().get_children_for_root(self.con.treeview_meta.filter_criteria)
             logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(children)} children for root')
         except GDriveItemNotFoundError as err:
             # Not found: signal error to UI and cancel
@@ -281,11 +290,6 @@ class DisplayMutator(HasLifecycle):
     # LISTENERS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def something_like_search(self, query: str):
-        for displayed_node in self.con.display_store.displayed_rows.values():
-            # TODO
-            pass
-
     def _on_node_expansion_toggled(self, sender: str, parent_iter: Gtk.TreeIter, parent_path, node: Node, is_expanded: bool) -> None:
         # Callback for actions.NODE_EXPANSION_TOGGLED:
         logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node}"')
@@ -301,7 +305,7 @@ class DisplayMutator(HasLifecycle):
                 if is_expanded:
                     self.con.display_store.remove_loading_node(parent_iter)
 
-                    children = self.con.get_tree().get_children(node, self.con.filter_criteria)
+                    children = self.con.get_tree().get_children(node, self.con.treeview_meta.filter_criteria)
                     self._append_children(children=children, parent_iter=parent_iter)
 
                     # Need to call this because removing the Loading node leaves the parent with no children,

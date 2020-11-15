@@ -3,14 +3,14 @@ import os
 from error import InvalidOperationError
 from model.user_op import UserOpType
 from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_LOCAL_DISK_LINUX, OBJ_TYPE_DIR, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from model.node.node import Node, HasChildList
+from model.node.node import Node, HasChildStats
 from model.node_identifier import SinglePathNodeIdentifier
 
 
 # CLASS ContainerNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class ContainerNode(HasChildList, Node):
+class ContainerNode(HasChildStats, Node):
     """
     Represents a generic display-only directory node which is not backed by a cached object.
     """
@@ -18,10 +18,10 @@ class ContainerNode(HasChildList, Node):
     def __init__(self, node_identifier: SinglePathNodeIdentifier, nid: str = None):
         assert node_identifier.get_single_path(), f'Bad: {node_identifier}'
         Node.__init__(self, node_identifier, nid=nid)
-        HasChildList.__init__(self)
+        HasChildStats.__init__(self)
 
     def update_from(self, other_node):
-        HasChildList.update_from(self, other_node)
+        HasChildStats.update_from(self, other_node)
         Node.update_from(self, other_node)
 
     @classmethod

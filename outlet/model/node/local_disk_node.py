@@ -7,7 +7,7 @@ from typing import Optional, Tuple
 
 from constants import ICON_GENERIC_DIR, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TREE_TYPE_LOCAL_DISK
 from model.node_identifier import ensure_bool, ensure_int, LocalNodeIdentifier
-from model.node.node import Node, HasChildList
+from model.node.node import Node, HasChildStats
 
 logger = logging.getLogger(__name__)
 
@@ -153,18 +153,18 @@ class LocalFileNode(LocalNode):
 # CLASS LocalDirNode
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class LocalDirNode(HasChildList, LocalNode):
+class LocalDirNode(HasChildStats, LocalNode):
     """
     Represents a generic local directory.
     """
 
     def __init__(self, node_identifier: LocalNodeIdentifier, trashed: TrashStatus, is_live: bool):
-        HasChildList.__init__(self)
+        HasChildStats.__init__(self)
         LocalNode.__init__(self, node_identifier, trashed, is_live)
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalDirNode)
-        HasChildList.update_from(self, other_node)
+        HasChildStats.update_from(self, other_node)
         LocalNode.update_from(self, other_node)
 
     def is_parent_of(self, potential_child_node: Node):

@@ -59,22 +59,12 @@ class TreeFilterPanel:
     def refresh_results(self, widget=None):
         # Apply filtering to results
         search_query = self.search_entry.get_text()
-        show_subtrees_of_matches = self.subtree_checkbox.get_active()
-        # if search_query == "":
-        #     self.tree_store.foreach(self.reset_row, True)
-            # if self.EXPAND_BY_DEFAULT:
-            #     self.treeview.expand_all()
-            # else:
-            #     self.treeview.collapse_all()
-        # else:
-        #     self.tree_store.foreach(self.reset_row, False)
-        #     self.tree_store.foreach(self.show_matches, search_query, show_subtrees_of_matches)
-        #     self.treeview.expand_all()
-        # self.filter.refilter()
 
         filter_criteria = FilterCriteria(search_query=search_query)
 
         filter_criteria.ignore_case = not self.match_case_checkbox.get_active()
+
+        filter_criteria.show_subtrees_of_matches = self.subtree_checkbox.get_active()
 
         if self.trashed_checkbox.get_active():
             filter_criteria.is_trashed = BoolOption.TRUE
@@ -82,12 +72,7 @@ class TreeFilterPanel:
         if self.is_shared_checkbox.get_active():
             filter_criteria.is_shared = BoolOption.TRUE
 
-        if filter_criteria.has_criteria():
-            self.con.filter_criteria = filter_criteria
-        else:
-            self.con.filter_criteria = None
-
-        dispatcher.send(signal=actions.LOAD_UI_TREE, sender=self.tree_id)
+        dispatcher.send(signal=actions.FILTER_UI_TREE, sender=self.tree_id, filter_criteria=filter_criteria)
 
     def reset_row(self, model, path, iter, make_visible):
         # Reset some row attributes independent of row hierarchy

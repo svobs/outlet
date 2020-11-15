@@ -246,10 +246,10 @@ class HasParentList(ABC):
         return not self._parent_uids
 
 
-# ABSTRACT CLASS HasChildList
+# ABSTRACT CLASS HasChildStats
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class HasChildList(ABC):
+class HasChildStats(ABC):
     """
     Represents a generic directory (i.e. not an LocalFileNode or domain object)
     """
@@ -264,7 +264,7 @@ class HasChildList(ABC):
         """Set this to None to signify that stats are not yet calculated"""
 
     def update_from(self, other_node):
-        if not isinstance(other_node, HasChildList):
+        if not isinstance(other_node, HasChildStats):
             raise RuntimeError(f'Bad: {other_node} (we are: {self})')
         self.file_count = other_node.file_count
         self.trashed_file_count = other_node.trashed_file_count
@@ -293,7 +293,7 @@ class HasChildList(ABC):
                 self._size_bytes += child_node.get_size_bytes()
 
             if child_node.is_dir():
-                assert isinstance(child_node, HasChildList)
+                assert isinstance(child_node, HasChildStats)
                 self.dir_count += child_node.dir_count + 1
                 self.file_count += child_node.file_count
             else:
@@ -301,7 +301,7 @@ class HasChildList(ABC):
         else:
             # trashed:
             if child_node.is_dir():
-                assert isinstance(child_node, HasChildList)
+                assert isinstance(child_node, HasChildStats)
                 if child_node.get_size_bytes():
                     self.trashed_bytes += child_node.get_size_bytes()
                 if child_node.trashed_bytes:

@@ -5,7 +5,7 @@ from typing import Optional
 from util import format
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, ICON_DIR_MK, ICON_DIR_TRASHED, ICON_FILE_CP_DST, ICON_FILE_TRASHED, ICON_GENERIC_DIR, \
     ICON_GENERIC_FILE, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TREE_TYPE_GDRIVE
-from model.node.node import Node, HasChildList, HasParentList
+from model.node.node import Node, HasChildStats, HasParentList
 from model.node_identifier import ensure_bool, ensure_int, GDriveIdentifier
 
 logger = logging.getLogger(__name__)
@@ -129,12 +129,12 @@ class GDriveNode(HasParentList, Node, ABC):
 """
 
 
-class GDriveFolder(HasChildList, GDriveNode):
+class GDriveFolder(HasChildStats, GDriveNode):
     def __init__(self, node_identifier: GDriveIdentifier, goog_id, node_name, trashed, create_ts, modify_ts, owner_uid, drive_id,
                  is_shared, shared_by_user_uid, sync_ts, all_children_fetched):
         GDriveNode.__init__(self, node_identifier, goog_id, node_name, trashed, create_ts, modify_ts, owner_uid, drive_id, is_shared,
                             shared_by_user_uid, sync_ts)
-        HasChildList.__init__(self)
+        HasChildStats.__init__(self)
 
         self.all_children_fetched = all_children_fetched
         """If true, all its children have been fetched from Google"""
@@ -148,7 +148,7 @@ class GDriveFolder(HasChildList, GDriveNode):
         if not isinstance(other_node, GDriveFolder):
             raise RuntimeError(f'Bad: {other_node} (we are: {self})')
         GDriveNode.update_from(self, other_node)
-        HasChildList.update_from(self, other_node)
+        HasChildStats.update_from(self, other_node)
         self.all_children_fetched = other_node.all_children_fetched
 
     @classmethod

@@ -9,7 +9,7 @@ from treelib.exceptions import NodeIDAbsentError
 from constants import TrashStatus
 from model.uid import UID
 from util import file_util
-from model.node.node import HasChildList
+from model.node.node import HasChildStats
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from util.stopwatch_sec import Stopwatch
@@ -160,7 +160,7 @@ class LocalDiskTree(treelib.Tree):
         while len(queue) > 0:
             node: LocalNode = queue.popleft()
             # logger.debug(f'[{tree_id}] Zeroing out stats for node: {node}')
-            assert isinstance(node, HasChildList) and isinstance(node, LocalNode) and node.is_dir()
+            assert isinstance(node, HasChildStats) and isinstance(node, LocalNode) and node.is_dir()
             node.zero_out_stats()
 
             children = self.get_children(node)
@@ -168,14 +168,14 @@ class LocalDiskTree(treelib.Tree):
                 for child in children:
                     # logger.debug(f'[{tree_id}] Appending child to stats queue: {child}')
                     if child.is_dir():
-                        assert isinstance(child, HasChildList) and isinstance(child, LocalNode)
+                        assert isinstance(child, HasChildStats) and isinstance(child, LocalNode)
                         queue.append(child)
                         stack.append(child)
 
         # now go back up the tree by popping the stack and building stats as we go:
         while len(stack) > 0:
             node = stack.pop()
-            assert node.is_dir() and isinstance(node, HasChildList) and isinstance(node, LocalNode)
+            assert node.is_dir() and isinstance(node, HasChildStats) and isinstance(node, LocalNode)
             node.set_stats_for_no_children()
 
             children = self.get_children(node)

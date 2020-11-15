@@ -11,7 +11,7 @@ from constants import NULL_UID, ROOT_PATH, SUPER_DEBUG, SUPER_ROOT_UID, TREE_TYP
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
-from model.node.node import HasChildList, Node, SPIDNodePair
+from model.node.node import HasChildStats, Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.user_op import UserOp, USER_OP_TYPES, UserOpType
 from model.uid import UID
@@ -203,7 +203,7 @@ class CategoryDisplayTree(DisplayTree):
         else:
             parent: Node = self._get_or_create_pre_ancestors(sn, op_type_for_display)
 
-            if isinstance(parent, HasChildList):
+            if isinstance(parent, HasChildStats):
                 parent.add_meta_metrics(sn.node)
 
             parent: Node = self._get_or_create_ancestors(sn, op_type_for_display, parent)
@@ -305,7 +305,7 @@ class CategoryDisplayTree(DisplayTree):
         # go down tree, zeroing out existing stats and adding children to stack
         while len(queue) > 0:
             node: Node = queue.popleft()
-            assert isinstance(node, HasChildList) and isinstance(node, Node)
+            assert isinstance(node, HasChildStats) and isinstance(node, Node)
             node.zero_out_stats()
 
             children = self.get_children(node)
@@ -319,7 +319,7 @@ class CategoryDisplayTree(DisplayTree):
         # now go back up the tree by popping the stack and building stats as we go:
         while len(stack) > 0:
             node = stack.pop()
-            assert node.is_dir() and isinstance(node, HasChildList) and isinstance(node, Node)
+            assert node.is_dir() and isinstance(node, HasChildStats) and isinstance(node, Node)
 
             children = self.get_children(node)
             if children:
