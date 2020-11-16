@@ -40,13 +40,16 @@ class TreeFilterPanel:
         self.search_entry.set_has_frame(True)
         self.search_entry.set_placeholder_text("Filter by name")
         self.search_entry.connect("changed", self.refresh_results)
+        # no icon for now
+        # pixbuf = self.parent_win.app.assets.get_icon(ICON_FOLDER_TREE)
+        # self.search_entry.set_icon_from_pixbuf(Gtk.EntryIconPosition.PRIMARY, pixbuf)
         self.content_box.pack_start(self.search_entry, True, True, 0)
 
         self.toolbar = Gtk.Toolbar()
         self.toolbar.set_style(Gtk.ToolbarStyle.ICONS)
         self.toolbar.set_orientation(Gtk.Orientation.HORIZONTAL)
-        self.toolbar.set_border_width(5)
-        self.content_box.pack_end(self.toolbar, expand=False, fill=True, padding=H_PAD)
+        self.toolbar.set_border_width(0)
+        self.content_box.pack_end(self.toolbar, expand=False, fill=True, padding=0)
         # See icon size enum at: https://developer.gnome.org/gtk3/stable/gtk3-Themeable-Stock-Images.html
         # self.toolbar.set_icon_size(Gtk.IconSize.SMALL_TOOLBAR)  # 16px
         logger.debug(f'ICON SIZE: {self.toolbar.get_icon_size()}')
