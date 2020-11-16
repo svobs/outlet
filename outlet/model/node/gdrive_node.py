@@ -56,7 +56,7 @@ class GDriveNode(HasParentList, Node, ABC):
         Node.update_from(self, other_node)
         self.goog_id = other_node.goog_id
         self._name = other_node.name
-        self._trashed = other_node.trashed
+        self._trashed = other_node.get_trashed_status()
         self.create_ts = other_node.create_ts
         self._modify_ts = other_node._modify_ts
         self.owner_uid = other_node.owner_uid
@@ -95,13 +95,11 @@ class GDriveNode(HasParentList, Node, ABC):
     def name(self, name):
         self._name = name
 
-    @property
-    def trashed(self) -> Optional[TrashStatus]:
+    def get_trashed_status(self) -> TrashStatus:
         assert not self._trashed or isinstance(self._trashed, TrashStatus)
         return self._trashed
 
-    @trashed.setter
-    def trashed(self, trashed: TrashStatus):
+    def set_trashed_status(self, trashed: TrashStatus):
         self._trashed = trashed
 
     def is_live(self) -> bool:
@@ -110,9 +108,9 @@ class GDriveNode(HasParentList, Node, ABC):
 
     @property
     def trashed_str(self):
-        if self.trashed is None:
+        if self.get_trashed_status() is None:
             return 'None'
-        return TRASHED_STATUS_STR[self.trashed]
+        return TRASHED_STATUS_STR[self.get_trashed_status()]
 
     @abstractmethod
     def to_tuple(self):
@@ -156,8 +154,8 @@ class GDriveFolder(HasChildStats, GDriveNode):
         return True
 
     def to_tuple(self):
-        return self.uid, self.goog_id, self.name, self.trashed, self.create_ts, self._modify_ts, self.owner_uid, self.drive_id, self.is_shared, \
-               self.shared_by_user_uid, self.sync_ts, self.all_children_fetched
+        return self.uid, self.goog_id, self.name, self.get_trashed_status(), self.create_ts, self._modify_ts, self.owner_uid, \
+               self.drive_id, self.is_shared, self.shared_by_user_uid, self.sync_ts, self.all_children_fetched
 
     def is_parent_of(self, potential_child_node: Node) -> bool:
         if potential_child_node.get_tree_type() == TREE_TYPE_GDRIVE:
@@ -182,7 +180,7 @@ class GDriveFolder(HasChildStats, GDriveNode):
         return True
 
     def get_icon(self):
-        if self.trashed == TrashStatus.NOT_TRASHED:
+        if self.get_trashed_status() == TrashStatus.NOT_TRASHED:
             if self.is_live():
                 return ICON_GENERIC_DIR
             else:
@@ -202,9 +200,10 @@ class GDriveFolder(HasChildStats, GDriveNode):
         if not other.has_same_parents(self):
             return False
 
-        return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name and other.trashed == self.trashed \
-            and other.create_ts == self.create_ts and other._modify_ts == self._modify_ts and other.owner_uid == self.owner_uid \
-            and other.drive_id == self.drive_id and other.is_shared == self.is_shared and other.shared_by_user_uid
+        return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name \
+            and other.get_trashed_status() == self.get_trashed_status() and other.create_ts == self.create_ts \
+            and other._modify_ts == self._modify_ts and other.owner_uid == self.owner_uid and other.drive_id == self.drive_id \
+            and other.is_shared == self.is_shared and other.shared_by_user_uid
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -245,8 +244,8 @@ class GDriveFile(GDriveNode):
             return False
 
         return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name and other.md5 == self._md5 and \
-            other.mime_type_uid == self.mime_type_uid and other.trashed == self.trashed and other.drive_id == self.drive_id and \
-            other.version == self.version and other.is_shared == self.is_shared and \
+            other.mime_type_uid == self.mime_type_uid and other.get_trashed_status() == self.get_trashed_status() and \
+            other.drive_id == self.drive_id and other.version == self.version and other.is_shared == self.is_shared and \
             other.get_size_bytes() == self.get_size_bytes() and other.owner_uid == self.owner_uid and \
             other.shared_by_user_uid == self.shared_by_user_uid and other.create_ts == self.create_ts and other.modify_ts == self.modify_ts
 
@@ -293,7 +292,7 @@ class GDriveFile(GDriveNode):
         return False
 
     def get_icon(self):
-        if self.trashed == TrashStatus.NOT_TRASHED:
+        if self.get_trashed_status() == TrashStatus.NOT_TRASHED:
             if self.is_live():
                 return ICON_GENERIC_FILE
             else:
@@ -305,5 +304,5 @@ class GDriveFile(GDriveNode):
         return True
 
     def to_tuple(self):
-        return (self.uid, self.goog_id, self.name, self.mime_type_uid, self.trashed, self._size_bytes, self._md5, self.create_ts, self.modify_ts,
+        return (self.uid, self.goog_id, self.name, self.mime_type_uid, self.get_trashed_status(), self._size_bytes, self._md5, self.create_ts, self.modify_ts,
                 self.owner_uid, self.drive_id, self.is_shared, self.shared_by_user_uid, self.version, self.sync_ts)

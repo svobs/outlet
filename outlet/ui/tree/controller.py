@@ -1,6 +1,7 @@
 import logging
-from typing import Any, Callable, List, Optional, Tuple, Union
+from typing import Any, Callable, List, Tuple, Union
 
+import gi
 from pydispatch import dispatcher
 
 from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TREE_TYPE_GDRIVE, TreeDisplayMode
@@ -13,10 +14,8 @@ from ui.dialog.base_dialog import BaseDialog
 from ui.tree import tree_factory_templates
 from ui.tree.display_store import DisplayStore
 from ui.tree.display_tree_decorator import LazyLoadDisplayTreeDecorator
-from ui.tree.filter_criteria import FilterCriteria
 from util.stopwatch_sec import Stopwatch
 
-import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 from gi.repository.Gtk import TreeIter, TreePath

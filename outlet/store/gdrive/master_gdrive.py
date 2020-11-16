@@ -304,7 +304,7 @@ class GDriveMasterStore(MasterStore):
         logger.debug(f'Removing node from caches: {node}')
 
         if to_trash:
-            if node.trashed.not_trashed():
+            if node.get_trashed_status().not_trashed():
                 raise RuntimeError(f'Trying to trash Google node which is not marked as trashed: {node}')
             # this is actually an update
             self._upsert_single_node_nolock(node)

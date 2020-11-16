@@ -139,8 +139,8 @@ class LocalFileNode(LocalNode):
             return False
 
         return other.node_identifier == self.node_identifier and other._md5 == self._md5 and other._sha256 == self._sha256 \
-            and other._modify_ts == self._modify_ts and other._change_ts == self._change_ts and other.trashed == self.trashed \
-            and other._is_live == self._is_live
+            and other._modify_ts == self._modify_ts and other._change_ts == self._change_ts \
+            and other.get_trashed_status() == self.get_trashed_status() and other._is_live == self._is_live
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -180,7 +180,7 @@ class LocalDirNode(HasChildStats, LocalNode):
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.get_single_path(), self.trashed(), self.is_live()
+        return self.uid, self.get_single_path(), self.get_trashed_status(), self.is_live()
 
     @classmethod
     def get_obj_type(cls):
@@ -206,7 +206,7 @@ class LocalDirNode(HasChildStats, LocalNode):
         if not isinstance(other, LocalDirNode):
             return False
 
-        return other.node_identifier == self.node_identifier and other.name == self.name and other.trashed == self.trashed \
+        return other.node_identifier == self.node_identifier and other.name == self.name and other.get_trashed_status() == self.get_trashed_status() \
             and other._is_live == self._is_live
 
     def __ne__(self, other):

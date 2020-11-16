@@ -40,9 +40,9 @@ class FilterCriteria:
 
     def matches_trashed(self, node) -> bool:
         return not self.is_trashed or self.is_trashed == BoolOption.NOT_SPECIFIED or \
-                (self.is_trashed == BoolOption.FALSE and node.trashed() == TrashStatus.NOT_TRASHED) or \
-                (self.is_trashed == BoolOption.TRUE and (node.trashed() == TrashStatus.EXPLICITLY_TRASHED
-                                                         or node.trashed() == TrashStatus.IMPLICITLY_TRASHED))
+                (self.is_trashed == BoolOption.FALSE and node.get_trashed_status() == TrashStatus.NOT_TRASHED) or \
+                (self.is_trashed == BoolOption.TRUE and (node.get_trashed_status() == TrashStatus.EXPLICITLY_TRASHED
+                                                         or node.get_trashed_status() == TrashStatus.IMPLICITLY_TRASHED))
 
     def matches_is_shared(self, node) -> bool:
         return self.is_shared == BoolOption.NOT_SPECIFIED or \
@@ -56,7 +56,7 @@ class FilterCriteria:
 
         if not self.matches_trashed(node):
             if SUPER_DEBUG:
-                logger.debug(f'Node with TrashStatus={node.trashed()} does not match trashed={self.is_trashed}')
+                logger.debug(f'Node with TrashStatus={node.get_trashed_status()} does not match trashed={self.is_trashed}')
             return False
 
         if not self.matches_is_shared(node):

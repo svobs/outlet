@@ -648,7 +648,7 @@ class GDriveClient(HasLifecycle):
         file_meta = GDriveClient._try_repeatedly(request)
         gdrive_file: GDriveFile = self._convert_dict_to_gdrive_file(file_meta)
 
-        logger.debug(f'Successfully trashed GDriveNode: {goog_id}: trashed={gdrive_file.trashed}')
+        logger.debug(f'Successfully trashed GDriveNode: {goog_id}: trashed={gdrive_file.get_trashed_status()}')
         return gdrive_file
 
     def hard_delete(self, goog_id: str):

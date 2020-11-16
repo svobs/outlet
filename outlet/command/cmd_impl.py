@@ -396,13 +396,13 @@ class DeleteGDriveNodeCommand(DeleteNodeCommand):
             # TODO
             logger.error('delete_empty_parent is not implemented!')
 
-        if self.to_trash and existing.trashed != TrashStatus.NOT_TRASHED:
+        if self.to_trash and existing.get_trashed_status() != TrashStatus.NOT_TRASHED:
             logger.info(f'Item is already trashed: {existing}')
             return UserOpResult(UserOpStatus.COMPLETED_NO_OP, to_delete=[existing])
 
         if self.to_trash:
             cxt.gdrive_client.trash(self.op.src_node.goog_id)
-            self.op.src_node.trashed = TrashStatus.EXPLICITLY_TRASHED
+            self.op.src_node.set_trashed_status(TrashStatus.EXPLICITLY_TRASHED)
         else:
             cxt.gdrive_client.hard_delete(self.op.src_node.goog_id)
 

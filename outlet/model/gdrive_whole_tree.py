@@ -536,7 +536,7 @@ class GDriveWholeTree(HasGetChildren):
             trashed_file_count = 0
             trashed_dir_count = 0
             for root in self.get_children_for_root():
-                if root.trashed == TrashStatus.NOT_TRASHED:
+                if root.get_trashed_status() == TrashStatus.NOT_TRASHED:
                     if root.get_size_bytes():
                         size_bytes += root.get_size_bytes()
 

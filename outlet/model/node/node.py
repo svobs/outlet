@@ -103,7 +103,7 @@ class Node(treelib.Node, ABC):
         assert self.node_identifier.get_path_list(), f'Oops - for {self}'
         return os.path.basename(self.node_identifier.get_path_list()[0])
 
-    def trashed(self) -> TrashStatus:
+    def get_trashed_status(self) -> TrashStatus:
         return self._trashed
 
     @staticmethod
@@ -287,7 +287,8 @@ class HasChildStats(ABC):
         if self._size_bytes is None:
             self._size_bytes = 0
 
-        if child_node.trashed == TrashStatus.NOT_TRASHED:
+        logger.warning(f'TRASHED: {child_node.get_trashed_status()}')
+        if child_node.get_trashed_status() == TrashStatus.NOT_TRASHED:
             # not trashed:
             if child_node.get_size_bytes():
                 self._size_bytes += child_node.get_size_bytes()
