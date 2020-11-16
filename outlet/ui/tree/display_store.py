@@ -46,6 +46,25 @@ class DisplayStore:
         """Need to track these so that we can remove a node if its src node was removed"""
 
         self.expanded_rows: Set[UID] = set()
+        self.load_expanded_rows_from_config()
+
+    def load_expanded_rows_from_config(self):
+        try:
+            self.expanded_rows: Set[UID] = set()
+            expanded_rows_str: Optional[str] = self.treeview_meta.config.get(DisplayStore._make_expanded_rows_config_key(self.tree_id))
+            if expanded_rows_str:
+                for uid in expanded_rows_str.split(','):
+                    self.expanded_rows.add(UID(uid))
+        except Exception:
+            logger.exception(f'[{self.tree_id}] Failed to load expanded rows from config')
+
+    def save_expanded_rows_to_config(self):
+        expanded_rows_str: str = ','.join(str(uid) for uid in self.expanded_rows)
+        self.treeview_meta.config.write(DisplayStore._make_expanded_rows_config_key(self.tree_id), expanded_rows_str)
+
+    @staticmethod
+    def _make_expanded_rows_config_key(tree_id: str) -> str:
+        return f'ui_state.{tree_id}.expanded_rows'
 
     def get_node_data(self, tree_path: Union[TreeIter, TreePath]) -> Node:
         """
@@ -110,7 +129,7 @@ class DisplayStore:
             tree_path = Gtk.TreePath.new_from_string(tree_path)
         data_node: Node = self.get_node_data(tree_path)
         if data_node.is_ephemereal():
-            logger.debug('Disallowing checkbox toggle because node is ephemereal')
+            logger.debug(f'[{self.tree_id}] Disallowing checkbox toggle because node is ephemereal')
             return
         checked_value = not self.is_node_checked(tree_path)
         self.set_row_checked(tree_path, checked_value)
@@ -307,6 +326,7 @@ class DisplayStore:
             if uid in self.checked_rows: del self.checked_rows[uid]
             if uid in self.inconsistent_rows: del self.inconsistent_rows[uid]
             if uid in self.displayed_rows: del self.displayed_rows[uid]
+            self.expanded_rows.discard(uid)
 
         self.do_for_self_and_descendants(initial_tree_iter, remove_node_from_lists)
 

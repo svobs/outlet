@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 class DisplayMutator(HasLifecycle):
     """
-    Cache Manager --> TreeBuilder --> DisplayTree --> DisplayMutator --> DisplayStore (TreeModel)
+    CacheManager --> DisplayTree --> DisplayMutator --> DisplayStore (TreeModel)
     TODO: when does the number of display nodes start to slow down? -> add config for live node maximum
     """
     def __init__(self, config, controller=None):
@@ -357,6 +357,9 @@ class DisplayMutator(HasLifecycle):
         else:
             logger.debug(f'[{self.con.tree_id}] Removed UID {node.uid} from expanded_rows"')
             self.con.display_store.expanded_rows.discard(node.uid)
+
+        # TODO: use a timer for this
+        self.con.display_store.save_expanded_rows_to_config()
 
         if not self._enable_expand_state_listeners or not self._enable_node_signals:
             if SUPER_DEBUG:

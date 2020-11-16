@@ -32,8 +32,6 @@ Create a virtual environment within this directory (`{project_name}`)  following
     make init
 
 ### Future Major Features (TODO)
-* [3] Filter UI by Trashed, Shared, etc.
-* [3] Filter by name (aka search)
 * [1] Put GDrive files in trash
 * [3] Put local files in trash
 * [3] Tombstone trash support
