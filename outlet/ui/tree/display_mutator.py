@@ -137,6 +137,17 @@ class DisplayMutator(HasLifecycle):
         finally:
             self._enable_expand_state_listeners = True
 
+    def select_uid(self, uid):
+        tree_iter = self.con.display_store.find_uid_in_tree(uid, None)
+        if not tree_iter:
+            logger.error(f'[{self.con.tree_id}] Could not select node: could not find node in tree for UID {uid}')
+            return
+        tree_view_selection: Gtk.TreeSelection = self.con.tree_view.get_selection()
+        # tree_view_selection.unselect_all()
+        tree_view_selection.select_iter(tree_iter)
+        tree_path = self.con.display_store.model.get_path(tree_iter)
+        self.con.tree_view.scroll_to_cell(path=tree_path, column=None, use_align=True, row_align=0.5, col_align=0)
+
     def expand_and_select_node(self, selection: SinglePathNodeIdentifier):
         assert isinstance(selection, SinglePathNodeIdentifier), f'Expected instance of SinglePathNodeIdentifier but got: {type(selection)}'
 
@@ -156,15 +167,7 @@ class DisplayMutator(HasLifecycle):
                         self._expand_subtree(tree_path, expand_all=False)
 
                 # Now select target node:
-                tree_iter = self.con.display_store.find_uid_in_tree(selection.uid, tree_iter)
-                if not tree_iter:
-                    logger.error(f'[{self.con.tree_id}] Could not select node: could not find node in tree for: {selection}')
-                    return
-                tree_view_selection: Gtk.TreeSelection = self.con.tree_view.get_selection()
-                # tree_view_selection.unselect_all()
-                tree_view_selection.select_iter(tree_iter)
-                tree_path = self.con.display_store.model.get_path(tree_iter)
-                self.con.tree_view.scroll_to_cell(path=tree_path, column=None, use_align=True, row_align=0.5, col_align=0)
+                self.select_uid(selection.uid)
 
         GLib.idle_add(do_in_ui)
 
@@ -237,6 +240,9 @@ class DisplayMutator(HasLifecycle):
 
         def update_ui():
             with self._lock:
+                # retain selection (if any)
+                prev_selection: List[Node] = self.con.get_multiple_selection()
+
                 # Wipe out existing items:
                 root_iter = self.con.display_store.clear_model()
                 node_count = 0
@@ -255,7 +261,7 @@ class DisplayMutator(HasLifecycle):
                     logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes and expanded {len(to_expand)} dir nodes')
 
                 else:
-                    # NOT lazy: load all at once
+                    # NOT lazy: load all at once, expand all
                     for child in children:
                         node_count = self._populate_recursively(None, child, node_count)
 
@@ -264,6 +270,9 @@ class DisplayMutator(HasLifecycle):
                     # Expand all dirs:
                     assert not self.con.treeview_meta.lazy_load
                     self.con.tree_view.expand_all()
+                
+                for prev_node in prev_selection:
+                    self.select_uid(prev_node.uid)
 
             dispatcher.send(signal=actions.LOAD_UI_TREE_DONE, sender=self.con.tree_id)
 
