@@ -145,6 +145,12 @@ class TreeViewMeta:
             except DispatcherKeyError:
                 pass
 
+    def is_lazy_load(self):
+        # If no subtree, then we are hard working:
+        if self.filter_criteria and not self.filter_criteria.show_subtrees_of_matches:
+            return False
+        return self.lazy_load
+
     def read_filter_criteria_from_config(self):
         logger.debug(f'[{self.tree_id}] Reading FilterCriteria from config')
         self.filter_criteria = FilterCriteria.read_filter_criteria_from_config(self.config, self.tree_id)

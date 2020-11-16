@@ -88,16 +88,32 @@ class FilterCriteria:
     def filter(self, node_list: List[Node], parent_tree: HasGetChildren) -> List[Node]:
         filtered_list: List[Node] = []
 
-        for node in node_list:
-            # this can get very expensive...
-            if node.is_dir() and self.show_subtrees_of_matches:
-                if not self.matches(node) and not self.subtree_matches(node, parent_tree):
-                    continue
-            else:
-                if not self.matches(node):
-                    continue
+        if not self.show_subtrees_of_matches:
+            queue: Deque[Node] = deque()
+            for node in node_list:
+                queue.append(node)
 
-            filtered_list.append(node)
+            while len(queue) > 0:
+                node: Node = queue.popleft()
+
+                if self.matches(node):
+                    filtered_list.append(node)
+
+                if node.is_dir():
+                    for child_node in parent_tree.get_children(node):
+                        queue.append(child_node)
+        else:
+
+            for node in node_list:
+                # this can get very expensive...
+                if node.is_dir() and self.show_subtrees_of_matches:
+                    if not self.matches(node) and not self.subtree_matches(node, parent_tree):
+                        continue
+                else:
+                    if not self.matches(node):
+                        continue
+
+                filtered_list.append(node)
 
         return filtered_list
 

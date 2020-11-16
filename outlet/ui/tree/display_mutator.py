@@ -140,7 +140,7 @@ class DisplayMutator(HasLifecycle):
     def select_uid(self, uid):
         tree_iter = self.con.display_store.find_uid_in_tree(uid, None)
         if not tree_iter:
-            logger.error(f'[{self.con.tree_id}] Could not select node: could not find node in tree for UID {uid}')
+            logger.info(f'[{self.con.tree_id}] Could not select node: could not find node in tree for UID {uid}')
             return
         tree_view_selection: Gtk.TreeSelection = self.con.tree_view.get_selection()
         # tree_view_selection.unselect_all()
@@ -226,8 +226,8 @@ class DisplayMutator(HasLifecycle):
             # Lock this so that node-upserted and node-removed callbacks don't interfere
             self._enable_node_signals = False
             with self._lock:
-                children: List[Node] = self.con.get_tree().get_children_for_root(self.con.treeview_meta.filter_criteria)
-            logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(children)} children for root')
+                top_level_node_list: List[Node] = self.con.get_tree().get_children_for_root(self.con.treeview_meta.filter_criteria)
+            logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(top_level_node_list)} top_level_node_list for root')
         except GDriveItemNotFoundError as err:
             # Not found: signal error to UI and cancel
             logger.warning(f'[{self.con.tree_id}] Could not populate root: GDrive node not found: {self.con.get_tree().get_root_identifier()}')
@@ -247,11 +247,19 @@ class DisplayMutator(HasLifecycle):
                 root_iter = self.con.display_store.clear_model()
                 node_count = 0
 
-                if self.con.treeview_meta.lazy_load:
+                if self.con.treeview_meta.filter_criteria and self.con.treeview_meta.filter_criteria.has_criteria()\
+                        and not self.con.treeview_meta.filter_criteria.show_subtrees_of_matches:
+                    # not lazy: just one big list
+                    for node in top_level_node_list:
+                        self._append_file_node(root_iter, node)
+
+                    logger.debug(f'[{self.con.tree_id}] Populated {len(top_level_node_list)} nodes for search')
+
+                elif self.con.treeview_meta.lazy_load:
                     # Recursively add child nodes for dir nodes which need expanding. We can only expand after we have nodes, due to GTK3 limitation
                     to_expand: List[UID] = []
-                    for child in children:
-                        self._populate_and_restore_expanded_state(root_iter, child, node_count, to_expand)
+                    for node in top_level_node_list:
+                        self._populate_and_restore_expanded_state(root_iter, node, node_count, to_expand)
 
                     for uid in to_expand:
                         logger.debug(f'[{self.con.tree_id}] Expanding: {uid}')
@@ -262,15 +270,15 @@ class DisplayMutator(HasLifecycle):
 
                 else:
                     # NOT lazy: load all at once, expand all
-                    for child in children:
-                        node_count = self._populate_recursively(None, child, node_count)
+                    for node in top_level_node_list:
+                        node_count = self._populate_recursively(None, node, node_count)
 
                     logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes')
 
                     # Expand all dirs:
                     assert not self.con.treeview_meta.lazy_load
                     self.con.tree_view.expand_all()
-                
+
                 for prev_node in prev_selection:
                     self.select_uid(prev_node.uid)
 
@@ -339,6 +347,7 @@ class DisplayMutator(HasLifecycle):
 
     def _on_node_expansion_toggled(self, sender: str, parent_iter: Gtk.TreeIter, parent_path, node: Node, is_expanded: bool) -> None:
         # Callback for actions.NODE_EXPANSION_TOGGLED:
+        assert self.con.treeview_meta.lazy_load
         logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node}"')
 
         # Still want to keep track of which nodes are expanded:
