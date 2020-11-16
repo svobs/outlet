@@ -1,10 +1,11 @@
 from collections import deque
 from enum import IntEnum
-from typing import Deque, List
+from typing import Deque, List, Optional
 import logging
 from constants import SUPER_DEBUG, TrashStatus, TREE_TYPE_GDRIVE
 from model.has_get_children import HasGetChildren
 from model.node.node import Node
+from model.node_identifier import ensure_bool
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ class BoolOption(IntEnum):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class FilterCriteria:
-    def __init__(self, search_query: str = None, is_trashed: BoolOption = BoolOption.NOT_SPECIFIED, is_shared: BoolOption = BoolOption.NOT_SPECIFIED):
+    def __init__(self, search_query: str = '', is_trashed: BoolOption = BoolOption.NOT_SPECIFIED, is_shared: BoolOption = BoolOption.NOT_SPECIFIED):
         self.search_query: str = search_query
         self.ignore_case: bool = False
         self.is_trashed: BoolOption = is_trashed
@@ -99,3 +100,66 @@ class FilterCriteria:
             filtered_list.append(node)
 
         return filtered_list
+
+    @staticmethod
+    def _make_search_query_config_key(tree_id: str) -> str:
+        return f'ui_state.{tree_id}.filter.search_query'
+
+    @staticmethod
+    def _make_ignore_case_config_key(tree_id: str) -> str:
+        return f'ui_state.{tree_id}.filter.ignore_case'
+
+    @staticmethod
+    def _make_is_trashed_config_key(tree_id: str) -> str:
+        return f'ui_state.{tree_id}.filter.is_trashed'
+
+    @staticmethod
+    def _make_is_shared_config_key(tree_id: str) -> str:
+        return f'ui_state.{tree_id}.filter.is_shared'
+
+    @staticmethod
+    def _make_show_subtree_config_key(tree_id: str) -> str:
+        return f'ui_state.{tree_id}.filter.show_subtrees'
+
+    def write_filter_criteria_to_config(self, config, tree_id: str):
+        search_query = self.search_query
+        if not search_query:
+            search_query = ''
+        logger.debug(f'[{tree_id}] Writing search query: "{search_query}"')
+        config.write(FilterCriteria._make_search_query_config_key(tree_id), search_query)
+
+        config.write(FilterCriteria._make_ignore_case_config_key(tree_id), self.ignore_case)
+
+        config.write(FilterCriteria._make_is_trashed_config_key(tree_id), self.is_trashed)
+
+        config.write(FilterCriteria._make_is_shared_config_key(tree_id), self.is_shared)
+
+        config.write(FilterCriteria._make_show_subtree_config_key(tree_id), self.show_subtrees_of_matches)
+
+    @staticmethod
+    def read_filter_criteria_from_config(config, tree_id: str):
+        logger.debug(f'[{tree_id}] Reading FilterCriteria from config')
+        filter_criteria = FilterCriteria()
+
+        search_query = config.get(FilterCriteria._make_search_query_config_key(tree_id), '')
+        filter_criteria.search_query = search_query
+
+        ignore_case = ensure_bool(config.get(FilterCriteria._make_ignore_case_config_key(tree_id), False))
+        filter_criteria.ignore_case = ignore_case
+
+        is_trashed = config.get(FilterCriteria._make_is_trashed_config_key(tree_id), BoolOption.NOT_SPECIFIED)
+        is_trashed = BoolOption(is_trashed)
+        filter_criteria.is_trashed = is_trashed
+
+        is_shared = config.get(FilterCriteria._make_is_shared_config_key(tree_id), BoolOption.NOT_SPECIFIED)
+        is_shared = BoolOption(is_shared)
+        filter_criteria.is_shared = is_shared
+
+        show_subtrees_of_matches = ensure_bool(config.get(FilterCriteria._make_show_subtree_config_key(tree_id)))
+        filter_criteria.show_subtrees_of_matches = show_subtrees_of_matches
+
+        if filter_criteria.has_criteria():
+            logger.debug(f'[{tree_id}] Read FilterCriteria: ignore_case={filter_criteria.ignore_case} is_trashed={filter_criteria.is_trashed}'
+                         f' is_shared={filter_criteria.is_shared} show_subtrees={filter_criteria.show_subtrees_of_matches}')
+            return filter_criteria
+        return None

@@ -1,6 +1,6 @@
 import logging
 from functools import partial
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Set, Union
 
 from constants import SUPER_DEBUG
 from model.node.node import Node
@@ -44,6 +44,8 @@ class DisplayStore:
         self.inconsistent_rows: Dict[UID, Node] = {}
         self.displayed_rows: Dict[UID, Node] = {}
         """Need to track these so that we can remove a node if its src node was removed"""
+
+        self.expanded_rows: Set[UID] = set()
 
     def get_node_data(self, tree_path: Union[TreeIter, TreePath]) -> Node:
         """
@@ -318,10 +320,10 @@ class DisplayStore:
 
         child_data = self.get_node_data(first_child_iter)
         if SUPER_DEBUG:
-            logger.debug(f'[{self.tree_id}] RRemoving child: {child_data}')
+            logger.debug(f'[{self.tree_id}] Removing child: {child_data}')
 
         if not child_data.is_ephemereal():
-            logger.error(f'[{self.tree_id}] RExpected LoadingNode but found: {child_data}')
+            logger.error(f'[{self.tree_id}] Expected LoadingNode but found: {child_data}')
             return
 
         # remove the first child

@@ -75,6 +75,7 @@ class AppConfig:
                         logger.debug(f'No change to config {segment}')
                         return
                     sub_dict[segment] = value
+                    logger.debug(f'Wrote value "{value}" to "{json_path}"')
                 elif val is None:
                     if not insert_new_ok:
                         raise RuntimeError(f'Path segment "{segment}" not found in path "{json_path}"')
