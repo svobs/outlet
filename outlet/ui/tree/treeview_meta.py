@@ -9,9 +9,8 @@ from app_config import AppConfig
 from constants import TreeDisplayMode
 from model.node.container_node import CategoryNode
 from model.node.node import Node
-from model.node_identifier import ensure_bool, ensure_int
 from ui import actions
-from ui.tree.filter_criteria import BoolOption, FilterCriteria
+from ui.tree.filter_criteria import FilterCriteria
 
 logger = logging.getLogger(__name__)
 

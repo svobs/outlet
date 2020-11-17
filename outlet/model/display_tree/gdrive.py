@@ -73,8 +73,7 @@ class GDriveDisplayTree(DisplayTree):
         logger.debug(f'[{tree_id}] Refreshing stats...')
         root_node = self.get_root_node()
         assert isinstance(root_node, GDriveFolder)
-        self._whole_tree.refresh_stats(root_node, tree_id)
+        self.app.cacheman.refresh_stats(root_node, tree_id)
         self._stats_loaded = True
-        logger.debug(f'[{tree_id}] Sending signal "{actions.REFRESH_SUBTREE_STATS_DONE}"')
         dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
         dispatcher.send(signal=actions.SET_STATUS, sender=tree_id, status_msg=self.get_summary())

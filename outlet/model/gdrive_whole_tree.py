@@ -36,7 +36,12 @@ class GDriveWholeTree(HasGetChildren):
 
         # Keep track of parentless nodes. These include the 'My Drive' node, as well as shared nodes.
         self.uid_dict: Dict[UID, GDriveNode] = {}
-        """ Forward lookup table: nodes are indexed by GOOG ID"""
+        """ Forward lookup table: nodes are indexed by UID"""
+
+        # fake root:
+        root = GDriveFolder(NodeIdentifierFactory.get_gdrive_root_constant_identifier(), None, None, TrashStatus.NOT_TRASHED, None, None,
+                            None, None, None, None, None, None)
+        self.uid_dict[root.uid] = root
 
         self.parent_child_dict: Dict[UID, List[GDriveNode]] = {}
         """ Reverse lookup table: 'parent_uid' -> list of child nodes """
@@ -458,10 +463,6 @@ class GDriveWholeTree(HasGetChildren):
 
     def get_node_for_uid(self, uid: UID) -> Optional[GDriveNode]:
         assert uid
-        if uid == GDRIVE_ROOT_UID:
-            # fake root:
-            return GDriveFolder(NodeIdentifierFactory.get_gdrive_root_constant_identifier(), None, None, TrashStatus.NOT_TRASHED, None, None,
-                                None, None, None, None, None, None)
         return self.uid_dict.get(uid, None)
 
     def resolve_uids_to_goog_ids(self, uids: List[UID], fail_if_missing: bool = True) -> List[str]:
@@ -530,6 +531,7 @@ class GDriveWholeTree(HasGetChildren):
         return path_list
 
     def get_summary(self):
+        # FIXME: this is broken
         if self._stats_loaded:
             size_bytes = 0
             trashed_bytes = 0
@@ -655,8 +657,8 @@ class GDriveWholeTree(HasGetChildren):
                         node_queue.append(child)
                     action_func(child)
 
-
     def refresh_stats(self, subtree_root: Optional[GDriveFolder] = None, tree_id: str = None):
+        # FIXME: this is broken
         # Calculates the stats for all the directories
         logger.debug(f'[{tree_id}] Refreshing stats for GDrive tree (subtree={subtree_root})')
         stats_sw = Stopwatch()
@@ -667,12 +669,13 @@ class GDriveWholeTree(HasGetChildren):
         else:
             subtree_root_uid = None
 
-        def add_dirs_to_stack(n):
+        def zero_out_stats_and_add_dirs_to_stack(n):
             if n.is_dir():
                 assert isinstance(n, GDriveFolder)
+                n.zero_out_stats()
                 second_pass_stack.append(n)
 
-        self.for_each_node_breadth_first(action_func=add_dirs_to_stack, subtree_root_uid=subtree_root_uid)
+        self.for_each_node_breadth_first(action_func=zero_out_stats_and_add_dirs_to_stack, subtree_root_uid=subtree_root_uid)
 
         # 2nd pass:
         while len(second_pass_stack) > 0:
@@ -686,7 +689,8 @@ class GDriveWholeTree(HasGetChildren):
             else:
                 node.set_stats_for_no_children()
 
-            # logger.debug(f'Node {node.uid} ("{node.name}") has size={node.get_size_bytes()}, etc={node.get_etc()}')
+            # if SUPER_DEBUG:
+            #     logger.debug(f'Folder node {node.uid} ("{node.name}") has size={node.get_size_bytes()}, etc={node.get_etc()}')
 
         # TODO: make use of this later
         if FIND_DUPLICATE_GDRIVE_NODE_NAMES:
@@ -694,13 +698,6 @@ class GDriveWholeTree(HasGetChildren):
 
         if COUNT_MULTIPLE_GDRIVE_PARENTS:
             self.count_multiple_parents()
-
-        if not subtree_root:
-            # whole tree
-            logger.debug(f'[{tree_id}] Stats done for whole GDrive tree: sending signals')
-            self._stats_loaded = True
-            dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
-            dispatcher.send(signal=actions.SET_STATUS, sender=tree_id, status_msg=self.get_summary())
 
         logger.debug(f'{stats_sw} Refreshed stats for Google Drive tree')
 

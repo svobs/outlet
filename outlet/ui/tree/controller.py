@@ -70,10 +70,14 @@ class TreePanelController:
             self.app.cacheman.unregister_tree_controller(self)
 
         if self.tree_ui_listeners:
+            self.tree_ui_listeners.shutdown()
             self.tree_ui_listeners.disconnect_gtk_listeners()
-        self.tree_ui_listeners = None
-        self.tree_actions = None
-        self.treeview_meta.destroy()
+            self.tree_ui_listeners = None
+        if self.tree_actions:
+            self.tree_actions.shutdown()
+            self.tree_actions = None
+        if self.treeview_meta:
+            self.treeview_meta.destroy()
 
         self.display_mutator.shutdown()
 

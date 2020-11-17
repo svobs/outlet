@@ -11,7 +11,6 @@ from constants import GDRIVE_DOWNLOAD_STATE_COMPLETE, GDRIVE_DOWNLOAD_STATE_GETT
     GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE, GDRIVE_DOWNLOAD_TYPE_CHANGES, GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD, GDRIVE_ROOT_UID, SUPER_DEBUG
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode
-from model.node_identifier import ensure_list
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from store.gdrive.client import GDriveClient
@@ -165,10 +164,14 @@ class GDriveTreeLoader:
         return tree
 
     def _determine_roots(self, tree: GDriveWholeTree):
+        # TODO: can we roll this into the node loading?
         if SUPER_DEBUG:
             logger.debug(f'Determining roots for {len(tree.uid_dict)} GDrive nodes')
         max_uid = GDRIVE_ROOT_UID + 1
         for item in tree.uid_dict.values():
+            if item.uid == GDRIVE_ROOT_UID:
+                continue
+
             if not item.get_parent_uids():
                 tree.get_children_for_root().append(item)
 

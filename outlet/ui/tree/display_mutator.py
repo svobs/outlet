@@ -250,10 +250,14 @@ class DisplayMutator(HasLifecycle):
                 if self.con.treeview_meta.filter_criteria and self.con.treeview_meta.filter_criteria.has_criteria()\
                         and not self.con.treeview_meta.filter_criteria.show_subtrees_of_matches:
                     # not lazy: just one big list
-                    for node in top_level_node_list:
-                        self._append_file_node(root_iter, node)
+                    if len(top_level_node_list) > LARGE_NUMBER_OF_CHILDREN:
+                        logger.error(f'[{self.con.tree_id}] Too many top-level nodes to display! Count = {len(top_level_node_list)}')
+                        self._append_empty_child(root_iter, f'ERROR: too many items to display ({len(top_level_node_list):n})')
+                    else:
+                        for node in top_level_node_list:
+                            self._append_file_node(root_iter, node)
 
-                    logger.debug(f'[{self.con.tree_id}] Populated {len(top_level_node_list)} nodes for search')
+                        logger.debug(f'[{self.con.tree_id}] Populated {len(top_level_node_list)} linear nodes for filter criteria')
 
                 elif self.con.treeview_meta.lazy_load:
                     # Recursively add child nodes for dir nodes which need expanding. We can only expand after we have nodes, due to GTK3 limitation
