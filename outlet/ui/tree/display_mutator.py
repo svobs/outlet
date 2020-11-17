@@ -360,8 +360,13 @@ class DisplayMutator(HasLifecycle):
             logger.debug(f'[{self.con.tree_id}] Added UID {node.uid} to expanded_rows"')
             self.con.display_store.expanded_rows.add(node.uid)
         else:
-            logger.debug(f'[{self.con.tree_id}] Removed UID {node.uid} from expanded_rows"')
-            self.con.display_store.expanded_rows.discard(node.uid)
+            def remove_from_expanded_rows(tree_iter: Gtk.TreeIter):
+                n = self.con.display_store.get_node_data(tree_iter)
+                if n.is_dir():
+                    self.con.display_store.expanded_rows.discard(n.uid)
+                    logger.debug(f'[{self.con.tree_id}] Removed UID {n.uid} from expanded_rows')
+
+            self.con.display_store.do_for_self_and_descendants(parent_path, remove_from_expanded_rows)
 
         # TODO: use a timer for this
         self.con.display_store.save_expanded_rows_to_config()

@@ -146,7 +146,6 @@ class TreeFilterPanel:
 
     def refresh_results(self, widget=None):
         logger.debug(f'Refreshing results')
-        override_listener = False
 
         search_query = self.search_entry.get_text()
         filter_criteria = FilterCriteria(search_query=search_query)
@@ -164,7 +163,6 @@ class TreeFilterPanel:
 
         if widget == self.is_trashed_btn:
             logger.debug(f'[{self.tree_id}] IsTrashed button clicked')
-            override_listener = True
             prev_state: BoolOption = filter_criteria.is_trashed
             if prev_state == BoolOption.NOT_SPECIFIED:
                 filter_criteria.is_trashed = BoolOption.TRUE
@@ -176,7 +174,6 @@ class TreeFilterPanel:
 
         elif self.supports_shared_status and widget == self.is_shared_btn:
             logger.debug(f'[{self.tree_id}] IsShared button clicked')
-            override_listener = True
             prev_state: BoolOption = filter_criteria.is_shared
             if prev_state == BoolOption.NOT_SPECIFIED:
                 filter_criteria.is_shared = BoolOption.TRUE
@@ -186,10 +183,9 @@ class TreeFilterPanel:
                 filter_criteria.is_shared = BoolOption.NOT_SPECIFIED
             self._update_shared_btn(filter_criteria)
 
+        # TODO: put this on a timer
         dispatcher.send(signal=actions.FILTER_UI_TREE, sender=self.tree_id, filter_criteria=filter_criteria)
         self._config_write_timer.start_or_delay()
-
-        return True
 
     def reset_row(self, model, path, iter, make_visible):
         # Reset some row attributes independent of row hierarchy
