@@ -8,7 +8,7 @@ from typing import Deque, Iterable, List, Optional
 import humanfriendly
 from pydispatch import dispatcher
 
-from constants import HOLDOFF_TIME_MS, LARGE_NUMBER_OF_CHILDREN, SUPER_DEBUG
+from constants import HOLDOFF_TIME_MS, ICON_ALERT, LARGE_NUMBER_OF_CHILDREN, SUPER_DEBUG
 from error import GDriveItemNotFoundError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode
@@ -252,12 +252,13 @@ class DisplayMutator(HasLifecycle):
                     # not lazy: just one big list
                     if len(top_level_node_list) > LARGE_NUMBER_OF_CHILDREN:
                         logger.error(f'[{self.con.tree_id}] Too many top-level nodes to display! Count = {len(top_level_node_list)}')
-                        self._append_empty_child(root_iter, f'ERROR: too many items to display ({len(top_level_node_list):n})')
+                        self._append_empty_child(root_iter, f'ERROR: too many items to display ({len(top_level_node_list):n})', ICON_ALERT)
                     else:
+                        logger.debug(f'[{self.con.tree_id}] Populating {len(top_level_node_list)} linear list of nodes for filter criteria')
                         for node in top_level_node_list:
                             self._append_file_node(root_iter, node)
 
-                        logger.debug(f'[{self.con.tree_id}] Populated {len(top_level_node_list)} linear nodes for filter criteria')
+                        logger.debug(f'[{self.con.tree_id}] Done populating linear list of nodes')
 
                 elif self.con.treeview_meta.lazy_load:
                     # Recursively add child nodes for dir nodes which need expanding. We can only expand after we have nodes, due to GTK3 limitation
@@ -606,7 +607,7 @@ class DisplayMutator(HasLifecycle):
             logger.debug(f'[{self.con.tree_id}] Appending {len(children)} child display nodes')
             if len(children) > LARGE_NUMBER_OF_CHILDREN:
                 logger.error(f'[{self.con.tree_id}] Too many children to display! Count = {len(children)}')
-                self._append_empty_child(parent_iter, f'ERROR: too many items to display ({len(children):n})')
+                self._append_empty_child(parent_iter, f'ERROR: too many items to display ({len(children):n})', ICON_ALERT)
                 return
             # Append all underneath tree_iter
             for child in children:
@@ -620,12 +621,12 @@ class DisplayMutator(HasLifecycle):
 
     # Search for "TREE_VIEW_COLUMNS":
 
-    def _append_empty_child(self, parent_node_iter, node_name):
+    def _append_empty_child(self, parent_node_iter, node_name, icon: str = None):
         row_values = []
         if self.con.treeview_meta.has_checkboxes:
             row_values.append(False)  # Checked
             row_values.append(False)  # Inconsistent
-        row_values.append(None)  # Icon
+        row_values.append(icon)  # Icon
         row_values.append(node_name)  # Name
         if not self.con.treeview_meta.use_dir_tree:
             row_values.append(None)  # Directory
