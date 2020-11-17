@@ -13,7 +13,7 @@ from ui import actions
 from ui.dialog.base_dialog import BaseDialog
 from ui.tree import tree_factory_templates
 from ui.tree.display_store import DisplayStore
-from ui.tree.display_tree_decorator import LazyLoadDisplayTreeDecorator
+from ui.tree.display_tree_lazy_loader import DisplayTreeLazyLoader
 from util.stopwatch_sec import Stopwatch
 
 gi.require_version("Gtk", "3.0")
@@ -35,7 +35,7 @@ class TreePanelController:
     def __init__(self, parent_win, display_store, treeview_meta):
         self.parent_win: BaseDialog = parent_win
         self.app = parent_win.app
-        self._lazy_tree = None
+        self.lazy_loader = None
         self.display_store = display_store
         self.treeview_meta = treeview_meta
         self.tree_id: str = treeview_meta.tree_id
@@ -87,7 +87,7 @@ class TreePanelController:
 
     def reload(self, new_root: SinglePathNodeIdentifier = None, new_tree=None, tree_display_mode: TreeDisplayMode = None,
                show_checkboxes: bool = False, hide_checkboxes: bool = False):
-        """Invalidate whatever cache the _lazy_tree built up, and re-populate the display tree"""
+        """Invalidate whatever cache the .lazy_loader built up, and re-populate the display tree"""
         def _reload():
 
             checkboxes_visible = self.treeview_meta.has_checkboxes
@@ -115,7 +115,7 @@ class TreePanelController:
                 self.set_tree(tree=new_tree, tree_display_mode=tree_display_mode)
             else:
                 logger.info(f'[{self.tree_id}] reload() with same tree')
-                tree = self._lazy_tree.get_tree()
+                tree = self.lazy_loader.get_tree()
                 self.set_tree(tree=tree, tree_display_mode=tree_display_mode)
 
             # Back to the non-UI thread with you!
@@ -226,7 +226,7 @@ class TreePanelController:
         return checked_rows
 
     def get_tree(self) -> DisplayTree:
-        return self._lazy_tree.get_tree()
+        return self.lazy_loader.get_tree()
 
     def set_tree(self, root: SinglePathNodeIdentifier = None, tree: DisplayTree = None, tree_display_mode: TreeDisplayMode = None):
         # Clear old display (if any)
@@ -239,7 +239,7 @@ class TreePanelController:
             logger.debug(f'[{self.tree_id}] Setting TreeDisplayMode={tree_display_mode.name} for root={root}, tree={tree}')
             self.treeview_meta.tree_display_mode = tree_display_mode
 
-        self._lazy_tree = LazyLoadDisplayTreeDecorator(controller=self, root_identifier=root, tree=tree)
+        self.lazy_loader = DisplayTreeLazyLoader(controller=self, root_identifier=root, tree=tree)
 
     # CONVENIENCE METHODS
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -254,7 +254,7 @@ class TreePanelController:
         return self.parent_win.config
 
     def get_root_identifier(self) -> SinglePathNodeIdentifier:
-        return self._lazy_tree.get_root_identifier()
+        return self.lazy_loader.get_root_identifier()
 
     @property
     def tree_display_mode(self):

@@ -287,7 +287,6 @@ class HasChildStats(ABC):
         if self._size_bytes is None:
             self._size_bytes = 0
 
-        logger.warning(f'TRASHED: {child_node.get_trashed_status()}')
         if child_node.get_trashed_status() == TrashStatus.NOT_TRASHED:
             # not trashed:
             if child_node.get_size_bytes():
