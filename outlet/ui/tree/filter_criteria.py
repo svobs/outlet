@@ -45,8 +45,7 @@ class FilterCriteria:
                                                          or node.get_trashed_status() == TrashStatus.IMPLICITLY_TRASHED))
 
     def matches_is_shared(self, node) -> bool:
-        return self.is_shared == BoolOption.NOT_SPECIFIED or \
-               (node.get_tree_type() == TREE_TYPE_GDRIVE and node.is_shared() == bool(self.is_shared))
+        return self.is_shared == BoolOption.NOT_SPECIFIED or node.get_tree_type() != TREE_TYPE_GDRIVE or node.is_shared() == bool(self.is_shared)
 
     def matches(self, node) -> bool:
         if not self.matches_search_query(node):
@@ -86,6 +85,10 @@ class FilterCriteria:
         return False
 
     def filter(self, node_list: List[Node], parent_tree: HasGetChildren) -> List[Node]:
+        if not self.has_criteria():
+            logger.debug(f'No FilterCriteria selected; returning unfiltered list')
+            return node_list
+
         filtered_list: List[Node] = []
 
         if not self.show_subtrees_of_matches:

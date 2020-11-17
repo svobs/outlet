@@ -1,9 +1,12 @@
 import logging
+from typing import Optional
 
 from gi.overrides import Pango
 from pydispatch import dispatcher
 
-from constants import H_PAD, HOLDOFF_TIME_MS, ICON_FOLDER_TREE, ICON_MATCH_CASE, ICON_REFRESH, ICON_SHARED, ICON_TRASHED
+from constants import H_PAD, HOLDOFF_TIME_MS, ICON_FOLDER_TREE, ICON_IS_NOT_SHARED, ICON_IS_NOT_TRASHED, ICON_MATCH_CASE, ICON_REFRESH, \
+    ICON_IS_SHARED, ICON_IS_TRASHED, \
+    TREE_TYPE_GDRIVE
 from ui import actions
 from ui.dialog.base_dialog import BaseDialog
 
@@ -54,42 +57,90 @@ class TreeFilterPanel:
         # self.toolbar.set_icon_size(Gtk.IconSize.SMALL_TOOLBAR)  # 16px
         logger.debug(f'ICON SIZE: {self.toolbar.get_icon_size()}')
 
+        self.supports_shared_status = self.con.get_root_identifier().tree_type == TREE_TYPE_GDRIVE
+
         self.show_ancestors_btn = self._add_toolbar_toggle_btn('Show ancestors of matches', ICON_FOLDER_TREE, self.refresh_results)
         self.match_case_btn = self._add_toolbar_toggle_btn('Match case', ICON_MATCH_CASE, self.refresh_results)
-        self.is_trashed_btn = self._add_toolbar_toggle_btn('Is trashed', ICON_TRASHED, self.refresh_results)
-        self.is_shared_btn = self._add_toolbar_toggle_btn('Is shared', ICON_SHARED, self.refresh_results)
-
-        self.toolbar.show_all()
+        self.is_trashed_btn = self._add_toolbar_toggle_btn('Is trashed', ICON_IS_TRASHED, self.refresh_results)
+        if self.supports_shared_status:
+            self.is_shared_btn = self._add_toolbar_toggle_btn('Is shared', ICON_IS_SHARED, self.refresh_results)
 
         filter_criteria: FilterCriteria = self.con.treeview_meta.filter_criteria
         if filter_criteria:
+            if not self.supports_shared_status:
+                if filter_criteria.is_shared != BoolOption.NOT_SPECIFIED:
+                    logger.info(f'Overriding previous )
+                # Override this. Since we're missing the button, having anything but NOT_SPECIFIED can result in unexpected behavior
+                filter_criteria.is_shared = BoolOption.NOT_SPECIFIED
+
             if filter_criteria.search_query:
                 self.search_entry.set_text(filter_criteria.search_query)
+
             if not filter_criteria.ignore_case:
                 self.match_case_btn.set_active(True)
-            if filter_criteria.is_trashed == BoolOption.TRUE:
-                self.is_trashed_btn.set_active(True)
-            if filter_criteria.is_shared == BoolOption.TRUE:
-                self.is_shared_btn.set_active(True)
+
+            self._update_trashed_btn(filter_criteria)
+
+            self._update_shared_btn(filter_criteria)
+
             if filter_criteria.show_subtrees_of_matches:
                 self.show_ancestors_btn.set_active(True)
 
+        self.toolbar.show_all()
+
         # TODO: close box
 
-    def _add_toolbar_toggle_btn(self, entry_label: str, icon_name: str, on_clicked):
+    def _update_trashed_btn(self, filter_criteria):
+        if filter_criteria.is_trashed == BoolOption.NOT_SPECIFIED:
+            self._set_icon(self.is_trashed_btn, ICON_IS_TRASHED)
+            self.is_trashed_btn.set_active(False)
+        elif filter_criteria.is_trashed == BoolOption.TRUE:
+            self._set_icon(self.is_trashed_btn, ICON_IS_TRASHED)
+            self.is_trashed_btn.set_active(True)
+        elif filter_criteria.is_trashed == BoolOption.FALSE:
+            self._set_icon(self.is_trashed_btn, ICON_IS_NOT_TRASHED)
+            self.is_trashed_btn.set_active(True)
+        else:
+            assert False
+
+        self.toolbar.show_all()
+
+    def _update_shared_btn(self, filter_criteria):
+        if self.supports_shared_status:
+            if filter_criteria.is_shared == BoolOption.NOT_SPECIFIED:
+                self._set_icon(self.is_shared_btn, ICON_IS_SHARED)
+                self.is_shared_btn.set_active(False)
+            elif filter_criteria.is_shared == BoolOption.TRUE:
+                self._set_icon(self.is_shared_btn, ICON_IS_SHARED)
+                self.is_shared_btn.set_active(True)
+            elif filter_criteria.is_shared == BoolOption.FALSE:
+                self._set_icon(self.is_shared_btn, ICON_IS_NOT_SHARED)
+                self.is_shared_btn.set_active(True)
+            else:
+                assert False
+
+            self.toolbar.show_all()
+
+    def _add_toolbar_toggle_btn(self, entry_label: str, icon_name: str, on_clicked) -> Gtk.ToggleToolButton:
         btn = Gtk.ToggleToolButton()
-        icon = Gtk.Image()
-        icon.set_from_file(self.parent_win.app.assets.get_path(icon_name))
-        btn.set_icon_widget(icon)
+        self._set_icon(btn, icon_name)
         btn.set_tooltip_text(entry_label)
         btn.connect('clicked', on_clicked)
         self.toolbar.insert(btn, -1)
         return btn
 
+    def _set_icon(self, btn, icon_name):
+        logger.debug(f'Setting icon to "{icon_name}"')
+        icon = Gtk.Image()
+        icon.set_from_file(self.parent_win.app.assets.get_path(icon_name))
+        btn.set_icon_widget(icon)
+
     def _write_to_config(self):
         self.con.treeview_meta.write_filter_criteria_to_config()
 
-    def _get_filter_criteria_from_ui(self) -> FilterCriteria:
+    def refresh_results(self, widget=None):
+        override_listener = False
+
         search_query = self.search_entry.get_text()
         filter_criteria = FilterCriteria(search_query=search_query)
 
@@ -97,32 +148,46 @@ class TreeFilterPanel:
 
         filter_criteria.show_subtrees_of_matches = self.show_ancestors_btn.get_active()
 
-        if self.is_trashed_btn.get_active():
-            filter_criteria.is_trashed = BoolOption.TRUE
+        # The tri-state buttons do not contain enough information to be derived from the UI, and must be inferred by a combination
+        # of prev state and user action:
+        prev_filter_criteria: Optional[FilterCriteria] = self.con.treeview_meta.filter_criteria
+        if prev_filter_criteria:
+            filter_criteria.is_trashed = prev_filter_criteria.is_trashed
+            filter_criteria.is_shared = prev_filter_criteria.is_shared
 
-        if self.is_shared_btn.get_active():
-            filter_criteria.is_shared = BoolOption.TRUE
+        if widget == self.is_trashed_btn:
+            logger.debug('IsTrashed button clicked')
+            override_listener = True
+            prev_state: BoolOption = filter_criteria.is_trashed
+            if prev_state == BoolOption.NOT_SPECIFIED:
+                filter_criteria.is_trashed = BoolOption.TRUE
+            elif prev_state == BoolOption.TRUE:
+                filter_criteria.is_trashed = BoolOption.FALSE
+            elif prev_state == BoolOption.FALSE:
+                filter_criteria.is_trashed = BoolOption.NOT_SPECIFIED
+            self._update_trashed_btn(filter_criteria)
 
-        return filter_criteria
-
-    def refresh_results(self, widget=None):
-        # Apply filtering to results
-        filter_criteria: FilterCriteria = self._get_filter_criteria_from_ui()
+        elif self.supports_shared_status and widget == self.is_shared_btn:
+            logger.debug('IsShared button clicked')
+            override_listener = True
+            prev_state: BoolOption = filter_criteria.is_shared
+            if prev_state == BoolOption.NOT_SPECIFIED:
+                filter_criteria.is_shared = BoolOption.TRUE
+            elif prev_state == BoolOption.TRUE:
+                filter_criteria.is_shared = BoolOption.FALSE
+            elif prev_state == BoolOption.FALSE:
+                filter_criteria.is_shared = BoolOption.NOT_SPECIFIED
+            self._update_shared_btn(filter_criteria)
 
         dispatcher.send(signal=actions.FILTER_UI_TREE, sender=self.tree_id, filter_criteria=filter_criteria)
-
         self._config_write_timer.start_or_delay()
+
+        return override_listener
 
     def reset_row(self, model, path, iter, make_visible):
         # Reset some row attributes independent of row hierarchy
         self.tree_store.set_value(iter, self.COL_WEIGHT, Pango.Weight.NORMAL)
         self.tree_store.set_value(iter, self.COL_VISIBLE, make_visible)
-
-    def make_path_visible(self, model, iter):
-        # Make a row and its ancestors visible
-        while iter:
-            self.tree_store.set_value(iter, self.COL_VISIBLE, True)
-            iter = model.iter_parent(iter)
 
     def make_subtree_visible(self, model, iter):
         # Make descendants of a row visible
