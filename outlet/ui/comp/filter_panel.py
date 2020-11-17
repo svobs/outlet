@@ -69,9 +69,9 @@ class TreeFilterPanel:
         if filter_criteria:
             if not self.supports_shared_status:
                 if filter_criteria.is_shared != BoolOption.NOT_SPECIFIED:
-                    logger.info(f'Overriding previous )
-                # Override this. Since we're missing the button, having anything but NOT_SPECIFIED can result in unexpected behavior
-                filter_criteria.is_shared = BoolOption.NOT_SPECIFIED
+                    logger.info(f'Overriding previous filter for is_shared ({filter_criteria.is_shared}) because tree does not support shared status')
+                    # Override this. Since we're missing the button, having anything but NOT_SPECIFIED can result in unexpected behavior
+                    filter_criteria.is_shared = BoolOption.NOT_SPECIFIED
 
             if filter_criteria.search_query:
                 self.search_entry.set_text(filter_criteria.search_query)
