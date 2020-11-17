@@ -41,7 +41,7 @@ class GDriveNode(HasParentList, Node, ABC):
         self.drive_id = drive_id
         """This will only ever contain other users' drive_ids."""
 
-        self.is_shared: bool = ensure_bool(is_shared)
+        self._is_shared: bool = ensure_bool(is_shared)
         """If true, item is shared by shared_by_user_uid"""
 
         self.shared_by_user_uid: int = ensure_int(shared_by_user_uid)
@@ -61,9 +61,17 @@ class GDriveNode(HasParentList, Node, ABC):
         self._modify_ts = other_node._modify_ts
         self.owner_uid = other_node.owner_uid
         self.drive_id = other_node.drive_id
-        self.is_shared = other_node.is_shared
+        self._is_shared = other_node.is_shared
         self.shared_by_user_uid = other_node.shared_by_user_uid
         self._sync_ts = other_node.sync_ts
+
+    @property
+    def is_shared(self):
+        return self._is_shared
+
+    @is_shared.setter
+    def is_shared(self, val: bool):
+        self._is_shared = val
 
     def set_modify_ts(self, modify_ts: int):
         self._modify_ts = ensure_int(modify_ts)
@@ -139,7 +147,7 @@ class GDriveFolder(HasChildStats, GDriveNode):
 
     def __repr__(self):
         return f'GDriveFolder(id={self.node_identifier} goog_id="{self.goog_id}" name="{self.name}" trashed={self.trashed_str} ' \
-               f'owner_uid={self.owner_uid} drive_id={self.drive_id} is_shared={self.is_shared} shared_by_user_uid={self.shared_by_user_uid} ' \
+               f'owner_uid={self.owner_uid} drive_id={self.drive_id} is_shared={self._is_shared} shared_by_user_uid={self.shared_by_user_uid} ' \
                f'sync_ts={self.sync_ts} parent_uids={self.get_parent_uids()} children_fetched={self.all_children_fetched}]'
 
     def update_from(self, other_node):
@@ -155,7 +163,7 @@ class GDriveFolder(HasChildStats, GDriveNode):
 
     def to_tuple(self):
         return self.uid, self.goog_id, self.name, self.get_trashed_status(), self.create_ts, self._modify_ts, self.owner_uid, \
-               self.drive_id, self.is_shared, self.shared_by_user_uid, self.sync_ts, self.all_children_fetched
+               self.drive_id, self._is_shared, self.shared_by_user_uid, self.sync_ts, self.all_children_fetched
 
     def is_parent_of(self, potential_child_node: Node) -> bool:
         if potential_child_node.get_tree_type() == TREE_TYPE_GDRIVE:
@@ -203,7 +211,7 @@ class GDriveFolder(HasChildStats, GDriveNode):
         return other.uid == self.uid and other.goog_id == self.goog_id and other.name == self.name \
             and other.get_trashed_status() == self.get_trashed_status() and other.create_ts == self.create_ts \
             and other._modify_ts == self._modify_ts and other.owner_uid == self.owner_uid and other.drive_id == self.drive_id \
-            and other.is_shared == self.is_shared and other.shared_by_user_uid
+            and other.is_shared == self._is_shared and other.shared_by_user_uid
 
     def __ne__(self, other):
         return not self.__eq__(other)

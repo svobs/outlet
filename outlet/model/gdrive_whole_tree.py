@@ -402,8 +402,10 @@ class GDriveWholeTree(HasGetChildren):
 
     def get_children(self, node: GDriveNode, filter_criteria: FilterCriteria = None) -> List[GDriveNode]:
         if node.uid == GDRIVE_ROOT_UID:
-            return self.get_children_for_root()
-        child_list = self.parent_child_dict.get(node.uid, [])
+            child_list = self.get_children_for_root()
+        else:
+            child_list = self.parent_child_dict.get(node.uid, [])
+
         if filter_criteria:
             return filter_criteria.filter(child_list, self)
         return child_list

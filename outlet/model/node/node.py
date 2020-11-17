@@ -82,8 +82,8 @@ class Node(treelib.Node, ABC):
     def has_tuple(cls) -> bool:
         return False
 
-    @classmethod
-    def is_shared(cls):
+    @property
+    def is_shared(self):
         return False
 
     def to_tuple(self) -> Tuple:
