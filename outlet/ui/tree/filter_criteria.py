@@ -94,6 +94,7 @@ class FilterCriteria:
                     logger.debug('hello')
 
                 # this can get very expensive...
+                # TODO: optimize!
                 if node.is_dir():
                     if not self.subtree_matches(node, parent_tree):
                         continue

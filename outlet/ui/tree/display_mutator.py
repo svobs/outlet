@@ -368,7 +368,7 @@ class DisplayMutator(HasLifecycle):
 
             self.con.display_store.do_for_self_and_descendants(parent_path, remove_from_expanded_rows)
 
-        # TODO: use a timer for this
+        # TODO: use a timer for this. Put in controller. Also write selection to file
         self.con.display_store.save_expanded_rows_to_config()
 
         if not self._enable_expand_state_listeners or not self._enable_node_signals:

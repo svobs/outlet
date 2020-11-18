@@ -1,20 +1,17 @@
 import logging
 from typing import Optional
 
-from gi.overrides import Pango
 from pydispatch import dispatcher
 
-from constants import H_PAD, HOLDOFF_TIME_MS, ICON_FOLDER_TREE, ICON_IS_NOT_SHARED, ICON_IS_NOT_TRASHED, ICON_MATCH_CASE, ICON_REFRESH, \
-    ICON_IS_SHARED, ICON_IS_TRASHED, \
-    TREE_TYPE_GDRIVE
+from constants import FILTER_APPLY_DELAY_MS, ICON_FOLDER_TREE, ICON_IS_NOT_SHARED, ICON_IS_NOT_TRASHED, ICON_IS_SHARED, ICON_IS_TRASHED, \
+    ICON_MATCH_CASE, TREE_TYPE_GDRIVE
 from ui import actions
 from ui.dialog.base_dialog import BaseDialog
-
-import gi
-
 from ui.tree.filter_criteria import BoolOption, FilterCriteria
 from util.holdoff_timer import HoldOffTimer
 
+import gi
+from gi.overrides import Pango
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -34,7 +31,7 @@ class TreeFilterPanel:
         self.content_box = Gtk.Box(spacing=0, orientation=Gtk.Orientation.HORIZONTAL)
         self._ui_enabled = True
 
-        self._config_write_timer = HoldOffTimer(holdoff_time_ms=HOLDOFF_TIME_MS, task_func=self._write_to_config)
+        self._apply_filter_timer = HoldOffTimer(holdoff_time_ms=FILTER_APPLY_DELAY_MS, task_func=self._apply_filter_criteria)
 
         # A text entry for filtering
         self.search_entry = Gtk.Entry()
@@ -84,14 +81,16 @@ class TreeFilterPanel:
             if filter_criteria.show_subtrees_of_matches:
                 self.show_ancestors_btn.set_active(True)
 
-        # Wait until everything has been initialized before connecting listeners
-        self.search_entry.connect("changed", self.refresh_results)
+        self._latest_filter_criteria: FilterCriteria = filter_criteria
 
-        self.show_ancestors_btn.connect('clicked', self.refresh_results)
-        self.match_case_btn.connect('clicked', self.refresh_results)
-        self.is_trashed_btn.connect('clicked', self.refresh_results)
+        # Wait until everything has been initialized before connecting listeners
+        self.search_entry.connect("changed", self.update_filter_criteria)
+
+        self.show_ancestors_btn.connect('clicked', self.update_filter_criteria)
+        self.match_case_btn.connect('clicked', self.update_filter_criteria)
+        self.is_trashed_btn.connect('clicked', self.update_filter_criteria)
         if self.supports_shared_status:
-            self.is_shared_btn.connect('clicked', self.refresh_results)
+            self.is_shared_btn.connect('clicked', self.update_filter_criteria)
 
         # TODO: toggle filter panel on/off
 
@@ -141,11 +140,14 @@ class TreeFilterPanel:
         icon.set_from_file(self.parent_win.app.assets.get_path(icon_name))
         btn.set_icon_widget(icon)
 
-    def _write_to_config(self):
-        self.con.treeview_meta.write_filter_criteria_to_config()
+    def _apply_filter_criteria(self):
+        filter_criteria = self._latest_filter_criteria
+        if filter_criteria:
+            dispatcher.send(signal=actions.FILTER_UI_TREE, sender=self.tree_id, filter_criteria=filter_criteria)
+            filter_criteria.write_filter_criteria_to_config(self.con.config, self.tree_id)
 
-    def refresh_results(self, widget=None):
-        logger.debug(f'Refreshing results')
+    def update_filter_criteria(self, widget=None):
+        logger.debug(f'Updating filter criteria')
 
         search_query = self.search_entry.get_text()
         filter_criteria = FilterCriteria(search_query=search_query)
@@ -183,9 +185,8 @@ class TreeFilterPanel:
                 filter_criteria.is_shared = BoolOption.NOT_SPECIFIED
             self._update_shared_btn(filter_criteria)
 
-        # TODO: put this on a timer
-        dispatcher.send(signal=actions.FILTER_UI_TREE, sender=self.tree_id, filter_criteria=filter_criteria)
-        self._config_write_timer.start_or_delay()
+        self._latest_filter_criteria = filter_criteria
+        self._apply_filter_timer.start_or_delay()
 
     def reset_row(self, model, path, iter, make_visible):
         # Reset some row attributes independent of row hierarchy
