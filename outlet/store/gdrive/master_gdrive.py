@@ -218,6 +218,9 @@ class GDriveMasterStore(MasterStore):
         logger.debug(f'[{tree_id}] Refresh requested. Querying GDrive for latest version of parent folder ({subtree_root_node})')
         stats_sw = Stopwatch()
 
+        if not subtree_root_node.goog_id:
+            raise RuntimeError(f'Cannot refresh subtree for GDrive node: no goog_id for subtree root node: {subtree_root_node}')
+
         parent_node: Optional[GDriveNode] = self.gdrive_client.get_existing_node_by_id(subtree_root_node.goog_id)
         if not parent_node:
             # TODO: better handling

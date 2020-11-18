@@ -60,7 +60,7 @@ class CategoryDisplayTree(DisplayTree):
         try:
             child_list = self._category_tree.children(parent.identifier)
             if filter_criteria:
-                return filter_criteria.filter(child_list)
+                return filter_criteria.filter(child_list, self)
             return child_list
         except Exception:
             if logger.isEnabledFor(logging.DEBUG):

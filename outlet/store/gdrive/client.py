@@ -422,6 +422,8 @@ class GDriveClient(HasLifecycle):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def get_existing_node_by_id(self, goog_id: str) -> Optional[GDriveNode]:
+        if not goog_id:
+            raise RuntimeError('GDriveClient.get_existing_node_by_id(): no goog_id specified!')
         fields = f'{GDRIVE_FILE_FIELDS}, parents'
 
         sync_ts = int(time.time())
