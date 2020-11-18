@@ -1,22 +1,14 @@
 import logging
 import os
 
-import gi
 from pydispatch import dispatcher
 
+import ui.actions as actions
 from constants import TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
-from model.display_tree.display_tree import DisplayTree
 from util.has_lifecycle import HasLifecycle
-
-gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk
-
 from util.stopwatch_sec import Stopwatch
-
-import ui.actions as actions
-from ui.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +36,6 @@ class GlobalActions(HasLifecycle):
         self.connect_dispatch_listener(signal=actions.SYNC_GDRIVE_CHANGES, receiver=self._on_gdrive_sync_changes_requested)
         self.connect_dispatch_listener(signal=actions.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_download_all_gdrive_meta_requested)
         self.connect_dispatch_listener(signal=actions.SHOW_GDRIVE_CHOOSER_DIALOG, receiver=self._on_gdrive_root_dialog_requested)
-        self.connect_dispatch_listener(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, receiver=self._on_gdrive_chooser_dialog_load_complete)
 
     """
     🡻🡻🡻 ② Utility functions 🡻🡻🡻
@@ -103,24 +94,6 @@ class GlobalActions(HasLifecycle):
             logger.exception(err)
         finally:
             actions.enable_ui(sender=tree_id)
-
-    def _on_gdrive_chooser_dialog_load_complete(self, sender, tree: DisplayTree, current_selection: SinglePathNodeIdentifier):
-        logger.debug(f'Received signal: "{actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE}"')
-        assert type(sender) == str
-
-        def open_dialog():
-            try:
-                # Preview ops in UI pop-up. Change tree_id so that listeners don't step on existing trees
-                dialog = GDriveDirChooserDialog(self.app.window, tree, sender, current_selection)
-                response_id = dialog.run()
-                if response_id == Gtk.ResponseType.OK:
-                    logger.debug('User clicked OK!')
-
-            except Exception as err:
-                self.show_error_ui('GDriveDirChooserDialog failed due to unexpected error', repr(err))
-                raise
-
-        GLib.idle_add(open_dialog)
 
     def _on_diff_requested(self, sender, tree_con_left, tree_con_right):
         logger.debug(f'Received signal: "{actions.START_DIFF_TREES}"')
