@@ -412,6 +412,9 @@ class DisplayStore:
         with a single path - but that information is implicit in the tree structure itself and must be reconstructed from it."""
         tree_path = self.ensure_tree_path(tree_path)
 
+        # FIXME: this is broken when a filter is applied
+        if self.treeview_meta.filter_criteria and self.treeview_meta.filter_criteria.has_criteria():
+            raise RuntimeError(f'Cannot call derive_single_path_from_tree_path() with an active filter!')
         # don't mess up the caller; make a copy before modifying:
         tree_path_copy = tree_path.copy()
 

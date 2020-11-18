@@ -94,7 +94,7 @@ class RootDirPanel(HasLifecycle):
 
         self.connect_dispatch_listener(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
         self.connect_dispatch_listener(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.tree_id)
-        self.connect_dispatch_listener(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, receiver=self._on_gdrive_chooser_dialog_load_complete)
+        self.connect_dispatch_listener(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, receiver=self._on_gdrive_chooser_dialog_load_complete, sender=self.tree_id)
 
         # Need to call this to do the initial UI draw:
         logger.debug(f'[{self.tree_id}] Building panel with current root {self.current_root}')
@@ -308,6 +308,7 @@ class RootDirPanel(HasLifecycle):
     def _on_root_path_updated(self, sender, new_root: SinglePathNodeIdentifier, err=None):
         """Callback for actions.ROOT_PATH_UPDATED"""
         logger.debug(f'[{sender}] Received signal "{actions.ROOT_PATH_UPDATED}" with new_root={new_root}, err={err}')
+        assert isinstance(new_root, SinglePathNodeIdentifier), f'Wrong instance: {type(new_root)}: {new_root}'
         if not new_root or not new_root.get_path_list():
             raise RuntimeError(f'Root path cannot be empty! (tree_id={sender})')
 

@@ -1,7 +1,7 @@
 from enum import IntEnum
 from model.uid import UID
 
-SUPER_DEBUG = True
+SUPER_DEBUG = False
 
 # Padding in pixels
 H_PAD = 5

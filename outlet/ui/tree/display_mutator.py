@@ -112,14 +112,16 @@ class DisplayMutator(HasLifecycle):
                 # Append all child nodes and recurse to possibly expand more:
                 parent_iter = self._append_dir_node(parent_iter=parent_iter, node=node)
 
-                logger.debug(f'[{self.con.tree_id}] Row will be expanded: {node.uid} ("{node.name}")')
+                if SUPER_DEBUG:
+                    logger.debug(f'[{self.con.tree_id}] Row will be expanded: {node.uid} ("{node.name}")')
                 to_expand.append(node.uid)
 
                 for child in child_list:
                     node_count = self._populate_and_restore_expanded_state(parent_iter, child, node_count, to_expand)
 
             else:
-                logger.debug(f'[{self.con.tree_id}] Node {node.uid} ("{node.name}") is not expanded')
+                if SUPER_DEBUG:
+                    logger.debug(f'[{self.con.tree_id}] Node {node.uid} ("{node.name}") is not expanded')
                 self._append_dir_node_and_loading_child(parent_iter, node)
         else:
             self._append_file_node(parent_iter, node)
@@ -575,8 +577,8 @@ class DisplayMutator(HasLifecycle):
                     assert not cached_node or id(cached_node) == id(node), \
                         f'Object mismatch for node: (cacheman: id={id(cached_node)}, node={cached_node}, displayed: id={id(node)}, node={node})'
 
-            logger.debug(f'[{self.con.tree_id}] Redrawing stats for node: {node}; tree_path="{ds.model.get_path(tree_iter)}"; '
-                         f'size={node.get_size_bytes()} etc={node.get_etc()}')
+                logger.debug(f'[{self.con.tree_id}] Redrawing stats for node: {node}; tree_path="{ds.model.get_path(tree_iter)}"; '
+                             f'size={node.get_size_bytes()} etc={node.get_etc()}')
             ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(node)
             ds.model[tree_iter][self.con.treeview_meta.col_num_etc] = node.get_etc()
             ds.model[tree_iter][self.con.treeview_meta.col_num_data] = node
