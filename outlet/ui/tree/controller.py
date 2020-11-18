@@ -1,7 +1,6 @@
 import logging
 from typing import Any, Callable, List, Tuple, Union
 
-import gi
 from pydispatch import dispatcher
 
 from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TREE_TYPE_GDRIVE, TreeDisplayMode
@@ -16,8 +15,9 @@ from ui.tree.display_store import DisplayStore
 from ui.tree.display_tree_lazy_loader import DisplayTreeLazyLoader
 from util.stopwatch_sec import Stopwatch
 
+import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk
+from gi.repository import Gtk
 from gi.repository.Gtk import TreeIter, TreePath
 
 logger = logging.getLogger(__name__)
@@ -234,7 +234,7 @@ class TreePanelController:
 
     def set_tree(self, root: SinglePathNodeIdentifier = None, tree: DisplayTree = None, tree_display_mode: TreeDisplayMode = None):
         # Clear old display (if any)
-        GLib.idle_add(self.display_store.clear_model)
+        self.display_store.clear_model_on_ui_thread()
 
         if not root and not tree:
             raise RuntimeError('"root" and "tree" are both empty!')

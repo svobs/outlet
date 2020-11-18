@@ -3,8 +3,8 @@ import logging
 import os
 from pydispatch import dispatcher
 
-import gi
-
+from model.display_tree.display_tree import DisplayTree
+from ui.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
 from util import file_util
 from error import GDriveItemNotFoundError
 from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
@@ -15,7 +15,9 @@ from constants import BTN_GDRIVE, BTN_LOCAL_DISK_LINUX, GDRIVE_PATH_PREFIX, H_PA
 from model.node_identifier import SinglePathNodeIdentifier
 from ui.dialog.base_dialog import BaseDialog
 import ui.actions as actions
+from util.has_lifecycle import HasLifecycle
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
@@ -26,8 +28,9 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 
-class RootDirPanel:
+class RootDirPanel(HasLifecycle):
     def __init__(self, parent_win, controller, current_root: SinglePathNodeIdentifier, can_change_root, is_loaded):
+        HasLifecycle.__init__()
         self.parent_win: BaseDialog = parent_win
         self.con = controller
         self.tree_id: str = self.con.tree_id
@@ -44,7 +47,7 @@ class RootDirPanel:
         else:
             # Manual load:
             self.needs_load = True
-            dispatcher.connect(signal=actions.LOAD_SUBTREE_STARTED, sender=self.tree_id, receiver=self._on_load_started)
+            self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_STARTED, sender=self.tree_id, receiver=self._on_load_started)
 
         self.path_icon = Gtk.Image()
         self.refresh_icon = Gtk.Image()
@@ -89,8 +92,9 @@ class RootDirPanel:
         self.toolbar = None
         self.refresh_button = None
 
-        dispatcher.connect(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
-        dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.tree_id)
+        self.connect_dispatch_listener(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
+        self.connect_dispatch_listener(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.tree_id)
+        self.connect_dispatch_listener(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, receiver=self._on_gdrive_chooser_dialog_load_complete)
 
         # Need to call this to do the initial UI draw:
         logger.debug(f'[{self.tree_id}] Building panel with current root {self.current_root}')
@@ -103,6 +107,8 @@ class RootDirPanel:
         GLib.idle_add(self._redraw_root_display)
 
     def __del__(self):
+        HasLifecycle.__del__(self)
+        # Disconnect GTK3 listeners:
         if self.entry_box_focus_eid:
             if self.entry:
                 self.entry.disconnect(self.entry_box_focus_eid)
@@ -116,6 +122,24 @@ class RootDirPanel:
         self.cacheman = None
         self.parent_win = None
         self.con = None
+
+    def _on_gdrive_chooser_dialog_load_complete(self, sender, tree: DisplayTree, current_selection: SinglePathNodeIdentifier):
+        logger.debug(f'Received signal: "{actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE}"')
+        assert type(sender) == str
+
+        def open_dialog():
+            try:
+                # Preview ops in UI pop-up. Change tree_id so that listeners don't step on existing trees
+                dialog = GDriveDirChooserDialog(self.parent_win, tree, sender, current_selection)
+                response_id = dialog.run()
+                if response_id == Gtk.ResponseType.OK:
+                    logger.debug('User clicked OK!')
+
+            except Exception as err:
+                self.parent_win.show_error_ui('GDriveDirChooserDialog failed due to unexpected error', repr(err))
+                raise
+
+        GLib.idle_add(open_dialog)
 
     def _on_root_text_entry_submitted(self, widget, tree_id):
         if self.entry and self.entry_box_focus_eid:

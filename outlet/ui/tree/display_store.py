@@ -10,7 +10,7 @@ from ui.tree.treeview_meta import TreeViewMeta
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository.Gtk import TreeIter, TreePath
-from gi.repository import Gtk
+from gi.repository import Gtk, GLib
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +89,9 @@ class DisplayStore:
 
     def is_inconsistent(self, tree_path) -> bool:
         return self.model[tree_path][self.treeview_meta.col_num_inconsistent]
+
+    def clear_model_on_ui_thread(self):
+        GLib.idle_add(self.clear_model)
 
     def clear_model(self) -> TreeIter:
         self.model.clear()
