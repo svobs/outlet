@@ -5,29 +5,57 @@
         "x": 0,
         "y": 2187
     },
+    "gdrive_dir_select": {
+        "expanded_rows": "8915715,8848136,8866060,8866061,8867085,8866448,8847634,8867093,8847129,8848282,8866077,8917150,8917152,8847138,8916133,8847144,8847657,8867120,8867122,8862387,8867002,8867133,8866370,8866627,8847298,8847302,8848071,8848073,8848075,8867027,8866533,8848743,8915690,8866925,8877555,8865783,8862715,8878716",
+        "filter": {
+            "ignore_case": true,
+            "is_shared": 2,
+            "is_trashed": 2,
+            "search_query": "",
+            "show_subtrees": false
+        }
+    },
     "global": {
-        "last_uid": 9719221
+        "last_uid": 10209199
     },
     "left_tree": {
-        "expanded_state": {
-            "CP": false,
-            "MV": true,
-            "RM": false,
-            "UP": true
-        },
-        "root_path": "/home/msvoboda/LocalDevel/outlet/test/ChangeTest/Left-Root",
-        "root_uid": 9569933,
-        "tree_type": 1
-    },
-    "right_tree": {
+        "expanded_rows": "9959708,9959709",
         "expanded_state": {
             "CP": true,
             "MV": true,
             "RM": true,
             "UP": true
         },
-        "root_path": "/My Drive/Test",
-        "root_uid": 8847219,
+        "filter": {
+            "ignore_case": true,
+            "is_shared": 2,
+            "is_trashed": 0,
+            "search_query": "",
+            "show_subtree": true,
+            "show_subtrees": true
+        },
+        "root_path": "/home/msvoboda/LocalDevel/outlet/test/ChangeTest/Left-Root",
+        "root_uid": 9569933,
         "tree_type": 2
+    },
+    "right_tree": {
+        "expanded_rows": "8848073,9959722",
+        "expanded_state": {
+            "CP": true,
+            "MV": true,
+            "RM": true,
+            "UP": true
+        },
+        "filter": {
+            "ignore_case": true,
+            "is_shared": 2,
+            "is_trashed": 2,
+            "search_query": "ABC",
+            "show_subtree": true,
+            "show_subtrees": false
+        },
+        "root_path": "/",
+        "root_uid": 3,
+        "tree_type": 3
     }
 }

@@ -51,7 +51,6 @@ class TreePanelController:
 
     def init(self):
         logger.debug(f'[{self.tree_id}] Controller init')
-        self._set_column_visibilities()
 
         """Should be called after all controller components have been wired together"""
         self.treeview_meta.init()
@@ -61,6 +60,8 @@ class TreePanelController:
         self.tree_ui_listeners.init()
 
         self.app.cacheman.register_tree_controller(self)
+
+        self._set_column_visibilities()
 
     def destroy(self):
         logger.debug(f'[{self.tree_id}] Destroying controller')
@@ -101,7 +102,7 @@ class TreePanelController:
                 self.treeview_meta = self.treeview_meta.but_with_checkboxes(checkboxes_visible)
                 self.display_store = DisplayStore(self)
 
-                assets = self.parent_win.app.assets
+                assets = self.app.assets
                 new_treeview = tree_factory_templates.build_treeview(self.display_store, assets)
                 tree_factory_templates.replace_widget(self.tree_view, new_treeview)
                 self.tree_view = new_treeview
@@ -157,12 +158,12 @@ class TreePanelController:
 
     @property
     def cacheman(self):
-        return self.parent_win.app.cacheman
+        return self.app.cacheman
 
     @property
     def config(self):
-        """Convenience method. Retreives the tree_id from the parent_win"""
-        return self.parent_win.config
+        """Convenience method. Retreives the tree_id from the app"""
+        return self.app.config
 
     def get_root_identifier(self) -> SinglePathNodeIdentifier:
         return self.lazy_loader.get_root_identifier()

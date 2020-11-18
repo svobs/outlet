@@ -121,7 +121,7 @@ class TreeActions(HasLifecycle):
         os.makedirs(name=self.download_dir, exist_ok=True)
         dest_file = os.path.join(self.download_dir, node.name)
 
-        gdrive_client: GDriveClient = self.con.parent_win.app.cacheman.get_gdrive_client()
+        gdrive_client: GDriveClient = self.con.app.cacheman.get_gdrive_client()
         try:
             gdrive_client.download_file(node.goog_id, dest_file)
             if self.post_download_action == OPEN:
