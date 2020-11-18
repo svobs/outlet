@@ -44,9 +44,9 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         self.content_box.add(label)
 
         # Prevent dialog from stepping on existing trees by giving it its own ID:
-        self.tree_controller = tree_factory.build_gdrive_root_chooser(parent_win=self, tree_id=actions.ID_GDRIVE_DIR_SELECT, tree=tree)
+        self.con = tree_factory.build_gdrive_root_chooser(parent_win=self, tree_id=actions.ID_GDRIVE_DIR_SELECT, tree=tree)
 
-        self.content_box.pack_start(self.tree_controller.content_box, True, True, 0)
+        self.content_box.pack_start(self.con.content_box, True, True, 0)
 
         assert isinstance(current_selection, SinglePathNodeIdentifier), \
             f'Expected instance of SinglePathNodeIdentifier but got: {type(current_selection)}'
@@ -66,8 +66,8 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
             dispatcher.disconnect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
         except DispatcherKeyError:
             pass
-        self.tree_controller.destroy()
-        self.tree_controller = None
+        self.con.destroy()
+        self.con = None
 
         # call super method
         Gtk.Dialog.destroy(self)
@@ -88,7 +88,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         try:
             if response_id == Gtk.ResponseType.OK:
                 logger.debug("The OK button was clicked")
-                display_node_identifier: SinglePathNodeIdentifier = self.tree_controller.get_single_selection_display_identifier()
+                display_node_identifier: SinglePathNodeIdentifier = self.con.display_store.get_single_selection_display_identifier()
                 if not display_node_identifier:
                     self.on_ok_clicked(NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier())
                 else:

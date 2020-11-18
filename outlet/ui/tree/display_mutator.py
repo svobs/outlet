@@ -241,7 +241,7 @@ class DisplayMutator(HasLifecycle):
         def update_ui():
             with self._lock:
                 # retain selection (if any)
-                prev_selection: List[Node] = self.con.get_multiple_selection()
+                prev_selection: List[Node] = self.con.display_store.get_multiple_selection()
 
                 # Wipe out existing items:
                 root_iter = self.con.display_store.clear_model()

@@ -83,11 +83,11 @@ class TreeFactory:
 
         treeview_meta.read_filter_criteria_from_config()
 
-        display_store = DisplayStore(treeview_meta)
-
         # The controller holds all the components in memory. Important for listeners especially,
         # since they rely on weak references.
-        controller = TreePanelController(self.parent_win, display_store, treeview_meta)
+        controller = TreePanelController(self.parent_win, treeview_meta)
+
+        controller.display_store = DisplayStore(controller)
 
         if self.root:
             controller.set_tree(root=self.root)
@@ -105,7 +105,7 @@ class TreeFactory:
         controller.tree_actions = TreeActions(controller=controller)
 
         assets = self.parent_win.app.assets
-        controller.tree_view = tree_factory_templates.build_treeview(display_store, assets)
+        controller.tree_view = tree_factory_templates.build_treeview(controller.display_store, assets)
 
         controller.root_dir_panel = RootDirPanel(parent_win=self.parent_win,
                                                  controller=controller,

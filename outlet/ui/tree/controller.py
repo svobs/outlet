@@ -1,12 +1,11 @@
 import logging
-from typing import Any, Callable, List, Tuple, Union
+from typing import List
 
 from pydispatch import dispatcher
 
-from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TREE_TYPE_GDRIVE, TreeDisplayMode
+from constants import SUPER_DEBUG, TreeDisplayMode
 from diff.change_maker import SPIDNodePair
 from model.display_tree.display_tree import DisplayTree
-from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
 from ui import actions
 from ui.dialog.base_dialog import BaseDialog
@@ -17,8 +16,7 @@ from util.stopwatch_sec import Stopwatch
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
-from gi.repository.Gtk import TreeIter, TreePath
+from gi.repository import GLib
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +30,11 @@ class TreePanelController:
     This class is mostly just a place to hold references in memory of all the disparate components
     required to make a tree panel. Hopefully I will think of ways to refine it more in the future.
     """
-    def __init__(self, parent_win, display_store, treeview_meta):
+    def __init__(self, parent_win, treeview_meta):
         self.parent_win: BaseDialog = parent_win
         self.app = parent_win.app
         self.lazy_loader = None
-        self.display_store = display_store
+        self.display_store = None
         self.treeview_meta = treeview_meta
         self.tree_id: str = treeview_meta.tree_id
         """Cached in controller, in case treeview_meta goes away"""
@@ -101,7 +99,7 @@ class TreePanelController:
                 checkboxes_visible = not checkboxes_visible
                 self.tree_ui_listeners.disconnect_gtk_listeners()
                 self.treeview_meta = self.treeview_meta.but_with_checkboxes(checkboxes_visible)
-                self.display_store = DisplayStore(self.treeview_meta)
+                self.display_store = DisplayStore(self)
 
                 assets = self.parent_win.app.assets
                 new_treeview = tree_factory_templates.build_treeview(self.display_store, assets)
@@ -126,97 +124,6 @@ class TreePanelController:
             dispatcher.send(signal=actions.LOAD_UI_TREE, sender=self.tree_id)
 
         GLib.idle_add(_reload)
-
-    def build_spid_from_tree_path(self, tree_path: Gtk.TreePath) -> SinglePathNodeIdentifier:
-        node = self.display_store.get_node_data(tree_path)
-        single_path = self.derive_single_path_from_tree_path(tree_path)
-        return SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.get_tree_type())
-
-    def build_sn_from_tree_path(self, tree_path: Union[TreeIter, TreePath]) -> SPIDNodePair:
-        node = self.display_store.get_node_data(tree_path)
-        single_path = self.derive_single_path_from_tree_path(tree_path)
-        spid = SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.get_tree_type())
-        return SPIDNodePair(spid, node)
-
-    def derive_single_path_from_tree_path(self, tree_path: Gtk.TreePath, include_gdrive_prefix: bool = False) -> str:
-        """Travels up the display tree and constructs a single path for the given node.
-        Some background: while a node can have several paths associated with it, each display tree node can only be associated
-        with a single path - but that information is implicit in the tree structure itself and must be reconstructed from it."""
-        tree_path = self.display_store.ensure_tree_path(tree_path)
-
-        # don't mess up the caller; make a copy before modifying:
-        tree_path_copy = tree_path.copy()
-
-        node = self.display_store.get_node_data(tree_path_copy)
-        is_gdrive: bool = node.get_tree_type() == TREE_TYPE_GDRIVE
-
-        single_path = ''
-
-        while True:
-            node = self.display_store.get_node_data(tree_path_copy)
-            single_path = f'/{node.name}{single_path}'
-            # Go up the tree, one level per loop,
-            # with each node updating itself based on its immediate children
-            tree_path_copy.up()
-            if tree_path_copy.get_depth() < 1:
-                # Stop at root
-                break
-
-        base_path = self.get_tree().root_identifier.get_single_path()
-        if base_path != '/':
-            single_path = f'{base_path}{single_path}'
-
-        if is_gdrive and include_gdrive_prefix:
-            single_path = f'{GDRIVE_PATH_PREFIX}{single_path}'
-        logger.debug(f'derive_single_path_from_tree_path(): derived path: {single_path}')
-        return single_path
-
-    def _execute_on_current_single_selection(self, action_func: Callable[[Gtk.TreePath], Any]):
-        """Assumes that only one node can be selected at a given time"""
-        selection = self.tree_view.get_selection()
-        model, tree_path_list = selection.get_selected_rows()
-        if len(tree_path_list) == 1:
-            tree_path = tree_path_list[0]
-            return action_func(tree_path)
-        elif len(tree_path_list) == 0:
-            return None
-        else:
-            raise Exception(f'Selection has more rows than expected: count={len(tree_path_list)}')
-
-    def get_single_selection_display_identifier(self) -> SinglePathNodeIdentifier:
-        return self._execute_on_current_single_selection(self.build_spid_from_tree_path)
-
-    def get_single_selection(self) -> Node:
-        return self._execute_on_current_single_selection(lambda tp: self.display_store.get_node_data(tp))
-
-    def get_multiple_selection(self) -> List[Node]:
-        """Returns a list of the selected items (empty if none)"""
-        selection = self.tree_view.get_selection()
-        model, tree_paths = selection.get_selected_rows()
-        items = []
-        for tree_path in tree_paths:
-            item = self.display_store.get_node_data(tree_path)
-            items.append(item)
-        return items
-
-    def get_multiple_selection_sn_list(self) -> List[SPIDNodePair]:
-        """Returns a list of the selected items (empty if none)"""
-        selection = self.tree_view.get_selection()
-        model, tree_paths = selection.get_selected_rows()
-        sn_list = []
-        for tree_path in tree_paths:
-            sn_list.append(self.build_sn_from_tree_path(tree_path))
-        return sn_list
-
-    def get_multiple_selection_and_paths(self) -> Tuple[List[Node], List[Gtk.TreePath]]:
-        """Returns a list of the selected items (empty if none)"""
-        selection = self.tree_view.get_selection()
-        model, tree_paths = selection.get_selected_rows()
-        items = []
-        for tree_path in tree_paths:
-            item = self.display_store.get_node_data(tree_path)
-            items.append(item)
-        return items, tree_paths
 
     def get_checked_rows_as_list(self) -> List[SPIDNodePair]:
         timer = Stopwatch()

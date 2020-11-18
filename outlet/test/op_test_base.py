@@ -343,7 +343,7 @@ class OpTestBase(unittest.TestCase):
 
     def find_node_by_name(self, tree_con, node_name: str) -> SPIDNodePair:
         tree_iter = self.find_iter_by_name(tree_con, node_name)
-        sn = tree_con.build_sn_from_tree_path(tree_iter)
+        sn = tree_con.display_store.build_sn_from_tree_path(tree_iter)
         logger.info(f'Found "{sn.node.name}"')
         return sn
 

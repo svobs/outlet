@@ -130,7 +130,7 @@ class OpGDriveTest(OpTestBase):
         self.app.executor.start_op_execution_thread()
         # Offset from 0:
         src_tree_path = Gtk.TreePath.new_from_string('1')
-        sn: SPIDNodePair = self.left_con.build_sn_from_tree_path(src_tree_path)
+        sn: SPIDNodePair = self.left_con.display_store.build_sn_from_tree_path(src_tree_path)
         logger.info(f'CP "{sn.node.name}" from left root to left root')
 
         sn_list = [sn]
@@ -155,7 +155,7 @@ class OpGDriveTest(OpTestBase):
         # Simulate drag & drop based on position in list:
         sn_list = []
         for num in range(3, 7):
-            sn: SPIDNodePair = self.left_con.build_sn_from_tree_path(Gtk.TreePath.new_from_string(f'{num}'))
+            sn: SPIDNodePair = self.left_con.display_store.build_sn_from_tree_path(Gtk.TreePath.new_from_string(f'{num}'))
             self.assertIsNotNone(sn, f'Expected to find node at index {num}')
             sn_list.append(sn)
             logger.warning(f'CP "{sn.node.name}" (#{num}) from left root to right root')
@@ -189,7 +189,7 @@ class OpGDriveTest(OpTestBase):
         # Duplicate the node 3 times. This is a good test of our reduction logic
         for num in range(0, 3):
             tree_iter = self.left_con.display_store.find_in_tree(name_equals_func_bound)
-            sn = self.left_con.build_sn_from_tree_path(tree_iter)
+            sn = self.left_con.display_store.build_sn_from_tree_path(tree_iter)
             self.assertIsNotNone(sn, f'Expected to find node named "{node_name}"')
             sn_list.append(sn)
             logger.warning(f'CP "{sn.node.name}" (#{num}) from left root to right root')

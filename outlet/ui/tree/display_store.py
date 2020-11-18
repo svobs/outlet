@@ -1,9 +1,10 @@
 import logging
 from functools import partial
-from typing import Callable, Dict, List, Optional, Set, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
-from constants import SUPER_DEBUG
-from model.node.node import Node
+from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TREE_TYPE_GDRIVE
+from model.node.node import Node, SPIDNodePair
+from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
 from ui.tree.treeview_meta import TreeViewMeta
 
@@ -22,9 +23,11 @@ logger = logging.getLogger(__name__)
 class DisplayStore:
     """(Mostly) encapsulates the nodes inside the TreeView object, which will be a subset of the nodes
     which come from the data store """
-    def __init__(self, treeview_meta):
-        self.treeview_meta: TreeViewMeta = treeview_meta
-        self.tree_id: str = treeview_meta.tree_id
+
+    def __init__(self, controller):
+        self.con = controller
+        self.treeview_meta: TreeViewMeta = self.con.treeview_meta
+        self.tree_id: str = self.treeview_meta.tree_id
         self.model: Gtk.TreeStore = Gtk.TreeStore()
         self.model.set_column_types(self.treeview_meta.col_types)
         # Sort by name column at program launch:
@@ -55,7 +58,7 @@ class DisplayStore:
             if expanded_rows_str:
                 for uid in expanded_rows_str.split(','):
                     self.expanded_rows.add(UID(uid))
-        except Exception:
+        except RuntimeError:
             logger.exception(f'[{self.tree_id}] Failed to load expanded rows from config')
 
     def save_expanded_rows_to_config(self):
@@ -119,12 +122,14 @@ class DisplayStore:
         if is_checked:
             self.checked_rows[row_id] = node_data
         else:
-            if row_id in self.checked_rows: del self.checked_rows[row_id]
+            if row_id in self.checked_rows:
+                del self.checked_rows[row_id]
 
         if is_inconsistent:
             self.inconsistent_rows[row_id] = node_data
         else:
-            if row_id in self.inconsistent_rows: del self.inconsistent_rows[row_id]
+            if row_id in self.inconsistent_rows:
+                del self.inconsistent_rows[row_id]
 
     def on_cell_checkbox_toggled(self, widget, tree_path):
         """LISTENER/CALLBACK: Called when checkbox in treeview is toggled"""
@@ -326,9 +331,12 @@ class DisplayStore:
                 return
 
             uid = node.uid
-            if uid in self.checked_rows: del self.checked_rows[uid]
-            if uid in self.inconsistent_rows: del self.inconsistent_rows[uid]
-            if uid in self.displayed_rows: del self.displayed_rows[uid]
+            if uid in self.checked_rows:
+                del self.checked_rows[uid]
+            if uid in self.inconsistent_rows:
+                del self.inconsistent_rows[uid]
+            if uid in self.displayed_rows:
+                del self.displayed_rows[uid]
             self.expanded_rows.discard(uid)
 
         self.do_for_self_and_descendants(initial_tree_iter, remove_node_from_lists)
@@ -386,3 +394,94 @@ class DisplayStore:
         while self.remove_first_child(parent_iter):
             removed_count += 1
         logger.debug(f'[{self.tree_id}] Removed {removed_count} children')
+
+    def build_spid_from_tree_path(self, tree_path: Gtk.TreePath) -> SinglePathNodeIdentifier:
+        node = self.get_node_data(tree_path)
+        single_path = self.derive_single_path_from_tree_path(tree_path)
+        return SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.get_tree_type())
+
+    def build_sn_from_tree_path(self, tree_path: Union[TreeIter, TreePath]) -> SPIDNodePair:
+        node = self.get_node_data(tree_path)
+        single_path = self.derive_single_path_from_tree_path(tree_path)
+        spid = SinglePathNodeIdentifier(uid=node.uid, path_list=single_path, tree_type=node.get_tree_type())
+        return SPIDNodePair(spid, node)
+
+    def derive_single_path_from_tree_path(self, tree_path: Gtk.TreePath, include_gdrive_prefix: bool = False) -> str:
+        """Travels up the display tree and constructs a single path for the given node.
+        Some background: while a node can have several paths associated with it, each display tree node can only be associated
+        with a single path - but that information is implicit in the tree structure itself and must be reconstructed from it."""
+        tree_path = self.ensure_tree_path(tree_path)
+
+        # don't mess up the caller; make a copy before modifying:
+        tree_path_copy = tree_path.copy()
+
+        node = self.get_node_data(tree_path_copy)
+        is_gdrive: bool = node.get_tree_type() == TREE_TYPE_GDRIVE
+
+        single_path = ''
+
+        while True:
+            node = self.get_node_data(tree_path_copy)
+            single_path = f'/{node.name}{single_path}'
+            # Go up the tree, one level per loop,
+            # with each node updating itself based on its immediate children
+            tree_path_copy.up()
+            if tree_path_copy.get_depth() < 1:
+                # Stop at root
+                break
+
+        base_path = self.con.get_tree().root_identifier.get_single_path()
+        if base_path != '/':
+            single_path = f'{base_path}{single_path}'
+
+        if is_gdrive and include_gdrive_prefix:
+            single_path = f'{GDRIVE_PATH_PREFIX}{single_path}'
+        logger.debug(f'derive_single_path_from_tree_path(): derived path: {single_path}')
+        return single_path
+
+    def _execute_on_current_single_selection(self, action_func: Callable[[Gtk.TreePath], Any]):
+        """Assumes that only one node can be selected at a given time"""
+        selection = self.con.tree_view.get_selection()
+        model, tree_path_list = selection.get_selected_rows()
+        if len(tree_path_list) == 1:
+            tree_path = tree_path_list[0]
+            return action_func(tree_path)
+        elif len(tree_path_list) == 0:
+            return None
+        else:
+            raise Exception(f'Selection has more rows than expected: count={len(tree_path_list)}')
+
+    def get_single_selection_display_identifier(self) -> SinglePathNodeIdentifier:
+        return self._execute_on_current_single_selection(self.build_spid_from_tree_path)
+
+    def get_single_selection(self) -> Node:
+        return self._execute_on_current_single_selection(lambda tp: self.get_node_data(tp))
+
+    def get_multiple_selection(self) -> List[Node]:
+        """Returns a list of the selected items (empty if none)"""
+        selection = self.con.tree_view.get_selection()
+        model, tree_paths = selection.get_selected_rows()
+        items = []
+        for tree_path in tree_paths:
+            item = self.get_node_data(tree_path)
+            items.append(item)
+        return items
+
+    def get_multiple_selection_sn_list(self) -> List[SPIDNodePair]:
+        """Returns a list of the selected items (empty if none)"""
+        selection = self.con.tree_view.get_selection()
+        model, tree_paths = selection.get_selected_rows()
+        sn_list = []
+        for tree_path in tree_paths:
+            sn_list.append(self.build_sn_from_tree_path(tree_path))
+        return sn_list
+
+    def get_multiple_selection_and_paths(self) -> Tuple[List[Node], List[Gtk.TreePath]]:
+        """Returns a list of the selected items (empty if none)"""
+        selection = self.con.tree_view.get_selection()
+        model, tree_paths = selection.get_selected_rows()
+        items = []
+        for tree_path in tree_paths:
+            item = self.get_node_data(tree_path)
+            items.append(item)
+        return items, tree_paths

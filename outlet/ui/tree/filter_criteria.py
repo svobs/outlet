@@ -1,8 +1,9 @@
+import logging
 from collections import deque
 from enum import IntEnum
-from typing import Deque, List, Optional
-import logging
-from constants import SUPER_DEBUG, TrashStatus, TREE_TYPE_GDRIVE
+from typing import Deque, List
+
+from constants import TrashStatus, TREE_TYPE_GDRIVE
 from model.has_get_children import HasGetChildren
 from model.node.node import Node
 from model.node_identifier import ensure_bool

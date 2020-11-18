@@ -143,7 +143,7 @@ class TreeUiListeners(HasLifecycle):
 
     def _drag_data_get(self, treeview, drag_context, selection_data, target_id, etime):
         """Drag & Drop 1/4: collect and send data and signal from source"""
-        selected_sn_list: List[SPIDNodePair] = self.con.get_multiple_selection_sn_list()
+        selected_sn_list: List[SPIDNodePair] = self.con.display_store.get_multiple_selection_sn_list()
         if selected_sn_list:
             # Avoid complicated, undocumented GTK3 garbage by just sending a UID along with needed data via the dispatcher. See _check_drop()
             dd_uid = self.con.parent_win.app.uid_generator.next_uid()
@@ -186,7 +186,7 @@ class TreeUiListeners(HasLifecycle):
         logger.info(f'[{self.con.tree_id}] We received a drop of {len(drag_data.sn_list)} nodes!')
 
         if tree_path:
-            sn_dst: SPIDNodePair = self.con.build_sn_from_tree_path(tree_path)
+            sn_dst: SPIDNodePair = self.con.display_store.build_sn_from_tree_path(tree_path)
         else:
             # Assume we are dropping into the tree root
             is_into = True
@@ -398,7 +398,7 @@ class TreeUiListeners(HasLifecycle):
 
     def on_delete_key_pressed(self):
         if self.con.treeview_meta.can_modify_tree:
-            selected_sn_list: List[SPIDNodePair] = self.con.get_multiple_selection_sn_list()
+            selected_sn_list: List[SPIDNodePair] = self.con.display_store.get_multiple_selection_sn_list()
             if selected_sn_list:
                 # TODO: change this to DELETE_SUBTREE.
                 # TODO: refactor to send SN instead of node
@@ -412,7 +412,7 @@ class TreeUiListeners(HasLifecycle):
             logger.debug(f'[{self.con.tree_id}] User right-clicked on ephemereal node. Ignoring')
             return
         id_clicked = node_data.uid
-        sel_items_tuple = self.con.get_multiple_selection_and_paths()
+        sel_items_tuple = self.con.display_store.get_multiple_selection_and_paths()
         selected_items: List[Node] = sel_items_tuple[0]
         selected_tree_paths: List[Gtk.TreePath] = sel_items_tuple[1]
 

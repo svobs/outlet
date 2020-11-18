@@ -9,9 +9,9 @@ from typing import Deque, Dict, Iterable, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
-from command.cmd_interface import Command, UserOpResult
+from command.cmd_interface import Command
 from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, ROOT_PATH, \
-    SUPER_DEBUG, TREE_TYPE_GDRIVE, \
+    TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
@@ -22,14 +22,14 @@ from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import HasParentList, Node, SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
-from model.user_op import UserOp
 from model.uid import UID
+from model.user_op import UserOp
 from store.gdrive.master_gdrive import GDriveMasterStore
 from store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from store.live_monitor import LiveMonitor
 from store.local.master_local import LocalDiskMasterStore
-from store.user_op.op_ledger import OpLedger
 from store.sqlite.cache_registry_db import CacheRegistry
+from store.user_op.op_ledger import OpLedger
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
 from ui.tree.controller import TreePanelController
