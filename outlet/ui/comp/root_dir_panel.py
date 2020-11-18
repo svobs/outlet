@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 class RootDirPanel(HasLifecycle):
     def __init__(self, parent_win, controller, current_root: SinglePathNodeIdentifier, can_change_root, is_loaded):
-        HasLifecycle.__init__()
+        HasLifecycle.__init__(self)
         self.parent_win: BaseDialog = parent_win
         self.con = controller
         self.tree_id: str = self.con.tree_id
