@@ -543,7 +543,7 @@ class CacheManager(HasLifecycle):
         if subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
             return self._master_local.show_tree(subtree_root)
         elif subtree_root.tree_type == TREE_TYPE_GDRIVE:
-            raise
+            return self._master_gdrive.show_tree(subtree_root)
         else:
             assert False
 

@@ -210,7 +210,7 @@ class GDriveMasterStore(MasterStore):
             return None
         assert isinstance(root, GDriveFolder)
 
-        return GDriveDisplayTree(app=self.app, tree_id=tree_id, root_identifier=subtree_root, whole_tree=self._memstore.master_tree)
+        return GDriveDisplayTree(app=self.app, tree_id=tree_id, root_identifier=subtree_root)
 
     def _load_gdrive_subtree(self, subtree_root: Optional[SinglePathNodeIdentifier], invalidate_cache: bool,
                              sync_latest_changes: bool, tree_id: str) -> GDriveDisplayTree:
@@ -291,6 +291,9 @@ class GDriveMasterStore(MasterStore):
 
         logger.info(f'[{tree_id}] {stats_sw} Refresh subtree complete (SubtreeRoot={subtree_root_node.node_identifier} '
                     f'Folders={count_folders} Total={count_total})')
+
+    def show_tree(self, subtree_root: GDriveIdentifier) -> str:
+        return self._memstore.master_tree.show_tree(subtree_root.uid)
 
     # Individual node cache updates
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

@@ -115,7 +115,7 @@ class LocalDiskDiskStore(HasLifecycle):
                 logger.warning(f'Requested UID "{cache_info.subtree_root.uid}" is invalid for given path; changing it to "{uid}"')
             cache_info.subtree_root.uid = uid
 
-            root_node_identifer = LocalNodeIdentifier(uid=uid, path_list=cache_info.subtree_root.get_path_list())
+            root_node_identifer = LocalNodeIdentifier(uid=uid, path_list=cache_info.subtree_root.get_single_path())
             tree: LocalDiskTree = LocalDiskTree(self.app)
             root_node = LocalDirNode(node_identifier=root_node_identifer, trashed=TrashStatus.NOT_TRASHED, is_live=True)
             tree.add_node(node=root_node, parent=None)

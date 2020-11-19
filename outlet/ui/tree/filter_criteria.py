@@ -1,8 +1,7 @@
-import collections
 import logging
 from collections import deque
 from enum import IntEnum
-from typing import Callable, Deque, Dict, List, Optional
+from typing import Deque, Dict, List
 
 from constants import TrashStatus, TREE_TYPE_GDRIVE
 from model.has_get_children import HasGetChildren

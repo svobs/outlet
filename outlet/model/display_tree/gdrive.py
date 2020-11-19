@@ -4,7 +4,6 @@ from typing import List
 from pydispatch import dispatcher
 
 from model.display_tree.display_tree import DisplayTree
-from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.node_identifier import ensure_list, SinglePathNodeIdentifier
 from ui import actions
@@ -23,13 +22,11 @@ logger = logging.getLogger(__name__)
 
 
 class GDriveDisplayTree(DisplayTree):
-    def __init__(self, app, tree_id: str, root_identifier: SinglePathNodeIdentifier, whole_tree: GDriveWholeTree):
+    def __init__(self, app, tree_id: str, root_identifier: SinglePathNodeIdentifier):
         DisplayTree.__init__(self, app, tree_id, root_identifier)
 
-        self._whole_tree: GDriveWholeTree = whole_tree
-
     def get_root_node(self):
-        return self._whole_tree.get_node_for_uid(self.root_identifier.uid)
+        return self.app.cacheman.get_node_for_uid(self.root_identifier.uid)
 
     def get_children_for_root(self, filter_criteria: FilterCriteria = None) -> List[GDriveNode]:
         root_node = self.get_root_node()
@@ -37,14 +34,14 @@ class GDriveDisplayTree(DisplayTree):
         return self.get_children(root_node, filter_criteria)
 
     def get_children(self, parent: GDriveNode, filter_criteria: FilterCriteria = None) -> List[GDriveNode]:
-        return self._whole_tree.get_children(node=parent, filter_criteria=filter_criteria)
+        return self.app.cacheman.get_children(node=parent, filter_criteria=filter_criteria)
 
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[GDriveNode]:
         path_list = ensure_list(path_list)
         if not self.is_path_in_subtree(path_list):
             raise RuntimeError(f'Not in this tree: "{path_list}" (tree root: {self.root_path}')
 
-        return self._whole_tree.get_node_list_for_path_list(path_list)
+        return self.app.cacheman.get_node_list_for_path_list(path_list)
 
     def __repr__(self):
         if self._stats_loaded:
@@ -67,7 +64,7 @@ class GDriveDisplayTree(DisplayTree):
             return 'Loading stats...'
 
     def print_tree_contents_debug(self):
-        logger.debug(f'[{self.tree_id}] GDriveDisplayTree for "{self.root_identifier}": {self._whole_tree.show_tree(self.root_identifier.uid)}')
+        logger.debug(f'[{self.tree_id}] GDriveDisplayTree for "{self.root_identifier}": {self.app.cacheman.show_tree(self.root_identifier)}')
 
     def refresh_stats(self, tree_id: str):
         logger.debug(f'[{tree_id}] Refreshing stats...')
