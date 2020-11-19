@@ -71,8 +71,11 @@ class GDriveMasterStore(MasterStore):
         MasterStore.start(self)
         self._diskstore.start()
         self.gdrive_client.start()
+        self.connect_dispatch_listener(signal=actions.SYNC_GDRIVE_CHANGES, receiver=self._on_gdrive_sync_changes_requested)
+        self.connect_dispatch_listener(signal=actions.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_download_all_gdrive_meta_requested)
 
     def shutdown(self):
+        # disconnects all listeners:
         super(GDriveMasterStore, self).shutdown()
 
         try:
@@ -166,6 +169,32 @@ class GDriveMasterStore(MasterStore):
             logger.debug(f'Changes download did not return a new start token. Will not update download.')
 
         logger.debug(f'{sw} Finished syncing GDrive changes from server')
+
+    # Action listener callbacks
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def _on_gdrive_sync_changes_requested(self, sender):
+        """See below. This will load the GDrive tree (if it is not loaded already), then sync to the latest changes from GDrive"""
+        logger.debug(f'Received signal: "{actions.SYNC_GDRIVE_CHANGES}"')
+        self.app.executor.submit_async_task(self.get_synced_master_tree, sender)
+
+    def _on_download_all_gdrive_meta_requested(self, sender):
+        """See below. Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
+        logger.debug(f'Received signal: "{actions.DOWNLOAD_ALL_GDRIVE_META}"')
+        self.app.executor.submit_async_task(self._download_all_gdrive_meta_in_ui, sender)
+
+    def _download_all_gdrive_meta_in_ui(self, tree_id):
+        """See above. Executed by Task Runner. NOT UI thread"""
+        actions.disable_ui(sender=tree_id)
+        try:
+            """Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
+            self.get_synced_master_tree(invalidate_cache=True, tree_id=tree_id)
+        except Exception as err:
+            if self.app.window:
+                self.app.window.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
+            logger.exception(err)
+        finally:
+            actions.enable_ui(sender=tree_id)
 
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

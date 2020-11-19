@@ -116,8 +116,8 @@ class CacheManager(HasLifecycle):
         self.load_all_caches_done: threading.Event = threading.Event()
         self._load_all_caches_in_process: bool = False
 
-        dispatcher.connect(signal=actions.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
-        dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
+        self.connect_dispatch_listener(signal=actions.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
+        self.connect_dispatch_listener(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
 
     def shutdown(self):
         logger.debug('CacheManager.shutdown() entered')
@@ -150,6 +150,13 @@ class CacheManager(HasLifecycle):
             if self._master_local:
                 self._master_local.shutdown()
                 self._master_local = None
+        except NameError:
+            pass
+
+        try:
+            if self._master_gdrive:
+                self._master_gdrive.shutdown()
+                self._master_gdrive = None
         except NameError:
             pass
 
@@ -341,6 +348,28 @@ class CacheManager(HasLifecycle):
                 f'Expected GDrive root ({NodeIdentifierFactory.get_gdrive_root_constant_identifier()}) but found: {existing_disk_cache.subtree_root}'
             self._master_gdrive.get_synced_master_tree(tree_id=ID_GLOBAL_CACHE)
 
+    # Action listener callbacks
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def _on_command_completed(self, sender, command: Command):
+        """Updates the in-memory cache, on-disk cache, and UI with the nodes from the given UserOpResult"""
+        logger.debug(f'Received signal: "{actions.COMMAND_COMPLETE}"')
+        result = command.op.result
+
+        # TODO: refactor so that we can attempt to create (close to) an atomic operation which combines GDrive and Local functionality
+
+        if result.nodes_to_upsert:
+            logger.debug(f'Cmd resulted in {len(result.nodes_to_upsert)} nodes to upsert')
+            for upsert_node in result.nodes_to_upsert:
+                self.upsert_single_node(upsert_node)
+
+        if result.nodes_to_delete:
+            # TODO: to_trash?
+
+            logger.debug(f'Cmd resulted in {len(result.nodes_to_delete)} nodes to delete')
+            for deleted_node in result.nodes_to_delete:
+                self.remove_node(deleted_node, to_trash=False)
+
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -521,25 +550,6 @@ class CacheManager(HasLifecycle):
     def execute_gdrive_load_op(self, op: GDriveDiskLoadOp):
         self._master_gdrive.execute_load_op(op)
 
-    def _on_command_completed(self, sender, command: Command):
-        """Updates the in-memory cache, on-disk cache, and UI with the nodes from the given UserOpResult"""
-        logger.debug(f'Received signal: "{actions.COMMAND_COMPLETE}"')
-        result = command.op.result
-
-        # TODO: refactor so that we can attempt to create (close to) an atomic operation which combines GDrive and Local functionality
-
-        if result.nodes_to_upsert:
-            logger.debug(f'Cmd resulted in {len(result.nodes_to_upsert)} nodes to upsert')
-            for upsert_node in result.nodes_to_upsert:
-                self.upsert_single_node(upsert_node)
-
-        if result.nodes_to_delete:
-            # TODO: to_trash?
-
-            logger.debug(f'Cmd resulted in {len(result.nodes_to_delete)} nodes to delete')
-            for deleted_node in result.nodes_to_delete:
-                self.remove_node(deleted_node, to_trash=False)
-
     def refresh_subtree(self, node: Node, tree_id: str):
         """Called asynchronously via actions.REFRESH_SUBTREE"""
         logger.debug(f'[{tree_id}] Refreshing subtree: {node}')
@@ -574,10 +584,6 @@ class CacheManager(HasLifecycle):
         self.wait_for_startup_done()
         # also blocks !
         return self._op_ledger.get_next_command()
-
-    def download_all_gdrive_meta(self, tree_id: str):
-        """Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-        self._master_gdrive.get_synced_master_tree(invalidate_cache=True, tree_id=tree_id)
 
     def get_synced_gdrive_master_tree(self, tree_id: str) -> GDriveDisplayTree:
         """Will load from disk and sync latest changes from GDrive server before returning."""

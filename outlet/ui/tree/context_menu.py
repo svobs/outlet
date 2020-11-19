@@ -217,7 +217,7 @@ class TreeContextMenu:
             item.connect('activate', self.send_signal, actions.EXPAND_ALL, {'tree_path': tree_path})
             menu.append(item)
 
-        if True:
+        if node.is_live():
             # MenuItem: ---
             item = Gtk.SeparatorMenuItem()
             menu.append(item)

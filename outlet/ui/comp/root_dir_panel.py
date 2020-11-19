@@ -94,7 +94,9 @@ class RootDirPanel(HasLifecycle):
 
         self.connect_dispatch_listener(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
         self.connect_dispatch_listener(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.tree_id)
-        self.connect_dispatch_listener(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, receiver=self._on_gdrive_chooser_dialog_load_complete, sender=self.tree_id)
+        self.connect_dispatch_listener(signal=actions.SHOW_GDRIVE_CHOOSER_DIALOG, receiver=self._on_gdrive_root_dialog_requested, sender=self.tree_id)
+        self.connect_dispatch_listener(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, receiver=self._on_gdrive_chooser_dialog_load_complete,
+                                       sender=self.tree_id)
 
         # Need to call this to do the initial UI draw:
         logger.debug(f'[{self.tree_id}] Building panel with current root {self.current_root}')
@@ -335,6 +337,23 @@ class RootDirPanel(HasLifecycle):
     def _open_gdrive_root_chooser_dialog(self, menu_item):
         logger.debug(f'[{self.tree_id}] Sending signal "{actions.SHOW_GDRIVE_CHOOSER_DIALOG}" with current_selection={self.current_root}')
         dispatcher.send(signal=actions.SHOW_GDRIVE_CHOOSER_DIALOG, sender=self.tree_id, current_selection=self.current_root)
+
+    def _on_gdrive_root_dialog_requested(self, sender: str, current_selection: SinglePathNodeIdentifier):
+        """See below."""
+        logger.debug(f'Received signal: "{actions.SHOW_GDRIVE_CHOOSER_DIALOG}"')
+        self.con.app.executor.submit_async_task(self.load_data_for_gdrive_dir_chooser_dialog, sender, current_selection)
+
+    def load_data_for_gdrive_dir_chooser_dialog(self, tree_id: str, current_selection: SinglePathNodeIdentifier):
+        """See above. Executed by Task Runner. NOT UI thread"""
+        actions.disable_ui(sender=tree_id)
+        try:
+            tree = self.con.app.cacheman.get_synced_gdrive_master_tree(tree_id)
+            dispatcher.send(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, sender=tree_id, tree=tree, current_selection=current_selection)
+        except Exception as err:
+            self.parent_win.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
+            logger.exception(err)
+        finally:
+            actions.enable_ui(sender=tree_id)
 
     def _build_source_menu(self):
         source_menu = Gtk.Menu()
