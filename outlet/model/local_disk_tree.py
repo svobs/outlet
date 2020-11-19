@@ -1,6 +1,6 @@
 import os
 from collections import deque
-from typing import Deque, List, Tuple
+from typing import Callable, Deque, List, Optional, Tuple
 import logging
 
 import treelib
@@ -89,19 +89,42 @@ class LocalDiskTree(treelib.Tree):
 
         node: LocalNode = self.get_node(nid=subtree_root_uid)
 
-        queue: Deque[LocalNode] = deque()
         bfs_list: List[LocalNode] = []
 
-        queue.append(node)
+        dir_queue: Deque[LocalNode] = deque()
+        dir_queue.append(node)
 
-        while len(queue) > 0:
-            node = queue.popleft()
+        while len(dir_queue) > 0:
+            node = dir_queue.popleft()
             bfs_list.append(node)
             if node.is_dir():
                 for child in self.children(node.uid):
-                    queue.append(child)
+                    dir_queue.append(child)
 
         return bfs_list
+
+    def for_each_node_breadth_first(self, action_func: Callable, subtree_root_node: Optional[LocalNode] = None):
+        dir_queue: Deque[LocalDirNode] = deque()
+        if not subtree_root_node:
+            subtree_root_node = self.get_root_node()
+
+        action_func(subtree_root_node)
+
+        if subtree_root_node.is_dir():
+            assert isinstance(subtree_root_node, LocalDirNode)
+            dir_queue.append(subtree_root_node)
+
+        while len(dir_queue) > 0:
+            node: LocalDirNode = dir_queue.popleft()
+
+            children = self.get_children(node)
+            if children:
+                for child in children:
+                    action_func(child)
+
+                    if child.is_dir():
+                        assert isinstance(child, LocalDirNode)
+                        dir_queue.append(child)
 
     def replace_subtree(self, sub_tree: treelib.Tree):
         if not self.contains(sub_tree.root):
@@ -119,19 +142,20 @@ class LocalDiskTree(treelib.Tree):
     def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalNodeIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
         file_list: List[LocalFileNode] = []
         dir_list: List[LocalDirNode] = []
-        queue: Deque[LocalNode] = deque()
-        node = self.get_node(nid=subtree_root.uid)
-        queue.append(node)
-        while len(queue) > 0:
-            node = queue.popleft()
+
+        def add_to_lists(node):
             if node.is_dir():
                 assert isinstance(node, LocalDirNode)
                 dir_list.append(node)
-                for child in self.children(node.uid):
-                    queue.append(child)
             else:
                 assert isinstance(node, LocalFileNode)
                 file_list.append(node)
+
+        if subtree_root:
+            subtree_root_node = self.get_node(subtree_root.uid)
+        else:
+            subtree_root_node = None
+        self.for_each_node_breadth_first(action_func=add_to_lists, subtree_root_node=subtree_root_node)
 
         logger.debug(f'Returning {len(file_list)} files and {len(dir_list)} dirs')
         return file_list, dir_list
@@ -145,38 +169,27 @@ class LocalDiskTree(treelib.Tree):
     def refresh_stats(self, subtree_root_node: LocalNode, tree_id: str):
         logger.debug(f'[{tree_id}] Refreshing stats for local disk tree with root: {subtree_root_node.node_identifier}')
         stats_sw = Stopwatch()
-        queue: Deque[LocalNode] = deque()
-        stack: Deque[LocalNode] = deque()
+        # dir_queue: Deque[LocalNode] = deque()
+        second_pass_stack: Deque[LocalNode] = deque()
 
-        if subtree_root_node:
-            root_node = subtree_root_node
-        else:
-            root_node = self.get_root_node()
+        # dir_queue.append(root_node)
+        second_pass_stack.append(subtree_root_node)
 
-        queue.append(root_node)
-        stack.append(root_node)
+        def zero_out_stats_and_add_dirs_to_stack(n):
+            if n.is_dir():
+                if SUPER_DEBUG:
+                    logger.debug(f'[{tree_id}] Zeroing out stats for node: {n}')
+                assert isinstance(n, HasChildStats) and isinstance(n, LocalDirNode)
+                n.zero_out_stats()
+
+                second_pass_stack.append(n)
 
         # go down tree, zeroing out existing stats and adding children to stack
-        while len(queue) > 0:
-            node: LocalNode = queue.popleft()
-            if SUPER_DEBUG:
-                logger.debug(f'[{tree_id}] Zeroing out stats for node: {node}')
-            assert isinstance(node, HasChildStats) and isinstance(node, LocalNode) and node.is_dir()
-            node.zero_out_stats()
-
-            children = self.get_children(node)
-            if children:
-                for child in children:
-                    if SUPER_DEBUG:
-                        logger.debug(f'[{tree_id}] Appending child to stats queue: {child}')
-                    if child.is_dir():
-                        assert isinstance(child, HasChildStats) and isinstance(child, LocalNode)
-                        queue.append(child)
-                        stack.append(child)
+        self.for_each_node_breadth_first(action_func=zero_out_stats_and_add_dirs_to_stack, subtree_root_node=subtree_root_node)
 
         # now go back up the tree by popping the stack and building stats as we go:
-        while len(stack) > 0:
-            node = stack.pop()
+        while len(second_pass_stack) > 0:
+            node = second_pass_stack.pop()
             assert node.is_dir() and isinstance(node, HasChildStats) and isinstance(node, LocalNode)
             node.set_stats_for_no_children()
 

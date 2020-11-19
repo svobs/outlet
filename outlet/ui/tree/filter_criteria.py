@@ -1,12 +1,14 @@
+import collections
 import logging
 from collections import deque
 from enum import IntEnum
-from typing import Deque, List
+from typing import Callable, Deque, Dict, List, Optional
 
 from constants import TrashStatus, TREE_TYPE_GDRIVE
 from model.has_get_children import HasGetChildren
 from model.node.node import Node
 from model.node_identifier import ensure_bool
+from model.uid import UID
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,11 @@ class FilterCriteria:
         self.is_shared: BoolOption = is_shared
 
         self.show_subtrees_of_matches: bool = False
+
+        self._cached_filter: Dict[str, Dict[UID, List[Node]]] = {}
+
+    def hash(self) -> str:
+        return f'{int(self.show_subtrees_of_matches)}:{int(self.ignore_case)}:{int(self.is_trashed)}:{int(self.is_shared)}:{self.search_query}'
 
     def has_criteria(self) -> bool:
         return self.search_query or self.is_trashed != BoolOption.NOT_SPECIFIED or self.is_shared != BoolOption.NOT_SPECIFIED
@@ -82,31 +89,61 @@ class FilterCriteria:
 
         return False
 
-    def filter(self, node_list: List[Node], parent_tree: HasGetChildren) -> List[Node]:
+    def build_node_dict(self, parent_tree: HasGetChildren, subtree_root_node: Node):
+        logger.debug(f'Building filtered node dict for subroot {subtree_root_node.node_identifier}')
+        node_dict: Dict[UID, List[Node]] = {}
+
+        dir_queue: Deque[Node] = deque()
+        second_pass_stack: Deque[Node] = deque()
+
+        if subtree_root_node.is_dir():
+            dir_queue.append(subtree_root_node)
+            second_pass_stack.append(subtree_root_node)
+
+        # First pass: find all directories in BFS order and append to second_pass_stack
+        while len(dir_queue) > 0:
+            node: Node = dir_queue.popleft()
+
+            children = parent_tree.get_children(node)
+            if children:
+                for child in children:
+                    if child.is_dir():
+                        dir_queue.append(child)
+                        second_pass_stack.append(child)
+
+        while len(second_pass_stack) > 0:
+            parent_node = second_pass_stack.pop()
+            child_list = parent_tree.get_children(parent_node)
+            filtered_child_list = []
+            for child in child_list:
+                # include dirs if any of their children are included, or if they match. Include non-dirs only if they match:
+                if (child.is_dir() and child.uid in node_dict) or self.matches(child):
+                    filtered_child_list.append(child)
+            if filtered_child_list:
+                node_dict[parent_node.uid] = filtered_child_list
+
+        logger.debug(f'Built filtered node dict with {len(node_dict)} entries')
+        return node_dict
+
+    def get_filtered_child_list(self, parent_node: Node, parent_tree: HasGetChildren) -> List[Node]:
         if not self.has_criteria():
-            logger.debug(f'No FilterCriteria selected; returning unfiltered list')
-            return node_list
+            # logger.debug(f'No FilterCriteria selected; returning unfiltered list')
+            return parent_tree.get_children(parent_node)
 
         filtered_list: List[Node] = []
 
         if self.show_subtrees_of_matches:
-            for node in node_list:
-                if 'Intro into AngularJS' in node.name:
-                    logger.debug('hello')
+            # TODO: it's pretty rickety to assume the first call will be the topmost level. Put cache in a better spot
+            hash_val = self.hash()
+            cached_tree = self._cached_filter.get(hash_val, None)
+            if not cached_tree:
+                cached_tree = self.build_node_dict(parent_tree, parent_node)
+                self._cached_filter[hash_val] = cached_tree
 
-                # this can get very expensive...
-                # TODO: optimize!
-                if node.is_dir():
-                    if not self.subtree_matches(node, parent_tree):
-                        continue
-                else:
-                    if not self.matches(node):
-                        continue
-
-                filtered_list.append(node)
+            return cached_tree.get(parent_node.uid, [])
         else:
             queue: Deque[Node] = deque()
-            for node in node_list:
+            for node in parent_tree.get_children(parent_node):
                 queue.append(node)
 
             while len(queue) > 0:

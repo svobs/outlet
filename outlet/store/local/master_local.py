@@ -486,10 +486,11 @@ class LocalDiskMasterStore(MasterStore):
     def get_children(self, node: LocalNode, filter_criteria: FilterCriteria = None) -> List[LocalNode]:
         if SUPER_DEBUG:
             logger.debug(f'Entered get_children(): node={node.node_identifier} filter_criteria={filter_criteria} locked={self._struct_lock.locked()}')
-        with self._struct_lock:
-            child_nodes = self._memstore.master_tree.children(node.uid)
         if filter_criteria:
-            return filter_criteria.filter(child_nodes, self)
+            return filter_criteria.get_filtered_child_list(node, self)
+        else:
+            with self._struct_lock:
+                child_nodes = self._memstore.master_tree.children(node.uid)
         return child_nodes
 
     def get_node_for_uid(self, uid: UID) -> LocalNode:

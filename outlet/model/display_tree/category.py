@@ -58,10 +58,11 @@ class CategoryDisplayTree(DisplayTree):
 
     def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
         try:
-            child_list = self._category_tree.children(parent.identifier)
             if filter_criteria:
-                return filter_criteria.filter(child_list, self)
-            return child_list
+                return filter_criteria.get_filtered_child_list(node, self)
+            else:
+                child_list = self._category_tree.children(parent.identifier)
+                return child_list
         except Exception:
             if logger.isEnabledFor(logging.DEBUG):
                 self.print_tree_contents_debug()
