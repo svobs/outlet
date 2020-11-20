@@ -52,6 +52,8 @@ LOAD_UI_TREE_DONE = 'load-ui-tree-done'
 DRAG_AND_DROP = 'drag-and-drop'
 DRAG_AND_DROP_DIRECT = 'drag-and-drop-direct'
 
+TREE_SELECTION_CHANGED = 'tree-selection-changed'
+
 # All components should listen for this
 TOGGLE_UI_ENABLEMENT = 'toggle-ui-enablement'
 

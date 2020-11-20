@@ -1,16 +1,17 @@
 import logging
+from typing import List
 
-import gi
 from pydispatch import dispatcher
 from pydispatch.errors import DispatcherKeyError
 
 from constants import TREE_TYPE_GDRIVE
-from model.node_identifier import SinglePathNodeIdentifier, NodeIdentifier
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
+from model.node_identifier import SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from ui import actions
 from ui.tree import tree_factory
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -32,7 +33,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         """Note: this is the ID of the tree for which this dialog is ultimately selecting for, not this dialog's tree (see tree_controller below)"""
 
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
-        self.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
+        self.ok_button = self.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
         self.set_default_size(GDRIVE_DIR_CHOOSER_DIALOG_DEFAULT_WIDTH, GDRIVE_DIR_CHOOSER_DIALOG_DEFAULT_HEIGHT)
 
@@ -51,6 +52,9 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         assert isinstance(current_selection, SinglePathNodeIdentifier), \
             f'Expected instance of SinglePathNodeIdentifier but got: {type(current_selection)}'
         self._initial_selection_nid: SinglePathNodeIdentifier = current_selection
+
+        dispatcher.connect(signal=actions.TREE_SELECTION_CHANGED, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_selected_changed)
+
         if current_selection.tree_type == TREE_TYPE_GDRIVE:
             logger.debug(f'[{actions.ID_GDRIVE_DIR_SELECT}] Connecting listener to signal: {actions.LOAD_UI_TREE_DONE}')
             dispatcher.connect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
@@ -66,18 +70,25 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
             dispatcher.disconnect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
         except DispatcherKeyError:
             pass
+        try:
+            dispatcher.disconnect(signal=actions.TREE_SELECTION_CHANGED, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_selected_changed)
+        except DispatcherKeyError:
+            pass
         self.con.destroy()
         self.con = None
 
         # call super method
         Gtk.Dialog.destroy(self)
 
+    def _on_selected_changed(self, sender, node_list: List[Node]):
+        # In weird GTK-speak, "sensitive" means enabled
+        self.ok_button.set_sensitive(node_list and node_list[0].is_dir())
+
     def _on_load_complete(self, sender):
         logger.debug(f'[{actions.ID_GDRIVE_DIR_SELECT}] Load complete! Sending signal: {actions.EXPAND_AND_SELECT_NODE}')
         dispatcher.send(actions.EXPAND_AND_SELECT_NODE, sender=actions.ID_GDRIVE_DIR_SELECT, nid=self._initial_selection_nid)
 
     def on_ok_clicked(self, node_identifier: SinglePathNodeIdentifier):
-        # TODO: disallow selection of files
         logger.info(f'[{self.tree_id}] User selected dir "{node_identifier}"')
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root=node_identifier)
 
@@ -88,11 +99,17 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         try:
             if response_id == Gtk.ResponseType.OK:
                 logger.debug("The OK button was clicked")
-                display_node_identifier: SinglePathNodeIdentifier = self.con.display_store.get_single_selection_display_identifier()
-                if not display_node_identifier:
-                    self.on_ok_clicked(NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier())
+                sn: SPIDNodePair = self.con.display_store.get_single_selection_sn()
+                if not sn:
+                    spid = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
                 else:
-                    self.on_ok_clicked(display_node_identifier)
+                    if sn.node.is_dir():
+                        spid = sn.spid
+                    else:
+                        self.show_error_ui('Not a directory: ' + sn.node.name)
+                        return
+                if spid:
+                    self.on_ok_clicked(spid)
             elif response_id == Gtk.ResponseType.CANCEL:
                 logger.debug("The Cancel button was clicked")
             elif response_id == Gtk.ResponseType.CLOSE:
@@ -101,14 +118,13 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
                 logger.debug("GDrive dialog was deleted")
             else:
                 logger.debug(f'Unexpected response_id: {response_id}')
+
+            dialog.destroy()
         except FileNotFoundError as err:
             self.show_error_ui('File not found: ' + err.filename)
             raise
         except Exception as err:
             logger.exception(err)
             detail = f'{repr(err)}]'
-            self.show_error_ui('Diff task failed due to unexpected error', detail)
+            self.show_error_ui('Unexpected error', detail)
             raise
-        finally:
-            dialog.destroy()
-

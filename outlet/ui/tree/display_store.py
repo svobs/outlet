@@ -412,9 +412,12 @@ class DisplayStore:
         with a single path - but that information is implicit in the tree structure itself and must be reconstructed from it."""
         tree_path = self.ensure_tree_path(tree_path)
 
-        # FIXME: this is broken when a filter is applied
         if self.treeview_meta.filter_criteria and self.treeview_meta.filter_criteria.has_criteria():
-            raise RuntimeError(f'Cannot call derive_single_path_from_tree_path() with an active filter!')
+            # FIXME: this may choose a less correct path when a filter is applied
+            logger.warning(f'derive_single_path_from_tree_path() should not be called with an active filter!'
+                           f'Will arbitrarily choose the first path in list')
+            node = self.get_node_data(tree_path)
+            return node.get_path_list()[0]
         # don't mess up the caller; make a copy before modifying:
         tree_path_copy = tree_path.copy()
 
@@ -454,8 +457,8 @@ class DisplayStore:
         else:
             raise Exception(f'Selection has more rows than expected: count={len(tree_path_list)}')
 
-    def get_single_selection_display_identifier(self) -> SinglePathNodeIdentifier:
-        return self._execute_on_current_single_selection(self.build_spid_from_tree_path)
+    def get_single_selection_sn(self) -> SPIDNodePair:
+        return self._execute_on_current_single_selection(self.build_sn_from_tree_path)
 
     def get_single_selection(self) -> Node:
         return self._execute_on_current_single_selection(lambda tp: self.get_node_data(tp))

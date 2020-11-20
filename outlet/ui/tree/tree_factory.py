@@ -147,7 +147,7 @@ def build_gdrive_root_chooser(parent_win, tree_id, tree: DisplayTree):
     factory.can_modify_tree = False
     factory.display_persisted = False
     factory.has_checkboxes = False
-    factory.can_change_root = False
+    factory.can_change_root = True
     return factory.build()
 
 

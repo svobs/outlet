@@ -92,7 +92,7 @@ class TreeUiListeners(HasLifecycle):
         self._connected_eids.append(eid)
         eid = self.con.tree_view.connect('row-collapsed', self._on_toggle_gtk_row_expanded_state, False)
         self._connected_eids.append(eid)
-        # select.connect("changed", self._on_tree_selection_changed)
+        self.con.tree_view.get_selection().connect("changed", self._on_tree_selection_changed)
 
         if self.con.treeview_meta.can_modify_tree:
             action_mask = Gdk.DragAction.DEFAULT | Gdk.DragAction.MOVE | Gdk.DragAction.COPY
@@ -184,6 +184,7 @@ class TreeUiListeners(HasLifecycle):
     def _do_drop(self, sender, drag_data: DragAndDropData, tree_path: Gtk.TreePath, is_into: bool):
         # Puts the drag data into/adjacent to the given tree_path.
         logger.info(f'[{self.con.tree_id}] We received a drop of {len(drag_data.sn_list)} nodes!')
+        # TODO: put the guts of this in BE
 
         if tree_path:
             sn_dst: SPIDNodePair = self.con.display_store.build_sn_from_tree_path(tree_path)
@@ -257,13 +258,25 @@ class TreeUiListeners(HasLifecycle):
 
     def _on_tree_selection_changed(self, selection):
         model, treeiter = selection.get_selected_rows()
-        if treeiter is not None and len(treeiter) == 1:
-            node = self.con.display_store.get_node_data(treeiter)
-            if isinstance(node, LocalFileNode):
-                logger.info(f'[{self.con.tree_id}] User selected node={node.node_identifier} md5="{node.md5}"')
+        selected_nodes = []
+        if treeiter is not None:
+            if len(treeiter) == 1:
+                node = self.con.display_store.get_node_data(treeiter)
+                if node.md5:
+                    md5 = f' md5="{node.md5}'
+                else:
+                    md5 = ''
+                logger.debug(f'[{self.con.tree_id}] User selected node={node.node_identifier}{md5}"')
+
+                selected_nodes.append(node)
             else:
-                logger.info(f'[{self.con.tree_id}] User selected {self.con.display_store.get_node_name(treeiter)}')
-        return self.on_selection_changed(treeiter)
+                logger.debug(f'[{self.con.tree_id}] User selected {len(treeiter)} nodes')
+                for i in treeiter:
+                    node = self.con.display_store.get_node_data(i)
+                    selected_nodes.append(node)
+
+            dispatcher.send(signal=actions.TREE_SELECTION_CHANGED, sender=self.con.tree_id, node_list=selected_nodes)
+        return False
 
     def _on_row_activated(self, tree_view, tree_path, col, tree_id):
         if not self._ui_enabled:
@@ -352,10 +365,6 @@ class TreeUiListeners(HasLifecycle):
     # ACTIONS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    # To be optionally overridden:
-    def on_selection_changed(self, treeiter):
-        return False
-
     def on_single_row_activated(self, tree_view, tree_path):
         """Fired when an node is double-clicked or when an node is selected and Enter is pressed"""
         node: Node = self.con.display_store.get_node_data(tree_path)
@@ -400,8 +409,6 @@ class TreeUiListeners(HasLifecycle):
         if self.con.treeview_meta.can_modify_tree:
             selected_sn_list: List[SPIDNodePair] = self.con.display_store.get_multiple_selection_sn_list()
             if selected_sn_list:
-                # TODO: change this to DELETE_SUBTREE.
-                # TODO: refactor to send SN instead of node
                 for selected_sn in selected_sn_list:
                     dispatcher.send(signal=actions.DELETE_SUBTREE, sender=self.con.tree_id, sn=selected_sn.node)
                 return True

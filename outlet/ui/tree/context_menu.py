@@ -7,6 +7,7 @@ from pydispatch import dispatcher
 from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.container_node import CategoryNode
 from model.node.node import Node
+from model.node_identifier import SinglePathNodeIdentifier
 from model.user_op import UserOp
 from ui import actions
 from ui.tree.tree_actions import DATE_REGEX
@@ -111,10 +112,10 @@ class TreeContextMenu:
             menu.append(item)
 
         # MenuItem: 'Go into {dir}'
-        if file_exists and is_dir:
+        if file_exists and is_dir and self.con.treeview_meta.can_change_root:
             item = Gtk.MenuItem(label=f'Go into "{node.name}"')
-            # FIXME: need to resolve this to single path. Will break for some GDrive nodes!
-            item.connect('activate', self.send_signal, actions.ROOT_PATH_UPDATED, {'new_root': node.node_identifier})
+            spid: SinglePathNodeIdentifier = self.con.display_store.build_spid_from_tree_path(tree_path)
+            item.connect('activate', self.send_signal, actions.ROOT_PATH_UPDATED, {'new_root': spid})
             menu.append(item)
 
         # MenuItem: 'Use EXIFTool on dir'

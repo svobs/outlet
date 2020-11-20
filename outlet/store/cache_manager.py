@@ -233,7 +233,7 @@ class CacheManager(HasLifecycle):
 
             # Now load all caches (if configured):
             if self.enable_load_from_disk and self.load_all_caches_on_startup:
-                self.load_all_caches()
+                self._load_all_caches()
             else:
                 logger.info(f'{stopwatch} Found {unique_cache_count} existing caches (+ {skipped_count} skipped) but configured not to load on'
                             f' startup')
@@ -265,7 +265,7 @@ class CacheManager(HasLifecycle):
         if not self._startup_done.wait(CACHE_LOAD_TIMEOUT_SEC):
             logger.error('Timed out waiting for CacheManager startup!')
 
-    def load_all_caches(self):
+    def _load_all_caches(self):
         """Load ALL the caches into memory. This is needed in certain circumstances, such as when a UID is being derefernced but we
         don't know which cache it belongs to."""
         if not self.enable_load_from_disk:

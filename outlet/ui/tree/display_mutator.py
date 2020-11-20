@@ -72,10 +72,9 @@ class DisplayMutator(HasLifecycle):
         """This signal comes from the cacheman after it has finished updating all the nodes in the subtree,
         notfiying us that we can now refresh our display from it"""
 
-        if self.con.treeview_meta.can_modify_tree:
-            self.connect_dispatch_listener(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
-            self.connect_dispatch_listener(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
-            self.connect_dispatch_listener(signal=actions.NODE_MOVED, receiver=self._on_node_moved_in_cache)
+        self.connect_dispatch_listener(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
+        self.connect_dispatch_listener(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
+        self.connect_dispatch_listener(signal=actions.NODE_MOVED, receiver=self._on_node_moved_in_cache)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
