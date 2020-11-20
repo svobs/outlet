@@ -14,6 +14,7 @@ class MattOutlet(OutletServicer):
     def ping(self, request, context):
         logger.info(f'Got ping!')
         response = PingResponse()
+        response.timestamp = 1000
         return response
 
 

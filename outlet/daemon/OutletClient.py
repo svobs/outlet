@@ -3,6 +3,7 @@ import time
 import grpc
 import logging
 
+from app_config import AppConfig
 from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.Outlet_pb2 import PingRequest
 
@@ -15,10 +16,11 @@ def main():
     logger.info(f'Outlet client connected!')
     ping_request = PingRequest()
     logger.info(f'Sending ping!')
-    stub.ping(ping_request)
-    logger.info(f'Ping received!')
+    ping_response = stub.ping(ping_request)
+    logger.info(f'Ping received: {ping_response.timestamp}')
     time.sleep(3)
 
 
 if __name__ == '__main__':
+    config = AppConfig()
     main()
