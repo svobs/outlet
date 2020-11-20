@@ -15,7 +15,6 @@ humanfriendly==8.1
 idna==2.9
 oauthlib==3.1.0
 Pillow==7.1.0
-protobuf==3.11.3
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
 pycairo==1.19.1
@@ -37,3 +36,6 @@ pip~=20.1.1
 setuptools~=47.1.1
 watchdog==0.10.3
 psutil==5.7.3
+grpcio==1.33.2
+grpcio-tools==1.33.2
+protobuf==3.14.0
