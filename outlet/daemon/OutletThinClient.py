@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class OutletThinClient(OutletFrontend):
     """GTK3 thin client which communicates with the OutletDaemon via GRPC."""
     def __init__(self, cfg):
-        OutletFrontend.__init__(self, config)
+        OutletFrontend.__init__(self, cfg)
         self.config = cfg
         self.stub = None
 

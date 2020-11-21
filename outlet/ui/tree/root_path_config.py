@@ -3,6 +3,7 @@ import logging
 from pydispatch import dispatcher
 
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from model.node.node import Node
 from store.uid.uid_generator import NULL_UID
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
@@ -44,16 +45,17 @@ class RootPathConfigPersister:
         except ValueError:
             raise RuntimeError(f"Invalid value for tree's UID (expected integer): '{root_uid}'")
 
-        # Wait for registry to load to cross-check that our local root UIDs are correct. Shouldn't be long.
-        self.app.cacheman.wait_for_load_registry_done()
+        # Cross-check that our local root UIDs are correct:
         if tree_type == TREE_TYPE_LOCAL_DISK:
             # resolves a problem of inconsistent UIDs during testing
-            node = self.app.cacheman.read_single_node_from_disk_for_path(root_path, tree_type)
+            # TODO: make into RPC call
+            node: Node = self.app.cacheman.read_single_node_from_disk_for_path(root_path, tree_type)
             if node:
                 if root_uid != node.uid:
                     logger.warning(f'UID from config ({root_uid}) does not match UID from cache ({node.uid}); will use value from cache')
                     root_uid = node.uid
             else:
+                # TODO: make into RPC call
                 new_root, err = self.app.cacheman.resolve_root_from_path(root_path)
                 root_uid = new_root.uid
                 self.root_identifier = new_root

@@ -1,10 +1,10 @@
-import logging
-import signal
 import sys
+import signal
+
+import logging
 
 from app_config import AppConfig
-from OutletBackend import OutletBackend
-from OutletFrontend import OutletFrontend
+from daemon.OutletThinClient import OutletThinClient
 from ui.actions import ID_DIFF_WINDOW
 from ui.two_pane_window import TwoPanelWindow
 
@@ -14,28 +14,22 @@ from gi.repository import Gtk, Gio, GLib
 
 logger = logging.getLogger(__name__)
 
-# CLASS OutletApplication
+
+# CLASS OutletThinClientGTK3
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-
-class OutletApplication(Gtk.Application, OutletBackend, OutletFrontend):
-
-    """Main app.
-    See: https://athenajc.gitbooks.io/python-gtk-3-api/content/gtk-group/gtkapplication.html"""
-    def __init__(self, config):
-        self.config = config
+class OutletThinClientGTK3(Gtk.Application, OutletThinClient):
+    """GTK3 thin client which communicates with the OutletDaemon via GRPC."""
+    def __init__(self, cfg):
         Gtk.Application.__init__(self)
-        OutletBackend.__init__(self, config)
-        OutletFrontend.__init__(self, config)
+        OutletThinClient.__init__(self, cfg)
         self.window = None
 
     def start(self):
-        OutletBackend.start(self)
-        OutletFrontend.start(self)
+        OutletThinClient.start(self)
 
     def shutdown(self):
-        OutletBackend.shutdown(self)
-        OutletFrontend.shutdown(self)
+        OutletThinClient.shutdown(self)
 
     def do_activate(self):
         # We only allow a single window and raise any existing ones
@@ -54,18 +48,6 @@ class OutletApplication(Gtk.Application, OutletBackend, OutletFrontend):
 
         self.window.present()
 
-    def do_command_line(self, command_line):
-        options = command_line.get_options_dict()
-        # convert GVariantDict -> GVariant -> dict
-        options = options.end().unpack()
-
-        if "test" in options:
-            # This is printed on the main instance
-            logger.info("Test argument received: %s" % options["test"])
-
-        self.activate()
-        return 0
-
     def do_startup(self):
         Gtk.Application.do_startup(self)
 
@@ -79,26 +61,23 @@ class OutletApplication(Gtk.Application, OutletBackend, OutletFrontend):
         logger.info("You chose Quit")
         self.shutdown()
 
-# ENTRY POINT MAIN
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
 
 def main():
     if sys.version_info[0] < 3:
         raise Exception("Python 3 or a more recent version is required.")
 
     if len(sys.argv) >= 2:
-        config = AppConfig(sys.argv[1])
+        cfg = AppConfig(sys.argv[1])
     else:
-        config = AppConfig()
+        cfg = AppConfig()
 
-    app = OutletApplication(config)
+    thin_client = OutletThinClientGTK3(cfg)
     try:
-        exit_status = app.run(sys.argv)
+        exit_status = thin_client.run(sys.argv)
         sys.exit(exit_status)
     except KeyboardInterrupt:
         logger.info('Caught KeyboardInterrupt. Quitting')
-        app.shutdown()
+        thin_client.shutdown()
 
 
 if __name__ == '__main__':

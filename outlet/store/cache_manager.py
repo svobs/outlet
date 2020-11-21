@@ -401,6 +401,9 @@ class CacheManager(HasLifecycle):
         node_identifier.set_path_list(path_list)
 
     def find_existing_cache_info_for_local_subtree(self, full_path: str) -> Optional[PersistedCacheInfo]:
+        # Wait for registry to finish loading before attempting to read dict. Shouldn't take long.
+        self.app.cacheman.wait_for_load_registry_done()
+
         existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_LOCAL_DISK).values())
 
         for existing_cache in existing_caches:
@@ -434,7 +437,9 @@ class CacheManager(HasLifecycle):
                 else:
                     self._master_local.get_display_tree(cache.subtree_root, ID_GLOBAL_CACHE)
 
-    def get_or_create_cache_info_entry(self, subtree_root: SinglePathNodeIdentifier) -> PersistedCacheInfo:
+    def (self, subtree_root: SinglePathNodeIdentifier) -> PersistedCacheInfo:
+        self.app.cacheman.wait_for_load_registry_done()
+
         existing = self.caches_by_type.get_single(subtree_root.tree_type, subtree_root.get_single_path())
         if existing:
             logger.debug(f'Found existing cache entry for subtree: {subtree_root}')
