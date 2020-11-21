@@ -32,7 +32,6 @@ from store.sqlite.cache_registry_db import CacheRegistry
 from store.user_op.op_ledger import OpLedger
 from ui import actions
 from ui.actions import ID_GLOBAL_CACHE
-from ui.tree.controller import TreePanelController
 from ui.tree.filter_criteria import FilterCriteria
 from util import file_util
 from util.file_util import get_resource_path
@@ -104,9 +103,6 @@ class CacheManager(HasLifecycle):
         """Sub-module of Cache Manager which, for displayed trees, provides [close to] real-time notifications for changes
          which originated from outside this app"""
 
-        self._tree_controllers: Dict[str, TreePanelController] = {}
-        """Keep track of live UI tree controllers, so that we can look them up by ID (e.g. for use in automated testing)"""
-
         # Create Event objects to optionally wait for lifecycle events
         self._load_registry_done: threading.Event = threading.Event()
 
@@ -127,14 +123,6 @@ class CacheManager(HasLifecycle):
             if self._op_ledger:
                 self._op_ledger.shutdown()
                 self._op_ledger = None
-        except NameError:
-            pass
-
-        try:
-            if self._tree_controllers:
-                for controller in list(self._tree_controllers.values()):
-                    controller.destroy()
-                self._tree_controllers.clear()
         except NameError:
             pass
 
@@ -516,25 +504,6 @@ class CacheManager(HasLifecycle):
             self._master_local.remove_single_node(node, to_trash)
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
-
-    # Tree controller tracking/lookup
-    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-    def register_tree_controller(self, controller: TreePanelController):
-        logger.debug(f'[{controller.tree_id}] Registering controller')
-        self._tree_controllers[controller.tree_id] = controller
-
-    def unregister_tree_controller(self, controller: TreePanelController):
-        logger.debug(f'[{controller.tree_id}] Unregistering controller')
-        popped_con = self._tree_controllers.pop(controller.tree_id, None)
-        if popped_con:
-            if self._is_live_capture_enabled and self._live_monitor:
-                self._live_monitor.stop_capture(controller.tree_id)
-        else:
-            logger.debug(f'Could not unregister TreeController; it was not found: {controller.tree_id}')
-
-    def get_tree_controller(self, tree_id: str) -> Optional[TreePanelController]:
-        return self._tree_controllers.get(tree_id, None)
 
     # Various public methods
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

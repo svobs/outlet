@@ -206,8 +206,8 @@ class OpTestBase(unittest.TestCase):
             raise RuntimeError('Timed out waiting for left to load!')
         if not load_right_done.wait(LOAD_TIMEOUT_SEC):
             raise RuntimeError('Timed out waiting for right to load!')
-        self.left_con: TreePanelController = self.app.cacheman.get_tree_controller(actions.ID_LEFT_TREE)
-        self.right_con: TreePanelController = self.app.cacheman.get_tree_controller(actions.ID_RIGHT_TREE)
+        self.left_con: TreePanelController = self.app.get_tree_controller(actions.ID_LEFT_TREE)
+        self.right_con: TreePanelController = self.app.get_tree_controller(actions.ID_RIGHT_TREE)
 
         if do_before_verify_func:
             do_before_verify_func()

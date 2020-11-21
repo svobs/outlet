@@ -34,7 +34,7 @@ class SimpleIcon:
         self.name = name
         self.icon_path: str = get_resource_path(path)
 
-    def load(self):
+    def load(self) -> GdkPixbuf.Pixbuf:
         return GdkPixbuf.Pixbuf.new_from_file(self.icon_path)
 
 
@@ -165,7 +165,7 @@ class Assets:
         icon_size = ensure_int(config.get('display.diff_tree.icon_size'))
         badge_size = ensure_int(config.get('display.diff_tree.badge_size'))
         self.icon_dict: Dict[str, SimpleIcon] = _build_icons(icon_size, badge_size)
-        self._icons: Dict = _load_icons(self.icon_dict)
+        self._icons: Dict[str, GdkPixbuf.Pixbuf] = _load_icons(self.icon_dict)
 
     def get_icon(self, icon_name: str):
         return self._icons.get(icon_name, None)

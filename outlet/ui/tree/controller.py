@@ -59,14 +59,14 @@ class TreePanelController:
         # Need to start TreeUiListeners AFTER TreeActions... Need a better solution
         self.tree_ui_listeners.init()
 
-        self.app.cacheman.register_tree_controller(self)
+        self.app.register_tree_controller(self)
 
         self._set_column_visibilities()
 
     def destroy(self):
         logger.debug(f'[{self.tree_id}] Destroying controller')
-        if self.app.cacheman:
-            self.app.cacheman.unregister_tree_controller(self)
+        if self.app:
+            self.app.unregister_tree_controller(self)
 
         if self.tree_ui_listeners:
             self.tree_ui_listeners.shutdown()
