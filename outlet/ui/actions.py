@@ -12,6 +12,7 @@ SHOW_GDRIVE_CHOOSER_DIALOG = 'show-gdrive-dir-chooser-dialog'
 DOWNLOAD_ALL_GDRIVE_META = 'download-all-gdrive-meta'
 GDRIVE_CHOOSER_DIALOG_LOAD_DONE = 'gdrive-dir-chooser-load-complete'
 COMMAND_COMPLETE = 'command-complete'
+STOP_LIVE_CAPTURE = 'stop-live-capture'
 
 # --- Tree actions: requests ---
 CALL_EXIFTOOL = 'call-exiftool'

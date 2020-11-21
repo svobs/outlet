@@ -1,24 +1,17 @@
+import logging
 import signal
 import sys
-import logging
-from typing import Dict
-
-from pydispatch import dispatcher
-
-from executor.central import CentralExecutor
-from store.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
-from model.node_identifier_factory import NodeIdentifierFactory
-from ui import actions
-from ui.actions import ID_DIFF_WINDOW
-
-from store.cache_manager import CacheManager
-from ui.tree.controller import TreePanelController
-
-from ui.two_pane_window import TwoPanelWindow
-from app_config import AppConfig
-import ui.assets
 
 import gi
+from pydispatch import dispatcher
+
+from app_config import AppConfig
+from OutletBackend import OutletBackend
+from OutletFrontend import OutletFrontend
+from ui import actions
+from ui.actions import ID_DIFF_WINDOW
+from ui.two_pane_window import TwoPanelWindow
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gio, GLib
 
@@ -28,27 +21,21 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 
-class OutletApplication(Gtk.Application):
+class OutletApplication(Gtk.Application, OutletBackend, OutletFrontend):
 
     """Main app.
     See: https://athenajc.gitbooks.io/python-gtk-3-api/content/gtk-group/gtkapplication.html"""
     def __init__(self, config):
         self.config = config
         Gtk.Application.__init__(self)
-        self.assets = ui.assets.Assets(config)
-
-        self._tree_controllers: Dict[str, TreePanelController] = {}
-        """Keep track of live UI tree controllers, so that we can look them up by ID (e.g. for use in automated testing)"""
+        OutletBackend.__init__(self, config)
+        OutletFrontend.__init__(self, config)
 
         self.window = None
-        self._shutdown_requested: bool = False
-
-        self.executor: CentralExecutor = CentralExecutor(self)
-        self.uid_generator: UidGenerator = PersistentAtomicIntUidGenerator(self.config)
-        self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self)
-        self.cacheman: CacheManager = CacheManager(self)
 
     def start(self):
+        OutletBackend.start(self)
+        OutletFrontend.start(self)
         logger.info('Starting app')
         self.executor.start()
 
@@ -56,51 +43,16 @@ class OutletApplication(Gtk.Application):
         dispatcher.send(actions.START_CACHEMAN, sender=actions.ID_CENTRAL_EXEC)
 
     def quit(self):
-        if self._shutdown_requested:
-            return
+        OutletBackend.shutdown(self)
+        OutletFrontend.shutdown(self)
 
         logger.info('Shutting down app')
-        self._shutdown_requested = True
 
-        dispatcher.send(actions.SHUTDOWN_APP, sender=actions.ID_CENTRAL_EXEC)
-
-        try:
-            if self._tree_controllers:
-                for controller in list(self._tree_controllers.values()):
-                    controller.destroy()
-                self._tree_controllers.clear()
-        except NameError:
-            pass
-
-        self.cacheman = None
-        self.executor = None
         if self.window:
             # swap into local var to prevent infinite cycle
             win = self.window
             self.window = None
             win.close()
-
-        # Gtk.main_quit()
-        logger.info('App shut down')
-
-    # Tree controller tracking/lookup
-    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-    def register_tree_controller(self, controller: TreePanelController):
-        logger.debug(f'[{controller.tree_id}] Registering controller')
-        self._tree_controllers[controller.tree_id] = controller
-
-    def unregister_tree_controller(self, controller: TreePanelController):
-        logger.debug(f'[{controller.tree_id}] Unregistering controller')
-        popped_con = self._tree_controllers.pop(controller.tree_id, None)
-        if popped_con:
-            if self._is_live_capture_enabled and self._live_monitor:
-                self._live_monitor.stop_capture(controller.tree_id)
-        else:
-            logger.debug(f'Could not unregister TreeController; it was not found: {controller.tree_id}')
-
-    def get_tree_controller(self, tree_id: str) -> Optional[TreePanelController]:
-        return self._tree_controllers.get(tree_id, None)
 
     def do_activate(self):
         # We only allow a single window and raise any existing ones

@@ -114,6 +114,7 @@ class CacheManager(HasLifecycle):
 
         self.connect_dispatch_listener(signal=actions.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
         self.connect_dispatch_listener(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
+        self.connect_dispatch_listener(signal=actions.STOP_LIVE_CAPTURE, receiver=self._stop_live_capture)
 
     def shutdown(self):
         logger.debug('CacheManager.shutdown() entered')
@@ -385,6 +386,10 @@ class CacheManager(HasLifecycle):
             raise RuntimeError(f'Unrecognized tree type: {node_identifier.tree_type}')
 
         return subtree
+
+    def _stop_live_capture(self, tree_id):
+        if self._is_live_capture_enabled and self._live_monitor:
+            self._live_monitor.stop_capture(tree_id)
 
     @staticmethod
     def _normalize_paths(node_identifier: NodeIdentifier):
