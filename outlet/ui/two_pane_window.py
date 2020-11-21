@@ -74,6 +74,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
                            'filter_panel': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL),
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
+        # TODO: build RootPathConfigPersister in tree factory; include it in controller
         # Diff Tree Left:
         self.root_path_persister_left = RootPathConfigPersister(app=self.app, tree_id=actions.ID_LEFT_TREE)
         saved_root_left = self.root_path_persister_left.root_identifier

@@ -18,6 +18,9 @@ from ui import actions
 logger = logging.getLogger(__name__)
 
 
+# CLASS OutletDaemon
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class OutletDaemon(OutletServicer):
     def __init__(self, config):
         self.config = config
