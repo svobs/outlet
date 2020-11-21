@@ -40,6 +40,7 @@ class OpLedger(HasLifecycle):
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
 
     def start(self):
+        logger.debug(f'Starting OpLedger')
         HasLifecycle.start(self)
         self._disk_store.start()
         self.connect_dispatch_listener(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)

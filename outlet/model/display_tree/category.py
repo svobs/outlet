@@ -59,7 +59,7 @@ class CategoryDisplayTree(DisplayTree):
     def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
         try:
             if filter_criteria:
-                return filter_criteria.get_filtered_child_list(node, self)
+                return filter_criteria.get_filtered_child_list(parent, self)
             else:
                 child_list = self._category_tree.children(parent.identifier)
                 return child_list

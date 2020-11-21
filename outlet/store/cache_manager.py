@@ -163,13 +163,16 @@ class CacheManager(HasLifecycle):
     def start(self):
         """Should be called during startup. Loop over all caches and load/merge them into a
         single large in-memory cache"""
+        logger.debug(f'Starting CacheManager')
         HasLifecycle.start(self)
 
         logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {ID_GLOBAL_CACHE}')
-        stopwatch = Stopwatch()
         dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=ID_GLOBAL_CACHE)
 
         try:
+            # Load registry. Do validation along the way
+            self._load_registry()
+
             # Init sub-modules:
             self._master_local = LocalDiskMasterStore(self.app)
             self._master_local.start()
@@ -180,52 +183,11 @@ class CacheManager(HasLifecycle):
             self._live_monitor = LiveMonitor(self.app)
             self._live_monitor.start()
 
-            # Load registry. Do validation along the way
-            caches_from_registry: List[CacheInfoEntry] = self._get_cache_info_from_registry()
-            unique_cache_count = 0
-            skipped_count = 0
-            for cache_from_registry in caches_from_registry:
-                info: PersistedCacheInfo = PersistedCacheInfo(cache_from_registry)
-                if not os.path.exists(info.cache_location):
-                    logger.info(f'Skipping non-existent cache info entry: {info.cache_location} (for subtree: {info.subtree_root})')
-                    skipped_count += 1
-                    continue
-                existing = self.caches_by_type.get_single(info.subtree_root.tree_type, info.subtree_root.get_path_list()[0])
-                if existing:
-                    if info.sync_ts < existing.sync_ts:
-                        logger.info(f'Skipping duplicate cache info entry: {existing.subtree_root}')
-                        continue
-                    else:
-                        logger.info(f'Overwriting older duplicate cache info entry: {existing.subtree_root}')
-
-                    skipped_count += 1
-                else:
-                    unique_cache_count += 1
-
-                # There are up to 4 locations where the subtree root can be stored
-                if info.subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
-                    uid_from_mem = self._master_local.get_uid_for_path(info.subtree_root.get_path_list()[0], info.subtree_root.uid)
-                    if uid_from_mem != info.subtree_root.uid:
-                        raise RuntimeError(f'Subtree root UID from diskstore registry ({info.subtree_root.uid}) does not match UID '
-                                           f'from memstore ({uid_from_mem}) for path="{info.subtree_root.get_path_list()[0]}"')
-
-                # Put into map to eliminate possible duplicates
-                self.caches_by_type.put_item(info)
-
-            # Write back to cache if we need to clean things up:
-            if skipped_count > 0:
-                caches = self.caches_by_type.get_all()
-                self._overwrite_all_caches_in_registry(caches)
-
-            self._load_registry_done.set()
-            dispatcher.send(signal=actions.LOAD_REGISTRY_DONE, sender=ID_GLOBAL_CACHE)
-
             # Now load all caches (if configured):
             if self.enable_load_from_disk and self.load_all_caches_on_startup:
                 self._load_all_caches()
             else:
-                logger.info(f'{stopwatch} Found {unique_cache_count} existing caches (+ {skipped_count} skipped) but configured not to load on'
-                            f' startup')
+                logger.info(f'Configured not to load on startup')
 
             # Finally, add or cancel any queued changes (asynchronously)
             if self.cancel_all_pending_ops_on_startup:
@@ -241,12 +203,50 @@ class CacheManager(HasLifecycle):
             logger.debug('CacheManager init done')
             dispatcher.send(signal=actions.START_CACHEMAN_DONE, sender=ID_GLOBAL_CACHE)
 
+    def _load_registry(self):
+        stopwatch = Stopwatch()
+        caches_from_registry: List[CacheInfoEntry] = self._get_cache_info_from_registry()
+        unique_cache_count = 0
+        skipped_count = 0
+        for cache_from_registry in caches_from_registry:
+            info: PersistedCacheInfo = PersistedCacheInfo(cache_from_registry)
+            if not os.path.exists(info.cache_location):
+                logger.info(f'Skipping non-existent cache info entry: {info.cache_location} (for subtree: {info.subtree_root})')
+                skipped_count += 1
+                continue
+            existing = self.caches_by_type.get_single(info.subtree_root.tree_type, info.subtree_root.get_path_list()[0])
+            if existing:
+                if info.sync_ts < existing.sync_ts:
+                    logger.info(f'Skipping duplicate cache info entry: {existing.subtree_root}')
+                    continue
+                else:
+                    logger.info(f'Overwriting older duplicate cache info entry: {existing.subtree_root}')
+
+                skipped_count += 1
+            else:
+                unique_cache_count += 1
+
+            # Put into map to eliminate possible duplicates
+            self.caches_by_type.put_item(info)
+
+        # Write back to cache if we need to clean things up:
+        if skipped_count > 0:
+            caches = self.caches_by_type.get_all()
+            self._overwrite_all_caches_in_registry(caches)
+
+        self._load_registry_done.set()
+        dispatcher.send(signal=actions.LOAD_REGISTRY_DONE, sender=ID_GLOBAL_CACHE)
+
+        logger.info(f'{stopwatch} Found {unique_cache_count} existing caches (+ {skipped_count} skipped)')
+
     def wait_for_load_registry_done(self, fail_on_timeout: bool = True):
+        logger.debug(f'Waiting for Load Registry to complete')
         if not self._load_registry_done.wait(CACHE_LOAD_TIMEOUT_SEC):
             if fail_on_timeout:
                 raise RuntimeError('Timed out waiting for CacheManager to finish loading the registry!')
             else:
                 logger.error('Timed out waiting for CacheManager to finish loading the registry!')
+        logger.debug(f'Load Registry completed')
 
     def wait_for_startup_done(self):
         if not self._startup_done.is_set():
@@ -402,7 +402,7 @@ class CacheManager(HasLifecycle):
 
     def find_existing_cache_info_for_local_subtree(self, full_path: str) -> Optional[PersistedCacheInfo]:
         # Wait for registry to finish loading before attempting to read dict. Shouldn't take long.
-        self.app.cacheman.wait_for_load_registry_done()
+        self.wait_for_load_registry_done()
 
         existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_LOCAL_DISK).values())
 
@@ -437,8 +437,8 @@ class CacheManager(HasLifecycle):
                 else:
                     self._master_local.get_display_tree(cache.subtree_root, ID_GLOBAL_CACHE)
 
-    def (self, subtree_root: SinglePathNodeIdentifier) -> PersistedCacheInfo:
-        self.app.cacheman.wait_for_load_registry_done()
+    def get_or_create_cache_info_entry(self, subtree_root: SinglePathNodeIdentifier) -> PersistedCacheInfo:
+        self.wait_for_load_registry_done()
 
         existing = self.caches_by_type.get_single(subtree_root.tree_type, subtree_root.get_single_path())
         if existing:

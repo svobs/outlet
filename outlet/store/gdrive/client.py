@@ -61,6 +61,7 @@ class GDriveClient(HasLifecycle):
         self.service: Optional[Resource] = None
 
     def start(self):
+        logger.debug(f'Starting GDriveClient')
         HasLifecycle.start(self)
         self.service = GDriveClient._load_google_client_service(self.app.config)
 

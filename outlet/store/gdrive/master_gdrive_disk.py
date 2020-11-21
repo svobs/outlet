@@ -30,6 +30,7 @@ class GDriveDiskStore(HasLifecycle):
         self._db: Optional[GDriveDatabase] = None
 
     def start(self):
+        logger.debug(f'Starting GDriveDiskStore')
         HasLifecycle.start(self)
         gdrive_db_path = self._get_gdrive_cache_path()
         self._db = GDriveDatabase(gdrive_db_path, self.app)

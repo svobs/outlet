@@ -4,6 +4,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import Callable, Deque, Iterable, List, Union
 
+from model.has_get_children import HasGetChildren
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 # ABSTRACT CLASS DisplayTree
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class DisplayTree(ABC):
+class DisplayTree(HasGetChildren, ABC):
     def __init__(self, app, tree_id: str, root_identifier: SinglePathNodeIdentifier):
         self.app = app
         self.tree_id: str = tree_id

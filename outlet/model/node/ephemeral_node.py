@@ -11,8 +11,6 @@ from model.node_identifier import NullNodeIdentifier
 
 
 class EphemeralNode(Node, ABC):
-    """Does not have an identifier - should not be inserted into a treelib.Tree!"""
-
     def __init__(self):
         super().__init__(NullNodeIdentifier())
 

@@ -68,6 +68,7 @@ class GDriveMasterStore(MasterStore):
         self.tree_loader = GDriveTreeLoader(app=self.app, diskstore=self._diskstore, tree_id=actions.ID_GLOBAL_CACHE)
 
     def start(self):
+        logger.debug(f'Starting GDriveMasterStore')
         MasterStore.start(self)
         self._diskstore.start()
         self.gdrive_client.start()
