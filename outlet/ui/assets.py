@@ -14,11 +14,11 @@ from constants import BADGE_ICON_BASE_DIR, BASE_ICON_BASE_DIR, BTN_GDRIVE, BTN_L
 from model.node_identifier import ensure_int
 
 from util.file_util import get_resource_path
-from PIL import Image
 
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GdkPixbuf
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 

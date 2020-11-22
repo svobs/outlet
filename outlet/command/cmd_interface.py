@@ -1,13 +1,12 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Optional
 
-import treelib
-
-from store.gdrive.client import GDriveClient
+from model.gdrive_whole_tree import GDriveWholeTree
 from model.uid import UID
 from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpType
-from model.gdrive_whole_tree import GDriveWholeTree
+from store.gdrive.client import GDriveClient
+from util.simple_tree import BaseNode
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +36,10 @@ class CommandContext:
 # ABSTRACT CLASS Command
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class Command(treelib.Node, ABC):
+class Command(BaseNode, ABC):
     """Every command has an associated target node and a UserOp."""
     def __init__(self, uid: UID, op: UserOp):
-        treelib.Node.__init__(self, identifier=uid)
+        BaseNode.__init__(self, identifier=uid)
         assert op
 
         self.op: UserOp = op

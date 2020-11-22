@@ -4,13 +4,12 @@ import os
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
-import treelib
-
 from error import InvalidOperationError
 from util import format
 from constants import ICON_FILE_CP_DST, ICON_GENERIC_FILE, TrashStatus
 from store.uid.uid_generator import UID
 from model.node_identifier import NodeIdentifier
+from util.simple_tree import BaseNode
 
 logger = logging.getLogger(__name__)
 
@@ -22,13 +21,14 @@ SPIDNodePair = collections.namedtuple('SPIDNodePair', 'spid node')
 # ABSTRACT CLASS Node
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class Node(treelib.Node, ABC):
+class Node(BaseNode, ABC):
     """Base class for all data nodes."""
 
     def __init__(self, node_identifier: NodeIdentifier, nid=None, trashed: TrashStatus = TrashStatus.NOT_TRASHED):
         # Look at these next 3 lines. They are very important.
         if not nid:
             nid = node_identifier.uid
+        BaseNode.__init__(self, identifier=nid)
         self.node_identifier: NodeIdentifier = node_identifier
 
         if not trashed:
@@ -38,18 +38,18 @@ class Node(treelib.Node, ABC):
         else:
             self._trashed: TrashStatus = TrashStatus(trashed)
 
-        treelib.Node.__init__(self, identifier=nid)
-        self._update_tag()
-
-    def _update_tag(self):
-        self.tag = f'{self.node_identifier}: "{self.identifier}"'
-
     @abstractmethod
     def is_parent_of(self, potential_child_node) -> bool:
         raise InvalidOperationError('is_parent_of')
 
     def get_tree_type(self) -> int:
         return self.node_identifier.tree_type
+
+    def get_tag(self) -> str:
+        return str(self.node_identifier)
+
+    def __lt__(self, other):
+        return self.name < other.name
 
     @classmethod
     @abstractmethod
@@ -79,6 +79,10 @@ class Node(treelib.Node, ABC):
         return False
 
     @classmethod
+    def set_is_live(cls, is_live: bool):
+        raise InvalidOperationError('Cannot call set_is_live() for base class Node!')
+
+    @classmethod
     def has_tuple(cls) -> bool:
         return False
 
@@ -91,12 +95,7 @@ class Node(treelib.Node, ABC):
 
     def set_node_identifier(self, node_identifier: NodeIdentifier):
         self.node_identifier = node_identifier
-        # This will call self._set_identifier():
         self.identifier = node_identifier.uid
-
-    def _set_identifier(self, value):
-        super()._set_identifier(value)
-        self._update_tag()
 
     @property
     def name(self):
@@ -151,7 +150,6 @@ class Node(treelib.Node, ABC):
     def uid(self, uid: UID):
         self.node_identifier.uid = uid
         self.identifier = uid
-        self._update_tag()
 
     def get_icon(self):
         if self.is_live():

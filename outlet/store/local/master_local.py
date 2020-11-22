@@ -5,8 +5,6 @@ import threading
 import time
 from typing import List, Optional, Tuple
 
-from treelib.exceptions import NodeIDAbsentError
-
 import store.local.content_hasher
 from constants import SUPER_DEBUG, TrashStatus, TREE_TYPE_LOCAL_DISK
 from model.display_tree.display_tree import DisplayTree
@@ -28,6 +26,7 @@ from store.uid.uid_mapper import UidPathMapper
 from ui.actions import ID_GLOBAL_CACHE
 from ui.tree.filter_criteria import FilterCriteria
 from util import file_util
+from util.simple_tree import NodeNotPresentError
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -120,12 +119,12 @@ class LocalDiskMasterStore(MasterStore):
         fresh_tree: LocalDiskTree = self._scan_file_tree(subtree_root, tree_id)
 
         if SUPER_DEBUG:
-            logger.debug(f'[{tree_id}] Scanned fresh tree: \n{fresh_tree.show(stdout=False)}')
+            logger.debug(f'[{tree_id}] Scanned fresh tree: \n{fresh_tree.show()}')
 
         with self._struct_lock:
             # Just upsert all nodes in the updated tree and let God (or some logic) sort them out.
             # Need extra logic to find removed nodes and pending op nodes though:
-            root_node: LocalNode = fresh_tree.get_node(fresh_tree.root)
+            root_node: LocalNode = fresh_tree.get_root_node()
             if root_node.is_dir():
                 # "Pending op" nodes are not stored in the regular cache (they should all have is_live()==False)
                 pending_op_nodes: List[LocalNode] = []
@@ -159,7 +158,7 @@ class LocalDiskMasterStore(MasterStore):
 
     def show_tree(self, subtree_root: LocalNodeIdentifier) -> str:
         with self._struct_lock:
-            return self._memstore.master_tree.show(stdout=False, nid=subtree_root.uid)
+            return self._memstore.master_tree.show(nid=subtree_root.uid)
 
     def get_display_tree(self, subtree_root: LocalNodeIdentifier, tree_id: str) -> DisplayTree:
         logger.debug(f'DisplayTree requested for root: {subtree_root}')
@@ -221,7 +220,7 @@ class LocalDiskMasterStore(MasterStore):
                 tree = self._diskstore.load_subtree(cache_info, tree_id)
                 if tree:
                     if SUPER_DEBUG:
-                        logger.debug(f'[{tree_id}] Loaded cached tree: \n{tree.show(stdout=False)}')
+                        logger.debug(f'[{tree_id}] Loaded cached tree: \n{tree.show()}')
                     with self._struct_lock:
                         self._memstore.master_tree.replace_subtree(tree)
                         logger.debug(f'[{tree_id}] Updated in-memory cache: {self.get_summary()}')
@@ -361,9 +360,6 @@ class LocalDiskMasterStore(MasterStore):
         new_node_uid: UID = self.get_uid_for_path(new_node_full_path)
 
         new_node = copy.deepcopy(node)
-        # new_node.reset_pointers(self._master_tree.identifier)
-        new_node._predecessor.clear()
-        new_node._successors.clear()
         new_node.set_node_identifier(LocalNodeIdentifier(uid=new_node_uid, path_list=new_node_full_path))
         return new_node
 
@@ -525,7 +521,7 @@ class LocalDiskMasterStore(MasterStore):
                 if not required_subtree_path or parent.get_single_path().startswith(required_subtree_path):
                     return parent
                 return None
-        except NodeIDAbsentError:
+        except NodeNotPresentError:
             return None
         except Exception:
             logger.error(f'Error getting parent for node: {node}, required_path: {required_subtree_path}')

@@ -170,7 +170,7 @@ class CacheManager(HasLifecycle):
         dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=ID_GLOBAL_CACHE)
 
         try:
-            # Load registry. Do validation along the way
+            # Load registry first. Do validation along the way
             self._load_registry()
 
             # Init sub-modules:

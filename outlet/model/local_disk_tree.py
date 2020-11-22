@@ -3,15 +3,13 @@ from collections import deque
 from typing import Callable, Deque, List, Optional, Tuple
 import logging
 
-import treelib
-from treelib.exceptions import NodeIDAbsentError
-
 from constants import SUPER_DEBUG, TrashStatus
 from model.uid import UID
 from util import file_util
-from model.node.node import HasChildStats
+from model.node.node import HasChildStats, Node
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
+from util.simple_tree import SimpleTree
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -20,14 +18,11 @@ logger = logging.getLogger(__name__)
 # CLASS LocalDiskTree
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class LocalDiskTree(treelib.Tree):
-    """Tree data structure, representing a subtree on a local disk, backed by a treelib.Tree data structure."""
+class LocalDiskTree(SimpleTree):
+    """Tree data structure, representing a subtree on a local disk, backed by a SimpleTree data structure."""
     def __init__(self, app):
         super().__init__()
         self.app = app
-
-    def get_root_node(self) -> LocalNode:
-        return self.get_node(self.root)
 
     def can_add_without_mkdir(self, node: LocalNode) -> bool:
         parent_path: str = node.derive_parent_path()
@@ -35,10 +30,10 @@ class LocalDiskTree(treelib.Tree):
         return self.get_node(uid) is not None
 
     def add_to_tree(self, node: LocalNode):
-        root_node: LocalNode = self.get_root_node()
+        root_node: Node = self.get_root_node()
         root_node_identifier: NodeIdentifier = root_node.node_identifier
         path_so_far: str = root_node_identifier.get_single_path()
-        parent: LocalNode = self.get_node(root_node_identifier.uid)
+        parent: Node = self.get_node(root_node_identifier.uid)
 
         # A trailing '/' will really screw us up:
         assert file_util.is_normalized(root_node_identifier.get_single_path()), f'Path: {root_node_identifier.get_single_path()}'
@@ -52,7 +47,7 @@ class LocalDiskTree(treelib.Tree):
             for dir_name in path_segments:
                 path_so_far: str = os.path.join(path_so_far, dir_name)
                 uid = self.app.cacheman.get_uid_for_path(path_so_far)
-                child: LocalNode = self.get_node(nid=uid)
+                child: Node = self.get_node(nid=uid)
                 if not child:
                     # logger.debug(f'Creating dir node: nid={uid}')
                     child = LocalDirNode(node_identifier=LocalNodeIdentifier(path_list=path_so_far, uid=uid),
@@ -65,10 +60,11 @@ class LocalDiskTree(treelib.Tree):
                 parent = child
 
         # Finally, add the node itself:
-        child: LocalNode = self.get_node(nid=node.uid)
+        child: Node = self.get_node(nid=node.uid)
         if child:
             if child.is_dir() and node.is_dir():
                 # Just update
+                assert isinstance(child, LocalNode)
                 child.set_is_live(node.is_live())
             else:
                 assert False, f'For old={child}, new={node}, path_segments={path_segments}'
@@ -77,36 +73,12 @@ class LocalDiskTree(treelib.Tree):
                 logger.error(f'Parent is None for node: {node}')
             self.add_node(node=node, parent=parent)
 
-    def get_subtree_bfs(self, subtree_root_uid: UID = None) -> List[LocalNode]:
-        """Returns an iterator which will do a breadth-first traversal of the tree. If subtree_root is provided, do a breadth-first traversal
-        of the subtree whose root is subtree_root (returning None if this tree does not contain subtree_root).
-        """
-        if not subtree_root_uid:
-            subtree_root_uid = self.root
-
-        if not self.contains(subtree_root_uid):
-            return []
-
-        node: LocalNode = self.get_node(nid=subtree_root_uid)
-
-        bfs_list: List[LocalNode] = []
-
-        dir_queue: Deque[LocalNode] = deque()
-        dir_queue.append(node)
-
-        while len(dir_queue) > 0:
-            node = dir_queue.popleft()
-            bfs_list.append(node)
-            if node.is_dir():
-                for child in self.children(node.uid):
-                    dir_queue.append(child)
-
-        return bfs_list
-
-    def for_each_node_breadth_first(self, action_func: Callable, subtree_root_node: Optional[LocalNode] = None):
+    def for_each_node_breadth_first(self, action_func: Callable, subtree_root_node: Optional[Node] = None):
         dir_queue: Deque[LocalDirNode] = deque()
         if not subtree_root_node:
             subtree_root_node = self.get_root_node()
+            if not subtree_root_node:
+                return
 
         action_func(subtree_root_node)
 
@@ -126,18 +98,19 @@ class LocalDiskTree(treelib.Tree):
                         assert isinstance(child, LocalDirNode)
                         dir_queue.append(child)
 
-    def replace_subtree(self, sub_tree: treelib.Tree):
-        if not self.contains(sub_tree.root):
+    def replace_subtree(self, sub_tree: SimpleTree):
+        sub_tree_root_node: Node = sub_tree.get_root_node()
+        if not self.contains(sub_tree_root_node.uid):
             # quick and dirty way to add any missing parents:
-            sub_tree_root_node: LocalNode = sub_tree.get_node(sub_tree.root)
             logger.debug(f'This tree (root: {self.get_root_node().node_identifier}) does not contain sub-tree '
                          f'(root: {sub_tree_root_node.node_identifier}): it and its ancestors will be added')
+            assert isinstance(sub_tree_root_node, LocalNode)
             self.add_to_tree(sub_tree_root_node)
 
-        parent_of_subtree: LocalNode = self.parent(sub_tree.root)
-        count_removed = self.remove_node(sub_tree.root)
+        parent_of_subtree: LocalNode = self.parent(sub_tree_root_node.identifier)
+        count_removed = self.remove_node(sub_tree_root_node.identifier)
         logger.debug(f'Removed {count_removed} nodes from this tree, to be replaced with {len(sub_tree)} subtree nodes')
-        self.paste(nid=parent_of_subtree.uid, new_tree=sub_tree)
+        self.paste(parent_nid=parent_of_subtree.uid, new_tree=sub_tree)
 
     def get_all_files_and_dirs_for_subtree(self, subtree_root: LocalNodeIdentifier) -> Tuple[List[LocalFileNode], List[LocalDirNode]]:
         file_list: List[LocalFileNode] = []
@@ -159,12 +132,38 @@ class LocalDiskTree(treelib.Tree):
 
         logger.debug(f'Returning {len(file_list)} files and {len(dir_list)} dirs')
         return file_list, dir_list
-    
-    def get_children(self, node: LocalNode) -> List[LocalNode]:
-        try:
-            return self.children(node.uid)
-        except NodeIDAbsentError:
-            raise RuntimeError(f'Node is not in the tree: {node} (uid={node.uid})')
+
+    def get_subtree_bfs(self, subtree_root_uid: UID = None) -> List[Node]:
+        """Returns an iterator which will do a breadth-first traversal of the tree. If subtree_root is provided, do a breadth-first traversal
+        of the subtree whose root is subtree_root (returning None if this tree does not contain subtree_root).
+        """
+        if not subtree_root_uid:
+            root_node = self.get_root_node()
+            if not root_node:
+                return []
+            subtree_root_uid = root_node.uid
+
+        if not self.contains(subtree_root_uid):
+            return []
+
+        node: Node = self.get_node(nid=subtree_root_uid)
+
+        bfs_list: List[Node] = []
+
+        dir_queue: Deque[Node] = deque()
+        dir_queue.append(node)
+
+        while len(dir_queue) > 0:
+            node = dir_queue.popleft()
+            bfs_list.append(node)
+            if node.is_dir():
+                for child in self.children(node.uid):
+                    dir_queue.append(child)
+
+        return bfs_list
+
+    def get_children(self, node: LocalNode) -> List[Node]:
+        return self.get_child_list(node.identifier)
 
     def refresh_stats(self, subtree_root_node: LocalNode, tree_id: str):
         logger.debug(f'[{tree_id}] Refreshing stats for local disk tree with root: {subtree_root_node.node_identifier}')

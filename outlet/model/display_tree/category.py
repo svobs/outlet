@@ -3,9 +3,7 @@ import pathlib
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional, Union
 
-import treelib
 from pydispatch import dispatcher
-from treelib.exceptions import DuplicatedNodeIdError
 
 from constants import NULL_UID, ROOT_PATH, SUPER_DEBUG, SUPER_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from error import InvalidOperationError
@@ -17,6 +15,7 @@ from model.user_op import UserOp, USER_OP_TYPES, UserOpType
 from model.uid import UID
 from ui import actions
 from ui.tree.filter_criteria import FilterCriteria
+from util.simple_tree import NodeAlreadyPresentError, SimpleTree
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -29,10 +28,10 @@ class CategoryDisplayTree(DisplayTree):
     """Note: this doesn't completely map to DisplayTree, but it's close enough for it to be useful to
     inherit its functionality"""
     def __init__(self, app, tree_id: str, root_node_identifier: SinglePathNodeIdentifier, show_whole_forest=False):
-        # Root node will never be displayed in the UI, but treelib requires a root node, as does parent class
+        # Root node will never be displayed in the UI, but tree requires a root node, as does parent class
         super().__init__(app, tree_id, root_node_identifier)
 
-        self._category_tree: treelib.Tree = treelib.Tree()
+        self._category_tree: SimpleTree = SimpleTree()
 
         # Root node is not really important. Do not use its original UID, so as to disallow it from interfering with lookups
         root_node = ContainerNode(root_node_identifier, nid=SUPER_ROOT_UID)
@@ -50,8 +49,8 @@ class CategoryDisplayTree(DisplayTree):
         self.count_conflict_warnings = 0
         self.count_conflict_errors = 0
 
-    def get_root_node(self):
-        return self._category_tree.get_node(self._category_tree.root)
+    def get_root_node(self) -> Node:
+        return self._category_tree.get_root_node()
 
     def get_children_for_root(self, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
         return self.get_children(self.get_root_node(), filter_criteria)
@@ -61,7 +60,7 @@ class CategoryDisplayTree(DisplayTree):
             if filter_criteria:
                 return filter_criteria.get_filtered_child_list(parent, self)
             else:
-                child_list = self._category_tree.children(parent.identifier)
+                child_list = self._category_tree.get_child_list(parent.identifier)
                 return child_list
         except Exception:
             if logger.isEnabledFor(logging.DEBUG):
@@ -70,7 +69,7 @@ class CategoryDisplayTree(DisplayTree):
             raise
 
     def print_tree_contents_debug(self):
-        logger.debug(f'[{self.tree_id}] CategoryTree for "{self.root_identifier}": \n' + self._category_tree.show(stdout=False))
+        logger.debug(f'[{self.tree_id}] CategoryTree for "{self.root_identifier}": \n' + self._category_tree.show())
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
         raise InvalidOperationError('CategoryDisplayTree.get_ancestor_list()')
@@ -107,6 +106,7 @@ class CategoryDisplayTree(DisplayTree):
         last_pre_ancestor_nid: str = self._build_tree_nid(tree_type, self.root_path, op_type)
         last_pre_ancestor = self._category_tree.get_node(last_pre_ancestor_nid)
         if last_pre_ancestor:
+            assert isinstance(last_pre_ancestor, ContainerNode)
             return last_pre_ancestor
 
         # else we need to create pre-ancestors...
@@ -215,7 +215,7 @@ class CategoryDisplayTree(DisplayTree):
                 logger.info(f'[{self.tree_id}] Adding node: {sn.node.node_identifier} ({sn.node.identifier}) '
                             f'to parent: {parent.node_identifier} ({parent.identifier})')
             self._category_tree.add_node(node=sn.node, parent=parent)
-        except DuplicatedNodeIdError:
+        except NodeAlreadyPresentError:
             # TODO: configurable handling of conflicts. Google Drive allows nodes with the same path and name, which is not allowed on local FS
             conflict_node = self._category_tree.get_node(sn.node.identifier)
             if conflict_node.md5 == sn.node.md5:

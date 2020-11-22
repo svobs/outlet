@@ -3,14 +3,12 @@ from enum import IntEnum
 import logging
 from typing import List, Optional
 
-import treelib
-from treelib import Node
-
 from constants import ICON_DIR_CP_DST, ICON_DIR_CP_SRC, ICON_DIR_MK, ICON_DIR_MV_DST, ICON_DIR_MV_SRC, ICON_DIR_RM, \
     ICON_DIR_UP_DST, ICON_DIR_UP_SRC, ICON_FILE_CP_DST, ICON_FILE_CP_SRC, \
     ICON_FILE_MV_DST, ICON_FILE_MV_SRC, ICON_FILE_RM, ICON_FILE_UP_DST, ICON_FILE_UP_SRC
 from model.uid import UID
 from model.node.node import Node
+from util.simple_tree import BaseNode
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +84,7 @@ class UserOpResult:
 # Class UserOp
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class UserOp(treelib.Node):
+class UserOp(BaseNode):
     icon_src_file_dict = {UserOpType.RM: ICON_FILE_RM,
                           UserOpType.MV: ICON_FILE_MV_SRC,
                           UserOpType.UP: ICON_FILE_UP_SRC,
@@ -106,7 +104,7 @@ class UserOp(treelib.Node):
     def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpType, src_node: Node,
                  dst_node: Node = None, create_ts: int = None):
         assert src_node, 'No src node!'
-        treelib.Node.__init__(self, identifier=op_uid)
+        BaseNode.__init__(self, identifier=op_uid)
         self.op_uid: UID = op_uid
         self.batch_uid: UID = batch_uid
         self.op_type: UserOpType = op_type
