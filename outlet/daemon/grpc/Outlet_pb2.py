@@ -11,7 +11,9 @@ from google.protobuf import symbol_database as _symbol_database
 _sym_db = _symbol_database.Default()
 
 
+from outlet.daemon.grpc.dto import Node_pb2 as outlet_dot_daemon_dot_grpc_dot_dto_dot_Node__pb2
 
+from outlet.daemon.grpc.dto.Node_pb2 import *
 
 DESCRIPTOR = _descriptor.FileDescriptor(
   name='outlet/daemon/grpc/Outlet.proto',
@@ -19,8 +21,10 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=b'\n\023com.msvoboda.outletP\001Z\031msvoboda.com/outlet/proto',
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x1foutlet/daemon/grpc/Outlet.proto\x12\x0boutletproto\"\r\n\x0bPingRequest\"!\n\x0cPingResponse\x12\x11\n\ttimestamp\x18\x01 \x01(\x03\x32G\n\x06Outlet\x12=\n\x04ping\x12\x18.outletproto.PingRequest\x1a\x19.outletproto.PingResponse\"\x00\x42\x32\n\x13\x63om.msvoboda.outletP\x01Z\x19msvoboda.com/outlet/protob\x06proto3'
-)
+  serialized_pb=b'\n\x1foutlet/daemon/grpc/Outlet.proto\x12\x0boutletproto\x1a!outlet/daemon/grpc/dto/Node.proto\"\r\n\x0bPingRequest\"!\n\x0cPingResponse\x12\x11\n\ttimestamp\x18\x01 \x01(\x03\"E\n\x1dReadSingleNodeFromDiskRequest\x12\x11\n\tfull_path\x18\x01 \x01(\t\x12\x11\n\ttree_type\x18\x02 \x01(\x05\x32\xba\x01\n\x06Outlet\x12=\n\x04ping\x12\x18.outletproto.PingRequest\x1a\x19.outletproto.PingResponse\"\x00\x12q\n#read_single_node_from_disk_for_path\x12*.outletproto.ReadSingleNodeFromDiskRequest\x1a\x1c.outlet.daemon.grpc.dto.Node\"\x00\x42\x32\n\x13\x63om.msvoboda.outletP\x01Z\x19msvoboda.com/outlet/protoP\x00\x62\x06proto3'
+  ,
+  dependencies=[outlet_dot_daemon_dot_grpc_dot_dto_dot_Node__pb2.DESCRIPTOR,],
+  public_dependencies=[outlet_dot_daemon_dot_grpc_dot_dto_dot_Node__pb2.DESCRIPTOR,])
 
 
 
@@ -45,8 +49,8 @@ _PINGREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=48,
-  serialized_end=61,
+  serialized_start=83,
+  serialized_end=96,
 )
 
 
@@ -77,12 +81,52 @@ _PINGRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=63,
-  serialized_end=96,
+  serialized_start=98,
+  serialized_end=131,
+)
+
+
+_READSINGLENODEFROMDISKREQUEST = _descriptor.Descriptor(
+  name='ReadSingleNodeFromDiskRequest',
+  full_name='outletproto.ReadSingleNodeFromDiskRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='full_path', full_name='outletproto.ReadSingleNodeFromDiskRequest.full_path', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='tree_type', full_name='outletproto.ReadSingleNodeFromDiskRequest.tree_type', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=133,
+  serialized_end=202,
 )
 
 DESCRIPTOR.message_types_by_name['PingRequest'] = _PINGREQUEST
 DESCRIPTOR.message_types_by_name['PingResponse'] = _PINGRESPONSE
+DESCRIPTOR.message_types_by_name['ReadSingleNodeFromDiskRequest'] = _READSINGLENODEFROMDISKREQUEST
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 PingRequest = _reflection.GeneratedProtocolMessageType('PingRequest', (_message.Message,), {
@@ -99,6 +143,13 @@ PingResponse = _reflection.GeneratedProtocolMessageType('PingResponse', (_messag
   })
 _sym_db.RegisterMessage(PingResponse)
 
+ReadSingleNodeFromDiskRequest = _reflection.GeneratedProtocolMessageType('ReadSingleNodeFromDiskRequest', (_message.Message,), {
+  'DESCRIPTOR' : _READSINGLENODEFROMDISKREQUEST,
+  '__module__' : 'outlet.daemon.grpc.Outlet_pb2'
+  # @@protoc_insertion_point(class_scope:outletproto.ReadSingleNodeFromDiskRequest)
+  })
+_sym_db.RegisterMessage(ReadSingleNodeFromDiskRequest)
+
 
 DESCRIPTOR._options = None
 
@@ -109,8 +160,8 @@ _OUTLET = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=98,
-  serialized_end=169,
+  serialized_start=205,
+  serialized_end=391,
   methods=[
   _descriptor.MethodDescriptor(
     name='ping',
@@ -119,6 +170,16 @@ _OUTLET = _descriptor.ServiceDescriptor(
     containing_service=None,
     input_type=_PINGREQUEST,
     output_type=_PINGRESPONSE,
+    serialized_options=None,
+    create_key=_descriptor._internal_create_key,
+  ),
+  _descriptor.MethodDescriptor(
+    name='read_single_node_from_disk_for_path',
+    full_name='outletproto.Outlet.read_single_node_from_disk_for_path',
+    index=1,
+    containing_service=None,
+    input_type=_READSINGLENODEFROMDISKREQUEST,
+    output_type=outlet_dot_daemon_dot_grpc_dot_dto_dot_Node__pb2._NODE,
     serialized_options=None,
     create_key=_descriptor._internal_create_key,
   ),

@@ -48,8 +48,7 @@ class RootPathConfigPersister:
         # Cross-check that our local root UIDs are correct:
         if tree_type == TREE_TYPE_LOCAL_DISK:
             # resolves a problem of inconsistent UIDs during testing
-            # TODO: make into RPC call
-            node: Node = self.app.cacheman.read_single_node_from_disk_for_path(root_path, tree_type)
+            node: Node = self.app.backend.read_single_node_from_disk_for_path(root_path, tree_type)
             if node:
                 if root_uid != node.uid:
                     logger.warning(f'UID from config ({root_uid}) does not match UID from cache ({node.uid}); will use value from cache')

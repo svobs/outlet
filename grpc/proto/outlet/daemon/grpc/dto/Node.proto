@@ -4,7 +4,7 @@ option java_package = "com.msvoboda.outlet.dto";
 option java_multiple_files = true;
 option go_package = "msvoboda.com/outlet/proto/dto";
 
-package dto;
+package outlet.daemon.grpc.dto;
 
 message Node {
     int32 uid = 1;

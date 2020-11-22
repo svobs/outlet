@@ -6,10 +6,17 @@ import logging
 
 from app_config import AppConfig
 from daemon.grpc import Outlet_pb2_grpc
-from daemon.grpc.Outlet_pb2 import PingRequest
+from daemon.grpc.Outlet_pb2 import PingRequest, ReadSingleNodeFromDiskRequest
+from model.node.node import Node
 from OutletFrontend import OutletFrontend
+import outlet.daemon.grpc.dto.Node_pb2
 
 logger = logging.getLogger(__name__)
+
+
+def _node_from_grpc(grpc_node: outlet.daemon.grpc.dto.Node_pb2.Node) -> Node:
+    logger.info(f'Got: {grpc_node.uid}')
+    return None
 
 
 # CLASS OutletThinClient
@@ -21,6 +28,7 @@ class OutletThinClient(OutletFrontend):
         OutletFrontend.__init__(self, cfg)
         self.config = cfg
         self.stub = None
+        self.backend = self
 
     def start(self):
         OutletFrontend.start(self)
@@ -30,6 +38,13 @@ class OutletThinClient(OutletFrontend):
 
     def shutdown(self):
         OutletFrontend.shutdown(self)
+
+    def read_single_node_from_disk_for_path(self, full_path: str, tree_type: int) -> Node:
+        request = ReadSingleNodeFromDiskRequest()
+        request.full_path = full_path
+        request.tree_type = tree_type
+        grpc_node = self.stub.read_single_node_from_disk_for_path(request)
+        return _node_from_grpc(grpc_node)
 
 
 def main():
