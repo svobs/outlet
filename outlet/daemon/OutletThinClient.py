@@ -42,6 +42,8 @@ def main():
         cfg = AppConfig()
 
     thin_client = OutletThinClient(cfg)
+    thin_client.start()
+
     ping_request = PingRequest()
     logger.info(f'Sending ping!')
     ping_response = thin_client.stub.ping(ping_request)
@@ -50,5 +52,4 @@ def main():
 
 
 if __name__ == '__main__':
-    config = AppConfig()
     main()

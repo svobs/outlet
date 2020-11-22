@@ -1,0 +1,12 @@
+namespace Outlet.Server;
+
+rpc_service OutletService {
+  ping(PingRequest):PingResponse(streaming: "none");
+}
+
+table PingRequest {
+}
+
+table PingResponse {
+  timestamp:int64;
+}

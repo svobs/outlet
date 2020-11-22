@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 class OutletDaemon(OutletBackend):
     def __init__(self, config):
-        OutletBackend.__init__(self, config)
         self.config = config
+        OutletBackend.__init__(self, config)
 
     def start(self):
         OutletBackend.start(self)

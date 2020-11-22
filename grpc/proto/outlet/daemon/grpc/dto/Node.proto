@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+option java_package = "com.msvoboda.outlet.dto";
+option java_multiple_files = true;
+option go_package = "msvoboda.com/outlet/proto/dto";
+
+package dto;
+
+message Node {
+    int32 uid = 1;
+    repeated string path_list = 2;
+    string nid = 3;
+    int32 trashed = 4;
+    bool shared = 5;
+}
+
+
+
+message ContainerNode {
+  int32 uid = 1;
+  repeated string path_list = 2;
+  string nid = 3;
+  int32 trashed = 4;
+  bool shared = 5;
+}

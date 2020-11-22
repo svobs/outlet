@@ -9,7 +9,7 @@ from util import file_util
 from model.node.node import HasChildStats, Node
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
-from util.simple_tree import SimpleTree
+from util.simple_tree import BaseNode, SimpleTree
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -30,10 +30,10 @@ class LocalDiskTree(SimpleTree):
         return self.get_node(uid) is not None
 
     def add_to_tree(self, node: LocalNode):
-        root_node: Node = self.get_root_node()
+        root_node: LocalNode = self.get_root_node()
         root_node_identifier: NodeIdentifier = root_node.node_identifier
         path_so_far: str = root_node_identifier.get_single_path()
-        parent: Node = self.get_node(root_node_identifier.uid)
+        parent: LocalNode = self.get_node(root_node_identifier.uid)
 
         # A trailing '/' will really screw us up:
         assert file_util.is_normalized(root_node_identifier.get_single_path()), f'Path: {root_node_identifier.get_single_path()}'
@@ -47,7 +47,7 @@ class LocalDiskTree(SimpleTree):
             for dir_name in path_segments:
                 path_so_far: str = os.path.join(path_so_far, dir_name)
                 uid = self.app.cacheman.get_uid_for_path(path_so_far)
-                child: Node = self.get_node(nid=uid)
+                child: LocalNode = self.get_node(nid=uid)
                 if not child:
                     # logger.debug(f'Creating dir node: nid={uid}')
                     child = LocalDirNode(node_identifier=LocalNodeIdentifier(path_list=path_so_far, uid=uid),
@@ -73,7 +73,7 @@ class LocalDiskTree(SimpleTree):
                 logger.error(f'Parent is None for node: {node}')
             self.add_node(node=node, parent=parent)
 
-    def for_each_node_breadth_first(self, action_func: Callable, subtree_root_node: Optional[Node] = None):
+    def for_each_node_breadth_first(self, action_func: Callable, subtree_root_node: Optional[LocalNode] = None):
         dir_queue: Deque[LocalDirNode] = deque()
         if not subtree_root_node:
             subtree_root_node = self.get_root_node()
@@ -99,7 +99,7 @@ class LocalDiskTree(SimpleTree):
                         dir_queue.append(child)
 
     def replace_subtree(self, sub_tree: SimpleTree):
-        sub_tree_root_node: Node = sub_tree.get_root_node()
+        sub_tree_root_node: LocalNode = sub_tree.get_root_node()
         if not self.contains(sub_tree_root_node.uid):
             # quick and dirty way to add any missing parents:
             logger.debug(f'This tree (root: {self.get_root_node().node_identifier}) does not contain sub-tree '
@@ -133,7 +133,7 @@ class LocalDiskTree(SimpleTree):
         logger.debug(f'Returning {len(file_list)} files and {len(dir_list)} dirs')
         return file_list, dir_list
 
-    def get_subtree_bfs(self, subtree_root_uid: UID = None) -> List[Node]:
+    def get_subtree_bfs(self, subtree_root_uid: UID = None) -> List[LocalNode]:
         """Returns an iterator which will do a breadth-first traversal of the tree. If subtree_root is provided, do a breadth-first traversal
         of the subtree whose root is subtree_root (returning None if this tree does not contain subtree_root).
         """
@@ -146,23 +146,26 @@ class LocalDiskTree(SimpleTree):
         if not self.contains(subtree_root_uid):
             return []
 
-        node: Node = self.get_node(nid=subtree_root_uid)
+        node: LocalNode = self.get_node(nid=subtree_root_uid)
+        assert isinstance(node, LocalNode)
 
-        bfs_list: List[Node] = []
+        bfs_list: List[LocalNode] = []
 
-        dir_queue: Deque[Node] = deque()
+        dir_queue: Deque[LocalNode] = deque()
         dir_queue.append(node)
 
         while len(dir_queue) > 0:
             node = dir_queue.popleft()
+            assert isinstance(node, LocalNode)
             bfs_list.append(node)
             if node.is_dir():
                 for child in self.children(node.uid):
+                    assert isinstance(child, LocalNode)
                     dir_queue.append(child)
 
         return bfs_list
 
-    def get_children(self, node: LocalNode) -> List[Node]:
+    def get_children(self, node: LocalNode) -> List[LocalNode]:
         return self.get_child_list(node.identifier)
 
     def refresh_stats(self, subtree_root_node: LocalNode, tree_id: str):

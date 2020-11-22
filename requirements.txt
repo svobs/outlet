@@ -36,6 +36,7 @@ psutil==5.7.3
 grpcio==1.33.2
 grpcio-tools==1.33.2
 protobuf==3.14.0
+#flatbuffers=1.12.0
 #pycairo==1.19.1
 #PyGObject==3.36.0
 #PyGObject-stubs==0.0.2
