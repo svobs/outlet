@@ -33,15 +33,6 @@ class LocalDiskDisplayTree(DisplayTree):
         assert parent.node_identifier.tree_type == constants.TREE_TYPE_LOCAL_DISK, f'For: {parent.node_identifier}'
         return self.app.cacheman.get_children(parent, filter_criteria)
 
-    def get_node_list_for_path_list(self, path_list: List[str]) -> List[LocalFileNode]:
-        path_list = ensure_list(path_list)
-        node_list = []
-        for path in path_list:
-            node = self.app.cacheman.get_node_for_local_path(path)
-            if node and node.get_single_path().startswith(self.root_path):
-                node_list.append(node)
-        return node_list
-
     def remove(self, node: LocalFileNode):
         raise RuntimeError('Can no longer do this in LocalDiskDisplayTree!')
 

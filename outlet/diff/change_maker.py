@@ -1,12 +1,12 @@
+import collections
 import logging
 import os
 import pathlib
 from collections import deque
-from typing import Deque, Dict, List, Optional
+from typing import Callable, Deque, Dict, List, Optional
 
 from constants import NULL_UID, TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.display_tree.category import CategoryDisplayTree
-from model.display_tree.display_tree import DisplayTree
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
@@ -22,10 +22,12 @@ logger = logging.getLogger(__name__)
 # CLASS OneSide
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class OneSide:
-    def __init__(self, app, underlying_tree: DisplayTree, tree_id: str, batch_uid: UID):
+    def __init__(self, app, tree_root_identifier: SinglePathNodeIdentifier, tree_id: str, batch_uid: UID):
         self.app = app
-        self.underlying_tree: DisplayTree = underlying_tree
-        self.change_tree: CategoryDisplayTree = CategoryDisplayTree(app, tree_id, self.underlying_tree.root_identifier)
+        self.root_identifier: SinglePathNodeIdentifier = tree_root_identifier
+        self.tree_id = tree_id
+        # TODO: move this to frontend
+        self.change_tree: CategoryDisplayTree = CategoryDisplayTree(app, tree_id, self.root_identifier)
         self._batch_uid: UID = batch_uid
         if not self._batch_uid:
             self._batch_uid: UID = self.app.uid_generator.next_uid()
@@ -48,10 +50,10 @@ class OneSide:
         self.change_tree.add_node(target_sn, op)
 
     def derive_relative_path(self, spid: SinglePathNodeIdentifier) -> str:
-        return file_util.strip_root(spid.get_single_path(), self.underlying_tree.root_identifier.get_single_path())
+        return file_util.strip_root(spid.get_single_path(), self.root_identifier.get_single_path())
 
     def migrate_single_node_to_this_side(self, sn_src: SPIDNodePair, dst_path: str) -> SPIDNodePair:
-        dst_tree_type = self.underlying_tree.tree_type
+        dst_tree_type = self.root_identifier.tree_type
         dst_node: Node = self._build_migrated_file_node(src_node=sn_src.node, dst_path=dst_path, dst_tree_type=dst_tree_type)
         dst_sn: SPIDNodePair = SPIDNodePair(SinglePathNodeIdentifier(dst_node.uid, dst_path, dst_tree_type), dst_node)
 
@@ -104,7 +106,7 @@ class OneSide:
         size_bytes = src_node.get_size_bytes()
 
         # (Kludge) just assign the NULL UID for now, so we don't auto-generate a new UID. It will just get overwritten anyway if GDrive
-        node_identifier = self.app.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=NULL_UID)
+        node_identifier = self.app.backend.build_identifier(tree_type=dst_tree_type, path_list=[dst_path], uid=NULL_UID)
         if dst_tree_type == TREE_TYPE_LOCAL_DISK:
             assert isinstance(node_identifier, LocalNodeIdentifier)
             return LocalFileNode(node_identifier, md5, sha256, size_bytes, None, None, None, TrashStatus.NOT_TRASHED, False)
@@ -146,7 +148,7 @@ class OneSide:
                 break
 
             # Folder already existed in original tree?
-            existing_parent_list: List[Node] = self.underlying_tree.get_node_list_for_path_list([parent_path])
+            existing_parent_list: List[Node] = self.app.cacheman.get_node_list_for_path_list([parent_path], tree_type)
             if existing_parent_list:
                 # Add all parents which match the path, even if they are duplicates or do not yet exist (i.e., pending ops)
                 if tree_type == TREE_TYPE_GDRIVE:
@@ -188,11 +190,11 @@ class OneSide:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class ChangeMaker:
-    def __init__(self, left_tree: DisplayTree, right_tree: DisplayTree, app):
+    def __init__(self, left_tree_root_identifier: SinglePathNodeIdentifier, right_tree_root_identifier: SinglePathNodeIdentifier, app):
         self.app = app
         batch_uid: UID = self.app.uid_generator.next_uid()
-        self.left_side = OneSide(app, left_tree, ID_LEFT_TREE, batch_uid)
-        self.right_side = OneSide(app, right_tree, ID_RIGHT_TREE, batch_uid)
+        self.left_side = OneSide(app, left_tree_root_identifier, ID_LEFT_TREE, batch_uid)
+        self.right_side = OneSide(app, right_tree_root_identifier, ID_RIGHT_TREE, batch_uid)
 
     def copy_nodes_left_to_right(self, src_sn_list: List[SPIDNodePair], sn_dst_parent: SPIDNodePair, op_type: UserOpType):
         """Populates the destination parent in "change_tree_right" with the given source nodes.
@@ -227,19 +229,41 @@ class ChangeMaker:
                 dst_sn: SPIDNodePair = self.right_side.migrate_single_node_to_this_side(src_sn, dst_path)
                 self.right_side.add_op(op_type=op_type, src_sn=src_sn, dst_sn=dst_sn)
 
+    @staticmethod
+    def _build_child_spid(child_node: Node, parent_path: str):
+        return SinglePathNodeIdentifier(child_node.uid, os.path.join(parent_path, child_node.name), tree_type=child_node.get_tree_type())
+
+    def visit_each_sn_for_subtree(self, subtree_root: SPIDNodePair, on_file_found: Callable[[SPIDNodePair], None]):
+        queue: Deque[SPIDNodePair] = collections.deque()
+        queue.append(subtree_root)
+
+        while len(queue) > 0:
+            sn: SPIDNodePair = queue.popleft()
+            if sn.node.is_live():  # avoid pending op nodes
+                if sn.node.is_dir():
+                    child_list = self.app.cacheman.get_children(sn.node)
+                    if child_list:
+                        for child in child_list:
+                            if child.node_identifier.is_spid():
+                                child_spid = child.node_identifier
+                            else:
+                                child_spid = ChangeMaker._build_child_spid(child, sn.spid.get_single_path())
+                            assert child_spid.get_single_path() in child.get_path_list(), \
+                                f'Child path "{child_spid.get_single_path()}" does not correspond to actual node: {child}'
+                            queue.append(SPIDNodePair(child_spid, child))
+                else:
+                    on_file_found(sn)
+
     def _get_file_sn_list_for_left_subtree(self, src_sn: SPIDNodePair):
         subtree_files: List[SPIDNodePair] = []
 
-        def for_each_file(file_sn):
-            subtree_files.append(file_sn)
-
-        self.left_side.underlying_tree.visit_each_sn_for_subtree(for_each_file, src_sn)
+        self.visit_each_sn_for_subtree(src_sn, lambda file_sn: subtree_files.append(file_sn))
         return subtree_files
 
     @staticmethod
     def _change_tree_path(src_side: OneSide, dst_side: OneSide, spid_from_src_tree: SinglePathNodeIdentifier) -> str:
-        return os.path.join(dst_side.underlying_tree.root_path, file_util.strip_root(spid_from_src_tree.get_single_path(),
-                                                                                     src_side.underlying_tree.root_path))
+        return os.path.join(dst_side.root_identifier.get_single_path(), file_util.strip_root(spid_from_src_tree.get_single_path(),
+                                                                                             src_side.root_identifier.get_single_path()))
 
     def get_path_moved_to_right(self, spid_left: SinglePathNodeIdentifier) -> str:
         return self._change_tree_path(self.left_side, self.right_side, spid_left)

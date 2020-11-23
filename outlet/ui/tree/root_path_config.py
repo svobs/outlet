@@ -24,6 +24,9 @@ def make_root_uid_config_key(tree_id: str):
     return f'ui_state.{tree_id}.root_uid'
 
 
+# CLASS RootPathConfigPersister
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 class RootPathConfigPersister:
     """Reads and writes the root path for the given tree_id.
     Listens for signals to stay up-to-date. Configure this class, add it to its
@@ -61,7 +64,7 @@ class RootPathConfigPersister:
                 logger.info(f'[{tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root={new_root}, err={err}')
                 dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root, err=err)
 
-        self.root_identifier: SinglePathNodeIdentifier = self.app.node_identifier_factory.for_values(tree_type=tree_type,
+        self.root_identifier: SinglePathNodeIdentifier = self.app.backend.build_identifier(tree_type=tree_type,
                                                                                                      path_list=root_path, uid=root_uid,
                                                                                                      must_be_single_path=True)
 

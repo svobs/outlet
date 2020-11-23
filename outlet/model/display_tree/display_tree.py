@@ -103,40 +103,8 @@ class DisplayTree(HasGetChildren, ABC):
         child_node_list: Iterable[Node] = self.get_children(parent.node)
         return self._make_child_sn_list(child_node_list, parent.spid.get_single_path())
 
-    @abstractmethod
-    def get_node_list_for_path_list(self, path_list: List[str]) -> List[Node]:
-        pass
-
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
         return self.app.cacheman.get_ancestor_list_for_single_path_identifier(spid, stop_at_path=self.root_path)
-
-    @staticmethod
-    def _build_child_spid(child_node: Node, parent_path: str):
-        return SinglePathNodeIdentifier(child_node.uid, os.path.join(parent_path, child_node.name), tree_type=child_node.get_tree_type())
-
-    def visit_each_sn_for_subtree(self, on_file_found: Callable[[SPIDNodePair], None], subtree_root: SPIDNodePair = None):
-        if not subtree_root:
-            subtree_root = self.get_root_sn()
-
-        queue: Deque[SPIDNodePair] = collections.deque()
-        queue.append(subtree_root)
-
-        while len(queue) > 0:
-            sn: SPIDNodePair = queue.popleft()
-            if sn.node.is_live():  # avoid pending op nodes
-                if sn.node.is_dir():
-                    child_list = self.get_children(sn.node)
-                    if child_list:
-                        for child in child_list:
-                            if child.node_identifier.is_spid():
-                                child_spid = child.node_identifier
-                            else:
-                                child_spid = DisplayTree._build_child_spid(child, sn.spid.get_single_path())
-                            assert child_spid.get_single_path() in child.get_path_list(), \
-                                f'Child path "{child_spid.get_single_path()}" does not correspond to actual node: {child}'
-                            queue.append(SPIDNodePair(child_spid, child))
-                else:
-                    on_file_found(sn)
 
     # Stats
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

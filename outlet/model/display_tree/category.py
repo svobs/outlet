@@ -235,9 +235,6 @@ class CategoryDisplayTree(DisplayTree):
     def __repr__(self):
         return f'CategoryDisplayTree(tree_id=[{self.tree_id}], {self.get_summary()})'
 
-    def get_node_list_for_path_list(self, path_list: Union[str, List[str]]) -> List[Node]:
-        raise InvalidOperationError('CategoryDisplayTree.get_node_list_for_path_list()')
-
     @staticmethod
     def _make_cat_map():
         cm = {}

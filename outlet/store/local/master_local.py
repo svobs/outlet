@@ -189,9 +189,9 @@ class LocalDiskMasterStore(MasterStore):
             # No supertree found in cache. Create new cache entry:
             cache_info = cache_man.get_or_create_cache_info_entry(subtree_root)
         assert cache_info
-        return self._load_subtree(cache_info, tree_id, subtree_root, is_live_refresh)
+        return self._create_display_tree(cache_info, tree_id, subtree_root, is_live_refresh)
 
-    def _load_subtree(self, cache_info: PersistedCacheInfo, tree_id: str, requested_subtree_root: LocalNodeIdentifier = None,
+    def _create_display_tree(self, cache_info: PersistedCacheInfo, tree_id: str, requested_subtree_root: LocalNodeIdentifier = None,
                       is_live_refresh: bool = False) -> LocalDiskDisplayTree:
         """requested_subtree_root, if present, is a subset of the cache_info's subtree and it will be used. Otherwise cache_info's will be used"""
         assert cache_info
@@ -304,7 +304,7 @@ class LocalDiskMasterStore(MasterStore):
 
                 # this will resync with file system and/or save if configured
                 supertree_cache.needs_save = True
-                self._load_subtree(supertree_cache, tree_id)
+                self._create_display_tree(supertree_cache, tree_id)
                 # Now it is safe to delete the subtree cache:
                 file_util.delete_file(subtree_cache.cache_location)
 

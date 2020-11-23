@@ -20,7 +20,7 @@ from model.display_tree.gdrive import GDriveDisplayTree
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import HasParentList, Node, SPIDNodePair
-from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import ensure_list, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from model.user_op import UserOp
@@ -52,10 +52,16 @@ def ensure_cache_dir_path(config):
     return cache_dir_path
 
 
+# CLASS ActiveDisplayTreeMeta
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class ActiveDisplayTreeMeta:
+    def __init__(self, tree_id: str, root_identifier: SinglePathNodeIdentifier):
+        self.tree_id: str = tree_id
+        self.root_identifier: SinglePathNodeIdentifier = root_identifier
+
+
 # CLASS CacheInfoByType
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-
 class CacheInfoByType(TwoLevelDict):
     """Holds PersistedCacheInfo objects"""
     def __init__(self):
@@ -64,7 +70,6 @@ class CacheInfoByType(TwoLevelDict):
 
 # CLASS CacheManager
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
 class CacheManager(HasLifecycle):
     """
     This is the central source of truth for the app (or attempts to be as much as possible).
@@ -103,6 +108,9 @@ class CacheManager(HasLifecycle):
         """Sub-module of Cache Manager which, for displayed trees, provides [close to] real-time notifications for changes
          which originated from outside this app"""
 
+        self._display_tree_dict: Dict[str, ActiveDisplayTreeMeta] = {}
+        """Keeps track of which display trees are currently being used in the UI"""
+
         # Create Event objects to optionally wait for lifecycle events
         self._load_registry_done: threading.Event = threading.Event()
 
@@ -114,7 +122,7 @@ class CacheManager(HasLifecycle):
 
         self.connect_dispatch_listener(signal=actions.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
         self.connect_dispatch_listener(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
-        self.connect_dispatch_listener(signal=actions.STOP_LIVE_CAPTURE, receiver=self._stop_live_capture)
+        self.connect_dispatch_listener(signal=actions.DEREGISTER_DISPLAY_TREE, receiver=self._deregister_display_tree)
 
     def shutdown(self):
         logger.debug('CacheManager.shutdown() entered')
@@ -359,10 +367,22 @@ class CacheManager(HasLifecycle):
             for deleted_node in result.nodes_to_delete:
                 self.remove_node(deleted_node, to_trash=False)
 
+    def _deregister_display_tree(self, sender: str):
+        logger.debug(f'[{sender}] Received signal: "{actions.DEREGISTER_DISPLAY_TREE}"')
+        display_tree = self._display_tree_dict.pop(sender, None)
+        if display_tree:
+            logger.debug(f'[{sender}] Display tree de-registered in backend')
+        else:
+            logger.debug(f'[{sender}] Could not deregister display tree in backend: it was not found')
+
+        # Also stop live capture, if any
+        if self._is_live_capture_enabled and self._live_monitor:
+            self._live_monitor.stop_capture(sender)
+
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def load_subtree(self, node_identifier: SinglePathNodeIdentifier, tree_id: str) -> DisplayTree:
+    def create_display_tree(self, node_identifier: SinglePathNodeIdentifier, tree_id: str) -> DisplayTree:
         """
         Performs a read-through retreival of all the nodes in the given subtree.
         """
@@ -378,18 +398,18 @@ class CacheManager(HasLifecycle):
 
         if node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
             assert self._master_local
-            subtree = self._master_local.get_display_tree(node_identifier, tree_id)
+            display_tree: DisplayTree = self._master_local.get_display_tree(node_identifier, tree_id)
         elif node_identifier.tree_type == TREE_TYPE_GDRIVE:
             assert self._master_gdrive
-            subtree = self._master_gdrive.get_display_tree(node_identifier, tree_id=tree_id)
+            display_tree = self._master_gdrive.get_display_tree(node_identifier, tree_id=tree_id)
         else:
             raise RuntimeError(f'Unrecognized tree type: {node_identifier.tree_type}')
 
-        return subtree
+        self._display_tree_dict[tree_id] = ActiveDisplayTreeMeta(tree_id, display_tree.root_identifier)
+        return display_tree
 
-    def _stop_live_capture(self, tree_id):
-        if self._is_live_capture_enabled and self._live_monitor:
-            self._live_monitor.stop_capture(tree_id)
+    def get_active_display_tree_meta(self, tree_id) -> ActiveDisplayTreeMeta:
+        return self._display_tree_dict.get(tree_id, None)
 
     @staticmethod
     def _normalize_paths(node_identifier: NodeIdentifier):
@@ -580,7 +600,7 @@ class CacheManager(HasLifecycle):
         logger.debug(f'resolve_root_from_path() called with path="{full_path}"')
         try:
             full_path = file_util.normalize_path(full_path)
-            node_identifier: NodeIdentifier = self.app.node_identifier_factory.for_values(path_list=full_path)
+            node_identifier: NodeIdentifier = self.app.backend.build_identifier(path_list=full_path)
             if node_identifier.tree_type == TREE_TYPE_GDRIVE:
                 # Need to wait until all caches are loaded:
                 self.wait_for_startup_done()
@@ -622,11 +642,11 @@ class CacheManager(HasLifecycle):
             new_root = ginf.node_identifier
             err = ginf
         except FileNotFoundError as fnf:
-            new_root = self.app.node_identifier_factory.for_values(path_list=full_path)
+            new_root = self.app.backend.build_identifier(path_list=full_path)
             err = fnf
         except CacheNotLoadedError as cnlf:
             err = cnlf
-            new_root = self.app.node_identifier_factory.for_values(path_list=full_path, uid=NULL_UID)
+            new_root = self.app.backend.build_identifier(path_list=full_path, uid=NULL_UID)
 
         logger.debug(f'resolve_root_from_path(): returning new_root={new_root}, err={err}"')
         return new_root, err
@@ -709,6 +729,7 @@ class CacheManager(HasLifecycle):
 
     def get_node_list_for_path_list(self, path_list: List[str], tree_type: int) -> List[Node]:
         """Because of GDrive, we cannot guarantee that a single path will have only one node, or a single node will have only one path."""
+        path_list = ensure_list(path_list)
         if tree_type == TREE_TYPE_GDRIVE:
             return self._master_gdrive.get_node_list_for_path_list(path_list)
         elif tree_type == TREE_TYPE_LOCAL_DISK:

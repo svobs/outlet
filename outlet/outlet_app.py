@@ -18,24 +18,47 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 
-class OutletApplication(Gtk.Application, OutletBackend, OutletFrontend):
+class OutletApplication(Gtk.Application):
 
     """Main app.
     See: https://athenajc.gitbooks.io/python-gtk-3-api/content/gtk-group/gtkapplication.html"""
     def __init__(self, config):
         self.config = config
         Gtk.Application.__init__(self)
-        OutletBackend.__init__(self, config)
-        OutletFrontend.__init__(self, config)
+        self.backend = OutletBackend(config)
+        self.frontend = OutletFrontend(config)
         self.window = None
 
     def start(self):
-        OutletBackend.start(self)
-        OutletFrontend.start(self)
+        self.backend.start()
+        self.frontend.start()
 
     def shutdown(self):
-        OutletBackend.shutdown(self)
-        OutletFrontend.shutdown(self)
+        self.backend.shutdown()
+        self.frontend.shutdown()
+
+    @property
+    def assets(self):
+        return self.frontend.assets
+
+    # TODO: replace all uses of this with APIs in Backend
+    @property
+    def cacheman(self):
+        return self.backend.cacheman
+
+    # TODO: replace all uses of this with APIs in Backend
+    @property
+    def uid_generator(self):
+        return self.backend.uid_generator
+
+    # TODO: replace all uses of this with APIs in Backend
+    @property
+    def executor(self):
+        return self.backend.executor
+
+    @property
+    def node_identifier_factory(self):
+        return self.backend.node_identifier_factory
 
     def do_activate(self):
         # We only allow a single window and raise any existing ones

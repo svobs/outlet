@@ -4,6 +4,8 @@ import re
 from typing import List
 import subprocess
 
+from constants import TreeDisplayMode
+from model.display_tree.category import CategoryDisplayTree
 from model.node.local_disk_node import LocalNode
 from model.node_identifier import SinglePathNodeIdentifier
 from ui.tree.filter_criteria import FilterCriteria
@@ -56,6 +58,7 @@ class TreeActions(HasLifecycle):
         self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE, sender=self.con.tree_id, receiver=self._refresh_subtree)
         self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id, receiver=self._refresh_subtree_stats)
         self.connect_dispatch_listener(signal=actions.FILTER_UI_TREE, sender=self.con.tree_id, receiver=self._filter_ui_tree)
+        self.connect_dispatch_listener(signal=actions.DIFF_ONE_SIDE_RESULT, sender=self.con.tree_id, receiver=self._receive_diff_result)
 
     # ACTIONS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -203,3 +206,6 @@ class TreeActions(HasLifecycle):
 
     def _filter_ui_tree(self, sender: str, filter_criteria: FilterCriteria):
         self.con.display_mutator.filter_tree(filter_criteria)
+
+    def _receive_diff_result(self, sender: str, new_tree: CategoryDisplayTree):
+        self.con.reload(new_tree=new_tree, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY, show_checkboxes=True)

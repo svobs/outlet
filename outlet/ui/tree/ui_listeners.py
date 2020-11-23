@@ -7,7 +7,6 @@ from pydispatch import dispatcher
 import ui.actions as actions
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
 from diff.change_maker import ChangeMaker, SPIDNodePair
-from model.node.local_disk_node import LocalFileNode
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
 from model.user_op import UserOp, UserOpType
@@ -205,7 +204,9 @@ class TreeUiListeners(HasLifecycle):
             logger.debug(f'[{self.con.tree_id}]Dropping into dest: {sn_dst.spid}')
             # So far we only support COPY.
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
-            change_maker = ChangeMaker(app=self.con.app, left_tree=drag_data.src_treecon.get_tree(), right_tree=self.con.get_tree())
+            left_root = drag_data.src_treecon.get_tree().root_identifier
+            right_root = self.con.get_tree().root_identifier
+            change_maker = ChangeMaker(app=self.con.app, left_tree_root_identifier=left_root, right_tree_root_identifier=right_root)
             change_maker.copy_nodes_left_to_right(drag_data.sn_list, sn_dst, UserOpType.CP)
             # This should fire listeners which ultimately populate the tree:
             op_list: Iterable[UserOp] = change_maker.right_side.change_tree.get_ops()

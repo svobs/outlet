@@ -7,12 +7,13 @@ LOAD_REGISTRY_DONE = 'load-registry-done'
 START_CACHEMAN_DONE = 'start-cacheman-done'
 START_DIFF_TREES = 'start-tree-diff'
 DIFF_TREES_DONE = 'tree-diff_done'
+DIFF_TREES_FAILED = 'tree-diff_failed'
+DIFF_ONE_SIDE_RESULT = 'tree-diff_1side_result'
 SYNC_GDRIVE_CHANGES = 'sync-gdrive-changes'
 SHOW_GDRIVE_CHOOSER_DIALOG = 'show-gdrive-dir-chooser-dialog'
 DOWNLOAD_ALL_GDRIVE_META = 'download-all-gdrive-meta'
 GDRIVE_CHOOSER_DIALOG_LOAD_DONE = 'gdrive-dir-chooser-load-complete'
 COMMAND_COMPLETE = 'command-complete'
-STOP_LIVE_CAPTURE = 'stop-live-capture'
 
 # --- Tree actions: requests ---
 CALL_EXIFTOOL = 'call-exiftool'
@@ -33,6 +34,7 @@ LOAD_UI_TREE = 'load-ui-tree'
 """Requests that the central cache update the stats for all nodes in the given subtree.
 When done, the central cache will send the signal REFRESH_SUBTREE_STATS_DONE to notify the tree that it can redraw the displayed nodes"""
 SHUTDOWN_APP = 'shutdown-app'
+DEREGISTER_DISPLAY_TREE = 'deregister-display-tree'
 
 # --- Tree actions: notifications ---
 LOAD_SUBTREE_STARTED = 'load-subtree-started'
@@ -84,15 +86,6 @@ ID_CENTRAL_EXEC = 'central-executor'
 ID_GDRIVE_POLLING_THREAD = 'gdrive_polling_thread'
 
 logger = logging.getLogger(__name__)
-
-
-def disable_ui(sender):
-    logger.debug(f'Sender "{sender}" requested to disable the UI')
-    dispatcher.send(signal=TOGGLE_UI_ENABLEMENT, sender=sender, enable=False)
-
-
-def enable_ui(sender):
-    dispatcher.send(signal=TOGGLE_UI_ENABLEMENT, sender=sender, enable=True)
 
 
 def set_status(sender, status_msg):

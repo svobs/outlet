@@ -36,13 +36,6 @@ class GDriveDisplayTree(DisplayTree):
     def get_children(self, parent: GDriveNode, filter_criteria: FilterCriteria = None) -> List[GDriveNode]:
         return self.app.cacheman.get_children(node=parent, filter_criteria=filter_criteria)
 
-    def get_node_list_for_path_list(self, path_list: List[str]) -> List[GDriveNode]:
-        path_list = ensure_list(path_list)
-        if not self.is_path_in_subtree(path_list):
-            raise RuntimeError(f'Not in this tree: "{path_list}" (tree root: {self.root_path}')
-
-        return self.app.cacheman.get_node_list_for_path_list(path_list)
-
     def __repr__(self):
         if self._stats_loaded:
             root_node = self.get_root_node()

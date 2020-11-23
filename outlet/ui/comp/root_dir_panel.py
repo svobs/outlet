@@ -3,6 +3,7 @@ import logging
 import os
 from pydispatch import dispatcher
 
+from global_actions import GlobalActions
 from model.display_tree.display_tree import DisplayTree
 from ui.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
 from util import file_util
@@ -345,7 +346,7 @@ class RootDirPanel(HasLifecycle):
 
     def load_data_for_gdrive_dir_chooser_dialog(self, tree_id: str, current_selection: SinglePathNodeIdentifier):
         """See above. Executed by Task Runner. NOT UI thread"""
-        actions.disable_ui(sender=tree_id)
+        GlobalActions.disable_ui(sender=tree_id)
         try:
             tree = self.con.app.cacheman.get_synced_gdrive_master_tree(tree_id)
             dispatcher.send(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, sender=tree_id, tree=tree, current_selection=current_selection)

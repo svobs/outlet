@@ -7,12 +7,12 @@ from pydispatch.dispatcher import Any
 
 import ui.actions as actions
 from command.cmd_interface import Command, UserOpStatus
-from constants import APP_NAME, H_PAD, ICON_PAUSE, ICON_PLAY, ICON_WINDOW, TreeDisplayMode, V_PAD
+from constants import APP_NAME, H_PAD, ICON_PAUSE, ICON_PLAY, ICON_WINDOW, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
+from global_actions import GlobalActions
 from model.display_tree.category import CategoryDisplayTree
 from model.node.node import SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
-from ui.comp.progress_bar import ProgressBar
 from ui.dialog.base_dialog import BaseDialog
 from ui.dialog.merge_preview_dialog import MergePreviewDialog
 from ui.tree import tree_factory
@@ -130,6 +130,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # Subscribe to signals:
         dispatcher.connect(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
         dispatcher.connect(signal=actions.DIFF_TREES_DONE, receiver=self._after_diff_completed)
+        dispatcher.connect(signal=actions.DIFF_TREES_FAILED, receiver=self._after_diff_failed)
         dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
 
         # Need to add an extra listener to each tree, to reload when the other one's root changes
@@ -184,8 +185,9 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         def on_diff_btn_clicked(widget):
             logger.debug(f'Diff btn clicked! Sending signal: "{actions.START_DIFF_TREES}"')
             # Disable button bar immediately:
-            self._on_enable_ui_toggled(sender=self.win_id, enable=False)
-            dispatcher.send(signal=actions.START_DIFF_TREES, sender=self.win_id, tree_con_left=self.tree_con_left, tree_con_right=self.tree_con_right)
+            GlobalActions.disable_ui(sender=self.win_id)
+            dispatcher.send(signal=actions.START_DIFF_TREES, sender=self.win_id, tree_id_left=self.tree_con_left.tree_id,
+                            tree_id_right=self.tree_con_right.tree_id)
         diff_action_btn = Gtk.Button(label="Diff (content-first)")
         diff_action_btn.connect("clicked", on_diff_btn_clicked)
 
@@ -333,6 +335,11 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
         GLib.idle_add(self._set_default_button_bar)
 
+    def _after_diff_failed(self, sender):
+        logger.debug(f'Received signal: "{actions.DIFF_TREES_FAILED}"')
+        GLib.idle_add(self._set_default_button_bar)
+        GlobalActions.enable_ui(sender=self)
+
     def _after_diff_completed(self, sender, stopwatch):
         logger.debug(f'Received signal: "{actions.DIFF_TREES_DONE}"')
 
@@ -349,7 +356,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
             self.replace_bottom_button_panel(merge_btn, cancel_diff_btn)
 
-            actions.enable_ui(sender=self)
+            GlobalActions.enable_ui(sender=self)
             logger.debug(f'Diff time + redraw: {stopwatch}')
         GLib.idle_add(change_button_bar)
 

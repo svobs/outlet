@@ -1,11 +1,11 @@
 from typing import Dict, Optional
 
-from pydispatch import dispatcher
 import logging
 
 import ui.assets
 from ui import actions
 from ui.tree.controller import TreePanelController
+from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
 
@@ -13,8 +13,9 @@ logger = logging.getLogger(__name__)
 # CLASS OutletFrontend
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class OutletFrontend:
+class OutletFrontend(HasLifecycle):
     def __init__(self, config):
+        HasLifecycle.__init__(self)
         self.assets = ui.assets.Assets(config)
 
         self._tree_controllers: Dict[str, TreePanelController] = {}
@@ -22,9 +23,12 @@ class OutletFrontend:
 
     def start(self):
         logger.debug('Starting up frontend')
+        HasLifecycle.start(self)
+        self.connect_dispatch_listener(signal=actions.DEREGISTER_DISPLAY_TREE, receiver=self._deregister_tree_controller)
 
     def shutdown(self):
         logger.debug('Shutting down frontend')
+        HasLifecycle.shutdown(self)
 
         try:
             if self._tree_controllers:
@@ -41,14 +45,12 @@ class OutletFrontend:
         logger.debug(f'[{controller.tree_id}] Registering controller')
         self._tree_controllers[controller.tree_id] = controller
 
-    def unregister_tree_controller(self, controller: TreePanelController):
-        logger.debug(f'[{controller.tree_id}] Unregistering controller')
-        popped_con = self._tree_controllers.pop(controller.tree_id, None)
-        if popped_con:
-            # stop capturing if we have started:
-            dispatcher.send(signal=actions.STOP_LIVE_CAPTURE, sender=controller.tree_id)
-        else:
-            logger.debug(f'Could not unregister TreeController; it was not found: {controller.tree_id}')
+    def _deregister_tree_controller(self, sender: str):
+        # Sender is tree_id
+        logger.debug(f'[{sender}] Deregistering controller in frontend')
+        popped_con = self._tree_controllers.pop(sender, None)
+        if not popped_con:
+            logger.debug(f'Could not deregister controller; it was not found: {sender}')
 
     def get_tree_controller(self, tree_id: str) -> Optional[TreePanelController]:
         return self._tree_controllers.get(tree_id, None)

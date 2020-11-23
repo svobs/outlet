@@ -7,6 +7,7 @@ from typing import Deque, List, Optional, Tuple
 
 from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG
 from error import CacheNotLoadedError, GDriveItemNotFoundError
+from global_actions import GlobalActions
 from model.display_tree.gdrive import GDriveDisplayTree
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.node import Node
@@ -186,7 +187,7 @@ class GDriveMasterStore(MasterStore):
 
     def _download_all_gdrive_meta_in_ui(self, tree_id):
         """See above. Executed by Task Runner. NOT UI thread"""
-        actions.disable_ui(sender=tree_id)
+        GlobalActions.disable_ui(sender=tree_id)
         try:
             """Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
             self.get_synced_master_tree(invalidate_cache=True, tree_id=tree_id)
@@ -195,7 +196,7 @@ class GDriveMasterStore(MasterStore):
                 self.app.window.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
             logger.exception(err)
         finally:
-            actions.enable_ui(sender=tree_id)
+            GlobalActions.enable_ui(sender=self)
 
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

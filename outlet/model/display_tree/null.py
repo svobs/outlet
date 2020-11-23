@@ -20,9 +20,6 @@ class NullDisplayTree(DisplayTree):
     def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
         return []
 
-    def get_node_list_for_path_list(self, path_list: List[str]) -> List[Node]:
-        return []
-
     def get_summary(self):
         # Should not return None
         return 'Tree does not exist'

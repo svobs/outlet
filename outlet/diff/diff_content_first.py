@@ -2,13 +2,12 @@
 import collections
 import logging
 import time
-from typing import Callable, DefaultDict, Deque, Dict, List, Tuple
+from typing import Callable, DefaultDict, Dict, List, Tuple
 
 import store.local.content_hasher
-from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
+from constants import TREE_TYPE_GDRIVE, TREE_TYPE_MIXED
 from diff.change_maker import ChangeMaker, SPIDNodePair
 from model.display_tree.category import CategoryDisplayTree
-from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
@@ -23,19 +22,24 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class OneSideDiffMeta:
-    def __init__(self, display_tree: DisplayTree):
-        md5_dict, path_dict = self._build_structs(display_tree)
-        self.md5_dict: DefaultDict[str, List[SPIDNodePair]] = md5_dict
-        self.path_dict: DefaultDict[str, List[SPIDNodePair]] = path_dict
+    """Just a storage struct for a lot of internally needed junk"""
+    def __init__(self):
+        self.md5_dict: DefaultDict[str, List[SPIDNodePair]] = collections.defaultdict(lambda: list())
+        self.path_dict: DefaultDict[str, List[SPIDNodePair]] = collections.defaultdict(lambda: list())
+
+
+# CLASS ContentFirstDiffer
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class ContentFirstDiffer(ChangeMaker):
+    def __init__(self, left_tree_root_identifier: SinglePathNodeIdentifier, right_tree_root_identifier: SinglePathNodeIdentifier, app):
+        super().__init__(left_tree_root_identifier, right_tree_root_identifier, app)
+
+    def generate_one_side_diff_meta(self, root_identifier: SinglePathNodeIdentifier) -> OneSideDiffMeta:
         """Let's build a path dict while we are building the MD5 dict. Performance gain expected to be small for local trees and moderate
         for GDrive trees"""
-
-    @staticmethod
-    def _build_structs(display_tree: DisplayTree) -> Tuple[DefaultDict[str, List[SPIDNodePair]], DefaultDict[str, List[SPIDNodePair]]]:
         sw = Stopwatch()
-
-        md5_dict: DefaultDict[str, List[SPIDNodePair]] = collections.defaultdict(lambda: list())
-        path_dict: DefaultDict[str, List[SPIDNodePair]] = collections.defaultdict(lambda: list())
+        meta: OneSideDiffMeta = OneSideDiffMeta()
 
         def on_file_found(sn: SPIDNodePair):
             if not sn.node.md5 and not store.local.content_hasher.try_calculating_signatures(sn.node):
@@ -43,12 +47,12 @@ class OneSideDiffMeta:
                 return
 
             if sn.node.md5:
-                md5_dict[sn.node.md5].append(sn)
+                meta.md5_dict[sn.node.md5].append(sn)
                 path = sn.spid.get_single_path()
-                if path in path_dict:
-                    logger.warning(f'Found additional node at path: "{sn.spid.get_single_path()}" (tree={display_tree.root_identifier}).')
+                if path in meta.path_dict:
+                    logger.warning(f'Found additional node at path: "{sn.spid.get_single_path()}" (tree={root_identifier}).')
                     on_file_found.count_duplicate_paths += 1
-                path_dict[path].append(sn)
+                meta.path_dict[path].append(sn)
                 on_file_found.count_nodes += 1
             else:
                 logger.debug(f'No MD5 for node; skipping: {sn.spid.get_single_path()}')
@@ -56,19 +60,11 @@ class OneSideDiffMeta:
         on_file_found.count_nodes = 0
         on_file_found.count_duplicate_paths = 0
 
-        display_tree.visit_each_sn_for_subtree(on_file_found)
+        self.visit_each_sn_for_subtree(root_identifier, on_file_found)
 
-        logger.info(f'{sw} Found {len(md5_dict)} MD5s for {on_file_found.count_nodes} nodes (including '
+        logger.info(f'{sw} Found {len(meta.md5_dict)} MD5s for {on_file_found.count_nodes} nodes (including '
                     f'{on_file_found.count_duplicate_paths} duplicate paths)')
-        return md5_dict, path_dict
-
-
-# CLASS ContentFirstDiffer
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-class ContentFirstDiffer(ChangeMaker):
-    def __init__(self, left_tree: DisplayTree, right_tree: DisplayTree, app):
-        super().__init__(left_tree, right_tree, app)
+        return meta
 
     def _process_nonmatching_relative_path_pairs(self, lefts: List[SPIDNodePair], rights: List[SPIDNodePair],
                                                  on_mismatched_pair: Callable, on_left_only: Callable, on_right_only: Callable) -> None:
@@ -150,8 +146,8 @@ class ContentFirstDiffer(ChangeMaker):
         # the set of MD5s already processed
         md5_set_stopwatch = Stopwatch()
 
-        meta_s: OneSideDiffMeta = OneSideDiffMeta(self.left_side.underlying_tree)
-        meta_r: OneSideDiffMeta = OneSideDiffMeta(self.right_side.underlying_tree)
+        meta_s: OneSideDiffMeta = self.generate_one_side_diff_meta(self.left_side.root_identifier)
+        meta_r: OneSideDiffMeta = self.generate_one_side_diff_meta(self.right_side.root_identifier)
 
         md5_union_set = meta_s.md5_dict.keys() | meta_r.md5_dict.keys()
         logger.debug(f'{md5_set_stopwatch} Found {len(md5_union_set)} combined MD5s')
@@ -222,7 +218,7 @@ class ContentFirstDiffer(ChangeMaker):
                 existing_sn_list_r: List[SPIDNodePair] = meta_r.path_dict.get(left_on_right_path)
                 if existing_sn_list_r:
                     if len(existing_sn_list_r) > 1:
-                        assert self.right_side.underlying_tree.tree_type == TREE_TYPE_GDRIVE, \
+                        assert self.right_side.root_identifier.tree_type == TREE_TYPE_GDRIVE, \
                             f'Should never see multiple nodes for same path ("{left_on_right_path}") for this tree type, ' \
                             f'but found: {existing_sn_list_r}'
                         logger.debug(f'Found {len(existing_sn_list_r)} nodes at path "{left_on_right_path}"; picking the first one')
@@ -285,23 +281,23 @@ class ContentFirstDiffer(ChangeMaker):
                            check_for_conflicts=False) -> CategoryDisplayTree:
 
         # always root path, but tree type may differ
-        is_mixed_tree = self.left_side.underlying_tree.tree_type != self.right_side.underlying_tree.tree_type
+        is_mixed_tree = self.left_side.root_identifier.tree_type != self.right_side.root_identifier.tree_type
         if is_mixed_tree:
             tree_type = TREE_TYPE_MIXED
         else:
-            tree_type = self.left_side.underlying_tree.tree_type
+            tree_type = self.left_side.root_identifier.tree_type
         root_node_identifier: SinglePathNodeIdentifier = NodeIdentifierFactory.get_root_constant_single_path_identifier(tree_type)
         merged_tree = CategoryDisplayTree(app=self.app, tree_id=ID_MERGE_TREE, root_node_identifier=root_node_identifier, show_whole_forest=True)
 
         for sn in left_selected_changes:
-            op = self.left_side.underlying_tree.get_op_for_node(sn.node)
+            op = self.left_side.root_identifier.get_op_for_node(sn.node)
             if op:
                 merged_tree.add_node(sn, op)
             else:
                 logger.debug(f'merge_change_trees(): Skipping left-side node because it is not associated with an UserOp: {sn.node}')
 
         for sn in right_selected_changes:
-            op = self.right_side.underlying_tree.get_op_for_node(sn.node)
+            op = self.right_side.root_identifier.get_op_for_node(sn.node)
             if op:
                 merged_tree.add_node(sn, op)
             else:

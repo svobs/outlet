@@ -18,18 +18,19 @@ logger = logging.getLogger(__name__)
 # CLASS OutletThinClientGTK3
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class OutletThinClientGTK3(Gtk.Application, OutletThinClient):
+class OutletThinClientGTK3(Gtk.Application):
     """GTK3 thin client which communicates with the OutletDaemon via GRPC."""
     def __init__(self, cfg):
         Gtk.Application.__init__(self)
-        OutletThinClient.__init__(self, cfg)
+        self.frontend = OutletThinClient(cfg)
+        self.backend = self.frontend.backend
         self.window = None
 
     def start(self):
-        OutletThinClient.start(self)
+        self.frontend.start()
 
     def shutdown(self):
-        OutletThinClient.shutdown(self)
+        self.frontend.shutdown()
 
     def do_activate(self):
         # We only allow a single window and raise any existing ones
