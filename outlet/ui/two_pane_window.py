@@ -360,6 +360,10 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             logger.debug(f'Diff time + redraw: {stopwatch}')
         GLib.idle_add(change_button_bar)
 
+    def _on_error_occurred(self, msg: str, secondary_msg: str = None):
+        logger.debug(f'Received signal: "{actions.ERROR_OCCURRED}"')
+        self.show_error_ui(msg, secondary_msg)
+
     def _on_command_completed(self, sender, command: Command):
         logger.debug(f'Received signal: "{actions.COMMAND_COMPLETE}"')
 

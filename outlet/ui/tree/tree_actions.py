@@ -55,8 +55,6 @@ class TreeActions(HasLifecycle):
         self.connect_dispatch_listener(signal=actions.DELETE_SUBTREE, sender=self.con.tree_id, receiver=self._delete_subtree)
         self.connect_dispatch_listener(signal=actions.SET_ROWS_CHECKED, sender=self.con.tree_id, receiver=self._check_rows)
         self.connect_dispatch_listener(signal=actions.SET_ROWS_UNCHECKED, sender=self.con.tree_id, receiver=self._uncheck_rows)
-        self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE, sender=self.con.tree_id, receiver=self._refresh_subtree)
-        self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id, receiver=self._refresh_subtree_stats)
         self.connect_dispatch_listener(signal=actions.FILTER_UI_TREE, sender=self.con.tree_id, receiver=self._filter_ui_tree)
         self.connect_dispatch_listener(signal=actions.DIFF_ONE_SIDE_RESULT, sender=self.con.tree_id, receiver=self._receive_diff_result)
 
@@ -194,15 +192,6 @@ class TreeActions(HasLifecycle):
     def _uncheck_rows(self, sender, tree_paths: List[Gtk.TreePath] = None):
         for tree_path in tree_paths:
             self.con.display_store.set_row_checked(tree_path, False)
-
-    def _refresh_subtree(self, sender, node: Node):
-        logger.info(f'[{self.con.tree_id}] Enqueuing task to refresh subtree at {node.node_identifier}')
-        self.con.parent_win.app.executor.submit_async_task(self.con.parent_win.app.cacheman.refresh_subtree,
-                                                           node, self.con.tree_id)
-
-    def _refresh_subtree_stats(self, sender):
-        logger.info(f'[{self.con.tree_id}] Enqueuing task to refresh stats')
-        self.con.parent_win.app.executor.submit_async_task(self.con.get_tree().refresh_stats, self.con.tree_id)
 
     def _filter_ui_tree(self, sender: str, filter_criteria: FilterCriteria):
         self.con.display_mutator.filter_tree(filter_criteria)

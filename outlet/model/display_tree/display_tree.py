@@ -1,8 +1,7 @@
-import collections
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Callable, Deque, Iterable, List, Union
+from typing import Deque, Iterable, List, Union
 
 from model.has_get_children import HasGetChildren
 from model.node.node import Node, SPIDNodePair
@@ -25,9 +24,6 @@ class DisplayTree(HasGetChildren, ABC):
         self.root_identifier: SinglePathNodeIdentifier = root_identifier
         """This is needed to clarify the (albeit very rare) case where the root node resolves to multiple paths.
         Our display tree can only have one path."""
-
-        # See refresh_stats() for the following
-        self._stats_loaded = False
 
     # From the root node_identifier
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -108,14 +104,6 @@ class DisplayTree(HasGetChildren, ABC):
 
     # Stats
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-
-    @abstractmethod
-    def get_summary(self):
-        pass
-
-    @abstractmethod
-    def refresh_stats(self, tree_id: str):
-        pass
 
     def print_tree_contents_debug(self):
         logger.debug('print_tree_contents_debug() not implemented for this tree')

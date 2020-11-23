@@ -3,6 +3,7 @@ import logging
 from typing import Callable
 
 from constants import TASK_RUNNER_MAX_WORKERS
+from global_actions import GlobalActions
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 
@@ -13,8 +14,7 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class Task:
-    def __init__(self, app, task_func: Callable, *args):
-        self.app = app
+    def __init__(self, task_func: Callable, *args):
         self.task_func: Callable = task_func
         self.args = args
 
@@ -26,7 +26,7 @@ class Task:
         except Exception as err:
             msg = f'Task "{self.task_func.__name__}" failed during execution'
             logger.exception(msg)
-            self.app.window.show_error_ui(msg, repr(err))
+            GlobalActions.display_error_in_ui(msg, repr(err))
             raise
         finally:
             logger.info(f'{task_time} Task returned: "{self.task_func.__name__}"')
@@ -36,14 +36,13 @@ class Task:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class CentralTaskRunner(HasLifecycle):
-    def __init__(self, app):
+    def __init__(self):
         HasLifecycle.__init__(self)
-        self.app = app
         self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=TASK_RUNNER_MAX_WORKERS, thread_name_prefix='TaskRunner-')
 
     def enqueue(self, task_func, *args):
         logger.debug(f'Submitting new task to executor: "{task_func.__name__}"')
-        task = Task(self.app, task_func, *args)
+        task = Task(task_func, *args)
         future = self._executor.submit(task.run)
         return future
 
@@ -56,5 +55,3 @@ class CentralTaskRunner(HasLifecycle):
         if self._executor:
             self._executor.shutdown(wait=True)
             self._executor = None
-
-        self.app = None

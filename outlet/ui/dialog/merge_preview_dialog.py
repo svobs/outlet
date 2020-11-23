@@ -36,7 +36,8 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
         self.tree: CategoryDisplayTree = tree
         self.tree_con = tree_factory.build_static_category_file_tree(parent_win=self, tree_id=ID_MERGE_TREE, tree=self.tree)
-        actions.set_status(sender=ID_MERGE_TREE, status_msg=self.tree.get_summary())
+
+        dispatcher.send(signal=actions.SET_STATUS, sender=ID_MERGE_TREE, status_msg=self.tree.get_summary())
         self.content_box.pack_start(self.tree_con.content_box, True, True, 0)
         self.tree_con.reload()
 

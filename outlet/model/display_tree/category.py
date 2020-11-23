@@ -267,6 +267,7 @@ class CategoryDisplayTree(DisplayTree):
         else:
             return None
 
+    # FIXME: find new home for this
     def get_summary(self) -> str:
         if self.show_whole_forest:
             # need to preserve ordering...
@@ -292,6 +293,7 @@ class CategoryDisplayTree(DisplayTree):
                 return 'Contents are identical'
             return self._build_cat_summaries_str(cat_map)
 
+    # FIXME: find new home for this
     def refresh_stats(self, tree_id: str):
         logger.debug(f'[{tree_id}] Refreshing stats for category display tree')
         stats_sw = Stopwatch()
@@ -324,6 +326,5 @@ class CategoryDisplayTree(DisplayTree):
                 for child in children:
                     node.add_meta_metrics(child)
 
-        self._stats_loaded = True
         dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
         logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for tree')

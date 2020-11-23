@@ -52,7 +52,7 @@ class OpLocalTest(OpTestBase):
 
     def test_dd_single_file_cp(self):
         logger.info('Testing drag & drop copy of single file local right to local left')
-        self.app.executor.start_op_execution_thread()
+        dispatcher.send(signal=actions.RESUME_OP_EXECUTION, sender=actions.ID_CENTRAL_EXEC)
         # Offset from 0:
         src_tree_path = Gtk.TreePath.new_from_string('1')
         sn: SPIDNodePair = self.right_con.display_store.build_sn_from_tree_path(src_tree_path)
@@ -95,7 +95,7 @@ class OpLocalTest(OpTestBase):
 
     def test_dd_multi_file_cp(self):
         logger.info('Testing drag & drop copy of 4 files local right to local left')
-        self.app.executor.start_op_execution_thread()
+        dispatcher.send(signal=actions.RESUME_OP_EXECUTION, sender=actions.ID_CENTRAL_EXEC)
 
         # Simulate drag & drop based on position in list:
         sn_list = []
@@ -145,7 +145,7 @@ class OpLocalTest(OpTestBase):
 
     def test_bad_dd_dir_tree_cp(self):
         logger.info('Testing negative case: drag & drop copy of duplicate nodes local to local')
-        self.app.executor.start_op_execution_thread()
+        dispatcher.send(signal=actions.RESUME_OP_EXECUTION, sender=actions.ID_CENTRAL_EXEC)
         node_name = 'Art'
 
         name_equals_func_bound: Callable = partial(op_test_base.name_equals_func, node_name)
@@ -173,7 +173,7 @@ class OpLocalTest(OpTestBase):
 
     def test_dd_one_dir_tree_cp(self):
         logger.info('Testing drag & drop copy of 1 dir tree local left to local right')
-        self.app.executor.start_op_execution_thread()
+        dispatcher.send(signal=actions.RESUME_OP_EXECUTION, sender=actions.ID_CENTRAL_EXEC)
 
         sn_list = [
             self.find_node_by_name_in_left_tree('Art')

@@ -3,6 +3,7 @@ import logging
 
 # Tasks
 START_CACHEMAN = 'start-cacheman'
+START_OP_EXEC_THREAD = 'start-op-execution-thread'
 LOAD_REGISTRY_DONE = 'load-registry-done'
 START_CACHEMAN_DONE = 'start-cacheman-done'
 START_DIFF_TREES = 'start-tree-diff'
@@ -12,7 +13,7 @@ DIFF_ONE_SIDE_RESULT = 'tree-diff_1side_result'
 SYNC_GDRIVE_CHANGES = 'sync-gdrive-changes'
 SHOW_GDRIVE_CHOOSER_DIALOG = 'show-gdrive-dir-chooser-dialog'
 DOWNLOAD_ALL_GDRIVE_META = 'download-all-gdrive-meta'
-GDRIVE_CHOOSER_DIALOG_LOAD_DONE = 'gdrive-dir-chooser-load-complete'
+GDRIVE_CHOOSER_DIALOG_LOAD_DONE = 'gdrive-dir-chooser-load-done'
 COMMAND_COMPLETE = 'command-complete'
 
 # --- Tree actions: requests ---
@@ -46,6 +47,7 @@ NODE_UPSERTED = 'node-upserted'
 NODE_REMOVED = 'node-removed'
 NODE_MOVED = 'node-moved'
 EXIT_DIFF_MODE = 'diff-cancelled'
+ERROR_OCCURRED = 'error-occurred'
 REFRESH_SUBTREE_STATS_DONE = 'refresh-subtree-stats-done'
 REFRESH_SUBTREE_STATS_COMPLETELY_DONE = 'refresh-subtree-stats-completely-done'
 REFRESH_SUBTREE_DONE = 'refresh-subtree-done'
@@ -87,10 +89,3 @@ ID_GDRIVE_POLLING_THREAD = 'gdrive_polling_thread'
 
 logger = logging.getLogger(__name__)
 
-
-def set_status(sender, status_msg):
-    assert status_msg
-    assert type(sender) == str
-    dispatcher.send(signal=SET_STATUS, sender=sender, status_msg=status_msg)
-
-# --- Tree actions ---

@@ -1,14 +1,10 @@
 import logging
 from typing import List
 
-from pydispatch import dispatcher
-
 from model.display_tree.display_tree import DisplayTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode
-from model.node_identifier import ensure_list, SinglePathNodeIdentifier
-from ui import actions
+from model.node_identifier import SinglePathNodeIdentifier
 from ui.tree.filter_criteria import FilterCriteria
-from util import format
 
 logger = logging.getLogger(__name__)
 
@@ -37,33 +33,13 @@ class GDriveDisplayTree(DisplayTree):
         return self.app.cacheman.get_children(node=parent, filter_criteria=filter_criteria)
 
     def __repr__(self):
-        if self._stats_loaded:
-            root_node = self.get_root_node()
-            assert isinstance(root_node, GDriveFolder)
+        root_node = self.get_root_node()
+        assert isinstance(root_node, GDriveFolder)
+        if root_node.is_stats_loaded():
             id_count_str = f' id_count={root_node.file_count + root_node.dir_count}'
         else:
             id_count_str = ''
         return f'GDriveDisplayTree(tree_id={self.tree_id} root_identifier={self.root_identifier}{id_count_str})'
 
-    def get_summary(self):
-        if self._stats_loaded:
-            root_node = self.get_root_node()
-            assert isinstance(root_node, GDriveFolder)
-            size_hf = format.humanfriendlier_size(root_node.get_size_bytes())
-            trashed_size_hf = format.humanfriendlier_size(root_node.trashed_bytes)
-            return f'{size_hf} total in {root_node.file_count:n} nodes (including {trashed_size_hf} in ' \
-                   f'{root_node.trashed_file_count:n} trashed)'
-        else:
-            return 'Loading stats...'
-
     def print_tree_contents_debug(self):
         logger.debug(f'[{self.tree_id}] GDriveDisplayTree for "{self.root_identifier}": {self.app.cacheman.show_tree(self.root_identifier)}')
-
-    def refresh_stats(self, tree_id: str):
-        logger.debug(f'[{tree_id}] Refreshing stats...')
-        root_node = self.get_root_node()
-        assert isinstance(root_node, GDriveFolder)
-        self.app.cacheman.refresh_stats(root_node, tree_id)
-        self._stats_loaded = True
-        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
-        dispatcher.send(signal=actions.SET_STATUS, sender=tree_id, status_msg=self.get_summary())

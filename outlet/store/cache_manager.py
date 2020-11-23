@@ -6,11 +6,13 @@ import threading
 import time
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional, Tuple
+import util.format
 
 from pydispatch import dispatcher
 
 from command.cmd_interface import Command
-from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, ROOT_PATH, \
+from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, \
+    ROOT_PATH, \
     TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK
 from error import CacheNotLoadedError, GDriveItemNotFoundError
@@ -19,7 +21,7 @@ from model.display_tree.display_tree import DisplayTree
 from model.display_tree.gdrive import GDriveDisplayTree
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node.node import HasParentList, Node, SPIDNodePair
+from model.node.node import HasChildStats, HasParentList, Node, SPIDNodePair
 from model.node_identifier import ensure_list, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
@@ -123,6 +125,9 @@ class CacheManager(HasLifecycle):
         self.connect_dispatch_listener(signal=actions.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
         self.connect_dispatch_listener(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
         self.connect_dispatch_listener(signal=actions.DEREGISTER_DISPLAY_TREE, receiver=self._deregister_display_tree)
+
+        self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE, receiver=self._on_refresh_subtree_requested)
+        self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE_STATS, receiver=self._on_refresh_stats_requested)
 
     def shutdown(self):
         logger.debug('CacheManager.shutdown() entered')
@@ -379,6 +384,14 @@ class CacheManager(HasLifecycle):
         if self._is_live_capture_enabled and self._live_monitor:
             self._live_monitor.stop_capture(sender)
 
+    def _on_refresh_subtree_requested(self, sender, node: Node):
+        logger.info(f'[{sender}] Enqueuing task to refresh subtree at {node.node_identifier}')
+        self.app.executor.submit_async_task(self.refresh_subtree, node, sender)
+
+    def _on_refresh_stats_requested(self, sender, root_uid: UID):
+        logger.info(f'[{sender}] Enqueuing task to refresh stats')
+        self.app.executor.submit_async_task(self.refresh_stats, root_uid, sender)
+
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -559,15 +572,47 @@ class CacheManager(HasLifecycle):
         else:
             assert False
 
-    def refresh_stats(self, subtree_root_node: Node, tree_id: str):
+    def refresh_stats(self, subtree_root_uid: UID, tree_id: str):
         """Does not send signals. The caller is responsible for sending REFRESH_SUBTREE_STATS_DONE and SET_STATUS themselves"""
+        # get up-to-date object:
+        subtree_root_node: Node = self.get_node_for_uid(subtree_root_uid)
+
         logger.debug(f'[{tree_id}] Refreshing stats for subtree: {subtree_root_node}')
+
         if subtree_root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
             self._master_local.refresh_subtree_stats(subtree_root_node, tree_id)
         elif subtree_root_node.get_tree_type() == TREE_TYPE_GDRIVE:
             self._master_gdrive.refresh_subtree_stats(subtree_root_node, tree_id)
         else:
             assert False
+
+        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
+        summary_msg: str = self._get_tree_summary(subtree_root_node)
+        dispatcher.send(signal=actions.SET_STATUS, sender=tree_id, status_msg=summary_msg)
+
+    def _get_tree_summary(self, root_node: Node):
+        if not root_node:
+            logger.debug(f'No summary (tree does not exist)')
+            return 'Tree does not exist'
+        elif not root_node.is_stats_loaded():
+            logger.debug(f'No summary (stats not loaded): {root_node.node_identifier}')
+            return 'Loading stats...'
+        else:
+            if root_node.get_tree_type() == TREE_TYPE_GDRIVE:
+                if root_node.uid == GDRIVE_ROOT_UID:
+                    logger.debug('Generating summary for whole GDrive master tree')
+                    return self._master_gdrive.get_whole_tree_summary()
+                else:
+                    logger.debug(f'Generating summary for GDrive tree: {root_node.node_identifier}')
+                    size_hf = util.format.humanfriendlier_size(root_node.get_size_bytes())
+                    trashed_size_hf = util.format.humanfriendlier_size(root_node.trashed_bytes)
+                    return f'{size_hf} total in {root_node.file_count:n} nodes (including {trashed_size_hf} in ' \
+                           f'{root_node.trashed_file_count:n} trashed)'
+            else:
+                assert root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK
+                logger.debug(f'Generating summary for LocalDisk tree: {root_node.node_identifier}')
+                size_hf = util.format.humanfriendlier_size(root_node.get_size_bytes())
+                return f'{size_hf} total in {root_node.file_count:n} files and {root_node.dir_count:n} dirs'
 
     def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[UserOp]:
         return self._op_ledger.get_last_pending_op_for_node(node_uid)

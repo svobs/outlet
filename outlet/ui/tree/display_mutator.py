@@ -43,7 +43,7 @@ class DisplayMutator(HasLifecycle):
         self.con = controller
         self.use_empty_nodes = True
         self._lock = threading.Lock()
-        self._stats_refresh_timer = HoldOffTimer(holdoff_time_ms=HOLDOFF_TIME_MS, task_func=self._refresh_subtree_stats)
+        self._stats_refresh_timer = HoldOffTimer(holdoff_time_ms=HOLDOFF_TIME_MS, task_func=self._request_subtree_stats_refresh)
         """Stats for the entire subtree are all connected to each other, so this is a big task. This timer allows us to throttle its frequency"""
 
         self._enable_expand_state_listeners = True
@@ -68,7 +68,7 @@ class DisplayMutator(HasLifecycle):
         if self.con.treeview_meta.lazy_load:
             self.connect_dispatch_listener(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=tree_id)
 
-        self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_subtree_stats_updated, sender=tree_id)
+        self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_refresh_stats_done, sender=tree_id)
         """This signal comes from the cacheman after it has finished updating all the nodes in the subtree,
         notfiying us that we can now refresh our display from it"""
 
@@ -292,11 +292,7 @@ class DisplayMutator(HasLifecycle):
 
         GLib.idle_add(update_ui)
 
-        # Show tree summary. This will probably just display 'Loading...' until REFRESH_SUBTREE_STATS is done processing
-        actions.set_status(sender=self.con.tree_id, status_msg=self.con.get_tree().get_summary())
-
-        logger.debug(f'[{self.con.tree_id}] Sending signal "{actions.REFRESH_SUBTREE_STATS}"')
-        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id)
+        self._request_subtree_stats_refresh()
 
     def get_checked_rows_as_list(self) -> List[SPIDNodePair]:
         """Returns a list which contains the DisplayNodes of the items which are currently checked by the user
@@ -542,12 +538,12 @@ class DisplayMutator(HasLifecycle):
         self._on_node_removed_from_cache(sender, src_node)
         self._on_node_upserted_in_cache(sender, dst_node)
 
-    def _refresh_subtree_stats(self):
+    def _request_subtree_stats_refresh(self):
         # Requests the cacheman to recalculate stats for this subtree. Sends actions.REFRESH_SUBTREE_STATS_DONE when done
         logger.debug(f'[{self.con.tree_id}] Sending signal: "{actions.REFRESH_SUBTREE_STATS}"')
-        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS, sender=self.con.tree_id)
+        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS, root_uid=self.con.get_tree().get_root_node().uid, sender=self.con.tree_id)
 
-    def _on_subtree_stats_updated(self, sender: str):
+    def _on_refresh_stats_done(self, sender: str):
         """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes
         with the current values from the cache."""
         logger.debug(f'[{self.con.tree_id}] Got signal: "{actions.REFRESH_SUBTREE_STATS_DONE}"')
@@ -587,6 +583,7 @@ class DisplayMutator(HasLifecycle):
         redraw_displayed_node.nodes_redrawn = 0
 
         def do_in_ui():
+            logger.debug(f'[{self.con.tree_id}] Redrawing display tree stats in UI')
             with self._lock:
                 if not self.con.app.shutdown:
                     self.con.display_store.recurse_over_tree(action_func=redraw_displayed_node)
@@ -595,10 +592,7 @@ class DisplayMutator(HasLifecycle):
                     # currently this is only used for functional tests
                     dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, sender=self.con.tree_id)
 
-        logger.debug(f'[{self.con.tree_id}] Redrawing display tree stats in UI')
         GLib.idle_add(do_in_ui)
-        # Refresh summary also:
-        dispatcher.send(signal=actions.SET_STATUS, sender=self.con.tree_id, status_msg=self.con.get_tree().get_summary())
 
     # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
     # LISTENERS end

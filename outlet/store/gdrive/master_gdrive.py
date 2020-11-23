@@ -192,9 +192,8 @@ class GDriveMasterStore(MasterStore):
             """Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
             self.get_synced_master_tree(invalidate_cache=True, tree_id=tree_id)
         except Exception as err:
-            if self.app.window:
-                self.app.window.show_error_ui('Download from GDrive failed due to unexpected error', repr(err))
             logger.exception(err)
+            GlobalActions.display_error_in_ui('Download from GDrive failed due to unexpected error', repr(err))
         finally:
             GlobalActions.enable_ui(sender=self)
 
@@ -416,6 +415,9 @@ class GDriveMasterStore(MasterStore):
         if node:
             return node.goog_id
         return None
+
+    def get_whole_tree_summary(self):
+        return self._memstore.master_tree.get_summary()
 
     def get_children(self, node: Node, filter_criteria: FilterCriteria = None) -> List[GDriveNode]:
         assert isinstance(node, GDriveNode)

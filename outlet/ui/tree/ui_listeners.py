@@ -251,6 +251,7 @@ class TreeUiListeners(HasLifecycle):
 
     # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
     def _on_set_status(self, sender, status_msg):
+        logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.SET_STATUS}" with msg: {status_msg}')
         GLib.idle_add(lambda: self.con.status_bar.set_label(status_msg))
 
     def _on_enable_ui_toggled(self, sender, enable):

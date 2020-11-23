@@ -377,7 +377,7 @@ class OpTestBase(unittest.TestCase):
 
         do_func()
 
-        self.app.executor.start_op_execution_thread()
+        dispatcher.send(signal=actions.RESUME_OP_EXECUTION, sender=actions.ID_CENTRAL_EXEC)
         logger.info('Sleeping until we get what we want')
         if not all_commands_complete.wait(LOAD_TIMEOUT_SEC):
             raise RuntimeError('Timed out waiting for all commands to complete!')

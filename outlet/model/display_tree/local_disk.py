@@ -1,16 +1,12 @@
 import logging
-from typing import Iterable, List, Optional
-
-from pydispatch import dispatcher
+from typing import Iterable
 
 import constants
 from model.display_tree.display_tree import DisplayTree
 from model.node.local_disk_node import LocalFileNode
 from model.node.node import Node
-from model.node_identifier import ensure_list, SinglePathNodeIdentifier
-from ui import actions
+from model.node_identifier import SinglePathNodeIdentifier
 from ui.tree.filter_criteria import FilterCriteria
-from util import format
 
 logger = logging.getLogger(__name__)
 
@@ -35,22 +31,6 @@ class LocalDiskDisplayTree(DisplayTree):
 
     def remove(self, node: LocalFileNode):
         raise RuntimeError('Can no longer do this in LocalDiskDisplayTree!')
-
-    def get_summary(self):
-        if self._stats_loaded:
-            root_node = self.get_root_node()
-            size_hf = format.humanfriendlier_size(root_node.get_size_bytes())
-            return f'{size_hf} total in {root_node.file_count:n} files and {root_node.dir_count:n} dirs'
-        else:
-            return 'Loading stats...'
-
-    def refresh_stats(self, tree_id: str):
-        logger.debug(f'[{tree_id}] Refreshing stats...')
-        root_node = self.get_root_node()
-        self.app.cacheman.refresh_stats(root_node, tree_id)
-        self._stats_loaded = True
-        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
-        dispatcher.send(signal=actions.SET_STATUS, sender=tree_id, status_msg=self.get_summary())
 
     def print_tree_contents_debug(self):
         logger.debug(f'[{self.tree_id}] Contents of LocalDiskDisplayTree for "{self.root_identifier}": \n' +
