@@ -19,14 +19,13 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class OutletBackend:
-    def __init__(self, config):
+    def __init__(self, config, app):
         # TODO: migrate these all into DefaultBackend
         self.config = config
-        self.executor: CentralExecutor = CentralExecutor(self)
+        self.executor: CentralExecutor = CentralExecutor(app)
         self.uid_generator: UidGenerator = PersistentAtomicIntUidGenerator(config)
-        self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self)
-        self.cacheman: CacheManager = CacheManager(self)
-        # self.backend = DefaultBackend(
+        self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(app)
+        self.cacheman: CacheManager = CacheManager(app)
 
     def start(self):
         logger.debug('Starting up backend')

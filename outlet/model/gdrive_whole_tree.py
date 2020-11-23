@@ -30,8 +30,6 @@ class GDriveWholeTree(HasGetChildren):
         self.node_identifier_factory: NodeIdentifierFactory = node_identifier_factory
         """This is sometimes needed for lookups"""
 
-        self._stats_loaded = False
-
         # Keep track of parentless nodes. These include the 'My Drive' node, as well as shared nodes.
         self.uid_dict: Dict[UID, GDriveNode] = {}
         """ Forward lookup table: nodes are indexed by UID"""
@@ -534,7 +532,8 @@ class GDriveWholeTree(HasGetChildren):
 
     def get_summary(self):
         # FIXME: this is broken
-        if self._stats_loaded:
+        super_root_node = self.get_node_for_uid(GDRIVE_ROOT_UID)
+        if super_root_node.is_stats_loaded():
             size_bytes = 0
             trashed_bytes = 0
             file_count = 0

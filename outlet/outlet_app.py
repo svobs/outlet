@@ -25,7 +25,7 @@ class OutletApplication(Gtk.Application):
     def __init__(self, config):
         self.config = config
         Gtk.Application.__init__(self)
-        self.backend = OutletBackend(config)
+        self.backend = OutletBackend(config, self)
         self.frontend = OutletFrontend(config)
         self.window = None
 

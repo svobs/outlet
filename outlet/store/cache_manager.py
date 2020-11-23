@@ -6,10 +6,10 @@ import threading
 import time
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional, Tuple
-import util.format
 
 from pydispatch import dispatcher
 
+import util.format
 from command.cmd_interface import Command
 from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, \
     ROOT_PATH, \
@@ -603,6 +603,7 @@ class CacheManager(HasLifecycle):
                     logger.debug('Generating summary for whole GDrive master tree')
                     return self._master_gdrive.get_whole_tree_summary()
                 else:
+                    assert isinstance(root_node, HasChildStats)
                     logger.debug(f'Generating summary for GDrive tree: {root_node.node_identifier}')
                     size_hf = util.format.humanfriendlier_size(root_node.get_size_bytes())
                     trashed_size_hf = util.format.humanfriendlier_size(root_node.trashed_bytes)
