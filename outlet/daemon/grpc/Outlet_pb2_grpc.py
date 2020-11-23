@@ -2,8 +2,8 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
+from outlet.daemon.grpc import Node_pb2 as outlet_dot_daemon_dot_grpc_dot_Node__pb2
 from outlet.daemon.grpc import Outlet_pb2 as outlet_dot_daemon_dot_grpc_dot_Outlet__pb2
-from outlet.daemon.grpc.dto import Node_pb2 as outlet_dot_daemon_dot_grpc_dot_dto_dot_Node__pb2
 
 
 class OutletStub(object):
@@ -16,14 +16,14 @@ class OutletStub(object):
             channel: A grpc.Channel.
         """
         self.ping = channel.unary_unary(
-                '/outletproto.Outlet/ping',
+                '/outlet.daemon.grpc.Outlet/ping',
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.PingRequest.SerializeToString,
                 response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.PingResponse.FromString,
                 )
         self.read_single_node_from_disk_for_path = channel.unary_unary(
-                '/outletproto.Outlet/read_single_node_from_disk_for_path',
+                '/outlet.daemon.grpc.Outlet/read_single_node_from_disk_for_path',
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.ReadSingleNodeFromDiskRequest.SerializeToString,
-                response_deserializer=outlet_dot_daemon_dot_grpc_dot_dto_dot_Node__pb2.Node.FromString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Node__pb2.Node.FromString,
                 )
 
 
@@ -53,11 +53,11 @@ def add_OutletServicer_to_server(servicer, server):
             'read_single_node_from_disk_for_path': grpc.unary_unary_rpc_method_handler(
                     servicer.read_single_node_from_disk_for_path,
                     request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.ReadSingleNodeFromDiskRequest.FromString,
-                    response_serializer=outlet_dot_daemon_dot_grpc_dot_dto_dot_Node__pb2.Node.SerializeToString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Node__pb2.Node.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'outletproto.Outlet', rpc_method_handlers)
+            'outlet.daemon.grpc.Outlet', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
 
 
@@ -76,7 +76,7 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outletproto.Outlet/ping',
+        return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/ping',
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.PingRequest.SerializeToString,
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.PingResponse.FromString,
             options, channel_credentials,
@@ -93,8 +93,8 @@ class Outlet(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outletproto.Outlet/read_single_node_from_disk_for_path',
+        return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/read_single_node_from_disk_for_path',
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.ReadSingleNodeFromDiskRequest.SerializeToString,
-            outlet_dot_daemon_dot_grpc_dot_dto_dot_Node__pb2.Node.FromString,
+            outlet_dot_daemon_dot_grpc_dot_Node__pb2.Node.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

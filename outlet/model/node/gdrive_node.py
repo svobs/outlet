@@ -312,5 +312,6 @@ class GDriveFile(GDriveNode):
         return True
 
     def to_tuple(self):
-        return (self.uid, self.goog_id, self.name, self.mime_type_uid, self.get_trashed_status(), self._size_bytes, self._md5, self.create_ts, self.modify_ts,
-                self.owner_uid, self.drive_id, self.is_shared, self.shared_by_user_uid, self.version, self.sync_ts)
+        return (self.uid, self.goog_id, self.name, self.mime_type_uid, self.get_trashed_status(), self._size_bytes, self._md5,
+                self.create_ts, self.modify_ts, self.owner_uid, self.drive_id, self.is_shared, self.shared_by_user_uid, self.version,
+                self.sync_ts)

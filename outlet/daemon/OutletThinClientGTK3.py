@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 class OutletThinClientGTK3(Gtk.Application):
     """GTK3 thin client which communicates with the OutletDaemon via GRPC."""
     def __init__(self, cfg):
+        self.config = cfg
         Gtk.Application.__init__(self)
         self.frontend = OutletThinClient(cfg)
         self.backend = self.frontend.backend
@@ -62,6 +63,9 @@ class OutletThinClientGTK3(Gtk.Application):
         logger.info("You chose Quit")
         self.shutdown()
 
+    @property
+    def assets(self):
+        return self.frontend.assets
 
 def main():
     if sys.version_info[0] < 3:

@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+option java_package = "com.msvoboda.outlet.dto";
+option java_multiple_files = true;
+option go_package = "msvoboda.com/outlet/proto/dto";
+
+package outlet.daemon.grpc;
+
+message Node {
+  int32 uid = 1;
+  int32 tree_type = 2;
+  repeated string path_list = 3;
+  string nid = 4;
+  int32 trashed = 5;
+  bool is_shared = 6;
+
+  oneof node_type {
+    ContainerNodeMeta container_meta = 10;
+    CategoryNodeMeta category_meta = 11;
+    RootTypeNodeMeta root_type_meta = 12;
+    LocalDirMeta local_dir_meta = 20;
+    LocalFileMeta local_file_meta = 21;
+    GDriveFileMeta gdrive_file_meta = 22;
+    GDriveFolderMeta gdrive_folder_meta = 23;
+  }
+}
+
+message DirStats {
+  int32 file_count = 1;
+  int32 dir_count = 2;
+  int32 trashed_file_count = 3;
+  int32 trashed_dir_count = 4;
+  int64 size_bytes = 5;
+  int64 trashed_bytes = 6;
+}
+
+// Container-type nodes:
+
+message ContainerNodeMeta {
+  DirStats dir_meta = 1;
+}
+
+message CategoryNodeMeta {
+  DirStats dir_meta = 1;
+  int32 op_type = 2;
+}
+
+message RootTypeNodeMeta {
+  DirStats dir_meta = 1;
+}
+
+// Local nodes:
+
+message LocalDirMeta {
+  DirStats dir_meta = 1;
+  bool is_live = 2;
+}
+
+message LocalFileMeta {
+  int64 size_bytes = 1;
+  int64 sync_ts = 2;
+  int64 modify_ts = 3;
+  int64 change_ts = 4;
+  bool is_live = 5;
+  string md5 = 6;
+  string sha256 = 7;
+}
+
+// GDrive nodes:
+
+message GDriveFileMeta {
+  string goog_id = 1;
+  string name = 2;
+  int32 owner_uid = 3;
+  int32 shared_by_user_uid = 4;
+  string drive_id = 5;
+  repeated int32 parent_uid_list = 6;
+  int64 sync_ts = 7;
+  int64 modify_ts = 8;
+  int64 create_ts = 9;
+
+  string md5 = 10;
+  int32 version = 11;
+  int64 size_bytes = 12;
+  int32 mime_type_uid = 13;
+}
+
+message GDriveFolderMeta {
+  string goog_id = 1;
+  string name = 2;
+  int32 owner_uid = 3;
+  int32 shared_by_user_uid = 4;
+  string drive_id = 5;
+  repeated int32 parent_uid_list = 6;
+  int64 sync_ts = 7;
+  int64 modify_ts = 8;
+  int64 create_ts = 9;
+
+  DirStats dir_meta = 10;
+  bool all_children_fetched = 11;
+}

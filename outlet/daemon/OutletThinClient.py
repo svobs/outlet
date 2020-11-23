@@ -9,12 +9,12 @@ from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.Outlet_pb2 import PingRequest, ReadSingleNodeFromDiskRequest
 from model.node.node import Node
 from OutletFrontend import OutletFrontend
-import outlet.daemon.grpc.dto.Node_pb2
+import outlet.daemon.grpc.Node_pb2
 
 logger = logging.getLogger(__name__)
 
 
-def _node_from_grpc(grpc_node: outlet.daemon.grpc.dto.Node_pb2.Node) -> Node:
+def _node_from_grpc(grpc_node: outlet.daemon.grpc.Node_pb2.Node) -> Node:
     logger.info(f'Got: {grpc_node.uid}')
     return None
 
