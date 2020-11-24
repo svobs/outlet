@@ -6,11 +6,10 @@ import logging
 
 from app_config import AppConfig
 from daemon.grpc import Outlet_pb2_grpc
-from daemon.grpc.node_converter import NodeConverter
+from daemon.grpc.conversion import NodeConverter
 from daemon.grpc.Outlet_pb2 import PingRequest, ReadSingleNodeFromDiskRequest
 from model.node.node import Node
 from OutletFrontend import OutletFrontend
-import outlet.daemon.grpc.Node_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +38,10 @@ class OutletThinClient(OutletFrontend):
         request = ReadSingleNodeFromDiskRequest()
         request.full_path = full_path
         request.tree_type = tree_type
-        grpc_node = self.stub.read_single_node_from_disk_for_path(request)
-        return NodeConverter.node_from_grpc(grpc_node)
+        grpc_response = self.stub.read_single_node_from_disk_for_path(request)
+        node = NodeConverter.optional_node_from_grpc(grpc_response.node)
+        logger.info(f'Got node: {node}')
+        return node
 
 
 def main():

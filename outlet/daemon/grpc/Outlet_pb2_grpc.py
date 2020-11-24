@@ -2,7 +2,6 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from outlet.daemon.grpc import Node_pb2 as outlet_dot_daemon_dot_grpc_dot_Node__pb2
 from outlet.daemon.grpc import Outlet_pb2 as outlet_dot_daemon_dot_grpc_dot_Outlet__pb2
 
 
@@ -23,7 +22,7 @@ class OutletStub(object):
         self.read_single_node_from_disk_for_path = channel.unary_unary(
                 '/outlet.daemon.grpc.Outlet/read_single_node_from_disk_for_path',
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.ReadSingleNodeFromDiskRequest.SerializeToString,
-                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Node__pb2.Node.FromString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.ReadSingleNodeFromDiskResponse.FromString,
                 )
 
 
@@ -53,7 +52,7 @@ def add_OutletServicer_to_server(servicer, server):
             'read_single_node_from_disk_for_path': grpc.unary_unary_rpc_method_handler(
                     servicer.read_single_node_from_disk_for_path,
                     request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.ReadSingleNodeFromDiskRequest.FromString,
-                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Node__pb2.Node.SerializeToString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.ReadSingleNodeFromDiskResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -95,6 +94,6 @@ class Outlet(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/read_single_node_from_disk_for_path',
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.ReadSingleNodeFromDiskRequest.SerializeToString,
-            outlet_dot_daemon_dot_grpc_dot_Node__pb2.Node.FromString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.ReadSingleNodeFromDiskResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

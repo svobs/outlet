@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=b'\n\023com.msvoboda.outletP\001Z\031msvoboda.com/outlet/proto',
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x1foutlet/daemon/grpc/Outlet.proto\x12\x12outlet.daemon.grpc\x1a\x1doutlet/daemon/grpc/Node.proto\"\r\n\x0bPingRequest\"!\n\x0cPingResponse\x12\x11\n\ttimestamp\x18\x01 \x01(\x03\"E\n\x1dReadSingleNodeFromDiskRequest\x12\x11\n\tfull_path\x18\x01 \x01(\t\x12\x11\n\ttree_type\x18\x02 \x01(\x05\x32\xcb\x01\n\x06Outlet\x12K\n\x04ping\x12\x1f.outlet.daemon.grpc.PingRequest\x1a .outlet.daemon.grpc.PingResponse\"\x00\x12t\n#read_single_node_from_disk_for_path\x12\x31.outlet.daemon.grpc.ReadSingleNodeFromDiskRequest\x1a\x18.outlet.daemon.grpc.Node\"\x00\x42\x32\n\x13\x63om.msvoboda.outletP\x01Z\x19msvoboda.com/outlet/protoP\x00\x62\x06proto3'
+  serialized_pb=b'\n\x1foutlet/daemon/grpc/Outlet.proto\x12\x12outlet.daemon.grpc\x1a\x1doutlet/daemon/grpc/Node.proto\"\r\n\x0bPingRequest\"!\n\x0cPingResponse\x12\x11\n\ttimestamp\x18\x01 \x01(\x03\"E\n\x1dReadSingleNodeFromDiskRequest\x12\x11\n\tfull_path\x18\x01 \x01(\t\x12\x11\n\ttree_type\x18\x02 \x01(\x05\"P\n\x1eReadSingleNodeFromDiskResponse\x12.\n\x04node\x18\x01 \x01(\x0b\x32 .outlet.daemon.grpc.OptionalNode2\xe6\x01\n\x06Outlet\x12K\n\x04ping\x12\x1f.outlet.daemon.grpc.PingRequest\x1a .outlet.daemon.grpc.PingResponse\"\x00\x12\x8e\x01\n#read_single_node_from_disk_for_path\x12\x31.outlet.daemon.grpc.ReadSingleNodeFromDiskRequest\x1a\x32.outlet.daemon.grpc.ReadSingleNodeFromDiskResponse\"\x00\x42\x32\n\x13\x63om.msvoboda.outletP\x01Z\x19msvoboda.com/outlet/protoP\x00\x62\x06proto3'
   ,
   dependencies=[outlet_dot_daemon_dot_grpc_dot_Node__pb2.DESCRIPTOR,],
   public_dependencies=[outlet_dot_daemon_dot_grpc_dot_Node__pb2.DESCRIPTOR,])
@@ -124,9 +124,43 @@ _READSINGLENODEFROMDISKREQUEST = _descriptor.Descriptor(
   serialized_end=205,
 )
 
+
+_READSINGLENODEFROMDISKRESPONSE = _descriptor.Descriptor(
+  name='ReadSingleNodeFromDiskResponse',
+  full_name='outlet.daemon.grpc.ReadSingleNodeFromDiskResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='node', full_name='outlet.daemon.grpc.ReadSingleNodeFromDiskResponse.node', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=207,
+  serialized_end=287,
+)
+
+_READSINGLENODEFROMDISKRESPONSE.fields_by_name['node'].message_type = outlet_dot_daemon_dot_grpc_dot_Node__pb2._OPTIONALNODE
 DESCRIPTOR.message_types_by_name['PingRequest'] = _PINGREQUEST
 DESCRIPTOR.message_types_by_name['PingResponse'] = _PINGRESPONSE
 DESCRIPTOR.message_types_by_name['ReadSingleNodeFromDiskRequest'] = _READSINGLENODEFROMDISKREQUEST
+DESCRIPTOR.message_types_by_name['ReadSingleNodeFromDiskResponse'] = _READSINGLENODEFROMDISKRESPONSE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 PingRequest = _reflection.GeneratedProtocolMessageType('PingRequest', (_message.Message,), {
@@ -150,6 +184,13 @@ ReadSingleNodeFromDiskRequest = _reflection.GeneratedProtocolMessageType('ReadSi
   })
 _sym_db.RegisterMessage(ReadSingleNodeFromDiskRequest)
 
+ReadSingleNodeFromDiskResponse = _reflection.GeneratedProtocolMessageType('ReadSingleNodeFromDiskResponse', (_message.Message,), {
+  'DESCRIPTOR' : _READSINGLENODEFROMDISKRESPONSE,
+  '__module__' : 'outlet.daemon.grpc.Outlet_pb2'
+  # @@protoc_insertion_point(class_scope:outlet.daemon.grpc.ReadSingleNodeFromDiskResponse)
+  })
+_sym_db.RegisterMessage(ReadSingleNodeFromDiskResponse)
+
 
 DESCRIPTOR._options = None
 
@@ -160,8 +201,8 @@ _OUTLET = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=208,
-  serialized_end=411,
+  serialized_start=290,
+  serialized_end=520,
   methods=[
   _descriptor.MethodDescriptor(
     name='ping',
@@ -179,7 +220,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
     index=1,
     containing_service=None,
     input_type=_READSINGLENODEFROMDISKREQUEST,
-    output_type=outlet_dot_daemon_dot_grpc_dot_Node__pb2._NODE,
+    output_type=_READSINGLENODEFROMDISKRESPONSE,
     serialized_options=None,
     create_key=_descriptor._internal_create_key,
   ),

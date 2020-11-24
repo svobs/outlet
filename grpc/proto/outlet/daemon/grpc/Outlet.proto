@@ -21,9 +21,13 @@ message ReadSingleNodeFromDiskRequest {
 	int32 tree_type = 2;
 }
 
+message ReadSingleNodeFromDiskResponse {
+	outlet.daemon.grpc.OptionalNode node = 1;
+}
+
 service Outlet {
 	rpc ping(PingRequest) returns (PingResponse) {}
-	rpc read_single_node_from_disk_for_path(ReadSingleNodeFromDiskRequest) returns (outlet.daemon.grpc.Node) {}
+	rpc read_single_node_from_disk_for_path(ReadSingleNodeFromDiskRequest) returns (ReadSingleNodeFromDiskResponse) {}
 
     //rpc GetPositions(GetPositionsRequest) returns (stream dto.Position) {}
 }

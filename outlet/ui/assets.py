@@ -1,6 +1,7 @@
 import os
 import logging
 from typing import Dict, List
+from model.node_identifier import ensure_int
 
 from constants import BADGE_ICON_BASE_DIR, BASE_ICON_BASE_DIR, BTN_GDRIVE, BTN_LOCAL_DISK_LINUX, COMPOSITE_ICON_BASE_DIR, ICON_ALERT, ICON_DIR_CP_DST, \
     ICON_DIR_CP_SRC, ICON_DIR_MK, \
@@ -11,7 +12,6 @@ from constants import BADGE_ICON_BASE_DIR, BASE_ICON_BASE_DIR, BTN_GDRIVE, BTN_L
     ICON_GENERIC_FILE, ICON_IS_NOT_SHARED, ICON_IS_NOT_TRASHED, ICON_LOCAL_DISK_LINUX, ICON_MATCH_CASE, ICON_PAUSE, ICON_PLAY, ICON_REFRESH, \
     ICON_IS_SHARED, \
     ICON_IS_TRASHED, ICON_WINDOW
-from model.node_identifier import ensure_int
 
 from util.file_util import get_resource_path
 

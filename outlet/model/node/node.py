@@ -253,12 +253,12 @@ class HasChildStats(ABC):
     """
 
     def __init__(self):
-        self.file_count = 0
-        self.trashed_file_count = 0
-        self.trashed_dir_count = 0
-        self.dir_count = 0
-        self.trashed_bytes = 0
-        self._size_bytes = None
+        self.file_count: int = 0
+        self.trashed_file_count: int = 0
+        self.trashed_dir_count: int = 0
+        self.dir_count: int = 0
+        self.trashed_bytes: int = 0
+        self._size_bytes: Optional[int] = None
         """Set this to None to signify that stats are not yet calculated"""
 
     def update_from(self, other_node):

@@ -6,6 +6,17 @@ option go_package = "msvoboda.com/outlet/proto/dto";
 
 package outlet.daemon.grpc;
 
+message Null {
+  // nothing
+}
+
+message OptionalNode {
+  oneof optional_node {
+    Node node = 1;
+    Null null = 2;
+  }
+}
+
 message Node {
   int32 uid = 1;
   int32 tree_type = 2;
@@ -25,34 +36,35 @@ message Node {
   }
 }
 
-message DirStats {
-  int32 file_count = 1;
-  int32 dir_count = 2;
-  int32 trashed_file_count = 3;
-  int32 trashed_dir_count = 4;
-  int64 size_bytes = 5;
-  int64 trashed_bytes = 6;
+message DirMeta {
+  bool has_data = 1;
+  int32 file_count = 2;
+  int32 dir_count = 3;
+  int32 trashed_file_count = 4;
+  int32 trashed_dir_count = 5;
+  int64 size_bytes = 6;
+  int64 trashed_bytes = 7;
 }
 
 // Container-type nodes:
 
 message ContainerNodeMeta {
-  DirStats dir_meta = 1;
+  DirMeta dir_meta = 1;
 }
 
 message CategoryNodeMeta {
-  DirStats dir_meta = 1;
+  DirMeta dir_meta = 1;
   int32 op_type = 2;
 }
 
 message RootTypeNodeMeta {
-  DirStats dir_meta = 1;
+  DirMeta dir_meta = 1;
 }
 
 // Local nodes:
 
 message LocalDirMeta {
-  DirStats dir_meta = 1;
+  DirMeta dir_meta = 1;
   bool is_live = 2;
 }
 
@@ -96,6 +108,6 @@ message GDriveFolderMeta {
   int64 modify_ts = 8;
   int64 create_ts = 9;
 
-  DirStats dir_meta = 10;
+  DirMeta dir_meta = 10;
   bool all_children_fetched = 11;
 }

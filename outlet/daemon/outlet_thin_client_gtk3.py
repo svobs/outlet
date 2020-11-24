@@ -67,6 +67,7 @@ class OutletThinClientGTK3(Gtk.Application):
     def assets(self):
         return self.frontend.assets
 
+
 def main():
     if sys.version_info[0] < 3:
         raise Exception("Python 3 or a more recent version is required.")

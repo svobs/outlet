@@ -19,6 +19,15 @@ def ensure_int(val):
     return val
 
 
+def ensure_uid(val):
+    try:
+        if val and not isinstance(val, UID):
+            return UID(ensure_int(val))
+    except ValueError:
+        logger.error(f'Bad value: {val}')
+    return val
+
+
 def ensure_bool(val):
     try:
         return bool(val)
@@ -51,9 +60,7 @@ class NodeIdentifier(ABC):
     """
 
     def __init__(self, uid: UID, path_list: Optional[Union[str, List[str]]]):
-        if uid and not isinstance(uid, UID):
-            uid = UID(ensure_int(uid))
-        self.uid: UID = uid
+        self.uid: UID = ensure_uid(uid)
         self._path_list: Optional[List[str]] = None
         self.set_path_list(path_list)
 

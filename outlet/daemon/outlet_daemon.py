@@ -6,8 +6,8 @@ import grpc
 
 from app_config import AppConfig
 from daemon.grpc import Outlet_pb2_grpc
-from daemon.grpc.node_converter import NodeConverter
-from daemon.grpc.Outlet_pb2 import PingResponse, ReadSingleNodeFromDiskRequest
+from daemon.grpc.conversion import NodeConverter
+from daemon.grpc.Outlet_pb2 import PingResponse, ReadSingleNodeFromDiskRequest, ReadSingleNodeFromDiskResponse
 from daemon.grpc.Outlet_pb2_grpc import OutletServicer
 from OutletBackend import OutletBackend
 
@@ -26,8 +26,9 @@ class OutletGRPCService(OutletServicer):
 
     def read_single_node_from_disk_for_path(self, request: ReadSingleNodeFromDiskRequest, context):
         node = self.cacheman.read_single_node_from_disk_for_path(request.full_path, request.tree_type)
-        logger.info(f'Returning: {node}')
-        return NodeConverter.node_to_grpc(node)
+        response = ReadSingleNodeFromDiskResponse()
+        NodeConverter.optional_node_to_grpc(node, response.node)
+        return response
 
 
 # CLASS OutletDaemon
