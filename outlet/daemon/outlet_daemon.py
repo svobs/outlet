@@ -3,27 +3,15 @@ import sys
 from concurrent import futures
 
 import grpc
-import outlet.daemon.grpc.Node_pb2
 
 from app_config import AppConfig
 from daemon.grpc import Outlet_pb2_grpc
+from daemon.grpc.node_converter import NodeConverter
 from daemon.grpc.Outlet_pb2 import PingResponse, ReadSingleNodeFromDiskRequest
 from daemon.grpc.Outlet_pb2_grpc import OutletServicer
-from model.node.node import Node
 from OutletBackend import OutletBackend
 
 logger = logging.getLogger(__name__)
-
-
-def _node_to_grpc(node: Node):
-    grpc_node = outlet.daemon.grpc.Node_pb2.Node()
-    grpc_node.uid = int(node.uid)
-    for full_path in node.get_path_list():
-        grpc_node.path_list.append(full_path)
-    grpc_node.nid = str(node.identifier)
-    grpc_node.trashed = node.get_trashed_status()
-    grpc_node.is_shared = node.is_shared
-    return grpc_node
 
 
 class OutletGRPCService(OutletServicer):
@@ -39,7 +27,7 @@ class OutletGRPCService(OutletServicer):
     def read_single_node_from_disk_for_path(self, request: ReadSingleNodeFromDiskRequest, context):
         node = self.cacheman.read_single_node_from_disk_for_path(request.full_path, request.tree_type)
         logger.info(f'Returning: {node}')
-        return _node_to_grpc(node)
+        return NodeConverter.node_to_grpc(node)
 
 
 # CLASS OutletDaemon

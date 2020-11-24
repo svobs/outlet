@@ -6,17 +6,13 @@ import logging
 
 from app_config import AppConfig
 from daemon.grpc import Outlet_pb2_grpc
+from daemon.grpc.node_converter import NodeConverter
 from daemon.grpc.Outlet_pb2 import PingRequest, ReadSingleNodeFromDiskRequest
 from model.node.node import Node
 from OutletFrontend import OutletFrontend
 import outlet.daemon.grpc.Node_pb2
 
 logger = logging.getLogger(__name__)
-
-
-def _node_from_grpc(grpc_node: outlet.daemon.grpc.Node_pb2.Node) -> Node:
-    logger.info(f'Got: {grpc_node.uid}')
-    return None
 
 
 # CLASS OutletThinClient
@@ -44,7 +40,7 @@ class OutletThinClient(OutletFrontend):
         request.full_path = full_path
         request.tree_type = tree_type
         grpc_node = self.stub.read_single_node_from_disk_for_path(request)
-        return _node_from_grpc(grpc_node)
+        return NodeConverter.node_from_grpc(grpc_node)
 
 
 def main():

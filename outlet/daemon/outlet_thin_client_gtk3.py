@@ -4,7 +4,7 @@ import signal
 import logging
 
 from app_config import AppConfig
-from daemon.OutletThinClient import OutletThinClient
+from daemon.outlet_thin_client import OutletThinClient
 from ui.actions import ID_DIFF_WINDOW
 from ui.two_pane_window import TwoPanelWindow
 
