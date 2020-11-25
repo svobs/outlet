@@ -1,15 +1,12 @@
-import sys
-import time
+import logging
 from typing import List, Union
 
 import grpc
-import logging
 
 from app.backend import OutletBackend
-from app_config import AppConfig
 from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.conversion import NodeConverter
-from daemon.grpc.Outlet_pb2 import PingRequest, ReadSingleNodeFromDiskRequest
+from daemon.grpc.Outlet_pb2 import ReadSingleNodeFromDiskRequest
 from executor.task_runner import TaskRunner
 from model.node.node import Node
 from model.node_identifier import NodeIdentifier
@@ -60,25 +57,3 @@ class BackendGRPCClient(OutletBackend, HasLifecycle):
                          must_be_single_path: bool = False) -> NodeIdentifier:
         pass
 
-
-def main():
-    if sys.version_info[0] < 3:
-        raise Exception("Python 3 or a more recent version is required.")
-
-    if len(sys.argv) >= 2:
-        cfg = AppConfig(sys.argv[1])
-    else:
-        cfg = AppConfig()
-
-    thin_client = BackendGRPCClient(cfg)
-    thin_client.start()
-
-    ping_request = PingRequest()
-    logger.info(f'Sending ping!')
-    ping_response = thin_client.grpc_stub.ping(ping_request)
-    logger.info(f'Ping received: {ping_response.timestamp}')
-    time.sleep(3)
-
-
-if __name__ == '__main__':
-    main()

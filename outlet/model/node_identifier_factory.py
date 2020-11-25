@@ -126,7 +126,7 @@ class NodeIdentifierFactory:
 
             return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
         elif uid:
-            node: Node = self.app.cacheman.get_node_for_uid(uid)
+            node: Node = self.app.cacheman.get_node_for_uid(uid, TREE_TYPE_LOCAL_DISK)
             if node:
                 full_path_list = node.get_path_list()
                 return LocalNodeIdentifier(uid=uid, path_list=full_path_list)

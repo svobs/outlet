@@ -1,11 +1,9 @@
 import logging
-import sys
 from concurrent import futures
 
 import grpc
 
 from app.backend_integrated import BackendIntegrated
-from app_config import AppConfig
 from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.conversion import NodeConverter
 from daemon.grpc.Outlet_pb2 import PingResponse, ReadSingleNodeFromDiskRequest, ReadSingleNodeFromDiskResponse
@@ -13,6 +11,9 @@ from daemon.grpc.Outlet_pb2_grpc import OutletServicer
 
 logger = logging.getLogger(__name__)
 
+
+# CLASS OutletGRPCService
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class OutletGRPCService(OutletServicer):
     def __init__(self, parent):
@@ -55,28 +56,3 @@ class OutletDaemon(BackendIntegrated):
         logger.info('gRPC server started!')
         server.wait_for_termination()
         logger.info('gRPC server stopped!')
-
-
-def main():
-    if sys.version_info[0] < 3:
-        raise Exception("Python 3 or a more recent version is required.")
-
-    if len(sys.argv) >= 2:
-        config = AppConfig(sys.argv[1])
-    else:
-        config = AppConfig()
-
-    logger.info(f'Creating OutletDameon')
-    daemon = OutletDaemon(config)
-    daemon.start()
-
-    try:
-        daemon.serve()
-        sys.exit(0)
-    except KeyboardInterrupt:
-        logger.info('Caught KeyboardInterrupt. Quitting')
-        daemon.shutdown()
-
-
-if __name__ == '__main__':
-    main()

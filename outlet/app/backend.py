@@ -19,5 +19,3 @@ class OutletBackend(ABC):
     def build_identifier(self, tree_type: int = None, path_list: Union[str, List[str]] = None, uid: UID = None,
                          must_be_single_path: bool = False) -> NodeIdentifier:
         pass
-
-

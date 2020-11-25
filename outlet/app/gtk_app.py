@@ -1,15 +1,11 @@
 import logging
 import signal
-import sys
 from typing import Dict, Optional
 
 from pydispatch import dispatcher
 
 import ui.assets
 from app.backend import OutletBackend
-
-from app_config import AppConfig
-from app.backend_integrated import BackendIntegrated
 from ui import actions
 from ui.actions import ID_DIFF_WINDOW
 from ui.tree.controller import TreePanelController
@@ -134,29 +130,3 @@ class OutletApplication(Gtk.Application):
 
     def get_tree_controller(self, tree_id: str) -> Optional[TreePanelController]:
         return self._tree_controllers.get(tree_id, None)
-
-# ENTRY POINT MAIN
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-
-def main():
-    if sys.version_info[0] < 3:
-        raise Exception("Python 3 or a more recent version is required.")
-
-    if len(sys.argv) >= 2:
-        config = AppConfig(sys.argv[1])
-    else:
-        config = AppConfig()
-
-    backend = BackendIntegrated(config)
-    app = OutletApplication(config, backend)
-    try:
-        exit_status = app.run(sys.argv)
-        sys.exit(exit_status)
-    except KeyboardInterrupt:
-        logger.info('Caught KeyboardInterrupt. Quitting')
-        app.shutdown()
-
-
-if __name__ == '__main__':
-    main()
