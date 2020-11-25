@@ -2,6 +2,7 @@ from pydispatch import dispatcher
 import logging
 
 # Tasks
+ENQUEUE_UI_TASK = 'enqueue-ui-task'
 START_CACHEMAN = 'start-cacheman'
 START_OP_EXEC_THREAD = 'start-op-execution-thread'
 LOAD_REGISTRY_DONE = 'load-registry-done'

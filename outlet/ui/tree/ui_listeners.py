@@ -64,7 +64,7 @@ class TreeUiListeners(HasLifecycle):
                          f'LoadDisplayedAtStartup={self.con.cacheman.load_caches_for_displayed_trees_at_startup}')
             # Either enabled for this tree to be loaded automatically
             self.connect_dispatch_listener(signal=actions.START_CACHEMAN_DONE, receiver=self._after_all_caches_loaded)
-            if self.con.app.cacheman.load_all_caches_done:
+            if self.con.cacheman.load_all_caches_done:
                 # If cacheman finished loading before we even started listening, just execute here.
                 # Possible race condition? Should be ok for CPython...
                 # FIXME: this is nasty. Find a better solution. Something like a queuing solution for signals...

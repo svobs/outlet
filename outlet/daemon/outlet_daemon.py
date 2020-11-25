@@ -4,12 +4,12 @@ from concurrent import futures
 
 import grpc
 
+from app.backend_integrated import BackendIntegrated
 from app_config import AppConfig
 from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.conversion import NodeConverter
 from daemon.grpc.Outlet_pb2 import PingResponse, ReadSingleNodeFromDiskRequest, ReadSingleNodeFromDiskResponse
 from daemon.grpc.Outlet_pb2_grpc import OutletServicer
-from OutletBackend import OutletBackend
 
 logger = logging.getLogger(__name__)
 
@@ -34,21 +34,21 @@ class OutletGRPCService(OutletServicer):
 # CLASS OutletDaemon
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class OutletDaemon(OutletBackend):
+class OutletDaemon(BackendIntegrated):
     def __init__(self, config):
         self.config = config
-        OutletBackend.__init__(self, config, self)
-        self.backend = OutletGRPCService(self)
+        BackendIntegrated.__init__(self, config)
+        self._service = OutletGRPCService(self)
 
     def start(self):
-        OutletBackend.start(self)
+        BackendIntegrated.start(self)
 
     def shutdown(self):
-        OutletBackend.shutdown(self)
+        BackendIntegrated.shutdown(self)
 
     def serve(self):
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-        Outlet_pb2_grpc.add_OutletServicer_to_server(self.backend, server)
+        Outlet_pb2_grpc.add_OutletServicer_to_server(self._service, server)
         server.add_insecure_port('[::]:50051')
         logger.info('gRPC server starting...')
         server.start()

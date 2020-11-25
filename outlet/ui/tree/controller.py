@@ -59,7 +59,7 @@ class TreePanelController:
         # Need to start TreeUiListeners AFTER TreeActions... Need a better solution
         self.tree_ui_listeners.init()
 
-        self.app.frontend.register_tree_controller(self)
+        self.app.register_tree_controller(self)
 
         self._set_column_visibilities()
 
@@ -159,7 +159,8 @@ class TreePanelController:
 
     @property
     def cacheman(self):
-        return self.app.cacheman
+        # TODO: this should go away after FE/BE refactor
+        return self.app.backend.cacheman
 
     @property
     def config(self):

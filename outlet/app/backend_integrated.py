@@ -3,6 +3,7 @@ from typing import List, Union
 from pydispatch import dispatcher
 import logging
 
+from app.backend import OutletBackend
 from executor.central import CentralExecutor
 from model.node.node import Node
 from model.node_identifier import NodeIdentifier
@@ -11,30 +12,37 @@ from model.uid import UID
 from store.cache_manager import CacheManager
 from store.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
 from ui import actions
+from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
 
 
-# CLASS OutletBackend
+# CLASS BackendMonolith
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class OutletBackend:
-    def __init__(self, config, app):
-        # TODO: migrate these all into DefaultBackend
+class BackendIntegrated(OutletBackend, HasLifecycle):
+    def __init__(self, config):
+        HasLifecycle.__init__(self)
         self.config = config
-        self.executor: CentralExecutor = CentralExecutor(app)
+        self.executor: CentralExecutor = CentralExecutor(self)
         self.uid_generator: UidGenerator = PersistentAtomicIntUidGenerator(config)
-        self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(app)
-        self.cacheman: CacheManager = CacheManager(app)
+        self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self)
+        self.cacheman: CacheManager = CacheManager(self)
 
     def start(self):
         logger.debug('Starting up backend')
+        HasLifecycle.start(self)
+
         self.executor.start()
+
+        self.connect_dispatch_listener(signal=actions.ENQUEUE_UI_TASK, receiver=self.executor.submit_async_task)
+
         # Kick off cache load now that we have a progress bar
         dispatcher.send(actions.START_CACHEMAN, sender=actions.ID_CENTRAL_EXEC)
 
     def shutdown(self):
         logger.debug('Shutting down backend')
+        HasLifecycle.shutdown(self)
 
         dispatcher.send(actions.SHUTDOWN_APP, sender=actions.ID_CENTRAL_EXEC)
 

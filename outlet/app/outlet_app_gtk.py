@@ -1,11 +1,18 @@
 import logging
 import signal
 import sys
+from typing import Dict, Optional
+
+from pydispatch import dispatcher
+
+import ui.assets
+from app.backend import OutletBackend
 
 from app_config import AppConfig
-from OutletBackend import OutletBackend
-from OutletFrontend import OutletFrontend
+from app.backend_integrated import BackendIntegrated
+from ui import actions
 from ui.actions import ID_DIFF_WINDOW
+from ui.tree.controller import TreePanelController
 from ui.two_pane_window import TwoPanelWindow
 
 import gi
@@ -22,24 +29,33 @@ class OutletApplication(Gtk.Application):
 
     """Main app.
     See: https://athenajc.gitbooks.io/python-gtk-3-api/content/gtk-group/gtkapplication.html"""
-    def __init__(self, config):
+    def __init__(self, config, backend: OutletBackend):
         self.config = config
         Gtk.Application.__init__(self)
-        self.backend = OutletBackend(config, self)
-        self.frontend = OutletFrontend(config)
+        self.backend: OutletBackend = backend
+        self.assets = ui.assets.Assets(config)
+        self._tree_controllers: Dict[str, TreePanelController] = {}
+        """Keep track of live UI tree controllers, so that we can look them up by ID (e.g. for use in automated testing)"""
         self.window = None
 
     def start(self):
+        logger.debug('Starting up app...')
         self.backend.start()
-        self.frontend.start()
+
+        dispatcher.connect(signal=actions.DEREGISTER_DISPLAY_TREE, receiver=self._deregister_tree_controller)
 
     def shutdown(self):
+        logger.debug('Shutting down app...')
         self.backend.shutdown()
-        self.frontend.shutdown()
 
-    @property
-    def assets(self):
-        return self.frontend.assets
+        try:
+            if self._tree_controllers:
+                for controller in list(self._tree_controllers.values()):
+                    controller.destroy()
+                self._tree_controllers.clear()
+        except NameError:
+            pass
+
 
     # TODO: replace all uses of this with APIs in Backend
     @property
@@ -102,6 +118,23 @@ class OutletApplication(Gtk.Application):
         logger.info("You chose Quit")
         self.shutdown()
 
+    # Tree controller tracking/lookup
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+    def register_tree_controller(self, controller: TreePanelController):
+        logger.debug(f'[{controller.tree_id}] Registering controller')
+        self._tree_controllers[controller.tree_id] = controller
+
+    def _deregister_tree_controller(self, sender: str):
+        # Sender is tree_id
+        logger.debug(f'[{sender}] Deregistering controller in frontend')
+        popped_con = self._tree_controllers.pop(sender, None)
+        if not popped_con:
+            logger.debug(f'Could not deregister controller; it was not found: {sender}')
+
+    def get_tree_controller(self, tree_id: str) -> Optional[TreePanelController]:
+        return self._tree_controllers.get(tree_id, None)
+
 # ENTRY POINT MAIN
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -115,7 +148,8 @@ def main():
     else:
         config = AppConfig()
 
-    app = OutletApplication(config)
+    backend = BackendIntegrated(config)
+    app = OutletApplication(config, backend)
     try:
         exit_status = app.run(sys.argv)
         sys.exit(exit_status)

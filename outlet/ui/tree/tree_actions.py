@@ -4,6 +4,8 @@ import re
 from typing import List
 import subprocess
 
+from pydispatch import dispatcher
+
 from constants import TreeDisplayMode
 from model.display_tree.category import CategoryDisplayTree
 from model.node.local_disk_node import LocalNode
@@ -15,11 +17,9 @@ from store.gdrive.client import GDriveClient
 from model.node.node import Node, SPIDNodePair
 from model.node.gdrive_node import GDriveFile
 from ui import actions
-
-import gi
-
 from util.has_lifecycle import HasLifecycle
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -62,8 +62,8 @@ class TreeActions(HasLifecycle):
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def _load_ui_tree(self, sender):
-        """Just populates the tree with nodes. Executed asyncly by actions.LOAD_UI_TREE"""
-        self.con.app.executor.submit_async_task(self.con.display_mutator.populate_root)
+        """Just populates the tree with nodes. Executed asyncly via actions.LOAD_UI_TREE"""
+        dispatcher.send(signal=actions.ENQUEUE_UI_TASK, sender=sender, task_func=self.con.display_mutator.populate_root)
 
     def _expand_and_select_node(self, nid: SinglePathNodeIdentifier):
         logger.debug(f'[{self.con.tree_id}] Got signal: "{actions.EXPAND_AND_SELECT_NODE}"')
@@ -75,7 +75,7 @@ class TreeActions(HasLifecycle):
             for item in node_list:
                 self._call_exiftool(sender, item.get_single_path())
 
-        self.con.app.executor.submit_async_task(call_exiftool)
+        dispatcher.send(signal=actions.ENQUEUE_UI_TASK, sender=sender, task_func=call_exiftool)
 
     def _call_exiftool(self, sender, full_path):
         """See "Misc EXIF Tool Notes" in README.md

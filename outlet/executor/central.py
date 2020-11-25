@@ -4,8 +4,8 @@ import logging
 from pydispatch import dispatcher
 
 from command.cmd_executor import CommandExecutor
+from executor.task_runner import TaskRunner
 from global_actions import GlobalActions
-from task_runner import CentralTaskRunner
 from ui import actions
 from util.has_lifecycle import HasLifecycle
 
@@ -23,7 +23,7 @@ class CentralExecutor(HasLifecycle):
         self._shutdown_requested: bool = False
         self._command_executor = CommandExecutor(self.app)
         self._global_actions = GlobalActions(self.app)
-        self._task_runner = CentralTaskRunner()
+        self._task_runner = TaskRunner()
         self.enable_op_execution_thread = app.config.get('executor.enable_op_execution_thread')
 
         self._op_execution_thread = threading.Thread(target=self._run_op_execution_thread, name='OpExecutionThread', daemon=True)
