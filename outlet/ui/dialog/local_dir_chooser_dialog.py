@@ -3,6 +3,8 @@ import logging
 import gi
 from pydispatch import dispatcher
 
+from util.root_path_meta import RootPathMeta
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -21,7 +23,8 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
         logger.info(f'User selected dir: {filename}')
         uid = open_dialog.parent_win.app.cacheman.get_uid_for_path(filename)
         node_identifier = LocalNodeIdentifier(uid=uid, path_list=filename)
-        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.tree_id, new_root=node_identifier)
+        new_root_meta = RootPathMeta(node_identifier, is_found=True)
+        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.tree_id, new_root_meta=new_root_meta)
     # if response is "CANCEL" (the button "Cancel" has been clicked)
     elif response_id == Gtk.ResponseType.CANCEL:
         logger.debug("Cancelled: LocalRootDirChooserDialog")

@@ -57,7 +57,7 @@ class LocalDiskDatabase(MetaDatabase):
     def _tuple_to_file(self, row: Tuple) -> LocalFileNode:
         uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, trashed, is_live = row
 
-        uid = self.cacheman.get_uid_for_path(full_path, uid_int)
+        uid = self.cacheman.get_uid_for_path(full_path, uid_int, override_load_check=True)
         assert uid == row[0], f'UID conflict! Got {uid} but read {uid_int} in row: {row}'
         node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)
         return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed, is_live)
@@ -94,7 +94,7 @@ class LocalDiskDatabase(MetaDatabase):
 
     def _tuple_to_dir(self, row: Tuple) -> LocalDirNode:
         full_path = row[1]
-        uid = self.cacheman.get_uid_for_path(full_path, row[0])
+        uid = self.cacheman.get_uid_for_path(full_path, row[0], override_load_check=True)
         assert uid == row[0], f'UID conflict! Got {uid} from memstore but read from disk: {row}'
         return LocalDirNode(LocalNodeIdentifier(uid=uid, path_list=full_path), row[2], bool(row[3]))
 

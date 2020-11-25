@@ -46,7 +46,8 @@ class LocalDiskTree(SimpleTree):
         if path_segments:
             for dir_name in path_segments:
                 path_so_far: str = os.path.join(path_so_far, dir_name)
-                uid = self.app.cacheman.get_uid_for_path(path_so_far)
+                # TODO: Should not be using override_load_check=True here
+                uid = self.app.cacheman.get_uid_for_path(path_so_far, override_load_check=True)
                 child: LocalNode = self.get_node(nid=uid)
                 if not child:
                     # logger.debug(f'Creating dir node: nid={uid}')

@@ -14,6 +14,7 @@ from model.uid import UID
 from ui.tree.context_menu import TreeContextMenu
 from ui.tree.controller import TreePanelController
 from util.has_lifecycle import HasLifecycle
+from util.root_path_meta import RootPathMeta
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gdk, Gtk
@@ -233,17 +234,17 @@ class TreeUiListeners(HasLifecycle):
                 return True
         return False
 
-    def _on_root_path_updated(self, sender, new_root: SinglePathNodeIdentifier, err=None):
+    def _on_root_path_updated(self, sender, new_root_meta: RootPathMeta):
         logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.ROOT_PATH_UPDATED}"')
 
         # Reload subtree and refresh display
-        if not err and self.con.cacheman.reload_tree_on_root_path_update:
-            logger.debug(f'[{self.con.tree_id}] Got new root. Reloading subtree for: {new_root}')
+        if new_root_meta.is_found and self.con.cacheman.reload_tree_on_root_path_update:
+            logger.debug(f'[{self.con.tree_id}] Got new root. Reloading subtree for: {new_root_meta.root}')
             # Loads from disk if necessary:
-            self.con.reload(new_root, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, hide_checkboxes=True)
+            self.con.reload(new_root_meta.root, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, hide_checkboxes=True)
         else:
             # Just wipe out the old root and clear the tree
-            self.con.set_tree(root=new_root)
+            self.con.set_tree(root=new_root_meta.root)
 
     def _after_all_caches_loaded(self, sender):
         logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.START_CACHEMAN_DONE}"; sending "{actions.LOAD_UI_TREE}" signal')

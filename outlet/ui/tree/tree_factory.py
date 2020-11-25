@@ -3,7 +3,7 @@ from typing import Optional
 
 from constants import SUPER_DEBUG, TreeDisplayMode
 from model.node.node import Node
-from model.node_identifier import NodeIdentifier
+from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.display_tree.display_tree import DisplayTree
 from ui.comp.filter_panel import TreeFilterPanel
 from ui.dialog.base_dialog import BaseDialog
@@ -19,6 +19,9 @@ from ui.tree.treeview_meta import TreeViewMeta
 from ui.tree.display_store import DisplayStore
 
 import gi
+
+from util.root_path_meta import RootPathMeta
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -43,12 +46,17 @@ class TreeFactory:
     def __init__(self,
                  parent_win: BaseDialog,
                  tree_id: str,
-                 root: Optional[NodeIdentifier] = None,
+                 root_path_meta: Optional[RootPathMeta] = None,
                  tree: Optional[DisplayTree] = None
                  ):
         self.parent_win = parent_win
 
-        self.root: Optional[NodeIdentifier] = root
+        if root_path_meta:
+            self.root_path_meta = root_path_meta
+        elif tree:
+            self.root_path_meta = RootPathMeta(tree.root_identifier, is_found=True)
+        else:
+            raise RuntimeError('Params "root_path_meta" and "tree" cannot both be empty!')
         self.tree: Optional[DisplayTree] = tree
         """Choose one: tree or root"""
 
@@ -89,14 +97,15 @@ class TreeFactory:
 
         controller.display_store = DisplayStore(controller)
 
-        if self.root:
-            controller.set_tree(root=self.root)
-            already_loaded = False
-        elif self.tree:
+        if self.tree:
+            # Prefer tree over root
             controller.set_tree(tree=self.tree)
             already_loaded = True
+        elif self.root_path_meta:
+            controller.set_tree(root=self.root_path_meta.root)
+            already_loaded = False
         else:
-            raise RuntimeError('"root" and "tree" are both empty!')
+            raise RuntimeError('"root_path_meta" and "tree" are both empty!')
 
         controller.display_mutator = DisplayMutator(config=self.parent_win.config, controller=controller)
 
@@ -109,7 +118,7 @@ class TreeFactory:
 
         controller.root_dir_panel = RootDirPanel(parent_win=self.parent_win,
                                                  controller=controller,
-                                                 current_root=controller.get_root_identifier(),
+                                                 current_root_meta=self.root_path_meta,
                                                  can_change_root=treeview_meta.can_change_root,
                                                  is_loaded=already_loaded)
 
@@ -153,11 +162,11 @@ def build_gdrive_root_chooser(parent_win, tree_id, tree: DisplayTree):
 
 def build_editor_tree(parent_win,
                       tree_id: str,
-                      root: NodeIdentifier = None,
+                      root_path_meta: RootPathMeta = None,
                       tree: DisplayTree = None):
     if SUPER_DEBUG:
         logger.debug(f'[{tree_id}] Entered build_editor_tree()')
-    factory = TreeFactory(parent_win=parent_win, root=root, tree=tree, tree_id=tree_id)
+    factory = TreeFactory(parent_win=parent_win, root_path_meta=root_path_meta, tree=tree, tree_id=tree_id)
     factory.has_checkboxes = False  # not initially
     factory.can_modify_tree = True
     factory.can_change_root = True

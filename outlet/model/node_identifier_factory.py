@@ -3,6 +3,7 @@ from typing import List, Optional, Union
 
 from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, LOCAL_ROOT_UID, ROOT_PATH, SUPER_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, \
     TREE_TYPE_MIXED
+from model.node.node import Node
 from model.node_identifier import ensure_list, ensure_uid, GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 
@@ -114,15 +115,23 @@ class NodeIdentifierFactory:
 
                 return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
         else:
-            raise RuntimeError('no tree_type and no full_path supplied')
+            raise RuntimeError('Neither tree_type nor full_path supplied for GDriveIdentifier!')
 
     def _for_tree_type_local(self, full_path_list: Optional[List[str]] = None, uid: UID = None) -> LocalNodeIdentifier:
+        if uid and full_path_list:
+            return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
+
         if full_path_list:
             uid = self.app.cacheman.get_uid_for_path(full_path_list[0], uid)
 
             return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
+        elif uid:
+            node: Node = self.app.cacheman.get_node_for_uid(uid)
+            if node:
+                full_path_list = node.get_path_list()
+                return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
         else:
-            raise RuntimeError('no full_path supplied for local file')
+            raise RuntimeError('Neither "uid" nor "full_path" supplied for LocalNodeIdentifier!')
 
     def _for_tree_type_gdrive(self, full_path_list: Optional[List[str]] = None, uid: UID = None, must_be_single_path: bool = False) \
             -> Union[GDriveIdentifier, SinglePathNodeIdentifier]:

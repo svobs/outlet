@@ -1,7 +1,7 @@
 
-
 #    CLASS GDriveItemNotFoundError
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
 
 class GDriveItemNotFoundError(RuntimeError):
     def __init__(self, node_identifier, offending_path: str, msg: str = None):

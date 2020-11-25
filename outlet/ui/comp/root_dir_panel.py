@@ -1,4 +1,3 @@
-import errno
 import logging
 import os
 from pydispatch import dispatcher
@@ -6,7 +5,6 @@ from pydispatch import dispatcher
 from model.display_tree.display_tree import DisplayTree
 from ui.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
 from util import file_util
-from error import GDriveItemNotFoundError
 from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 
 from constants import BTN_GDRIVE, BTN_LOCAL_DISK_LINUX, GDRIVE_PATH_PREFIX, H_PAD, ICON_ALERT, ICON_REFRESH, NULL_UID, \
@@ -15,9 +13,11 @@ from constants import BTN_GDRIVE, BTN_LOCAL_DISK_LINUX, GDRIVE_PATH_PREFIX, H_PA
 from model.node_identifier import SinglePathNodeIdentifier
 from ui.dialog.base_dialog import BaseDialog
 import ui.actions as actions
+from util.root_path_meta import RootPathMeta
 from util.has_lifecycle import HasLifecycle
 
 import gi
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
@@ -29,14 +29,16 @@ logger = logging.getLogger(__name__)
 
 
 class RootDirPanel(HasLifecycle):
-    def __init__(self, parent_win, controller, current_root: SinglePathNodeIdentifier, can_change_root, is_loaded):
+    def __init__(self, parent_win, controller, current_root_meta: RootPathMeta, can_change_root, is_loaded):
         HasLifecycle.__init__(self)
         self.parent_win: BaseDialog = parent_win
         self.con = controller
         self.tree_id: str = self.con.tree_id
         self.cacheman = self.con.cacheman
         self.content_box = Gtk.Box(spacing=0, orientation=Gtk.Orientation.HORIZONTAL)
-        self.current_root: SinglePathNodeIdentifier = current_root
+
+        self.current_root_meta: RootPathMeta = current_root_meta
+
         self.can_change_root = can_change_root
         self._ui_enabled = can_change_root
         """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
@@ -92,20 +94,18 @@ class RootDirPanel(HasLifecycle):
         self.toolbar = None
         self.refresh_button = None
 
+        # Need to call this to do the initial UI draw:
+        logger.debug(f'[{self.tree_id}] Building panel with current root {self.current_root_meta}')
+        GLib.idle_add(self._redraw_root_display)
+
+        self.start()
+
+    def start(self):
+        HasLifecycle.start(self)
         self.connect_dispatch_listener(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
         self.connect_dispatch_listener(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.tree_id)
         self.connect_dispatch_listener(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, receiver=self._on_gdrive_chooser_dialog_load_done,
                                        sender=self.tree_id)
-
-        # Need to call this to do the initial UI draw:
-        logger.debug(f'[{self.tree_id}] Building panel with current root {self.current_root}')
-
-        if self.current_root.tree_type == TREE_TYPE_LOCAL_DISK and not os.path.exists(self.current_root.get_single_path()):
-            self.err = FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.current_root.get_single_path())
-        else:
-            self.err = None
-
-        GLib.idle_add(self._redraw_root_display)
 
     def __del__(self):
         HasLifecycle.__del__(self)
@@ -124,105 +124,12 @@ class RootDirPanel(HasLifecycle):
         self.parent_win = None
         self.con = None
 
-    def _on_gdrive_chooser_dialog_load_done(self, sender, tree: DisplayTree, current_selection: SinglePathNodeIdentifier):
-        logger.debug(f'Received signal: "{actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE}"')
-        assert type(sender) == str
-
-        def open_dialog():
-            try:
-                # Preview ops in UI pop-up. Change tree_id so that listeners don't step on existing trees
-                dialog = GDriveDirChooserDialog(self.parent_win, tree, sender, current_selection)
-                response_id = dialog.run()
-                if response_id == Gtk.ResponseType.OK:
-                    logger.debug('User clicked OK!')
-
-            except Exception as err:
-                self.parent_win.show_error_ui('GDriveDirChooserDialog failed due to unexpected error', repr(err))
-                raise
-
-        GLib.idle_add(open_dialog)
-
-    def _on_root_text_entry_submitted(self, widget, tree_id):
-        if self.entry and self.entry_box_focus_eid:
-            self.entry.disconnect(self.entry_box_focus_eid)
-            self.entry_box_focus_eid = None
-        # Triggered when the user submits a root via the text entry box
-        new_root_path: str = self.entry.get_text()
-        logger.info(f'[{tree_id}] User entered root path: "{new_root_path}"')
-        new_root, err = self.cacheman.resolve_root_from_path(new_root_path)
-
-        if new_root == self.current_root:
-            logger.debug(f'[{tree_id}] No change to root')
-            self._redraw_root_display()
-            return
-
-        logger.info(f'[{tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root={new_root}, err={err}')
-        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root=new_root, err=err)
-
-    def _on_change_btn_clicked(self, widget):
-        if self._ui_enabled:
-            self.source_menu.popup_at_widget(widget, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, None)
-        return True
-
-    def _on_label_clicked(self, widget, event):
-        """User clicked on the root label: toggle it to show the text entry box"""
-        if not self._ui_enabled:
-            logger.debug('Ignoring button press - UI is disabled')
-            return False
-
-        if not event.button == 1:
-            # Left click only
-            return False
-
-        # Remove alert image if present; only show entry box
-        if len(self.alert_image_box.get_children()) > 0:
-            self.alert_image_box.remove(self.alert_image)
-
-        self.entry = Gtk.Entry()
-
-        path = self.current_root.get_single_path()  # TODO this is probably wrong
-        if self.current_root.tree_type == TREE_TYPE_GDRIVE:
-            path = GDRIVE_PATH_PREFIX + path
-        self.entry.set_text(path)
-        self.entry.connect('activate', self._on_root_text_entry_submitted, self.tree_id)
-        self.path_box.remove(self.label_event_box)
-        if self.toolbar:
-            self.path_box.remove(self.toolbar)
-            self.toolbar = None
-        self.path_box.pack_start(self.entry, expand=True, fill=True, padding=0)
-
-        def cancel_edit(widget, event):
-            if self.entry and self.entry_box_focus_eid:
-                self.entry.disconnect(self.entry_box_focus_eid)
-                self.entry_box_focus_eid = None
-            logger.debug(f'Focus lost! Cancelling root path entry box')
-            self._redraw_root_display()
-
-        self.entry_box_focus_eid = self.entry.connect('focus-out-event', cancel_edit)
-        self.entry.show()
-        self.entry.grab_focus()
-        return False
-
-    def _on_enable_ui_toggled(self, sender, enable):
-        # Callback for actions.TOGGLE_UI_ENABLEMENT
-        if not self.can_change_root:
-            self._ui_enabled = False
-            return
-
-        self._ui_enabled = enable
-        # TODO: what if root text entry is showing?
-
-        def change_button():
-            self.change_btn.set_sensitive(enable)
-        GLib.idle_add(change_button)
-
     def _redraw_root_display(self):
         """Updates the UI to reflect the new root and tree type.
         Expected to be called from the UI thread.
         """
-        new_root: SinglePathNodeIdentifier = self.current_root
-        err = self.err
-        logger.debug(f'[{self.tree_id}] Redrawing root display for new_root={new_root}, err={err}')
+        new_root: SinglePathNodeIdentifier = self.current_root_meta.root
+        logger.debug(f'[{self.tree_id}] Redrawing root display for new_root={self.current_root_meta}')
         if self.entry:
             if self.entry_box_focus_eid:
                 self.entry.disconnect(self.entry_box_focus_eid)
@@ -273,7 +180,7 @@ class RootDirPanel(HasLifecycle):
         else:
             raise RuntimeError(f'Unrecognized tree type: {new_root.tree_type}')
 
-        root_exists = not err and new_root.uid != NULL_UID
+        root_exists = self.current_root_meta.is_found and new_root.uid != NULL_UID
         if root_exists:
             pre = ''
             color = ''
@@ -282,9 +189,9 @@ class RootDirPanel(HasLifecycle):
                 self.alert_image_box.remove(self.alert_image)
         else:
             root_part_regular, root_part_bold = os.path.split(new_root.get_single_path())
-            if err and isinstance(err, GDriveItemNotFoundError):
-                root_part_regular = err.offending_path
-                root_part_bold = file_util.strip_root(new_root.get_single_path(), err.offending_path)
+            if not self.current_root_meta.is_found and self.current_root_meta.offending_path:
+                root_part_regular = self.current_root_meta.offending_path
+                root_part_bold = file_util.strip_root(new_root.get_single_path(), self.current_root_meta.offending_path)
             if not self.alert_image_box.get_children():
                 self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
             color = f"foreground='gray'"
@@ -295,8 +202,97 @@ class RootDirPanel(HasLifecycle):
             root_part_regular = root_part_regular + '/'
         self._set_label_markup(pre, color, root_part_regular, root_part_bold)
 
-        self.current_root = new_root
-        self.err = err
+    def _on_gdrive_chooser_dialog_load_done(self, sender, tree: DisplayTree, current_selection: SinglePathNodeIdentifier):
+        logger.debug(f'Received signal: "{actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE}"')
+        assert type(sender) == str
+
+        def open_dialog():
+            try:
+                # Preview ops in UI pop-up. Change tree_id so that listeners don't step on existing trees
+                dialog = GDriveDirChooserDialog(self.parent_win, tree, sender, current_selection)
+                response_id = dialog.run()
+                if response_id == Gtk.ResponseType.OK:
+                    logger.debug('User clicked OK!')
+
+            except Exception as err:
+                self.parent_win.show_error_ui('GDriveDirChooserDialog failed due to unexpected error', repr(err))
+                raise
+
+        GLib.idle_add(open_dialog)
+
+    def _on_root_text_entry_submitted(self, widget, tree_id):
+        if self.entry and self.entry_box_focus_eid:
+            self.entry.disconnect(self.entry_box_focus_eid)
+            self.entry_box_focus_eid = None
+        # Triggered when the user submits a root via the text entry box
+        new_root_path: str = self.entry.get_text()
+        logger.info(f'[{tree_id}] User entered root path: "{new_root_path}"')
+        new_root_meta: RootPathMeta = self.cacheman.resolve_root_from_path(new_root_path)
+
+        if new_root_meta == self.current_root_meta:
+            logger.debug(f'[{tree_id}] No change to root')
+            self._redraw_root_display()
+            return
+
+        logger.info(f'[{tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root_meta={new_root_meta}')
+        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root_meta=new_root_meta)
+
+    def _on_change_btn_clicked(self, widget):
+        if self._ui_enabled:
+            self.source_menu.popup_at_widget(widget, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, None)
+        return True
+
+    def _on_label_clicked(self, widget, event):
+        """User clicked on the root label: toggle it to show the text entry box"""
+        if not self._ui_enabled:
+            logger.debug('Ignoring button press - UI is disabled')
+            return False
+
+        if not event.button == 1:
+            # Left click only
+            return False
+
+        # Remove alert image if present; only show entry box
+        if len(self.alert_image_box.get_children()) > 0:
+            self.alert_image_box.remove(self.alert_image)
+
+        self.entry = Gtk.Entry()
+
+        path = self.current_root_meta.root.get_single_path()
+        if self.current_root_meta.root.tree_type == TREE_TYPE_GDRIVE:
+            path = GDRIVE_PATH_PREFIX + path
+        self.entry.set_text(path)
+        self.entry.connect('activate', self._on_root_text_entry_submitted, self.tree_id)
+        self.path_box.remove(self.label_event_box)
+        if self.toolbar:
+            self.path_box.remove(self.toolbar)
+            self.toolbar = None
+        self.path_box.pack_start(self.entry, expand=True, fill=True, padding=0)
+
+        def cancel_edit(widget, event):
+            if self.entry and self.entry_box_focus_eid:
+                self.entry.disconnect(self.entry_box_focus_eid)
+                self.entry_box_focus_eid = None
+            logger.debug(f'Focus lost! Cancelling root path entry box')
+            self._redraw_root_display()
+
+        self.entry_box_focus_eid = self.entry.connect('focus-out-event', cancel_edit)
+        self.entry.show()
+        self.entry.grab_focus()
+        return False
+
+    def _on_enable_ui_toggled(self, sender, enable):
+        # Callback for actions.TOGGLE_UI_ENABLEMENT
+        if not self.can_change_root:
+            self._ui_enabled = False
+            return
+
+        self._ui_enabled = enable
+        # TODO: what if root text entry is showing?
+
+        def change_button():
+            self.change_btn.set_sensitive(enable)
+        GLib.idle_add(change_button)
 
     def _set_label_markup(self, pre, color, root_part_regular, root_part_bold):
         """Sets the content of the label only. Expected to be called from the UI thread"""
@@ -306,17 +302,13 @@ class RootDirPanel(HasLifecycle):
         self.label.show()
         self.label_event_box.show()
 
-    def _on_root_path_updated(self, sender, new_root: SinglePathNodeIdentifier, err=None):
+    def _on_root_path_updated(self, sender, new_root_meta: RootPathMeta):
         """Callback for actions.ROOT_PATH_UPDATED"""
-        logger.debug(f'[{sender}] Received signal "{actions.ROOT_PATH_UPDATED}" with new_root={new_root}, err={err}')
-        assert isinstance(new_root, SinglePathNodeIdentifier), f'Wrong instance: {type(new_root)}: {new_root}'
-        if not new_root or not new_root.get_path_list():
-            raise RuntimeError(f'Root path cannot be empty! (tree_id={sender})')
+        logger.debug(f'[{sender}] Received signal "{actions.ROOT_PATH_UPDATED}" with new_root_meta={new_root_meta}')
 
-        if self.current_root != new_root or err != self.err:
-            self.current_root = new_root
-            self.err = err
-            if not err and not self.cacheman.reload_tree_on_root_path_update:
+        if self.current_root_meta != new_root_meta:
+            self.current_root_meta = new_root_meta
+            if self.current_root_meta.is_found and not self.cacheman.reload_tree_on_root_path_update:
                 self.needs_load = True
 
             # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html
@@ -328,14 +320,14 @@ class RootDirPanel(HasLifecycle):
         # (buttons, response)"""
         logger.debug('Creating and displaying LocalRootDirChooserDialog')
         open_dialog = LocalRootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, tree_id=self.tree_id,
-                                                current_dir=self.current_root.get_single_path())
+                                                current_dir=self.current_root_meta.root.get_single_path())
 
         # show the dialog
         open_dialog.show()
 
     def _open_gdrive_root_chooser_dialog(self, menu_item):
-        logger.debug(f'[{self.tree_id}] Sending signal "{actions.SHOW_GDRIVE_CHOOSER_DIALOG}" with current_selection={self.current_root}')
-        dispatcher.send(signal=actions.SHOW_GDRIVE_CHOOSER_DIALOG, sender=self.tree_id, current_selection=self.current_root)
+        logger.debug(f'[{self.tree_id}] Sending signal "{actions.SHOW_GDRIVE_CHOOSER_DIALOG}" with current_selection={self.current_root_meta.root}')
+        dispatcher.send(signal=actions.SHOW_GDRIVE_CHOOSER_DIALOG, sender=self.tree_id, current_selection=self.current_root_meta.root)
 
     def _build_source_menu(self):
         source_menu = Gtk.Menu()

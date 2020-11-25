@@ -23,6 +23,9 @@ from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
 
 import gi
+
+from util.root_path_meta import RootPathMeta
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 from gi.repository.Gtk import TreeIter
@@ -232,10 +235,10 @@ class DisplayMutator(HasLifecycle):
         except GDriveItemNotFoundError as err:
             # Not found: signal error to UI and cancel
             logger.warning(f'[{self.con.tree_id}] Could not populate root: GDrive node not found: {self.con.get_tree().get_root_identifier()}')
-            logger.debug(f'[{self.con.tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root='
-                         f'{self.con.get_tree().get_root_identifier()}, err={err}')
-            dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.con.tree_id, new_root=self.con.get_tree().get_root_identifier(), err=err)
-            return
+            new_root_meta = RootPathMeta(self.con.get_tree().get_root_identifier(), is_found=False)
+            new_root_meta.offending_path = err.offending_path
+            logger.debug(f'[{self.con.tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root_meta={new_root_meta}')
+            dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.con.tree_id, new_root_meta=new_root_meta, err=err)
         finally:
             self._enable_node_signals = True
 

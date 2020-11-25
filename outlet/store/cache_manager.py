@@ -38,6 +38,7 @@ from ui.tree.filter_criteria import FilterCriteria
 from util import file_util
 from util.file_util import get_resource_path
 from util.has_lifecycle import HasLifecycle
+from util.root_path_meta import RootPathMeta
 from util.stopwatch_sec import Stopwatch
 from util.two_level_dict import TwoLevelDict
 
@@ -253,6 +254,9 @@ class CacheManager(HasLifecycle):
         logger.info(f'{stopwatch} Found {unique_cache_count} existing caches (+ {skipped_count} skipped)')
 
     def wait_for_load_registry_done(self, fail_on_timeout: bool = True):
+        if self._load_registry_done.is_set():
+            return
+
         logger.debug(f'Waiting for Load Registry to complete')
         if not self._load_registry_done.wait(CACHE_LOAD_TIMEOUT_SEC):
             if fail_on_timeout:
@@ -640,7 +644,7 @@ class CacheManager(HasLifecycle):
     def build_local_dir_node(self, full_path: str) -> LocalDirNode:
         return self._master_local.build_local_dir_node(full_path)
 
-    def resolve_root_from_path(self, full_path: str) -> Tuple[SinglePathNodeIdentifier, Exception]:
+    def resolve_root_from_path(self, full_path: str) -> RootPathMeta:
         """Resolves the given path into either a local file, a set of Google Drive matches, or generates a GDriveItemNotFoundError,
         and returns a tuple of both"""
         logger.debug(f'resolve_root_from_path() called with path="{full_path}"')
@@ -683,19 +687,19 @@ class CacheManager(HasLifecycle):
                     full_path = NodeIdentifierFactory.strip_gdrive(full_path)
                 new_root = SinglePathNodeIdentifier(uid=new_root.uid, path_list=full_path, tree_type=new_root.tree_type)
 
-            err = None
+            root_path_meta = RootPathMeta(new_root, is_found=True)
         except GDriveItemNotFoundError as ginf:
-            new_root = ginf.node_identifier
-            err = ginf
+            root_path_meta = RootPathMeta(ginf.node_identifier, is_found=False)
+            root_path_meta.offending_path = ginf.offending_path
         except FileNotFoundError as fnf:
-            new_root = self.app.backend.build_identifier(path_list=full_path)
-            err = fnf
+            root = self.app.backend.build_identifier(path_list=full_path, must_be_single_path=True)
+            root_path_meta = RootPathMeta(root, is_found=False)
         except CacheNotLoadedError as cnlf:
-            err = cnlf
-            new_root = self.app.backend.build_identifier(path_list=full_path, uid=NULL_UID)
+            root = self.app.backend.build_identifier(path_list=full_path, uid=NULL_UID, must_be_single_path=True)
+            root_path_meta = RootPathMeta(root, is_found=False)
 
-        logger.debug(f'resolve_root_from_path(): returning new_root={new_root}, err={err}"')
-        return new_root, err
+        logger.debug(f'resolve_root_from_path(): returning new_root={root_path_meta}"')
+        return root_path_meta
 
     def get_goog_id_for_parent(self, node: GDriveNode) -> str:
         """Fails if there is not exactly 1 parent"""
@@ -713,10 +717,11 @@ class CacheManager(HasLifecycle):
         return self._master_gdrive.get_goog_id_list_for_uid_list(uids, fail_if_missing=fail_if_missing)
 
     # TODO: rename to get_uid_for_local_path()
-    def get_uid_for_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
+    # FIXME: add check and action to ensure that any relevant local caches have already been loaded first
+    def get_uid_for_path(self, full_path: str, uid_suggestion: Optional[UID] = None, override_load_check: bool = False) -> UID:
         """Deterministically gets or creates a UID corresponding to the given path string"""
         assert full_path and isinstance(full_path, str)
-        return self._master_local.get_uid_for_path(full_path, uid_suggestion)
+        return self._master_local.get_uid_for_path(full_path, uid_suggestion, override_load_check)
 
     def read_single_node_from_disk_for_path(self, full_path: str, tree_type: int) -> Node:
         if not file_util.is_normalized(full_path):

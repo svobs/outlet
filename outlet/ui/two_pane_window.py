@@ -17,6 +17,7 @@ from ui.dialog.base_dialog import BaseDialog
 from ui.dialog.merge_preview_dialog import MergePreviewDialog
 from ui.tree import tree_factory
 from ui.tree.root_path_config import RootPathConfigPersister
+from util.root_path_meta import RootPathMeta
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk
@@ -77,14 +78,14 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # TODO: build RootPathConfigPersister in tree factory; include it in controller
         # Diff Tree Left:
         self.root_path_persister_left = RootPathConfigPersister(app=self.app, tree_id=actions.ID_LEFT_TREE)
-        saved_root_left = self.root_path_persister_left.root_identifier
-        self.tree_con_left = tree_factory.build_editor_tree(parent_win=self, tree_id=actions.ID_LEFT_TREE, root=saved_root_left)
+        saved_root_left = self.root_path_persister_left.root_path_meta
+        self.tree_con_left = tree_factory.build_editor_tree(parent_win=self, tree_id=actions.ID_LEFT_TREE, root_path_meta=saved_root_left)
         diff_tree_panes.pack1(self.tree_con_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
         self.root_path_persister_right = RootPathConfigPersister(app=self.app, tree_id=actions.ID_RIGHT_TREE)
-        saved_root_right = self.root_path_persister_right.root_identifier
-        self.tree_con_right = tree_factory.build_editor_tree(parent_win=self, tree_id=actions.ID_RIGHT_TREE, root=saved_root_right)
+        saved_root_right = self.root_path_persister_right.root_path_meta
+        self.tree_con_right = tree_factory.build_editor_tree(parent_win=self, tree_id=actions.ID_RIGHT_TREE, root_path_meta=saved_root_right)
         diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)
 
         # Bottom panel: Bottom Button panel, toolbar and progress bar
@@ -319,7 +320,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             self.play_pause_btn.set_tooltip_text('Resume change operations')
         self.toolbar.show_all()
 
-    def _on_root_path_updated(self, sender, new_root: SinglePathNodeIdentifier, err=None):
+    def _on_root_path_updated(self, sender, new_root_meta: RootPathMeta):
         logger.debug(f'Received signal: "{actions.ROOT_PATH_UPDATED}"')
 
         if sender == actions.ID_RIGHT_TREE and self.tree_con_left.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:

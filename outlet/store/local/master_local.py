@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 class LocalDiskMasterStore(MasterStore):
     """Singleton in-memory cache for local filesystem"""
+
     def __init__(self, app):
         MasterStore.__init__(self)
         self.app = app
@@ -174,11 +175,7 @@ class LocalDiskMasterStore(MasterStore):
             logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root.get_single_path()}"')
             return NullDisplayTree(self.app, tree_id, subtree_root)
 
-        existing_uid = subtree_root.uid
-        new_uid = self.get_uid_for_path(subtree_root.get_single_path(), existing_uid)
-        if existing_uid != new_uid:
-            logger.warning(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
-        subtree_root.uid = new_uid
+        self._ensure_uid_consistency(subtree_root)
 
         # If we have already loaded this subtree as part of a larger cache, use that:
         cache_man = self.app.cacheman
@@ -192,27 +189,18 @@ class LocalDiskMasterStore(MasterStore):
         return self._create_display_tree(cache_info, tree_id, subtree_root, is_live_refresh)
 
     def _create_display_tree(self, cache_info: PersistedCacheInfo, tree_id: str, requested_subtree_root: LocalNodeIdentifier = None,
-                      is_live_refresh: bool = False) -> LocalDiskDisplayTree:
+                             is_live_refresh: bool = False) -> LocalDiskDisplayTree:
         """requested_subtree_root, if present, is a subset of the cache_info's subtree and it will be used. Otherwise cache_info's will be used"""
         assert cache_info
+        assert isinstance(cache_info.subtree_root, SinglePathNodeIdentifier), f'Found instead: {type(cache_info.subtree_root)}'
         stopwatch_total = Stopwatch()
 
-        # Update UID, assuming this is a new run and it has gone stale
-        uid = self.get_uid_for_path(cache_info.subtree_root.get_single_path(), cache_info.subtree_root.uid)
-        if cache_info.subtree_root.uid != uid:
-            logger.warning(f'Requested UID "{cache_info.subtree_root.uid}" is invalid for given path; changing it to "{uid}"')
-        cache_info.subtree_root.uid = uid
+        self._ensure_uid_consistency(cache_info.subtree_root)
 
-        assert isinstance(cache_info.subtree_root, SinglePathNodeIdentifier), f'Found instead: {type(cache_info.subtree_root)}'
         if not requested_subtree_root:
             requested_subtree_root = cache_info.subtree_root
         else:
-            # Update UID, assuming this is a new run and it has gone stale
-            uid = self.get_uid_for_path(requested_subtree_root.get_single_path(), requested_subtree_root.uid)
-            if requested_subtree_root.uid != uid:
-                logger.warning(f'Requested UID "{requested_subtree_root.uid}" is invalid for path "{requested_subtree_root.get_path_list()}";'
-                               f' changing it to "{uid}"')
-            requested_subtree_root.uid = uid
+            self._ensure_uid_consistency(requested_subtree_root)
 
         # LOAD into master tree. Only for first load!
         if not cache_info.is_loaded:
@@ -260,6 +248,16 @@ class LocalDiskMasterStore(MasterStore):
         display_tree = LocalDiskDisplayTree(app=self.app, tree_id=tree_id, root_identifier=requested_subtree_root)
         logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {display_tree.root_identifier.get_single_path()}')
         return display_tree
+
+    def _ensure_uid_consistency(self, subtree_root: SinglePathNodeIdentifier):
+        """Since the UID of the subtree root node is stored in 3 different locations (registry, cache file, and memory),
+        checks that at least registry & memory match. If UID is not in memory, guarantees that it will be stored with the value from registry.
+        This method should only be called for the subtree root of display trees being loaded"""
+        existing_uid = subtree_root.uid
+        new_uid = self.get_uid_for_path(subtree_root.get_single_path(), existing_uid, override_load_check=True)
+        if existing_uid != new_uid:
+            logger.warning(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
+        subtree_root.uid = new_uid
 
     def consolidate_local_caches(self, local_caches: List[PersistedCacheInfo], tree_id) -> bool:
         supertree_sets: List[Tuple[PersistedCacheInfo, PersistedCacheInfo]] = []
@@ -310,7 +308,7 @@ class LocalDiskMasterStore(MasterStore):
 
         registry_needs_update = len(supertree_sets) > 0
         return registry_needs_update
-    
+
     def refresh_subtree(self, node: LocalNode, tree_id: str):
         assert isinstance(node.node_identifier, LocalNodeIdentifier)
         self._get_display_tree(node.node_identifier, tree_id, is_live_refresh=True)
@@ -330,6 +328,9 @@ class LocalDiskMasterStore(MasterStore):
         if not cache_info:
             logger.debug(f'Could not find cache containing path: "{full_path}"')
             return None
+        if cache_info.is_loaded:
+            logger.debug(f'Cache is already loaded for subtree (will return node from memory): "{cache_info.subtree_root}"')
+            return self.get_node_for_domain_id(full_path)
         with LocalDiskDatabase(cache_info.cache_location, self.app) as cache:
             return cache.get_file_or_dir_for_path(full_path)
 
@@ -469,13 +470,22 @@ class LocalDiskMasterStore(MasterStore):
         return node_list
 
     def get_uid_for_domain_id(self, domain_id: str, uid_suggestion: Optional[UID] = None) -> UID:
-        return self.uid_mapper.get_uid_for_path(domain_id, uid_suggestion)
+        return self.get_uid_for_path(domain_id, uid_suggestion)
 
-    def get_uid_for_path(self, full_path: str, uid_suggestion: Optional[UID] = None) -> UID:
+    def get_uid_for_path(self, full_path: str, uid_suggestion: Optional[UID] = None, override_load_check: bool = False) -> UID:
         assert isinstance(full_path, str)
+
+        if not override_load_check:
+            # Very important to check this. If we ask the UID mapper to return a UID for a path it is not familiar with, it will generate
+            # a new one, which will conflict with the one in the cache.
+            cache_info: Optional[PersistedCacheInfo] = self.app.cacheman.find_existing_cache_info_for_local_subtree(full_path)
+            if cache_info and not cache_info.is_loaded:
+                raise RuntimeError(f'Cache containing path: "{full_path}" is not loaded!')
+
         return self.uid_mapper.get_uid_for_path(full_path, uid_suggestion)
 
     def get_node_for_domain_id(self, domain_id: str) -> LocalNode:
+        """AKA get_node_for_full_path()"""
         uid: UID = self.get_uid_for_domain_id(domain_id)
         return self.get_node_for_uid(uid)
 
@@ -576,4 +586,3 @@ class LocalDiskMasterStore(MasterStore):
 
         node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)
         return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, TrashStatus.NOT_TRASHED, True)
-

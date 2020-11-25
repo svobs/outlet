@@ -12,6 +12,9 @@ from ui import actions
 from ui.tree import tree_factory
 
 import gi
+
+from util.root_path_meta import RootPathMeta
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -90,7 +93,8 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
 
     def on_ok_clicked(self, node_identifier: SinglePathNodeIdentifier):
         logger.info(f'[{self.tree_id}] User selected dir "{node_identifier}"')
-        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root=node_identifier)
+        new_root_meta = RootPathMeta(node_identifier, is_found=True)
+        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root_meta=new_root_meta)
 
     def on_response(self, dialog, response_id):
         # destroy the widget (the dialog) when the function on_response() is called

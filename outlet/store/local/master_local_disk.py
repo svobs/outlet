@@ -8,7 +8,7 @@ from constants import TrashStatus, TREE_TYPE_LOCAL_DISK
 from model.cache_info import PersistedCacheInfo
 from model.local_disk_tree import LocalDiskTree
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node_identifier import LocalNodeIdentifier
+from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from store.local.master_local_write_op import LocalDiskSingleNodeOp, LocalDiskSubtreeOp
 from store.sqlite.local_db import LocalDiskDatabase
@@ -95,6 +95,16 @@ class LocalDiskDiskStore(HasLifecycle):
         operation.update_diskstore(cache)
         cache.commit()
 
+    def _ensure_uid_consistency(self, subtree_root: SinglePathNodeIdentifier):
+        """Since the UID of the subtree root node is stored in 3 different locations (registry, cache file, and memory),
+        checks that at least registry & memory match. If UID is not in memory, guarantees that it will be stored with the value from registry.
+        This method should only be called for the subtree root of display trees being loaded"""
+        existing_uid = subtree_root.uid
+        new_uid = self.app.cacheman.get_uid_for_path(subtree_root.get_single_path(), existing_uid, override_load_check=True)
+        if existing_uid != new_uid:
+            logger.warning(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
+        subtree_root.uid = new_uid
+
     def load_subtree(self, cache_info: PersistedCacheInfo, tree_id) -> Optional[LocalDiskTree]:
         """Loads the given subtree disk cache from disk."""
         with self._struct_lock:
@@ -110,12 +120,9 @@ class LocalDiskDiskStore(HasLifecycle):
             logger.debug(status)
             dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
 
-            uid: UID = self.app.cacheman.get_uid_for_path(cache_info.subtree_root.get_single_path(), cache_info.subtree_root.uid)
-            if cache_info.subtree_root.uid != uid:
-                logger.warning(f'Requested UID "{cache_info.subtree_root.uid}" is invalid for given path; changing it to "{uid}"')
-            cache_info.subtree_root.uid = uid
+            self._ensure_uid_consistency(cache_info.subtree_root)
 
-            root_node_identifer = LocalNodeIdentifier(uid=uid, path_list=cache_info.subtree_root.get_single_path())
+            root_node_identifer = LocalNodeIdentifier(uid=cache_info.subtree_root.uid, path_list=cache_info.subtree_root.get_single_path())
             tree: LocalDiskTree = LocalDiskTree(self.app)
             root_node = LocalDirNode(node_identifier=root_node_identifer, trashed=TrashStatus.NOT_TRASHED, is_live=True)
             tree.add_node(node=root_node, parent=None)
