@@ -499,7 +499,7 @@ class LocalDiskMasterStore(MasterStore):
                 child_nodes = self._memstore.master_tree.children(node.uid)
         return child_nodes
 
-    def get_node_for_uid(self, uid: UID) -> LocalNode:
+    def get_node_for_uid(self, uid: UID) -> Optional[LocalNode]:
         if SUPER_DEBUG:
             logger.debug(f'Entered get_node_for_uid(): uid={uid} locked={self._struct_lock.locked()}')
         with self._struct_lock:

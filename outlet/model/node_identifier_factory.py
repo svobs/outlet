@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 class NodeIdentifierFactory:
-    def __init__(self, app):
-        self.app = app
+    def __init__(self, backend):
+        self.backend = backend
 
     @staticmethod
     def get_gdrive_root_constant_identifier() -> GDriveIdentifier:
@@ -111,7 +111,7 @@ class NodeIdentifierFactory:
                 return GDriveIdentifier(path_list=derived_list, uid=uid)
             else:
                 if not uid:
-                    uid = self.app.cacheman.get_uid_for_path(full_path_list[0])
+                    uid = self.backend.get_uid_for_path(full_path_list[0])
 
                 return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
         else:
@@ -122,11 +122,11 @@ class NodeIdentifierFactory:
             return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
 
         if full_path_list:
-            uid = self.app.cacheman.get_uid_for_path(full_path_list[0], uid)
+            uid = self.backend.get_uid_for_path(full_path_list[0], uid)
 
             return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
         elif uid:
-            node: Node = self.app.cacheman.get_node_for_uid(uid, TREE_TYPE_LOCAL_DISK)
+            node: Node = self.backend.get_node_for_uid(uid, TREE_TYPE_LOCAL_DISK)
             if node:
                 full_path_list = node.get_path_list()
                 return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
@@ -139,7 +139,7 @@ class NodeIdentifierFactory:
             if full_path_list and full_path_list[0] == ROOT_PATH:
                 uid = GDRIVE_ROOT_UID
             else:
-                uid = self.app.uid_generator.next_uid()
+                uid = self.backend.next_uid()
         elif uid == GDRIVE_ROOT_UID and not full_path_list:
             full_path_list = [ROOT_PATH]
 

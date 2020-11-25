@@ -6,6 +6,7 @@ from pydispatch import dispatcher
 
 import ui.assets
 from app.backend import OutletBackend
+from model.node_identifier_factory import NodeIdentifierFactory
 from ui import actions
 from ui.actions import ID_DIFF_WINDOW
 from ui.tree.controller import TreePanelController
@@ -30,6 +31,7 @@ class OutletApplication(Gtk.Application):
         Gtk.Application.__init__(self)
         self.backend: OutletBackend = backend
         self.assets = ui.assets.Assets(config)
+        self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self.backend)
         self._tree_controllers: Dict[str, TreePanelController] = {}
         """Keep track of live UI tree controllers, so that we can look them up by ID (e.g. for use in automated testing)"""
         self.window = None
@@ -67,10 +69,6 @@ class OutletApplication(Gtk.Application):
     @property
     def executor(self):
         return self.backend.executor
-
-    @property
-    def node_identifier_factory(self):
-        return self.backend.node_identifier_factory
 
     def do_activate(self):
         # We only allow a single window and raise any existing ones

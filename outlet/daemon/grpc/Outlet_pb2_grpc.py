@@ -22,17 +22,27 @@ class OutletStub(object):
         self.read_single_node_from_disk_for_path = channel.unary_unary(
                 '/outlet.daemon.grpc.Outlet/read_single_node_from_disk_for_path',
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.ReadSingleNodeFromDiskRequest.SerializeToString,
-                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.ReadSingleNodeFromDiskResponse.FromString,
-                )
-        self.build_identifier = channel.unary_unary(
-                '/outlet.daemon.grpc.Outlet/build_identifier',
-                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Request.SerializeToString,
-                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Response.FromString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SingleNode_Response.FromString,
                 )
         self.get_node_for_uid = channel.unary_unary(
                 '/outlet.daemon.grpc.Outlet/get_node_for_uid',
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNodeForUid_Request.SerializeToString,
                 response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SingleNode_Response.FromString,
+                )
+        self.get_node_for_local_path = channel.unary_unary(
+                '/outlet.daemon.grpc.Outlet/get_node_for_local_path',
+                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNodeForLocalPath_Request.SerializeToString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SingleNode_Response.FromString,
+                )
+        self.get_next_uid = channel.unary_unary(
+                '/outlet.daemon.grpc.Outlet/get_next_uid',
+                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNextUid_Request.SerializeToString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNextUid_Response.FromString,
+                )
+        self.get_uid_for_local_path = channel.unary_unary(
+                '/outlet.daemon.grpc.Outlet/get_uid_for_local_path',
+                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Request.SerializeToString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Response.FromString,
                 )
 
 
@@ -51,13 +61,25 @@ class OutletServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def build_identifier(self, request, context):
+    def get_node_for_uid(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def get_node_for_uid(self, request, context):
+    def get_node_for_local_path(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def get_next_uid(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def get_uid_for_local_path(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -74,17 +96,27 @@ def add_OutletServicer_to_server(servicer, server):
             'read_single_node_from_disk_for_path': grpc.unary_unary_rpc_method_handler(
                     servicer.read_single_node_from_disk_for_path,
                     request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.ReadSingleNodeFromDiskRequest.FromString,
-                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.ReadSingleNodeFromDiskResponse.SerializeToString,
-            ),
-            'build_identifier': grpc.unary_unary_rpc_method_handler(
-                    servicer.build_identifier,
-                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Request.FromString,
-                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Response.SerializeToString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SingleNode_Response.SerializeToString,
             ),
             'get_node_for_uid': grpc.unary_unary_rpc_method_handler(
                     servicer.get_node_for_uid,
                     request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNodeForUid_Request.FromString,
                     response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SingleNode_Response.SerializeToString,
+            ),
+            'get_node_for_local_path': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_node_for_local_path,
+                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNodeForLocalPath_Request.FromString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SingleNode_Response.SerializeToString,
+            ),
+            'get_next_uid': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_next_uid,
+                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNextUid_Request.FromString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNextUid_Response.SerializeToString,
+            ),
+            'get_uid_for_local_path': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_uid_for_local_path,
+                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Request.FromString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Response.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -126,24 +158,7 @@ class Outlet(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/read_single_node_from_disk_for_path',
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.ReadSingleNodeFromDiskRequest.SerializeToString,
-            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.ReadSingleNodeFromDiskResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def build_identifier(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/build_identifier',
-            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Request.SerializeToString,
-            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Response.FromString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SingleNode_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -161,5 +176,56 @@ class Outlet(object):
         return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/get_node_for_uid',
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNodeForUid_Request.SerializeToString,
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SingleNode_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def get_node_for_local_path(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/get_node_for_local_path',
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNodeForLocalPath_Request.SerializeToString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SingleNode_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def get_next_uid(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/get_next_uid',
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNextUid_Request.SerializeToString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNextUid_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def get_uid_for_local_path(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/get_uid_for_local_path',
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Request.SerializeToString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

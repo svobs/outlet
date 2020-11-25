@@ -106,7 +106,7 @@ class OneSide:
         size_bytes = src_node.get_size_bytes()
 
         # (Kludge) just assign the NULL UID for now, so we don't auto-generate a new UID. It will just get overwritten anyway if GDrive
-        node_identifier = self.app.backend.build_identifier(tree_type=dst_tree_type, path_list=[dst_path], uid=NULL_UID)
+        node_identifier = self.app.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=NULL_UID)
         if dst_tree_type == TREE_TYPE_LOCAL_DISK:
             assert isinstance(node_identifier, LocalNodeIdentifier)
             return LocalFileNode(node_identifier, md5, sha256, size_bytes, None, None, None, TrashStatus.NOT_TRASHED, False)

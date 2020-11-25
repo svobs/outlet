@@ -650,7 +650,7 @@ class CacheManager(HasLifecycle):
         logger.debug(f'resolve_root_from_path() called with path="{full_path}"')
         try:
             full_path = file_util.normalize_path(full_path)
-            node_identifier: NodeIdentifier = self.app.backend.build_identifier(path_list=full_path)
+            node_identifier: NodeIdentifier = self.app.node_identifier_factory.for_values(path_list=full_path)
             if node_identifier.tree_type == TREE_TYPE_GDRIVE:
                 # Need to wait until all caches are loaded:
                 self.wait_for_startup_done()
@@ -692,10 +692,10 @@ class CacheManager(HasLifecycle):
             root_path_meta = RootPathMeta(ginf.node_identifier, is_found=False)
             root_path_meta.offending_path = ginf.offending_path
         except FileNotFoundError as fnf:
-            root = self.app.backend.build_identifier(path_list=full_path, must_be_single_path=True)
+            root = self.app.node_identifier_factory.for_values(path_list=full_path, must_be_single_path=True)
             root_path_meta = RootPathMeta(root, is_found=False)
         except CacheNotLoadedError as cnlf:
-            root = self.app.backend.build_identifier(path_list=full_path, uid=NULL_UID, must_be_single_path=True)
+            root = self.app.node_identifier_factory.for_values(path_list=full_path, uid=NULL_UID, must_be_single_path=True)
             root_path_meta = RootPathMeta(root, is_found=False)
 
         logger.debug(f'resolve_root_from_path(): returning new_root={root_path_meta}"')
@@ -748,7 +748,9 @@ class CacheManager(HasLifecycle):
             raise RuntimeError('get_uid_for_goog_id(): no goog_id specified!')
         return self._master_gdrive.get_uid_for_goog_id(goog_id, uid_suggestion)
 
-    def get_node_for_local_path(self, full_path: str) -> Node:
+    def get_node_for_local_path(self, full_path: str) -> Optional[Node]:
+        if not full_path:
+            raise RuntimeError('get_node_for_local_path(): full_path not specified!')
         uid = self.get_uid_for_path(full_path)
         return self._master_local.get_node_for_uid(uid)
 

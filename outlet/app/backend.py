@@ -1,6 +1,6 @@
 
 from abc import ABC, abstractmethod
-from typing import List, Union
+from typing import List, Optional, Union
 
 from model.node.node import Node
 from model.node_identifier import NodeIdentifier
@@ -16,6 +16,18 @@ class OutletBackend(ABC):
         pass
 
     @abstractmethod
-    def build_identifier(self, tree_type: int = None, path_list: Union[str, List[str]] = None, uid: UID = None,
-                         must_be_single_path: bool = False) -> NodeIdentifier:
+    def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
         pass
+
+    @abstractmethod
+    def get_node_for_local_path(self, full_path: str) -> Optional[Node]:
+        pass
+
+    @abstractmethod
+    def next_uid(self) -> UID:
+        pass
+
+    @abstractmethod
+    def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None, override_load_check: bool = False) -> UID:
+        pass
+

@@ -34,7 +34,6 @@ class RootDirPanel(HasLifecycle):
         self.parent_win: BaseDialog = parent_win
         self.con = controller
         self.tree_id: str = self.con.tree_id
-        self.cacheman = self.con.cacheman
         self.content_box = Gtk.Box(spacing=0, orientation=Gtk.Orientation.HORIZONTAL)
 
         self.current_root_meta: RootPathMeta = current_root_meta
@@ -43,7 +42,8 @@ class RootDirPanel(HasLifecycle):
         self._ui_enabled = can_change_root
         """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
 
-        if is_loaded or self.cacheman.load_all_caches_on_startup or self.cacheman.load_caches_for_displayed_trees_at_startup:
+        # FIXME
+        if is_loaded or self.con.cacheman.load_all_caches_on_startup or self.con.cacheman.load_caches_for_displayed_trees_at_startup:
             # the actual load will be handled in TreeUiListeners:
             self.needs_load = False
         else:
@@ -120,7 +120,7 @@ class RootDirPanel(HasLifecycle):
                 self.parent_win.disconnect(self.key_press_event_eid)
             self.key_press_event_eid = None
 
-        self.cacheman = None
+        self.con.cacheman = None
         self.parent_win = None
         self.con = None
 
@@ -227,7 +227,7 @@ class RootDirPanel(HasLifecycle):
         # Triggered when the user submits a root via the text entry box
         new_root_path: str = self.entry.get_text()
         logger.info(f'[{tree_id}] User entered root path: "{new_root_path}"')
-        new_root_meta: RootPathMeta = self.cacheman.resolve_root_from_path(new_root_path)
+        new_root_meta: RootPathMeta = self.con.cacheman.resolve_root_from_path(new_root_path)
 
         if new_root_meta == self.current_root_meta:
             logger.debug(f'[{tree_id}] No change to root')
@@ -308,7 +308,7 @@ class RootDirPanel(HasLifecycle):
 
         if self.current_root_meta != new_root_meta:
             self.current_root_meta = new_root_meta
-            if self.current_root_meta.is_found and not self.cacheman.reload_tree_on_root_path_update:
+            if self.current_root_meta.is_found and not self.con.cacheman.reload_tree_on_root_path_update:
                 self.needs_load = True
 
             # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html

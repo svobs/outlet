@@ -25,10 +25,6 @@ message ReadSingleNodeFromDiskRequest {
 	int32 tree_type = 2;
 }
 
-message ReadSingleNodeFromDiskResponse {
-	outlet.daemon.grpc.OptionalNode node = 1;
-}
-
 message GetUidForLocalPath_Request {
 	string full_path = 1;
 	int32 uid_suggestion = 2;
@@ -43,11 +39,26 @@ message GetNodeForUid_Request {
 	int32 tree_type = 2; // optional
 }
 
+message GetNodeForLocalPath_Request {
+	string full_path = 1;
+}
+
+message GetNextUid_Request {
+	// nothing
+}
+
+message GetNextUid_Response {
+	int32 uid = 1;
+}
+
 service Outlet {
 	rpc ping(PingRequest) returns (PingResponse) {}
-	rpc read_single_node_from_disk_for_path(ReadSingleNodeFromDiskRequest) returns (ReadSingleNodeFromDiskResponse) {}
-	rpc build_identifier(GetUidForLocalPath_Request) returns (GetUidForLocalPath_Response) {}
+	rpc read_single_node_from_disk_for_path(ReadSingleNodeFromDiskRequest) returns (SingleNode_Response) {}
 	rpc get_node_for_uid(GetNodeForUid_Request) returns (SingleNode_Response) {}
+	rpc get_node_for_local_path(GetNodeForLocalPath_Request) returns (SingleNode_Response) {}
+
+	rpc get_next_uid(GetNextUid_Request) returns (GetNextUid_Response) {}
+	rpc get_uid_for_local_path(GetUidForLocalPath_Request) returns (GetUidForLocalPath_Response) {}
 }
 
 

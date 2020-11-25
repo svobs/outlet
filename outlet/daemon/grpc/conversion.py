@@ -19,14 +19,11 @@ logger = logging.getLogger(__name__)
 
 class NodeConverter:
     @staticmethod
-    def optional_node_from_grpc(optional_node) -> Optional[Node]:
-        if optional_node.HasField("null"):
+    def node_from_grpc(node_container) -> Optional[Node]:
+        if not node_container.HasField('node'):
             return None
-        else:
-            return NodeConverter.node_from_grpc(optional_node.node)
 
-    @staticmethod
-    def node_from_grpc(grpc_node: outlet.daemon.grpc.Node_pb2.Node) -> Node:
+        grpc_node: outlet.daemon.grpc.Node_pb2.Node = node_container.node
         node_identifier = NodeIdentifierFactory.for_all_values(grpc_node.uid, grpc_node.tree_type, list(grpc_node.path_list))
 
         if grpc_node.HasField("gdrive_file_meta"):
@@ -106,7 +103,7 @@ class NodeConverter:
         return grpc_node
 
     @staticmethod
-    def node_to_grpc(node: Node, grpc_node: outlet.daemon.grpc.Node_pb2.Node()):
+    def node_to_grpc(node: Node, grpc_node: outlet.daemon.grpc.Node_pb2.Node):
         # node_identifier fields:
         grpc_node.uid = int(node.uid)
         grpc_node.tree_type = node.get_tree_type()
