@@ -11,6 +11,7 @@ from model.display_tree.display_tree import DisplayTree
 from model.display_tree.null import NullDisplayTree
 from model.local_disk_tree import LocalDiskTree
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.node.node import SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from store.cache_manager import PersistedCacheInfo
 from store.local.local_disk_scanner import LocalDiskScanner
@@ -40,20 +41,20 @@ logger = logging.getLogger(__name__)
 class LocalDiskMasterStore(MasterStore):
     """Singleton in-memory cache for local filesystem"""
 
-    def __init__(self, app):
+    def __init__(self, backend):
         MasterStore.__init__(self)
-        self.app = app
+        self.backend = backend
 
-        self.uid_mapper = UidPathMapper(app)
+        self.uid_mapper = UidPathMapper(backend)
 
         self._struct_lock = threading.Lock()
-        self._memstore: LocalDiskMemoryStore = LocalDiskMemoryStore(app)
-        self._diskstore: LocalDiskDiskStore = LocalDiskDiskStore(app)
+        self._memstore: LocalDiskMemoryStore = LocalDiskMemoryStore(backend)
+        self._diskstore: LocalDiskDiskStore = LocalDiskDiskStore(backend)
 
-        initial_sleep_sec: float = self.app.config.get('cache.lazy_load_local_file_signatures_initial_delay_ms') / 1000.0
-        self._signature_calc_thread = SignatureCalcThread(self.app, initial_sleep_sec)
+        initial_sleep_sec: float = self.backend.config.get('cache.lazy_load_local_file_signatures_initial_delay_ms') / 1000.0
+        self._signature_calc_thread = SignatureCalcThread(self.backend, initial_sleep_sec)
 
-        self.lazy_load_signatures: bool = app.config.get('cache.lazy_load_local_file_signatures')
+        self.lazy_load_signatures: bool = backend.config.get('cache.lazy_load_local_file_signatures')
 
     def start_signature_calc_thread(self):
         if not self._signature_calc_thread.is_alive():
@@ -68,7 +69,7 @@ class LocalDiskMasterStore(MasterStore):
     def shutdown(self):
         MasterStore.shutdown(self)
         try:
-            self.app = None
+            self.backend = None
             self._memstore = None
             self._diskstore = None
             self._signature_calc_thread = None
@@ -84,7 +85,7 @@ class LocalDiskMasterStore(MasterStore):
         operation.update_memstore(self._memstore)
 
         # 2. Update disk
-        cacheman = self.app.cacheman
+        cacheman = self.backend.cacheman
         if cacheman.enable_save_to_disk:
             if SUPER_DEBUG:
                 logger.debug(f'Updating diskstore for operation {operation}')
@@ -111,7 +112,7 @@ class LocalDiskMasterStore(MasterStore):
     def _scan_file_tree(self, subtree_root: LocalNodeIdentifier, tree_id: str) -> LocalDiskTree:
         """If subtree_root is a file, then a tree is returned with only 1 node"""
         logger.debug(f'[{tree_id}] Scanning filesystem subtree: {subtree_root}')
-        scanner = LocalDiskScanner(app=self.app, root_node_identifer=subtree_root, tree_id=tree_id)
+        scanner = LocalDiskScanner(backend=self.backend, root_node_identifer=subtree_root, tree_id=tree_id)
         return scanner.scan()
 
     def _resync_with_file_system(self, subtree_root: LocalNodeIdentifier, tree_id: str):
@@ -172,12 +173,12 @@ class LocalDiskMasterStore(MasterStore):
 
         if not os.path.exists(subtree_root.get_single_path()):
             logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root.get_single_path()}"')
-            return NullDisplayTree(self.app, tree_id, subtree_root)
+            return NullDisplayTree(self.backend, tree_id, subtree_root)
 
         self._ensure_uid_consistency(subtree_root)
 
         # If we have already loaded this subtree as part of a larger cache, use that:
-        cache_man = self.app.cacheman
+        cache_man = self.backend.cacheman
         cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_local_subtree(subtree_root.get_single_path())
         if cache_info:
             logger.debug(f'LocalSubtree ({subtree_root}) is part of existing cached supertree ({cache_info.subtree_root})')
@@ -203,7 +204,7 @@ class LocalDiskMasterStore(MasterStore):
 
         # LOAD into master tree. Only for first load!
         if not cache_info.is_loaded:
-            if self.app.cacheman.enable_load_from_disk:
+            if self.backend.cacheman.enable_load_from_disk:
                 tree = self._diskstore.load_subtree(cache_info, tree_id)
                 if tree:
                     if SUPER_DEBUG:
@@ -216,9 +217,9 @@ class LocalDiskMasterStore(MasterStore):
 
         # FS SYNC
         if is_live_refresh or not cache_info.is_loaded or \
-                (cache_info.needs_refresh and self.app.cacheman.sync_from_local_disk_on_cache_load):
+                (cache_info.needs_refresh and self.backend.cacheman.sync_from_local_disk_on_cache_load):
             logger.debug(f'[{tree_id}] Will resync with file system (is_loaded={cache_info.is_loaded}, sync_on_cache_load='
-                         f'{self.app.cacheman.sync_from_local_disk_on_cache_load}, needs_refresh={cache_info.needs_refresh},'
+                         f'{self.backend.cacheman.sync_from_local_disk_on_cache_load}, needs_refresh={cache_info.needs_refresh},'
                          f'is_live_refresh={is_live_refresh})')
             # Update from the file system, and optionally save any changes back to cache:
             self._resync_with_file_system(requested_subtree_root, tree_id)
@@ -227,7 +228,7 @@ class LocalDiskMasterStore(MasterStore):
             # We can only mark this as 'done' (False) if the entire cache contents has been refreshed:
             if requested_subtree_root.uid == cache_info.subtree_root.uid:
                 cache_info.needs_refresh = False
-        elif not self.app.cacheman.sync_from_local_disk_on_cache_load:
+        elif not self.backend.cacheman.sync_from_local_disk_on_cache_load:
             logger.debug(f'[{tree_id}] Skipping filesystem sync because it is disabled for cache loads')
         elif not cache_info.needs_refresh:
             logger.debug(f'[{tree_id}] Skipping filesystem sync because the cache is still fresh for path: {cache_info.subtree_root}')
@@ -236,7 +237,7 @@ class LocalDiskMasterStore(MasterStore):
         if cache_info.needs_save:
             if not cache_info.is_loaded:
                 logger.warning(f'[{tree_id}] Skipping cache save: cache was never loaded!')
-            elif self.app.cacheman.enable_save_to_disk:
+            elif self.backend.cacheman.enable_save_to_disk:
                 # Save the updates back to local disk cache:
                 self._save_subtree_to_disk(cache_info, tree_id)
             else:
@@ -244,8 +245,10 @@ class LocalDiskMasterStore(MasterStore):
         elif SUPER_DEBUG:
             logger.debug(f'[{tree_id}] Skipping cache save: not needed')
 
-        display_tree = DisplayTree(app=self.app, tree_id=tree_id, root_identifier=requested_subtree_root)
-        logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {display_tree.root_identifier.get_single_path()}')
+        root_node: LocalDirNode = self._memstore.master_tree.get_node(requested_subtree_root.uid)
+        root_sn = SPIDNodePair(requested_subtree_root, root_node)
+        display_tree = DisplayTree(backend=self.backend, tree_id=tree_id, root_sn=root_sn)
+        logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {display_tree.root_sn.spid.get_single_path()}')
         return display_tree
 
     def _ensure_uid_consistency(self, subtree_root: SinglePathNodeIdentifier):
@@ -261,7 +264,7 @@ class LocalDiskMasterStore(MasterStore):
     def consolidate_local_caches(self, local_caches: List[PersistedCacheInfo], tree_id) -> bool:
         supertree_sets: List[Tuple[PersistedCacheInfo, PersistedCacheInfo]] = []
 
-        if not self.app.cacheman.enable_save_to_disk:
+        if not self.backend.cacheman.enable_save_to_disk:
             logger.debug(f'[{tree_id}] Will not consolidate caches; save to disk is disabled')
             return False
 
@@ -322,7 +325,7 @@ class LocalDiskMasterStore(MasterStore):
     def load_node_for_path(self, full_path: str) -> Optional[LocalNode]:
         """This actually reads directly from the disk cache"""
         logger.debug(f'Loading single node for path: "{full_path}"')
-        cache_man = self.app.cacheman
+        cache_man = self.backend.cacheman
         cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_local_subtree(full_path)
         if not cache_info:
             logger.debug(f'Could not find cache containing path: "{full_path}"')
@@ -330,7 +333,7 @@ class LocalDiskMasterStore(MasterStore):
         if cache_info.is_loaded:
             logger.debug(f'Cache is already loaded for subtree (will return node from memory): "{cache_info.subtree_root}"')
             return self.get_node_for_domain_id(full_path)
-        with LocalDiskDatabase(cache_info.cache_location, self.app) as cache:
+        with LocalDiskDatabase(cache_info.cache_location, self.backend) as cache:
             return cache.get_file_or_dir_for_path(full_path)
 
     def upsert_single_node(self, node: LocalNode):
@@ -477,7 +480,7 @@ class LocalDiskMasterStore(MasterStore):
         if not override_load_check:
             # Very important to check this. If we ask the UID mapper to return a UID for a path it is not familiar with, it will generate
             # a new one, which will conflict with the one in the cache.
-            cache_info: Optional[PersistedCacheInfo] = self.app.cacheman.find_existing_cache_info_for_local_subtree(full_path)
+            cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.find_existing_cache_info_for_local_subtree(full_path)
             if cache_info and not cache_info.is_loaded:
                 raise RuntimeError(f'Cache containing path: "{full_path}" is not loaded!')
 

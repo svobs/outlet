@@ -161,10 +161,10 @@ class GDriveDatabase(MetaDatabase):
                                                ('sync_ts', 'INTEGER')
                                            ]))
 
-    def __init__(self, db_path, app):
+    def __init__(self, db_path, backend):
         super().__init__(db_path)
-        self.cacheman = app.cacheman
-        self.uid_generator = app.uid_generator
+        self.cacheman = backend.cacheman
+        self.uid_generator = backend.uid_generator
 
         self.table_current_download = LiveTable(GDriveDatabase.TABLE_GRDIVE_CURRENT_DOWNLOAD, self.conn, _download_to_tuple, _tuple_to_download)
         self.table_gdrive_folder = LiveTable(GDriveDatabase.TABLE_GRDIVE_FOLDER, self.conn, _gdrive_folder_to_tuple, _tuple_to_gdrive_folder)

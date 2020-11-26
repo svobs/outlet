@@ -17,14 +17,14 @@ logger = logging.getLogger(__name__)
 
 class CentralExecutor(HasLifecycle):
     """Half-baked proto-module which will at least let me see all execution in one place"""
-    def __init__(self, app):
+    def __init__(self, backend):
         HasLifecycle.__init__(self)
-        self.app = app
+        self.backend = backend
         self._shutdown_requested: bool = False
-        self._command_executor = CommandExecutor(self.app)
-        self._global_actions = GlobalActions(self.app)
+        self._command_executor = CommandExecutor(self.backend)
+        self._global_actions = GlobalActions(self.backend)
         self._task_runner = TaskRunner()
-        self.enable_op_execution_thread = app.config.get('executor.enable_op_execution_thread')
+        self.enable_op_execution_thread = backend.config.get('executor.enable_op_execution_thread')
 
         self._op_execution_thread = threading.Thread(target=self._run_op_execution_thread, name='OpExecutionThread', daemon=True)
         """Executes changes as needed in its own thread, which blocks until a change is available."""
@@ -62,7 +62,7 @@ class CentralExecutor(HasLifecycle):
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
-        self.app = None
+        self.backend = None
         self._command_executor = None
         self._global_actions = None
         self._task_runner = None
@@ -79,7 +79,7 @@ class CentralExecutor(HasLifecycle):
             # Should be ok to do simple infinite loop, because get_next_command() will block until work is available.
             # May need to throttle here in the future however if we are seeing hiccups in the UI for large numbers of operations
 
-            command = self.app.cacheman.get_next_command()
+            command = self.backend.cacheman.get_next_command()
             if not command:
                 logger.debug('Got None for next command. Shutting down')
                 self.shutdown()

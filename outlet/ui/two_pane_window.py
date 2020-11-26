@@ -12,7 +12,6 @@ from diff.diff_content_first import ContentFirstDiffer
 from global_actions import GlobalActions
 from model.display_tree.category import CategoryDisplayTree
 from model.node.node import SPIDNodePair
-from model.node_identifier import SinglePathNodeIdentifier
 from ui.dialog.base_dialog import BaseDialog
 from ui.dialog.merge_preview_dialog import MergePreviewDialog
 from ui.tree import tree_factory
@@ -77,13 +76,13 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
         # TODO: build RootPathConfigPersister in tree factory; include it in controller
         # Diff Tree Left:
-        self.root_path_persister_left = RootPathConfigPersister(app=self.app, tree_id=actions.ID_LEFT_TREE)
+        self.root_path_persister_left = RootPathConfigPersister(backend=self.app.backend, tree_id=actions.ID_LEFT_TREE)
         saved_root_left = self.root_path_persister_left.root_path_meta
         self.tree_con_left = tree_factory.build_editor_tree(parent_win=self, tree_id=actions.ID_LEFT_TREE, root_path_meta=saved_root_left)
         diff_tree_panes.pack1(self.tree_con_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
-        self.root_path_persister_right = RootPathConfigPersister(app=self.app, tree_id=actions.ID_RIGHT_TREE)
+        self.root_path_persister_right = RootPathConfigPersister(backend=self.app.backend, tree_id=actions.ID_RIGHT_TREE)
         saved_root_right = self.root_path_persister_right.root_path_meta
         self.tree_con_right = tree_factory.build_editor_tree(parent_win=self, tree_id=actions.ID_RIGHT_TREE, root_path_meta=saved_root_right)
         diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)
@@ -269,7 +268,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             self.show_error_msg('You must select change(s) first.')
             return None
 
-        differ = ContentFirstDiffer(self.tree_con_left.get_tree(), self.tree_con_right.get_tree(), self.app)
+        differ = ContentFirstDiffer(self.tree_con_left.get_tree(), self.tree_con_right.get_tree(), self.app.backend)
         merged_changes_tree: CategoryDisplayTree = differ.merge_change_trees(left_selected_changes, right_selected_changes)
 
         conflict_pairs = []
@@ -310,7 +309,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         GLib.idle_add(toggle_ui)
 
     def _update_play_pause_btn(self, sender: str):
-        self._is_playing: bool = self.app.executor.enable_op_execution_thread
+        self._is_playing: bool = self.app.backend.executor.enable_op_execution_thread
         logger.debug(f'Updating play/pause btn with is_playing={self._is_playing}')
         if self._is_playing:
             self.play_pause_btn.set_icon_widget(self.pause_icon)
@@ -339,7 +338,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
     def _after_diff_failed(self, sender):
         logger.debug(f'Received signal: "{actions.DIFF_TREES_FAILED}"')
         GLib.idle_add(self._set_default_button_bar)
-        GlobalActions.enable_ui(sender=self)
+        GlobalActions.enable_ui(sender=self.win_id)
 
     def _after_diff_completed(self, sender, stopwatch):
         logger.debug(f'Received signal: "{actions.DIFF_TREES_DONE}"')
@@ -355,9 +354,10 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             cancel_diff_btn = Gtk.Button(label="Cancel Diff")
             cancel_diff_btn.connect("clicked", on_cancel_diff_btn_clicked)
 
+            self.root_path_persister_left = RootPathConfigPersister(backend=self.app.backend, tree_id=actions.ID_LEFT_TREE)
             self.replace_bottom_button_panel(merge_btn, cancel_diff_btn)
 
-            GlobalActions.enable_ui(sender=self)
+            GlobalActions.enable_ui(sender=self.win_id)
             logger.debug(f'Diff time + redraw: {stopwatch}')
         GLib.idle_add(change_button_bar)
 

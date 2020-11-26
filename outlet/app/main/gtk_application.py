@@ -1,9 +1,9 @@
 import logging
 import sys
+import util.main_util
 
 from app.backend_integrated import BackendIntegrated
 from app.gtk_frontend import OutletApplication
-from app_config import AppConfig
 
 logger = logging.getLogger(__name__)
 
@@ -12,14 +12,7 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 def main():
-    if sys.version_info[0] < 3:
-        raise Exception("Python 3 or a more recent version is required.")
-
-    if len(sys.argv) >= 2:
-        config = AppConfig(sys.argv[1])
-    else:
-        config = AppConfig()
-
+    config = util.main_util.do_main_boilerplate()
     backend = BackendIntegrated(config)
     app = OutletApplication(config, backend)
     try:

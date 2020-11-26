@@ -9,7 +9,9 @@ from constants import NULL_UID, ROOT_PATH, SUPER_DEBUG, SUPER_ROOT_UID, TREE_TYP
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
-from model.node.node import HasChildStats, Node, SPIDNodePair
+from model.node.gdrive_node import GDriveNode
+from model.node.local_disk_node import LocalNode
+from model.node.node import HasChildStats, HasParentList, Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.user_op import UserOp, USER_OP_TYPES, UserOpType
 from model.uid import UID
@@ -27,14 +29,14 @@ logger = logging.getLogger(__name__)
 class CategoryDisplayTree(DisplayTree):
     """Note: this doesn't completely map to DisplayTree, but it's close enough for it to be useful to
     inherit its functionality"""
-    def __init__(self, app, tree_id: str, root_node_identifier: SinglePathNodeIdentifier, show_whole_forest=False):
+    def __init__(self, backend, tree_id: str, root_sn: SPIDNodePair, show_whole_forest=False):
         # Root node will never be displayed in the UI, but tree requires a root node, as does parent class
-        super().__init__(app, tree_id, root_node_identifier)
+        super().__init__(backend, tree_id, root_sn)
 
         self._category_tree: SimpleTree = SimpleTree()
 
         # Root node is not really important. Do not use its original UID, so as to disallow it from interfering with lookups
-        root_node = ContainerNode(root_node_identifier, nid=SUPER_ROOT_UID)
+        root_node = ContainerNode(root_sn.spid, nid=SUPER_ROOT_UID)
         logger.debug(f'[{tree_id}] CategoryDisplayTree: inserting root node: {root_node}')
         self._category_tree.add_node(root_node, parent=None)
 
@@ -69,7 +71,7 @@ class CategoryDisplayTree(DisplayTree):
             raise
 
     def print_tree_contents_debug(self):
-        logger.debug(f'[{self.tree_id}] CategoryTree for "{self.root_identifier}": \n' + self._category_tree.show())
+        logger.debug(f'[{self.tree_id}] CategoryTree for "{self.root_sn.spid}": \n' + self._category_tree.show())
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
         raise InvalidOperationError('CategoryDisplayTree.get_ancestor_list()')
@@ -165,12 +167,24 @@ class CategoryDisplayTree(DisplayTree):
 
         return parent
 
+    def _derive_parent_uid_list_for_node(self, node: Node) -> List[UID]:
+        """Similar to get_parent_uid_list_for_node(), but does not look up the parent nodes in the source trees.
+        May require a path mapper lookup but this will always return a value."""
+        if isinstance(node, HasParentList):
+            assert isinstance(node, GDriveNode) and node.get_tree_type() == TREE_TYPE_GDRIVE, f'Node: {node}'
+            return node.get_parent_uids()
+        else:
+            # TODO: may really need to add parent list to local nodes to speed up performance
+            assert isinstance(node, LocalNode) and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Node: {node}'
+            return [self.backend.get_uid_for_local_path(node.derive_parent_path())]
+
     def _get_parent_in_tree(self, sn: SPIDNodePair, op_type: UserOpType) -> Optional[Node]:
         parent_path = sn.spid.get_single_parent_path()
 
         # 1. Check for "real" nodes (which use plain UIDs for identifiers):
-        for parent_uid in self.app.cacheman.derive_parent_uid_list_for_node(sn.node):
+        for parent_uid in self._derive_parent_uid_list_for_node(sn.node):
             parent = self._category_tree.get_node(nid=parent_uid)
+            assert not parent or isinstance(parent, Node), f'Expected Node but found {type(parent)}: {parent} (spid: {sn.spid}'
             if parent and parent_path in parent.get_path_list():
                 return parent
 

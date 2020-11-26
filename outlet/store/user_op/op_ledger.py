@@ -31,12 +31,12 @@ class ErrorHandlingBehavior(IntEnum):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class OpLedger(HasLifecycle):
-    def __init__(self, app):
+    def __init__(self, backend):
         HasLifecycle.__init__(self)
-        self.app = app
-        self._cmd_builder: CommandBuilder = CommandBuilder(self.app)
-        self._disk_store: OpDiskStore = OpDiskStore(self.app)
-        self._op_graph: OpGraph = OpGraph(self.app)
+        self.backend = backend
+        self._cmd_builder: CommandBuilder = CommandBuilder(self.backend)
+        self._disk_store: OpDiskStore = OpDiskStore(self.backend)
+        self._op_graph: OpGraph = OpGraph(self.backend)
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
 
     def start(self):
@@ -50,22 +50,22 @@ class OpLedger(HasLifecycle):
     def shutdown(self):
         HasLifecycle.shutdown(self)
 
-        self.app = None
+        self.backend = None
         self._cmd_builder = None
         self._op_graph = None
 
     def _update_nodes_in_memstore(self, op: UserOp):
         """Looks at the given UserOp and notifies cacheman so that it can send out update notifications. The nodes involved may not have
         actually changed (i.e., only their statuses have changed)"""
-        self.app.cacheman.upsert_single_node(op.src_node)
+        self.backend.cacheman.upsert_single_node(op.src_node)
         if op.has_dst():
-            self.app.cacheman.upsert_single_node(op.dst_node)
+            self.backend.cacheman.upsert_single_node(op.dst_node)
 
     # Reduce Changes logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _derive_dst_parent_key_list(self, dst_node: Node) -> List[str]:
-        return [f'{parent_uid}/{dst_node.name}' for parent_uid in self.app.cacheman.get_parent_uid_list_for_node(dst_node)]
+        return [f'{parent_uid}/{dst_node.name}' for parent_uid in self.backend.cacheman.get_parent_uid_list_for_node(dst_node)]
 
     def _reduce_ops(self, op_list: Iterable[UserOp]) -> Iterable[UserOp]:
         final_list: List[UserOp] = []
@@ -176,7 +176,7 @@ class OpLedger(HasLifecycle):
 
         while len(queue) > 0:
             node: Node = queue.popleft()
-            for ancestor in self.app.cacheman.get_parent_list_for_node(node):
+            for ancestor in self.backend.cacheman.get_parent_list_for_node(node):
                 queue.append(ancestor)
                 if SUPER_DEBUG:
                     logger.debug(f'(UserOp={op.op_uid}): evaluating ancestor: {ancestor}')
@@ -225,7 +225,7 @@ class OpLedger(HasLifecycle):
                 big_node_list.append(user_op.dst_node)
 
         # Make sure all relevant caches are loaded:
-        self.app.cacheman.ensure_loaded(big_node_list)
+        self.backend.cacheman.ensure_loaded(big_node_list)
 
     def append_new_pending_op_batch(self, batch_op_list: Iterable[UserOp]):
         """

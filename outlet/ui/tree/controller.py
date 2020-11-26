@@ -142,7 +142,7 @@ class TreePanelController:
         return self.lazy_loader.get_tree()
 
     def set_tree(self, root: SinglePathNodeIdentifier = None, tree: DisplayTree = None, tree_display_mode: TreeDisplayMode = None):
-        # Clear old display (if any)
+        # Clear old GTK3 displayed nodes (if any)
         self.display_store.clear_model_on_ui_thread()
 
         if not root and not tree:

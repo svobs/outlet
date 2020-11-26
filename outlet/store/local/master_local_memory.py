@@ -16,14 +16,14 @@ logger = logging.getLogger(__name__)
 # CLASS LocalDiskMemoryStore
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class LocalDiskMemoryStore:
-    def __init__(self, app):
-        self.use_md5 = app.config.get('cache.enable_md5_lookup')
+    def __init__(self, backend):
+        self.use_md5 = backend.config.get('cache.enable_md5_lookup')
         if self.use_md5:
             self.md5_dict: Optional[Md5BeforeUidDict] = Md5BeforeUidDict()
         else:
             self.md5_dict: Optional[Md5BeforeUidDict] = None
 
-        self.use_sha256 = app.config.get('cache.enable_sha256_lookup')
+        self.use_sha256 = backend.config.get('cache.enable_sha256_lookup')
         if self.use_sha256:
             self.sha256_dict: Optional[Sha256BeforeUidDict] = Sha256BeforeUidDict()
         else:
@@ -31,7 +31,7 @@ class LocalDiskMemoryStore:
 
         # Each node inserted here will have an entry created for its dir.
         # But we still need a dir tree to look up child dirs:
-        self.master_tree = LocalDiskTree(app)
+        self.master_tree = LocalDiskTree(backend)
         root_node = RootTypeNode(node_identifier=LocalNodeIdentifier(path_list=ROOT_PATH, uid=LOCAL_ROOT_UID))
         self.master_tree.add_node(node=root_node, parent=None)
 

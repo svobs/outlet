@@ -54,7 +54,7 @@ class TreeFactory:
         if root_path_meta:
             self.root_path_meta = root_path_meta
         elif tree:
-            self.root_path_meta = RootPathMeta(tree.root_identifier, is_found=True)
+            self.root_path_meta = RootPathMeta(tree.get_root_identifier(), is_found=True)
         else:
             raise RuntimeError('Params "root_path_meta" and "tree" cannot both be empty!')
         self.tree: Optional[DisplayTree] = tree

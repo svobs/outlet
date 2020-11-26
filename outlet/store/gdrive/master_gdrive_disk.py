@@ -23,9 +23,9 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class GDriveDiskStore(HasLifecycle):
-    def __init__(self, app, memstore: GDriveMemoryStore):
+    def __init__(self, backend, memstore: GDriveMemoryStore):
         HasLifecycle.__init__(self)
-        self.app = app
+        self.backend = backend
         self._memstore: GDriveMemoryStore = memstore
         self._db: Optional[GDriveDatabase] = None
 
@@ -33,7 +33,7 @@ class GDriveDiskStore(HasLifecycle):
         logger.debug(f'Starting GDriveDiskStore')
         HasLifecycle.start(self)
         gdrive_db_path = self._get_gdrive_cache_path()
-        self._db = GDriveDatabase(gdrive_db_path, self.app)
+        self._db = GDriveDatabase(gdrive_db_path, self.backend)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
@@ -43,7 +43,7 @@ class GDriveDiskStore(HasLifecycle):
 
     def _get_gdrive_cache_path(self) -> str:
         master_tree_root = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
-        cache_info = self.app.cacheman.get_or_create_cache_info_entry(master_tree_root)
+        cache_info = self.backend.cacheman.get_or_create_cache_info_entry(master_tree_root)
         return cache_info.cache_location
 
     def load_tree_from_cache(self, is_complete: bool, tree_id: str) -> GDriveWholeTree:
@@ -54,7 +54,7 @@ class GDriveDiskStore(HasLifecycle):
         logger.debug(f'[{tree_id}] Loading GDrive tree from disk cache...')
         sw_total = Stopwatch()
         max_uid = GDRIVE_ROOT_UID + 1
-        tree = GDriveWholeTree(self.app.node_identifier_factory)
+        tree = GDriveWholeTree(self.backend.node_identifier_factory)
         invalidate_uids: Dict[UID, str] = {}
 
         # DIRs:
@@ -66,7 +66,7 @@ class GDriveDiskStore(HasLifecycle):
         count_folders_loaded = 0
         for folder in folder_list:
             if folder.goog_id:
-                uid = self.app.cacheman.get_uid_for_goog_id(folder.goog_id, folder.uid)
+                uid = self.backend.cacheman.get_uid_for_goog_id(folder.goog_id, folder.uid)
                 if folder.uid != uid:
                     # Duplicate entry with same goog_id. Here's a useful SQLite query:
                     # "SELECT goog_id, COUNT(*) c FROM gdrive_file GROUP BY goog_id HAVING c > 1;"
@@ -95,7 +95,7 @@ class GDriveDiskStore(HasLifecycle):
         count_files_loaded = 0
         for file in file_list:
             if file.goog_id:
-                uid = self.app.cacheman.get_uid_for_goog_id(file.goog_id, file.uid)
+                uid = self.backend.cacheman.get_uid_for_goog_id(file.goog_id, file.uid)
                 if file.uid != uid:
                     # Duplicate entry with same goog_id. Here's a useful SQLite query:
                     # "SELECT goog_id, COUNT(*) c FROM gdrive_file GROUP BY goog_id HAVING c > 1;"
@@ -137,7 +137,7 @@ class GDriveDiskStore(HasLifecycle):
 
         logger.debug(f'{sw_total} Loaded {len(tree.uid_dict):n} items from {count_files_loaded:n} files and {count_folders_loaded:n} folders')
 
-        self.app.uid_generator.ensure_next_uid_greater_than(max_uid)
+        self.backend.uid_generator.ensure_next_uid_greater_than(max_uid)
         return tree
 
     def execute_load_op(self, operation: GDriveDiskLoadOp):

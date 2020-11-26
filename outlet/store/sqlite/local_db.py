@@ -2,7 +2,6 @@ import logging
 from collections import OrderedDict
 from typing import List, Optional, Tuple
 
-from constants import TrashStatus
 from store.sqlite.base_db import LiveTable, MetaDatabase, Table
 from model.uid import UID
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
@@ -46,9 +45,9 @@ class LocalDiskDatabase(MetaDatabase):
         ('live', 'INTEGER')
     ]))
 
-    def __init__(self, db_path, app):
+    def __init__(self, db_path, backend):
         super().__init__(db_path)
-        self.cacheman = app.cacheman
+        self.cacheman = backend.cacheman
         self.table_local_file = LiveTable(LocalDiskDatabase.TABLE_LOCAL_FILE, self.conn, _file_to_tuple, self._tuple_to_file)
         self.table_local_dir = LiveTable(LocalDiskDatabase.TABLE_LOCAL_DIR, self.conn, _dir_to_tuple, self._tuple_to_dir)
 

@@ -122,7 +122,7 @@ class NodeIdentifierFactory:
             return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
 
         if full_path_list:
-            uid = self.backend.get_uid_for_path(full_path_list[0], uid)
+            uid = self.backend.get_uid_for_local_path(full_path_list[0], uid)
 
             return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
         elif uid:

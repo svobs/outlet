@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 class OpGraph(HasLifecycle):
     """Flow graph for user ops"""
 
-    def __init__(self, app):
+    def __init__(self, backend):
         HasLifecycle.__init__(self)
-        self.app = app
+        self.backend = backend
 
         self._struct_lock = threading.Lock()
 
@@ -98,9 +98,9 @@ class OpGraph(HasLifecycle):
         for op in op_batch:
             # make src node
             if op.op_type == UserOpType.RM:
-                src_node: OpGraphNode = RmOpNode(self.app.uid_generator.next_uid(), op)
+                src_node: OpGraphNode = RmOpNode(self.backend.uid_generator.next_uid(), op)
             else:
-                src_node: OpGraphNode = SrcOpNode(self.app.uid_generator.next_uid(), op)
+                src_node: OpGraphNode = SrcOpNode(self.backend.uid_generator.next_uid(), op)
 
             if src_node.is_reentrant():
                 assert isinstance(src_node, SrcOpNode) and src_node.op.op_type == UserOpType.CP, f'Not consistent: {src_node}'
@@ -113,7 +113,7 @@ class OpGraph(HasLifecycle):
 
             # make dst node (if op has dst)
             if op.has_dst():
-                dst_node = DstOpNode(self.app.uid_generator.next_uid(), op)
+                dst_node = DstOpNode(self.backend.uid_generator.next_uid(), op)
                 assert not dst_node.is_reentrant(), f'Expected not reentrant: {dst_node}'
                 existing = non_reentrant_tgt_node_dict.get(dst_node.get_tgt_node().uid, None)
                 if existing:
@@ -136,7 +136,7 @@ class OpGraph(HasLifecycle):
 
         # non-reentrant nodes cannot execute concurrently and must have dependencies on each other:
         for potential_child_op in non_reentrant_tgt_node_dict.values():
-            parent_uid_list: List[UID] = self.app.cacheman.get_parent_uid_list_for_node(potential_child_op.get_tgt_node())
+            parent_uid_list: List[UID] = self.backend.cacheman.get_parent_uid_list_for_node(potential_child_op.get_tgt_node())
             if SUPER_DEBUG and len(parent_uid_list) > 1:
                 logger.debug(f'Target node of op has multiple parents: {potential_child_op}')
             for parent_uid in parent_uid_list:
@@ -199,10 +199,10 @@ class OpGraph(HasLifecycle):
 
             if op_node.is_create_type():
                 # Enforce Rule 1: ensure parent of target is valid:
-                parent_uid_list: List[UID] = self.app.cacheman.get_parent_uid_list_for_node(tgt_node)
+                parent_uid_list: List[UID] = self.backend.cacheman.get_parent_uid_list_for_node(tgt_node)
                 parent_found: bool = False
                 for parent_uid in parent_uid_list:
-                    if self.app.cacheman.get_node_for_uid(parent_uid, tgt_node.get_tree_type()) or mkdir_node_dict.get(parent_uid, None):
+                    if self.backend.cacheman.get_node_for_uid(parent_uid, tgt_node.get_tree_type()) or mkdir_node_dict.get(parent_uid, None):
                         parent_found = True
 
                 if not parent_found:
@@ -215,7 +215,7 @@ class OpGraph(HasLifecycle):
                     mkdir_node_dict[op_node.op.src_node.uid] = op_node.op.src_node
             else:
                 # Enforce Rule 2: ensure target node is valid
-                if not self.app.cacheman.get_node_for_uid(tgt_node.uid, tgt_node.get_tree_type()):
+                if not self.backend.cacheman.get_node_for_uid(tgt_node.uid, tgt_node.get_tree_type()):
                     logger.error(f'Could not find node in cache for "{op_type}" operation node: {tgt_node}')
                     raise RuntimeError(f'Cannot add batch (UID={batch_uid}): Could not find node in cache with UID {tgt_node.uid} '
                                        f'for "{op_type}"')
@@ -358,7 +358,7 @@ class OpGraph(HasLifecycle):
 
         target_node: Node = node_to_insert.get_tgt_node()
         target_uid: UID = target_node.uid
-        tgt_parent_uid_list: List[UID] = self.app.cacheman.get_parent_uid_list_for_node(target_node)
+        tgt_parent_uid_list: List[UID] = self.backend.cacheman.get_parent_uid_list_for_node(target_node)
 
         # First check whether the target node is known and has pending operations
         last_target_op = self._get_lowest_priority_op_node(target_uid)

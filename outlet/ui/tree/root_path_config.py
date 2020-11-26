@@ -42,7 +42,7 @@ class RootPathConfigPersister(HasLifecycle):
     """Reads and writes the root path for the given tree_id.
     Listens for signals to stay up-to-date. Configure this class, add it to its parent's instance variables, and then forget about it."""
 
-    def __init__(self, app, tree_id):
+    def __init__(self, backend, tree_id):
         HasLifecycle.__init__(self)
         self._tree_type_config_key = make_tree_type_config_key(tree_id)
         self._root_path_config_key = make_root_path_config_key(tree_id)
@@ -50,8 +50,8 @@ class RootPathConfigPersister(HasLifecycle):
         self._root_is_found_config_key = make_root_is_found_config_key(tree_id)
         self._root_offending_path_config_key = make_root_offending_path_config_key(tree_id)
         self._tree_id = tree_id
-        self.app = app
-        self._config = app.config
+        self.backend = backend
+        self._config = backend.config
         self.root_path_meta: RootPathMeta = self._read_from_config()
 
         # Cross-check that our local root UIDs are correct.
@@ -61,7 +61,7 @@ class RootPathConfigPersister(HasLifecycle):
         if tree_type == TREE_TYPE_LOCAL_DISK:
             # FIXME: this first nasty block can go away after we implement the fix noted at CacheManager.get_uid_for_path()
             # resolves a problem of inconsistent UIDs during testing
-            node: Node = self.app.backend.read_single_node_from_disk_for_path(root_path, tree_type)
+            node: Node = self.backend.read_single_node_from_disk_for_path(root_path, tree_type)
             if node:
                 if self.root_path_meta.root.uid != node.uid:
                     logger.warning(f'UID from config ({self.root_path_meta.root.uid}) does not match UID from cache '
@@ -69,7 +69,7 @@ class RootPathConfigPersister(HasLifecycle):
                 self.root_path_meta.root = node.node_identifier
             else:
                 # TODO: make into RPC call
-                self.root_path_meta: RootPathMeta = self.app.backend.resolve_root_from_path(root_path)
+                self.root_path_meta: RootPathMeta = self.backend.resolve_root_from_path(root_path)
                 self.root_identifier = self.root_path_meta.root
                 logger.info(f'[{tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root_meta={self.root_path_meta}')
                 dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root_meta=self.root_path_meta)
@@ -99,7 +99,7 @@ class RootPathConfigPersister(HasLifecycle):
         except ValueError:
             raise RuntimeError(f"Invalid value for tree's UID (expected integer): '{root_uid}'")
 
-        root_identifier: SinglePathNodeIdentifier = self.app.backend.node_identifier_factory.for_values(tree_type=tree_type,
+        root_identifier: SinglePathNodeIdentifier = self.backend.node_identifier_factory.for_values(tree_type=tree_type,
                                                                                                         path_list=root_path, uid=root_uid,
                                                                                                         must_be_single_path=True)
 

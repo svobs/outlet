@@ -23,7 +23,7 @@ class DisplayTreeLazyLoader:
         self._lock: threading.Lock = threading.Lock()
         if tree:
             self._tree: Optional[DisplayTree] = tree
-            self._root_identifier: SinglePathNodeIdentifier = self._tree.root_identifier
+            self._root_identifier: SinglePathNodeIdentifier = self._tree.get_root_identifier()
             self._loaded = True
         else:
             self._tree: Optional[DisplayTree] = None
@@ -38,7 +38,7 @@ class DisplayTreeLazyLoader:
                     logger.debug(f'[{self.con.tree_id}] Tree was requested. Loading: {self._root_identifier}')
                     # TODO: replace this with GRPC call
                     self._tree = self.con.cacheman.create_display_tree(self._root_identifier, self.con.tree_id)
-                    self._root_identifier = self._tree.root_identifier
+                    self._root_identifier = self._tree.get_root_identifier()
                     self._loaded = True
                     logger.debug(f'[{self.con.tree_id}] Tree was loaded successfully.')
 

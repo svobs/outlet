@@ -69,7 +69,7 @@ class SimpleTree:
             else:
                 self._root_node = node
         elif parent.identifier not in self._node_dict:
-            raise NodeNotPresentError(f'Cannot add node: parent "{parent.identifier}" not found in tree!')
+            raise NodeNotPresentError(f'Cannot add node ({node.identifier}): parent "{parent.identifier}" not found in tree!')
         else:
             child_list: List[BaseNode] = self._parent_child_list_dict.get(parent.identifier, [])
             if not child_list:

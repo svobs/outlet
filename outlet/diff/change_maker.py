@@ -22,15 +22,15 @@ logger = logging.getLogger(__name__)
 # CLASS OneSide
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class OneSide:
-    def __init__(self, app, tree_root_identifier: SinglePathNodeIdentifier, tree_id: str, batch_uid: UID):
-        self.app = app
-        self.root_identifier: SinglePathNodeIdentifier = tree_root_identifier
+    def __init__(self, backend, tree_root_sn: SPIDNodePair, tree_id: str, batch_uid: UID):
+        self.backend = backend
+        self.root_sn: SPIDNodePair = tree_root_sn
         self.tree_id = tree_id
         # TODO: move this to frontend
-        self.change_tree: CategoryDisplayTree = CategoryDisplayTree(app, tree_id, self.root_identifier)
+        self.change_tree: CategoryDisplayTree = CategoryDisplayTree(backend, tree_id, self.root_sn)
         self._batch_uid: UID = batch_uid
         if not self._batch_uid:
-            self._batch_uid: UID = self.app.uid_generator.next_uid()
+            self._batch_uid: UID = self.backend.uid_generator.next_uid()
         self._added_folders: Dict[str, SPIDNodePair] = {}
 
     def add_op(self, op_type: UserOpType, src_sn: SPIDNodePair, dst_sn: SPIDNodePair = None):
@@ -44,16 +44,16 @@ class OneSide:
             target_sn = src_sn
             dst_node = None
 
-        op: UserOp = UserOp(op_uid=self.app.uid_generator.next_uid(), batch_uid=self._batch_uid, op_type=op_type,
+        op: UserOp = UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=self._batch_uid, op_type=op_type,
                             src_node=src_sn.node, dst_node=dst_node)
 
         self.change_tree.add_node(target_sn, op)
 
     def derive_relative_path(self, spid: SinglePathNodeIdentifier) -> str:
-        return file_util.strip_root(spid.get_single_path(), self.root_identifier.get_single_path())
+        return file_util.strip_root(spid.get_single_path(), self.root_sn.spid.get_single_path())
 
     def migrate_single_node_to_this_side(self, sn_src: SPIDNodePair, dst_path: str) -> SPIDNodePair:
-        dst_tree_type = self.root_identifier.tree_type
+        dst_tree_type = self.root_sn.spid.tree_type
         dst_node: Node = self._build_migrated_file_node(src_node=sn_src.node, dst_path=dst_path, dst_tree_type=dst_tree_type)
         dst_sn: SPIDNodePair = SPIDNodePair(SinglePathNodeIdentifier(dst_node.uid, dst_path, dst_tree_type), dst_node)
 
@@ -61,10 +61,10 @@ class OneSide:
         self._add_needed_ancestors(dst_sn)
 
         if dst_tree_type == TREE_TYPE_LOCAL_DISK:
-            dst_node.uid = self.app.cacheman.get_uid_for_path(dst_path)
+            dst_node.uid = self.backend.cacheman.get_uid_for_path(dst_path)
         elif dst_tree_type == TREE_TYPE_GDRIVE:
             assert isinstance(dst_node, GDriveNode) and dst_node.get_parent_uids(), f'Bad data: {dst_node}'
-            existing_dst_node_list = self.app.cacheman.get_node_list_for_path_list([dst_path], dst_tree_type)
+            existing_dst_node_list = self.backend.cacheman.get_node_list_for_path_list([dst_path], dst_tree_type)
             if len(existing_dst_node_list) == 1:
                 existing_node = existing_dst_node_list[0]
                 # If a single node is already there with given name, use its identification; we will overwrite its content with a new version
@@ -83,7 +83,7 @@ class OneSide:
                                        f'GDrive dst path ("{dst_path}"). Cannot proceed')
             else:
                 # Not exist: assign new UID. We will later associate this with a goog_id once it's made existent
-                dst_node.uid = self.app.uid_generator.next_uid()
+                dst_node.uid = self.backend.uid_generator.next_uid()
         else:
             raise RuntimeError(f'Invalid tree_type: {dst_tree_type}')
 
@@ -106,7 +106,7 @@ class OneSide:
         size_bytes = src_node.get_size_bytes()
 
         # (Kludge) just assign the NULL UID for now, so we don't auto-generate a new UID. It will just get overwritten anyway if GDrive
-        node_identifier = self.app.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=NULL_UID)
+        node_identifier = self.backend.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=NULL_UID)
         if dst_tree_type == TREE_TYPE_LOCAL_DISK:
             assert isinstance(node_identifier, LocalNodeIdentifier)
             return LocalFileNode(node_identifier, md5, sha256, size_bytes, None, None, None, TrashStatus.NOT_TRASHED, False)
@@ -148,7 +148,7 @@ class OneSide:
                 break
 
             # Folder already existed in original tree?
-            existing_parent_list: List[Node] = self.app.cacheman.get_node_list_for_path_list([parent_path], tree_type)
+            existing_parent_list: List[Node] = self.backend.cacheman.get_node_list_for_path_list([parent_path], tree_type)
             if existing_parent_list:
                 # Add all parents which match the path, even if they are duplicates or do not yet exist (i.e., pending ops)
                 if tree_type == TREE_TYPE_GDRIVE:
@@ -159,14 +159,14 @@ class OneSide:
             # Need to create ancestor
             if tree_type == TREE_TYPE_GDRIVE:
                 logger.debug(f'Creating GoogFolderToAdd for {parent_path}')
-                new_uid = self.app.uid_generator.next_uid()
+                new_uid = self.backend.uid_generator.next_uid()
                 folder_name = os.path.basename(parent_path)
                 new_parent_node = GDriveFolder(GDriveIdentifier(uid=new_uid, path_list=parent_path), goog_id=None, node_name=folder_name,
                                                trashed=False, create_ts=None, modify_ts=None, owner_uid=None,
                                                drive_id=None, is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=True)
             elif tree_type == TREE_TYPE_LOCAL_DISK:
                 logger.debug(f'Creating LocalDirToAdd for {parent_path}')
-                new_uid = self.app.cacheman.get_uid_for_path(parent_path)
+                new_uid = self.backend.cacheman.get_uid_for_path(parent_path)
                 new_parent_node = LocalDirNode(LocalNodeIdentifier(uid=new_uid, path_list=parent_path), trashed=TrashStatus.NOT_TRASHED,
                                                is_live=False)
             else:
@@ -190,11 +190,11 @@ class OneSide:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class ChangeMaker:
-    def __init__(self, left_tree_root_identifier: SinglePathNodeIdentifier, right_tree_root_identifier: SinglePathNodeIdentifier, app):
-        self.app = app
-        batch_uid: UID = self.app.uid_generator.next_uid()
-        self.left_side = OneSide(app, left_tree_root_identifier, ID_LEFT_TREE, batch_uid)
-        self.right_side = OneSide(app, right_tree_root_identifier, ID_RIGHT_TREE, batch_uid)
+    def __init__(self, left_tree_root_sn: SPIDNodePair, right_tree_root_sn: SPIDNodePair, backend):
+        self.backend = backend
+        batch_uid: UID = self.backend.uid_generator.next_uid()
+        self.left_side = OneSide(backend, left_tree_root_sn, ID_LEFT_TREE, batch_uid)
+        self.right_side = OneSide(backend, right_tree_root_sn, ID_RIGHT_TREE, batch_uid)
 
     def copy_nodes_left_to_right(self, src_sn_list: List[SPIDNodePair], sn_dst_parent: SPIDNodePair, op_type: UserOpType):
         """Populates the destination parent in "change_tree_right" with the given source nodes.
@@ -234,6 +234,7 @@ class ChangeMaker:
         return SinglePathNodeIdentifier(child_node.uid, os.path.join(parent_path, child_node.name), tree_type=child_node.get_tree_type())
 
     def visit_each_sn_for_subtree(self, subtree_root: SPIDNodePair, on_file_found: Callable[[SPIDNodePair], None]):
+        assert isinstance(subtree_root, SPIDNodePair), f'Expected SPIDNodePair but got {type(subtree_root)}: {subtree_root}'
         queue: Deque[SPIDNodePair] = collections.deque()
         queue.append(subtree_root)
 
@@ -241,7 +242,7 @@ class ChangeMaker:
             sn: SPIDNodePair = queue.popleft()
             if sn.node.is_live():  # avoid pending op nodes
                 if sn.node.is_dir():
-                    child_list = self.app.cacheman.get_children(sn.node)
+                    child_list = self.backend.cacheman.get_children(sn.node)
                     if child_list:
                         for child in child_list:
                             if child.node_identifier.is_spid():
@@ -262,8 +263,8 @@ class ChangeMaker:
 
     @staticmethod
     def _change_tree_path(src_side: OneSide, dst_side: OneSide, spid_from_src_tree: SinglePathNodeIdentifier) -> str:
-        return os.path.join(dst_side.root_identifier.get_single_path(), file_util.strip_root(spid_from_src_tree.get_single_path(),
-                                                                                             src_side.root_identifier.get_single_path()))
+        return os.path.join(dst_side.root_sn.spid.get_single_path(), file_util.strip_root(spid_from_src_tree.get_single_path(),
+                                                                                          src_side.root_sn.spid.get_single_path()))
 
     def get_path_moved_to_right(self, spid_left: SinglePathNodeIdentifier) -> str:
         return self._change_tree_path(self.left_side, self.right_side, spid_left)

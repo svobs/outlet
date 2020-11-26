@@ -15,15 +15,15 @@ logger = logging.getLogger(__name__)
 
 class OpDiskStore(HasLifecycle):
     """Wrapper for OpDatabase; adds lifecycle and possibly complex logic"""
-    def __init__(self, app):
+    def __init__(self, backend):
         HasLifecycle.__init__(self)
-        self.app = app
-        self.op_db_path = os.path.join(self.app.cacheman.cache_dir_path, OPS_FILE_NAME)
+        self.backend = backend
+        self.op_db_path = os.path.join(self.backend.cacheman.cache_dir_path, OPS_FILE_NAME)
         self._db: Optional[OpDatabase] = None
 
     def start(self):
         HasLifecycle.start(self)
-        self._db = OpDatabase(self.op_db_path, self.app)
+        self._db = OpDatabase(self.op_db_path, self.backend)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)

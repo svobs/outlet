@@ -79,15 +79,15 @@ class GDriveChangeObserver(ABC):
 class PagePersistingChangeObserver(GDriveChangeObserver):
     """Observer interface, to be implemented with various strategies for processing downloaded Google Drive query results"""
 
-    def __init__(self, app):
+    def __init__(self, backend):
         super().__init__()
-        self.app = app
+        self.backend = backend
         self.change_list: List[GDriveChange] = []
 
     def change_received(self, change: GDriveChange, item):
         self.change_list.append(change)
 
     def end_of_page(self, next_page_token: str):
-        self.app.cacheman.apply_gdrive_changes(self.change_list)
+        self.backend.cacheman.apply_gdrive_changes(self.change_list)
 
 

@@ -169,7 +169,7 @@ class RootDirPanel(HasLifecycle):
 
         if self.needs_load:
             # Note: good example of toolbar here:
-            # https://github.com/kyleuckert/LaserTOF/blob/master/labTOF_main.app/Contents/Resources/lib/python2.7/matplotlib/backends/backend_gtk3.py
+            # https://github.com/kyleuckert/LaserTOF/blob/master/labTOF_main.backend/Contents/Resources/lib/python2.7/matplotlib/backends/backend_gtk3.py
             self.toolbar = Gtk.Toolbar()
             self.toolbar.set_style(Gtk.ToolbarStyle.ICONS)
             self.refresh_button = Gtk.ToolButton()

@@ -9,7 +9,6 @@ from model.cache_info import PersistedCacheInfo
 from model.local_disk_tree import LocalDiskTree
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
-from model.uid import UID
 from store.local.master_local_write_op import LocalDiskSingleNodeOp, LocalDiskSubtreeOp
 from store.sqlite.local_db import LocalDiskDatabase
 from ui import actions
@@ -24,9 +23,9 @@ logger = logging.getLogger(__name__)
 
 class LocalDiskDiskStore(HasLifecycle):
     """Wrapper for OpDatabase; adds lifecycle and possibly complex logic"""
-    def __init__(self, app):
+    def __init__(self, backend):
         HasLifecycle.__init__(self)
-        self.app = app
+        self.backend = backend
         self._struct_lock = threading.Lock()
         """Just use one big lock for now"""
         self._open_db_dict: Dict[str, LocalDiskDatabase] = {}
@@ -50,7 +49,7 @@ class LocalDiskDiskStore(HasLifecycle):
     def _get_or_open_db(self, cache_info: PersistedCacheInfo) -> LocalDiskDatabase:
         db = self._open_db_dict.get(cache_info.cache_location, None)
         if not db:
-            db = LocalDiskDatabase(cache_info.cache_location, self.app)
+            db = LocalDiskDatabase(cache_info.cache_location, self.backend)
             self._open_db_dict[cache_info.cache_location] = db
         return db
 
@@ -65,7 +64,7 @@ class LocalDiskDiskStore(HasLifecycle):
 
     def _update_diskstore_for_subtree(self, op: LocalDiskSubtreeOp):
         """Attempt to come close to a transactional behavior by writing to all caches at once, and then committing all at the end"""
-        cache_man = self.app.cacheman
+        cache_man = self.backend.cacheman
         if not cache_man.enable_save_to_disk:
             logger.debug(f'Save to disk is disabled: skipping save of {len(op.get_subtree_list())} subtrees')
             return
@@ -87,7 +86,7 @@ class LocalDiskDiskStore(HasLifecycle):
 
     def _update_diskstore_for_single_op(self, operation: LocalDiskSingleNodeOp):
         assert operation.node, f'No node for operation: {type(operation)}'
-        cache_info: Optional[PersistedCacheInfo] = self.app.cacheman.find_existing_cache_info_for_local_subtree(operation.node.get_single_path())
+        cache_info: Optional[PersistedCacheInfo] = self.backend.cacheman.find_existing_cache_info_for_local_subtree(operation.node.get_single_path())
         if not cache_info:
             raise RuntimeError(f'Could not find a cache associated with node: {operation.node.node_identifier}')
 
@@ -100,7 +99,7 @@ class LocalDiskDiskStore(HasLifecycle):
         checks that at least registry & memory match. If UID is not in memory, guarantees that it will be stored with the value from registry.
         This method should only be called for the subtree root of display trees being loaded"""
         existing_uid = subtree_root.uid
-        new_uid = self.app.cacheman.get_uid_for_path(subtree_root.get_single_path(), existing_uid, override_load_check=True)
+        new_uid = self.backend.cacheman.get_uid_for_path(subtree_root.get_single_path(), existing_uid, override_load_check=True)
         if existing_uid != new_uid:
             logger.warning(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
         subtree_root.uid = new_uid
@@ -123,7 +122,7 @@ class LocalDiskDiskStore(HasLifecycle):
             self._ensure_uid_consistency(cache_info.subtree_root)
 
             root_node_identifer = LocalNodeIdentifier(uid=cache_info.subtree_root.uid, path_list=cache_info.subtree_root.get_single_path())
-            tree: LocalDiskTree = LocalDiskTree(self.app)
+            tree: LocalDiskTree = LocalDiskTree(self.backend)
             root_node = LocalDirNode(node_identifier=root_node_identifer, trashed=TrashStatus.NOT_TRASHED, is_live=True)
             tree.add_node(node=root_node, parent=None)
 

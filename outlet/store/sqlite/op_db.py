@@ -205,9 +205,9 @@ class OpDatabase(MetaDatabase):
                                     ('error_msg', 'TEXT')
                                 ]))
 
-    def __init__(self, db_path, app):
+    def __init__(self, db_path, backend):
         super().__init__(db_path)
-        self.cacheman = app.cacheman
+        self.cacheman = backend.cacheman
 
         self.table_lists: TableListCollection = TableListCollection()
         # We do not use UserOpRef to Tuple, because we convert UserOp to Tuple instead

@@ -92,7 +92,7 @@ class OpGDriveTest(OpTestBase):
         for node in displayed_rows:
             logger.warning(f'Deleting node via cacheman: {node}')
             assert isinstance(node, GDriveNode)
-            self.app.cacheman.remove_subtree(node, to_trash=False)
+            self.backend.cacheman.remove_subtree(node, to_trash=False)
 
         logger.info('Waiting for Right tree stats to be completely done...')
         if not right_stats_updated.wait(LOAD_TIMEOUT_SEC):
@@ -104,12 +104,12 @@ class OpGDriveTest(OpTestBase):
         # delete all files which may have been uploaded to GDrive. Goes around the program cache
         logger.info('Connecting to GDrive to find files in remote test folder')
 
-        parent_node: Node = self.app.cacheman.get_node_for_uid(self.right_tree_root_uid, TREE_TYPE_GDRIVE)
+        parent_node: Node = self.backend.cacheman.get_node_for_uid(self.right_tree_root_uid, TREE_TYPE_GDRIVE)
         assert isinstance(parent_node, GDriveNode)
         # VERY IMPORTANT: fail if name doesn't match - don't want to delete the wrong folder!
         self.assertEqual(parent_node.name, 'Test')
 
-        client = self.app.cacheman.get_gdrive_client()
+        client = self.backend.cacheman.get_gdrive_client()
         children = client.get_all_children_for_parent(parent_node.goog_id)
         logger.info(f'GDrive server query found {len(children)} child nodes for parent: {parent_node.name}')
 
@@ -120,7 +120,7 @@ class OpGDriveTest(OpTestBase):
 
         # Now download latest changes from server so our local cacheman is up-to-date
         logger.info('Syncing latest changes from GDrive server...')
-        self.app.cacheman.get_synced_gdrive_master_tree(ID_GLOBAL_CACHE)
+        self.backend.cacheman.get_synced_gdrive_master_tree(ID_GLOBAL_CACHE)
 
     # TESTS
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

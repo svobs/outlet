@@ -32,8 +32,8 @@ GD_LO = _make_key(TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class CommandBuilder:
-    def __init__(self, app):
-        self._uid_generator = app.uid_generator
+    def __init__(self, backend):
+        self._uid_generator = backend.uid_generator
         self._build_dict: Dict[UserOpType, Dict[str, Callable]] = _populate_build_dict()
 
     def build_command(self, op: UserOp) -> Command:

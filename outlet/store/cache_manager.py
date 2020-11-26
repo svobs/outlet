@@ -57,9 +57,18 @@ def ensure_cache_dir_path(config):
 # CLASS ActiveDisplayTreeMeta
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class ActiveDisplayTreeMeta:
-    def __init__(self, tree_id: str, root_identifier: SinglePathNodeIdentifier):
-        self.tree_id: str = tree_id
-        self.root_identifier: SinglePathNodeIdentifier = root_identifier
+    def __init__(self, tree_id: str, root_spid: SinglePathNodeIdentifier):
+        self._tree_id: str = tree_id
+        self.root_spid = root_spid
+        self._root_sn: Optional[SPIDNodePair] = None
+        """This won't get loaded immediately."""
+
+    def get_root_sn(self) -> SPIDNodePair:
+        # TODO: wait
+        return self._root_sn
+
+    def set_root_sn(self, root_sn: SPIDNodePair):
+        self._root_sn = root_sn
 
 
 # CLASS CacheInfoByType
@@ -74,25 +83,25 @@ class CacheInfoByType(TwoLevelDict):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class CacheManager(HasLifecycle):
     """
-    This is the central source of truth for the app (or attempts to be as much as possible).
+    This is the central source of truth for the backend (or attempts to be as much as possible).
     """
-    def __init__(self, app):
+    def __init__(self, backend):
         HasLifecycle.__init__(self)
-        self.app = app
+        self.backend = backend
 
-        self.cache_dir_path = ensure_cache_dir_path(self.app.config)
+        self.cache_dir_path = ensure_cache_dir_path(self.backend.config)
         self.main_registry_path = os.path.join(self.cache_dir_path, MAIN_REGISTRY_FILE_NAME)
 
         self.caches_by_type: CacheInfoByType = CacheInfoByType()
 
-        self.enable_load_from_disk = app.config.get(CFG_ENABLE_LOAD_FROM_DISK)
-        self.enable_save_to_disk = app.config.get('cache.enable_cache_save')
-        self.load_all_caches_on_startup = app.config.get('cache.load_all_caches_on_startup')
-        self.load_caches_for_displayed_trees_at_startup = app.config.get('cache.load_caches_for_displayed_trees_on_startup')
-        self.sync_from_local_disk_on_cache_load = app.config.get('cache.sync_from_local_disk_on_cache_load')
-        self.reload_tree_on_root_path_update = app.config.get('cache.load_cache_when_tree_root_selected')
-        self.cancel_all_pending_ops_on_startup = app.config.get('cache.cancel_all_pending_ops_on_startup')
-        self._is_live_capture_enabled = app.config.get('cache.live_capture_enabled')
+        self.enable_load_from_disk = backend.config.get(CFG_ENABLE_LOAD_FROM_DISK)
+        self.enable_save_to_disk = backend.config.get('cache.enable_cache_save')
+        self.load_all_caches_on_startup = backend.config.get('cache.load_all_caches_on_startup')
+        self.load_caches_for_displayed_trees_at_startup = backend.config.get('cache.load_caches_for_displayed_trees_on_startup')
+        self.sync_from_local_disk_on_cache_load = backend.config.get('cache.sync_from_local_disk_on_cache_load')
+        self.reload_tree_on_root_path_update = backend.config.get('cache.load_cache_when_tree_root_selected')
+        self.cancel_all_pending_ops_on_startup = backend.config.get('cache.cancel_all_pending_ops_on_startup')
+        self._is_live_capture_enabled = backend.config.get('cache.live_capture_enabled')
 
         if not self.load_all_caches_on_startup:
             logger.info('Configured not to fetch all caches on startup; will lazy load instead')
@@ -108,7 +117,7 @@ class CacheManager(HasLifecycle):
 
         self._live_monitor = None
         """Sub-module of Cache Manager which, for displayed trees, provides [close to] real-time notifications for changes
-         which originated from outside this app"""
+         which originated from outside this backend"""
 
         self._display_tree_dict: Dict[str, ActiveDisplayTreeMeta] = {}
         """Keeps track of which display trees are currently being used in the UI"""
@@ -128,6 +137,8 @@ class CacheManager(HasLifecycle):
 
         self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE, receiver=self._on_refresh_subtree_requested)
         self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE_STATS, receiver=self._on_refresh_stats_requested)
+
+        self.connect_dispatch_listener(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated)
 
     def is_manual_load_required(self, subroot: SinglePathNodeIdentifier) -> bool:
         cache_info = self.find_existing_cache_info_for_subtree(subroot)
@@ -203,13 +214,13 @@ class CacheManager(HasLifecycle):
             self._load_registry()
 
             # Init sub-modules:
-            self._master_local = LocalDiskMasterStore(self.app)
+            self._master_local = LocalDiskMasterStore(self.backend)
             self._master_local.start()
-            self._master_gdrive = GDriveMasterStore(self.app)
+            self._master_gdrive = GDriveMasterStore(self.backend)
             self._master_gdrive.start()
-            self._op_ledger = OpLedger(self.app)
+            self._op_ledger = OpLedger(self.backend)
             self._op_ledger.start()
-            self._live_monitor = LiveMonitor(self.app)
+            self._live_monitor = LiveMonitor(self.backend)
             self._live_monitor.start()
 
             # Now load all caches (if configured):
@@ -224,7 +235,7 @@ class CacheManager(HasLifecycle):
                 pending_ops_task = self._op_ledger.cancel_pending_ops_from_disk
             else:
                 pending_ops_task = self._op_ledger.resume_pending_ops_from_disk
-            self.app.executor.submit_async_task(pending_ops_task)
+            self.backend.executor.submit_async_task(pending_ops_task)
 
         finally:
             dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
@@ -336,11 +347,11 @@ class CacheManager(HasLifecycle):
 
     def _overwrite_all_caches_in_registry(self, cache_info_list: List[CacheInfoEntry]):
         logger.info(f'Overwriting all cache entries in persisted registry with {len(cache_info_list)} entries')
-        with CacheRegistry(self.main_registry_path, self.app.node_identifier_factory) as cache_registry_db:
+        with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as cache_registry_db:
             cache_registry_db.insert_cache_info(cache_info_list, append=False, overwrite=True)
 
     def _get_cache_info_from_registry(self) -> List[CacheInfoEntry]:
-        with CacheRegistry(self.main_registry_path, self.app.node_identifier_factory) as cache_registry_db:
+        with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as cache_registry_db:
             if cache_registry_db.has_cache_info():
                 exisiting_caches = cache_registry_db.get_cache_info()
                 logger.debug(f'Found {len(exisiting_caches)} caches listed in registry')
@@ -405,11 +416,27 @@ class CacheManager(HasLifecycle):
 
     def _on_refresh_subtree_requested(self, sender, node: Node):
         logger.info(f'[{sender}] Enqueuing task to refresh subtree at {node.node_identifier}')
-        self.app.executor.submit_async_task(self.refresh_subtree, node, sender)
+        self.backend.executor.submit_async_task(self.refresh_subtree, node, sender)
 
     def _on_refresh_stats_requested(self, sender, root_uid: UID):
         logger.info(f'[{sender}] Enqueuing task to refresh stats')
-        self.app.executor.submit_async_task(self.refresh_stats, root_uid, sender)
+        self.backend.executor.submit_async_task(self.refresh_stats, root_uid, sender)
+
+    def _on_root_path_updated(self, sender, new_root_meta: RootPathMeta):
+        logger.debug(f'[{sender}] Received signal "{actions.ROOT_PATH_UPDATED}" with new_root_meta={new_root_meta}')
+        tree_id: str = sender
+
+        # Update capture
+        if self._is_live_capture_enabled:
+            if new_root_meta.is_found:
+                self._live_monitor.start_or_update_capture(new_root_meta.root, tree_id)
+            else:
+                self._live_monitor.stop_capture(tree_id)
+
+        # Update backend tracking
+        display_tree_meta: ActiveDisplayTreeMeta = ActiveDisplayTreeMeta(tree_id, new_root_meta.root)
+        self._display_tree_dict[tree_id] = display_tree_meta
+        # TODO: load new tree
 
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -423,6 +450,7 @@ class CacheManager(HasLifecycle):
 
         self._normalize_paths(node_identifier)
 
+        # Notify UI (TODO: this should go away in the future, because we'll return immediately)
         dispatcher.send(signal=actions.LOAD_SUBTREE_STARTED, sender=tree_id)
 
         if self._is_live_capture_enabled:
@@ -437,7 +465,11 @@ class CacheManager(HasLifecycle):
         else:
             raise RuntimeError(f'Unrecognized tree type: {node_identifier.tree_type}')
 
-        self._display_tree_dict[tree_id] = ActiveDisplayTreeMeta(tree_id, display_tree.root_identifier)
+        display_tree_meta: ActiveDisplayTreeMeta = ActiveDisplayTreeMeta(tree_id, display_tree.root_sn.spid)
+        self._display_tree_dict[tree_id] = display_tree_meta
+
+        # TODO: this should be updated async
+        display_tree_meta.set_root_sn(display_tree.root_sn)
         return display_tree
 
     def get_active_display_tree_meta(self, tree_id) -> ActiveDisplayTreeMeta:
@@ -460,7 +492,7 @@ class CacheManager(HasLifecycle):
 
     def get_or_create_cache_info_for_gdrive(self) -> PersistedCacheInfo:
         master_tree_root = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
-        return self.app.cacheman.get_or_create_cache_info_entry(master_tree_root)
+        return self.backend.cacheman.get_or_create_cache_info_entry(master_tree_root)
 
     def find_existing_cache_info_for_local_subtree(self, full_path: str) -> Optional[PersistedCacheInfo]:
         # Wait for registry to finish loading before attempting to read dict. Shouldn't take long.
@@ -523,7 +555,7 @@ class CacheManager(HasLifecycle):
                                   subtree_root=subtree_root, sync_ts=now_ms,
                                   is_complete=True)
 
-        with CacheRegistry(self.main_registry_path, self.app.node_identifier_factory) as cache_registry_db:
+        with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as cache_registry_db:
             logger.info(f'Inserting new cache info into registry: {subtree_root}')
             cache_registry_db.insert_cache_info(db_entry, append=True, overwrite=False)
 
@@ -675,7 +707,7 @@ class CacheManager(HasLifecycle):
         logger.debug(f'resolve_root_from_path() called with path="{full_path}"')
         try:
             full_path = file_util.normalize_path(full_path)
-            node_identifier: NodeIdentifier = self.app.node_identifier_factory.for_values(path_list=full_path)
+            node_identifier: NodeIdentifier = self.backend.node_identifier_factory.for_values(path_list=full_path)
             if node_identifier.tree_type == TREE_TYPE_GDRIVE:
                 # Need to wait until all caches are loaded:
                 self.wait_for_startup_done()
@@ -717,10 +749,10 @@ class CacheManager(HasLifecycle):
             root_path_meta = RootPathMeta(ginf.node_identifier, is_found=False)
             root_path_meta.offending_path = ginf.offending_path
         except FileNotFoundError as fnf:
-            root = self.app.node_identifier_factory.for_values(path_list=full_path, must_be_single_path=True)
+            root = self.backend.node_identifier_factory.for_values(path_list=full_path, must_be_single_path=True)
             root_path_meta = RootPathMeta(root, is_found=False)
         except CacheNotLoadedError as cnlf:
-            root = self.app.node_identifier_factory.for_values(path_list=full_path, uid=NULL_UID, must_be_single_path=True)
+            root = self.backend.node_identifier_factory.for_values(path_list=full_path, uid=NULL_UID, must_be_single_path=True)
             root_path_meta = RootPathMeta(root, is_found=False)
 
         logger.debug(f'resolve_root_from_path(): returning new_root={root_path_meta}"')
@@ -835,16 +867,6 @@ class CacheManager(HasLifecycle):
             return self._master_local.get_parent_list_for_node(node)
         else:
             raise RuntimeError(f'Unknown tree type: {node.node_identifier.tree_type} for {node}')
-
-    def derive_parent_uid_list_for_node(self, node: Node) -> List[UID]:
-        """Similar to get_parent_uid_list_for_node(), but does not look up the parent nodes in the source trees.
-        May require a path mapper lookup but this will always return a value."""
-        if isinstance(node, HasParentList):
-            assert isinstance(node, GDriveNode) and node.get_tree_type() == TREE_TYPE_GDRIVE, f'Node: {node}'
-            return node.get_parent_uids()
-        else:
-            assert isinstance(node, LocalNode) and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Node: {node}'
-            return [self.get_uid_for_path(node.derive_parent_path())]
 
     def get_parent_uid_list_for_node(self, node: Node, whitelist_subtree_path: str = None) -> List[UID]:
         """Derives the UID for the parent of the given node. If whitelist_subtree_path is provided, filter the results by subtree"""

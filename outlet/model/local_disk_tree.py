@@ -20,13 +20,13 @@ logger = logging.getLogger(__name__)
 
 class LocalDiskTree(SimpleTree):
     """Tree data structure, representing a subtree on a local disk, backed by a SimpleTree data structure."""
-    def __init__(self, app):
+    def __init__(self, backend):
         super().__init__()
-        self.app = app
+        self.backend = backend
 
     def can_add_without_mkdir(self, node: LocalNode) -> bool:
         parent_path: str = node.derive_parent_path()
-        uid = self.app.cacheman.get_uid_for_path(parent_path)
+        uid = self.backend.cacheman.get_uid_for_path(parent_path)
         return self.get_node(uid) is not None
 
     def add_to_tree(self, node: LocalNode):
@@ -47,7 +47,7 @@ class LocalDiskTree(SimpleTree):
             for dir_name in path_segments:
                 path_so_far: str = os.path.join(path_so_far, dir_name)
                 # TODO: Should not be using override_load_check=True here
-                uid = self.app.cacheman.get_uid_for_path(path_so_far, override_load_check=True)
+                uid = self.backend.cacheman.get_uid_for_path(path_so_far, override_load_check=True)
                 child: LocalNode = self.get_node(nid=uid)
                 if not child:
                     # logger.debug(f'Creating dir node: nid={uid}')

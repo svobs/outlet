@@ -190,7 +190,7 @@ class LiveMonitor(HasLifecycle):
             self._gdrive_polling_thread = None
 
     def start_or_update_capture(self, node_identifier: NodeIdentifier, tree_id: str):
-        """Also updates existing capture"""
+        """Also updates existing capture for the given tree_id"""
         with self._struct_lock:
             prev_identifier: NodeIdentifier = self._active_tree_dict.get(tree_id, None)
             if prev_identifier:

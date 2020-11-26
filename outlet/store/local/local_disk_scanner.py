@@ -48,11 +48,11 @@ class LocalDiskScanner(LocalTreeRecurser):
     to generate an up-to-date list of FMetas.
     """
 
-    def __init__(self, app, root_node_identifer: LocalNodeIdentifier, tree_id=None):
+    def __init__(self, backend, root_node_identifer: LocalNodeIdentifier, tree_id=None):
         LocalTreeRecurser.__init__(self, Path(root_node_identifer.get_single_path()), valid_suffixes=None)
         assert isinstance(root_node_identifer, LocalNodeIdentifier), f'type={type(root_node_identifer)}, for {root_node_identifer}'
-        self.app = app
-        self.cacheman = app.cacheman
+        self.backend = backend
+        self.cacheman = backend.cacheman
         self.root_node_identifier: LocalNodeIdentifier = root_node_identifer
         self.tree_id = tree_id  # For sending progress updates
         self.progress = 0
@@ -108,7 +108,7 @@ class LocalDiskScanner(LocalTreeRecurser):
         if not os.path.exists(self.root_node_identifier.get_single_path()):
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.root_node_identifier.get_single_path())
 
-        self._local_tree = LocalDiskTree(self.app)
+        self._local_tree = LocalDiskTree(self.backend)
         if not os.path.isdir(self.root_node_identifier.get_single_path()):
             logger.debug(f'[{self.tree_id}] Root is a file; returning tree with a single node')
             root_node = self.cacheman.build_local_file_node(full_path=self.root_node_identifier.get_single_path())

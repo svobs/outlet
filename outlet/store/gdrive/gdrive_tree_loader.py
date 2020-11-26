@@ -31,14 +31,14 @@ class GDriveTreeLoader:
     """Coarse-grained lock which ensures that (1) load operations and (2) change sync operations do not step on each other or
     on multiple instances of themselves."""
 
-    def __init__(self, app, diskstore: GDriveDiskStore, tree_id: str = None):
-        self.app = app
+    def __init__(self, backend, diskstore: GDriveDiskStore, tree_id: str = None):
+        self.backend = backend
         self._diskstore: GDriveDiskStore = diskstore
         self.tree_id: str = tree_id
 
     @property
     def gdrive_client(self) -> GDriveClient:
-        return self.app.cacheman.get_gdrive_client()
+        return self.backend.cacheman.get_gdrive_client()
 
     def load_all(self, invalidate_cache=False) -> GDriveWholeTree:
         logger.debug(f'GDriveTreeLoader.load_all() called with invalidate_cache={invalidate_cache}')
@@ -76,7 +76,7 @@ class GDriveTreeLoader:
 
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             # completely fresh tree
-            tree = GDriveWholeTree(self.app.node_identifier_factory)
+            tree = GDriveWholeTree(self.backend.node_identifier_factory)
         else:
             # Start/resume: read cache
             msg = 'Reading disk cache...'
@@ -86,7 +86,7 @@ class GDriveTreeLoader:
                 dispatcher.send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             # Load all users and MIME types
-            self.app.cacheman.execute_gdrive_load_op(GDriveLoadAllMetaOp())
+            self.backend.cacheman.execute_gdrive_load_op(GDriveLoadAllMetaOp())
 
             tree: GDriveWholeTree = self._diskstore.load_tree_from_cache(initial_download.is_complete(), self.tree_id)
 
@@ -100,7 +100,7 @@ class GDriveTreeLoader:
         # BEGIN STATE MACHINE:
 
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
-            self.app.cacheman.delete_all_gdrive_data()
+            self.backend.cacheman.delete_all_gdrive_data()
 
             # Need to make a special call to get the root node 'My Drive'. This node will not be included
             # in the "list files" call:
@@ -115,12 +115,12 @@ class GDriveTreeLoader:
             # fall through
 
         if initial_download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_DIRS:
-            observer = FolderMetaPersister(tree, initial_download, self._diskstore, self.app.cacheman)
+            observer = FolderMetaPersister(tree, initial_download, self._diskstore, self.backend.cacheman)
             self.gdrive_client.get_all_folders(initial_download.page_token, initial_download.update_ts, observer)
             # fall through
 
         if initial_download.current_state <= GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS:
-            observer = FileMetaPersister(tree, initial_download, self._diskstore, self.app.cacheman)
+            observer = FileMetaPersister(tree, initial_download, self._diskstore, self.backend.cacheman)
             self.gdrive_client.get_all_non_folders(initial_download.page_token, initial_download.update_ts, observer)
             # fall through
 
@@ -157,7 +157,7 @@ class GDriveTreeLoader:
 
         # set cache_info.is_loaded=True:
         master_tree_root = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
-        cache_info = self.app.cacheman.get_or_create_cache_info_entry(master_tree_root)
+        cache_info = self.backend.cacheman.get_or_create_cache_info_entry(master_tree_root)
         cache_info.is_loaded = True
 
         logger.debug('GDrive: load_all() done')
@@ -178,7 +178,7 @@ class GDriveTreeLoader:
             if item.uid >= max_uid:
                 max_uid = item.uid
 
-        self.app.uid_generator.ensure_next_uid_greater_than(max_uid + 1)
+        self.backend.uid_generator.ensure_next_uid_greater_than(max_uid + 1)
 
     def _translate_parent_ids(self, tree: GDriveWholeTree, id_parent_mappings: List[Tuple[UID, None, str, int]]) -> List[Tuple]:
         sw = Stopwatch()
@@ -191,7 +191,7 @@ class GDriveTreeLoader:
             parent_goog_id: str = mapping[2]
 
             # Add parent UID to tuple for later DB update:
-            parent_uid = self.app.cacheman.get_uid_for_goog_id(parent_goog_id)
+            parent_uid = self.backend.cacheman.get_uid_for_goog_id(parent_goog_id)
             mapping = mapping[0], parent_uid, mapping[2], mapping[3]
             tree.add_parent_mapping(mapping[0], parent_uid)
             new_mappings.append(mapping)

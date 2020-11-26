@@ -10,7 +10,7 @@ from error import CacheNotLoadedError, GDriveItemNotFoundError
 from global_actions import GlobalActions
 from model.display_tree.display_tree import DisplayTree
 from model.gdrive_meta import GDriveUser, MimeType
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
@@ -54,19 +54,19 @@ returning
 # TODO: support drag & drop from GDrive to GDrive (e.g. "move" is really just changing parents)
 class GDriveMasterStore(MasterStore):
     """Singleton in-memory cache for Google Drive"""
-    def __init__(self, app):
+    def __init__(self, backend):
         MasterStore.__init__(self)
-        self.app = app
+        self.backend = backend
 
-        self._uid_mapper = UidGoogIdMapper(app)
+        self._uid_mapper = UidGoogIdMapper(backend)
         """Single source of UID<->GoogID mappings and UID assignments. Thread-safe."""
 
         self._struct_lock = threading.Lock()
         """Used to protect structures inside memstore"""
-        self._memstore: GDriveMemoryStore = GDriveMemoryStore(app, self._uid_mapper)
-        self._diskstore: GDriveDiskStore = GDriveDiskStore(app, self._memstore)
-        self.gdrive_client: GDriveClient = GDriveClient(self.app, ID_GLOBAL_CACHE)
-        self.tree_loader = GDriveTreeLoader(app=self.app, diskstore=self._diskstore, tree_id=actions.ID_GLOBAL_CACHE)
+        self._memstore: GDriveMemoryStore = GDriveMemoryStore(backend, self._uid_mapper)
+        self._diskstore: GDriveDiskStore = GDriveDiskStore(backend, self._memstore)
+        self.gdrive_client: GDriveClient = GDriveClient(self.backend, ID_GLOBAL_CACHE)
+        self.tree_loader = GDriveTreeLoader(backend=self.backend, diskstore=self._diskstore, tree_id=actions.ID_GLOBAL_CACHE)
 
     def start(self):
         logger.debug(f'Starting GDriveMasterStore')
@@ -88,13 +88,13 @@ class GDriveMasterStore(MasterStore):
             pass
 
         try:
-            self.app = None
+            self.backend = None
         except NameError:
             pass
 
     def execute_load_op(self, operation: GDriveDiskLoadOp):
         """Executes a single GDriveDiskLoadOp ({start}->disk->memory"""
-        if not self.app.cacheman.enable_load_from_disk:
+        if not self.backend.cacheman.enable_load_from_disk:
             logger.debug(f'Load from disk is disable; ignoring load operation!')
             return
 
@@ -112,7 +112,7 @@ class GDriveMasterStore(MasterStore):
         operation.update_memstore(self._memstore)
 
         # 2. Update disk store
-        if self.app.cacheman.enable_save_to_disk:
+        if self.backend.cacheman.enable_save_to_disk:
             self._diskstore.execute_write_op(operation)
         else:
             logger.debug(f'Save to disk is disabled: skipping disk update')
@@ -127,7 +127,7 @@ class GDriveMasterStore(MasterStore):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
         logger.debug(f'Entered _load_master_cache(): locked={self._struct_lock.locked()}, invalidate_cache={invalidate_cache}')
 
-        if not self.app.cacheman.enable_load_from_disk:
+        if not self.backend.cacheman.enable_load_from_disk:
             logger.debug('Skipping cache load because cache.enable_cache_load is False')
             return None
 
@@ -158,7 +158,7 @@ class GDriveMasterStore(MasterStore):
             # covering all our bases here in case we are recovering from corruption
             changes_download.page_token = self.gdrive_client.get_changes_start_token()
 
-        observer: PagePersistingChangeObserver = PagePersistingChangeObserver(self.app)
+        observer: PagePersistingChangeObserver = PagePersistingChangeObserver(self.backend)
         sync_ts = int(time.time())
         self.gdrive_client.get_changes_list(changes_download.page_token, sync_ts, observer)
 
@@ -178,12 +178,12 @@ class GDriveMasterStore(MasterStore):
     def _on_gdrive_sync_changes_requested(self, sender):
         """See below. This will load the GDrive tree (if it is not loaded already), then sync to the latest changes from GDrive"""
         logger.debug(f'Received signal: "{actions.SYNC_GDRIVE_CHANGES}"')
-        self.app.executor.submit_async_task(self.get_synced_master_tree, sender)
+        self.backend.executor.submit_async_task(self.get_synced_master_tree, sender)
 
     def _on_download_all_gdrive_meta_requested(self, sender):
         """See below. Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
         logger.debug(f'Received signal: "{actions.DOWNLOAD_ALL_GDRIVE_META}"')
-        self.app.executor.submit_async_task(self._download_all_gdrive_meta_in_ui, sender)
+        self.backend.executor.submit_async_task(self._download_all_gdrive_meta_in_ui, sender)
 
     def _download_all_gdrive_meta_in_ui(self, tree_id):
         """See above. Executed by Task Runner. NOT UI thread"""
@@ -200,18 +200,19 @@ class GDriveMasterStore(MasterStore):
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def _make_gdrive_display_tree(self, subtree_root: SinglePathNodeIdentifier, tree_id: str) -> Optional[DisplayTree]:
-        if not subtree_root.uid:
+    def _make_gdrive_display_tree(self, subtree_spid: SinglePathNodeIdentifier, tree_id: str) -> Optional[DisplayTree]:
+        if not subtree_spid.uid:
             logger.debug(f'_make_gdrive_display_tree(): subtree_root.uid is empty!')
             return None
 
-        root: GDriveNode = self._memstore.master_tree.get_node_for_uid(subtree_root.uid)
-        if not root:
-            logger.debug(f'_make_gdrive_display_tree(): could not find root node with UID {subtree_root.uid}')
+        root_node: GDriveNode = self._memstore.master_tree.get_node_for_uid(subtree_spid.uid)
+        if not root_node:
+            logger.debug(f'_make_gdrive_display_tree(): could not find root node with UID {subtree_spid.uid}')
             return None
-        assert isinstance(root, GDriveFolder)
+        assert isinstance(root_node, GDriveFolder)
+        root_sn = SPIDNodePair(subtree_spid, root_node)
 
-        return DisplayTree(app=self.app, tree_id=tree_id, root_identifier=subtree_root)
+        return DisplayTree(backend=self.backend, tree_id=tree_id, root_sn=root_sn)
 
     def _load_gdrive_subtree(self, subtree_root: Optional[SinglePathNodeIdentifier], invalidate_cache: bool,
                              sync_latest_changes: bool, tree_id: str) -> DisplayTree:
@@ -288,7 +289,7 @@ class GDriveMasterStore(MasterStore):
             if SUPER_DEBUG:
                 logger.debug(f'refresh_subtree(): locked={self._struct_lock.locked()}')
             with self._struct_lock:
-                self._execute_write_op(RefreshFolderOp(self.app, parent_node, child_list))
+                self._execute_write_op(RefreshFolderOp(self.backend, parent_node, child_list))
 
         logger.info(f'[{tree_id}] {stats_sw} Refresh subtree complete (SubtreeRoot={subtree_root_node.node_identifier} '
                     f'Folders={count_folders} Total={count_total})')
@@ -354,7 +355,7 @@ class GDriveMasterStore(MasterStore):
         if SUPER_DEBUG:
             logger.debug(f'Entered apply_gdrive_changes(): locked={self._struct_lock.locked()}')
 
-        operation: BatchChangesOp = BatchChangesOp(self.app, gdrive_change_list)
+        operation: BatchChangesOp = BatchChangesOp(self.backend, gdrive_change_list)
 
         with self._struct_lock:
             try:

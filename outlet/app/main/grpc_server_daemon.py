@@ -1,7 +1,6 @@
 import logging
 import sys
-
-from app_config import AppConfig
+import util.main_util
 from daemon.backend_server import OutletDaemon
 
 logger = logging.getLogger(__name__)
@@ -12,16 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    if sys.version_info[0] < 3:
-        raise Exception("Python 3 or a more recent version is required.")
-
-    if len(sys.argv) >= 2:
-        config = AppConfig(sys.argv[1])
-    else:
-        config = AppConfig()
-
     logger.info(f'Creating OutletDameon')
-    daemon = OutletDaemon(config)
+
+    daemon = OutletDaemon(util.main_util.do_main_boilerplate())
     daemon.start()
 
     try:
