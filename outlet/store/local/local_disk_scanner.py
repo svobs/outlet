@@ -44,7 +44,7 @@ class FileCounter(LocalTreeRecurser):
 
 class LocalDiskScanner(LocalTreeRecurser):
     """
-    Walks the filesystem for a subtree (LocalDiskDisplayTree), using a cache if configured,
+    Walks the filesystem for a subtree (DisplayTree), using a cache if configured,
     to generate an up-to-date list of FMetas.
     """
 

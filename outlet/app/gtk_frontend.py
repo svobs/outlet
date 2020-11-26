@@ -4,7 +4,6 @@ from typing import Dict, Optional
 
 from pydispatch import dispatcher
 
-import ui.assets
 from app.backend import OutletBackend
 from model.node_identifier_factory import NodeIdentifierFactory
 from ui import actions
@@ -16,6 +15,8 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gio, GLib
 
+import ui.assets
+
 logger = logging.getLogger(__name__)
 
 # CLASS OutletApplication
@@ -26,12 +27,11 @@ class OutletApplication(Gtk.Application):
 
     """Main app.
     See: https://athenajc.gitbooks.io/python-gtk-3-api/content/gtk-group/gtkapplication.html"""
-    def __init__(self, config, backend: OutletBackend):
+    def __init__(self, config, backend):
         self.config = config
         Gtk.Application.__init__(self)
         self.backend: OutletBackend = backend
         self.assets = ui.assets.Assets(config)
-        self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self.backend)
         self._tree_controllers: Dict[str, TreePanelController] = {}
         """Keep track of live UI tree controllers, so that we can look them up by ID (e.g. for use in automated testing)"""
         self.window = None

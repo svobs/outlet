@@ -43,7 +43,7 @@ class TreeActions(HasLifecycle):
     def start(self):
         logger.debug(f'[{self.con.tree_id}] TreeActions start')
         HasLifecycle.start(self)
-        self.connect_dispatch_listener(signal=actions.LOAD_UI_TREE, sender=self.con.tree_id, receiver=self._load_ui_tree)
+        self.connect_dispatch_listener(signal=actions.POPULATE_UI_TREE, sender=self.con.tree_id, receiver=self._load_ui_tree)
         self.connect_dispatch_listener(signal=actions.EXPAND_AND_SELECT_NODE, sender=self.con.tree_id, receiver=self._expand_and_select_node)
         self.connect_dispatch_listener(signal=actions.CALL_EXIFTOOL, sender=self.con.tree_id, receiver=self._call_exiftool)
         self.connect_dispatch_listener(signal=actions.CALL_EXIFTOOL_LIST, sender=self.con.tree_id, receiver=self._call_exiftool_list)
@@ -62,7 +62,7 @@ class TreeActions(HasLifecycle):
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     def _load_ui_tree(self, sender):
-        """Just populates the tree with nodes. Executed asyncly via actions.LOAD_UI_TREE"""
+        """Just populates the tree with nodes. Executed asyncly via actions.POPULATE_UI_TREE"""
         dispatcher.send(signal=actions.ENQUEUE_UI_TASK, sender=sender, task_func=self.con.display_mutator.populate_root)
 
     def _expand_and_select_node(self, nid: SinglePathNodeIdentifier):

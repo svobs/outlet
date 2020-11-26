@@ -51,6 +51,15 @@ message GetNextUid_Response {
 	int32 uid = 1;
 }
 
+message LoadNewTree {
+
+	// TODO: need to add ROOT_PATH_UPDATED listener to CacheMan / GRPC client (both backends)
+
+	// send in reply:
+	// needs_manual_load_on_startup
+		reload_tree_on_root_path_update
+}
+
 service Outlet {
 	rpc ping(PingRequest) returns (PingResponse) {}
 	rpc read_single_node_from_disk_for_path(ReadSingleNodeFromDiskRequest) returns (SingleNode_Response) {}

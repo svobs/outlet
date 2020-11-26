@@ -94,15 +94,6 @@ class NodeConverter:
             dir_meta_parent.dir_meta.has_data = False
 
     @staticmethod
-    def optional_node_to_grpc(node: Node, optional_node):
-        grpc_node = outlet.daemon.grpc.Node_pb2.OptionalNode()
-        if node:
-            NodeConverter.node_to_grpc(node, optional_node.node)
-        if not node:
-            optional_node.null.SetInParent()
-        return grpc_node
-
-    @staticmethod
     def node_to_grpc(node: Node, grpc_node: outlet.daemon.grpc.Node_pb2.Node):
         # node_identifier fields:
         grpc_node.uid = int(node.uid)

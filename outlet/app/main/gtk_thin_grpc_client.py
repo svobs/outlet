@@ -2,7 +2,7 @@ import logging
 import sys
 import time
 
-from app.gtk_app import OutletApplication
+from app.gtk_frontend import OutletApplication
 from app_config import AppConfig
 from daemon.backend_client import BackendGRPCClient
 from daemon.grpc.Outlet_pb2 import PingRequest

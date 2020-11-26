@@ -123,7 +123,7 @@ class TreePanelController:
                 self.set_tree(tree=tree, tree_display_mode=tree_display_mode)
 
             # Back to the non-UI thread with you!
-            dispatcher.send(signal=actions.LOAD_UI_TREE, sender=self.tree_id)
+            dispatcher.send(signal=actions.POPULATE_UI_TREE, sender=self.tree_id)
 
         GLib.idle_add(_reload)
 
@@ -152,6 +152,7 @@ class TreePanelController:
             logger.debug(f'[{self.tree_id}] Setting TreeDisplayMode={tree_display_mode.name} for root={root}, tree={tree}')
             self.treeview_meta.tree_display_mode = tree_display_mode
 
+        # FIXME: create GRPC call here
         self.lazy_loader = DisplayTreeLazyLoader(controller=self, root_identifier=root, tree=tree)
 
     # CONVENIENCE METHODS

@@ -18,7 +18,6 @@ from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROO
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.display_tree.display_tree import DisplayTree
-from model.display_tree.gdrive import GDriveDisplayTree
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import HasChildStats, HasParentList, Node, SPIDNodePair
@@ -129,6 +128,22 @@ class CacheManager(HasLifecycle):
 
         self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE, receiver=self._on_refresh_subtree_requested)
         self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE_STATS, receiver=self._on_refresh_stats_requested)
+
+    def is_manual_load_required(self, subroot: SinglePathNodeIdentifier) -> bool:
+        cache_info = self.find_existing_cache_info_for_subtree(subroot)
+        if cache_info:
+            if cache_info.is_loaded:
+                # Already loaded!
+                return False
+
+            if not self._startup_done.is_set() and (self.load_all_caches_on_startup or self.load_caches_for_displayed_trees_at_startup):
+                # We are still starting up but will auto-load this tree soon:
+                return False
+
+        if self._startup_done.is_set() and self.reload_tree_on_root_path_update:
+            # TODO: need to test this. May need a better way of determining whether this is a root path update
+            return False
+        return True
 
     def shutdown(self):
         logger.debug('CacheManager.shutdown() entered')
@@ -437,6 +452,16 @@ class CacheManager(HasLifecycle):
                 logger.debug(f'Normalized path: {full_path}')
         node_identifier.set_path_list(path_list)
 
+    def find_existing_cache_info_for_subtree(self, subtree_root: SinglePathNodeIdentifier) -> Optional[PersistedCacheInfo]:
+        if subtree_root.tree_type == TREE_TYPE_GDRIVE:
+            return self.caches_by_type.get_single(TREE_TYPE_GDRIVE, ROOT_PATH)
+        elif subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
+            return self.find_existing_cache_info_for_local_subtree(subtree_root.get_single_path())
+
+    def get_or_create_cache_info_for_gdrive(self) -> PersistedCacheInfo:
+        master_tree_root = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
+        return self.app.cacheman.get_or_create_cache_info_entry(master_tree_root)
+
     def find_existing_cache_info_for_local_subtree(self, full_path: str) -> Optional[PersistedCacheInfo]:
         # Wait for registry to finish loading before attempting to read dict. Shouldn't take long.
         self.wait_for_load_registry_done()
@@ -634,7 +659,7 @@ class CacheManager(HasLifecycle):
         # also blocks !
         return self._op_ledger.get_next_command()
 
-    def get_synced_gdrive_master_tree(self, tree_id: str) -> GDriveDisplayTree:
+    def get_synced_gdrive_master_tree(self, tree_id: str) -> DisplayTree:
         """Will load from disk and sync latest changes from GDrive server before returning."""
         return self._master_gdrive.get_synced_master_tree(tree_id=tree_id)
 

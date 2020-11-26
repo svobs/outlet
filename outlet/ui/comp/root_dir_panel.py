@@ -42,14 +42,14 @@ class RootDirPanel(HasLifecycle):
         self._ui_enabled = can_change_root
         """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
 
-        # FIXME
-        if is_loaded or self.con.cacheman.load_all_caches_on_startup or self.con.cacheman.load_caches_for_displayed_trees_at_startup:
+        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_STARTED, sender=self.tree_id, receiver=self._on_load_started)
+
+        if is_loaded or not self.current_root_meta.is_found or not self.con.cacheman.is_manual_load_required(current_root_meta.root):
             # the actual load will be handled in TreeUiListeners:
             self.needs_load = False
         else:
             # Manual load:
             self.needs_load = True
-            self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_STARTED, sender=self.tree_id, receiver=self._on_load_started)
 
         self.path_icon = Gtk.Image()
         self.refresh_icon = Gtk.Image()
@@ -123,6 +123,18 @@ class RootDirPanel(HasLifecycle):
         self.con.cacheman = None
         self.parent_win = None
         self.con = None
+
+    def _on_root_path_updated(self, sender, new_root_meta: RootPathMeta):
+        """Callback for actions.ROOT_PATH_UPDATED"""
+        logger.debug(f'[{sender}] Received signal "{actions.ROOT_PATH_UPDATED}" with new_root_meta={new_root_meta}')
+
+        if self.current_root_meta != new_root_meta:
+            self.current_root_meta = new_root_meta
+            if self.current_root_meta.is_found and not self.con.cacheman.reload_tree_on_root_path_update:
+                self.needs_load = True
+
+            # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html
+            GLib.idle_add(self._redraw_root_display)
 
     def _redraw_root_display(self):
         """Updates the UI to reflect the new root and tree type.
@@ -302,18 +314,6 @@ class RootDirPanel(HasLifecycle):
         self.label.show()
         self.label_event_box.show()
 
-    def _on_root_path_updated(self, sender, new_root_meta: RootPathMeta):
-        """Callback for actions.ROOT_PATH_UPDATED"""
-        logger.debug(f'[{sender}] Received signal "{actions.ROOT_PATH_UPDATED}" with new_root_meta={new_root_meta}')
-
-        if self.current_root_meta != new_root_meta:
-            self.current_root_meta = new_root_meta
-            if self.current_root_meta.is_found and not self.con.cacheman.reload_tree_on_root_path_update:
-                self.needs_load = True
-
-            # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html
-            GLib.idle_add(self._redraw_root_display)
-
     def _open_localdisk_root_chooser_dialog(self, menu_item):
         """Creates and displays a LocalRootDirChooserDialog.
         # the arguments are: title of the window, parent_window, action,
@@ -344,7 +344,7 @@ class RootDirPanel(HasLifecycle):
         logger.debug('The Refresh button was clicked!')
         self.needs_load = False
         # Launch in a non-UI thread:
-        dispatcher.send(signal=actions.LOAD_UI_TREE, sender=self.tree_id)
+        dispatcher.send(signal=actions.POPULATE_UI_TREE, sender=self.tree_id)
         # Hide Refresh button
         GLib.idle_add(self._redraw_root_display)
 

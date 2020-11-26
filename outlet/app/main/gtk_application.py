@@ -2,7 +2,7 @@ import logging
 import sys
 
 from app.backend_integrated import BackendIntegrated
-from app.gtk_app import OutletApplication
+from app.gtk_frontend import OutletApplication
 from app_config import AppConfig
 
 logger = logging.getLogger(__name__)

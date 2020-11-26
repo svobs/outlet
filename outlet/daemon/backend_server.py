@@ -6,7 +6,6 @@ import grpc
 from app.backend_integrated import BackendIntegrated
 from daemon.grpc import Outlet_pb2_grpc
 from daemon.outlet_grpc_service import OutletGRPCService
-from model.node_identifier_factory import NodeIdentifierFactory
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +17,6 @@ class OutletDaemon(BackendIntegrated):
     def __init__(self, config):
         self.config = config
         BackendIntegrated.__init__(self, config)
-        self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self)
         self._service = OutletGRPCService(self)
 
     def start(self):

@@ -10,11 +10,11 @@ message Null {
   // nothing
 }
 
-message OptionalNode {
-  oneof optional_node {
-    Node node = 1;
-    Null null = 2;
-  }
+message NodeIdentifier {
+  int32 uid = 1;
+  int32 tree_type = 2;
+  repeated string path_list = 3;
+  bool is_single_path = 4;
 }
 
 message Node {

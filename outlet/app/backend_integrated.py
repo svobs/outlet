@@ -7,6 +7,7 @@ from app.backend import OutletBackend
 from executor.central import CentralExecutor
 from model.node.node import Node
 from model.node_identifier import NodeIdentifier
+from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from store.cache_manager import CacheManager
 from store.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
@@ -26,6 +27,7 @@ class BackendIntegrated(OutletBackend, HasLifecycle):
         self.executor: CentralExecutor = CentralExecutor(self)
         self.uid_generator: UidGenerator = PersistentAtomicIntUidGenerator(config)
         self.cacheman: CacheManager = CacheManager(self)
+        self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self)
 
     def start(self):
         logger.debug('Starting up backend')

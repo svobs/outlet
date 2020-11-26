@@ -53,11 +53,11 @@ class GlobalActions(HasLifecycle):
             right_root_spid: SinglePathNodeIdentifier = meta_right.root_identifier
             if left_root_spid.tree_type == TREE_TYPE_LOCAL_DISK and not self._tree_exists(left_root_spid):
                 logger.info(f'Skipping diff because the left path does not exist: "{left_root_spid.get_path_list()}"')
-                GlobalActions.enable_ui(sender=self)
+                GlobalActions.enable_ui(sender=actions.ID_CENTRAL_EXEC)
                 return
             elif right_root_spid.tree_type == TREE_TYPE_LOCAL_DISK and not self._tree_exists(right_root_spid):
                 logger.info(f'Skipping diff because the right path does not exist: "{right_root_spid.get_path_list()}"')
-                GlobalActions.enable_ui(sender=self)
+                GlobalActions.enable_ui(sender=actions.ID_CENTRAL_EXEC)
                 return
 
             logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {sender}')

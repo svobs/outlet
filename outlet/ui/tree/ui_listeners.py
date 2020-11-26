@@ -55,14 +55,14 @@ class TreeUiListeners(HasLifecycle):
         targeted_signals: List[str] = []
         general_signals: List[str] = [actions.TOGGLE_UI_ENABLEMENT]
 
-        if self.con.cacheman.reload_tree_on_root_path_update:
-            self.connect_dispatch_listener(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.tree_id)
-            targeted_signals.append(actions.ROOT_PATH_UPDATED)
+        self.connect_dispatch_listener(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.tree_id)
+        targeted_signals.append(actions.ROOT_PATH_UPDATED)
 
         if self.con.cacheman.load_all_caches_on_startup or self.con.cacheman.load_caches_for_displayed_trees_at_startup:
             logger.debug(f'[{self.con.tree_id}] LoadAllAtStartup={self.con.cacheman.load_all_caches_on_startup}, '
                          f'LoadDisplayedAtStartup={self.con.cacheman.load_caches_for_displayed_trees_at_startup}')
             # Either enabled for this tree to be loaded automatically
+            # FIXME: just attach listner ALWAYS and then let CacheMan determine who to notify
             self.connect_dispatch_listener(signal=actions.START_CACHEMAN_DONE, receiver=self._after_all_caches_loaded)
             if self.con.cacheman.load_all_caches_done:
                 # If cacheman finished loading before we even started listening, just execute here.
@@ -247,8 +247,8 @@ class TreeUiListeners(HasLifecycle):
             self.con.set_tree(root=new_root_meta.root)
 
     def _after_all_caches_loaded(self, sender):
-        logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.START_CACHEMAN_DONE}"; sending "{actions.LOAD_UI_TREE}" signal')
-        dispatcher.send(signal=actions.LOAD_UI_TREE, sender=self.con.tree_id)
+        logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.START_CACHEMAN_DONE}"; sending "{actions.POPULATE_UI_TREE}" signal')
+        dispatcher.send(signal=actions.POPULATE_UI_TREE, sender=self.con.tree_id)
 
     # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
     def _on_set_status(self, sender, status_msg):

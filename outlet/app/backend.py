@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Union
 
 from model.node.node import Node
-from model.node_identifier import NodeIdentifier
+from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 
 
@@ -31,3 +31,6 @@ class OutletBackend(ABC):
     def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None, override_load_check: bool = False) -> UID:
         pass
 
+    # @abstractmethod
+    # def is_manual_load_required(self, subroot: SinglePathNodeIdentifier) -> bool:
+    #     pass

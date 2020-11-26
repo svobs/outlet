@@ -11,6 +11,7 @@ from daemon.grpc.Outlet_pb2 import GetNextUid_Request, GetNodeForLocalPath_Reque
 from executor.task_runner import TaskRunner
 from model.node.node import Node
 from model.node_identifier import NodeIdentifier
+from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from ui import actions
 from util.has_lifecycle import HasLifecycle
@@ -29,6 +30,7 @@ class BackendGRPCClient(OutletBackend, HasLifecycle):
         self.config = cfg
         self.grpc_stub = None
         self._task_runner = TaskRunner()
+        self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self)
 
     def start(self):
         HasLifecycle.start(self)

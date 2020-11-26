@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class CommandContext:
-    def __init__(self, staging_dir: str, app, tree_id: str, needs_gdrive: bool):
+    def __init__(self, staging_dir: str, backend, tree_id: str, needs_gdrive: bool):
         self.staging_dir: str = staging_dir
-        self.cacheman = app.cacheman
+        self.cacheman = backend.cacheman
         if needs_gdrive:
             self.gdrive_client: Optional[GDriveClient] = self.cacheman.get_gdrive_client()
             # This will sync latest changes before returning, which will be somewhat slow but should keep us consistent

@@ -36,6 +36,7 @@ class DisplayTreeLazyLoader:
                 if not self._loaded:
                     # This will also start live monitoring if configured:
                     logger.debug(f'[{self.con.tree_id}] Tree was requested. Loading: {self._root_identifier}')
+                    # TODO: replace this with GRPC call
                     self._tree = self.con.cacheman.create_display_tree(self._root_identifier, self.con.tree_id)
                     self._root_identifier = self._tree.root_identifier
                     self._loaded = True

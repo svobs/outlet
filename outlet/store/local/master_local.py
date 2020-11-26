@@ -8,7 +8,6 @@ from typing import List, Optional, Tuple
 import store.local.content_hasher
 from constants import SUPER_DEBUG, TrashStatus, TREE_TYPE_LOCAL_DISK
 from model.display_tree.display_tree import DisplayTree
-from model.display_tree.local_disk import LocalDiskDisplayTree
 from model.display_tree.null import NullDisplayTree
 from model.local_disk_tree import LocalDiskTree
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
@@ -189,7 +188,7 @@ class LocalDiskMasterStore(MasterStore):
         return self._create_display_tree(cache_info, tree_id, subtree_root, is_live_refresh)
 
     def _create_display_tree(self, cache_info: PersistedCacheInfo, tree_id: str, requested_subtree_root: LocalNodeIdentifier = None,
-                             is_live_refresh: bool = False) -> LocalDiskDisplayTree:
+                             is_live_refresh: bool = False) -> DisplayTree:
         """requested_subtree_root, if present, is a subset of the cache_info's subtree and it will be used. Otherwise cache_info's will be used"""
         assert cache_info
         assert isinstance(cache_info.subtree_root, SinglePathNodeIdentifier), f'Found instead: {type(cache_info.subtree_root)}'
@@ -245,7 +244,7 @@ class LocalDiskMasterStore(MasterStore):
         elif SUPER_DEBUG:
             logger.debug(f'[{tree_id}] Skipping cache save: not needed')
 
-        display_tree = LocalDiskDisplayTree(app=self.app, tree_id=tree_id, root_identifier=requested_subtree_root)
+        display_tree = DisplayTree(app=self.app, tree_id=tree_id, root_identifier=requested_subtree_root)
         logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {display_tree.root_identifier.get_single_path()}')
         return display_tree
 

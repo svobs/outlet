@@ -99,9 +99,9 @@ class RootPathConfigPersister(HasLifecycle):
         except ValueError:
             raise RuntimeError(f"Invalid value for tree's UID (expected integer): '{root_uid}'")
 
-        root_identifier: SinglePathNodeIdentifier = self.app.node_identifier_factory.for_values(tree_type=tree_type,
-                                                                                                path_list=root_path, uid=root_uid,
-                                                                                                must_be_single_path=True)
+        root_identifier: SinglePathNodeIdentifier = self.app.backend.node_identifier_factory.for_values(tree_type=tree_type,
+                                                                                                        path_list=root_path, uid=root_uid,
+                                                                                                        must_be_single_path=True)
 
         is_found = ensure_bool(self._config.get(self._root_is_found_config_key))
         offending_path = self._config.get(self._root_offending_path_config_key)

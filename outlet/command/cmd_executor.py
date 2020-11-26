@@ -14,9 +14,9 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class CommandExecutor:
-    def __init__(self, app):
-        self.app = app
-        val = self.app.config.get('staging_dir')
+    def __init__(self, backend):
+        self.backend = backend
+        val = self.backend.config.get('staging_dir')
         self.staging_dir: str = file_util.get_resource_path(val)
         logger.debug(f'Staging dir: "{self.staging_dir}"')
         # TODO: optionally clean staging dir at startup
@@ -31,7 +31,7 @@ class CommandExecutor:
 
         try:
             if not context:
-                context = CommandContext(self.staging_dir, self.app, actions.ID_COMMAND_EXECUTOR, command.needs_gdrive())
+                context = CommandContext(self.staging_dir, self.backend, actions.ID_COMMAND_EXECUTOR, command.needs_gdrive())
 
             if command.status() != UserOpStatus.NOT_STARTED:
                 logger.info(f'Skipping command: {command} because it has status {command.status()}')
@@ -74,7 +74,7 @@ class CommandExecutor:
         dispatcher.send(signal=actions.START_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR, total=total)
         context = None
         try:
-            context = CommandContext(self.staging_dir, self.app, actions.ID_COMMAND_EXECUTOR, needs_gdrive)
+            context = CommandContext(self.staging_dir, self.backend, actions.ID_COMMAND_EXECUTOR, needs_gdrive)
 
             for command_num, command in enumerate(command_batch):
                 self.execute_command(command, context, False)
