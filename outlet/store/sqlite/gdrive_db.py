@@ -303,6 +303,20 @@ class GDriveDatabase(MetaDatabase):
     # COMPOSITE operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
+    def get_node_with_uid(self, uid: UID) -> Optional[GDriveNode]:
+        node: Optional[GDriveNode] = self.table_gdrive_file.select_object_for_uid(uid)
+        if not node:
+            node = self.table_gdrive_folder.select_object_for_uid(uid)
+
+        if node:
+            id_parent_mappings = self.id_parent_mapping.select_row_for_uid(uid, uid_col_name='item_uid')
+            if id_parent_mappings:
+                for mapping in id_parent_mappings:
+                    node.add_parent(mapping[1])
+
+        logger.debug(f'get_node_with_uid(): returning {node}')
+        return node
+
     def delete_all_gdrive_data(self):
         # Not the current_download table though!
         self.table_gdrive_file.drop_table_if_exists(self.conn)

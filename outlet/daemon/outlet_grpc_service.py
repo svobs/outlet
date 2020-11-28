@@ -2,8 +2,7 @@ import logging
 
 from daemon.grpc.conversion import NodeConverter
 from daemon.grpc.Outlet_pb2 import GetNextUid_Response, GetNodeForLocalPath_Request, GetNodeForUid_Request, GetUidForLocalPath_Request, \
-    GetUidForLocalPath_Response, PingResponse, \
-    ReadSingleNodeFromDiskRequest, SingleNode_Response
+    GetUidForLocalPath_Response, PingResponse, SingleNode_Response
 from daemon.grpc.Outlet_pb2_grpc import OutletServicer
 from store.cache_manager import CacheManager
 from store.uid.uid_generator import UidGenerator
@@ -23,13 +22,6 @@ class OutletGRPCService(OutletServicer):
         logger.info(f'Got ping!')
         response = PingResponse()
         response.timestamp = 1000
-        return response
-
-    def read_single_node_from_disk_for_path(self, request: ReadSingleNodeFromDiskRequest, context):
-        response = SingleNode_Response()
-        node = self.cacheman.read_single_node_from_disk_for_path(request.full_path, request.tree_type)
-        if node:
-            NodeConverter.node_to_grpc(node, response.node)
         return response
 
     def get_node_for_uid(self, request: GetNodeForUid_Request, context):

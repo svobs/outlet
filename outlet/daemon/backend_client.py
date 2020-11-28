@@ -5,9 +5,7 @@ import grpc
 
 from app.backend import OutletBackend
 from daemon.grpc import Outlet_pb2_grpc
-from daemon.grpc.conversion import NodeConverter
-from daemon.grpc.Outlet_pb2 import GetNextUid_Request, GetNodeForLocalPath_Request, GetNodeForUid_Request, GetUidForLocalPath_Request, \
-    ReadSingleNodeFromDiskRequest
+from daemon.grpc.Outlet_pb2 import GetNextUid_Request, GetNodeForLocalPath_Request, GetNodeForUid_Request, GetUidForLocalPath_Request,
 from executor.task_runner import TaskRunner
 from model.display_tree.ui_state import DisplayTreeUiState
 from model.node.node import Node
@@ -50,15 +48,6 @@ class BackendGRPCClient(OutletBackend, HasLifecycle):
 
     def _on_ui_task_requested(self, sender, task_func, *args, **kwargs):
         self._task_runner.enqueue(task_func, args)
-
-    def read_single_node_from_disk_for_path(self, full_path: str, tree_type: int) -> Node:
-        request = ReadSingleNodeFromDiskRequest()
-        request.full_path = full_path
-        request.tree_type = tree_type
-        grpc_response = self.grpc_stub.read_single_node_from_disk_for_path(request)
-        node = NodeConverter.node_from_grpc(grpc_response)
-        logger.info(f'Got node: {node}')
-        return node
 
     def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
         request = GetNodeForUid_Request()

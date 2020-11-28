@@ -233,6 +233,27 @@ class LiveTable(Table):
         logger.debug(f'Retrieved {len(entries)} objects from table {self.name}')
         return entries
 
+    def select_row_for_uid(self, uid: UID, uid_col_name: str = 'uid'):
+        rows = self.select(where_clause=f' WHERE {uid_col_name} = ?', where_tuple=(uid,))
+        if len(rows) > 1:
+            raise RuntimeError(f'Expected at most 1 row but got {len(rows)} for uid={uid}')
+
+        if rows:
+            return rows[0]
+        return None
+
+    def select_object_for_uid(self, uid: UID, uid_col_name: str = 'uid', tuple_to_obj_func_override: Optional[Callable[[Tuple], Any]] = None):
+        row = self.select_row_for_uid(uid, uid_col_name)
+        if row:
+            if tuple_to_obj_func_override:
+                return tuple_to_obj_func_override(row)
+            elif self.tuple_to_obj_func:
+                return self.tuple_to_obj_func(row)
+            else:
+                return row
+
+        return None
+
     def delete_for_uid(self, uid: UID, uid_col_name: str = 'uid', commit=True):
         sql = self.build_delete() + f' WHERE {uid_col_name} = ?'
         count_deleted = self.conn.execute(sql, (uid,)).rowcount

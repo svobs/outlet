@@ -5,7 +5,7 @@ from pydispatch import dispatcher
 
 from constants import GDRIVE_ROOT_UID
 from model.gdrive_whole_tree import GDriveWholeTree
-from model.node.gdrive_node import GDriveFile, GDriveFolder
+from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from store.gdrive.master_gdrive_memory import GDriveMemoryStore
@@ -157,6 +157,9 @@ class GDriveDiskStore(HasLifecycle):
             if download.download_type == download_type:
                 return download
         return None
+
+    def get_single_node_with_uid(self, uid: UID) -> Optional[GDriveNode]:
+        return self._db.get_node_with_uid(uid)
 
     def insert_gdrive_files_and_parents(self, file_list: List[GDriveFile], parent_mappings: List[Tuple],
                                         current_download: CurrentDownload, commit: bool = True):

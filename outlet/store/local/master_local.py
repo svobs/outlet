@@ -320,7 +320,7 @@ class LocalDiskMasterStore(MasterStore):
     # Cache CRUD operations
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def load_node_for_path(self, full_path: str) -> Optional[LocalNode]:
+    def load_single_node_for_path(self, full_path: str) -> Optional[LocalNode]:
         """This actually reads directly from the disk cache"""
         logger.debug(f'Loading single node for path: "{full_path}"')
         cache_man = self.backend.cacheman

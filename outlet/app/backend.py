@@ -18,10 +18,6 @@ logger = logging.getLogger(__name__)
 
 class OutletBackend(ABC):
     @abstractmethod
-    def read_single_node_from_disk_for_path(self, full_path: str, tree_type: int) -> Node:
-        pass
-
-    @abstractmethod
     def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
         pass
 

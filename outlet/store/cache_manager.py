@@ -15,7 +15,7 @@ from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROO
     ROOT_PATH, \
     TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK
-from error import CacheNotLoadedError, GDriveItemNotFoundError
+from error import CacheNotLoadedError, GDriveItemNotFoundError, InvalidOperationError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.ui_state import DisplayTreeUiState
@@ -528,7 +528,7 @@ class CacheManager(HasLifecycle):
 
         # Try to retrieve the root node from the cache:
         if spid.tree_type == TREE_TYPE_LOCAL_DISK:
-            node: Node = self.read_single_node_from_disk_for_path(spid.get_single_path(), TREE_TYPE_LOCAL_DISK)
+            node: Node = self._read_single_node_from_disk_for_local_path(spid.get_single_path())
             if node:
                 if spid.uid != node.uid:
                     logger.warning(f'UID requested ({spid.uid}) does not match UID from cache ({node.uid}); will use value from cache')
@@ -542,7 +542,6 @@ class CacheManager(HasLifecycle):
                 root_path_meta.root_exists = False
             root_path_meta.offending_path = None
         elif spid.tree_type == TREE_TYPE_GDRIVE:
-            # FIXME: need to implement this
             node: Node = self.read_single_node_from_disk_for_uid(spid.uid, TREE_TYPE_GDRIVE)
             root_path_meta.root_exists = True
             root_path_meta.offending_path = None
@@ -892,9 +891,9 @@ class CacheManager(HasLifecycle):
         # also blocks !
         return self._op_ledger.get_next_command()
 
-    def get_synced_gdrive_master_tree(self, tree_id: str) -> DisplayTree:
+    def get_synced_gdrive_master_tree(self, tree_id: str):
         """Will load from disk and sync latest changes from GDrive server before returning."""
-        return self._master_gdrive.get_synced_master_tree(tree_id=tree_id)
+        self._master_gdrive.get_synced_master_tree(tree_id=tree_id)
 
     def build_local_file_node(self, full_path: str, staging_path=None, must_scan_signature=False) -> Optional[LocalFileNode]:
         return self._master_local.build_local_file_node(full_path, staging_path, must_scan_signature)
@@ -924,21 +923,22 @@ class CacheManager(HasLifecycle):
         assert full_path and isinstance(full_path, str)
         return self._master_local.get_uid_for_path(full_path, uid_suggestion, override_load_check)
 
-    def read_single_node_from_disk_for_path(self, full_path: str, tree_type: int) -> Node:
+    def _read_single_node_from_disk_for_local_path(self, full_path: str) -> Node:
         if not file_util.is_normalized(full_path):
             full_path = file_util.normalize_path(full_path)
             logger.debug(f'Normalized path: {full_path}')
 
+        assert self._master_local
+        node = self._master_local.load_single_node_for_path(full_path)
+        return node
+
+    def read_single_node_from_disk_for_uid(self, uid: UID, tree_type: int) -> Optional[Node]:
         if tree_type == TREE_TYPE_LOCAL_DISK:
-            assert self._master_local
-            node = self._master_local.load_node_for_path(full_path)
-            return node
+            raise InvalidOperationError(f'read_single_node_from_disk_for_uid(): not yet supported: {tree_type}')
         elif tree_type == TREE_TYPE_GDRIVE:
-            assert self._master_gdrive
-            # TODO
-            raise RuntimeError(f'Not yet supported: {tree_type}')
+            return self._master_gdrive.read_single_node_from_disk_for_uid(uid)
         else:
-            raise RuntimeError(f'Unrecognized tree type: {tree_type}')
+            raise RuntimeError(f'Unknown tree type: {tree_type} for UID {uid}')
 
     def get_uid_list_for_goog_id_list(self, goog_id_list: List[str]) -> List[UID]:
         return self._master_gdrive.get_uid_list_for_goog_id_list(goog_id_list)

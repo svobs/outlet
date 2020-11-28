@@ -50,9 +50,6 @@ class BackendIntegrated(OutletBackend, HasLifecycle):
         self.cacheman = None
         self.executor = None
 
-    def read_single_node_from_disk_for_path(self, full_path: str, tree_type: int) -> Node:
-        return self.cacheman.read_single_node_from_disk_for_path(full_path, tree_type)
-
     def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
         return self.cacheman.get_node_for_uid(uid, tree_type)
 

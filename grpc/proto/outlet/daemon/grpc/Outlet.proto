@@ -20,11 +20,6 @@ message SingleNode_Response {
 	outlet.daemon.grpc.Node node = 1;
 }
 
-message ReadSingleNodeFromDiskRequest {
-	string full_path = 1;
-	int32 tree_type = 2;
-}
-
 message GetUidForLocalPath_Request {
 	string full_path = 1;
 	int32 uid_suggestion = 2;
@@ -57,12 +52,10 @@ message LoadNewTree {
 
 	// send in reply:
 	// needs_manual_load_on_startup
-		reload_tree_on_root_path_update
 }
 
 service Outlet {
 	rpc ping(PingRequest) returns (PingResponse) {}
-	rpc read_single_node_from_disk_for_path(ReadSingleNodeFromDiskRequest) returns (SingleNode_Response) {}
 	rpc get_node_for_uid(GetNodeForUid_Request) returns (SingleNode_Response) {}
 	rpc get_node_for_local_path(GetNodeForLocalPath_Request) returns (SingleNode_Response) {}
 
