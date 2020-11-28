@@ -67,7 +67,7 @@ class RootPathConfigPersister:
         return RootPathMeta(root_identifier, root_exists=root_exists, offending_path=offending_path)
 
     def write_to_config(self, new_root_meta: RootPathMeta):
-        if self.root_path_meta != new_root_meta:
+        if not self.root_path_meta or self.root_path_meta != new_root_meta:
             new_root = new_root_meta.root_spid
             logger.debug(f'Root path changed. Saving root to config: {self._tree_type_config_key} '
                          f'= {new_root.tree_type}, {self._root_path_config_key} = "{new_root.get_single_path()}", '

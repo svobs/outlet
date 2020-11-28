@@ -2,11 +2,11 @@ import logging
 import os
 from typing import Deque, Iterable, List, Optional, Union
 
+from model.display_tree.ui_state import DisplayTreeUiState
 from model.has_get_children import HasGetChildren
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
-from store.cache_manager import DisplayTreeUiState
 from ui.tree.filter_criteria import FilterCriteria
 
 logger = logging.getLogger(__name__)

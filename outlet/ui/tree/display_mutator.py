@@ -101,7 +101,7 @@ class DisplayMutator(HasLifecycle):
         self.filter_tree(filter_criteria)
 
     def _populate_ui_tree_async(self, sender):
-        """Just populates the tree with nodes. Executed asyncly via actions.POPULATE_UI_TREE"""
+        """Just populates the tree with nodes. Executed asyncly via actions.LOAD_SUBTREE_DONE"""
         dispatcher.send(signal=actions.ENQUEUE_UI_TASK, sender=sender, task_func=self.populate_root)
 
     def _populate_recursively(self, parent_iter, node: Node, node_count: int = 0) -> int:

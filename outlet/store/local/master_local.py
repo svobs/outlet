@@ -72,7 +72,9 @@ class LocalDiskMasterStore(MasterStore):
             self.backend = None
             self._memstore = None
             self._diskstore = None
-            self._signature_calc_thread = None
+            if self._signature_calc_thread:
+                self._signature_calc_thread.shutdown()
+                self._signature_calc_thread = None
         except NameError:
             pass
 
@@ -161,19 +163,19 @@ class LocalDiskMasterStore(MasterStore):
         with self._struct_lock:
             return self._memstore.master_tree.show(nid=subtree_root.uid)
 
-    def get_display_tree(self, subtree_root: LocalNodeIdentifier, tree_id: str) -> DisplayTree:
+    def get_display_tree(self, subtree_root: LocalNodeIdentifier, tree_id: str):
         logger.debug(f'DisplayTree requested for root: {subtree_root}')
-        return self._get_display_tree(subtree_root, tree_id, is_live_refresh=False)
+        self._get_display_tree(subtree_root, tree_id, is_live_refresh=False)
 
-    def _get_display_tree(self, subtree_root: LocalNodeIdentifier, tree_id: str, is_live_refresh: bool = False) -> DisplayTree:
+    def _get_display_tree(self, subtree_root: LocalNodeIdentifier, tree_id: str, is_live_refresh: bool = False) -> None:
         """
         Performs a read-through retrieval of all the LocalFileNodes in the given subtree
         on the local filesystem.
         """
 
         if not os.path.exists(subtree_root.get_single_path()):
-            logger.info(f'Cannot load meta for subtree because it does not exist: "{subtree_root.get_single_path()}"')
-            return NullDisplayTree(self.backend, tree_id, subtree_root)
+            logger.error(f'Cannot load meta for subtree because it does not exist: "{subtree_root.get_single_path()}"')
+            return
 
         self._ensure_uid_consistency(subtree_root)
 
@@ -186,10 +188,10 @@ class LocalDiskMasterStore(MasterStore):
             # No supertree found in cache. Create new cache entry:
             cache_info = cache_man.get_or_create_cache_info_entry(subtree_root)
         assert cache_info
-        return self._create_display_tree(cache_info, tree_id, subtree_root, is_live_refresh)
+        self._create_display_tree(cache_info, tree_id, subtree_root, is_live_refresh)
 
     def _create_display_tree(self, cache_info: PersistedCacheInfo, tree_id: str, requested_subtree_root: LocalNodeIdentifier = None,
-                             is_live_refresh: bool = False) -> DisplayTree:
+                             is_live_refresh: bool = False) -> None:
         """requested_subtree_root, if present, is a subset of the cache_info's subtree and it will be used. Otherwise cache_info's will be used"""
         assert cache_info
         assert isinstance(cache_info.subtree_root, SinglePathNodeIdentifier), f'Found instead: {type(cache_info.subtree_root)}'
@@ -245,11 +247,7 @@ class LocalDiskMasterStore(MasterStore):
         elif SUPER_DEBUG:
             logger.debug(f'[{tree_id}] Skipping cache save: not needed')
 
-        root_node: LocalDirNode = self._memstore.master_tree.get_node(requested_subtree_root.uid)
-        root_sn = SPIDNodePair(requested_subtree_root, root_node)
-        display_tree = DisplayTree(backend=self.backend, tree_id=tree_id, root_sn=root_sn)
-        logger.info(f'[{tree_id}] {stopwatch_total} Load complete. Returning subtree for {display_tree.root_sn.spid.get_single_path()}')
-        return display_tree
+        logger.info(f'[{tree_id}] {stopwatch_total} Load complete for {requested_subtree_root}')
 
     def _ensure_uid_consistency(self, subtree_root: SinglePathNodeIdentifier):
         """Since the UID of the subtree root node is stored in 3 different locations (registry, cache file, and memory),

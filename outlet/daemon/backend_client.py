@@ -8,13 +8,12 @@ from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.conversion import NodeConverter
 from daemon.grpc.Outlet_pb2 import GetNextUid_Request, GetNodeForLocalPath_Request, GetNodeForUid_Request, GetUidForLocalPath_Request, \
     ReadSingleNodeFromDiskRequest
-from error import InvalidOperationError
 from executor.task_runner import TaskRunner
+from model.display_tree.ui_state import DisplayTreeUiState
 from model.node.node import Node
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from store.cache_manager import DisplayTreeUiState
 from ui import actions
 from util.has_lifecycle import HasLifecycle
 

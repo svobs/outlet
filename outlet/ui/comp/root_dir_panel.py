@@ -133,8 +133,8 @@ class RootDirPanel(HasLifecycle):
         """Updates the UI to reflect the new root and tree type.
         Expected to be called from the UI thread.
         """
-        new_root: SinglePathNodeIdentifier = self.current_root_meta.root_spid
-        logger.debug(f'[{self.tree_id}] Redrawing root display for new_root={self.current_root_meta}')
+        new_root = self.con.get_tree().get_root_identifier()
+        logger.debug(f'[{self.tree_id}] Redrawing root display for new_root={new_root}')
         if self.entry:
             if self.entry_box_focus_eid:
                 self.entry.disconnect(self.entry_box_focus_eid)

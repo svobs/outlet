@@ -18,6 +18,7 @@ from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROO
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.display_tree.display_tree import DisplayTree
+from model.display_tree.ui_state import DisplayTreeUiState
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import HasChildStats, HasParentList, Node, SPIDNodePair
@@ -38,6 +39,7 @@ from ui.tree.root_path_config import RootPathConfigPersister
 from util import file_util
 from util.file_util import get_resource_path
 from util.has_lifecycle import HasLifecycle
+from util.qthread import QThread
 from util.root_path_meta import RootPathMeta
 from util.stopwatch_sec import Stopwatch
 from util.two_level_dict import TwoLevelDict
@@ -53,20 +55,6 @@ def ensure_cache_dir_path(config):
         logger.info(f'Cache directory does not exist; attempting to create: "{cache_dir_path}"')
     os.makedirs(name=cache_dir_path, exist_ok=True)
     return cache_dir_path
-
-
-class DisplayTreeUiState:
-    def __init__(self, tree_id: str, root_sn: SPIDNodePair, root_exists: bool = True, offending_path: Optional[str] = None):
-        self.tree_id: str = tree_id
-        assert isinstance(root_sn, SPIDNodePair), f'Expected SPIDNodePair but got {type(root_sn)}'
-        self.root_sn: SPIDNodePair = root_sn
-        """This is needed to clarify the (albeit very rare) case where the root node resolves to multiple paths.
-        Each display tree can only have one root path."""
-        self.root_exists: bool = root_exists
-        self.offending_path: Optional[str] = offending_path
-        self.needs_manual_load: bool = False
-        """If True, the UI should display a "Load" button in order to kick off the backend data load. 
-        If False; the backend will automatically start loading in the background."""
 
 
 # CLASS ActiveDisplayTreeMeta
@@ -87,6 +75,25 @@ class CacheInfoByType(TwoLevelDict):
     """Holds PersistedCacheInfo objects"""
     def __init__(self):
         super().__init__(lambda x: x.subtree_root.tree_type, lambda x: x.subtree_root.get_path_list()[0], lambda x, y: True)
+
+
+# CLASS LoadRequestThread
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class LoadRequestThread(QThread):
+    """Hasher thread which churns through signature queue and sends updates to cacheman"""
+    def __init__(self, backend, cacheman):
+        QThread.__init__(self, name='LoadRequestThread', initial_sleep_sec=0.0)
+        self.backend = backend
+        self.cacheman = cacheman
+
+    def on_thread_start(self):
+        # Wait for CacheMan to finish starting up so as not to deprive it of resources:
+        logger.debug(f'[{self.name}] Waiting for CacheMan startup to complete...')
+        self.cacheman.wait_for_startup_done()
+
+    def process_single_item(self, tree_id: str):
+        logger.debug(f'[{self.name}] Submitted load request for tree_id: {tree_id}')
+        self.backend.executor.submit_async_task(self.cacheman.load_data_for_display_tree, tree_id)
 
 
 # CLASS CacheManager
@@ -116,6 +123,8 @@ class CacheManager(HasLifecycle):
 
         if not self.load_all_caches_on_startup:
             logger.info('Configured not to fetch all caches on startup; will lazy load instead')
+
+        self._load_request_thread = LoadRequestThread(backend=backend, cacheman=self)
 
         self._master_local = None
         """Sub-module of Cache Manager which manages local disk caches"""
@@ -185,6 +194,13 @@ class CacheManager(HasLifecycle):
         except NameError:
             pass
 
+        try:
+            if self._load_request_thread:
+                self._load_request_thread.shutdown()
+                self._load_request_thread = None
+        except NameError:
+            pass
+
     # Startup loading/maintenance
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -218,6 +234,8 @@ class CacheManager(HasLifecycle):
             self._op_ledger.start()
             self._live_monitor = LiveMonitor(self.backend)
             self._live_monitor.start()
+
+            self._load_request_thread.start()
 
             # Now load all caches (if configured):
             if self.enable_load_from_disk and self.load_all_caches_on_startup:
@@ -475,13 +493,19 @@ class CacheManager(HasLifecycle):
 
     def get_display_tree_ui_state(self, tree_id: str, user_path: str = None, spid: Optional[SinglePathNodeIdentifier] = None,
                                   is_startup: bool = False) -> DisplayTreeUiState:
-        logger.debug(f'Got request to load display tree (user_path={user_path}, spid: {spid})')
+        logger.debug(f'[{tree_id}] Got request to load display tree (user_path={user_path}, spid: {spid}, is_startup={is_startup})')
 
-        # FIXME: hook into resolve_root_from_path() for user_path
-
-        # Make RootPathMeta object. If SPID not supplied, read from config
         root_path_persister = None
-        if not spid:
+
+        # Make RootPathMeta object. If neither SPID nor user_path supplied, read from config
+        if user_path:
+            root_path_meta: RootPathMeta = self._resolve_root_meta_from_path(user_path)
+        elif spid:
+            assert isinstance(spid, SinglePathNodeIdentifier), f'Expected SinglePathNodeIdentifier but got {type(spid)}'
+            # params -> root_path_meta
+            spid.normalize_paths()
+            root_path_meta = RootPathMeta(spid, True)
+        elif is_startup:
             # root_path_meta -> params
             root_path_persister = RootPathConfigPersister(backend=self.backend, tree_id=tree_id)
             root_path_meta = root_path_persister.read_from_config()
@@ -489,10 +513,7 @@ class CacheManager(HasLifecycle):
             if not spid:
                 raise RuntimeError(f"Unable to read valid root from config for: '{tree_id}'")
         else:
-            assert isinstance(spid, SinglePathNodeIdentifier), f'Expected SinglePathNodeIdentifier but got {type(spid)}'
-            # params -> root_path_meta
-            spid.normalize_paths()
-            root_path_meta = RootPathMeta(spid, True)
+            raise RuntimeError('Invalid args supplied to get_display_tree_ui_state()!')
 
         display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if display_tree_meta:
@@ -521,6 +542,7 @@ class CacheManager(HasLifecycle):
                 root_path_meta.root_exists = False
             root_path_meta.offending_path = None
         elif spid.tree_type == TREE_TYPE_GDRIVE:
+            # FIXME: need to implement this
             node: Node = self.read_single_node_from_disk_for_uid(spid.uid, TREE_TYPE_GDRIVE)
             root_path_meta.root_exists = True
             root_path_meta.offending_path = None
@@ -552,16 +574,72 @@ class CacheManager(HasLifecycle):
 
         # Kick off data load task, if needed
         if not state.needs_manual_load:
-            # TODO: create queue thread modelled after SignatureCalcThread, which can wait_for_startup_done()
             self.enqueue_load_subtree_task(tree_id)
 
         return state
 
-    def enqueue_load_subtree_task(self, tree_id: str):
-        self.backend.executor.submit_async_task(self._load_data_for_display_tree, tree_id)
+    def _resolve_root_meta_from_path(self, full_path: str) -> RootPathMeta:
+        """Resolves the given path into either a local file, a set of Google Drive matches, or generates a GDriveItemNotFoundError,
+        and returns a tuple of both"""
+        logger.debug(f'resolve_root_from_path() called with path="{full_path}"')
+        try:
+            full_path = file_util.normalize_path(full_path)
+            node_identifier: NodeIdentifier = self.backend.node_identifier_factory.for_values(path_list=full_path)
+            if node_identifier.tree_type == TREE_TYPE_GDRIVE:
+                # Need to wait until all caches are loaded:
+                self.wait_for_startup_done()
+                # this will load the GDrive master tree if needed:
+                identifier_list = self._master_gdrive.get_identifier_list_for_full_path_list(node_identifier.get_path_list(), error_if_not_found=True)
+            else:  # LocalNode
+                if not os.path.exists(full_path):
+                    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
+                uid = self.get_uid_for_path(full_path)
+                identifier_list = [LocalNodeIdentifier(uid=uid, path_list=full_path)]
 
-    def _load_data_for_display_tree(self, tree_id: str):
-        """Executed as an async task."""
+            assert len(identifier_list) > 0, f'Got no identifiers for path but no error was raised: {full_path}'
+            logger.debug(f'resolve_root_from_path(): got identifier_list={identifier_list}"')
+            if len(identifier_list) > 1:
+                # Create the appropriate
+                candidate_list = []
+                for identifier in identifier_list:
+                    if identifier.tree_type == TREE_TYPE_GDRIVE:
+                        path_to_find = NodeIdentifierFactory.strip_gdrive(full_path)
+                    else:
+                        path_to_find = full_path
+
+                    if path_to_find in identifier.get_path_list():
+                        candidate_list.append(identifier)
+                if len(candidate_list) != 1:
+                    raise RuntimeError(f'Serious error: found multiple identifiers with same path ({full_path}): {candidate_list}')
+                new_root_spid: SinglePathNodeIdentifier = candidate_list[0]
+            else:
+                new_root_spid = identifier_list[0]
+
+            if len(new_root_spid.get_path_list()) > 0:
+                # must have single path
+                if new_root_spid.tree_type == TREE_TYPE_GDRIVE:
+                    full_path = NodeIdentifierFactory.strip_gdrive(full_path)
+                new_root_spid = SinglePathNodeIdentifier(uid=new_root_spid.uid, path_list=full_path, tree_type=new_root_spid.tree_type)
+
+            root_path_meta = RootPathMeta(new_root_spid, root_exists=True)
+        except GDriveItemNotFoundError as ginf:
+            root_path_meta = RootPathMeta(ginf.node_identifier, root_exists=False)
+            root_path_meta.offending_path = ginf.offending_path
+        except FileNotFoundError as fnf:
+            root = self.backend.node_identifier_factory.for_values(path_list=full_path, must_be_single_path=True)
+            root_path_meta = RootPathMeta(root, root_exists=False)
+        except CacheNotLoadedError as cnlf:
+            root = self.backend.node_identifier_factory.for_values(path_list=full_path, uid=NULL_UID, must_be_single_path=True)
+            root_path_meta = RootPathMeta(root, root_exists=False)
+
+        logger.debug(f'resolve_root_from_path(): returning new_root={root_path_meta}"')
+        return root_path_meta
+
+    def enqueue_load_subtree_task(self, tree_id: str):
+        self._load_request_thread.enqueue(tree_id)
+
+    def load_data_for_display_tree(self, tree_id: str):
+        """Executed asyncly via the LoadRequestThread."""
         logger.debug(f'Loading data for display tree: {tree_id}')
         display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not display_tree_meta:
@@ -823,64 +901,6 @@ class CacheManager(HasLifecycle):
 
     def build_local_dir_node(self, full_path: str) -> LocalDirNode:
         return self._master_local.build_local_dir_node(full_path)
-
-    def resolve_root_from_path(self, full_path: str) -> RootPathMeta:
-        # FIXME: need to add wait for GDrive load
-        """Resolves the given path into either a local file, a set of Google Drive matches, or generates a GDriveItemNotFoundError,
-        and returns a tuple of both"""
-        logger.debug(f'resolve_root_from_path() called with path="{full_path}"')
-        try:
-            full_path = file_util.normalize_path(full_path)
-            node_identifier: NodeIdentifier = self.backend.node_identifier_factory.for_values(path_list=full_path)
-            if node_identifier.tree_type == TREE_TYPE_GDRIVE:
-                # Need to wait until all caches are loaded:
-                self.wait_for_startup_done()
-
-                identifier_list = self._master_gdrive.get_identifier_list_for_full_path_list(node_identifier.get_path_list(), error_if_not_found=True)
-            else:  # LocalNode
-                if not os.path.exists(full_path):
-                    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
-                uid = self.get_uid_for_path(full_path)
-                identifier_list = [LocalNodeIdentifier(uid=uid, path_list=full_path)]
-
-            assert len(identifier_list) > 0, f'Got no identifiers for path but no error was raised: {full_path}'
-            logger.debug(f'resolve_root_from_path(): got identifier_list={identifier_list}"')
-            if len(identifier_list) > 1:
-                # Create the appropriate
-                candidate_list = []
-                for identifier in identifier_list:
-                    if identifier.tree_type == TREE_TYPE_GDRIVE:
-                        path_to_find = NodeIdentifierFactory.strip_gdrive(full_path)
-                    else:
-                        path_to_find = full_path
-
-                    if path_to_find in identifier.get_path_list():
-                        candidate_list.append(identifier)
-                if len(candidate_list) != 1:
-                    raise RuntimeError(f'Serious error: found multiple identifiers with same path ({full_path}): {candidate_list}')
-                new_root_spid: SinglePathNodeIdentifier = candidate_list[0]
-            else:
-                new_root_spid = identifier_list[0]
-
-            if len(new_root_spid.get_path_list()) > 0:
-                # must have single path
-                if new_root_spid.tree_type == TREE_TYPE_GDRIVE:
-                    full_path = NodeIdentifierFactory.strip_gdrive(full_path)
-                new_root_spid = SinglePathNodeIdentifier(uid=new_root_spid.uid, path_list=full_path, tree_type=new_root_spid.tree_type)
-
-            root_path_meta = RootPathMeta(new_root_spid, root_exists=True)
-        except GDriveItemNotFoundError as ginf:
-            root_path_meta = RootPathMeta(ginf.node_identifier, root_exists=False)
-            root_path_meta.offending_path = ginf.offending_path
-        except FileNotFoundError as fnf:
-            root = self.backend.node_identifier_factory.for_values(path_list=full_path, must_be_single_path=True)
-            root_path_meta = RootPathMeta(root, root_exists=False)
-        except CacheNotLoadedError as cnlf:
-            root = self.backend.node_identifier_factory.for_values(path_list=full_path, uid=NULL_UID, must_be_single_path=True)
-            root_path_meta = RootPathMeta(root, root_exists=False)
-
-        logger.debug(f'resolve_root_from_path(): returning new_root={root_path_meta}"')
-        return root_path_meta
 
     def get_goog_id_for_parent(self, node: GDriveNode) -> str:
         """Fails if there is not exactly 1 parent"""

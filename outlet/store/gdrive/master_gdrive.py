@@ -429,7 +429,8 @@ class GDriveMasterStore(MasterStore):
 
     def get_identifier_list_for_full_path_list(self, path_list: List[str], error_if_not_found: bool = False) -> List[NodeIdentifier]:
         if not self._memstore.master_tree:
-            raise CacheNotLoadedError()
+            # load it
+            self.get_synced_master_tree()
         return self._memstore.master_tree.get_identifier_list_for_path_list(path_list, error_if_not_found)
 
     def get_all_gdrive_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:

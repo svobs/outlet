@@ -4,13 +4,13 @@ from pydispatch import dispatcher
 import logging
 
 from app.backend import OutletBackend
-from error import InvalidOperationError
 from executor.central import CentralExecutor
+from model.display_tree.ui_state import DisplayTreeUiState
 from model.node.node import Node
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from store.cache_manager import CacheManager, DisplayTreeUiState
+from store.cache_manager import CacheManager
 from store.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
 from ui import actions
 from util.has_lifecycle import HasLifecycle

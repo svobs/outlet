@@ -11,7 +11,6 @@ from ui import actions
 from ui.dialog.base_dialog import BaseDialog
 from ui.tree import tree_factory_templates
 from ui.tree.display_store import DisplayStore
-from ui.tree.display_tree_lazy_loader import DisplayTreeLazyLoader
 from util.stopwatch_sec import Stopwatch
 
 import gi
@@ -135,7 +134,7 @@ class TreePanelController:
         return checked_rows
 
     def get_tree(self) -> DisplayTree:
-        return self._display_tree.get_tree()
+        return self._display_tree
 
     def set_tree(self, display_tree: DisplayTree, tree_display_mode: TreeDisplayMode = None):
         # Clear old GTK3 displayed nodes (if any)
