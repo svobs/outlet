@@ -4,12 +4,13 @@ from pydispatch import dispatcher
 import logging
 
 from app.backend import OutletBackend
+from error import InvalidOperationError
 from executor.central import CentralExecutor
 from model.node.node import Node
-from model.node_identifier import NodeIdentifier
+from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from store.cache_manager import CacheManager
+from store.cache_manager import CacheManager, DisplayTreeUiState
 from store.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
 from ui import actions
 from util.has_lifecycle import HasLifecycle
@@ -64,3 +65,9 @@ class BackendIntegrated(OutletBackend, HasLifecycle):
     def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None, override_load_check: bool = False) -> UID:
         return self.cacheman.get_uid_for_path(full_path, uid_suggestion)
 
+    def get_display_tree_ui_state(self, tree_id: str, user_path: str = None, spid: SinglePathNodeIdentifier = None,
+                                  is_startup: bool = False) -> DisplayTreeUiState:
+        return self.cacheman.get_display_tree_ui_state(tree_id, user_path, spid, is_startup)
+
+    def start_subtree_load(self, tree_id: str):
+        self.cacheman.enqueue_load_subtree_task(tree_id)

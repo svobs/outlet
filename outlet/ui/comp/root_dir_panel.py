@@ -29,27 +29,18 @@ logger = logging.getLogger(__name__)
 
 
 class RootDirPanel(HasLifecycle):
-    def __init__(self, parent_win, controller, current_root_meta: RootPathMeta, can_change_root, is_loaded):
+    def __init__(self, parent_win, controller, can_change_root):
         HasLifecycle.__init__(self)
         self.parent_win: BaseDialog = parent_win
         self.con = controller
         self.tree_id: str = self.con.tree_id
         self.content_box = Gtk.Box(spacing=0, orientation=Gtk.Orientation.HORIZONTAL)
 
-        self.current_root_meta: RootPathMeta = current_root_meta
-
         self.can_change_root = can_change_root
         self._ui_enabled = can_change_root
         """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
 
-        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_STARTED, sender=self.tree_id, receiver=self._on_load_started)
-
-        if is_loaded or not self.current_root_meta.is_found or not self.con.cacheman.is_manual_load_required(current_root_meta.root):
-            # the actual load will be handled in TreeUiListeners:
-            self.needs_load = False
-        else:
-            # Manual load:
-            self.needs_load = True
+        display_tree: DisplayTree = self.con.get_tree()
 
         self.path_icon = Gtk.Image()
         self.refresh_icon = Gtk.Image()
@@ -95,13 +86,14 @@ class RootDirPanel(HasLifecycle):
         self.refresh_button = None
 
         # Need to call this to do the initial UI draw:
-        logger.debug(f'[{self.tree_id}] Building panel with current root {self.current_root_meta}')
+        logger.debug(f'[{self.tree_id}] Building panel with current root {display_tree.get_root_identifier()}')
         GLib.idle_add(self._redraw_root_display)
 
         self.start()
 
     def start(self):
         HasLifecycle.start(self)
+        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_STARTED, sender=self.tree_id, receiver=self._on_load_started)
         self.connect_dispatch_listener(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
         self.connect_dispatch_listener(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.tree_id)
         self.connect_dispatch_listener(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, receiver=self._on_gdrive_chooser_dialog_load_done,
@@ -124,14 +116,15 @@ class RootDirPanel(HasLifecycle):
         self.parent_win = None
         self.con = None
 
+    # FIXME
     def _on_root_path_updated(self, sender, new_root_meta: RootPathMeta):
         """Callback for actions.ROOT_PATH_UPDATED"""
         logger.debug(f'[{sender}] Received signal "{actions.ROOT_PATH_UPDATED}" with new_root_meta={new_root_meta}')
 
         if self.current_root_meta != new_root_meta:
             self.current_root_meta = new_root_meta
-            if self.current_root_meta.is_found and not self.con.cacheman.reload_tree_on_root_path_update:
-                self.needs_load = True
+            if self.current_root_meta.root_exists and not self.con.cacheman.reload_tree_on_root_path_update:
+                self.con.get_tree().set_needs_manual_load(True)
 
             # For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html
             GLib.idle_add(self._redraw_root_display)
@@ -140,7 +133,7 @@ class RootDirPanel(HasLifecycle):
         """Updates the UI to reflect the new root and tree type.
         Expected to be called from the UI thread.
         """
-        new_root: SinglePathNodeIdentifier = self.current_root_meta.root
+        new_root: SinglePathNodeIdentifier = self.current_root_meta.root_spid
         logger.debug(f'[{self.tree_id}] Redrawing root display for new_root={self.current_root_meta}')
         if self.entry:
             if self.entry_box_focus_eid:
@@ -167,7 +160,8 @@ class RootDirPanel(HasLifecycle):
         self.label_event_box.add(self.label)
         self.label_event_box.show()
 
-        if self.needs_load:
+        tree: DisplayTree = self.con.get_tree()
+        if tree.is_needs_manual_load():
             # Note: good example of toolbar here:
             # https://github.com/kyleuckert/LaserTOF/blob/master/labTOF_main.backend/Contents/Resources/lib/python2.7/matplotlib/backends/backend_gtk3.py
             self.toolbar = Gtk.Toolbar()
@@ -192,7 +186,7 @@ class RootDirPanel(HasLifecycle):
         else:
             raise RuntimeError(f'Unrecognized tree type: {new_root.tree_type}')
 
-        root_exists = self.current_root_meta.is_found and new_root.uid != NULL_UID
+        root_exists = tree.is_root_exists() and new_root.uid != NULL_UID
         if root_exists:
             pre = ''
             color = ''
@@ -201,9 +195,9 @@ class RootDirPanel(HasLifecycle):
                 self.alert_image_box.remove(self.alert_image)
         else:
             root_part_regular, root_part_bold = os.path.split(new_root.get_single_path())
-            if not self.current_root_meta.is_found and self.current_root_meta.offending_path:
-                root_part_regular = self.current_root_meta.offending_path
-                root_part_bold = file_util.strip_root(new_root.get_single_path(), self.current_root_meta.offending_path)
+            if not tree.is_root_exists() and tree.get_offending_path():
+                root_part_regular = tree.get_offending_path()
+                root_part_bold = file_util.strip_root(new_root.get_single_path(), tree.get_offending_path())
             if not self.alert_image_box.get_children():
                 self.alert_image_box.pack_start(self.alert_image, expand=False, fill=False, padding=0)
             color = f"foreground='gray'"
@@ -239,13 +233,14 @@ class RootDirPanel(HasLifecycle):
         # Triggered when the user submits a root via the text entry box
         new_root_path: str = self.entry.get_text()
         logger.info(f'[{tree_id}] User entered root path: "{new_root_path}"')
-        new_root_meta: RootPathMeta = self.con.cacheman.resolve_root_from_path(new_root_path)
+        display_tree: DisplayTree = self.con.app.backend.create_display_tree_from_path(new_root_path, self.tree_id)
 
-        if new_root_meta == self.current_root_meta:
+        if display_tree.get_root_identifier() == self.con.get_tree().get_root_identifier():
             logger.debug(f'[{tree_id}] No change to root')
             self._redraw_root_display()
             return
 
+        # FIXME
         logger.info(f'[{tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root_meta={new_root_meta}')
         dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=tree_id, new_root_meta=new_root_meta)
 
@@ -270,8 +265,9 @@ class RootDirPanel(HasLifecycle):
 
         self.entry = Gtk.Entry()
 
-        path = self.current_root_meta.root.get_single_path()
-        if self.current_root_meta.root.tree_type == TREE_TYPE_GDRIVE:
+        root_spid: SinglePathNodeIdentifier = self.con.get_tree().get_root_identifier()
+        path = root_spid.get_single_path()
+        if root_spid.tree_type == TREE_TYPE_GDRIVE:
             path = GDRIVE_PATH_PREFIX + path
         self.entry.set_text(path)
         self.entry.connect('activate', self._on_root_text_entry_submitted, self.tree_id)
@@ -320,14 +316,15 @@ class RootDirPanel(HasLifecycle):
         # (buttons, response)"""
         logger.debug('Creating and displaying LocalRootDirChooserDialog')
         open_dialog = LocalRootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, tree_id=self.tree_id,
-                                                current_dir=self.current_root_meta.root.get_single_path())
+                                                current_dir=self.con.get_tree().get_root_identifier().get_single_path())
 
         # show the dialog
         open_dialog.show()
 
     def _open_gdrive_root_chooser_dialog(self, menu_item):
-        logger.debug(f'[{self.tree_id}] Sending signal "{actions.SHOW_GDRIVE_CHOOSER_DIALOG}" with current_selection={self.current_root_meta.root}')
-        dispatcher.send(signal=actions.SHOW_GDRIVE_CHOOSER_DIALOG, sender=self.tree_id, current_selection=self.current_root_meta.root)
+        spid = self.con.get_tree().get_root_identifier()
+        logger.debug(f'[{self.tree_id}] Sending signal "{actions.SHOW_GDRIVE_CHOOSER_DIALOG}" with current_selection={spid}')
+        dispatcher.send(signal=actions.SHOW_GDRIVE_CHOOSER_DIALOG, sender=self.tree_id, current_selection=spid)
 
     def _build_source_menu(self):
         source_menu = Gtk.Menu()
@@ -342,14 +339,18 @@ class RootDirPanel(HasLifecycle):
 
     def _on_refresh_button_clicked(self, widget):
         logger.debug('The Refresh button was clicked!')
-        self.needs_load = False
-        # Launch in a non-UI thread:
-        dispatcher.send(signal=actions.POPULATE_UI_TREE, sender=self.tree_id)
+        self.con.get_tree().set_needs_manual_load(False)
+
+        def send_load_signal():
+            self.con.app.backend.start_subtree_load(self.tree_id)
+
+        GLib.idle_add(send_load_signal)
+
         # Hide Refresh button
         GLib.idle_add(self._redraw_root_display)
 
     def _on_load_started(self, sender):
-        if self.needs_load:
-            self.needs_load = False
+        if self.con.get_tree().is_needs_manual_load():
+            self.con.get_tree().set_needs_manual_load(False)
             # Hide Refresh button
             GLib.idle_add(self._redraw_root_display)

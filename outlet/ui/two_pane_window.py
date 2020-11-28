@@ -74,17 +74,14 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
                            'filter_panel': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL),
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
-        # TODO: build RootPathConfigPersister in tree factory; include it in controller
         # Diff Tree Left:
-        self.root_path_persister_left = RootPathConfigPersister(backend=self.app.backend, tree_id=actions.ID_LEFT_TREE)
-        saved_root_left = self.root_path_persister_left.root_path_meta
-        self.tree_con_left = tree_factory.build_editor_tree(parent_win=self, tree_id=actions.ID_LEFT_TREE, root_path_meta=saved_root_left)
+        display_tree_left = self.app.backend.create_display_tree_from_config(tree_id=actions.ID_LEFT_TREE, is_startup=True)
+        self.tree_con_left = tree_factory.build_editor_tree(parent_win=self, tree=display_tree_left)
         diff_tree_panes.pack1(self.tree_con_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
-        self.root_path_persister_right = RootPathConfigPersister(backend=self.app.backend, tree_id=actions.ID_RIGHT_TREE)
-        saved_root_right = self.root_path_persister_right.root_path_meta
-        self.tree_con_right = tree_factory.build_editor_tree(parent_win=self, tree_id=actions.ID_RIGHT_TREE, root_path_meta=saved_root_right)
+        display_tree_right = self.app.backend.create_display_tree_from_config(tree_id=actions.ID_RIGHT_TREE, is_startup=True)
+        self.tree_con_right = tree_factory.build_editor_tree(parent_win=self, tree=display_tree_right)
         diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)
 
         # Bottom panel: Bottom Button panel, toolbar and progress bar
@@ -268,7 +265,9 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             self.show_error_msg('You must select change(s) first.')
             return None
 
-        differ = ContentFirstDiffer(self.tree_con_left.get_tree(), self.tree_con_right.get_tree(), self.app.backend)
+        left_sn = self.tree_con_left.get_tree().get_root_sn()
+        right_sn = self.tree_con_right.get_tree().get_root_sn()
+        differ = ContentFirstDiffer(left_sn, right_sn, self.app.backend)
         merged_changes_tree: CategoryDisplayTree = differ.merge_change_trees(left_selected_changes, right_selected_changes)
 
         conflict_pairs = []

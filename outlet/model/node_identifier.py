@@ -6,6 +6,7 @@ from typing import List, Optional, Union
 from constants import NULL_UID, SUPER_DEBUG, TREE_TYPE_DISPLAY, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_NA
 from error import InvalidOperationError
 from model.uid import UID
+from util import file_util
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ def ensure_list(full_path):
             return [full_path]
     else:
         return []
+
 
 
 """
@@ -111,6 +113,14 @@ class NodeIdentifier(ABC):
 
     def has_path(self, path: str) -> bool:
         return path in self.get_path_list()
+
+    def normalize_paths(self):
+        path_list = self.get_path_list()
+        for index, full_path in enumerate(path_list):
+            if not file_util.is_normalized(full_path):
+                path_list[index] = file_util.normalize_path(full_path)
+                logger.debug(f'Normalized path: {full_path}')
+        self.set_path_list(path_list)
 
     def has_path_in_subtree(self, subtree_path: str) -> bool:
         for path in self.get_path_list():

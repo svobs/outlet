@@ -33,7 +33,7 @@ class TreePanelController:
     def __init__(self, parent_win, treeview_meta):
         self.parent_win: BaseDialog = parent_win
         self.app = parent_win.app
-        self.lazy_loader = None
+        self._display_tree = None
         self.display_store = None
         self.treeview_meta = treeview_meta
         self.tree_id: str = treeview_meta.tree_id
@@ -89,9 +89,9 @@ class TreePanelController:
         self.tree_view.get_column(self.treeview_meta.col_num_change_ts_view).set_visible(self.treeview_meta.show_change_ts_col)
         self.tree_view.get_column(self.treeview_meta.col_num_etc_view).set_visible(self.treeview_meta.show_etc_col)
 
-    def reload(self, new_root: SinglePathNodeIdentifier = None, new_tree=None, tree_display_mode: TreeDisplayMode = None,
+    def reload(self, new_tree=None, tree_display_mode: TreeDisplayMode = None,
                show_checkboxes: bool = False, hide_checkboxes: bool = False):
-        """Invalidate whatever cache the .lazy_loader built up, and re-populate the display tree"""
+        """Invalidate whatever cache the ._display_tree built up, and re-populate the display tree"""
         def _reload():
 
             checkboxes_visible = self.treeview_meta.has_checkboxes
@@ -111,19 +111,15 @@ class TreePanelController:
                 self.treeview_meta.init()
                 self._set_column_visibilities()
 
-            if new_root:
-                logger.info(f'[{self.tree_id}] reload() with new root: {new_root}')
-                self.set_tree(root=new_root, tree_display_mode=tree_display_mode)
-            elif new_tree:
+            if new_tree:
                 logger.info(f'[{self.tree_id}] reload() with new tree: {new_tree}')
-                self.set_tree(tree=new_tree, tree_display_mode=tree_display_mode)
+                self.set_tree(display_tree=new_tree, tree_display_mode=tree_display_mode)
             else:
                 logger.info(f'[{self.tree_id}] reload() with same tree')
-                tree = self.lazy_loader.get_tree()
-                self.set_tree(tree=tree, tree_display_mode=tree_display_mode)
+                self.set_tree(display_tree=self._display_tree, tree_display_mode=tree_display_mode)
 
-            # Back to the non-UI thread with you!
-            dispatcher.send(signal=actions.POPULATE_UI_TREE, sender=self.tree_id)
+            # Send signal to backend to load the subtree. When it's ready, it will notify us
+            self.app.backend.start_subtree_load(self.tree_id)
 
         GLib.idle_add(_reload)
 
@@ -139,21 +135,17 @@ class TreePanelController:
         return checked_rows
 
     def get_tree(self) -> DisplayTree:
-        return self.lazy_loader.get_tree()
+        return self._display_tree.get_tree()
 
-    def set_tree(self, root: SinglePathNodeIdentifier = None, tree: DisplayTree = None, tree_display_mode: TreeDisplayMode = None):
+    def set_tree(self, display_tree: DisplayTree, tree_display_mode: TreeDisplayMode = None):
         # Clear old GTK3 displayed nodes (if any)
         self.display_store.clear_model_on_ui_thread()
 
-        if not root and not tree:
-            raise RuntimeError('"root" and "tree" are both empty!')
-
         if tree_display_mode:
-            logger.debug(f'[{self.tree_id}] Setting TreeDisplayMode={tree_display_mode.name} for root={root}, tree={tree}')
+            logger.debug(f'[{self.tree_id}] Setting TreeDisplayMode={tree_display_mode.name} for display_tree={display_tree}')
             self.treeview_meta.tree_display_mode = tree_display_mode
 
-        # FIXME: create GRPC call here
-        self.lazy_loader = DisplayTreeLazyLoader(controller=self, root_identifier=root, tree=tree)
+        self._display_tree = display_tree
 
     # CONVENIENCE METHODS
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -169,7 +161,7 @@ class TreePanelController:
         return self.app.config
 
     def get_root_identifier(self) -> SinglePathNodeIdentifier:
-        return self.lazy_loader.get_root_identifier()
+        return self._display_tree.get_root_identifier()
 
     @property
     def tree_display_mode(self):

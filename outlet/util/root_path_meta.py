@@ -7,21 +7,21 @@ from model.node_identifier import SinglePathNodeIdentifier
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class RootPathMeta:
-    def __init__(self, new_root: SinglePathNodeIdentifier, is_found: bool, offending_path: str = None):
-        assert isinstance(new_root, SinglePathNodeIdentifier), f'Wrong instance: {type(new_root)}: {new_root}'
-        if not new_root or not new_root.get_path_list():
-            raise RuntimeError(f'Root path cannot be empty! (root={new_root})')
-        self.root: SinglePathNodeIdentifier = new_root
-        self.is_found: bool = is_found
+    def __init__(self, new_root_spid: SinglePathNodeIdentifier, root_exists: bool, offending_path: str = None):
+        assert isinstance(new_root_spid, SinglePathNodeIdentifier), f'Wrong instance: {type(new_root_spid)}: {new_root_spid}'
+        if not new_root_spid or not new_root_spid.get_path_list():
+            raise RuntimeError(f'Root path cannot be empty! (root_spid={new_root_spid})')
+        self.root_spid: SinglePathNodeIdentifier = new_root_spid
+        self.root_exists: bool = root_exists
         """False if root not found"""
         self.offending_path: Optional[str] = offending_path
         """Only present in some cases where root not found"""
 
     def __repr__(self):
-        return f'RootPathMeta(new_root={self.root}, is_found={self.is_found}, offending_path={self.offending_path})'
+        return f'RootPathMeta(new_root={self.root_spid}, root_exists={self.root_exists}, offending_path={self.offending_path})'
 
     def __eq__(self, other):
-        return self.root == other.root and self.is_found == other.is_found and self.offending_path == other.offending_path
+        return self.root_spid == other.root and self.root_exists == other.root_exists and self.offending_path == other.offending_path
 
     def __ne__(self, other):
         return not self.__eq__(other)

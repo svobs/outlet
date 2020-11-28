@@ -1,11 +1,12 @@
 import logging
 import os
-from typing import Deque, Iterable, List, Union
+from typing import Deque, Iterable, List, Optional, Union
 
 from model.has_get_children import HasGetChildren
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
+from store.cache_manager import DisplayTreeUiState
 from ui.tree.filter_criteria import FilterCriteria
 
 logger = logging.getLogger(__name__)
@@ -15,43 +16,60 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class DisplayTree(HasGetChildren):
-    def __init__(self, backend, tree_id: str, root_sn: SPIDNodePair):
+    def __init__(self, backend, state: DisplayTreeUiState):
         self.backend = backend
-        self.tree_id: str = tree_id
-
-        assert isinstance(root_sn, SPIDNodePair), f'Expected SPIDNodePair but got {type(root_sn)}'
-        self.root_sn: SPIDNodePair = root_sn
-        """This is needed to clarify the (albeit very rare) case where the root node resolves to multiple paths.
-        Our display tree can only have one path."""
+        self.state = state
 
     # From the root node_identifier
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
+    @property
+    def tree_id(self):
+        return self.state.tree_id
+
     def get_root_sn(self) -> SPIDNodePair:
-        return self.root_sn
+        return self.state.root_sn
 
     def get_root_identifier(self) -> SinglePathNodeIdentifier:
-        return self.root_sn.spid
+        return self.state.root_sn.spid
 
     def get_root_node(self):
-        return self.root_sn.node
+        return self.state.root_sn.node
+
+    def is_needs_manual_load(self):
+        return self.state.needs_manual_load
+
+    def set_needs_manual_load(self, needs_manual_load: bool):
+        self.state.needs_manual_load = needs_manual_load
 
     @property
     def root_path(self) -> str:
         """Override this if root node's identifier is not SinglePathNodeIdentifier"""
-        return self.root_sn.spid.get_single_path()
+        return self.state.root_sn.spid.get_single_path()
 
     @property
     def tree_type(self) -> int:
-        return self.root_sn.spid.tree_type
+        return self.state.root_sn.spid.tree_type
 
     @property
     def uid(self):
-        return self.root_sn.spid.uid
+        return self.state.root_sn.spid.uid
 
     @property
     def root_uid(self) -> UID:
         return self.uid
+
+    # More root meta
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+    def is_root_exists(self) -> bool:
+        return self.state.root_exists
+
+    def set_root_exists(self, exists: bool):
+        self.state.root_exists = exists
+
+    def get_offending_path(self) -> Optional[str]:
+        """Only present in *some* cases where root_exists() == False"""
+        return self.state.offending_path
 
     # Getters & search
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -107,8 +125,8 @@ class DisplayTree(HasGetChildren):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def print_tree_contents_debug(self):
-        logger.debug(f'[{self.tree_id}] Contents of tree with root "{self.root_sn.spid}": \n' +
-                     self.backend.cacheman.show_tree(self.root_sn.spid))
+        logger.debug(f'[{self.tree_id}] Contents of tree with root "{self.get_root_sn().spid}": \n' +
+                     self.backend.cacheman.show_tree(self.get_root_sn().spid))
 
     def __repr__(self):
-        return f'DisplayTree(tree_id="{self.tree_id}" root="{self.root_sn}"])'
+        return f'DisplayTree(tree_id="{self.tree_id}" root="{self.get_root_sn()}"])'

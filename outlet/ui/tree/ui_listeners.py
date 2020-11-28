@@ -55,21 +55,9 @@ class TreeUiListeners(HasLifecycle):
         targeted_signals: List[str] = []
         general_signals: List[str] = [actions.TOGGLE_UI_ENABLEMENT]
 
+        # FIXME
         self.connect_dispatch_listener(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.tree_id)
         targeted_signals.append(actions.ROOT_PATH_UPDATED)
-
-        if self.con.cacheman.load_all_caches_on_startup or self.con.cacheman.load_caches_for_displayed_trees_at_startup:
-            logger.debug(f'[{self.con.tree_id}] LoadAllAtStartup={self.con.cacheman.load_all_caches_on_startup}, '
-                         f'LoadDisplayedAtStartup={self.con.cacheman.load_caches_for_displayed_trees_at_startup}')
-            # Either enabled for this tree to be loaded automatically
-            # FIXME: just attach listner ALWAYS and then let CacheMan determine who to notify
-            self.connect_dispatch_listener(signal=actions.START_CACHEMAN_DONE, receiver=self._after_all_caches_loaded)
-            if self.con.cacheman.load_all_caches_done:
-                # If cacheman finished loading before we even started listening, just execute here.
-                # Possible race condition? Should be ok for CPython...
-                # FIXME: this is nasty. Find a better solution. Something like a queuing solution for signals...
-                self._after_all_caches_loaded(self.con.tree_id)
-            general_signals.append(actions.START_CACHEMAN_DONE)
 
         # Status bar
         self.connect_dispatch_listener(signal=actions.SET_STATUS, receiver=self._on_set_status, sender=self.con.tree_id)
@@ -234,21 +222,18 @@ class TreeUiListeners(HasLifecycle):
                 return True
         return False
 
+    # FIXME: this needs total replacement
     def _on_root_path_updated(self, sender, new_root_meta: RootPathMeta):
         logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.ROOT_PATH_UPDATED}"')
 
         # Reload subtree and refresh display
-        if new_root_meta.is_found and self.con.cacheman.reload_tree_on_root_path_update:
+        if new_root_meta.root_exists and self.con.cacheman.reload_tree_on_root_path_update:
             logger.debug(f'[{self.con.tree_id}] Got new root. Reloading subtree for: {new_root_meta.root}')
             # Loads from disk if necessary:
             self.con.reload(new_root_meta.root, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, hide_checkboxes=True)
         else:
             # Just wipe out the old root and clear the tree
             self.con.set_tree(root=new_root_meta.root)
-
-    def _after_all_caches_loaded(self, sender):
-        logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.START_CACHEMAN_DONE}"; sending "{actions.POPULATE_UI_TREE}" signal')
-        dispatcher.send(signal=actions.POPULATE_UI_TREE, sender=self.con.tree_id)
 
     # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
     def _on_set_status(self, sender, status_msg):

@@ -1,22 +1,20 @@
-import os
 import logging
+import os
 import re
-from typing import List
 import subprocess
+from typing import List
 
 from pydispatch import dispatcher
 
 from constants import TreeDisplayMode
 from model.display_tree.category import CategoryDisplayTree
+from model.node.gdrive_node import GDriveFile
 from model.node.local_disk_node import LocalNode
-from model.node_identifier import SinglePathNodeIdentifier
-from ui.tree.filter_criteria import FilterCriteria
-from util import file_util
+from model.node.node import Node, SPIDNodePair
 from model.user_op import UserOp, UserOpType
 from store.gdrive.client import GDriveClient
-from model.node.node import Node, SPIDNodePair
-from model.node.gdrive_node import GDriveFile
 from ui import actions
+from util import file_util
 from util.has_lifecycle import HasLifecycle
 
 import gi
@@ -43,31 +41,19 @@ class TreeActions(HasLifecycle):
     def start(self):
         logger.debug(f'[{self.con.tree_id}] TreeActions start')
         HasLifecycle.start(self)
-        self.connect_dispatch_listener(signal=actions.POPULATE_UI_TREE, sender=self.con.tree_id, receiver=self._load_ui_tree)
-        self.connect_dispatch_listener(signal=actions.EXPAND_AND_SELECT_NODE, sender=self.con.tree_id, receiver=self._expand_and_select_node)
         self.connect_dispatch_listener(signal=actions.CALL_EXIFTOOL, sender=self.con.tree_id, receiver=self._call_exiftool)
         self.connect_dispatch_listener(signal=actions.CALL_EXIFTOOL_LIST, sender=self.con.tree_id, receiver=self._call_exiftool_list)
         self.connect_dispatch_listener(signal=actions.SHOW_IN_NAUTILUS, sender=self.con.tree_id, receiver=self._show_in_nautilus)
         self.connect_dispatch_listener(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, receiver=self._call_xdg_open)
-        self.connect_dispatch_listener(signal=actions.EXPAND_ALL, sender=self.con.tree_id, receiver=self._expand_all)
         self.connect_dispatch_listener(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, receiver=self._download_file_from_gdrive)
         self.connect_dispatch_listener(signal=actions.DELETE_SINGLE_FILE, sender=self.con.tree_id, receiver=self._delete_single_file)
         self.connect_dispatch_listener(signal=actions.DELETE_SUBTREE, sender=self.con.tree_id, receiver=self._delete_subtree)
         self.connect_dispatch_listener(signal=actions.SET_ROWS_CHECKED, sender=self.con.tree_id, receiver=self._check_rows)
         self.connect_dispatch_listener(signal=actions.SET_ROWS_UNCHECKED, sender=self.con.tree_id, receiver=self._uncheck_rows)
-        self.connect_dispatch_listener(signal=actions.FILTER_UI_TREE, sender=self.con.tree_id, receiver=self._filter_ui_tree)
         self.connect_dispatch_listener(signal=actions.DIFF_ONE_SIDE_RESULT, sender=self.con.tree_id, receiver=self._receive_diff_result)
 
     # ACTIONS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-    def _load_ui_tree(self, sender):
-        """Just populates the tree with nodes. Executed asyncly via actions.POPULATE_UI_TREE"""
-        dispatcher.send(signal=actions.ENQUEUE_UI_TASK, sender=sender, task_func=self.con.display_mutator.populate_root)
-
-    def _expand_and_select_node(self, nid: SinglePathNodeIdentifier):
-        logger.debug(f'[{self.con.tree_id}] Got signal: "{actions.EXPAND_AND_SELECT_NODE}"')
-        self.con.display_mutator.expand_and_select_node(nid)
 
     def _call_exiftool_list(self, sender, node_list: List[LocalNode]):
 
@@ -147,9 +133,6 @@ class TreeActions(HasLifecycle):
         else:
             self.con.parent_win.show_error_msg('Cannot open file in Nautilus', f'File not found: {full_path}')
 
-    def _expand_all(self, sender, tree_path):
-        self.con.display_mutator.expand_all(tree_path)
-
     def _delete_single_file(self, sender, node: Node):
         self._delete_subtree(sender, node)
 
@@ -192,9 +175,6 @@ class TreeActions(HasLifecycle):
     def _uncheck_rows(self, sender, tree_paths: List[Gtk.TreePath] = None):
         for tree_path in tree_paths:
             self.con.display_store.set_row_checked(tree_path, False)
-
-    def _filter_ui_tree(self, sender: str, filter_criteria: FilterCriteria):
-        self.con.display_mutator.filter_tree(filter_criteria)
 
     def _receive_diff_result(self, sender: str, new_tree: CategoryDisplayTree):
         self.con.reload(new_tree=new_tree, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY, show_checkboxes=True)

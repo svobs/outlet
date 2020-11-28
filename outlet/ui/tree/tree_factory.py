@@ -1,27 +1,20 @@
 import logging
-from typing import Optional
 
 from constants import SUPER_DEBUG, TreeDisplayMode
-from model.node.node import Node
-from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.display_tree.display_tree import DisplayTree
+from model.node.node import Node
 from ui.comp.filter_panel import TreeFilterPanel
+from ui.comp.root_dir_panel import RootDirPanel
 from ui.dialog.base_dialog import BaseDialog
 from ui.tree import tree_factory_templates
+from ui.tree.controller import TreePanelController
+from ui.tree.display_mutator import DisplayMutator
+from ui.tree.display_store import DisplayStore
 from ui.tree.tree_actions import TreeActions
+from ui.tree.treeview_meta import TreeViewMeta
 from ui.tree.ui_listeners import TreeUiListeners
 
-from ui.tree.display_mutator import DisplayMutator
-from ui.comp.root_dir_panel import RootDirPanel
-
-from ui.tree.controller import TreePanelController
-from ui.tree.treeview_meta import TreeViewMeta
-from ui.tree.display_store import DisplayStore
-
 import gi
-
-from util.root_path_meta import RootPathMeta
-
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -43,24 +36,15 @@ def is_ignored_func(data_node: Node) -> bool:
 
 
 class TreeFactory:
-    def __init__(self,
-                 parent_win: BaseDialog,
-                 tree_id: str,
-                 root_path_meta: Optional[RootPathMeta] = None,
-                 tree: Optional[DisplayTree] = None
-                 ):
+    def __init__(self, parent_win: BaseDialog, tree: DisplayTree):
         self.parent_win = parent_win
 
-        if root_path_meta:
-            self.root_path_meta = root_path_meta
-        elif tree:
-            self.root_path_meta = RootPathMeta(tree.get_root_identifier(), is_found=True)
-        else:
-            raise RuntimeError('Params "root_path_meta" and "tree" cannot both be empty!')
-        self.tree: Optional[DisplayTree] = tree
+        if not tree:
+            raise RuntimeError('Param "tree" cannot be empty!')
+
+        self.tree: DisplayTree = tree
         """Choose one: tree or root"""
 
-        self.tree_id: str = tree_id
         self.can_modify_tree = False
         self.has_checkboxes: bool = False
         self.can_change_root: bool = False
@@ -71,7 +55,7 @@ class TreeFactory:
 
     def build(self):
         """Builds a single instance of a tree panel, and configures all its components as specified."""
-        logger.debug(f'[{self.tree_id}] Building controller for tree')
+        logger.debug(f'[{self.tree.tree_id}] Building controller for tree')
 
         if self.allow_multiple_selection:
             gtk_selection_mode = Gtk.SelectionMode.MULTIPLE
@@ -79,7 +63,7 @@ class TreeFactory:
             gtk_selection_mode = Gtk.SelectionMode.SINGLE
 
         treeview_meta = TreeViewMeta(config=self.parent_win.config,
-                                     tree_id=self.tree_id,
+                                     tree_id=self.tree.tree_id,
                                      can_modify_tree=self.can_modify_tree,
                                      has_checkboxes=self.has_checkboxes,
                                      can_change_root=self.can_change_root,
@@ -97,15 +81,7 @@ class TreeFactory:
 
         controller.display_store = DisplayStore(controller)
 
-        if self.tree:
-            # Prefer tree over root
-            controller.set_tree(tree=self.tree)
-            already_loaded = True
-        elif self.root_path_meta:
-            controller.set_tree(root=self.root_path_meta.root)
-            already_loaded = False
-        else:
-            raise RuntimeError('"root_path_meta" and "tree" are both empty!')
+        controller.set_tree(display_tree=self.tree)
 
         controller.display_mutator = DisplayMutator(config=self.parent_win.config, controller=controller)
 
@@ -118,9 +94,7 @@ class TreeFactory:
 
         controller.root_dir_panel = RootDirPanel(parent_win=self.parent_win,
                                                  controller=controller,
-                                                 current_root_meta=self.root_path_meta,
-                                                 can_change_root=treeview_meta.can_change_root,
-                                                 is_loaded=already_loaded)
+                                                 can_change_root=treeview_meta.can_change_root)
 
         controller.filter_panel = TreeFilterPanel(parent_win=self.parent_win,
                                                   controller=controller)
@@ -147,11 +121,11 @@ class TreeFactory:
 """
 
 
-def build_gdrive_root_chooser(parent_win, tree_id, tree: DisplayTree):
+def build_gdrive_root_chooser(parent_win, tree: DisplayTree):
     """Builds a tree panel for browsing a Google Drive tree, using lazy loading. For the GDrive root chooser dialog"""
     if SUPER_DEBUG:
-        logger.debug(f'[{tree_id}] Entered build_gdrive_root_chooser()')
-    factory = TreeFactory(parent_win=parent_win, tree=tree, tree_id=tree_id)
+        logger.debug(f'[{tree.tree_id}] Entered build_gdrive_root_chooser()')
+    factory = TreeFactory(parent_win=parent_win, tree=tree)
     factory.allow_multiple_selection = False
     factory.can_modify_tree = False
     factory.display_persisted = False
@@ -160,13 +134,10 @@ def build_gdrive_root_chooser(parent_win, tree_id, tree: DisplayTree):
     return factory.build()
 
 
-def build_editor_tree(parent_win,
-                      tree_id: str,
-                      root_path_meta: RootPathMeta = None,
-                      tree: DisplayTree = None):
+def build_editor_tree(parent_win, tree: DisplayTree = None):
     if SUPER_DEBUG:
-        logger.debug(f'[{tree_id}] Entered build_editor_tree()')
-    factory = TreeFactory(parent_win=parent_win, root_path_meta=root_path_meta, tree=tree, tree_id=tree_id)
+        logger.debug(f'[{tree.tree_id}] Entered build_editor_tree()')
+    factory = TreeFactory(parent_win=parent_win, tree=tree)
     factory.has_checkboxes = False  # not initially
     factory.can_modify_tree = True
     factory.can_change_root = True
@@ -175,11 +146,11 @@ def build_editor_tree(parent_win,
     return factory.build()
 
 
-def build_static_category_file_tree(parent_win, tree_id: str, tree: DisplayTree):
+def build_static_category_file_tree(parent_win, tree: DisplayTree):
     if SUPER_DEBUG:
-        logger.debug(f'[{tree_id}] Entered build_static_category_file_tree()')
+        logger.debug(f'[{tree.tree_id}] Entered build_static_category_file_tree()')
     # Whole tree is provided here. For Merge Preview dialog
-    factory = TreeFactory(parent_win=parent_win, tree=tree, tree_id=tree_id)
+    factory = TreeFactory(parent_win=parent_win, tree=tree)
     factory.has_checkboxes = False
     factory.can_change_root = False
     factory.can_modify_tree = False
