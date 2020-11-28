@@ -115,7 +115,6 @@ class CacheManager(HasLifecycle):
         self.enable_save_to_disk = backend.config.get('cache.enable_cache_save')
         self.load_all_caches_on_startup = backend.config.get('cache.load_all_caches_on_startup')
         self.load_caches_for_displayed_trees_at_startup = backend.config.get('cache.load_caches_for_displayed_trees_on_startup')
-        """FIXME: this is currently not working. Need to brainstorm how to fix race condition"""
         self.sync_from_local_disk_on_cache_load = backend.config.get('cache.sync_from_local_disk_on_cache_load')
         self.reload_tree_on_root_path_update = backend.config.get('cache.load_cache_when_tree_root_selected')
         self.cancel_all_pending_ops_on_startup = backend.config.get('cache.cancel_all_pending_ops_on_startup')
@@ -158,8 +157,7 @@ class CacheManager(HasLifecycle):
         self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE, receiver=self._on_refresh_subtree_requested)
         self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE_STATS, receiver=self._on_refresh_stats_requested)
 
-        self.connect_dispatch_listener(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated)
-        self.connect_dispatch_listener(signal=actions.GDRIVE_RELOADED, receiver=self._on_gdrive_reloaded)  # FIXME NOW
+        self.connect_dispatch_listener(signal=actions.GDRIVE_RELOADED, receiver=self._on_gdrive_whole_tree_reloaded)
 
     def shutdown(self):
         logger.debug('CacheManager.shutdown() entered')
@@ -254,7 +252,7 @@ class CacheManager(HasLifecycle):
         finally:
             dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
             self._startup_done.set()
-            logger.debug('CacheManager init done')
+            logger.info('CacheManager startup done')
             dispatcher.send(signal=actions.START_CACHEMAN_DONE, sender=ID_GLOBAL_CACHE)
 
     def _load_registry(self):
@@ -307,7 +305,7 @@ class CacheManager(HasLifecycle):
 
     def wait_for_startup_done(self):
         if not self._startup_done.is_set():
-            logger.info('Waiting for CacheManager startup to complete')
+            logger.debug('Waiting for CacheManager startup to complete')
         if not self._startup_done.wait(CACHE_LOAD_TIMEOUT_SEC):
             logger.error('Timed out waiting for CacheManager startup!')
 
@@ -392,7 +390,7 @@ class CacheManager(HasLifecycle):
         elif cache_type == TREE_TYPE_GDRIVE:
             assert existing_disk_cache.subtree_root == NodeIdentifierFactory.get_gdrive_root_constant_identifier(), \
                 f'Expected GDrive root ({NodeIdentifierFactory.get_gdrive_root_constant_identifier()}) but found: {existing_disk_cache.subtree_root}'
-            self._master_gdrive.get_synced_master_tree(tree_id=ID_GLOBAL_CACHE)
+            self._master_gdrive.get_synced_master_tree()
 
     # Action listener callbacks
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -436,33 +434,20 @@ class CacheManager(HasLifecycle):
         logger.info(f'[{sender}] Enqueuing task to refresh stats')
         self.backend.executor.submit_async_task(self.refresh_stats, root_uid, sender)
 
-    def _on_root_path_updated(self, sender, new_root_meta: RootPathMeta):
-        logger.debug(f'[{sender}] Received signal "{actions.ROOT_PATH_UPDATED}" with new_root_meta={new_root_meta}')
-        tree_id: str = sender
-
-        # Update capture
-        if self._is_live_capture_enabled:
-            if new_root_meta.root_exists:
-                self._live_monitor.start_or_update_capture(new_root_meta.root_spid, tree_id)
-            else:
-                self._live_monitor.stop_capture(tree_id)
-
-        # Update backend tracking
-        display_tree_meta: ActiveDisplayTreeMeta = ActiveDisplayTreeMeta(self, tree_id, new_root_meta.root_spid)
-        self._display_tree_dict[tree_id] = display_tree_meta
-        # TODO: load new tree
-
-    # FIXME NOW
-    def _on_gdrive_reloaded(self, sender: str):
+    def _on_gdrive_whole_tree_reloaded(self, sender: str):
+        # If GDrive was reloaded, our previous selection was almost certainly invalid. Just reset all open GDrive trees to GDrive root.
         logger.info(f'Received signal: "{actions.GDRIVE_RELOADED}"')
-        if self.root_identifier.tree_type == TREE_TYPE_GDRIVE:
-            # If GDrive was reloaded, our previous selection was almost certainly invalid. Just reset to GDrive root.
-            new_root = NodeIdentifierFactory.get_gdrive_root_constant_identifier()
-            if new_root != self.root_identifier:
-                self.root_identifier = new_root
-                err = None
-                logger.info(f'[{self._tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root={new_root}, err={err}')
-                dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self._tree_id, new_root=new_root, err=err)
+
+        tree_id_list: List[str] = []
+        for tree_meta in self._display_tree_dict.values():
+            if tree_meta.root_sn.spid.tree_type == TREE_TYPE_GDRIVE:
+                tree_id_list.append(tree_meta.tree_id)
+
+        gdrive_root_spid = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
+        for tree_id in tree_id_list:
+            logger.info(f'[{tree_id}] Resetting path to GDrive root')
+            tree = self.get_display_tree_ui_state(tree_id, spid=gdrive_root_spid)
+            # FIXME: figure out how to send to gRPC clients
 
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -592,7 +577,7 @@ class CacheManager(HasLifecycle):
             else:  # LocalNode
                 if not os.path.exists(full_path):
                     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
-                uid = self.get_uid_for_path(full_path)
+                uid = self.get_uid_for_local_path(full_path)
                 identifier_list = [LocalNodeIdentifier(uid=uid, path_list=full_path)]
 
             assert len(identifier_list) > 0, f'Got no identifiers for path but no error was raised: {full_path}'
@@ -645,6 +630,7 @@ class CacheManager(HasLifecycle):
             logger.info(f'Display tree is no longer tracked; discarding data load: {tree_id}')
             return
 
+        # TODO: carry this across gRPC
         dispatcher.send(signal=actions.LOAD_SUBTREE_STARTED, sender=tree_id)
 
         if display_tree_meta.root_exists:
@@ -654,7 +640,11 @@ class CacheManager(HasLifecycle):
                 self._master_local.get_display_tree(spid, tree_id)
             elif spid.tree_type == TREE_TYPE_GDRIVE:
                 assert self._master_gdrive
-                self._master_gdrive.get_display_tree(spid, tree_id=tree_id)
+                if tree_id == actions.ID_GDRIVE_DIR_SELECT:
+                    # special handling for dir select dialog: make sure we are fully synced first
+                    self._master_gdrive.get_synced_master_tree()
+                else:
+                    self._master_gdrive.get_display_tree(spid, tree_id=tree_id)
             else:
                 raise RuntimeError(f'Unrecognized tree type: {spid.tree_type}')
 
@@ -718,7 +708,7 @@ class CacheManager(HasLifecycle):
                     raise RuntimeError(f'Could not find a cache file for planning node: {node}')
 
         if needs_gdrive:
-            self._master_gdrive.get_synced_master_tree(tree_id=ID_GLOBAL_CACHE)
+            self._master_gdrive.get_synced_master_tree()
 
         for cache in needed_cache_dict.values():
             if not cache.is_loaded:
@@ -893,7 +883,7 @@ class CacheManager(HasLifecycle):
 
     def get_synced_gdrive_master_tree(self, tree_id: str):
         """Will load from disk and sync latest changes from GDrive server before returning."""
-        self._master_gdrive.get_synced_master_tree(tree_id=tree_id)
+        self._master_gdrive.get_synced_master_tree()
 
     def build_local_file_node(self, full_path: str, staging_path=None, must_scan_signature=False) -> Optional[LocalFileNode]:
         return self._master_local.build_local_file_node(full_path, staging_path, must_scan_signature)
@@ -916,11 +906,17 @@ class CacheManager(HasLifecycle):
     def get_goog_id_list_for_uid_list(self, uids: List[UID], fail_if_missing: bool = True) -> List[str]:
         return self._master_gdrive.get_goog_id_list_for_uid_list(uids, fail_if_missing=fail_if_missing)
 
-    # TODO: rename to get_uid_for_local_path()
-    # FIXME: add check and action to ensure that any relevant local caches have already been loaded first
-    def get_uid_for_path(self, full_path: str, uid_suggestion: Optional[UID] = None, override_load_check: bool = False) -> UID:
+    def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None, override_load_check: bool = False) -> UID:
         """Deterministically gets or creates a UID corresponding to the given path string"""
         assert full_path and isinstance(full_path, str)
+
+        # FIXME: this causes a cycle which causes us to lock up
+        # cache: Optional[PersistedCacheInfo] = self.find_existing_cache_info_for_local_subtree(full_path)
+        # if cache and not cache.is_loaded:
+        #     # If associated subtree is cached, make sure it's loaded so that we don't issue a new UID for a cached node
+        #     logger.debug(f'get_uid_for_local_path(): cache for {cache.subtree_root} is not laoded: loading now')
+        #     self._master_local.get_display_tree(cache.subtree_root, ID_GLOBAL_CACHE)
+
         return self._master_local.get_uid_for_path(full_path, uid_suggestion, override_load_check)
 
     def _read_single_node_from_disk_for_local_path(self, full_path: str) -> Node:
@@ -952,7 +948,7 @@ class CacheManager(HasLifecycle):
     def get_node_for_local_path(self, full_path: str) -> Optional[Node]:
         if not full_path:
             raise RuntimeError('get_node_for_local_path(): full_path not specified!')
-        uid = self.get_uid_for_path(full_path)
+        uid = self.get_uid_for_local_path(full_path)
         return self._master_local.get_node_for_uid(uid)
 
     def get_goog_node_for_name_and_parent_uid(self, name: str, parent_uid: UID) -> Optional[GDriveNode]:
@@ -1034,7 +1030,7 @@ class CacheManager(HasLifecycle):
         else:
             assert isinstance(node, LocalNode) and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Node: {node}'
             parent_path: str = node.derive_parent_path()
-            uid: UID = self.get_uid_for_path(parent_path)
+            uid: UID = self.get_uid_for_local_path(parent_path)
             assert uid
             if not whitelist_subtree_path or parent_path.startswith(whitelist_subtree_path):
                 return [uid]

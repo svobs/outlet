@@ -1,15 +1,10 @@
 import logging
 
+from model.node_identifier import LocalNodeIdentifier
+
 import gi
-from pydispatch import dispatcher
-
-from util.root_path_meta import RootPathMeta
-
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
-
-from model.node_identifier import LocalNodeIdentifier
-import ui.actions as actions
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +16,9 @@ def _on_root_dir_selected(dialog, response_id, root_dir_panel):
     if response_id == Gtk.ResponseType.OK:
         filename = open_dialog.get_filename()
         logger.info(f'User selected dir: {filename}')
-        uid = open_dialog.parent_win.app.cacheman.get_uid_for_path(filename)
+        uid = open_dialog.parent_win.app.cacheman.get_uid_for_local_path(filename)
         node_identifier = LocalNodeIdentifier(uid=uid, path_list=filename)
-        new_root_meta = RootPathMeta(node_identifier, is_found=True)
-        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=root_dir_panel.tree_id, new_root_meta=new_root_meta)
+        open_dialog.parent_win.app.backend.create_display_tree_from_spid(root_dir_panel.tree_id, node_identifier)
     # if response is "CANCEL" (the button "Cancel" has been clicked)
     elif response_id == Gtk.ResponseType.CANCEL:
         logger.debug("Cancelled: LocalRootDirChooserDialog")

@@ -61,7 +61,7 @@ class OneSide:
         self._add_needed_ancestors(dst_sn)
 
         if dst_tree_type == TREE_TYPE_LOCAL_DISK:
-            dst_node.uid = self.backend.cacheman.get_uid_for_path(dst_path)
+            dst_node.uid = self.backend.cacheman.get_uid_for_local_path(dst_path)
         elif dst_tree_type == TREE_TYPE_GDRIVE:
             assert isinstance(dst_node, GDriveNode) and dst_node.get_parent_uids(), f'Bad data: {dst_node}'
             existing_dst_node_list = self.backend.cacheman.get_node_list_for_path_list([dst_path], dst_tree_type)
@@ -166,7 +166,7 @@ class OneSide:
                                                drive_id=None, is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=True)
             elif tree_type == TREE_TYPE_LOCAL_DISK:
                 logger.debug(f'Creating LocalDirToAdd for {parent_path}')
-                new_uid = self.backend.cacheman.get_uid_for_path(parent_path)
+                new_uid = self.backend.cacheman.get_uid_for_local_path(parent_path)
                 new_parent_node = LocalDirNode(LocalNodeIdentifier(uid=new_uid, path_list=parent_path), trashed=TrashStatus.NOT_TRASHED,
                                                is_live=False)
             else:

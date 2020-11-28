@@ -60,7 +60,7 @@ class BackendIntegrated(OutletBackend, HasLifecycle):
         return self.uid_generator.next_uid()
 
     def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None, override_load_check: bool = False) -> UID:
-        return self.cacheman.get_uid_for_path(full_path, uid_suggestion)
+        return self.cacheman.get_uid_for_local_path(full_path, uid_suggestion)
 
     def get_display_tree_ui_state(self, tree_id: str, user_path: str = None, spid: SinglePathNodeIdentifier = None,
                                   is_startup: bool = False) -> DisplayTreeUiState:

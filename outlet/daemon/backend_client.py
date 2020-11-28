@@ -36,9 +36,6 @@ class BackendGRPCClient(OutletBackend, HasLifecycle):
 
         self.connect_dispatch_listener(signal=actions.ENQUEUE_UI_TASK, receiver=self._on_ui_task_requested)
 
-        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_STARTED, receiver=self._on_subtree_load_started)
-        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_DONE, receiver=self._on_subtree_load_started)
-
         channel = grpc.insecure_channel('localhost:50051')
         self.grpc_stub = Outlet_pb2_grpc.OutletStub(channel)
         logger.info(f'Outlet client connected!')
@@ -88,17 +85,3 @@ class BackendGRPCClient(OutletBackend, HasLifecycle):
     def start_subtree_load(self, tree_id: str):
         # FIXME: implement in gRPC
         pass
-
-    def _on_subtree_load_started(self, sender: str):
-        # FIXME: implement stream in gRPC
-        request = ServerSignal()
-        request.signal = actions.LOAD_SUBTREE_STARTED
-
-        self.grpc_stub.send_signal(request)
-
-    def _on_subtree_load_done(self, sender: str):
-        # FIXME: implement stream in gRPC
-        request = ServerSignal()
-        request.signal = actions.LOAD_SUBTREE_DONE
-
-        self.grpc_stub.send_signal(request)

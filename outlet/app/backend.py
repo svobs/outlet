@@ -3,12 +3,16 @@ import logging
 from abc import ABC, abstractmethod
 from typing import List, Optional, Union
 
+from pydispatch import dispatcher
+
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.null import NullDisplayTree
 from model.node.node import Node
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from store.cache_manager import DisplayTreeUiState
+from ui import actions
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +46,10 @@ class OutletBackend(ABC):
     def start_subtree_load(self, tree_id: str):
         pass
 
+    def create_display_tree_for_gdrive_select(self):
+        spid = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
+        return self._create_display_tree(actions.ID_GDRIVE_DIR_SELECT, spid=spid)
+
     def create_display_tree_from_config(self, tree_id: str, is_startup: bool = False) -> DisplayTree:
         # no arguments will be recognized by CacheMan as needing to read from config
         return self._create_display_tree(tree_id, is_startup=is_startup)
@@ -57,13 +65,19 @@ class OutletBackend(ABC):
         """
         Performs a read-through retreival of all the nodes in the given subtree.
         """
-        logger.debug(f'Got request to load subtree: {spid}')
+        logger.debug(f'[{tree_id}] Got request to load subtree (user_path="{user_path}", spid={spid}, is_startup={is_startup}')
         if spid:
             assert isinstance(spid, SinglePathNodeIdentifier), f'Expected SinglePathNodeIdentifier but got {type(spid)}'
             spid.normalize_paths()
 
         state = self.get_display_tree_ui_state(tree_id, user_path, spid, is_startup)
         if state.root_exists:
-            return DisplayTree(self, state)
+            tree = DisplayTree(self, state)
         else:
-            return NullDisplayTree(self, state)
+            tree = NullDisplayTree(self, state)
+
+        # Also update any listeners:
+        logger.debug(f'[{tree_id}] Firing signal: {actions.DISPLAY_TREE_CHANGED}')
+        dispatcher.send(signal=actions.DISPLAY_TREE_CHANGED, sender=tree_id, tree=tree)
+
+        return tree

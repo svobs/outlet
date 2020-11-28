@@ -26,7 +26,7 @@ class LocalDiskTree(SimpleTree):
 
     def can_add_without_mkdir(self, node: LocalNode) -> bool:
         parent_path: str = node.derive_parent_path()
-        uid = self.backend.cacheman.get_uid_for_path(parent_path)
+        uid = self.backend.cacheman.get_uid_for_local_path(parent_path)
         return self.get_node(uid) is not None
 
     def add_to_tree(self, node: LocalNode):
@@ -47,7 +47,7 @@ class LocalDiskTree(SimpleTree):
             for dir_name in path_segments:
                 path_so_far: str = os.path.join(path_so_far, dir_name)
                 # TODO: Should not be using override_load_check=True here
-                uid = self.backend.cacheman.get_uid_for_path(path_so_far, override_load_check=True)
+                uid = self.backend.cacheman.get_uid_for_local_path(path_so_far, override_load_check=True)
                 child: LocalNode = self.get_node(nid=uid)
                 if not child:
                     # logger.debug(f'Creating dir node: nid={uid}')

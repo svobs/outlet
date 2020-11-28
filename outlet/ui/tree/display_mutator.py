@@ -246,6 +246,7 @@ class DisplayMutator(HasLifecycle):
         Draws from the undelying data store as needed, to populate the display store."""
         logger.debug(f'[{self.con.tree_id}] Entered populate_root(): expanded_rows={self.con.display_store.expanded_rows}')
 
+        # FIXME: jesus this is nasty
         # This may be a long task
         try:
             # Lock this so that node-upserted and node-removed callbacks don't interfere

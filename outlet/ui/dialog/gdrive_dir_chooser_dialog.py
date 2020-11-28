@@ -5,6 +5,7 @@ from pydispatch import dispatcher
 from pydispatch.errors import DispatcherKeyError
 
 from constants import TREE_TYPE_GDRIVE
+from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
@@ -28,11 +29,11 @@ GDRIVE_DIR_CHOOSER_DIALOG_DEFAULT_HEIGHT = 800
 
 class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
 
-    def __init__(self, parent_win: BaseDialog, tree, tree_id: str, current_selection: SinglePathNodeIdentifier):
+    def __init__(self, parent_win: BaseDialog, tree: DisplayTree, current_selection: SinglePathNodeIdentifier, target_tree_id: str):
         Gtk.Dialog.__init__(self, title="Select GDrive Root", transient_for=parent_win, flags=0)
         BaseDialog.__init__(self, app=parent_win.app)
 
-        self.tree_id = tree_id
+        self.target_tree_id = actions.ID_GDRIVE_DIR_SELECT
         """Note: this is the ID of the tree for which this dialog is ultimately selecting for, not this dialog's tree (see tree_controller below)"""
 
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
@@ -48,7 +49,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         self.content_box.add(label)
 
         # Prevent dialog from stepping on existing trees by giving it its own ID:
-        self.con = tree_factory.build_gdrive_root_chooser(parent_win=self, tree_id=actions.ID_GDRIVE_DIR_SELECT, tree=tree)
+        self.con = tree_factory.build_gdrive_root_chooser(parent_win=self, tree=tree)
 
         self.content_box.pack_start(self.con.content_box, True, True, 0)
 
@@ -58,9 +59,8 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
 
         dispatcher.connect(signal=actions.TREE_SELECTION_CHANGED, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_selected_changed)
 
-        if current_selection.tree_type == TREE_TYPE_GDRIVE:
-            logger.debug(f'[{actions.ID_GDRIVE_DIR_SELECT}] Connecting listener to signal: {actions.LOAD_UI_TREE_DONE}')
-            dispatcher.connect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
+        logger.debug(f'[{actions.ID_GDRIVE_DIR_SELECT}] Connecting listener to signal: {actions.LOAD_UI_TREE_DONE}')
+        dispatcher.connect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
 
         self.connect("response", self.on_response)
         self.show_all()
@@ -91,10 +91,10 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         logger.debug(f'[{actions.ID_GDRIVE_DIR_SELECT}] Load complete! Sending signal: {actions.EXPAND_AND_SELECT_NODE}')
         dispatcher.send(actions.EXPAND_AND_SELECT_NODE, sender=actions.ID_GDRIVE_DIR_SELECT, nid=self._initial_selection_nid)
 
-    def on_ok_clicked(self, node_identifier: SinglePathNodeIdentifier):
-        logger.info(f'[{self.tree_id}] User selected dir "{node_identifier}"')
-        new_root_meta = RootPathMeta(node_identifier, is_found=True)
-        dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.tree_id, new_root_meta=new_root_meta)
+    def on_ok_clicked(self, spid: SinglePathNodeIdentifier):
+        logger.info(f'[{self.target_tree_id}] User selected dir "{spid}"')
+        # This will send a signal to everyone who needs to know:
+        self.app.backend.create_display_tree_from_spid(self.target_tree_id, spid)
 
     def on_response(self, dialog, response_id):
         # destroy the widget (the dialog) when the function on_response() is called

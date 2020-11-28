@@ -11,12 +11,12 @@ from constants import APP_NAME, H_PAD, ICON_PAUSE, ICON_PLAY, ICON_WINDOW, TreeD
 from diff.diff_content_first import ContentFirstDiffer
 from global_actions import GlobalActions
 from model.display_tree.category import CategoryDisplayTree
+from model.display_tree.display_tree import DisplayTree
 from model.node.node import SPIDNodePair
 from ui.dialog.base_dialog import BaseDialog
 from ui.dialog.merge_preview_dialog import MergePreviewDialog
 from ui.tree import tree_factory
 from ui.tree.root_path_config import RootPathConfigPersister
-from util.root_path_meta import RootPathMeta
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk
@@ -132,8 +132,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
         # Need to add an extra listener to each tree, to reload when the other one's root changes
         # if displaying the results of a diff
-        dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=actions.ID_LEFT_TREE)
-        dispatcher.connect(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=actions.ID_RIGHT_TREE)
+        dispatcher.connect(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed, sender=actions.ID_LEFT_TREE)
+        dispatcher.connect(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed, sender=actions.ID_RIGHT_TREE)
         dispatcher.connect(signal=actions.EXIT_DIFF_MODE, receiver=self._on_merge_complete, sender=Any)
         dispatcher.connect(signal=actions.OP_EXECUTION_PLAY_STATE_CHANGED, receiver=self._update_play_pause_btn)
 
@@ -318,8 +318,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             self.play_pause_btn.set_tooltip_text('Resume change operations')
         self.toolbar.show_all()
 
-    def _on_root_path_updated(self, sender, new_root_meta: RootPathMeta):
-        logger.debug(f'Received signal: "{actions.ROOT_PATH_UPDATED}"')
+    def _on_display_tree_changed(self, sender, tree: DisplayTree):
+        logger.debug(f'Received signal: "{actions.DISPLAY_TREE_CHANGED}"')
 
         if sender == actions.ID_RIGHT_TREE and self.tree_con_left.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             # If displaying a diff and right root changed, reload left display
@@ -383,5 +383,5 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
 
 def _reload_tree(tree_con):
-    # need to set root again to trigger a model wipe
-    tree_con.reload(new_root=tree_con.get_tree().root_identifier, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, hide_checkboxes=True)
+    # set new_tree=None to trigger a reload of the existing tree
+    tree_con.reload(new_tree=None, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, hide_checkboxes=True)

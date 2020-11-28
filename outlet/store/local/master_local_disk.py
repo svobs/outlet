@@ -99,7 +99,7 @@ class LocalDiskDiskStore(HasLifecycle):
         checks that at least registry & memory match. If UID is not in memory, guarantees that it will be stored with the value from registry.
         This method should only be called for the subtree root of display trees being loaded"""
         existing_uid = subtree_root.uid
-        new_uid = self.backend.cacheman.get_uid_for_path(subtree_root.get_single_path(), existing_uid, override_load_check=True)
+        new_uid = self.backend.cacheman.get_uid_for_local_path(subtree_root.get_single_path(), existing_uid, override_load_check=True)
         if existing_uid != new_uid:
             logger.warning(f'Requested UID "{existing_uid}" is invalid for given path; changing it to "{new_uid}"')
         subtree_root.uid = new_uid
@@ -115,7 +115,7 @@ class LocalDiskDiskStore(HasLifecycle):
                 logger.debug(f'No meta found in cache ({cache_info.cache_location}) - will skip loading it')
                 return None
 
-            status = f'[{tree_id}] Loading meta for "{cache_info.subtree_root}" from cache: "{cache_info.cache_location}"'
+            status = f'[{tree_id}] Loading meta for subtree "{cache_info.subtree_root}" from cache: "{cache_info.cache_location}"'
             logger.debug(status)
             dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
 

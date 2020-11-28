@@ -12,9 +12,7 @@ DIFF_TREES_DONE = 'tree-diff_done'
 DIFF_TREES_FAILED = 'tree-diff_failed'
 DIFF_ONE_SIDE_RESULT = 'tree-diff_1side_result'
 SYNC_GDRIVE_CHANGES = 'sync-gdrive-changes'
-SHOW_GDRIVE_CHOOSER_DIALOG = 'show-gdrive-dir-chooser-dialog'
 DOWNLOAD_ALL_GDRIVE_META = 'download-all-gdrive-meta'
-GDRIVE_CHOOSER_DIALOG_LOAD_DONE = 'gdrive-dir-chooser-load-done'
 COMMAND_COMPLETE = 'command-complete'
 
 # --- Tree actions: requests ---
@@ -44,7 +42,7 @@ LOAD_SUBTREE_DONE = 'load-subtree-done'
 """Fired by the backend when it has finsished loading a subtree from cache"""
 NODE_EXPANSION_TOGGLED = 'node-expansion-toggled'
 NODE_EXPANSION_DONE = 'node-expansion-done'
-ROOT_PATH_UPDATED = 'root-path-updated'
+DISPLAY_TREE_CHANGED = 'display-tree-changed'
 GDRIVE_RELOADED = 'gdrive-reloaded'
 NODE_UPSERTED = 'node-upserted'
 NODE_REMOVED = 'node-removed'

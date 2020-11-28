@@ -118,8 +118,11 @@ class TreeContextMenu:
         if file_exists and is_dir and self.con.treeview_meta.can_change_root:
             item = Gtk.MenuItem(label=f'Go into "{node.name}"')
             spid: SinglePathNodeIdentifier = self.con.display_store.build_spid_from_tree_path(tree_path)
-            new_root_meta = RootPathMeta(spid, is_found=True)
-            item.connect('activate', self.send_signal, actions.ROOT_PATH_UPDATED, {'new_root_meta': new_root_meta})
+
+            def go_into():
+                self.con.app.backend.create_display_tree_from_spid(self.con.tree_id, spid)
+
+            item.connect('activate', go_into)
             menu.append(item)
 
         # MenuItem: 'Use EXIFTool on dir'

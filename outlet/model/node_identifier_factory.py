@@ -111,7 +111,7 @@ class NodeIdentifierFactory:
                 return GDriveIdentifier(path_list=derived_list, uid=uid)
             else:
                 if not uid:
-                    uid = self.backend.get_uid_for_path(full_path_list[0])
+                    uid = self.backend.get_uid_for_local_path(full_path_list[0])
 
                 return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
         else:

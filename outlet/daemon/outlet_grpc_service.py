@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class OutletGRPCService(OutletServicer):
+    """Backend gRPC Server"""
     def __init__(self, parent):
         self.uid_generator: UidGenerator = parent.uid_generator
         self.cacheman: CacheManager = parent.cacheman
@@ -45,5 +46,31 @@ class OutletGRPCService(OutletServicer):
 
     def get_uid_for_local_path(self, request: GetUidForLocalPath_Request, context):
         response = GetUidForLocalPath_Response()
-        response.uid = self.cacheman.get_uid_for_path(request.full_path, request.uid_suggestion)
+        response.uid = self.cacheman.get_uid_for_local_path(request.full_path, request.uid_suggestion)
         return response
+
+    def start_subtree_load(self, request):
+        self.cacheman.enqueue_load_subtree_task(request.tree_id)
+        # FIXME: implement in gRPC
+        return response
+
+    def _on_subtree_load_started(self, sender: str):
+        # FIXME: implement stream in gRPC
+        request = ServerSignal()
+        request.signal = actions.LOAD_SUBTREE_STARTED
+
+        self.grpc_stub.send_signal(request)
+
+    def _on_subtree_load_done(self, sender: str):
+        # FIXME: implement stream in gRPC
+        request = ServerSignal()
+        request.signal = actions.LOAD_SUBTREE_DONE
+
+        self.grpc_stub.send_signal(request)
+
+    def _on_display_tree_changed(self, sender: str):
+        # FIXME: implement stream in gRPC
+        request = ServerSignal()
+        request.signal = actions.DISPLAY_TREE_CHANGED
+
+        self.grpc_stub.send_signal(request)

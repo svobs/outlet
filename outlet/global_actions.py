@@ -26,7 +26,6 @@ class GlobalActions(HasLifecycle):
         logger.debug('Starting GlobalActions listeners')
         HasLifecycle.start(self)
         self.connect_dispatch_listener(signal=actions.START_DIFF_TREES, receiver=self._on_diff_requested)
-        self.connect_dispatch_listener(signal=actions.SHOW_GDRIVE_CHOOSER_DIALOG, receiver=self._on_gdrive_root_dialog_requested)
 
     def _on_diff_requested(self, sender, tree_id_left, tree_id_right):
         logger.debug(f'Received signal: "{actions.START_DIFF_TREES}" from "{sender}"')
@@ -85,23 +84,6 @@ class GlobalActions(HasLifecycle):
             dispatcher.send(signal=actions.DIFF_TREES_FAILED, sender=sender)
             logger.exception(err)
             GlobalActions.display_error_in_ui('Diff task failed due to unexpected error', repr(err))
-
-    def _on_gdrive_root_dialog_requested(self, sender: str, current_selection: SinglePathNodeIdentifier):
-        """See below."""
-        logger.debug(f'Received signal: "{actions.SHOW_GDRIVE_CHOOSER_DIALOG}"')
-        self.backend.executor.submit_async_task(self.load_data_for_gdrive_dir_chooser_dialog, sender, current_selection)
-
-    def load_data_for_gdrive_dir_chooser_dialog(self, tree_id: str, current_selection: SinglePathNodeIdentifier):
-        """See above. Executed by Task Runner. NOT UI thread"""
-        GlobalActions.disable_ui(sender=tree_id)
-        try:
-            tree = self.backend.cacheman.get_synced_gdrive_master_tree(tree_id)
-            dispatcher.send(signal=actions.GDRIVE_CHOOSER_DIALOG_LOAD_DONE, sender=tree_id, tree=tree, current_selection=current_selection)
-        except Exception as err:
-            logger.exception(err)
-            GlobalActions.display_error_in_ui(sender=tree_id, msg='Download from GDrive failed due to unexpected error', secondary_msg=repr(err))
-        finally:
-            GlobalActions.enable_ui(sender=tree_id)
 
     @staticmethod
     def display_error_in_ui(sender: str, msg: str, secondary_msg: str = None):

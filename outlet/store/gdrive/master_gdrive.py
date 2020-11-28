@@ -122,9 +122,10 @@ class GDriveMasterStore(MasterStore):
     # Tree-wide stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def _load_master_cache(self, invalidate_cache: bool, sync_latest_changes: bool, tree_id: str):
+    def _load_master_cache(self, invalidate_cache: bool, sync_latest_changes: bool):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
-        logger.debug(f'Entered _load_master_cache(): locked={self._struct_lock.locked()}, invalidate_cache={invalidate_cache}')
+        logger.debug(f'Entered _load_master_cache(): locked={self._struct_lock.locked()}, invalidate_cache={invalidate_cache}, '
+                     f'sync_latest_changes={sync_latest_changes}')
 
         if not self.backend.cacheman.enable_load_from_disk:
             logger.debug('Skipping cache load because cache.enable_cache_load is False')
@@ -177,7 +178,7 @@ class GDriveMasterStore(MasterStore):
     def _on_gdrive_sync_changes_requested(self, sender):
         """See below. This will load the GDrive tree (if it is not loaded already), then sync to the latest changes from GDrive"""
         logger.debug(f'Received signal: "{actions.SYNC_GDRIVE_CHANGES}"')
-        self.backend.executor.submit_async_task(self.get_synced_master_tree, sender)
+        self.backend.executor.submit_async_task(self.get_synced_master_tree)
 
     def _on_download_all_gdrive_meta_requested(self, sender):
         """See below. Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
@@ -189,7 +190,7 @@ class GDriveMasterStore(MasterStore):
         GlobalActions.disable_ui(sender=tree_id)
         try:
             """Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-            self.get_synced_master_tree(invalidate_cache=True, tree_id=tree_id)
+            self.get_synced_master_tree(invalidate_cache=True)
         except Exception as err:
             logger.exception(err)
             GlobalActions.display_error_in_ui('Download from GDrive failed due to unexpected error', repr(err))
@@ -199,32 +200,12 @@ class GDriveMasterStore(MasterStore):
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-    def _load_gdrive_subtree(self, subtree_root: Optional[SinglePathNodeIdentifier], invalidate_cache: bool,
-                             sync_latest_changes: bool, tree_id: str) -> None:
-        if not subtree_root:
-            subtree_root = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
-        logger.debug(f'[{tree_id}] Getting meta for subtree: "{subtree_root}" (invalidate_cache={invalidate_cache})')
-
-        self._load_master_cache(invalidate_cache, sync_latest_changes, tree_id)
-
-        if not subtree_root.uid:
-            logger.error(f'subtree_root = {subtree_root}')
-            return None
-
-        if subtree_root.uid:
-            root_node: GDriveNode = self._memstore.master_tree.get_node_for_uid(subtree_root.uid)
-            if not root_node:
-                raise GDriveItemNotFoundError(node_identifier=subtree_root,
-                                              msg=f'Cannot load subtree because it does not exist: "{subtree_root}"',
-                                              offending_path=subtree_root.get_single_path())
-
     def get_display_tree(self, subtree_root: SinglePathNodeIdentifier, tree_id: str):
-        assert isinstance(subtree_root, SinglePathNodeIdentifier)
-        self._load_gdrive_subtree(subtree_root, sync_latest_changes=False, invalidate_cache=False, tree_id=tree_id)
+        self._load_master_cache(sync_latest_changes=False, invalidate_cache=False)
 
-    def get_synced_master_tree(self, invalidate_cache: bool = False, tree_id: str = None):
+    def get_synced_master_tree(self, invalidate_cache: bool = False):
         """This will sync the latest changes before returning."""
-        self._load_gdrive_subtree(subtree_root=None, sync_latest_changes=True, invalidate_cache=invalidate_cache, tree_id=tree_id)
+        self._load_master_cache(sync_latest_changes=True, invalidate_cache=invalidate_cache)
 
     def refresh_subtree_stats(self, subtree_root_node: GDriveFolder, tree_id: str):
         logger.debug(f'refresh_subtree_stats(): locked={self._struct_lock.locked()}')
@@ -399,6 +380,7 @@ class GDriveMasterStore(MasterStore):
             return self._memstore.master_tree.get_node_for_name_and_parent_uid(name, parent_uid)
 
     def read_single_node_from_disk_for_uid(self, uid: UID) -> Optional[Node]:
+        logger.debug(f'Loading single node for uid: {uid}')
         return self._diskstore.get_single_node_with_uid(uid)
 
     def get_goog_id_for_uid(self, uid: UID) -> Optional[str]:

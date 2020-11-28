@@ -7,11 +7,8 @@ from typing import List, Optional, Tuple
 
 import store.local.content_hasher
 from constants import SUPER_DEBUG, TrashStatus, TREE_TYPE_LOCAL_DISK
-from model.display_tree.display_tree import DisplayTree
-from model.display_tree.null import NullDisplayTree
 from model.local_disk_tree import LocalDiskTree
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node.node import SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from store.cache_manager import PersistedCacheInfo
 from store.local.local_disk_scanner import LocalDiskScanner
@@ -164,7 +161,7 @@ class LocalDiskMasterStore(MasterStore):
             return self._memstore.master_tree.show(nid=subtree_root.uid)
 
     def get_display_tree(self, subtree_root: LocalNodeIdentifier, tree_id: str):
-        logger.debug(f'DisplayTree requested for root: {subtree_root}')
+        logger.debug(f'[{tree_id}] DisplayTree requested for root: {subtree_root}')
         self._get_display_tree(subtree_root, tree_id, is_live_refresh=False)
 
     def _get_display_tree(self, subtree_root: LocalNodeIdentifier, tree_id: str, is_live_refresh: bool = False) -> None:
@@ -183,7 +180,7 @@ class LocalDiskMasterStore(MasterStore):
         cache_man = self.backend.cacheman
         cache_info: Optional[PersistedCacheInfo] = cache_man.find_existing_cache_info_for_local_subtree(subtree_root.get_single_path())
         if cache_info:
-            logger.debug(f'LocalSubtree ({subtree_root}) is part of existing cached supertree ({cache_info.subtree_root})')
+            logger.debug(f'[{tree_id}] LocalSubtree ({subtree_root}) is part of existing cached supertree ({cache_info.subtree_root})')
         else:
             # No supertree found in cache. Create new cache entry:
             cache_info = cache_man.get_or_create_cache_info_entry(subtree_root)

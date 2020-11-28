@@ -7,6 +7,7 @@ from pydispatch import dispatcher
 import ui.actions as actions
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
 from diff.change_maker import ChangeMaker, SPIDNodePair
+from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
 from model.user_op import UserOp, UserOpType
@@ -55,9 +56,8 @@ class TreeUiListeners(HasLifecycle):
         targeted_signals: List[str] = []
         general_signals: List[str] = [actions.TOGGLE_UI_ENABLEMENT]
 
-        # FIXME
-        self.connect_dispatch_listener(signal=actions.ROOT_PATH_UPDATED, receiver=self._on_root_path_updated, sender=self.con.tree_id)
-        targeted_signals.append(actions.ROOT_PATH_UPDATED)
+        self.connect_dispatch_listener(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed, sender=self.con.tree_id)
+        targeted_signals.append(actions.DISPLAY_TREE_CHANGED)
 
         # Status bar
         self.connect_dispatch_listener(signal=actions.SET_STATUS, receiver=self._on_set_status, sender=self.con.tree_id)
@@ -222,18 +222,17 @@ class TreeUiListeners(HasLifecycle):
                 return True
         return False
 
-    # FIXME: this needs total replacement
-    def _on_root_path_updated(self, sender, new_root_meta: RootPathMeta):
-        logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.ROOT_PATH_UPDATED}"')
+    def _on_display_tree_changed(self, sender, tree: DisplayTree):
+        logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.DISPLAY_TREE_CHANGED}"')
 
         # Reload subtree and refresh display
-        if new_root_meta.root_exists and self.con.cacheman.reload_tree_on_root_path_update:
-            logger.debug(f'[{self.con.tree_id}] Got new root. Reloading subtree for: {new_root_meta.root}')
+        if tree.is_root_exists():
+            logger.debug(f'[{self.con.tree_id}] Got new root. Reloading subtree for: {tree.get_root_identifier()}')
             # Loads from disk if necessary:
-            self.con.reload(new_root_meta.root, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, hide_checkboxes=True)
+            self.con.reload(tree, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, hide_checkboxes=True)
         else:
             # Just wipe out the old root and clear the tree
-            self.con.set_tree(root=new_root_meta.root)
+            self.con.set_tree(tree, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
 
     # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
     def _on_set_status(self, sender, status_msg):
