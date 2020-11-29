@@ -2,7 +2,6 @@ import logging
 import os
 from typing import Deque, Iterable, List, Optional, Union
 
-from model.display_tree.ui_state import DisplayTreeUiState
 from model.has_get_children import HasGetChildren
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
@@ -12,13 +11,35 @@ from ui.tree.filter_criteria import FilterCriteria
 logger = logging.getLogger(__name__)
 
 
+# CLASS DisplayTreeUiState
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+class DisplayTreeUiState:
+    def __init__(self, tree_id: str, root_sn: SPIDNodePair, root_exists: bool = True, offending_path: Optional[str] = None):
+        self.tree_id: str = tree_id
+        assert isinstance(root_sn, SPIDNodePair), f'Expected SPIDNodePair but got {type(root_sn)}'
+        self.root_sn: SPIDNodePair = root_sn
+        """This is needed to clarify the (albeit very rare) case where the root node resolves to multiple paths.
+        Each display tree can only have one root path."""
+        self.root_exists: bool = root_exists
+        self.offending_path: Optional[str] = offending_path
+        self.needs_manual_load: bool = False
+        """If True, the UI should display a "Load" button in order to kick off the backend data load. 
+        If False; the backend will automatically start loading in the background."""
+
+    def to_display_tree(self, backend):
+        if self.root_exists:
+            return DisplayTree(backend, self)
+        else:
+            return NullDisplayTree(backend, self)
+
+
 # ABSTRACT CLASS DisplayTree
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class DisplayTree(HasGetChildren):
     def __init__(self, backend, state: DisplayTreeUiState):
         self.backend = backend
-        self.state = state
+        self.state: DisplayTreeUiState = state
 
     # From the root node_identifier
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -130,3 +151,19 @@ class DisplayTree(HasGetChildren):
 
     def __repr__(self):
         return f'DisplayTree(tree_id="{self.tree_id}" root="{self.get_root_sn()}"])'
+
+
+# CLASS NullDisplayTree
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class NullDisplayTree(DisplayTree):
+    """A DisplayTree which has no nodes and does nothing. Useful for representing a tree whose root does not exist."""
+    def __init__(self, backend, state):
+        super().__init__(backend, state)
+        assert not state.root_exists, f'For state; {state}'
+
+    def get_children_for_root(self, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
+        return []
+
+    def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
+        return []

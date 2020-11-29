@@ -3,15 +3,11 @@ import logging
 from abc import ABC, abstractmethod
 from typing import List, Optional, Union
 
-from pydispatch import dispatcher
-
 from model.display_tree.display_tree import DisplayTree
-from model.display_tree.null import NullDisplayTree
 from model.node.node import Node
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from store.cache_manager import DisplayTreeUiState
 from ui import actions
 
 logger = logging.getLogger(__name__)
@@ -38,8 +34,7 @@ class OutletBackend(ABC):
         pass
 
     @abstractmethod
-    def get_display_tree_ui_state(self, tree_id: str, user_path: str = None, spid: SinglePathNodeIdentifier = None,
-                                  is_startup: bool = False) -> DisplayTreeUiState:
+    def get_display_tree(self, tree_id: str, user_path: str = None, spid: SinglePathNodeIdentifier = None, is_startup: bool = False) -> DisplayTree:
         pass
 
     @abstractmethod
@@ -63,21 +58,19 @@ class OutletBackend(ABC):
     def _create_display_tree(self, tree_id: str, user_path: Optional[str] = None, spid: Optional[SinglePathNodeIdentifier] = None,
                              is_startup: bool = False) -> DisplayTree:
         """
-        Performs a read-through retreival of all the nodes in the given subtree.
+        Notifies the backend that the tree was requested, and returns a display tree object, which the backend will also send via
+        notification (unless is_startup==True, in which case no notification will be sent). Also is_startup helps determine whether
+        to load it immediately.
+
+        The DisplayTree object is immediately created and returned even if the tree has not finished loading on the backend. The backend
+        will send a notification if/when it has finished loading.
         """
         logger.debug(f'[{tree_id}] Got request to load subtree (user_path="{user_path}", spid={spid}, is_startup={is_startup}')
         if spid:
             assert isinstance(spid, SinglePathNodeIdentifier), f'Expected SinglePathNodeIdentifier but got {type(spid)}'
             spid.normalize_paths()
 
-        state = self.get_display_tree_ui_state(tree_id, user_path, spid, is_startup)
-        if state.root_exists:
-            tree = DisplayTree(self, state)
-        else:
-            tree = NullDisplayTree(self, state)
-
-        # Also update any listeners:
-        logger.debug(f'[{tree_id}] Firing signal: {actions.DISPLAY_TREE_CHANGED}')
-        dispatcher.send(signal=actions.DISPLAY_TREE_CHANGED, sender=tree_id, tree=tree)
-
+        tree: DisplayTree = self.get_display_tree(tree_id, user_path, spid, is_startup)
         return tree
+
+    # def to_display_tree(self, state: DisplayTreeUiState) -> DisplayTree:

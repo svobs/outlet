@@ -3,6 +3,9 @@ from model.uid import UID
 
 SUPER_DEBUG = False
 
+GRPC_SERVER_MAX_WORKER_THREADS = 5
+GRPC_SERVER_ADDRESS = '[::]:50051'
+
 # Padding in pixels
 H_PAD = 5
 V_PAD = 5

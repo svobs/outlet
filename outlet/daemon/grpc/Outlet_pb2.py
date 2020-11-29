@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=b'\n\023com.msvoboda.outletP\001Z\031msvoboda.com/outlet/proto',
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x1foutlet/daemon/grpc/Outlet.proto\x12\x12outlet.daemon.grpc\x1a\x1doutlet/daemon/grpc/Node.proto\"\r\n\x0bPingRequest\"!\n\x0cPingResponse\x12\x11\n\ttimestamp\x18\x01 \x01(\x03\"=\n\x13SingleNode_Response\x12&\n\x04node\x18\x01 \x01(\x0b\x32\x18.outlet.daemon.grpc.Node\"G\n\x1aGetUidForLocalPath_Request\x12\x11\n\tfull_path\x18\x01 \x01(\t\x12\x16\n\x0euid_suggestion\x18\x02 \x01(\x05\"*\n\x1bGetUidForLocalPath_Response\x12\x0b\n\x03uid\x18\x01 \x01(\x05\"7\n\x15GetNodeForUid_Request\x12\x0b\n\x03uid\x18\x01 \x01(\x05\x12\x11\n\ttree_type\x18\x02 \x01(\x05\"0\n\x1bGetNodeForLocalPath_Request\x12\x11\n\tfull_path\x18\x01 \x01(\t\"\x14\n\x12GetNextUid_Request\"\"\n\x13GetNextUid_Response\x12\x0b\n\x03uid\x18\x01 \x01(\x05\"\r\n\x0bLoadNewTree2\x96\x04\n\x06Outlet\x12K\n\x04ping\x12\x1f.outlet.daemon.grpc.PingRequest\x1a .outlet.daemon.grpc.PingResponse\"\x00\x12h\n\x10get_node_for_uid\x12).outlet.daemon.grpc.GetNodeForUid_Request\x1a\'.outlet.daemon.grpc.SingleNode_Response\"\x00\x12u\n\x17get_node_for_local_path\x12/.outlet.daemon.grpc.GetNodeForLocalPath_Request\x1a\'.outlet.daemon.grpc.SingleNode_Response\"\x00\x12\x61\n\x0cget_next_uid\x12&.outlet.daemon.grpc.GetNextUid_Request\x1a\'.outlet.daemon.grpc.GetNextUid_Response\"\x00\x12{\n\x16get_uid_for_local_path\x12..outlet.daemon.grpc.GetUidForLocalPath_Request\x1a/.outlet.daemon.grpc.GetUidForLocalPath_Response\"\x00\x42\x32\n\x13\x63om.msvoboda.outletP\x01Z\x19msvoboda.com/outlet/protoP\x00\x62\x06proto3'
+  serialized_pb=b'\n\x1foutlet/daemon/grpc/Outlet.proto\x12\x12outlet.daemon.grpc\x1a\x1doutlet/daemon/grpc/Node.proto\"\r\n\x0bPingRequest\"!\n\x0cPingResponse\x12\x11\n\ttimestamp\x18\x01 \x01(\x03\".\n\x10SubscribeRequest\x12\x1a\n\x12subscriber_id_list\x18\x01 \x03(\t\"\x8a\x01\n\x06Signal\x12\x13\n\x0bsignal_name\x18\x01 \x01(\t\x12\x13\n\x0bsender_name\x18\x02 \x01(\t\x12G\n\x15\x64isplay_tree_ui_state\x18\n \x01(\x0b\x32&.outlet.daemon.grpc.DisplayTreeUiStateH\x00\x42\r\n\x0bsignal_data\"\xa0\x01\n\x12\x44isplayTreeUiState\x12\x0f\n\x07tree_id\x18\x01 \x01(\t\x12\x31\n\x07root_sn\x18\x02 \x01(\x0b\x32 .outlet.daemon.grpc.SPIDNodePair\x12\x13\n\x0broot_exists\x18\x03 \x01(\x08\x12\x16\n\x0eoffending_path\x18\x04 \x01(\t\x12\x19\n\x11needs_manual_load\x18\x05 \x01(\x08\"=\n\x13SingleNode_Response\x12&\n\x04node\x18\x01 \x01(\x0b\x32\x18.outlet.daemon.grpc.Node\"G\n\x1aGetUidForLocalPath_Request\x12\x11\n\tfull_path\x18\x01 \x01(\t\x12\x16\n\x0euid_suggestion\x18\x02 \x01(\x05\"*\n\x1bGetUidForLocalPath_Response\x12\x0b\n\x03uid\x18\x01 \x01(\x05\"7\n\x15GetNodeForUid_Request\x12\x0b\n\x03uid\x18\x01 \x01(\x05\x12\x11\n\ttree_type\x18\x02 \x01(\x05\"0\n\x1bGetNodeForLocalPath_Request\x12\x11\n\tfull_path\x18\x01 \x01(\t\"\x14\n\x12GetNextUid_Request\"\"\n\x13GetNextUid_Response\x12\x0b\n\x03uid\x18\x01 \x01(\x05\"\r\n\x0bLoadNewTree2\xf2\x04\n\x06Outlet\x12Z\n\x14subscribe_to_signals\x12$.outlet.daemon.grpc.SubscribeRequest\x1a\x1a.outlet.daemon.grpc.Signal0\x01\x12K\n\x04ping\x12\x1f.outlet.daemon.grpc.PingRequest\x1a .outlet.daemon.grpc.PingResponse\"\x00\x12h\n\x10get_node_for_uid\x12).outlet.daemon.grpc.GetNodeForUid_Request\x1a\'.outlet.daemon.grpc.SingleNode_Response\"\x00\x12u\n\x17get_node_for_local_path\x12/.outlet.daemon.grpc.GetNodeForLocalPath_Request\x1a\'.outlet.daemon.grpc.SingleNode_Response\"\x00\x12\x61\n\x0cget_next_uid\x12&.outlet.daemon.grpc.GetNextUid_Request\x1a\'.outlet.daemon.grpc.GetNextUid_Response\"\x00\x12{\n\x16get_uid_for_local_path\x12..outlet.daemon.grpc.GetUidForLocalPath_Request\x1a/.outlet.daemon.grpc.GetUidForLocalPath_Response\"\x00\x42\x32\n\x13\x63om.msvoboda.outletP\x01Z\x19msvoboda.com/outlet/protoP\x00\x62\x06proto3'
   ,
   dependencies=[outlet_dot_daemon_dot_grpc_dot_Node__pb2.DESCRIPTOR,],
   public_dependencies=[outlet_dot_daemon_dot_grpc_dot_Node__pb2.DESCRIPTOR,])
@@ -86,6 +86,149 @@ _PINGRESPONSE = _descriptor.Descriptor(
 )
 
 
+_SUBSCRIBEREQUEST = _descriptor.Descriptor(
+  name='SubscribeRequest',
+  full_name='outlet.daemon.grpc.SubscribeRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='subscriber_id_list', full_name='outlet.daemon.grpc.SubscribeRequest.subscriber_id_list', index=0,
+      number=1, type=9, cpp_type=9, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=136,
+  serialized_end=182,
+)
+
+
+_SIGNAL = _descriptor.Descriptor(
+  name='Signal',
+  full_name='outlet.daemon.grpc.Signal',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='signal_name', full_name='outlet.daemon.grpc.Signal.signal_name', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='sender_name', full_name='outlet.daemon.grpc.Signal.sender_name', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='display_tree_ui_state', full_name='outlet.daemon.grpc.Signal.display_tree_ui_state', index=2,
+      number=10, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+    _descriptor.OneofDescriptor(
+      name='signal_data', full_name='outlet.daemon.grpc.Signal.signal_data',
+      index=0, containing_type=None,
+      create_key=_descriptor._internal_create_key,
+    fields=[]),
+  ],
+  serialized_start=185,
+  serialized_end=323,
+)
+
+
+_DISPLAYTREEUISTATE = _descriptor.Descriptor(
+  name='DisplayTreeUiState',
+  full_name='outlet.daemon.grpc.DisplayTreeUiState',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='tree_id', full_name='outlet.daemon.grpc.DisplayTreeUiState.tree_id', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='root_sn', full_name='outlet.daemon.grpc.DisplayTreeUiState.root_sn', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='root_exists', full_name='outlet.daemon.grpc.DisplayTreeUiState.root_exists', index=2,
+      number=3, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='offending_path', full_name='outlet.daemon.grpc.DisplayTreeUiState.offending_path', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='needs_manual_load', full_name='outlet.daemon.grpc.DisplayTreeUiState.needs_manual_load', index=4,
+      number=5, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=326,
+  serialized_end=486,
+)
+
+
 _SINGLENODE_RESPONSE = _descriptor.Descriptor(
   name='SingleNode_Response',
   full_name='outlet.daemon.grpc.SingleNode_Response',
@@ -113,8 +256,8 @@ _SINGLENODE_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=136,
-  serialized_end=197,
+  serialized_start=488,
+  serialized_end=549,
 )
 
 
@@ -152,8 +295,8 @@ _GETUIDFORLOCALPATH_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=199,
-  serialized_end=270,
+  serialized_start=551,
+  serialized_end=622,
 )
 
 
@@ -184,8 +327,8 @@ _GETUIDFORLOCALPATH_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=272,
-  serialized_end=314,
+  serialized_start=624,
+  serialized_end=666,
 )
 
 
@@ -223,8 +366,8 @@ _GETNODEFORUID_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=316,
-  serialized_end=371,
+  serialized_start=668,
+  serialized_end=723,
 )
 
 
@@ -255,8 +398,8 @@ _GETNODEFORLOCALPATH_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=373,
-  serialized_end=421,
+  serialized_start=725,
+  serialized_end=773,
 )
 
 
@@ -280,8 +423,8 @@ _GETNEXTUID_REQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=423,
-  serialized_end=443,
+  serialized_start=775,
+  serialized_end=795,
 )
 
 
@@ -312,8 +455,8 @@ _GETNEXTUID_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=445,
-  serialized_end=479,
+  serialized_start=797,
+  serialized_end=831,
 )
 
 
@@ -337,13 +480,21 @@ _LOADNEWTREE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=481,
-  serialized_end=494,
+  serialized_start=833,
+  serialized_end=846,
 )
 
+_SIGNAL.fields_by_name['display_tree_ui_state'].message_type = _DISPLAYTREEUISTATE
+_SIGNAL.oneofs_by_name['signal_data'].fields.append(
+  _SIGNAL.fields_by_name['display_tree_ui_state'])
+_SIGNAL.fields_by_name['display_tree_ui_state'].containing_oneof = _SIGNAL.oneofs_by_name['signal_data']
+_DISPLAYTREEUISTATE.fields_by_name['root_sn'].message_type = outlet_dot_daemon_dot_grpc_dot_Node__pb2._SPIDNODEPAIR
 _SINGLENODE_RESPONSE.fields_by_name['node'].message_type = outlet_dot_daemon_dot_grpc_dot_Node__pb2._NODE
 DESCRIPTOR.message_types_by_name['PingRequest'] = _PINGREQUEST
 DESCRIPTOR.message_types_by_name['PingResponse'] = _PINGRESPONSE
+DESCRIPTOR.message_types_by_name['SubscribeRequest'] = _SUBSCRIBEREQUEST
+DESCRIPTOR.message_types_by_name['Signal'] = _SIGNAL
+DESCRIPTOR.message_types_by_name['DisplayTreeUiState'] = _DISPLAYTREEUISTATE
 DESCRIPTOR.message_types_by_name['SingleNode_Response'] = _SINGLENODE_RESPONSE
 DESCRIPTOR.message_types_by_name['GetUidForLocalPath_Request'] = _GETUIDFORLOCALPATH_REQUEST
 DESCRIPTOR.message_types_by_name['GetUidForLocalPath_Response'] = _GETUIDFORLOCALPATH_RESPONSE
@@ -367,6 +518,27 @@ PingResponse = _reflection.GeneratedProtocolMessageType('PingResponse', (_messag
   # @@protoc_insertion_point(class_scope:outlet.daemon.grpc.PingResponse)
   })
 _sym_db.RegisterMessage(PingResponse)
+
+SubscribeRequest = _reflection.GeneratedProtocolMessageType('SubscribeRequest', (_message.Message,), {
+  'DESCRIPTOR' : _SUBSCRIBEREQUEST,
+  '__module__' : 'outlet.daemon.grpc.Outlet_pb2'
+  # @@protoc_insertion_point(class_scope:outlet.daemon.grpc.SubscribeRequest)
+  })
+_sym_db.RegisterMessage(SubscribeRequest)
+
+Signal = _reflection.GeneratedProtocolMessageType('Signal', (_message.Message,), {
+  'DESCRIPTOR' : _SIGNAL,
+  '__module__' : 'outlet.daemon.grpc.Outlet_pb2'
+  # @@protoc_insertion_point(class_scope:outlet.daemon.grpc.Signal)
+  })
+_sym_db.RegisterMessage(Signal)
+
+DisplayTreeUiState = _reflection.GeneratedProtocolMessageType('DisplayTreeUiState', (_message.Message,), {
+  'DESCRIPTOR' : _DISPLAYTREEUISTATE,
+  '__module__' : 'outlet.daemon.grpc.Outlet_pb2'
+  # @@protoc_insertion_point(class_scope:outlet.daemon.grpc.DisplayTreeUiState)
+  })
+_sym_db.RegisterMessage(DisplayTreeUiState)
 
 SingleNode_Response = _reflection.GeneratedProtocolMessageType('SingleNode_Response', (_message.Message,), {
   'DESCRIPTOR' : _SINGLENODE_RESPONSE,
@@ -434,13 +606,23 @@ _OUTLET = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=497,
-  serialized_end=1031,
+  serialized_start=849,
+  serialized_end=1475,
   methods=[
+  _descriptor.MethodDescriptor(
+    name='subscribe_to_signals',
+    full_name='outlet.daemon.grpc.Outlet.subscribe_to_signals',
+    index=0,
+    containing_service=None,
+    input_type=_SUBSCRIBEREQUEST,
+    output_type=_SIGNAL,
+    serialized_options=None,
+    create_key=_descriptor._internal_create_key,
+  ),
   _descriptor.MethodDescriptor(
     name='ping',
     full_name='outlet.daemon.grpc.Outlet.ping',
-    index=0,
+    index=1,
     containing_service=None,
     input_type=_PINGREQUEST,
     output_type=_PINGRESPONSE,
@@ -450,7 +632,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='get_node_for_uid',
     full_name='outlet.daemon.grpc.Outlet.get_node_for_uid',
-    index=1,
+    index=2,
     containing_service=None,
     input_type=_GETNODEFORUID_REQUEST,
     output_type=_SINGLENODE_RESPONSE,
@@ -460,7 +642,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='get_node_for_local_path',
     full_name='outlet.daemon.grpc.Outlet.get_node_for_local_path',
-    index=2,
+    index=3,
     containing_service=None,
     input_type=_GETNODEFORLOCALPATH_REQUEST,
     output_type=_SINGLENODE_RESPONSE,
@@ -470,7 +652,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='get_next_uid',
     full_name='outlet.daemon.grpc.Outlet.get_next_uid',
-    index=3,
+    index=4,
     containing_service=None,
     input_type=_GETNEXTUID_REQUEST,
     output_type=_GETNEXTUID_RESPONSE,
@@ -480,7 +662,7 @@ _OUTLET = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='get_uid_for_local_path',
     full_name='outlet.daemon.grpc.Outlet.get_uid_for_local_path',
-    index=4,
+    index=5,
     containing_service=None,
     input_type=_GETUIDFORLOCALPATH_REQUEST,
     output_type=_GETUIDFORLOCALPATH_RESPONSE,

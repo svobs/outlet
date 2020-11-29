@@ -17,12 +17,11 @@ from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROO
     TREE_TYPE_LOCAL_DISK
 from error import CacheNotLoadedError, GDriveItemNotFoundError, InvalidOperationError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
-from model.display_tree.display_tree import DisplayTree
-from model.display_tree.ui_state import DisplayTreeUiState
+from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import HasChildStats, HasParentList, Node, SPIDNodePair
-from model.node_identifier import ensure_list, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from model.user_op import UserOp
@@ -37,6 +36,7 @@ from ui.actions import ID_GLOBAL_CACHE
 from ui.tree.filter_criteria import FilterCriteria
 from ui.tree.root_path_config import RootPathConfigPersister
 from util import file_util
+from util.ensure import ensure_list
 from util.file_util import get_resource_path
 from util.has_lifecycle import HasLifecycle
 from util.qthread import QThread
@@ -446,8 +446,9 @@ class CacheManager(HasLifecycle):
         gdrive_root_spid = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
         for tree_id in tree_id_list:
             logger.info(f'[{tree_id}] Resetting path to GDrive root')
-            tree = self.get_display_tree_ui_state(tree_id, spid=gdrive_root_spid)
-            # FIXME: figure out how to send to gRPC clients
+            tree_state = self.get_display_tree_ui_state(tree_id, spid=gdrive_root_spid)
+            tree = tree_state.to_display_tree(self.backend)
+            dispatcher.send(actions.DISPLAY_TREE_CHANGED, sender=actions.ID_GLOBAL_CACHE, tree=tree)
 
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -909,14 +910,6 @@ class CacheManager(HasLifecycle):
     def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None, override_load_check: bool = False) -> UID:
         """Deterministically gets or creates a UID corresponding to the given path string"""
         assert full_path and isinstance(full_path, str)
-
-        # FIXME: this causes a cycle which causes us to lock up
-        # cache: Optional[PersistedCacheInfo] = self.find_existing_cache_info_for_local_subtree(full_path)
-        # if cache and not cache.is_loaded:
-        #     # If associated subtree is cached, make sure it's loaded so that we don't issue a new UID for a cached node
-        #     logger.debug(f'get_uid_for_local_path(): cache for {cache.subtree_root} is not laoded: loading now')
-        #     self._master_local.get_display_tree(cache.subtree_root, ID_GLOBAL_CACHE)
-
         return self._master_local.get_uid_for_path(full_path, uid_suggestion, override_load_check)
 
     def _read_single_node_from_disk_for_local_path(self, full_path: str) -> Node:

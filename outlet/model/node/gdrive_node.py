@@ -6,7 +6,8 @@ from util import format
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, ICON_DIR_MK, ICON_DIR_TRASHED, ICON_FILE_CP_DST, ICON_FILE_TRASHED, ICON_GENERIC_DIR, \
     ICON_GENERIC_FILE, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TREE_TYPE_GDRIVE
 from model.node.node import Node, HasChildStats, HasParentList
-from model.node_identifier import ensure_bool, ensure_int, GDriveIdentifier
+from model.node_identifier import GDriveIdentifier
+from util.ensure import ensure_bool, ensure_int
 
 logger = logging.getLogger(__name__)
 

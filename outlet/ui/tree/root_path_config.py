@@ -1,6 +1,7 @@
 import logging
 
-from model.node_identifier import ensure_bool, SinglePathNodeIdentifier
+from model.node_identifier import SinglePathNodeIdentifier
+from util.ensure import ensure_bool
 from util.root_path_meta import RootPathMeta
 
 logger = logging.getLogger(__name__)

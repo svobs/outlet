@@ -1,10 +1,12 @@
 
 from model.uid import UID
-from model.node_identifier import ensure_bool
 
 
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 # CLASS GDriveUser
+from util.ensure import ensure_bool
+
+
 class GDriveUser:
     def __init__(self, display_name, permission_id, email_address, photo_link, is_me: bool = False, user_uid: UID = None):
         # Identifiers:

@@ -10,9 +10,10 @@ from watchdog.observers.api import ObservedWatch
 
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.local_disk_node import LocalNode
-from model.node_identifier import ensure_bool, ensure_int, NodeIdentifier
+from model.node_identifier import NodeIdentifier
 from store.local.event_handler import LocalChangeEventHandler
 from ui import actions
+from util.ensure import ensure_bool, ensure_int
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)

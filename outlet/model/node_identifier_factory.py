@@ -4,8 +4,9 @@ from typing import List, Optional, Union
 from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, LOCAL_ROOT_UID, ROOT_PATH, SUPER_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, \
     TREE_TYPE_MIXED
 from model.node.node import Node
-from model.node_identifier import ensure_list, ensure_uid, GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
+from util.ensure import ensure_list, ensure_uid
 
 logger = logging.getLogger(__name__)
 
@@ -43,20 +44,21 @@ class NodeIdentifierFactory:
         return SinglePathNodeIdentifier(uid=LOCAL_ROOT_UID, path_list=ROOT_PATH, tree_type=TREE_TYPE_LOCAL_DISK)
 
     @staticmethod
-    def for_all_values(uid: UID, tree_type: int, path_list: List[str]) -> NodeIdentifier:
+    def for_all_values(uid: UID, tree_type: int, path_list: List[str], single_path: bool) \
+            -> NodeIdentifier:
         uid = ensure_uid(uid)
         full_path_list = ensure_list(path_list)
 
-        if tree_type == TREE_TYPE_GDRIVE:
-            return GDriveIdentifier(uid=uid, path_list=full_path_list)
-        elif tree_type == TREE_TYPE_LOCAL_DISK:
+        if tree_type == TREE_TYPE_LOCAL_DISK:
             return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
-        else:
+        elif single_path:
             if len(full_path_list) <= 1:
                 # CategoryNode, etc
                 return SinglePathNodeIdentifier(uid=uid, path_list=full_path_list, tree_type=tree_type)
-            else:
-                raise RuntimeError(f'bad: uid={uid}, path_list={full_path_list}')
+        elif tree_type == TREE_TYPE_GDRIVE:
+            return GDriveIdentifier(uid=uid, path_list=full_path_list)
+
+        raise RuntimeError(f'Invalid: uid={uid}, tree_type={tree_type} path_list={full_path_list}, single_path={single_path}')
 
     def for_values(self, tree_type: int = None, path_list:  Union[str, List[str]] = None, uid: UID = None,
                    must_be_single_path: bool = False) -> NodeIdentifier:

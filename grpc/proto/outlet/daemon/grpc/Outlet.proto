@@ -16,6 +16,27 @@ message PingResponse {
 	int64 timestamp = 1;
 }
 
+message SubscribeRequest {
+	repeated string subscriber_id_list = 1;
+}
+
+message Signal {
+	string signal_name = 1;
+	string sender_name = 2;
+
+	oneof signal_data {
+		DisplayTreeUiState display_tree_ui_state = 10;
+	}
+}
+
+message DisplayTreeUiState {
+	string tree_id = 1;
+	SPIDNodePair root_sn = 2;
+	bool root_exists = 3;
+	string offending_path = 4;
+	bool needs_manual_load = 5;
+}
+
 message SingleNode_Response {
 	outlet.daemon.grpc.Node node = 1;
 }
@@ -55,6 +76,7 @@ message LoadNewTree {
 }
 
 service Outlet {
+	rpc subscribe_to_signals(SubscribeRequest) returns (stream Signal);
 	rpc ping(PingRequest) returns (PingResponse) {}
 	rpc get_node_for_uid(GetNodeForUid_Request) returns (SingleNode_Response) {}
 	rpc get_node_for_local_path(GetNodeForLocalPath_Request) returns (SingleNode_Response) {}

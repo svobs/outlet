@@ -10,6 +10,11 @@ message Null {
   // nothing
 }
 
+message SPIDNodePair {
+  NodeIdentifier spid = 1;
+  Node node = 2;
+}
+
 message NodeIdentifier {
   int32 uid = 1;
   int32 tree_type = 2;

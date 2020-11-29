@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=b'\n\027com.msvoboda.outlet.dtoP\001Z\035msvoboda.com/outlet/proto/dto',
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x1doutlet/daemon/grpc/Node.proto\x12\x12outlet.daemon.grpc\"\x06\n\x04Null\"[\n\x0eNodeIdentifier\x12\x0b\n\x03uid\x18\x01 \x01(\x05\x12\x11\n\ttree_type\x18\x02 \x01(\x05\x12\x11\n\tpath_list\x18\x03 \x03(\t\x12\x16\n\x0eis_single_path\x18\x04 \x01(\x08\"\xb5\x04\n\x04Node\x12\x0b\n\x03uid\x18\x01 \x01(\x05\x12\x11\n\ttree_type\x18\x02 \x01(\x05\x12\x11\n\tpath_list\x18\x03 \x03(\t\x12\x0b\n\x03nid\x18\x04 \x01(\t\x12\x0f\n\x07trashed\x18\x05 \x01(\x05\x12\x11\n\tis_shared\x18\x06 \x01(\x08\x12?\n\x0e\x63ontainer_meta\x18\n \x01(\x0b\x32%.outlet.daemon.grpc.ContainerNodeMetaH\x00\x12=\n\rcategory_meta\x18\x0b \x01(\x0b\x32$.outlet.daemon.grpc.CategoryNodeMetaH\x00\x12>\n\x0eroot_type_meta\x18\x0c \x01(\x0b\x32$.outlet.daemon.grpc.RootTypeNodeMetaH\x00\x12:\n\x0elocal_dir_meta\x18\x14 \x01(\x0b\x32 .outlet.daemon.grpc.LocalDirMetaH\x00\x12<\n\x0flocal_file_meta\x18\x15 \x01(\x0b\x32!.outlet.daemon.grpc.LocalFileMetaH\x00\x12>\n\x10gdrive_file_meta\x18\x16 \x01(\x0b\x32\".outlet.daemon.grpc.GDriveFileMetaH\x00\x12\x42\n\x12gdrive_folder_meta\x18\x17 \x01(\x0b\x32$.outlet.daemon.grpc.GDriveFolderMetaH\x00\x42\x0b\n\tnode_type\"\xa4\x01\n\x07\x44irMeta\x12\x10\n\x08has_data\x18\x01 \x01(\x08\x12\x12\n\nfile_count\x18\x02 \x01(\x05\x12\x11\n\tdir_count\x18\x03 \x01(\x05\x12\x1a\n\x12trashed_file_count\x18\x04 \x01(\x05\x12\x19\n\x11trashed_dir_count\x18\x05 \x01(\x05\x12\x12\n\nsize_bytes\x18\x06 \x01(\x03\x12\x15\n\rtrashed_bytes\x18\x07 \x01(\x03\"B\n\x11\x43ontainerNodeMeta\x12-\n\x08\x64ir_meta\x18\x01 \x01(\x0b\x32\x1b.outlet.daemon.grpc.DirMeta\"R\n\x10\x43\x61tegoryNodeMeta\x12-\n\x08\x64ir_meta\x18\x01 \x01(\x0b\x32\x1b.outlet.daemon.grpc.DirMeta\x12\x0f\n\x07op_type\x18\x02 \x01(\x05\"A\n\x10RootTypeNodeMeta\x12-\n\x08\x64ir_meta\x18\x01 \x01(\x0b\x32\x1b.outlet.daemon.grpc.DirMeta\"N\n\x0cLocalDirMeta\x12-\n\x08\x64ir_meta\x18\x01 \x01(\x0b\x32\x1b.outlet.daemon.grpc.DirMeta\x12\x0f\n\x07is_live\x18\x02 \x01(\x08\"\x88\x01\n\rLocalFileMeta\x12\x12\n\nsize_bytes\x18\x01 \x01(\x03\x12\x0f\n\x07sync_ts\x18\x02 \x01(\x03\x12\x11\n\tmodify_ts\x18\x03 \x01(\x03\x12\x11\n\tchange_ts\x18\x04 \x01(\x03\x12\x0f\n\x07is_live\x18\x05 \x01(\x08\x12\x0b\n\x03md5\x18\x06 \x01(\t\x12\x0e\n\x06sha256\x18\x07 \x01(\t\"\x89\x02\n\x0eGDriveFileMeta\x12\x0f\n\x07goog_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x11\n\towner_uid\x18\x03 \x01(\x05\x12\x1a\n\x12shared_by_user_uid\x18\x04 \x01(\x05\x12\x10\n\x08\x64rive_id\x18\x05 \x01(\t\x12\x17\n\x0fparent_uid_list\x18\x06 \x03(\x05\x12\x0f\n\x07sync_ts\x18\x07 \x01(\x03\x12\x11\n\tmodify_ts\x18\x08 \x01(\x03\x12\x11\n\tcreate_ts\x18\t \x01(\x03\x12\x0b\n\x03md5\x18\n \x01(\t\x12\x0f\n\x07version\x18\x0b \x01(\x05\x12\x12\n\nsize_bytes\x18\x0c \x01(\x03\x12\x15\n\rmime_type_uid\x18\r \x01(\x05\"\x8f\x02\n\x10GDriveFolderMeta\x12\x0f\n\x07goog_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x11\n\towner_uid\x18\x03 \x01(\x05\x12\x1a\n\x12shared_by_user_uid\x18\x04 \x01(\x05\x12\x10\n\x08\x64rive_id\x18\x05 \x01(\t\x12\x17\n\x0fparent_uid_list\x18\x06 \x03(\x05\x12\x0f\n\x07sync_ts\x18\x07 \x01(\x03\x12\x11\n\tmodify_ts\x18\x08 \x01(\x03\x12\x11\n\tcreate_ts\x18\t \x01(\x03\x12-\n\x08\x64ir_meta\x18\n \x01(\x0b\x32\x1b.outlet.daemon.grpc.DirMeta\x12\x1c\n\x14\x61ll_children_fetched\x18\x0b \x01(\x08\x42:\n\x17\x63om.msvoboda.outlet.dtoP\x01Z\x1dmsvoboda.com/outlet/proto/dtob\x06proto3'
+  serialized_pb=b'\n\x1doutlet/daemon/grpc/Node.proto\x12\x12outlet.daemon.grpc\"\x06\n\x04Null\"h\n\x0cSPIDNodePair\x12\x30\n\x04spid\x18\x01 \x01(\x0b\x32\".outlet.daemon.grpc.NodeIdentifier\x12&\n\x04node\x18\x02 \x01(\x0b\x32\x18.outlet.daemon.grpc.Node\"[\n\x0eNodeIdentifier\x12\x0b\n\x03uid\x18\x01 \x01(\x05\x12\x11\n\ttree_type\x18\x02 \x01(\x05\x12\x11\n\tpath_list\x18\x03 \x03(\t\x12\x16\n\x0eis_single_path\x18\x04 \x01(\x08\"\xb5\x04\n\x04Node\x12\x0b\n\x03uid\x18\x01 \x01(\x05\x12\x11\n\ttree_type\x18\x02 \x01(\x05\x12\x11\n\tpath_list\x18\x03 \x03(\t\x12\x0b\n\x03nid\x18\x04 \x01(\t\x12\x0f\n\x07trashed\x18\x05 \x01(\x05\x12\x11\n\tis_shared\x18\x06 \x01(\x08\x12?\n\x0e\x63ontainer_meta\x18\n \x01(\x0b\x32%.outlet.daemon.grpc.ContainerNodeMetaH\x00\x12=\n\rcategory_meta\x18\x0b \x01(\x0b\x32$.outlet.daemon.grpc.CategoryNodeMetaH\x00\x12>\n\x0eroot_type_meta\x18\x0c \x01(\x0b\x32$.outlet.daemon.grpc.RootTypeNodeMetaH\x00\x12:\n\x0elocal_dir_meta\x18\x14 \x01(\x0b\x32 .outlet.daemon.grpc.LocalDirMetaH\x00\x12<\n\x0flocal_file_meta\x18\x15 \x01(\x0b\x32!.outlet.daemon.grpc.LocalFileMetaH\x00\x12>\n\x10gdrive_file_meta\x18\x16 \x01(\x0b\x32\".outlet.daemon.grpc.GDriveFileMetaH\x00\x12\x42\n\x12gdrive_folder_meta\x18\x17 \x01(\x0b\x32$.outlet.daemon.grpc.GDriveFolderMetaH\x00\x42\x0b\n\tnode_type\"\xa4\x01\n\x07\x44irMeta\x12\x10\n\x08has_data\x18\x01 \x01(\x08\x12\x12\n\nfile_count\x18\x02 \x01(\x05\x12\x11\n\tdir_count\x18\x03 \x01(\x05\x12\x1a\n\x12trashed_file_count\x18\x04 \x01(\x05\x12\x19\n\x11trashed_dir_count\x18\x05 \x01(\x05\x12\x12\n\nsize_bytes\x18\x06 \x01(\x03\x12\x15\n\rtrashed_bytes\x18\x07 \x01(\x03\"B\n\x11\x43ontainerNodeMeta\x12-\n\x08\x64ir_meta\x18\x01 \x01(\x0b\x32\x1b.outlet.daemon.grpc.DirMeta\"R\n\x10\x43\x61tegoryNodeMeta\x12-\n\x08\x64ir_meta\x18\x01 \x01(\x0b\x32\x1b.outlet.daemon.grpc.DirMeta\x12\x0f\n\x07op_type\x18\x02 \x01(\x05\"A\n\x10RootTypeNodeMeta\x12-\n\x08\x64ir_meta\x18\x01 \x01(\x0b\x32\x1b.outlet.daemon.grpc.DirMeta\"N\n\x0cLocalDirMeta\x12-\n\x08\x64ir_meta\x18\x01 \x01(\x0b\x32\x1b.outlet.daemon.grpc.DirMeta\x12\x0f\n\x07is_live\x18\x02 \x01(\x08\"\x88\x01\n\rLocalFileMeta\x12\x12\n\nsize_bytes\x18\x01 \x01(\x03\x12\x0f\n\x07sync_ts\x18\x02 \x01(\x03\x12\x11\n\tmodify_ts\x18\x03 \x01(\x03\x12\x11\n\tchange_ts\x18\x04 \x01(\x03\x12\x0f\n\x07is_live\x18\x05 \x01(\x08\x12\x0b\n\x03md5\x18\x06 \x01(\t\x12\x0e\n\x06sha256\x18\x07 \x01(\t\"\x89\x02\n\x0eGDriveFileMeta\x12\x0f\n\x07goog_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x11\n\towner_uid\x18\x03 \x01(\x05\x12\x1a\n\x12shared_by_user_uid\x18\x04 \x01(\x05\x12\x10\n\x08\x64rive_id\x18\x05 \x01(\t\x12\x17\n\x0fparent_uid_list\x18\x06 \x03(\x05\x12\x0f\n\x07sync_ts\x18\x07 \x01(\x03\x12\x11\n\tmodify_ts\x18\x08 \x01(\x03\x12\x11\n\tcreate_ts\x18\t \x01(\x03\x12\x0b\n\x03md5\x18\n \x01(\t\x12\x0f\n\x07version\x18\x0b \x01(\x05\x12\x12\n\nsize_bytes\x18\x0c \x01(\x03\x12\x15\n\rmime_type_uid\x18\r \x01(\x05\"\x8f\x02\n\x10GDriveFolderMeta\x12\x0f\n\x07goog_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x11\n\towner_uid\x18\x03 \x01(\x05\x12\x1a\n\x12shared_by_user_uid\x18\x04 \x01(\x05\x12\x10\n\x08\x64rive_id\x18\x05 \x01(\t\x12\x17\n\x0fparent_uid_list\x18\x06 \x03(\x05\x12\x0f\n\x07sync_ts\x18\x07 \x01(\x03\x12\x11\n\tmodify_ts\x18\x08 \x01(\x03\x12\x11\n\tcreate_ts\x18\t \x01(\x03\x12-\n\x08\x64ir_meta\x18\n \x01(\x0b\x32\x1b.outlet.daemon.grpc.DirMeta\x12\x1c\n\x14\x61ll_children_fetched\x18\x0b \x01(\x08\x42:\n\x17\x63om.msvoboda.outlet.dtoP\x01Z\x1dmsvoboda.com/outlet/proto/dtob\x06proto3'
 )
 
 
@@ -47,6 +47,45 @@ _NULL = _descriptor.Descriptor(
   ],
   serialized_start=53,
   serialized_end=59,
+)
+
+
+_SPIDNODEPAIR = _descriptor.Descriptor(
+  name='SPIDNodePair',
+  full_name='outlet.daemon.grpc.SPIDNodePair',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='spid', full_name='outlet.daemon.grpc.SPIDNodePair.spid', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='node', full_name='outlet.daemon.grpc.SPIDNodePair.node', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=61,
+  serialized_end=165,
 )
 
 
@@ -98,8 +137,8 @@ _NODEIDENTIFIER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=61,
-  serialized_end=152,
+  serialized_start=167,
+  serialized_end=258,
 )
 
 
@@ -219,8 +258,8 @@ _NODE = _descriptor.Descriptor(
       create_key=_descriptor._internal_create_key,
     fields=[]),
   ],
-  serialized_start=155,
-  serialized_end=720,
+  serialized_start=261,
+  serialized_end=826,
 )
 
 
@@ -293,8 +332,8 @@ _DIRMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=723,
-  serialized_end=887,
+  serialized_start=829,
+  serialized_end=993,
 )
 
 
@@ -325,8 +364,8 @@ _CONTAINERNODEMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=889,
-  serialized_end=955,
+  serialized_start=995,
+  serialized_end=1061,
 )
 
 
@@ -364,8 +403,8 @@ _CATEGORYNODEMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=957,
-  serialized_end=1039,
+  serialized_start=1063,
+  serialized_end=1145,
 )
 
 
@@ -396,8 +435,8 @@ _ROOTTYPENODEMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1041,
-  serialized_end=1106,
+  serialized_start=1147,
+  serialized_end=1212,
 )
 
 
@@ -435,8 +474,8 @@ _LOCALDIRMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1108,
-  serialized_end=1186,
+  serialized_start=1214,
+  serialized_end=1292,
 )
 
 
@@ -509,8 +548,8 @@ _LOCALFILEMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1189,
-  serialized_end=1325,
+  serialized_start=1295,
+  serialized_end=1431,
 )
 
 
@@ -625,8 +664,8 @@ _GDRIVEFILEMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1328,
-  serialized_end=1593,
+  serialized_start=1434,
+  serialized_end=1699,
 )
 
 
@@ -727,10 +766,12 @@ _GDRIVEFOLDERMETA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1596,
-  serialized_end=1867,
+  serialized_start=1702,
+  serialized_end=1973,
 )
 
+_SPIDNODEPAIR.fields_by_name['spid'].message_type = _NODEIDENTIFIER
+_SPIDNODEPAIR.fields_by_name['node'].message_type = _NODE
 _NODE.fields_by_name['container_meta'].message_type = _CONTAINERNODEMETA
 _NODE.fields_by_name['category_meta'].message_type = _CATEGORYNODEMETA
 _NODE.fields_by_name['root_type_meta'].message_type = _ROOTTYPENODEMETA
@@ -765,6 +806,7 @@ _ROOTTYPENODEMETA.fields_by_name['dir_meta'].message_type = _DIRMETA
 _LOCALDIRMETA.fields_by_name['dir_meta'].message_type = _DIRMETA
 _GDRIVEFOLDERMETA.fields_by_name['dir_meta'].message_type = _DIRMETA
 DESCRIPTOR.message_types_by_name['Null'] = _NULL
+DESCRIPTOR.message_types_by_name['SPIDNodePair'] = _SPIDNODEPAIR
 DESCRIPTOR.message_types_by_name['NodeIdentifier'] = _NODEIDENTIFIER
 DESCRIPTOR.message_types_by_name['Node'] = _NODE
 DESCRIPTOR.message_types_by_name['DirMeta'] = _DIRMETA
@@ -783,6 +825,13 @@ Null = _reflection.GeneratedProtocolMessageType('Null', (_message.Message,), {
   # @@protoc_insertion_point(class_scope:outlet.daemon.grpc.Null)
   })
 _sym_db.RegisterMessage(Null)
+
+SPIDNodePair = _reflection.GeneratedProtocolMessageType('SPIDNodePair', (_message.Message,), {
+  'DESCRIPTOR' : _SPIDNODEPAIR,
+  '__module__' : 'outlet.daemon.grpc.Node_pb2'
+  # @@protoc_insertion_point(class_scope:outlet.daemon.grpc.SPIDNodePair)
+  })
+_sym_db.RegisterMessage(SPIDNodePair)
 
 NodeIdentifier = _reflection.GeneratedProtocolMessageType('NodeIdentifier', (_message.Message,), {
   'DESCRIPTOR' : _NODEIDENTIFIER,

@@ -1,9 +1,9 @@
-from model.node_identifier import ensure_int, NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import SinglePathNodeIdentifier
+from util.ensure import ensure_int
 
 
 # CLASS CacheInfoEntry
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
 
 class CacheInfoEntry:
     def __init__(self, cache_location, subtree_root: SinglePathNodeIdentifier, sync_ts, is_complete):

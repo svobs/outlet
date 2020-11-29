@@ -7,7 +7,8 @@ from store.sqlite.base_db import LiveTable, MetaDatabase, Table
 from model.uid import UID
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.node_identifier import ensure_int, GDriveIdentifier
+from model.node_identifier import GDriveIdentifier
+from util.ensure import ensure_int
 
 logger = logging.getLogger(__name__)
 

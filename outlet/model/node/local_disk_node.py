@@ -6,8 +6,9 @@ from abc import ABC
 from typing import Optional, Tuple
 
 from constants import ICON_GENERIC_DIR, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TREE_TYPE_LOCAL_DISK
-from model.node_identifier import ensure_bool, ensure_int, LocalNodeIdentifier
 from model.node.node import Node, HasChildStats
+from model.node_identifier import LocalNodeIdentifier
+from util.ensure import ensure_bool, ensure_int
 
 logger = logging.getLogger(__name__)
 

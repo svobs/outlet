@@ -14,6 +14,11 @@ class OutletStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.subscribe_to_signals = channel.unary_stream(
+                '/outlet.daemon.grpc.Outlet/subscribe_to_signals',
+                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SubscribeRequest.SerializeToString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.FromString,
+                )
         self.ping = channel.unary_unary(
                 '/outlet.daemon.grpc.Outlet/ping',
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.PingRequest.SerializeToString,
@@ -43,6 +48,12 @@ class OutletStub(object):
 
 class OutletServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def subscribe_to_signals(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def ping(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -77,6 +88,11 @@ class OutletServicer(object):
 
 def add_OutletServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'subscribe_to_signals': grpc.unary_stream_rpc_method_handler(
+                    servicer.subscribe_to_signals,
+                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SubscribeRequest.FromString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.SerializeToString,
+            ),
             'ping': grpc.unary_unary_rpc_method_handler(
                     servicer.ping,
                     request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.PingRequest.FromString,
@@ -111,6 +127,23 @@ def add_OutletServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class Outlet(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def subscribe_to_signals(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/outlet.daemon.grpc.Outlet/subscribe_to_signals',
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SubscribeRequest.SerializeToString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
     def ping(request,

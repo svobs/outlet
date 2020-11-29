@@ -6,8 +6,8 @@ from typing import Deque, Dict, List
 from constants import TrashStatus, TREE_TYPE_GDRIVE
 from model.has_get_children import HasGetChildren
 from model.node.node import Node
-from model.node_identifier import ensure_bool
 from model.uid import UID
+from util.ensure import ensure_bool
 
 logger = logging.getLogger(__name__)
 

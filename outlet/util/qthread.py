@@ -16,7 +16,7 @@ class QThread(HasLifecycle, threading.Thread, ABC):
     """Daemon thread which processes items from a queue and blocks until items are added to the queue"""
     def __init__(self, name: str, initial_sleep_sec: float = 0):
         HasLifecycle.__init__(self)
-        threading.Thread.__init__(self, target=self._run_thread, name=name, daemon=True)
+        threading.Thread.__init__(self, target=self.run_thread, name=name, daemon=True)
         self.initial_sleep_sec: float = initial_sleep_sec
         self._shutdown: bool = False
         self._queue: Deque = deque()
@@ -54,7 +54,7 @@ class QThread(HasLifecycle, threading.Thread, ABC):
     def on_thread_start(self):
         pass
 
-    def _run_thread(self):
+    def run_thread(self):
         logger.info(f'Starting {self.name}...')
 
         # Wait for CacheMan to finish starting up so as not to deprive it of resources:

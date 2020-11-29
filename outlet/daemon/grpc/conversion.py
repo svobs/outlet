@@ -2,13 +2,14 @@ from typing import Optional
 
 import outlet.daemon.grpc
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.gdrive_node import GDriveFile, GDriveFolder
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
-from model.node.node import HasChildStats, Node
+from model.node.node import HasChildStats, Node, SPIDNodePair
 import logging
 
-from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,8 @@ class NodeConverter:
             return None
 
         grpc_node: outlet.daemon.grpc.Node_pb2.Node = node_container.node
-        node_identifier = NodeIdentifierFactory.for_all_values(grpc_node.uid, grpc_node.tree_type, list(grpc_node.path_list))
+        node_identifier = NodeIdentifierFactory.for_all_values(grpc_node.uid, grpc_node.tree_type, list(grpc_node.path_list),
+                                                               single_path=grpc_node.is_single_path)
 
         if grpc_node.HasField("gdrive_file_meta"):
             meta = grpc_node.gdrive_file_meta
@@ -81,7 +83,7 @@ class NodeConverter:
             node.size_bytes = None
 
     @staticmethod
-    def _dir_meta_to_grpc(node: HasChildStats, dir_meta_parent) -> outlet.daemon.grpc.Node_pb2.DirMeta:
+    def _dir_meta_to_grpc(node: HasChildStats, dir_meta_parent):
         if node.is_stats_loaded():
             dir_meta_parent.dir_meta.has_data = True
             dir_meta_parent.dir_meta.file_count = node.file_count
@@ -142,7 +144,7 @@ class NodeConverter:
                 # meta = outlet.daemon.grpc.Node_pb2.GDriveFolderMeta()
                 # grpc_node.gdrive_folder_meta = meta
 
-                grpc_node.gdrive_folder_meta.dir_meta = NodeConverter._dir_meta_to_grpc(node)
+                NodeConverter._dir_meta_to_grpc(node, grpc_node.gdrive_folder_meta.dir_meta)
                 grpc_node.gdrive_folder_meta.all_children_fetched = node.all_children_fetched
                 meta = grpc_node.gdrive_folder_meta
             else:
@@ -169,3 +171,42 @@ class NodeConverter:
             meta.create_ts = node.create_ts
         return grpc_node
 
+    @staticmethod
+    def node_identifier_from_grpc(grpc_node_identifier: outlet.daemon.grpc.Node_pb2.NodeIdentifier):
+        return NodeIdentifierFactory.for_all_values(grpc_node_identifier.uid, grpc_node_identifier.tree_type, list(grpc_node_identifier.path_list),
+                                                    single_path=grpc_node_identifier.is_single_path)
+
+    @staticmethod
+    def node_identifier_to_grpc(node_identifier: NodeIdentifier, grpc_node_identifier: outlet.daemon.grpc.Node_pb2.NodeIdentifier):
+        grpc_node_identifier.uid = node_identifier.uid
+        grpc_node_identifier.tree_type = node_identifier.tree_type
+        for full_path in node_identifier.get_path_list():
+            grpc_node_identifier.path_list.append(full_path)
+        grpc_node_identifier.is_single_path = node_identifier.is_spid()
+        assert not grpc_node_identifier.is_single_path and len(list(grpc_node_identifier.path_list)) > 1
+
+    @staticmethod
+    def sn_from_grpc(grpc_sn: outlet.daemon.grpc.Node_pb2.SPIDNodePair) -> SPIDNodePair:
+        spid = NodeConverter.node_identifier_from_grpc(grpc_sn.spid)
+        node = NodeConverter.node_from_grpc(grpc_sn)
+        return SPIDNodePair(spid, node)
+
+    @staticmethod
+    def sn_to_grpc(sn: SPIDNodePair, grpc_sn: outlet.daemon.grpc.Node_pb2.SPIDNodePair):
+        NodeConverter.node_identifier_to_grpc(sn.spid, grpc_sn.spid)
+        NodeConverter.node_to_grpc(sn.node, grpc_sn)
+
+    @staticmethod
+    def display_tree_ui_state_to_grpc(state: DisplayTreeUiState, grpc_display_tree_ui_state: outlet.daemon.grpc.Outlet_pb2.DisplayTreeUiState):
+        NodeConverter.sn_to_grpc(state.root_sn, grpc_display_tree_ui_state.root_sn)
+        grpc_display_tree_ui_state.root_exists = state.root_exists
+        grpc_display_tree_ui_state.offending_path = state.offending_path
+        grpc_display_tree_ui_state.needs_manual_load = state.needs_manual_load
+
+    @staticmethod
+    def display_tree_ui_state_from_grpc(grpc_display_tree_ui_state: outlet.daemon.grpc.Outlet_pb2.DisplayTreeUiState) -> DisplayTreeUiState:
+        root_sn: SPIDNodePair = NodeConverter.sn_from_grpc(grpc_display_tree_ui_state.root_sn)
+        offending_path = grpc_display_tree_ui_state.offending_path
+        if not offending_path:
+            offending_path = None
+        return DisplayTreeUiState(grpc_display_tree_ui_state.tree_id, root_sn, grpc_display_tree_ui_state.root_exists, offending_path)
