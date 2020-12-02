@@ -1,15 +1,18 @@
+import asyncio
 import logging
 import threading
+import time
 from typing import List, Optional, Union
 
 import grpc
 from pydispatch import dispatcher
 
 from app.backend import OutletBackend
-from constants import GRPC_SERVER_ADDRESS
+from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_SERVER_ADDRESS
 from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.conversion import NodeConverter
-from daemon.grpc.Outlet_pb2 import GetNextUid_Request, GetNodeForLocalPath_Request, GetNodeForUid_Request, GetUidForLocalPath_Request, Signal
+from daemon.grpc.Outlet_pb2 import GetNextUid_Request, GetNodeForLocalPath_Request, GetNodeForUid_Request, GetUidForLocalPath_Request, Signal, \
+    SubscribeRequest
 from executor.task_runner import TaskRunner
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
@@ -28,7 +31,14 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
     """Listens for notifications which will be sent asynchronously by the backend gRPC server"""
     def __init__(self, backend):
         HasLifecycle.__init__(self)
-        threading.Thread.__init__(self, target=self.run_thread, name='SignalReceiverThread', daemon=True)
+        # self.event_loop = asyncio.new_event_loop()
+        #
+        # def run(loop):
+        #     asyncio.set_event_loop(loop)
+        #     loop.run_forever()
+
+        threading.Thread.__init__(self, target=self.run, name='SignalReceiverThread', daemon=True)
+
         self.backend = backend
         self._shutdown: bool = False
 
@@ -45,18 +55,36 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
         logger.debug(f'Shutting down {self.name}')
         self._shutdown = True
 
-    def run_thread(self):
+    @staticmethod
+    def _try_repeatedly(request_func):
+        retries_remaining = GRPC_CLIENT_REQUEST_MAX_RETRIES
+        while True:
+            try:
+                return request_func()
+            except Exception as err:
+                logger.debug(f'Error type: {type(err)}')
+                logger.error(f'Request failed: {repr(err)}: sleeping 3 secs (retries remaining: {retries_remaining})')
+                if retries_remaining == 0:
+                    raise
+
+                time.sleep(0.100)
+                retries_remaining -= 1
+
+    def run(self):
         logger.info(f'Starting {self.name}...')
 
         while not self._shutdown:
             logger.info('Subscribing to signals from server...')
-            signal_generator = self.backend.grpc_stub.subscribe_to_signals()
 
-            # This should block until input is received:
-            for signal in signal_generator:
-                self.dispatch(signal)
+            subscribe_request = SubscribeRequest()
+            subscribe_request.subscriber_id_list.append(actions.ID_DIFF_WINDOW)
+            while not self._shutdown:
+                logger.debug('Subscribing to GRPC signals')
+                self._try_repeatedly(lambda: self.backend.receive_server_signals())
 
-            logger.info('Connection to server ended.')
+            logger.debug('Connection to server ended.')
+
+        logger.debug(f'{self.name} Run loop ended.')
 
     def dispatch(self, signal: Signal):
         """Take the signal (received from server) and dispatch it to our UI process"""
@@ -65,7 +93,9 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             tree = display_tree_ui_state.to_display_tree(backend=self.backend)
             dispatcher.send(signal=signal.signal_name, sender=signal.sender_name, tree=tree)
         else:
+            logger.debug(f'Relaying signal locally "{signal.signal_name}" with sender={signal.sender_name}')
             dispatcher.send(signal=signal.signal_name, sender=signal.sender_name)
+        logger.debug(f'Sent signal "{signal.signal_name} locally"')
 
 
 # CLASS BackendGRPCClient
@@ -89,14 +119,25 @@ class BackendGRPCClient(OutletBackend, HasLifecycle):
 
         self.connect_dispatch_listener(signal=actions.ENQUEUE_UI_TASK, receiver=self._on_ui_task_requested)
 
-        with grpc.insecure_channel(GRPC_SERVER_ADDRESS) as channel:
-            self.grpc_stub = Outlet_pb2_grpc.OutletStub(channel)
-            logger.info(f'Outlet client connected!')
+        channel = grpc.insecure_channel(GRPC_SERVER_ADDRESS)
+        self.grpc_stub = Outlet_pb2_grpc.OutletStub(channel)
+        logger.info(f'Outlet client connected!')
 
         self.signal_thread.start()
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
+
+        if self.grpc_stub:
+            self.grpc_stub.close()
+            self.grpc_stub = None
+
+    def receive_server_signals(self):
+        request = SubscribeRequest()
+        request.subscriber_id_list.append(actions.ID_DIFF_WINDOW)
+        responses = self.grpc_stub.subscribe_to_signals(request)
+        for signal in responses:
+            logger.info(f'Received signal={signal.signal_name} from sender={signal.sender_name}')
 
     def _on_ui_task_requested(self, sender, task_func, *args, **kwargs):
         self._task_runner.enqueue(task_func, args)

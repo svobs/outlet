@@ -1,4 +1,5 @@
 import logging
+import time
 
 from daemon.grpc.conversion import NodeConverter
 from daemon.grpc.Outlet_pb2 import GetNextUid_Response, GetNodeForLocalPath_Request, GetNodeForUid_Request, GetUidForLocalPath_Request, \
@@ -57,9 +58,13 @@ class OutletGRPCService(OutletServicer):
         return response
 
     def subscribe_to_signals(self, request: SubscribeRequest, context):
-        for sender_id in request.get_subscriber_id_list():
-            # TODO: server ?
-            pass
+        for i in range(4):
+            for sender_id in request.subscriber_id_list:
+                # TODO: server ?
+                logger.info(f'Got sender_id {i}: {sender_id}')
+                time.sleep(1)
+                signal = Signal(signal_name=actions.CALL_EXIFTOOL, sender_name=actions.ID_GLOBAL_CACHE)
+                yield signal
     #
     # def signal(self, request_iterator, context):
     #     for req in request_iterator:

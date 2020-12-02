@@ -29,15 +29,16 @@ logger = logging.getLogger(__name__)
 class CategoryDisplayTree(DisplayTree):
     """Note: this doesn't completely map to DisplayTree, but it's close enough for it to be useful to
     inherit its functionality"""
-    def __init__(self, backend, tree_id: str, root_sn: SPIDNodePair, show_whole_forest=False):
+    def __init__(self, backend, state, show_whole_forest=False):
         # Root node will never be displayed in the UI, but tree requires a root node, as does parent class
-        super().__init__(backend, tree_id, root_sn)
+        super().__init__(backend, state)
 
         self._category_tree: SimpleTree = SimpleTree()
 
-        # Root node is not really important. Do not use its original UID, so as to disallow it from interfering with lookups
-        root_node = ContainerNode(root_sn.spid, nid=SUPER_ROOT_UID)
-        logger.debug(f'[{tree_id}] CategoryDisplayTree: inserting root node: {root_node}')
+        # Root node is not even displayed, so is not terribly important.
+        # Do not use its original UID, so as to disallow it from interfering with lookups
+        root_node = ContainerNode(self.get_root_identifier(), nid=SUPER_ROOT_UID)
+        logger.debug(f'[{self.tree_id}] CategoryDisplayTree: inserting root node: {root_node}')
         self._category_tree.add_node(root_node, parent=None)
 
         self.show_whole_forest: bool = show_whole_forest
