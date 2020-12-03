@@ -16,7 +16,7 @@ class OutletStub(object):
         """
         self.subscribe_to_signals = channel.unary_stream(
                 '/outlet.daemon.grpc.Outlet/subscribe_to_signals',
-                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SubscribeRequest.SerializeToString,
+                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Subscribe_Request.SerializeToString,
                 response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.FromString,
                 )
         self.ping = channel.unary_unary(
@@ -112,7 +112,7 @@ def add_OutletServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'subscribe_to_signals': grpc.unary_stream_rpc_method_handler(
                     servicer.subscribe_to_signals,
-                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SubscribeRequest.FromString,
+                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Subscribe_Request.FromString,
                     response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.SerializeToString,
             ),
             'ping': grpc.unary_unary_rpc_method_handler(
@@ -172,7 +172,7 @@ class Outlet(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_stream(request, target, '/outlet.daemon.grpc.Outlet/subscribe_to_signals',
-            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SubscribeRequest.SerializeToString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Subscribe_Request.SerializeToString,
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

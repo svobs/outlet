@@ -1,86 +1,62 @@
 import logging
 import threading
+import outlet.daemon.grpc
 from collections import deque
 from typing import Deque, Dict, Optional
-
-from pydispatch import dispatcher
 
 from daemon.grpc.conversion import NodeConverter
 from daemon.grpc.Outlet_pb2 import GetNextUid_Response, GetNodeForLocalPath_Request, GetNodeForUid_Request, GetUidForLocalPath_Request, \
     GetUidForLocalPath_Response, PingResponse, RequestDisplayTree_Response, Signal, SingleNode_Response, \
     StartSubtreeLoad_Request, \
-    StartSubtreeLoad_Response, SubscribeRequest
+    StartSubtreeLoad_Response, Subscribe_Request
 from daemon.grpc.Outlet_pb2_grpc import OutletServicer
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from store.cache_manager import CacheManager
 from store.uid.uid_generator import UidGenerator
 from ui import actions
+from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
-
-
-# CLASS SignalQueue
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-class SignalDipatchQueue:
-    def __init__(self):
-        self._cv_has_signal = threading.Condition()
-        self._thread_signal_queues: Dict[int, Deque] = {}
-        self._shutdown: bool = False
-        self._lock = threading.Lock()
-
-    def shutdown(self):
-        self._shutdown = True
-
-    def send_signal_to_all(self, signal_grpc: Signal):
-        logger.debug(f'Queuing signal="{signal_grpc.signal_name}" with sender="{signal_grpc.sender_name}"')
-        with self._lock:
-            for queue in self._thread_signal_queues.values():
-                queue.append(signal_grpc)
-
-    def add_subscriber(self, request):
-        """This method should be called by gRPC when it is handling a request. The calling thread will be used
-        to process the stream and so will be tied up."""
-
-        thread_id: int = threading.get_ident()
-        with self._lock:
-            signal_queue = self._thread_signal_queues.get(thread_id, None)
-            if signal_queue:
-                raise RuntimeError(f'There is already a queue for thread_id: {thread_id}')
-            self._thread_signal_queues[thread_id] = deque()
-
-        while not self._shutdown:
-            signal: Optional[Signal] = None
-            with self._lock:
-                signal_queue: Deque = self._thread_signal_queues.get(thread_id, None)
-                if len(signal_queue) > 0:
-                    signal = signal_queue.popleft()
-
-            if signal:
-                logger.info(f'[Thread:{thread_id}] Sending gRPC signal="{signal.signal_name}" with sender="{signal.sender_name}"')
-                yield signal
-
-            with self._cv_has_signal:
-                self._cv_has_signal.wait()
-
-        with self._lock:
-            del self._thread_signal_queues[thread_id]
 
 
 # CLASS OutletGRPCService
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class OutletGRPCService(OutletServicer):
+class OutletGRPCService(OutletServicer, HasLifecycle):
     """Backend gRPC Server"""
     def __init__(self, parent):
+        HasLifecycle.__init__(self)
         self.uid_generator: UidGenerator = parent.uid_generator
         self.cacheman: CacheManager = parent.cacheman
 
         self._cv_has_signal = threading.Condition()
-        self.signal_queue: SignalDipatchQueue = SignalDipatchQueue()
+        self._queue_lock = threading.Lock()
+        self._thread_signal_queues: Dict[int, Deque] = {}
+        self._shutdown: bool = False
 
-        dispatcher.connect(signal=actions.LOAD_SUBTREE_STARTED, receiver=self._on_subtree_load_started)
-        dispatcher.connect(signal=actions.LOAD_SUBTREE_DONE, receiver=self._on_subtree_load_done)
-        dispatcher.connect(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
+    def start(self):
+        HasLifecycle.start(self)
+
+        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_STARTED, receiver=self._on_subtree_load_started)
+        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_DONE, receiver=self._on_subtree_load_done)
+        self.connect_dispatch_listener(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
+
+    def shutdown(self):
+        HasLifecycle.shutdown(self)
+        self._shutdown = True
+
+    def send_signal_to_all(self, signal_grpc: outlet.daemon.grpc.Outlet_pb2.Signal):
+        if self._shutdown:
+            return
+
+        with self._queue_lock:
+            logger.debug(f'Queuing signal="{signal_grpc.signal_name}" with sender="'
+                         f'{signal_grpc.sender_name}" to {len(self._thread_signal_queues)} connected clients')
+            for queue in self._thread_signal_queues.values():
+                queue.append(signal_grpc)
+
+        with self._cv_has_signal:
+            self._cv_has_signal.notifyAll()
 
     def ping(self, request, context):
         logger.info(f'Got ping!')
@@ -112,11 +88,40 @@ class OutletGRPCService(OutletServicer):
         response.uid = self.cacheman.get_uid_for_local_path(request.full_path, request.uid_suggestion)
         return response
 
-    def subscribe_to_signals(self, request: SubscribeRequest, context):
-        self.signal_queue.add_subscriber(request)
+    def subscribe_to_signals(self, request: Subscribe_Request, context):
+        """This method should be called by gRPC when it is handling a request. The calling thread will be used
+                to process the stream and so will be tied up."""
+        try:
+            thread_id: int = threading.get_ident()
+            logger.info(f'Adding a subscriber for ThreadID {thread_id}')
+            with self._queue_lock:
+                signal_queue = self._thread_signal_queues.get(thread_id, None)
+                if signal_queue:
+                    raise RuntimeError(f'There is already a queue for ThreadID: {thread_id}')
+                self._thread_signal_queues[thread_id] = deque()
+
+            while not self._shutdown:
+                signal: Optional[Signal] = None
+                with self._queue_lock:
+                    logger.debug(f'Checking signal queue for ThreadID {thread_id}')
+                    signal_queue: Deque = self._thread_signal_queues.get(thread_id, None)
+                    if len(signal_queue) > 0:
+                        signal = signal_queue.popleft()
+
+                if signal:
+                    logger.debug(f'[ThreadID:{thread_id}] Sending gRPC signal="{signal.signal_name}" with sender="{signal.sender_name}"')
+                    yield signal
+
+                with self._cv_has_signal:
+                    self._cv_has_signal.wait()
+
+            with self._queue_lock:
+                del self._thread_signal_queues[thread_id]
+        except RuntimeError:
+            logger.exception('Unexpected error in add_subscriber()')
 
     def send_signal_via_grpc(self, signal: str, sender: str):
-        self.signal_queue.send_signal_to_all(Signal(signal_name=signal, sender_name=sender))
+        self.send_signal_to_all(Signal(signal_name=signal, sender_name=sender))
 
     def request_display_tree_ui_state(self, request, context):
         if request.HasField('spid'):
@@ -147,6 +152,6 @@ class OutletGRPCService(OutletServicer):
         request = Signal()
         request.signal_name = actions.DISPLAY_TREE_CHANGED
         request.sender_name = sender
-        request.display_tree_meta = NodeConverter.display_tree_ui_state_to_grpc(tree.state, request.display_tree_meta)
+        NodeConverter.display_tree_ui_state_to_grpc(tree.state, request.display_tree_ui_state)
 
-        self.signal_queue.send_signal_to_all(request)
+        self.send_signal_to_all(request)

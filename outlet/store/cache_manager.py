@@ -17,7 +17,7 @@ from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROO
     TREE_TYPE_LOCAL_DISK
 from error import CacheNotLoadedError, GDriveItemNotFoundError, InvalidOperationError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
-from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
+from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import HasChildStats, HasParentList, Node, SPIDNodePair

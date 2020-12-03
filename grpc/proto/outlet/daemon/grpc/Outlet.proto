@@ -8,6 +8,9 @@ option java_multiple_files = true;
 
 package outlet.daemon.grpc;
 
+message Empty {
+	// nothing
+}
 message PingRequest {
 	// nothing
 }
@@ -16,8 +19,8 @@ message PingResponse {
 	int64 timestamp = 1;
 }
 
-message SubscribeRequest {
-	repeated string subscriber_id_list = 1;
+message Subscribe_Request {
+	// nothing
 }
 
 message Signal {
@@ -25,7 +28,8 @@ message Signal {
 	string sender_name = 2;
 
 	oneof signal_data {
-		DisplayTreeUiState display_tree_ui_state = 10;
+		Empty empty = 10;
+		DisplayTreeUiState display_tree_ui_state = 11;
 	}
 }
 
@@ -95,7 +99,7 @@ message LoadNewTree {
 }
 
 service Outlet {
-	rpc subscribe_to_signals(SubscribeRequest) returns (stream Signal);
+	rpc subscribe_to_signals(Subscribe_Request) returns (stream Signal);
 	rpc ping(PingRequest) returns (PingResponse) {}
 	rpc get_node_for_uid(GetNodeForUid_Request) returns (SingleNode_Response) {}
 	rpc get_node_for_local_path(GetNodeForLocalPath_Request) returns (SingleNode_Response) {}

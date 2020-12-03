@@ -23,10 +23,12 @@ class OutletDaemon(BackendIntegrated):
         """Contains the gRPC client code"""
 
     def start(self):
+        self._grpc_service.start()
         BackendIntegrated.start(self)
 
     def shutdown(self):
         BackendIntegrated.shutdown(self)
+        self._grpc_service.shutdown()
 
     def serve(self):
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=GRPC_SERVER_MAX_WORKER_THREADS))

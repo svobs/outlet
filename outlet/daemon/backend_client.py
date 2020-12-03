@@ -13,7 +13,7 @@ from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.conversion import NodeConverter
 from daemon.grpc.Outlet_pb2 import GetNextUid_Request, GetNodeForLocalPath_Request, GetNodeForUid_Request, GetUidForLocalPath_Request, \
     RequestDisplayTree_Request, Signal, \
-    SPIDNodePair, StartSubtreeLoad_Request, SubscribeRequest
+    SPIDNodePair, StartSubtreeLoad_Request, Subscribe_Request
 from executor.task_runner import TaskRunner
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
@@ -75,21 +75,18 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
         while not self._shutdown:
             logger.info('Subscribing to signals from server...')
 
-            subscribe_request = SubscribeRequest()
-            subscribe_request.subscriber_id_list.append(actions.ID_DIFF_WINDOW)
             while not self._shutdown:
                 logger.debug('Subscribing to GRPC signals')
-                self._try_repeatedly(lambda: self.receive_server_signals())
-                logger.info(f'Outlet client connected!')
+                self._try_repeatedly(lambda: self._receive_server_signals())
 
             logger.debug('Connection to server ended.')
 
         logger.debug(f'{self.name} Run loop ended.')
 
-    def receive_server_signals(self):
-        request = SubscribeRequest()
-        request.subscriber_id_list.append(actions.ID_DIFF_WINDOW)
+    def _receive_server_signals(self):
+        request = Subscribe_Request()
         response_iter = self.backend.grpc_stub.subscribe_to_signals(request)
+        logger.debug(f'Subscribed to signals from server')
 
         while not self._shutdown:
             if not response_iter:
@@ -97,23 +94,22 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
                 return
             signal = next(response_iter)  # blocks each time until signal received, or server shutdown
             if signal:
-                logger.info(f'Received signal={signal.signal_name} from sender={signal.sender_name}')
-                self.dispatch_locally(signal)
+                logger.info(f'Got signal "{signal.signal_name}" from sender "{signal.sender_name}" via gRPC')
+                self._dispatch_locally(signal)
             else:
                 logger.warning('Received None for signal! Killing connection')
                 return
 
-    def dispatch_locally(self, signal: Signal):
+    def _dispatch_locally(self, signal: Signal):
         """Take the signal (received from server) and dispatch it to our UI process"""
         if signal.signal_name == actions.DISPLAY_TREE_CHANGED:
             display_tree_ui_state = NodeConverter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
             tree = display_tree_ui_state.to_display_tree(backend=self.backend)
-            logger.debug(f'Relaying signal locally "{signal.signal_name}" with sender={signal.sender_name}, state={display_tree_ui_state}')
+            logger.debug(f'Relaying signal locally "{signal.signal_name}" with sender="{signal.sender_name}" state={display_tree_ui_state}')
             dispatcher.send(signal=signal.signal_name, sender=signal.sender_name, tree=tree)
         else:
-            logger.debug(f'Relaying signal locally "{signal.signal_name}" with sender={signal.sender_name}')
+            logger.debug(f'Relaying signal locally "{signal.signal_name}" with sender="{signal.sender_name}"')
             dispatcher.send(signal=signal.signal_name, sender=signal.sender_name)
-        logger.debug(f'Sent signal "{signal.signal_name} locally"')
 
 
 # CLASS BackendGRPCClient
