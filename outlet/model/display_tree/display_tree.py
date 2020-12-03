@@ -15,11 +15,17 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class DisplayTreeUiState:
     def __init__(self, tree_id: str, root_sn: SPIDNodePair, root_exists: bool = True, offending_path: Optional[str] = None):
+        if not tree_id:
+            raise RuntimeError('Cannot build DisplayTreeUiState: tree_id cannot be empty!')
         self.tree_id: str = tree_id
+
+        if not root_sn:
+            raise RuntimeError('Cannot build DisplayTreeUiState: root_sn cannot be empty!')
         assert isinstance(root_sn, SPIDNodePair), f'Expected SPIDNodePair but got {type(root_sn)}'
         self.root_sn: SPIDNodePair = root_sn
         """This is needed to clarify the (albeit very rare) case where the root node resolves to multiple paths.
         Each display tree can only have one root path."""
+
         self.root_exists: bool = root_exists
         self.offending_path: Optional[str] = offending_path
         self.needs_manual_load: bool = False
@@ -31,6 +37,10 @@ class DisplayTreeUiState:
             return DisplayTree(backend, self)
         else:
             return NullDisplayTree(backend, self)
+
+    def __repr__(self):
+        return f'DisplayTreeUiState(tree_id="{self.tree_id}" root_exists={self.root_exists} offending_path=' \
+               f'{self.offending_path} needs_manual_load={self.needs_manual_load} root_sn={self.root_sn}'
 
 
 # ABSTRACT CLASS DisplayTree

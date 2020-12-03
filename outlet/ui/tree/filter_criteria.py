@@ -194,6 +194,7 @@ class FilterCriteria:
 
     @staticmethod
     def read_filter_criteria_from_config(config, tree_id: str):
+        assert tree_id, 'No tree_id specified!'
         logger.debug(f'[{tree_id}] Reading FilterCriteria from config')
         filter_criteria = FilterCriteria()
 

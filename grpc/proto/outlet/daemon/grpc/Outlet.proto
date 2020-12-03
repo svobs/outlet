@@ -29,6 +29,14 @@ message Signal {
 	}
 }
 
+message StartSubtreeLoad_Request {
+	string tree_id = 1;
+}
+
+message StartSubtreeLoad_Response {
+	// nothing
+}
+
 message DisplayTreeUiState {
 	string tree_id = 1;
 	SPIDNodePair root_sn = 2;
@@ -37,8 +45,19 @@ message DisplayTreeUiState {
 	bool needs_manual_load = 5;
 }
 
+message RequestDisplayTree_Request {
+	bool is_startup = 1;
+	string tree_id = 2;
+	string user_path = 3;
+	NodeIdentifier spid = 4;
+}
+
+message RequestDisplayTree_Response {
+		DisplayTreeUiState display_tree_ui_state = 1;
+}
+
 message SingleNode_Response {
-	outlet.daemon.grpc.Node node = 1;
+	Node node = 1;
 }
 
 message GetUidForLocalPath_Request {
@@ -80,6 +99,8 @@ service Outlet {
 	rpc ping(PingRequest) returns (PingResponse) {}
 	rpc get_node_for_uid(GetNodeForUid_Request) returns (SingleNode_Response) {}
 	rpc get_node_for_local_path(GetNodeForLocalPath_Request) returns (SingleNode_Response) {}
+	rpc request_display_tree_ui_state(RequestDisplayTree_Request) returns (RequestDisplayTree_Response) {}
+	rpc start_subtree_load(StartSubtreeLoad_Request) returns (StartSubtreeLoad_Response) {}
 
 	rpc get_next_uid(GetNextUid_Request) returns (GetNextUid_Response) {}
 	rpc get_uid_for_local_path(GetUidForLocalPath_Request) returns (GetUidForLocalPath_Response) {}

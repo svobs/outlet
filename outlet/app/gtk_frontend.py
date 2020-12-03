@@ -5,7 +5,6 @@ from typing import Dict, Optional
 from pydispatch import dispatcher
 
 from app.backend import OutletBackend
-from model.node_identifier_factory import NodeIdentifierFactory
 from ui import actions
 from ui.actions import ID_DIFF_WINDOW
 from ui.tree.controller import TreePanelController
@@ -41,6 +40,7 @@ class OutletApplication(Gtk.Application):
         self.backend.start()
 
         dispatcher.connect(signal=actions.DEREGISTER_DISPLAY_TREE, receiver=self._deregister_tree_controller)
+        dispatcher.connect(signal=actions.SHUTDOWN_APP, receiver=self.shutdown)
 
     def shutdown(self):
         logger.debug('Shutting down app...')
@@ -54,6 +54,8 @@ class OutletApplication(Gtk.Application):
         except NameError:
             pass
 
+        # TODO: figure out why it takes so long to finish shutdown via this call
+        self.quit()
 
     # TODO: replace all uses of this with APIs in Backend
     @property
@@ -102,15 +104,18 @@ class OutletApplication(Gtk.Application):
     def do_startup(self):
         Gtk.Application.do_startup(self)
 
-        quit_action = Gio.SimpleAction.new("quit", None)
-        quit_action.connect("activate", self.quit_callback)
-        self.add_action(quit_action)
+        self.add_simple_action('quit', self.quit_callback)
         # See: https://developer.gnome.org/gtk3/stable/gtk3-Keyboard-Accelerators.html#gtk-accelerator-parse
         self.set_accels_for_action('app.quit', 'q')
 
     def quit_callback(self, action, parameter):
         logger.info("You chose Quit")
         self.shutdown()
+
+    def add_simple_action(self, name, callback):
+        action = Gio.SimpleAction.new(name)
+        action.connect("activate", callback)
+        self.add_action(action)
 
     # Tree controller tracking/lookup
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼

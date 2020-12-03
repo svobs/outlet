@@ -34,29 +34,30 @@ class OutletBackend(ABC):
         pass
 
     @abstractmethod
-    def get_display_tree(self, tree_id: str, user_path: str = None, spid: SinglePathNodeIdentifier = None, is_startup: bool = False) -> DisplayTree:
+    def request_display_tree(self, tree_id: str, user_path: str = None, spid: SinglePathNodeIdentifier = None, is_startup: bool = False) \
+            -> Optional[DisplayTree]:
         pass
 
     @abstractmethod
     def start_subtree_load(self, tree_id: str):
         pass
 
-    def create_display_tree_for_gdrive_select(self):
+    def create_display_tree_for_gdrive_select(self) -> Optional[DisplayTree]:
         spid = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
         return self._create_display_tree(actions.ID_GDRIVE_DIR_SELECT, spid=spid)
 
-    def create_display_tree_from_config(self, tree_id: str, is_startup: bool = False) -> DisplayTree:
+    def create_display_tree_from_config(self, tree_id: str, is_startup: bool = False) -> Optional[DisplayTree]:
         # no arguments will be recognized by CacheMan as needing to read from config
         return self._create_display_tree(tree_id, is_startup=is_startup)
 
-    def create_display_tree_from_spid(self, tree_id: str, spid: SinglePathNodeIdentifier):
+    def create_display_tree_from_spid(self, tree_id: str, spid: SinglePathNodeIdentifier) -> Optional[DisplayTree]:
         return self._create_display_tree(tree_id, spid=spid)
 
-    def create_display_tree_from_user_path(self, tree_id: str, user_path: str) -> DisplayTree:
+    def create_display_tree_from_user_path(self, tree_id: str, user_path: str) -> Optional[DisplayTree]:
         return self._create_display_tree(tree_id, user_path=user_path)
 
     def _create_display_tree(self, tree_id: str, user_path: Optional[str] = None, spid: Optional[SinglePathNodeIdentifier] = None,
-                             is_startup: bool = False) -> DisplayTree:
+                             is_startup: bool = False) -> Optional[DisplayTree]:
         """
         Notifies the backend that the tree was requested, and returns a display tree object, which the backend will also send via
         notification (unless is_startup==True, in which case no notification will be sent). Also is_startup helps determine whether
@@ -65,12 +66,11 @@ class OutletBackend(ABC):
         The DisplayTree object is immediately created and returned even if the tree has not finished loading on the backend. The backend
         will send a notification if/when it has finished loading.
         """
-        logger.debug(f'[{tree_id}] Got request to load subtree (user_path="{user_path}", spid={spid}, is_startup={is_startup}')
+        logger.debug(f'[{tree_id}] Got request to load display tree (user_path="{user_path}", spid={spid}, is_startup={is_startup}')
         if spid:
             assert isinstance(spid, SinglePathNodeIdentifier), f'Expected SinglePathNodeIdentifier but got {type(spid)}'
             spid.normalize_paths()
 
-        tree: DisplayTree = self.get_display_tree(tree_id, user_path, spid, is_startup)
-        return tree
+        return self.request_display_tree(tree_id, user_path, spid, is_startup)
 
     # def to_display_tree(self, state: DisplayTreeUiState) -> DisplayTree:

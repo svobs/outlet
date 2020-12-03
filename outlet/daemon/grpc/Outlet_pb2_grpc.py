@@ -34,6 +34,16 @@ class OutletStub(object):
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNodeForLocalPath_Request.SerializeToString,
                 response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SingleNode_Response.FromString,
                 )
+        self.request_display_tree_ui_state = channel.unary_unary(
+                '/outlet.daemon.grpc.Outlet/request_display_tree_ui_state',
+                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.RequestDisplayTree_Request.SerializeToString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.RequestDisplayTree_Response.FromString,
+                )
+        self.start_subtree_load = channel.unary_unary(
+                '/outlet.daemon.grpc.Outlet/start_subtree_load',
+                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartSubtreeLoad_Request.SerializeToString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartSubtreeLoad_Response.FromString,
+                )
         self.get_next_uid = channel.unary_unary(
                 '/outlet.daemon.grpc.Outlet/get_next_uid',
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNextUid_Request.SerializeToString,
@@ -73,6 +83,18 @@ class OutletServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def request_display_tree_ui_state(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def start_subtree_load(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def get_next_uid(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -107,6 +129,16 @@ def add_OutletServicer_to_server(servicer, server):
                     servicer.get_node_for_local_path,
                     request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNodeForLocalPath_Request.FromString,
                     response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SingleNode_Response.SerializeToString,
+            ),
+            'request_display_tree_ui_state': grpc.unary_unary_rpc_method_handler(
+                    servicer.request_display_tree_ui_state,
+                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.RequestDisplayTree_Request.FromString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.RequestDisplayTree_Response.SerializeToString,
+            ),
+            'start_subtree_load': grpc.unary_unary_rpc_method_handler(
+                    servicer.start_subtree_load,
+                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartSubtreeLoad_Request.FromString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartSubtreeLoad_Response.SerializeToString,
             ),
             'get_next_uid': grpc.unary_unary_rpc_method_handler(
                     servicer.get_next_uid,
@@ -193,6 +225,40 @@ class Outlet(object):
         return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/get_node_for_local_path',
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNodeForLocalPath_Request.SerializeToString,
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SingleNode_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def request_display_tree_ui_state(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/request_display_tree_ui_state',
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.RequestDisplayTree_Request.SerializeToString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.RequestDisplayTree_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def start_subtree_load(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/start_subtree_load',
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartSubtreeLoad_Request.SerializeToString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartSubtreeLoad_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

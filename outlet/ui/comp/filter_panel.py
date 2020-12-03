@@ -27,7 +27,6 @@ class TreeFilterPanel:
         self.parent_win: BaseDialog = parent_win
         self.con = controller
         self.tree_id: str = self.con.tree_id
-        self.cacheman = self.con.cacheman
         self.content_box = Gtk.Box(spacing=0, orientation=Gtk.Orientation.HORIZONTAL)
         self._ui_enabled = True
 

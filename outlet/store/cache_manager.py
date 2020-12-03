@@ -61,6 +61,7 @@ def ensure_cache_dir_path(config):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class ActiveDisplayTreeMeta:
     """For internal use by CacheManager."""
+
     def __init__(self, backend, tree_id: str, root_sn: SPIDNodePair, root_exists: bool = True, offending_path: Optional[str] = None):
         self.tree_id: str = tree_id
         self.root_sn: SPIDNodePair = root_sn
@@ -73,6 +74,7 @@ class ActiveDisplayTreeMeta:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class CacheInfoByType(TwoLevelDict):
     """Holds PersistedCacheInfo objects"""
+
     def __init__(self):
         super().__init__(lambda x: x.subtree_root.tree_type, lambda x: x.subtree_root.get_path_list()[0], lambda x, y: True)
 
@@ -81,6 +83,7 @@ class CacheInfoByType(TwoLevelDict):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class LoadRequestThread(QThread):
     """Hasher thread which churns through signature queue and sends updates to cacheman"""
+
     def __init__(self, backend, cacheman):
         QThread.__init__(self, name='LoadRequestThread', initial_sleep_sec=0.0)
         self.backend = backend
@@ -102,6 +105,7 @@ class CacheManager(HasLifecycle):
     """
     This is the central source of truth for the backend (or attempts to be as much as possible).
     """
+
     def __init__(self, backend):
         HasLifecycle.__init__(self)
         self.backend = backend
@@ -446,9 +450,7 @@ class CacheManager(HasLifecycle):
         gdrive_root_spid = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
         for tree_id in tree_id_list:
             logger.info(f'[{tree_id}] Resetting path to GDrive root')
-            tree_state = self.get_display_tree_ui_state(tree_id, spid=gdrive_root_spid)
-            tree = tree_state.to_display_tree(self.backend)
-            dispatcher.send(actions.DISPLAY_TREE_CHANGED, sender=actions.ID_GLOBAL_CACHE, tree=tree)
+            self.get_display_tree_ui_state(tree_id, spid=gdrive_root_spid)
 
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -477,8 +479,8 @@ class CacheManager(HasLifecycle):
         logger.debug(f'[{display_tree_meta.tree_id}] NeedsManualLoad = {state.needs_manual_load}')
         return state
 
-    def get_display_tree_ui_state(self, tree_id: str, user_path: str = None, spid: Optional[SinglePathNodeIdentifier] = None,
-                                  is_startup: bool = False) -> DisplayTreeUiState:
+    def request_display_tree_ui_state(self, tree_id: str, user_path: str = None, spid: Optional[SinglePathNodeIdentifier] = None,
+                                      is_startup: bool = False) -> Optional[DisplayTreeUiState]:
         logger.debug(f'[{tree_id}] Got request to load display tree (user_path={user_path}, spid: {spid}, is_startup={is_startup})')
 
         root_path_persister = None
@@ -506,7 +508,8 @@ class CacheManager(HasLifecycle):
             if display_tree_meta.root_sn.spid == root_path_meta.root_spid:
                 # Requested the existing tree and root? Just return that:
                 logger.debug(f'Display tree already registered with given root; returning existing')
-                return self._convert_display_tree_meta_to_ui_state(display_tree_meta, is_startup)
+                state = self._convert_display_tree_meta_to_ui_state(display_tree_meta, is_startup)
+                return self._return_display_tree_ui_state(state, is_startup)
 
             if display_tree_meta.root_path_config_persister:
                 # If we started from a persister, continue persisting:
@@ -561,7 +564,17 @@ class CacheManager(HasLifecycle):
         if not state.needs_manual_load:
             self.enqueue_load_subtree_task(tree_id)
 
-        return state
+        return self._return_display_tree_ui_state(state, is_startup)
+
+    def _return_display_tree_ui_state(self, state, is_startup: bool):
+        if is_startup:
+            return state
+        else:
+            # notify clients asynchronously
+            tree = state.to_display_tree(self.backend)
+            logger.debug(f'[{state.tree_id}] Firing signal: {actions.DISPLAY_TREE_CHANGED}')
+            dispatcher.send(actions.DISPLAY_TREE_CHANGED, sender=actions.ID_GLOBAL_CACHE, tree=tree)
+            return None
 
     def _resolve_root_meta_from_path(self, full_path: str) -> RootPathMeta:
         """Resolves the given path into either a local file, a set of Google Drive matches, or generates a GDriveItemNotFoundError,
