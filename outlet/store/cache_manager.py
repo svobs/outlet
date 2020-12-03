@@ -24,7 +24,7 @@ from model.node.node import HasChildStats, HasParentList, Node, SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from model.user_op import UserOp
+from model.user_op import UserOp, UserOpStatus
 from store.gdrive.master_gdrive import GDriveMasterStore
 from store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from store.live_monitor import LiveMonitor
@@ -417,6 +417,10 @@ class CacheManager(HasLifecycle):
             logger.debug(f'Cmd resulted in {len(result.nodes_to_delete)} nodes to delete')
             for deleted_node in result.nodes_to_delete:
                 self.remove_node(deleted_node, to_trash=False)
+
+    def _on_command_completed(self, sender, command: Command):
+        logger.debug(f'Received signal: "{actions.COMMAND_COMPLETE}"')
+
 
     def _deregister_display_tree(self, sender: str):
         logger.debug(f'[{sender}] Received signal: "{actions.DEREGISTER_DISPLAY_TREE}"')

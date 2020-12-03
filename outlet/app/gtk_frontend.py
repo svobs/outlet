@@ -54,7 +54,7 @@ class OutletApplication(Gtk.Application):
         except NameError:
             pass
 
-        # TODO: figure out why it takes so long to finish shutdown via this call
+        # This may take a long time if gRPC needs to time out
         self.quit()
 
     # TODO: replace all uses of this with APIs in Backend

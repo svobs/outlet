@@ -6,7 +6,6 @@ from pydispatch import dispatcher
 from pydispatch.dispatcher import Any
 
 import ui.actions as actions
-from command.cmd_interface import Command, UserOpStatus
 from constants import APP_NAME, H_PAD, ICON_PAUSE, ICON_PLAY, ICON_WINDOW, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
 from global_actions import GlobalActions
@@ -16,7 +15,6 @@ from model.node.node import SPIDNodePair
 from ui.dialog.base_dialog import BaseDialog
 from ui.dialog.merge_preview_dialog import MergePreviewDialog
 from ui.tree import tree_factory
-from ui.tree.root_path_config import RootPathConfigPersister
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk
@@ -129,7 +127,6 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         dispatcher.connect(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
         dispatcher.connect(signal=actions.DIFF_TREES_DONE, receiver=self._after_diff_completed)
         dispatcher.connect(signal=actions.DIFF_TREES_FAILED, receiver=self._after_diff_failed)
-        dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
 
         # Need to add an extra listener to each tree, to reload when the other one's root changes
         # if displaying the results of a diff
@@ -354,7 +351,6 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             cancel_diff_btn = Gtk.Button(label="Cancel Diff")
             cancel_diff_btn.connect("clicked", on_cancel_diff_btn_clicked)
 
-            self.root_path_persister_left = RootPathConfigPersister(backend=self.app.backend, tree_id=actions.ID_LEFT_TREE)
             self.replace_bottom_button_panel(merge_btn, cancel_diff_btn)
 
             GlobalActions.enable_ui(sender=self.win_id)
@@ -364,16 +360,6 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
     def _on_error_occurred(self, msg: str, secondary_msg: str = None):
         logger.debug(f'Received signal: "{actions.ERROR_OCCURRED}"')
         self.show_error_ui(msg, secondary_msg)
-
-    def _on_command_completed(self, sender, command: Command):
-        logger.debug(f'Received signal: "{actions.COMMAND_COMPLETE}"')
-
-        if command.status() == UserOpStatus.STOPPED_ON_ERROR:
-            self.show_error_ui(f'Command {command.uid} (op {command.op.op_uid}) failed with error: {command.get_error()}')
-            # TODO: how to recover?
-            return
-        else:
-            logger.info(f'Command {command.uid} (op {command.op.op_uid}) returned with status: "{command.status().name}"')
 
     def _on_merge_complete(self):
         logger.debug('Received signal that merge completed. Reloading both trees')

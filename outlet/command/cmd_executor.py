@@ -46,6 +46,10 @@ class CommandExecutor:
             # Save the error inside the command:
             command.set_error_result(err)
 
+            # Report error to the UI:
+            msg = f'Command {command.uid} (op {command.op.op_uid}) failed with error: {command.get_error()}'
+            dispatcher.send(signal=actions.ERROR_OCCURRED, sender=actions.ID_COMMAND_EXECUTOR, msg=msg)
+
         dispatcher.send(signal=actions.COMMAND_COMPLETE, sender=actions.ID_COMMAND_EXECUTOR, command=command)
         dispatcher.send(signal=actions.PROGRESS_MADE, sender=actions.ID_COMMAND_EXECUTOR, progress=command.get_total_work())
 
