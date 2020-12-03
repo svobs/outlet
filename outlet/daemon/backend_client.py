@@ -11,7 +11,8 @@ from app.backend import OutletBackend
 from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_SERVER_ADDRESS
 from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.conversion import NodeConverter
-from daemon.grpc.Outlet_pb2 import GetNextUid_Request, GetNodeForLocalPath_Request, GetNodeForUid_Request, GetUidForLocalPath_Request, \
+from daemon.grpc.Outlet_pb2 import GetNextUid_Request, GetNodeForLocalPath_Request, GetNodeForUid_Request, GetOpExecPlayState_Request, \
+    GetUidForLocalPath_Request, \
     RequestDisplayTree_Request, Signal, \
     SPIDNodePair, StartSubtreeLoad_Request, Subscribe_Request
 from executor.task_runner import TaskRunner
@@ -102,14 +103,17 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
 
     def _dispatch_locally(self, signal: Signal):
         """Take the signal (received from server) and dispatch it to our UI process"""
+        kwargs = {}
         if signal.signal_name == actions.DISPLAY_TREE_CHANGED:
             display_tree_ui_state = NodeConverter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
             tree = display_tree_ui_state.to_display_tree(backend=self.backend)
-            logger.debug(f'Relaying signal locally "{signal.signal_name}" with sender="{signal.sender_name}" state={display_tree_ui_state}')
-            dispatcher.send(signal=signal.signal_name, sender=signal.sender_name, tree=tree)
-        else:
-            logger.debug(f'Relaying signal locally "{signal.signal_name}" with sender="{signal.sender_name}"')
-            dispatcher.send(signal=signal.signal_name, sender=signal.sender_name)
+            kwargs['tree'] = tree
+        elif signal.signal_name == actions.OP_EXECUTION_PLAY_STATE_CHANGED:
+            is_enabled: bool = signal.play_state.is_enabled
+            kwargs['is_enabled'] = is_enabled
+
+        logger.debug(f'Relaying signal locally "{signal.signal_name}" with sender="{signal.sender_name}" kwargs={kwargs}')
+        dispatcher.send(signal=signal.signal_name, sender=signal.sender_name, **kwargs)
 
 
 # CLASS BackendGRPCClient
@@ -135,6 +139,9 @@ class BackendGRPCClient(OutletBackend, HasLifecycle):
 
         self.connect_dispatch_listener(signal=actions.ENQUEUE_UI_TASK, receiver=self._on_ui_task_requested)
 
+        self.connect_dispatch_listener(signal=actions.PAUSE_OP_EXECUTION, receiver=self._send_pause_op_exec_signal)
+        self.connect_dispatch_listener(signal=actions.RESUME_OP_EXECUTION, receiver=self._send_resume_op_exec_signal)
+
         self.channel = grpc.insecure_channel(GRPC_SERVER_ADDRESS)
         self.grpc_stub = Outlet_pb2_grpc.OutletStub(self.channel)
 
@@ -148,8 +155,14 @@ class BackendGRPCClient(OutletBackend, HasLifecycle):
             self.channel = None
             self.grpc_stub = None
 
+    def _send_pause_op_exec_signal(self, sender: str):
+        self.grpc_stub.send_signal(Signal(signal_name=actions.PAUSE_OP_EXECUTION, sender_name=sender))
+
+    def _send_resume_op_exec_signal(self, sender: str):
+        self.grpc_stub.send_signal(Signal(signal_name=actions.RESUME_OP_EXECUTION, sender_name=sender))
+
     def _on_ui_task_requested(self, sender, task_func, *args, **kwargs):
-        self._task_runner.enqueue(task_func, args)
+        self._task_runner.enqueue(task_func, args, kwargs)
 
     def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
         request = GetNodeForUid_Request()
@@ -206,3 +219,6 @@ class BackendGRPCClient(OutletBackend, HasLifecycle):
         request = StartSubtreeLoad_Request()
         request.tree_id = tree_id
         self.grpc_stub.start_subtree_load(request)
+
+    def get_op_execution_play_state(self) -> bool:
+        return self.grpc_stub.get_op_exec_play_state(GetOpExecPlayState_Request())

@@ -19,6 +19,11 @@ class OutletStub(object):
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Subscribe_Request.SerializeToString,
                 response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.FromString,
                 )
+        self.send_signal = channel.unary_unary(
+                '/outlet.daemon.grpc.Outlet/send_signal',
+                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.SerializeToString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SendSignalResponse.FromString,
+                )
         self.ping = channel.unary_unary(
                 '/outlet.daemon.grpc.Outlet/ping',
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.PingRequest.SerializeToString,
@@ -44,6 +49,11 @@ class OutletStub(object):
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartSubtreeLoad_Request.SerializeToString,
                 response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartSubtreeLoad_Response.FromString,
                 )
+        self.get_op_exec_play_state = channel.unary_unary(
+                '/outlet.daemon.grpc.Outlet/get_op_exec_play_state',
+                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetOpExecPlayState_Request.SerializeToString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.PlayState.FromString,
+                )
         self.get_next_uid = channel.unary_unary(
                 '/outlet.daemon.grpc.Outlet/get_next_uid',
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNextUid_Request.SerializeToString,
@@ -60,6 +70,12 @@ class OutletServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def subscribe_to_signals(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def send_signal(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -95,6 +111,12 @@ class OutletServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def get_op_exec_play_state(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def get_next_uid(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -114,6 +136,11 @@ def add_OutletServicer_to_server(servicer, server):
                     servicer.subscribe_to_signals,
                     request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Subscribe_Request.FromString,
                     response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.SerializeToString,
+            ),
+            'send_signal': grpc.unary_unary_rpc_method_handler(
+                    servicer.send_signal,
+                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.FromString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SendSignalResponse.SerializeToString,
             ),
             'ping': grpc.unary_unary_rpc_method_handler(
                     servicer.ping,
@@ -139,6 +166,11 @@ def add_OutletServicer_to_server(servicer, server):
                     servicer.start_subtree_load,
                     request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartSubtreeLoad_Request.FromString,
                     response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartSubtreeLoad_Response.SerializeToString,
+            ),
+            'get_op_exec_play_state': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_op_exec_play_state,
+                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetOpExecPlayState_Request.FromString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.PlayState.SerializeToString,
             ),
             'get_next_uid': grpc.unary_unary_rpc_method_handler(
                     servicer.get_next_uid,
@@ -174,6 +206,23 @@ class Outlet(object):
         return grpc.experimental.unary_stream(request, target, '/outlet.daemon.grpc.Outlet/subscribe_to_signals',
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Subscribe_Request.SerializeToString,
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def send_signal(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/send_signal',
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.SerializeToString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SendSignalResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -259,6 +308,23 @@ class Outlet(object):
         return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/start_subtree_load',
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartSubtreeLoad_Request.SerializeToString,
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartSubtreeLoad_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def get_op_exec_play_state(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/get_op_exec_play_state',
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetOpExecPlayState_Request.SerializeToString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.PlayState.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

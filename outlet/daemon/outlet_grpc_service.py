@@ -1,15 +1,19 @@
 import logging
 import threading
+
+from pydispatch import dispatcher
+
 import outlet.daemon.grpc
 from collections import deque
 from typing import Deque, Dict, Optional
 
 from daemon.grpc.conversion import NodeConverter
 from daemon.grpc.Outlet_pb2 import GetNextUid_Response, GetNodeForLocalPath_Request, GetNodeForUid_Request, GetUidForLocalPath_Request, \
-    GetUidForLocalPath_Response, PingResponse, RequestDisplayTree_Response, Signal, SingleNode_Response, \
+    GetUidForLocalPath_Response, PingResponse, PlayState, RequestDisplayTree_Response, SendSignalResponse, Signal, SingleNode_Response, \
     StartSubtreeLoad_Request, \
     StartSubtreeLoad_Response, Subscribe_Request
 from daemon.grpc.Outlet_pb2_grpc import OutletServicer
+from executor.central import CentralExecutor
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from store.cache_manager import CacheManager
 from store.uid.uid_generator import UidGenerator
@@ -24,10 +28,11 @@ logger = logging.getLogger(__name__)
 
 class OutletGRPCService(OutletServicer, HasLifecycle):
     """Backend gRPC Server"""
-    def __init__(self, parent):
+    def __init__(self, backend):
         HasLifecycle.__init__(self)
-        self.uid_generator: UidGenerator = parent.uid_generator
-        self.cacheman: CacheManager = parent.cacheman
+        self.uid_generator: UidGenerator = backend.uid_generator
+        self.cacheman: CacheManager = backend.cacheman
+        self.executor: CentralExecutor = backend.executor
 
         self._cv_has_signal = threading.Condition()
         self._queue_lock = threading.Lock()
@@ -40,6 +45,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_STARTED, receiver=self._on_subtree_load_started)
         self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_DONE, receiver=self._on_subtree_load_done)
         self.connect_dispatch_listener(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
+        self.connect_dispatch_listener(signal=actions.OP_EXECUTION_PLAY_STATE_CHANGED, receiver=self._on_op_exec_play_state_changed)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
@@ -87,6 +93,11 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         response = GetUidForLocalPath_Response()
         response.uid = self.cacheman.get_uid_for_local_path(request.full_path, request.uid_suggestion)
         return response
+
+    def send_signal(self, request, context):
+        logger.info(f'Relaying signal from gRPC: "{request.signal_name}" from sender "{request.sender_name}"')
+        dispatcher.send(signal=request.signal_name, sender=request.sender_name)
+        return SendSignalResponse()
 
     def subscribe_to_signals(self, request: Subscribe_Request, context):
         """This method should be called by gRPC when it is handling a request. The calling thread will be used
@@ -149,9 +160,19 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.send_signal_via_grpc(actions.LOAD_SUBTREE_DONE, sender)
 
     def _on_display_tree_changed(self, sender: str, tree: DisplayTree):
-        request = Signal()
-        request.signal_name = actions.DISPLAY_TREE_CHANGED
-        request.sender_name = sender
-        NodeConverter.display_tree_ui_state_to_grpc(tree.state, request.display_tree_ui_state)
+        signal = Signal()
+        signal.signal_name = actions.DISPLAY_TREE_CHANGED
+        signal.sender_name = sender
+        NodeConverter.display_tree_ui_state_to_grpc(tree.state, signal.display_tree_ui_state)
 
-        self.send_signal_to_all(request)
+        self.send_signal_to_all(signal)
+
+    def _on_op_exec_play_state_changed(self, sender: str, is_enabled: bool):
+        signal = Signal(signal_name=actions.OP_EXECUTION_PLAY_STATE_CHANGED, sender_name=sender)
+        signal.play_state.is_enabled = is_enabled
+        self.send_signal_to_all(signal)
+
+    def get_op_exec_play_state(self, request, context):
+        response = PlayState()
+        response.is_enabled = self.executor.enable_op_execution_thread
+        return response

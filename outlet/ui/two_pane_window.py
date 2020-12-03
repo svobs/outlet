@@ -102,7 +102,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.toolbar.set_style(Gtk.ToolbarStyle.ICONS)
         self.play_pause_btn = Gtk.ToolButton()
 
-        self._update_play_pause_btn(self.win_id)
+        self._is_playing = self.app.backend.get_op_execution_play_state()
+        self._update_play_pause_btn(sender=self.win_id, is_enabled=self._is_playing)
 
         self.play_pause_btn.connect('clicked', self._on_play_pause_btn_clicked)
         self.toolbar.insert(self.play_pause_btn, -1)
@@ -307,8 +308,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
                 button.set_sensitive(enable)
         GLib.idle_add(toggle_ui)
 
-    def _update_play_pause_btn(self, sender: str):
-        self._is_playing: bool = self.app.backend.executor.enable_op_execution_thread
+    def _update_play_pause_btn(self, sender: str, is_enabled: bool):
+        self._is_playing: bool = is_enabled
         logger.debug(f'Updating play/pause btn with is_playing={self._is_playing}')
         if self._is_playing:
             self.play_pause_btn.set_icon_widget(self.pause_icon)

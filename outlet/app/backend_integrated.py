@@ -74,3 +74,6 @@ class BackendIntegrated(OutletBackend, HasLifecycle):
 
     def start_subtree_load(self, tree_id: str):
         self.cacheman.enqueue_load_subtree_task(tree_id)
+
+    def get_op_execution_play_state(self) -> bool:
+        return self.executor.enable_op_execution_thread

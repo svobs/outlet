@@ -25,11 +25,10 @@ class CentralExecutor(HasLifecycle):
         self._global_actions = GlobalActions(self.backend)
         self._task_runner = TaskRunner()
         self.enable_op_execution_thread = backend.config.get('executor.enable_op_execution_thread')
+        self._cv_can_execute = threading.Condition()
 
         self._op_execution_thread = threading.Thread(target=self._run_op_execution_thread, name='OpExecutionThread', daemon=True)
         """Executes changes as needed in its own thread, which blocks until a change is available."""
-
-        self._cv_can_execute = threading.Condition()
 
     def start(self):
         logger.debug('Central Executor starting')
@@ -100,11 +99,11 @@ class CentralExecutor(HasLifecycle):
         logger.debug(f'Received signal "{actions.RESUME_OP_EXECUTION}" from {sender}')
         self.enable_op_execution_thread = True
         self.start_op_execution_thread()
-        logger.debug(f'Sending signal "{actions.OP_EXECUTION_PLAY_STATE_CHANGED}" (play_enabled={self.enable_op_execution_thread})')
-        dispatcher.send(signal=actions.OP_EXECUTION_PLAY_STATE_CHANGED, sender=actions.ID_CENTRAL_EXEC)
+        logger.debug(f'Sending signal "{actions.OP_EXECUTION_PLAY_STATE_CHANGED}" (is_enabled={self.enable_op_execution_thread})')
+        dispatcher.send(signal=actions.OP_EXECUTION_PLAY_STATE_CHANGED, sender=actions.ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution_thread)
 
     def _pause_op_execution(self, sender):
         logger.debug(f'Received signal "{actions.PAUSE_OP_EXECUTION}" from {sender}')
         self.enable_op_execution_thread = False
-        logger.debug(f'Sending signal "{actions.OP_EXECUTION_PLAY_STATE_CHANGED}" (play_enabled={self.enable_op_execution_thread})')
-        dispatcher.send(signal=actions.OP_EXECUTION_PLAY_STATE_CHANGED, sender=actions.ID_CENTRAL_EXEC)
+        logger.debug(f'Sending signal "{actions.OP_EXECUTION_PLAY_STATE_CHANGED}" (is_enabled={self.enable_op_execution_thread})')
+        dispatcher.send(signal=actions.OP_EXECUTION_PLAY_STATE_CHANGED, sender=actions.ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution_thread)

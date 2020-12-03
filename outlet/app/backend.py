@@ -42,6 +42,10 @@ class OutletBackend(ABC):
     def start_subtree_load(self, tree_id: str):
         pass
 
+    @abstractmethod
+    def get_op_execution_play_state(self) -> bool:
+        pass
+
     def create_display_tree_for_gdrive_select(self) -> Optional[DisplayTree]:
         spid = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
         return self._create_display_tree(actions.ID_GDRIVE_DIR_SELECT, spid=spid)

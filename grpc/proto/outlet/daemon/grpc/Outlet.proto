@@ -23,6 +23,10 @@ message Subscribe_Request {
 	// nothing
 }
 
+message GetOpExecPlayState_Request {
+	// nothing
+}
+
 message Signal {
 	string signal_name = 1;
 	string sender_name = 2;
@@ -30,7 +34,16 @@ message Signal {
 	oneof signal_data {
 		Empty empty = 10;
 		DisplayTreeUiState display_tree_ui_state = 11;
+		PlayState play_state = 12;
 	}
+}
+
+message SendSignalResponse {
+	// nothing
+}
+
+message PlayState {
+	bool is_enabled = 1;
 }
 
 message StartSubtreeLoad_Request {
@@ -100,14 +113,16 @@ message LoadNewTree {
 
 service Outlet {
 	rpc subscribe_to_signals(Subscribe_Request) returns (stream Signal);
-	rpc ping(PingRequest) returns (PingResponse) {}
-	rpc get_node_for_uid(GetNodeForUid_Request) returns (SingleNode_Response) {}
-	rpc get_node_for_local_path(GetNodeForLocalPath_Request) returns (SingleNode_Response) {}
-	rpc request_display_tree_ui_state(RequestDisplayTree_Request) returns (RequestDisplayTree_Response) {}
-	rpc start_subtree_load(StartSubtreeLoad_Request) returns (StartSubtreeLoad_Response) {}
+	rpc send_signal(Signal) returns (SendSignalResponse);
+	rpc ping(PingRequest) returns (PingResponse);
+	rpc get_node_for_uid(GetNodeForUid_Request) returns (SingleNode_Response);
+	rpc get_node_for_local_path(GetNodeForLocalPath_Request) returns (SingleNode_Response);
+	rpc request_display_tree_ui_state(RequestDisplayTree_Request) returns (RequestDisplayTree_Response);
+	rpc start_subtree_load(StartSubtreeLoad_Request) returns (StartSubtreeLoad_Response);
+	rpc get_op_exec_play_state(GetOpExecPlayState_Request) returns (PlayState);
 
-	rpc get_next_uid(GetNextUid_Request) returns (GetNextUid_Response) {}
-	rpc get_uid_for_local_path(GetUidForLocalPath_Request) returns (GetUidForLocalPath_Response) {}
+	rpc get_next_uid(GetNextUid_Request) returns (GetNextUid_Response);
+	rpc get_uid_for_local_path(GetUidForLocalPath_Request) returns (GetUidForLocalPath_Response);
 }
 
 
