@@ -59,14 +59,14 @@ class DisplayMutator(HasLifecycle):
 
     def start(self):
         """Do post-wiring stuff like connect listeners."""
-        logger.debug(f'[{self.con.tree_id}] DisplayMutator start')
         HasLifecycle.start(self)
 
         self.use_empty_nodes = self.con.config.get('display.diff_tree.use_empty_nodes')
         self._connect_node_listeners()
+        logger.debug(f'[{self.con.tree_id}] DisplayMutator started')
 
     def _connect_node_listeners(self):
-        tree_id = self.con.treeview_meta.tree_id
+        tree_id = self.con.tree_id
 
         if self.con.treeview_meta.lazy_load:
             self.connect_dispatch_listener(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=tree_id)
@@ -79,31 +79,38 @@ class DisplayMutator(HasLifecycle):
         self.connect_dispatch_listener(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
         self.connect_dispatch_listener(signal=actions.NODE_MOVED, receiver=self._on_node_moved_in_cache)
 
-        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_DONE, sender=self.con.tree_id, receiver=self._populate_ui_tree_async)
+        # FIXME: figure out why the 'sender' arg fails!
+        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_DONE, receiver=self._populate_ui_tree_async)
+        self.connect_dispatch_listener(signal=actions.FILTER_UI_TREE, receiver=self._on_filter_ui_tree_requested)
+        self.connect_dispatch_listener(signal=actions.EXPAND_ALL, receiver=self._on_expand_all_requested)
+        self.connect_dispatch_listener(signal=actions.EXPAND_AND_SELECT_NODE, receiver=self._expand_and_select_node)
 
-        self.connect_dispatch_listener(signal=actions.FILTER_UI_TREE, sender=self.con.tree_id, receiver=self._on_filter_ui_tree_requested)
-
-        self.connect_dispatch_listener(signal=actions.EXPAND_ALL, sender=self.con.tree_id, receiver=self._on_expand_all_requested)
-        self.connect_dispatch_listener(signal=actions.EXPAND_AND_SELECT_NODE, sender=self.con.tree_id, receiver=self._expand_and_select_node)
+        logger.debug(f'[{tree_id}] DisplayMutator listeners connected')
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
         self.con = None
 
     def _expand_and_select_node(self, sender: str, nid: SinglePathNodeIdentifier):
-        logger.debug(f'[{self.con.tree_id}] Got signal: "{actions.EXPAND_AND_SELECT_NODE}"')
-        self.expand_and_select_node(nid)
+        if sender == self.con.tree_id:
+            logger.debug(f'[{self.con.tree_id}] Got signal: "{actions.EXPAND_AND_SELECT_NODE}"')
+            self.expand_and_select_node(nid)
+        else:
+            logger.warning(f'[{self.con.tree_id}] SENDER {sender} does not apply to us!')
 
     def _on_expand_all_requested(self, sender, tree_path):
-        self.expand_all(tree_path)
+        if sender == self.con.tree_id:
+            self.expand_all(tree_path)
 
     def _on_filter_ui_tree_requested(self, sender: str, filter_criteria: FilterCriteria):
-        self.filter_tree(filter_criteria)
+        if sender == self.con.tree_id:
+            self.filter_tree(filter_criteria)
 
     def _populate_ui_tree_async(self, sender):
         """Just populates the tree with nodes. Executed asyncly via actions.LOAD_SUBTREE_DONE"""
-        logger.warning(f'[{self.con.tree_id}] Got signal: "{actions.LOAD_SUBTREE_DONE}". Sending signal "{actions.ENQUEUE_UI_TASK}"')
-        dispatcher.send(signal=actions.ENQUEUE_UI_TASK, sender=sender, task_func=self.populate_root)
+        if sender == self.con.tree_id:
+            logger.warning(f'[{self.con.tree_id}] Got signal: "{actions.LOAD_SUBTREE_DONE}". Sending signal "{actions.ENQUEUE_UI_TASK}"')
+            dispatcher.send(signal=actions.ENQUEUE_UI_TASK, sender=sender, task_func=self.populate_root)
 
     def _populate_recursively(self, parent_iter, node: Node, node_count: int = 0) -> int:
         # Do a DFS of the change tree and populate the UI tree along the way

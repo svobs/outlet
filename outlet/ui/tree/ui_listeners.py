@@ -56,7 +56,7 @@ class TreeUiListeners(HasLifecycle):
         targeted_signals: List[str] = []
         general_signals: List[str] = [actions.TOGGLE_UI_ENABLEMENT]
 
-        self.connect_dispatch_listener(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed, sender=self.con.tree_id)
+        self.connect_dispatch_listener(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
         targeted_signals.append(actions.DISPLAY_TREE_CHANGED)
 
         # Status bar
@@ -195,6 +195,7 @@ class TreeUiListeners(HasLifecycle):
             logger.debug(f'[{self.con.tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
         else:
             logger.debug(f'[{self.con.tree_id}]Dropping into dest: {sn_dst.spid}')
+            # FIXME: this is broken
             # So far we only support COPY.
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
             left_root = drag_data.src_treecon.get_tree().root_identifier
@@ -227,6 +228,9 @@ class TreeUiListeners(HasLifecycle):
         return False
 
     def _on_display_tree_changed(self, sender, tree: DisplayTree):
+        if sender != self.con.tree_id:
+            return
+
         logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.DISPLAY_TREE_CHANGED}"')
 
         # Reload subtree and refresh display

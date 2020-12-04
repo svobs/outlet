@@ -7,6 +7,7 @@ from typing import Callable, Deque, Dict, List, Optional
 
 from constants import NULL_UID, TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.display_tree.category import CategoryDisplayTree
+from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
@@ -27,7 +28,8 @@ class OneSide:
         self.root_sn: SPIDNodePair = tree_root_sn
         self.tree_id = tree_id
         # TODO: move this to frontend
-        self.change_tree: CategoryDisplayTree = CategoryDisplayTree(backend, tree_id, self.root_sn)
+        state = DisplayTreeUiState(tree_id, tree_root_sn)
+        self.change_tree: CategoryDisplayTree = CategoryDisplayTree(backend, state)
         self._batch_uid: UID = batch_uid
         if not self._batch_uid:
             self._batch_uid: UID = self.backend.uid_generator.next_uid()
@@ -128,7 +130,7 @@ class OneSide:
             # Create an accompanying MKDIR action which will create the new folder/dir
             self.add_op(op_type=UserOpType.MKDIR, src_sn=ancestor_sn)
 
-    def _generate_missing_ancestor_nodes(self, new_sn: SPIDNodePair) -> Deque[Node]:
+    def _generate_missing_ancestor_nodes(self, new_sn: SPIDNodePair) -> Deque[SPIDNodePair]:
         tree_type: int = new_sn.spid.tree_type
         ancestor_stack: Deque[SPIDNodePair] = deque()
 

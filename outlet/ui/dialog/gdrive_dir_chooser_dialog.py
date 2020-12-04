@@ -77,7 +77,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
             dispatcher.disconnect(signal=actions.TREE_SELECTION_CHANGED, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_selected_changed)
         except DispatcherKeyError:
             pass
-        self.con.destroy()
+        self.con.shutdown()
         self.con = None
 
         # call super method

@@ -1,8 +1,9 @@
 import asyncio
+import copy
 import logging
 import threading
 import time
-from typing import Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 import grpc
 from pydispatch import dispatcher
@@ -25,8 +26,20 @@ from model.uid import UID
 from ui import actions
 from ui.tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
+from util.qthread import QThread
 
 logger = logging.getLogger(__name__)
+
+
+# CLASS DispatcherQueueThread
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+# class DispatcherQueueThread(QThread):
+#     def __init__(self):
+#         QThread.__init__(self, name='DispatcherQueueThread', initial_sleep_sec=0.0)
+#
+#     def process_single_item(self, kwargs: Dict):
+#         logger.debug(f'[{self.name}] Relaying signal locally: {kwargs}')
+#         dispatcher.send(sender=kwargs['sender'], signal=kwargs['signal'])
 
 
 # CLASS ClientSignalThread
@@ -35,8 +48,9 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
     """Listens for notifications which will be sent asynchronously by the backend gRPC server"""
     def __init__(self, backend):
         HasLifecycle.__init__(self)
-
         threading.Thread.__init__(self, target=self.run, name='SignalReceiverThread', daemon=True)
+
+        # self.dispatcher_thread = DispatcherQueueThread()
 
         self.backend = backend
         self._shutdown: bool = False
@@ -44,9 +58,11 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
     def start(self):
         HasLifecycle.start(self)
         threading.Thread.start(self)
+        # self.dispatcher_thread.start()
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
+        # self.dispatcher_thread.shutdown()
 
         if self._shutdown:
             return
@@ -66,7 +82,7 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
                 if retries_remaining == 0:
                     # Fatal error: shutdown the rest of the app
                     logger.error(f'Too many failures: sending shutdown signal')
-                    dispatcher.send(actions.SHUTDOWN_APP, sender=actions.ID_CENTRAL_EXEC)
+                    dispatcher.send(signal=actions.SHUTDOWN_APP, sender=actions.ID_CENTRAL_EXEC)
                     raise
 
                 time.sleep(GRPC_CLIENT_SLEEP_ON_FAILURE_SEC)
@@ -97,29 +113,38 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
                 return
             signal = next(response_iter)  # blocks each time until signal received, or server shutdown
             if signal:
-                logger.info(f'Got gRPC signal "{signal.signal_name}" from sender "{signal.sender_name}"')
-                self._dispatch_locally(signal)
+                logger.debug(f'Got gRPC signal "{signal.signal_name}" from sender "{signal.sender_name}"')
+                try:
+                    self._relay_signal_locally(signal)
+                except Exception:
+                    logger.exception('Unexpected error while relaying signal!')
             else:
                 logger.warning('Received None for signal! Killing connection')
                 return
 
-    def _dispatch_locally(self, signal: Signal):
+    def _relay_signal_locally(self, signal: Signal):
         """Take the signal (received from server) and dispatch it to our UI process"""
         kwargs = {}
         if signal.signal_name == actions.DISPLAY_TREE_CHANGED:
             display_tree_ui_state = NodeConverter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
             tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
             kwargs['tree'] = tree
-            logger.debug(f'Relaying signal locally "{signal.signal_name}" with sender="{signal.sender_name}" kwargs={kwargs}')
             sender = str(signal.sender_name)
-            dispatcher.send(signal=actions.DISPLAY_TREE_CHANGED, sender=sender, tree=tree)
-            return
+            # dispatcher.send(signal=actions.DISPLAY_TREE_CHANGED, sender=sender, tree=tree)
+            # dispatcher.send(signal=actions.DISPLAY_TREE_CHANGED, sender=actions.ID_RIGHT_TREE, tree=tree)
         elif signal.signal_name == actions.OP_EXECUTION_PLAY_STATE_CHANGED:
             is_enabled: bool = signal.play_state.is_enabled
             kwargs['is_enabled'] = is_enabled
-
-        logger.debug(f'Relaying signal locally "{signal.signal_name}" with sender="{signal.sender_name}" kwargs={kwargs}')
-        dispatcher.send(signal=signal.signal_name, sender=signal.sender_name, **kwargs)
+        # elif signal.signal_name == actions.LOAD_SUBTREE_DONE:
+        #     dispatcher.send(signal=actions.LOAD_SUBTREE_DONE, sender=actions.ID_RIGHT_TREE)
+        #
+        # logger.debug(f'Relaying signal locally "{signal.signal_name}" with sender="{signal.sender_name}" kwargs={kwargs}')
+        kwargs['signal'] = signal.signal_name
+        kwargs['sender'] = signal.sender_name
+        logger.info(f'Relaying signal locally: {kwargs}')
+        # dispatcher.send(signal=actions.LOAD_SUBTREE_DONE, sender=actions.ID_RIGHT_TREE)
+        dispatcher.send(**kwargs)
+        # self.dispatcher_thread.enqueue(kwargs)
 
 
 # CLASS BackendGRPCClient
@@ -171,8 +196,8 @@ class BackendGRPCClient(OutletBackend):
         """General-use method for signals with no additional args"""
         self.grpc_stub.send_signal(Signal(signal_name=signal, sender_name=sender))
 
-    def _on_ui_task_requested(self, sender, task_func, *args, **kwargs):
-        self._task_runner.enqueue(task_func, args, kwargs)
+    def _on_ui_task_requested(self, sender, task_func, *args):
+        self._task_runner.enqueue(task_func, *args)
 
     def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
         request = GetNodeForUid_Request()

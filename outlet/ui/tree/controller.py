@@ -11,6 +11,7 @@ from ui import actions
 from ui.dialog.base_dialog import BaseDialog
 from ui.tree import tree_factory_templates
 from ui.tree.display_store import DisplayStore
+from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 
 import gi
@@ -23,12 +24,13 @@ logger = logging.getLogger(__name__)
 # CLASS TreePanelController
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class TreePanelController:
+class TreePanelController(HasLifecycle):
     """
     This class is mostly just a place to hold references in memory of all the disparate components
     required to make a tree panel. Hopefully I will think of ways to refine it more in the future.
     """
     def __init__(self, parent_win, treeview_meta):
+        HasLifecycle.__init__(self)
         self.parent_win: BaseDialog = parent_win
         self.app = parent_win.app
         self._display_tree = None
@@ -47,7 +49,8 @@ class TreePanelController:
         self.tree_ui_listeners = None
         self.tree_actions = None
 
-    def init(self):
+    def start(self):
+        HasLifecycle.start(self)
         logger.debug(f'[{self.tree_id}] Controller init start')
 
         """Should be called after all controller components have been wired together"""
@@ -63,8 +66,9 @@ class TreePanelController:
 
         logger.info(f'[{self.tree_id}] Controller init done')
 
-    def destroy(self):
-        logger.debug(f'[{self.tree_id}] Destroying controller')
+    def shutdown(self):
+        HasLifecycle.shutdown(self)
+        logger.debug(f'[{self.tree_id}] Shutting down controller')
 
         # This should be received by both frontend and backend
         dispatcher.send(signal=actions.DEREGISTER_DISPLAY_TREE, sender=self.tree_id)

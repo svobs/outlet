@@ -49,7 +49,7 @@ class OutletApplication(Gtk.Application):
         try:
             if self._tree_controllers:
                 for controller in list(self._tree_controllers.values()):
-                    controller.destroy()
+                    controller.shutdown()
                 self._tree_controllers.clear()
         except NameError:
             pass

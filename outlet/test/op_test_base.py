@@ -225,8 +225,8 @@ class OpTestBase(unittest.TestCase):
 
         logger.info('Quitting app!')
         self.app.quit()
-        self.left_con.destroy()
-        self.right_con.destroy()
+        self.left_con.shutdown()
+        self.right_con.shutdown()
         del self.left_con
         del self.right_con
         del self.app

@@ -8,7 +8,8 @@ from collections import deque
 from typing import Deque, Dict, Optional
 
 from daemon.grpc.conversion import NodeConverter
-from daemon.grpc.Outlet_pb2 import GetNextUid_Response, GetNodeForLocalPath_Request, GetNodeForUid_Request, GetUidForLocalPath_Request, \
+from daemon.grpc.Outlet_pb2 import GetChildList_Response, GetNextUid_Response, GetNodeForLocalPath_Request, GetNodeForUid_Request, \
+    GetUidForLocalPath_Request, \
     GetUidForLocalPath_Response, PingResponse, PlayState, RequestDisplayTree_Response, SendSignalResponse, Signal, SingleNode_Response, \
     StartSubtreeLoad_Request, \
     StartSubtreeLoad_Response, Subscribe_Request
@@ -120,7 +121,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
                         signal = signal_queue.popleft()
 
                 if signal:
-                    logger.debug(f'[ThreadID:{thread_id}] Sending gRPC signal="{signal.signal_name}" with sender="{signal.sender_name}"')
+                    logger.info(f'[ThreadID:{thread_id}] Sending gRPC signal="{signal.signal_name}" with sender="{signal.sender_name}"')
                     yield signal
 
                 with self._cv_has_signal:
@@ -176,3 +177,20 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         response = PlayState()
         response.is_enabled = self.executor.enable_op_execution_thread
         return response
+
+    def get_child_list_for_node(self, request, context):
+        parent_node = NodeConverter.node_from_grpc(request.parent_node)
+        if request.HasField('filter_criteria'):
+            filter_criteria = NodeConverter.filter_criteria_from_grpc(request.filter_criteria)
+        else:
+            filter_criteria = None
+
+        child_list = self.cacheman.get_children(parent_node, filter_criteria)
+        response = GetChildList_Response()
+        NodeConverter.node_list_to_grpc(child_list, response.node_list)
+
+        return response
+
+    def get_ancestor_list_for_spid(self, request, context):
+        pass
+

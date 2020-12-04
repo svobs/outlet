@@ -91,10 +91,10 @@ class RootDirPanel(HasLifecycle):
 
     def start(self):
         HasLifecycle.start(self)
-        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_STARTED, sender=self.tree_id, receiver=self._on_load_started)
         self.connect_dispatch_listener(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
-        self.connect_dispatch_listener(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed, sender=self.tree_id)
-        logger.warning(f'Dispatch listeners connected! tree_id={self.tree_id}')
+        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_STARTED, receiver=self._on_load_started)
+        self.connect_dispatch_listener(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
+        logger.debug(f'[{self.tree_id}] RootDirPanel listeners connected')
 
     def __del__(self):
         HasLifecycle.__del__(self)
@@ -115,6 +115,8 @@ class RootDirPanel(HasLifecycle):
 
     def _on_display_tree_changed(self, sender, tree: DisplayTree):
         """Callback for actions.DISPLAY_TREE_CHANGED"""
+        if sender != self.tree_id:
+            return
         logger.debug(f'[{sender}] Received signal "{actions.DISPLAY_TREE_CHANGED}" with new root: {tree.get_root_identifier()}')
 
         # Send the new tree directly to _redraw_root_display(). Do not allow it to fall back to querying the controller for the tree,
@@ -329,6 +331,10 @@ class RootDirPanel(HasLifecycle):
         GLib.idle_add(send_load_signal)
 
     def _on_load_started(self, sender):
+        if sender != self.tree_id:
+            return
+
+        logger.debug(f'[{self.con.tree_id}] Got signal "{actions.LOAD_SUBTREE_STARTED}"')
         if self.con.get_tree().is_needs_manual_load():
             self.con.get_tree().set_needs_manual_load(False)
             # Hide Refresh button

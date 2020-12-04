@@ -100,11 +100,14 @@ class TreeFilterPanel(HasLifecycle):
 
     def start(self):
         HasLifecycle.start(self)
-        self.connect_dispatch_listener(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed, sender=self.tree_id)
-        logger.warning(f'Filter panel connected to listeners: {self.tree_id}')
+        self.connect_dispatch_listener(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
+        logger.debug(f'[{self.tree_id}] Filter panel started')
 
     def _on_display_tree_changed(self, sender, tree: DisplayTree):
         """Callback for actions.DISPLAY_TREE_CHANGED"""
+        if sender != self.tree_id:
+            return
+
         logger.debug(f'[{sender}] Received signal "{actions.DISPLAY_TREE_CHANGED}" with new root: {tree.get_root_identifier()}')
 
         # Send the new tree directly to _redraw_panel(). Do not allow it to fall back to querying the controller for the tree,

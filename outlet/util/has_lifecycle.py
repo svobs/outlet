@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import logging
 from typing import Callable, List, Optional
 
 from pydispatch import dispatcher
@@ -6,6 +7,8 @@ from pydispatch.dispatcher import Any
 from pydispatch.errors import DispatcherKeyError
 
 from ui import actions
+
+logger = logging.getLogger(__name__)
 
 
 # CLASS ListenerInfo
@@ -26,11 +29,12 @@ class HasLifecycle(ABC):
     def __del__(self):
         self.shutdown()
 
-    def connect_dispatch_listener(self, signal: str, receiver: Callable, sender: Optional[str] = None):
+    def connect_dispatch_listener(self, signal: str, receiver: Callable, sender: Optional[str] = None, weak=True):
         if not sender:
             sender = Any
         self._connected_listeners.append(ListenerInfo(signal, receiver, sender))
-        dispatcher.connect(signal=signal, receiver=receiver, sender=sender)
+        logger.debug(f'CONNECTING: signal={signal} sender={sender} weak={weak}')
+        dispatcher.connect(signal=signal, receiver=receiver, sender=sender, weak=weak)
 
     @staticmethod
     def disconnect_dispatch_listener(listener_info: ListenerInfo):

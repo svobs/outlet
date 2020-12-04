@@ -111,7 +111,7 @@ class TreeFactory:
             if self.parent_win.sizegroups.get('filter_panel'):
                 self.parent_win.sizegroups['filter_panel'].add_widget(controller.filter_panel.content_box)
 
-        controller.init()
+        controller.start()
         return controller
 
 
@@ -142,7 +142,11 @@ def build_editor_tree(parent_win, tree: DisplayTree):
     factory.can_change_root = True
     factory.allow_multiple_selection = True
     factory.display_persisted = True
-    return factory.build()
+    controller = factory.build()
+
+    # Even if the backend already loaded the tree, ask it to send a notification again so we know it's finished loading:
+    parent_win.app.backend.start_subtree_load(tree.tree_id)
+    return controller
 
 
 def build_static_category_file_tree(parent_win, tree: DisplayTree):

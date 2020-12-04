@@ -418,10 +418,6 @@ class CacheManager(HasLifecycle):
             for deleted_node in result.nodes_to_delete:
                 self.remove_node(deleted_node, to_trash=False)
 
-    def _on_command_completed(self, sender, command: Command):
-        logger.debug(f'Received signal: "{actions.COMMAND_COMPLETE}"')
-
-
     def _deregister_display_tree(self, sender: str):
         logger.debug(f'[{sender}] Received signal: "{actions.DEREGISTER_DISPLAY_TREE}"')
         display_tree = self._display_tree_dict.pop(sender, None)
@@ -454,7 +450,7 @@ class CacheManager(HasLifecycle):
         gdrive_root_spid = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
         for tree_id in tree_id_list:
             logger.info(f'[{tree_id}] Resetting path to GDrive root')
-            self.get_display_tree_ui_state(tree_id, spid=gdrive_root_spid)
+            self.request_display_tree_ui_state(tree_id, spid=gdrive_root_spid)
 
     # Subtree-level stuff
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -492,6 +488,7 @@ class CacheManager(HasLifecycle):
         # Make RootPathMeta object. If neither SPID nor user_path supplied, read from config
         if user_path:
             root_path_meta: RootPathMeta = self._resolve_root_meta_from_path(user_path)
+            spid = root_path_meta.root_spid
         elif spid:
             assert isinstance(spid, SinglePathNodeIdentifier), f'Expected SinglePathNodeIdentifier but got {type(spid)}'
             # params -> root_path_meta
@@ -648,7 +645,7 @@ class CacheManager(HasLifecycle):
             logger.info(f'Display tree is no longer tracked; discarding data load: {tree_id}')
             return
 
-        # TODO: carry this across gRPC
+        # This will be carried across gRPC if needed
         dispatcher.send(signal=actions.LOAD_SUBTREE_STARTED, sender=tree_id)
 
         if display_tree_meta.root_exists:

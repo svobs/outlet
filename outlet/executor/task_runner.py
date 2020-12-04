@@ -14,16 +14,15 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class Task:
-    def __init__(self, task_func: Callable, *args, **kwargs):
+    def __init__(self, task_func: Callable, *args):
         self.task_func: Callable = task_func
         self.args = args
-        self.kwargs = kwargs
 
     def run(self):
-        logger.debug(f'Starting task: "{self.task_func.__name__}"')
+        logger.debug(f'Starting task: "{self.task_func.__name__}" with args={self.args}')
         task_time = Stopwatch()
         try:
-            self.task_func(*self.args, **self.kwargs)
+            self.task_func(*self.args)
         except Exception as err:
             msg = f'Task "{self.task_func.__name__}" failed during execution'
             logger.exception(msg)
@@ -41,9 +40,9 @@ class TaskRunner(HasLifecycle):
         HasLifecycle.__init__(self)
         self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=TASK_RUNNER_MAX_WORKERS, thread_name_prefix='TaskRunner-')
 
-    def enqueue(self, task_func, *args, **kwargs):
+    def enqueue(self, task_func, *args):
         logger.debug(f'Submitting new task to executor: "{task_func.__name__}"')
-        task = Task(task_func, *args, **kwargs)
+        task = Task(task_func, *args)
         future = self._executor.submit(task.run)
         return future
 
