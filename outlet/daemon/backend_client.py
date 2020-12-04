@@ -2,16 +2,17 @@ import asyncio
 import logging
 import threading
 import time
-from typing import List, Optional, Union
+from typing import Iterable, List, Optional, Union
 
 import grpc
 from pydispatch import dispatcher
 
 from app.backend import OutletBackend
-from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_SERVER_ADDRESS
+from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_CLIENT_SLEEP_ON_FAILURE_SEC, GRPC_SERVER_ADDRESS
 from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.conversion import NodeConverter
-from daemon.grpc.Outlet_pb2 import GetNextUid_Request, GetNodeForLocalPath_Request, GetNodeForUid_Request, GetOpExecPlayState_Request, \
+from daemon.grpc.Outlet_pb2 import GetChildList_Request, GetNextUid_Request, GetNodeForLocalPath_Request, GetNodeForUid_Request, \
+    GetOpExecPlayState_Request, \
     GetUidForLocalPath_Request, \
     RequestDisplayTree_Request, Signal, \
     SPIDNodePair, StartSubtreeLoad_Request, Subscribe_Request
@@ -22,6 +23,7 @@ from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from ui import actions
+from ui.tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
@@ -60,14 +62,14 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
                 return request_func()
             except Exception as err:
                 logger.debug(f'Error type: {type(err)}')
-                logger.error(f'Request failed: {repr(err)}: sleeping 3 secs (retries remaining: {retries_remaining})')
+                logger.error(f'Request failed: {repr(err)}: sleeping {GRPC_CLIENT_SLEEP_ON_FAILURE_SEC} secs (retries remaining: {retries_remaining})')
                 if retries_remaining == 0:
                     # Fatal error: shutdown the rest of the app
                     logger.error(f'Too many failures: sending shutdown signal')
                     dispatcher.send(actions.SHUTDOWN_APP, sender=actions.ID_CENTRAL_EXEC)
                     raise
 
-                time.sleep(0.100)
+                time.sleep(GRPC_CLIENT_SLEEP_ON_FAILURE_SEC)
                 retries_remaining -= 1
 
     def run(self):
@@ -95,7 +97,7 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
                 return
             signal = next(response_iter)  # blocks each time until signal received, or server shutdown
             if signal:
-                logger.info(f'Got signal "{signal.signal_name}" from sender "{signal.sender_name}" via gRPC')
+                logger.info(f'Got gRPC signal "{signal.signal_name}" from sender "{signal.sender_name}"')
                 self._dispatch_locally(signal)
             else:
                 logger.warning('Received None for signal! Killing connection')
@@ -106,8 +108,12 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
         kwargs = {}
         if signal.signal_name == actions.DISPLAY_TREE_CHANGED:
             display_tree_ui_state = NodeConverter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
-            tree = display_tree_ui_state.to_display_tree(backend=self.backend)
+            tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
             kwargs['tree'] = tree
+            logger.debug(f'Relaying signal locally "{signal.signal_name}" with sender="{signal.sender_name}" kwargs={kwargs}')
+            sender = str(signal.sender_name)
+            dispatcher.send(signal=actions.DISPLAY_TREE_CHANGED, sender=sender, tree=tree)
+            return
         elif signal.signal_name == actions.OP_EXECUTION_PLAY_STATE_CHANGED:
             is_enabled: bool = signal.play_state.is_enabled
             kwargs['is_enabled'] = is_enabled
@@ -119,11 +125,11 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
 # CLASS BackendGRPCClient
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class BackendGRPCClient(OutletBackend, HasLifecycle):
+class BackendGRPCClient(OutletBackend):
     """GTK3 thin client which communicates with the OutletDaemon via GRPC."""
 
     def __init__(self, cfg):
-        HasLifecycle.__init__(self)
+        OutletBackend.__init__(self)
         self.config = cfg
 
         self.channel = None
@@ -135,7 +141,7 @@ class BackendGRPCClient(OutletBackend, HasLifecycle):
 
     def start(self):
         logger.debug('Starting up BackendGRPCClient')
-        HasLifecycle.start(self)
+        OutletBackend.start(self)
 
         self.connect_dispatch_listener(signal=actions.ENQUEUE_UI_TASK, receiver=self._on_ui_task_requested)
 
@@ -148,7 +154,7 @@ class BackendGRPCClient(OutletBackend, HasLifecycle):
         self.signal_thread.start()
 
     def shutdown(self):
-        HasLifecycle.shutdown(self)
+        OutletBackend.shutdown(self)
 
         if self.channel:
             self.channel.close()
@@ -160,6 +166,10 @@ class BackendGRPCClient(OutletBackend, HasLifecycle):
 
     def _send_resume_op_exec_signal(self, sender: str):
         self.grpc_stub.send_signal(Signal(signal_name=actions.RESUME_OP_EXECUTION, sender_name=sender))
+
+    def send_signal_to_server(self, signal: str, sender: str):
+        """General-use method for signals with no additional args"""
+        self.grpc_stub.send_signal(Signal(signal_name=signal, sender_name=sender))
 
     def _on_ui_task_requested(self, sender, task_func, *args, **kwargs):
         self._task_runner.enqueue(task_func, args, kwargs)
@@ -222,3 +232,15 @@ class BackendGRPCClient(OutletBackend, HasLifecycle):
 
     def get_op_execution_play_state(self) -> bool:
         return self.grpc_stub.get_op_exec_play_state(GetOpExecPlayState_Request())
+
+    def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
+        request = GetChildList_Request()
+        NodeConverter.node_to_grpc(parent, request.parent_node)
+        if filter_criteria:
+            NodeConverter.filter_criteria_to_grpc(filter_criteria, request.filter_criteria)
+
+        response = self.grpc_stub.get_child_list_for_node(request)
+        return NodeConverter.node_list_from_grpc(response.node_list)
+
+    def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
+        pass

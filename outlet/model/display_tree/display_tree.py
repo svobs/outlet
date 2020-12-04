@@ -122,11 +122,11 @@ class DisplayTree(HasGetChildren):
         return self.get_children(self.get_root_node(), filter_criteria)
 
     def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
-        return self.backend.cacheman.get_children(parent, filter_criteria)
+        return self.backend.get_children(parent, filter_criteria)
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
         """TODO: Add to gRPC API"""
-        return self.backend.cacheman.get_ancestor_list_for_single_path_identifier(spid, stop_at_path=self.root_path)
+        return self.backend.get_ancestor_list_for_single_path_identifier(spid, stop_at_path=self.root_path)
 
     def get_child_sn_list_for_root(self) -> Iterable[SPIDNodePair]:
         child_node_list: Iterable[Node] = self.get_children_for_root()

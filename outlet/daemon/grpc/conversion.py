@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Iterable, List, Optional
 
 import outlet.daemon.grpc
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
@@ -12,6 +12,7 @@ import logging
 
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
+from ui.tree.filter_criteria import BoolOption, FilterCriteria
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +22,15 @@ logger = logging.getLogger(__name__)
 
 class NodeConverter:
     @staticmethod
-    def node_from_grpc(node_container) -> Optional[Node]:
+    def optional_node_from_grpc_container(node_container) -> Optional[Node]:
         if not node_container.HasField('node'):
             return None
 
         grpc_node: outlet.daemon.grpc.Node_pb2.Node = node_container.node
+        return NodeConverter.node_from_grpc(grpc_node)
+
+    @staticmethod
+    def node_from_grpc(grpc_node: outlet.daemon.grpc.Node_pb2.Node) -> Node:
         node_identifier = NodeIdentifierFactory.for_all_values(grpc_node.uid, grpc_node.tree_type, list(grpc_node.path_list),
                                                                single_path=False)
 
@@ -95,6 +100,40 @@ class NodeConverter:
             dir_meta_parent.dir_meta.trashed_bytes = node.trashed_bytes
         else:
             dir_meta_parent.dir_meta.has_data = False
+
+    @staticmethod
+    def node_list_to_grpc(node_list: Iterable[Node], grpc_node_list):
+        for node in node_list:
+            grpc_node = grpc_node_list.add()
+            NodeConverter.node_to_grpc(node, grpc_node)
+
+    @staticmethod
+    def node_list_from_grpc(grpc_node_list) -> List[Node]:
+        node_list: List[Node] = []
+        for grpc_node in grpc_node_list:
+            node = NodeConverter.node_from_grpc(grpc_node)
+            node_list.append(node)
+        return node_list
+
+    @staticmethod
+    def filter_criteria_to_grpc(filter_criteria: FilterCriteria, grpc_filter_criteria: outlet.daemon.grpc.Node_pb2.FilterCriteria):
+        if filter_criteria.search_query:
+            grpc_filter_criteria.search_query = filter_criteria.search_query
+        grpc_filter_criteria.is_trashed = filter_criteria.is_trashed
+        grpc_filter_criteria.is_shared = filter_criteria.is_shared
+        grpc_filter_criteria.is_ignore_case = filter_criteria.ignore_case
+        grpc_filter_criteria.show_subtrees_of_matches = filter_criteria.show_subtrees_of_matches
+
+    @staticmethod
+    def filter_criteria_from_grpc(grpc_filter_criteria: outlet.daemon.grpc.Node_pb2.FilterCriteria) -> FilterCriteria:
+        filter_criteria: FilterCriteria = FilterCriteria()
+        if grpc_filter_criteria.search_query:
+            filter_criteria.search_query = grpc_filter_criteria.search_query
+        filter_criteria.is_trashed = BoolOption(grpc_filter_criteria.is_trashed)
+        filter_criteria.is_shared = BoolOption(grpc_filter_criteria.is_shared)
+        filter_criteria.ignore_case = grpc_filter_criteria.is_ignore_case
+        filter_criteria.show_subtrees_of_matches = grpc_filter_criteria.show_subtrees_of_matches
+        return filter_criteria
 
     @staticmethod
     def node_to_grpc(node: Node, grpc_node: outlet.daemon.grpc.Node_pb2.Node):
@@ -202,7 +241,7 @@ class NodeConverter:
     @staticmethod
     def sn_from_grpc(grpc_sn: outlet.daemon.grpc.Node_pb2.SPIDNodePair) -> SPIDNodePair:
         spid = NodeConverter.node_identifier_from_grpc(grpc_sn.spid)
-        node = NodeConverter.node_from_grpc(grpc_sn)
+        node = NodeConverter.optional_node_from_grpc_container(grpc_sn)
         return SPIDNodePair(spid, node)
 
     @staticmethod

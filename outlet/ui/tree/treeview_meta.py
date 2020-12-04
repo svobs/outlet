@@ -1,9 +1,5 @@
-from typing import Callable, Optional
-
-from pydispatch import dispatcher
 import logging
-
-from pydispatch.errors import DispatcherKeyError
+from typing import Callable, Optional
 
 from app_config import AppConfig
 from constants import TreeDisplayMode
@@ -11,6 +7,7 @@ from model.node.container_node import CategoryNode
 from model.node.node import Node
 from ui import actions
 from ui.tree.filter_criteria import FilterCriteria
+from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +15,7 @@ logger = logging.getLogger(__name__)
 # CLASS TreeViewMeta
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class TreeViewMeta:
+class TreeViewMeta(HasLifecycle):
     def but_with_checkboxes(self, checkboxes_visible: bool):
         """Return an exact duplicate of this class instance, but with has_checkboxes set to the desired value"""
         new_inst: TreeViewMeta = TreeViewMeta(config=self.config, tree_id=self.tree_id, can_modify_tree=self.can_modify_tree,
@@ -30,6 +27,7 @@ class TreeViewMeta:
 
     def __init__(self, config: AppConfig, tree_id: str, can_modify_tree: bool, has_checkboxes: bool, can_change_root: bool,
                  tree_display_mode: TreeDisplayMode, lazy_load: bool, selection_mode, is_display_persisted: bool, is_ignored_func):
+        HasLifecycle.__init__(self)
         self.config = config
         self.selection_mode = selection_mode
         self.tree_id = tree_id
@@ -131,18 +129,15 @@ class TreeViewMeta:
         self.col_types.append(object)
         col_count_model += 1
 
-    def init(self):
+    def start(self):
         logger.debug(f'[{self.tree_id}] TreeViewMeta init is_persisted={self.is_display_persisted}')
+        HasLifecycle.start(self)
         # Hook up persistence of expanded state (if configured):
         if self.is_display_persisted:
-            dispatcher.connect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.tree_id)
+            self.connect_dispatch_listener(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.tree_id)
 
-    def destroy(self):
-        if self.is_display_persisted:
-            try:
-                dispatcher.disconnect(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.tree_id)
-            except DispatcherKeyError:
-                pass
+    def shutdown(self):
+        HasLifecycle.shutdown(self)
 
     def is_lazy_load(self):
         # If no subtree, then we are hard working:

@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 # CLASS TreePanelController
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-
 class TreePanelController:
     """
     This class is mostly just a place to hold references in memory of all the disparate components
@@ -49,18 +48,20 @@ class TreePanelController:
         self.tree_actions = None
 
     def init(self):
-        logger.debug(f'[{self.tree_id}] Controller init')
+        logger.debug(f'[{self.tree_id}] Controller init start')
 
         """Should be called after all controller components have been wired together"""
-        self.treeview_meta.init()
+        self.treeview_meta.start()
         self.display_mutator.start()
         self.tree_actions.start()
         # Need to start TreeUiListeners AFTER TreeActions... Need a better solution
-        self.tree_ui_listeners.init()
+        self.tree_ui_listeners.start()
 
         self.app.register_tree_controller(self)
 
         self._set_column_visibilities()
+
+        logger.info(f'[{self.tree_id}] Controller init done')
 
     def destroy(self):
         logger.debug(f'[{self.tree_id}] Destroying controller')
@@ -70,15 +71,14 @@ class TreePanelController:
 
         if self.tree_ui_listeners:
             self.tree_ui_listeners.shutdown()
-            self.tree_ui_listeners.disconnect_gtk_listeners()
             self.tree_ui_listeners = None
         if self.tree_actions:
             self.tree_actions.shutdown()
             self.tree_actions = None
         if self.treeview_meta:
-            self.treeview_meta.destroy()
-
-        self.display_mutator.shutdown()
+            self.treeview_meta.shutdown()
+        if self.display_mutator:
+            self.display_mutator.shutdown()
 
         self.root_dir_panel = None
 
@@ -106,8 +106,8 @@ class TreePanelController:
                 new_treeview = tree_factory_templates.build_treeview(self.display_store, assets)
                 tree_factory_templates.replace_widget(self.tree_view, new_treeview)
                 self.tree_view = new_treeview
-                self.tree_ui_listeners.init()
-                self.treeview_meta.init()
+                self.tree_ui_listeners.start()
+                self.treeview_meta.start()
                 self._set_column_visibilities()
 
             if new_tree:

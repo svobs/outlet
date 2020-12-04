@@ -42,6 +42,24 @@ message SendSignalResponse {
 	// nothing
 }
 
+message GetChildList_Request {
+	Node parent_node = 1;
+	FilterCriteria filter_criteria = 2;
+}
+
+message GetChildList_Response {
+	repeated Node node_list = 1;
+}
+
+message GetAncestorList_Request {
+	NodeIdentifier spid = 1;
+	string stop_at_path = 2;
+}
+
+message GetAncestorList_Response {
+	repeated Node node_list = 1;
+}
+
 message PlayState {
 	bool is_enabled = 1;
 }
@@ -114,9 +132,14 @@ message LoadNewTree {
 service Outlet {
 	rpc subscribe_to_signals(Subscribe_Request) returns (stream Signal);
 	rpc send_signal(Signal) returns (SendSignalResponse);
+
 	rpc ping(PingRequest) returns (PingResponse);
+
 	rpc get_node_for_uid(GetNodeForUid_Request) returns (SingleNode_Response);
 	rpc get_node_for_local_path(GetNodeForLocalPath_Request) returns (SingleNode_Response);
+	rpc get_child_list_for_node(GetChildList_Request) returns (GetChildList_Response);
+	rpc get_ancestor_list_for_spid(GetAncestorList_Request) returns (GetAncestorList_Response);
+
 	rpc request_display_tree_ui_state(RequestDisplayTree_Request) returns (RequestDisplayTree_Response);
 	rpc start_subtree_load(StartSubtreeLoad_Request) returns (StartSubtreeLoad_Response);
 	rpc get_op_exec_play_state(GetOpExecPlayState_Request) returns (PlayState);

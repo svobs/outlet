@@ -577,7 +577,7 @@ class CacheManager(HasLifecycle):
             # notify clients asynchronously
             tree = state.to_display_tree(self.backend)
             logger.debug(f'[{state.tree_id}] Firing signal: {actions.DISPLAY_TREE_CHANGED}')
-            dispatcher.send(actions.DISPLAY_TREE_CHANGED, sender=actions.ID_GLOBAL_CACHE, tree=tree)
+            dispatcher.send(actions.DISPLAY_TREE_CHANGED, sender=state.tree_id, tree=tree)
             return None
 
     def _resolve_root_meta_from_path(self, full_path: str) -> RootPathMeta:
@@ -1095,7 +1095,7 @@ class CacheManager(HasLifecycle):
         return SPIDNodePair(parent_spid, parent_node)
 
     def get_ancestor_list_for_single_path_identifier(self, single_path_node_identifier: SinglePathNodeIdentifier,
-                                                     stop_at_path: Optional[str]) -> Deque[Node]:
+                                                     stop_at_path: Optional[str] = None) -> Deque[Node]:
         ancestor_deque: Deque[Node] = deque()
         ancestor: Node = self.get_node_for_uid(single_path_node_identifier.uid)
         if not ancestor:

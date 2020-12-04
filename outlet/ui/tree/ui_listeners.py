@@ -48,8 +48,8 @@ class TreeUiListeners(HasLifecycle):
                                        TREE_TYPE_GDRIVE: TreeContextMenu(self.con),
                                        TREE_TYPE_MIXED: None}  # TODO: handle mixed
 
-    def init(self):
-        logger.debug(f'[{self.con.tree_id}] TreeUiListeners init')
+    def start(self):
+        logger.debug(f'[{self.con.tree_id}] TreeUiListeners start')
         HasLifecycle.start(self)
         self.connect_dispatch_listener(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
 
@@ -99,6 +99,10 @@ class TreeUiListeners(HasLifecycle):
             self.connect_dispatch_listener(signal=actions.DRAG_AND_DROP, receiver=self._receive_drag_data_signal)
             self.connect_dispatch_listener(signal=actions.DRAG_AND_DROP_DIRECT, receiver=self._do_drop, sender=self.con.tree_id)
             # ^^^ mostly for testing
+
+    def shutdown(self):
+        HasLifecycle.shutdown(self)
+        self.disconnect_gtk_listeners()
 
     def disconnect_gtk_listeners(self):
         for eid in self._connected_eids:

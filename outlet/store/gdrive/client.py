@@ -15,7 +15,8 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from pydispatch import dispatcher
 
-from constants import GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_FILE_FIELDS, GDRIVE_FOLDER_FIELDS, \
+from constants import GDRIVE_AUTH_SCOPES, GDRIVE_CLIENT_REQUEST_MAX_RETRIES, GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC, GDRIVE_FILE_FIELDS, \
+    GDRIVE_FOLDER_FIELDS, \
     MIME_TYPE_FOLDER, QUERY_FOLDERS_ONLY, QUERY_NON_FOLDERS_ONLY, SUPER_DEBUG, TrashStatus
 from store.gdrive.change_observer import GDriveChangeObserver, GDriveNodeChange, GDriveRM
 from store.gdrive.query_observer import GDriveQueryObserver, SimpleNodeCollector
@@ -115,7 +116,7 @@ class GDriveClient(HasLifecycle):
                 if isinstance(err, socket.timeout):
                     if retries_remaining == 0:
                         raise
-                    logger.error(f'Request timed out: sleeping 3 secs (retries remaining: {retries_remaining})')
+                    logger.error(f'Request timed out: sleeping {GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC} sec (retries remaining: {retries_remaining})')
                 else:
                     if isinstance(err, HttpError):
                         try:
@@ -128,8 +129,9 @@ class GDriveClient(HasLifecycle):
                     if retries_remaining == 0:
                         raise
                     # Typically a transport error (socket timeout, name server problem...)
-                    logger.error(f'Request failed: {repr(err)}: sleeping 3 secs (retries remaining: {retries_remaining})')
-                time.sleep(3)
+                    logger.error(f'Request failed: {repr(err)}: sleeping {GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC} sec '
+                                 f'(retries remaining: {retries_remaining})')
+                time.sleep(GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC)
                 retries_remaining -= 1
 
     @staticmethod

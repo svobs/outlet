@@ -102,6 +102,7 @@ class DisplayMutator(HasLifecycle):
 
     def _populate_ui_tree_async(self, sender):
         """Just populates the tree with nodes. Executed asyncly via actions.LOAD_SUBTREE_DONE"""
+        logger.warning(f'[{self.con.tree_id}] Got signal: "{actions.LOAD_SUBTREE_DONE}". Sending signal "{actions.ENQUEUE_UI_TASK}"')
         dispatcher.send(signal=actions.ENQUEUE_UI_TASK, sender=sender, task_func=self.populate_root)
 
     def _populate_recursively(self, parent_iter, node: Node, node_count: int = 0) -> int:
@@ -252,7 +253,6 @@ class DisplayMutator(HasLifecycle):
             # Lock this so that node-upserted and node-removed callbacks don't interfere
             self._enable_node_signals = False
             with self._lock:
-                # TODO: replace con.get_tree() with backend gRPC call
                 top_level_node_list: List[Node] = self.con.get_tree().get_children_for_root(self.con.treeview_meta.filter_criteria)
             logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(top_level_node_list)} top_level_node_list for root')
         except GDriveItemNotFoundError as err:
@@ -682,6 +682,7 @@ class DisplayMutator(HasLifecycle):
         return self.con.display_store.append_node(parent_node_iter, row_values)
 
     def _get_icon_for_node(self, node: Node) -> str:
+        # FIXME:
         op: Optional[UserOp] = self.con.app.cacheman.get_last_pending_op_for_node(node.uid)
         if op and not op.is_completed():
             icon = op.get_icon_for_node(node.uid)

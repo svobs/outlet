@@ -1,7 +1,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import List, Optional, Union
+from typing import Iterable, List, Optional, Union
 
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
@@ -9,6 +9,8 @@ from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from ui import actions
+from ui.tree.filter_criteria import FilterCriteria
+from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +18,10 @@ logger = logging.getLogger(__name__)
 # CLASS OutletBackend
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class OutletBackend(ABC):
+class OutletBackend(HasLifecycle, ABC):
+    def __init__(self):
+        HasLifecycle.__init__(self)
+
     @abstractmethod
     def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
         pass
@@ -44,6 +49,14 @@ class OutletBackend(ABC):
 
     @abstractmethod
     def get_op_execution_play_state(self) -> bool:
+        pass
+
+    @abstractmethod
+    def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
+        pass
+
+    @abstractmethod
+    def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
         pass
 
     def create_display_tree_for_gdrive_select(self) -> Optional[DisplayTree]:

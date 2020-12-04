@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import Iterable, List, Optional, Union
 
 from pydispatch import dispatcher
 import logging
@@ -13,17 +13,17 @@ from model.uid import UID
 from store.cache_manager import CacheManager
 from store.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
 from ui import actions
-from util.has_lifecycle import HasLifecycle
+from ui.tree.filter_criteria import FilterCriteria
 
 logger = logging.getLogger(__name__)
 
 
-# CLASS BackendMonolith
+# CLASS BackendIntegrated
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class BackendIntegrated(OutletBackend, HasLifecycle):
+class BackendIntegrated(OutletBackend):
     def __init__(self, config):
-        HasLifecycle.__init__(self)
+        OutletBackend.__init__(self)
         self.config = config
         self.executor: CentralExecutor = CentralExecutor(self)
         self.uid_generator: UidGenerator = PersistentAtomicIntUidGenerator(config)
@@ -32,7 +32,7 @@ class BackendIntegrated(OutletBackend, HasLifecycle):
 
     def start(self):
         logger.debug('Starting up backend')
-        HasLifecycle.start(self)
+        OutletBackend.start(self)
 
         self.executor.start()
 
@@ -43,7 +43,7 @@ class BackendIntegrated(OutletBackend, HasLifecycle):
 
     def shutdown(self):
         logger.debug('Shutting down backend')
-        HasLifecycle.shutdown(self)  # this will disconnect the listener for SHUTDOWN_APP as well
+        OutletBackend.shutdown(self)  # this will disconnect the listener for SHUTDOWN_APP as well
 
         dispatcher.send(actions.SHUTDOWN_APP, sender=actions.ID_CENTRAL_EXEC)
 
@@ -77,3 +77,9 @@ class BackendIntegrated(OutletBackend, HasLifecycle):
 
     def get_op_execution_play_state(self) -> bool:
         return self.executor.enable_op_execution_thread
+
+    def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
+        return self.cacheman.get_children(parent, filter_criteria)
+
+    def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
+        return self.cacheman.get_ancestor_list_for_single_path_identifier(spid, stop_at_path=stop_at_path)

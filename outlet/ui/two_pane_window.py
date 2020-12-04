@@ -73,13 +73,13 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Tree Left:
-        display_tree_left = self.app.backend.create_display_tree_from_config(tree_id=actions.ID_LEFT_TREE, is_startup=True)
-        self.tree_con_left = tree_factory.build_editor_tree(parent_win=self, tree=display_tree_left)
+        tree = self.app.backend.create_display_tree_from_config(tree_id=actions.ID_LEFT_TREE, is_startup=True)
+        self.tree_con_left = tree_factory.build_editor_tree(parent_win=self, tree=tree)
         diff_tree_panes.pack1(self.tree_con_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
-        display_tree_right = self.app.backend.create_display_tree_from_config(tree_id=actions.ID_RIGHT_TREE, is_startup=True)
-        self.tree_con_right = tree_factory.build_editor_tree(parent_win=self, tree=display_tree_right)
+        tree = self.app.backend.create_display_tree_from_config(tree_id=actions.ID_RIGHT_TREE, is_startup=True)
+        self.tree_con_right = tree_factory.build_editor_tree(parent_win=self, tree=tree)
         diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)
 
         # Bottom panel: Bottom Button panel, toolbar and progress bar

@@ -41,6 +41,14 @@ message Node {
   }
 }
 
+message FilterCriteria {
+  string search_query = 1;
+  int32 is_trashed = 2;
+  int32 is_shared = 3;
+  bool is_ignore_case = 4;
+  bool show_subtrees_of_matches = 5;
+}
+
 message DirMeta {
   bool has_data = 1;
   int32 file_count = 2;

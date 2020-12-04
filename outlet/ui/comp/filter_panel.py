@@ -5,13 +5,15 @@ from pydispatch import dispatcher
 
 from constants import FILTER_APPLY_DELAY_MS, ICON_FOLDER_TREE, ICON_IS_NOT_SHARED, ICON_IS_NOT_TRASHED, ICON_IS_SHARED, ICON_IS_TRASHED, \
     ICON_MATCH_CASE, TREE_TYPE_GDRIVE
+from model.display_tree.display_tree import DisplayTree
 from ui import actions
 from ui.dialog.base_dialog import BaseDialog
 from ui.tree.filter_criteria import BoolOption, FilterCriteria
+from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
 
 import gi
-from gi.overrides import Pango
+from gi.overrides import GLib, Pango
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -21,9 +23,10 @@ logger = logging.getLogger(__name__)
 #    CLASS TreeFilterPanel
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class TreeFilterPanel:
+class TreeFilterPanel(HasLifecycle):
 
     def __init__(self, parent_win, controller):
+        HasLifecycle.__init__(self)
         self.parent_win: BaseDialog = parent_win
         self.con = controller
         self.tree_id: str = self.con.tree_id
@@ -50,7 +53,9 @@ class TreeFilterPanel:
         # self.toolbar.set_icon_size(Gtk.IconSize.SMALL_TOOLBAR)  # 16px
         logger.debug(f'ICON SIZE: {self.toolbar.get_icon_size()}')
 
-        self.supports_shared_status = self.con.get_root_identifier().tree_type == TREE_TYPE_GDRIVE
+        # FIXME: put this into _redraw_panel()
+        # self.supports_shared_status = self.con.get_root_identifier().tree_type == TREE_TYPE_GDRIVE
+        self.supports_shared_status = True
 
         self.show_ancestors_btn = self._add_toolbar_toggle_btn('Show ancestors of matches', ICON_FOLDER_TREE)
         self.match_case_btn = self._add_toolbar_toggle_btn('Match case', ICON_MATCH_CASE)
@@ -91,6 +96,23 @@ class TreeFilterPanel:
         if self.supports_shared_status:
             self.is_shared_btn.connect('clicked', self.update_filter_criteria)
 
+        self.start()
+
+    def start(self):
+        HasLifecycle.start(self)
+        self.connect_dispatch_listener(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed, sender=self.tree_id)
+        logger.warning(f'Filter panel connected to listeners: {self.tree_id}')
+
+    def _on_display_tree_changed(self, sender, tree: DisplayTree):
+        """Callback for actions.DISPLAY_TREE_CHANGED"""
+        logger.debug(f'[{sender}] Received signal "{actions.DISPLAY_TREE_CHANGED}" with new root: {tree.get_root_identifier()}')
+
+        # Send the new tree directly to _redraw_panel(). Do not allow it to fall back to querying the controller for the tree,
+        # because that would be a race condition:
+        GLib.idle_add(self._redraw_panel, tree)
+
+    def _redraw_panel(self, new_tree=None):
+        pass
         # TODO: toggle filter panel on/off
 
     def _update_trashed_btn(self, filter_criteria):

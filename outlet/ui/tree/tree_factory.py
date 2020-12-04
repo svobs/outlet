@@ -40,10 +40,9 @@ class TreeFactory:
         self.parent_win = parent_win
 
         if not tree:
-            raise RuntimeError('Param "tree" cannot be empty!')
+            raise RuntimeError('Tree not provided!')
 
         self.tree: DisplayTree = tree
-        """Choose one: tree or root"""
 
         self.can_modify_tree = False
         self.has_checkboxes: bool = False
@@ -81,8 +80,6 @@ class TreeFactory:
 
         controller.display_store = DisplayStore(controller)
 
-        controller.set_tree(display_tree=self.tree)
-
         controller.display_mutator = DisplayMutator(config=self.parent_win.config, controller=controller)
 
         controller.tree_ui_listeners = TreeUiListeners(config=self.parent_win.config, controller=controller)
@@ -91,6 +88,8 @@ class TreeFactory:
 
         assets = self.parent_win.app.assets
         controller.tree_view = tree_factory_templates.build_treeview(controller.display_store, assets)
+
+        controller.set_tree(self.tree)
 
         controller.root_dir_panel = RootDirPanel(parent_win=self.parent_win,
                                                  controller=controller,
@@ -134,7 +133,7 @@ def build_gdrive_root_chooser(parent_win, tree: DisplayTree):
     return factory.build()
 
 
-def build_editor_tree(parent_win, tree: DisplayTree = None):
+def build_editor_tree(parent_win, tree: DisplayTree):
     if SUPER_DEBUG:
         logger.debug(f'[{tree.tree_id}] Entered build_editor_tree()')
     factory = TreeFactory(parent_win=parent_win, tree=tree)

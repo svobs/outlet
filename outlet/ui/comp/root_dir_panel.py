@@ -1,6 +1,5 @@
 import logging
 import os
-from pydispatch import dispatcher
 
 from model.display_tree.display_tree import DisplayTree
 from ui.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
@@ -38,8 +37,6 @@ class RootDirPanel(HasLifecycle):
         self.can_change_root = can_change_root
         self._ui_enabled = can_change_root
         """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
-
-        display_tree: DisplayTree = self.con.get_tree()
 
         self.path_icon = Gtk.Image()
         self.refresh_icon = Gtk.Image()
@@ -84,9 +81,11 @@ class RootDirPanel(HasLifecycle):
         self.toolbar = None
         self.refresh_button = None
 
-        # Need to call this to do the initial UI draw:
-        logger.debug(f'[{self.tree_id}] Building panel with current root {display_tree.get_root_identifier()}')
-        GLib.idle_add(self._redraw_root_display)
+        display_tree: DisplayTree = self.con.get_tree()
+        if display_tree:
+            # Do the initial UI draw (only if we already have a display tree)
+            logger.debug(f'[{self.tree_id}] Building panel with current root {display_tree.get_root_identifier()}')
+            GLib.idle_add(self._redraw_root_display)
 
         self.start()
 
@@ -95,6 +94,7 @@ class RootDirPanel(HasLifecycle):
         self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_STARTED, sender=self.tree_id, receiver=self._on_load_started)
         self.connect_dispatch_listener(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
         self.connect_dispatch_listener(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed, sender=self.tree_id)
+        logger.warning(f'Dispatch listeners connected! tree_id={self.tree_id}')
 
     def __del__(self):
         HasLifecycle.__del__(self)
@@ -114,14 +114,14 @@ class RootDirPanel(HasLifecycle):
         self.con = None
 
     def _on_display_tree_changed(self, sender, tree: DisplayTree):
-        """Callback for actions.ROOT_PATH_UPDATED"""
+        """Callback for actions.DISPLAY_TREE_CHANGED"""
         logger.debug(f'[{sender}] Received signal "{actions.DISPLAY_TREE_CHANGED}" with new root: {tree.get_root_identifier()}')
 
         # Send the new tree directly to _redraw_root_display(). Do not allow it to fall back to querying the controller for the tree,
         # because that would be a race condition:
         GLib.idle_add(self._redraw_root_display, tree)
 
-    def _redraw_root_display(self, new_tree = None):
+    def _redraw_root_display(self, new_tree=None):
         """Updates the UI to reflect the new root and tree type.
         Expected to be called from the UI thread.
         For markup options, see: https://developer.gnome.org/pygtk/stable/pango-markup-language.html

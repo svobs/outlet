@@ -39,6 +39,16 @@ class OutletStub(object):
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNodeForLocalPath_Request.SerializeToString,
                 response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SingleNode_Response.FromString,
                 )
+        self.get_child_list_for_node = channel.unary_unary(
+                '/outlet.daemon.grpc.Outlet/get_child_list_for_node',
+                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetChildList_Request.SerializeToString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetChildList_Response.FromString,
+                )
+        self.get_ancestor_list_for_spid = channel.unary_unary(
+                '/outlet.daemon.grpc.Outlet/get_ancestor_list_for_spid',
+                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetAncestorList_Request.SerializeToString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetAncestorList_Response.FromString,
+                )
         self.request_display_tree_ui_state = channel.unary_unary(
                 '/outlet.daemon.grpc.Outlet/request_display_tree_ui_state',
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.RequestDisplayTree_Request.SerializeToString,
@@ -94,6 +104,18 @@ class OutletServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def get_node_for_local_path(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def get_child_list_for_node(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def get_ancestor_list_for_spid(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -156,6 +178,16 @@ def add_OutletServicer_to_server(servicer, server):
                     servicer.get_node_for_local_path,
                     request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNodeForLocalPath_Request.FromString,
                     response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SingleNode_Response.SerializeToString,
+            ),
+            'get_child_list_for_node': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_child_list_for_node,
+                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetChildList_Request.FromString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetChildList_Response.SerializeToString,
+            ),
+            'get_ancestor_list_for_spid': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_ancestor_list_for_spid,
+                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetAncestorList_Request.FromString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetAncestorList_Response.SerializeToString,
             ),
             'request_display_tree_ui_state': grpc.unary_unary_rpc_method_handler(
                     servicer.request_display_tree_ui_state,
@@ -274,6 +306,40 @@ class Outlet(object):
         return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/get_node_for_local_path',
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNodeForLocalPath_Request.SerializeToString,
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SingleNode_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def get_child_list_for_node(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/get_child_list_for_node',
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetChildList_Request.SerializeToString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetChildList_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def get_ancestor_list_for_spid(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/get_ancestor_list_for_spid',
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetAncestorList_Request.SerializeToString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetAncestorList_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
