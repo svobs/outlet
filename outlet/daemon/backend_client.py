@@ -12,7 +12,8 @@ from app.backend import OutletBackend
 from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_CLIENT_SLEEP_ON_FAILURE_SEC, GRPC_SERVER_ADDRESS
 from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.conversion import Converter
-from daemon.grpc.Outlet_pb2 import GetChildList_Request, GetNextUid_Request, GetNodeForLocalPath_Request, GetNodeForUid_Request, \
+from daemon.grpc.Outlet_pb2 import DragDrop_Request, GetAncestorList_Request, GetChildList_Request, GetNextUid_Request, GetNodeForLocalPath_Request, \
+    GetNodeForUid_Request, \
     GetOpExecPlayState_Request, \
     GetUidForLocalPath_Request, \
     RequestDisplayTree_Request, Signal, \
@@ -27,20 +28,8 @@ from store.uid.uid_generator import SimpleUidGenerator
 from ui import actions
 from ui.tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
-from util.qthread import QThread
 
 logger = logging.getLogger(__name__)
-
-
-# CLASS DispatcherQueueThread
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-# class DispatcherQueueThread(QThread):
-#     def __init__(self):
-#         QThread.__init__(self, name='DispatcherQueueThread', initial_sleep_sec=0.0)
-#
-#     def process_single_item(self, kwargs: Dict):
-#         logger.debug(f'[{self.name}] Relaying signal locally: {kwargs}')
-#         dispatcher.send(sender=kwargs['sender'], signal=kwargs['signal'])
 
 
 # CLASS ClientSignalThread
@@ -163,8 +152,6 @@ class BackendGRPCClient(OutletBackend):
         self.signal_thread: SignalReceiverThread = SignalReceiverThread(self)
 
         self._task_runner = TaskRunner()
-
-        self.ui_uid_generator = SimpleUidGenerator()
         """Only needed to generate UIDs which are unique to drag & drop"""
 
     def start(self):
@@ -273,9 +260,22 @@ class BackendGRPCClient(OutletBackend):
         return Converter.node_list_from_grpc(response.node_list)
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
-        # TODO
-        pass
+        request = GetAncestorList_Request()
+        if stop_at_path:
+            request.stop_at_path = stop_at_path
+        Converter.node_identifier_to_grpc(spid, request.spid)
+
+        response = self.grpc_stub.get_ancestor_list_for_spid(request)
+        return Converter.node_list_from_grpc(response.node_list)
 
     def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
-        # TODO
-        pass
+        request = DragDrop_Request()
+        request.src_tree_id = src_tree_id
+        request.dst_tree_id = dst_tree_id
+        request.is_into = is_into
+        for src_sn in src_sn_list:
+            grpc_sn = request.src_sn_list.add()
+            Converter.sn_to_grpc(src_sn, grpc_sn)
+        Converter.sn_to_grpc(dst_sn, request.dst_sn)
+
+        self.grpc_stub.drop_dragged_nodes(request)

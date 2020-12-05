@@ -79,7 +79,7 @@ class LocalDiskMemoryStore:
         if existing_node:
             if existing_node.is_live() and not node.is_live():
                 # In the future, let's close this hole with more elegant logic
-                logger.warning(f'Cannot replace a node which exists with one which does not exist; skipping cache update for {node.node_identifier}')
+                logger.debug(f'Cannot replace a node which exists with one which does not exist; skipping cache update for {node.node_identifier}')
                 return None, False
 
             if existing_node.is_dir() and not node.is_dir():

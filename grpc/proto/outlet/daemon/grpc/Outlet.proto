@@ -19,6 +19,18 @@ message GetOpExecPlayState_Request {
 	// nothing
 }
 
+message DragDrop_Request {
+	string src_tree_id = 1;
+	string dst_tree_id = 2;
+	repeated SPIDNodePair src_sn_list = 3;
+	SPIDNodePair dst_sn = 4;
+	bool is_into = 5;
+}
+
+message DragDrop_Response {
+	// nothing
+}
+
 message Signal {
 	string signal_name = 1;
 	string sender_name = 2;
@@ -128,6 +140,8 @@ service Outlet {
 
 	rpc get_next_uid(GetNextUid_Request) returns (GetNextUid_Response);
 	rpc get_uid_for_local_path(GetUidForLocalPath_Request) returns (GetUidForLocalPath_Response);
+
+	rpc drop_dragged_nodes(DragDrop_Request) returns (DragDrop_Response);
 }
 
 

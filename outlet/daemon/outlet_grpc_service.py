@@ -5,10 +5,11 @@ from pydispatch import dispatcher
 
 import outlet.daemon.grpc
 from collections import deque
-from typing import Deque, Dict, Optional
+from typing import Deque, Dict, Iterable, Optional
 
 from daemon.grpc.conversion import Converter
-from daemon.grpc.Outlet_pb2 import GetChildList_Response, GetNextUid_Response, GetNodeForLocalPath_Request, GetNodeForUid_Request, \
+from daemon.grpc.Outlet_pb2 import DragDrop_Request, DragDrop_Response, GetAncestorList_Response, GetChildList_Response, GetNextUid_Response, \
+    GetNodeForLocalPath_Request, GetNodeForUid_Request, \
     GetUidForLocalPath_Request, \
     GetUidForLocalPath_Response, PlayState, RequestDisplayTree_Response, SendSignalResponse, Signal, SingleNode_Response, \
     StartSubtreeLoad_Request, \
@@ -16,6 +17,7 @@ from daemon.grpc.Outlet_pb2 import GetChildList_Response, GetNextUid_Response, G
 from daemon.grpc.Outlet_pb2_grpc import OutletServicer
 from executor.central import CentralExecutor
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
+from model.node.node import Node
 from store.cache_manager import CacheManager
 from store.uid.uid_generator import UidGenerator
 from ui import actions
@@ -187,5 +189,18 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return response
 
     def get_ancestor_list_for_spid(self, request, context):
-        pass
+        spid = Converter.node_identifier_from_grpc(request.spid)
+        ancestor_list: Iterable[Node] = self.cacheman.get_ancestor_list_for_single_path_identifier(spid, stop_at_path=request.stop_at_path)
+        response = GetAncestorList_Response()
+        Converter.node_list_to_grpc(ancestor_list, response.node_list)
+        return response
 
+    def drop_dragged_nodes(self, request: DragDrop_Request, context):
+        src_sn_list = []
+        for src_sn in request.src_sn_list:
+            src_sn_list.append(Converter.sn_from_grpc(src_sn))
+        dst_sn = Converter.sn_from_grpc(request.dst_sn)
+
+        self.cacheman.drop_dragged_nodes(request.src_tree_id, src_sn_list, request.is_into, request.dst_tree_id, dst_sn)
+
+        return DragDrop_Response()

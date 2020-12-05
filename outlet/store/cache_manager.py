@@ -1156,6 +1156,8 @@ class CacheManager(HasLifecycle):
         return self._master_gdrive.gdrive_client
 
     def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
+        logger.info(f'Got drop of {len(src_sn_list)} nodes from "{src_tree_id}" -> "{dst_tree_id}" is_into={is_into}')
+
         if not is_into or (dst_sn and not dst_sn.node.is_dir()):
             # cannot drop into a file; just use parent in this case
             dst_sn = self.get_parent_sn_for_sn(dst_sn)
@@ -1183,7 +1185,8 @@ class CacheManager(HasLifecycle):
             op_list: Iterable[UserOp] = change_maker.right_side.change_tree.get_ops()
             self.enqueue_op_list(op_list)
 
-    def _is_dropping_on_itself(self, dst_sn: SPIDNodePair, sn_list: List[SPIDNodePair], dst_tree_id: str):
+    @staticmethod
+    def _is_dropping_on_itself(dst_sn: SPIDNodePair, sn_list: List[SPIDNodePair], dst_tree_id: str):
         for sn in sn_list:
             logger.debug(f'[{dst_tree_id}] DestNode="{dst_sn.spid}", DroppedNode="{sn.node}"')
             if dst_sn.node.is_parent_of(sn.node):
