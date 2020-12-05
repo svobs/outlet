@@ -1102,7 +1102,7 @@ class CacheManager(HasLifecycle):
             elif sn.spid.tree_type == TREE_TYPE_LOCAL_DISK:
                 parent_node = self._master_local.get_single_parent_for_node(sn.node)
             else:
-                raise RuntimeError(f'Unknown tree type: {sn.snid.tree_type} for {sn.node}')
+                raise RuntimeError(f'Unknown tree type: {sn.spid.tree_type} for {sn.node}')
         else:
             parent_node = self._find_parent_matching_path(sn.node, parent_path)
         if not parent_node:

@@ -7,6 +7,7 @@ import outlet.daemon.grpc
 from collections import deque
 from typing import Deque, Dict, Iterable, Optional
 
+from constants import SUPER_DEBUG
 from daemon.grpc.conversion import Converter
 from daemon.grpc.Outlet_pb2 import DragDrop_Request, DragDrop_Response, GetAncestorList_Response, GetChildList_Response, GetNextUid_Response, \
     GetNodeForLocalPath_Request, GetNodeForUid_Request, \
@@ -162,6 +163,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         signal.sender_name = sender
         Converter.display_tree_ui_state_to_grpc(tree.state, signal.display_tree_ui_state)
 
+        logger.debug(f'Relaying signal across gRPC: "{actions.DISPLAY_TREE_CHANGED}", sender={sender}, tree={tree}')
         self.send_signal_to_all(signal)
 
     def _on_op_exec_play_state_changed(self, sender: str, is_enabled: bool):
@@ -173,6 +175,9 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     def get_op_exec_play_state(self, request, context):
         response = PlayState()
         response.is_enabled = self.executor.enable_op_execution_thread
+
+        if SUPER_DEBUG:
+            logger.debug(f'Relaying op_execution_state.is_enabled = {response.is_enabled}')
         return response
 
     def get_child_list_for_node(self, request, context):
@@ -186,13 +191,15 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         response = GetChildList_Response()
         Converter.node_list_to_grpc(child_list, response.node_list)
 
+        logger.debug(f'Relaying {len(child_list)} children for: {parent_node.node_identifier}, {filter_criteria}')
         return response
 
     def get_ancestor_list_for_spid(self, request, context):
         spid = Converter.node_identifier_from_grpc(request.spid)
-        ancestor_list: Iterable[Node] = self.cacheman.get_ancestor_list_for_single_path_identifier(spid, stop_at_path=request.stop_at_path)
+        ancestor_list: Deque[Node] = self.cacheman.get_ancestor_list_for_single_path_identifier(spid, stop_at_path=request.stop_at_path)
         response = GetAncestorList_Response()
         Converter.node_list_to_grpc(ancestor_list, response.node_list)
+        logger.debug(f'Relaying {len(ancestor_list)} ancestors for: {spid}')
         return response
 
     def drop_dragged_nodes(self, request: DragDrop_Request, context):
