@@ -6,7 +6,7 @@ import grpc
 from app.backend_integrated import BackendIntegrated
 from constants import GRPC_SERVER_ADDRESS, GRPC_SERVER_MAX_WORKER_THREADS
 from daemon.grpc import Outlet_pb2_grpc
-from daemon.outlet_grpc_service import OutletGRPCService
+from daemon.grpc_server import OutletGRPCService
 
 logger = logging.getLogger(__name__)
 

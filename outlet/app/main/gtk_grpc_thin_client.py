@@ -3,7 +3,7 @@ import sys
 
 from app.gtk_frontend import OutletApplication
 from app_config import AppConfig
-from daemon.backend_client import BackendGRPCClient
+from daemon.grpc_client import BackendGRPCClient
 
 logger = logging.getLogger(__name__)
 

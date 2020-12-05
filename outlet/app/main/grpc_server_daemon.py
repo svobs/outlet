@@ -1,7 +1,7 @@
 import logging
 import sys
 import util.main_util
-from daemon.backend_server import OutletDaemon
+from daemon.outlet_daemon import OutletDaemon
 
 logger = logging.getLogger(__name__)
 
