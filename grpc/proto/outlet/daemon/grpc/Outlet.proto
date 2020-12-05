@@ -87,8 +87,9 @@ message DisplayTreeUiState {
 message RequestDisplayTree_Request {
 	bool is_startup = 1;
 	string tree_id = 2;
-	string user_path = 3;
-	NodeIdentifier spid = 4;
+	bool return_async = 3;
+	string user_path = 4;
+	NodeIdentifier spid = 5;
 }
 
 message RequestDisplayTree_Response {

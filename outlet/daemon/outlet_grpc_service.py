@@ -138,7 +138,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
             spid = None
 
         display_tree_ui_state: Optional[DisplayTreeUiState] = self.cacheman.request_display_tree_ui_state(
-            tree_id=request.tree_id, user_path=request.user_path, spid=spid, is_startup=request.is_startup)
+            tree_id=request.tree_id, return_async=request.return_async, user_path=request.user_path, spid=spid, is_startup=request.is_startup)
 
         response = RequestDisplayTree_Response()
         if display_tree_ui_state:

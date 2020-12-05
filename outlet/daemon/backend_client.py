@@ -220,12 +220,13 @@ class BackendGRPCClient(OutletBackend):
         grpc_response = self.grpc_stub.get_uid_for_local_path(request)
         return UID(grpc_response.uid)
 
-    def request_display_tree(self, tree_id: str, user_path: str = None, spid: SinglePathNodeIdentifier = None, is_startup: bool = False) \
-            -> Optional[DisplayTree]:
+    def request_display_tree(self, tree_id: str, return_async: bool, user_path: str = None, spid: SinglePathNodeIdentifier = None,
+                             is_startup: bool = False) -> Optional[DisplayTree]:
 
         request = RequestDisplayTree_Request()
         request.is_startup = is_startup
         request.tree_id = tree_id
+        request.return_async = return_async
         if user_path:
             request.user_path = user_path
         Converter.node_identifier_to_grpc(spid, request.spid)

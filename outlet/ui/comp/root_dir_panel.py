@@ -294,6 +294,7 @@ class RootDirPanel(HasLifecycle):
         spid = self.con.get_tree().get_root_identifier()
         logger.debug(f'[{self.tree_id}] Displaying GDrive root chooser dialog with current_selection={spid}')
         tree = self.parent_win.app.backend.create_display_tree_for_gdrive_select()
+        assert tree, 'create_display_tree_for_gdrive_select() returned None for tree!'
 
         def open_dialog():
             try:

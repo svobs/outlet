@@ -262,7 +262,8 @@ class Converter:
             return
 
         Converter.node_identifier_to_grpc(sn.spid, grpc_sn.spid)
-        Converter.node_to_grpc(sn.node, grpc_sn.node)
+        if sn.node:
+            Converter.node_to_grpc(sn.node, grpc_sn.node)
 
     # DisplayTreeUiState
 

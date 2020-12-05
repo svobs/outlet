@@ -471,7 +471,7 @@ class CacheManager(HasLifecycle):
             return False
         return True
 
-    def _convert_display_tree_meta_to_ui_state(self, display_tree_meta, is_startup: bool):
+    def _convert_display_tree_meta_to_ui_state(self, display_tree_meta, is_startup: bool) -> DisplayTreeUiState:
 
         state = DisplayTreeUiState(display_tree_meta.tree_id, display_tree_meta.root_sn, display_tree_meta.root_exists,
                                    display_tree_meta.offending_path)
@@ -480,8 +480,8 @@ class CacheManager(HasLifecycle):
         logger.debug(f'[{display_tree_meta.tree_id}] NeedsManualLoad = {state.needs_manual_load}')
         return state
 
-    def request_display_tree_ui_state(self, tree_id: str, user_path: str = None, spid: Optional[SinglePathNodeIdentifier] = None,
-                                      is_startup: bool = False) -> Optional[DisplayTreeUiState]:
+    def request_display_tree_ui_state(self, tree_id: str, return_async: bool, user_path: str = None,
+                                      spid: Optional[SinglePathNodeIdentifier] = None, is_startup: bool = False) -> Optional[DisplayTreeUiState]:
         logger.debug(f'[{tree_id}] Got request to load display tree (user_path={user_path}, spid: {spid}, is_startup={is_startup})')
 
         root_path_persister = None
@@ -511,7 +511,7 @@ class CacheManager(HasLifecycle):
                 # Requested the existing tree and root? Just return that:
                 logger.debug(f'Display tree already registered with given root; returning existing')
                 state = self._convert_display_tree_meta_to_ui_state(display_tree_meta, is_startup)
-                return self._return_display_tree_ui_state(state, is_startup)
+                return self._return_display_tree_ui_state(state, return_async)
 
             if display_tree_meta.root_path_config_persister:
                 # If we started from a persister, continue persisting:
@@ -560,23 +560,26 @@ class CacheManager(HasLifecycle):
             else:
                 self._live_monitor.stop_capture(tree_id)
 
-        state = self._convert_display_tree_meta_to_ui_state(display_tree_meta, is_startup)
+        state: DisplayTreeUiState = self._convert_display_tree_meta_to_ui_state(display_tree_meta, is_startup)
+        assert state.tree_id and state.root_sn and state.root_sn.spid, f'Bad DisplayTreeUiState: {state}'
 
         # Kick off data load task, if needed
         if not state.needs_manual_load:
             self.enqueue_load_subtree_task(tree_id)
 
-        return self._return_display_tree_ui_state(state, is_startup)
+        logger.debug(f'Returning {state}')
+        return self._return_display_tree_ui_state(state, return_async)
 
-    def _return_display_tree_ui_state(self, state, is_startup: bool):
-        if is_startup:
-            return state
-        else:
+    def _return_display_tree_ui_state(self, state, return_async: bool):
+        if return_async:
             # notify clients asynchronously
             tree = state.to_display_tree(self.backend)
             logger.debug(f'[{state.tree_id}] Firing signal: {actions.DISPLAY_TREE_CHANGED}')
             dispatcher.send(actions.DISPLAY_TREE_CHANGED, sender=state.tree_id, tree=tree)
             return None
+        else:
+            logger.debug(f'[{state.tree_id}] Returning display tree synchronously because return_async=False')
+            return state
 
     def _resolve_root_meta_from_path(self, full_path: str) -> RootPathMeta:
         """Resolves the given path into either a local file, a set of Google Drive matches, or generates a GDriveItemNotFoundError,

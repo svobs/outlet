@@ -39,8 +39,8 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def request_display_tree(self, tree_id: str, user_path: str = None, spid: SinglePathNodeIdentifier = None, is_startup: bool = False) \
-            -> Optional[DisplayTree]:
+    def request_display_tree(self, tree_id: str, return_async: bool, user_path: str = None, spid: SinglePathNodeIdentifier = None,
+                             is_startup: bool = False) -> Optional[DisplayTree]:
         pass
 
     @abstractmethod
@@ -61,20 +61,20 @@ class OutletBackend(HasLifecycle, ABC):
 
     def create_display_tree_for_gdrive_select(self) -> Optional[DisplayTree]:
         spid = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
-        return self._create_display_tree(actions.ID_GDRIVE_DIR_SELECT, spid=spid)
+        return self._create_display_tree(actions.ID_GDRIVE_DIR_SELECT, return_async=False, spid=spid)
 
     def create_display_tree_from_config(self, tree_id: str, is_startup: bool = False) -> Optional[DisplayTree]:
         # no arguments will be recognized by CacheMan as needing to read from config
-        return self._create_display_tree(tree_id, is_startup=is_startup)
+        return self._create_display_tree(tree_id, return_async=False, is_startup=is_startup)
 
     def create_display_tree_from_spid(self, tree_id: str, spid: SinglePathNodeIdentifier) -> Optional[DisplayTree]:
-        return self._create_display_tree(tree_id, spid=spid)
+        return self._create_display_tree(tree_id, return_async=True, spid=spid)
 
     def create_display_tree_from_user_path(self, tree_id: str, user_path: str) -> Optional[DisplayTree]:
-        return self._create_display_tree(tree_id, user_path=user_path)
+        return self._create_display_tree(tree_id, return_async=True, user_path=user_path)
 
-    def _create_display_tree(self, tree_id: str, user_path: Optional[str] = None, spid: Optional[SinglePathNodeIdentifier] = None,
-                             is_startup: bool = False) -> Optional[DisplayTree]:
+    def _create_display_tree(self, tree_id: str, return_async: bool, user_path: Optional[str] = None,
+                             spid: Optional[SinglePathNodeIdentifier] = None, is_startup: bool = False) -> Optional[DisplayTree]:
         """
         Notifies the backend that the tree was requested, and returns a display tree object, which the backend will also send via
         notification (unless is_startup==True, in which case no notification will be sent). Also is_startup helps determine whether
@@ -88,7 +88,7 @@ class OutletBackend(HasLifecycle, ABC):
             assert isinstance(spid, SinglePathNodeIdentifier), f'Expected SinglePathNodeIdentifier but got {type(spid)}'
             spid.normalize_paths()
 
-        return self.request_display_tree(tree_id, user_path, spid, is_startup)
+        return self.request_display_tree(tree_id, return_async, user_path, spid, is_startup)
 
     @abstractmethod
     def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):

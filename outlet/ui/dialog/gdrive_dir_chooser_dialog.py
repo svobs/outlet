@@ -4,7 +4,6 @@ from typing import List
 from pydispatch import dispatcher
 from pydispatch.errors import DispatcherKeyError
 
-from constants import TREE_TYPE_GDRIVE
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
@@ -13,9 +12,6 @@ from ui import actions
 from ui.tree import tree_factory
 
 import gi
-
-from util.root_path_meta import RootPathMeta
-
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
