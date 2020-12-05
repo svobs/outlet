@@ -154,11 +154,6 @@ class TreePanelController(HasLifecycle):
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
     @property
-    def cacheman(self):
-        # TODO: this should go away after FE/BE refactor
-        return self.app.backend.cacheman
-
-    @property
     def config(self):
         """Convenience method. Retreives the tree_id from the app"""
         return self.app.config

@@ -1,22 +1,20 @@
 import logging
-from typing import Iterable, List, Optional
+from typing import List, Optional
 
-import gi
 from pydispatch import dispatcher
 
 import ui.actions as actions
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
-from diff.change_maker import ChangeMaker, SPIDNodePair
+from diff.change_maker import SPIDNodePair
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
-from model.node_identifier import SinglePathNodeIdentifier
-from model.user_op import UserOp, UserOpType
+from model.user_op import UserOp
 from model.uid import UID
 from ui.tree.context_menu import TreeContextMenu
 from ui.tree.controller import TreePanelController
 from util.has_lifecycle import HasLifecycle
-from util.root_path_meta import RootPathMeta
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gdk, Gtk
 
@@ -138,7 +136,7 @@ class TreeUiListeners(HasLifecycle):
         selected_sn_list: List[SPIDNodePair] = self.con.display_store.get_multiple_selection_sn_list()
         if selected_sn_list:
             # Avoid complicated, undocumented GTK3 garbage by just sending a UID along with needed data via the dispatcher. See _check_drop()
-            dd_uid = self.con.app.backend.uid_generator.next_uid()
+            dd_uid = self.con.app.ui_uid_generator.next_uid()
             action = drag_context.get_selected_action()  # TODO: add support for more actions. For now, assume CP
             drag_data = DragAndDropData(dd_uid, self.con, selected_sn_list)
             dispatcher.send(signal=actions.DRAG_AND_DROP, sender=self.con.tree_id, data=drag_data)
@@ -176,7 +174,6 @@ class TreeUiListeners(HasLifecycle):
     def _do_drop(self, sender, drag_data: DragAndDropData, tree_path: Gtk.TreePath, is_into: bool):
         # Puts the drag data into/adjacent to the given tree_path.
         logger.info(f'[{self.con.tree_id}] We received a drop of {len(drag_data.sn_list)} nodes!')
-        # TODO: put the guts of this in BE
 
         if tree_path:
             sn_dst: SPIDNodePair = self.con.display_store.build_sn_from_tree_path(tree_path)
@@ -185,25 +182,8 @@ class TreeUiListeners(HasLifecycle):
             is_into = True
             sn_dst = SPIDNodePair(self.con.get_tree().root_identifier, self.con.get_tree().get_root_node())
 
-        if not is_into or (sn_dst and not sn_dst.node.is_dir()):
-            # cannot drop into a file; just use parent in this case
-            sn_dst = self.con.cacheman.get_parent_sn_for_sn(sn_dst)
-
-        if not sn_dst:
-            logger.error(f'[{self.con.tree_id}] Cancelling drop: no parent node for dropped location!')
-        elif self.con.tree_id == drag_data.src_treecon.tree_id and self._is_dropping_on_itself(sn_dst, drag_data.sn_list):
-            logger.debug(f'[{self.con.tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
-        else:
-            logger.debug(f'[{self.con.tree_id}]Dropping into dest: {sn_dst.spid}')
-            # So far we only support COPY.
-            # "Left tree" here is the source tree, and "right tree" is the dst tree:
-            left_root = drag_data.src_treecon.get_tree().get_root_sn()
-            right_root = self.con.get_tree().get_root_sn()
-            change_maker = ChangeMaker(backend=self.con.app.backend, left_tree_root_sn=left_root, right_tree_root_sn=right_root)
-            change_maker.copy_nodes_left_to_right(drag_data.sn_list, sn_dst, UserOpType.CP)
-            # This should fire listeners which ultimately populate the tree:
-            op_list: Iterable[UserOp] = change_maker.right_side.change_tree.get_ops()
-            self.con.app.backend.cacheman.enqueue_op_list(op_list)
+        self.con.app.backend.drop_dragged_nodes(src_tree_id=drag_data.src_treecon.tree_id, src_sn_list=drag_data.sn_list, is_into=is_into,
+                                                dst_tree_id=self.con.tree_id, dst_sn=sn_dst)
 
     def _check_drop(self):
         """Drag & Drop 4/4: Check UID of the dragged data against the UID of the dropped data.
@@ -218,13 +198,6 @@ class TreeUiListeners(HasLifecycle):
         # try to aid garbage collection
         self._drag_data = None
         self._drop_data = None
-
-    def _is_dropping_on_itself(self, dst_sn: SPIDNodePair, sn_list: List[SPIDNodePair]):
-        for sn in sn_list:
-            logger.debug(f'[{self.con.tree_id}] DestNode="{dst_sn.spid}", DroppedNode="{sn.node}"')
-            if dst_sn.node.is_parent_of(sn.node):
-                return True
-        return False
 
     def _on_display_tree_changed(self, sender, tree: DisplayTree):
         if sender != self.con.tree_id:

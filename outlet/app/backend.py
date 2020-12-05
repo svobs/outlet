@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Iterable, List, Optional, Union
 
 from model.display_tree.display_tree import DisplayTree
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
@@ -90,4 +90,6 @@ class OutletBackend(HasLifecycle, ABC):
 
         return self.request_display_tree(tree_id, user_path, spid, is_startup)
 
-    # def to_display_tree(self, state: DisplayTreeUiState) -> DisplayTree:
+    @abstractmethod
+    def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
+        pass

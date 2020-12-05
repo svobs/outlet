@@ -11,7 +11,7 @@ from pydispatch import dispatcher
 from app.backend import OutletBackend
 from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_CLIENT_SLEEP_ON_FAILURE_SEC, GRPC_SERVER_ADDRESS
 from daemon.grpc import Outlet_pb2_grpc
-from daemon.grpc.conversion import NodeConverter
+from daemon.grpc.conversion import Converter
 from daemon.grpc.Outlet_pb2 import GetChildList_Request, GetNextUid_Request, GetNodeForLocalPath_Request, GetNodeForUid_Request, \
     GetOpExecPlayState_Request, \
     GetUidForLocalPath_Request, \
@@ -23,6 +23,7 @@ from model.node.node import Node
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
+from store.uid.uid_generator import SimpleUidGenerator
 from ui import actions
 from ui.tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
@@ -126,7 +127,7 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
         """Take the signal (received from server) and dispatch it to our UI process"""
         kwargs = {}
         if signal.signal_name == actions.DISPLAY_TREE_CHANGED:
-            display_tree_ui_state = NodeConverter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
+            display_tree_ui_state = Converter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
             tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
             kwargs['tree'] = tree
             sender = str(signal.sender_name)
@@ -162,7 +163,9 @@ class BackendGRPCClient(OutletBackend):
         self.signal_thread: SignalReceiverThread = SignalReceiverThread(self)
 
         self._task_runner = TaskRunner()
-        self.node_identifier_factory: NodeIdentifierFactory = NodeIdentifierFactory(self)
+
+        self.ui_uid_generator = SimpleUidGenerator()
+        """Only needed to generate UIDs which are unique to drag & drop"""
 
     def start(self):
         logger.debug('Starting up BackendGRPCClient')
@@ -238,12 +241,12 @@ class BackendGRPCClient(OutletBackend):
         request.tree_id = tree_id
         if user_path:
             request.user_path = user_path
-        NodeConverter.node_identifier_to_grpc(spid, request.spid)
+        Converter.node_identifier_to_grpc(spid, request.spid)
 
         response = self.grpc_stub.request_display_tree_ui_state(request)
 
         if response.HasField('display_tree_ui_state'):
-            state = NodeConverter.display_tree_ui_state_from_grpc(response.display_tree_ui_state)
+            state = Converter.display_tree_ui_state_from_grpc(response.display_tree_ui_state)
             tree = state.to_display_tree(backend=self)
         else:
             tree = None
@@ -262,12 +265,17 @@ class BackendGRPCClient(OutletBackend):
 
     def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
         request = GetChildList_Request()
-        NodeConverter.node_to_grpc(parent, request.parent_node)
+        Converter.node_to_grpc(parent, request.parent_node)
         if filter_criteria:
-            NodeConverter.filter_criteria_to_grpc(filter_criteria, request.filter_criteria)
+            Converter.filter_criteria_to_grpc(filter_criteria, request.filter_criteria)
 
         response = self.grpc_stub.get_child_list_for_node(request)
-        return NodeConverter.node_list_from_grpc(response.node_list)
+        return Converter.node_list_from_grpc(response.node_list)
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
+        # TODO
+        pass
+
+    def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
+        # TODO
         pass

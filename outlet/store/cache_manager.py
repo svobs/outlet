@@ -15,6 +15,7 @@ from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROO
     ROOT_PATH, \
     SUPER_DEBUG, TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK
+from diff.change_maker import ChangeMaker
 from error import CacheNotLoadedError, GDriveItemNotFoundError, InvalidOperationError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.display_tree.display_tree import DisplayTreeUiState
@@ -24,7 +25,7 @@ from model.node.node import HasChildStats, HasParentList, Node, SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from model.user_op import UserOp, UserOpStatus
+from model.user_op import UserOp, UserOpStatus, UserOpType
 from store.gdrive.master_gdrive import GDriveMasterStore
 from store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from store.live_monitor import LiveMonitor
@@ -1153,3 +1154,39 @@ class CacheManager(HasLifecycle):
 
     def get_gdrive_client(self):
         return self._master_gdrive.gdrive_client
+
+    def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
+        if not is_into or (dst_sn and not dst_sn.node.is_dir()):
+            # cannot drop into a file; just use parent in this case
+            dst_sn = self.get_parent_sn_for_sn(dst_sn)
+
+        if not dst_sn:
+            logger.error(f'[{dst_tree_id}] Cancelling drop: no parent node for dropped location!')
+        elif dst_tree_id == src_tree_id and self._is_dropping_on_itself(dst_sn, src_sn_list, dst_tree_id):
+            logger.debug(f'[{dst_tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
+        else:
+            logger.debug(f'[{dst_tree_id}]Dropping into dest: {dst_sn.spid}')
+            # "Left tree" here is the source tree, and "right tree" is the dst tree:
+            src_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(src_tree_id)
+            dst_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(dst_tree_id)
+            if not src_tree:
+                logger.error(f'Aborting drop: could not find src tree: "{src_tree_id}"')
+                return
+            if not dst_tree:
+                logger.error(f'Aborting drop: could not find dst tree: "{dst_tree_id}"')
+                return
+
+            change_maker = ChangeMaker(backend=self.backend, left_tree_root_sn=src_tree.root_sn, right_tree_root_sn=dst_tree.root_sn)
+            # So far we only support COPY.
+            change_maker.copy_nodes_left_to_right(src_sn_list, dst_sn, UserOpType.CP)
+            # This should fire listeners which ultimately populate the tree:
+            op_list: Iterable[UserOp] = change_maker.right_side.change_tree.get_ops()
+            self.enqueue_op_list(op_list)
+
+    def _is_dropping_on_itself(self, dst_sn: SPIDNodePair, sn_list: List[SPIDNodePair], dst_tree_id: str):
+        for sn in sn_list:
+            logger.debug(f'[{dst_tree_id}] DestNode="{dst_sn.spid}", DroppedNode="{sn.node}"')
+            if dst_sn.node.is_parent_of(sn.node):
+                return True
+        return False
+

@@ -17,17 +17,20 @@ from ui.tree.filter_criteria import BoolOption, FilterCriteria
 logger = logging.getLogger(__name__)
 
 
-# CLASS NodeConverter
+# CLASS Converter
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class NodeConverter:
+class Converter:
+
+    # Node
+
     @staticmethod
     def optional_node_from_grpc_container(node_container) -> Optional[Node]:
         if not node_container.HasField('node'):
             return None
 
         grpc_node: outlet.daemon.grpc.Node_pb2.Node = node_container.node
-        return NodeConverter.node_from_grpc(grpc_node)
+        return Converter.node_from_grpc(grpc_node)
 
     @staticmethod
     def node_from_grpc(grpc_node: outlet.daemon.grpc.Node_pb2.Node) -> Node:
@@ -46,11 +49,11 @@ class NodeConverter:
             node = GDriveFolder(node_identifier, meta.goog_id, meta.name, grpc_node.trashed, meta.create_ts, meta.modify_ts,
                                 meta.owner_uid, meta.drive_id, grpc_node.is_shared, meta.shared_by_user_uid, meta.sync_ts,
                                 meta.all_children_fetched)
-            NodeConverter._dir_meta_from_grpc(node, meta.dir_meta)
+            Converter._dir_meta_from_grpc(node, meta.dir_meta)
         elif grpc_node.HasField("local_dir_meta"):
             assert isinstance(node_identifier, LocalNodeIdentifier)
             node = LocalDirNode(node_identifier, grpc_node.trashed, grpc_node.local_dir_meta.is_live)
-            NodeConverter._dir_meta_from_grpc(node, grpc_node.local_dir_meta.dir_meta)
+            Converter._dir_meta_from_grpc(node, grpc_node.local_dir_meta.dir_meta)
         elif grpc_node.HasField("local_file_meta"):
             meta = grpc_node.local_file_meta
             assert isinstance(node_identifier, LocalNodeIdentifier)
@@ -59,79 +62,20 @@ class NodeConverter:
         elif grpc_node.HasField("container_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             node = ContainerNode(node_identifier, grpc_node.nid)
-            NodeConverter._dir_meta_from_grpc(node, grpc_node.local_dir_meta.dir_meta)
+            Converter._dir_meta_from_grpc(node, grpc_node.local_dir_meta.dir_meta)
         elif grpc_node.HasField("category_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             node = CategoryNode(node_identifier, grpc_node.category_meta.op_type, grpc_node.nid)
-            NodeConverter._dir_meta_from_grpc(node, grpc_node.category_meta.dir_meta)
+            Converter._dir_meta_from_grpc(node, grpc_node.category_meta.dir_meta)
         elif grpc_node.HasField("root_type_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             node = RootTypeNode(node_identifier, grpc_node.nid)
-            NodeConverter._dir_meta_from_grpc(node, grpc_node.root_type_meta.dir_meta)
+            Converter._dir_meta_from_grpc(node, grpc_node.root_type_meta.dir_meta)
         else:
             raise RuntimeError('Could not parse GRPC node!')
 
         node.set_icon(IconId(grpc_node.icon_id))
         return node
-
-    @staticmethod
-    def _dir_meta_from_grpc(node: HasChildStats, dir_meta: outlet.daemon.grpc.Node_pb2.DirMeta):
-        if dir_meta.has_data:
-            node.file_count = dir_meta.file_count
-            node.dir_count = dir_meta.dir_count
-            node.trashed_file_count = dir_meta.trashed_file_count
-            node.trashed_dir_count = dir_meta.trashed_dir_count
-            node.size_bytes = dir_meta.get_size_bytes()
-            node.trashed_bytes = dir_meta.trashed_bytes
-        else:
-            node.size_bytes = None
-
-    @staticmethod
-    def _dir_meta_to_grpc(node: HasChildStats, dir_meta_parent):
-        if node.is_stats_loaded():
-            dir_meta_parent.dir_meta.has_data = True
-            dir_meta_parent.dir_meta.file_count = node.file_count
-            dir_meta_parent.dir_meta.dir_count = node.dir_count
-            dir_meta_parent.dir_meta.trashed_file_count = node.trashed_file_count
-            dir_meta_parent.dir_meta.trashed_dir_count = node.trashed_dir_count
-            dir_meta_parent.dir_meta.size_bytes = node.get_size_bytes()
-            dir_meta_parent.dir_meta.trashed_bytes = node.trashed_bytes
-        else:
-            dir_meta_parent.dir_meta.has_data = False
-
-    @staticmethod
-    def node_list_to_grpc(node_list: Iterable[Node], grpc_node_list):
-        for node in node_list:
-            grpc_node = grpc_node_list.add()
-            NodeConverter.node_to_grpc(node, grpc_node)
-
-    @staticmethod
-    def node_list_from_grpc(grpc_node_list) -> List[Node]:
-        node_list: List[Node] = []
-        for grpc_node in grpc_node_list:
-            node = NodeConverter.node_from_grpc(grpc_node)
-            node_list.append(node)
-        return node_list
-
-    @staticmethod
-    def filter_criteria_to_grpc(filter_criteria: FilterCriteria, grpc_filter_criteria: outlet.daemon.grpc.Node_pb2.FilterCriteria):
-        if filter_criteria.search_query:
-            grpc_filter_criteria.search_query = filter_criteria.search_query
-        grpc_filter_criteria.is_trashed = filter_criteria.is_trashed
-        grpc_filter_criteria.is_shared = filter_criteria.is_shared
-        grpc_filter_criteria.is_ignore_case = filter_criteria.ignore_case
-        grpc_filter_criteria.show_subtrees_of_matches = filter_criteria.show_subtrees_of_matches
-
-    @staticmethod
-    def filter_criteria_from_grpc(grpc_filter_criteria: outlet.daemon.grpc.Node_pb2.FilterCriteria) -> FilterCriteria:
-        filter_criteria: FilterCriteria = FilterCriteria()
-        if grpc_filter_criteria.search_query:
-            filter_criteria.search_query = grpc_filter_criteria.search_query
-        filter_criteria.is_trashed = BoolOption(grpc_filter_criteria.is_trashed)
-        filter_criteria.is_shared = BoolOption(grpc_filter_criteria.is_shared)
-        filter_criteria.ignore_case = grpc_filter_criteria.is_ignore_case
-        filter_criteria.show_subtrees_of_matches = grpc_filter_criteria.show_subtrees_of_matches
-        return filter_criteria
 
     @staticmethod
     def node_to_grpc(node: Node, grpc_node: outlet.daemon.grpc.Node_pb2.Node):
@@ -155,18 +99,18 @@ class NodeConverter:
         if isinstance(node, ContainerNode):
             # ContainerNode or subclass
             if isinstance(node, CategoryNode):
-                NodeConverter._dir_meta_to_grpc(node, grpc_node.category_meta)
+                Converter._dir_meta_to_grpc(node, grpc_node.category_meta)
                 grpc_node.category_meta.op_type = node.op_type
             elif isinstance(node, RootTypeNode):
-                NodeConverter._dir_meta_to_grpc(node, grpc_node.root_type_meta)
+                Converter._dir_meta_to_grpc(node, grpc_node.root_type_meta)
             else:
                 # plain ContainerNode
-                NodeConverter._dir_meta_to_grpc(node, grpc_node.container_meta)
+                Converter._dir_meta_to_grpc(node, grpc_node.container_meta)
         elif node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
             # LocalNode
             if node.is_dir():
                 assert isinstance(node, LocalDirNode)
-                NodeConverter._dir_meta_to_grpc(node, grpc_node.local_dir_meta)
+                Converter._dir_meta_to_grpc(node, grpc_node.local_dir_meta)
                 grpc_node.local_dir_meta.is_live = node.is_live()
             else:
                 if node.get_size_bytes():
@@ -186,7 +130,7 @@ class NodeConverter:
             # GDriveNode
             if node.is_dir():
                 assert isinstance(node, GDriveFolder)
-                NodeConverter._dir_meta_to_grpc(node, grpc_node.gdrive_folder_meta)
+                Converter._dir_meta_to_grpc(node, grpc_node.gdrive_folder_meta)
                 grpc_node.gdrive_folder_meta.all_children_fetched = node.all_children_fetched
                 meta = grpc_node.gdrive_folder_meta
             else:
@@ -224,6 +168,71 @@ class NodeConverter:
         return grpc_node
 
     @staticmethod
+    def _dir_meta_from_grpc(node: HasChildStats, dir_meta: outlet.daemon.grpc.Node_pb2.DirMeta):
+        if dir_meta.has_data:
+            node.file_count = dir_meta.file_count
+            node.dir_count = dir_meta.dir_count
+            node.trashed_file_count = dir_meta.trashed_file_count
+            node.trashed_dir_count = dir_meta.trashed_dir_count
+            node.size_bytes = dir_meta.get_size_bytes()
+            node.trashed_bytes = dir_meta.trashed_bytes
+        else:
+            node.size_bytes = None
+
+    @staticmethod
+    def _dir_meta_to_grpc(node: HasChildStats, dir_meta_parent):
+        if node.is_stats_loaded():
+            dir_meta_parent.dir_meta.has_data = True
+            dir_meta_parent.dir_meta.file_count = node.file_count
+            dir_meta_parent.dir_meta.dir_count = node.dir_count
+            dir_meta_parent.dir_meta.trashed_file_count = node.trashed_file_count
+            dir_meta_parent.dir_meta.trashed_dir_count = node.trashed_dir_count
+            dir_meta_parent.dir_meta.size_bytes = node.get_size_bytes()
+            dir_meta_parent.dir_meta.trashed_bytes = node.trashed_bytes
+        else:
+            dir_meta_parent.dir_meta.has_data = False
+
+    # List[Node]
+
+    @staticmethod
+    def node_list_to_grpc(node_list: Iterable[Node], grpc_node_list):
+        for node in node_list:
+            grpc_node = grpc_node_list.add()
+            Converter.node_to_grpc(node, grpc_node)
+
+    @staticmethod
+    def node_list_from_grpc(grpc_node_list) -> List[Node]:
+        node_list: List[Node] = []
+        for grpc_node in grpc_node_list:
+            node = Converter.node_from_grpc(grpc_node)
+            node_list.append(node)
+        return node_list
+
+    # FilterCriteria
+
+    @staticmethod
+    def filter_criteria_to_grpc(filter_criteria: FilterCriteria, grpc_filter_criteria: outlet.daemon.grpc.Node_pb2.FilterCriteria):
+        if filter_criteria.search_query:
+            grpc_filter_criteria.search_query = filter_criteria.search_query
+        grpc_filter_criteria.is_trashed = filter_criteria.is_trashed
+        grpc_filter_criteria.is_shared = filter_criteria.is_shared
+        grpc_filter_criteria.is_ignore_case = filter_criteria.ignore_case
+        grpc_filter_criteria.show_subtrees_of_matches = filter_criteria.show_subtrees_of_matches
+
+    @staticmethod
+    def filter_criteria_from_grpc(grpc_filter_criteria: outlet.daemon.grpc.Node_pb2.FilterCriteria) -> FilterCriteria:
+        filter_criteria: FilterCriteria = FilterCriteria()
+        if grpc_filter_criteria.search_query:
+            filter_criteria.search_query = grpc_filter_criteria.search_query
+        filter_criteria.is_trashed = BoolOption(grpc_filter_criteria.is_trashed)
+        filter_criteria.is_shared = BoolOption(grpc_filter_criteria.is_shared)
+        filter_criteria.ignore_case = grpc_filter_criteria.is_ignore_case
+        filter_criteria.show_subtrees_of_matches = grpc_filter_criteria.show_subtrees_of_matches
+        return filter_criteria
+
+    # NodeIdentifier
+
+    @staticmethod
     def node_identifier_from_grpc(grpc_node_identifier: outlet.daemon.grpc.Node_pb2.NodeIdentifier):
         return NodeIdentifierFactory.for_all_values(grpc_node_identifier.uid, grpc_node_identifier.tree_type, list(grpc_node_identifier.path_list),
                                                     single_path=grpc_node_identifier.is_single_path)
@@ -239,10 +248,12 @@ class NodeConverter:
         grpc_node_identifier.is_single_path = node_identifier.is_spid()
         assert not grpc_node_identifier.is_single_path or len(list(grpc_node_identifier.path_list)) <= 1, f'Wrong: {node_identifier}'
 
+    # SPIDNodePair
+
     @staticmethod
     def sn_from_grpc(grpc_sn: outlet.daemon.grpc.Node_pb2.SPIDNodePair) -> SPIDNodePair:
-        spid = NodeConverter.node_identifier_from_grpc(grpc_sn.spid)
-        node = NodeConverter.optional_node_from_grpc_container(grpc_sn)
+        spid = Converter.node_identifier_from_grpc(grpc_sn.spid)
+        node = Converter.optional_node_from_grpc_container(grpc_sn)
         return SPIDNodePair(spid, node)
 
     @staticmethod
@@ -250,13 +261,15 @@ class NodeConverter:
         if not sn:
             return
 
-        NodeConverter.node_identifier_to_grpc(sn.spid, grpc_sn.spid)
-        NodeConverter.node_to_grpc(sn.node, grpc_sn.node)
+        Converter.node_identifier_to_grpc(sn.spid, grpc_sn.spid)
+        Converter.node_to_grpc(sn.node, grpc_sn.node)
+
+    # DisplayTreeUiState
 
     @staticmethod
     def display_tree_ui_state_to_grpc(state: DisplayTreeUiState, grpc_display_tree_ui_state: outlet.daemon.grpc.Outlet_pb2.DisplayTreeUiState):
         grpc_display_tree_ui_state.tree_id = state.tree_id
-        NodeConverter.sn_to_grpc(state.root_sn, grpc_display_tree_ui_state.root_sn)
+        Converter.sn_to_grpc(state.root_sn, grpc_display_tree_ui_state.root_sn)
         grpc_display_tree_ui_state.root_exists = state.root_exists
         if state.offending_path:
             grpc_display_tree_ui_state.offending_path = state.offending_path
@@ -264,7 +277,7 @@ class NodeConverter:
 
     @staticmethod
     def display_tree_ui_state_from_grpc(grpc_display_tree_ui_state: outlet.daemon.grpc.Outlet_pb2.DisplayTreeUiState) -> DisplayTreeUiState:
-        root_sn: SPIDNodePair = NodeConverter.sn_from_grpc(grpc_display_tree_ui_state.root_sn)
+        root_sn: SPIDNodePair = Converter.sn_from_grpc(grpc_display_tree_ui_state.root_sn)
         offending_path = grpc_display_tree_ui_state.offending_path
         if not offending_path:
             offending_path = None

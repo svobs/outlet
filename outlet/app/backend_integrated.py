@@ -6,7 +6,7 @@ import logging
 from app.backend import OutletBackend
 from executor.central import CentralExecutor
 from model.display_tree.display_tree import DisplayTree
-from model.node.node import Node
+from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
@@ -83,3 +83,6 @@ class BackendIntegrated(OutletBackend):
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
         return self.cacheman.get_ancestor_list_for_single_path_identifier(spid, stop_at_path=stop_at_path)
+
+    def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
+        self.cacheman.drop_dragged_nodes(src_tree_id, src_sn_list, is_into, dst_tree_id, dst_sn)
