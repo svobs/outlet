@@ -65,19 +65,6 @@ PROJECT_DIR = '.'
 CONFIG_DIR = f'{PROJECT_DIR}/config'
 DEFAULT_CONFIG_PATH = f'{CONFIG_DIR}/outlet-default.cfg'
 
-# Various icon names:
-ICON_ALERT = 'alert'
-ICON_WINDOW = 'win'
-ICON_REFRESH = 'refresh'
-ICON_FOLDER_TREE = 'folder-tree'
-ICON_MATCH_CASE = 'match-case'
-ICON_IS_SHARED = 'is-shared'
-ICON_IS_NOT_SHARED = 'is-not-shared'
-ICON_IS_TRASHED = 'is-trashed'
-ICON_IS_NOT_TRASHED = 'is-not-trashed'
-ICON_PLAY = 'play'
-ICON_PAUSE = 'pause'
-
 # File icon names:
 ICON_GENERIC_FILE = 'store/local'
 ICON_FILE_RM = 'file-rm'
@@ -101,12 +88,70 @@ ICON_DIR_UP_DST = 'dir-up-dst'
 ICON_DIR_CP_DST = 'dir-cp-dst'
 ICON_DIR_TRASHED = 'dir-trashed'
 
+# Various icon names:
+ICON_ALERT = 'alert'
+ICON_WINDOW = 'win'
+ICON_REFRESH = 'refresh'
+ICON_FOLDER_TREE = 'folder-tree'
+ICON_MATCH_CASE = 'match-case'
+ICON_IS_SHARED = 'is-shared'
+ICON_IS_NOT_SHARED = 'is-not-shared'
+ICON_IS_TRASHED = 'is-trashed'
+ICON_IS_NOT_TRASHED = 'is-not-trashed'
+ICON_PLAY = 'play'
+ICON_PAUSE = 'pause'
+
 # Root icon names:
 ICON_GDRIVE = 'gdrive'
 ICON_LOCAL_DISK_LINUX = 'localdisk-linux'
 
 BTN_GDRIVE = 'gdrive-btn'
 BTN_LOCAL_DISK_LINUX = 'localdisk-linux-btn'
+
+
+class IconId(IntEnum):
+    """Used for identifying icons in a more compact way, mainly for serialization for RPC"""
+    NONE = 0
+
+    ICON_GENERIC_FILE = 1
+    ICON_FILE_RM = 2
+    ICON_FILE_MV_SRC = 3
+    ICON_FILE_UP_SRC = 4
+    ICON_FILE_CP_SRC = 5
+    ICON_FILE_MV_DST = 6
+    ICON_FILE_UP_DST = 7
+    ICON_FILE_CP_DST = 8
+    ICON_FILE_TRASHED = 9
+
+    ICON_GENERIC_DIR = 10
+    ICON_DIR_MK = 11
+    ICON_DIR_RM = 12
+    ICON_DIR_MV_SRC = 13
+    ICON_DIR_UP_SRC = 14
+    ICON_DIR_CP_SRC = 15
+    ICON_DIR_MV_DST = 16
+    ICON_DIR_UP_DST = 17
+    ICON_DIR_CP_DST = 18
+    ICON_DIR_TRASHED = 19
+
+    ICON_ALERT = 20
+    ICON_WINDOW = 21
+    ICON_REFRESH = 22
+    ICON_PLAY = 23
+    ICON_PAUSE = 24
+    ICON_FOLDER_TREE = 25
+    ICON_MATCH_CASE = 26
+    ICON_IS_SHARED = 27
+    ICON_IS_NOT_SHARED = 28
+    ICON_IS_TRASHED = 29
+    ICON_IS_NOT_TRASHED = 30
+
+    ICON_GDRIVE = 31
+    ICON_LOCAL_DISK_LINUX = 32
+
+    BTN_GDRIVE = 33
+    BTN_LOCAL_DISK_LINUX = 34
+
 
 FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT = 100
 

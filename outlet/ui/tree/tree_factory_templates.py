@@ -71,7 +71,10 @@ def add_checkbox_icon_name_column(treeview: TreeView, display_store: DisplayStor
 
     # For displaying icons
     def get_tree_cell_pixbuf(col, cell, model, iter, user_data):
-        cell.set_property('pixbuf', assets.get_icon(model.get_value(iter, treeview_meta.col_num_icon)))
+        icon_id = model.get_value(iter, treeview_meta.col_num_icon)
+        if icon_id is not None:
+            icon_id = int(icon_id)
+        cell.set_property('pixbuf', assets.get_icon(icon_id))
 
     px_column.set_cell_data_func(px_renderer, get_tree_cell_pixbuf)
 

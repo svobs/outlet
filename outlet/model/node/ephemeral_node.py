@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from constants import IconId
 from error import InvalidOperationError
 from model.node.node import Node
 from model.node_identifier import NullNodeIdentifier
@@ -25,8 +26,8 @@ class EphemeralNode(Node, ABC):
     def name(self):
         return 'EphemeralNode'
 
-    def get_icon(self):
-        return None
+    def get_default_icon(self):
+        return IconId.NONE
 
     def get_single_path(self):
         raise InvalidOperationError('get_single_path()')

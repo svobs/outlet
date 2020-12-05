@@ -11,9 +11,9 @@ from pydispatch import dispatcher
 
 import util.format
 from command.cmd_interface import Command
-from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, \
+from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, \
     ROOT_PATH, \
-    TREE_TYPE_GDRIVE, \
+    SUPER_DEBUG, TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK
 from error import CacheNotLoadedError, GDriveItemNotFoundError, InvalidOperationError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
@@ -997,11 +997,26 @@ class CacheManager(HasLifecycle):
     def get_children(self, node: Node, filter_criteria: FilterCriteria = None):
         tree_type: int = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
-            return self._master_gdrive.get_children(node, filter_criteria)
+            child_list = self._master_gdrive.get_children(node, filter_criteria)
         elif tree_type == TREE_TYPE_LOCAL_DISK:
-            return self._master_local.get_children(node, filter_criteria)
+            child_list = self._master_local.get_children(node, filter_criteria)
         else:
             raise RuntimeError(f'Unknown tree type: {tree_type} for {node.node_identifier}')
+
+        for child in child_list:
+            self._update_node_icon(child)
+
+        return child_list
+
+    def _update_node_icon(self, node: Node):
+        op: Optional[UserOp] = self.get_last_pending_op_for_node(node.uid)
+        if op and not op.is_completed():
+            icon: Optional[IconId] = op.get_icon_for_node(node.uid)
+            if SUPER_DEBUG:
+                logger.debug(f'Node {node.uid} belongs to pending op ({op.op_uid}): {op.op_type.name}): returning icon="{icon.name}"')
+        else:
+            icon = None
+        node.set_icon(icon)
 
     @staticmethod
     def _derive_parent_path(child_path) -> str:

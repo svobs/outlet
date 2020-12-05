@@ -24,11 +24,6 @@ class OutletStub(object):
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.SerializeToString,
                 response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SendSignalResponse.FromString,
                 )
-        self.ping = channel.unary_unary(
-                '/outlet.daemon.grpc.Outlet/ping',
-                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.PingRequest.SerializeToString,
-                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.PingResponse.FromString,
-                )
         self.get_node_for_uid = channel.unary_unary(
                 '/outlet.daemon.grpc.Outlet/get_node_for_uid',
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetNodeForUid_Request.SerializeToString,
@@ -86,12 +81,6 @@ class OutletServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def send_signal(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def ping(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -163,11 +152,6 @@ def add_OutletServicer_to_server(servicer, server):
                     servicer.send_signal,
                     request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.FromString,
                     response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SendSignalResponse.SerializeToString,
-            ),
-            'ping': grpc.unary_unary_rpc_method_handler(
-                    servicer.ping,
-                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.PingRequest.FromString,
-                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.PingResponse.SerializeToString,
             ),
             'get_node_for_uid': grpc.unary_unary_rpc_method_handler(
                     servicer.get_node_for_uid,
@@ -255,23 +239,6 @@ class Outlet(object):
         return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/send_signal',
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.SerializeToString,
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SendSignalResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def ping(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/ping',
-            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.PingRequest.SerializeToString,
-            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.PingResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

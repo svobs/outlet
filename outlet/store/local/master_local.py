@@ -515,7 +515,7 @@ class LocalDiskMasterStore(MasterStore):
         try:
             with self._struct_lock:
                 try:
-                    parent: LocalNode = self._memstore.master_tree.parent(nid=node.uid)
+                    parent: LocalNode = self._memstore.master_tree.parent(child_nid=node.uid)
                 except KeyError:
                     # parent not found in tree... maybe we can derive it however
                     parent_path: str = node.derive_parent_path()
@@ -544,7 +544,7 @@ class LocalDiskMasterStore(MasterStore):
     def build_local_dir_node(self, full_path: str) -> LocalDirNode:
         uid = self.get_uid_for_path(full_path)
         # logger.debug(f'Creating dir node: nid={uid}')
-        return LocalDirNode(node_identifier=LocalNodeIdentifier(uid=uid, path_list=full_path), is_live=True)
+        return LocalDirNode(node_identifier=LocalNodeIdentifier(uid=uid, path_list=full_path), trashed=TrashStatus.NOT_TRASHED, is_live=True)
 
     def build_local_file_node(self, full_path: str, staging_path: str = None, must_scan_signature=False) -> Optional[LocalFileNode]:
         uid = self.get_uid_for_path(full_path)

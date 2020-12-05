@@ -436,7 +436,7 @@ class DisplayStore:
                 # Stop at root
                 break
 
-        base_path = self.con.get_tree().root_identifier.get_single_path()
+        base_path = self.con.get_tree().get_root_identifier().get_single_path()
         if base_path != '/':
             single_path = f'{base_path}{single_path}'
 

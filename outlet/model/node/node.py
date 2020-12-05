@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple
 
 from error import InvalidOperationError
 from util import format
-from constants import ICON_FILE_CP_DST, ICON_GENERIC_FILE, TrashStatus
+from constants import IconId, TrashStatus
 from store.uid.uid_generator import UID
 from model.node_identifier import NodeIdentifier
 from util.simple_tree import BaseNode
@@ -37,6 +37,8 @@ class Node(BaseNode, ABC):
             raise RuntimeError(f'Invalid value for "trashed": {trashed}')
         else:
             self._trashed: TrashStatus = TrashStatus(trashed)
+
+        self._icon: Optional[IconId] = None
 
     @abstractmethod
     def is_parent_of(self, potential_child_node) -> bool:
@@ -151,10 +153,18 @@ class Node(BaseNode, ABC):
         self.node_identifier.uid = uid
         self.identifier = uid
 
-    def get_icon(self):
+    def get_icon(self) -> IconId:
+        if self._icon:
+            return self._icon
+        return self.get_default_icon()
+
+    def set_icon(self, icon: IconId):
+        self._icon = icon
+
+    def get_default_icon(self) -> IconId:
         if self.is_live():
-            return ICON_GENERIC_FILE
-        return ICON_FILE_CP_DST
+            return IconId.ICON_GENERIC_FILE
+        return IconId.ICON_FILE_CP_DST
 
     @abstractmethod
     def update_from(self, other_node):

@@ -49,28 +49,17 @@ class NullUidGenerator(UidGenerator):
         pass
 
 
-# CLASS PersistentAtomicIntUidGenerator
+# CLASS SimpleUidGenerator
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class PersistentAtomicIntUidGenerator(UidGenerator):
-    def __init__(self, config):
-        super().__init__()
-        self._config = config
-        self._enable_uid_persistence: bool = self._config.get(CONFIG_KEY_ENABLE_LAST_UID)
-        if self._enable_uid_persistence:
-            self._last_uid_written = self._config.get(CONFIG_KEY_LAST_UID, GDRIVE_ROOT_UID + 1)
-            self._uid_reservation_block_size = self._config.get(CONFIG_KEY_UID_RESERVATION_BLOCK_SIZE)
-        else:
-            self._last_uid_written = GDRIVE_ROOT_UID + 1
-        self._value = self._last_uid_written + 1
+class SimpleUidGenerator(UidGenerator):
+    def __init__(self, initial_value: int = 1):
+        super(SimpleUidGenerator, self).__init__()
+        self._value = initial_value
         self._lock = threading.Lock()
 
-    def _set(self, new_value):
+    def _set(self, new_value: int):
         self._value = new_value
-        if self._enable_uid_persistence and self._value > self._last_uid_written:
-            # skip ahead and write a larger number. This will cause us to burn through numbers quicker, but will really speed things up
-            self._last_uid_written = self._value + self._uid_reservation_block_size
-            self._config.write(CONFIG_KEY_LAST_UID, self._last_uid_written)
         return self._value
 
     def next_uid(self) -> UID:
@@ -84,3 +73,26 @@ class PersistentAtomicIntUidGenerator(UidGenerator):
                 logger.debug(f'Set next_uid to {new_val}')
             else:
                 logger.debug(f'Ignoring request to set next_uid ({uid}); it is smaller than the present value ({self._value})')
+
+
+# CLASS PersistentAtomicIntUidGenerator
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class PersistentAtomicIntUidGenerator(SimpleUidGenerator):
+    def __init__(self, config):
+        self._config = config
+        self._enable_uid_persistence: bool = self._config.get(CONFIG_KEY_ENABLE_LAST_UID)
+        if self._enable_uid_persistence:
+            self._last_uid_written = self._config.get(CONFIG_KEY_LAST_UID, GDRIVE_ROOT_UID + 1)
+            self._uid_reservation_block_size = self._config.get(CONFIG_KEY_UID_RESERVATION_BLOCK_SIZE)
+        else:
+            self._last_uid_written = GDRIVE_ROOT_UID + 1
+        super().__init__(self._last_uid_written + 1)
+
+    def _set(self, new_value):
+        self._value = new_value
+        if self._enable_uid_persistence and self._value > self._last_uid_written:
+            # skip ahead and write a larger number. This will cause us to burn through numbers quicker, but will really speed things up
+            self._last_uid_written = self._value + self._uid_reservation_block_size
+            self._config.write(CONFIG_KEY_LAST_UID, self._last_uid_written)
+        return self._value

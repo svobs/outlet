@@ -138,7 +138,7 @@ class TreeUiListeners(HasLifecycle):
         selected_sn_list: List[SPIDNodePair] = self.con.display_store.get_multiple_selection_sn_list()
         if selected_sn_list:
             # Avoid complicated, undocumented GTK3 garbage by just sending a UID along with needed data via the dispatcher. See _check_drop()
-            dd_uid = self.con.backend.uid_generator.next_uid()
+            dd_uid = self.con.app.backend.uid_generator.next_uid()
             action = drag_context.get_selected_action()  # TODO: add support for more actions. For now, assume CP
             drag_data = DragAndDropData(dd_uid, self.con, selected_sn_list)
             dispatcher.send(signal=actions.DRAG_AND_DROP, sender=self.con.tree_id, data=drag_data)
@@ -195,16 +195,15 @@ class TreeUiListeners(HasLifecycle):
             logger.debug(f'[{self.con.tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
         else:
             logger.debug(f'[{self.con.tree_id}]Dropping into dest: {sn_dst.spid}')
-            # FIXME: this is broken
             # So far we only support COPY.
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
-            left_root = drag_data.src_treecon.get_tree().root_identifier
-            right_root = self.con.get_tree().root_identifier
-            change_maker = ChangeMaker(backend=self.con.backend, left_tree_root_identifier=left_root, right_tree_root_identifier=right_root)
+            left_root = drag_data.src_treecon.get_tree().get_root_sn()
+            right_root = self.con.get_tree().get_root_sn()
+            change_maker = ChangeMaker(backend=self.con.app.backend, left_tree_root_sn=left_root, right_tree_root_sn=right_root)
             change_maker.copy_nodes_left_to_right(drag_data.sn_list, sn_dst, UserOpType.CP)
             # This should fire listeners which ultimately populate the tree:
             op_list: Iterable[UserOp] = change_maker.right_side.change_tree.get_ops()
-            self.con.backend.cacheman.enqueue_op_list(op_list)
+            self.con.app.backend.cacheman.enqueue_op_list(op_list)
 
     def _check_drop(self):
         """Drag & Drop 4/4: Check UID of the dragged data against the UID of the dropped data.

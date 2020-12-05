@@ -5,7 +5,7 @@ import re
 from abc import ABC
 from typing import Optional, Tuple
 
-from constants import ICON_GENERIC_DIR, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TREE_TYPE_LOCAL_DISK
+from constants import IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TREE_TYPE_LOCAL_DISK
 from model.node.node import Node, HasChildStats
 from model.node_identifier import LocalNodeIdentifier
 from util.ensure import ensure_bool, ensure_int
@@ -187,8 +187,8 @@ class LocalDirNode(HasChildStats, LocalNode):
     def get_obj_type(cls):
         return OBJ_TYPE_DIR
 
-    def get_icon(self):
-        return ICON_GENERIC_DIR
+    def get_default_icon(self):
+        return IconId.ICON_GENERIC_DIR
 
     @classmethod
     def is_file(cls):

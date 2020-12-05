@@ -3,8 +3,7 @@ from typing import Optional
 
 from pydispatch import dispatcher
 
-from constants import FILTER_APPLY_DELAY_MS, ICON_FOLDER_TREE, ICON_IS_NOT_SHARED, ICON_IS_NOT_TRASHED, ICON_IS_SHARED, ICON_IS_TRASHED, \
-    ICON_MATCH_CASE, TREE_TYPE_GDRIVE
+from constants import FILTER_APPLY_DELAY_MS, IconId
 from model.display_tree.display_tree import DisplayTree
 from ui import actions
 from ui.dialog.base_dialog import BaseDialog
@@ -57,11 +56,11 @@ class TreeFilterPanel(HasLifecycle):
         # self.supports_shared_status = self.con.get_root_identifier().tree_type == TREE_TYPE_GDRIVE
         self.supports_shared_status = True
 
-        self.show_ancestors_btn = self._add_toolbar_toggle_btn('Show ancestors of matches', ICON_FOLDER_TREE)
-        self.match_case_btn = self._add_toolbar_toggle_btn('Match case', ICON_MATCH_CASE)
-        self.is_trashed_btn = self._add_toolbar_toggle_btn('Is trashed', ICON_IS_TRASHED)
+        self.show_ancestors_btn = self._add_toolbar_toggle_btn('Show ancestors of matches', IconId.ICON_FOLDER_TREE)
+        self.match_case_btn = self._add_toolbar_toggle_btn('Match case', IconId.ICON_MATCH_CASE)
+        self.is_trashed_btn = self._add_toolbar_toggle_btn('Is trashed', IconId.ICON_IS_TRASHED)
         if self.supports_shared_status:
-            self.is_shared_btn = self._add_toolbar_toggle_btn('Is shared', ICON_IS_SHARED)
+            self.is_shared_btn = self._add_toolbar_toggle_btn('Is shared', IconId.ICON_IS_SHARED)
 
         filter_criteria: FilterCriteria = self.con.treeview_meta.filter_criteria
         if filter_criteria:
@@ -121,13 +120,13 @@ class TreeFilterPanel(HasLifecycle):
     def _update_trashed_btn(self, filter_criteria):
         if filter_criteria.is_trashed == BoolOption.NOT_SPECIFIED:
             self.is_trashed_btn.set_active(False)
-            self._set_icon(self.is_trashed_btn, ICON_IS_TRASHED)
+            self._set_icon(self.is_trashed_btn, IconId.ICON_IS_TRASHED)
         elif filter_criteria.is_trashed == BoolOption.TRUE:
             self.is_trashed_btn.set_active(True)
-            self._set_icon(self.is_trashed_btn, ICON_IS_TRASHED)
+            self._set_icon(self.is_trashed_btn, IconId.ICON_IS_TRASHED)
         elif filter_criteria.is_trashed == BoolOption.FALSE:
             self.is_trashed_btn.set_active(True)
-            self._set_icon(self.is_trashed_btn, ICON_IS_NOT_TRASHED)
+            self._set_icon(self.is_trashed_btn, IconId.ICON_IS_NOT_TRASHED)
         else:
             assert False
 
@@ -137,13 +136,13 @@ class TreeFilterPanel(HasLifecycle):
     def _update_shared_btn(self, filter_criteria):
         if self.supports_shared_status:
             if filter_criteria.is_shared == BoolOption.NOT_SPECIFIED:
-                self._set_icon(self.is_shared_btn, ICON_IS_SHARED)
+                self._set_icon(self.is_shared_btn, IconId.ICON_IS_SHARED)
                 self.is_shared_btn.set_active(False)
             elif filter_criteria.is_shared == BoolOption.TRUE:
-                self._set_icon(self.is_shared_btn, ICON_IS_SHARED)
+                self._set_icon(self.is_shared_btn, IconId.ICON_IS_SHARED)
                 self.is_shared_btn.set_active(True)
             elif filter_criteria.is_shared == BoolOption.FALSE:
-                self._set_icon(self.is_shared_btn, ICON_IS_NOT_SHARED)
+                self._set_icon(self.is_shared_btn, IconId.ICON_IS_NOT_SHARED)
                 self.is_shared_btn.set_active(True)
             else:
                 assert False
@@ -151,17 +150,17 @@ class TreeFilterPanel(HasLifecycle):
             self.toolbar.show_all()
             logger.debug(f'[{self.tree_id}] Updated IsShared button with new state: {filter_criteria.is_shared}')
 
-    def _add_toolbar_toggle_btn(self, entry_label: str, icon_name: str) -> Gtk.ToggleToolButton:
+    def _add_toolbar_toggle_btn(self, entry_label: str, icon_id: IconId) -> Gtk.ToggleToolButton:
         btn = Gtk.ToggleToolButton()
-        self._set_icon(btn, icon_name)
+        self._set_icon(btn, icon_id)
         btn.set_tooltip_text(entry_label)
         self.toolbar.insert(btn, -1)
         return btn
 
-    def _set_icon(self, btn, icon_name):
-        logger.debug(f'Setting icon to "{icon_name}"')
+    def _set_icon(self, btn, icon_id: IconId):
+        logger.debug(f'Setting icon to "{icon_id.name}"')
         icon = Gtk.Image()
-        icon.set_from_file(self.parent_win.app.assets.get_path(icon_name))
+        icon.set_from_file(self.parent_win.app.assets.get_path(icon_id))
         btn.set_icon_widget(icon)
 
     def _apply_filter_criteria(self):

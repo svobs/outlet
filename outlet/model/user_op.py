@@ -3,9 +3,7 @@ from enum import IntEnum
 import logging
 from typing import List, Optional
 
-from constants import ICON_DIR_CP_DST, ICON_DIR_CP_SRC, ICON_DIR_MK, ICON_DIR_MV_DST, ICON_DIR_MV_SRC, ICON_DIR_RM, \
-    ICON_DIR_UP_DST, ICON_DIR_UP_SRC, ICON_FILE_CP_DST, ICON_FILE_CP_SRC, \
-    ICON_FILE_MV_DST, ICON_FILE_MV_SRC, ICON_FILE_RM, ICON_FILE_UP_DST, ICON_FILE_UP_SRC
+from constants import IconId
 from model.uid import UID
 from model.node.node import Node
 from util.simple_tree import BaseNode
@@ -85,21 +83,21 @@ class UserOpResult:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class UserOp(BaseNode):
-    icon_src_file_dict = {UserOpType.RM: ICON_FILE_RM,
-                          UserOpType.MV: ICON_FILE_MV_SRC,
-                          UserOpType.UP: ICON_FILE_UP_SRC,
-                          UserOpType.CP: ICON_FILE_CP_SRC}
-    icon_dst_file_dict = {UserOpType.MV: ICON_FILE_MV_DST,
-                          UserOpType.UP: ICON_FILE_UP_DST,
-                          UserOpType.CP: ICON_FILE_CP_DST}
-    icon_src_dir_dict = {UserOpType.MKDIR: ICON_DIR_MK,
-                         UserOpType.RM: ICON_DIR_RM,
-                         UserOpType.MV: ICON_DIR_MV_SRC,
-                         UserOpType.UP: ICON_DIR_UP_SRC,
-                         UserOpType.CP: ICON_DIR_CP_SRC}
-    icon_dst_dir_dict = {UserOpType.MV: ICON_DIR_MV_DST,
-                         UserOpType.UP: ICON_DIR_UP_DST,
-                         UserOpType.CP: ICON_DIR_CP_DST}
+    icon_src_file_dict = {UserOpType.RM: IconId.ICON_FILE_RM,
+                          UserOpType.MV: IconId.ICON_FILE_MV_SRC,
+                          UserOpType.UP: IconId.ICON_FILE_UP_SRC,
+                          UserOpType.CP: IconId.ICON_FILE_CP_SRC}
+    icon_dst_file_dict = {UserOpType.MV: IconId.ICON_FILE_MV_DST,
+                          UserOpType.UP: IconId.ICON_FILE_UP_DST,
+                          UserOpType.CP: IconId.ICON_FILE_CP_DST}
+    icon_src_dir_dict = {UserOpType.MKDIR: IconId.ICON_DIR_MK,
+                         UserOpType.RM: IconId.ICON_DIR_RM,
+                         UserOpType.MV: IconId.ICON_DIR_MV_SRC,
+                         UserOpType.UP: IconId.ICON_DIR_UP_SRC,
+                         UserOpType.CP: IconId.ICON_DIR_CP_SRC}
+    icon_dst_dir_dict = {UserOpType.MV: IconId.ICON_DIR_MV_DST,
+                         UserOpType.UP: IconId.ICON_DIR_UP_DST,
+                         UserOpType.CP: IconId.ICON_DIR_CP_DST}
 
     def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpType, src_node: Node,
                  dst_node: Node = None, create_ts: int = None):
@@ -131,7 +129,7 @@ class UserOp(BaseNode):
     def has_dst(self) -> bool:
         return self.op_type.has_dst()
 
-    def get_icon_for_node(self, node_uid: UID):
+    def get_icon_for_node(self, node_uid: UID) -> IconId:
         if self.has_dst() and self.dst_node.uid == node_uid:
             op_type = self.op_type
             if op_type == UserOpType.MV and not self.dst_node.is_live():

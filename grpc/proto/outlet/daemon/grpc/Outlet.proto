@@ -11,14 +11,6 @@ package outlet.daemon.grpc;
 message Empty {
 	// nothing
 }
-message PingRequest {
-	// nothing
-}
-
-message PingResponse {
-	int64 timestamp = 1;
-}
-
 message Subscribe_Request {
 	// nothing
 }
@@ -121,19 +113,9 @@ message GetNextUid_Response {
 	int32 uid = 1;
 }
 
-message LoadNewTree {
-
-	// TODO: need to add ROOT_PATH_UPDATED listener to CacheMan / GRPC client (both backends)
-
-	// send in reply:
-	// needs_manual_load_on_startup
-}
-
 service Outlet {
 	rpc subscribe_to_signals(Subscribe_Request) returns (stream Signal);
 	rpc send_signal(Signal) returns (SendSignalResponse);
-
-	rpc ping(PingRequest) returns (PingResponse);
 
 	rpc get_node_for_uid(GetNodeForUid_Request) returns (SingleNode_Response);
 	rpc get_node_for_local_path(GetNodeForLocalPath_Request) returns (SingleNode_Response);

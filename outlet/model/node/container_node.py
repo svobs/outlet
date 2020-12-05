@@ -2,7 +2,7 @@ import os
 
 from error import InvalidOperationError
 from model.user_op import UserOpType
-from constants import ICON_GDRIVE, ICON_GENERIC_DIR, ICON_LOCAL_DISK_LINUX, OBJ_TYPE_DIR, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import IconId, OBJ_TYPE_DIR, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.node import Node, HasChildStats
 from model.node_identifier import SinglePathNodeIdentifier
 
@@ -43,8 +43,8 @@ class ContainerNode(HasChildStats, Node):
     def is_parent_of(self, potential_child_node: Node) -> bool:
         raise InvalidOperationError('is_parent_of')
 
-    def get_icon(self):
-        return ICON_GENERIC_DIR
+    def get_default_icon(self) -> IconId:
+        return IconId.ICON_GENERIC_DIR
 
     @property
     def name(self):
@@ -99,9 +99,9 @@ class CategoryNode(ContainerNode):
     def name(self):
         return CategoryNode.display_names[self.op_type]
 
-    def get_icon(self):
+    def get_default_icon(self) -> IconId:
         # FIXME: allow custom icon for Category Tree nodes ("To Add", "To Delete", etc)
-        return ICON_GENERIC_DIR
+        return IconId.ICON_GENERIC_DIR
 
 
 # CLASS RootTypeNode
@@ -126,10 +126,10 @@ class RootTypeNode(ContainerNode):
     def __repr__(self):
         return f'RootTypeNode(nid="{self.identifier}" node_id="{self.node_identifier}")'
 
-    def get_icon(self):
+    def get_default_icon(self) -> IconId:
         if self.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-            return ICON_LOCAL_DISK_LINUX
+            return IconId.ICON_LOCAL_DISK_LINUX
         elif self.node_identifier.tree_type == TREE_TYPE_GDRIVE:
-            return ICON_GDRIVE
-        return ICON_GENERIC_DIR
+            return IconId.ICON_GDRIVE
+        return IconId.ICON_GENERIC_DIR
 

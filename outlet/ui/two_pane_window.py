@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 from pydispatch.dispatcher import Any
 
 import ui.actions as actions
-from constants import APP_NAME, H_PAD, ICON_PAUSE, ICON_PLAY, ICON_WINDOW, TreeDisplayMode
+from constants import APP_NAME, H_PAD, IconId, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
 from global_actions import GlobalActions
 from model.display_tree.category import CategoryDisplayTree
@@ -36,7 +36,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.win_id = win_id
         self.set_title(APP_NAME)
         # program icon:
-        self.set_icon_from_file(self.app.assets.get_path(ICON_WINDOW))
+        self.set_icon_from_file(self.app.assets.get_path(IconId.ICON_WINDOW))
         # Set minimum width and height
 
         # Restore previous window location:
@@ -92,9 +92,9 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
         # Toolbar
         self.pause_icon = Gtk.Image()
-        self.pause_icon.set_from_file(self.app.assets.get_path(ICON_PAUSE))
+        self.pause_icon.set_from_file(self.app.assets.get_path(IconId.ICON_PAUSE))
         self.play_icon = Gtk.Image()
-        self.play_icon.set_from_file(self.app.assets.get_path(ICON_PLAY))
+        self.play_icon.set_from_file(self.app.assets.get_path(IconId.ICON_PLAY))
 
         self.toolbar = Gtk.Toolbar()
         self.toolbar.set_style(Gtk.ToolbarStyle.ICONS)

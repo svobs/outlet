@@ -3,8 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from util import format
-from constants import GDRIVE_FOLDER_MIME_TYPE_UID, ICON_DIR_MK, ICON_DIR_TRASHED, ICON_FILE_CP_DST, ICON_FILE_TRASHED, ICON_GENERIC_DIR, \
-    ICON_GENERIC_FILE, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TREE_TYPE_GDRIVE
+from constants import GDRIVE_FOLDER_MIME_TYPE_UID, IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TREE_TYPE_GDRIVE
 from model.node.node import Node, HasChildStats, HasParentList
 from model.node_identifier import GDriveIdentifier
 from util.ensure import ensure_bool, ensure_int
@@ -188,13 +187,13 @@ class GDriveFolder(HasChildStats, GDriveNode):
     def is_dir(cls):
         return True
 
-    def get_icon(self):
+    def get_default_icon(self) -> IconId:
         if self.get_trashed_status() == TrashStatus.NOT_TRASHED:
             if self.is_live():
-                return ICON_GENERIC_DIR
+                return IconId.ICON_GENERIC_DIR
             else:
-                return ICON_DIR_MK
-        return ICON_DIR_TRASHED
+                return IconId.ICON_DIR_MK
+        return IconId.ICON_DIR_TRASHED
 
     def get_summary(self):
         if not self._size_bytes and not self.file_count and not self.dir_count:
@@ -300,13 +299,13 @@ class GDriveFile(GDriveNode):
     def is_dir(cls):
         return False
 
-    def get_icon(self):
+    def get_default_icon(self) -> IconId:
         if self.get_trashed_status() == TrashStatus.NOT_TRASHED:
             if self.is_live():
-                return ICON_GENERIC_FILE
+                return IconId.ICON_GENERIC_FILE
             else:
-                return ICON_FILE_CP_DST
-        return ICON_FILE_TRASHED
+                return IconId.ICON_FILE_CP_DST
+        return IconId.ICON_FILE_TRASHED
 
     @classmethod
     def has_tuple(cls) -> bool:

@@ -8,7 +8,7 @@ from typing import Deque, Iterable, List, Optional
 import humanfriendly
 from pydispatch import dispatcher
 
-from constants import HOLDOFF_TIME_MS, ICON_ALERT, LARGE_NUMBER_OF_CHILDREN, SUPER_DEBUG
+from constants import HOLDOFF_TIME_MS, IconId, LARGE_NUMBER_OF_CHILDREN, SUPER_DEBUG
 from error import GDriveItemNotFoundError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode
@@ -16,7 +16,6 @@ from model.node.ephemeral_node import EmptyNode, LoadingNode
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
-from model.user_op import UserOp
 from ui import actions
 from ui.tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
@@ -286,7 +285,7 @@ class DisplayMutator(HasLifecycle):
                     # not lazy: just one big list
                     if len(top_level_node_list) > LARGE_NUMBER_OF_CHILDREN:
                         logger.error(f'[{self.con.tree_id}] Too many top-level nodes to display! Count = {len(top_level_node_list)}')
-                        self._append_empty_child(root_iter, f'ERROR: too many items to display ({len(top_level_node_list):n})', ICON_ALERT)
+                        self._append_empty_child(root_iter, f'ERROR: too many items to display ({len(top_level_node_list):n})', IconId.ICON_ALERT)
                     else:
                         logger.debug(f'[{self.con.tree_id}] Populating {len(top_level_node_list)} linear list of nodes for filter criteria')
                         for node in top_level_node_list:
@@ -461,7 +460,7 @@ class DisplayMutator(HasLifecycle):
 
         def update_ui():
             with self._lock:
-                parent_uid_list: List[UID] = self.con.cacheman.get_parent_uid_list_for_node(node, tree.root_identifier.get_single_path())
+                parent_uid_list: List[UID] = self.con.cacheman.get_parent_uid_list_for_node(node, tree.get_root_identifier().get_single_path())
 
                 # Often we want to refresh the stats, even if the node is not displayed, because it can affect other parts of the tree:
                 needs_refresh = True
@@ -475,7 +474,7 @@ class DisplayMutator(HasLifecycle):
                         if SUPER_DEBUG:
                             logger.debug(f'[{self.con.tree_id}] Examining parent {parent_uid} for displayed node {node.node_identifier}')
 
-                        if self.con.get_tree().root_identifier.uid == parent_uid:
+                        if self.con.get_tree().get_root_identifier().uid == parent_uid:
                             logger.debug(f'[{self.con.tree_id}] Node is topmost level: {node.node_identifier}')
                             parent_iter = None
                             child_iter = self.con.display_store.find_uid_in_children(node.uid, parent_iter)
@@ -640,7 +639,7 @@ class DisplayMutator(HasLifecycle):
             logger.debug(f'[{self.con.tree_id}] Appending {len(children)} child display nodes')
             if len(children) > LARGE_NUMBER_OF_CHILDREN:
                 logger.error(f'[{self.con.tree_id}] Too many children to display! Count = {len(children)}')
-                self._append_empty_child(parent_iter, f'ERROR: too many items to display ({len(children):n})', ICON_ALERT)
+                self._append_empty_child(parent_iter, f'ERROR: too many items to display ({len(children):n})', IconId.ICON_ALERT)
                 return
             # Append all underneath tree_iter
             for child in children:
@@ -654,7 +653,7 @@ class DisplayMutator(HasLifecycle):
 
     # Search for "TREE_VIEW_COLUMNS":
 
-    def _append_empty_child(self, parent_node_iter, node_name, icon: str = None):
+    def _append_empty_child(self, parent_node_iter, node_name, icon: IconId = IconId.NONE):
         row_values = []
         if self.con.treeview_meta.has_checkboxes:
             row_values.append(False)  # Checked
@@ -688,18 +687,6 @@ class DisplayMutator(HasLifecycle):
 
         return self.con.display_store.append_node(parent_node_iter, row_values)
 
-    def _get_icon_for_node(self, node: Node) -> str:
-        # FIXME:
-        op: Optional[UserOp] = self.con.app.cacheman.get_last_pending_op_for_node(node.uid)
-        if op and not op.is_completed():
-            icon = op.get_icon_for_node(node.uid)
-            if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Node {node.uid} belongs to pending op ({op.op_uid}): {op.op_type.name}): returning icon="{icon}"')
-        else:
-            icon = node.get_icon()
-        # logger.debug(f'[{self.con.tree_id}] Got icon "{icon}" for node {node}')
-        return icon
-
     def generate_display_cols(self, parent_iter, node: Node):
         """Serializes a node into a list of strings which tell the TreeView how to populate each of the row's columns"""
         row_values = []
@@ -708,7 +695,10 @@ class DisplayMutator(HasLifecycle):
 
         # Icon: can vary based on pending actions
 
-        row_values.append(self._get_icon_for_node(node))
+        icon = node.get_icon()
+        if icon:
+            icon = str(icon.value)
+        row_values.append(icon)
 
         # Name
         node_name = node.name
