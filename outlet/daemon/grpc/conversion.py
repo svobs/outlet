@@ -1,7 +1,7 @@
 from typing import Iterable, List, Optional
 
 import outlet.daemon.grpc
-from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import IconId, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from daemon.grpc.Node_pb2 import DirMeta
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
@@ -37,7 +37,7 @@ class NodeConverter:
         if grpc_node.HasField("gdrive_file_meta"):
             meta = grpc_node.gdrive_file_meta
             assert isinstance(node_identifier, GDriveIdentifier)
-            return GDriveFile(node_identifier, meta.goog_id, meta.name, meta.mime_type_uid, grpc_node.trashed, meta.drive_id,
+            node = GDriveFile(node_identifier, meta.goog_id, meta.name, meta.mime_type_uid, grpc_node.trashed, meta.drive_id,
                               meta.version, meta.md5, grpc_node.is_shared, meta.create_ts, meta.modify_ts, meta.size_bytes,
                               meta.owner_uid, meta.shared_by_user_uid, meta.sync_ts)
         elif grpc_node.HasField("gdrive_folder_meta"):
@@ -47,34 +47,32 @@ class NodeConverter:
                                 meta.owner_uid, meta.drive_id, grpc_node.is_shared, meta.shared_by_user_uid, meta.sync_ts,
                                 meta.all_children_fetched)
             NodeConverter._dir_meta_from_grpc(node, meta.dir_meta)
-            return node
         elif grpc_node.HasField("local_dir_meta"):
             assert isinstance(node_identifier, LocalNodeIdentifier)
             node = LocalDirNode(node_identifier, grpc_node.trashed, grpc_node.local_dir_meta.is_live)
             NodeConverter._dir_meta_from_grpc(node, grpc_node.local_dir_meta.dir_meta)
-            return node
         elif grpc_node.HasField("local_file_meta"):
             meta = grpc_node.local_file_meta
             assert isinstance(node_identifier, LocalNodeIdentifier)
-            return LocalFileNode(node_identifier, meta.md5, meta.sha256, meta.size_bytes, meta.sync_ts, meta.modify_ts,
+            node = LocalFileNode(node_identifier, meta.md5, meta.sha256, meta.size_bytes, meta.sync_ts, meta.modify_ts,
                                  meta.change_ts, grpc_node.trashed, meta.is_live)
         elif grpc_node.HasField("container_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             node = ContainerNode(node_identifier, grpc_node.nid)
             NodeConverter._dir_meta_from_grpc(node, grpc_node.local_dir_meta.dir_meta)
-            return node
         elif grpc_node.HasField("category_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             node = CategoryNode(node_identifier, grpc_node.category_meta.op_type, grpc_node.nid)
             NodeConverter._dir_meta_from_grpc(node, grpc_node.category_meta.dir_meta)
-            return node
         elif grpc_node.HasField("root_type_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             node = RootTypeNode(node_identifier, grpc_node.nid)
             NodeConverter._dir_meta_from_grpc(node, grpc_node.root_type_meta.dir_meta)
-            return node
         else:
             raise RuntimeError('Could not parse GRPC node!')
+
+        node.set_icon(IconId(grpc_node.icon_id))
+        return node
 
     @staticmethod
     def _dir_meta_from_grpc(node: HasChildStats, dir_meta: outlet.daemon.grpc.Node_pb2.DirMeta):
@@ -150,6 +148,9 @@ class NodeConverter:
         # Node common fields:
         grpc_node.trashed = node.get_trashed_status()
         grpc_node.is_shared = node.is_shared
+        icon = node.get_custom_icon()
+        if icon:
+            grpc_node.node_id = icon.value
 
         if isinstance(node, ContainerNode):
             # ContainerNode or subclass

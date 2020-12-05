@@ -286,7 +286,7 @@ class OpDatabase(MetaDatabase):
     def _tuple_to_local_dir(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalDirNode:
         action_uid_int, uid_int, full_path, is_live = row
 
-        uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
+        uid = self.cacheman.get_uid_for_local_path(full_path, uid_int, override_load_check=True)
         assert uid == uid_int, f'UID conflict! Got {uid} but read {row}'
         obj = LocalDirNode(LocalNodeIdentifier(uid=uid, path_list=full_path), bool(is_live))
         op_uid = UID(action_uid_int)
@@ -298,7 +298,7 @@ class OpDatabase(MetaDatabase):
     def _tuple_to_local_file(self, nodes_by_action_uid: Dict[UID, Node], row: Tuple) -> LocalFileNode:
         action_uid_int, uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, trashed, is_live = row
 
-        uid = self.cacheman.get_uid_for_local_path(full_path, uid_int)
+        uid = self.cacheman.get_uid_for_local_path(full_path, uid_int, override_load_check=True)
         if uid != uid_int:
             raise RuntimeError(f'UID conflict! Cache man returned {uid} but op cache returned {uid_int} (from row: {row})')
         node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)

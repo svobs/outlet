@@ -256,7 +256,9 @@ class BackendGRPCClient(OutletBackend):
         self.grpc_stub.start_subtree_load(request)
 
     def get_op_execution_play_state(self) -> bool:
-        return self.grpc_stub.get_op_exec_play_state(GetOpExecPlayState_Request())
+        response = self.grpc_stub.get_op_exec_play_state(GetOpExecPlayState_Request())
+        logger.debug(f'Got op execution state from backend server: is_playing={response.is_enabled}')
+        return response.is_enabled
 
     def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
         request = GetChildList_Request()

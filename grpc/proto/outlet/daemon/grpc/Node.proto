@@ -29,6 +29,7 @@ message Node {
   string nid = 4;
   int32 trashed = 5;
   bool is_shared = 6;
+  int32 icon_id = 7;
 
   oneof node_type {
     ContainerNodeMeta container_meta = 10;

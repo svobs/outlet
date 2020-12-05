@@ -158,6 +158,9 @@ class Node(BaseNode, ABC):
             return self._icon
         return self.get_default_icon()
 
+    def get_custom_icon(self) -> Optional[IconId]:
+        return self._icon
+
     def set_icon(self, icon: IconId):
         self._icon = icon
 

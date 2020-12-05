@@ -10,7 +10,7 @@ from typing import Deque, Dict, Optional
 from daemon.grpc.conversion import NodeConverter
 from daemon.grpc.Outlet_pb2 import GetChildList_Response, GetNextUid_Response, GetNodeForLocalPath_Request, GetNodeForUid_Request, \
     GetUidForLocalPath_Request, \
-    GetUidForLocalPath_Response, PingResponse, PlayState, RequestDisplayTree_Response, SendSignalResponse, Signal, SingleNode_Response, \
+    GetUidForLocalPath_Response, PlayState, RequestDisplayTree_Response, SendSignalResponse, Signal, SingleNode_Response, \
     StartSubtreeLoad_Request, \
     StartSubtreeLoad_Response, Subscribe_Request
 from daemon.grpc.Outlet_pb2_grpc import OutletServicer
@@ -64,12 +64,6 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
         with self._cv_has_signal:
             self._cv_has_signal.notifyAll()
-
-    def ping(self, request, context):
-        logger.info(f'Got ping!')
-        response = PingResponse()
-        response.timestamp = 1000
-        return response
 
     def get_node_for_uid(self, request: GetNodeForUid_Request, context):
         response = SingleNode_Response()
@@ -171,6 +165,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     def _on_op_exec_play_state_changed(self, sender: str, is_enabled: bool):
         signal = Signal(signal_name=actions.OP_EXECUTION_PLAY_STATE_CHANGED, sender_name=sender)
         signal.play_state.is_enabled = is_enabled
+        logger.debug(f'Relaying signal across gRPC: "{actions.OP_EXECUTION_PLAY_STATE_CHANGED}", sender={sender}, is_enabled={is_enabled}')
         self.send_signal_to_all(signal)
 
     def get_op_exec_play_state(self, request, context):
