@@ -32,27 +32,29 @@ from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 
-"""
-# CLASS GDriveMasterStore
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-Some notes:
-- Need to create a store which can keep track of whether each parent has all children. If not we
-will have to make a request to retrieve all nodes with 'X' as parent and update the store before
-returning
-
-- GoogRemote >= GoogDiskStores >= GoogInMemoryStore >= DisplayStore
-
-- GoogDiskCache should try to download all dirs & files ASAP. But in the meantime, download level by level
-
-- Every time you expand a node, you should call to sync it from the GoogStore.
-- Every time you retrieve new data from G, you must perform sanity checks on it
-"""
-
-
-# TODO: support drag & drop from GDrive to GDrive (e.g. "move" is really just changing parents)
 class GDriveMasterStore(MasterStore):
-    """Singleton in-memory cache for Google Drive"""
+    """
+    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    CLASS GDriveMasterStore
+
+    Singleton in-memory cache for Google Drive
+
+    Some notes:
+    - Need to create a store which can keep track of whether each parent has all children. If not we
+    will have to make a request to retrieve all nodes with 'X' as parent and update the store before
+    returning
+
+    - GoogRemote >= GoogDiskStores >= GoogInMemoryStore >= DisplayStore
+
+    - GoogDiskCache should try to download all dirs & files ASAP. But in the meantime, download level by level
+
+    - Every time you expand a node, you should call to sync it from the GoogStore.
+    - Every time you retrieve new data from G, you must perform sanity checks on it
+
+    # TODO: support drag & drop from GDrive to GDrive (e.g. "move" is really just changing parents)
+    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+    """
     def __init__(self, backend):
         MasterStore.__init__(self)
         self.backend = backend
@@ -120,7 +122,7 @@ class GDriveMasterStore(MasterStore):
         operation.send_signals()
 
     # Tree-wide stuff
-    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _load_master_cache(self, invalidate_cache: bool, sync_latest_changes: bool):
         """Loads an EXISTING GDrive cache from disk and updates the in-memory cache from it"""
@@ -173,7 +175,7 @@ class GDriveMasterStore(MasterStore):
         logger.debug(f'{sw} Finished syncing GDrive changes from server')
 
     # Action listener callbacks
-    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _on_gdrive_sync_changes_requested(self, sender):
         """See below. This will load the GDrive tree (if it is not loaded already), then sync to the latest changes from GDrive"""
@@ -198,7 +200,7 @@ class GDriveMasterStore(MasterStore):
             GlobalActions.enable_ui(sender=self)
 
     # Subtree-level stuff
-    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def get_display_tree(self, subtree_root: SinglePathNodeIdentifier, tree_id: str):
         self._load_master_cache(sync_latest_changes=False, invalidate_cache=False)
@@ -266,7 +268,7 @@ class GDriveMasterStore(MasterStore):
         return self._memstore.master_tree.show_tree(subtree_root.uid)
 
     # Individual node cache updates
-    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def upsert_single_node(self, node: GDriveNode):
         if SUPER_DEBUG:
@@ -317,7 +319,7 @@ class GDriveMasterStore(MasterStore):
             self._execute_write_op(DeleteSingleNodeOp(node, to_trash))
 
     # Various public methods
-    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def apply_gdrive_changes(self, gdrive_change_list: List[GDriveChange]):
         if SUPER_DEBUG:

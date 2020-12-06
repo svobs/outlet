@@ -11,16 +11,13 @@ from util.ensure import ensure_bool, ensure_int
 logger = logging.getLogger(__name__)
 
 
-"""
-◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    CLASS GDriveNode
-◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
-"""
-
-
 class GDriveNode(HasParentList, Node, ABC):
+    """
+    ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+        CLASS GDriveNode
+    ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+    """
     # ▲▲ Remember, Method Resolution Order places greatest priority to the first in the list, then goes down ▲▲
-
     def __init__(self, node_identifier: GDriveIdentifier, goog_id: Optional[str], node_name: str, trashed: TrashStatus,
                  create_ts: Optional[int], modify_ts: Optional[int],
                  owner_uid: Optional[int], drive_id: Optional[str], is_shared: bool, shared_by_user_uid: Optional[int], sync_ts: Optional[int]):
@@ -128,14 +125,12 @@ class GDriveNode(HasParentList, Node, ABC):
         return bool(self.goog_id)
 
 
-"""
-◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    CLASS GDriveFolder
-◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
-"""
-
-
 class GDriveFolder(HasChildStats, GDriveNode):
+    """
+    ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+        CLASS GDriveFolder
+    ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+    """
     def __init__(self, node_identifier: GDriveIdentifier, goog_id, node_name, trashed, create_ts, modify_ts, owner_uid, drive_id,
                  is_shared, shared_by_user_uid, sync_ts, all_children_fetched):
         GDriveNode.__init__(self, node_identifier, goog_id, node_name, trashed, create_ts, modify_ts, owner_uid, drive_id, is_shared,
@@ -217,14 +212,12 @@ class GDriveFolder(HasChildStats, GDriveNode):
         return not self.__eq__(other)
 
 
-"""
-◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    CLASS GDriveFile
-◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
-"""
-
-
 class GDriveFile(GDriveNode):
+    """
+    ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+        CLASS GDriveFile
+    ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+    """
     # TODO: handling of shortcuts... does a shortcut have an ID?
     # TODO: handling of special chars in file systems
 

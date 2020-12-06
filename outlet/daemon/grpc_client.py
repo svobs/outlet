@@ -1,13 +1,11 @@
-import asyncio
-import copy
 import logging
 import threading
 import time
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Iterable, List, Optional
 
-import grpc
 from pydispatch import dispatcher
 
+import grpc
 from app.backend import OutletBackend
 from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_CLIENT_SLEEP_ON_FAILURE_SEC, GRPC_SERVER_ADDRESS
 from daemon.grpc import Outlet_pb2_grpc
@@ -21,10 +19,8 @@ from daemon.grpc.Outlet_pb2 import DragDrop_Request, GetAncestorList_Request, Ge
 from executor.task_runner import TaskRunner
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
-from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
-from model.node_identifier_factory import NodeIdentifierFactory
+from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
-from store.uid.uid_generator import SimpleUidGenerator
 from ui import actions
 from ui.tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
@@ -32,10 +28,14 @@ from util.has_lifecycle import HasLifecycle
 logger = logging.getLogger(__name__)
 
 
-# CLASS ClientSignalThread
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class SignalReceiverThread(HasLifecycle, threading.Thread):
-    """Listens for notifications which will be sent asynchronously by the backend gRPC server"""
+    """
+    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    CLASS SignalReceiverThread
+
+    Listens for notifications which will be sent asynchronously by the backend gRPC server.
+    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+    """
     def __init__(self, backend):
         HasLifecycle.__init__(self)
         threading.Thread.__init__(self, target=self.run, name='SignalReceiverThread', daemon=True)
@@ -137,12 +137,14 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
         # self.dispatcher_thread.enqueue(kwargs)
 
 
-# CLASS BackendGRPCClient
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
 class BackendGRPCClient(OutletBackend):
-    """GTK3 thin client which communicates with the OutletDaemon via GRPC."""
+    """
+    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    CLASS BackendGRPCClient
 
+    GTK3 thin client which communicates with the OutletDaemon via GRPC.
+    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+    """
     def __init__(self, cfg):
         OutletBackend.__init__(self)
         self.config = cfg

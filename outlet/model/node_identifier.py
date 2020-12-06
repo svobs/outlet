@@ -12,19 +12,15 @@ from util.ensure import ensure_uid
 logger = logging.getLogger(__name__)
 
 
-"""
-◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    ABSTRACT CLASS NodeIdentifier
-◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
-"""
-
-
 class NodeIdentifier(ABC):
     """
+    ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+    ABSTRACT CLASS NodeIdentifier
+
     Represents a unique node_identifier that can be used across trees and tree types to identify a node.
     Still a work in progress and may change greatly.
+    ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
     """
-
     def __init__(self, uid: UID, path_list: Optional[Union[str, List[str]]]):
         self.uid: UID = ensure_uid(uid)
         self._path_list: Optional[List[str]] = None
@@ -104,16 +100,15 @@ class NodeIdentifier(ABC):
         return not self.__eq__(other)
 
 
-"""
-◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    CLASS NullNodeIdentifier
-◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
-"""
-
-
 class NullNodeIdentifier(NodeIdentifier):
+    """
+    ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+    CLASS NullNodeIdentifier
+
+    Used for EphemeralNodes.
+    ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+    """
     def __init__(self):
-        """Used for EphemeralNodes."""
         super().__init__(NULL_UID, None)
 
     @property
@@ -121,15 +116,14 @@ class NullNodeIdentifier(NodeIdentifier):
         return TREE_TYPE_NA
 
 
-"""
-◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    CLASS SinglePathNodeIdentifier
-◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
-"""
-
-
 class SinglePathNodeIdentifier(NodeIdentifier):
-    """AKA "SPID" """
+    """
+    ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+    CLASS SinglePathNodeIdentifier
+
+    AKA "SPID"
+    ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+    """
     def __init__(self, uid: UID, path_list: Optional[Union[str, List[str]]], tree_type: int):
         """Has only one path. We still name the variable 'path_list' for consistency with the class hierarchy."""
         super().__init__(uid, path_list)
@@ -159,14 +153,12 @@ class SinglePathNodeIdentifier(NodeIdentifier):
         return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-{self.uid}⩨{self.get_single_path()}∣'
 
 
-"""
-◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    CLASS GDriveIdentifier
-◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
-"""
-
-
 class GDriveIdentifier(NodeIdentifier):
+    """
+    ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+        CLASS GDriveIdentifier
+    ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+    """
     def __init__(self, uid: UID, path_list: Optional[Union[str, List[str]]]):
         super().__init__(uid, path_list)
 
@@ -175,13 +167,11 @@ class GDriveIdentifier(NodeIdentifier):
         return TREE_TYPE_GDRIVE
 
 
-"""
-◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
-    CLASS LocalNodeIdentifier
-◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
-"""
-
-
 class LocalNodeIdentifier(SinglePathNodeIdentifier):
+    """
+    ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
+        CLASS LocalNodeIdentifier
+    ◣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◢
+    """
     def __init__(self, uid: UID, path_list: Optional[Union[str, List[str]]]):
         super().__init__(uid, path_list, TREE_TYPE_LOCAL_DISK)
