@@ -1,82 +1,83 @@
 from pydispatch import dispatcher
 import logging
 
+# TODO: convert these to enum class
 # Tasks
-ENQUEUE_UI_TASK = 'enqueue-ui-task'
-START_CACHEMAN = 'start-cacheman'
-START_OP_EXEC_THREAD = 'start-op-execution-thread'
-LOAD_REGISTRY_DONE = 'load-registry-done'
-START_CACHEMAN_DONE = 'start-cacheman-done'
-START_DIFF_TREES = 'start-tree-diff'
-DIFF_TREES_DONE = 'tree-diff_done'
-DIFF_TREES_FAILED = 'tree-diff_failed'
-DIFF_ONE_SIDE_RESULT = 'tree-diff_1side_result'
-SYNC_GDRIVE_CHANGES = 'sync-gdrive-changes'
-DOWNLOAD_ALL_GDRIVE_META = 'download-all-gdrive-meta'
-COMMAND_COMPLETE = 'command-complete'
+ENQUEUE_UI_TASK = 'ENQUEUE_UI_TASK'
+START_CACHEMAN = 'START_CACHEMAN'
+START_OP_EXEC_THREAD = 'START_OP_EXEC_THREAD'
+LOAD_REGISTRY_DONE = 'LOAD_REGISTRY_DONE'
+START_CACHEMAN_DONE = 'START_CACHEMAN_DONE'
+START_DIFF_TREES = 'START_DIFF_TREES'
+DIFF_TREES_DONE = 'DIFF_TREES_DONE'
+DIFF_TREES_FAILED = 'DIFF_TREES_FAILED'
+DIFF_ONE_SIDE_RESULT = 'DIFF_ONE_SIDE_RESULT'
+SYNC_GDRIVE_CHANGES = 'SYNC_GDRIVE_CHANGES'
+DOWNLOAD_ALL_GDRIVE_META = 'DOWNLOAD_ALL_GDRIVE_META'
+COMMAND_COMPLETE = 'COMMAND_COMPLETE'
 
 # --- Tree actions: requests ---
-CALL_EXIFTOOL = 'call-exiftool'
-CALL_EXIFTOOL_LIST = 'call-exiftool-list'
-SHOW_IN_NAUTILUS = 'show-in-nautilus'
-CALL_XDG_OPEN = 'call-xdg-open'
-EXPAND_AND_SELECT_NODE = 'expand-select-node'
-EXPAND_ALL = 'expand-all'
-DOWNLOAD_FROM_GDRIVE = 'download-from-gdrive'
-DELETE_SINGLE_FILE = 'delete-single-file'
-DELETE_SUBTREE = 'delete-subtree'
-SET_ROWS_CHECKED = 'set-rows-checked'
-SET_ROWS_UNCHECKED = 'set-rows-unchecked'
-REFRESH_SUBTREE_STATS = 'refresh-subtree-stats'
-REFRESH_SUBTREE = 'refresh-subtree'
-FILTER_UI_TREE = 'filter-ui-tree'
+CALL_EXIFTOOL = 'CALL_EXIFTOOL'
+CALL_EXIFTOOL_LIST = 'CALL_EXIFTOOL_LIST'
+SHOW_IN_NAUTILUS = 'SHOW_IN_NAUTILUS'
+CALL_XDG_OPEN = 'CALL_XDG_OPEN'
+EXPAND_AND_SELECT_NODE = 'EXPAND_AND_SELECT_NODE'
+EXPAND_ALL = 'EXPAND_ALL'
+DOWNLOAD_FROM_GDRIVE = 'DOWNLOAD_FROM_GDRIVE'
+DELETE_SINGLE_FILE = 'DELETE_SINGLE_FILE'
+DELETE_SUBTREE = 'DELETE_SUBTREE'
+SET_ROWS_CHECKED = 'SET_ROWS_CHECKED'
+SET_ROWS_UNCHECKED = 'SET_ROWS_UNCHECKED'
+REFRESH_SUBTREE_STATS = 'REFRESH_SUBTREE_STATS'
+REFRESH_SUBTREE = 'REFRESH_SUBTREE'
+FILTER_UI_TREE = 'FILTER_UI_TREE'
 """Requests that the central cache update the stats for all nodes in the given subtree.
 When done, the central cache will send the signal REFRESH_SUBTREE_STATS_DONE to notify the tree that it can redraw the displayed nodes"""
-SHUTDOWN_APP = 'shutdown-app'
-DEREGISTER_DISPLAY_TREE = 'deregister-display-tree'
+SHUTDOWN_APP = 'SHUTDOWN_APP'
+DEREGISTER_DISPLAY_TREE = 'DEREGISTER_DISPLAY_TREE'
 
 # --- Tree actions: notifications ---
 LOAD_SUBTREE_STARTED = 'LOAD_SUBTREE_STARTED'
 """Fired by the backend when it has begun to load a subtree from cache"""
 LOAD_SUBTREE_DONE = 'LOAD_SUBTREE_DONE'
 """Fired by the backend when it has finsished loading a subtree from cache"""
-NODE_EXPANSION_TOGGLED = 'node-expansion-toggled'
-NODE_EXPANSION_DONE = 'node-expansion-done'
-DISPLAY_TREE_CHANGED = 'display-tree-changed'
-GDRIVE_RELOADED = 'gdrive-reloaded'
-NODE_UPSERTED = 'node-upserted'
-NODE_REMOVED = 'node-removed'
-NODE_MOVED = 'node-moved'
-EXIT_DIFF_MODE = 'diff-cancelled'
-ERROR_OCCURRED = 'error-occurred'
-REFRESH_SUBTREE_STATS_DONE = 'refresh-subtree-stats-done'
-REFRESH_SUBTREE_STATS_COMPLETELY_DONE = 'refresh-subtree-stats-completely-done'
-REFRESH_SUBTREE_DONE = 'refresh-subtree-done'
+NODE_EXPANSION_TOGGLED = 'NODE_EXPANSION_TOGGLED'
+NODE_EXPANSION_DONE = 'NODE_EXPANSION_DONE'
+DISPLAY_TREE_CHANGED = 'DISPLAY_TREE_CHANGED'
+GDRIVE_RELOADED = 'GDRIVE_RELOADED'
+NODE_UPSERTED = 'NODE_UPSERTED'
+NODE_REMOVED = 'NODE_REMOVED'
+NODE_MOVED = 'NODE_MOVED'
+EXIT_DIFF_MODE = 'EXIT_DIFF_MODE'
+ERROR_OCCURRED = 'ERROR_OCCURRED'
+REFRESH_SUBTREE_STATS_DONE = 'REFRESH_SUBTREE_STATS_DONE'
+REFRESH_SUBTREE_STATS_COMPLETELY_DONE = 'REFRESH_SUBTREE_STATS_COMPLETELY_DONE'
+REFRESH_SUBTREE_DONE = 'REFRESH_SUBTREE_DONE'
 """Indicates that the central cache has updated the stats for the subtree, and the subtree should redraw the nodes"""
-LOAD_UI_TREE_DONE = 'load-ui-tree-done'
+LOAD_UI_TREE_DONE = 'LOAD_UI_TREE_DONE'
 """This is fired by the UI when it has finished populating the UI tree"""
 
-DRAG_AND_DROP = 'drag-and-drop'
-DRAG_AND_DROP_DIRECT = 'drag-and-drop-direct'
+DRAG_AND_DROP = 'DRAG_AND_DROP'
+DRAG_AND_DROP_DIRECT = 'DRAG_AND_DROP_DIRECT'
 
-TREE_SELECTION_CHANGED = 'tree-selection-changed'
+TREE_SELECTION_CHANGED = 'TREE_SELECTION_CHANGED'
 
 # All components should listen for this
-TOGGLE_UI_ENABLEMENT = 'toggle-ui-enablement'
+TOGGLE_UI_ENABLEMENT = 'TOGGLE_UI_ENABLEMENT'
 
-PAUSE_OP_EXECUTION = 'pause-op-execution'
-RESUME_OP_EXECUTION = 'resume-op-execution'
-OP_EXECUTION_PLAY_STATE_CHANGED = 'op-execution-play-state-changed'
+PAUSE_OP_EXECUTION = 'PAUSE_OP_EXECUTION'
+RESUME_OP_EXECUTION = 'RESUME_OP_EXECUTION'
+OP_EXECUTION_PLAY_STATE_CHANGED = 'OP_EXECUTION_PLAY_STATE_CHANGED'
 
 # --- Progress bar ---
-START_PROGRESS_INDETERMINATE = 'start-progress-indeterminate'
-START_PROGRESS = 'start-progress'
-SET_PROGRESS_TEXT = 'set-progress-text'
-PROGRESS_MADE = 'progress_made'
-STOP_PROGRESS = 'stop-progress'
+START_PROGRESS_INDETERMINATE = 'START_PROGRESS_INDETERMINATE'
+START_PROGRESS = 'START_PROGRESS'
+SET_PROGRESS_TEXT = 'SET_PROGRESS_TEXT'
+PROGRESS_MADE = 'PROGRESS_MADE'
+STOP_PROGRESS = 'STOP_PROGRESS'
 
 # --- Status bar ---
-SET_STATUS = 'set-status'
+SET_STATUS = 'SET_STATUS'
 
 # --- Sender identifiers ---
 ID_DIFF_WINDOW = 'diff_win'
