@@ -8,7 +8,7 @@ from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
-from ui import actions
+from ui.signal import Signal
 from ui.tree import tree_factory
 
 import gi
@@ -34,7 +34,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         Gtk.Dialog.__init__(self, title="Select GDrive Root", transient_for=parent_win, flags=0)
         BaseDialog.__init__(self, app=parent_win.app)
 
-        self.target_tree_id = actions.ID_GDRIVE_DIR_SELECT
+        self.target_tree_id = ID_GDRIVE_DIR_SELECT
         """Note: this is the ID of the tree for which this dialog is ultimately selecting for, not this dialog's tree (see tree_controller below)"""
 
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
@@ -58,10 +58,10 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
             f'Expected instance of SinglePathNodeIdentifier but got: {type(current_selection)}'
         self._initial_selection_nid: SinglePathNodeIdentifier = current_selection
 
-        dispatcher.connect(signal=actions.TREE_SELECTION_CHANGED, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_selected_changed)
+        dispatcher.connect(signal=Signal.TREE_SELECTION_CHANGED, sender=ID_GDRIVE_DIR_SELECT, receiver=self._on_selected_changed)
 
-        logger.debug(f'[{actions.ID_GDRIVE_DIR_SELECT}] Connecting listener to signal: {actions.LOAD_UI_TREE_DONE}')
-        dispatcher.connect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
+        logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Connecting listener to signal: {Signal.LOAD_UI_TREE_DONE}')
+        dispatcher.connect(signal=Signal.LOAD_UI_TREE_DONE, sender=ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
 
         self.connect("response", self.on_response)
         self.show_all()
@@ -71,11 +71,11 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         logger.debug(f'GDriveDirChooserDialog.destroy() called')
         # Clean up:
         try:
-            dispatcher.disconnect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
+            dispatcher.disconnect(signal=Signal.LOAD_UI_TREE_DONE, sender=ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
         except DispatcherKeyError:
             pass
         try:
-            dispatcher.disconnect(signal=actions.TREE_SELECTION_CHANGED, sender=actions.ID_GDRIVE_DIR_SELECT, receiver=self._on_selected_changed)
+            dispatcher.disconnect(signal=Signal.TREE_SELECTION_CHANGED, sender=ID_GDRIVE_DIR_SELECT, receiver=self._on_selected_changed)
         except DispatcherKeyError:
             pass
         self.con.shutdown()
@@ -89,8 +89,8 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         self.ok_button.set_sensitive(node_list and node_list[0].is_dir())
 
     def _on_load_complete(self, sender):
-        logger.debug(f'[{actions.ID_GDRIVE_DIR_SELECT}] Load complete! Sending signal: {actions.EXPAND_AND_SELECT_NODE}')
-        dispatcher.send(actions.EXPAND_AND_SELECT_NODE, sender=actions.ID_GDRIVE_DIR_SELECT, nid=self._initial_selection_nid)
+        logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Load complete! Sending signal: {Signal.EXPAND_AND_SELECT_NODE}')
+        dispatcher.send(Signal.EXPAND_AND_SELECT_NODE, sender=ID_GDRIVE_DIR_SELECT, nid=self._initial_selection_nid)
 
     def on_ok_clicked(self, spid: SinglePathNodeIdentifier):
         logger.info(f'[{self.target_tree_id}] User selected dir "{spid}"')

@@ -16,15 +16,14 @@ from model.node.ephemeral_node import EmptyNode, LoadingNode
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
-from ui import actions
+from ui.signal import Signal
 from ui.tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
 
-import gi
-
 from util.root_path_meta import RootPathMeta
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 from gi.repository.Gtk import TreeIter
@@ -69,21 +68,21 @@ class DisplayMutator(HasLifecycle):
         tree_id = self.con.tree_id
 
         if self.con.treeview_meta.lazy_load:
-            self.connect_dispatch_listener(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled)
+            self.connect_dispatch_listener(signal=Signal.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled)
 
-        self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_refresh_stats_done)
+        self.connect_dispatch_listener(signal=Signal.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_refresh_stats_done)
         """This signal comes from the cacheman after it has finished updating all the nodes in the subtree,
         notfiying us that we can now refresh our display from it"""
 
-        self.connect_dispatch_listener(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
-        self.connect_dispatch_listener(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
-        self.connect_dispatch_listener(signal=actions.NODE_MOVED, receiver=self._on_node_moved_in_cache)
+        self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
+        self.connect_dispatch_listener(signal=Signal.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
+        self.connect_dispatch_listener(signal=Signal.NODE_MOVED, receiver=self._on_node_moved_in_cache)
 
         # FIXME: figure out why the 'sender' arg fails when relayed from gRPC!
-        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_DONE, receiver=self._populate_ui_tree_async)
-        self.connect_dispatch_listener(signal=actions.FILTER_UI_TREE, receiver=self._on_filter_ui_tree_requested)
-        self.connect_dispatch_listener(signal=actions.EXPAND_ALL, receiver=self._on_expand_all_requested)
-        self.connect_dispatch_listener(signal=actions.EXPAND_AND_SELECT_NODE, receiver=self._expand_and_select_node)
+        self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._populate_ui_tree_async)
+        self.connect_dispatch_listener(signal=Signal.FILTER_UI_TREE, receiver=self._on_filter_ui_tree_requested)
+        self.connect_dispatch_listener(signal=Signal.EXPAND_ALL, receiver=self._on_expand_all_requested)
+        self.connect_dispatch_listener(signal=Signal.EXPAND_AND_SELECT_NODE, receiver=self._expand_and_select_node)
 
         logger.debug(f'[{tree_id}] DisplayMutator listeners connected')
 
@@ -93,7 +92,7 @@ class DisplayMutator(HasLifecycle):
 
     def _expand_and_select_node(self, sender: str, nid: SinglePathNodeIdentifier):
         if sender == self.con.tree_id:
-            logger.debug(f'[{self.con.tree_id}] Got signal: "{actions.EXPAND_AND_SELECT_NODE}"')
+            logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.EXPAND_AND_SELECT_NODE}"')
             self.expand_and_select_node(nid)
         else:
             logger.warning(f'[{self.con.tree_id}] SENDER {sender} does not apply to us!')
@@ -107,10 +106,10 @@ class DisplayMutator(HasLifecycle):
             self.filter_tree(filter_criteria)
 
     def _populate_ui_tree_async(self, sender):
-        """Just populates the tree with nodes. Executed asyncly via actions.LOAD_SUBTREE_DONE"""
+        """Just populates the tree with nodes. Executed asyncly via Signal.LOAD_SUBTREE_DONE"""
         if sender == self.con.tree_id:
-            logger.warning(f'[{self.con.tree_id}] Got signal: "{actions.LOAD_SUBTREE_DONE}". Sending signal "{actions.ENQUEUE_UI_TASK}"')
-            dispatcher.send(signal=actions.ENQUEUE_UI_TASK, sender=sender, task_func=self.populate_root)
+            logger.warning(f'[{self.con.tree_id}] Got signal: "{Signal.LOAD_SUBTREE_DONE.name}". Sending signal "{Signal.ENQUEUE_UI_TASK.name}"')
+            dispatcher.send(signal=Signal.ENQUEUE_UI_TASK, sender=sender, task_func=self.populate_root)
 
     def _populate_recursively(self, parent_iter, node: Node, node_count: int = 0) -> int:
         # Do a DFS of the change tree and populate the UI tree along the way
@@ -267,8 +266,8 @@ class DisplayMutator(HasLifecycle):
             logger.warning(f'[{self.con.tree_id}] Could not populate root: GDrive node not found: {self.con.get_tree().get_root_identifier()}')
             new_root_meta = RootPathMeta(self.con.get_tree().get_root_identifier(), is_found=False)
             new_root_meta.offending_path = err.offending_path
-            logger.debug(f'[{self.con.tree_id}] Sending signal: "{actions.ROOT_PATH_UPDATED}" with new_root_meta={new_root_meta}')
-            dispatcher.send(signal=actions.ROOT_PATH_UPDATED, sender=self.con.tree_id, new_root_meta=new_root_meta, err=err)
+            logger.debug(f'[{self.con.tree_id}] Sending signal: "{Signal.ROOT_PATH_UPDATED}" with new_root_meta={new_root_meta}')
+            dispatcher.send(signal=Signal.ROOT_PATH_UPDATED, sender=self.con.tree_id, new_root_meta=new_root_meta, err=err)
         finally:
             self._enable_node_signals = True
 
@@ -321,7 +320,7 @@ class DisplayMutator(HasLifecycle):
                 for prev_node in prev_selection:
                     self.select_uid(prev_node.uid)
 
-            dispatcher.send(signal=actions.LOAD_UI_TREE_DONE, sender=self.con.tree_id)
+            dispatcher.send(signal=Signal.LOAD_UI_TREE_DONE, sender=self.con.tree_id)
 
         GLib.idle_add(update_ui)
 
@@ -381,7 +380,7 @@ class DisplayMutator(HasLifecycle):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _on_node_expansion_toggled(self, sender: str, parent_iter: Gtk.TreeIter, parent_path, node: Node, is_expanded: bool) -> None:
-        # Callback for actions.NODE_EXPANSION_TOGGLED:
+        # Callback for Signal.NODE_EXPANSION_TOGGLED:
         if sender != self.con.tree_id:
             return
 
@@ -406,7 +405,7 @@ class DisplayMutator(HasLifecycle):
 
         if not self._enable_expand_state_listeners or not self._enable_node_signals:
             if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_EXPANSION_TOGGLED}": listeners disabled')
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_EXPANSION_TOGGLED}": listeners disabled')
             return
 
         def expand_or_contract():
@@ -431,7 +430,7 @@ class DisplayMutator(HasLifecycle):
                     self._append_loading_child(parent_iter)
 
                 logger.debug(f'[{self.con.tree_id}] Displayed rows count: {len(self.con.display_store.displayed_rows)}')
-                dispatcher.send(signal=actions.NODE_EXPANSION_DONE, sender=self.con.tree_id)
+                dispatcher.send(signal=Signal.NODE_EXPANSION_DONE, sender=self.con.tree_id)
         GLib.idle_add(expand_or_contract)
 
     def _update_or_append(self, node: Node, parent_iter, child_iter):
@@ -456,7 +455,7 @@ class DisplayMutator(HasLifecycle):
 
         if not self._enable_node_signals:
             if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_UPSERTED}": node listeners disabled')
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_UPSERTED}": node listeners disabled')
             return
 
         # Possibly long-running op to load lazy tree. Also has a nasty lock. Do this outside the UI thread.
@@ -471,7 +470,7 @@ class DisplayMutator(HasLifecycle):
 
                 if parent_uid_list:
                     if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_UPSERTED} for node {node.node_identifier} '
+                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED} for node {node.node_identifier} '
                                      f'with parents {parent_uid_list}')
 
                     for parent_uid in parent_uid_list:
@@ -510,16 +509,16 @@ class DisplayMutator(HasLifecycle):
                 else:
                     # No parent found in tree
                     if node.uid in self.con.display_store.displayed_rows:
-                        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_UPSERTED} for node {node.node_identifier} '
+                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED} for node {node.node_identifier} '
                                      f'but its parent is no longer in the tree; removing node from display store: {node.uid}')
                         self.con.display_store.remove_node(node.uid)
                     elif tree.is_path_in_subtree(node.get_path_list()):
                         # At least in subtree? If so, refresh stats to reflect change
-                        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_UPSERTED} for node {node.node_identifier}')
+                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED} for node {node.node_identifier}')
                     else:
                         needs_refresh = False
                         if logger.isEnabledFor(logging.DEBUG):
-                            logger.debug(f'[{self.con.tree_id}] Ignoring signal {actions.NODE_UPSERTED} for node {node.node_identifier}')
+                            logger.debug(f'[{self.con.tree_id}] Ignoring signal {Signal.NODE_UPSERTED} for node {node.node_identifier}')
 
                 if needs_refresh:
                     self._stats_refresh_timer.start_or_delay()
@@ -532,7 +531,7 @@ class DisplayMutator(HasLifecycle):
 
         if not self._enable_node_signals:
             if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_REMOVED}": node listeners disabled')
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_REMOVED}": node listeners disabled')
             return
 
         assert node
@@ -543,7 +542,7 @@ class DisplayMutator(HasLifecycle):
 
                 if displayed_item:
                     if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_REMOVED} for displayed node {node.node_identifier}')
+                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_REMOVED} for displayed node {node.node_identifier}')
 
                     stats_refresh_needed = True
 
@@ -552,12 +551,12 @@ class DisplayMutator(HasLifecycle):
                     logger.debug(f'[{self.con.tree_id}] Node removed: {displayed_item.uid}')
                 elif self.con.get_tree().is_path_in_subtree(node.get_path_list()):
                     if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f'[{self.con.tree_id}] Received signal {actions.NODE_REMOVED} for node {node.node_identifier}')
+                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_REMOVED} for node {node.node_identifier}')
 
                     stats_refresh_needed = True
                 else:
                     if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f'[{self.con.tree_id}] Ignoring signal {actions.NODE_REMOVED} for node {node.node_identifier}')
+                        logger.debug(f'[{self.con.tree_id}] Ignoring signal {Signal.NODE_REMOVED} for node {node.node_identifier}')
                     stats_refresh_needed = False
 
                 if stats_refresh_needed:
@@ -568,23 +567,23 @@ class DisplayMutator(HasLifecycle):
     def _on_node_moved_in_cache(self, sender: str, src_node: Node, dst_node: Node):
         if not self._enable_node_signals:
             if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{actions.NODE_MOVED}": node listeners disabled')
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_MOVED}": node listeners disabled')
             return
             
         self._on_node_removed_from_cache(sender, src_node)
         self._on_node_upserted_in_cache(sender, dst_node)
 
     def _request_subtree_stats_refresh(self):
-        # Requests the cacheman to recalculate stats for this subtree. Sends actions.REFRESH_SUBTREE_STATS_DONE when done
-        logger.debug(f'[{self.con.tree_id}] Sending signal: "{actions.REFRESH_SUBTREE_STATS}"')
-        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS, root_uid=self.con.get_tree().get_root_node().uid, sender=self.con.tree_id)
+        # Requests the cacheman to recalculate stats for this subtree. Sends Signal.REFRESH_SUBTREE_STATS_DONE when done
+        logger.debug(f'[{self.con.tree_id}] Sending signal: "{Signal.REFRESH_SUBTREE_STATS}"')
+        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS, root_uid=self.con.get_tree().get_root_node().uid, sender=self.con.tree_id)
 
     def _on_refresh_stats_done(self, sender: str):
         """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes
         with the current values from the cache."""
         if sender != self.con.tree_id:
             return
-        logger.debug(f'[{self.con.tree_id}] Got signal: "{actions.REFRESH_SUBTREE_STATS_DONE}"')
+        logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.REFRESH_SUBTREE_STATS_DONE}"')
 
         def redraw_displayed_node(tree_iter):
             if self.con.app.shutdown:
@@ -626,9 +625,9 @@ class DisplayMutator(HasLifecycle):
                 if not self.con.app.shutdown:
                     self.con.display_store.recurse_over_tree(action_func=redraw_displayed_node)
                     logger.debug(f'[{self.con.tree_id}] Done redrawing stats in UI (for {redraw_displayed_node.nodes_redrawn} nodes): '
-                                 f'sending signal "{actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE}"')
+                                 f'sending signal "{Signal.REFRESH_SUBTREE_STATS_COMPLETELY_DONE}"')
                     # currently this is only used for functional tests
-                    dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, sender=self.con.tree_id)
+                    dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, sender=self.con.tree_id)
 
         GLib.idle_add(do_in_ui)
 

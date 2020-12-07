@@ -7,7 +7,7 @@ from constants import SUPER_DEBUG, TreeDisplayMode
 from diff.change_maker import SPIDNodePair
 from model.display_tree.display_tree import DisplayTree
 from model.node_identifier import SinglePathNodeIdentifier
-from ui import actions
+from ui.signal import Signal
 from ui.dialog.base_dialog import BaseDialog
 from ui.tree import tree_factory_templates
 from ui.tree.display_store import DisplayStore
@@ -72,7 +72,7 @@ class TreePanelController(HasLifecycle):
         logger.debug(f'[{self.tree_id}] Shutting down controller')
 
         # This should be received by both frontend and backend
-        dispatcher.send(signal=actions.DEREGISTER_DISPLAY_TREE, sender=self.tree_id)
+        dispatcher.send(signal=Signal.DEREGISTER_DISPLAY_TREE, sender=self.tree_id)
 
         if self.tree_ui_listeners:
             self.tree_ui_listeners.shutdown()

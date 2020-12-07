@@ -8,11 +8,12 @@ import store.local.content_hasher
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_MIXED
 from diff.change_maker import ChangeMaker, SPIDNodePair
 from model.display_tree.category import CategoryDisplayTree
+from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.user_op import UserOpType
-from ui.actions import ID_MERGE_TREE
+from ui.signal import ID_MERGE_TREE
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -292,8 +293,9 @@ class ContentFirstDiffer(ChangeMaker):
         else:
             tree_type = self.left_side.root_identifier.tree_type
         root_node_identifier: SinglePathNodeIdentifier = NodeIdentifierFactory.get_root_constant_single_path_identifier(tree_type)
-        merged_tree = CategoryDisplayTree(backend=self.backend, tree_id=ID_MERGE_TREE, root_node_identifier=root_node_identifier,
-                                          show_whole_forest=True)
+        root_sn = SPIDNodePair(root_node_identifier, root_node)
+        state: DisplayTreeUiState = DisplayTreeUiState(tree_id=ID_MERGE_TREE, root_sn=root_sn)
+        merged_tree = CategoryDisplayTree(backend=self.backend, state=state, show_whole_forest=True)
 
         for sn in left_selected_changes:
             op = self.left_side.root_identifier.get_op_for_node(sn.node)

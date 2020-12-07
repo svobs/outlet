@@ -12,7 +12,7 @@ from store.gdrive.master_gdrive_memory import GDriveMemoryStore
 from store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from store.gdrive.master_gdrive_op_write import GDriveWriteThroughOp
 from store.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
-from ui import actions
+from ui.signal import Signal
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 
@@ -63,7 +63,7 @@ class GDriveDiskStore(HasLifecycle):
         sw = Stopwatch()
         folder_list: List[GDriveFolder] = self._db.get_gdrive_folder_object_list()
 
-        dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=f'Retrieved {len(folder_list):n} Google Drive folders')
+        dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=tree_id, msg=f'Retrieved {len(folder_list):n} Google Drive folders')
 
         count_folders_loaded = 0
         for folder in folder_list:
@@ -92,7 +92,7 @@ class GDriveDiskStore(HasLifecycle):
         sw = Stopwatch()
         file_list: List[GDriveFile] = self._db.get_gdrive_file_object_list()
 
-        dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=f'Retreived {len(file_list):n} Google Drive files')
+        dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=tree_id, msg=f'Retreived {len(file_list):n} Google Drive files')
 
         count_files_loaded = 0
         for file in file_list:

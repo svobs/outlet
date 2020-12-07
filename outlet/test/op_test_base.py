@@ -18,7 +18,7 @@ from model.uid import UID
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
 from outlet_app import OutletApplication
-from ui import actions
+from ui.signal import Signal
 from ui.tree import root_path_config
 from ui.tree.controller import TreePanelController
 from util import file_util
@@ -176,15 +176,15 @@ class OpTestBase(unittest.TestCase):
         if os.path.exists(self.op_db_path):
             file_util.rm_file(self.op_db_path)
 
-        config.write(root_path_config.make_tree_type_config_key(actions.ID_LEFT_TREE), self.left_tree_type)
-        config.write(root_path_config.make_root_path_config_key(actions.ID_LEFT_TREE), self.left_tree_root_path)
+        config.write(root_path_config.make_tree_type_config_key(ID_LEFT_TREE), self.left_tree_type)
+        config.write(root_path_config.make_root_path_config_key(ID_LEFT_TREE), self.left_tree_root_path)
         if self.left_tree_root_uid:
-            config.write(root_path_config.make_root_uid_config_key(actions.ID_LEFT_TREE), self.left_tree_root_uid)
+            config.write(root_path_config.make_root_uid_config_key(ID_LEFT_TREE), self.left_tree_root_uid)
 
-        config.write(root_path_config.make_tree_type_config_key(actions.ID_RIGHT_TREE), self.right_tree_type)
-        config.write(root_path_config.make_root_path_config_key(actions.ID_RIGHT_TREE), self.right_tree_root_path)
+        config.write(root_path_config.make_tree_type_config_key(ID_RIGHT_TREE), self.right_tree_type)
+        config.write(root_path_config.make_root_path_config_key(ID_RIGHT_TREE), self.right_tree_root_path)
         if self.right_tree_root_uid:
-            config.write(root_path_config.make_root_uid_config_key(actions.ID_RIGHT_TREE), self.right_tree_root_uid)
+            config.write(root_path_config.make_root_uid_config_key(ID_RIGHT_TREE), self.right_tree_root_uid)
 
         self.app = OutletApplication(config)
         self.backend = app.backend
@@ -200,15 +200,15 @@ class OpTestBase(unittest.TestCase):
             self.app.run([])
 
         def after_left_tree_loaded(sender):
-            logger.debug(f'Received signal: "{actions.LOAD_UI_TREE_DONE}" for "{sender}"')
+            logger.debug(f'Received signal: "{Signal.LOAD_UI_TREE_DONE}" for "{sender}"')
             load_left_done.set()
 
         def after_right_tree_loaded(sender):
-            logger.debug(f'Received signal: "{actions.LOAD_UI_TREE_DONE}" for "{sender}"')
+            logger.debug(f'Received signal: "{Signal.LOAD_UI_TREE_DONE}" for "{sender}"')
             load_right_done.set()
 
-        dispatcher.connect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_LEFT_TREE, receiver=after_left_tree_loaded)
-        dispatcher.connect(signal=actions.LOAD_UI_TREE_DONE, sender=actions.ID_RIGHT_TREE, receiver=after_right_tree_loaded)
+        dispatcher.connect(signal=Signal.LOAD_UI_TREE_DONE, sender=ID_LEFT_TREE, receiver=after_left_tree_loaded)
+        dispatcher.connect(signal=Signal.LOAD_UI_TREE_DONE, sender=ID_RIGHT_TREE, receiver=after_right_tree_loaded)
         self.app_thread = threading.Thread(target=run_thread, daemon=True, name='AppTestRunnerThread')
         self.app_thread.start()
 
@@ -217,8 +217,8 @@ class OpTestBase(unittest.TestCase):
             raise RuntimeError('Timed out waiting for left to load!')
         if not load_right_done.wait(LOAD_TIMEOUT_SEC):
             raise RuntimeError('Timed out waiting for right to load!')
-        self.left_con: TreePanelController = self.app.get_tree_controller(actions.ID_LEFT_TREE)
-        self.right_con: TreePanelController = self.app.get_tree_controller(actions.ID_RIGHT_TREE)
+        self.left_con: TreePanelController = self.app.get_tree_controller(ID_LEFT_TREE)
+        self.right_con: TreePanelController = self.app.get_tree_controller(ID_RIGHT_TREE)
 
         if do_before_verify_func:
             do_before_verify_func()
@@ -370,7 +370,7 @@ class OpTestBase(unittest.TestCase):
         right_stats_updated = threading.Event()
 
         def on_stats_updated(sender):
-            logger.info(f'Got signal: {actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE} for "{sender}"')
+            logger.info(f'Got signal: {Signal.REFRESH_SUBTREE_STATS_COMPLETELY_DONE} for "{sender}"')
             if sender == self.left_con.tree_id:
                 left_stats_updated.set()
             elif sender == self.right_con.tree_id:
@@ -381,14 +381,14 @@ class OpTestBase(unittest.TestCase):
             logger.info(f'Got a completed command (total: {len(completed_cmds)}, expecting: {count_expected_cmds})')
             if len(completed_cmds) >= count_expected_cmds:
                 all_commands_complete.set()
-                # Now start waiting for "stats updated" signal. Do not do before, because this signal can be sent any time there is a long-running op
-                dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, receiver=on_stats_updated)
+                # Now start waiting for "stats updated" Signal. Do not do before, because this signal can be sent any time there is a long-running op
+                dispatcher.connect(signal=Signal.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, receiver=on_stats_updated)
 
-        dispatcher.connect(signal=actions.COMMAND_COMPLETE, receiver=on_command_complete)
+        dispatcher.connect(signal=Signal.COMMAND_COMPLETE, receiver=on_command_complete)
 
         do_func()
 
-        dispatcher.send(signal=actions.RESUME_OP_EXECUTION, sender=actions.ID_CENTRAL_EXEC)
+        dispatcher.send(signal=Signal.RESUME_OP_EXECUTION, sender=ID_CENTRAL_EXEC)
         logger.info('Sleeping until we get what we want')
         if not all_commands_complete.wait(LOAD_TIMEOUT_SEC):
             raise RuntimeError('Timed out waiting for all commands to complete!')
@@ -414,4 +414,4 @@ class OpTestBase(unittest.TestCase):
             def action_func():
                 tree_con.tree_view.expand_row(path=tree_path, open_all=True)
 
-            do_and_wait_for_signal(action_func, actions.NODE_EXPANSION_DONE, tree_con.tree_id)
+            do_and_wait_for_signal(action_func, Signal.NODE_EXPANSION_DONE, tree_con.tree_id)

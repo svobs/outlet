@@ -14,7 +14,7 @@ from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.user_op import UserOp, UserOpType
 from model.uid import UID
-from ui.actions import ID_LEFT_TREE, ID_RIGHT_TREE
+from ui.signal import ID_LEFT_TREE, ID_RIGHT_TREE
 from util import file_util
 
 logger = logging.getLogger(__name__)

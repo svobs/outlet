@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 from pydispatch.dispatcher import Any
 from pydispatch.errors import DispatcherKeyError
 
-from ui import actions
+from ui.signal import Signal
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +17,8 @@ class ListenerInfo:
     CLASS ListenerInfo
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, signal: str, receiver: Callable, sender: Optional[str] = None):
-        self.signal: str = signal
+    def __init__(self, signal: Signal, receiver: Callable, sender: Optional[str] = None):
+        self.signal: Signal = signal
         self.receiver: Callable = receiver
         self.sender: Optional[str] = sender
 
@@ -35,7 +35,7 @@ class HasLifecycle(ABC):
     def __del__(self):
         self.shutdown()
 
-    def connect_dispatch_listener(self, signal: str, receiver: Callable, sender: Optional[str] = None, weak=True):
+    def connect_dispatch_listener(self, signal: Signal, receiver: Callable, sender: Optional[str] = None, weak=True):
         if not sender:
             sender = Any
         self._connected_listeners.append(ListenerInfo(signal, receiver, sender))
@@ -69,7 +69,7 @@ class HasLifecycle(ABC):
             self.disconnect_dispatch_listener(listener_info)
 
     def start(self):
-        self.connect_dispatch_listener(signal=actions.SHUTDOWN_APP, receiver=self.shutdown)
+        self.connect_dispatch_listener(signal=Signal.SHUTDOWN_APP, receiver=self.shutdown)
 
     def shutdown(self):
         self.disconnect_all_listeners()

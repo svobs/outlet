@@ -12,7 +12,7 @@ from daemon.grpc.conversion import Converter
 from daemon.grpc.Outlet_pb2 import DragDrop_Request, DragDrop_Response, Empty, GetAncestorList_Response, GetChildList_Response, GetNextUid_Response, \
     GetNodeForLocalPath_Request, GetNodeForUid_Request, \
     GetUidForLocalPath_Request, \
-    GetUidForLocalPath_Response, PlayState, RequestDisplayTree_Response, SendSignalResponse, Signal, SingleNode_Response, \
+    GetUidForLocalPath_Response, PlayState, RequestDisplayTree_Response, SendSignalResponse, SignalMsg, SingleNode_Response, \
     StartDiffTrees_Request, StartSubtreeLoad_Request, \
     StartSubtreeLoad_Response, Subscribe_Request
 from daemon.grpc.Outlet_pb2_grpc import OutletServicer
@@ -21,7 +21,7 @@ from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.node.node import Node
 from store.cache_manager import CacheManager
 from store.uid.uid_generator import UidGenerator
-from ui import actions
+from ui.signal import Signal
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
@@ -52,27 +52,27 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
         # PyDispatcher signals to be sent across gRPC:
         # complex:
-        self.connect_dispatch_listener(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
-        self.connect_dispatch_listener(signal=actions.OP_EXECUTION_PLAY_STATE_CHANGED, receiver=self._on_op_exec_play_state_changed)
-        self.connect_dispatch_listener(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_ui_enablement_toggled)
-        self.connect_dispatch_listener(signal=actions.ERROR_OCCURRED, receiver=self._on_error_occurred)
+        self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
+        self.connect_dispatch_listener(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, receiver=self._on_op_exec_play_state_changed)
+        self.connect_dispatch_listener(signal=Signal.TOGGLE_UI_ENABLEMENT, receiver=self._on_ui_enablement_toggled)
+        self.connect_dispatch_listener(signal=Signal.ERROR_OCCURRED, receiver=self._on_error_occurred)
         # simple:
-        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_STARTED, receiver=self._on_subtree_load_started)
-        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_DONE, receiver=self._on_subtree_load_done)
-        self.connect_dispatch_listener(signal=actions.DIFF_TREES_FAILED, receiver=self._on_diff_failed)
-        self.connect_dispatch_listener(signal=actions.DIFF_TREES_DONE, receiver=self._on_diff_done)
+        self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_STARTED, receiver=self._on_subtree_load_started)
+        self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._on_subtree_load_done)
+        self.connect_dispatch_listener(signal=Signal.DIFF_TREES_FAILED, receiver=self._on_diff_failed)
+        self.connect_dispatch_listener(signal=Signal.DIFF_TREES_DONE, receiver=self._on_diff_done)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
         self._shutdown = True
 
-    def send_signal_to_all(self, signal_grpc: outlet.daemon.grpc.Outlet_pb2.Signal):
+    def send_signal_to_all(self, signal_grpc: outlet.daemon.grpc.Outlet_pb2.SignalMsg):
         if self._shutdown:
             return
 
         with self._queue_lock:
-            logger.debug(f'Queuing signal="{signal_grpc.signal_name}" with sender="'
-                         f'{signal_grpc.sender_name}" to {len(self._thread_signal_queues)} connected clients')
+            logger.debug(f'Queuing signal="{Signal(signal_grpc.sig_int).name}" with sender="'
+                         f'{signal_grpc.sender}" to {len(self._thread_signal_queues)} connected clients')
             for queue in self._thread_signal_queues.values():
                 queue.append(signal_grpc)
 
@@ -104,8 +104,9 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return response
 
     def send_signal(self, request, context):
-        logger.info(f'Relaying signal from gRPC: "{request.signal_name}" from sender "{request.sender_name}"')
-        dispatcher.send(signal=request.signal_name, sender=request.sender_name)
+        sig = Signal(request.sig_int)
+        logger.info(f'Relaying signal from gRPC: "{sig.name}" from sender "{request.sender}"')
+        dispatcher.send(signal=sig, sender=request.sender)
         return SendSignalResponse()
 
     def subscribe_to_signals(self, request: Subscribe_Request, context):
@@ -127,12 +128,12 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
                         logger.debug(f'Checking signal queue for ThreadID {thread_id}')
                         signal_queue: Deque = self._thread_signal_queues.get(thread_id, None)
                         if len(signal_queue) > 0:
-                            signal: Optional[Signal] = signal_queue.popleft()
+                            signal: Optional[SignalMsg] = signal_queue.popleft()
                         else:
                             break
 
                     if signal:
-                        logger.info(f'[ThreadID:{thread_id}] Sending gRPC signal="{signal.signal_name}" with sender="{signal.sender_name}"')
+                        logger.info(f'[ThreadID:{thread_id}] Sending gRPC signal="{Signal(signal.sig_int).name}" with sender="{signal.sender}"')
                         yield signal
 
                 with self._cv_has_signal:
@@ -143,8 +144,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         except RuntimeError:
             logger.exception('Unexpected error in add_subscriber()')
 
-    def send_signal_via_grpc(self, signal: str, sender: str):
-        self.send_signal_to_all(Signal(signal_name=signal, sender_name=sender))
+    def send_signal_via_grpc(self, signal: Signal, sender: str):
+        self.send_signal_to_all(SignalMsg(sig_int=signal, sender=sender))
 
     def request_display_tree_ui_state(self, request, context):
         if request.HasField('spid'):
@@ -166,46 +167,40 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return StartSubtreeLoad_Response()
 
     def _on_subtree_load_started(self, sender: str):
-        self.send_signal_via_grpc(actions.LOAD_SUBTREE_STARTED, sender)
+        self.send_signal_via_grpc(Signal.LOAD_SUBTREE_STARTED, sender)
 
     def _on_subtree_load_done(self, sender: str):
-        self.send_signal_via_grpc(actions.LOAD_SUBTREE_DONE, sender)
+        self.send_signal_via_grpc(Signal.LOAD_SUBTREE_DONE, sender)
 
     def _on_diff_failed(self, sender: str):
-        self.send_signal_via_grpc(actions.DIFF_TREES_FAILED, sender)
+        self.send_signal_via_grpc(Signal.DIFF_TREES_FAILED, sender)
 
     def _on_diff_done(self, sender: str):
-        self.send_signal_via_grpc(actions.DIFF_TREES_DONE, sender)
+        self.send_signal_via_grpc(Signal.DIFF_TREES_DONE, sender)
 
     def _on_error_occurred(self, sender: str, msg: str, secondary_msg: Optional[str]):
-        signal = Signal()
-        signal.signal_name = actions.ERROR_OCCURRED
-        signal.sender_name = sender
+        signal = SignalMsg(sig_int=Signal.ERROR_OCCURRED, sender=sender)
         signal.error_occurred.msg = msg
         if secondary_msg:
             signal.error_occurred.secondary_msg = secondary_msg
         self.send_signal_to_all(signal)
 
     def _on_ui_enablement_toggled(self, sender: str, enable: bool):
-        signal = Signal()
-        signal.signal_name = actions.TOGGLE_UI_ENABLEMENT
-        signal.sender_name = sender
+        signal = SignalMsg(sig_int=Signal.TOGGLE_UI_ENABLEMENT, sender=sender)
         signal.ui_enablement.enable = enable
         self.send_signal_to_all(signal)
 
     def _on_display_tree_changed(self, sender: str, tree: DisplayTree):
-        signal = Signal()
-        signal.signal_name = actions.DISPLAY_TREE_CHANGED
-        signal.sender_name = sender
+        signal = SignalMsg(sig_int=Signal.DISPLAY_TREE_CHANGED, sender=sender)
         Converter.display_tree_ui_state_to_grpc(tree.state, signal.display_tree_ui_state)
 
-        logger.debug(f'Relaying signal across gRPC: "{actions.DISPLAY_TREE_CHANGED}", sender={sender}, tree={tree}')
+        logger.debug(f'Relaying signal across gRPC: "{Signal.DISPLAY_TREE_CHANGED}", sender={sender}, tree={tree}')
         self.send_signal_to_all(signal)
 
     def _on_op_exec_play_state_changed(self, sender: str, is_enabled: bool):
-        signal = Signal(signal_name=actions.OP_EXECUTION_PLAY_STATE_CHANGED, sender_name=sender)
+        signal = SignalMsg(sig_int=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, sender=sender)
         signal.play_state.is_enabled = is_enabled
-        logger.debug(f'Relaying signal across gRPC: "{actions.OP_EXECUTION_PLAY_STATE_CHANGED}", sender={sender}, is_enabled={is_enabled}')
+        logger.debug(f'Relaying signal across gRPC: "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED}", sender={sender}, is_enabled={is_enabled}')
         self.send_signal_to_all(signal)
 
     def get_op_exec_play_state(self, request, context):

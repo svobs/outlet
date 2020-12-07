@@ -12,7 +12,7 @@ from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from store.cache_manager import CacheManager
 from store.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
-from ui import actions
+from ui.signal import ID_CENTRAL_EXEC, Signal
 from ui.tree.filter_criteria import FilterCriteria
 
 logger = logging.getLogger(__name__)
@@ -39,16 +39,16 @@ class BackendIntegrated(OutletBackend):
 
         self.executor.start()
 
-        self.connect_dispatch_listener(signal=actions.ENQUEUE_UI_TASK, receiver=self.executor.submit_async_task)
+        self.connect_dispatch_listener(signal=Signal.ENQUEUE_UI_TASK, receiver=self.executor.submit_async_task)
 
         # Kick off cache load now that we have a progress bar
-        dispatcher.send(actions.START_CACHEMAN, sender=actions.ID_CENTRAL_EXEC)
+        dispatcher.send(Signal.START_CACHEMAN, sender=ID_CENTRAL_EXEC)
 
     def shutdown(self):
         logger.debug('Shutting down backend')
         OutletBackend.shutdown(self)  # this will disconnect the listener for SHUTDOWN_APP as well
 
-        dispatcher.send(actions.SHUTDOWN_APP, sender=actions.ID_CENTRAL_EXEC)
+        dispatcher.send(Signal.SHUTDOWN_APP, sender=ID_CENTRAL_EXEC)
 
         self.cacheman = None
         self.executor = None
@@ -92,4 +92,4 @@ class BackendIntegrated(OutletBackend):
         self.cacheman.drop_dragged_nodes(src_tree_id, src_sn_list, is_into, dst_tree_id, dst_sn)
 
     def start_diff_trees(self, tree_id_left: str, tree_id_right: str):
-        dispatcher.send(signal=actions.START_DIFF_TREES, sender=actions.ID_CENTRAL_EXEC, tree_id_left=tree_id_left, tree_id_right=tree_id_right)
+        dispatcher.send(signal=Signal.START_DIFF_TREES, sender=ID_CENTRAL_EXEC, tree_id_left=tree_id_left, tree_id_right=tree_id_right)

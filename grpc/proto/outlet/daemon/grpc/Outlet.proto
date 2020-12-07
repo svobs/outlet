@@ -46,9 +46,9 @@ message DragDrop_Response {
 	// nothing
 }
 
-message Signal {
-	string signal_name = 1;
-	string sender_name = 2;
+message SignalMsg {
+	int32 sig_int = 1;
+	string sender = 2;
 
 	oneof signal_data {
 		Empty empty = 10;
@@ -144,8 +144,8 @@ message GetNextUid_Response {
 }
 
 service Outlet {
-	rpc subscribe_to_signals(Subscribe_Request) returns (stream Signal);
-	rpc send_signal(Signal) returns (SendSignalResponse);
+	rpc subscribe_to_signals(Subscribe_Request) returns (stream SignalMsg);
+	rpc send_signal(SignalMsg) returns (SendSignalResponse);
 
 	rpc get_node_for_uid(GetNodeForUid_Request) returns (SingleNode_Response);
 	rpc get_node_for_local_path(GetNodeForLocalPath_Request) returns (SingleNode_Response);

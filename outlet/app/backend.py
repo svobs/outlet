@@ -8,7 +8,7 @@ from model.node.node import Node, SPIDNodePair
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from ui import actions
+from ui.signal import Signal
 from ui.tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
 
@@ -63,7 +63,7 @@ class OutletBackend(HasLifecycle, ABC):
 
     def create_display_tree_for_gdrive_select(self) -> Optional[DisplayTree]:
         spid = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
-        return self._create_display_tree(actions.ID_GDRIVE_DIR_SELECT, return_async=False, spid=spid)
+        return self._create_display_tree(ID_GDRIVE_DIR_SELECT, return_async=False, spid=spid)
 
     def create_display_tree_from_config(self, tree_id: str, is_startup: bool = False) -> Optional[DisplayTree]:
         # no arguments will be recognized by CacheMan as needing to read from config

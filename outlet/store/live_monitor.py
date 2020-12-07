@@ -12,7 +12,7 @@ from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.local_disk_node import LocalNode
 from model.node_identifier import NodeIdentifier
 from store.local.event_handler import LocalChangeEventHandler
-from ui import actions
+from ui.signal import ID_GDRIVE_POLLING_THREAD, Signal
 from util.ensure import ensure_bool, ensure_int
 from util.has_lifecycle import HasLifecycle
 
@@ -45,7 +45,7 @@ class GDrivePollingThread(HasLifecycle, threading.Thread):
 
         while not self._shutdown:
             # FIXME: prevent possible buildup of requests if a sync runs longer than the polling interval
-            dispatcher.send(signal=actions.SYNC_GDRIVE_CHANGES, sender=actions.ID_GDRIVE_POLLING_THREAD)
+            dispatcher.send(signal=Signal.SYNC_GDRIVE_CHANGES, sender=ID_GDRIVE_POLLING_THREAD)
 
             logger.debug(f'{self.name}: sleeping for {self.gdrive_thread_polling_interval_sec} sec')
             time.sleep(self.gdrive_thread_polling_interval_sec)

@@ -5,7 +5,7 @@ from app_config import AppConfig
 from constants import TreeDisplayMode
 from model.node.container_node import CategoryNode
 from model.node.node import Node
-from ui import actions
+from ui.signal import Signal
 from ui.tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
 
@@ -136,7 +136,7 @@ class TreeViewMeta(HasLifecycle):
         HasLifecycle.start(self)
         # Hook up persistence of expanded state (if configured):
         if self.is_display_persisted:
-            self.connect_dispatch_listener(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled)
+            self.connect_dispatch_listener(signal=Signal.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)

@@ -9,7 +9,7 @@ from model.node.container_node import CategoryNode
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
 from model.user_op import UserOp
-from ui import actions
+from ui.signal import Signal
 from ui.tree.tree_actions import DATE_REGEX
 
 import gi
@@ -49,17 +49,17 @@ class TreeContextMenu:
                     tree_paths.append(path)
 
             item = Gtk.MenuItem(label=f'Check All')
-            item.connect('activate', self.send_signal, actions.SET_ROWS_CHECKED, {'tree_paths': tree_paths})
+            item.connect('activate', self.send_signal, Signal.SET_ROWS_CHECKED, {'tree_paths': tree_paths})
             menu.append(item)
 
             item = Gtk.MenuItem(label=f'Uncheck All')
-            item.connect('activate', self.send_signal, actions.SET_ROWS_UNCHECKED, {'tree_paths': tree_paths})
+            item.connect('activate', self.send_signal, Signal.SET_ROWS_UNCHECKED, {'tree_paths': tree_paths})
             menu.append(item)
 
         is_localdisk = len(selected_items) > 0 and selected_items[0].node_identifier.tree_type == TREE_TYPE_LOCAL_DISK
         if is_localdisk:
             item = Gtk.MenuItem(label=f'Use EXIFTool on dirs')
-            item.connect('activate', self.send_signal, actions.CALL_EXIFTOOL_LIST, {'node_list': selected_items})
+            item.connect('activate', self.send_signal, Signal.CALL_EXIFTOOL_LIST, {'node_list': selected_items})
             menu.append(item)
 
         items_to_delete_local: List[Node] = []
@@ -72,12 +72,12 @@ class TreeContextMenu:
 
         if len(items_to_delete_local) > 0:
             item = Gtk.MenuItem(label=f'Delete {len(items_to_delete_local)} items from local disk')
-            item.connect('activate', self.send_signal, actions.DELETE_SUBTREE, {'node_list': items_to_delete_local})
+            item.connect('activate', self.send_signal, Signal.DELETE_SUBTREE, {'node_list': items_to_delete_local})
             menu.append(item)
 
         if len(items_to_delete_gdrive) > 0:
             item = Gtk.MenuItem(label=f'Delete {len(items_to_delete_gdrive)} items from Google Drive')
-            item.connect('activate', self.send_signal, actions.DELETE_SUBTREE, {'node_list': items_to_delete_gdrive})
+            item.connect('activate', self.send_signal, Signal.DELETE_SUBTREE, {'node_list': items_to_delete_gdrive})
             menu.append(item)
 
         menu.show_all()
@@ -92,18 +92,18 @@ class TreeContextMenu:
         # MenuItem: 'Show in Nautilus'
         if file_exists and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
             item = Gtk.MenuItem(label='Show in Nautilus')
-            item.connect('activate', self.send_signal, actions.SHOW_IN_NAUTILUS, {'full_path': node.get_single_path()})
+            item.connect('activate', self.send_signal, Signal.SHOW_IN_NAUTILUS, {'full_path': node.get_single_path()})
             menu.append(item)
 
         # MenuItem: 'Download from Google Drive' [GDrive] OR 'Open with default app' [Local]
         if file_exists and not is_dir:
             if is_gdrive:
                 item = Gtk.MenuItem(label=f'Download from Google Drive')
-                item.connect('activate', self.send_signal, actions.DOWNLOAD_FROM_GDRIVE, {'node': node})
+                item.connect('activate', self.send_signal, Signal.DOWNLOAD_FROM_GDRIVE, {'node': node})
                 menu.append(item)
             elif node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
                 item = Gtk.MenuItem(label=f'Open with default app')
-                item.connect('activate', self.send_signal, actions.CALL_XDG_OPEN, {'node': node})
+                item.connect('activate', self.send_signal, Signal.CALL_XDG_OPEN, {'node': node})
                 menu.append(item)
 
         # Label: Does not exist
@@ -131,7 +131,7 @@ class TreeContextMenu:
             match = re.match(DATE_REGEX, node.name)
             if match:
                 item = Gtk.MenuItem(label=f'Use EXIFTool on dir')
-                item.connect('activate', self.send_signal, actions.CALL_EXIFTOOL, {'full_path': single_path})
+                item.connect('activate', self.send_signal, Signal.CALL_EXIFTOOL, {'full_path': single_path})
                 menu.append(item)
 
         # MenuItem: 'Delete tree'
@@ -141,7 +141,7 @@ class TreeContextMenu:
                 label += ' from Google Drive'
             item = Gtk.MenuItem(label=label)
             node = self.con.display_store.get_node_data(tree_path)
-            item.connect('activate', self.send_signal, actions.DELETE_SUBTREE, {'node': node})
+            item.connect('activate', self.send_signal, Signal.DELETE_SUBTREE, {'node': node})
             menu.append(item)
 
         # MenuItem: 'Delete'
@@ -150,7 +150,7 @@ class TreeContextMenu:
             if is_gdrive:
                 label += ' from Google Drive'
             item = Gtk.MenuItem(label=label)
-            item.connect('activate', self.send_signal, actions.DELETE_SINGLE_FILE, {'node': node})
+            item.connect('activate', self.send_signal, Signal.DELETE_SINGLE_FILE, {'node': node})
             menu.append(item)
 
     def build_context_menu(self, tree_path: Gtk.TreePath, node: Node) -> Optional[Gtk.Menu]:
@@ -223,7 +223,7 @@ class TreeContextMenu:
 
         if node.is_dir():
             item = Gtk.MenuItem(label=f'Expand all')
-            item.connect('activate', self.send_signal, actions.EXPAND_ALL, {'tree_path': tree_path})
+            item.connect('activate', self.send_signal, Signal.EXPAND_ALL, {'tree_path': tree_path})
             menu.append(item)
 
         if node.is_live():
@@ -233,7 +233,7 @@ class TreeContextMenu:
 
             # MenuItem: Refresh
             item = Gtk.MenuItem(label='Refresh')
-            item.connect('activate', self.send_signal, actions.REFRESH_SUBTREE, {'node': node})
+            item.connect('activate', self.send_signal, Signal.REFRESH_SUBTREE, {'node': node})
             menu.append(item)
 
         menu.show_all()

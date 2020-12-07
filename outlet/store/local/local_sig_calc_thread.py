@@ -6,7 +6,7 @@ import store.local.content_hasher
 from constants import TREE_TYPE_LOCAL_DISK
 from model.node.local_disk_node import LocalFileNode
 from model.node.node import Node
-from ui import actions
+from ui.signal import Signal
 from util.qthread import QThread
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class SignatureCalcThread(QThread):
 
     def start(self):
         QThread.start(self)
-        self.connect_dispatch_listener(signal=actions.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
+        self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
 
     def enqueue(self, node: LocalFileNode):
         logger.debug(f'[{self.name}] Enqueuing node: {node.node_identifier}')

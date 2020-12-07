@@ -24,7 +24,7 @@ from model.uid import UID
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier
-from ui import actions
+from ui.signal import Signal
 from util import file_util
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
@@ -267,7 +267,7 @@ class GDriveClient(HasLifecycle):
             m = f'Sending request for files, page {request.page_count}...'
             logger.debug(m)
             if self.tree_id:
-                dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
+                dispatcher.send(signal=Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
 
             # Call the Drive v3 API
             response = self.service.files().list(q=query, fields=fields, spaces=spaces, pageSize=self.page_size,
@@ -300,7 +300,7 @@ class GDriveClient(HasLifecycle):
             msg = f'Received {len(items)} items'
             logger.debug(msg)
             if self.tree_id:
-                dispatcher.send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+                dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             for item in items:
                 mime_type = item['mimeType']
@@ -333,7 +333,7 @@ class GDriveClient(HasLifecycle):
         msg = 'Getting info for user...'
         logger.debug(msg)
         if self.tree_id:
-            dispatcher.send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+            dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
         fields = 'user, storageQuota'
 
@@ -693,7 +693,7 @@ class GDriveClient(HasLifecycle):
             m = f'Sending request for changes, page {request.page_count} (token: {request.page_token})...'
             logger.debug(m)
             if self.tree_id:
-                dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
+                dispatcher.send(signal=Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=m)
 
             # Call the Drive v3 API
             response = self.service.changes().list(pageToken=request.page_token, fields=f'nextPageToken, newStartPageToken, '
@@ -726,7 +726,7 @@ class GDriveClient(HasLifecycle):
             msg = f'Received {len(items)} changes'
             logger.debug(msg)
             if self.tree_id:
-                dispatcher.send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+                dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             for item in items:
                 if SUPER_DEBUG:

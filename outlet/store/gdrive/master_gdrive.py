@@ -23,8 +23,8 @@ from store.gdrive.master_gdrive_op_write import BatchChangesOp, CreateUserOp, De
 from store.master import MasterStore
 from store.sqlite.gdrive_db import CurrentDownload
 from store.uid.uid_mapper import UidGoogIdMapper
-from ui import actions
-from ui.actions import ID_GLOBAL_CACHE
+from ui.signal import Signal
+from ui.signal import ID_GLOBAL_CACHE
 from ui.tree.filter_criteria import FilterCriteria
 from util.stopwatch_sec import Stopwatch
 
@@ -65,15 +65,15 @@ class GDriveMasterStore(MasterStore):
         self._memstore: GDriveMemoryStore = GDriveMemoryStore(backend, self._uid_mapper)
         self._diskstore: GDriveDiskStore = GDriveDiskStore(backend, self._memstore)
         self.gdrive_client: GDriveClient = GDriveClient(self.backend, ID_GLOBAL_CACHE)
-        self.tree_loader = GDriveTreeLoader(backend=self.backend, diskstore=self._diskstore, tree_id=actions.ID_GLOBAL_CACHE)
+        self.tree_loader = GDriveTreeLoader(backend=self.backend, diskstore=self._diskstore, tree_id=ID_GLOBAL_CACHE)
 
     def start(self):
         logger.debug(f'Starting GDriveMasterStore')
         MasterStore.start(self)
         self._diskstore.start()
         self.gdrive_client.start()
-        self.connect_dispatch_listener(signal=actions.SYNC_GDRIVE_CHANGES, receiver=self._on_gdrive_sync_changes_requested)
-        self.connect_dispatch_listener(signal=actions.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_download_all_gdrive_meta_requested)
+        self.connect_dispatch_listener(signal=Signal.SYNC_GDRIVE_CHANGES, receiver=self._on_gdrive_sync_changes_requested)
+        self.connect_dispatch_listener(signal=Signal.DOWNLOAD_ALL_GDRIVE_META, receiver=self._on_download_all_gdrive_meta_requested)
 
     def shutdown(self):
         # disconnects all listeners:
@@ -177,12 +177,12 @@ class GDriveMasterStore(MasterStore):
 
     def _on_gdrive_sync_changes_requested(self, sender):
         """See below. This will load the GDrive tree (if it is not loaded already), then sync to the latest changes from GDrive"""
-        logger.debug(f'Received signal: "{actions.SYNC_GDRIVE_CHANGES}"')
+        logger.debug(f'Received signal: "{Signal.SYNC_GDRIVE_CHANGES}"')
         self.backend.executor.submit_async_task(self.get_synced_master_tree)
 
     def _on_download_all_gdrive_meta_requested(self, sender):
         """See below. Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-        logger.debug(f'Received signal: "{actions.DOWNLOAD_ALL_GDRIVE_META}"')
+        logger.debug(f'Received signal: "{Signal.DOWNLOAD_ALL_GDRIVE_META}"')
         self.backend.executor.submit_async_task(self._download_all_gdrive_meta_in_ui, sender)
 
     def _download_all_gdrive_meta_in_ui(self, tree_id):

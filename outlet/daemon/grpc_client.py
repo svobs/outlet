@@ -14,14 +14,14 @@ from daemon.grpc.Outlet_pb2 import DragDrop_Request, GetAncestorList_Request, Ge
     GetNodeForUid_Request, \
     GetOpExecPlayState_Request, \
     GetUidForLocalPath_Request, \
-    RequestDisplayTree_Request, Signal, \
+    RequestDisplayTree_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartSubtreeLoad_Request, Subscribe_Request
 from executor.task_runner import TaskRunner
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
-from ui import actions
+from ui.signal import ID_CENTRAL_EXEC, Signal
 from ui.tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
 
@@ -72,7 +72,7 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
                 if retries_remaining == 0:
                     # Fatal error: shutdown the rest of the app
                     logger.error(f'Too many failures: sending shutdown signal')
-                    dispatcher.send(signal=actions.SHUTDOWN_APP, sender=actions.ID_CENTRAL_EXEC)
+                    dispatcher.send(signal=Signal.SHUTDOWN_APP, sender=ID_CENTRAL_EXEC)
                     raise
 
                 time.sleep(GRPC_CLIENT_SLEEP_ON_FAILURE_SEC)
@@ -103,7 +103,7 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
                 return
             signal = next(response_iter)  # blocks each time until signal received, or server shutdown
             if signal:
-                logger.debug(f'Got gRPC signal "{signal.signal_name}" from sender "{signal.sender_name}"')
+                logger.debug(f'Got gRPC signal "{Signal(signal.sig_int).name}" from sender "{signal.sender}"')
                 try:
                     self._relay_signal_locally(signal)
                 except Exception:
@@ -112,23 +112,24 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
                 logger.warning('Received None for signal! Killing connection')
                 return
 
-    def _relay_signal_locally(self, signal: Signal):
+    def _relay_signal_locally(self, signal: SignalMsg):
         """Take the signal (received from server) and dispatch it to our UI process"""
         kwargs = {}
-        if signal.signal_name == actions.DISPLAY_TREE_CHANGED:
+        if signal.sig_int == Signal.DISPLAY_TREE_CHANGED:
             display_tree_ui_state = Converter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
             tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
             kwargs['tree'] = tree
-        elif signal.signal_name == actions.OP_EXECUTION_PLAY_STATE_CHANGED:
+        elif signal.sig_int == Signal.OP_EXECUTION_PLAY_STATE_CHANGED:
             kwargs['is_enabled'] = signal.play_state.is_enabled
-        elif signal.signal_name == actions.TOGGLE_UI_ENABLEMENT:
+        elif signal.sig_int == Signal.TOGGLE_UI_ENABLEMENT:
             kwargs['enable'] = signal.ui_enablement.enable
-        elif signal.signal_name == actions.ERROR_OCCURRED:
+        elif signal.sig_int == Signal.ERROR_OCCURRED:
             kwargs['msg'] = signal.error_occurred.msg
             if signal.ui_enablement.HasField('secondary_msg'):
                 kwargs['secondary_msg'] = signal.error_occurred.secondary_msg
-        logger.info(f'Relaying locally: signal="{signal.signal_name}" sender="{signal.sender_name}" args={kwargs}')
-        dispatcher.send(signal=signal.signal_name, sender=signal.sender_name, named=kwargs)
+        sig = Signal(signal.sig_int)
+        logger.info(f'Relaying locally: signal="{sig.name}" sender="{signal.sender}" args={kwargs}')
+        dispatcher.send(signal=sig, sender=signal.sender, named=kwargs)
 
 
 class BackendGRPCClient(OutletBackend):
@@ -154,10 +155,10 @@ class BackendGRPCClient(OutletBackend):
         logger.debug('Starting up BackendGRPCClient')
         OutletBackend.start(self)
 
-        self.connect_dispatch_listener(signal=actions.ENQUEUE_UI_TASK, receiver=self._on_ui_task_requested)
+        self.connect_dispatch_listener(signal=Signal.ENQUEUE_UI_TASK, receiver=self._on_ui_task_requested)
 
-        self.connect_dispatch_listener(signal=actions.PAUSE_OP_EXECUTION, receiver=self._send_pause_op_exec_signal)
-        self.connect_dispatch_listener(signal=actions.RESUME_OP_EXECUTION, receiver=self._send_resume_op_exec_signal)
+        self.connect_dispatch_listener(signal=Signal.PAUSE_OP_EXECUTION, receiver=self._send_pause_op_exec_signal)
+        self.connect_dispatch_listener(signal=Signal.RESUME_OP_EXECUTION, receiver=self._send_resume_op_exec_signal)
 
         self.channel = grpc.insecure_channel(GRPC_SERVER_ADDRESS)
         self.grpc_stub = Outlet_pb2_grpc.OutletStub(self.channel)
@@ -173,10 +174,10 @@ class BackendGRPCClient(OutletBackend):
             self.grpc_stub = None
 
     def _send_pause_op_exec_signal(self, sender: str):
-        self.grpc_stub.send_signal(Signal(signal_name=actions.PAUSE_OP_EXECUTION, sender_name=sender))
+        self.grpc_stub.send_signal(Signal(signal_name=Signal.PAUSE_OP_EXECUTION, sender_name=sender))
 
     def _send_resume_op_exec_signal(self, sender: str):
-        self.grpc_stub.send_signal(Signal(signal_name=actions.RESUME_OP_EXECUTION, sender_name=sender))
+        self.grpc_stub.send_signal(Signal(signal_name=Signal.RESUME_OP_EXECUTION, sender_name=sender))
 
     def send_signal_to_server(self, signal: str, sender: str):
         """General-use method for signals with no additional args"""

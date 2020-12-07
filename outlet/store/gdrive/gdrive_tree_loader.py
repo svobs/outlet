@@ -18,7 +18,7 @@ from store.gdrive.master_gdrive_disk import GDriveDiskStore
 from store.gdrive.master_gdrive_op_load import GDriveLoadAllMetaOp
 from store.gdrive.query_observer import FileMetaPersister, FolderMetaPersister
 from store.sqlite.gdrive_db import CurrentDownload
-from ui import actions
+from ui.signal import Signal
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -48,12 +48,12 @@ class GDriveTreeLoader:
         finally:
             if self.tree_id:
                 logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
-                dispatcher.send(actions.STOP_PROGRESS, sender=self.tree_id)
+                dispatcher.send(Signal.STOP_PROGRESS, sender=self.tree_id)
 
     def _load_all(self, invalidate_cache: bool) -> GDriveWholeTree:
         if self.tree_id:
             logger.debug(f'Sending START_PROGRESS_INDETERMINATE for tree_id: {self.tree_id}')
-            dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=self.tree_id)
+            dispatcher.send(Signal.START_PROGRESS_INDETERMINATE, sender=self.tree_id)
 
         sync_ts: int = int(time.time())
 
@@ -71,7 +71,7 @@ class GDriveTreeLoader:
             self._diskstore.create_or_update_download(initial_download)
 
             # Notify UI trees that their old roots are invalid:
-            dispatcher.send(signal=actions.GDRIVE_RELOADED, sender=self.tree_id)
+            dispatcher.send(signal=Signal.GDRIVE_RELOADED, sender=self.tree_id)
 
         if initial_download.current_state == GDRIVE_DOWNLOAD_STATE_NOT_STARTED:
             # completely fresh tree
@@ -82,7 +82,7 @@ class GDriveTreeLoader:
             logger.info(msg)
 
             if self.tree_id:
-                dispatcher.send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+                dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
             # Load all users and MIME types
             self.backend.cacheman.execute_gdrive_load_op(GDriveLoadAllMetaOp())

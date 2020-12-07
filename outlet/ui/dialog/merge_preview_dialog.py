@@ -2,11 +2,11 @@ import logging
 
 from pydispatch import dispatcher
 
-from ui.actions import ID_MERGE_TREE
+from ui.signal import ID_MERGE_TREE
 from ui.tree import tree_factory
 from model.display_tree.category import CategoryDisplayTree
 
-from ui import actions
+from ui.signal import Signal
 from ui.dialog.base_dialog import BaseDialog
 
 import gi
@@ -42,7 +42,7 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         self.tree: CategoryDisplayTree = tree
         self.tree_con = tree_factory.build_static_category_file_tree(parent_win=self, tree_id=ID_MERGE_TREE, tree=self.tree)
 
-        dispatcher.send(signal=actions.SET_STATUS, sender=ID_MERGE_TREE, status_msg=self.tree.get_summary())
+        dispatcher.send(signal=Signal.SET_STATUS, sender=ID_MERGE_TREE, status_msg=self.tree.get_summary())
         self.content_box.pack_start(self.tree_con.content_box, True, True, 0)
         self.tree_con.reload()
 
@@ -79,4 +79,4 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
     def on_apply_clicked(self):
         self.parent_win.app.cacheman.enqueue_op_list(op_list=self.tree.get_ops())
-        dispatcher.send(signal=actions.EXIT_DIFF_MODE, sender=actions.ID_MERGE_TREE)
+        dispatcher.send(signal=Signal.EXIT_DIFF_MODE, sender=ID_MERGE_TREE)

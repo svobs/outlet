@@ -32,8 +32,7 @@ from store.live_monitor import LiveMonitor
 from store.local.master_local import LocalDiskMasterStore
 from store.sqlite.cache_registry_db import CacheRegistry
 from store.user_op.op_ledger import OpLedger
-from ui import actions
-from ui.actions import ID_GLOBAL_CACHE
+from ui.signal import ID_GLOBAL_CACHE, Signal
 from ui.tree.filter_criteria import FilterCriteria
 from ui.tree.root_path_config import RootPathConfigPersister
 from util import file_util
@@ -165,14 +164,14 @@ class CacheManager(HasLifecycle):
         self.load_all_caches_done: threading.Event = threading.Event()
         self._load_all_caches_in_process: bool = False
 
-        self.connect_dispatch_listener(signal=actions.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
-        self.connect_dispatch_listener(signal=actions.COMMAND_COMPLETE, receiver=self._on_command_completed)
-        self.connect_dispatch_listener(signal=actions.DEREGISTER_DISPLAY_TREE, receiver=self._deregister_display_tree)
+        self.connect_dispatch_listener(signal=Signal.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
+        self.connect_dispatch_listener(signal=Signal.COMMAND_COMPLETE, receiver=self._on_command_completed)
+        self.connect_dispatch_listener(signal=Signal.DEREGISTER_DISPLAY_TREE, receiver=self._deregister_display_tree)
 
-        self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE, receiver=self._on_refresh_subtree_requested)
-        self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE_STATS, receiver=self._on_refresh_stats_requested)
+        self.connect_dispatch_listener(signal=Signal.REFRESH_SUBTREE, receiver=self._on_refresh_subtree_requested)
+        self.connect_dispatch_listener(signal=Signal.REFRESH_SUBTREE_STATS, receiver=self._on_refresh_stats_requested)
 
-        self.connect_dispatch_listener(signal=actions.GDRIVE_RELOADED, receiver=self._on_gdrive_whole_tree_reloaded)
+        self.connect_dispatch_listener(signal=Signal.GDRIVE_RELOADED, receiver=self._on_gdrive_whole_tree_reloaded)
 
     def shutdown(self):
         logger.debug('CacheManager.shutdown() entered')
@@ -232,7 +231,7 @@ class CacheManager(HasLifecycle):
         HasLifecycle.start(self)
 
         logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {ID_GLOBAL_CACHE}')
-        dispatcher.send(actions.START_PROGRESS_INDETERMINATE, sender=ID_GLOBAL_CACHE)
+        dispatcher.send(Signal.START_PROGRESS_INDETERMINATE, sender=ID_GLOBAL_CACHE)
 
         try:
             # Load registry first. Do validation along the way
@@ -265,10 +264,10 @@ class CacheManager(HasLifecycle):
             self.backend.executor.submit_async_task(pending_ops_task)
 
         finally:
-            dispatcher.send(actions.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
+            dispatcher.send(Signal.STOP_PROGRESS, sender=ID_GLOBAL_CACHE)
             self._startup_done.set()
             logger.info('CacheManager startup done')
-            dispatcher.send(signal=actions.START_CACHEMAN_DONE, sender=ID_GLOBAL_CACHE)
+            dispatcher.send(signal=Signal.START_CACHEMAN_DONE, sender=ID_GLOBAL_CACHE)
 
     def _load_registry(self):
         stopwatch = Stopwatch()
@@ -302,7 +301,7 @@ class CacheManager(HasLifecycle):
             self._overwrite_all_caches_in_registry(caches)
 
         self._load_registry_done.set()
-        dispatcher.send(signal=actions.LOAD_REGISTRY_DONE, sender=ID_GLOBAL_CACHE)
+        dispatcher.send(signal=Signal.LOAD_REGISTRY_DONE, sender=ID_GLOBAL_CACHE)
 
         logger.info(f'{stopwatch} Found {unique_cache_count} existing caches (+ {skipped_count} skipped)')
 
@@ -412,7 +411,7 @@ class CacheManager(HasLifecycle):
 
     def _on_command_completed(self, sender, command: Command):
         """Updates the in-memory cache, on-disk cache, and UI with the nodes from the given UserOpResult"""
-        logger.debug(f'Received signal: "{actions.COMMAND_COMPLETE}"')
+        logger.debug(f'Received signal: "{Signal.COMMAND_COMPLETE}"')
         result = command.op.result
 
         # TODO: refactor so that we can attempt to create (close to) an atomic operation which combines GDrive and Local functionality
@@ -430,7 +429,7 @@ class CacheManager(HasLifecycle):
                 self.remove_node(deleted_node, to_trash=False)
 
     def _deregister_display_tree(self, sender: str):
-        logger.debug(f'[{sender}] Received signal: "{actions.DEREGISTER_DISPLAY_TREE}"')
+        logger.debug(f'[{sender}] Received signal: "{Signal.DEREGISTER_DISPLAY_TREE}"')
         display_tree = self._display_tree_dict.pop(sender, None)
         if display_tree:
             logger.debug(f'[{sender}] Display tree de-registered in backend')
@@ -451,7 +450,7 @@ class CacheManager(HasLifecycle):
 
     def _on_gdrive_whole_tree_reloaded(self, sender: str):
         # If GDrive was reloaded, our previous selection was almost certainly invalid. Just reset all open GDrive trees to GDrive root.
-        logger.info(f'Received signal: "{actions.GDRIVE_RELOADED}"')
+        logger.info(f'Received signal: "{Signal.GDRIVE_RELOADED}"')
 
         tree_id_list: List[str] = []
         for tree_meta in self._display_tree_dict.values():
@@ -584,8 +583,8 @@ class CacheManager(HasLifecycle):
         if return_async:
             # notify clients asynchronously
             tree = state.to_display_tree(self.backend)
-            logger.debug(f'[{state.tree_id}] Firing signal: {actions.DISPLAY_TREE_CHANGED}')
-            dispatcher.send(actions.DISPLAY_TREE_CHANGED, sender=state.tree_id, tree=tree)
+            logger.debug(f'[{state.tree_id}] Firing signal: {Signal.DISPLAY_TREE_CHANGED}')
+            dispatcher.send(Signal.DISPLAY_TREE_CHANGED, sender=state.tree_id, tree=tree)
             return None
         else:
             logger.debug(f'[{state.tree_id}] Returning display tree synchronously because return_async=False')
@@ -660,7 +659,7 @@ class CacheManager(HasLifecycle):
             return
 
         # This will be carried across gRPC if needed
-        dispatcher.send(signal=actions.LOAD_SUBTREE_STARTED, sender=tree_id)
+        dispatcher.send(signal=Signal.LOAD_SUBTREE_STARTED, sender=tree_id)
 
         if display_tree_meta.root_exists:
             spid = display_tree_meta.root_sn.spid
@@ -669,7 +668,7 @@ class CacheManager(HasLifecycle):
                 self._master_local.get_display_tree(spid, tree_id)
             elif spid.tree_type == TREE_TYPE_GDRIVE:
                 assert self._master_gdrive
-                if tree_id == actions.ID_GDRIVE_DIR_SELECT:
+                if tree_id == ID_GDRIVE_DIR_SELECT:
                     # special handling for dir select dialog: make sure we are fully synced first
                     self._master_gdrive.get_synced_master_tree()
                 else:
@@ -678,7 +677,7 @@ class CacheManager(HasLifecycle):
                 raise RuntimeError(f'Unrecognized tree type: {spid.tree_type}')
 
         # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
-        dispatcher.send(signal=actions.LOAD_SUBTREE_DONE, sender=tree_id)
+        dispatcher.send(signal=Signal.LOAD_SUBTREE_DONE, sender=tree_id)
 
     def get_active_display_tree_meta(self, tree_id) -> ActiveDisplayTreeMeta:
         return self._display_tree_dict.get(tree_id, None)
@@ -843,7 +842,7 @@ class CacheManager(HasLifecycle):
         self._master_gdrive.execute_load_op(op)
 
     def refresh_subtree(self, node: Node, tree_id: str):
-        """Called asynchronously via actions.REFRESH_SUBTREE"""
+        """Called asynchronously via Signal.REFRESH_SUBTREE"""
         logger.debug(f'[{tree_id}] Refreshing subtree: {node}')
         if node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
             self._master_local.refresh_subtree(node, tree_id)
@@ -866,9 +865,9 @@ class CacheManager(HasLifecycle):
         else:
             assert False
 
-        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
+        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
         summary_msg: str = self._get_tree_summary(subtree_root_node)
-        dispatcher.send(signal=actions.SET_STATUS, sender=tree_id, status_msg=summary_msg)
+        dispatcher.send(signal=Signal.SET_STATUS, sender=tree_id, status_msg=summary_msg)
 
     def _get_tree_summary(self, root_node: Node):
         if not root_node:

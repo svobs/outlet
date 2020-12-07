@@ -1,7 +1,7 @@
 import threading
 import time
 
-import ui.actions as actions
+from ui.signal import Signal
 import logging
 
 import gi
@@ -43,11 +43,11 @@ class ProgressBar(HasLifecycle):
 
         for sender in sender_list:
             logger.debug(f'ProgressBar will listen for siganls from sender: {sender}')
-            self.connect_dispatch_listener(signal=actions.START_PROGRESS_INDETERMINATE, receiver=self.on_start_progress_indeterminate, sender=sender)
-            self.connect_dispatch_listener(signal=actions.START_PROGRESS, receiver=self.on_start_progress, sender=sender)
-            self.connect_dispatch_listener(signal=actions.PROGRESS_MADE, receiver=self.on_progress_made, sender=sender)
-            self.connect_dispatch_listener(signal=actions.STOP_PROGRESS, receiver=self.on_stop_progress, sender=sender)
-            self.connect_dispatch_listener(signal=actions.SET_PROGRESS_TEXT, receiver=self.on_set_progress_text, sender=sender)
+            self.connect_dispatch_listener(signal=Signal.START_PROGRESS_INDETERMINATE, receiver=self.on_start_progress_indeterminate, sender=sender)
+            self.connect_dispatch_listener(signal=Signal.START_PROGRESS, receiver=self.on_start_progress, sender=sender)
+            self.connect_dispatch_listener(signal=Signal.PROGRESS_MADE, receiver=self.on_progress_made, sender=sender)
+            self.connect_dispatch_listener(signal=Signal.STOP_PROGRESS, receiver=self.on_stop_progress, sender=sender)
+            self.connect_dispatch_listener(signal=Signal.SET_PROGRESS_TEXT, receiver=self.on_set_progress_text, sender=sender)
 
         HasLifecycle.start(self)
 
@@ -78,7 +78,7 @@ class ProgressBar(HasLifecycle):
             self._start_animation()
 
     def on_start_progress(self, sender, total):
-        logger.debug(f'Received {actions.START_PROGRESS} signal from {sender}')
+        logger.debug(f'Received {Signal.START_PROGRESS} signal from {sender}')
 
         with self._lock:
             self._indeterminate = False

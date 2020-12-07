@@ -5,7 +5,7 @@ import logging
 
 from util import file_util
 from command.cmd_interface import Command, CommandContext, UserOpStatus
-from ui import actions
+from ui.signal import Signal
 
 logger = logging.getLogger(__name__)
 
@@ -29,17 +29,17 @@ class CommandExecutor:
             return
 
         if start_stop_progress:
-            dispatcher.send(signal=actions.START_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR, total=command.get_total_work())
+            dispatcher.send(signal=Signal.START_PROGRESS, sender=ID_COMMAND_EXECUTOR, total=command.get_total_work())
 
         try:
             if not context:
-                context = CommandContext(self.staging_dir, self.backend, actions.ID_COMMAND_EXECUTOR, command.needs_gdrive())
+                context = CommandContext(self.staging_dir, self.backend, ID_COMMAND_EXECUTOR, command.needs_gdrive())
 
             if command.status() != UserOpStatus.NOT_STARTED:
                 logger.info(f'Skipping command: {command} because it has status {command.status()}')
             else:
                 status_str: str = f'Executing command: {repr(command)}'
-                dispatcher.send(signal=actions.SET_PROGRESS_TEXT, sender=actions.ID_COMMAND_EXECUTOR, msg=status_str)
+                dispatcher.send(signal=Signal.SET_PROGRESS_TEXT, sender=ID_COMMAND_EXECUTOR, msg=status_str)
                 logger.info(status_str)
                 command.op.result = command.execute(context)
                 logger.debug(f'{command.get_description()} completed with status: {command.status().name}')
@@ -50,13 +50,13 @@ class CommandExecutor:
 
             # Report error to the UI:
             msg = f'Command {command.uid} (op {command.op.op_uid}) failed with error: {command.get_error()}'
-            dispatcher.send(signal=actions.ERROR_OCCURRED, sender=actions.ID_COMMAND_EXECUTOR, msg=msg)
+            dispatcher.send(signal=Signal.ERROR_OCCURRED, sender=ID_COMMAND_EXECUTOR, msg=msg)
 
-        dispatcher.send(signal=actions.COMMAND_COMPLETE, sender=actions.ID_COMMAND_EXECUTOR, command=command)
-        dispatcher.send(signal=actions.PROGRESS_MADE, sender=actions.ID_COMMAND_EXECUTOR, progress=command.get_total_work())
+        dispatcher.send(signal=Signal.COMMAND_COMPLETE, sender=ID_COMMAND_EXECUTOR, command=command)
+        dispatcher.send(signal=Signal.PROGRESS_MADE, sender=ID_COMMAND_EXECUTOR, progress=command.get_total_work())
 
         if start_stop_progress:
-            dispatcher.send(signal=actions.STOP_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR)
+            dispatcher.send(signal=Signal.STOP_PROGRESS, sender=ID_COMMAND_EXECUTOR)
             if context:
                 context.shutdown()
 
@@ -77,16 +77,16 @@ class CommandExecutor:
             if command.needs_gdrive():
                 needs_gdrive = True
 
-        dispatcher.send(signal=actions.START_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR, total=total)
+        dispatcher.send(signal=Signal.START_PROGRESS, sender=ID_COMMAND_EXECUTOR, total=total)
         context = None
         try:
-            context = CommandContext(self.staging_dir, self.backend, actions.ID_COMMAND_EXECUTOR, needs_gdrive)
+            context = CommandContext(self.staging_dir, self.backend, ID_COMMAND_EXECUTOR, needs_gdrive)
 
             for command_num, command in enumerate(command_batch):
                 self.execute_command(command, context, False)
 
         finally:
-            dispatcher.send(signal=actions.STOP_PROGRESS, sender=actions.ID_COMMAND_EXECUTOR)
+            dispatcher.send(signal=Signal.STOP_PROGRESS, sender=ID_COMMAND_EXECUTOR)
             if context:
                 context.shutdown()
 

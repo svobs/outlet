@@ -17,11 +17,11 @@ class OutletStub(object):
         self.subscribe_to_signals = channel.unary_stream(
                 '/outlet.daemon.grpc.Outlet/subscribe_to_signals',
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Subscribe_Request.SerializeToString,
-                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.FromString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SignalMsg.FromString,
                 )
         self.send_signal = channel.unary_unary(
                 '/outlet.daemon.grpc.Outlet/send_signal',
-                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.SerializeToString,
+                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SignalMsg.SerializeToString,
                 response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SendSignalResponse.FromString,
                 )
         self.get_node_for_uid = channel.unary_unary(
@@ -168,11 +168,11 @@ def add_OutletServicer_to_server(servicer, server):
             'subscribe_to_signals': grpc.unary_stream_rpc_method_handler(
                     servicer.subscribe_to_signals,
                     request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Subscribe_Request.FromString,
-                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.SerializeToString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SignalMsg.SerializeToString,
             ),
             'send_signal': grpc.unary_unary_rpc_method_handler(
                     servicer.send_signal,
-                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.FromString,
+                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SignalMsg.FromString,
                     response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SendSignalResponse.SerializeToString,
             ),
             'get_node_for_uid': grpc.unary_unary_rpc_method_handler(
@@ -253,7 +253,7 @@ class Outlet(object):
             metadata=None):
         return grpc.experimental.unary_stream(request, target, '/outlet.daemon.grpc.Outlet/subscribe_to_signals',
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Subscribe_Request.SerializeToString,
-            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.FromString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SignalMsg.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -269,7 +269,7 @@ class Outlet(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/send_signal',
-            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Signal.SerializeToString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SignalMsg.SerializeToString,
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.SendSignalResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

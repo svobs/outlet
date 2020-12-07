@@ -11,7 +11,7 @@ from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from store.local.master_local_write_op import LocalDiskSingleNodeOp, LocalDiskSubtreeOp
 from store.sqlite.local_db import LocalDiskDatabase
-from ui import actions
+from ui.signal import Signal
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 
@@ -120,7 +120,7 @@ class LocalDiskDiskStore(HasLifecycle):
 
             status = f'[{tree_id}] Loading meta for subtree "{cache_info.subtree_root}" from cache: "{cache_info.cache_location}"'
             logger.debug(status)
-            dispatcher.send(actions.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
+            dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=tree_id, msg=status)
 
             self._ensure_uid_consistency(cache_info.subtree_root)
 

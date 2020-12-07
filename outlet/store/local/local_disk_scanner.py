@@ -6,7 +6,7 @@ from typing import Optional
 
 from pydispatch import dispatcher
 
-import ui.actions as actions
+from ui.signal import Signal
 from constants import TrashStatus
 from model.node.local_disk_node import LocalDirNode
 from model.local_disk_tree import LocalDiskTree
@@ -81,10 +81,10 @@ class LocalDiskScanner(LocalTreeRecurser):
             self._local_tree.add_to_tree(target_node)
 
         if self.tree_id:
-            dispatcher.send(actions.PROGRESS_MADE, sender=self.tree_id, progress=1)
+            dispatcher.send(Signal.PROGRESS_MADE, sender=self.tree_id, progress=1)
             self.progress += 1
             msg = f'Scanning file {self.progress} of {self.total}'
-            dispatcher.send(actions.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
+            dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=self.tree_id, msg=msg)
 
     def handle_target_file_type(self, file_path):
         self.handle_file(file_path)
@@ -127,7 +127,7 @@ class LocalDiskScanner(LocalTreeRecurser):
         self.total = self._find_total_files_to_scan()
         if self.tree_id:
             logger.debug(f'[{self.tree_id}] Sending START_PROGRESS with total={self.total}')
-            dispatcher.send(signal=actions.START_PROGRESS, sender=self.tree_id, total=self.total)
+            dispatcher.send(signal=Signal.START_PROGRESS, sender=self.tree_id, total=self.total)
         try:
             self.recurse_through_dir_tree()
             logger.debug(f'Scanned {self.total} files')
@@ -135,4 +135,4 @@ class LocalDiskScanner(LocalTreeRecurser):
         finally:
             if self.tree_id:
                 logger.debug(f'Sending STOP_PROGRESS for tree_id: {self.tree_id}')
-                dispatcher.send(actions.STOP_PROGRESS, sender=self.tree_id)
+                dispatcher.send(Signal.STOP_PROGRESS, sender=self.tree_id)

@@ -15,7 +15,7 @@ from model.node.node import HasChildStats, HasParentList, Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.user_op import UserOp, USER_OP_TYPES, UserOpType
 from model.uid import UID
-from ui import actions
+from ui.signal import Signal
 from ui.tree.filter_criteria import FilterCriteria
 from util.simple_tree import NodeAlreadyPresentError, SimpleTree
 from util.stopwatch_sec import Stopwatch
@@ -344,5 +344,5 @@ class CategoryDisplayTree(DisplayTree):
                 for child in children:
                     node.add_meta_metrics(child)
 
-        dispatcher.send(signal=actions.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
+        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
         logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for tree')

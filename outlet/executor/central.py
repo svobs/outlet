@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 from command.cmd_executor import CommandExecutor
 from executor.task_runner import TaskRunner
 from global_actions import GlobalActions
-from ui import actions
+from ui.signal import Signal
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
@@ -44,8 +44,8 @@ class CentralExecutor(HasLifecycle):
         else:
             logger.warning(f'{self._op_execution_thread.name} is disabled!')
 
-        self.connect_dispatch_listener(signal=actions.PAUSE_OP_EXECUTION, receiver=self._pause_op_execution)
-        self.connect_dispatch_listener(signal=actions.RESUME_OP_EXECUTION, receiver=self._start_op_execution)
+        self.connect_dispatch_listener(signal=Signal.PAUSE_OP_EXECUTION, receiver=self._pause_op_execution)
+        self.connect_dispatch_listener(signal=Signal.RESUME_OP_EXECUTION, receiver=self._start_op_execution)
 
     def start_op_execution_thread(self):
         if not self._op_execution_thread.is_alive():
@@ -99,14 +99,14 @@ class CentralExecutor(HasLifecycle):
             self.submit_async_task(self._command_executor.execute_command, command, None, True)
 
     def _start_op_execution(self, sender):
-        logger.debug(f'Received signal "{actions.RESUME_OP_EXECUTION}" from {sender}')
+        logger.debug(f'Received signal "{Signal.RESUME_OP_EXECUTION}" from {sender}')
         self.enable_op_execution_thread = True
         self.start_op_execution_thread()
-        logger.debug(f'Sending signal "{actions.OP_EXECUTION_PLAY_STATE_CHANGED}" (is_enabled={self.enable_op_execution_thread})')
-        dispatcher.send(signal=actions.OP_EXECUTION_PLAY_STATE_CHANGED, sender=actions.ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution_thread)
+        logger.debug(f'Sending signal "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED}" (is_enabled={self.enable_op_execution_thread})')
+        dispatcher.send(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, sender=ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution_thread)
 
     def _pause_op_execution(self, sender):
-        logger.debug(f'Received signal "{actions.PAUSE_OP_EXECUTION}" from {sender}')
+        logger.debug(f'Received signal "{Signal.PAUSE_OP_EXECUTION}" from {sender}')
         self.enable_op_execution_thread = False
-        logger.debug(f'Sending signal "{actions.OP_EXECUTION_PLAY_STATE_CHANGED}" (is_enabled={self.enable_op_execution_thread})')
-        dispatcher.send(signal=actions.OP_EXECUTION_PLAY_STATE_CHANGED, sender=actions.ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution_thread)
+        logger.debug(f'Sending signal "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED}" (is_enabled={self.enable_op_execution_thread})')
+        dispatcher.send(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, sender=ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution_thread)

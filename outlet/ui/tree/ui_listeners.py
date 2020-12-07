@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from pydispatch import dispatcher
 
-import ui.actions as actions
+from ui.signal import Signal
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
 from diff.change_maker import SPIDNodePair
 from model.display_tree.display_tree import DisplayTree
@@ -53,17 +53,17 @@ class TreeUiListeners(HasLifecycle):
     def start(self):
         logger.debug(f'[{self.con.tree_id}] TreeUiListeners start')
         HasLifecycle.start(self)
-        self.connect_dispatch_listener(actions.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
+        self.connect_dispatch_listener(Signal.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
 
         targeted_signals: List[str] = []
-        general_signals: List[str] = [actions.TOGGLE_UI_ENABLEMENT]
+        general_signals: List[str] = [Signal.TOGGLE_UI_ENABLEMENT]
 
-        self.connect_dispatch_listener(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
-        targeted_signals.append(actions.DISPLAY_TREE_CHANGED)
+        self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
+        targeted_signals.append(Signal.DISPLAY_TREE_CHANGED)
 
         # Status bar
-        self.connect_dispatch_listener(signal=actions.SET_STATUS, receiver=self._on_set_status)
-        targeted_signals.append(actions.SET_STATUS)
+        self.connect_dispatch_listener(signal=Signal.SET_STATUS, receiver=self._on_set_status)
+        targeted_signals.append(Signal.SET_STATUS)
 
         logger.debug(f'[{self.con.tree_id}] Listening for signals: Any={general_signals}, "{self.con.tree_id}"={targeted_signals}')
 
@@ -98,8 +98,8 @@ class TreeUiListeners(HasLifecycle):
             # FIXME Want to remove highlight when dropping in non-dir rows. But this is not the correct way to do this.
             # self.con.tree_view.connect('drag-motion', self._on_drag_motion)
 
-            self.connect_dispatch_listener(signal=actions.DRAG_AND_DROP, receiver=self._receive_drag_data_signal)
-            self.connect_dispatch_listener(signal=actions.DRAG_AND_DROP_DIRECT, receiver=self._do_drop)
+            self.connect_dispatch_listener(signal=Signal.DRAG_AND_DROP, receiver=self._receive_drag_data_signal)
+            self.connect_dispatch_listener(signal=Signal.DRAG_AND_DROP_DIRECT, receiver=self._do_drop)
             # ^^^ mostly for testing
 
     def shutdown(self):
@@ -142,16 +142,16 @@ class TreeUiListeners(HasLifecycle):
         if selected_sn_list:
             # Avoid complicated, undocumented GTK3 garbage by just sending a UID along with needed data via the dispatcher. See _check_drop()
             dd_uid = self.con.app.ui_uid_generator.next_uid()
-            action = drag_context.get_selected_action()  # TODO: add support for more actions. For now, assume CP
+            action = drag_context.get_selected_action()  # TODO: add support for more Signal. For now, assume CP
             drag_data = DragAndDropData(dd_uid, self.con, selected_sn_list)
-            dispatcher.send(signal=actions.DRAG_AND_DROP, sender=self.con.tree_id, data=drag_data)
+            dispatcher.send(signal=Signal.DRAG_AND_DROP, sender=self.con.tree_id, data=drag_data)
             selection_data.set_text(str(dd_uid), -1)
         else:
             selection_data.set_text('', -1)
 
     def _receive_drag_data_signal(self, sender, data: DragAndDropData):
         """Drag & Drop 2 or 3 /4: receive drag data at dest"""
-        logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.DRAG_AND_DROP}"')
+        logger.debug(f'[{self.con.tree_id}] Received signal: "{Signal.DRAG_AND_DROP}"')
         self._drag_data = data
         self._check_drop()
 
@@ -211,7 +211,7 @@ class TreeUiListeners(HasLifecycle):
         if sender != self.con.tree_id:
             return
 
-        logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.DISPLAY_TREE_CHANGED}"')
+        logger.debug(f'[{self.con.tree_id}] Received signal: "{Signal.DISPLAY_TREE_CHANGED}"')
 
         # Reload subtree and refresh display
         if tree.is_root_exists():
@@ -226,7 +226,7 @@ class TreeUiListeners(HasLifecycle):
     def _on_set_status(self, sender, status_msg):
         if sender != self.con.tree_id:
             return
-        logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.SET_STATUS}" with msg: {status_msg}')
+        logger.debug(f'[{self.con.tree_id}] Received signal: "{Signal.SET_STATUS}" with msg: {status_msg}')
         GLib.idle_add(lambda: self.con.status_bar.set_label(status_msg))
 
     def _on_enable_ui_toggled(self, sender, enable):
@@ -252,7 +252,7 @@ class TreeUiListeners(HasLifecycle):
                     node = self.con.display_store.get_node_data(i)
                     selected_nodes.append(node)
 
-            dispatcher.send(signal=actions.TREE_SELECTION_CHANGED, sender=self.con.tree_id, node_list=selected_nodes)
+            dispatcher.send(signal=Signal.TREE_SELECTION_CHANGED, sender=self.con.tree_id, node_list=selected_nodes)
         return False
 
     def _on_row_activated(self, tree_view, tree_path, col, tree_id):
@@ -279,11 +279,11 @@ class TreeUiListeners(HasLifecycle):
 
     def _on_toggle_gtk_row_expanded_state(self, tree_view, parent_iter, parent_path, is_expanded):
         parent_data = self.con.display_store.get_node_data(parent_iter)
-        logger.debug(f'[{self.con.tree_id}] Sending signal "{actions.NODE_EXPANSION_TOGGLED}" with is_expanded={is_expanded} for node: {parent_data}')
+        logger.debug(f'[{self.con.tree_id}] Sending signal "{Signal.NODE_EXPANSION_TOGGLED}" with is_expanded={is_expanded} for node: {parent_data}')
         if not parent_data.is_dir():
             raise RuntimeError(f'Node is not a directory: {type(parent_data)}; node_data')
 
-        dispatcher.send(signal=actions.NODE_EXPANSION_TOGGLED, sender=self.con.tree_id, parent_iter=parent_iter, parent_path=parent_path,
+        dispatcher.send(signal=Signal.NODE_EXPANSION_TOGGLED, sender=self.con.tree_id, parent_iter=parent_iter, parent_path=parent_path,
                         node=parent_data, is_expanded=is_expanded, expand_all=False)
 
         return True
@@ -387,7 +387,7 @@ class TreeUiListeners(HasLifecycle):
             selected_sn_list: List[SPIDNodePair] = self.con.display_store.get_multiple_selection_sn_list()
             if selected_sn_list:
                 for selected_sn in selected_sn_list:
-                    dispatcher.send(signal=actions.DELETE_SUBTREE, sender=self.con.tree_id, sn=selected_sn.node)
+                    dispatcher.send(signal=Signal.DELETE_SUBTREE, sender=self.con.tree_id, sn=selected_sn.node)
                 return True
         return False
 
@@ -456,9 +456,9 @@ def _get_items_type(selected_items: List):
 
 def _do_default_action_for_node(node: Node, tree_id: str):
     if node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-        dispatcher.send(signal=actions.CALL_XDG_OPEN, sender=tree_id, full_path=node.get_single_path())
+        dispatcher.send(signal=Signal.CALL_XDG_OPEN, sender=tree_id, full_path=node.get_single_path())
         return True
     elif node.node_identifier.tree_type == TREE_TYPE_GDRIVE:
-        dispatcher.send(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=tree_id, node=node)
+        dispatcher.send(signal=Signal.DOWNLOAD_FROM_GDRIVE, sender=tree_id, node=node)
         return True
 

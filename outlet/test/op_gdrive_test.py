@@ -15,8 +15,8 @@ from model.node.node import Node, SPIDNodePair
 from model.node.gdrive_node import GDriveNode
 from test import op_test_base
 from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
-from ui import actions
-from ui.actions import DELETE_SUBTREE, DRAG_AND_DROP_DIRECT, ID_GLOBAL_CACHE, ID_RIGHT_TREE
+from ui.signal import Signal
+from ui.signal import DELETE_SUBTREE, DRAG_AND_DROP_DIRECT, ID_GLOBAL_CACHE, ID_RIGHT_TREE
 from ui.tree.ui_listeners import DragAndDropData
 
 gi.require_version("Gtk", "3.0")
@@ -85,11 +85,11 @@ class OpGDriveTest(OpTestBase):
         right_stats_updated = threading.Event()
 
         def on_stats_updated(sender):
-            logger.info(f'Got signal: {actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE} for "{sender}"')
+            logger.info(f'Got signal: {Signal.REFRESH_SUBTREE_STATS_COMPLETELY_DONE} for "{sender}"')
             if sender == self.right_con.tree_id:
                 right_stats_updated.set()
 
-        dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, receiver=on_stats_updated, sender=ID_RIGHT_TREE)
+        dispatcher.connect(signal=Signal.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, receiver=on_stats_updated, sender=ID_RIGHT_TREE)
 
         for node in displayed_rows:
             logger.warning(f'Deleting node via cacheman: {node}')
@@ -129,7 +129,7 @@ class OpGDriveTest(OpTestBase):
 
     def test_dd_single_file_cp(self):
         logger.info('Testing drag & drop copy of single file local Left to GDrive Right')
-        dispatcher.send(signal=actions.RESUME_OP_EXECUTION, sender=actions.ID_CENTRAL_EXEC)
+        dispatcher.send(signal=Signal.RESUME_OP_EXECUTION, sender=ID_CENTRAL_EXEC)
         # Offset from 0:
         src_tree_path = Gtk.TreePath.new_from_string('1')
         sn: SPIDNodePair = self.left_con.display_store.build_sn_from_tree_path(src_tree_path)
@@ -141,7 +141,7 @@ class OpGDriveTest(OpTestBase):
 
         def drop():
             logger.info('Submitting drag & drop signal')
-            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
         final_tree_right = [
             FNode('Angry-Clown.jpg', 824641),
@@ -152,7 +152,7 @@ class OpGDriveTest(OpTestBase):
 
     def test_dd_multi_file_cp(self):
         logger.info('Testing drag & drop copy of 4 files local left to local right')
-        dispatcher.send(signal=actions.RESUME_OP_EXECUTION, sender=actions.ID_CENTRAL_EXEC)
+        dispatcher.send(signal=Signal.RESUME_OP_EXECUTION, sender=ID_CENTRAL_EXEC)
 
         # Simulate drag & drop based on position in list:
         sn_list = []
@@ -164,11 +164,11 @@ class OpGDriveTest(OpTestBase):
 
         dd_data = DragAndDropData(dd_uid=UID(100), src_treecon=self.left_con, sn_list=sn_list)
         dst_tree_path = None
-        dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+        dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
         def drop():
             logger.info('Submitting drag & drop signal')
-            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_LEFT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=ID_LEFT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
         final_tree_right = [
             FNode('Egypt.jpg', 154564),
@@ -182,7 +182,7 @@ class OpGDriveTest(OpTestBase):
 
     def test_bad_dd_dir_tree_cp(self):
         logger.info('Testing negative case: drag & drop copy of duplicate nodes local to GDrive')
-        dispatcher.send(signal=actions.RESUME_OP_EXECUTION, sender=actions.ID_CENTRAL_EXEC)
+        dispatcher.send(signal=Signal.RESUME_OP_EXECUTION, sender=ID_CENTRAL_EXEC)
         node_name = 'Art'
 
         name_equals_func_bound: Callable = partial(op_test_base.name_equals_func, node_name)
@@ -201,7 +201,7 @@ class OpGDriveTest(OpTestBase):
 
         # Verify that 3 identical nodes causes an error:
         with self.assertRaises(RuntimeError) as context:
-            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
             logger.info('Sleeping')
             time.sleep(10)  # in seconds
             self.assertFalse(True, 'If we got here we failed!')
@@ -218,7 +218,7 @@ class OpGDriveTest(OpTestBase):
 
         def drop():
             logger.info('Submitting drag & drop signal')
-            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
         final_tree_right = [
             DNode('Art', (88259 + 652220 + 239739 + 44487 + 479124) + (147975 + 275771 + 8098 + 247023 + 36344), [
@@ -244,7 +244,7 @@ class OpGDriveTest(OpTestBase):
         """INTERESTING NOTE: try alternating execution of test_dd_one_dir_tree_cp() and test_dd_two_dir_trees_cp()
         to illuminate an interesting GDrive sync race condition"""
         logger.info('Testing drag & drop copy of 1 dir tree local left to GDrive right')
-        dispatcher.send(signal=actions.RESUME_OP_EXECUTION, sender=actions.ID_CENTRAL_EXEC)
+        dispatcher.send(signal=Signal.RESUME_OP_EXECUTION, sender=ID_CENTRAL_EXEC)
 
         self._cp_single_tree_into_right()
 
@@ -263,7 +263,7 @@ class OpGDriveTest(OpTestBase):
 
         def drop():
             logger.info('Submitting drag & drop signal')
-            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
         final_tree_right = [
             DNode('Art', (88259 + 652220 + 239739 + 44487 + 479124) + (147975 + 275771 + 8098 + 247023 + 36344), [
@@ -313,7 +313,7 @@ class OpGDriveTest(OpTestBase):
 
         def drop():
             logger.info('Submitting drag & drop signal')
-            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=True)
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=True)
 
         final_tree_right = [
             DNode('Art', (88259 + 652220 + 239739 + 44487 + 479124) + (147975 + 275771 + 8098 + 247023 + 36344 + 27601 + 2061397), [
@@ -359,23 +359,23 @@ class OpGDriveTest(OpTestBase):
             right_stats_updated = threading.Event()
 
             def on_stats_updated(sender):
-                logger.info(f'Got signal: {actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE} for "{sender}"')
+                logger.info(f'Got signal: {Signal.REFRESH_SUBTREE_STATS_COMPLETELY_DONE} for "{sender}"')
                 right_stats_updated.set()
 
-            dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, receiver=on_stats_updated, sender=actions.ID_RIGHT_TREE)
+            dispatcher.connect(signal=Signal.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, receiver=on_stats_updated, sender=ID_RIGHT_TREE)
 
             def on_node_upserted(sender: str, node: Node):
                 on_node_upserted.count += 1
                 logger.info(f'Got upserted node "{node.name}" (total: {on_node_upserted.count}, expecting: {expected_count})')
                 if on_node_upserted.count >= expected_count:
                     drop_complete.set()
-                    dispatcher.disconnect(signal=actions.NODE_UPSERTED, receiver=on_node_upserted)
+                    dispatcher.disconnect(signal=Signal.NODE_UPSERTED, receiver=on_node_upserted)
 
             on_node_upserted.count = 0
 
-            dispatcher.connect(signal=actions.NODE_UPSERTED, receiver=on_node_upserted)
+            dispatcher.connect(signal=Signal.NODE_UPSERTED, receiver=on_node_upserted)
 
-            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
             logger.info('[1] Waiting for first drop to complete...')
 
@@ -400,7 +400,7 @@ class OpGDriveTest(OpTestBase):
             dst_tree_path = Gtk.TreePath.new_from_string('1')
             # Drop into left tree:
             logger.info('[4] Submitting second drag & drop signal')
-            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_LEFT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=ID_LEFT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
         final_tree_left = [
             FNode('American_Gothic.jpg', 2061397),
@@ -466,10 +466,10 @@ class OpGDriveTest(OpTestBase):
             right_stats_updated = threading.Event()
 
             def on_stats_updated(sender):
-                logger.info(f'Got signal: {actions.REFRESH_SUBTREE_STATS_DONE} for "{sender}"')
+                logger.info(f'Got signal: {Signal.REFRESH_SUBTREE_STATS_DONE} for "{sender}"')
                 right_stats_updated.set()
 
-            dispatcher.connect(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=on_stats_updated)
+            dispatcher.connect(signal=Signal.REFRESH_SUBTREE_STATS_DONE, receiver=on_stats_updated)
 
             def on_node_upserted(sender: str, node: Node):
                 on_node_upserted.count += 1
@@ -479,9 +479,9 @@ class OpGDriveTest(OpTestBase):
 
             on_node_upserted.count = 0
 
-            dispatcher.connect(signal=actions.NODE_UPSERTED, receiver=on_node_upserted)
+            dispatcher.connect(signal=Signal.NODE_UPSERTED, receiver=on_node_upserted)
 
-            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=actions.ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
+            dispatcher.send(signal=DRAG_AND_DROP_DIRECT, sender=ID_RIGHT_TREE, drag_data=dd_data, tree_path=dst_tree_path, is_into=False)
 
             logger.info('Waiting for drop to complete...')
 
@@ -500,7 +500,7 @@ class OpGDriveTest(OpTestBase):
 
             # Now delete the nodes which were just dropped
             logger.info('Submitting delete signal of "Modern" dir')
-            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_RIGHT_TREE, node_list=nodes_batch_2)
+            dispatcher.send(signal=DELETE_SUBTREE, sender=ID_RIGHT_TREE, node_list=nodes_batch_2)
 
         # The end result should be that nothing has changed
         self.do_and_verify(drop_both_sides, count_expected_cmds=12, wait_for_left=False, wait_for_right=True,
@@ -519,7 +519,7 @@ class OpGDriveTest(OpTestBase):
 
         def delete():
             logger.info('Submitting delete signal for "Modern" dir')
-            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_RIGHT_TREE, node_list=nodes)
+            dispatcher.send(signal=DELETE_SUBTREE, sender=ID_RIGHT_TREE, node_list=nodes)
 
         final_tree_right = [
             DNode('Art', (147975 + 275771 + 8098 + 247023 + 36344), [
@@ -550,9 +550,9 @@ class OpGDriveTest(OpTestBase):
 
         def delete():
             logger.info('Submitting delete signal 1: RM "Modern"')
-            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_RIGHT_TREE, node_list=nodes_1)
+            dispatcher.send(signal=DELETE_SUBTREE, sender=ID_RIGHT_TREE, node_list=nodes_1)
             logger.info('Submitting delete signal 2: RM "Art"')
-            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_RIGHT_TREE, node_list=nodes_2)
+            dispatcher.send(signal=DELETE_SUBTREE, sender=ID_RIGHT_TREE, node_list=nodes_2)
 
         self.do_and_verify(delete, count_expected_cmds=12, wait_for_left=False, wait_for_right=True,
                            expected_left=INITIAL_LOCAL_TREE_LEFT, expected_right=INITIAL_GDRIVE_TREE_RIGHT)
@@ -573,9 +573,9 @@ class OpGDriveTest(OpTestBase):
 
         def delete():
             logger.info('Submitting delete signal 1: RM "Art"')
-            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_RIGHT_TREE, node_list=nodes_batch_1)
+            dispatcher.send(signal=DELETE_SUBTREE, sender=ID_RIGHT_TREE, node_list=nodes_batch_1)
             logger.info('Submitting delete signal 1: RM "Modern"')
-            dispatcher.send(signal=DELETE_SUBTREE, sender=actions.ID_RIGHT_TREE, node_list=nodes_batch_2)
+            dispatcher.send(signal=DELETE_SUBTREE, sender=ID_RIGHT_TREE, node_list=nodes_batch_2)
 
         self.do_and_verify(delete, count_expected_cmds=12, wait_for_left=False, wait_for_right=True,
                            expected_left=INITIAL_LOCAL_TREE_LEFT, expected_right=INITIAL_GDRIVE_TREE_RIGHT)

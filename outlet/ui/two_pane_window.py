@@ -5,7 +5,7 @@ import gi
 from pydispatch import dispatcher
 from pydispatch.dispatcher import Any
 
-import ui.actions as actions
+from ui.signal import ID_LEFT_TREE, ID_MERGE_TREE, ID_RIGHT_TREE, Signal
 from constants import APP_NAME, H_PAD, IconId, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
 from global_actions import GlobalActions
@@ -73,12 +73,12 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
                            'tree_status': Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)}
 
         # Diff Tree Left:
-        tree = self.app.backend.create_display_tree_from_config(tree_id=actions.ID_LEFT_TREE, is_startup=True)
+        tree = self.app.backend.create_display_tree_from_config(tree_id=ID_LEFT_TREE, is_startup=True)
         self.tree_con_left = tree_factory.build_editor_tree(parent_win=self, tree=tree)
         diff_tree_panes.pack1(self.tree_con_left.content_box, resize=True, shrink=False)
 
         # Diff Tree Right:
-        tree = self.app.backend.create_display_tree_from_config(tree_id=actions.ID_RIGHT_TREE, is_startup=True)
+        tree = self.app.backend.create_display_tree_from_config(tree_id=ID_RIGHT_TREE, is_startup=True)
         self.tree_con_right = tree_factory.build_editor_tree(parent_win=self, tree=tree)
         diff_tree_panes.pack2(self.tree_con_right.content_box, resize=True, shrink=False)
 
@@ -113,8 +113,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.bottom_panel.pack_start(filler, expand=True, fill=False, padding=H_PAD)
 
         # Progress bar: just disable for now - deal with this later
-        # listen_for = [actions.ID_LEFT_TREE, actions.ID_RIGHT_TREE,
-        #               self.win_id, actions.ID_GLOBAL_CACHE, actions.ID_COMMAND_EXECUTOR]
+        # listen_for = [ID_LEFT_TREE, ID_RIGHT_TREE,
+        #               self.win_id, ID_GLOBAL_CACHE, ID_COMMAND_EXECUTOR]
         # Remember to hold a reference to this, for signals!
         # self.proress_bar_component = ProgressBar(self.config, listen_for)
         # self.bottom_panel.pack_start(self.proress_bar_component.progressbar, True, False, 0)
@@ -124,15 +124,15 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self._set_default_button_bar()
 
         # Subscribe to signals:
-        dispatcher.connect(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
-        dispatcher.connect(signal=actions.DIFF_TREES_DONE, receiver=self._after_diff_completed)
-        dispatcher.connect(signal=actions.DIFF_TREES_FAILED, receiver=self._after_diff_failed)
+        dispatcher.connect(signal=Signal.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
+        dispatcher.connect(signal=Signal.DIFF_TREES_DONE, receiver=self._after_diff_completed)
+        dispatcher.connect(signal=Signal.DIFF_TREES_FAILED, receiver=self._after_diff_failed)
 
         # Need to add an extra listener to each tree, to reload when the other one's root changes
         # if displaying the results of a diff
-        dispatcher.connect(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
-        dispatcher.connect(signal=actions.EXIT_DIFF_MODE, receiver=self._on_merge_complete, sender=Any)
-        dispatcher.connect(signal=actions.OP_EXECUTION_PLAY_STATE_CHANGED, receiver=self._update_play_pause_btn)
+        dispatcher.connect(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
+        dispatcher.connect(signal=Signal.EXIT_DIFF_MODE, receiver=self._on_merge_complete, sender=Any)
+        dispatcher.connect(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, receiver=self._update_play_pause_btn)
 
         # Connect "resize" event. Lots of excess logic to determine approximately when the
         # window *stops* being resized, so we can persist the value semi-efficiently
@@ -177,7 +177,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def _set_default_button_bar(self):
         def on_diff_btn_clicked(widget):
-            logger.debug(f'Diff btn clicked! Sending signal: "{actions.START_DIFF_TREES}"')
+            logger.debug(f'Diff btn clicked! Sending signal: "{Signal.START_DIFF_TREES}"')
             # Disable button bar immediately:
             GlobalActions.disable_ui(sender=self.win_id)
             self.app.backend.start_diff_trees(tree_id_left=self.tree_con_left.tree_id, tree_id_right=self.tree_con_right.tree_id)
@@ -186,7 +186,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
         def on_goog_btn_clicked(widget):
             logger.debug('DownloadGDrive btn clicked!')
-            dispatcher.send(signal=actions.DOWNLOAD_ALL_GDRIVE_META, sender=self.win_id)
+            dispatcher.send(signal=Signal.DOWNLOAD_ALL_GDRIVE_META, sender=self.win_id)
         gdrive_btn = Gtk.Button(label="Download Google Drive Meta")
         gdrive_btn.connect("clicked", on_goog_btn_clicked)
 
@@ -197,11 +197,11 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def _on_play_pause_btn_clicked(self, widget):
         if self._is_playing:
-            logger.debug(f'Play/Pause btn clicked! Sending signal "{actions.PAUSE_OP_EXECUTION}"')
-            dispatcher.send(signal=actions.PAUSE_OP_EXECUTION, sender=self.win_id)
+            logger.debug(f'Play/Pause btn clicked! Sending signal "{Signal.PAUSE_OP_EXECUTION}"')
+            dispatcher.send(signal=Signal.PAUSE_OP_EXECUTION, sender=self.win_id)
         else:
-            logger.debug(f'Play/Pause btn clicked! Sending signal "{actions.RESUME_OP_EXECUTION}"')
-            dispatcher.send(signal=actions.RESUME_OP_EXECUTION, sender=self.win_id)
+            logger.debug(f'Play/Pause btn clicked! Sending signal "{Signal.RESUME_OP_EXECUTION}"')
+            dispatcher.send(signal=Signal.RESUME_OP_EXECUTION, sender=self.win_id)
 
     def _on_size_allocated(self, widget, alloc):
         # logger.debug('EVENT: GTK "size-allocate" fired')
@@ -315,28 +315,28 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.toolbar.show_all()
 
     def _on_display_tree_changed(self, sender, tree: DisplayTree):
-        logger.debug(f'Received signal: "{actions.DISPLAY_TREE_CHANGED}"')
+        logger.debug(f'Received signal: "{Signal.DISPLAY_TREE_CHANGED}"')
 
-        if sender == actions.ID_RIGHT_TREE and self.tree_con_left.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
+        if sender == ID_RIGHT_TREE and self.tree_con_left.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             # If displaying a diff and right root changed, reload left display
             # (note: right will update its own display)
-            logger.debug(f'Detected that {actions.ID_RIGHT_TREE} changed root. Reloading {actions.ID_LEFT_TREE}')
+            logger.debug(f'Detected that {ID_RIGHT_TREE} changed root. Reloading {ID_LEFT_TREE}')
             _reload_tree(self.tree_con_left)
 
-        elif sender == actions.ID_LEFT_TREE and self.tree_con_right.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
+        elif sender == ID_LEFT_TREE and self.tree_con_right.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             # Mirror of above:
-            logger.debug(f'Detected that {actions.ID_LEFT_TREE} changed root. Reloading {actions.ID_RIGHT_TREE}')
+            logger.debug(f'Detected that {ID_LEFT_TREE} changed root. Reloading {ID_RIGHT_TREE}')
             _reload_tree(self.tree_con_right)
 
         GLib.idle_add(self._set_default_button_bar)
 
     def _after_diff_failed(self, sender):
-        logger.debug(f'Received signal: "{actions.DIFF_TREES_FAILED}"')
+        logger.debug(f'Received signal: "{Signal.DIFF_TREES_FAILED}"')
         GLib.idle_add(self._set_default_button_bar)
         GlobalActions.enable_ui(sender=self.win_id)
 
     def _after_diff_completed(self, sender):
-        logger.debug(f'Received signal: "{actions.DIFF_TREES_DONE}"')
+        logger.debug(f'Received signal: "{Signal.DIFF_TREES_DONE}"')
 
         def change_button_bar():
             # Replace diff btn with merge buttons
@@ -344,7 +344,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             merge_btn.connect("clicked", self.on_merge_preview_btn_clicked)
 
             def on_cancel_diff_btn_clicked(widget):
-                dispatcher.send(signal=actions.EXIT_DIFF_MODE, sender=actions.ID_MERGE_TREE)
+                dispatcher.send(signal=Signal.EXIT_DIFF_MODE, sender=ID_MERGE_TREE)
 
             cancel_diff_btn = Gtk.Button(label="Cancel Diff")
             cancel_diff_btn.connect("clicked", on_cancel_diff_btn_clicked)
@@ -355,7 +355,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         GLib.idle_add(change_button_bar)
 
     def _on_error_occurred(self, msg: str, secondary_msg: str = None):
-        logger.debug(f'Received signal: "{actions.ERROR_OCCURRED}"')
+        logger.debug(f'Received signal: "{Signal.ERROR_OCCURRED}"')
         self.show_error_ui(msg, secondary_msg)
 
     def _on_merge_complete(self):

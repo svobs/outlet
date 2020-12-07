@@ -13,7 +13,7 @@ from model.node.local_disk_node import LocalNode
 from model.node.node import Node, SPIDNodePair
 from model.user_op import UserOp, UserOpType
 from store.gdrive.client import GDriveClient
-from ui import actions
+from ui.signal import Signal
 from util import file_util
 from util.has_lifecycle import HasLifecycle
 
@@ -43,16 +43,16 @@ class TreeActions(HasLifecycle):
     def start(self):
         logger.debug(f'[{self.con.tree_id}] TreeActions start')
         HasLifecycle.start(self)
-        self.connect_dispatch_listener(signal=actions.CALL_EXIFTOOL, sender=self.con.tree_id, receiver=self._call_exiftool)
-        self.connect_dispatch_listener(signal=actions.CALL_EXIFTOOL_LIST, sender=self.con.tree_id, receiver=self._call_exiftool_list)
-        self.connect_dispatch_listener(signal=actions.SHOW_IN_NAUTILUS, sender=self.con.tree_id, receiver=self._show_in_nautilus)
-        self.connect_dispatch_listener(signal=actions.CALL_XDG_OPEN, sender=self.con.tree_id, receiver=self._call_xdg_open)
-        self.connect_dispatch_listener(signal=actions.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, receiver=self._download_file_from_gdrive)
-        self.connect_dispatch_listener(signal=actions.DELETE_SINGLE_FILE, sender=self.con.tree_id, receiver=self._delete_single_file)
-        self.connect_dispatch_listener(signal=actions.DELETE_SUBTREE, sender=self.con.tree_id, receiver=self._delete_subtree)
-        self.connect_dispatch_listener(signal=actions.SET_ROWS_CHECKED, sender=self.con.tree_id, receiver=self._check_rows)
-        self.connect_dispatch_listener(signal=actions.SET_ROWS_UNCHECKED, sender=self.con.tree_id, receiver=self._uncheck_rows)
-        self.connect_dispatch_listener(signal=actions.DIFF_ONE_SIDE_RESULT, receiver=self._receive_diff_result)
+        self.connect_dispatch_listener(signal=Signal.CALL_EXIFTOOL, sender=self.con.tree_id, receiver=self._call_exiftool)
+        self.connect_dispatch_listener(signal=Signal.CALL_EXIFTOOL_LIST, sender=self.con.tree_id, receiver=self._call_exiftool_list)
+        self.connect_dispatch_listener(signal=Signal.SHOW_IN_NAUTILUS, sender=self.con.tree_id, receiver=self._show_in_nautilus)
+        self.connect_dispatch_listener(signal=Signal.CALL_XDG_OPEN, sender=self.con.tree_id, receiver=self._call_xdg_open)
+        self.connect_dispatch_listener(signal=Signal.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, receiver=self._download_file_from_gdrive)
+        self.connect_dispatch_listener(signal=Signal.DELETE_SINGLE_FILE, sender=self.con.tree_id, receiver=self._delete_single_file)
+        self.connect_dispatch_listener(signal=Signal.DELETE_SUBTREE, sender=self.con.tree_id, receiver=self._delete_subtree)
+        self.connect_dispatch_listener(signal=Signal.SET_ROWS_CHECKED, sender=self.con.tree_id, receiver=self._check_rows)
+        self.connect_dispatch_listener(signal=Signal.SET_ROWS_UNCHECKED, sender=self.con.tree_id, receiver=self._uncheck_rows)
+        self.connect_dispatch_listener(signal=Signal.DIFF_ONE_SIDE_RESULT, receiver=self._receive_diff_result)
 
     # ACTIONS begin
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -63,7 +63,7 @@ class TreeActions(HasLifecycle):
             for item in node_list:
                 self._call_exiftool(sender, item.get_single_path())
 
-        dispatcher.send(signal=actions.ENQUEUE_UI_TASK, sender=sender, task_func=call_exiftool)
+        dispatcher.send(signal=Signal.ENQUEUE_UI_TASK, sender=sender, task_func=call_exiftool)
 
     def _call_exiftool(self, sender, full_path):
         """See "Misc EXIF Tool Notes" in README.md

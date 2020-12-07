@@ -9,8 +9,8 @@ from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 from constants import GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from model.node_identifier import SinglePathNodeIdentifier
 from ui.dialog.base_dialog import BaseDialog
-import ui.actions as actions
 from util.has_lifecycle import HasLifecycle
+from ui.signal import Signal
 
 import gi
 
@@ -35,7 +35,7 @@ class RootDirPanel(HasLifecycle):
 
         self.can_change_root = can_change_root
         self._ui_enabled = can_change_root
-        """If editable, toggled via actions.TOGGLE_UI_ENABLEMENT. If not, always false"""
+        """If editable, toggled via Signal.TOGGLE_UI_ENABLEMENT. If not, always false"""
 
         self.path_icon = Gtk.Image()
         self.refresh_icon = Gtk.Image()
@@ -90,9 +90,9 @@ class RootDirPanel(HasLifecycle):
 
     def start(self):
         HasLifecycle.start(self)
-        self.connect_dispatch_listener(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
-        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_STARTED, receiver=self._on_load_started)
-        self.connect_dispatch_listener(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
+        self.connect_dispatch_listener(signal=Signal.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
+        self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_STARTED, receiver=self._on_load_started)
+        self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
         logger.debug(f'[{self.tree_id}] RootDirPanel listeners connected')
 
     def __del__(self):
@@ -113,10 +113,10 @@ class RootDirPanel(HasLifecycle):
         self.con = None
 
     def _on_display_tree_changed(self, sender, tree: DisplayTree):
-        """Callback for actions.DISPLAY_TREE_CHANGED"""
+        """Callback for Signal.DISPLAY_TREE_CHANGED"""
         if sender != self.tree_id:
             return
-        logger.debug(f'[{sender}] Received signal "{actions.DISPLAY_TREE_CHANGED}" with new root: {tree.get_root_identifier()}')
+        logger.debug(f'[{sender}] Received signal "{Signal.DISPLAY_TREE_CHANGED}" with new root: {tree.get_root_identifier()}')
 
         # Send the new tree directly to _redraw_root_display(). Do not allow it to fall back to querying the controller for the tree,
         # because that would be a race condition:
@@ -260,7 +260,7 @@ class RootDirPanel(HasLifecycle):
         return False
 
     def _on_enable_ui_toggled(self, sender, enable):
-        # Callback for actions.TOGGLE_UI_ENABLEMENT
+        # Callback for Signal.TOGGLE_UI_ENABLEMENT
         if not self.can_change_root:
             self._ui_enabled = False
             return
@@ -334,7 +334,7 @@ class RootDirPanel(HasLifecycle):
         if sender != self.tree_id:
             return
 
-        logger.debug(f'[{self.tree_id}] Got signal "{actions.LOAD_SUBTREE_STARTED}"')
+        logger.debug(f'[{self.tree_id}] Got signal "{Signal.LOAD_SUBTREE_STARTED}"')
         if self.con.get_tree().is_needs_manual_load():
             self.con.get_tree().set_needs_manual_load(False)
             # Hide Refresh button

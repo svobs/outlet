@@ -6,8 +6,8 @@ from pydispatch import dispatcher
 
 from app.backend import OutletBackend
 from store.uid.uid_generator import SimpleUidGenerator
-from ui import actions
-from ui.actions import ID_DIFF_WINDOW
+from ui.signal import Signal
+from ui.signal import ID_DIFF_WINDOW
 from ui.tree.controller import TreePanelController
 from ui.two_pane_window import TwoPanelWindow
 
@@ -43,8 +43,8 @@ class OutletApplication(Gtk.Application):
         logger.debug('Starting up app...')
         self.backend.start()
 
-        dispatcher.connect(signal=actions.DEREGISTER_DISPLAY_TREE, receiver=self._deregister_tree_controller)
-        dispatcher.connect(signal=actions.SHUTDOWN_APP, receiver=self.shutdown)
+        dispatcher.connect(signal=Signal.DEREGISTER_DISPLAY_TREE, receiver=self._deregister_tree_controller)
+        dispatcher.connect(signal=Signal.SHUTDOWN_APP, receiver=self.shutdown)
 
     def shutdown(self):
         logger.debug('Shutting down app...')

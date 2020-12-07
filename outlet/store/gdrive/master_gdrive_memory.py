@@ -9,8 +9,8 @@ from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveNode
 from model.uid import UID
 from store.uid.uid_mapper import UidGoogIdMapper
-from ui import actions
-from ui.actions import ID_GLOBAL_CACHE
+from ui.signal import Signal
+from ui.signal import ID_GLOBAL_CACHE
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class GDriveMemoryStore:
 
             if existing_node == node:
                 logger.info(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
-                dispatcher.send(signal=actions.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
+                dispatcher.send(signal=Signal.NODE_UPSERTED, sender=ID_GLOBAL_CACHE, node=node)
                 node = existing_node
                 return node, False
             logger.debug(f'Found existing node in cache with UID={existing_node.uid}: doing an update')

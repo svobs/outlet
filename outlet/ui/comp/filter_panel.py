@@ -5,7 +5,7 @@ from pydispatch import dispatcher
 
 from constants import FILTER_APPLY_DELAY_MS, IconId
 from model.display_tree.display_tree import DisplayTree
-from ui import actions
+from ui.signal import Signal
 from ui.dialog.base_dialog import BaseDialog
 from ui.tree.filter_criteria import BoolOption, FilterCriteria
 from util.has_lifecycle import HasLifecycle
@@ -101,15 +101,15 @@ class TreeFilterPanel(HasLifecycle):
 
     def start(self):
         HasLifecycle.start(self)
-        self.connect_dispatch_listener(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
+        self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
         logger.debug(f'[{self.tree_id}] Filter panel started')
 
     def _on_display_tree_changed(self, sender, tree: DisplayTree):
-        """Callback for actions.DISPLAY_TREE_CHANGED"""
+        """Callback for Signal.DISPLAY_TREE_CHANGED"""
         if sender != self.tree_id:
             return
 
-        logger.debug(f'[{sender}] Received signal "{actions.DISPLAY_TREE_CHANGED}" with new root: {tree.get_root_identifier()}')
+        logger.debug(f'[{sender}] Received signal "{Signal.DISPLAY_TREE_CHANGED}" with new root: {tree.get_root_identifier()}')
 
         # Send the new tree directly to _redraw_panel(). Do not allow it to fall back to querying the controller for the tree,
         # because that would be a race condition:
@@ -168,7 +168,7 @@ class TreeFilterPanel(HasLifecycle):
     def _apply_filter_criteria(self):
         filter_criteria = self._latest_filter_criteria
         if filter_criteria:
-            dispatcher.send(signal=actions.FILTER_UI_TREE, sender=self.tree_id, filter_criteria=filter_criteria)
+            dispatcher.send(signal=Signal.FILTER_UI_TREE, sender=self.tree_id, filter_criteria=filter_criteria)
             filter_criteria.write_filter_criteria_to_config(self.con.config, self.tree_id)
 
     def update_filter_criteria(self, widget=None):
