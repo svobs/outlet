@@ -9,11 +9,11 @@ from typing import Deque, Dict, Iterable, Optional
 
 from constants import SUPER_DEBUG
 from daemon.grpc.conversion import Converter
-from daemon.grpc.Outlet_pb2 import DragDrop_Request, DragDrop_Response, GetAncestorList_Response, GetChildList_Response, GetNextUid_Response, \
+from daemon.grpc.Outlet_pb2 import DragDrop_Request, DragDrop_Response, Empty, GetAncestorList_Response, GetChildList_Response, GetNextUid_Response, \
     GetNodeForLocalPath_Request, GetNodeForUid_Request, \
     GetUidForLocalPath_Request, \
     GetUidForLocalPath_Response, PlayState, RequestDisplayTree_Response, SendSignalResponse, Signal, SingleNode_Response, \
-    StartSubtreeLoad_Request, \
+    StartDiffTrees_Request, StartSubtreeLoad_Request, \
     StartSubtreeLoad_Response, Subscribe_Request
 from daemon.grpc.Outlet_pb2_grpc import OutletServicer
 from executor.central import CentralExecutor
@@ -37,6 +37,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     """
     def __init__(self, backend):
         HasLifecycle.__init__(self)
+        self.backend = backend
         self.uid_generator: UidGenerator = backend.uid_generator
         self.cacheman: CacheManager = backend.cacheman
         self.executor: CentralExecutor = backend.executor
@@ -49,10 +50,17 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     def start(self):
         HasLifecycle.start(self)
 
-        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_STARTED, receiver=self._on_subtree_load_started)
-        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_DONE, receiver=self._on_subtree_load_done)
+        # PyDispatcher signals to be sent across gRPC:
+        # complex:
         self.connect_dispatch_listener(signal=actions.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
         self.connect_dispatch_listener(signal=actions.OP_EXECUTION_PLAY_STATE_CHANGED, receiver=self._on_op_exec_play_state_changed)
+        self.connect_dispatch_listener(signal=actions.TOGGLE_UI_ENABLEMENT, receiver=self._on_ui_enablement_toggled)
+        self.connect_dispatch_listener(signal=actions.ERROR_OCCURRED, receiver=self._on_error_occurred)
+        # simple:
+        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_STARTED, receiver=self._on_subtree_load_started)
+        self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_DONE, receiver=self._on_subtree_load_done)
+        self.connect_dispatch_listener(signal=actions.DIFF_TREES_FAILED, receiver=self._on_diff_failed)
+        self.connect_dispatch_listener(signal=actions.DIFF_TREES_DONE, receiver=self._on_diff_done)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
@@ -113,16 +121,19 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
                 self._thread_signal_queues[thread_id] = deque()
 
             while not self._shutdown:
-                signal: Optional[Signal] = None
-                with self._queue_lock:
-                    logger.debug(f'Checking signal queue for ThreadID {thread_id}')
-                    signal_queue: Deque = self._thread_signal_queues.get(thread_id, None)
-                    if len(signal_queue) > 0:
-                        signal = signal_queue.popleft()
 
-                if signal:
-                    logger.info(f'[ThreadID:{thread_id}] Sending gRPC signal="{signal.signal_name}" with sender="{signal.sender_name}"')
-                    yield signal
+                while True:  # empty the queue
+                    with self._queue_lock:
+                        logger.debug(f'Checking signal queue for ThreadID {thread_id}')
+                        signal_queue: Deque = self._thread_signal_queues.get(thread_id, None)
+                        if len(signal_queue) > 0:
+                            signal: Optional[Signal] = signal_queue.popleft()
+                        else:
+                            break
+
+                    if signal:
+                        logger.info(f'[ThreadID:{thread_id}] Sending gRPC signal="{signal.signal_name}" with sender="{signal.sender_name}"')
+                        yield signal
 
                 with self._cv_has_signal:
                     self._cv_has_signal.wait()
@@ -159,6 +170,28 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
     def _on_subtree_load_done(self, sender: str):
         self.send_signal_via_grpc(actions.LOAD_SUBTREE_DONE, sender)
+
+    def _on_diff_failed(self, sender: str):
+        self.send_signal_via_grpc(actions.DIFF_TREES_FAILED, sender)
+
+    def _on_diff_done(self, sender: str):
+        self.send_signal_via_grpc(actions.DIFF_TREES_DONE, sender)
+
+    def _on_error_occurred(self, sender: str, msg: str, secondary_msg: Optional[str]):
+        signal = Signal()
+        signal.signal_name = actions.ERROR_OCCURRED
+        signal.sender_name = sender
+        signal.error_occurred.msg = msg
+        if secondary_msg:
+            signal.error_occurred.secondary_msg = secondary_msg
+        self.send_signal_to_all(signal)
+
+    def _on_ui_enablement_toggled(self, sender: str, enable: bool):
+        signal = Signal()
+        signal.signal_name = actions.TOGGLE_UI_ENABLEMENT
+        signal.sender_name = sender
+        signal.ui_enablement.enable = enable
+        self.send_signal_to_all(signal)
 
     def _on_display_tree_changed(self, sender: str, tree: DisplayTree):
         signal = Signal()
@@ -214,3 +247,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.cacheman.drop_dragged_nodes(request.src_tree_id, src_sn_list, request.is_into, request.dst_tree_id, dst_sn)
 
         return DragDrop_Response()
+
+    def start_diff_trees(self, request: StartDiffTrees_Request, context):
+        self.backend.start_diff_trees(request.tree_id_left, request.tree_id_right)
+        return Empty()

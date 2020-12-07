@@ -95,3 +95,7 @@ class OutletBackend(HasLifecycle, ABC):
     @abstractmethod
     def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
         pass
+
+    @abstractmethod
+    def start_diff_trees(self, tree_id_left: str, tree_id_right: str):
+        pass

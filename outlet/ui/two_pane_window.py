@@ -180,8 +180,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             logger.debug(f'Diff btn clicked! Sending signal: "{actions.START_DIFF_TREES}"')
             # Disable button bar immediately:
             GlobalActions.disable_ui(sender=self.win_id)
-            dispatcher.send(signal=actions.START_DIFF_TREES, sender=self.win_id, tree_id_left=self.tree_con_left.tree_id,
-                            tree_id_right=self.tree_con_right.tree_id)
+            self.app.backend.start_diff_trees(tree_id_left=self.tree_con_left.tree_id, tree_id_right=self.tree_con_right.tree_id)
         diff_action_btn = Gtk.Button(label="Diff (content-first)")
         diff_action_btn.connect("clicked", on_diff_btn_clicked)
 
@@ -336,7 +335,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         GLib.idle_add(self._set_default_button_bar)
         GlobalActions.enable_ui(sender=self.win_id)
 
-    def _after_diff_completed(self, sender, stopwatch):
+    def _after_diff_completed(self, sender):
         logger.debug(f'Received signal: "{actions.DIFF_TREES_DONE}"')
 
         def change_button_bar():
@@ -353,7 +352,6 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             self.replace_bottom_button_panel(merge_btn, cancel_diff_btn)
 
             GlobalActions.enable_ui(sender=self.win_id)
-            logger.debug(f'Diff time + redraw: {stopwatch}')
         GLib.idle_add(change_button_bar)
 
     def _on_error_occurred(self, msg: str, secondary_msg: str = None):

@@ -7,7 +7,7 @@ import ui.actions as actions
 from constants import TREE_TYPE_LOCAL_DISK
 from diff.diff_content_first import ContentFirstDiffer
 from model.node.node import SPIDNodePair
-from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 
@@ -45,21 +45,21 @@ class GlobalActions(HasLifecycle):
                 return True
         return False
 
-    def do_tree_diff(self, sender, tree_id_left, tree_id_right):
+    def do_tree_diff(self, sender, tree_id_left: str, tree_id_right: str):
         stopwatch_diff_total = Stopwatch()
         try:
             meta_left = self.backend.cacheman.get_active_display_tree_meta(tree_id_left)
             meta_right = self.backend.cacheman.get_active_display_tree_meta(tree_id_right)
             assert meta_left and meta_right, f'Missing tree meta! Left={meta_left}, Right={meta_right}'
-            left_root_sn: SPIDNodePair = meta_left.get_root_sn()
-            right_root_sn: SPIDNodePair = meta_right.get_root_sn()
+            left_root_sn: SPIDNodePair = meta_left.root_sn
+            right_root_sn: SPIDNodePair = meta_right.root_sn
             if left_root_sn.spid.tree_type == TREE_TYPE_LOCAL_DISK and not self._tree_exists(left_root_sn.spid):
                 logger.info(f'Skipping diff because the left path does not exist: "{left_root_sn.spid.get_path_list()}"')
-                GlobalActions.enable_ui(sender=actions.ID_CENTRAL_EXEC)
+                dispatcher.send(signal=actions.DIFF_TREES_FAILED, sender=sender)
                 return
             elif right_root_sn.spid.tree_type == TREE_TYPE_LOCAL_DISK and not self._tree_exists(right_root_sn.spid):
                 logger.info(f'Skipping diff because the right path does not exist: "{right_root_sn.spid.get_path_list()}"')
-                GlobalActions.enable_ui(sender=actions.ID_CENTRAL_EXEC)
+                dispatcher.send(signal=actions.DIFF_TREES_FAILED, sender=sender)
                 return
 
             logger.debug(f'Sending START_PROGRESS_INDETERMINATE for ID: {sender}')
@@ -79,13 +79,14 @@ class GlobalActions(HasLifecycle):
             dispatcher.send(actions.DIFF_ONE_SIDE_RESULT, sender=tree_id_right, new_tree=op_tree_right)
             # Send general notification that we are done:
             dispatcher.send(actions.STOP_PROGRESS, sender=sender)
-            dispatcher.send(signal=actions.DIFF_TREES_DONE, sender=sender, stopwatch=stopwatch_diff_total)
+            dispatcher.send(signal=actions.DIFF_TREES_DONE, sender=sender)
+            logger.debug(f'Diff time: {stopwatch_diff_total}')
         except Exception as err:
             # Clean up progress bar:
             dispatcher.send(actions.STOP_PROGRESS, sender=sender)
             dispatcher.send(signal=actions.DIFF_TREES_FAILED, sender=sender)
             logger.exception(err)
-            GlobalActions.display_error_in_ui('Diff task failed due to unexpected error', repr(err))
+            GlobalActions.display_error_in_ui(actions.ID_CENTRAL_EXEC, 'Diff task failed due to unexpected error', repr(err))
 
     @staticmethod
     def display_error_in_ui(sender: str, msg: str, secondary_msg: str = None):

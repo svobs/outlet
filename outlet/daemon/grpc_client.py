@@ -15,7 +15,7 @@ from daemon.grpc.Outlet_pb2 import DragDrop_Request, GetAncestorList_Request, Ge
     GetOpExecPlayState_Request, \
     GetUidForLocalPath_Request, \
     RequestDisplayTree_Request, Signal, \
-    SPIDNodePair, StartSubtreeLoad_Request, Subscribe_Request
+    SPIDNodePair, StartDiffTrees_Request, StartSubtreeLoad_Request, Subscribe_Request
 from executor.task_runner import TaskRunner
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
@@ -119,22 +119,18 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             display_tree_ui_state = Converter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
             tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
             kwargs['tree'] = tree
-            sender = str(signal.sender_name)
-            # dispatcher.send(signal=actions.DISPLAY_TREE_CHANGED, sender=sender, tree=tree)
-            # dispatcher.send(signal=actions.DISPLAY_TREE_CHANGED, sender=actions.ID_RIGHT_TREE, tree=tree)
         elif signal.signal_name == actions.OP_EXECUTION_PLAY_STATE_CHANGED:
-            is_enabled: bool = signal.play_state.is_enabled
-            kwargs['is_enabled'] = is_enabled
-        # elif signal.signal_name == actions.LOAD_SUBTREE_DONE:
-        #     dispatcher.send(signal=actions.LOAD_SUBTREE_DONE, sender=actions.ID_RIGHT_TREE)
-        #
-        # logger.debug(f'Relaying signal locally "{signal.signal_name}" with sender="{signal.sender_name}" kwargs={kwargs}')
+            kwargs['is_enabled'] = signal.play_state.is_enabled
+        elif signal.signal_name == actions.TOGGLE_UI_ENABLEMENT:
+            kwargs['enable'] = signal.ui_enablement.enable
+        elif signal.signal_name == actions.ERROR_OCCURRED:
+            kwargs['msg'] = signal.error_occurred.msg
+            if signal.ui_enablement.HasField('secondary_msg'):
+                kwargs['secondary_msg'] = signal.error_occurred.secondary_msg
         kwargs['signal'] = signal.signal_name
         kwargs['sender'] = signal.sender_name
         logger.info(f'Relaying signal locally: {kwargs}')
-        # dispatcher.send(signal=actions.LOAD_SUBTREE_DONE, sender=actions.ID_RIGHT_TREE)
         dispatcher.send(**kwargs)
-        # self.dispatcher_thread.enqueue(kwargs)
 
 
 class BackendGRPCClient(OutletBackend):
@@ -282,3 +278,9 @@ class BackendGRPCClient(OutletBackend):
         Converter.sn_to_grpc(dst_sn, request.dst_sn)
 
         self.grpc_stub.drop_dragged_nodes(request)
+
+    def start_diff_trees(self, tree_id_left: str, tree_id_right: str):
+        request = StartDiffTrees_Request()
+        request.tree_id_left = tree_id_left
+        request.tree_id_right = tree_id_right
+        self.grpc_stub.start_diff_trees(request)

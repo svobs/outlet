@@ -6,13 +6,11 @@ from collections import deque
 from typing import Deque, List, Optional, Tuple
 
 from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG
-from error import GDriveItemNotFoundError
 from global_actions import GlobalActions
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.node import Node
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier, SinglePathNodeIdentifier
-from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from store.gdrive.change_observer import GDriveChange, PagePersistingChangeObserver
 from store.gdrive.client import GDriveClient

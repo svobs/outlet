@@ -24,6 +24,7 @@ class BackendIntegrated(OutletBackend):
     CLASS BackendIntegrated
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, config):
         OutletBackend.__init__(self)
         self.config = config
@@ -89,3 +90,6 @@ class BackendIntegrated(OutletBackend):
 
     def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
         self.cacheman.drop_dragged_nodes(src_tree_id, src_sn_list, is_into, dst_tree_id, dst_sn)
+
+    def start_diff_trees(self, tree_id_left: str, tree_id_right: str):
+        dispatcher.send(signal=actions.START_DIFF_TREES, sender=actions.ID_CENTRAL_EXEC, tree_id_left=tree_id_left, tree_id_right=tree_id_right)

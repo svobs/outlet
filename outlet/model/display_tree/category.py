@@ -267,7 +267,7 @@ class CategoryDisplayTree(DisplayTree):
             summary = cat_map.get(op_type, None)
             if summary:
                 cat_summaries.append(summary)
-        return ','.join(cat_summaries)
+        return ', '.join(cat_summaries)
 
     def _build_cat_map(self, identifier):
         include_empty_op_types = False

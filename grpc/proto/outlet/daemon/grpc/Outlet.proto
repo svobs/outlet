@@ -11,6 +11,7 @@ package outlet.daemon.grpc;
 message Empty {
 	// nothing
 }
+
 message Subscribe_Request {
 	// nothing
 }
@@ -19,12 +20,26 @@ message GetOpExecPlayState_Request {
 	// nothing
 }
 
+message ToggleUiEnablement {
+	bool enable = 1;
+}
+
 message DragDrop_Request {
 	string src_tree_id = 1;
 	string dst_tree_id = 2;
 	repeated SPIDNodePair src_sn_list = 3;
 	SPIDNodePair dst_sn = 4;
 	bool is_into = 5;
+}
+
+message ErrorOccurred {
+	string msg = 1;
+	string secondary_msg = 2;
+}
+
+message StartDiffTrees_Request {
+	string tree_id_left = 1;
+	string tree_id_right = 2;
 }
 
 message DragDrop_Response {
@@ -37,8 +52,10 @@ message Signal {
 
 	oneof signal_data {
 		Empty empty = 10;
-		DisplayTreeUiState display_tree_ui_state = 11;
-		PlayState play_state = 12;
+		ErrorOccurred error_occurred = 11;
+		DisplayTreeUiState display_tree_ui_state = 12;
+		PlayState play_state = 13;
+		ToggleUiEnablement ui_enablement = 14;
 	}
 }
 
@@ -138,6 +155,7 @@ service Outlet {
 	rpc request_display_tree_ui_state(RequestDisplayTree_Request) returns (RequestDisplayTree_Response);
 	rpc start_subtree_load(StartSubtreeLoad_Request) returns (StartSubtreeLoad_Response);
 	rpc get_op_exec_play_state(GetOpExecPlayState_Request) returns (PlayState);
+	rpc start_diff_trees(StartDiffTrees_Request) returns (Empty);
 
 	rpc get_next_uid(GetNextUid_Request) returns (GetNextUid_Response);
 	rpc get_uid_for_local_path(GetUidForLocalPath_Request) returns (GetUidForLocalPath_Response);
