@@ -136,7 +136,7 @@ class TreeViewMeta(HasLifecycle):
         HasLifecycle.start(self)
         # Hook up persistence of expanded state (if configured):
         if self.is_display_persisted:
-            self.connect_dispatch_listener(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=self.tree_id)
+            self.connect_dispatch_listener(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
@@ -159,6 +159,9 @@ class TreeViewMeta(HasLifecycle):
             logger.debug(f'[{self.tree_id}] No FilterCriteria to write')
 
     def _on_node_expansion_toggled(self, sender: str, parent_iter, parent_path, node: Node, is_expanded: bool):
+        if sender != self.tree_id:
+            return
+
         if type(node) == CategoryNode:
             assert isinstance(node, CategoryNode)
             logger.debug(f'[{self.tree_id}] Detected node expansion toggle: {node.op_type} = {is_expanded}')

@@ -52,7 +52,7 @@ class TreeActions(HasLifecycle):
         self.connect_dispatch_listener(signal=actions.DELETE_SUBTREE, sender=self.con.tree_id, receiver=self._delete_subtree)
         self.connect_dispatch_listener(signal=actions.SET_ROWS_CHECKED, sender=self.con.tree_id, receiver=self._check_rows)
         self.connect_dispatch_listener(signal=actions.SET_ROWS_UNCHECKED, sender=self.con.tree_id, receiver=self._uncheck_rows)
-        self.connect_dispatch_listener(signal=actions.DIFF_ONE_SIDE_RESULT, sender=self.con.tree_id, receiver=self._receive_diff_result)
+        self.connect_dispatch_listener(signal=actions.DIFF_ONE_SIDE_RESULT, receiver=self._receive_diff_result)
 
     # ACTIONS begin
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -179,4 +179,6 @@ class TreeActions(HasLifecycle):
             self.con.display_store.set_row_checked(tree_path, False)
 
     def _receive_diff_result(self, sender: str, new_tree: CategoryDisplayTree):
+        if sender != self.con.tree_id:
+            return
         self.con.reload(new_tree=new_tree, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY, show_checkboxes=True)

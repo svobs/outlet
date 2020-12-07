@@ -36,9 +36,9 @@ SHUTDOWN_APP = 'shutdown-app'
 DEREGISTER_DISPLAY_TREE = 'deregister-display-tree'
 
 # --- Tree actions: notifications ---
-LOAD_SUBTREE_STARTED = 'load-subtree-started'
+LOAD_SUBTREE_STARTED = 'LOAD_SUBTREE_STARTED'
 """Fired by the backend when it has begun to load a subtree from cache"""
-LOAD_SUBTREE_DONE = 'load-subtree-done'
+LOAD_SUBTREE_DONE = 'LOAD_SUBTREE_DONE'
 """Fired by the backend when it has finsished loading a subtree from cache"""
 NODE_EXPANSION_TOGGLED = 'node-expansion-toggled'
 NODE_EXPANSION_DONE = 'node-expansion-done'

@@ -69,9 +69,9 @@ class DisplayMutator(HasLifecycle):
         tree_id = self.con.tree_id
 
         if self.con.treeview_meta.lazy_load:
-            self.connect_dispatch_listener(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled, sender=tree_id)
+            self.connect_dispatch_listener(signal=actions.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled)
 
-        self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_refresh_stats_done, sender=tree_id)
+        self.connect_dispatch_listener(signal=actions.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_refresh_stats_done)
         """This signal comes from the cacheman after it has finished updating all the nodes in the subtree,
         notfiying us that we can now refresh our display from it"""
 
@@ -79,7 +79,7 @@ class DisplayMutator(HasLifecycle):
         self.connect_dispatch_listener(signal=actions.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
         self.connect_dispatch_listener(signal=actions.NODE_MOVED, receiver=self._on_node_moved_in_cache)
 
-        # FIXME: figure out why the 'sender' arg fails!
+        # FIXME: figure out why the 'sender' arg fails when relayed from gRPC!
         self.connect_dispatch_listener(signal=actions.LOAD_SUBTREE_DONE, receiver=self._populate_ui_tree_async)
         self.connect_dispatch_listener(signal=actions.FILTER_UI_TREE, receiver=self._on_filter_ui_tree_requested)
         self.connect_dispatch_listener(signal=actions.EXPAND_ALL, receiver=self._on_expand_all_requested)
@@ -382,6 +382,9 @@ class DisplayMutator(HasLifecycle):
 
     def _on_node_expansion_toggled(self, sender: str, parent_iter: Gtk.TreeIter, parent_path, node: Node, is_expanded: bool) -> None:
         # Callback for actions.NODE_EXPANSION_TOGGLED:
+        if sender != self.con.tree_id:
+            return
+
         assert self.con.treeview_meta.lazy_load
         logger.debug(f'[{self.con.tree_id}] Node expansion toggled to {is_expanded} for {node}"')
 
@@ -579,6 +582,8 @@ class DisplayMutator(HasLifecycle):
     def _on_refresh_stats_done(self, sender: str):
         """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes
         with the current values from the cache."""
+        if sender != self.con.tree_id:
+            return
         logger.debug(f'[{self.con.tree_id}] Got signal: "{actions.REFRESH_SUBTREE_STATS_DONE}"')
 
         def redraw_displayed_node(tree_iter):

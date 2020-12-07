@@ -127,10 +127,8 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             kwargs['msg'] = signal.error_occurred.msg
             if signal.ui_enablement.HasField('secondary_msg'):
                 kwargs['secondary_msg'] = signal.error_occurred.secondary_msg
-        kwargs['signal'] = signal.signal_name
-        kwargs['sender'] = signal.sender_name
-        logger.info(f'Relaying signal locally: {kwargs}')
-        dispatcher.send(**kwargs)
+        logger.info(f'Relaying locally: signal="{signal.signal_name}" sender="{signal.sender_name}" args={kwargs}')
+        dispatcher.send(signal=signal.signal_name, sender=signal.sender_name, named=kwargs)
 
 
 class BackendGRPCClient(OutletBackend):

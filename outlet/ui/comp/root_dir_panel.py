@@ -334,7 +334,7 @@ class RootDirPanel(HasLifecycle):
         if sender != self.tree_id:
             return
 
-        logger.debug(f'[{self.con.tree_id}] Got signal "{actions.LOAD_SUBTREE_STARTED}"')
+        logger.debug(f'[{self.tree_id}] Got signal "{actions.LOAD_SUBTREE_STARTED}"')
         if self.con.get_tree().is_needs_manual_load():
             self.con.get_tree().set_needs_manual_load(False)
             # Hide Refresh button

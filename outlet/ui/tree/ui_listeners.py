@@ -62,7 +62,7 @@ class TreeUiListeners(HasLifecycle):
         targeted_signals.append(actions.DISPLAY_TREE_CHANGED)
 
         # Status bar
-        self.connect_dispatch_listener(signal=actions.SET_STATUS, receiver=self._on_set_status, sender=self.con.tree_id)
+        self.connect_dispatch_listener(signal=actions.SET_STATUS, receiver=self._on_set_status)
         targeted_signals.append(actions.SET_STATUS)
 
         logger.debug(f'[{self.con.tree_id}] Listening for signals: Any={general_signals}, "{self.con.tree_id}"={targeted_signals}')
@@ -99,7 +99,7 @@ class TreeUiListeners(HasLifecycle):
             # self.con.tree_view.connect('drag-motion', self._on_drag_motion)
 
             self.connect_dispatch_listener(signal=actions.DRAG_AND_DROP, receiver=self._receive_drag_data_signal)
-            self.connect_dispatch_listener(signal=actions.DRAG_AND_DROP_DIRECT, receiver=self._do_drop, sender=self.con.tree_id)
+            self.connect_dispatch_listener(signal=actions.DRAG_AND_DROP_DIRECT, receiver=self._do_drop)
             # ^^^ mostly for testing
 
     def shutdown(self):
@@ -177,6 +177,9 @@ class TreeUiListeners(HasLifecycle):
         self._check_drop()
 
     def _do_drop(self, sender, drag_data: DragAndDropData, tree_path: Gtk.TreePath, is_into: bool):
+        if sender != self.con.tree_id:
+            return
+
         # Puts the drag data into/adjacent to the given tree_path.
         logger.info(f'[{self.con.tree_id}] We received a drop of {len(drag_data.sn_list)} nodes!')
 
@@ -221,6 +224,8 @@ class TreeUiListeners(HasLifecycle):
 
     # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
     def _on_set_status(self, sender, status_msg):
+        if sender != self.con.tree_id:
+            return
         logger.debug(f'[{self.con.tree_id}] Received signal: "{actions.SET_STATUS}" with msg: {status_msg}')
         GLib.idle_add(lambda: self.con.status_bar.set_label(status_msg))
 
