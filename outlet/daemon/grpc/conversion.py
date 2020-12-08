@@ -134,7 +134,8 @@ class Converter:
             if node.is_dir():
                 assert isinstance(node, GDriveFolder)
                 Converter._dir_meta_to_grpc(node, grpc_node.gdrive_folder_meta)
-                grpc_node.gdrive_folder_meta.all_children_fetched = node.all_children_fetched
+                if node.all_children_fetched:
+                    grpc_node.gdrive_folder_meta.all_children_fetched = node.all_children_fetched
                 meta = grpc_node.gdrive_folder_meta
             else:
                 assert isinstance(node, GDriveFile)

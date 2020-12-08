@@ -8,7 +8,7 @@ from model.node.node import Node, SPIDNodePair
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from ui.signal import Signal
+from ui.signal import ID_GDRIVE_DIR_SELECT
 from ui.tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
 

@@ -264,7 +264,7 @@ class DisplayMutator(HasLifecycle):
         except GDriveItemNotFoundError as err:
             # Not found: signal error to UI and cancel
             logger.warning(f'[{self.con.tree_id}] Could not populate root: GDrive node not found: {self.con.get_tree().get_root_identifier()}')
-            new_root_meta = RootPathMeta(self.con.get_tree().get_root_identifier(), is_found=False)
+            new_root_meta = RootPathMeta(self.con.get_tree().get_root_identifier(), root_exists=False)
             new_root_meta.offending_path = err.offending_path
             logger.debug(f'[{self.con.tree_id}] Sending signal: "{Signal.ROOT_PATH_UPDATED}" with new_root_meta={new_root_meta}')
             dispatcher.send(signal=Signal.ROOT_PATH_UPDATED, sender=self.con.tree_id, new_root_meta=new_root_meta, err=err)

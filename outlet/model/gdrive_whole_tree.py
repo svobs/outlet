@@ -35,9 +35,8 @@ class GDriveWholeTree(HasGetChildren):
         self.uid_dict: Dict[UID, GDriveNode] = {}
         """ Forward lookup table: nodes are indexed by UID"""
 
-        # fake root:
-        root = GDriveFolder(NodeIdentifierFactory.get_gdrive_root_constant_identifier(), None, None, TrashStatus.NOT_TRASHED, None, None,
-                            None, None, None, None, None, None)
+        # It's a lot cleaner to have a single root node, even if it does not map to anything in GDrive:
+        root = GDriveWholeTree.get_super_root()
         self.uid_dict[root.uid] = root
 
         self.parent_child_dict: Dict[UID, List[GDriveNode]] = {}
@@ -47,6 +46,12 @@ class GDriveWholeTree(HasGetChildren):
         self.parent_child_dict[GDRIVE_ROOT_UID] = []
 
         self.me: Optional[GDriveUser] = None
+
+    @staticmethod
+    def get_super_root():
+        # basically a fake / logical node which serves as the parent of My GDrive, shares, etc.
+        return GDriveFolder(NodeIdentifierFactory.get_gdrive_root_constant_identifier(), None, None, TrashStatus.NOT_TRASHED, None, None,
+                            None, None, None, None, None, False)
 
     @property
     def node_identifier(self):

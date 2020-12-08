@@ -19,6 +19,7 @@ from diff.change_maker import ChangeMaker
 from error import CacheNotLoadedError, GDriveItemNotFoundError, InvalidOperationError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.display_tree.display_tree import DisplayTreeUiState
+from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import HasChildStats, HasParentList, Node, SPIDNodePair
@@ -32,7 +33,7 @@ from store.live_monitor import LiveMonitor
 from store.local.master_local import LocalDiskMasterStore
 from store.sqlite.cache_registry_db import CacheRegistry
 from store.user_op.op_ledger import OpLedger
-from ui.signal import ID_GLOBAL_CACHE, Signal
+from ui.signal import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
 from ui.tree.filter_criteria import FilterCriteria
 from ui.tree.root_path_config import RootPathConfigPersister
 from util import file_util
@@ -542,8 +543,11 @@ class CacheManager(HasLifecycle):
                 root_path_meta.root_exists = False
             root_path_meta.offending_path = None
         elif spid.tree_type == TREE_TYPE_GDRIVE:
-            node: Node = self.read_single_node_from_disk_for_uid(spid.uid, TREE_TYPE_GDRIVE)
-            root_path_meta.root_exists = True
+            if spid.uid == GDRIVE_ROOT_UID:
+                node: Node = GDriveWholeTree.get_super_root()
+            else:
+                node: Node = self.read_single_node_from_disk_for_uid(spid.uid, TREE_TYPE_GDRIVE)
+            root_path_meta.root_exists = node is not None
             root_path_meta.offending_path = None
         else:
             raise RuntimeError(f'Unrecognized tree type: {spid.tree_type}')

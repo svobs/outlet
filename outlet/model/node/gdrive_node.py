@@ -2,11 +2,12 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
+from model.uid import UID
 from util import format
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TREE_TYPE_GDRIVE
 from model.node.node import Node, HasChildStats, HasParentList
 from model.node_identifier import GDriveIdentifier
-from util.ensure import ensure_bool, ensure_int
+from util.ensure import ensure_bool, ensure_int, ensure_uid
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class GDriveNode(HasParentList, Node, ABC):
         self.create_ts = ensure_int(create_ts)
         self._modify_ts = ensure_int(modify_ts)
 
-        self.owner_uid: Optional[int] = owner_uid
+        self.owner_uid: Optional[UID] = ensure_uid(owner_uid)
         """OwnerID if it's not me"""
 
         self.drive_id = drive_id
@@ -41,7 +42,7 @@ class GDriveNode(HasParentList, Node, ABC):
         self._is_shared: bool = ensure_bool(is_shared)
         """If true, item is shared by shared_by_user_uid"""
 
-        self.shared_by_user_uid: int = ensure_int(shared_by_user_uid)
+        self.shared_by_user_uid: Optional[UID] = ensure_uid(shared_by_user_uid)
 
         self._sync_ts = ensure_int(sync_ts)
 

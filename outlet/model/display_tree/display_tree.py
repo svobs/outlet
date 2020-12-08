@@ -127,6 +127,7 @@ class DisplayTree(HasGetChildren):
         return self.get_children(self.get_root_node(), filter_criteria)
 
     def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
+        assert parent, 'Arg "parent" cannot be null!'
         return self.backend.get_children(parent, filter_criteria)
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
