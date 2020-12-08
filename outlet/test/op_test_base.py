@@ -9,6 +9,8 @@ from typing import Callable, Deque, Iterable, List, Optional, Tuple
 from py7zr import SevenZipFile
 from pydispatch import dispatcher
 
+from app.backend_integrated import BackendIntegrated
+from app.gtk_frontend import OutletApplication
 from app_config import AppConfig
 from command.cmd_interface import Command
 from constants import OPS_FILE_NAME
@@ -17,8 +19,7 @@ from store.sqlite.op_db import OpDatabase
 from model.uid import UID
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
-from outlet_app import OutletApplication
-from ui.signal import Signal
+from ui.signal import ID_CENTRAL_EXEC, ID_LEFT_TREE, ID_RIGHT_TREE, Signal
 from ui.tree import root_path_config
 from ui.tree.controller import TreePanelController
 from util import file_util
@@ -186,8 +187,8 @@ class OpTestBase(unittest.TestCase):
         if self.right_tree_root_uid:
             config.write(root_path_config.make_root_uid_config_key(ID_RIGHT_TREE), self.right_tree_root_uid)
 
-        self.app = OutletApplication(config)
-        self.backend = app.backend
+        backend = BackendIntegrated(config)
+        self.app = OutletApplication(config, backend)
         # Disable execution so we can study the state of the OpGraph:
         self.backend.executor.enable_op_execution_thread = False
 
