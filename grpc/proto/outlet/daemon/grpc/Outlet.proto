@@ -72,7 +72,12 @@ message SignalMsg {
 		ToggleUiEnablement ui_enablement = 14;
 		Node node = 15;
 		SrcDstNodeList src_dst_node_list = 16;
+		StatusMsg status_msg = 17;
 	}
+}
+
+message StatusMsg {
+	string msg = 1;
 }
 
 message SendSignalResponse {

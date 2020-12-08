@@ -58,15 +58,18 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, receiver=self._on_op_exec_play_state_changed)
         self.connect_dispatch_listener(signal=Signal.TOGGLE_UI_ENABLEMENT, receiver=self._on_ui_enablement_toggled)
         self.connect_dispatch_listener(signal=Signal.ERROR_OCCURRED, receiver=self._on_error_occurred)
+        self.connect_dispatch_listener(signal=Signal.SET_STATUS, receiver=self._on_set_status)
+
+        self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted)
+        self.connect_dispatch_listener(signal=Signal.NODE_REMOVED, receiver=self._on_node_removed)
+        self.connect_dispatch_listener(signal=Signal.NODE_MOVED, receiver=self._on_node_moved)
+
         # simple:
         self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_STARTED, receiver=self._on_subtree_load_started)
         self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._on_subtree_load_done)
         self.connect_dispatch_listener(signal=Signal.DIFF_TREES_FAILED, receiver=self._on_diff_failed)
         self.connect_dispatch_listener(signal=Signal.DIFF_TREES_DONE, receiver=self._on_diff_done)
-
-        self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted)
-        self.connect_dispatch_listener(signal=Signal.NODE_REMOVED, receiver=self._on_node_removed)
-        self.connect_dispatch_listener(signal=Signal.NODE_MOVED, receiver=self._on_node_moved)
+        self.connect_dispatch_listener(signal=Signal.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_refresh_stats_done)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
@@ -183,6 +186,14 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
     def _on_diff_done(self, sender: str):
         self.send_signal_via_grpc(Signal.DIFF_TREES_DONE, sender)
+
+    def _on_refresh_stats_done(self, sender: str):
+        self.send_signal_via_grpc(Signal.REFRESH_SUBTREE_STATS_DONE, sender)
+
+    def _on_set_status(self, sender: str, status_msg: str):
+        signal = SignalMsg(sig_int=Signal.SET_STATUS, sender=sender)
+        signal.status_msg.msg = status_msg
+        self.send_signal_to_all(signal)
 
     def _on_node_upserted(self, sender: str, node: Node):
         signal = SignalMsg(sig_int=Signal.NODE_UPSERTED, sender=sender)

@@ -136,6 +136,8 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
         elif signal.sig_int == Signal.NODE_MOVED:
             kwargs['src_node'] = Converter.node_from_grpc(signal.src_dst_node_list.src_node)
             kwargs['dst_node'] = Converter.node_from_grpc(signal.src_dst_node_list.dst_node)
+        elif signal.sig_int == Signal.SET_STATUS:
+            kwargs['status_msg'] = signal.status_msg.msg
         logger.info(f'Relaying locally: signal="{sig.name}" sender="{signal.sender}" args={kwargs}')
         kwargs['signal'] = sig
         kwargs['sender'] = signal.sender

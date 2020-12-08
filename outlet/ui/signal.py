@@ -51,7 +51,6 @@ class Signal(IntEnum):
     ERROR_OCCURRED = 50
     REFRESH_SUBTREE_STATS_DONE = 51
     REFRESH_SUBTREE_STATS_COMPLETELY_DONE = 52
-    REFRESH_SUBTREE_DONE = 53
     """Indicates that the central cache has updated the stats for the subtree, and the subtree should redraw the nodes"""
     POPULATE_UI_TREE_DONE = 54
     """This is fired by the UI when it has finished populating the UI tree"""

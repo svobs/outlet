@@ -178,7 +178,7 @@ class Converter:
             node.dir_count = dir_meta.dir_count
             node.trashed_file_count = dir_meta.trashed_file_count
             node.trashed_dir_count = dir_meta.trashed_dir_count
-            node.size_bytes = dir_meta.get_size_bytes()
+            node.set_size_bytes(dir_meta.size_bytes)
             node.trashed_bytes = dir_meta.trashed_bytes
         else:
             node.size_bytes = None

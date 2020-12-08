@@ -5,7 +5,7 @@ import logging
 
 from util import file_util
 from command.cmd_interface import Command, CommandContext, UserOpStatus
-from ui.signal import Signal
+from ui.signal import ID_COMMAND_EXECUTOR, Signal
 
 logger = logging.getLogger(__name__)
 
