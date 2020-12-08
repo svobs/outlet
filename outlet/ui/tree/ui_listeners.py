@@ -55,17 +55,10 @@ class TreeUiListeners(HasLifecycle):
         HasLifecycle.start(self)
         self.connect_dispatch_listener(Signal.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
 
-        targeted_signals: List[str] = []
-        general_signals: List[str] = [Signal.TOGGLE_UI_ENABLEMENT]
-
         self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
-        targeted_signals.append(Signal.DISPLAY_TREE_CHANGED)
 
         # Status bar
         self.connect_dispatch_listener(signal=Signal.SET_STATUS, receiver=self._on_set_status)
-        targeted_signals.append(Signal.SET_STATUS)
-
-        logger.debug(f'[{self.con.tree_id}] Listening for signals: Any={general_signals}, "{self.con.tree_id}"={targeted_signals}')
 
         # TreeView
         # double-click or enter key:

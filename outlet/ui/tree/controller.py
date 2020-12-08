@@ -84,6 +84,8 @@ class TreePanelController(HasLifecycle):
             self.treeview_meta.shutdown()
         if self.display_mutator:
             self.display_mutator.shutdown()
+        if self.root_dir_panel:
+            self.root_dir_panel.shutdown()
 
         self.root_dir_panel = None
 

@@ -39,12 +39,13 @@ class HasLifecycle(ABC):
         if not sender:
             sender = Any
         self._connected_listeners.append(ListenerInfo(signal, receiver, sender))
-        logger.debug(f'CONNECTING: signal={signal} sender={sender} weak={weak}')
+        logger.debug(f'CONNECTING: signal={signal.name} sender={sender} weak={weak}')
         dispatcher.connect(signal=signal, receiver=receiver, sender=sender, weak=weak)
 
     @staticmethod
     def disconnect_dispatch_listener(listener_info: ListenerInfo):
         try:
+            logger.debug(f'DISCONNECTING: signal={listener_info.signal.name} sender={listener_info.sender}')
             dispatcher.disconnect(signal=listener_info.signal, receiver=listener_info.receiver, sender=listener_info.sender)
         except DispatcherKeyError:
             pass

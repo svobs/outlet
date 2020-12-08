@@ -13,7 +13,7 @@ from ui.tree import tree_factory
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+from gi.repository import Gtk, GLib
 
 from ui.dialog.base_dialog import BaseDialog
 
@@ -30,11 +30,12 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, parent_win: BaseDialog, tree: DisplayTree, current_selection: SinglePathNodeIdentifier, target_tree_id: str):
+    def __init__(self, parent_win: BaseDialog, current_selection: SinglePathNodeIdentifier, target_tree_id: str):
         Gtk.Dialog.__init__(self, title="Select GDrive Root", transient_for=parent_win, flags=0)
         BaseDialog.__init__(self, app=parent_win.app)
 
-        self.target_tree_id = ID_GDRIVE_DIR_SELECT
+        self.tree_id = ID_GDRIVE_DIR_SELECT
+        self.target_tree_id = target_tree_id
         """Note: this is the ID of the tree for which this dialog is ultimately selecting for, not this dialog's tree (see tree_controller below)"""
 
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
@@ -49,6 +50,16 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         label = Gtk.Label(label="Select the Google Drive folder to use as the root for comparison:")
         self.content_box.add(label)
 
+        self.connect("response", self.on_response)
+
+        # Start listening BEFORE calling backend to do the load
+        dispatcher.connect(signal=Signal.TREE_SELECTION_CHANGED, receiver=self._on_selected_changed)
+        dispatcher.connect(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._on_backend_ready)
+        dispatcher.connect(signal=Signal.POPULATE_UI_TREE_DONE, receiver=self._on_populate_complete)
+
+        # This will start the load process and send us a Signal.LOAD_SUBTREE_DONE when done:
+        tree: DisplayTree = parent_win.app.backend.create_display_tree_for_gdrive_select()
+        assert tree, 'create_display_tree_for_gdrive_select() returned None for tree!'
         # Prevent dialog from stepping on existing trees by giving it its own ID:
         self.con = tree_factory.build_gdrive_root_chooser(parent_win=self, tree=tree)
 
@@ -58,20 +69,16 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
             f'Expected instance of SinglePathNodeIdentifier but got: {type(current_selection)}'
         self._initial_selection_nid: SinglePathNodeIdentifier = current_selection
 
-        dispatcher.connect(signal=Signal.TREE_SELECTION_CHANGED, sender=ID_GDRIVE_DIR_SELECT, receiver=self._on_selected_changed)
-
-        logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Connecting listener to signal: {Signal.LOAD_UI_TREE_DONE}')
-        dispatcher.connect(signal=Signal.LOAD_UI_TREE_DONE, sender=ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
-
-        self.connect("response", self.on_response)
-        self.show_all()
-
     def destroy(self):
         """Overrides Gtk.Dialog.destroy()"""
         logger.debug(f'GDriveDirChooserDialog.destroy() called')
         # Clean up:
         try:
-            dispatcher.disconnect(signal=Signal.LOAD_UI_TREE_DONE, sender=ID_GDRIVE_DIR_SELECT, receiver=self._on_load_complete)
+            dispatcher.disconnect(signal=Signal.LOAD_SUBTREE_DONE, sender=ID_GDRIVE_DIR_SELECT, receiver=self._on_backend_ready)
+        except DispatcherKeyError:
+            pass
+        try:
+            dispatcher.disconnect(signal=Signal.POPULATE_UI_TREE_DONE, sender=ID_GDRIVE_DIR_SELECT, receiver=self._on_populate_complete)
         except DispatcherKeyError:
             pass
         try:
@@ -84,12 +91,22 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         # call super method
         Gtk.Dialog.destroy(self)
 
+    def _on_backend_ready(self, sender):
+        if sender != self.tree_id:
+            return
+        logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Backend load complete! Showing dialog')
+        GLib.idle_add(self.show_all)
+
     def _on_selected_changed(self, sender, node_list: List[Node]):
+        if sender != self.tree_id:
+            return
         # In weird GTK-speak, "sensitive" means enabled
         self.ok_button.set_sensitive(node_list and node_list[0].is_dir())
 
-    def _on_load_complete(self, sender):
-        logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Load complete! Sending signal: {Signal.EXPAND_AND_SELECT_NODE}')
+    def _on_populate_complete(self, sender):
+        if sender != self.tree_id:
+            return
+        logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Populate complete! Sending signal: {Signal.EXPAND_AND_SELECT_NODE}')
         dispatcher.send(Signal.EXPAND_AND_SELECT_NODE, sender=ID_GDRIVE_DIR_SELECT, nid=self._initial_selection_nid)
 
     def on_ok_clicked(self, spid: SinglePathNodeIdentifier):

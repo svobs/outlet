@@ -106,7 +106,7 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
                 logger.debug(f'Got gRPC signal "{Signal(signal.sig_int).name}" from sender "{signal.sender}"')
                 try:
                     self._relay_signal_locally(signal)
-                except Exception:
+                except RuntimeError:
                     logger.exception('Unexpected error while relaying signal!')
             else:
                 logger.warning('Received None for signal! Killing connection')

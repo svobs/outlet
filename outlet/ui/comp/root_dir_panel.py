@@ -10,7 +10,7 @@ from constants import GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TREE_TYPE_GDR
 from model.node_identifier import SinglePathNodeIdentifier
 from ui.dialog.base_dialog import BaseDialog
 from util.has_lifecycle import HasLifecycle
-from ui.signal import Signal
+from ui.signal import ID_GDRIVE_DIR_SELECT, Signal
 
 import gi
 
@@ -95,8 +95,8 @@ class RootDirPanel(HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
         logger.debug(f'[{self.tree_id}] RootDirPanel listeners connected')
 
-    def __del__(self):
-        HasLifecycle.__del__(self)
+    def shutdown(self):
+        HasLifecycle.shutdown(self)
         # Disconnect GTK3 listeners:
         if self.entry_box_focus_eid:
             if self.entry:
@@ -294,17 +294,11 @@ class RootDirPanel(HasLifecycle):
     def _open_gdrive_root_chooser_dialog(self, menu_item):
         spid = self.con.get_tree().get_root_identifier()
         logger.debug(f'[{self.tree_id}] Displaying GDrive root chooser dialog with current_selection={spid}')
-        tree = self.parent_win.app.backend.create_display_tree_for_gdrive_select()
-        assert tree, 'create_display_tree_for_gdrive_select() returned None for tree!'
 
         def open_dialog():
             try:
                 # Preview ops in UI pop-up. Change tree_id so that listeners don't step on existing trees
-                dialog = GDriveDirChooserDialog(self.parent_win, tree=tree, current_selection=spid, target_tree_id=self.tree_id)
-                response_id = dialog.run()
-                if response_id == Gtk.ResponseType.OK:
-                    logger.debug('User clicked OK!')
-
+                dialog = GDriveDirChooserDialog(self.parent_win, current_selection=spid, target_tree_id=self.tree_id)
             except Exception as err:
                 self.parent_win.show_error_ui('GDriveDirChooserDialog failed due to unexpected error', repr(err))
                 raise

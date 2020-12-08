@@ -201,15 +201,15 @@ class OpTestBase(unittest.TestCase):
             self.app.run([])
 
         def after_left_tree_loaded(sender):
-            logger.debug(f'Received signal: "{Signal.LOAD_UI_TREE_DONE}" for "{sender}"')
+            logger.debug(f'Received signal: "{Signal.POPULATE_UI_TREE_DONE}" for "{sender}"')
             load_left_done.set()
 
         def after_right_tree_loaded(sender):
-            logger.debug(f'Received signal: "{Signal.LOAD_UI_TREE_DONE}" for "{sender}"')
+            logger.debug(f'Received signal: "{Signal.POPULATE_UI_TREE_DONE}" for "{sender}"')
             load_right_done.set()
 
-        dispatcher.connect(signal=Signal.LOAD_UI_TREE_DONE, sender=ID_LEFT_TREE, receiver=after_left_tree_loaded)
-        dispatcher.connect(signal=Signal.LOAD_UI_TREE_DONE, sender=ID_RIGHT_TREE, receiver=after_right_tree_loaded)
+        dispatcher.connect(signal=Signal.POPULATE_UI_TREE_DONE, sender=ID_LEFT_TREE, receiver=after_left_tree_loaded)
+        dispatcher.connect(signal=Signal.POPULATE_UI_TREE_DONE, sender=ID_RIGHT_TREE, receiver=after_right_tree_loaded)
         self.app_thread = threading.Thread(target=run_thread, daemon=True, name='AppTestRunnerThread')
         self.app_thread.start()
 

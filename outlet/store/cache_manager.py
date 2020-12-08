@@ -579,8 +579,10 @@ class CacheManager(HasLifecycle):
         # Kick off data load task, if needed
         if not state.needs_manual_load:
             self.enqueue_load_subtree_task(tree_id)
+        else:
+            logger.debug(f'[{state.tree_id}] Tree needs manual load; skipping subtree load task')
 
-        logger.debug(f'Returning {state}')
+        logger.debug(f'[{state.tree_id}] Returning {state}')
         return self._return_display_tree_ui_state(state, return_async)
 
     def _return_display_tree_ui_state(self, state, return_async: bool):
@@ -652,6 +654,7 @@ class CacheManager(HasLifecycle):
         return root_path_meta
 
     def enqueue_load_subtree_task(self, tree_id: str):
+        logger.debug(f'[{tree_id}] Enqueueing subtree load task')
         self._load_request_thread.enqueue(tree_id)
 
     def load_data_for_display_tree(self, tree_id: str):
