@@ -69,27 +69,18 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
             f'Expected instance of SinglePathNodeIdentifier but got: {type(current_selection)}'
         self._initial_selection_nid: SinglePathNodeIdentifier = current_selection
 
+    def shutdown(self):
+        if self.con:
+            self.con.shutdown()
+            self.con = None
+
+        # call super method to destroy dialog
+        Gtk.Dialog.destroy(self)
+
     def destroy(self):
         """Overrides Gtk.Dialog.destroy()"""
         logger.debug(f'GDriveDirChooserDialog.destroy() called')
-        # Clean up:
-        try:
-            dispatcher.disconnect(signal=Signal.LOAD_SUBTREE_DONE, sender=ID_GDRIVE_DIR_SELECT, receiver=self._on_backend_ready)
-        except DispatcherKeyError:
-            pass
-        try:
-            dispatcher.disconnect(signal=Signal.POPULATE_UI_TREE_DONE, sender=ID_GDRIVE_DIR_SELECT, receiver=self._on_populate_complete)
-        except DispatcherKeyError:
-            pass
-        try:
-            dispatcher.disconnect(signal=Signal.TREE_SELECTION_CHANGED, sender=ID_GDRIVE_DIR_SELECT, receiver=self._on_selected_changed)
-        except DispatcherKeyError:
-            pass
-        self.con.shutdown()
-        self.con = None
-
-        # call super method
-        Gtk.Dialog.destroy(self)
+        self.shutdown()
 
     def _on_backend_ready(self, sender):
         if sender != self.tree_id:

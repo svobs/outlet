@@ -92,11 +92,12 @@ class RootDirPanel(HasLifecycle):
         HasLifecycle.start(self)
         self.connect_dispatch_listener(signal=Signal.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
         self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_STARTED, receiver=self._on_load_started)
-        self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
+        self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed_rootpanel)
         logger.debug(f'[{self.tree_id}] RootDirPanel listeners connected')
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
+
         # Disconnect GTK3 listeners:
         if self.entry_box_focus_eid:
             if self.entry:
@@ -108,15 +109,16 @@ class RootDirPanel(HasLifecycle):
                 self.parent_win.disconnect(self.key_press_event_eid)
             self.key_press_event_eid = None
 
-        self.con.cacheman = None
-        self.parent_win = None
-        self.con = None
+        if self.con:
+            self.con = None
 
-    def _on_display_tree_changed(self, sender, tree: DisplayTree):
+        self.parent_win = None
+
+    def _on_display_tree_changed_rootpanel(self, sender: str, tree: DisplayTree):
         """Callback for Signal.DISPLAY_TREE_CHANGED"""
         if sender != self.tree_id:
             return
-        logger.debug(f'[{sender}] Received signal "{Signal.DISPLAY_TREE_CHANGED}" with new root: {tree.get_root_identifier()}')
+        logger.debug(f'[{sender}] Received signal "{Signal.DISPLAY_TREE_CHANGED.name}" with new root: {tree.get_root_identifier()}')
 
         # Send the new tree directly to _redraw_root_display(). Do not allow it to fall back to querying the controller for the tree,
         # because that would be a race condition:
@@ -298,7 +300,7 @@ class RootDirPanel(HasLifecycle):
         def open_dialog():
             try:
                 # Preview ops in UI pop-up. Change tree_id so that listeners don't step on existing trees
-                dialog = GDriveDirChooserDialog(self.parent_win, current_selection=spid, target_tree_id=self.tree_id)
+                GDriveDirChooserDialog(self.parent_win, current_selection=spid, target_tree_id=self.tree_id)
             except Exception as err:
                 self.parent_win.show_error_ui('GDriveDirChooserDialog failed due to unexpected error', repr(err))
                 raise

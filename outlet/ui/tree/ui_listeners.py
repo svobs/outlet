@@ -55,7 +55,7 @@ class TreeUiListeners(HasLifecycle):
         HasLifecycle.start(self)
         self.connect_dispatch_listener(Signal.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
 
-        self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
+        self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed_checkroot)
 
         # Status bar
         self.connect_dispatch_listener(signal=Signal.SET_STATUS, receiver=self._on_set_status)
@@ -200,7 +200,7 @@ class TreeUiListeners(HasLifecycle):
         self._drag_data = None
         self._drop_data = None
 
-    def _on_display_tree_changed(self, sender, tree: DisplayTree):
+    def _on_display_tree_changed_checkroot(self, sender, tree: DisplayTree):
         if sender != self.con.tree_id:
             return
 

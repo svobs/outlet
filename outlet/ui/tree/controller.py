@@ -74,6 +74,9 @@ class TreePanelController(HasLifecycle):
         # This should be received by both frontend and backend
         dispatcher.send(signal=Signal.DEREGISTER_DISPLAY_TREE, sender=self.tree_id)
 
+        if self.root_dir_panel:
+            self.root_dir_panel.shutdown()
+            self.root_dir_panel = None
         if self.tree_ui_listeners:
             self.tree_ui_listeners.shutdown()
             self.tree_ui_listeners = None
@@ -84,10 +87,6 @@ class TreePanelController(HasLifecycle):
             self.treeview_meta.shutdown()
         if self.display_mutator:
             self.display_mutator.shutdown()
-        if self.root_dir_panel:
-            self.root_dir_panel.shutdown()
-
-        self.root_dir_panel = None
 
     def _set_column_visibilities(self):
         # the columns stored in TreeViewMeta are 1

@@ -106,7 +106,7 @@ class DisplayMutator(HasLifecycle):
     def _populate_ui_tree_async(self, sender):
         """Just populates the tree with nodes. Executed asyncly via Signal.LOAD_SUBTREE_DONE"""
         if sender == self.con.tree_id:
-            logger.warning(f'[{self.con.tree_id}] Got signal: "{Signal.LOAD_SUBTREE_DONE.name}". Sending signal "{Signal.ENQUEUE_UI_TASK.name}"')
+            logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.LOAD_SUBTREE_DONE.name}". Sending signal "{Signal.ENQUEUE_UI_TASK.name}"')
             dispatcher.send(signal=Signal.ENQUEUE_UI_TASK, sender=sender, task_func=self.populate_root)
 
     def _populate_recursively(self, parent_iter, node: Node, node_count: int = 0) -> int:
@@ -581,7 +581,7 @@ class DisplayMutator(HasLifecycle):
         with the current values from the cache."""
         if sender != self.con.tree_id:
             return
-        logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.REFRESH_SUBTREE_STATS_DONE}"')
+        logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.REFRESH_SUBTREE_STATS_DONE.name}"')
 
         def redraw_displayed_node(tree_iter):
             if self.con.app.shutdown:

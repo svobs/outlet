@@ -520,8 +520,7 @@ class CacheManager(HasLifecycle):
             if display_tree_meta.root_sn.spid == root_path_meta.root_spid:
                 # Requested the existing tree and root? Just return that:
                 logger.debug(f'Display tree already registered with given root; returning existing')
-                state = self._convert_display_tree_meta_to_ui_state(display_tree_meta, is_startup)
-                return self._return_display_tree_ui_state(state, return_async)
+                return self._return_display_tree_ui_state(display_tree_meta, is_startup, return_async)
 
             if display_tree_meta.root_path_config_persister:
                 # If we started from a persister, continue persisting:
@@ -573,19 +572,18 @@ class CacheManager(HasLifecycle):
             else:
                 self._live_monitor.stop_capture(tree_id)
 
-        state: DisplayTreeUiState = self._convert_display_tree_meta_to_ui_state(display_tree_meta, is_startup)
+        return self._return_display_tree_ui_state(display_tree_meta, is_startup, return_async)
+
+    def _return_display_tree_ui_state(self, display_tree_meta, is_startup: bool, return_async: bool):
+        state = self._convert_display_tree_meta_to_ui_state(display_tree_meta, is_startup)
         assert state.tree_id and state.root_sn and state.root_sn.spid, f'Bad DisplayTreeUiState: {state}'
 
         # Kick off data load task, if needed
         if not state.needs_manual_load:
-            self.enqueue_load_subtree_task(tree_id)
+            self.enqueue_load_subtree_task(state.tree_id)
         else:
             logger.debug(f'[{state.tree_id}] Tree needs manual load; skipping subtree load task')
 
-        logger.debug(f'[{state.tree_id}] Returning {state}')
-        return self._return_display_tree_ui_state(state, return_async)
-
-    def _return_display_tree_ui_state(self, state, return_async: bool):
         if return_async:
             # notify clients asynchronously
             tree = state.to_display_tree(self.backend)
@@ -593,7 +591,7 @@ class CacheManager(HasLifecycle):
             dispatcher.send(Signal.DISPLAY_TREE_CHANGED, sender=state.tree_id, tree=tree)
             return None
         else:
-            logger.debug(f'[{state.tree_id}] Returning display tree synchronously because return_async=False')
+            logger.debug(f'[{state.tree_id}] Returning display tree synchronously because return_async=False: {state}')
             return state
 
     def _resolve_root_meta_from_path(self, full_path: str) -> RootPathMeta:

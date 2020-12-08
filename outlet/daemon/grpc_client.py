@@ -100,15 +100,19 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             if not response_iter:
                 logger.warning('ResponseIter is None! Killing connection')
                 return
-            signal = next(response_iter)  # blocks each time until signal received, or server shutdown
-            if signal:
-                logger.debug(f'Got gRPC signal "{Signal(signal.sig_int).name}" from sender "{signal.sender}"')
-                try:
-                    self._relay_signal_locally(signal)
-                except RuntimeError:
-                    logger.exception('Unexpected error while relaying signal!')
-            else:
-                logger.warning('Received None for signal! Killing connection')
+            try:
+                signal = next(response_iter)  # blocks each time until signal received, or server shutdown
+                if signal:
+                    logger.debug(f'Got gRPC signal "{Signal(signal.sig_int).name}" from sender "{signal.sender}"')
+                    try:
+                        self._relay_signal_locally(signal)
+                    except RuntimeError:
+                        logger.exception('Unexpected error while relaying signal!')
+                else:
+                    logger.warning('Received None for signal! Killing connection')
+                    return
+            except StopIteration:
+                logger.error('Server disconnected! Bailing...')
                 return
 
     def _relay_signal_locally(self, signal: SignalMsg):

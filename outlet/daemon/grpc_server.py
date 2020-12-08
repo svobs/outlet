@@ -52,7 +52,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
         # PyDispatcher signals to be sent across gRPC:
         # complex:
-        self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
+        self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed_grpcserver)
         self.connect_dispatch_listener(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, receiver=self._on_op_exec_play_state_changed)
         self.connect_dispatch_listener(signal=Signal.TOGGLE_UI_ENABLEMENT, receiver=self._on_ui_enablement_toggled)
         self.connect_dispatch_listener(signal=Signal.ERROR_OCCURRED, receiver=self._on_error_occurred)
@@ -114,11 +114,11 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
                 to process the stream and so will be tied up."""
         try:
             thread_id: int = threading.get_ident()
-            logger.info(f'Adding a subscriber for ThreadID {thread_id}')
+            logger.info(f'Adding a subscriber with ThreadID {thread_id}')
             with self._queue_lock:
                 signal_queue = self._thread_signal_queues.get(thread_id, None)
                 if signal_queue:
-                    raise RuntimeError(f'There is already a queue for ThreadID: {thread_id}')
+                    logger.warning(f'Found an existing gRPC queue for ThreadID: {thread_id} Will overwrite')
                 self._thread_signal_queues[thread_id] = deque()
 
             while not self._shutdown:
@@ -190,7 +190,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         signal.ui_enablement.enable = enable
         self.send_signal_to_all(signal)
 
-    def _on_display_tree_changed(self, sender: str, tree: DisplayTree):
+    def _on_display_tree_changed_grpcserver(self, sender: str, tree: DisplayTree):
         signal = SignalMsg(sig_int=Signal.DISPLAY_TREE_CHANGED, sender=sender)
         Converter.display_tree_ui_state_to_grpc(tree.state, signal.display_tree_ui_state)
 

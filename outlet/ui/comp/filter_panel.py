@@ -101,10 +101,10 @@ class TreeFilterPanel(HasLifecycle):
 
     def start(self):
         HasLifecycle.start(self)
-        self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed)
+        self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed_filterpanel)
         logger.debug(f'[{self.tree_id}] Filter panel started')
 
-    def _on_display_tree_changed(self, sender, tree: DisplayTree):
+    def _on_display_tree_changed_filterpanel(self, sender, tree: DisplayTree):
         """Callback for Signal.DISPLAY_TREE_CHANGED"""
         if sender != self.tree_id:
             return
