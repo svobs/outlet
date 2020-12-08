@@ -1,9 +1,9 @@
 init:
 	#cd ..
-	#python3 -m venv ultrasync
-	#cd ultrasync
+	#python3 -m venv outlet
+	#cd outlet
 	#./bin/activate
-	pip3 install -r requirements.txt
+	python3 -m pip install -r requirements.txt
 
 test:
 	py.test tests
