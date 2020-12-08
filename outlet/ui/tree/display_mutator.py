@@ -131,7 +131,8 @@ class DisplayMutator(HasLifecycle):
                 logger.debug(f'[{self.con.tree_id}] Category node {node.name} is expanded"')
                 is_expand = True
             elif node.uid in self.con.display_store.expanded_rows:
-                logger.debug(f'[{self.con.tree_id}] Found UID {node.uid} in expanded_rows"')
+                if SUPER_DEBUG:
+                    logger.debug(f'[{self.con.tree_id}] Found UID {node.uid} in expanded_rows"')
                 is_expand = True
 
             child_list = self.con.get_tree().get_children(node, self.con.treeview_meta.filter_criteria)

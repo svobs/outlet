@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Optional
 
 from model.display_tree.display_tree import DisplayTree
 from ui.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
@@ -114,7 +115,7 @@ class RootDirPanel(HasLifecycle):
 
         self.parent_win = None
 
-    def _on_display_tree_changed_rootpanel(self, sender: str, tree: DisplayTree):
+    def _on_display_tree_changed_rootpanel(self, sender: str, tree: Optional[DisplayTree]):
         """Callback for Signal.DISPLAY_TREE_CHANGED"""
         if sender != self.tree_id:
             return

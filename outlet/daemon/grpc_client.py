@@ -117,6 +117,7 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
 
     def _relay_signal_locally(self, signal: SignalMsg):
         """Take the signal (received from server) and dispatch it to our UI process"""
+        sig = Signal(signal.sig_int)
         kwargs = {}
         if signal.sig_int == Signal.DISPLAY_TREE_CHANGED:
             display_tree_ui_state = Converter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
@@ -130,9 +131,11 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             kwargs['msg'] = signal.error_occurred.msg
             if signal.ui_enablement.HasField('secondary_msg'):
                 kwargs['secondary_msg'] = signal.error_occurred.secondary_msg
-        sig = Signal(signal.sig_int)
         logger.info(f'Relaying locally: signal="{sig.name}" sender="{signal.sender}" args={kwargs}')
-        dispatcher.send(signal=sig, sender=signal.sender, named=kwargs)
+        kwargs['signal'] = sig
+        kwargs['sender'] = signal.sender
+        # IMPORTANT: Do not be tempted to use PyDispatcher's "named" argument for kwargs. It seems to fail in unexpected ways
+        dispatcher.send(**kwargs)
 
 
 class BackendGRPCClient(OutletBackend):
