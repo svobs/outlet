@@ -268,3 +268,12 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     def start_diff_trees(self, request: StartDiffTrees_Request, context):
         self.backend.start_diff_trees(request.tree_id_left, request.tree_id_right)
         return Empty()
+
+    def refresh_subtree_stats(self, request, context):
+        self.backend.cacheman.enqueue_refresh_subtree_stats_task(request.root_uid, request.tree_id)
+        return Empty()
+
+    def refresh_subtree(self, request, context):
+        node_identifier = Converter.node_identifier_from_grpc(request.node_identifier)
+        self.backend.cacheman.enqueue_refresh_subtree_task(node_identifier, request.tree_id)
+        return Empty()

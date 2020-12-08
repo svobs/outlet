@@ -103,3 +103,11 @@ class OutletBackend(HasLifecycle, ABC):
     @abstractmethod
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
         pass
+
+    @abstractmethod
+    def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):
+        pass
+
+    @abstractmethod
+    def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: str):
+        pass

@@ -14,12 +14,12 @@ from daemon.grpc.Outlet_pb2 import DragDrop_Request, GetAncestorList_Request, Ge
     GetNodeForUid_Request, \
     GetOpExecPlayState_Request, \
     GetUidForLocalPath_Request, \
-    RequestDisplayTree_Request, SignalMsg, \
+    RefreshSubtree_Request, RefreshSubtreeStats_Request, RequestDisplayTree_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartSubtreeLoad_Request, Subscribe_Request
 from executor.task_runner import TaskRunner
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
-from model.node_identifier import SinglePathNodeIdentifier
+from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from ui.signal import ID_CENTRAL_EXEC, Signal
 from ui.tree.filter_criteria import FilterCriteria
@@ -294,3 +294,15 @@ class BackendGRPCClient(OutletBackend):
         request.tree_id_left = tree_id_left
         request.tree_id_right = tree_id_right
         self.grpc_stub.start_diff_trees(request)
+
+    def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):
+        request = RefreshSubtree_Request()
+        Converter.node_identifier_to_grpc(node_identifier, request.node_identifier)
+        request.tree_id = tree_id
+        self.grpc_stub.refresh_subtree(request)
+
+    def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: str):
+        request = RefreshSubtreeStats_Request()
+        request.root_uid = root_uid
+        request.tree_id = tree_id
+        self.grpc_stub.refresh_subtree_stats(request)

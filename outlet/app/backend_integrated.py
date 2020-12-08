@@ -7,7 +7,7 @@ from app.backend import OutletBackend
 from executor.central import CentralExecutor
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
-from model.node_identifier import SinglePathNodeIdentifier
+from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from store.cache_manager import CacheManager
@@ -93,3 +93,10 @@ class BackendIntegrated(OutletBackend):
 
     def start_diff_trees(self, tree_id_left: str, tree_id_right: str):
         dispatcher.send(signal=Signal.START_DIFF_TREES, sender=ID_CENTRAL_EXEC, tree_id_left=tree_id_left, tree_id_right=tree_id_right)
+
+    def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):
+        self.cacheman.enqueue_refresh_subtree_task(node_identifier, tree_id)
+
+    def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: str):
+        self.cacheman.enqueue_refresh_subtree_stats_task(root_uid, tree_id)
+

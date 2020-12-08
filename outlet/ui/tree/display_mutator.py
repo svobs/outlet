@@ -462,6 +462,7 @@ class DisplayMutator(HasLifecycle):
 
         def update_ui():
             with self._lock:
+                # FIXME: add parent UIDs to nodes.......
                 parent_uid_list: List[UID] = self.con.cacheman.get_parent_uid_list_for_node(node, tree.get_root_identifier().get_single_path())
 
                 # Often we want to refresh the stats, even if the node is not displayed, because it can affect other parts of the tree:
@@ -574,8 +575,8 @@ class DisplayMutator(HasLifecycle):
 
     def _request_subtree_stats_refresh(self):
         # Requests the cacheman to recalculate stats for this subtree. Sends Signal.REFRESH_SUBTREE_STATS_DONE when done
-        logger.debug(f'[{self.con.tree_id}] Sending signal: "{Signal.REFRESH_SUBTREE_STATS.name}"')
-        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS, root_uid=self.con.get_tree().get_root_node().uid, sender=self.con.tree_id)
+        logger.debug(f'[{self.con.tree_id}] Requesting subtree stats refresh')
+        self.con.app.backend.enqueue_refresh_subtree_stats_task(root_uid=self.con.get_tree().root_uid, tree_id=self.con.tree_id)
 
     def _on_refresh_stats_done(self, sender: str):
         """Should be called after the parent tree has had its stats refreshed. This will update all the displayed nodes

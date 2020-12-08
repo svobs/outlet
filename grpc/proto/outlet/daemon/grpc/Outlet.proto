@@ -32,9 +32,23 @@ message DragDrop_Request {
 	bool is_into = 5;
 }
 
+message RefreshSubtree_Request {
+	NodeIdentifier node_identifier = 1;
+	string tree_id = 2;
+}
+
+message RefreshSubtreeStats_Request {
+	int32 root_uid = 1;
+	string tree_id = 2;
+}
+
 message ErrorOccurred {
 	string msg = 1;
 	string secondary_msg = 2;
+}
+
+message UidContainer {
+	int32 uid = 1;
 }
 
 message StartDiffTrees_Request {
@@ -158,6 +172,9 @@ service Outlet {
 	rpc start_subtree_load(StartSubtreeLoad_Request) returns (StartSubtreeLoad_Response);
 	rpc get_op_exec_play_state(GetOpExecPlayState_Request) returns (PlayState);
 	rpc start_diff_trees(StartDiffTrees_Request) returns (Empty);
+
+	rpc refresh_subtree(RefreshSubtree_Request) returns (Empty);
+	rpc refresh_subtree_stats(RefreshSubtreeStats_Request) returns (Empty);
 
 	rpc get_next_uid(GetNextUid_Request) returns (GetNextUid_Response);
 	rpc get_uid_for_local_path(GetUidForLocalPath_Request) returns (GetUidForLocalPath_Response);

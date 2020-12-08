@@ -37,7 +37,7 @@ class MasterStore(HasLifecycle, HasGetChildren, ABC):
         pass
 
     @abstractmethod
-    def refresh_subtree(self, subtree_root_node: Node, tree_id: str):
+    def refresh_subtree(self, subtree_root: NodeIdentifier, tree_id: str):
         pass
 
     # Mutators

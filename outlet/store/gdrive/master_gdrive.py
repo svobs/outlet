@@ -212,10 +212,15 @@ class GDriveMasterStore(MasterStore):
         with self._struct_lock:
             self._memstore.master_tree.refresh_stats(subtree_root_node, tree_id)
 
-    def refresh_subtree(self, subtree_root_node: GDriveFolder, tree_id: str):
+    def refresh_subtree(self, subtree_root: GDriveIdentifier, tree_id: str):
         # Call into client to get folder. Set has_all_children=False at first, then set to True when it's finished.
-        logger.debug(f'[{tree_id}] Refresh requested. Querying GDrive for latest version of parent folder ({subtree_root_node})')
+        logger.debug(f'[{tree_id}] Refresh requested. Querying GDrive for latest version of parent folder ({subtree_root})')
         stats_sw = Stopwatch()
+
+        subtree_root_node = self.get_node_for_uid(subtree_root.uid)
+
+        if not subtree_root_node:
+            raise RuntimeError(f'Cannot refresh subtree for GDrive: could not find node in cache matching: {subtree_root}')
 
         if not subtree_root_node.goog_id:
             raise RuntimeError(f'Cannot refresh subtree for GDrive node: no goog_id for subtree root node: {subtree_root_node}')
@@ -229,7 +234,7 @@ class GDriveMasterStore(MasterStore):
             return
 
         assert isinstance(parent_node, GDriveFolder)
-        parent_node.node_identifier.set_path_list(subtree_root_node.get_path_list())
+        parent_node.node_identifier.set_path_list(subtree_root.get_path_list())
 
         folders_to_process: Deque[GDriveFolder] = deque()
         folders_to_process.append(parent_node)

@@ -182,9 +182,6 @@ class CacheManager(HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.COMMAND_COMPLETE, receiver=self._on_command_completed)
         self.connect_dispatch_listener(signal=Signal.DEREGISTER_DISPLAY_TREE, receiver=self._deregister_display_tree)
 
-        self.connect_dispatch_listener(signal=Signal.REFRESH_SUBTREE, receiver=self._on_refresh_subtree_requested)
-        self.connect_dispatch_listener(signal=Signal.REFRESH_SUBTREE_STATS, receiver=self._on_refresh_stats_requested)
-
         self.connect_dispatch_listener(signal=Signal.GDRIVE_RELOADED, receiver=self._on_gdrive_whole_tree_reloaded)
 
     def shutdown(self):
@@ -454,13 +451,13 @@ class CacheManager(HasLifecycle):
         if self._is_live_capture_enabled and self._live_monitor:
             self._live_monitor.stop_capture(sender)
 
-    def _on_refresh_subtree_requested(self, sender, node: Node):
-        logger.info(f'[{sender}] Enqueuing task to refresh subtree at {node.node_identifier}')
-        self.backend.executor.submit_async_task(self.refresh_subtree, node, sender)
+    def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):
+        logger.info(f'Enqueuing task to refresh subtree at {node_identifier}')
+        self.backend.executor.submit_async_task(self._refresh_subtree, node_identifier, tree_id)
 
-    def _on_refresh_stats_requested(self, sender, root_uid: UID):
-        logger.info(f'[{sender}] Enqueuing task to refresh stats')
-        self.backend.executor.submit_async_task(self.refresh_stats, root_uid, sender)
+    def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: str):
+        logger.info(f'[{tree_id}] Enqueuing task to refresh stats')
+        self.backend.executor.submit_async_task(self._refresh_stats, root_uid, tree_id)
 
     def _on_gdrive_whole_tree_reloaded(self, sender: str):
         # If GDrive was reloaded, our previous selection was almost certainly invalid. Just reset all open GDrive trees to GDrive root.
@@ -862,18 +859,18 @@ class CacheManager(HasLifecycle):
     def execute_gdrive_load_op(self, op: GDriveDiskLoadOp):
         self._master_gdrive.execute_load_op(op)
 
-    def refresh_subtree(self, node: Node, tree_id: str):
-        """Called asynchronously via Signal.REFRESH_SUBTREE"""
-        logger.debug(f'[{tree_id}] Refreshing subtree: {node}')
-        if node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
-            self._master_local.refresh_subtree(node, tree_id)
-        elif node.get_tree_type() == TREE_TYPE_GDRIVE:
-            self._master_gdrive.refresh_subtree(node, tree_id)
+    def _refresh_subtree(self, node_identifier: NodeIdentifier, tree_id: str):
+        """Called asynchronously via task executor"""
+        logger.debug(f'[{tree_id}] Refreshing subtree: {node_identifier}')
+        if node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+            self._master_local.refresh_subtree(node_identifier, tree_id)
+        elif node_identifier.tree_type == TREE_TYPE_GDRIVE:
+            self._master_gdrive.refresh_subtree(node_identifier, tree_id)
         else:
             assert False
 
-    def refresh_stats(self, subtree_root_uid: UID, tree_id: str):
-        """Does not send signals. The caller is responsible for sending REFRESH_SUBTREE_STATS_DONE and SET_STATUS themselves"""
+    def _refresh_stats(self, subtree_root_uid: UID, tree_id: str):
+        """Called async via task exec (cacheman.enqueue_refresh_subtree_stats_task()) """
         # get up-to-date object:
         subtree_root_node: Node = self.get_node_for_uid(subtree_root_uid)
 

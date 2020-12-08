@@ -29,8 +29,6 @@ class Signal(IntEnum):
     DELETE_SUBTREE = 28
     SET_ROWS_CHECKED = 29
     SET_ROWS_UNCHECKED = 30
-    REFRESH_SUBTREE_STATS = 31
-    REFRESH_SUBTREE = 32
     FILTER_UI_TREE = 33
     """Requests that the central cache update the stats for all nodes in the given subtree.
     When done, the central cache will send the signal REFRESH_SUBTREE_STATS_DONE to notify the tree that it can redraw the displayed nodes"""

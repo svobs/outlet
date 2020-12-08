@@ -307,9 +307,9 @@ class LocalDiskMasterStore(MasterStore):
         registry_needs_update = len(supertree_sets) > 0
         return registry_needs_update
 
-    def refresh_subtree(self, node: LocalNode, tree_id: str):
-        assert isinstance(node.node_identifier, LocalNodeIdentifier)
-        self._get_display_tree(node.node_identifier, tree_id, is_live_refresh=True)
+    def refresh_subtree(self, node_identifier: LocalNodeIdentifier, tree_id: str):
+        assert isinstance(node_identifier, LocalNodeIdentifier)
+        self._get_display_tree(node_identifier, tree_id, is_live_refresh=True)
 
     def refresh_subtree_stats(self, subtree_root_node: LocalNode, tree_id: str):
         with self._struct_lock:
