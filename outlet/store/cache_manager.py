@@ -657,6 +657,7 @@ class CacheManager(HasLifecycle):
         logger.debug(f'[{tree_id}] Enqueueing subtree load task')
         self._load_request_thread.enqueue(tree_id)
 
+    # FIXME: check queue for requests with the same tree_id and remove duplicates
     def load_data_for_display_tree(self, tree_id: str):
         """Executed asyncly via the LoadRequestThread."""
         logger.debug(f'Loading data for display tree: {tree_id}')

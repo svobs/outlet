@@ -9,6 +9,7 @@ from util import format
 from constants import IconId, TrashStatus
 from store.uid.uid_generator import UID
 from model.node_identifier import NodeIdentifier
+from util.ensure import ensure_uid
 from util.simple_tree import BaseNode
 
 logger = logging.getLogger(__name__)
@@ -218,6 +219,7 @@ class HasParentList(ABC):
             self._parent_uids = parent_uids
 
     def add_parent(self, parent_uid: UID):
+        parent_uid = ensure_uid(parent_uid)
         current_parent_ids: List[UID] = self.get_parent_uids()
         if len(current_parent_ids) == 0:
             self._parent_uids = parent_uid

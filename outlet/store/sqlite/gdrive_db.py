@@ -315,10 +315,9 @@ class GDriveDatabase(MetaDatabase):
             node = self.table_gdrive_folder.select_object_for_uid(uid)
 
         if node:
-            id_parent_mappings = self.id_parent_mapping.select_row_for_uid(uid, uid_col_name='item_uid')
-            if id_parent_mappings:
-                for mapping in id_parent_mappings:
-                    node.add_parent(mapping[1])
+            id_parent_mapping = self.id_parent_mapping.select_row_for_uid(uid, uid_col_name='item_uid')
+            if id_parent_mapping:
+                node.add_parent(UID(id_parent_mapping[1]))
 
         logger.debug(f'get_node_with_uid(): returning {node}')
         return node

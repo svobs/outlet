@@ -99,3 +99,7 @@ class OutletBackend(HasLifecycle, ABC):
     @abstractmethod
     def start_diff_trees(self, tree_id_left: str, tree_id_right: str):
         pass
+
+    @abstractmethod
+    def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
+        pass
