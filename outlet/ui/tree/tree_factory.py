@@ -126,7 +126,10 @@ def build_gdrive_root_chooser(parent_win, tree: DisplayTree):
     factory.display_persisted = False
     factory.has_checkboxes = False
     factory.can_change_root = True
-    return factory.build()
+    controller = factory.build()
+
+    parent_win.app.backend.start_subtree_load(tree.tree_id)
+    return controller
 
 
 def build_editor_tree(parent_win, tree: DisplayTree):

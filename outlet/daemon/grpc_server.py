@@ -7,6 +7,7 @@ import outlet.daemon.grpc
 from collections import deque
 from typing import Deque, Dict, Iterable, Optional
 
+from app.backend_integrated import BackendIntegrated
 from constants import SUPER_DEBUG
 from daemon.grpc.conversion import Converter
 from daemon.grpc.Outlet_pb2 import DragDrop_Request, DragDrop_Response, Empty, GetAncestorList_Response, GetChildList_Response, GetNextUid_Response, \
@@ -37,6 +38,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     """
     def __init__(self, backend):
         HasLifecycle.__init__(self)
+        assert isinstance(backend, BackendIntegrated)
         self.backend = backend
         self.uid_generator: UidGenerator = backend.uid_generator
         self.cacheman: CacheManager = backend.cacheman
@@ -163,7 +165,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return response
 
     def start_subtree_load(self, request: StartSubtreeLoad_Request, context):
-        self.cacheman.enqueue_load_subtree_task(request.tree_id)
+        self.backend.start_subtree_load(request.tree_id)
         return StartSubtreeLoad_Response()
 
     def _on_subtree_load_started(self, sender: str):

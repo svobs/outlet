@@ -86,6 +86,19 @@ class CacheInfoByType(TwoLevelDict):
         super().__init__(lambda x: x.subtree_root.tree_type, lambda x: x.subtree_root.get_path_list()[0], lambda x, y: True)
 
 
+class LoadRequest:
+    """
+    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    CLASS LoadRequest
+
+    Object encapsulating the information for a single load request on the LoadRequestThread
+    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+    """
+    def __init__(self, tree_id: str, send_signals: bool):
+        self.tree_id = tree_id
+        self.send_signals = send_signals
+
+
 class LoadRequestThread(QThread):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -104,9 +117,9 @@ class LoadRequestThread(QThread):
         logger.debug(f'[{self.name}] Waiting for CacheMan startup to complete...')
         self.cacheman.wait_for_startup_done()
 
-    def process_single_item(self, tree_id: str):
-        logger.debug(f'[{self.name}] Submitted load request for tree_id: {tree_id}')
-        self.backend.executor.submit_async_task(self.cacheman.load_data_for_display_tree, tree_id)
+    def process_single_item(self, load_request: LoadRequest):
+        logger.debug(f'[{self.name}] Submitting load request for tree_id: {load_request.tree_id}, send_signals={load_request.send_signals}')
+        self.backend.executor.submit_async_task(self.cacheman.load_data_for_display_tree, load_request)
 
 
 class CacheManager(HasLifecycle):
@@ -580,7 +593,7 @@ class CacheManager(HasLifecycle):
 
         # Kick off data load task, if needed
         if not state.needs_manual_load:
-            self.enqueue_load_subtree_task(state.tree_id)
+            self.enqueue_load_subtree_task(state.tree_id, send_signals=False)
         else:
             logger.debug(f'[{state.tree_id}] Tree needs manual load; skipping subtree load task')
 
@@ -651,21 +664,22 @@ class CacheManager(HasLifecycle):
         logger.debug(f'resolve_root_from_path(): returning new_root={root_path_meta}"')
         return root_path_meta
 
-    def enqueue_load_subtree_task(self, tree_id: str):
+    def enqueue_load_subtree_task(self, tree_id: str, send_signals: bool):
         logger.debug(f'[{tree_id}] Enqueueing subtree load task')
-        self._load_request_thread.enqueue(tree_id)
+        self._load_request_thread.enqueue(LoadRequest(tree_id=tree_id, send_signals=send_signals))
 
-    # FIXME: check queue for requests with the same tree_id and remove duplicates
-    def load_data_for_display_tree(self, tree_id: str):
+    def load_data_for_display_tree(self, load_request: LoadRequest):
         """Executed asyncly via the LoadRequestThread."""
+        tree_id: str = load_request.tree_id
         logger.debug(f'Loading data for display tree: {tree_id}')
         display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
         if not display_tree_meta:
             logger.info(f'Display tree is no longer tracked; discarding data load: {tree_id}')
             return
 
-        # This will be carried across gRPC if needed
-        dispatcher.send(signal=Signal.LOAD_SUBTREE_STARTED, sender=tree_id)
+        if load_request.send_signals:
+            # This will be carried across gRPC if needed
+            dispatcher.send(signal=Signal.LOAD_SUBTREE_STARTED, sender=tree_id)
 
         if display_tree_meta.root_exists:
             spid = display_tree_meta.root_sn.spid
@@ -682,8 +696,9 @@ class CacheManager(HasLifecycle):
             else:
                 raise RuntimeError(f'Unrecognized tree type: {spid.tree_type}')
 
-        # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
-        dispatcher.send(signal=Signal.LOAD_SUBTREE_DONE, sender=tree_id)
+        if load_request.send_signals:
+            # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
+            dispatcher.send(signal=Signal.LOAD_SUBTREE_DONE, sender=tree_id)
 
     def get_active_display_tree_meta(self, tree_id) -> ActiveDisplayTreeMeta:
         return self._display_tree_dict.get(tree_id, None)
