@@ -40,15 +40,12 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
         HasLifecycle.__init__(self)
         threading.Thread.__init__(self, target=self.run, name='SignalReceiverThread', daemon=True)
 
-        # self.dispatcher_thread = DispatcherQueueThread()
-
         self.backend = backend
         self._shutdown: bool = False
 
     def start(self):
         HasLifecycle.start(self)
         threading.Thread.start(self)
-        # self.dispatcher_thread.start()
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
@@ -119,6 +116,7 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
         """Take the signal (received from server) and dispatch it to our UI process"""
         sig = Signal(signal.sig_int)
         kwargs = {}
+        # TODO: convert this long conditional list into an action dict
         if signal.sig_int == Signal.DISPLAY_TREE_CHANGED:
             display_tree_ui_state = Converter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
             tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
@@ -131,6 +129,13 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             kwargs['msg'] = signal.error_occurred.msg
             if signal.ui_enablement.HasField('secondary_msg'):
                 kwargs['secondary_msg'] = signal.error_occurred.secondary_msg
+        elif signal.sig_int == Signal.NODE_UPSERTED:
+            kwargs['node'] = Converter.node_from_grpc(signal.node)
+        elif signal.sig_int == Signal.NODE_REMOVED:
+            kwargs['node'] = Converter.node_from_grpc(signal.node)
+        elif signal.sig_int == Signal.NODE_MOVED:
+            kwargs['src_node'] = Converter.node_from_grpc(signal.src_dst_node_list.src_node)
+            kwargs['dst_node'] = Converter.node_from_grpc(signal.src_dst_node_list.dst_node)
         logger.info(f'Relaying locally: signal="{sig.name}" sender="{signal.sender}" args={kwargs}')
         kwargs['signal'] = sig
         kwargs['sender'] = signal.sender
@@ -180,14 +185,14 @@ class BackendGRPCClient(OutletBackend):
             self.grpc_stub = None
 
     def _send_pause_op_exec_signal(self, sender: str):
-        self.grpc_stub.send_signal(Signal(signal_name=Signal.PAUSE_OP_EXECUTION, sender_name=sender))
+        self.grpc_stub.send_signal(SignalMsg(sig_int=Signal.PAUSE_OP_EXECUTION, sender=sender))
 
     def _send_resume_op_exec_signal(self, sender: str):
-        self.grpc_stub.send_signal(Signal(signal_name=Signal.RESUME_OP_EXECUTION, sender_name=sender))
+        self.grpc_stub.send_signal(SignalMsg(sig_int=Signal.RESUME_OP_EXECUTION, sender=sender))
 
     def send_signal_to_server(self, signal: str, sender: str):
         """General-use method for signals with no additional args"""
-        self.grpc_stub.send_signal(Signal(signal_name=signal, sender_name=sender))
+        self.grpc_stub.send_signal(SignalMsg(sig_int=signal, sender_name=sender))
 
     def _on_ui_task_requested(self, sender, task_func, *args):
         self._task_runner.enqueue(task_func, *args)

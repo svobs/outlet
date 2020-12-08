@@ -5,7 +5,7 @@ from pydispatch import dispatcher
 
 import outlet.daemon.grpc
 from collections import deque
-from typing import Deque, Dict, Iterable, Optional
+from typing import Deque, Dict, Optional
 
 from app.backend_integrated import BackendIntegrated
 from constants import SUPER_DEBUG
@@ -63,6 +63,10 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._on_subtree_load_done)
         self.connect_dispatch_listener(signal=Signal.DIFF_TREES_FAILED, receiver=self._on_diff_failed)
         self.connect_dispatch_listener(signal=Signal.DIFF_TREES_DONE, receiver=self._on_diff_done)
+
+        self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted)
+        self.connect_dispatch_listener(signal=Signal.NODE_REMOVED, receiver=self._on_node_removed)
+        self.connect_dispatch_listener(signal=Signal.NODE_MOVED, receiver=self._on_node_moved)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
@@ -179,6 +183,22 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
     def _on_diff_done(self, sender: str):
         self.send_signal_via_grpc(Signal.DIFF_TREES_DONE, sender)
+
+    def _on_node_upserted(self, sender: str, node: Node):
+        signal = SignalMsg(sig_int=Signal.NODE_UPSERTED, sender=sender)
+        Converter.node_to_grpc(node, signal.node)
+        self.send_signal_to_all(signal)
+
+    def _on_node_removed(self, sender: str, node: Node):
+        signal = SignalMsg(sig_int=Signal.NODE_REMOVED, sender=sender)
+        Converter.node_to_grpc(node, signal.node)
+        self.send_signal_to_all(signal)
+
+    def _on_node_moved(self, sender: str, src_node: Node, dst_node: Node):
+        signal = SignalMsg(sig_int=Signal.NODE_MOVED, sender=sender)
+        Converter.node_to_grpc(src_node, signal.src_dst_node_list.src_node)
+        Converter.node_to_grpc(dst_node, signal.src_dst_node_list.dst_node)
+        self.send_signal_to_all(signal)
 
     def _on_error_occurred(self, sender: str, msg: str, secondary_msg: Optional[str]):
         signal = SignalMsg(sig_int=Signal.ERROR_OCCURRED, sender=sender)
