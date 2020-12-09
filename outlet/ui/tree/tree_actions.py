@@ -37,6 +37,7 @@ class TreeActions(HasLifecycle):
     def __init__(self, controller):
         HasLifecycle.__init__(self)
         self.con = controller
+        # FIXME: put in backend
         self.download_dir = file_util.get_resource_path(self.con.config.get('download_dir'))
         self.post_download_action = OPEN
 
@@ -107,6 +108,9 @@ class TreeActions(HasLifecycle):
             os.remove(file)
 
     def _download_file_from_gdrive(self, sender, node: GDriveFile):
+        # TODO: Move to backend
+        self.con.app.backend.download_file_from_gdrive(node.uid)
+
         os.makedirs(name=self.download_dir, exist_ok=True)
         dest_file = os.path.join(self.download_dir, node.name)
 
@@ -136,7 +140,7 @@ class TreeActions(HasLifecycle):
             self.con.parent_win.show_error_msg('Cannot open file in Nautilus', f'File not found: {full_path}')
 
     def _delete_single_file(self, sender, node: Node):
-        self._delete_subtree(sender, node)
+        self._delete_subtree(sender, [node])
 
     def _get_subtree_for_node(self, subtree_root: Node) -> List[Node]:
         assert subtree_root.is_dir(), f'Expected a dir: {subtree_root}'
@@ -144,9 +148,11 @@ class TreeActions(HasLifecycle):
         subtree_files, subtree_dirs = self.con.app.backend.cacheman.get_all_files_and_dirs_for_subtree(subtree_root.node_identifier)
         return subtree_files + subtree_dirs
 
-    def _delete_subtree(self, sender, node: Node = None, node_list: List[Node] = None):
-        if not node_list and node:
-            node_list = [node]
+    def _delete_subtree(self, sender, node_list: List[Node]):
+        node_uid_list = [n.uid for n in node_list]
+        self.con.app.backend.delete_subtree(node_uid_list)
+
+        # TODO: move to backend
         logger.debug(f'[{self.con.tree_id}] Setting up delete for {len(node_list)} nodes')
 
         # don't worry about overlapping trees; the cacheman will sort everything out

@@ -377,10 +377,9 @@ class TreeUiListeners(HasLifecycle):
 
     def on_delete_key_pressed(self):
         if self.con.treeview_meta.can_modify_tree:
-            selected_sn_list: List[SPIDNodePair] = self.con.display_store.get_multiple_selection_sn_list()
-            if selected_sn_list:
-                for selected_sn in selected_sn_list:
-                    dispatcher.send(signal=Signal.DELETE_SUBTREE, sender=self.con.tree_id, sn=selected_sn.node)
+            selected_node_list: List[Node] = self.con.display_store.get_multiple_selection()
+            if selected_node_list:
+                dispatcher.send(signal=Signal.DELETE_SUBTREE, sender=self.con.tree_id, node_list=selected_node_list)
                 return True
         return False
 

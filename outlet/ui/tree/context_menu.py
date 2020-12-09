@@ -141,7 +141,7 @@ class TreeContextMenu:
                 label += ' from Google Drive'
             item = Gtk.MenuItem(label=label)
             node = self.con.display_store.get_node_data(tree_path)
-            item.connect('activate', self.send_signal, Signal.DELETE_SUBTREE, {'node': node})
+            item.connect('activate', self.send_signal, Signal.DELETE_SUBTREE, {'node_list': [node]})
             menu.append(item)
 
         # MenuItem: 'Delete'

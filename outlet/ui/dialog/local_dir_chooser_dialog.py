@@ -52,11 +52,9 @@ class LocalRootDirChooserDialog(Gtk.FileChooserDialog):
         open_dialog = dialog
         # if response is "ACCEPT" (the button "Open" has been clicked)
         if response_id == Gtk.ResponseType.OK:
-            filename = open_dialog.get_filename()
-            logger.info(f'User selected dir: {filename}')
-            uid = open_dialog.parent_win.app.cacheman.get_uid_for_local_path(filename)
-            node_identifier = LocalNodeIdentifier(uid=uid, path_list=filename)
-            open_dialog.parent_win.app.backend.create_display_tree_from_spid(self.tree_id, node_identifier)
+            full_path = open_dialog.get_filename()
+            logger.info(f'User selected dir: {full_path}')
+            open_dialog.parent_win.app.backend.create_display_tree_from_user_path(self.tree_id, user_path=full_path)
         # if response is "CANCEL" (the button "Cancel" has been clicked)
         elif response_id == Gtk.ResponseType.CANCEL:
             logger.debug("Cancelled: LocalRootDirChooserDialog")
