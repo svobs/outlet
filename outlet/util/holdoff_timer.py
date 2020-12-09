@@ -19,13 +19,13 @@ class HoldOffTimer:
         self.function = task_func
         self.args = args if args is not None else []
         self.kwargs = kwargs if kwargs is not None else {}
-        self._sleep_until_time_ms: float = 0.0
+        self._sleep_util_time_sec: float = 0.0
         self._finished = threading.Event()
         self._lock = threading.Lock()
         self._thread: Optional[threading.Thread] = None
 
     def _reset_timer(self):
-        self._sleep_until_time_ms = float(time.time()) + self._initial_delay_sec
+        self._sleep_util_time_sec = float(time.time()) + self._initial_delay_sec
 
     def start_or_delay(self):
         """If a timer has not been started, then it starts one with the configured delay. If one has been started,
@@ -52,7 +52,7 @@ class HoldOffTimer:
         while True:
             with self._lock:
                 # Disallow delay less than zero:
-                additional_delay = max(self._sleep_until_time_ms - float(time.time()), 0)
+                additional_delay = max(self._sleep_util_time_sec - float(time.time()), 0)
 
             if additional_delay:
                 logger.debug(f'{self._thread.name} sleeping for {"{0:.3f}".format(additional_delay)}s...')

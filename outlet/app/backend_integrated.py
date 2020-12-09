@@ -10,6 +10,7 @@ from model.node.node import Node, SPIDNodePair
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
+from model.user_op import UserOp
 from store.cache_manager import CacheManager
 from store.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
 from ui.signal import ID_CENTRAL_EXEC, Signal
@@ -99,4 +100,7 @@ class BackendIntegrated(OutletBackend):
 
     def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: str):
         self.cacheman.enqueue_refresh_subtree_stats_task(root_uid, tree_id)
+
+    def get_last_pending_op(self, node_uid: UID) -> Optional[UserOp]:
+        return self.cacheman.get_last_pending_op_for_node(node_uid)
 

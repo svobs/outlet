@@ -10,7 +10,9 @@ from app.backend import OutletBackend
 from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_CLIENT_SLEEP_ON_FAILURE_SEC, GRPC_SERVER_ADDRESS
 from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.conversion import Converter
-from daemon.grpc.Outlet_pb2 import DragDrop_Request, GetAncestorList_Request, GetChildList_Request, GetNextUid_Request, GetNodeForLocalPath_Request, \
+from daemon.grpc.Outlet_pb2 import DragDrop_Request, GetAncestorList_Request, GetChildList_Request, GetLastPendingOp_Request, \
+    GetLastPendingOp_Response, GetNextUid_Request, \
+    GetNodeForLocalPath_Request, \
     GetNodeForUid_Request, \
     GetOpExecPlayState_Request, \
     GetUidForLocalPath_Request, \
@@ -21,6 +23,7 @@ from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
+from model.user_op import UserOp, UserOpType
 from ui.signal import ID_CENTRAL_EXEC, Signal
 from ui.tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
@@ -308,3 +311,15 @@ class BackendGRPCClient(OutletBackend):
         request.root_uid = root_uid
         request.tree_id = tree_id
         self.grpc_stub.refresh_subtree_stats(request)
+
+    def get_last_pending_op(self, node_uid: UID) -> Optional[UserOp]:
+        request = GetLastPendingOp_Request()
+        request.node_uid = node_uid
+        response: GetLastPendingOp_Response = self.grpc_stub.get_last_pending_op_for_node(request)
+        if not response.HasField('user_op'):
+            return None
+
+        src_node = Converter.node_from_grpc(response.user_op.src_node)
+        dst_node = Converter.node_from_grpc(response.user_op.dst_node)
+        op_type = UserOpType(response.user_op.op_type)
+        return UserOp(response.user_op.op_uid, response.user_op.batch_uid, op_type, src_node, dst_node, response.user_op.create_ts)

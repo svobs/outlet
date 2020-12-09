@@ -37,7 +37,7 @@ from store.user_op.op_ledger import OpLedger
 from ui.signal import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
 from ui.tree.filter_criteria import FilterCriteria
 from ui.tree.root_path_config import RootPathConfigPersister
-from util import file_util
+from util import file_util, time_util
 from util.ensure import ensure_list
 from util.file_util import get_resource_path
 from util.has_lifecycle import HasLifecycle
@@ -814,9 +814,9 @@ class CacheManager(HasLifecycle):
             raise RuntimeError(f'Unrecognized tree type: {subtree_root.tree_type}')
 
         cache_location = os.path.join(self.cache_dir_path, file_name)
-        now_ms = int(time.time())
+        sync_ts = time_util.now_sec()
         db_entry = CacheInfoEntry(cache_location=cache_location,
-                                  subtree_root=subtree_root, subtree_root_parent_uid=subtree_root_parent_uid, sync_ts=now_ms,
+                                  subtree_root=subtree_root, subtree_root_parent_uid=subtree_root_parent_uid, sync_ts=sync_ts,
                                   is_complete=True)
 
         with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as cache_registry_db:

@@ -17,6 +17,7 @@ from model.node.node import Node
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier
+from util import time_util
 
 logger = logging.getLogger(__name__)
 
@@ -508,7 +509,7 @@ class OpDatabase(MetaDatabase):
         self._upsert_nodes_without_commit(entries, ARCHIVE)
 
         # Upsert Ops
-        current_time = int(time.time())
+        current_time = time_util.now_sec()
         change_tuple_list = []
         for e in entries:
             assert isinstance(e, UserOp), f'Expected UserOp; got instead: {e}'
@@ -526,7 +527,7 @@ class OpDatabase(MetaDatabase):
         # Upsert src & dst nodes
         self._upsert_nodes_without_commit(entries, ARCHIVE)
 
-        current_time = int(time.time())
+        current_time = time_util.now_sec()
         change_tuple_list = []
         for e in entries:
             assert isinstance(e, UserOp), f'Expected UserOp; got instead: {e}'

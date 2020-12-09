@@ -168,8 +168,7 @@ class TreeContextMenu:
             assert node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK
             single_path = node.get_single_path()
 
-        # FIXME
-        op: Optional[UserOp] = self.con.app.cacheman.get_last_pending_op_for_node(node.uid)
+        op: Optional[UserOp] = self.con.app.backend.get_last_pending_op(node.uid)
         if op and not op.is_completed() and op.has_dst():
             if SUPER_DEBUG:
                 logger.debug(f'Building context menu for op: {op}')
@@ -224,7 +223,7 @@ class TreeContextMenu:
 
         if node.is_dir():
             item = Gtk.MenuItem(label=f'Expand all')
-            item.connect('activate', self.con.app.backend, Signal.EXPAND_ALL, {'tree_path': tree_path})
+            item.connect('activate', self.send_signal, Signal.EXPAND_ALL, {'tree_path': tree_path})
             menu.append(item)
 
         if node.is_live():

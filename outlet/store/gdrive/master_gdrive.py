@@ -26,6 +26,7 @@ from store.uid.uid_mapper import UidGoogIdMapper
 from ui.signal import Signal
 from ui.signal import ID_GLOBAL_CACHE
 from ui.tree.filter_criteria import FilterCriteria
+from util import time_util
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -159,7 +160,7 @@ class GDriveMasterStore(MasterStore):
             changes_download.page_token = self.gdrive_client.get_changes_start_token()
 
         observer: PagePersistingChangeObserver = PagePersistingChangeObserver(self.backend)
-        sync_ts = int(time.time())
+        sync_ts = time_util.now_sec()
         self.gdrive_client.get_changes_list(changes_download.page_token, sync_ts, observer)
 
         # Now finally update download token

@@ -12,6 +12,14 @@ message Empty {
 	// nothing
 }
 
+message GetLastPendingOp_Request {
+	int32 node_uid = 1;
+}
+
+message GetLastPendingOp_Response {
+	UserOp user_op = 1;
+}
+
 message Subscribe_Request {
 	// nothing
 }
@@ -185,6 +193,8 @@ service Outlet {
 	rpc get_uid_for_local_path(GetUidForLocalPath_Request) returns (GetUidForLocalPath_Response);
 
 	rpc drop_dragged_nodes(DragDrop_Request) returns (DragDrop_Response);
+
+	rpc get_last_pending_op_for_node(GetLastPendingOp_Request) returns (GetLastPendingOp_Response);
 }
 
 

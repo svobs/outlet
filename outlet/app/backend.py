@@ -8,6 +8,7 @@ from model.node.node import Node, SPIDNodePair
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
+from model.user_op import UserOp
 from ui.signal import ID_GDRIVE_DIR_SELECT
 from ui.tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
@@ -110,4 +111,8 @@ class OutletBackend(HasLifecycle, ABC):
 
     @abstractmethod
     def enqueue_refresh_subtree_stats_task(self, root_uid: UID, tree_id: str):
+        pass
+
+    @abstractmethod
+    def get_last_pending_op(self, node_uid: UID) -> Optional[UserOp]:
         pass

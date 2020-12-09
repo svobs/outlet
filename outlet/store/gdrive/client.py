@@ -25,7 +25,7 @@ from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier
 from ui.signal import Signal
-from util import file_util
+from util import file_util, time_util
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 
@@ -176,7 +176,7 @@ class GDriveClient(HasLifecycle):
         # 'driveId' only populated for items which someone has shared with me
 
         if not sync_ts:
-            sync_ts = int(time.time())
+            sync_ts = time_util.now_sec()
 
         goog_id = item['id']
         uid = self.backend.cacheman.get_uid_for_goog_id(goog_id, uid_suggestion=uid)
@@ -212,7 +212,7 @@ class GDriveClient(HasLifecycle):
 
     def _convert_dict_to_gdrive_file(self, item: Dict, sync_ts: int = 0, uid: UID = None) -> GDriveFile:
         if not sync_ts:
-            sync_ts = int(time.time())
+            sync_ts = time_util.now_sec()
 
         owners = item.get('owners', None)
         if owners:
@@ -380,7 +380,7 @@ class GDriveClient(HasLifecycle):
         query = f"sharedWithMe"
         fields = f'nextPageToken, incompleteSearch, files({GDRIVE_FILE_FIELDS}, parents)'
 
-        sync_ts = int(time.time())
+        sync_ts = time_util.now_sec()
         observer = SimpleNodeCollector()
         self._execute_query(query, fields, None, sync_ts, observer)
         return observer.nodes
@@ -390,7 +390,7 @@ class GDriveClient(HasLifecycle):
         query = f"'{parent_goog_id}' in parents"
         fields = f'nextPageToken, incompleteSearch, files({GDRIVE_FILE_FIELDS}, parents)'
 
-        sync_ts = int(time.time())
+        sync_ts = time_util.now_sec()
         observer = SimpleNodeCollector()
         self._execute_query(query, fields, None, sync_ts, observer)
         return observer.nodes
@@ -417,7 +417,7 @@ class GDriveClient(HasLifecycle):
 
         logger.debug(f'Getting existing nodes named "{name}" with parent "{parent_goog_id}"')
 
-        sync_ts = int(time.time())
+        sync_ts = time_util.now_sec()
         observer = SimpleNodeCollector()
         self._execute_query(query, fields, None, sync_ts, observer)
 
@@ -431,7 +431,7 @@ class GDriveClient(HasLifecycle):
             raise RuntimeError('GDriveClient.get_existing_node_by_id(): no goog_id specified!')
         fields = f'{GDRIVE_FILE_FIELDS}, parents'
 
-        sync_ts = int(time.time())
+        sync_ts = time_util.now_sec()
 
         def request():
             logger.debug(f'Getting node with goog_id "{goog_id}"')
@@ -478,7 +478,7 @@ class GDriveClient(HasLifecycle):
 
         logger.debug(f'Getting existing files named "{name}" with parent "{parent_goog_id}"')
 
-        sync_ts = int(time.time())
+        sync_ts = time_util.now_sec()
         observer = SimpleNodeCollector()
         self._execute_query(query, fields, None, sync_ts, observer)
 
@@ -511,7 +511,7 @@ class GDriveClient(HasLifecycle):
         query = f"{QUERY_FOLDERS_ONLY} AND name='{name}' AND '{parent_goog_id}' in parents"
         fields = f'nextPageToken, incompleteSearch, files({GDRIVE_FOLDER_FIELDS}, parents)'
 
-        sync_ts = int(time.time())
+        sync_ts = time_util.now_sec()
         observer = SimpleNodeCollector()
         self._execute_query(query, fields, None, sync_ts, observer)
         return observer

@@ -19,6 +19,7 @@ from store.gdrive.master_gdrive_op_load import GDriveLoadAllMetaOp
 from store.gdrive.query_observer import FileMetaPersister, FolderMetaPersister
 from store.sqlite.gdrive_db import CurrentDownload
 from ui.signal import Signal
+from util import time_util
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -55,7 +56,7 @@ class GDriveTreeLoader:
             logger.debug(f'Sending START_PROGRESS_INDETERMINATE for tree_id: {self.tree_id}')
             dispatcher.send(Signal.START_PROGRESS_INDETERMINATE, sender=self.tree_id)
 
-        sync_ts: int = int(time.time())
+        sync_ts: int = time_util.now_sec()
 
         changes_download: CurrentDownload = self._diskstore.get_current_download(GDRIVE_DOWNLOAD_TYPE_CHANGES)
         if not changes_download or invalidate_cache:

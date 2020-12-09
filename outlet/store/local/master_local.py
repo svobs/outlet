@@ -4,6 +4,7 @@ import os
 import pathlib
 import threading
 import time
+from datetime import datetime
 from typing import List, Optional, Tuple
 
 import store.local.content_hasher
@@ -23,7 +24,7 @@ from store.uid.uid_generator import UID
 from store.uid.uid_mapper import UidPathMapper
 from ui.signal import ID_GLOBAL_CACHE
 from ui.tree.filter_criteria import FilterCriteria
-from util import file_util
+from util import file_util, time_util
 from util.simple_tree import NodeNotPresentError
 from util.stopwatch_sec import Stopwatch
 
@@ -577,7 +578,7 @@ class LocalDiskMasterStore(MasterStore):
                 return None
 
         # Get "now" in UNIX time:
-        sync_ts = int(time.time())
+        sync_ts = time_util.now_sec()
 
         if staging_path:
             path = staging_path

@@ -10,16 +10,18 @@ from typing import Deque, Dict, Optional
 from app.backend_integrated import BackendIntegrated
 from constants import SUPER_DEBUG
 from daemon.grpc.conversion import Converter
-from daemon.grpc.Outlet_pb2 import DragDrop_Request, DragDrop_Response, Empty, GetAncestorList_Response, GetChildList_Response, GetNextUid_Response, \
+from daemon.grpc.Outlet_pb2 import DragDrop_Request, DragDrop_Response, Empty, GetAncestorList_Response, GetChildList_Response, \
+    GetLastPendingOp_Request, GetLastPendingOp_Response, GetNextUid_Response, \
     GetNodeForLocalPath_Request, GetNodeForUid_Request, \
     GetUidForLocalPath_Request, \
     GetUidForLocalPath_Response, PlayState, RequestDisplayTree_Response, SendSignalResponse, SignalMsg, SingleNode_Response, \
     StartDiffTrees_Request, StartSubtreeLoad_Request, \
-    StartSubtreeLoad_Response, Subscribe_Request
+    StartSubtreeLoad_Response, Subscribe_Request, UserOp
 from daemon.grpc.Outlet_pb2_grpc import OutletServicer
 from executor.central import CentralExecutor
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.node.node import Node
+from model.uid import UID
 from store.cache_manager import CacheManager
 from store.uid.uid_generator import UidGenerator
 from ui.signal import Signal
@@ -288,3 +290,18 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         node_identifier = Converter.node_identifier_from_grpc(request.node_identifier)
         self.backend.cacheman.enqueue_refresh_subtree_task(node_identifier, request.tree_id)
         return Empty()
+
+    def get_last_pending_op_for_node(self, request: GetLastPendingOp_Request, context):
+        user_op: Optional[UserOp] = self.backend.cacheman.get_last_pending_op_for_node(UID(request.node_uid))
+
+        response = GetLastPendingOp_Response()
+        if user_op:
+            response.user_op.op_uid = user_op.op_uid
+            response.user_op.batch_uid = user_op.batch_uid
+            response.user_op.op_type = user_op.op_type
+            response.user_op.create_ts = user_op.create_ts
+
+            Converter.node_to_grpc(user_op.src_node, response.user_op.src_node)
+            Converter.node_to_grpc(user_op.dst_node, response.user_op.dst_node)
+
+        return response

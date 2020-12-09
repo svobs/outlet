@@ -89,6 +89,11 @@ class OutletStub(object):
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.DragDrop_Request.SerializeToString,
                 response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.DragDrop_Response.FromString,
                 )
+        self.get_last_pending_op_for_node = channel.unary_unary(
+                '/outlet.daemon.grpc.Outlet/get_last_pending_op_for_node',
+                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetLastPendingOp_Request.SerializeToString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetLastPendingOp_Response.FromString,
+                )
 
 
 class OutletServicer(object):
@@ -184,6 +189,12 @@ class OutletServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def get_last_pending_op_for_node(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_OutletServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -261,6 +272,11 @@ def add_OutletServicer_to_server(servicer, server):
                     servicer.drop_dragged_nodes,
                     request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.DragDrop_Request.FromString,
                     response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.DragDrop_Response.SerializeToString,
+            ),
+            'get_last_pending_op_for_node': grpc.unary_unary_rpc_method_handler(
+                    servicer.get_last_pending_op_for_node,
+                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetLastPendingOp_Request.FromString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetLastPendingOp_Response.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -524,5 +540,22 @@ class Outlet(object):
         return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/drop_dragged_nodes',
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.DragDrop_Request.SerializeToString,
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.DragDrop_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def get_last_pending_op_for_node(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/get_last_pending_op_for_node',
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetLastPendingOp_Request.SerializeToString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetLastPendingOp_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

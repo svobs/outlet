@@ -6,6 +6,7 @@ from typing import List, Optional
 from constants import IconId
 from model.uid import UID
 from model.node.node import Node
+from util import time_util
 from util.simple_tree import BaseNode
 
 logger = logging.getLogger(__name__)
@@ -49,7 +50,7 @@ class UserOpRef:
         self.dst_uid: UID = dst_uid
         self.create_ts: int = create_ts
         if not self.create_ts:
-            self.create_ts = int(time.time())
+            self.create_ts = time_util.now_ms()
 
     def __repr__(self):
         return f'UserOpRef(uid={self.op_uid} type={self.op_type.name} src={self.src_uid} dst={self.dst_uid}'
@@ -115,7 +116,7 @@ class UserOp(BaseNode):
 
         self.create_ts = create_ts
         if not self.create_ts:
-            self.create_ts = int(time.time())
+            self.create_ts = time_util.now_sec()
 
         self.result: Optional[UserOpResult] = None
 
