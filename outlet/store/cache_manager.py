@@ -23,7 +23,7 @@ from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import HasChildStats, HasParentList, Node, SPIDNodePair
-from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
+from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from model.user_op import UserOp, UserOpStatus, UserOpType
@@ -703,7 +703,6 @@ class CacheManager(HasLifecycle):
         if display_tree_meta.root_exists:
             spid = display_tree_meta.root_sn.spid
             if spid.tree_type == TREE_TYPE_LOCAL_DISK:
-                assert self._master_local
                 self._master_local.get_display_tree(spid, tree_id)
             elif spid.tree_type == TREE_TYPE_GDRIVE:
                 assert self._master_gdrive
@@ -783,6 +782,7 @@ class CacheManager(HasLifecycle):
                 if not os.path.exists(cache.subtree_root.get_single_path()):
                     raise RuntimeError(f'Could not load planning node(s): cache subtree does not exist: {cache.subtree_root.get_single_path()}')
                 else:
+                    assert isinstance(cache.subtree_root, LocalNodeIdentifier)
                     self._master_local.get_display_tree(cache.subtree_root, ID_GLOBAL_CACHE)
 
     def get_or_create_cache_info_entry(self, subtree_root: SinglePathNodeIdentifier) -> PersistedCacheInfo:
@@ -1019,7 +1019,7 @@ class CacheManager(HasLifecycle):
         This roughly matches the logic used to search for an node in Google Drive when we are unsure about its goog_id."""
         return self._master_gdrive.get_node_for_name_and_parent_uid(name, parent_uid)
 
-    def get_node_for_goog_id(self, goog_id: str) -> UID:
+    def get_node_for_goog_id(self, goog_id: str) -> GDriveNode:
         return self._master_gdrive.get_node_for_domain_id(goog_id)
 
     def get_node_for_node_identifier(self, node_identifer: NodeIdentifier) -> Optional[Node]:
@@ -1187,6 +1187,7 @@ class CacheManager(HasLifecycle):
 
     def get_all_files_and_dirs_for_subtree(self, subtree_root: NodeIdentifier) -> Tuple[List[Node], List[Node]]:
         if subtree_root.tree_type == TREE_TYPE_GDRIVE:
+            assert isinstance(subtree_root, GDriveIdentifier)
             return self._master_gdrive.get_all_gdrive_files_and_folders_for_subtree(subtree_root)
         elif subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
             assert isinstance(subtree_root, LocalNodeIdentifier)
@@ -1203,8 +1204,8 @@ class CacheManager(HasLifecycle):
     def get_or_create_gdrive_mime_type(self, mime_type_string: str):
         return self._master_gdrive.get_or_create_gdrive_mime_type(mime_type_string)
 
-    def delete_all_gdrive_meta(self):
-        return self._master_gdrive.delete_all_gdrive_meta()
+    def delete_all_gdrive_data(self):
+        return self._master_gdrive.delete_all_gdrive_data()
 
     def apply_gdrive_changes(self, gdrive_change_list):
         self._master_gdrive.apply_gdrive_changes(gdrive_change_list)

@@ -445,6 +445,6 @@ class GDriveMasterStore(MasterStore):
 
     def delete_all_gdrive_data(self):
         if SUPER_DEBUG:
-            logger.debug(f'Entered delete_all_gdrive_meta(): locked={self._struct_lock.locked()}')
+            logger.debug(f'Entered delete_all_gdrive_data(): locked={self._struct_lock.locked()}')
         with self._struct_lock:
             self._execute_write_op(DeleteAllDataOp())
