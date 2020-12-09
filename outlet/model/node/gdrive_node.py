@@ -2,17 +2,18 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
+from model.node.trait import HasChildStats
 from model.uid import UID
 from util import format
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TREE_TYPE_GDRIVE
-from model.node.node import Node, HasChildStats, HasParentList
+from model.node.node import Node
 from model.node_identifier import GDriveIdentifier
 from util.ensure import ensure_bool, ensure_int, ensure_uid
 
 logger = logging.getLogger(__name__)
 
 
-class GDriveNode(HasParentList, Node, ABC):
+class GDriveNode(Node, ABC):
     """
     ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
         CLASS GDriveNode
@@ -23,7 +24,6 @@ class GDriveNode(HasParentList, Node, ABC):
                  create_ts: Optional[int], modify_ts: Optional[int],
                  owner_uid: Optional[int], drive_id: Optional[str], is_shared: bool, shared_by_user_uid: Optional[int], sync_ts: Optional[int]):
         Node.__init__(self, node_identifier, trashed=trashed)
-        HasParentList.__init__(self, None)
         self.goog_id: Optional[str] = goog_id
         """The Google ID - long string. Need this for syncing with Google Drive,
         although the (int) uid will be used internally."""
@@ -50,7 +50,6 @@ class GDriveNode(HasParentList, Node, ABC):
     def update_from(self, other_node):
         if not isinstance(other_node, GDriveNode):
             raise RuntimeError(f'Bad: {other_node} (we are: {self})')
-        HasParentList.update_from(self, other_node)
         Node.update_from(self, other_node)
         self.goog_id = other_node.goog_id
         self._name = other_node.name

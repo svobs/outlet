@@ -462,8 +462,7 @@ class DisplayMutator(HasLifecycle):
 
         def update_ui():
             with self._lock:
-                # FIXME: add parent UIDs to nodes.......
-                parent_uid_list: List[UID] = self.con.cacheman.get_parent_uid_list_for_node(node, tree.get_root_identifier().get_single_path())
+                parent_uid_list: List[UID] = node.get_parent_uids()
 
                 # Often we want to refresh the stats, even if the node is not displayed, because it can affect other parts of the tree:
                 needs_refresh = True

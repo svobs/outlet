@@ -1,9 +1,10 @@
 import os
 
 from error import InvalidOperationError
+from model.node.trait import HasChildStats
 from model.user_op import UserOpType
 from constants import IconId, OBJ_TYPE_DIR, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from model.node.node import Node, HasChildStats
+from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
 
 

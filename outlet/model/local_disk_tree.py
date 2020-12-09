@@ -4,12 +4,13 @@ from typing import Callable, Deque, List, Optional, Tuple
 import logging
 
 from constants import SUPER_DEBUG, TrashStatus
+from model.node.trait import HasChildStats
 from model.uid import UID
 from util import file_util
-from model.node.node import HasChildStats, Node
+from model.node.node import Node
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
-from util.simple_tree import BaseNode, SimpleTree
+from util.simple_tree import SimpleTree
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)

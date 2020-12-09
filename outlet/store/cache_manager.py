@@ -22,11 +22,12 @@ from model.display_tree.display_tree import DisplayTreeUiState
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
-from model.node.node import HasChildStats, HasParentList, Node, SPIDNodePair
+from model.node.node import Node, SPIDNodePair
+from model.node.trait import HasChildStats
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from model.user_op import UserOp, UserOpStatus, UserOpType
+from model.user_op import UserOp, UserOpType
 from store.gdrive.master_gdrive import GDriveMasterStore
 from store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from store.live_monitor import LiveMonitor
@@ -410,7 +411,7 @@ class CacheManager(HasLifecycle):
                     cache_info.subtree_root.uid = cached_uid
 
                 # TODO: test what will happen to parent of '/'
-                parent_path = self._derive_parent_path(cache_info.subtree_root.get_single_path())
+                parent_path = self.derive_parent_path(cache_info.subtree_root.get_single_path())
                 cached_uid = self.get_uid_for_local_path(parent_path, uid_suggestion=cache_info.subtree_root_parent_uid,
                                                          override_load_check=True)
                 if cached_uid != cache_info.subtree_root_parent_uid:
@@ -433,6 +434,7 @@ class CacheManager(HasLifecycle):
                 logger.info(f'Subtree not found; will defer loading: "{existing_disk_cache.subtree_root}"')
                 existing_disk_cache.needs_refresh = True
             else:
+                assert isinstance(existing_disk_cache.subtree_root, LocalNodeIdentifier)
                 self._master_local.get_display_tree(existing_disk_cache.subtree_root, ID_GLOBAL_CACHE)
         elif cache_type == TREE_TYPE_GDRIVE:
             assert existing_disk_cache.subtree_root == NodeIdentifierFactory.get_gdrive_root_constant_identifier(), \
@@ -802,7 +804,7 @@ class CacheManager(HasLifecycle):
         if subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
             unique_path = subtree_root.get_single_path().replace('/', '_')
             file_name = f'LO_{unique_path}.{INDEX_FILE_SUFFIX}'
-            parent_path = self._derive_parent_path(subtree_root.get_single_path())
+            parent_path = self.derive_parent_path(subtree_root.get_single_path())
             subtree_root_parent_uid = self.get_uid_for_local_path(parent_path, override_load_check=True)
         elif subtree_root.tree_type == TREE_TYPE_GDRIVE:
             file_name = GDRIVE_INDEX_FILE_NAME
@@ -925,8 +927,8 @@ class CacheManager(HasLifecycle):
                     logger.debug('Generating summary for whole GDrive master tree')
                     return self._master_gdrive.get_whole_tree_summary()
                 else:
-                    assert isinstance(root_node, HasChildStats)
                     logger.debug(f'Generating summary for GDrive tree: {root_node.node_identifier}')
+                    assert isinstance(root_node, HasChildStats)
                     size_hf = util.format.humanfriendlier_size(root_node.get_size_bytes())
                     trashed_size_hf = util.format.humanfriendlier_size(root_node.trashed_bytes)
                     return f'{size_hf} total in {root_node.file_count:n} nodes (including {trashed_size_hf} in ' \
@@ -1075,7 +1077,7 @@ class CacheManager(HasLifecycle):
         node.set_icon(icon)
 
     @staticmethod
-    def _derive_parent_path(child_path) -> Optional[str]:
+    def derive_parent_path(child_path) -> Optional[str]:
         if child_path == '/':
             return None
         return str(pathlib.Path(child_path).parent)
@@ -1087,34 +1089,6 @@ class CacheManager(HasLifecycle):
             return self._master_local.get_parent_list_for_node(node)
         else:
             raise RuntimeError(f'Unknown tree type: {node.node_identifier.tree_type} for {node}')
-
-    def get_parent_uid_list_for_node(self, node: Node, whitelist_subtree_path: str = None) -> List[UID]:
-        """Derives the UID for the parent of the given node. If whitelist_subtree_path is provided, filter the results by subtree"""
-        if isinstance(node, HasParentList):
-            assert isinstance(node, GDriveNode) and node.get_tree_type() == TREE_TYPE_GDRIVE, f'Node: {node}'
-            if whitelist_subtree_path:
-                filtered_parent_uid_list = []
-                for parent_uid in node.get_parent_uids():
-                    parent_node = self.get_node_for_uid(parent_uid, node.get_tree_type())
-                    # if SUPER_DEBUG:
-                    #     logger.debug(f'get_parent_uid_list_for_node(): Checking parent_node {parent_node} against path "{whitelist_subtree_path}"')
-                    if parent_node and parent_node.node_identifier.has_path_in_subtree(whitelist_subtree_path):
-                        filtered_parent_uid_list.append(parent_node.uid)
-                    # elif SUPER_DEBUG:
-                    #     logger.debug(f'get_parent_uid_list_for_node(): Filtered out parent {parent_uid}')
-                # if SUPER_DEBUG:
-                #     logger.debug(f'get_parent_uid_list_for_node(): Returning parent list: {filtered_parent_uid_list}')
-                return filtered_parent_uid_list
-
-            return node.get_parent_uids()
-        else:
-            assert isinstance(node, LocalNode) and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Node: {node}'
-            parent_path: str = node.derive_parent_path()
-            uid: UID = self.get_uid_for_local_path(parent_path)
-            assert uid
-            if not whitelist_subtree_path or parent_path.startswith(whitelist_subtree_path):
-                return [uid]
-            return []
 
     def _find_parent_matching_path(self, child_node: Node, parent_path: str) -> Optional[Node]:
         """Note: this can return multiple results if two parents with the same name and path contain the same child
@@ -1142,7 +1116,7 @@ class CacheManager(HasLifecycle):
         """Given a single SPIDNodePair, we should be able to guarantee that we get no more than 1 SPIDNodePair as its parent.
         Having more than one path indicates that not just the node, but also any of its ancestors has multiple parents."""
         path_list = sn.node.get_path_list()
-        parent_path: str = self._derive_parent_path(sn.spid.get_single_path())
+        parent_path: str = self.derive_parent_path(sn.spid.get_single_path())
         if len(path_list) == 1 and path_list[0] == sn.spid.get_single_path():
             # only one parent -> easy
             if sn.spid.tree_type == TREE_TYPE_GDRIVE:
@@ -1175,7 +1149,7 @@ class CacheManager(HasLifecycle):
         parent_path: str = single_path_node_identifier.get_single_path()  # not actually parent's path until it enters loop
 
         while True:
-            parent_path = self._derive_parent_path(parent_path)
+            parent_path = self.derive_parent_path(parent_path)
             if parent_path == stop_at_path:
                 return ancestor_deque
 

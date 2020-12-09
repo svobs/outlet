@@ -1,7 +1,7 @@
 import logging
 import pathlib
 from collections import deque
-from typing import Deque, Dict, Iterable, List, Optional, Union
+from typing import Deque, Dict, Iterable, List, Optional
 
 from pydispatch import dispatcher
 
@@ -9,12 +9,11 @@ from constants import NULL_UID, ROOT_PATH, SUPER_DEBUG, SUPER_ROOT_UID, TREE_TYP
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
-from model.node.gdrive_node import GDriveNode
-from model.node.local_disk_node import LocalNode
-from model.node.node import HasChildStats, HasParentList, Node, SPIDNodePair
+from model.node.node import Node, SPIDNodePair
+from model.node.trait import HasChildStats
 from model.node_identifier import SinglePathNodeIdentifier
-from model.user_op import UserOp, USER_OP_TYPES, UserOpType
 from model.uid import UID
+from model.user_op import USER_OP_TYPES, UserOp, UserOpType
 from ui.signal import Signal
 from ui.tree.filter_criteria import FilterCriteria
 from util.simple_tree import NodeAlreadyPresentError, SimpleTree
@@ -171,22 +170,11 @@ class CategoryDisplayTree(DisplayTree):
 
         return parent
 
-    def _derive_parent_uid_list_for_node(self, node: Node) -> List[UID]:
-        """Similar to get_parent_uid_list_for_node(), but does not look up the parent nodes in the source trees.
-        May require a path mapper lookup but this will always return a value."""
-        if isinstance(node, HasParentList):
-            assert isinstance(node, GDriveNode) and node.get_tree_type() == TREE_TYPE_GDRIVE, f'Node: {node}'
-            return node.get_parent_uids()
-        else:
-            # TODO: may really need to add parent list to local nodes to speed up performance
-            assert isinstance(node, LocalNode) and node.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK, f'Node: {node}'
-            return [self.backend.get_uid_for_local_path(node.derive_parent_path())]
-
     def _get_parent_in_tree(self, sn: SPIDNodePair, op_type: UserOpType) -> Optional[Node]:
         parent_path = sn.spid.get_single_parent_path()
 
         # 1. Check for "real" nodes (which use plain UIDs for identifiers):
-        for parent_uid in self._derive_parent_uid_list_for_node(sn.node):
+        for parent_uid in sn.node.get_parent_uids():
             parent = self._category_tree.get_node(nid=parent_uid)
             assert not parent or isinstance(parent, Node), f'Expected Node but found {type(parent)}: {parent} (spid: {sn.spid}'
             if parent and parent_path in parent.get_path_list():

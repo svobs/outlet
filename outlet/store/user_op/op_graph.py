@@ -138,7 +138,7 @@ class OpGraph(HasLifecycle):
 
         # non-reentrant nodes cannot execute concurrently and must have dependencies on each other:
         for potential_child_op in non_reentrant_tgt_node_dict.values():
-            parent_uid_list: List[UID] = self.backend.cacheman.get_parent_uid_list_for_node(potential_child_op.get_tgt_node())
+            parent_uid_list: List[UID] = potential_child_op.get_tgt_node().get_parent_uids()
             if SUPER_DEBUG and len(parent_uid_list) > 1:
                 logger.debug(f'Target node of op has multiple parents: {potential_child_op}')
             for parent_uid in parent_uid_list:
@@ -201,7 +201,7 @@ class OpGraph(HasLifecycle):
 
             if op_node.is_create_type():
                 # Enforce Rule 1: ensure parent of target is valid:
-                parent_uid_list: List[UID] = self.backend.cacheman.get_parent_uid_list_for_node(tgt_node)
+                parent_uid_list: List[UID] = tgt_node.get_parent_uids()
                 parent_found: bool = False
                 for parent_uid in parent_uid_list:
                     if self.backend.cacheman.get_node_for_uid(parent_uid, tgt_node.get_tree_type()) or mkdir_node_dict.get(parent_uid, None):
@@ -360,7 +360,7 @@ class OpGraph(HasLifecycle):
 
         target_node: Node = node_to_insert.get_tgt_node()
         target_uid: UID = target_node.uid
-        tgt_parent_uid_list: List[UID] = self.backend.cacheman.get_parent_uid_list_for_node(target_node)
+        tgt_parent_uid_list: List[UID] = target_node.get_parent_uids()
 
         # First check whether the target node is known and has pending operations
         last_target_op = self._get_lowest_priority_op_node(target_uid)

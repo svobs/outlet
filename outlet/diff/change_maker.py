@@ -26,6 +26,7 @@ class OneSide:
     CLASS OneSide
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, backend, tree_root_sn: SPIDNodePair, tree_id: str, batch_uid: UID):
         self.backend = backend
         self.root_sn: SPIDNodePair = tree_root_sn
@@ -59,28 +60,24 @@ class OneSide:
 
     def migrate_single_node_to_this_side(self, sn_src: SPIDNodePair, dst_path: str) -> SPIDNodePair:
         dst_tree_type = self.root_sn.spid.tree_type
-        dst_node: Node = self._build_migrated_file_node(src_node=sn_src.node, dst_path=dst_path, dst_tree_type=dst_tree_type)
-        dst_sn: SPIDNodePair = SPIDNodePair(SinglePathNodeIdentifier(dst_node.uid, dst_path, dst_tree_type), dst_node)
 
-        # ANCESTORS:
-        self._add_needed_ancestors(dst_sn)
-
+        # First figure out UID and other identifying info for dst node.
         if dst_tree_type == TREE_TYPE_LOCAL_DISK:
-            dst_node.uid = self.backend.cacheman.get_uid_for_local_path(dst_path)
+            dst_node_uid: UID = self.backend.cacheman.get_uid_for_local_path(dst_path)
+            dst_node_goog_id = None  # N/A, but need to make compiler happy
         elif dst_tree_type == TREE_TYPE_GDRIVE:
-            assert isinstance(dst_node, GDriveNode) and dst_node.get_parent_uids(), f'Bad data: {dst_node}'
             existing_dst_node_list = self.backend.cacheman.get_node_list_for_path_list([dst_path], dst_tree_type)
             if len(existing_dst_node_list) == 1:
                 existing_node = existing_dst_node_list[0]
                 # If a single node is already there with given name, use its identification; we will overwrite its content with a new version
-                dst_node.uid = existing_node.uid
-                dst_node.goog_id = existing_node.goog_id
+                dst_node_uid = existing_node.uid
+                dst_node_goog_id = existing_node.goog_id
             elif len(existing_dst_node_list) > 1:
                 if self._all_same(existing_dst_node_list):
                     logger.warning(f'Found {len(existing_dst_node_list)} identical nodes already present at at GDrive dst path '
                                    f'("{dst_path}"). Will overwrite all starting with UID {existing_dst_node_list[0].uid}')
-                    dst_node.uid = existing_dst_node_list[0].uid
-                    dst_node.goog_id = existing_dst_node_list[0].goog_id
+                    dst_node_uid = existing_dst_node_list[0].uid
+                    dst_node_goog_id = existing_dst_node_list[0].goog_id
                 else:
                     # FIXME: what to do in this case? Perhaps collect these errors and display them all to the user.
                     # TODO: Also do an audit for this issue as soon as all the user's GDrive metadata is downloaded
@@ -88,9 +85,31 @@ class OneSide:
                                        f'GDrive dst path ("{dst_path}"). Cannot proceed')
             else:
                 # Not exist: assign new UID. We will later associate this with a goog_id once it's made existent
-                dst_node.uid = self.backend.uid_generator.next_uid()
+                dst_node_uid = self.backend.uid_generator.next_uid()
+                dst_node_goog_id = None
         else:
             raise RuntimeError(f'Invalid tree_type: {dst_tree_type}')
+
+        # Now build the node:
+        node_identifier = self.backend.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=dst_node_uid)
+        src_node: Node = sn_src.node
+        if dst_tree_type == TREE_TYPE_LOCAL_DISK:
+            assert isinstance(node_identifier, LocalNodeIdentifier)
+            dst_parent_path = self.backend.cacheman.derive_parent_path(dst_path)
+            dst_parent_uid: UID = self.backend.cacheman.get_uid_for_local_path(dst_parent_path)
+            dst_node: Node = LocalFileNode(node_identifier, dst_parent_uid, src_node.md5, src_node.sha256, src_node.get_size_bytes(),
+                                           None, None, None, TrashStatus.NOT_TRASHED, False)
+        elif dst_tree_type == TREE_TYPE_GDRIVE:
+            assert isinstance(node_identifier, GDriveIdentifier)
+            dst_node: Node = GDriveFile(node_identifier, dst_node_goog_id, src_node.name, None, TrashStatus.NOT_TRASHED, None, None, src_node.md5,
+                                        False, None, None, src_node.get_size_bytes(), None, None, None)
+        else:
+            raise RuntimeError(f"Cannot create file node for tree type: {dst_tree_type} (node_identifier={node_identifier}")
+
+        dst_sn: SPIDNodePair = SPIDNodePair(SinglePathNodeIdentifier(dst_node.uid, dst_path, dst_tree_type), dst_node)
+
+        # ANCESTORS:
+        self._add_needed_ancestors(dst_sn)
 
         logger.debug(f'Migrated single node (UID={dst_node.uid} path="{dst_path}")')
         return dst_sn
@@ -103,24 +122,6 @@ class OneSide:
             if node.name != first_node.name or node.md5 != first_node.md5:
                 return False
         return True
-
-    def _build_migrated_file_node(self, src_node: Node, dst_path: str, dst_tree_type: int) -> Node:
-        """Translates the essential stuff from the src_node to the new tree and location given by node_identifier"""
-        md5 = src_node.md5
-        sha256 = src_node.sha256
-        size_bytes = src_node.get_size_bytes()
-
-        # (Kludge) just assign the NULL UID for now, so we don't auto-generate a new UID. It will just get overwritten anyway if GDrive
-        node_identifier = self.backend.node_identifier_factory.for_values(tree_type=dst_tree_type, path_list=[dst_path], uid=NULL_UID)
-        if dst_tree_type == TREE_TYPE_LOCAL_DISK:
-            assert isinstance(node_identifier, LocalNodeIdentifier)
-            return LocalFileNode(node_identifier, md5, sha256, size_bytes, None, None, None, TrashStatus.NOT_TRASHED, False)
-        elif dst_tree_type == TREE_TYPE_GDRIVE:
-            assert isinstance(node_identifier, GDriveIdentifier)
-            return GDriveFile(node_identifier, None, src_node.name, None, TrashStatus.NOT_TRASHED, None, None, md5, False, None, None,
-                              size_bytes, None, None, None)
-        else:
-            raise RuntimeError(f"Cannot create file node for tree type: {dst_tree_type} (node_identifier={node_identifier}")
 
     def _add_needed_ancestors(self, new_sn: SPIDNodePair):
         """Determines what ancestor directories need to be created, and appends them to the op tree (as well as ops for them).
@@ -195,6 +196,7 @@ class ChangeMaker:
     CLASS ChangeMaker
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, left_tree_root_sn: SPIDNodePair, right_tree_root_sn: SPIDNodePair, backend):
         self.backend = backend
         batch_uid: UID = self.backend.uid_generator.next_uid()

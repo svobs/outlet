@@ -6,7 +6,8 @@ from abc import ABC
 from typing import Optional, Tuple
 
 from constants import IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TREE_TYPE_LOCAL_DISK
-from model.node.node import HasParentList, Node, HasChildStats
+from model.node.node import Node
+from model.node.trait import HasChildStats
 from model.node_identifier import LocalNodeIdentifier
 from model.uid import UID
 from util.ensure import ensure_bool, ensure_int
@@ -14,15 +15,14 @@ from util.ensure import ensure_bool, ensure_int
 logger = logging.getLogger(__name__)
 
 
-class LocalNode(Node, HasParentList, ABC):
+class LocalNode(Node, ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS LocalNode
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, trashed: TrashStatus, is_live: bool):
-        super().__init__(node_identifier, trashed=trashed)
-        HasParentList.__init__(self, parent_uid)
+        super().__init__(node_identifier, parent_uids=parent_uid, trashed=trashed)
         self._is_live = ensure_bool(is_live)
 
     @classmethod

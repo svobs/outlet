@@ -69,8 +69,9 @@ class OpLedger(HasLifecycle):
     # Reduce Changes logic
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def _derive_dst_parent_key_list(self, dst_node: Node) -> List[str]:
-        return [f'{parent_uid}/{dst_node.name}' for parent_uid in self.backend.cacheman.get_parent_uid_list_for_node(dst_node)]
+    @staticmethod
+    def _derive_dst_parent_key_list(dst_node: Node) -> List[str]:
+        return [f'{parent_uid}/{dst_node.name}' for parent_uid in dst_node.get_parent_uids()]
 
     def _reduce_ops(self, op_list: Iterable[UserOp]) -> Iterable[UserOp]:
         final_list: List[UserOp] = []

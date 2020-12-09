@@ -7,9 +7,10 @@ from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.gdrive_node import GDriveFile, GDriveFolder
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
-from model.node.node import HasChildStats, Node, SPIDNodePair
+from model.node.node import Node, SPIDNodePair
 import logging
 
+from model.node.trait import HasChildStats
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from ui.tree.filter_criteria import BoolOption, FilterCriteria

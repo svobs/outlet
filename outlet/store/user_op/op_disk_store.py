@@ -2,7 +2,7 @@ import os
 from typing import Iterable, List, Optional
 import logging
 
-from constants import OPS_FILE_NAME, SUPER_DEBUG
+from constants import SUPER_DEBUG
 from model.user_op import UserOp
 from store.sqlite.op_db import OpDatabase
 from util.has_lifecycle import HasLifecycle
