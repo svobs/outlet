@@ -8,7 +8,7 @@ from typing import Deque, Iterable, List, Optional
 import humanfriendly
 from pydispatch import dispatcher
 
-from constants import HOLDOFF_TIME_MS, IconId, LARGE_NUMBER_OF_CHILDREN, SUPER_DEBUG
+from constants import STATS_REFRESH_HOLDOFF_TIME_MS, IconId, LARGE_NUMBER_OF_CHILDREN, SUPER_DEBUG
 from error import GDriveItemNotFoundError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode
@@ -45,7 +45,7 @@ class DisplayMutator(HasLifecycle):
         self.con = controller
         self.use_empty_nodes = True
         self._lock = threading.Lock()
-        self._stats_refresh_timer = HoldOffTimer(holdoff_time_ms=HOLDOFF_TIME_MS, task_func=self._request_subtree_stats_refresh)
+        self._stats_refresh_timer = HoldOffTimer(holdoff_time_ms=STATS_REFRESH_HOLDOFF_TIME_MS, task_func=self._request_subtree_stats_refresh)
         """Stats for the entire subtree are all connected to each other, so this is a big task. This timer allows us to throttle its frequency"""
 
         self._enable_expand_state_listeners = True

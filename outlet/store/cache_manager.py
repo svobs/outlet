@@ -14,7 +14,7 @@ from command.cmd_interface import Command
 from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, \
     OPS_FILE_NAME, ROOT_PATH, \
     SUPER_DEBUG, SUPER_ROOT_UID, TREE_TYPE_GDRIVE, \
-    TREE_TYPE_LOCAL_DISK
+    TREE_TYPE_LOCAL_DISK, UID_PATH_FILE_NAME
 from diff.change_maker import ChangeMaker
 from error import CacheNotLoadedError, GDriveItemNotFoundError, InvalidOperationError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
@@ -161,7 +161,8 @@ class CacheManager(HasLifecycle):
 
         # Instantiate but do not start submodules yet, to avoid entangled dependencies:
 
-        self._master_local: LocalDiskMasterStore = LocalDiskMasterStore(self.backend)
+        uid_path_cache_path = os.path.join(self.cache_dir_path, UID_PATH_FILE_NAME)
+        self._master_local: LocalDiskMasterStore = LocalDiskMasterStore(self.backend, uid_path_cache_path)
         """Sub-module of Cache Manager which manages local disk caches"""
 
         self._master_gdrive: GDriveMasterStore = GDriveMasterStore(self.backend)
@@ -401,23 +402,23 @@ class CacheManager(HasLifecycle):
                 logger.debug('Registry has no caches listed')
                 exisiting_caches = []
 
-        for cache_info in exisiting_caches:
-            if cache_info.subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
-                # Make UIDMapper aware of these new UID<->path mappings:
-                cached_uid = self.get_uid_for_local_path(cache_info.subtree_root.get_single_path(), uid_suggestion=cache_info.subtree_root.uid,
-                                                         override_load_check=True)
-                if cached_uid != cache_info.subtree_root.uid:
-                    logger.error(f'UID from registry ({cache_info.subtree_root.uid}) does not match cached UID ({cached_uid})! Will use cached UID.')
-                    cache_info.subtree_root.uid = cached_uid
-
-                # TODO: test what will happen to parent of '/'
-                parent_path = self.derive_parent_path(cache_info.subtree_root.get_single_path())
-                cached_uid = self.get_uid_for_local_path(parent_path, uid_suggestion=cache_info.subtree_root_parent_uid,
-                                                         override_load_check=True)
-                if cached_uid != cache_info.subtree_root_parent_uid:
-                    logger.error(f'Parent UID from registry ({cache_info}) does not match cached parent UID ({cached_uid})'
-                                 f' of parent! Will use cached UID.')
-                    cache_info.subtree_root_parent_uid = cached_uid
+        # for cache_info in exisiting_caches:
+            # if cache_info.subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
+            #     # Make UIDMapper aware of these new UID<->path mappings:
+            #     cached_uid = self.get_uid_for_local_path(cache_info.subtree_root.get_single_path(), uid_suggestion=cache_info.subtree_root.uid,
+            #                                              override_load_check=True)
+            #     if cached_uid != cache_info.subtree_root.uid:
+            #         logger.error(f'UID from registry ({cache_info.subtree_root.uid}) does not match cached UID ({cached_uid})! Will use cached UID.')
+            #         cache_info.subtree_root.uid = cached_uid
+            #
+            #     # TODO: test what will happen to parent of '/'
+            #     parent_path = self.derive_parent_path(cache_info.subtree_root.get_single_path())
+            #     cached_uid = self.get_uid_for_local_path(parent_path, uid_suggestion=cache_info.subtree_root_parent_uid,
+            #                                              override_load_check=True)
+            #     if cached_uid != cache_info.subtree_root_parent_uid:
+            #         logger.error(f'Parent UID from registry ({cache_info}) does not match cached parent UID ({cached_uid})'
+            #                      f' of parent! Will use cached UID.')
+            #         cache_info.subtree_root_parent_uid = cached_uid
         return exisiting_caches
 
     def _init_existing_cache(self, existing_disk_cache: PersistedCacheInfo):

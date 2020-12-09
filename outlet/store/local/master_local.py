@@ -7,7 +7,7 @@ import time
 from typing import List, Optional, Tuple
 
 import store.local.content_hasher
-from constants import SUPER_DEBUG, TrashStatus, TREE_TYPE_LOCAL_DISK
+from constants import MAIN_REGISTRY_FILE_NAME, SUPER_DEBUG, TrashStatus, TREE_TYPE_LOCAL_DISK
 from model.local_disk_tree import LocalDiskTree
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
@@ -40,11 +40,11 @@ class LocalDiskMasterStore(MasterStore):
     # TODO: consider scanning only root dir at first, then enqueuing subdirectories
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend):
+    def __init__(self, backend, uid_path_cache_path):
         MasterStore.__init__(self)
         self.backend = backend
 
-        self.uid_mapper = UidPathMapper(backend)
+        self.uid_mapper = UidPathMapper(backend, uid_path_cache_path)
 
         self._struct_lock = threading.Lock()
         self._memstore: LocalDiskMemoryStore = LocalDiskMemoryStore(backend)
@@ -61,6 +61,7 @@ class LocalDiskMasterStore(MasterStore):
 
     def start(self):
         MasterStore.start(self)
+        self.uid_mapper.start()
         self._diskstore.start()
         if self.lazy_load_signatures:
             self.start_signature_calc_thread()
