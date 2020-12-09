@@ -12,8 +12,8 @@ from pydispatch import dispatcher
 import util.format
 from command.cmd_interface import Command
 from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, \
-    ROOT_PATH, \
-    SUPER_DEBUG, TREE_TYPE_GDRIVE, \
+    OPS_FILE_NAME, ROOT_PATH, \
+    SUPER_DEBUG, SUPER_ROOT_UID, TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK
 from diff.change_maker import ChangeMaker
 from error import CacheNotLoadedError, GDriveItemNotFoundError, InvalidOperationError
@@ -66,6 +66,7 @@ class ActiveDisplayTreeMeta:
     For internal use by CacheManager.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, backend, tree_id: str, root_sn: SPIDNodePair, root_exists: bool = True, offending_path: Optional[str] = None):
         self.tree_id: str = tree_id
         self.root_sn: SPIDNodePair = root_sn
@@ -82,6 +83,7 @@ class CacheInfoByType(TwoLevelDict):
     Holds PersistedCacheInfo objects
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self):
         super().__init__(lambda x: x.subtree_root.tree_type, lambda x: x.subtree_root.get_path_list()[0], lambda x, y: True)
 
@@ -94,6 +96,7 @@ class LoadRequest:
     Object encapsulating the information for a single load request on the LoadRequestThread
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, tree_id: str, send_signals: bool):
         self.tree_id = tree_id
         self.send_signals = send_signals
@@ -107,6 +110,7 @@ class LoadRequestThread(QThread):
     Hasher thread which churns through signature queue and sends updates to cacheman
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, backend, cacheman):
         QThread.__init__(self, name='LoadRequestThread', initial_sleep_sec=0.0)
         self.backend = backend
@@ -130,6 +134,7 @@ class CacheManager(HasLifecycle):
     This is the central source of truth for the backend (or attempts to be as much as possible).
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, backend):
         HasLifecycle.__init__(self)
         self.backend = backend
@@ -153,16 +158,19 @@ class CacheManager(HasLifecycle):
 
         self._load_request_thread = LoadRequestThread(backend=backend, cacheman=self)
 
-        self._master_local = None
+        # Instantiate but do not start submodules yet, to avoid entangled dependencies:
+
+        self._master_local: LocalDiskMasterStore = LocalDiskMasterStore(self.backend)
         """Sub-module of Cache Manager which manages local disk caches"""
 
-        self._master_gdrive = None
+        self._master_gdrive: GDriveMasterStore = GDriveMasterStore(self.backend)
         """Sub-module of Cache Manager which manages Google Drive caches"""
 
-        self._op_ledger = None
+        op_db_path = os.path.join(self.cache_dir_path, OPS_FILE_NAME)
+        self._op_ledger: OpLedger = OpLedger(self.backend, op_db_path)
         """Sub-module of Cache Manager which manages commands which have yet to execute"""
 
-        self._live_monitor = None
+        self._live_monitor: LiveMonitor = LiveMonitor(self.backend)
         """Sub-module of Cache Manager which, for displayed trees, provides [close to] real-time notifications for changes
          which originated from outside this backend"""
 
@@ -228,7 +236,7 @@ class CacheManager(HasLifecycle):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _on_start_cacheman_requested(self, sender):
-        if self._master_local:
+        if self._startup_done.is_set():
             logger.info(f'Caches already loaded. Ignoring signal from {sender}.')
             return
 
@@ -248,14 +256,10 @@ class CacheManager(HasLifecycle):
             # Load registry first. Do validation along the way
             self._load_registry()
 
-            # Init sub-modules:
-            self._master_local = LocalDiskMasterStore(self.backend)
+            # Start sub-modules:
             self._master_local.start()
-            self._master_gdrive = GDriveMasterStore(self.backend)
             self._master_gdrive.start()
-            self._op_ledger = OpLedger(self.backend)
             self._op_ledger.start()
-            self._live_monitor = LiveMonitor(self.backend)
             self._live_monitor.start()
 
             self._load_request_thread.start()
@@ -282,7 +286,7 @@ class CacheManager(HasLifecycle):
 
     def _load_registry(self):
         stopwatch = Stopwatch()
-        caches_from_registry: List[CacheInfoEntry] = self._get_cache_info_from_registry()
+        caches_from_registry: List[CacheInfoEntry] = self._get_cache_info_list_from_registry()
         unique_cache_count = 0
         skipped_count = 0
         for cache_from_registry in caches_from_registry:
@@ -387,15 +391,33 @@ class CacheManager(HasLifecycle):
         with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as cache_registry_db:
             cache_registry_db.insert_cache_info(cache_info_list, append=False, overwrite=True)
 
-    def _get_cache_info_from_registry(self) -> List[CacheInfoEntry]:
+    def _get_cache_info_list_from_registry(self) -> List[CacheInfoEntry]:
         with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as cache_registry_db:
             if cache_registry_db.has_cache_info():
                 exisiting_caches = cache_registry_db.get_cache_info()
                 logger.debug(f'Found {len(exisiting_caches)} caches listed in registry')
-                return exisiting_caches
             else:
                 logger.debug('Registry has no caches listed')
-                return []
+                exisiting_caches = []
+
+        for cache_info in exisiting_caches:
+            if cache_info.subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
+                # Make UIDMapper aware of these new UID<->path mappings:
+                cached_uid = self.get_uid_for_local_path(cache_info.subtree_root.get_single_path(), uid_suggestion=cache_info.subtree_root.uid,
+                                                         override_load_check=True)
+                if cached_uid != cache_info.subtree_root.uid:
+                    logger.error(f'UID from registry ({cache_info.subtree_root.uid}) does not match cached UID ({cached_uid})! Will use cached UID.')
+                    cache_info.subtree_root.uid = cached_uid
+
+                # TODO: test what will happen to parent of '/'
+                parent_path = self._derive_parent_path(cache_info.subtree_root.get_single_path())
+                cached_uid = self.get_uid_for_local_path(parent_path, uid_suggestion=cache_info.subtree_root_parent_uid,
+                                                         override_load_check=True)
+                if cached_uid != cache_info.subtree_root_parent_uid:
+                    logger.error(f'Parent UID from registry ({cache_info}) does not match cached parent UID ({cached_uid})'
+                                 f' of parent! Will use cached UID.')
+                    cache_info.subtree_root_parent_uid = cached_uid
+        return exisiting_caches
 
     def _init_existing_cache(self, existing_disk_cache: PersistedCacheInfo):
         if existing_disk_cache.is_loaded:
@@ -780,15 +802,18 @@ class CacheManager(HasLifecycle):
         if subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
             unique_path = subtree_root.get_single_path().replace('/', '_')
             file_name = f'LO_{unique_path}.{INDEX_FILE_SUFFIX}'
+            parent_path = self._derive_parent_path(subtree_root.get_single_path())
+            subtree_root_parent_uid = self.get_uid_for_local_path(parent_path, override_load_check=True)
         elif subtree_root.tree_type == TREE_TYPE_GDRIVE:
             file_name = GDRIVE_INDEX_FILE_NAME
+            subtree_root_parent_uid = SUPER_ROOT_UID
         else:
             raise RuntimeError(f'Unrecognized tree type: {subtree_root.tree_type}')
 
         cache_location = os.path.join(self.cache_dir_path, file_name)
         now_ms = int(time.time())
         db_entry = CacheInfoEntry(cache_location=cache_location,
-                                  subtree_root=subtree_root, sync_ts=now_ms,
+                                  subtree_root=subtree_root, subtree_root_parent_uid=subtree_root_parent_uid, sync_ts=now_ms,
                                   is_complete=True)
 
         with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as cache_registry_db:
@@ -934,8 +959,8 @@ class CacheManager(HasLifecycle):
     def build_local_file_node(self, full_path: str, staging_path=None, must_scan_signature=False) -> Optional[LocalFileNode]:
         return self._master_local.build_local_file_node(full_path, staging_path, must_scan_signature)
 
-    def build_local_dir_node(self, full_path: str) -> LocalDirNode:
-        return self._master_local.build_local_dir_node(full_path)
+    def build_local_dir_node(self, full_path: str, is_live: bool = True) -> LocalDirNode:
+        return self._master_local.build_local_dir_node(full_path, is_live)
 
     def get_goog_id_for_parent(self, node: GDriveNode) -> str:
         """Fails if there is not exactly 1 parent"""
@@ -1050,7 +1075,9 @@ class CacheManager(HasLifecycle):
         node.set_icon(icon)
 
     @staticmethod
-    def _derive_parent_path(child_path) -> str:
+    def _derive_parent_path(child_path) -> Optional[str]:
+        if child_path == '/':
+            return None
         return str(pathlib.Path(child_path).parent)
 
     def get_parent_list_for_node(self, node: Node) -> List[Node]:
@@ -1222,4 +1249,3 @@ class CacheManager(HasLifecycle):
             if dst_sn.node.is_parent_of(sn.node):
                 return True
         return False
-

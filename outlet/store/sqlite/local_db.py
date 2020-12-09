@@ -1,4 +1,5 @@
 import logging
+import pathlib
 from collections import OrderedDict
 from typing import List, Optional, Tuple
 
@@ -53,16 +54,22 @@ class LocalDiskDatabase(MetaDatabase):
         self.table_local_file = LiveTable(LocalDiskDatabase.TABLE_LOCAL_FILE, self.conn, _file_to_tuple, self._tuple_to_file)
         self.table_local_dir = LiveTable(LocalDiskDatabase.TABLE_LOCAL_DIR, self.conn, _dir_to_tuple, self._tuple_to_dir)
 
+    def _get_parent_uid(self, full_path: str) -> UID:
+        parent_path = str(pathlib.Path(full_path).parent)
+        return self.cacheman.get_uid_for_local_path(parent_path, override_load_check=True)
+
     # LOCAL_FILE operations
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _tuple_to_file(self, row: Tuple) -> LocalFileNode:
         uid_int, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, full_path, trashed, is_live = row
 
+        # make sure we call get_uid_for_local_path() for both the node's path and its parent's path, so that UID mapper has a chance to store it
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int, override_load_check=True)
         assert uid == row[0], f'UID conflict! Got {uid} but read {uid_int} in row: {row}'
         node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)
-        return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed, is_live)
+        parent_uid: UID = self._get_parent_uid(full_path)
+        return LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed, is_live)
 
     def has_local_files(self):
         return self.table_local_file.has_rows()
@@ -99,7 +106,8 @@ class LocalDiskDatabase(MetaDatabase):
         full_path = row[1]
         uid = self.cacheman.get_uid_for_local_path(full_path, row[0], override_load_check=True)
         assert uid == row[0], f'UID conflict! Got {uid} from memstore but read from disk: {row}'
-        return LocalDirNode(LocalNodeIdentifier(uid=uid, path_list=full_path), row[2], bool(row[3]))
+        parent_uid: UID = self._get_parent_uid(full_path)
+        return LocalDirNode(LocalNodeIdentifier(uid=uid, path_list=full_path), parent_uid, row[2], bool(row[3]))
 
     def has_local_dirs(self):
         return self.table_local_dir.has_rows()

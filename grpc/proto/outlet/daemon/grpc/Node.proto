@@ -85,6 +85,7 @@ message RootTypeNodeMeta {
 message LocalDirMeta {
   DirMeta dir_meta = 1;
   bool is_live = 2;
+  int32 parent_uid = 3;
 }
 
 message LocalFileMeta {
@@ -95,6 +96,7 @@ message LocalFileMeta {
   bool is_live = 5;
   string md5 = 6;
   string sha256 = 7;
+  int32 parent_uid = 8;
 }
 
 // GDrive nodes:

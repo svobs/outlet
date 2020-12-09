@@ -1,12 +1,13 @@
 import copy
 import itertools
 import logging
+import pathlib
 import time
 from collections import OrderedDict
 from functools import partial
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
-from constants import OBJ_TYPE_DIR, OBJ_TYPE_FILE, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from store.sqlite.base_db import LiveTable, MetaDatabase, Table
 from store.sqlite.gdrive_db import GDriveDatabase
 from store.sqlite.local_db import LocalDiskDatabase
@@ -247,6 +248,10 @@ class OpDatabase(MetaDatabase):
         for table in itertools.chain(self.table_lists.gdrive_dir, self.table_lists.gdrive_file):
             _add_gdrive_parent_cols(table)
 
+    def _get_parent_uid(self, full_path: str) -> UID:
+        parent_path = str(pathlib.Path(full_path).parent)
+        return self.cacheman.get_uid_for_local_path(parent_path, override_load_check=True)
+
     def _verify_goog_id_consistency(self, goog_id: str, obj_uid: UID):
         if goog_id:
             # Sanity check: make sure pending change cache matches GDrive cache
@@ -296,7 +301,8 @@ class OpDatabase(MetaDatabase):
 
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int, override_load_check=True)
         assert uid == uid_int, f'UID conflict! Got {uid} but read {row}'
-        obj = LocalDirNode(LocalNodeIdentifier(uid=uid, path_list=full_path), bool(is_live))
+        parent_uid: UID = self._get_parent_uid(full_path)
+        obj = LocalDirNode(LocalNodeIdentifier(uid=uid, path_list=full_path), parent_uid, TrashStatus.NOT_TRASHED, bool(is_live))
         op_uid = UID(action_uid_int)
         if nodes_by_action_uid.get(op_uid, None):
             raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')
@@ -309,8 +315,9 @@ class OpDatabase(MetaDatabase):
         uid = self.cacheman.get_uid_for_local_path(full_path, uid_int, override_load_check=True)
         if uid != uid_int:
             raise RuntimeError(f'UID conflict! Cache man returned {uid} but op cache returned {uid_int} (from row: {row})')
+        parent_uid: UID = self._get_parent_uid(full_path)
         node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)
-        obj = LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed, is_live)
+        obj = LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed, is_live)
         op_uid = UID(action_uid_int)
         if nodes_by_action_uid.get(op_uid, None):
             raise RuntimeError(f'Duplicate node for op_uid: {op_uid}')

@@ -126,7 +126,8 @@ class LocalDiskDiskStore(HasLifecycle):
 
             root_node_identifer = LocalNodeIdentifier(uid=cache_info.subtree_root.uid, path_list=cache_info.subtree_root.get_single_path())
             tree: LocalDiskTree = LocalDiskTree(self.backend)
-            root_node = LocalDirNode(node_identifier=root_node_identifer, trashed=TrashStatus.NOT_TRASHED, is_live=True)
+            root_node = LocalDirNode(node_identifier=root_node_identifer, parent_uid=cache_info.subtree_root_parent_uid,
+                                     trashed=TrashStatus.NOT_TRASHED, is_live=True)
             tree.add_node(node=root_node, parent=None)
 
             missing_nodes: List[LocalNode] = []

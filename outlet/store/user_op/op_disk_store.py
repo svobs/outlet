@@ -19,10 +19,10 @@ class OpDiskStore(HasLifecycle):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, backend):
+    def __init__(self, backend, op_db_path: str):
         HasLifecycle.__init__(self)
         self.backend = backend
-        self.op_db_path = os.path.join(self.backend.cacheman.cache_dir_path, OPS_FILE_NAME)
+        self.op_db_path: str = op_db_path
         self._db: Optional[OpDatabase] = None
 
     def start(self):

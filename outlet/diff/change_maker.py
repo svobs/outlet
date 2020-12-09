@@ -171,9 +171,7 @@ class OneSide:
                                                drive_id=None, is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=True)
             elif tree_type == TREE_TYPE_LOCAL_DISK:
                 logger.debug(f'Creating LocalDirToAdd for {parent_path}')
-                new_uid = self.backend.cacheman.get_uid_for_local_path(parent_path)
-                new_parent_node = LocalDirNode(LocalNodeIdentifier(uid=new_uid, path_list=parent_path), trashed=TrashStatus.NOT_TRASHED,
-                                               is_live=False)
+                new_parent_node = self.backend.cacheman.build_local_dir_node(parent_path, is_live=False)
             else:
                 raise RuntimeError(f'Invalid tree type: {tree_type} for node {new_sn.node}')
 

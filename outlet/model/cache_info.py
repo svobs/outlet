@@ -1,4 +1,5 @@
 from model.node_identifier import SinglePathNodeIdentifier
+from model.uid import UID
 from util.ensure import ensure_int
 
 
@@ -8,15 +9,17 @@ class CacheInfoEntry:
     CLASS CacheInfoEntry
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, cache_location, subtree_root: SinglePathNodeIdentifier, sync_ts, is_complete):
+    def __init__(self, cache_location, subtree_root: SinglePathNodeIdentifier, subtree_root_parent_uid: UID, sync_ts, is_complete):
         self.cache_location: str = cache_location
         self.subtree_root: SinglePathNodeIdentifier = subtree_root
+        self.subtree_root_parent_uid: UID = subtree_root_parent_uid
+        """This field is only used for local disk trees (not GDrive) currently"""
         self.sync_ts = ensure_int(sync_ts)
         self.is_complete = is_complete
 
     def to_tuple(self):
         return self.cache_location, self.subtree_root.tree_type, self.subtree_root.get_single_path(), self.subtree_root.uid, \
-               self.sync_ts, self.is_complete
+               self.subtree_root_parent_uid, self.sync_ts, self.is_complete
 
     def __repr__(self):
         return f'CacheInfoEntry(location="{self.cache_location}" subtree_root={self.subtree_root} is_complete={self.is_complete})'
@@ -29,8 +32,8 @@ class PersistedCacheInfo(CacheInfoEntry):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, base: CacheInfoEntry):
-        super().__init__(cache_location=base.cache_location, subtree_root=base.subtree_root, sync_ts=base.sync_ts,
-                         is_complete=base.is_complete)
+        super().__init__(cache_location=base.cache_location, subtree_root=base.subtree_root, subtree_root_parent_uid=base.subtree_root_parent_uid,
+                         sync_ts=base.sync_ts, is_complete=base.is_complete)
         self.is_loaded = False
         """Indicates the data needs to be loaded from disk again"""
 

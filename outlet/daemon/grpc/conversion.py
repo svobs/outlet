@@ -55,12 +55,12 @@ class Converter:
             Converter._dir_meta_from_grpc(node, meta.dir_meta)
         elif grpc_node.HasField("local_dir_meta"):
             assert isinstance(node_identifier, LocalNodeIdentifier)
-            node = LocalDirNode(node_identifier, grpc_node.trashed, grpc_node.local_dir_meta.is_live)
+            node = LocalDirNode(node_identifier, grpc_node.local_dir_meta.parent_uid, grpc_node.trashed, grpc_node.local_dir_meta.is_live)
             Converter._dir_meta_from_grpc(node, grpc_node.local_dir_meta.dir_meta)
         elif grpc_node.HasField("local_file_meta"):
             meta = grpc_node.local_file_meta
             assert isinstance(node_identifier, LocalNodeIdentifier)
-            node = LocalFileNode(node_identifier, meta.md5, meta.sha256, meta.size_bytes, meta.sync_ts, meta.modify_ts,
+            node = LocalFileNode(node_identifier, meta.parent_uid, meta.md5, meta.sha256, meta.size_bytes, meta.sync_ts, meta.modify_ts,
                                  meta.change_ts, grpc_node.trashed, meta.is_live)
         elif grpc_node.HasField("container_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)

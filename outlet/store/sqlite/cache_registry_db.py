@@ -32,6 +32,7 @@ class CacheRegistry(MetaDatabase):
         ('cache_type', 'INTEGER'),
         ('subtree_root_path', 'TEXT'),
         ('subtree_root_uid', 'INTEGER'),
+        ('subtree_root_parent_uid', 'INTEGER'),
         ('sync_ts', 'INTEGER'),
         ('complete', 'INTEGER')
     ]))
@@ -52,13 +53,14 @@ class CacheRegistry(MetaDatabase):
         rows = self.table_cache_registry.get_all_rows()
         entries = []
         for row in rows:
-            cache_location, cache_type, subtree_root_path, subtree_root_uid, sync_ts, is_complete = row
+            cache_location, cache_type, subtree_root_path, subtree_root_uid, subtree_root_parent_uid, sync_ts, is_complete = row
             subtree_root_path = file_util.normalize_path(subtree_root_path)
             if cache_type == TREE_TYPE_LOCAL_DISK:
                 node_identifier = LocalNodeIdentifier(uid=subtree_root_uid, path_list=subtree_root_path)
             else:
                 node_identifier = SinglePathNodeIdentifier(uid=subtree_root_uid, path_list=subtree_root_path, tree_type=cache_type)
-            entries.append(CacheInfoEntry(cache_location=cache_location, subtree_root=node_identifier, sync_ts=sync_ts, is_complete=is_complete))
+            entries.append(CacheInfoEntry(cache_location=cache_location, subtree_root=node_identifier,
+                                          subtree_root_parent_uid=subtree_root_parent_uid, sync_ts=sync_ts, is_complete=is_complete))
         return entries
 
     # Takes a list of CacheInfoEntry objects:

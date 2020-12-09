@@ -2,7 +2,7 @@ import collections
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 from error import InvalidOperationError
 from util import format
@@ -187,8 +187,8 @@ class Node(BaseNode, ABC):
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class HasParentList(ABC):
-    def __init__(self, parent_uids: Optional[List[UID]] = None):
-        self._parent_uids: Optional[List[UID]] = parent_uids
+    def __init__(self, parent_uids: Optional[Union[UID, List[UID]]] = None):
+        self._parent_uids: Optional[Union[UID, List[UID]]] = parent_uids
 
     def update_from(self, other_node):
         if not isinstance(other_node, HasParentList):

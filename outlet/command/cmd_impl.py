@@ -155,9 +155,8 @@ class CreatLocalDirCommand(Command):
         os.makedirs(name=self.op.src_node.get_single_path(), exist_ok=True)
 
         # Add to cache:
-        assert isinstance(self.op.src_node.node_identifier, LocalNodeIdentifier)
-        local_node = LocalDirNode(self.op.src_node.node_identifier, True)
-        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[local_node])
+        assert isinstance(self.op.src_node, LocalDirNode)
+        return UserOpResult(UserOpStatus.COMPLETED_OK, to_upsert=[self.op.src_node])
 
 
 # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲

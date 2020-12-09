@@ -36,11 +36,11 @@ class OpLedger(HasLifecycle):
     CLASS OpLedger
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend):
+    def __init__(self, backend, op_db_path):
         HasLifecycle.__init__(self)
         self.backend = backend
-        self._cmd_builder: CommandBuilder = CommandBuilder(self.backend)
-        self._disk_store: OpDiskStore = OpDiskStore(self.backend)
+        self._cmd_builder: CommandBuilder = CommandBuilder(self.backend.uid_generator)
+        self._disk_store: OpDiskStore = OpDiskStore(self.backend, op_db_path=op_db_path)
         self._op_graph: OpGraph = OpGraph(self.backend)
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
 

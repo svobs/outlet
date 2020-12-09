@@ -55,7 +55,7 @@ class LocalDiskTree(SimpleTree):
                 if not child:
                     # logger.debug(f'Creating dir node: nid={uid}')
                     child = LocalDirNode(node_identifier=LocalNodeIdentifier(path_list=path_so_far, uid=uid),
-                                         trashed=TrashStatus.NOT_TRASHED, is_live=True)
+                                         parent_uid=parent.uid, trashed=TrashStatus.NOT_TRASHED, is_live=True)
                     try:
                         self.add_node(node=child, parent=parent)
                     except Exception:

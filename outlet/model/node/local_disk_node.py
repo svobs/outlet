@@ -6,21 +6,23 @@ from abc import ABC
 from typing import Optional, Tuple
 
 from constants import IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TREE_TYPE_LOCAL_DISK
-from model.node.node import Node, HasChildStats
+from model.node.node import HasParentList, Node, HasChildStats
 from model.node_identifier import LocalNodeIdentifier
+from model.uid import UID
 from util.ensure import ensure_bool, ensure_int
 
 logger = logging.getLogger(__name__)
 
 
-class LocalNode(Node, ABC):
+class LocalNode(Node, HasParentList, ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS LocalNode
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, node_identifier: LocalNodeIdentifier, trashed: TrashStatus, is_live: bool):
+    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, trashed: TrashStatus, is_live: bool):
         super().__init__(node_identifier, trashed=trashed)
+        HasParentList.__init__(self, parent_uid)
         self._is_live = ensure_bool(is_live)
 
     @classmethod
@@ -46,6 +48,10 @@ class LocalNode(Node, ABC):
     def derive_parent_path(self) -> str:
         return str(pathlib.Path(self.get_single_path()).parent)
 
+    def get_single_parent(self) -> UID:
+        assert isinstance(self._parent_uids, UID)
+        return self._parent_uids
+
 
 class LocalFileNode(LocalNode):
     """
@@ -53,8 +59,9 @@ class LocalFileNode(LocalNode):
     CLASS LocalFileNode
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, node_identifier: LocalNodeIdentifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed, is_live: bool):
-        super().__init__(node_identifier, trashed, is_live)
+    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed,
+                 is_live: bool):
+        super().__init__(node_identifier, parent_uid, trashed, is_live)
         self._md5: Optional[str] = md5
         self._sha256: Optional[str] = sha256
         self._size_bytes: int = ensure_int(size_bytes)
@@ -151,8 +158,8 @@ class LocalFileNode(LocalNode):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return f'LocalFileNode({self.node_identifier} md5={self._md5} sha256={self.sha256} size_bytes={self._size_bytes} ' \
-               f'trashed={self._trashed} is_live={self.is_live()} modify_ts={self._modify_ts})'
+        return f'LocalFileNode({self.node_identifier} parent_uid={self._parent_uids} md5={self._md5} sha256={self.sha256} ' \
+               f'size_bytes={self._size_bytes} trashed={self._trashed} is_live={self.is_live()} modify_ts={self._modify_ts})'
 
 
 class LocalDirNode(HasChildStats, LocalNode):
@@ -163,9 +170,9 @@ class LocalDirNode(HasChildStats, LocalNode):
     Represents a generic local directory.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, node_identifier: LocalNodeIdentifier, trashed: TrashStatus, is_live: bool):
+    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid, trashed: TrashStatus, is_live: bool):
         HasChildStats.__init__(self)
-        LocalNode.__init__(self, node_identifier, trashed, is_live)
+        LocalNode.__init__(self, node_identifier, parent_uid, trashed, is_live)
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalDirNode)
@@ -218,5 +225,5 @@ class LocalDirNode(HasChildStats, LocalNode):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return f'LocalDirNode({self.node_identifier} trashed={self._trashed} is_live={self.is_live()} size_bytes={self.get_size_bytes()} ' \
-               f'summary="{self.get_summary()}")'
+        return f'LocalDirNode({self.node_identifier} parent_uid={self._parent_uids} trashed={self._trashed} is_live={self.is_live()} ' \
+               f'size_bytes={self.get_size_bytes()} summary="{self.get_summary()}")'

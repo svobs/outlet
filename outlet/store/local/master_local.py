@@ -1,6 +1,7 @@
 import copy
 import logging
 import os
+import pathlib
 import threading
 import time
 from typing import List, Optional, Tuple
@@ -542,13 +543,20 @@ class LocalDiskMasterStore(MasterStore):
             md5 = 'disabled'
         return f'LocalDiskMasterStore tree_size={len(self._memstore.master_tree):n} md5={md5}'
 
-    def build_local_dir_node(self, full_path: str) -> LocalDirNode:
+    def build_local_dir_node(self, full_path: str, is_live: bool) -> LocalDirNode:
         uid = self.get_uid_for_path(full_path)
         # logger.debug(f'Creating dir node: nid={uid}')
-        return LocalDirNode(node_identifier=LocalNodeIdentifier(uid=uid, path_list=full_path), trashed=TrashStatus.NOT_TRASHED, is_live=True)
+
+        parent_path = str(pathlib.Path(full_path).parent)
+        parent_uid: UID = self.get_uid_for_path(parent_path)
+        return LocalDirNode(node_identifier=LocalNodeIdentifier(uid=uid, path_list=full_path), parent_uid=parent_uid,
+                            trashed=TrashStatus.NOT_TRASHED, is_live=is_live)
 
     def build_local_file_node(self, full_path: str, staging_path: str = None, must_scan_signature=False) -> Optional[LocalFileNode]:
         uid = self.get_uid_for_path(full_path)
+
+        parent_path = str(pathlib.Path(full_path).parent)
+        parent_uid: UID = self.get_uid_for_path(parent_path)
 
         if os.path.islink(full_path):
             target = os.readlink(full_path)
@@ -583,4 +591,4 @@ class LocalDiskMasterStore(MasterStore):
         assert change_ts > 100000000000, f'change_ts too small: {change_ts} for path: {path}'
 
         node_identifier = LocalNodeIdentifier(uid=uid, path_list=full_path)
-        return LocalFileNode(node_identifier, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, TrashStatus.NOT_TRASHED, True)
+        return LocalFileNode(node_identifier, parent_uid, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, TrashStatus.NOT_TRASHED, True)
