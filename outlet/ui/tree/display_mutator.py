@@ -56,6 +56,8 @@ class DisplayMutator(HasLifecycle):
         self._enable_node_signals = False
         """Set this initially to False because we have no data, and there are too many ways to end up blocking."""
 
+        self._is_shutdown = False
+
     def start(self):
         """Do post-wiring stuff like connect listeners."""
         HasLifecycle.start(self)
@@ -87,6 +89,7 @@ class DisplayMutator(HasLifecycle):
         logger.debug(f'[{tree_id}] DisplayMutator listeners connected')
 
     def shutdown(self):
+        self._is_shutdown = True
         HasLifecycle.shutdown(self)
         self.con = None
 
@@ -585,7 +588,7 @@ class DisplayMutator(HasLifecycle):
         logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.REFRESH_SUBTREE_STATS_DONE.name}"')
 
         def redraw_displayed_node(tree_iter):
-            if self.con.app.shutdown:
+            if self._is_shutdown:
                 # try to prevent junk errors during shutdown
                 return
 
@@ -600,14 +603,7 @@ class DisplayMutator(HasLifecycle):
             if node.is_ephemereal():
                 return
 
-            # Node in cacheman should always reference the same object as the node in our tree
             if SUPER_DEBUG:
-                if node.uid and not isinstance(node, ContainerNode):  # don't even try for CategoryDisplayTree nodes - they have fake nodes
-                    cached_node = self.con.app.cacheman.get_node_for_uid(node.uid, node.get_tree_type())
-                    # object may no longer be in cache, which is ok. But if in cache, it should always be the same obj
-                    assert not cached_node or id(cached_node) == id(node), \
-                        f'Object mismatch for node: (cacheman: id={id(cached_node)}, node={cached_node}, displayed: id={id(node)}, node={node})'
-
                 logger.debug(f'[{self.con.tree_id}] Redrawing stats for node: {node}; tree_path="{ds.model.get_path(tree_iter)}"; '
                              f'size={node.get_size_bytes()} etc={node.get_etc()}')
             ds.model[tree_iter][self.con.treeview_meta.col_num_size] = _format_size_bytes(node)
@@ -621,7 +617,7 @@ class DisplayMutator(HasLifecycle):
         def do_in_ui():
             logger.debug(f'[{self.con.tree_id}] Redrawing display tree stats in UI')
             with self._lock:
-                if not self.con.app.shutdown:
+                if not self._is_shutdown:
                     self.con.display_store.recurse_over_tree(action_func=redraw_displayed_node)
                     logger.debug(f'[{self.con.tree_id}] Done redrawing stats in UI (for {redraw_displayed_node.nodes_redrawn} nodes): '
                                  f'sending signal "{Signal.REFRESH_SUBTREE_STATS_COMPLETELY_DONE}"')

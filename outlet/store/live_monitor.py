@@ -25,11 +25,11 @@ class GDrivePollingThread(HasLifecycle, threading.Thread):
     CLASS GDrivePollingThread
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, app, thread_num):
+    def __init__(self, backend, thread_num):
         super().__init__(target=self._run_gdrive_polling_thread, name=f'GDrivePollingThread-{thread_num}', daemon=True)
         self._shutdown: bool = False
-        self.app = app
-        self.gdrive_thread_polling_interval_sec: int = ensure_int(self.app.config.get('cache.gdrive_thread_polling_interval_sec'))
+        self.backend = backend
+        self.gdrive_thread_polling_interval_sec: int = ensure_int(self.backend.config.get('cache.gdrive_thread_polling_interval_sec'))
 
     def start(self):
         HasLifecycle.start(self)
@@ -57,12 +57,12 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
     CLASS LocalFileChangeBatchingThread
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, app):
+    def __init__(self, backend):
         HasLifecycle.__init__(self)
         threading.Thread.__init__(self, target=self._run, name=f'LocalFileChangeBatchingThread', daemon=True)
         self._shutdown: bool = False
-        self.app = app
-        self.local_change_batch_interval_ms: int = ensure_int(self.app.config.get('cache.local_change_batch_interval_ms'))
+        self.backend = backend
+        self.local_change_batch_interval_ms: int = ensure_int(self.backend.config.get('cache.local_change_batch_interval_ms'))
         self.change_set: Set = set()
 
     def enqueue(self, file_path: str):
@@ -91,8 +91,8 @@ class LocalFileChangeBatchingThread(HasLifecycle, threading.Thread):
                 for change_path in change_set:
                     try:
                         logger.debug(f'Applying CH file: {change_path}')
-                        node: LocalNode = self.app.cacheman.build_local_file_node(change_path)
-                        self.app.cacheman.upsert_single_node(node)
+                        node: LocalNode = self.backend.cacheman.build_local_file_node(change_path)
+                        self.backend.cacheman.upsert_single_node(node)
                     except FileNotFoundError as err:
                         logger.debug(f'Cannot process external CH event: file not found: "{err.filename}"')
 
@@ -107,9 +107,9 @@ class LiveMonitor(HasLifecycle):
     CLASS LiveMonitor
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, app):
+    def __init__(self, backend):
         HasLifecycle.__init__(self)
-        self.app = app
+        self.backend = backend
 
         self._struct_lock = threading.Lock()
         """Locks the following data structures"""
@@ -126,7 +126,7 @@ class LiveMonitor(HasLifecycle):
         self._active_local_tree_dict: Dict[str, Set[str]] = {}
         """A dict of [local_path -> set of tree_ids]"""
 
-        self.enable_gdrive_polling_thread: bool = ensure_bool(self.app.config.get('cache.enable_gdrive_polling_thread'))
+        self.enable_gdrive_polling_thread: bool = ensure_bool(self.backend.config.get('cache.enable_gdrive_polling_thread'))
         self._gdrive_polling_thread: Optional[GDrivePollingThread] = None
         self._count_gdrive_threads: int = 0
         self._local_change_batching_thread: Optional[LocalFileChangeBatchingThread] = None
@@ -150,10 +150,10 @@ class LiveMonitor(HasLifecycle):
         logger.debug(f'[{tree_id}] Starting disk capture for path="{full_path}"')
 
         if not self._local_change_batching_thread or not self._local_change_batching_thread.is_alive():
-            self._local_change_batching_thread = LocalFileChangeBatchingThread(self.app)
+            self._local_change_batching_thread = LocalFileChangeBatchingThread(self.backend)
             self._local_change_batching_thread.start()
 
-        event_handler = LocalChangeEventHandler(self.app, self._local_change_batching_thread)
+        event_handler = LocalChangeEventHandler(self.backend, self._local_change_batching_thread)
         watch: ObservedWatch = self._watchdog_observer.schedule(event_handler, full_path, recursive=True)
         self._local_tree_watcher_dict[full_path] = watch
 
@@ -188,7 +188,7 @@ class LiveMonitor(HasLifecycle):
             return
 
         self._count_gdrive_threads += 1
-        self._gdrive_polling_thread = GDrivePollingThread(self.app, self._count_gdrive_threads)
+        self._gdrive_polling_thread = GDrivePollingThread(self.backend, self._count_gdrive_threads)
         self._gdrive_polling_thread.start()
 
     def _stop_gdrive_capture(self):

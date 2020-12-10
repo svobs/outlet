@@ -167,8 +167,8 @@ class BatchChangesOp(GDriveWriteThroughOp):
     CLASS BatchChangesOp
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, app, change_list: List[GDriveChange]):
-        self.app = app
+    def __init__(self, backend, change_list: List[GDriveChange]):
+        self.backend = backend
         self.change_list = BatchChangesOp._reduce_changes(change_list)
 
     @staticmethod
@@ -222,7 +222,7 @@ class BatchChangesOp(GDriveWriteThroughOp):
                 parent_mapping_list = []
                 parent_uids = change.node.get_parent_uids()
                 if parent_uids:
-                    parent_goog_ids = self.app.cacheman.get_goog_id_list_for_uid_list(parent_uids)
+                    parent_goog_ids = self.backend.cacheman.get_goog_id_list_for_uid_list(parent_uids)
                     if len(parent_uids) != len(parent_goog_ids):
                         raise RuntimeError(f'Internal error: could not map all parent goog_ids ({len(parent_goog_ids)}) to parent UIDs '
                                            f'({len(parent_uids)}) for node: {change.node}')
@@ -271,8 +271,8 @@ class RefreshFolderOp(GDriveWriteThroughOp):
     the given parent folder."
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, app, parent_folder: GDriveFolder, child_list: List[GDriveNode]):
-        self.app = app
+    def __init__(self, backend, parent_folder: GDriveFolder, child_list: List[GDriveNode]):
+        self.backend = backend
         assert parent_folder.all_children_fetched, f'Expected all_children_fetched==True for node: {parent_folder}'
         self.parent_folder: GDriveFolder = parent_folder
         self.child_list: List[GDriveNode] = child_list
@@ -295,7 +295,7 @@ class RefreshFolderOp(GDriveWriteThroughOp):
             parent_mapping_list = []
             parent_uids = node.get_parent_uids()
             if parent_uids:
-                parent_goog_ids = self.app.cacheman.get_goog_id_list_for_uid_list(parent_uids)
+                parent_goog_ids = self.backend.cacheman.get_goog_id_list_for_uid_list(parent_uids)
                 if len(parent_uids) != len(parent_goog_ids):
                     raise RuntimeError(f'Internal error: could not map all parent goog_ids ({len(parent_goog_ids)}) to parent UIDs '
                                        f'({len(parent_uids)}) for node: {node}')
