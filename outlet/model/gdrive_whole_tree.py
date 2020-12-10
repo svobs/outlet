@@ -536,7 +536,7 @@ class GDriveWholeTree(HasGetChildren):
             next_segment_nodes = []
         return path_list
 
-    def get_summary(self):
+    def get_summary(self) -> str:
         # FIXME: this is broken
         super_root_node = self.get_node_for_uid(GDRIVE_ROOT_UID)
         if super_root_node.is_stats_loaded():

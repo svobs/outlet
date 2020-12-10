@@ -166,7 +166,7 @@ class HasChildStats(ABC):
                 if child_node.get_size_bytes():
                     self.trashed_bytes += child_node.get_size_bytes()
 
-    def get_etc(self):
+    def get_etc(self) -> str:
         if not self.is_stats_loaded():
             return ''
         files = self.file_count + self.trashed_file_count
@@ -185,7 +185,7 @@ class HasChildStats(ABC):
             multi = 's'
         return f'{files:n} file{multi}{folders_str}'
 
-    def get_summary(self):
+    def get_summary(self) -> str:
         if not self.is_stats_loaded():
             return ''
         if not self._size_bytes and not self.file_count:
@@ -193,7 +193,7 @@ class HasChildStats(ABC):
         size = format.humanfriendlier_size(self._size_bytes)
         return f'{size} in {self.file_count:n} files and {self.dir_count:n} dirs'
 
-    def get_size_bytes(self):
+    def get_size_bytes(self) -> Optional[int]:
         return self._size_bytes
 
     def set_size_bytes(self, size_bytes: int):

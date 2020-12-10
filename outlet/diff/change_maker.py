@@ -165,27 +165,27 @@ class OneSide:
             # Need to create ancestor
             if tree_type == TREE_TYPE_GDRIVE:
                 logger.debug(f'Creating GoogFolderToAdd for {parent_path}')
-                new_uid = self.backend.uid_generator.next_uid()
+                new_ancestor_uid = self.backend.uid_generator.next_uid()
                 folder_name = os.path.basename(parent_path)
-                new_parent_node = GDriveFolder(GDriveIdentifier(uid=new_uid, path_list=parent_path), goog_id=None, node_name=folder_name,
-                                               trashed=False, create_ts=None, modify_ts=None, owner_uid=None,
-                                               drive_id=None, is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=True)
+                new_ancestor_node = GDriveFolder(GDriveIdentifier(uid=new_ancestor_uid, path_list=parent_path), goog_id=None, node_name=folder_name,
+                                                 trashed=False, create_ts=None, modify_ts=None, owner_uid=None,
+                                                 drive_id=None, is_shared=False, shared_by_user_uid=None, sync_ts=None, all_children_fetched=True)
             elif tree_type == TREE_TYPE_LOCAL_DISK:
                 logger.debug(f'Creating LocalDirToAdd for {parent_path}')
-                new_parent_node = self.backend.cacheman.build_local_dir_node(parent_path, is_live=False)
+                new_ancestor_node = self.backend.cacheman.build_local_dir_node(parent_path, is_live=False)
             else:
                 raise RuntimeError(f'Invalid tree type: {tree_type} for node {new_sn.node}')
 
-            new_parent_sn: SPIDNodePair = SPIDNodePair(SinglePathNodeIdentifier(new_uid, parent_path, tree_type), new_parent_node)
-            self._added_folders[parent_path] = new_parent_sn
-            ancestor_stack.append(new_parent_sn)
+            new_ancestor_sn: SPIDNodePair = SPIDNodePair(SinglePathNodeIdentifier(new_ancestor_node.uid, parent_path, tree_type), new_ancestor_node)
+            self._added_folders[parent_path] = new_ancestor_sn
+            ancestor_stack.append(new_ancestor_sn)
 
             if tree_type == TREE_TYPE_GDRIVE:
                 assert isinstance(child, GDriveNode)
-                child.set_parent_uids(new_parent_sn.spid.uid)
+                child.set_parent_uids(new_ancestor_sn.spid.uid)
 
             child_path = parent_path
-            child = new_parent_sn.node
+            child = new_ancestor_sn.node
 
         return ancestor_stack
 

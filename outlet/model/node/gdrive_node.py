@@ -190,7 +190,7 @@ class GDriveFolder(HasChildStats, GDriveNode):
                 return IconId.ICON_DIR_MK
         return IconId.ICON_DIR_TRASHED
 
-    def get_summary(self):
+    def get_summary(self) -> str:
         if not self._size_bytes and not self.file_count and not self.dir_count:
             return '0 items'
         size = format.humanfriendlier_size(self._size_bytes)
