@@ -31,7 +31,6 @@ class RootDirPanel(HasLifecycle):
         HasLifecycle.__init__(self)
         self.parent_win: BaseDialog = parent_win
         self.con = controller
-        self.tree_id: str = self.con.tree_id
         self.content_box = Gtk.Box(spacing=0, orientation=Gtk.Orientation.HORIZONTAL)
 
         self.can_change_root = can_change_root
@@ -84,7 +83,7 @@ class RootDirPanel(HasLifecycle):
         display_tree: DisplayTree = self.con.get_tree()
         if display_tree:
             # Do the initial UI draw (only if we already have a display tree)
-            logger.debug(f'[{self.tree_id}] Building panel with current root {display_tree.get_root_identifier()}')
+            logger.debug(f'[{self.con.tree_id}] Building panel with current root {display_tree.get_root_identifier()}')
             GLib.idle_add(self._redraw_root_display)
 
         self.start()
@@ -94,7 +93,7 @@ class RootDirPanel(HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
         self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_STARTED, receiver=self._on_load_started)
         self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed_rootpanel)
-        logger.debug(f'[{self.tree_id}] RootDirPanel listeners connected')
+        logger.debug(f'[{self.con.tree_id}] RootDirPanel listeners connected')
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
@@ -117,7 +116,7 @@ class RootDirPanel(HasLifecycle):
 
     def _on_display_tree_changed_rootpanel(self, sender: str, tree: Optional[DisplayTree]):
         """Callback for Signal.DISPLAY_TREE_CHANGED"""
-        if sender != self.tree_id:
+        if sender != self.con.tree_id:
             return
         logger.debug(f'[{sender}] Received signal "{Signal.DISPLAY_TREE_CHANGED.name}" with new root: {tree.get_root_identifier()}')
 
@@ -133,7 +132,7 @@ class RootDirPanel(HasLifecycle):
         if not new_tree:
             new_tree: DisplayTree = self.con.get_tree()
         new_root = new_tree.get_root_identifier()
-        logger.debug(f'[{self.tree_id}] Redrawing root display for new_root={new_root}')
+        logger.debug(f'[{self.con.tree_id}] Redrawing root display for new_root={new_root}')
         if self.entry:
             if self.entry_box_focus_eid:
                 self.entry.disconnect(self.entry_box_focus_eid)
@@ -215,7 +214,7 @@ class RootDirPanel(HasLifecycle):
         logger.info(f'[{tree_id}] User entered root path: "{new_root_path}"')
 
         # Call into backend to update display tree. We'll get updated via the dispatcher
-        self.con.app.backend.create_display_tree_from_user_path(self.tree_id, new_root_path)
+        self.con.app.backend.create_display_tree_from_user_path(self.con.tree_id, new_root_path)
 
     def _on_change_btn_clicked(self, widget):
         if self._ui_enabled:
@@ -243,7 +242,7 @@ class RootDirPanel(HasLifecycle):
         if root_spid.tree_type == TREE_TYPE_GDRIVE:
             path = GDRIVE_PATH_PREFIX + path
         self.entry.set_text(path)
-        self.entry.connect('activate', self._on_root_text_entry_submitted, self.tree_id)
+        self.entry.connect('activate', self._on_root_text_entry_submitted, self.con.tree_id)
         self.path_box.remove(self.label_event_box)
         if self.toolbar:
             self.path_box.remove(self.toolbar)
@@ -288,7 +287,7 @@ class RootDirPanel(HasLifecycle):
         # the arguments are: title of the window, parent_window, action,
         # (buttons, response)"""
         logger.debug('Creating and displaying LocalRootDirChooserDialog')
-        open_dialog = LocalRootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, tree_id=self.tree_id,
+        open_dialog = LocalRootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, tree_id=self.con.tree_id,
                                                 current_dir=self.con.get_tree().get_root_identifier().get_single_path())
 
         # show the dialog
@@ -296,12 +295,12 @@ class RootDirPanel(HasLifecycle):
 
     def _open_gdrive_root_chooser_dialog(self, menu_item):
         spid = self.con.get_tree().get_root_identifier()
-        logger.debug(f'[{self.tree_id}] Displaying GDrive root chooser dialog with current_selection={spid}')
+        logger.debug(f'[{self.con.tree_id}] Displaying GDrive root chooser dialog with current_selection={spid}')
 
         def open_dialog():
             try:
                 # Preview ops in UI pop-up. Change tree_id so that listeners don't step on existing trees
-                GDriveDirChooserDialog(self.parent_win, current_selection=spid, target_tree_id=self.tree_id)
+                GDriveDirChooserDialog(self.parent_win, current_selection=spid, target_tree_id=self.con.tree_id)
             except Exception as err:
                 self.parent_win.show_error_ui('GDriveDirChooserDialog failed due to unexpected error', repr(err))
                 raise
@@ -323,15 +322,15 @@ class RootDirPanel(HasLifecycle):
         logger.debug('The Refresh button was clicked!')
 
         def send_load_signal():
-            self.con.app.backend.start_subtree_load(self.tree_id)
+            self.con.app.backend.start_subtree_load(self.con.tree_id)
 
         GLib.idle_add(send_load_signal)
 
     def _on_load_started(self, sender):
-        if sender != self.tree_id:
+        if sender != self.con.tree_id:
             return
 
-        logger.debug(f'[{self.tree_id}] Got signal "{Signal.LOAD_SUBTREE_STARTED}"')
+        logger.debug(f'[{self.con.tree_id}] Got signal "{Signal.LOAD_SUBTREE_STARTED.name}"')
         if self.con.get_tree().is_needs_manual_load():
             self.con.get_tree().set_needs_manual_load(False)
             # Hide Refresh button

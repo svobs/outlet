@@ -37,7 +37,6 @@ class TreePanelController(HasLifecycle):
         self._display_tree = None
         self.display_store = None
         self.treeview_meta = treeview_meta
-        self.tree_id: str = treeview_meta.tree_id
         """Cached in controller, in case treeview_meta goes away"""
 
         self.tree_view = None
@@ -83,10 +82,14 @@ class TreePanelController(HasLifecycle):
         if self.tree_actions:
             self.tree_actions.shutdown()
             self.tree_actions = None
-        if self.treeview_meta:
-            self.treeview_meta.shutdown()
         if self.display_mutator:
             self.display_mutator.shutdown()
+        if self.treeview_meta:
+            self.treeview_meta.shutdown()
+
+    @property
+    def tree_id(self) -> str:
+        return self.treeview_meta.tree_id
 
     def _set_column_visibilities(self):
         # the columns stored in TreeViewMeta are 1
@@ -99,13 +102,22 @@ class TreePanelController(HasLifecycle):
         """Invalidate whatever cache the ._display_tree built up, and re-populate the display tree"""
         def _reload():
 
+            if new_tree:
+                logger.info(f'[{self.tree_id}] reload() with new tree: {new_tree}')
+                self.set_tree(display_tree=new_tree, tree_display_mode=tree_display_mode)
+                tree_id = new_tree
+            else:
+                logger.info(f'[{self.tree_id}] reload() with same tree')
+                self.set_tree(display_tree=self._display_tree, tree_display_mode=tree_display_mode)
+                tree_id = self._display_tree.tree_id
+
             checkboxes_visible = self.treeview_meta.has_checkboxes
-            if (show_checkboxes and not checkboxes_visible) or (hide_checkboxes and checkboxes_visible):
+            if (show_checkboxes and not checkboxes_visible) or (hide_checkboxes and checkboxes_visible) or (tree_id != self.treeview_meta.tree_id):
                 # Change in checkbox visibility means tearing out half the guts here and swapping them out...
                 logger.info(f'[{self.tree_id}] Rebuilding treeview!')
                 checkboxes_visible = not checkboxes_visible
                 self.tree_ui_listeners.disconnect_gtk_listeners()
-                self.treeview_meta = self.treeview_meta.but_with_checkboxes(checkboxes_visible)
+                self.treeview_meta = self.treeview_meta.but_with_checkboxes(checkboxes_visible, tree_id)
                 self.display_store = DisplayStore(self)
 
                 assets = self.app.assets
@@ -115,13 +127,6 @@ class TreePanelController(HasLifecycle):
                 self.tree_ui_listeners.start()
                 self.treeview_meta.start()
                 self._set_column_visibilities()
-
-            if new_tree:
-                logger.info(f'[{self.tree_id}] reload() with new tree: {new_tree}')
-                self.set_tree(display_tree=new_tree, tree_display_mode=tree_display_mode)
-            else:
-                logger.info(f'[{self.tree_id}] reload() with same tree')
-                self.set_tree(display_tree=self._display_tree, tree_display_mode=tree_display_mode)
 
             # Send signal to backend to load the subtree. When it's ready, it will notify us
             self.app.backend.start_subtree_load(self.tree_id)
