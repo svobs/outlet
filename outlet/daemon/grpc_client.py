@@ -10,7 +10,7 @@ from app.backend import OutletBackend
 from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_CLIENT_SLEEP_ON_FAILURE_SEC, GRPC_SERVER_ADDRESS
 from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.conversion import Converter
-from daemon.grpc.Outlet_pb2 import DownloadFromGDrive_Request, DragDrop_Request, GetAncestorList_Request, GetChildList_Request, \
+from daemon.grpc.Outlet_pb2 import DeleteSubtree_Request, DownloadFromGDrive_Request, DragDrop_Request, GetAncestorList_Request, GetChildList_Request, \
     GetLastPendingOp_Request, \
     GetLastPendingOp_Response, GetNextUid_Request, \
     GetNodeForLocalPath_Request, \
@@ -330,3 +330,9 @@ class BackendGRPCClient(OutletBackend):
     def download_file_from_gdrive(self, node_uid: UID, requestor_id: str):
         request = DownloadFromGDrive_Request(node_uid=node_uid, requestor_id=requestor_id)
         self.grpc_stub.download_file_from_gdrive(request)
+
+    def delete_subtree(self, node_uid_list: List[UID]):
+        request = DeleteSubtree_Request()
+        for node_uid in node_uid_list:
+            request.node_uid_list.append(node_uid)
+        self.grpc_stub.delete_subtree(request)

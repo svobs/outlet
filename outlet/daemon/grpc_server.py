@@ -10,7 +10,7 @@ from typing import Deque, Dict, Optional
 from app.backend_integrated import BackendIntegrated
 from constants import SUPER_DEBUG
 from daemon.grpc.conversion import Converter
-from daemon.grpc.Outlet_pb2 import DragDrop_Request, DragDrop_Response, Empty, GetAncestorList_Response, GetChildList_Response, \
+from daemon.grpc.Outlet_pb2 import DeleteSubtree_Request, DragDrop_Request, DragDrop_Response, Empty, GetAncestorList_Response, GetChildList_Response, \
     GetLastPendingOp_Request, GetLastPendingOp_Response, GetNextUid_Response, \
     GetNodeForLocalPath_Request, GetNodeForUid_Request, \
     GetUidForLocalPath_Request, \
@@ -315,3 +315,10 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     def download_file_from_gdrive(self, request, context):
         self.cacheman.download_file_from_gdrive(request.node_uid, request.requestor_id)
         return Empty()
+
+    def delete_subtree(self, request: DeleteSubtree_Request, context):
+        try:
+            self.cacheman.delete_subtree(request.node_uid_list)
+            return Empty()
+        except RuntimeError:
+            logger.exception('ERROR MATT')

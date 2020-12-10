@@ -30,7 +30,7 @@ class GlobalActions(HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.START_DIFF_TREES, receiver=self._on_diff_requested)
 
     def _on_diff_requested(self, sender, tree_id_left, tree_id_right):
-        logger.debug(f'Received signal: "{Signal.START_DIFF_TREES}" from "{sender}"')
+        logger.debug(f'Received signal: "{Signal.START_DIFF_TREES.name}" from "{sender}"')
         self.backend.executor.submit_async_task(self.do_tree_diff, sender, tree_id_left, tree_id_right)
 
     def shutdown(self):

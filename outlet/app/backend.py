@@ -127,3 +127,7 @@ class OutletBackend(HasLifecycle, ABC):
     @abstractmethod
     def download_file_from_gdrive(self, node_uid: UID, requestor_id: str):
         pass
+
+    @abstractmethod
+    def delete_subtree(self, node_uid_list: List[UID]):
+        pass

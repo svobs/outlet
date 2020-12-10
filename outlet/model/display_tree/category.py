@@ -74,7 +74,7 @@ class CategoryDisplayTree(DisplayTree):
             raise
 
     def print_tree_contents_debug(self):
-        logger.debug(f'[{self.tree_id}] CategoryTree for "{self.root_sn.spid}": \n' + self._category_tree.show())
+        logger.debug(f'[{self.tree_id}] CategoryTree for "{self.get_root_sn().spid}": \n' + self._category_tree.show())
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
         raise InvalidOperationError('CategoryDisplayTree.get_ancestor_list()')
@@ -223,7 +223,7 @@ class CategoryDisplayTree(DisplayTree):
             self._category_tree.add_node(node=sn.node, parent=parent)
         except NodeAlreadyPresentError:
             # TODO: configurable handling of conflicts. Google Drive allows nodes with the same path and name, which is not allowed on local FS
-            conflict_node = self._category_tree.get_node(sn.node.identifier)
+            conflict_node: Node = self._category_tree.get_node(sn.node.identifier)
             if conflict_node.md5 == sn.node.md5:
                 self.count_conflict_warnings += 1
                 if SUPER_DEBUG:

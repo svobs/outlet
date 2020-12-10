@@ -109,7 +109,7 @@ class TreeFilterPanel(HasLifecycle):
         if sender != self.tree_id:
             return
 
-        logger.debug(f'[{sender}] Received signal "{Signal.DISPLAY_TREE_CHANGED}" with new root: {tree.get_root_identifier()}')
+        logger.debug(f'[{sender}] Received signal "{Signal.DISPLAY_TREE_CHANGED.name}" with new root: {tree.get_root_identifier()}')
 
         # Send the new tree directly to _redraw_panel(). Do not allow it to fall back to querying the controller for the tree,
         # because that would be a race condition:

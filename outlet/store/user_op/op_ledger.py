@@ -298,7 +298,7 @@ class OpLedger(HasLifecycle):
         return self._cmd_builder.build_command(op)
 
     def _on_command_completed(self, sender, command: Command):
-        logger.debug(f'Received signal: "{Signal.COMMAND_COMPLETE}"')
+        logger.debug(f'Received signal: "{Signal.COMMAND_COMPLETE.name}"')
 
         logger.debug(f'Archiving op: {command.op}')
         self._disk_store.archive_pending_ops_to_disk([command.op])

@@ -81,32 +81,33 @@ class CentralExecutor(HasLifecycle):
             # Should be ok to do simple infinite loop, because get_next_command() will block until work is available.
             # May need to throttle here in the future however if we are seeing hiccups in the UI for large numbers of operations
 
+            logger.debug(f'{self._op_execution_thread.name}: Getting next command...')
             command = self.backend.cacheman.get_next_command()
             if not command:
-                logger.debug('Got None for next command. Shutting down')
+                logger.debug(f'{self._op_execution_thread.name}: Got None for next command. Shutting down')
                 self.shutdown()
                 return
 
             while not self.enable_op_execution_thread:
-                logger.debug(f'Op execution paused; sleeping until notified')
+                logger.debug(f'{self._op_execution_thread.name}: paused; sleeping until notified')
                 with self._cv_can_execute:
                     self._cv_can_execute.wait()
 
                 if self._shutdown_requested:
                     return
 
-            logger.debug(f'Got a command to execute: {command.__class__.__name__}')
+            logger.debug(f'{self._op_execution_thread.name}: Got a command to execute: {command.__class__.__name__}')
             self.submit_async_task(self._command_executor.execute_command, command, None, True)
 
     def _start_op_execution(self, sender):
-        logger.debug(f'Received signal "{Signal.RESUME_OP_EXECUTION}" from {sender}')
+        logger.debug(f'Received signal "{Signal.RESUME_OP_EXECUTION.name}" from {sender}')
         self.enable_op_execution_thread = True
         self.start_op_execution_thread()
-        logger.debug(f'Sending signal "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED}" (is_enabled={self.enable_op_execution_thread})')
-        dispatcher.send(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, sender=ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution_thread)
+        logger.debug(f'Sending signal "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED.name}" (is_enabled={self.enable_op_execution_thread})')
+        dispatcher.send(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED.name, sender=ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution_thread)
 
     def _pause_op_execution(self, sender):
-        logger.debug(f'Received signal "{Signal.PAUSE_OP_EXECUTION}" from {sender}')
+        logger.debug(f'Received signal "{Signal.PAUSE_OP_EXECUTION.name}" from {sender}')
         self.enable_op_execution_thread = False
-        logger.debug(f'Sending signal "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED}" (is_enabled={self.enable_op_execution_thread})')
-        dispatcher.send(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, sender=ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution_thread)
+        logger.debug(f'Sending signal "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED.name}" (is_enabled={self.enable_op_execution_thread})')
+        dispatcher.send(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED.name, sender=ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution_thread)

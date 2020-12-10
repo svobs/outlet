@@ -447,7 +447,7 @@ class CacheManager(HasLifecycle):
 
     def _on_command_completed(self, sender, command: Command):
         """Updates the in-memory cache, on-disk cache, and UI with the nodes from the given UserOpResult"""
-        logger.debug(f'Received signal: "{Signal.COMMAND_COMPLETE}"')
+        logger.debug(f'Received signal: "{Signal.COMMAND_COMPLETE.name}"')
         result = command.op.result
 
         # TODO: refactor so that we can attempt to create (close to) an atomic operation which combines GDrive and Local functionality
@@ -465,7 +465,7 @@ class CacheManager(HasLifecycle):
                 self.remove_node(deleted_node, to_trash=False)
 
     def _deregister_display_tree(self, sender: str):
-        logger.debug(f'[{sender}] Received signal: "{Signal.DEREGISTER_DISPLAY_TREE}"')
+        logger.debug(f'[{sender}] Received signal: "{Signal.DEREGISTER_DISPLAY_TREE.name}"')
         display_tree = self._display_tree_dict.pop(sender, None)
         if display_tree:
             logger.debug(f'[{sender}] Display tree de-registered in backend')
@@ -486,7 +486,7 @@ class CacheManager(HasLifecycle):
 
     def _on_gdrive_whole_tree_reloaded(self, sender: str):
         # If GDrive was reloaded, our previous selection was almost certainly invalid. Just reset all open GDrive trees to GDrive root.
-        logger.info(f'Received signal: "{Signal.GDRIVE_RELOADED}"')
+        logger.info(f'Received signal: "{Signal.GDRIVE_RELOADED.name}"')
 
         tree_id_list: List[str] = []
         for tree_meta in self._display_tree_dict.values():
@@ -852,7 +852,38 @@ class CacheManager(HasLifecycle):
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
+    def delete_subtree(self, node_uid_list: List[UID]):
+        logger.debug(f'Setting up recursive delete operations for {len(node_uid_list)} nodes')
+
+        # don't worry about overlapping trees; the cacheman will sort everything out
+        batch_uid = self.backend.uid_generator.next_uid()
+        op_list = []
+        for uid_to_delete in node_uid_list:
+            node_to_delete = self.get_node_for_uid(uid_to_delete)
+            if not node_to_delete:
+                logger.error(f'delete_subtree(): could not find node with UID {uid_to_delete}; skipping')
+                continue
+
+            if node_to_delete.is_dir():
+                # Expand dir nodes. ChangeManager will not remove non-empty dirs
+                expanded_node_list = self._get_subtree_for_node(node_to_delete)
+                for node in expanded_node_list:
+                    # somewhere in this returned list is the subtree root. Need to check so we don't include a duplicate:
+                    if node.uid != node_to_delete.uid:
+                        op_list.append(UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=batch_uid,
+                                              op_type=UserOpType.RM, src_node=node))
+
+            op_list.append(UserOp(op_uid=self.backend.uid_generator.next_uid(), batch_uid=batch_uid,
+                                  op_type=UserOpType.RM, src_node=node_to_delete))
+
+        self.enqueue_op_list(op_list)
+
+    def _get_subtree_for_node(self, subtree_root: Node) -> List[Node]:
+        subtree_files, subtree_dirs = self.get_all_files_and_dirs_for_subtree(subtree_root.node_identifier)
+        return subtree_files + subtree_dirs
+
     def remove_subtree(self, node: Node, to_trash: bool):
+        """TODO: when is this called? Only for tests?"""
         tree_type = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
             self._master_gdrive.remove_subtree(node, to_trash)
@@ -1203,7 +1234,7 @@ class CacheManager(HasLifecycle):
         elif dst_tree_id == src_tree_id and self._is_dropping_on_itself(dst_sn, src_sn_list, dst_tree_id):
             logger.debug(f'[{dst_tree_id}] Cancelling drop: nodes were dropped in same location in the tree')
         else:
-            logger.debug(f'[{dst_tree_id}]Dropping into dest: {dst_sn.spid}')
+            logger.debug(f'[{dst_tree_id}] Dropping into dest: {dst_sn.spid}')
             # "Left tree" here is the source tree, and "right tree" is the dst tree:
             src_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(src_tree_id)
             dst_tree: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(dst_tree_id)

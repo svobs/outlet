@@ -106,3 +106,6 @@ class BackendIntegrated(OutletBackend):
 
     def download_file_from_gdrive(self, node_uid: UID, requestor_id: str):
         self.cacheman.download_file_from_gdrive(node_uid, requestor_id)
+
+    def delete_subtree(self, node_uid_list: List[UID]):
+        self.cacheman.delete_subtree(node_uid_list)

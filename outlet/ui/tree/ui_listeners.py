@@ -144,7 +144,7 @@ class TreeUiListeners(HasLifecycle):
 
     def _receive_drag_data_signal(self, sender, data: DragAndDropData):
         """Drag & Drop 2 or 3 /4: receive drag data at dest"""
-        logger.debug(f'[{self.con.tree_id}] Received signal: "{Signal.DRAG_AND_DROP}"')
+        logger.debug(f'[{self.con.tree_id}] Received signal: "{Signal.DRAG_AND_DROP.name}"')
         self._drag_data = data
         self._check_drop()
 
@@ -204,7 +204,7 @@ class TreeUiListeners(HasLifecycle):
         if sender != self.con.tree_id:
             return
 
-        logger.debug(f'[{self.con.tree_id}] Received signal: "{Signal.DISPLAY_TREE_CHANGED}"')
+        logger.debug(f'[{self.con.tree_id}] Received signal: "{Signal.DISPLAY_TREE_CHANGED.name}"')
 
         # Reload subtree and refresh display
         if tree.is_root_exists():
@@ -219,7 +219,7 @@ class TreeUiListeners(HasLifecycle):
     def _on_set_status(self, sender, status_msg):
         if sender != self.con.tree_id:
             return
-        logger.debug(f'[{self.con.tree_id}] Received signal: "{Signal.SET_STATUS}" with msg: {status_msg}')
+        logger.debug(f'[{self.con.tree_id}] Received signal: "{Signal.SET_STATUS.name}" with msg: {status_msg}')
         GLib.idle_add(lambda: self.con.status_bar.set_label(status_msg))
 
     def _on_enable_ui_toggled(self, sender, enable):

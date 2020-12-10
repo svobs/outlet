@@ -99,6 +99,11 @@ class OutletStub(object):
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.DownloadFromGDrive_Request.SerializeToString,
                 response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Empty.FromString,
                 )
+        self.delete_subtree = channel.unary_unary(
+                '/outlet.daemon.grpc.Outlet/delete_subtree',
+                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.DeleteSubtree_Request.SerializeToString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Empty.FromString,
+                )
 
 
 class OutletServicer(object):
@@ -206,6 +211,12 @@ class OutletServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def delete_subtree(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_OutletServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -292,6 +303,11 @@ def add_OutletServicer_to_server(servicer, server):
             'download_file_from_gdrive': grpc.unary_unary_rpc_method_handler(
                     servicer.download_file_from_gdrive,
                     request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.DownloadFromGDrive_Request.FromString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Empty.SerializeToString,
+            ),
+            'delete_subtree': grpc.unary_unary_rpc_method_handler(
+                    servicer.delete_subtree,
+                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.DeleteSubtree_Request.FromString,
                     response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Empty.SerializeToString,
             ),
     }
@@ -589,6 +605,23 @@ class Outlet(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/download_file_from_gdrive',
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.DownloadFromGDrive_Request.SerializeToString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def delete_subtree(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/delete_subtree',
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.DeleteSubtree_Request.SerializeToString,
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

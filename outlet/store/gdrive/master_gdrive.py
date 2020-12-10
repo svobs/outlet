@@ -182,12 +182,12 @@ class GDriveMasterStore(MasterStore):
 
     def _on_gdrive_sync_changes_requested(self, sender):
         """See below. This will load the GDrive tree (if it is not loaded already), then sync to the latest changes from GDrive"""
-        logger.debug(f'Received signal: "{Signal.SYNC_GDRIVE_CHANGES}"')
+        logger.debug(f'Received signal: "{Signal.SYNC_GDRIVE_CHANGES.name}"')
         self.backend.executor.submit_async_task(self.get_synced_master_tree)
 
     def _on_download_all_gdrive_meta_requested(self, sender):
         """See below. Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-        logger.debug(f'Received signal: "{Signal.DOWNLOAD_ALL_GDRIVE_META}"')
+        logger.debug(f'Received signal: "{Signal.DOWNLOAD_ALL_GDRIVE_META.name}"')
         self.backend.executor.submit_async_task(self._download_all_gdrive_meta_in_ui, sender)
 
     def _download_all_gdrive_meta_in_ui(self, tree_id):

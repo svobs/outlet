@@ -1,7 +1,7 @@
 from enum import IntEnum
 from model.uid import UID
 
-SUPER_DEBUG = False
+SUPER_DEBUG = True
 
 GRPC_CLIENT_SLEEP_ON_FAILURE_SEC = 3
 GRPC_SERVER_MAX_WORKER_THREADS = 5

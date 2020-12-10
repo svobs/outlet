@@ -404,7 +404,7 @@ class DisplayMutator(HasLifecycle):
 
         if not self._enable_expand_state_listeners or not self._enable_node_signals:
             if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_EXPANSION_TOGGLED}": listeners disabled')
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_EXPANSION_TOGGLED.name}": listeners disabled')
             return
 
         def expand_or_contract():
@@ -508,16 +508,16 @@ class DisplayMutator(HasLifecycle):
                 else:
                     # No parent found in tree
                     if node.uid in self.con.display_store.displayed_rows:
-                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED} for node {node.node_identifier} '
+                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED.name} for node {node.node_identifier} '
                                      f'but its parent is no longer in the tree; removing node from display store: {node.uid}')
                         self.con.display_store.remove_node(node.uid)
                     elif tree.is_path_in_subtree(node.get_path_list()):
                         # At least in subtree? If so, refresh stats to reflect change
-                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED} for node {node.node_identifier}')
+                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_UPSERTED.name} for node {node.node_identifier}')
                     else:
                         needs_refresh = False
                         if logger.isEnabledFor(logging.DEBUG):
-                            logger.debug(f'[{self.con.tree_id}] Ignoring signal {Signal.NODE_UPSERTED} for node {node.node_identifier}')
+                            logger.debug(f'[{self.con.tree_id}] Ignoring signal {Signal.NODE_UPSERTED.name} for node {node.node_identifier}')
 
                 if needs_refresh:
                     self._stats_refresh_timer.start_or_delay()
@@ -530,7 +530,7 @@ class DisplayMutator(HasLifecycle):
 
         if not self._enable_node_signals:
             if SUPER_DEBUG:
-                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_REMOVED}": node listeners disabled')
+                logger.debug(f'[{self.con.tree_id}] Ignoring signal "{Signal.NODE_REMOVED.name}": node listeners disabled')
             return
 
         assert node

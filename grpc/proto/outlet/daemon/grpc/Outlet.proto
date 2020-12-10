@@ -55,6 +55,10 @@ message RefreshSubtreeStats_Request {
 	string tree_id = 2;
 }
 
+message DeleteSubtree_Request {
+	repeated int32 node_uid_list = 1;
+}
+
 message ErrorOccurred {
 	string msg = 1;
 	string secondary_msg = 2;
@@ -206,6 +210,7 @@ service Outlet {
 
 	rpc get_last_pending_op_for_node(GetLastPendingOp_Request) returns (GetLastPendingOp_Response);
 	rpc download_file_from_gdrive(DownloadFromGDrive_Request) returns (Empty);
+	rpc delete_subtree(DeleteSubtree_Request) returns (Empty);
 }
 
 

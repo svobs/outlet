@@ -6,7 +6,7 @@ from daemon.grpc.Node_pb2 import DirMeta
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.gdrive_node import GDriveFile, GDriveFolder
-from model.node.local_disk_node import LocalDirNode, LocalFileNode
+from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import Node, SPIDNodePair
 import logging
 
@@ -111,12 +111,16 @@ class Converter:
                 # plain ContainerNode
                 Converter._dir_meta_to_grpc(node, grpc_node.container_meta)
         elif node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
-            # LocalNode
+            assert isinstance(node, LocalNode)
+
             if node.is_dir():
                 assert isinstance(node, LocalDirNode)
                 Converter._dir_meta_to_grpc(node, grpc_node.local_dir_meta)
                 grpc_node.local_dir_meta.is_live = node.is_live()
+                if node.get_single_parent():
+                    grpc_node.local_dir_meta.parent_uid = node.get_single_parent()
             else:
+                assert isinstance(node, LocalFileNode)
                 if node.get_size_bytes():
                     grpc_node.local_file_meta.size_bytes = node.get_size_bytes()
                 if node.sync_ts:
@@ -130,6 +134,8 @@ class Converter:
                     grpc_node.local_file_meta.md5 = node.md5
                 if node.sha256:
                     grpc_node.local_file_meta.sha256 = node.sha256
+                if node.get_single_parent():
+                    grpc_node.local_file_meta.parent_uid = node.get_single_parent()
         elif node.get_tree_type() == TREE_TYPE_GDRIVE:
             # GDriveNode
             if node.is_dir():
