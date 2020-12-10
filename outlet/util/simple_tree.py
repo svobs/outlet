@@ -55,6 +55,8 @@ class SimpleTree:
     def __init__(self):
         self._node_dict: Dict[Any, BaseNode] = {}
         self._parent_child_list_dict: Dict[UID, List[BaseNode]] = {}
+        self._child_parent_dict: Dict[UID, BaseNode] = {}
+        """Really need this to efficiently execute remove_node()"""
         self._root_node: Optional[BaseNode] = None
 
     def __len__(self):
@@ -85,6 +87,7 @@ class SimpleTree:
             if not child_list:
                 self._parent_child_list_dict[parent.identifier] = child_list
             child_list.append(node)
+            self._child_parent_dict[node.identifier] = parent
 
         self._node_dict[node.identifier] = node
 
@@ -102,9 +105,11 @@ class SimpleTree:
             count_removed: int = len(self._node_dict)
             self._node_dict.clear()
             self._parent_child_list_dict.clear()
+            self._child_parent_dict.clear()
             return count_removed
 
-        if nid not in self._node_dict:
+        node = self._node_dict.get(nid, None)
+        if not node:
             raise NodeNotPresentError(f'Cannot remove node: identifier "{nid}" not found in tree!')
 
         nid_queue: Deque[Any] = deque()
@@ -165,12 +170,15 @@ class SimpleTree:
     def children(self, nid: Any) -> List[BaseNode]:
         return self.get_child_list(nid)
 
+    def get_parent(self, child_nid: Any) -> Optional[BaseNode]:
+        return self._child_parent_dict.get(child_nid, None)
+
     def contains(self, nid: Any) -> bool:
         return nid in self._node_dict
 
     # The following garbage was copied from treelib.Tree. Should clean this up if there's time
-    def show(self, nid=None, level=0, idhidden=True, filter=None,
-             key=None, reverse=False, line_type='ascii-ex', data_property=None):
+    def show(self, nid=None, level=0, filter_func=None,
+             key=None, reverse=False, line_type='ascii-ex', show_identifier=False):
         """
         Print the tree structure in hierarchy style.
 
@@ -183,14 +191,13 @@ class SimpleTree:
 
         :param nid: the reference node to start expanding.
         :param level: the node level in the tree (root as level 0).
-        :param idhidden: whether hiding the node ID when printing.
-        :param filter: the function of one variable to act on the :class:`Node` object.
+        :param filter_func: the function of one variable to act on the :class:`Node` object.
             When this parameter is specified, the traversing will not continue to following
             children of node whose condition does not pass the filter.
         :param key: the ``key`` param for sorting :class:`Node` objects in the same level.
         :param reverse: the ``reverse`` param for sorting :class:`Node` objects in the same level.
         :param line_type:
-        :param data_property: the property on the node data object to be printed.
+        :param show_identifier: whether to print the identifier also.
         :return: None
         """
         self._reader = ""
@@ -199,16 +206,16 @@ class SimpleTree:
             self._reader += line.decode('utf-8') + "\n"
 
         try:
-            self.__print_backend(nid, level, idhidden, filter,
-                                 key, reverse, line_type, data_property, func=write)
+            self.__print_backend(nid, level, filter_func,
+                                 key, reverse, line_type, show_identifier, func=write)
         except NodeNotPresentError:
             print('Tree is empty')
 
         return self._reader
 
-    def __print_backend(self, nid=None, level=0, idhidden=True, filter=None,
+    def __print_backend(self, nid=None, level=0, filter_func=None,
                         key=None, reverse=False, line_type='ascii-ex',
-                        data_property=None, func=print):
+                        show_identifier=False, func=print):
         """
         Another implementation of printing tree using Stack
         Print tree structure in hierarchy style.
@@ -234,20 +241,12 @@ class SimpleTree:
         level.
         """
         # Factory for proper get_label() function
-        if data_property:
-            if idhidden:
-                def get_label(node):
-                    return getattr(node.data, data_property)
-            else:
-                def get_label(node):
-                    return "%s[%s]" % (getattr(node.data, data_property), node.identifier)
+        if show_identifier:
+            def get_label(node):
+                return f'{node.get_tag()}  [{node.identifier}]'
         else:
-            if idhidden:
-                def get_label(node):
-                    return node.get_tag()
-            else:
-                def get_label(node):
-                    return "%s[%s]" % (node.get_tag(), node.identifier)
+            def get_label(node):
+                return node.get_tag()
 
         # legacy ordering
         if key is None:
@@ -255,10 +254,9 @@ class SimpleTree:
                 return node
 
         # iter with func
-        for pre, node in self.__get(nid, level, filter, key, reverse,
-                                    line_type):
+        for pre, node in self.__get(nid, level, filter_func, key, reverse, line_type):
             label = get_label(node)
-            func('{0}{1}'.format(pre, label).encode('utf-8'))
+            func(f'{pre}{label}'.encode('utf-8'))
 
     def __get(self, nid, level, filter_, key, reverse, line_type):
         # default filter

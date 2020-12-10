@@ -402,23 +402,6 @@ class CacheManager(HasLifecycle):
                 logger.debug('Registry has no caches listed')
                 exisiting_caches = []
 
-        # for cache_info in exisiting_caches:
-            # if cache_info.subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
-            #     # Make UIDMapper aware of these new UID<->path mappings:
-            #     cached_uid = self.get_uid_for_local_path(cache_info.subtree_root.get_single_path(), uid_suggestion=cache_info.subtree_root.uid,
-            #                                              override_load_check=True)
-            #     if cached_uid != cache_info.subtree_root.uid:
-            #         logger.error(f'UID from registry ({cache_info.subtree_root.uid}) does not match cached UID ({cached_uid})! Will use cached UID.')
-            #         cache_info.subtree_root.uid = cached_uid
-            #
-            #     # TODO: test what will happen to parent of '/'
-            #     parent_path = self.derive_parent_path(cache_info.subtree_root.get_single_path())
-            #     cached_uid = self.get_uid_for_local_path(parent_path, uid_suggestion=cache_info.subtree_root_parent_uid,
-            #                                              override_load_check=True)
-            #     if cached_uid != cache_info.subtree_root_parent_uid:
-            #         logger.error(f'Parent UID from registry ({cache_info}) does not match cached parent UID ({cached_uid})'
-            #                      f' of parent! Will use cached UID.')
-            #         cache_info.subtree_root_parent_uid = cached_uid
         return exisiting_caches
 
     def _init_existing_cache(self, existing_disk_cache: PersistedCacheInfo):
@@ -529,6 +512,8 @@ class CacheManager(HasLifecycle):
                                       spid: Optional[SinglePathNodeIdentifier] = None, is_startup: bool = False) -> Optional[DisplayTreeUiState]:
         logger.debug(f'[{tree_id}] Got request to load display tree (user_path={user_path}, spid: {spid}, is_startup={is_startup})')
 
+        # FIXME: need to distinguish between regular trees and change trees
+        # FIXME: use different identifier for change trees
         root_path_persister = None
 
         # Make RootPathMeta object. If neither SPID nor user_path supplied, read from config

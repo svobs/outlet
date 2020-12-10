@@ -103,10 +103,6 @@ class LocalDiskTree(SimpleTree):
                         assert isinstance(child, LocalDirNode)
                         dir_queue.append(child)
 
-    def get_parent(self, node: LocalNode) -> LocalNode:
-        assert self.get_node(node.identifier), f'Node is not in this tree: {node}'
-        return self.get_node(node.get_single_parent())
-
     def replace_subtree(self, sub_tree: SimpleTree):
         sub_tree_root_node: LocalNode = sub_tree.get_root_node()
         if not self.contains(sub_tree_root_node.uid):
@@ -115,8 +111,16 @@ class LocalDiskTree(SimpleTree):
                          f'(root: {sub_tree_root_node.node_identifier}): it and its ancestors will be added')
             assert isinstance(sub_tree_root_node, LocalNode)
             self.add_to_tree(sub_tree_root_node)
+            # if SUPER_DEBUG:
+            #     logger.debug(f'Tree contents (after adding subtree root): \n{self.show(show_identifier=True)}')
 
-        parent_of_subtree: LocalNode = self.get_node(sub_tree_root_node.get_single_parent())
+        assert sub_tree_root_node.get_single_parent(), f'Node is missing parent: {sub_tree_root_node}'
+        if sub_tree_root_node.get_single_parent() != self.get_parent(sub_tree_root_node.uid).uid:
+            # TODO: submit to adjudicator (eventually)
+            logger.warning(f'Parent referenced by node "{sub_tree_root_node.uid}" ({sub_tree_root_node.get_single_parent()}) '
+                           f'does not match actual parent ({self.get_parent(sub_tree_root_node.uid).uid})!')
+        parent_of_subtree: LocalNode = self.get_parent(sub_tree_root_node.identifier)
+        # assert parent_of_subtree, f'Could not find node in tree with parent: {sub_tree_root_node.get_single_parent()}'
         count_removed = self.remove_node(sub_tree_root_node.identifier)
         logger.debug(f'Removed {count_removed} nodes from this tree, to be replaced with {len(sub_tree)} subtree nodes')
         self.paste(parent_nid=parent_of_subtree.uid, new_tree=sub_tree)

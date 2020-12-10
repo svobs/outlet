@@ -97,6 +97,9 @@ class CategoryNode(ContainerNode):
 
         return other.node_identifier == other.node_identifier and other.name == self.name
 
+    def get_tag(self) -> str:
+        return self.name
+
     @property
     def name(self):
         return CategoryNode.display_names[self.op_type]
@@ -127,6 +130,9 @@ class RootTypeNode(ContainerNode):
 
     def __repr__(self):
         return f'RootTypeNode(nid="{self.identifier}" node_id="{self.node_identifier}")'
+
+    def get_tag(self) -> str:
+        return self.name
 
     def get_default_icon(self) -> IconId:
         if self.node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:

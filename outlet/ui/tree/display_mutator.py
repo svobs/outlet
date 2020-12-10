@@ -8,7 +8,7 @@ from typing import Deque, Iterable, List, Optional
 import humanfriendly
 from pydispatch import dispatcher
 
-from constants import STATS_REFRESH_HOLDOFF_TIME_MS, IconId, LARGE_NUMBER_OF_CHILDREN, SUPER_DEBUG
+from constants import STATS_REFRESH_HOLDOFF_TIME_MS, IconId, LARGE_NUMBER_OF_CHILDREN, SUPER_DEBUG, TreeDisplayMode
 from error import GDriveItemNotFoundError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode
@@ -76,9 +76,12 @@ class DisplayMutator(HasLifecycle):
         """This signal comes from the cacheman after it has finished updating all the nodes in the subtree,
         notfiying us that we can now refresh our display from it"""
 
-        self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
-        self.connect_dispatch_listener(signal=Signal.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
-        self.connect_dispatch_listener(signal=Signal.NODE_MOVED, receiver=self._on_node_moved_in_cache)
+        # Do not receive update notifications when displaying change trees.
+        # (the need is not great enough to justify the effort - at present)
+        if self.con.treeview_meta.tree_display_mode != TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
+            self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted_in_cache)
+            self.connect_dispatch_listener(signal=Signal.NODE_REMOVED, receiver=self._on_node_removed_from_cache)
+            self.connect_dispatch_listener(signal=Signal.NODE_MOVED, receiver=self._on_node_moved_in_cache)
 
         # FIXME: figure out why the 'sender' arg fails when relayed from gRPC!
         self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._populate_ui_tree_async)

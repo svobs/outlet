@@ -73,7 +73,7 @@ class ChangeDisplayTree(DisplayTree):
             raise
 
     def print_tree_contents_debug(self):
-        logger.debug(f'[{self.tree_id}] CategoryTree for "{self.get_root_sn().spid}": \n' + self._category_tree.show())
+        logger.debug(f'[{self.tree_id}] CategoryTree for "{self.get_root_sn().spid}": \n' + self._category_tree.show(show_identifier=True))
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
         raise InvalidOperationError('ChangeDisplayTree.get_ancestor_list()')
@@ -133,6 +133,7 @@ class ChangeDisplayTree(DisplayTree):
             cat_node = CategoryNode(node_identifier=SinglePathNodeIdentifier(self.get_root_node().uid, self.root_path, tree_type), op_type=op_type,
                                     nid=last_pre_ancestor_nid)
             logger.debug(f'[{self.tree_id}] Inserting new Category node with nid="{last_pre_ancestor_nid}": {cat_node.node_identifier}')
+            cat_node.set_parent_uids(parent_node.identifier)
             self._category_tree.add_node(node=cat_node, parent=parent_node)
         parent_node = cat_node
 
@@ -165,6 +166,7 @@ class ChangeDisplayTree(DisplayTree):
             child = stack.pop()
             if SUPER_DEBUG:
                 logger.info(f'[{self.tree_id}] Inserting new dummy ancestor: node: {child} under parent: {parent}')
+            child.set_parent_uids(parent.identifier)
             self._category_tree.add_node(node=child, parent=parent)
             parent = child
 
