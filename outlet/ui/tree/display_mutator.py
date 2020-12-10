@@ -133,9 +133,9 @@ class DisplayMutator(HasLifecycle):
             if type(node) == CategoryNode and self.con.treeview_meta.is_display_persisted and self.con.treeview_meta.is_category_node_expanded(node):
                 logger.debug(f'[{self.con.tree_id}] Category node {node.name} is expanded"')
                 is_expand = True
-            elif node.uid in self.con.display_store.expanded_rows:
+            elif node.identifier in self.con.display_store.expanded_rows:
                 if SUPER_DEBUG:
-                    logger.debug(f'[{self.con.tree_id}] Found UID {node.uid} in expanded_rows"')
+                    logger.debug(f'[{self.con.tree_id}] Found identifier "{node.identifier}" in expanded_rows"')
                 is_expand = True
 
             child_list = self.con.get_tree().get_children(node, self.con.treeview_meta.filter_criteria)
@@ -391,14 +391,14 @@ class DisplayMutator(HasLifecycle):
 
         # Still want to keep track of which nodes are expanded:
         if is_expanded:
-            logger.debug(f'[{self.con.tree_id}] Added UID {node.uid} to expanded_rows"')
-            self.con.display_store.expanded_rows.add(node.uid)
+            logger.debug(f'[{self.con.tree_id}] Added identifier "{node.identifier}" to expanded_rows')
+            self.con.display_store.expanded_rows.add(node.identifier)
         else:
             def remove_from_expanded_rows(tree_iter: Gtk.TreeIter):
                 n = self.con.display_store.get_node_data(tree_iter)
                 if n.is_dir():
-                    self.con.display_store.expanded_rows.discard(n.uid)
-                    logger.debug(f'[{self.con.tree_id}] Removed UID {n.uid} from expanded_rows')
+                    self.con.display_store.expanded_rows.discard(n.identifier)
+                    logger.debug(f'[{self.con.tree_id}] Removed identifier "{n.identifier}" from expanded_rows')
 
             self.con.display_store.do_for_self_and_descendants(parent_path, remove_from_expanded_rows)
 

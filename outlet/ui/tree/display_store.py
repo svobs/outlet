@@ -15,6 +15,8 @@ from gi.repository import Gtk, GLib
 
 logger = logging.getLogger(__name__)
 
+CONFIG_DELIMITER = '\t'
+
 
 class DisplayStore:
     """
@@ -45,26 +47,26 @@ class DisplayStore:
         #   thus, having a parent which is either checked or unchecked overrides any presence in either of these two lists.
         # - At the same time as an item is checked, the checked & inconsistent state of its all ancestors must be recorded.
         # - The 'inconsistent_rows' list is needed for display purposes.
-        self.checked_rows: Dict[UID, Node] = {}
-        self.inconsistent_rows: Dict[UID, Node] = {}
-        self.displayed_rows: Dict[UID, Node] = {}
+        self.checked_rows: Dict[str, Node] = {}
+        self.inconsistent_rows: Dict[str, Node] = {}
+        self.displayed_rows: Dict[str, Node] = {}
         """Need to track these so that we can remove a node if its src node was removed"""
 
-        self.expanded_rows: Set[UID] = set()
+        self.expanded_rows: Set[str] = set()
         self.load_expanded_rows_from_config()
 
     def load_expanded_rows_from_config(self):
         try:
-            self.expanded_rows: Set[UID] = set()
+            self.expanded_rows: Set[str] = set()
             expanded_rows_str: Optional[str] = self.treeview_meta.config.get(DisplayStore._make_expanded_rows_config_key(self.tree_id))
             if expanded_rows_str:
-                for uid in expanded_rows_str.split(','):
-                    self.expanded_rows.add(UID(uid))
+                for identifier in expanded_rows_str.split(CONFIG_DELIMITER):
+                    self.expanded_rows.add(identifier)
         except RuntimeError:
             logger.exception(f'[{self.tree_id}] Failed to load expanded rows from config')
 
     def save_expanded_rows_to_config(self):
-        expanded_rows_str: str = ','.join(str(uid) for uid in self.expanded_rows)
+        expanded_rows_str: str = CONFIG_DELIMITER.join(str(identifier) for identifier in self.expanded_rows)
         self.treeview_meta.config.write(DisplayStore._make_expanded_rows_config_key(self.tree_id), expanded_rows_str)
 
     @staticmethod
@@ -313,10 +315,10 @@ class DisplayStore:
         self.recurse_over_tree(tree_iter, action_func)
 
     def append_node(self, parent_node_iter, row_values: list):
-        data: Node = row_values[self.treeview_meta.col_num_data]
+        node: Node = row_values[self.treeview_meta.col_num_data]
 
-        if not data.is_ephemereal():
-            self.displayed_rows[data.uid] = data
+        if not node.is_ephemereal():
+            self.displayed_rows[node.identifier] = node
 
         return self.model.append(parent_node_iter, row_values)
 
@@ -333,14 +335,14 @@ class DisplayStore:
             if node.is_ephemereal():
                 return
 
-            uid = node.uid
-            if uid in self.checked_rows:
-                del self.checked_rows[uid]
-            if uid in self.inconsistent_rows:
-                del self.inconsistent_rows[uid]
-            if uid in self.displayed_rows:
-                del self.displayed_rows[uid]
-            self.expanded_rows.discard(uid)
+            identifier = node.identifier
+            if identifier in self.checked_rows:
+                del self.checked_rows[identifier]
+            if identifier in self.inconsistent_rows:
+                del self.inconsistent_rows[identifier]
+            if identifier in self.displayed_rows:
+                del self.displayed_rows[node.identifier]
+            self.expanded_rows.discard(identifier)
 
         self.do_for_self_and_descendants(initial_tree_iter, remove_node_from_lists)
 
@@ -369,12 +371,12 @@ class DisplayStore:
         if not first_child_iter:
             return False
 
-        child_data = self.get_node_data(first_child_iter)
+        child_node = self.get_node_data(first_child_iter)
         if SUPER_DEBUG:
-            logger.debug(f'[{self.tree_id}] Removing 1st child: {child_data}')
+            logger.debug(f'[{self.tree_id}] Removing 1st child: {child_node}')
 
-        if not child_data.is_ephemereal():
-            self.displayed_rows.pop(child_data.uid)
+        if not child_node.is_ephemereal():
+            self.displayed_rows.pop(child_node.identifier)
 
         # remove the first child
         self.model.remove(first_child_iter)

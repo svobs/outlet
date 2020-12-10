@@ -145,6 +145,7 @@ class ChangeDisplayTree(DisplayTree):
         tree_type = sn.spid.tree_type
         assert full_path, f'SPID does not have a path: {sn.spid}'
         assert full_path.startswith(self.root_path), f'ItemPath="{full_path}", TreeRootPath="{self.root_path}"'
+
         # Walk up the source tree and compose a list of ancestors:
         logger.debug(f'[{self.tree_id}] Looking for ancestors for path "{full_path}"')
         while full_path != self.root_path:
