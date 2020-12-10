@@ -96,9 +96,8 @@ class ChangeDisplayTree(DisplayTree):
             self.op_dict[op.src_node.uid] = op
         self._op_list.append(op)
 
-    @staticmethod
-    def _build_tree_nid(tree_type: int, single_path: str, op: UserOpType) -> str:
-        return f'{tree_type}:{op.name}:{single_path}'
+    def _build_tree_nid(self, tree_type: int, single_path: Optional[str], op: Optional[UserOpType]) -> UID:
+        return self.backend.cacheman.get_uid_for_change_tree_node(tree_type, single_path, op)
 
     def _get_or_create_pre_ancestors(self, sn: SPIDNodePair, op_type: UserOpType) -> ContainerNode:
         """Pre-ancestors are those nodes (either logical or pointing to real data) which are higher up than the source tree.
@@ -107,7 +106,7 @@ class ChangeDisplayTree(DisplayTree):
         tree_type: int = sn.spid.tree_type
         assert tree_type != TREE_TYPE_MIXED, f'For {sn.spid}'
 
-        last_pre_ancestor_nid: str = self._build_tree_nid(tree_type, self.root_path, op_type)
+        last_pre_ancestor_nid: UID = self._build_tree_nid(tree_type, self.root_path, op_type)
         last_pre_ancestor = self._category_tree.get_node(last_pre_ancestor_nid)
         if last_pre_ancestor:
             assert isinstance(last_pre_ancestor, ContainerNode)
@@ -118,7 +117,7 @@ class ChangeDisplayTree(DisplayTree):
         parent_node = self.get_root_node()
         if self.show_whole_forest:
             # Create tree type root (e.g. 'GDrive' or 'Local Disk')
-            nid = str(tree_type)
+            nid = self._build_tree_nid(tree_type, None, None)
             treetype_node = self._category_tree.get_node(nid)
             if not treetype_node:
                 # see UID to root_UID of relevant tree

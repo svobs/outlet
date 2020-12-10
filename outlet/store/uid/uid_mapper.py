@@ -2,6 +2,7 @@ import threading
 import logging
 from typing import Dict, List, Optional, Tuple
 
+from model.user_op import UserOpType
 from store.sqlite.uid_path_mapper_db import UidPathMapperDb
 from util import file_util
 from constants import CACHE_WRITE_HOLDOFF_TIME_MS, LOCAL_ROOT_UID, ROOT_PATH
@@ -114,3 +115,40 @@ class UidGoogIdMapper:
     def get_goog_id_for_uid(self, uid: UID) -> str:
         with self._uid_lock:
             return self._uid_goog_dict.get(uid, None)
+
+
+class UidChangeTreeMapper:
+    """
+    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    CLASS UidChangeTreeMapper
+
+    Maps a UID (int) to a change tree string
+    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+    """
+    def __init__(self, backend):
+        self._uid_lock = threading.Lock()
+        self.uid_generator = backend.uid_generator
+        self._nid_uid_dict: Dict[str, UID] = {}
+
+    @staticmethod
+    def _build_tree_nid(tree_type: int, single_path: str, op: UserOpType) -> str:
+        if op:
+            return f'{tree_type}:{op.name}:{single_path}'
+        else:
+            return f'{tree_type}'
+
+    def get_uid_for(self, tree_type: int, single_path: Optional[str], op: Optional[UserOpType]) -> UID:
+        if op:
+            nid = self._build_tree_nid(tree_type, single_path, op)
+        else:
+            assert not single_path
+            nid = str(tree_type)
+        return self._get(nid)
+
+    def _get(self, nid):
+        with self._uid_lock:
+            uid = self._nid_uid_dict.get(nid, None)
+            if not uid:
+                uid = self.uid_generator.next_uid()
+                self._nid_uid_dict[nid] = uid
+            return uid

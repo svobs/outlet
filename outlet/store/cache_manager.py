@@ -33,6 +33,7 @@ from store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from store.live_monitor import LiveMonitor
 from store.local.master_local import LocalDiskMasterStore
 from store.sqlite.cache_registry_db import CacheRegistry
+from store.uid.uid_mapper import UidChangeTreeMapper
 from store.user_op.op_ledger import OpLedger
 from ui.signal import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
 from ui.tree.filter_criteria import FilterCriteria
@@ -142,6 +143,8 @@ class CacheManager(HasLifecycle):
 
         self.cache_dir_path = ensure_cache_dir_path(self.backend.config)
         self.main_registry_path = os.path.join(self.cache_dir_path, MAIN_REGISTRY_FILE_NAME)
+
+        self.change_tree_uid_mapper = UidChangeTreeMapper(self.backend)
 
         self.caches_by_type: CacheInfoByType = CacheInfoByType()
 
@@ -998,6 +1001,9 @@ class CacheManager(HasLifecycle):
 
     def get_goog_id_list_for_uid_list(self, uids: List[UID], fail_if_missing: bool = True) -> List[str]:
         return self._master_gdrive.get_goog_id_list_for_uid_list(uids, fail_if_missing=fail_if_missing)
+
+    def get_uid_for_change_tree_node(self, tree_type: int, single_path: Optional[str], op: Optional[UserOpType]) -> UID:
+        return self.change_tree_uid_mapper.get_uid_for(tree_type, single_path, op)
 
     def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None, override_load_check: bool = False) -> UID:
         """Deterministically gets or creates a UID corresponding to the given path string"""

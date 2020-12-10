@@ -2,6 +2,7 @@ import os
 
 from error import InvalidOperationError
 from model.node.trait import HasChildStats
+from model.uid import UID
 from model.user_op import UserOpType
 from constants import IconId, OBJ_TYPE_DIR, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.node import Node
@@ -16,7 +17,7 @@ class ContainerNode(HasChildStats, Node):
     Represents a generic display-only directory node which is not backed by a cached object.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, node_identifier: SinglePathNodeIdentifier, nid: str = None):
+    def __init__(self, node_identifier: SinglePathNodeIdentifier, nid: UID = None):
         assert node_identifier.get_single_path(), f'Bad: {node_identifier}'
         Node.__init__(self, node_identifier, nid=nid)
         HasChildStats.__init__(self)
@@ -84,7 +85,7 @@ class CategoryNode(ContainerNode):
         UserOpType.MV: 'To Move',
     }
 
-    def __init__(self, node_identifier: SinglePathNodeIdentifier, op_type: UserOpType, nid: str = None):
+    def __init__(self, node_identifier: SinglePathNodeIdentifier, op_type: UserOpType, nid: UID = None):
         super().__init__(node_identifier=node_identifier, nid=nid)
         self.op_type = op_type
 
@@ -117,7 +118,7 @@ class RootTypeNode(ContainerNode):
     Represents a type of root in the tree (GDrive, local FS, etc.)
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, node_identifier: SinglePathNodeIdentifier, nid: str = None):
+    def __init__(self, node_identifier: SinglePathNodeIdentifier, nid: UID = None):
         super().__init__(node_identifier=node_identifier, nid=nid)
 
     @property
