@@ -5,15 +5,15 @@ import pathlib
 from collections import deque
 from typing import Callable, Deque, Dict, List, Optional
 
-from constants import NULL_UID, TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.display_tree.change_display_tree import ChangeDisplayTree
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.node.local_disk_node import LocalDirNode, LocalFileNode
+from model.node.local_disk_node import LocalFileNode
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, SinglePathNodeIdentifier
-from model.user_op import UserOp, UserOpType
 from model.uid import UID
+from model.user_op import UserOp, UserOpType
 from ui.signal import ID_LEFT_TREE, ID_RIGHT_TREE
 from util import file_util
 
@@ -148,18 +148,14 @@ class OneSide:
             # AddedFolder already generated and added?
             existing_ancestor: Optional[SPIDNodePair] = self._added_folders.get(parent_path, None)
             if existing_ancestor:
-                if tree_type == TREE_TYPE_GDRIVE:
-                    assert isinstance(child, GDriveNode)
-                    child.set_parent_uids(existing_ancestor.spid.uid)
+                child.set_parent_uids(existing_ancestor.spid.uid)
                 break
 
             # Folder already existed in original tree?
-            existing_parent_list: List[Node] = self.backend.cacheman.get_node_list_for_path_list([parent_path], tree_type)
-            if existing_parent_list:
+            existing_ancestor_list: List[Node] = self.backend.cacheman.get_node_list_for_path_list([parent_path], tree_type)
+            if existing_ancestor_list:
                 # Add all parents which match the path, even if they are duplicates or do not yet exist (i.e., pending ops)
-                if tree_type == TREE_TYPE_GDRIVE:
-                    assert isinstance(child, GDriveNode)
-                    child.set_parent_uids(list(map(lambda x: x.uid, existing_parent_list)))
+                child.set_parent_uids(list(map(lambda x: x.uid, existing_ancestor_list)))
                 break
 
             # Need to create ancestor
@@ -180,9 +176,7 @@ class OneSide:
             self._added_folders[parent_path] = new_ancestor_sn
             ancestor_stack.append(new_ancestor_sn)
 
-            if tree_type == TREE_TYPE_GDRIVE:
-                assert isinstance(child, GDriveNode)
-                child.set_parent_uids(new_ancestor_sn.spid.uid)
+            child.set_parent_uids(new_ancestor_sn.spid.uid)
 
             child_path = parent_path
             child = new_ancestor_sn.node

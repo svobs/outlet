@@ -210,6 +210,7 @@ class ChangeDisplayTree(DisplayTree):
             parent: Node = self._get_or_create_pre_ancestors(sn, op_type_for_display)
 
             if isinstance(parent, HasChildStats):
+                # FIXME: this appears to be broken
                 parent.add_meta_metrics(sn.node)
 
             parent: Node = self._get_or_create_ancestors(sn, op_type_for_display, parent)
