@@ -13,7 +13,7 @@ import logging
 from model.node.trait import HasChildStats
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
-from ui.tree.filter_criteria import BoolOption, FilterCriteria
+from model.display_tree.filter_criteria import BoolOption, FilterCriteria
 
 logger = logging.getLogger(__name__)
 

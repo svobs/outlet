@@ -6,7 +6,7 @@ from typing import List
 
 from pydispatch import dispatcher
 
-from constants import TreeDisplayMode
+from constants import OPEN, SHOW, TreeDisplayMode
 from model.display_tree.display_tree import DisplayTree
 from model.node.gdrive_node import GDriveFile
 from model.node.local_disk_node import LocalNode
@@ -19,10 +19,6 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
 logger = logging.getLogger(__name__)
-
-DATE_REGEX = r'^[\d]{4}(\-[\d]{2})?(-[\d]{2})?'
-OPEN = 1
-SHOW = 2
 
 
 class TreeActions(HasLifecycle):

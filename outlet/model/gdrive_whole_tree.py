@@ -12,7 +12,7 @@ from model.node.node import Node
 from model.node_identifier import GDriveIdentifier, NodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from ui.tree.filter_criteria import FilterCriteria
+from model.display_tree.filter_criteria import FilterCriteria
 from util import file_util, format
 from util.stopwatch_sec import Stopwatch
 

@@ -1,27 +1,22 @@
 import logging
 
+import gi
+
 from constants import SUPER_DEBUG, TreeDisplayMode
-from model.display_tree.display_tree import DisplayTree
-from model.node.node import Node
 from ui.comp.filter_panel import TreeFilterPanel
 from ui.comp.root_dir_panel import RootDirPanel
 from ui.dialog.base_dialog import BaseDialog
 from ui.tree import tree_factory_templates
 from ui.tree.controller import TreePanelController
-from ui.tree.display_mutator import DisplayMutator
-from ui.tree.display_store import DisplayStore
-from ui.tree.tree_actions import TreeActions
 from ui.tree.treeview_meta import TreeViewMeta
-from ui.tree.ui_listeners import TreeUiListeners
 
-import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
 logger = logging.getLogger(__name__)
 
 
-def is_ignored_func(data_node: Node) -> bool:
+def is_ignored_func(data_node) -> bool:
     # not currently used
     return False
 
@@ -32,13 +27,14 @@ class TreeFactory:
     CLASS TreeFactory
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, parent_win: BaseDialog, tree: DisplayTree):
+
+    def __init__(self, parent_win: BaseDialog, tree):
         self.parent_win = parent_win
 
         if not tree:
             raise RuntimeError('Tree not provided!')
 
-        self.tree: DisplayTree = tree
+        self.tree = tree
 
         self.can_modify_tree = False
         self.has_checkboxes: bool = False
@@ -51,6 +47,8 @@ class TreeFactory:
     def build(self):
         """Builds a single instance of a tree panel, and configures all its components as specified."""
         logger.debug(f'[{self.tree.tree_id}] Building controller for tree')
+
+        # 1. Logical Stuff
 
         if self.allow_multiple_selection:
             gtk_selection_mode = Gtk.SelectionMode.MULTIPLE
@@ -72,20 +70,11 @@ class TreeFactory:
 
         # The controller holds all the components in memory. Important for listeners especially,
         # since they rely on weak references.
-        controller = TreePanelController(self.parent_win, treeview_meta)
+        controller = TreePanelController(self.parent_win, self.tree, treeview_meta)
 
-        controller.display_store = DisplayStore(controller)
+        # 2. GTK3 stuff
 
-        controller.display_mutator = DisplayMutator(config=self.parent_win.config, controller=controller)
-
-        controller.tree_ui_listeners = TreeUiListeners(config=self.parent_win.config, controller=controller)
-
-        controller.tree_actions = TreeActions(controller=controller)
-
-        assets = self.parent_win.app.assets
-        controller.tree_view = tree_factory_templates.build_treeview(controller.display_store, assets)
-
-        controller.set_tree(self.tree)
+        controller.tree_view = tree_factory_templates.build_treeview(controller.display_store, controller.parent_win.app.assets)
 
         controller.root_dir_panel = RootDirPanel(parent_win=self.parent_win,
                                                  controller=controller,
@@ -94,19 +83,20 @@ class TreeFactory:
         controller.filter_panel = TreeFilterPanel(parent_win=self.parent_win,
                                                   controller=controller)
 
-        controller.status_bar, status_bar_container = tree_factory_templates.build_status_bar()
+        controller.status_bar, controller.status_bar_container = tree_factory_templates.build_status_bar()
         controller.content_box = tree_factory_templates.build_content_box(controller.root_dir_panel.content_box, controller.filter_panel.content_box,
-                                                                          controller.tree_view, status_bar_container)
+                                                                          controller.tree_view, controller.status_bar_container)
 
         # Line up the following between trees if we are displaying side-by-side trees:
         if hasattr('parent_win', 'sizegroups'):
             if self.parent_win.sizegroups.get('tree_status'):
-                self.parent_win.sizegroups['tree_status'].add_widget(status_bar_container)
+                self.parent_win.sizegroups['tree_status'].add_widget(controller.status_bar_container)
             if self.parent_win.sizegroups.get('root_paths'):
                 self.parent_win.sizegroups['root_paths'].add_widget(controller.root_dir_panel.content_box)
             if self.parent_win.sizegroups.get('filter_panel'):
                 self.parent_win.sizegroups['filter_panel'].add_widget(controller.filter_panel.content_box)
 
+        # 3. Start everything
         controller.start()
         return controller
 
@@ -116,7 +106,7 @@ class TreeFactory:
 """
 
 
-def build_gdrive_root_chooser(parent_win, tree: DisplayTree):
+def build_gdrive_root_chooser(parent_win, tree):
     """Builds a tree panel for browsing a Google Drive tree, using lazy loading. For the GDrive root chooser dialog"""
     if SUPER_DEBUG:
         logger.debug(f'[{tree.tree_id}] Entered build_gdrive_root_chooser()')
@@ -132,7 +122,7 @@ def build_gdrive_root_chooser(parent_win, tree: DisplayTree):
     return controller
 
 
-def build_editor_tree(parent_win, tree: DisplayTree):
+def build_editor_tree(parent_win, tree):
     if SUPER_DEBUG:
         logger.debug(f'[{tree.tree_id}] Entered build_editor_tree()')
     factory = TreeFactory(parent_win=parent_win, tree=tree)
@@ -148,7 +138,7 @@ def build_editor_tree(parent_win, tree: DisplayTree):
     return controller
 
 
-def build_static_category_file_tree(parent_win, tree: DisplayTree):
+def build_static_category_file_tree(parent_win, tree):
     if SUPER_DEBUG:
         logger.debug(f'[{tree.tree_id}] Entered build_static_category_file_tree()')
     # Whole tree is provided here. For Merge Preview dialog

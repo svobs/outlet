@@ -2,7 +2,6 @@ import logging
 from typing import List
 
 from pydispatch import dispatcher
-from pydispatch.errors import DispatcherKeyError
 
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair

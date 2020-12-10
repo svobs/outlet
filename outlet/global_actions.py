@@ -38,7 +38,7 @@ class GlobalActions(HasLifecycle):
         logger.debug('GlobalActions shut down')
 
     @staticmethod
-    def _tree_exists(node_identifier: NodeIdentifier) -> bool:
+    def _tree_exists_on_disk(node_identifier: NodeIdentifier) -> bool:
         assert isinstance(node_identifier, LocalNodeIdentifier)
         for path in node_identifier.get_path_list():
             if os.path.exists(path):
@@ -53,11 +53,11 @@ class GlobalActions(HasLifecycle):
             assert meta_left and meta_right, f'Missing tree meta! Left={meta_left}, Right={meta_right}'
             left_root_sn: SPIDNodePair = meta_left.root_sn
             right_root_sn: SPIDNodePair = meta_right.root_sn
-            if left_root_sn.spid.tree_type == TREE_TYPE_LOCAL_DISK and not self._tree_exists(left_root_sn.spid):
+            if left_root_sn.spid.tree_type == TREE_TYPE_LOCAL_DISK and not self._tree_exists_on_disk(left_root_sn.spid):
                 logger.info(f'Skipping diff because the left path does not exist: "{left_root_sn.spid.get_path_list()}"')
                 dispatcher.send(signal=Signal.DIFF_TREES_FAILED, sender=sender)
                 return
-            elif right_root_sn.spid.tree_type == TREE_TYPE_LOCAL_DISK and not self._tree_exists(right_root_sn.spid):
+            elif right_root_sn.spid.tree_type == TREE_TYPE_LOCAL_DISK and not self._tree_exists_on_disk(right_root_sn.spid):
                 logger.info(f'Skipping diff because the right path does not exist: "{right_root_sn.spid.get_path_list()}"')
                 dispatcher.send(signal=Signal.DIFF_TREES_FAILED, sender=sender)
                 return
@@ -73,6 +73,9 @@ class GlobalActions(HasLifecycle):
             logger.info(f'{stopwatch_diff} Diff completed')
 
             dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=sender, msg='Populating UI trees...')
+
+            # TODO: 0. Make gRPC return a new display_tree and then start waiting for Signal.DIFF_ONE_SIDE_RESULT
+            # TODO: 1. store display tree with new
 
             # Send each side's result to its UI tree:
             dispatcher.send(Signal.DIFF_ONE_SIDE_RESULT, sender=tree_id_left, new_tree=op_tree_left)

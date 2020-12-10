@@ -15,7 +15,7 @@ from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import USER_OP_TYPES, UserOp, UserOpType
 from ui.signal import Signal
-from ui.tree.filter_criteria import FilterCriteria
+from model.display_tree.filter_criteria import FilterCriteria
 from util.simple_tree import NodeAlreadyPresentError, SimpleTree
 from util.stopwatch_sec import Stopwatch
 

@@ -3,9 +3,6 @@ import logging
 from constants import V_PAD
 from ui.tree.multi_drag_tree_view import MultiDragTreeView
 
-from ui.tree.treeview_meta import TreeViewMeta
-from ui.tree.display_store import DisplayStore
-
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -42,7 +39,7 @@ def build_content_box(root_dir_panel, filter_panel, tree_view, status_bar_contai
     return vbox
 
 
-def add_checkbox_icon_name_column(treeview: TreeView, display_store: DisplayStore, assets):
+def add_checkbox_icon_name_column(treeview: TreeView, display_store, assets):
     # COLUMN: Checkbox + Icon + Name
     # See: https://stackoverflow.com/questions/27745585/show-icon-or-color-in-gtk-treeview-tree
     treeview_meta = display_store.treeview_meta
@@ -197,10 +194,10 @@ def add_change_ts_column(treeview, treeview_meta, model):
     model.set_sort_func(treeview_meta.col_num_change_ts, _compare_data, (treeview_meta, lambda f: f.change_ts))
 
 
-def build_treeview(display_store: DisplayStore, assets) -> Gtk.TreeView:
+def build_treeview(display_store, assets) -> Gtk.TreeView:
     """ Builds the GTK3 treeview widget"""
     model: Gtk.TreeStore = display_store.model
-    treeview_meta: TreeViewMeta = display_store.treeview_meta
+    treeview_meta = display_store.treeview_meta
 
     treeview = MultiDragTreeView(model=model)
     treeview.set_level_indentation(treeview_meta.extra_indent)

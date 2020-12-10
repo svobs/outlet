@@ -219,3 +219,7 @@ GDRIVE_FILE_FIELDS = f'{GDRIVE_FOLDER_FIELDS}, version, createdTime, modifiedTim
 GDRIVE_FOLDER_MIME_TYPE_UID = 1
 
 GDRIVE_ME_USER_UID = 1
+
+DATE_REGEX = r'^[\d]{4}(\-[\d]{2})?(-[\d]{2})?'
+OPEN = 1
+SHOW = 2

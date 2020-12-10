@@ -6,7 +6,6 @@ from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TREE_TYPE_GDRIVE
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
-from ui.tree.treeview_meta import TreeViewMeta
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -28,9 +27,9 @@ class DisplayStore:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, controller):
+    def __init__(self, controller, treeview_meta):
         self.con = controller
-        self.treeview_meta: TreeViewMeta = self.con.treeview_meta
+        self.treeview_meta = treeview_meta
         self.tree_id: str = self.con.tree_id
         self.model: Gtk.TreeStore = Gtk.TreeStore()
         self.model.set_column_types(self.treeview_meta.col_types)

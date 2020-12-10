@@ -4,13 +4,12 @@ from typing import List, Optional
 
 from pydispatch import dispatcher
 
-from constants import GDRIVE_PATH_PREFIX, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import DATE_REGEX, GDRIVE_PATH_PREFIX, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.container_node import CategoryNode
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
 from model.user_op import UserOp
 from ui.signal import Signal
-from ui.tree.tree_actions import DATE_REGEX
 
 import gi
 

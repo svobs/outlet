@@ -11,7 +11,6 @@ from model.node.node import Node
 from model.user_op import UserOp
 from model.uid import UID
 from ui.tree.context_menu import TreeContextMenu
-from ui.tree.controller import TreePanelController
 from util.has_lifecycle import HasLifecycle
 
 import gi
@@ -27,9 +26,9 @@ class DragAndDropData:
     CLASS DragAndDropData
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, dd_uid: UID, src_treecon: TreePanelController, sn_list: List[SPIDNodePair]):
+    def __init__(self, dd_uid: UID, src_treecon, sn_list: List[SPIDNodePair]):
         self.dd_uid: UID = dd_uid
-        self.src_treecon: TreePanelController = src_treecon
+        self.src_treecon = src_treecon
         self.sn_list: List[SPIDNodePair] = sn_list
 
 

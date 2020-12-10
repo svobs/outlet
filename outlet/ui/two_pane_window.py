@@ -177,7 +177,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def _set_default_button_bar(self):
         def on_diff_btn_clicked(widget):
-            logger.debug(f'Diff btn clicked! Sending signal: "{Signal.START_DIFF_TREES}"')
+            logger.debug(f'Diff btn clicked! Sending signal: "{Signal.START_DIFF_TREES.name}"')
             # Disable button bar immediately:
             GlobalActions.disable_ui(sender=self.win_id)
             self.app.backend.start_diff_trees(tree_id_left=self.tree_con_left.tree_id, tree_id_right=self.tree_con_right.tree_id)
@@ -185,7 +185,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         diff_action_btn.connect("clicked", on_diff_btn_clicked)
 
         def on_goog_btn_clicked(widget):
-            logger.debug('DownloadGDrive btn clicked!')
+            logger.debug(f'DownloadGDrive btn clicked! Sending signal: "{Signal.DOWNLOAD_ALL_GDRIVE_META.name}"')
             dispatcher.send(signal=Signal.DOWNLOAD_ALL_GDRIVE_META, sender=self.win_id)
         gdrive_btn = Gtk.Button(label="Download Google Drive Meta")
         gdrive_btn.connect("clicked", on_goog_btn_clicked)

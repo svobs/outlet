@@ -3,7 +3,6 @@ from typing import List, Optional, Union
 
 from constants import GDRIVE_PATH_PREFIX, GDRIVE_ROOT_UID, LOCAL_ROOT_UID, ROOT_PATH, SUPER_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, \
     TREE_TYPE_MIXED
-from model.node.node import Node
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from util.ensure import ensure_list, ensure_uid
@@ -130,7 +129,7 @@ class NodeIdentifierFactory:
 
             return LocalNodeIdentifier(uid=uid, path_list=full_path_list)
         elif uid:
-            node: Node = self.backend.get_node_for_uid(uid, TREE_TYPE_LOCAL_DISK)
+            node = self.backend.get_node_for_uid(uid, TREE_TYPE_LOCAL_DISK)
             if node:
                 full_path_list = node.get_path_list()
                 return LocalNodeIdentifier(uid=uid, path_list=full_path_list)

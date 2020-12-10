@@ -1,16 +1,18 @@
 import logging
 from typing import List
-
 from pydispatch import dispatcher
 
 from constants import SUPER_DEBUG, TreeDisplayMode
 from diff.change_maker import SPIDNodePair
 from model.display_tree.display_tree import DisplayTree
 from model.node_identifier import SinglePathNodeIdentifier
-from ui.signal import Signal
 from ui.dialog.base_dialog import BaseDialog
+from ui.signal import Signal
 from ui.tree import tree_factory_templates
+from ui.tree.display_mutator import DisplayMutator
 from ui.tree.display_store import DisplayStore
+from ui.tree.tree_actions import TreeActions
+from ui.tree.ui_listeners import TreeUiListeners
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 
@@ -30,24 +32,29 @@ class TreePanelController(HasLifecycle):
     required to make a tree panel. Hopefully I will think of ways to refine it more in the future.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, parent_win, treeview_meta):
+
+    def __init__(self, parent_win, display_tree, treeview_meta):
         HasLifecycle.__init__(self)
         self.parent_win: BaseDialog = parent_win
         self.app = parent_win.app
-        self._display_tree = None
-        self.display_store = None
+
+        self._display_tree: DisplayTree = display_tree
+
+        self.display_mutator = DisplayMutator(config=self.parent_win.config, controller=self)
         self.treeview_meta = treeview_meta
+        self.display_store = DisplayStore(self, treeview_meta)
         """Cached in controller, in case treeview_meta goes away"""
 
+        # UI components
         self.tree_view = None
         self.root_dir_panel = None
         self.filter_panel = None
-        self.display_mutator = None
         self.status_bar = None
+        self.status_bar_container = None
         self.content_box = None
 
-        self.tree_ui_listeners = None
-        self.tree_actions = None
+        self.tree_ui_listeners = TreeUiListeners(config=self.parent_win.config, controller=self)
+        self.tree_actions = TreeActions(controller=self)
 
     def start(self):
         HasLifecycle.start(self)
@@ -97,10 +104,17 @@ class TreePanelController(HasLifecycle):
         self.tree_view.get_column(self.treeview_meta.col_num_change_ts_view).set_visible(self.treeview_meta.show_change_ts_col)
         self.tree_view.get_column(self.treeview_meta.col_num_etc_view).set_visible(self.treeview_meta.show_etc_col)
 
-    def reload(self, new_tree=None, tree_display_mode: TreeDisplayMode = None,
+    def reload(self, new_tree: DisplayTree = None, tree_display_mode: TreeDisplayMode = None,
                show_checkboxes: bool = False, hide_checkboxes: bool = False):
         """Invalidate whatever cache the ._display_tree built up, and re-populate the display tree"""
+
         def _reload():
+
+            # 1. TEAR DOWN:
+            # Change in checkbox visibility means tearing out half the guts here and swapping them out...
+            logger.info(f'[{self.tree_id}] Rebuilding treeview!')
+            self.tree_ui_listeners.disconnect_gtk_listeners()
+            self.tree_actions.shutdown()
 
             if new_tree:
                 logger.info(f'[{self.tree_id}] reload() with new tree: {new_tree}')
@@ -111,22 +125,21 @@ class TreePanelController(HasLifecycle):
                 self.set_tree(display_tree=self._display_tree, tree_display_mode=tree_display_mode)
                 tree_id = self._display_tree.tree_id
 
-            checkboxes_visible = self.treeview_meta.has_checkboxes
-            if (show_checkboxes and not checkboxes_visible) or (hide_checkboxes and checkboxes_visible) or (tree_id != self.treeview_meta.tree_id):
-                # Change in checkbox visibility means tearing out half the guts here and swapping them out...
-                logger.info(f'[{self.tree_id}] Rebuilding treeview!')
-                checkboxes_visible = not checkboxes_visible
-                self.tree_ui_listeners.disconnect_gtk_listeners()
-                self.treeview_meta = self.treeview_meta.but_with_checkboxes(checkboxes_visible, tree_id)
-                self.display_store = DisplayStore(self)
+            # 2. REBUILD:
+            checkboxes_visible = not self.treeview_meta.has_checkboxes
+            self.treeview_meta = self.treeview_meta.but_with_checkboxes(checkboxes_visible, tree_id)
+            self.display_store = DisplayStore(self)
 
-                assets = self.app.assets
-                new_treeview = tree_factory_templates.build_treeview(self.display_store, assets)
-                tree_factory_templates.replace_widget(self.tree_view, new_treeview)
-                self.tree_view = new_treeview
-                self.tree_ui_listeners.start()
-                self.treeview_meta.start()
-                self._set_column_visibilities()
+            new_treeview = tree_factory_templates.build_treeview(self.display_store, self.app.assets)
+            tree_factory_templates.replace_widget(self.tree_view, new_treeview)
+            self.tree_view = new_treeview
+            self.tree_ui_listeners.start()
+            self.treeview_meta.start()
+            self._set_column_visibilities()
+            self.tree_actions = TreeActions(controller=self)
+
+            assert self.treeview_meta.tree_id == self.get_tree().tree_id, f'tree_id from treeview_meta ({self.treeview_meta.tree_id})' \
+                                                                          f' does not match tree ({self.get_tree().tree_id})'
 
             # Send signal to backend to load the subtree. When it's ready, it will notify us
             self.app.backend.start_subtree_load(self.tree_id)
@@ -171,4 +184,3 @@ class TreePanelController(HasLifecycle):
     @property
     def tree_display_mode(self):
         return self.treeview_meta.tree_display_mode
-

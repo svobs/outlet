@@ -6,7 +6,7 @@ from constants import TreeDisplayMode
 from model.node.container_node import CategoryNode
 from model.node.node import Node
 from ui.signal import Signal
-from ui.tree.filter_criteria import FilterCriteria
+from model.display_tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)

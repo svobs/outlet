@@ -26,7 +26,7 @@ from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
 from ui.signal import ID_CENTRAL_EXEC, Signal
-from ui.tree.filter_criteria import FilterCriteria
+from model.display_tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)

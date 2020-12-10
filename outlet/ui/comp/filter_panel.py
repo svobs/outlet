@@ -4,10 +4,9 @@ from typing import Optional
 from pydispatch import dispatcher
 
 from constants import FILTER_APPLY_DELAY_MS, IconId
-from model.display_tree.display_tree import DisplayTree
 from ui.signal import Signal
 from ui.dialog.base_dialog import BaseDialog
-from ui.tree.filter_criteria import BoolOption, FilterCriteria
+from model.display_tree.filter_criteria import BoolOption, FilterCriteria
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
 
@@ -104,7 +103,7 @@ class TreeFilterPanel(HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed_filterpanel)
         logger.debug(f'[{self.tree_id}] Filter panel started')
 
-    def _on_display_tree_changed_filterpanel(self, sender, tree: DisplayTree):
+    def _on_display_tree_changed_filterpanel(self, sender, tree):
         """Callback for Signal.DISPLAY_TREE_CHANGED"""
         if sender != self.tree_id:
             return

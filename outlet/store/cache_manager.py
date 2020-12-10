@@ -3,7 +3,6 @@ import logging
 import os
 import pathlib
 import threading
-import time
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional, Tuple
 
@@ -21,7 +20,7 @@ from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveNode
-from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
 from model.node.trait import HasChildStats
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
@@ -36,7 +35,7 @@ from store.sqlite.cache_registry_db import CacheRegistry
 from store.uid.uid_mapper import UidChangeTreeMapper
 from store.user_op.op_ledger import OpLedger
 from ui.signal import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
-from ui.tree.filter_criteria import FilterCriteria
+from model.display_tree.filter_criteria import FilterCriteria
 from ui.tree.root_path_config import RootPathConfigPersister
 from util import file_util, time_util
 from util.ensure import ensure_list

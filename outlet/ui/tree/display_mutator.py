@@ -3,7 +3,7 @@ import logging
 import os
 import threading
 from datetime import datetime
-from typing import Deque, Iterable, List, Optional
+from typing import Deque, Iterable, List
 
 import humanfriendly
 from pydispatch import dispatcher
@@ -11,13 +11,13 @@ from pydispatch import dispatcher
 from constants import STATS_REFRESH_HOLDOFF_TIME_MS, IconId, LARGE_NUMBER_OF_CHILDREN, SUPER_DEBUG, TreeDisplayMode
 from error import GDriveItemNotFoundError
 from model.display_tree.display_tree import DisplayTree
-from model.node.container_node import CategoryNode, ContainerNode
+from model.node.container_node import CategoryNode
 from model.node.ephemeral_node import EmptyNode, LoadingNode
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
 from ui.signal import Signal
-from ui.tree.filter_criteria import FilterCriteria
+from model.display_tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
 
@@ -67,8 +67,6 @@ class DisplayMutator(HasLifecycle):
         logger.debug(f'[{self.con.tree_id}] DisplayMutator started')
 
     def _connect_node_listeners(self):
-        tree_id = self.con.tree_id
-
         if self.con.treeview_meta.lazy_load:
             self.connect_dispatch_listener(signal=Signal.NODE_EXPANSION_TOGGLED, receiver=self._on_node_expansion_toggled)
 
@@ -89,7 +87,7 @@ class DisplayMutator(HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.EXPAND_ALL, receiver=self._on_expand_all_requested)
         self.connect_dispatch_listener(signal=Signal.EXPAND_AND_SELECT_NODE, receiver=self._expand_and_select_node)
 
-        logger.debug(f'[{tree_id}] DisplayMutator listeners connected')
+        logger.debug(f'[{self.con.tree_id}] DisplayMutator listeners connected')
 
     def shutdown(self):
         self._is_shutdown = True

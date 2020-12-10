@@ -6,7 +6,7 @@ from model.has_get_children import HasGetChildren
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
-from ui.tree.filter_criteria import FilterCriteria
+from model.display_tree.filter_criteria import FilterCriteria
 
 logger = logging.getLogger(__name__)
 

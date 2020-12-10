@@ -1,4 +1,4 @@
-from typing import Iterable, List, Optional, Union
+from typing import Iterable, List, Optional
 
 from pydispatch import dispatcher
 import logging
@@ -14,7 +14,7 @@ from model.user_op import UserOp
 from store.cache_manager import CacheManager
 from store.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
 from ui.signal import ID_CENTRAL_EXEC, Signal
-from ui.tree.filter_criteria import FilterCriteria
+from model.display_tree.filter_criteria import FilterCriteria
 
 logger = logging.getLogger(__name__)
 

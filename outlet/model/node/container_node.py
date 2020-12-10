@@ -1,4 +1,5 @@
 import os
+from typing import List
 
 from error import InvalidOperationError
 from model.node.trait import HasChildStats
@@ -25,6 +26,21 @@ class ContainerNode(HasChildStats, Node):
     def update_from(self, other_node):
         HasChildStats.update_from(self, other_node)
         Node.update_from(self, other_node)
+
+    def get_parent_uids(self) -> List[UID]:
+        raise InvalidOperationError
+
+    def has_same_parents(self, other):
+        raise InvalidOperationError
+
+    def has_no_parents(self):
+        raise InvalidOperationError
+
+    def remove_parent(self, parent_uid_to_remove: UID):
+        raise InvalidOperationError
+
+    def add_parent(self, parent_uid: UID):
+        raise InvalidOperationError
 
     @classmethod
     def get_obj_type(cls):

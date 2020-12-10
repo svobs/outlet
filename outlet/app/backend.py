@@ -1,7 +1,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Iterable, List, Optional, Union
+from typing import Iterable, List, Optional
 
 from pydispatch import dispatcher
 
@@ -12,7 +12,7 @@ from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from model.user_op import UserOp
 from ui.signal import ID_GDRIVE_DIR_SELECT, Signal
-from ui.tree.filter_criteria import FilterCriteria
+from model.display_tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)

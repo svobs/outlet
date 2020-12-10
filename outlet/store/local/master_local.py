@@ -3,12 +3,10 @@ import logging
 import os
 import pathlib
 import threading
-import time
-from datetime import datetime
 from typing import List, Optional, Tuple
 
 import store.local.content_hasher
-from constants import MAIN_REGISTRY_FILE_NAME, SUPER_DEBUG, TrashStatus, TREE_TYPE_LOCAL_DISK
+from constants import SUPER_DEBUG, TrashStatus, TREE_TYPE_LOCAL_DISK
 from model.local_disk_tree import LocalDiskTree
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
@@ -23,7 +21,7 @@ from store.sqlite.local_db import LocalDiskDatabase
 from store.uid.uid_generator import UID
 from store.uid.uid_mapper import UidPathMapper
 from ui.signal import ID_GLOBAL_CACHE
-from ui.tree.filter_criteria import FilterCriteria
+from model.display_tree.filter_criteria import FilterCriteria
 from util import file_util, time_util
 from util.simple_tree import NodeNotPresentError
 from util.stopwatch_sec import Stopwatch
