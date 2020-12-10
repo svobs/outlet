@@ -28,8 +28,6 @@ class NodeAlreadyPresentError(RuntimeError):
         super(NodeAlreadyPresentError, self).__init__(msg)
 
 
-
-
 class BaseNode:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -57,8 +55,6 @@ class SimpleTree:
     def __init__(self):
         self._node_dict: Dict[Any, BaseNode] = {}
         self._parent_child_list_dict: Dict[UID, List[BaseNode]] = {}
-        # TODO: just put parent UIDs in child nodes
-        self._child_parent_dict: Dict[UID, BaseNode] = {}
         self._root_node: Optional[BaseNode] = None
 
     def __len__(self):
@@ -89,7 +85,6 @@ class SimpleTree:
             if not child_list:
                 self._parent_child_list_dict[parent.identifier] = child_list
             child_list.append(node)
-            self._child_parent_dict[node.identifier] = parent
 
         self._node_dict[node.identifier] = node
 
@@ -107,7 +102,6 @@ class SimpleTree:
             count_removed: int = len(self._node_dict)
             self._node_dict.clear()
             self._parent_child_list_dict.clear()
-            self._child_parent_dict.clear()
             return count_removed
 
         if nid not in self._node_dict:
@@ -135,7 +129,6 @@ class SimpleTree:
             child_list: List[BaseNode] = self._parent_child_list_dict.pop(identifier, None)
             if child_list:
                 for child in child_list:
-                    self._child_parent_dict.pop(child.identifier, None)
                     nid_queue.append(child.identifier)
 
         return count_removed
@@ -171,12 +164,6 @@ class SimpleTree:
 
     def children(self, nid: Any) -> List[BaseNode]:
         return self.get_child_list(nid)
-
-    def get_parent(self, child_nid: Any) -> Optional[BaseNode]:
-        return self._child_parent_dict.get(child_nid, None)
-
-    def parent(self, child_nid: Any):
-        return self.get_parent(child_nid)
 
     def contains(self, nid: Any) -> bool:
         return nid in self._node_dict

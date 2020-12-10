@@ -103,6 +103,10 @@ class LocalDiskTree(SimpleTree):
                         assert isinstance(child, LocalDirNode)
                         dir_queue.append(child)
 
+    def get_parent(self, node: LocalNode) -> LocalNode:
+        assert self.get_node(node.identifier), f'Node is not in this tree: {node}'
+        return self.get_node(node.get_single_parent())
+
     def replace_subtree(self, sub_tree: SimpleTree):
         sub_tree_root_node: LocalNode = sub_tree.get_root_node()
         if not self.contains(sub_tree_root_node.uid):
@@ -112,7 +116,7 @@ class LocalDiskTree(SimpleTree):
             assert isinstance(sub_tree_root_node, LocalNode)
             self.add_to_tree(sub_tree_root_node)
 
-        parent_of_subtree: LocalNode = self.parent(sub_tree_root_node.identifier)
+        parent_of_subtree: LocalNode = self.get_node(sub_tree_root_node.get_single_parent())
         count_removed = self.remove_node(sub_tree_root_node.identifier)
         logger.debug(f'Removed {count_removed} nodes from this tree, to be replaced with {len(sub_tree)} subtree nodes')
         self.paste(parent_nid=parent_of_subtree.uid, new_tree=sub_tree)
