@@ -12,9 +12,7 @@ from model.node.gdrive_node import GDriveFile
 from model.node.local_disk_node import LocalNode
 from model.node.node import Node, SPIDNodePair
 from model.user_op import UserOp, UserOpType
-from store.gdrive.client import GDriveClient
 from ui.signal import Signal
-from util import file_util
 from util.has_lifecycle import HasLifecycle
 
 import gi
@@ -37,8 +35,6 @@ class TreeActions(HasLifecycle):
     def __init__(self, controller):
         HasLifecycle.__init__(self)
         self.con = controller
-        # FIXME: put in backend
-        self.download_dir = file_util.get_resource_path(self.con.config.get('download_dir'))
         self.post_download_action = OPEN
 
     def start(self):
@@ -49,6 +45,7 @@ class TreeActions(HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.SHOW_IN_NAUTILUS, sender=self.con.tree_id, receiver=self._show_in_nautilus)
         self.connect_dispatch_listener(signal=Signal.CALL_XDG_OPEN, sender=self.con.tree_id, receiver=self._call_xdg_open)
         self.connect_dispatch_listener(signal=Signal.DOWNLOAD_FROM_GDRIVE, sender=self.con.tree_id, receiver=self._download_file_from_gdrive)
+        self.connect_dispatch_listener(signal=Signal.DOWNLOAD_FROM_GDRIVE_DONE, receiver=self._on_gdrive_download_done)
         self.connect_dispatch_listener(signal=Signal.DELETE_SINGLE_FILE, sender=self.con.tree_id, receiver=self._delete_single_file)
         self.connect_dispatch_listener(signal=Signal.DELETE_SUBTREE, sender=self.con.tree_id, receiver=self._delete_subtree)
         self.connect_dispatch_listener(signal=Signal.SET_ROWS_CHECKED, sender=self.con.tree_id, receiver=self._check_rows)
@@ -108,22 +105,14 @@ class TreeActions(HasLifecycle):
             os.remove(file)
 
     def _download_file_from_gdrive(self, sender, node: GDriveFile):
-        # TODO: Move to backend
-        self.con.app.backend.download_file_from_gdrive(node.uid)
+        self.con.app.backend.download_file_from_gdrive(node.uid, sender)
 
-        os.makedirs(name=self.download_dir, exist_ok=True)
-        dest_file = os.path.join(self.download_dir, node.name)
-
-        gdrive_client: GDriveClient = self.con.app.cacheman.get_gdrive_client()
-        try:
-            gdrive_client.download_file(node.goog_id, dest_file)
+    def _on_gdrive_download_done(self, sender, filename: str):
+        if sender == self.con.tree_id:
             if self.post_download_action == OPEN:
-                self._call_xdg_open(sender, dest_file)
+                self._call_xdg_open(sender, filename)
             elif self.post_download_action == SHOW:
-                self._show_in_nautilus(sender, dest_file)
-        except Exception as err:
-            self.con.parent_win.show_error_msg('Download failed', repr(err))
-            raise
+                self._show_in_nautilus(sender, filename)
 
     def _call_xdg_open(self, sender, full_path: str):
         if os.path.exists(full_path):

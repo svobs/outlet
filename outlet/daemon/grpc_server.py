@@ -61,6 +61,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.TOGGLE_UI_ENABLEMENT, receiver=self._on_ui_enablement_toggled)
         self.connect_dispatch_listener(signal=Signal.ERROR_OCCURRED, receiver=self._on_error_occurred)
         self.connect_dispatch_listener(signal=Signal.SET_STATUS, receiver=self._on_set_status)
+        self.connect_dispatch_listener(signal=Signal.DOWNLOAD_FROM_GDRIVE_DONE, receiver=self._on_gdrive_download_done)
 
         self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted)
         self.connect_dispatch_listener(signal=Signal.NODE_REMOVED, receiver=self._on_node_removed)
@@ -197,6 +198,11 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         signal.status_msg.msg = status_msg
         self.send_signal_to_all(signal)
 
+    def _on_gdrive_download_done(self, sender, filename: str):
+        signal = SignalMsg(sig_int=Signal.DOWNLOAD_FROM_GDRIVE_DONE, sender=sender)
+        signal.download_msg.filename = filename
+        self.send_signal_to_all(signal)
+
     def _on_node_upserted(self, sender: str, node: Node):
         signal = SignalMsg(sig_int=Signal.NODE_UPSERTED, sender=sender)
         Converter.node_to_grpc(node, signal.node)
@@ -305,3 +311,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
             Converter.node_to_grpc(user_op.dst_node, response.user_op.dst_node)
 
         return response
+
+    def download_file_from_gdrive(self, request, context):
+        self.cacheman.download_file_from_gdrive(request.node_uid, request.requestor_id)
+        return Empty()

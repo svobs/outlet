@@ -5,6 +5,8 @@ import time
 from collections import deque
 from typing import Deque, List, Optional, Tuple
 
+from pydispatch import dispatcher
+
 from constants import GDRIVE_DOWNLOAD_TYPE_CHANGES, SUPER_DEBUG
 from global_actions import GlobalActions
 from model.gdrive_meta import GDriveUser, MimeType
@@ -23,10 +25,10 @@ from store.gdrive.master_gdrive_op_write import BatchChangesOp, CreateUserOp, De
 from store.master import MasterStore
 from store.sqlite.gdrive_db import CurrentDownload
 from store.uid.uid_mapper import UidGoogIdMapper
-from ui.signal import Signal
+from ui.signal import ID_CENTRAL_EXEC, Signal
 from ui.signal import ID_GLOBAL_CACHE
 from ui.tree.filter_criteria import FilterCriteria
-from util import time_util
+from util import file_util, time_util
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -67,6 +69,8 @@ class GDriveMasterStore(MasterStore):
         self._diskstore: GDriveDiskStore = GDriveDiskStore(backend, self._memstore)
         self.gdrive_client: GDriveClient = GDriveClient(self.backend, ID_GLOBAL_CACHE)
         self.tree_loader = GDriveTreeLoader(backend=self.backend, diskstore=self._diskstore, tree_id=ID_GLOBAL_CACHE)
+
+        self.download_dir = file_util.get_resource_path(self.backend.config.get('download_dir'))
 
     def start(self):
         logger.debug(f'Starting GDriveMasterStore')
@@ -324,6 +328,24 @@ class GDriveMasterStore(MasterStore):
 
     # Various public methods
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def download_file_from_gdrive(self, node_uid: UID, requestor_id: str):
+        node: GDriveNode = self.get_node_for_uid(node_uid)
+        if not node:
+            raise RuntimeError(f'Could not download file from GDrive: node with UID not found: {node_uid}')
+
+        os.makedirs(name=self.download_dir, exist_ok=True)
+        dest_file = os.path.join(self.download_dir, node.name)
+
+        # TODO: add to front of task queue
+        gdrive_client: GDriveClient = self.backend.cacheman.get_gdrive_client()
+        try:
+            gdrive_client.download_file(node.goog_id, dest_file)
+            # notify async when done:
+            dispatcher.send(signal=Signal.DOWNLOAD_FROM_GDRIVE_DONE, sender=requestor_id, filename=dest_file)
+        except Exception as err:
+            self.backend.report_error(ID_GLOBAL_CACHE, 'Download failed', repr(err))
+            raise
 
     def apply_gdrive_changes(self, gdrive_change_list: List[GDriveChange]):
         if SUPER_DEBUG:

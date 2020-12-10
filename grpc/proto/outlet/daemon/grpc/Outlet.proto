@@ -16,6 +16,11 @@ message GetLastPendingOp_Request {
 	int32 node_uid = 1;
 }
 
+message DownloadFromGDrive_Request {
+	int32 node_uid = 1;
+	string requestor_id = 2;
+}
+
 message GetLastPendingOp_Response {
 	UserOp user_op = 1;
 }
@@ -81,7 +86,12 @@ message SignalMsg {
 		Node node = 15;
 		SrcDstNodeList src_dst_node_list = 16;
 		StatusMsg status_msg = 17;
+		DownloadMsg download_msg = 18;
 	}
+}
+
+message DownloadMsg {
+	string filename = 1;
 }
 
 message StatusMsg {
@@ -195,6 +205,7 @@ service Outlet {
 	rpc drop_dragged_nodes(DragDrop_Request) returns (DragDrop_Response);
 
 	rpc get_last_pending_op_for_node(GetLastPendingOp_Request) returns (GetLastPendingOp_Response);
+	rpc download_file_from_gdrive(DownloadFromGDrive_Request) returns (Empty);
 }
 
 

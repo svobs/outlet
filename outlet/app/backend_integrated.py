@@ -104,3 +104,5 @@ class BackendIntegrated(OutletBackend):
     def get_last_pending_op(self, node_uid: UID) -> Optional[UserOp]:
         return self.cacheman.get_last_pending_op_for_node(node_uid)
 
+    def download_file_from_gdrive(self, node_uid: UID, requestor_id: str):
+        self.cacheman.download_file_from_gdrive(node_uid, requestor_id)

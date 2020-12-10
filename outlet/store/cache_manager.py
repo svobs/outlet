@@ -884,6 +884,9 @@ class CacheManager(HasLifecycle):
         else:
             assert False
 
+    def download_file_from_gdrive(self, node_uid: UID, requestor_id: str):
+        self._master_gdrive.download_file_from_gdrive(node_uid, requestor_id)
+
     def execute_gdrive_load_op(self, op: GDriveDiskLoadOp):
         self._master_gdrive.execute_load_op(op)
 

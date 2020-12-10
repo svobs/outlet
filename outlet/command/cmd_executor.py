@@ -50,7 +50,7 @@ class CommandExecutor:
 
             # Report error to the UI:
             msg = f'Command {command.uid} (op {command.op.op_uid}) failed with error: {command.get_error()}'
-            dispatcher.send(signal=Signal.ERROR_OCCURRED, sender=ID_COMMAND_EXECUTOR, msg=msg)
+            self.backend.report_error(ID_COMMAND_EXECUTOR, msg=msg)
 
         dispatcher.send(signal=Signal.COMMAND_COMPLETE, sender=ID_COMMAND_EXECUTOR, command=command)
         dispatcher.send(signal=Signal.PROGRESS_MADE, sender=ID_COMMAND_EXECUTOR, progress=command.get_total_work())

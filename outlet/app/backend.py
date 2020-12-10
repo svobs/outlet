@@ -3,13 +3,15 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Iterable, List, Optional, Union
 
+from pydispatch import dispatcher
+
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from model.user_op import UserOp
-from ui.signal import ID_GDRIVE_DIR_SELECT
+from ui.signal import ID_GDRIVE_DIR_SELECT, Signal
 from ui.tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
 
@@ -24,6 +26,11 @@ class OutletBackend(HasLifecycle, ABC):
     """
     def __init__(self):
         HasLifecycle.__init__(self)
+
+    @staticmethod
+    def report_error(sender: str, msg: str, secondary_msg: Optional[str] = None):
+        """Convenience method for notifying the user about errors"""
+        dispatcher.send(signal=Signal.ERROR_OCCURRED, sender=sender, msg=msg)
 
     @abstractmethod
     def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
@@ -115,4 +122,8 @@ class OutletBackend(HasLifecycle, ABC):
 
     @abstractmethod
     def get_last_pending_op(self, node_uid: UID) -> Optional[UserOp]:
+        pass
+
+    @abstractmethod
+    def download_file_from_gdrive(self, node_uid: UID, requestor_id: str):
         pass
