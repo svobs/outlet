@@ -7,7 +7,7 @@ from typing import Callable, DefaultDict, Dict, List, Tuple
 import store.local.content_hasher
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_MIXED
 from diff.change_maker import ChangeMaker, SPIDNodePair
-from model.display_tree.category import CategoryDisplayTree
+from model.display_tree.change_display_tree import ChangeDisplayTree
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
@@ -121,7 +121,7 @@ class ContentFirstDiffer(ChangeMaker):
         while len(sn_list_only_r) > 0:
             on_right_only(sn_list_only_r.pop())
 
-    def diff(self, compare_paths_also=False) -> Tuple[CategoryDisplayTree, CategoryDisplayTree]:
+    def diff(self, compare_paths_also=False) -> Tuple[ChangeDisplayTree, ChangeDisplayTree]:
         """Use this method if we mostly care about having the same unique files *somewhere* in
            each tree (in other words, we care about file contents, and care less about where each
            file is placed). If a file is found with the same signature on both sides but with
@@ -284,7 +284,7 @@ class ContentFirstDiffer(ChangeMaker):
         return self.left_side.change_tree, self.right_side.change_tree
 
     def merge_change_trees(self, left_selected_changes: List[SPIDNodePair], right_selected_changes: List[SPIDNodePair],
-                           check_for_conflicts=False) -> CategoryDisplayTree:
+                           check_for_conflicts=False) -> ChangeDisplayTree:
 
         # always root path, but tree type may differ
         is_mixed_tree = self.left_side.root_identifier.tree_type != self.right_side.root_identifier.tree_type
@@ -295,7 +295,7 @@ class ContentFirstDiffer(ChangeMaker):
         root_node_identifier: SinglePathNodeIdentifier = NodeIdentifierFactory.get_root_constant_single_path_identifier(tree_type)
         root_sn = SPIDNodePair(root_node_identifier, root_node)
         state: DisplayTreeUiState = DisplayTreeUiState(tree_id=ID_MERGE_TREE, root_sn=root_sn)
-        merged_tree = CategoryDisplayTree(backend=self.backend, state=state, show_whole_forest=True)
+        merged_tree = ChangeDisplayTree(backend=self.backend, state=state, show_whole_forest=True)
 
         for sn in left_selected_changes:
             op = self.left_side.root_identifier.get_op_for_node(sn.node)

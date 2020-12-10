@@ -6,7 +6,7 @@ from collections import deque
 from typing import Callable, Deque, Dict, List, Optional
 
 from constants import NULL_UID, TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from model.display_tree.category import CategoryDisplayTree
+from model.display_tree.change_display_tree import ChangeDisplayTree
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
@@ -33,7 +33,7 @@ class OneSide:
         self.tree_id = tree_id
         # TODO: move this to frontend
         state = DisplayTreeUiState(tree_id, tree_root_sn)
-        self.change_tree: CategoryDisplayTree = CategoryDisplayTree(backend, state)
+        self.change_tree: ChangeDisplayTree = ChangeDisplayTree(backend, state)
         self._batch_uid: UID = batch_uid
         if not self._batch_uid:
             self._batch_uid: UID = self.backend.uid_generator.next_uid()

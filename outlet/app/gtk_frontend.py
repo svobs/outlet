@@ -61,21 +61,6 @@ class OutletApplication(Gtk.Application):
         # This may take a long time if gRPC needs to time out
         self.quit()
 
-    # # TODO: replace all uses of this with APIs in Backend
-    # @property
-    # def cacheman(self):
-    #     return self.backend.cacheman
-    #
-    # # TODO: replace all uses of this with APIs in Backend
-    # @property
-    # def uid_generator(self):
-    #     return self.backend.uid_generator
-    #
-    # # TODO: replace all uses of this with APIs in Backend
-    # @property
-    # def executor(self):
-    #     return self.backend.executor
-
     def do_activate(self):
         # We only allow a single window and raise any existing ones
         if not self.window:

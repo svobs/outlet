@@ -22,10 +22,10 @@ from util.stopwatch_sec import Stopwatch
 logger = logging.getLogger(__name__)
 
 
-class CategoryDisplayTree(DisplayTree):
+class ChangeDisplayTree(DisplayTree):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS CategoryDisplayTree
+    CLASS ChangeDisplayTree
 
     Note: this doesn't completely map to DisplayTree, but it's close enough for it to be useful to
     inherit its functionality
@@ -40,7 +40,7 @@ class CategoryDisplayTree(DisplayTree):
         # Root node is not even displayed, so is not terribly important.
         # Do not use its original UID, so as to disallow it from interfering with lookups
         root_node = ContainerNode(self.get_root_identifier(), nid=SUPER_ROOT_UID)
-        logger.debug(f'[{self.tree_id}] CategoryDisplayTree: inserting root node: {root_node}')
+        logger.debug(f'[{self.tree_id}] ChangeDisplayTree: inserting root node: {root_node}')
         self._category_tree.add_node(root_node, parent=None)
 
         self.show_whole_forest: bool = show_whole_forest
@@ -52,7 +52,9 @@ class CategoryDisplayTree(DisplayTree):
         """We want to keep track of change action creation order."""
 
         self.count_conflict_warnings = 0
+        """For debugging only"""
         self.count_conflict_errors = 0
+        """For debugging only"""
 
     def get_root_node(self) -> Node:
         return self._category_tree.get_root_node()
@@ -77,7 +79,7 @@ class CategoryDisplayTree(DisplayTree):
         logger.debug(f'[{self.tree_id}] CategoryTree for "{self.get_root_sn().spid}": \n' + self._category_tree.show())
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
-        raise InvalidOperationError('CategoryDisplayTree.get_ancestor_list()')
+        raise InvalidOperationError('ChangeDisplayTree.get_ancestor_list()')
 
     def get_ops(self) -> Iterable[UserOp]:
         return self._op_list
@@ -239,7 +241,7 @@ class CategoryDisplayTree(DisplayTree):
             self.print_tree_contents_debug()
 
     def __repr__(self):
-        return f'CategoryDisplayTree(tree_id=[{self.tree_id}], {self.get_summary()})'
+        return f'ChangeDisplayTree(tree_id=[{self.tree_id}], {self.get_summary()})'
 
     @staticmethod
     def _make_cat_map():
@@ -261,7 +263,7 @@ class CategoryDisplayTree(DisplayTree):
         include_empty_op_types = False
         cat_count = 0
         if include_empty_op_types:
-            cat_map = CategoryDisplayTree._make_cat_map()
+            cat_map = ChangeDisplayTree._make_cat_map()
         else:
             cat_map = {}
         for child in self._category_tree.children(identifier):

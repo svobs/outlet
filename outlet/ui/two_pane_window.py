@@ -9,7 +9,7 @@ from ui.signal import ID_LEFT_TREE, ID_MERGE_TREE, ID_RIGHT_TREE, Signal
 from constants import APP_NAME, H_PAD, IconId, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
 from global_actions import GlobalActions
-from model.display_tree.category import CategoryDisplayTree
+from model.display_tree.change_display_tree import ChangeDisplayTree
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import SPIDNodePair
 from ui.dialog.base_dialog import BaseDialog
@@ -254,7 +254,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # repeat timer
         return True
 
-    def _generate_merge_tree(self) -> Optional[CategoryDisplayTree]:
+    def _generate_merge_tree(self) -> Optional[ChangeDisplayTree]:
         left_selected_changes: List[SPIDNodePair] = self.tree_con_left.get_checked_rows_as_list()
         right_selected_changes: List[SPIDNodePair] = self.tree_con_right.get_checked_rows_as_list()
         if len(left_selected_changes) == 0 and len(right_selected_changes) == 0:
@@ -264,7 +264,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         left_sn = self.tree_con_left.get_tree().get_root_sn()
         right_sn = self.tree_con_right.get_tree().get_root_sn()
         differ = ContentFirstDiffer(left_sn, right_sn, self.app.backend)
-        merged_changes_tree: CategoryDisplayTree = differ.merge_change_trees(left_selected_changes, right_selected_changes)
+        merged_changes_tree: ChangeDisplayTree = differ.merge_change_trees(left_selected_changes, right_selected_changes)
 
         conflict_pairs = []
         if conflict_pairs:

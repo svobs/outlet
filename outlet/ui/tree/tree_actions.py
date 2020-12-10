@@ -7,11 +7,10 @@ from typing import List
 from pydispatch import dispatcher
 
 from constants import TreeDisplayMode
-from model.display_tree.category import CategoryDisplayTree
+from model.display_tree.display_tree import DisplayTree
 from model.node.gdrive_node import GDriveFile
 from model.node.local_disk_node import LocalNode
-from model.node.node import Node, SPIDNodePair
-from model.user_op import UserOp, UserOpType
+from model.node.node import Node
 from ui.signal import Signal
 from util.has_lifecycle import HasLifecycle
 
@@ -143,7 +142,7 @@ class TreeActions(HasLifecycle):
         for tree_path in tree_paths:
             self.con.display_store.set_row_checked(tree_path, False)
 
-    def _receive_diff_result(self, sender: str, new_tree: CategoryDisplayTree):
+    def _receive_diff_result(self, sender: str, new_tree: DisplayTree):
         if sender != self.con.tree_id:
             return
         self.con.reload(new_tree=new_tree, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY, show_checkboxes=True)
