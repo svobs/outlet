@@ -73,6 +73,11 @@ message StartDiffTrees_Request {
 	string tree_id_right = 2;
 }
 
+message StartDiffTrees_Response {
+	string tree_id_left = 1;
+	string tree_id_right = 2;
+}
+
 message DragDrop_Response {
 	// nothing
 }
@@ -142,6 +147,8 @@ message DisplayTreeUiState {
 	bool root_exists = 3;
 	string offending_path = 4;
 	bool needs_manual_load = 5;
+	int32 tree_display_mode = 6;
+	bool show_checkboxes = 7;
 }
 
 message RequestDisplayTree_Request {
@@ -198,7 +205,7 @@ service Outlet {
 	rpc request_display_tree_ui_state(RequestDisplayTree_Request) returns (RequestDisplayTree_Response);
 	rpc start_subtree_load(StartSubtreeLoad_Request) returns (StartSubtreeLoad_Response);
 	rpc get_op_exec_play_state(GetOpExecPlayState_Request) returns (PlayState);
-	rpc start_diff_trees(StartDiffTrees_Request) returns (Empty);
+	rpc start_diff_trees(StartDiffTrees_Request) returns (StartDiffTrees_Response);
 
 	rpc refresh_subtree(RefreshSubtree_Request) returns (Empty);
 	rpc refresh_subtree_stats(RefreshSubtreeStats_Request) returns (Empty);

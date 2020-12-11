@@ -13,10 +13,11 @@ from command.cmd_interface import Command
 from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, \
     OPS_FILE_NAME, ROOT_PATH, \
     SUPER_DEBUG, SUPER_ROOT_UID, TREE_TYPE_GDRIVE, \
-    TREE_TYPE_LOCAL_DISK, UID_PATH_FILE_NAME
+    TREE_TYPE_LOCAL_DISK, TreeDisplayMode, UID_PATH_FILE_NAME
 from diff.change_maker import ChangeMaker
 from error import CacheNotLoadedError, GDriveItemNotFoundError, InvalidOperationError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
+from model.display_tree.change_display_tree import ChangeDisplayTree
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveNode
@@ -68,12 +69,24 @@ class ActiveDisplayTreeMeta:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, backend, tree_id: str, root_sn: SPIDNodePair, root_exists: bool = True, offending_path: Optional[str] = None):
-        self.tree_id: str = tree_id
-        self.root_sn: SPIDNodePair = root_sn
-        self.root_exists: bool = root_exists
-        self.offending_path: Optional[str] = offending_path
+    def __init__(self, backend, state: DisplayTreeUiState):
+        self.state: DisplayTreeUiState = state
+
         self.root_path_config_persister: Optional[RootPathConfigPersister] = None
+
+        logger.debug(f'[{self.state.tree_id}] NeedsManualLoad = {state.needs_manual_load}')
+
+    @property
+    def root_sn(self):
+        return self.state.root_sn
+
+    @property
+    def tree_id(self):
+        return self.state.tree_id
+
+    @property
+    def root_exists(self):
+        return self.state.root_exists
 
 
 class CacheInfoByType(TwoLevelDict):
@@ -501,14 +514,8 @@ class CacheManager(HasLifecycle):
             return False
         return True
 
-    def _convert_display_tree_meta_to_ui_state(self, display_tree_meta, is_startup: bool) -> DisplayTreeUiState:
-
-        state = DisplayTreeUiState(display_tree_meta.tree_id, display_tree_meta.root_sn, display_tree_meta.root_exists,
-                                   display_tree_meta.offending_path)
-        if self._is_manual_load_required(display_tree_meta.root_sn.spid, is_startup):
-            state.needs_manual_load = True
-        logger.debug(f'[{display_tree_meta.tree_id}] NeedsManualLoad = {state.needs_manual_load}')
-        return state
+    def register_change_display_tree(self, change_display_tree: ChangeDisplayTree):
+        self._display_tree_dict[change_display_tree.tree_id] = change_display_tree
 
     def request_display_tree_ui_state(self, tree_id: str, return_async: bool, user_path: str = None,
                                       spid: Optional[SinglePathNodeIdentifier] = None, is_startup: bool = False) -> Optional[DisplayTreeUiState]:
@@ -542,7 +549,7 @@ class CacheManager(HasLifecycle):
             if display_tree_meta.root_sn.spid == root_path_meta.root_spid:
                 # Requested the existing tree and root? Just return that:
                 logger.debug(f'Display tree already registered with given root; returning existing')
-                return self._return_display_tree_ui_state(display_tree_meta, is_startup, return_async)
+                return self._return_display_tree_ui_state(display_tree_meta, return_async)
 
             if display_tree_meta.root_path_config_persister:
                 # If we started from a persister, continue persisting:
@@ -575,9 +582,15 @@ class CacheManager(HasLifecycle):
 
         # Now that we have the root, we have all the info needed to assemble the ActiveDisplayTreeMeta from the RootPathMeta.
         root_sn = SPIDNodePair(spid, node)
+
+        state = DisplayTreeUiState(tree_id, root_sn, root_path_meta.root_exists, root_path_meta.offending_path, TreeDisplayMode.ONE_TREE_ALL_ITEMS,
+                                   False)
+        if self._is_manual_load_required(root_sn.spid, is_startup):
+            state.needs_manual_load = True
+
         # easier to just create a whole new object rather than update old one:
-        display_tree_meta: ActiveDisplayTreeMeta = ActiveDisplayTreeMeta(self.backend, tree_id, root_sn,
-                                                                         root_path_meta.root_exists, root_path_meta.offending_path)
+        display_tree_meta: ActiveDisplayTreeMeta = ActiveDisplayTreeMeta(self.backend, state)
+
         if root_path_persister:
             # Write updates to config if applicable
             root_path_persister.write_to_config(root_path_meta)
@@ -594,10 +607,10 @@ class CacheManager(HasLifecycle):
             else:
                 self._live_monitor.stop_capture(tree_id)
 
-        return self._return_display_tree_ui_state(display_tree_meta, is_startup, return_async)
+        return self._return_display_tree_ui_state(display_tree_meta, return_async)
 
-    def _return_display_tree_ui_state(self, display_tree_meta, is_startup: bool, return_async: bool):
-        state = self._convert_display_tree_meta_to_ui_state(display_tree_meta, is_startup)
+    def _return_display_tree_ui_state(self, display_tree_meta, return_async: bool) -> Optional[DisplayTreeUiState]:
+        state = display_tree_meta.state
         assert state.tree_id and state.root_sn and state.root_sn.spid, f'Bad DisplayTreeUiState: {state}'
 
         # Kick off data load task, if needed

@@ -62,7 +62,7 @@ class OutletStub(object):
         self.start_diff_trees = channel.unary_unary(
                 '/outlet.daemon.grpc.Outlet/start_diff_trees',
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartDiffTrees_Request.SerializeToString,
-                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Empty.FromString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartDiffTrees_Response.FromString,
                 )
         self.refresh_subtree = channel.unary_unary(
                 '/outlet.daemon.grpc.Outlet/refresh_subtree',
@@ -268,7 +268,7 @@ def add_OutletServicer_to_server(servicer, server):
             'start_diff_trees': grpc.unary_unary_rpc_method_handler(
                     servicer.start_diff_trees,
                     request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartDiffTrees_Request.FromString,
-                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Empty.SerializeToString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartDiffTrees_Response.SerializeToString,
             ),
             'refresh_subtree': grpc.unary_unary_rpc_method_handler(
                     servicer.refresh_subtree,
@@ -486,7 +486,7 @@ class Outlet(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/start_diff_trees',
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartDiffTrees_Request.SerializeToString,
-            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Empty.FromString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.StartDiffTrees_Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

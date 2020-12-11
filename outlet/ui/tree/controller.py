@@ -2,7 +2,7 @@ import logging
 from typing import List
 from pydispatch import dispatcher
 
-from constants import SUPER_DEBUG, TreeDisplayMode
+from constants import SUPER_DEBUG
 from diff.change_maker import SPIDNodePair
 from model.display_tree.display_tree import DisplayTree
 from model.node_identifier import SinglePathNodeIdentifier
@@ -104,8 +104,7 @@ class TreePanelController(HasLifecycle):
         self.tree_view.get_column(self.treeview_meta.col_num_change_ts_view).set_visible(self.treeview_meta.show_change_ts_col)
         self.tree_view.get_column(self.treeview_meta.col_num_etc_view).set_visible(self.treeview_meta.show_etc_col)
 
-    def reload(self, new_tree: DisplayTree = None, tree_display_mode: TreeDisplayMode = None,
-               show_checkboxes: bool = False, hide_checkboxes: bool = False):
+    def reload(self, new_tree: DisplayTree = None):
         """Invalidate whatever cache the ._display_tree built up, and re-populate the display tree"""
 
         def _reload():
@@ -118,17 +117,18 @@ class TreePanelController(HasLifecycle):
 
             if new_tree:
                 logger.info(f'[{self.tree_id}] reload() with new tree: {new_tree}')
-                self.set_tree(display_tree=new_tree, tree_display_mode=tree_display_mode)
-                tree_id = new_tree
+                self.set_tree(display_tree=new_tree)
+                tree_id = new_tree.tree_id
+                checkboxes_visible = new_tree.state.show_checkboxes
             else:
                 logger.info(f'[{self.tree_id}] reload() with same tree')
-                self.set_tree(display_tree=self._display_tree, tree_display_mode=tree_display_mode)
+                self.set_tree(display_tree=self._display_tree)
                 tree_id = self._display_tree.tree_id
+                checkboxes_visible = self.treeview_meta.has_checkboxes
 
             # 2. REBUILD:
-            checkboxes_visible = not self.treeview_meta.has_checkboxes
             self.treeview_meta = self.treeview_meta.but_with_checkboxes(checkboxes_visible, tree_id)
-            self.display_store = DisplayStore(self)
+            self.display_store = DisplayStore(self, self.treeview_meta)
 
             new_treeview = tree_factory_templates.build_treeview(self.display_store, self.app.assets)
             tree_factory_templates.replace_widget(self.tree_view, new_treeview)
@@ -160,13 +160,10 @@ class TreePanelController(HasLifecycle):
     def get_tree(self) -> DisplayTree:
         return self._display_tree
 
-    def set_tree(self, display_tree: DisplayTree, tree_display_mode: TreeDisplayMode = None):
+    def set_tree(self, display_tree: DisplayTree):
         # Clear old GTK3 displayed nodes (if any)
         self.display_store.clear_model_on_ui_thread()
-
-        if tree_display_mode:
-            logger.debug(f'[{self.tree_id}] Setting TreeDisplayMode={tree_display_mode.name} for display_tree={display_tree}')
-            self.treeview_meta.tree_display_mode = tree_display_mode
+        self.treeview_meta.tree_display_mode = display_tree.state.tree_display_mode
 
         self._display_tree = display_tree
 

@@ -3,7 +3,7 @@ from typing import Iterable, List, Optional
 from pydispatch import dispatcher
 import logging
 
-from app.backend import OutletBackend
+from app.backend import DiffResultTreeIds, OutletBackend
 from executor.central import CentralExecutor
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
@@ -92,8 +92,8 @@ class BackendIntegrated(OutletBackend):
     def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
         self.cacheman.drop_dragged_nodes(src_tree_id, src_sn_list, is_into, dst_tree_id, dst_sn)
 
-    def start_diff_trees(self, tree_id_left: str, tree_id_right: str):
-        dispatcher.send(signal=Signal.START_DIFF_TREES, sender=ID_CENTRAL_EXEC, tree_id_left=tree_id_left, tree_id_right=tree_id_right)
+    def start_diff_trees(self, tree_id_left: str, tree_id_right: str) -> DiffResultTreeIds:
+        return self.executor.start_tree_diff(tree_id_left, tree_id_right)
 
     def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):
         self.cacheman.enqueue_refresh_subtree_task(node_identifier, tree_id)

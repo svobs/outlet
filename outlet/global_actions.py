@@ -3,6 +3,7 @@ import os
 
 from pydispatch import dispatcher
 
+from app.backend import DiffResultTreeIds
 from ui.signal import ID_CENTRAL_EXEC, Signal
 from constants import TREE_TYPE_LOCAL_DISK
 from diff.diff_content_first import ContentFirstDiffer
@@ -27,11 +28,6 @@ class GlobalActions(HasLifecycle):
     def start(self):
         logger.debug('Starting GlobalActions listeners')
         HasLifecycle.start(self)
-        self.connect_dispatch_listener(signal=Signal.START_DIFF_TREES, receiver=self._on_diff_requested)
-
-    def _on_diff_requested(self, sender, tree_id_left, tree_id_right):
-        logger.debug(f'Received signal: "{Signal.START_DIFF_TREES.name}" from "{sender}"')
-        self.backend.executor.submit_async_task(self.do_tree_diff, sender, tree_id_left, tree_id_right)
 
     def shutdown(self):
         HasLifecycle.shutdown(self)
@@ -45,7 +41,8 @@ class GlobalActions(HasLifecycle):
                 return True
         return False
 
-    def do_tree_diff(self, sender, tree_id_left: str, tree_id_right: str):
+    #  TODO: maybe put this in its own class under tasks package
+    def do_tree_diff(self, sender, tree_id_left: str, tree_id_right: str, new_tree_ids: DiffResultTreeIds):
         stopwatch_diff_total = Stopwatch()
         try:
             meta_left = self.backend.cacheman.get_active_display_tree_meta(tree_id_left)
@@ -68,8 +65,8 @@ class GlobalActions(HasLifecycle):
             dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=sender, msg=msg)
 
             stopwatch_diff = Stopwatch()
-            differ = ContentFirstDiffer(left_root_sn, right_root_sn, self.backend)
-            op_tree_left, op_tree_right, = differ.diff(compare_paths_also=True)
+            differ = ContentFirstDiffer(self.backend, left_root_sn, right_root_sn, new_tree_ids.tree_id_left, new_tree_ids.tree_id_right)
+            change_tree_left, change_tree_right, = differ.diff(compare_paths_also=True)
             logger.info(f'{stopwatch_diff} Diff completed')
 
             dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=sender, msg='Populating UI trees...')
@@ -78,8 +75,13 @@ class GlobalActions(HasLifecycle):
             # TODO: 1. store display tree with new
 
             # Send each side's result to its UI tree:
-            dispatcher.send(Signal.DIFF_ONE_SIDE_RESULT, sender=tree_id_left, new_tree=op_tree_left)
-            dispatcher.send(Signal.DIFF_ONE_SIDE_RESULT, sender=tree_id_right, new_tree=op_tree_right)
+            self.backend.cacheman.register_change_display_tree(change_tree_left)
+            self.backend.cacheman.register_change_display_tree(change_tree_right)
+
+
+
+            dispatcher.send(Signal.DIFF_ONE_SIDE_RESULT, sender=tree_id_left, new_tree=change_tree_left)
+            dispatcher.send(Signal.DIFF_ONE_SIDE_RESULT, sender=tree_id_right, new_tree=change_tree_right)
             # Send general notification that we are done:
             dispatcher.send(Signal.STOP_PROGRESS, sender=sender)
             dispatcher.send(signal=Signal.DIFF_TREES_DONE, sender=sender)

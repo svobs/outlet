@@ -29,7 +29,6 @@ class TreeFilterPanel(HasLifecycle):
         HasLifecycle.__init__(self)
         self.parent_win: BaseDialog = parent_win
         self.con = controller
-        self.tree_id: str = self.con.tree_id
         self.content_box = Gtk.Box(spacing=0, orientation=Gtk.Orientation.HORIZONTAL)
         self._ui_enabled = True
 
@@ -67,7 +66,7 @@ class TreeFilterPanel(HasLifecycle):
         if filter_criteria:
             if not self.supports_shared_status:
                 if filter_criteria.is_shared != BoolOption.NOT_SPECIFIED:
-                    logger.info(f'[{self.tree_id}] Overriding previous filter for is_shared ({filter_criteria.is_shared}) '
+                    logger.info(f'[{self.con.tree_id}] Overriding previous filter for is_shared ({filter_criteria.is_shared}) '
                                 f'because tree does not support shared status')
                     # Override this. Since we're missing the button, having anything but NOT_SPECIFIED can result in unexpected behavior
                     filter_criteria.is_shared = BoolOption.NOT_SPECIFIED
@@ -101,11 +100,11 @@ class TreeFilterPanel(HasLifecycle):
     def start(self):
         HasLifecycle.start(self)
         self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed_filterpanel)
-        logger.debug(f'[{self.tree_id}] Filter panel started')
+        logger.debug(f'[{self.con.tree_id}] Filter panel started')
 
     def _on_display_tree_changed_filterpanel(self, sender, tree):
         """Callback for Signal.DISPLAY_TREE_CHANGED"""
-        if sender != self.tree_id:
+        if sender != self.con.tree_id:
             return
 
         logger.debug(f'[{sender}] Received signal "{Signal.DISPLAY_TREE_CHANGED.name}" with new root: {tree.get_root_identifier()}')
@@ -132,7 +131,7 @@ class TreeFilterPanel(HasLifecycle):
             assert False
 
         self.toolbar.show_all()
-        logger.debug(f'[{self.tree_id}] Updated IsTrashed button with new state: {filter_criteria.is_trashed}')
+        logger.debug(f'[{self.con.tree_id}] Updated IsTrashed button with new state: {filter_criteria.is_trashed}')
 
     def _update_shared_btn(self, filter_criteria):
         if self.supports_shared_status:
@@ -149,7 +148,7 @@ class TreeFilterPanel(HasLifecycle):
                 assert False
 
             self.toolbar.show_all()
-            logger.debug(f'[{self.tree_id}] Updated IsShared button with new state: {filter_criteria.is_shared}')
+            logger.debug(f'[{self.con.tree_id}] Updated IsShared button with new state: {filter_criteria.is_shared}')
 
     def _add_toolbar_toggle_btn(self, entry_label: str, icon_id: IconId) -> Gtk.ToggleToolButton:
         btn = Gtk.ToggleToolButton()
@@ -167,8 +166,8 @@ class TreeFilterPanel(HasLifecycle):
     def _apply_filter_criteria(self):
         filter_criteria = self._latest_filter_criteria
         if filter_criteria:
-            dispatcher.send(signal=Signal.FILTER_UI_TREE, sender=self.tree_id, filter_criteria=filter_criteria)
-            filter_criteria.write_filter_criteria_to_config(self.con.config, self.tree_id)
+            dispatcher.send(signal=Signal.FILTER_UI_TREE, sender=self.con.tree_id, filter_criteria=filter_criteria)
+            filter_criteria.write_filter_criteria_to_config(self.con.config, self.con.tree_id)
 
     def update_filter_criteria(self, widget=None):
         logger.debug(f'Updating filter criteria')
@@ -188,7 +187,7 @@ class TreeFilterPanel(HasLifecycle):
             filter_criteria.is_shared = prev_filter_criteria.is_shared
 
         if widget == self.is_trashed_btn:
-            logger.debug(f'[{self.tree_id}] IsTrashed button clicked')
+            logger.debug(f'[{self.con.tree_id}] IsTrashed button clicked')
             prev_state: BoolOption = filter_criteria.is_trashed
             if prev_state == BoolOption.NOT_SPECIFIED:
                 filter_criteria.is_trashed = BoolOption.TRUE
@@ -199,7 +198,7 @@ class TreeFilterPanel(HasLifecycle):
             self._update_trashed_btn(filter_criteria)
 
         elif self.supports_shared_status and widget == self.is_shared_btn:
-            logger.debug(f'[{self.tree_id}] IsShared button clicked')
+            logger.debug(f'[{self.con.tree_id}] IsShared button clicked')
             prev_state: BoolOption = filter_criteria.is_shared
             if prev_state == BoolOption.NOT_SPECIFIED:
                 filter_criteria.is_shared = BoolOption.TRUE

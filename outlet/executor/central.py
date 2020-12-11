@@ -3,6 +3,7 @@ import logging
 
 from pydispatch import dispatcher
 
+from app.backend import DiffResultTreeIds
 from command.cmd_executor import CommandExecutor
 from executor.task_runner import TaskRunner
 from global_actions import GlobalActions
@@ -26,7 +27,7 @@ class CentralExecutor(HasLifecycle):
         self._shutdown_requested: bool = False
         self._command_executor = CommandExecutor(self.backend)
         self._global_actions = GlobalActions(self.backend)
-        self._task_runner = TaskRunner()
+        self._be_task_runner = TaskRunner()
         self.enable_op_execution_thread = backend.config.get('executor.enable_op_execution_thread')
         self._cv_can_execute = threading.Condition()
 
@@ -47,6 +48,28 @@ class CentralExecutor(HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.PAUSE_OP_EXECUTION, receiver=self._pause_op_execution)
         self.connect_dispatch_listener(signal=Signal.RESUME_OP_EXECUTION, receiver=self._start_op_execution)
 
+    def submit_async_task(self, task_func, *args):
+        """Will expand on this later."""
+        # TODO: add mechanism to prioritize some tasks over others
+
+        self._be_task_runner.enqueue(task_func, *args)
+
+    def shutdown(self):
+        HasLifecycle.shutdown(self)
+        self.backend = None
+        self._command_executor = None
+        self._global_actions = None
+        self._be_task_runner = None
+
+        self._shutdown_requested = True
+        with self._cv_can_execute:
+            self._cv_can_execute.notifyAll()
+
+        logger.debug('CentralExecutor shut down')
+
+    # Op Execution Thread
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
     def start_op_execution_thread(self):
         if not self._op_execution_thread.is_alive():
             logger.debug(f'Starting {self._op_execution_thread.name}...')
@@ -55,25 +78,6 @@ class CentralExecutor(HasLifecycle):
             with self._cv_can_execute:
                 # resume thread
                 self._cv_can_execute.notifyAll()
-
-    def submit_async_task(self, task_func, *args):
-        """Will expand on this later."""
-        # TODO: add mechanism to prioritize some tasks over others
-
-        self._task_runner.enqueue(task_func, *args)
-
-    def shutdown(self):
-        HasLifecycle.shutdown(self)
-        self.backend = None
-        self._command_executor = None
-        self._global_actions = None
-        self._task_runner = None
-
-        self._shutdown_requested = True
-        with self._cv_can_execute:
-            self._cv_can_execute.notifyAll()
-
-        logger.debug('CentralExecutor shut down')
 
     def _run_op_execution_thread(self):
         """This is a consumer thread for the ChangeManager's dependency tree"""
@@ -111,3 +115,12 @@ class CentralExecutor(HasLifecycle):
         self.enable_op_execution_thread = False
         logger.debug(f'Sending signal "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED.name}" (is_enabled={self.enable_op_execution_thread})')
         dispatcher.send(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED.name, sender=ID_CENTRAL_EXEC, is_enabled=self.enable_op_execution_thread)
+
+    # Misc tasks
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def start_tree_diff(self, tree_id_left, tree_id_right) -> DiffResultTreeIds:
+        """Starts the Diff Trees task async"""
+        tree_id_struct: DiffResultTreeIds = DiffResultTreeIds(f'{tree_id_left}_diff', f'{tree_id_right}_diff')
+        self.submit_async_task(self._global_actions.do_tree_diff, ID_CENTRAL_EXEC, tree_id_left, tree_id_right, tree_id_struct)
+        return tree_id_struct

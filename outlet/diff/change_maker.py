@@ -5,7 +5,7 @@ import pathlib
 from collections import deque
 from typing import Callable, Deque, Dict, List, Optional
 
-from constants import TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
+from constants import TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from model.display_tree.change_display_tree import ChangeDisplayTree
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
@@ -27,17 +27,21 @@ class OneSide:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, backend, tree_root_sn: SPIDNodePair, tree_id: str, batch_uid: UID):
+    def __init__(self, backend, state, batch_uid: UID):
         self.backend = backend
-        self.root_sn: SPIDNodePair = tree_root_sn
-        self.tree_id = tree_id
-        # TODO: move this to frontend
-        state = DisplayTreeUiState(tree_id, tree_root_sn)
         self.change_tree: ChangeDisplayTree = ChangeDisplayTree(backend, state)
         self._batch_uid: UID = batch_uid
         if not self._batch_uid:
             self._batch_uid: UID = self.backend.uid_generator.next_uid()
         self._added_folders: Dict[str, SPIDNodePair] = {}
+
+    @property
+    def tree_id(self):
+        return self.change_tree.tree_id
+
+    @property
+    def root_sn(self):
+        return self.change_tree.get_root_sn()
 
     def add_op(self, op_type: UserOpType, src_sn: SPIDNodePair, dst_sn: SPIDNodePair = None):
         """Adds a node to the op tree (dst_node; unless dst_node is None, in which case it will use src_node), and also adds a UserOp
@@ -191,11 +195,15 @@ class ChangeMaker:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, left_tree_root_sn: SPIDNodePair, right_tree_root_sn: SPIDNodePair, backend):
+    def __init__(self, backend, left_tree_root_sn: SPIDNodePair, right_tree_root_sn: SPIDNodePair,
+                 tree_id_left: str = ID_LEFT_TREE, tree_id_right: str = ID_RIGHT_TREE):
         self.backend = backend
         batch_uid: UID = self.backend.uid_generator.next_uid()
-        self.left_side = OneSide(backend, left_tree_root_sn, ID_LEFT_TREE, batch_uid)
-        self.right_side = OneSide(backend, right_tree_root_sn, ID_RIGHT_TREE, batch_uid)
+
+        left_state = DisplayTreeUiState(tree_id_left, left_tree_root_sn, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
+        self.left_side = OneSide(backend, left_state, batch_uid)
+        right_state = DisplayTreeUiState(tree_id_right, right_tree_root_sn, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
+        self.right_side = OneSide(backend, right_state, batch_uid)
 
     def copy_nodes_left_to_right(self, src_sn_list: List[SPIDNodePair], sn_dst_parent: SPIDNodePair, op_type: UserOpType):
         """Populates the destination parent in "change_tree_right" with the given source nodes.

@@ -141,4 +141,4 @@ class TreeActions(HasLifecycle):
     def _receive_diff_result(self, sender: str, new_tree: DisplayTree):
         if sender != self.con.tree_id:
             return
-        self.con.reload(new_tree=new_tree, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY, show_checkboxes=True)
+        self.con.reload(new_tree=new_tree)

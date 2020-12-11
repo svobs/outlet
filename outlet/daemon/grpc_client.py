@@ -1,12 +1,12 @@
 import logging
 import threading
 import time
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Tuple
 
 from pydispatch import dispatcher
 
 import grpc
-from app.backend import OutletBackend
+from app.backend import DiffResultTreeIds, OutletBackend
 from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_CLIENT_SLEEP_ON_FAILURE_SEC, GRPC_SERVER_ADDRESS
 from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.conversion import Converter
@@ -18,7 +18,7 @@ from daemon.grpc.Outlet_pb2 import DeleteSubtree_Request, DownloadFromGDrive_Req
     GetOpExecPlayState_Request, \
     GetUidForLocalPath_Request, \
     RefreshSubtree_Request, RefreshSubtreeStats_Request, RequestDisplayTree_Request, SignalMsg, \
-    SPIDNodePair, StartDiffTrees_Request, StartSubtreeLoad_Request, Subscribe_Request
+    SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, Subscribe_Request
 from executor.task_runner import TaskRunner
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
@@ -167,7 +167,7 @@ class BackendGRPCClient(OutletBackend):
         self.grpc_stub: Optional[Outlet_pb2_grpc.OutletStub] = None
         self.signal_thread: SignalReceiverThread = SignalReceiverThread(self)
 
-        self._task_runner = TaskRunner()
+        self._fe_task_runner = TaskRunner()
         """Only needed to generate UIDs which are unique to drag & drop"""
 
     def start(self):
@@ -203,7 +203,7 @@ class BackendGRPCClient(OutletBackend):
         self.grpc_stub.send_signal(SignalMsg(sig_int=signal, sender_name=sender))
 
     def _on_ui_task_requested(self, sender, task_func, *args):
-        self._task_runner.enqueue(task_func, *args)
+        self._fe_task_runner.enqueue(task_func, *args)
 
     def get_node_for_uid(self, uid: UID, tree_type: int = None) -> Optional[Node]:
         request = GetNodeForUid_Request()
@@ -297,11 +297,13 @@ class BackendGRPCClient(OutletBackend):
 
         self.grpc_stub.drop_dragged_nodes(request)
 
-    def start_diff_trees(self, tree_id_left: str, tree_id_right: str):
+    def start_diff_trees(self, tree_id_left: str, tree_id_right: str) -> DiffResultTreeIds:
         request = StartDiffTrees_Request()
         request.tree_id_left = tree_id_left
         request.tree_id_right = tree_id_right
-        self.grpc_stub.start_diff_trees(request)
+        response: StartDiffTrees_Response = self.grpc_stub.start_diff_trees(request)
+
+        return DiffResultTreeIds(response.tree_id_left, response.tree_id_right)
 
     def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):
         request = RefreshSubtree_Request()

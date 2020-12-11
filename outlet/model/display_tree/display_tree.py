@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Deque, Iterable, List, Optional, Union
 
+from constants import TreeDisplayMode
 from model.has_get_children import HasGetChildren
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
@@ -17,7 +18,8 @@ class DisplayTreeUiState:
     CLASS DisplayTreeUiState
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, tree_id: str, root_sn: SPIDNodePair, root_exists: bool = True, offending_path: Optional[str] = None):
+    def __init__(self, tree_id: str, root_sn: SPIDNodePair, root_exists: bool = True, offending_path: Optional[str] = None,
+                 tree_display_mode: TreeDisplayMode = TreeDisplayMode.ONE_TREE_ALL_ITEMS, show_checkboxes: bool = False):
         if not tree_id:
             raise RuntimeError('Cannot build DisplayTreeUiState: tree_id cannot be empty!')
         self.tree_id: str = tree_id
@@ -26,7 +28,7 @@ class DisplayTreeUiState:
             raise RuntimeError('Cannot build DisplayTreeUiState: root_sn cannot be empty!')
         assert isinstance(root_sn, SPIDNodePair), f'Expected SPIDNodePair but got {type(root_sn)}'
         self.root_sn: SPIDNodePair = root_sn
-        """This is needed to clarify the (albeit very rare) case where the root node resolves to multiple paths.
+        """SPIDNodePair is needed to clarify the (albeit very rare) case where the root node resolves to multiple paths.
         Each display tree can only have one root path."""
 
         self.root_exists: bool = root_exists
@@ -34,6 +36,9 @@ class DisplayTreeUiState:
         self.needs_manual_load: bool = False
         """If True, the UI should display a "Load" button in order to kick off the backend data load. 
         If False; the backend will automatically start loading in the background."""
+
+        self.tree_display_mode: TreeDisplayMode = tree_display_mode
+        self.show_checkboxes: bool = show_checkboxes
 
     def to_display_tree(self, backend):
         if self.root_exists:
@@ -43,7 +48,8 @@ class DisplayTreeUiState:
 
     def __repr__(self):
         return f'DisplayTreeUiState(tree_id="{self.tree_id}" root_exists={self.root_exists} offending_path=' \
-               f'{self.offending_path} needs_manual_load={self.needs_manual_load} root_sn={self.root_sn}'
+               f'{self.offending_path} needs_manual_load={self.needs_manual_load} root_sn={self.root_sn} ' \
+               f'tree_display_mode={self.tree_display_mode.name} show_checkboxes={self.show_checkboxes}'
 
 
 class DisplayTree(HasGetChildren):

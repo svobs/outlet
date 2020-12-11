@@ -209,10 +209,10 @@ class TreeUiListeners(HasLifecycle):
         if tree.is_root_exists():
             logger.debug(f'[{self.con.tree_id}] Got new root. Reloading subtree for: {tree.get_root_identifier()}')
             # Loads from disk if necessary:
-            self.con.reload(tree, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, hide_checkboxes=True)
+            self.con.reload(tree)
         else:
             # Just wipe out the old root and clear the tree
-            self.con.set_tree(tree, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
+            self.con.set_tree(tree)
 
     # Remember, use member functions instead of lambdas, because PyDispatcher will remove refs
     def _on_set_status(self, sender, status_msg):

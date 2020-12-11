@@ -7,6 +7,7 @@ import outlet.daemon.grpc
 from collections import deque
 from typing import Deque, Dict, Optional
 
+from app.backend import DiffResultTreeIds
 from app.backend_integrated import BackendIntegrated
 from constants import SUPER_DEBUG
 from daemon.grpc.conversion import Converter
@@ -15,7 +16,7 @@ from daemon.grpc.Outlet_pb2 import DeleteSubtree_Request, DragDrop_Request, Drag
     GetNodeForLocalPath_Request, GetNodeForUid_Request, \
     GetUidForLocalPath_Request, \
     GetUidForLocalPath_Response, PlayState, RequestDisplayTree_Response, SendSignalResponse, SignalMsg, SingleNode_Response, \
-    StartDiffTrees_Request, StartSubtreeLoad_Request, \
+    StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, \
     StartSubtreeLoad_Response, Subscribe_Request, UserOp
 from daemon.grpc.Outlet_pb2_grpc import OutletServicer
 from executor.central import CentralExecutor
@@ -285,8 +286,8 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         return DragDrop_Response()
 
     def start_diff_trees(self, request: StartDiffTrees_Request, context):
-        self.backend.start_diff_trees(request.tree_id_left, request.tree_id_right)
-        return Empty()
+        tree_id_struct: DiffResultTreeIds = self.backend.start_diff_trees(request.tree_id_left, request.tree_id_right)
+        return StartDiffTrees_Response(tree_id_left=tree_id_struct.tree_id_left, tree_id_right=tree_id_struct.tree_id_right)
 
     def refresh_subtree_stats(self, request, context):
         self.backend.cacheman.enqueue_refresh_subtree_stats_task(request.root_uid, request.tree_id)

@@ -5,6 +5,7 @@ import gi
 from pydispatch import dispatcher
 from pydispatch.dispatcher import Any
 
+from app.backend import DiffResultTreeIds
 from ui.signal import ID_LEFT_TREE, ID_MERGE_TREE, ID_RIGHT_TREE, Signal
 from constants import APP_NAME, H_PAD, IconId, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer
@@ -177,10 +178,11 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def _set_default_button_bar(self):
         def on_diff_btn_clicked(widget):
-            logger.debug(f'Diff btn clicked! Sending signal: "{Signal.START_DIFF_TREES.name}"')
+            logger.debug(f'Diff btn clicked! Sending diff request to BE')
             # Disable button bar immediately:
             GlobalActions.disable_ui(sender=self.win_id)
             self.app.backend.start_diff_trees(tree_id_left=self.tree_con_left.tree_id, tree_id_right=self.tree_con_right.tree_id)
+            # We will be notified asynchronously when it is done/failed. If successful, the old tree_ids will be notified and supplied the new IDs
         diff_action_btn = Gtk.Button(label="Diff (content-first)")
         diff_action_btn.connect("clicked", on_diff_btn_clicked)
 
@@ -263,7 +265,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
         left_sn = self.tree_con_left.get_tree().get_root_sn()
         right_sn = self.tree_con_right.get_tree().get_root_sn()
-        differ = ContentFirstDiffer(left_sn, right_sn, self.app.backend)
+        differ = ContentFirstDiffer(self.app.backend, left_sn, right_sn)
         merged_changes_tree: ChangeDisplayTree = differ.merge_change_trees(left_selected_changes, right_selected_changes)
 
         conflict_pairs = []
@@ -317,15 +319,15 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
     def _on_display_tree_changed_twopane(self, sender, tree: DisplayTree):
         logger.debug(f'Received signal: "{Signal.DISPLAY_TREE_CHANGED.name}"')
 
-        if sender == ID_RIGHT_TREE and self.tree_con_left.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
+        if sender == self.tree_con_right.tree_id and self.tree_con_left.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             # If displaying a diff and right root changed, reload left display
             # (note: right will update its own display)
-            logger.debug(f'Detected that {ID_RIGHT_TREE} changed root. Reloading {ID_LEFT_TREE}')
+            logger.debug(f'Detected that {self.tree_con_right.tree_id} changed root. Reloading {self.tree_con_left.tree_id}')
             _reload_tree(self.tree_con_left)
 
-        elif sender == ID_LEFT_TREE and self.tree_con_right.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
+        elif sender == self.tree_con_left.tree_id and self.tree_con_right.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             # Mirror of above:
-            logger.debug(f'Detected that {ID_LEFT_TREE} changed root. Reloading {ID_RIGHT_TREE}')
+            logger.debug(f'Detected that {self.tree_con_left.tree_id} changed root. Reloading {self.tree_con_right.tree_id}')
             _reload_tree(self.tree_con_right)
 
         GLib.idle_add(self._set_default_button_bar)

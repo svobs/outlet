@@ -38,8 +38,8 @@ class ContentFirstDiffer(ChangeMaker):
     CLASS ContentFirstDiffer
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, left_tree_sn: SPIDNodePair, right_tree_sn: SPIDNodePair, backend):
-        super().__init__(left_tree_sn, right_tree_sn, backend)
+    def __init__(self, backend, left_tree_sn: SPIDNodePair, right_tree_sn: SPIDNodePair, tree_id_left: str, tree_id_right: str):
+        super().__init__(backend, left_tree_sn, right_tree_sn, tree_id_left, tree_id_right)
 
     def generate_one_side_diff_meta(self, root_sn: SPIDNodePair) -> OneSideDiffMeta:
         """Let's build a path dict while we are building the MD5 dict. Performance gain expected to be small for local trees and moderate
