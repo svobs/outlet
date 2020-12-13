@@ -114,6 +114,7 @@ message SendSignalResponse {
 message GetChildList_Request {
 	Node parent_node = 1;
 	FilterCriteria filter_criteria = 2;
+	string tree_id = 3;
 }
 
 message GetChildList_Response {

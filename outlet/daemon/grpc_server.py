@@ -260,7 +260,12 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         else:
             filter_criteria = None
 
-        child_list = self.cacheman.get_children(parent_node, filter_criteria)
+        if request.tree_id:
+            tree_id = request.tree_id
+        else:
+            tree_id = None
+
+        child_list = self.cacheman.get_children(parent_node, tree_id, filter_criteria)
         response = GetChildList_Response()
         Converter.node_list_to_grpc(child_list, response.node_list)
 
@@ -269,7 +274,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
     def get_ancestor_list_for_spid(self, request, context):
         spid = Converter.node_identifier_from_grpc(request.spid)
-        ancestor_list: Deque[Node] = self.cacheman.get_ancestor_list_for_single_path_identifier(spid, stop_at_path=request.stop_at_path)
+        ancestor_list: Deque[Node] = self.cacheman.get_ancestor_list_for_spid(spid=spid, stop_at_path=request.stop_at_path)
         response = GetAncestorList_Response()
         Converter.node_list_to_grpc(ancestor_list, response.node_list)
         logger.debug(f'Relaying {len(ancestor_list)} ancestors for: {spid}')

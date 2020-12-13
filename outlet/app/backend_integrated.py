@@ -83,11 +83,11 @@ class BackendIntegrated(OutletBackend):
     def get_op_execution_play_state(self) -> bool:
         return self.executor.enable_op_execution_thread
 
-    def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
-        return self.cacheman.get_children(parent, filter_criteria)
+    def get_children(self, tree_id: Optional[str], parent: Node, filter_criteria: Optional[FilterCriteria] = None) -> Iterable[Node]:
+        return self.cacheman.get_children(parent, tree_id, filter_criteria)
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Iterable[Node]:
-        return self.cacheman.get_ancestor_list_for_single_path_identifier(spid, stop_at_path=stop_at_path)
+        return self.cacheman.get_ancestor_list_for_spid(spid, stop_at_path=stop_at_path)
 
     def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
         self.cacheman.drop_dragged_nodes(src_tree_id, src_sn_list, is_into, dst_tree_id, dst_sn)

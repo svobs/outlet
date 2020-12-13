@@ -71,17 +71,13 @@ class GlobalActions(HasLifecycle):
 
             dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=sender, msg='Populating UI trees...')
 
-            # TODO: 0. Make gRPC return a new display_tree and then start waiting for Signal.DIFF_ONE_SIDE_RESULT
-            # TODO: 1. store display tree with new
-
             # Send each side's result to its UI tree:
             self.backend.cacheman.register_change_display_tree(change_tree_left)
             self.backend.cacheman.register_change_display_tree(change_tree_right)
 
+            dispatcher.send(Signal.DISPLAY_TREE_CHANGED, sender=tree_id_left, tree=change_tree_left)
+            dispatcher.send(Signal.DISPLAY_TREE_CHANGED, sender=tree_id_right, tree=change_tree_right)
 
-
-            dispatcher.send(Signal.DIFF_ONE_SIDE_RESULT, sender=tree_id_left, new_tree=change_tree_left)
-            dispatcher.send(Signal.DIFF_ONE_SIDE_RESULT, sender=tree_id_right, new_tree=change_tree_right)
             # Send general notification that we are done:
             dispatcher.send(Signal.STOP_PROGRESS, sender=sender)
             dispatcher.send(signal=Signal.DIFF_TREES_DONE, sender=sender)

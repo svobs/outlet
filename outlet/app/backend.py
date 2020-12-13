@@ -75,7 +75,7 @@ class OutletBackend(HasLifecycle, ABC):
         pass
 
     @abstractmethod
-    def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
+    def get_children(self, tree_id: str, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
         pass
 
     @abstractmethod

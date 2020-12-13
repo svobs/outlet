@@ -267,8 +267,10 @@ class BackendGRPCClient(OutletBackend):
         logger.debug(f'Got op execution state from backend server: is_playing={response.is_enabled}')
         return response.is_enabled
 
-    def get_children(self, parent: Node, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
+    def get_children(self, parent: Node, tree_id: str, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
         request = GetChildList_Request()
+        if tree_id:
+            request.tree_id = tree_id
         Converter.node_to_grpc(parent, request.parent_node)
         if filter_criteria:
             Converter.filter_criteria_to_grpc(filter_criteria, request.filter_criteria)

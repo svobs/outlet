@@ -71,6 +71,7 @@ class ActiveDisplayTreeMeta:
 
     def __init__(self, backend, state: DisplayTreeUiState):
         self.state: DisplayTreeUiState = state
+        self.change_tree: Optional[ChangeDisplayTree] = None
 
         self.root_path_config_persister: Optional[RootPathConfigPersister] = None
 
@@ -515,14 +516,14 @@ class CacheManager(HasLifecycle):
         return True
 
     def register_change_display_tree(self, change_display_tree: ChangeDisplayTree):
-        self._display_tree_dict[change_display_tree.tree_id] = change_display_tree
+        meta = ActiveDisplayTreeMeta(self.backend, change_display_tree.state)
+        meta.change_tree = change_display_tree
+        self._display_tree_dict[change_display_tree.tree_id] = meta
 
     def request_display_tree_ui_state(self, tree_id: str, return_async: bool, user_path: str = None,
                                       spid: Optional[SinglePathNodeIdentifier] = None, is_startup: bool = False) -> Optional[DisplayTreeUiState]:
         logger.debug(f'[{tree_id}] Got request to load display tree (user_path={user_path}, spid: {spid}, is_startup={is_startup})')
 
-        # FIXME: need to distinguish between regular trees and change trees
-        # FIXME: use different identifier for change trees
         root_path_persister = None
 
         # Make RootPathMeta object. If neither SPID nor user_path supplied, read from config
@@ -1090,7 +1091,15 @@ class CacheManager(HasLifecycle):
         else:
             raise RuntimeError(f'Unknown tree type: {tree_type}')
 
-    def get_children(self, node: Node, filter_criteria: FilterCriteria = None):
+    def get_children(self, node: Node, tree_id: Optional[str] = None, filter_criteria: Optional[FilterCriteria] = None):
+        if tree_id:
+            display_tree = self.get_active_display_tree_meta(tree_id)
+            if not display_tree:
+                raise RuntimeError(f'DisplayTree not registered: {tree_id}')
+            # Is change tree? Follow separate code path:
+            if display_tree.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
+                return display_tree.change_tree.get_children(node, filter_criteria)
+
         tree_type: int = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
             child_list = self._master_gdrive.get_children(node, filter_criteria)
@@ -1176,15 +1185,15 @@ class CacheManager(HasLifecycle):
         parent_spid = SinglePathNodeIdentifier(parent_node.uid, parent_path, parent_node.get_tree_type())
         return SPIDNodePair(parent_spid, parent_node)
 
-    def get_ancestor_list_for_single_path_identifier(self, single_path_node_identifier: SinglePathNodeIdentifier,
-                                                     stop_at_path: Optional[str] = None) -> Deque[Node]:
+    def get_ancestor_list_for_spid(self, spid: SinglePathNodeIdentifier, stop_at_path: Optional[str] = None) -> Deque[Node]:
+
         ancestor_deque: Deque[Node] = deque()
-        ancestor: Node = self.get_node_for_uid(single_path_node_identifier.uid)
+        ancestor: Node = self.get_node_for_uid(spid.uid)
         if not ancestor:
-            logger.warning(f'get_ancestor_list_for_single_path_identifier(): Node not found: {single_path_node_identifier}')
+            logger.warning(f'get_ancestor_list_for_spid(): Node not found: {spid}')
             return ancestor_deque
 
-        parent_path: str = single_path_node_identifier.get_single_path()  # not actually parent's path until it enters loop
+        parent_path: str = spid.get_single_path()  # not actually parent's path until it enters loop
 
         while True:
             parent_path = self.derive_parent_path(parent_path)
