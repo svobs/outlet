@@ -501,7 +501,7 @@ class CacheManager(HasLifecycle):
             logger.info(f'[{tree_id}] Resetting subtree path to GDrive root')
             self.request_display_tree_ui_state(tree_id, spid=gdrive_root_spid, return_async=True)
 
-    # Subtree-level stuff
+    # DisplayTree stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def _is_manual_load_required(self, spid: SinglePathNodeIdentifier, is_startup: bool) -> bool:
@@ -752,6 +752,9 @@ class CacheManager(HasLifecycle):
     def get_active_display_tree_meta(self, tree_id) -> ActiveDisplayTreeMeta:
         return self._display_tree_dict.get(tree_id, None)
 
+    # PersistedCacheInfo stuff
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
     def get_cache_info_for_subtree(self, subtree_root: SinglePathNodeIdentifier, create_if_not_found: bool = False) \
             -> Optional[PersistedCacheInfo]:
         """Finds the cache which contains the given subtree, if there is one.
@@ -932,100 +935,13 @@ class CacheManager(HasLifecycle):
         else:
             raise RuntimeError(f'Unrecognized tree type ({tree_type}) for node {node}')
 
-    # Various public methods
+    # Getters: Nodes and node identifiers
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def show_tree(self, subtree_root: LocalNodeIdentifier) -> str:
-        if subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
-            return self._master_local.show_tree(subtree_root)
-        elif subtree_root.tree_type == TREE_TYPE_GDRIVE:
-            return self._master_gdrive.show_tree(subtree_root)
-        else:
-            assert False
-
-    def download_file_from_gdrive(self, node_uid: UID, requestor_id: str):
-        self._master_gdrive.download_file_from_gdrive(node_uid, requestor_id)
-
-    def execute_gdrive_load_op(self, op: GDriveDiskLoadOp):
-        self._master_gdrive.execute_load_op(op)
-
-    def _refresh_subtree(self, node_identifier: NodeIdentifier, tree_id: str):
-        """Called asynchronously via task executor"""
-        logger.debug(f'[{tree_id}] Refreshing subtree: {node_identifier}')
-        if node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
-            self._master_local.refresh_subtree(node_identifier, tree_id)
-        elif node_identifier.tree_type == TREE_TYPE_GDRIVE:
-            self._master_gdrive.refresh_subtree(node_identifier, tree_id)
-        else:
-            assert False
-
-    def _refresh_stats(self, subtree_root_uid: UID, tree_id: str):
-        """Called async via task exec (cacheman.enqueue_refresh_subtree_stats_task()) """
-        # get up-to-date object:
-        subtree_root_node: Node = self.get_node_for_uid(subtree_root_uid)
-
-        logger.debug(f'[{tree_id}] Refreshing stats for subtree: {subtree_root_node}')
-
-        if subtree_root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
-            self._master_local.refresh_subtree_stats(subtree_root_node, tree_id)
-        elif subtree_root_node.get_tree_type() == TREE_TYPE_GDRIVE:
-            self._master_gdrive.refresh_subtree_stats(subtree_root_node, tree_id)
-        else:
-            assert False
-
-        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
-        summary_msg: str = self._get_tree_summary(subtree_root_node)
-        dispatcher.send(signal=Signal.SET_STATUS, sender=tree_id, status_msg=summary_msg)
-
-    def _get_tree_summary(self, root_node: Node):
-        if not root_node:
-            logger.debug(f'No summary (tree does not exist)')
-            return 'Tree does not exist'
-        elif not root_node.is_stats_loaded():
-            logger.debug(f'No summary (stats not loaded): {root_node.node_identifier}')
-            return 'Loading stats...'
-        else:
-            if root_node.get_tree_type() == TREE_TYPE_GDRIVE:
-                if root_node.uid == GDRIVE_ROOT_UID:
-                    logger.debug('Generating summary for whole GDrive master tree')
-                    return self._master_gdrive.get_whole_tree_summary()
-                else:
-                    logger.debug(f'Generating summary for GDrive tree: {root_node.node_identifier}')
-                    assert isinstance(root_node, HasChildStats)
-                    size_hf = util.format.humanfriendlier_size(root_node.get_size_bytes())
-                    trashed_size_hf = util.format.humanfriendlier_size(root_node.trashed_bytes)
-                    return f'{size_hf} total in {root_node.file_count:n} nodes (including {trashed_size_hf} in ' \
-                           f'{root_node.trashed_file_count:n} trashed)'
-            else:
-                assert root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK
-                logger.debug(f'Generating summary for LocalDisk tree: {root_node.node_identifier}')
-                size_hf = util.format.humanfriendlier_size(root_node.get_size_bytes())
-                return f'{size_hf} total in {root_node.file_count:n} files and {root_node.dir_count:n} dirs'
-
-    def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[UserOp]:
-        return self._op_ledger.get_last_pending_op_for_node(node_uid)
-
-    def enqueue_op_list(self, op_list: Iterable[UserOp]):
-        """Attempt to add the given Ops to the execution tree. No need to worry whether some changes overlap or are redundant;
-         the OpLedger will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
-         that is scheduled for deletion."""
-        self._op_ledger.append_new_pending_op_batch(op_list)
-
-    def get_next_command(self) -> Optional[Command]:
-        # blocks !
-        self.wait_for_startup_done()
-        # also blocks !
-        return self._op_ledger.get_next_command()
-
-    def get_synced_gdrive_master_tree(self, tree_id: str):
-        """Will load from disk and sync latest changes from GDrive server before returning."""
-        self._master_gdrive.get_synced_master_tree()
-
-    def build_local_file_node(self, full_path: str, staging_path=None, must_scan_signature=False) -> Optional[LocalFileNode]:
-        return self._master_local.build_local_file_node(full_path, staging_path, must_scan_signature)
-
-    def build_local_dir_node(self, full_path: str, is_live: bool = True) -> LocalDirNode:
-        return self._master_local.build_local_dir_node(full_path, is_live)
+    def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None, override_load_check: bool = False) -> UID:
+        """Deterministically gets or creates a UID corresponding to the given path string"""
+        assert full_path and isinstance(full_path, str)
+        return self._master_local.get_uid_for_path(full_path, uid_suggestion, override_load_check)
 
     def get_goog_id_for_parent(self, node: GDriveNode) -> str:
         """Fails if there is not exactly 1 parent"""
@@ -1044,28 +960,6 @@ class CacheManager(HasLifecycle):
 
     def get_uid_for_change_tree_node(self, tree_type: int, single_path: Optional[str], op: Optional[UserOpType]) -> UID:
         return self.change_tree_uid_mapper.get_uid_for(tree_type, single_path, op)
-
-    def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None, override_load_check: bool = False) -> UID:
-        """Deterministically gets or creates a UID corresponding to the given path string"""
-        assert full_path and isinstance(full_path, str)
-        return self._master_local.get_uid_for_path(full_path, uid_suggestion, override_load_check)
-
-    def _read_single_node_from_disk_for_local_path(self, full_path: str) -> Node:
-        if not file_util.is_normalized(full_path):
-            full_path = file_util.normalize_path(full_path)
-            logger.debug(f'Normalized path: {full_path}')
-
-        assert self._master_local
-        node = self._master_local.load_single_node_for_path(full_path)
-        return node
-
-    def read_single_node_from_disk_for_uid(self, uid: UID, tree_type: int) -> Optional[Node]:
-        if tree_type == TREE_TYPE_LOCAL_DISK:
-            raise InvalidOperationError(f'read_single_node_from_disk_for_uid(): not yet supported: {tree_type}')
-        elif tree_type == TREE_TYPE_GDRIVE:
-            return self._master_gdrive.read_single_node_from_disk_for_uid(uid)
-        else:
-            raise RuntimeError(f'Unknown tree type: {tree_type} for UID {uid}')
 
     def get_uid_list_for_goog_id_list(self, goog_id_list: List[str]) -> List[UID]:
         return self._master_gdrive.get_uid_list_for_goog_id_list(goog_id_list)
@@ -1243,6 +1137,9 @@ class CacheManager(HasLifecycle):
         else:
             raise RuntimeError(f'Unknown tree type: {subtree_root.tree_type} for {subtree_root}')
 
+    # GDrive-specific
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
     def get_gdrive_user_for_permission_id(self, permission_id: str):
         return self._master_gdrive.get_gdrive_user_for_permission_id(permission_id)
 
@@ -1260,6 +1157,9 @@ class CacheManager(HasLifecycle):
 
     def get_gdrive_client(self):
         return self._master_gdrive.gdrive_client
+
+    # Drag & drop
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def drop_dragged_nodes(self, src_tree_id: str, src_sn_list: List[SPIDNodePair], is_into: bool, dst_tree_id: str, dst_sn: SPIDNodePair):
         logger.info(f'Got drop of {len(src_sn_list)} nodes from "{src_tree_id}" -> "{dst_tree_id}" is_into={is_into}')
@@ -1298,3 +1198,117 @@ class CacheManager(HasLifecycle):
             if dst_sn.node.is_parent_of(sn.node):
                 return True
         return False
+
+    # Various public methods
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def show_tree(self, subtree_root: LocalNodeIdentifier) -> str:
+        if subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
+            return self._master_local.show_tree(subtree_root)
+        elif subtree_root.tree_type == TREE_TYPE_GDRIVE:
+            return self._master_gdrive.show_tree(subtree_root)
+        else:
+            assert False
+
+    def download_file_from_gdrive(self, node_uid: UID, requestor_id: str):
+        self._master_gdrive.download_file_from_gdrive(node_uid, requestor_id)
+
+    def execute_gdrive_load_op(self, op: GDriveDiskLoadOp):
+        self._master_gdrive.execute_load_op(op)
+
+    def _refresh_subtree(self, node_identifier: NodeIdentifier, tree_id: str):
+        """Called asynchronously via task executor"""
+        logger.debug(f'[{tree_id}] Refreshing subtree: {node_identifier}')
+        if node_identifier.tree_type == TREE_TYPE_LOCAL_DISK:
+            self._master_local.refresh_subtree(node_identifier, tree_id)
+        elif node_identifier.tree_type == TREE_TYPE_GDRIVE:
+            self._master_gdrive.refresh_subtree(node_identifier, tree_id)
+        else:
+            assert False
+
+    def _refresh_stats(self, subtree_root_uid: UID, tree_id: str):
+        """Called async via task exec (cacheman.enqueue_refresh_subtree_stats_task()) """
+        # get up-to-date object:
+        subtree_root_node: Node = self.get_node_for_uid(subtree_root_uid)
+
+        logger.debug(f'[{tree_id}] Refreshing stats for subtree: {subtree_root_node}')
+
+        if subtree_root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
+            self._master_local.refresh_subtree_stats(subtree_root_node, tree_id)
+        elif subtree_root_node.get_tree_type() == TREE_TYPE_GDRIVE:
+            self._master_gdrive.refresh_subtree_stats(subtree_root_node, tree_id)
+        else:
+            assert False
+
+        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
+        summary_msg: str = self._get_tree_summary(subtree_root_node)
+        dispatcher.send(signal=Signal.SET_STATUS, sender=tree_id, status_msg=summary_msg)
+
+    def _get_tree_summary(self, root_node: Node):
+        if not root_node:
+            logger.debug(f'No summary (tree does not exist)')
+            return 'Tree does not exist'
+        elif not root_node.is_stats_loaded():
+            logger.debug(f'No summary (stats not loaded): {root_node.node_identifier}')
+            return 'Loading stats...'
+        else:
+            if root_node.get_tree_type() == TREE_TYPE_GDRIVE:
+                if root_node.uid == GDRIVE_ROOT_UID:
+                    logger.debug('Generating summary for whole GDrive master tree')
+                    return self._master_gdrive.get_whole_tree_summary()
+                else:
+                    logger.debug(f'Generating summary for GDrive tree: {root_node.node_identifier}')
+                    assert isinstance(root_node, HasChildStats)
+                    size_hf = util.format.humanfriendlier_size(root_node.get_size_bytes())
+                    trashed_size_hf = util.format.humanfriendlier_size(root_node.trashed_bytes)
+                    return f'{size_hf} total in {root_node.file_count:n} nodes (including {trashed_size_hf} in ' \
+                           f'{root_node.trashed_file_count:n} trashed)'
+            else:
+                assert root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK
+                logger.debug(f'Generating summary for LocalDisk tree: {root_node.node_identifier}')
+                size_hf = util.format.humanfriendlier_size(root_node.get_size_bytes())
+                return f'{size_hf} total in {root_node.file_count:n} files and {root_node.dir_count:n} dirs'
+
+    def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[UserOp]:
+        return self._op_ledger.get_last_pending_op_for_node(node_uid)
+
+    def enqueue_op_list(self, op_list: Iterable[UserOp]):
+        """Attempt to add the given Ops to the execution tree. No need to worry whether some changes overlap or are redundant;
+         the OpLedger will sort that out - although it will raise an error if it finds incompatible changes such as adding to a tree
+         that is scheduled for deletion."""
+        self._op_ledger.append_new_pending_op_batch(op_list)
+
+    def get_next_command(self) -> Optional[Command]:
+        # blocks !
+        self.wait_for_startup_done()
+        # also blocks !
+        return self._op_ledger.get_next_command()
+
+    def sync_and_get_gdrive_master_tree(self, tree_id: str):
+        """Will load from disk and sync latest changes from GDrive server before returning."""
+        self._master_gdrive.get_synced_master_tree()
+
+    def build_local_file_node(self, full_path: str, staging_path=None, must_scan_signature=False) -> Optional[LocalFileNode]:
+        return self._master_local.build_local_file_node(full_path, staging_path, must_scan_signature)
+
+    def build_local_dir_node(self, full_path: str, is_live: bool = True) -> LocalDirNode:
+        return self._master_local.build_local_dir_node(full_path, is_live)
+
+    def _read_single_node_from_disk_for_local_path(self, full_path: str) -> Node:
+        """Consults disk cache directly, skipping memory cache"""
+        if not file_util.is_normalized(full_path):
+            full_path = file_util.normalize_path(full_path)
+            logger.debug(f'Normalized path: {full_path}')
+
+        assert self._master_local
+        node = self._master_local.load_single_node_for_path(full_path)
+        return node
+
+    def read_single_node_from_disk_for_uid(self, uid: UID, tree_type: int) -> Optional[Node]:
+        """Consults disk cache directly, skipping memory cache"""
+        if tree_type == TREE_TYPE_LOCAL_DISK:
+            raise InvalidOperationError(f'read_single_node_from_disk_for_uid(): not yet supported: {tree_type}')
+        elif tree_type == TREE_TYPE_GDRIVE:
+            return self._master_gdrive.read_single_node_from_disk_for_uid(uid)
+        else:
+            raise RuntimeError(f'Unknown tree type: {tree_type} for UID {uid}')

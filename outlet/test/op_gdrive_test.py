@@ -122,7 +122,7 @@ class OpGDriveTest(OpTestBase):
 
         # Now download latest changes from server so our local cacheman is up-to-date
         logger.info('Syncing latest changes from GDrive server...')
-        self.backend.cacheman.get_synced_gdrive_master_tree(ID_GLOBAL_CACHE)
+        self.backend.cacheman.sync_and_get_gdrive_master_tree(ID_GLOBAL_CACHE)
 
     # TESTS
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼

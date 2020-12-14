@@ -24,7 +24,7 @@ class CommandContext:
         if needs_gdrive:
             self.gdrive_client: Optional[GDriveClient] = self.cacheman.get_gdrive_client()
             # This will sync latest changes before returning, which will be somewhat slow but should keep us consistent
-            self.gdrive_tree: Optional[GDriveWholeTree] = self.cacheman.get_synced_gdrive_master_tree(tree_id=tree_id)
+            self.gdrive_tree: Optional[GDriveWholeTree] = self.cacheman.sync_and_get_gdrive_master_tree(tree_id=tree_id)
         else:
             self.gdrive_client: Optional[GDriveClient] = None
             self.gdrive_tree: Optional[GDriveWholeTree] = None
