@@ -37,6 +37,10 @@ class UserOpType(IntEnum):
 USER_OP_TYPES = [UserOpType.CP, UserOpType.RM, UserOpType.UP, UserOpType.MV]
 
 
+def get_uid_for_op_and_tree_type(op_type: UserOpType, tree_type: int):
+    return UID(tree_type*10 + op_type)
+
+
 # Class UserOpRef
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 

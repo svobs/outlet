@@ -13,7 +13,7 @@ from model.node.node import Node, SPIDNodePair
 from model.node.trait import HasChildStats
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
-from model.user_op import USER_OP_TYPES, UserOp, UserOpType
+from model.user_op import get_uid_for_op_and_tree_type, USER_OP_TYPES, UserOp, UserOpType
 from ui.signal import Signal
 from model.display_tree.filter_criteria import FilterCriteria
 from util.simple_tree import NodeAlreadyPresentError, SimpleTree
@@ -28,6 +28,7 @@ class ChangeDisplayTree(DisplayTree):
     CLASS ChangeDisplayTree
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, backend, state, show_whole_forest=False):
         # Root node will never be displayed in the UI, but tree requires a root node, as does parent class
         super().__init__(backend, state)
@@ -36,7 +37,7 @@ class ChangeDisplayTree(DisplayTree):
 
         # Root node is not even displayed, so is not terribly important.
         # Do not use its original UID, so as to disallow it from interfering with lookups
-        root_node = ContainerNode(self.get_root_identifier(), nid=SUPER_ROOT_UID)
+        root_node = ContainerNode(self.get_root_identifier(), nid=self.root_uid)
         logger.debug(f'[{self.tree_id}] ChangeDisplayTree: inserting root node: {root_node}')
         self._category_tree.add_node(root_node, parent=None)
 
@@ -106,15 +107,17 @@ class ChangeDisplayTree(DisplayTree):
         tree_type: int = sn.spid.tree_type
         assert tree_type != TREE_TYPE_MIXED, f'For {sn.spid}'
 
-        last_pre_ancestor_nid: UID = self._build_tree_nid(tree_type, self.root_path, op_type)
-        last_pre_ancestor = self._category_tree.get_node(last_pre_ancestor_nid)
-        if last_pre_ancestor:
-            assert isinstance(last_pre_ancestor, ContainerNode)
-            return last_pre_ancestor
+        cat_node_nid: UID = get_uid_for_op_and_tree_type(op_type, tree_type)
+        cat_node = self._category_tree.get_node(cat_node_nid)
+        if cat_node:
+            logger.debug(f'[{self.tree_id}] Found existing CategoryNode with OpType={op_type.name} nid="{cat_node_nid}"')
+            assert isinstance(cat_node, ContainerNode)
+            return cat_node
 
         # else we need to create pre-ancestors...
 
         parent_node = self.get_root_node()
+
         if self.show_whole_forest:
             # Create tree type root (e.g. 'GDrive' or 'Local Disk')
             nid = self._build_tree_nid(tree_type, None, None)
@@ -126,14 +129,13 @@ class ChangeDisplayTree(DisplayTree):
                 self._category_tree.add_node(node=treetype_node, parent=parent_node)
             parent_node = treetype_node
 
-        cat_node = self._category_tree.get_node(last_pre_ancestor_nid)
-        if not cat_node:
-            # Create category display node. This may be the "last pre-ancestor". (Use root node UID so its context menu points to root)
-            cat_node = CategoryNode(node_identifier=SinglePathNodeIdentifier(self.get_root_node().uid, self.root_path, tree_type), op_type=op_type,
-                                    nid=last_pre_ancestor_nid)
-            logger.debug(f'[{self.tree_id}] Inserting new Category node with nid="{last_pre_ancestor_nid}": {cat_node.node_identifier}')
-            cat_node.set_parent_uids(parent_node.identifier)
-            self._category_tree.add_node(node=cat_node, parent=parent_node)
+        assert not cat_node
+        # Create category display node. This may be the "last pre-ancestor". (Use root node UID so its context menu points to root)
+        cat_node = CategoryNode(node_identifier=SinglePathNodeIdentifier(self.get_root_node().uid, self.root_path, tree_type),
+                                op_type=op_type, nid=cat_node_nid)
+        logger.debug(f'[{self.tree_id}] Inserting new CategoryNode with OpType={op_type.name} nid={cat_node_nid} {cat_node.node_identifier}')
+        cat_node.set_parent_uids(parent_node.identifier)
+        self._category_tree.add_node(node=cat_node, parent=parent_node)
         parent_node = cat_node
 
         # this is the last pre-ancestor.
@@ -152,20 +154,19 @@ class ChangeDisplayTree(DisplayTree):
             # Go up one dir:
             full_path: str = str(pathlib.Path(full_path).parent)
             nid = self._build_tree_nid(tree_type, full_path, op_type)
-            parent = self._category_tree.get_node(nid=nid)
-            if parent:
+            ancestor = self._category_tree.get_node(nid=nid)
+            if ancestor:
                 break
             else:
                 ancestor_spid = SinglePathNodeIdentifier(NULL_UID, full_path, tree_type)
-                stack.append(ContainerNode(ancestor_spid, nid=nid))
+                ancestor = ContainerNode(ancestor_spid, nid=nid)
+                stack.append(ancestor)
 
         # Walk down the ancestor list and create a node for each ancestor dir:
-        assert parent
         while len(stack) > 0:
             child = stack.pop()
             if SUPER_DEBUG:
                 logger.info(f'[{self.tree_id}] Inserting new dummy ancestor: node: {child} under parent: {parent}')
-            child.set_parent_uids(parent.identifier)
             self._category_tree.add_node(node=child, parent=parent)
             parent = child
 
@@ -175,11 +176,11 @@ class ChangeDisplayTree(DisplayTree):
         parent_path = sn.spid.get_single_parent_path()
 
         # 1. Check for "real" nodes (which use plain UIDs for identifiers):
-        for parent_uid in sn.node.get_parent_uids():
-            parent = self._category_tree.get_node(nid=parent_uid)
-            assert not parent or isinstance(parent, Node), f'Expected Node but found {type(parent)}: {parent} (spid: {sn.spid}'
-            if parent and parent_path in parent.get_path_list():
-                return parent
+        # for parent_uid in sn.node.get_parent_uids():
+        #     parent = self._category_tree.get_node(nid=parent_uid)
+        #     assert not parent or isinstance(parent, Node), f'Expected Node but found {type(parent)}: {parent} (spid: {sn.spid}'
+        #     if parent and parent_path in parent.get_path_list():
+        #         return parent
 
         # 1. Check for "fake" nodes (which use tree-dependent NIDs):
         nid = self._build_tree_nid(sn.spid.tree_type, parent_path, op_type)
@@ -207,7 +208,7 @@ class ChangeDisplayTree(DisplayTree):
         # We can easily derive the UID/NID of the node's parent. Check to see if it exists in the tree - if so, we can save a lot of work.
         parent: Node = self._get_parent_in_tree(sn, op_type_for_display)
         if parent:
-            logger.debug(f'[{self.tree_id}] Parent was already added to tree; adding new node as its child: "{sn.node.node_identifier}"')
+            logger.debug(f'[{self.tree_id}] Parent was already added to tree ({parent.uid}); adding new child: "{sn.node.node_identifier}"')
         else:
             parent: Node = self._get_or_create_pre_ancestors(sn, op_type_for_display)
 
@@ -267,7 +268,7 @@ class ChangeDisplayTree(DisplayTree):
         else:
             cat_map = {}
         for child in self._category_tree.children(identifier):
-            assert isinstance(child, CategoryNode), f'For {child}'
+            # assert isinstance(child, CategoryNode), f'For {child}'
             cat_count += 1
             cat_map[child.op_type] = f'{child.name}: {child.get_summary()}'
         if cat_count:
@@ -277,6 +278,7 @@ class ChangeDisplayTree(DisplayTree):
 
     # FIXME: find new home for this
     def get_summary(self) -> str:
+        # FIXME: this is broken
         if self.show_whole_forest:
             # need to preserve ordering...
             type_summaries = []

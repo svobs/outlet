@@ -484,7 +484,7 @@ class CacheManager(HasLifecycle):
         self.backend.executor.submit_async_task(self._refresh_stats, root_uid, tree_id)
 
     def _on_gdrive_whole_tree_reloaded(self, sender: str):
-        # If GDrive was reloaded, our previous selection was almost certainly invalid. Just reset all open GDrive trees to GDrive root.
+        # If GDrive cache was reloaded, our previous selection was almost certainly invalid. Just reset all open GDrive trees to GDrive root.
         logger.info(f'Received signal: "{Signal.GDRIVE_RELOADED.name}"')
 
         tree_id_list: List[str] = []
@@ -494,8 +494,8 @@ class CacheManager(HasLifecycle):
 
         gdrive_root_spid = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
         for tree_id in tree_id_list:
-            logger.info(f'[{tree_id}] Resetting path to GDrive root')
-            self.request_display_tree_ui_state(tree_id, spid=gdrive_root_spid)
+            logger.info(f'[{tree_id}] Resetting subtree path to GDrive root')
+            self.request_display_tree_ui_state(tree_id, spid=gdrive_root_spid, return_async=True)
 
     # Subtree-level stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -516,6 +516,7 @@ class CacheManager(HasLifecycle):
         return True
 
     def register_change_display_tree(self, change_display_tree: ChangeDisplayTree):
+        logger.info(f'Registering ChagneDisplayTree: {change_display_tree.tree_id}')
         meta = ActiveDisplayTreeMeta(self.backend, change_display_tree.state)
         meta.change_tree = change_display_tree
         self._display_tree_dict[change_display_tree.tree_id] = meta
@@ -523,6 +524,12 @@ class CacheManager(HasLifecycle):
     def request_display_tree_ui_state(self, tree_id: str, return_async: bool, user_path: str = None,
                                       spid: Optional[SinglePathNodeIdentifier] = None, is_startup: bool = False) -> Optional[DisplayTreeUiState]:
         logger.debug(f'[{tree_id}] Got request to load display tree (user_path={user_path}, spid: {spid}, is_startup={is_startup})')
+
+        display_tree = self.get_active_display_tree_meta(tree_id)
+        if display_tree and display_tree.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
+            # ChangeDisplayTrees are already loaded, and live capture should not apply
+            logger.warning(f'request_display_tree_ui_state(): this is a CategoryDisplayTree. Did you mean to call this method?')
+            return display_tree.state
 
         root_path_persister = None
 
@@ -704,7 +711,9 @@ class CacheManager(HasLifecycle):
             # This will be carried across gRPC if needed
             dispatcher.send(signal=Signal.LOAD_SUBTREE_STARTED, sender=tree_id)
 
-        if display_tree_meta.root_exists:
+        if display_tree_meta.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
+            logger.info(f'Display tree is a category tree and thus is already loaded: {tree_id}')
+        elif display_tree_meta.root_exists:
             spid = display_tree_meta.root_sn.spid
             if spid.tree_type == TREE_TYPE_LOCAL_DISK:
                 self._master_local.get_display_tree(spid, tree_id)

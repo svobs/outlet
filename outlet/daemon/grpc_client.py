@@ -131,8 +131,7 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             kwargs['enable'] = signal.ui_enablement.enable
         elif signal.sig_int == Signal.ERROR_OCCURRED:
             kwargs['msg'] = signal.error_occurred.msg
-            if signal.error_occurred.HasField('secondary_msg'):
-                kwargs['secondary_msg'] = signal.error_occurred.secondary_msg
+            kwargs['secondary_msg'] = signal.error_occurred.secondary_msg
         elif signal.sig_int == Signal.NODE_UPSERTED:
             kwargs['node'] = Converter.node_from_grpc(signal.node)
         elif signal.sig_int == Signal.NODE_REMOVED:

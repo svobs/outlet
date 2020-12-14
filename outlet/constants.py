@@ -191,6 +191,8 @@ assert SUPER_ROOT_UID == 1
 assert LOCAL_ROOT_UID == 2
 assert GDRIVE_ROOT_UID == 3
 
+MIN_FREE_UID = 100
+
 
 class TreeDisplayMode(IntEnum):
     ONE_TREE_ALL_ITEMS = 1
