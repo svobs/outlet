@@ -163,7 +163,7 @@ class CacheManager(HasLifecycle):
 
         self.change_tree_uid_mapper = UidChangeTreeMapper(self.backend)
 
-        self.caches_by_type: CacheInfoByType = CacheInfoByType()
+        self._caches_by_type: CacheInfoByType = CacheInfoByType()
 
         self.enable_load_from_disk = backend.config.get(CFG_ENABLE_LOAD_FROM_DISK)
         self.enable_save_to_disk = backend.config.get('cache.enable_cache_save')
@@ -205,7 +205,7 @@ class CacheManager(HasLifecycle):
         self._startup_done: threading.Event = threading.Event()
 
         # (Optional) variables needed for producer/consumer behavior if Load All Caches needed
-        self.load_all_caches_done: threading.Event = threading.Event()
+        self._load_all_caches_done: threading.Event = threading.Event()
         self._load_all_caches_in_process: bool = False
 
         self.connect_dispatch_listener(signal=Signal.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
@@ -288,6 +288,7 @@ class CacheManager(HasLifecycle):
 
             # Now load all caches (if configured):
             if self.enable_load_from_disk and self.load_all_caches_on_startup:
+                # TODO: make this into async task
                 self._load_all_caches()
             else:
                 logger.info(f'Configured not to load on startup')
@@ -317,7 +318,7 @@ class CacheManager(HasLifecycle):
                 logger.info(f'Skipping non-existent cache info entry: {info.cache_location} (for subtree: {info.subtree_root})')
                 skipped_count += 1
                 continue
-            existing = self.caches_by_type.get_single(info.subtree_root.tree_type, info.subtree_root.get_path_list()[0])
+            existing = self._caches_by_type.get_single(info.subtree_root.tree_type, info.subtree_root.get_path_list()[0])
             if existing:
                 if info.sync_ts < existing.sync_ts:
                     logger.info(f'Skipping duplicate cache info entry: {existing.subtree_root}')
@@ -330,17 +331,28 @@ class CacheManager(HasLifecycle):
                 unique_cache_count += 1
 
             # Put into map to eliminate possible duplicates
-            self.caches_by_type.put_item(info)
+            self._caches_by_type.put_item(info)
 
         # Write back to cache if we need to clean things up:
         if skipped_count > 0:
-            caches = self.caches_by_type.get_all()
+            caches = self._caches_by_type.get_all()
             self._overwrite_all_caches_in_registry(caches)
 
         self._load_registry_done.set()
         dispatcher.send(signal=Signal.LOAD_REGISTRY_DONE, sender=ID_GLOBAL_CACHE)
 
         logger.info(f'{stopwatch} Found {unique_cache_count} existing caches (+ {skipped_count} skipped)')
+
+    def _get_cache_info_list_from_registry(self) -> List[CacheInfoEntry]:
+        with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as cache_registry_db:
+            if cache_registry_db.has_cache_info():
+                exisiting_caches = cache_registry_db.get_cache_info()
+                logger.debug(f'Found {len(exisiting_caches)} caches listed in registry')
+            else:
+                logger.debug('Registry has no caches listed')
+                exisiting_caches = []
+
+        return exisiting_caches
 
     def wait_for_load_registry_done(self, fail_on_timeout: bool = True):
         if self._load_registry_done.is_set():
@@ -369,9 +381,9 @@ class CacheManager(HasLifecycle):
         if self._load_all_caches_in_process:
             logger.info('Waiting for all caches to finish loading in other thread')
             # Wait for the other thread to complete. (With no timeout, it will never return):
-            if not self.load_all_caches_done.wait(CACHE_LOAD_TIMEOUT_SEC):
+            if not self._load_all_caches_done.wait(CACHE_LOAD_TIMEOUT_SEC):
                 logger.error('Timed out waiting for all caches to load!')
-        if self.load_all_caches_done.is_set():
+        if self._load_all_caches_done.is_set():
             # Other thread completed
             return
 
@@ -382,23 +394,23 @@ class CacheManager(HasLifecycle):
 
         # MUST read GDrive first, because currently we assign incrementing integer UIDs for local files dynamically,
         # and we won't know which are reserved until we have read in all the existing GDrive caches
-        existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_GDRIVE).values())
+        existing_caches: List[PersistedCacheInfo] = list(self._caches_by_type.get_second_dict(TREE_TYPE_GDRIVE).values())
         assert len(existing_caches) <= 1, f'Expected at most 1 GDrive cache in registry but found: {len(existing_caches)}'
 
-        local_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_LOCAL_DISK).values())
+        local_caches: List[PersistedCacheInfo] = list(self._caches_by_type.get_second_dict(TREE_TYPE_LOCAL_DISK).values())
         registry_needs_update = self._master_local.consolidate_local_caches(local_caches, ID_GLOBAL_CACHE)
         existing_caches += local_caches
 
         if registry_needs_update and self.enable_save_to_disk:
             self._overwrite_all_caches_in_registry(existing_caches)
-            logger.debug(f'Overwriting in-memory list ({len(self.caches_by_type)}) with {len(existing_caches)} entries')
-            self.caches_by_type.clear()
+            logger.debug(f'Overwriting in-memory list ({len(self._caches_by_type)}) with {len(existing_caches)} entries')
+            self._caches_by_type.clear()
             for cache in existing_caches:
-                self.caches_by_type.put_item(cache)
+                self._caches_by_type.put_item(cache)
 
         for cache_num, existing_disk_cache in enumerate(existing_caches):
             try:
-                self.caches_by_type.put_item(existing_disk_cache)
+                self._caches_by_type.put_item(existing_disk_cache)
                 logger.info(f'Init cache {(cache_num + 1)}/{len(existing_caches)}: id={existing_disk_cache.subtree_root}')
                 self._init_existing_cache(existing_disk_cache)
             except RuntimeError:
@@ -406,23 +418,12 @@ class CacheManager(HasLifecycle):
 
         logger.info(f'{stopwatch} Load All Caches complete')
         self._load_all_caches_in_process = False
-        self.load_all_caches_done.set()
+        self._load_all_caches_done.set()
 
     def _overwrite_all_caches_in_registry(self, cache_info_list: List[CacheInfoEntry]):
         logger.info(f'Overwriting all cache entries in persisted registry with {len(cache_info_list)} entries')
         with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as cache_registry_db:
             cache_registry_db.insert_cache_info(cache_info_list, append=False, overwrite=True)
-
-    def _get_cache_info_list_from_registry(self) -> List[CacheInfoEntry]:
-        with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as cache_registry_db:
-            if cache_registry_db.has_cache_info():
-                exisiting_caches = cache_registry_db.get_cache_info()
-                logger.debug(f'Found {len(exisiting_caches)} caches listed in registry')
-            else:
-                logger.debug('Registry has no caches listed')
-                exisiting_caches = []
-
-        return exisiting_caches
 
     def _init_existing_cache(self, existing_disk_cache: PersistedCacheInfo):
         if existing_disk_cache.is_loaded:
@@ -765,7 +766,7 @@ class CacheManager(HasLifecycle):
 
         if subtree_root.tree_type == TREE_TYPE_GDRIVE:
             # there is only 1 GDrive cache:
-            cache_info = self.caches_by_type.get_single(TREE_TYPE_GDRIVE, ROOT_PATH)
+            cache_info = self._caches_by_type.get_single(TREE_TYPE_GDRIVE, ROOT_PATH)
         elif subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
             cache_info = self.find_existing_cache_info_for_local_subtree(subtree_root.get_single_path())
         else:
@@ -784,7 +785,7 @@ class CacheManager(HasLifecycle):
         # Wait for registry to finish loading before attempting to read dict. Shouldn't take long.
         self.wait_for_load_registry_done()
 
-        existing_caches: List[PersistedCacheInfo] = list(self.caches_by_type.get_second_dict(TREE_TYPE_LOCAL_DISK).values())
+        existing_caches: List[PersistedCacheInfo] = list(self._caches_by_type.get_second_dict(TREE_TYPE_LOCAL_DISK).values())
 
         for existing_cache in existing_caches:
             # Is existing_cache an ancestor of target tree?
@@ -823,7 +824,7 @@ class CacheManager(HasLifecycle):
         """DEPRECATED: use get_cache_info_for_subtree() instead since it includes support for subtrees"""
         self.wait_for_load_registry_done()
 
-        existing = self.caches_by_type.get_single(subtree_root.tree_type, subtree_root.get_single_path())
+        existing = self._caches_by_type.get_single(subtree_root.tree_type, subtree_root.get_single_path())
         if existing:
             logger.debug(f'Found existing cache entry for subtree: {subtree_root}')
             return existing
@@ -857,7 +858,7 @@ class CacheManager(HasLifecycle):
         cache_info = PersistedCacheInfo(db_entry)
 
         # Save reference in memory
-        self.caches_by_type.put_item(cache_info)
+        self._caches_by_type.put_item(cache_info)
 
         return cache_info
 
