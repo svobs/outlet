@@ -3,7 +3,7 @@ from typing import Iterable, List, Optional
 from pydispatch import dispatcher
 import logging
 
-from app.backend import DiffResultTreeIds, OutletBackend
+from app.backend import DiffResultTreeIds, DisplayTreeRequest, OutletBackend
 from executor.central import CentralExecutor
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
@@ -66,15 +66,14 @@ class BackendIntegrated(OutletBackend):
     def get_uid_for_local_path(self, full_path: str, uid_suggestion: Optional[UID] = None, override_load_check: bool = False) -> UID:
         return self.cacheman.get_uid_for_local_path(full_path, uid_suggestion)
 
-    def request_display_tree(self, tree_id: str, return_async: bool, user_path: str = None, spid: SinglePathNodeIdentifier = None,
-                             is_startup: bool = False) -> Optional[DisplayTree]:
-        state = self.cacheman.request_display_tree_ui_state(tree_id, return_async, user_path, spid, is_startup)
+    def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTree]:
+        state = self.cacheman.request_display_tree_ui_state(request)
         if state:
             tree = state.to_display_tree(backend=self)
             return tree
         else:
             # will be sent async
-            assert return_async, f'No tree and return_async==False for {tree_id}'
+            assert request.return_async, f'No tree and return_async==False for {request.tree_id}'
             return None
 
     def start_subtree_load(self, tree_id: str):

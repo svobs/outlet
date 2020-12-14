@@ -23,7 +23,7 @@ from executor.central import CentralExecutor
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.node.node import Node
 from model.uid import UID
-from store.cache_manager import CacheManager
+from store.cache_manager import CacheManager, DisplayTreeRequest
 from store.uid.uid_generator import UidGenerator
 from ui.signal import Signal
 from util.has_lifecycle import HasLifecycle
@@ -39,6 +39,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     Backend gRPC Server
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, backend):
         HasLifecycle.__init__(self)
         assert isinstance(backend, BackendIntegrated)
@@ -160,14 +161,16 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
     def send_signal_via_grpc(self, signal: Signal, sender: str):
         self.send_signal_to_all(SignalMsg(sig_int=signal, sender=sender))
 
-    def request_display_tree_ui_state(self, request, context):
-        if request.HasField('spid'):
-            spid = Converter.node_identifier_from_grpc(request.spid)
+    def request_display_tree_ui_state(self, grpc_req, context):
+        if grpc_req.HasField('spid'):
+            spid = Converter.node_identifier_from_grpc(grpc_req.spid)
         else:
             spid = None
 
-        display_tree_ui_state: Optional[DisplayTreeUiState] = self.cacheman.request_display_tree_ui_state(
-            tree_id=request.tree_id, return_async=request.return_async, user_path=request.user_path, spid=spid, is_startup=request.is_startup)
+        request = DisplayTreeRequest(tree_id=grpc_req.tree_id, return_async=grpc_req.return_async, user_path=grpc_req.user_path, spid=spid,
+                                     is_startup=grpc_req.is_startup, tree_display_mode=grpc_req.tree_display_mode)
+
+        display_tree_ui_state: Optional[DisplayTreeUiState] = self.cacheman.request_display_tree_ui_state(request)
 
         response = RequestDisplayTree_Response()
         if display_tree_ui_state:

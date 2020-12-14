@@ -7,7 +7,7 @@ from pydispatch import dispatcher
 
 import grpc
 from app.backend import DiffResultTreeIds, OutletBackend
-from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_CLIENT_SLEEP_ON_FAILURE_SEC, GRPC_SERVER_ADDRESS
+from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_CLIENT_SLEEP_ON_FAILURE_SEC, GRPC_SERVER_ADDRESS, TreeDisplayMode
 from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.conversion import Converter
 from daemon.grpc.Outlet_pb2 import DeleteSubtree_Request, DownloadFromGDrive_Request, DragDrop_Request, GetAncestorList_Request, GetChildList_Request, \
@@ -25,6 +25,7 @@ from model.node.node import Node
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
+from store.cache_manager import DisplayTreeRequest
 from ui.signal import ID_CENTRAL_EXEC, Signal
 from model.display_tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
@@ -235,16 +236,15 @@ class BackendGRPCClient(OutletBackend):
         grpc_response = self.grpc_stub.get_uid_for_local_path(request)
         return UID(grpc_response.uid)
 
-    def request_display_tree(self, tree_id: str, return_async: bool, user_path: str = None, spid: SinglePathNodeIdentifier = None,
-                             is_startup: bool = False) -> Optional[DisplayTree]:
-
-        request = RequestDisplayTree_Request()
-        request.is_startup = is_startup
-        request.tree_id = tree_id
-        request.return_async = return_async
-        if user_path:
-            request.user_path = user_path
-        Converter.node_identifier_to_grpc(spid, request.spid)
+    def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTree]:
+        grpc_req = RequestDisplayTree_Request()
+        grpc_req.is_startup = request.is_startup
+        grpc_req.tree_id = request.tree_id
+        grpc_req.return_async = request.return_async
+        if request.user_path:
+            grpc_req.user_path = request.user_path
+        Converter.node_identifier_to_grpc(request.spid, grpc_req.spid)
+        grpc_req.tree_display_mode = request.tree_display_mode
 
         response = self.grpc_stub.request_display_tree_ui_state(request)
 

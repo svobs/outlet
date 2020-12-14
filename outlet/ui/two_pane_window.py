@@ -5,7 +5,6 @@ import gi
 from pydispatch import dispatcher
 from pydispatch.dispatcher import Any
 
-from app.backend import DiffResultTreeIds
 from ui.signal import ID_LEFT_TREE, ID_MERGE_TREE, ID_RIGHT_TREE, Signal
 from constants import APP_NAME, H_PAD, IconId, TreeDisplayMode
 from diff.diff_content_first import ContentFirstDiffer

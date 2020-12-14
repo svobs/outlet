@@ -111,23 +111,26 @@ class TreePanelController(HasLifecycle):
 
             # 1. TEAR DOWN:
             # Change in checkbox visibility means tearing out half the guts here and swapping them out...
-            logger.info(f'[{self.tree_id}] Rebuilding treeview!')
+            old_tree_id = self.tree_id
+            logger.info(f'[{old_tree_id}] Rebuilding treeview!')
             self.tree_ui_listeners.disconnect_gtk_listeners()
             self.tree_actions.shutdown()
 
             if new_tree:
-                logger.info(f'[{self.tree_id}] reload() with new tree: {new_tree}')
+                logger.info(f'[{old_tree_id}] reload() with new tree: {new_tree}')
                 self.set_tree(display_tree=new_tree)
-                tree_id = new_tree.tree_id
+                new_tree_id = new_tree.tree_id
                 checkboxes_visible = new_tree.state.show_checkboxes
             else:
                 logger.info(f'[{self.tree_id}] reload() with same tree')
                 self.set_tree(display_tree=self._display_tree)
-                tree_id = self._display_tree.tree_id
+                new_tree_id = self._display_tree.tree_id
                 checkboxes_visible = self.treeview_meta.has_checkboxes
 
             # 2. REBUILD:
-            self.treeview_meta = self.treeview_meta.but_with_checkboxes(checkboxes_visible, tree_id)
+            if old_tree_id != new_tree_id:
+                logger.debug(f'Changing tree_id from "{old_tree_id}" to "{new_tree_id}"')
+            self.treeview_meta = self.treeview_meta.but_with_checkboxes(checkboxes_visible, new_tree_id)
             self.display_store = DisplayStore(self, self.treeview_meta)
 
             new_treeview = tree_factory_templates.build_treeview(self.display_store, self.app.assets)

@@ -10,15 +10,17 @@ from pydispatch import dispatcher
 
 import util.format
 from command.cmd_interface import Command
-from constants import CACHE_LOAD_TIMEOUT_SEC, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, MAIN_REGISTRY_FILE_NAME, NULL_UID, \
+from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, \
+    MAIN_REGISTRY_FILE_NAME, NULL_UID, \
     OPS_FILE_NAME, ROOT_PATH, \
     SUPER_DEBUG, SUPER_ROOT_UID, TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK, TreeDisplayMode, UID_PATH_FILE_NAME
 from diff.change_maker import ChangeMaker
 from error import CacheNotLoadedError, GDriveItemNotFoundError, InvalidOperationError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
+from model.display_tree.build_struct import DisplayTreeRequest
 from model.display_tree.change_display_tree import ChangeDisplayTree
-from model.display_tree.display_tree import DisplayTreeUiState
+from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
@@ -49,8 +51,6 @@ from util.two_level_dict import TwoLevelDict
 
 logger = logging.getLogger(__name__)
 
-CFG_ENABLE_LOAD_FROM_DISK = 'cache.enable_cache_load'
-
 
 def ensure_cache_dir_path(config):
     cache_dir_path = get_resource_path(config.get('cache.cache_dir_path'))
@@ -71,7 +71,11 @@ class ActiveDisplayTreeMeta:
 
     def __init__(self, backend, state: DisplayTreeUiState):
         self.state: DisplayTreeUiState = state
+
         self.change_tree: Optional[ChangeDisplayTree] = None
+        """For ChangeDisplayTree only"""
+        self.src_tree_id: Optional[str] = None
+        """For ChangeDisplayTree only"""
 
         self.root_path_config_persister: Optional[RootPathConfigPersister] = None
 
@@ -515,49 +519,63 @@ class CacheManager(HasLifecycle):
             return False
         return True
 
-    def register_change_display_tree(self, change_display_tree: ChangeDisplayTree):
+    def register_change_tree(self, change_display_tree: ChangeDisplayTree, src_tree_id: str):
         logger.info(f'Registering ChagneDisplayTree: {change_display_tree.tree_id}')
         meta = ActiveDisplayTreeMeta(self.backend, change_display_tree.state)
         meta.change_tree = change_display_tree
+        meta.src_tree_id = src_tree_id
         self._display_tree_dict[change_display_tree.tree_id] = meta
 
-    def request_display_tree_ui_state(self, tree_id: str, return_async: bool, user_path: str = None,
-                                      spid: Optional[SinglePathNodeIdentifier] = None, is_startup: bool = False) -> Optional[DisplayTreeUiState]:
-        logger.debug(f'[{tree_id}] Got request to load display tree (user_path={user_path}, spid: {spid}, is_startup={is_startup})')
+        # I suppose we could return the full tree for the thick client, but let's try to sync its behavior of the thin client instead:
+        tree_stub = DisplayTree(self.backend, change_display_tree.state)
+        dispatcher.send(Signal.DISPLAY_TREE_CHANGED, sender=src_tree_id, tree=tree_stub)
 
-        display_tree = self.get_active_display_tree_meta(tree_id)
-        if display_tree and display_tree.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
-            # ChangeDisplayTrees are already loaded, and live capture should not apply
-            logger.warning(f'request_display_tree_ui_state(): this is a CategoryDisplayTree. Did you mean to call this method?')
-            return display_tree.state
+    def request_display_tree_ui_state(self, request: DisplayTreeRequest) -> Optional[DisplayTreeUiState]:
+        sender_tree_id = request.tree_id
+        spid = request.spid
+        logger.debug(f'[{sender_tree_id}] Got request to load display tree (user_path="{request.user_path}", spid={spid}, '
+                     f'is_startup={request.is_startup}, tree_display_mode={request.tree_display_mode}')
 
         root_path_persister = None
 
-        # Make RootPathMeta object. If neither SPID nor user_path supplied, read from config
-        if user_path:
-            root_path_meta: RootPathMeta = self._resolve_root_meta_from_path(user_path)
+        # Build RootPathMeta object from params. If neither SPID nor user_path supplied, read from config
+        if request.user_path:
+            root_path_meta: RootPathMeta = self._resolve_root_meta_from_path(request.user_path)
             spid = root_path_meta.root_spid
         elif spid:
             assert isinstance(spid, SinglePathNodeIdentifier), f'Expected SinglePathNodeIdentifier but got {type(spid)}'
             # params -> root_path_meta
             spid.normalize_paths()
             root_path_meta = RootPathMeta(spid, True)
-        elif is_startup:
+        elif request.is_startup:
             # root_path_meta -> params
-            root_path_persister = RootPathConfigPersister(backend=self.backend, tree_id=tree_id)
+            root_path_persister = RootPathConfigPersister(backend=self.backend, tree_id=sender_tree_id)
             root_path_meta = root_path_persister.read_from_config()
             spid = root_path_meta.root_spid
             if not spid:
-                raise RuntimeError(f"Unable to read valid root from config for: '{tree_id}'")
+                raise RuntimeError(f"Unable to read valid root from config for: '{sender_tree_id}'")
         else:
             raise RuntimeError('Invalid args supplied to get_display_tree_ui_state()!')
 
-        display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(tree_id)
+        response_tree_id = sender_tree_id
+        display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(sender_tree_id)
         if display_tree_meta:
-            if display_tree_meta.root_sn.spid == root_path_meta.root_spid:
+            if display_tree_meta.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
+                if request.tree_display_mode == TreeDisplayMode.ONE_TREE_ALL_ITEMS:
+                    logger.info(f'[{sender_tree_id}] Looks like we are exiting diff mode: switching back to tree_id={display_tree_meta.tree_id}')
+                    # Exiting diff mode -> look up prev tree
+                    assert display_tree_meta.src_tree_id, f'Expected not-null src_tree_id for {display_tree_meta.tree_id}'
+                    display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(display_tree_meta.src_tree_id)
+                    response_tree_id = display_tree_meta.src_tree_id
+                else:
+                    # ChangeDisplayTrees are already loaded, and live capture should not apply
+                    logger.warning(f'request_display_tree_ui_state(): this is a CategoryDisplayTree. Did you mean to call this method?')
+                    return self._return_display_tree_ui_state(display_tree_meta, request.return_async)
+
+            elif display_tree_meta.root_sn.spid == root_path_meta.root_spid:
                 # Requested the existing tree and root? Just return that:
                 logger.debug(f'Display tree already registered with given root; returning existing')
-                return self._return_display_tree_ui_state(display_tree_meta, return_async)
+                return self._return_display_tree_ui_state(display_tree_meta, request.return_async)
 
             if display_tree_meta.root_path_config_persister:
                 # If we started from a persister, continue persisting:
@@ -591,9 +609,9 @@ class CacheManager(HasLifecycle):
         # Now that we have the root, we have all the info needed to assemble the ActiveDisplayTreeMeta from the RootPathMeta.
         root_sn = SPIDNodePair(spid, node)
 
-        state = DisplayTreeUiState(tree_id, root_sn, root_path_meta.root_exists, root_path_meta.offending_path, TreeDisplayMode.ONE_TREE_ALL_ITEMS,
-                                   False)
-        if self._is_manual_load_required(root_sn.spid, is_startup):
+        state = DisplayTreeUiState(response_tree_id, root_sn, root_path_meta.root_exists, root_path_meta.offending_path,
+                                   TreeDisplayMode.ONE_TREE_ALL_ITEMS, False)
+        if self._is_manual_load_required(root_sn.spid, request.is_startup):
             state.needs_manual_load = True
 
         # easier to just create a whole new object rather than update old one:
@@ -606,16 +624,16 @@ class CacheManager(HasLifecycle):
             # Retain the persister for next time:
             display_tree_meta.root_path_config_persister = root_path_persister
 
-        self._display_tree_dict[tree_id] = display_tree_meta
+        self._display_tree_dict[response_tree_id] = display_tree_meta
 
         # Update monitoring state
         if self._is_live_capture_enabled:
             if display_tree_meta.root_exists:
-                self._live_monitor.start_or_update_capture(display_tree_meta.root_sn.spid, tree_id)
+                self._live_monitor.start_or_update_capture(display_tree_meta.root_sn.spid, response_tree_id)
             else:
-                self._live_monitor.stop_capture(tree_id)
+                self._live_monitor.stop_capture(response_tree_id)
 
-        return self._return_display_tree_ui_state(display_tree_meta, return_async)
+        return self._return_display_tree_ui_state(display_tree_meta, request.return_async)
 
     def _return_display_tree_ui_state(self, display_tree_meta, return_async: bool) -> Optional[DisplayTreeUiState]:
         state = display_tree_meta.state

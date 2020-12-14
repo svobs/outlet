@@ -67,6 +67,8 @@ PROJECT_DIR = '.'
 CONFIG_DIR = f'{PROJECT_DIR}/config'
 DEFAULT_CONFIG_PATH = f'{CONFIG_DIR}/outlet-default.cfg'
 
+CFG_ENABLE_LOAD_FROM_DISK = 'cache.enable_cache_load'
+
 # File icon names:
 ICON_GENERIC_FILE = 'store/local'
 ICON_FILE_RM = 'file-rm'

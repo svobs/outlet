@@ -4,11 +4,11 @@ import os
 from pydispatch import dispatcher
 
 from app.backend import DiffResultTreeIds
-from ui.signal import ID_CENTRAL_EXEC, Signal
 from constants import TREE_TYPE_LOCAL_DISK
 from diff.diff_content_first import ContentFirstDiffer
 from model.node.node import SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
+from ui.signal import ID_CENTRAL_EXEC, Signal
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 
@@ -72,11 +72,8 @@ class GlobalActions(HasLifecycle):
             dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=sender, msg='Populating UI trees...')
 
             # Send each side's result to its UI tree:
-            self.backend.cacheman.register_change_display_tree(change_tree_left)
-            self.backend.cacheman.register_change_display_tree(change_tree_right)
-
-            dispatcher.send(Signal.DISPLAY_TREE_CHANGED, sender=tree_id_left, tree=change_tree_left)
-            dispatcher.send(Signal.DISPLAY_TREE_CHANGED, sender=tree_id_right, tree=change_tree_right)
+            self.backend.cacheman.register_change_tree(change_tree_left, src_tree_id=tree_id_left)
+            self.backend.cacheman.register_change_tree(change_tree_right, src_tree_id=tree_id_right)
 
             # Send general notification that we are done:
             dispatcher.send(Signal.STOP_PROGRESS, sender=sender)

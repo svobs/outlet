@@ -7,7 +7,7 @@ from ui.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
 from util import file_util
 from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 
-from constants import GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
+from constants import GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
 from model.node_identifier import SinglePathNodeIdentifier
 from ui.dialog.base_dialog import BaseDialog
 from util.has_lifecycle import HasLifecycle
@@ -214,7 +214,7 @@ class RootDirPanel(HasLifecycle):
         logger.info(f'[{tree_id}] User entered root path: "{new_root_path}"')
 
         # Call into backend to update display tree. We'll get updated via the dispatcher
-        self.con.app.backend.create_display_tree_from_user_path(self.con.tree_id, new_root_path)
+        self.con.app.backend.create_display_tree_from_user_path(self.con.tree_id, new_root_path, TreeDisplayMode.ONE_TREE_ALL_ITEMS)
 
     def _on_change_btn_clicked(self, widget):
         if self._ui_enabled:

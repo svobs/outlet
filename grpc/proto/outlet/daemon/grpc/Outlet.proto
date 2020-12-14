@@ -158,6 +158,7 @@ message RequestDisplayTree_Request {
 	bool return_async = 3;
 	string user_path = 4;
 	NodeIdentifier spid = 5;
+	int32 tree_display_mode = 6;
 }
 
 message RequestDisplayTree_Response {
