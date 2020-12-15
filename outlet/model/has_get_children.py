@@ -12,5 +12,5 @@ class HasGetChildren(ABC):
     """
 
     @abstractmethod
-    def get_children(self, node: Node, filter_criteria = None) -> List[Node]:
+    def get_children(self, node: Node, filter_criteria=None) -> List[Node]:
         pass

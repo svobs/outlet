@@ -150,9 +150,11 @@ class ChangeDisplayTree(DisplayTree):
 
         # Walk up the source tree and compose a list of ancestors:
         logger.debug(f'[{self.tree_id}] Looking for ancestors for path "{full_path}"')
-        while full_path != self.root_path:
+        while True:
             # Go up one dir:
             full_path: str = str(pathlib.Path(full_path).parent)
+            if full_path == self.root_path:
+                break
             nid = self._build_tree_nid(tree_type, full_path, op_type)
             ancestor = self._category_tree.get_node(nid=nid)
             if ancestor:

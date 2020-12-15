@@ -46,7 +46,8 @@ class TreeDiffAction:
             dispatcher.send(Signal.SET_PROGRESS_TEXT, sender=sender, msg=msg)
 
             stopwatch_diff = Stopwatch()
-            differ = ContentFirstDiffer(backend, left_root_sn, right_root_sn, new_tree_ids.tree_id_left, new_tree_ids.tree_id_right)
+            differ = ContentFirstDiffer(backend, left_root_sn, right_root_sn, new_tree_ids.tree_id_left, new_tree_ids.tree_id_right,
+                                        tree_id_left, tree_id_right)
             change_tree_left, change_tree_right, = differ.diff(compare_paths_also=True)
             logger.info(f'{stopwatch_diff} Diff completed')
 

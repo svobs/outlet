@@ -1,3 +1,4 @@
+import copy
 import logging
 from typing import List, Optional
 
@@ -322,12 +323,12 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             # If displaying a diff and right root changed, reload left display
             # (note: right will update its own display)
             logger.debug(f'Detected that {self.tree_con_right.tree_id} changed root. Reloading {self.tree_con_left.tree_id}')
-            _reload_tree(self.tree_con_left)
+            self._reload_tree(self.tree_con_left)
 
         elif sender == self.tree_con_left.tree_id and self.tree_con_right.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             # Mirror of above:
             logger.debug(f'Detected that {self.tree_con_left.tree_id} changed root. Reloading {self.tree_con_right.tree_id}')
-            _reload_tree(self.tree_con_right)
+            self._reload_tree(self.tree_con_right)
 
         GLib.idle_add(self._set_default_button_bar)
 
@@ -361,12 +362,12 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def _on_diff_exited(self):
         logger.debug(f'Received signal {Signal.EXIT_DIFF_MODE.name}. Reloading both trees')
-        _reload_tree(self.tree_con_left)
-        _reload_tree(self.tree_con_right)
+        self._reload_tree(self.tree_con_left)
+        self._reload_tree(self.tree_con_right)
 
         GLib.idle_add(self._set_default_button_bar)
 
-
-def _reload_tree(tree_con):
-    # set new_tree=None to trigger a reload of the existing tree
-    tree_con.reload(new_tree=None, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS, hide_checkboxes=True)
+    def _reload_tree(self, tree_con):
+        """Reload the given tree in regular mode"""
+        new_tree = self.app.backend.create_existing_display_tree(tree_con.tree_id, TreeDisplayMode.ONE_TREE_ALL_ITEMS)
+        tree_con.reload(new_tree)

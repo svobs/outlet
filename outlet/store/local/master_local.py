@@ -517,7 +517,7 @@ class LocalDiskMasterStore(MasterStore):
         try:
             with self._struct_lock:
                 try:
-                    parent: LocalNode = self._memstore.master_tree.get_parent(node)
+                    parent: LocalNode = self._memstore.master_tree.get_parent(node.identifier)
                 except KeyError:
                     # parent not found in tree... maybe we can derive it however
                     parent_path: str = node.derive_parent_path()

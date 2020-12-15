@@ -93,6 +93,10 @@ class ActiveDisplayTreeMeta:
     def root_exists(self):
         return self.state.root_exists
 
+    @property
+    def offending_path(self):
+        return self.state.offending_path
+
 
 class CacheInfoByType(TwoLevelDict):
     """
@@ -539,6 +543,8 @@ class CacheManager(HasLifecycle):
 
         root_path_persister = None
 
+        display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(sender_tree_id)
+
         # Build RootPathMeta object from params. If neither SPID nor user_path supplied, read from config
         if request.user_path:
             root_path_meta: RootPathMeta = self._resolve_root_meta_from_path(request.user_path)
@@ -555,19 +561,22 @@ class CacheManager(HasLifecycle):
             spid = root_path_meta.root_spid
             if not spid:
                 raise RuntimeError(f"Unable to read valid root from config for: '{sender_tree_id}'")
+        elif display_tree_meta:
+            root_path_meta = RootPathMeta(display_tree_meta.root_sn.spid, display_tree_meta.root_exists, display_tree_meta.offending_path)
+            spid = root_path_meta.root_spid
         else:
-            raise RuntimeError('Invalid args supplied to get_display_tree_ui_state()!')
+            raise RuntimeError(f'Invalid args supplied to get_display_tree_ui_state()! (tree_id={sender_tree_id})')
 
         response_tree_id = sender_tree_id
-        display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(sender_tree_id)
         if display_tree_meta:
             if display_tree_meta.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
                 if request.tree_display_mode == TreeDisplayMode.ONE_TREE_ALL_ITEMS:
-                    logger.info(f'[{sender_tree_id}] Looks like we are exiting diff mode: switching back to tree_id={display_tree_meta.tree_id}')
+                    logger.info(f'[{sender_tree_id}] Looks like we are exiting diff mode: switching back to tree_id={display_tree_meta.src_tree_id}')
+                    response_tree_id = display_tree_meta.src_tree_id
+
                     # Exiting diff mode -> look up prev tree
                     assert display_tree_meta.src_tree_id, f'Expected not-null src_tree_id for {display_tree_meta.tree_id}'
                     display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(display_tree_meta.src_tree_id)
-                    response_tree_id = display_tree_meta.src_tree_id
                 else:
                     # ChangeDisplayTrees are already loaded, and live capture should not apply
                     logger.warning(f'request_display_tree_ui_state(): this is a CategoryDisplayTree. Did you mean to call this method?')
@@ -584,6 +593,7 @@ class CacheManager(HasLifecycle):
 
         # Try to retrieve the root node from the cache:
         if spid.tree_type == TREE_TYPE_LOCAL_DISK:
+            # TODO: hit memory cache instead if available
             node: Node = self._read_single_node_from_disk_for_local_path(spid.get_single_path())
             if node:
                 if spid.uid != node.uid:
@@ -1033,6 +1043,7 @@ class CacheManager(HasLifecycle):
         for child in child_list:
             self._update_node_icon(child)
 
+        logger.warning(f'[{tree_id}] Returning {len(child_list)} children for node: {node}')
         return child_list
 
     def _update_node_icon(self, node: Node):

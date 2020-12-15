@@ -6,7 +6,7 @@ from typing import Callable, DefaultDict, Dict, List, Tuple
 
 import store.local.content_hasher
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_MIXED
-from diff.change_maker import ChangeMaker, SPIDNodePair
+from diff.change_maker import ChangeMaker, OneSide, SPIDNodePair
 from model.display_tree.change_display_tree import ChangeDisplayTree
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.node import Node
@@ -38,10 +38,11 @@ class ContentFirstDiffer(ChangeMaker):
     CLASS ContentFirstDiffer
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, backend, left_tree_sn: SPIDNodePair, right_tree_sn: SPIDNodePair, tree_id_left: str, tree_id_right: str):
-        super().__init__(backend, left_tree_sn, right_tree_sn, tree_id_left, tree_id_right)
+    def __init__(self, backend, left_tree_sn: SPIDNodePair, right_tree_sn: SPIDNodePair, tree_id_left: str, tree_id_right: str,
+                 tree_id_left_src: str, tree_id_right_src: str):
+        super().__init__(backend, left_tree_sn, right_tree_sn, tree_id_left, tree_id_right, tree_id_left_src, tree_id_right_src)
 
-    def generate_one_side_diff_meta(self, root_sn: SPIDNodePair) -> OneSideDiffMeta:
+    def generate_one_side_diff_meta(self, side: OneSide) -> OneSideDiffMeta:
         """Let's build a path dict while we are building the MD5 dict. Performance gain expected to be small for local trees and moderate
         for GDrive trees"""
         sw = Stopwatch()
@@ -56,7 +57,7 @@ class ContentFirstDiffer(ChangeMaker):
                 meta.md5_dict[sn.node.md5].append(sn)
                 path = sn.spid.get_single_path()
                 if path in meta.path_dict:
-                    logger.warning(f'Found additional node at path: "{sn.spid.get_single_path()}" (tree={root_sn.spid}).')
+                    logger.warning(f'Found additional node at path: "{sn.spid.get_single_path()}" (tree={side.root_sn.spid}).')
                     on_file_found.count_duplicate_paths += 1
                 meta.path_dict[path].append(sn)
                 on_file_found.count_nodes += 1
@@ -66,7 +67,7 @@ class ContentFirstDiffer(ChangeMaker):
         on_file_found.count_nodes = 0
         on_file_found.count_duplicate_paths = 0
 
-        self.visit_each_sn_for_subtree(root_sn, on_file_found)
+        self.visit_each_sn_for_subtree(side.root_sn, on_file_found, side.tree_id_src)
 
         logger.info(f'{sw} Found {len(meta.md5_dict)} MD5s for {on_file_found.count_nodes} nodes (including '
                     f'{on_file_found.count_duplicate_paths} duplicate paths)')
@@ -152,8 +153,8 @@ class ContentFirstDiffer(ChangeMaker):
         # the set of MD5s already processed
         md5_set_stopwatch = Stopwatch()
 
-        meta_s: OneSideDiffMeta = self.generate_one_side_diff_meta(self.left_side.root_sn)
-        meta_r: OneSideDiffMeta = self.generate_one_side_diff_meta(self.right_side.root_sn)
+        meta_s: OneSideDiffMeta = self.generate_one_side_diff_meta(self.left_side)
+        meta_r: OneSideDiffMeta = self.generate_one_side_diff_meta(self.right_side)
 
         md5_union_set = meta_s.md5_dict.keys() | meta_r.md5_dict.keys()
         logger.debug(f'{md5_set_stopwatch} Found {len(md5_union_set)} combined MD5s')

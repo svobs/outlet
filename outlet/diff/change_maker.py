@@ -14,7 +14,6 @@ from model.node.node import Node, SPIDNodePair
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
-from ui.signal import ID_LEFT_TREE, ID_RIGHT_TREE
 from util import file_util
 
 logger = logging.getLogger(__name__)
@@ -27,12 +26,13 @@ class OneSide:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, backend, state, batch_uid: UID):
+    def __init__(self, backend, state, batch_uid: UID, tree_id_src: Optional[str]):
         self.backend = backend
         self.change_tree: ChangeDisplayTree = ChangeDisplayTree(backend, state)
         self._batch_uid: UID = batch_uid
         if not self._batch_uid:
             self._batch_uid: UID = self.backend.uid_generator.next_uid()
+        self.tree_id_src: Optional[str] = tree_id_src
         self._added_folders: Dict[str, SPIDNodePair] = {}
 
     @property
@@ -196,14 +196,14 @@ class ChangeMaker:
     """
 
     def __init__(self, backend, left_tree_root_sn: SPIDNodePair, right_tree_root_sn: SPIDNodePair,
-                 tree_id_left: str = ID_LEFT_TREE, tree_id_right: str = ID_RIGHT_TREE):
+                 tree_id_left: str = None, tree_id_right: str = None, tree_id_left_src: str = None, tree_id_right_src: str = None):
         self.backend = backend
         batch_uid: UID = self.backend.uid_generator.next_uid()
 
         left_state = DisplayTreeUiState(tree_id_left, left_tree_root_sn, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
-        self.left_side = OneSide(backend, left_state, batch_uid)
+        self.left_side = OneSide(backend, left_state, batch_uid, tree_id_left_src)
         right_state = DisplayTreeUiState(tree_id_right, right_tree_root_sn, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
-        self.right_side = OneSide(backend, right_state, batch_uid)
+        self.right_side = OneSide(backend, right_state, batch_uid, tree_id_right_src)
 
     def copy_nodes_left_to_right(self, src_sn_list: List[SPIDNodePair], sn_dst_parent: SPIDNodePair, op_type: UserOpType):
         """Populates the destination parent in "change_tree_right" with the given source nodes.
@@ -242,7 +242,8 @@ class ChangeMaker:
     def _build_child_spid(child_node: Node, parent_path: str):
         return SinglePathNodeIdentifier(child_node.uid, os.path.join(parent_path, child_node.name), tree_type=child_node.get_tree_type())
 
-    def visit_each_sn_for_subtree(self, subtree_root: SPIDNodePair, on_file_found: Callable[[SPIDNodePair], None]):
+    def visit_each_sn_for_subtree(self, subtree_root: SPIDNodePair, on_file_found: Callable[[SPIDNodePair], None], tree_id: Optional[str]):
+        """Note: here, param "tree_id" indicates which tree_id from which to request nodes from CacheManager (or None to indicate master cache)"""
         assert isinstance(subtree_root, SPIDNodePair), f'Expected SPIDNodePair but got {type(subtree_root)}: {subtree_root}'
         queue: Deque[SPIDNodePair] = collections.deque()
         queue.append(subtree_root)
@@ -251,7 +252,7 @@ class ChangeMaker:
             sn: SPIDNodePair = queue.popleft()
             if sn.node.is_live():  # avoid pending op nodes
                 if sn.node.is_dir():
-                    child_list = self.backend.cacheman.get_children(sn.node)
+                    child_list = self.backend.cacheman.get_children(sn.node, tree_id=tree_id)
                     if child_list:
                         for child in child_list:
                             if child.node_identifier.is_spid():
@@ -267,7 +268,7 @@ class ChangeMaker:
     def _get_file_sn_list_for_left_subtree(self, src_sn: SPIDNodePair):
         subtree_files: List[SPIDNodePair] = []
 
-        self.visit_each_sn_for_subtree(src_sn, lambda file_sn: subtree_files.append(file_sn))
+        self.visit_each_sn_for_subtree(src_sn, lambda file_sn: subtree_files.append(file_sn), self.left_side.tree_id_src)
         return subtree_files
 
     @staticmethod

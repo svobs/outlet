@@ -13,6 +13,7 @@ class RootPathMeta:
         assert isinstance(new_root_spid, SinglePathNodeIdentifier), f'Wrong instance: {type(new_root_spid)}: {new_root_spid}'
         if not new_root_spid or not new_root_spid.get_path_list():
             raise RuntimeError(f'Root path cannot be empty! (root_spid={new_root_spid})')
+
         self.root_spid: SinglePathNodeIdentifier = new_root_spid
         self.root_exists: bool = root_exists
         """False if root not found"""

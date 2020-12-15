@@ -67,6 +67,7 @@ class BackendIntegrated(OutletBackend):
         return self.cacheman.get_uid_for_local_path(full_path, uid_suggestion)
 
     def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTree]:
+        assert request.tree_id, f'tree_id cannot be null for {request}'
         state = self.cacheman.request_display_tree_ui_state(request)
         if state:
             tree = state.to_display_tree(backend=self)

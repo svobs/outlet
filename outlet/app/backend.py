@@ -85,6 +85,10 @@ class OutletBackend(HasLifecycle, ABC):
         request = DisplayTreeRequest(tree_id=tree_id, return_async=True, user_path=user_path, tree_display_mode=TreeDisplayMode.ONE_TREE_ALL_ITEMS)
         return self.request_display_tree(request)
 
+    def create_existing_display_tree(self, tree_id: str, tree_display_mode: TreeDisplayMode) -> Optional[DisplayTree]:
+        request = DisplayTreeRequest(tree_id=tree_id, return_async=False, tree_display_mode=tree_display_mode)
+        return self.request_display_tree(request)
+
     @abstractmethod
     def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTree]:
         """
