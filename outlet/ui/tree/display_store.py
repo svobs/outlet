@@ -8,6 +8,9 @@ from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
 
 import gi
+
+from util.ensure import ensure_uid
+
 gi.require_version("Gtk", "3.0")
 from gi.repository.Gtk import TreeIter, TreePath
 from gi.repository import Gtk, GLib
@@ -46,21 +49,21 @@ class DisplayStore:
         #   thus, having a parent which is either checked or unchecked overrides any presence in either of these two lists.
         # - At the same time as an item is checked, the checked & inconsistent state of its all ancestors must be recorded.
         # - The 'inconsistent_rows' list is needed for display purposes.
-        self.checked_rows: Dict[str, Node] = {}
-        self.inconsistent_rows: Dict[str, Node] = {}
-        self.displayed_rows: Dict[str, Node] = {}
+        self.checked_rows: Dict[UID, Node] = {}
+        self.inconsistent_rows: Dict[UID, Node] = {}
+        self.displayed_rows: Dict[UID, Node] = {}
         """Need to track these so that we can remove a node if its src node was removed"""
 
-        self.expanded_rows: Set[str] = set()
+        self.expanded_rows: Set[UID] = set()
         self.load_expanded_rows_from_config()
 
     def load_expanded_rows_from_config(self):
         try:
-            self.expanded_rows: Set[str] = set()
+            self.expanded_rows: Set[UID] = set()
             expanded_rows_str: Optional[str] = self.treeview_meta.config.get(DisplayStore._make_expanded_rows_config_key(self.tree_id))
             if expanded_rows_str:
                 for identifier in expanded_rows_str.split(CONFIG_DELIMITER):
-                    self.expanded_rows.add(identifier)
+                    self.expanded_rows.add(ensure_uid(identifier))
         except RuntimeError:
             logger.exception(f'[{self.tree_id}] Failed to load expanded rows from config')
 

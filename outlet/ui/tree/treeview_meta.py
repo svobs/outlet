@@ -164,7 +164,7 @@ class TreeViewMeta(HasLifecycle):
 
         if type(node) == CategoryNode:
             assert isinstance(node, CategoryNode)
-            logger.debug(f'[{self.tree_id}] Detected node expansion toggle: {node.op_type} = {is_expanded}')
+            logger.debug(f'[{self.tree_id}] Detected node expansion toggle: {node.op_type.name} = {is_expanded}')
             cfg_path = f'ui_state.{self.tree_id}.expanded_state.{node.op_type.name}'
             self.config.write(cfg_path, is_expanded)
         # Allow other listeners to handle this also:

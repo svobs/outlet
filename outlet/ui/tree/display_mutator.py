@@ -260,6 +260,9 @@ class DisplayMutator(HasLifecycle):
         logger.debug(f'[{self.con.tree_id}] Entered populate_root(): lazy={self.con.treeview_meta.lazy_load}'
                      f' expanded_rows={self.con.display_store.expanded_rows}')
 
+        # FIXME: duplicate nodes bug
+
+        # FIXME: keep-calm-and-carry-on
         # This may be a long task
         try:
             # Lock this so that node-upserted and node-removed callbacks don't interfere
