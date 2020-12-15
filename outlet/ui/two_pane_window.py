@@ -318,6 +318,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
 
     def _on_display_tree_changed_twopane(self, sender, tree: DisplayTree):
         logger.debug(f'Received signal: "{Signal.DISPLAY_TREE_CHANGED.name}"')
+        if tree.state.tree_display_mode != TreeDisplayMode.ONE_TREE_ALL_ITEMS:
+            return
 
         if sender == self.tree_con_right.tree_id and self.tree_con_left.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
             # If displaying a diff and right root changed, reload left display
