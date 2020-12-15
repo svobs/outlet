@@ -525,7 +525,7 @@ class CacheManager(HasLifecycle):
         return True
 
     def register_change_tree(self, change_display_tree: ChangeDisplayTree, src_tree_id: str):
-        logger.info(f'Registering ChagneDisplayTree: {change_display_tree.tree_id}')
+        logger.info(f'Registering ChangeDisplayTree: {change_display_tree.tree_id}')
         meta = ActiveDisplayTreeMeta(self.backend, change_display_tree.state)
         meta.change_tree = change_display_tree
         meta.src_tree_id = src_tree_id

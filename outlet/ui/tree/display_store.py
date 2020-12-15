@@ -14,7 +14,7 @@ from gi.repository import Gtk, GLib
 
 logger = logging.getLogger(__name__)
 
-CONFIG_DELIMITER = '\t'
+CONFIG_DELIMITER = ','
 
 
 class DisplayStore:
@@ -79,7 +79,11 @@ class DisplayStore:
         Returns:
             The data node (the contents of the hidden "data" column for the given row
         """
-        return self.model[tree_path][self.treeview_meta.col_num_data]
+        try:
+            return self.model[tree_path][self.treeview_meta.col_num_data]
+        except IndexError:
+            logger.exception(f'Failed to get node data for tree path ({tree_path})')
+            raise RuntimeError(f'An unexpected error occurred while getting node data!')
 
     def get_node_name(self, tree_path) -> str:
         """

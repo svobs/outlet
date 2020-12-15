@@ -44,7 +44,8 @@ class TreeUiListeners(HasLifecycle):
         self._ui_enabled = True
         self._drag_data: Optional[DragAndDropData] = None
         self._drop_data = None
-        self._connected_eids = []
+        self._connected_treeview_eids = []
+        self._connected_selection_eid = None
         self._context_menus_by_type = {TREE_TYPE_LOCAL_DISK: TreeContextMenu(self.con),
                                        TREE_TYPE_GDRIVE: TreeContextMenu(self.con),
                                        TREE_TYPE_MIXED: None}  # TODO: handle mixed
@@ -52,29 +53,41 @@ class TreeUiListeners(HasLifecycle):
     def start(self):
         logger.debug(f'[{self.con.tree_id}] TreeUiListeners start')
         HasLifecycle.start(self)
-        self.connect_dispatch_listener(Signal.TOGGLE_UI_ENABLEMENT, self._on_enable_ui_toggled)
+        self.connect_dispatch_listener(signal=Signal.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
 
         self.connect_dispatch_listener(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed_checkroot)
 
         # Status bar
         self.connect_dispatch_listener(signal=Signal.SET_STATUS, receiver=self._on_set_status)
 
+        if self.con.treeview_meta.can_modify_tree:
+            self.connect_dispatch_listener(signal=Signal.DRAG_AND_DROP, receiver=self._receive_drag_data_signal)
+            self.connect_dispatch_listener(signal=Signal.DRAG_AND_DROP_DIRECT, receiver=self._do_drop)
+            # ^^^ mostly for testing
+
+        self.connect_gtk_listeners()
+
+    def shutdown(self):
+        HasLifecycle.shutdown(self)
+        self.disconnect_gtk_listeners()
+
+    def connect_gtk_listeners(self):
         # TreeView
         # double-click or enter key:
         eid = self.con.tree_view.connect("row-activated", self._on_row_activated, self.con.tree_id)
-        self._connected_eids.append(eid)
+        self._connected_treeview_eids.append(eid)
         # right-click:
         eid = self.con.tree_view.connect('button-press-event', self._on_tree_button_press, self.con.tree_id)
-        self._connected_eids.append(eid)
+        self._connected_treeview_eids.append(eid)
         # other keys like 'Del'
         eid = self.con.tree_view.connect('key-press-event', self._on_key_press, self.con.tree_id)
-        self._connected_eids.append(eid)
+        self._connected_treeview_eids.append(eid)
         # user clicked on the expand
         eid = self.con.tree_view.connect('row-expanded', self._on_toggle_gtk_row_expanded_state, True)
-        self._connected_eids.append(eid)
+        self._connected_treeview_eids.append(eid)
         eid = self.con.tree_view.connect('row-collapsed', self._on_toggle_gtk_row_expanded_state, False)
-        self._connected_eids.append(eid)
-        self.con.tree_view.get_selection().connect("changed", self._on_tree_selection_changed)
+        self._connected_treeview_eids.append(eid)
+        self._connected_selection_eid = self.con.tree_view.get_selection().connect("changed", self._on_tree_selection_changed)
 
         if self.con.treeview_meta.can_modify_tree:
             action_mask = Gdk.DragAction.DEFAULT | Gdk.DragAction.MOVE | Gdk.DragAction.COPY
@@ -85,23 +98,21 @@ class TreeUiListeners(HasLifecycle):
             self.con.tree_view.drag_source_set_target_list(None)
             self.con.tree_view.drag_dest_add_text_targets()
             self.con.tree_view.drag_source_add_text_targets()
-            self.con.tree_view.connect("drag-data-received", self._drag_data_received)
-            self.con.tree_view.connect("drag-data-get", self._drag_data_get)
+            eid = self.con.tree_view.connect("drag-data-received", self._drag_data_received)
+            self._connected_treeview_eids.append(eid)
+            eid = self.con.tree_view.connect("drag-data-get", self._drag_data_get)
+            self._connected_treeview_eids.append(eid)
             # FIXME Want to remove highlight when dropping in non-dir rows. But this is not the correct way to do this.
             # self.con.tree_view.connect('drag-motion', self._on_drag_motion)
 
-            self.connect_dispatch_listener(signal=Signal.DRAG_AND_DROP, receiver=self._receive_drag_data_signal)
-            self.connect_dispatch_listener(signal=Signal.DRAG_AND_DROP_DIRECT, receiver=self._do_drop)
-            # ^^^ mostly for testing
-
-    def shutdown(self):
-        HasLifecycle.shutdown(self)
-        self.disconnect_gtk_listeners()
-
     def disconnect_gtk_listeners(self):
-        for eid in self._connected_eids:
+        for eid in self._connected_treeview_eids:
             self.con.tree_view.disconnect(eid)
-        self._connected_eids.clear()
+        self._connected_treeview_eids.clear()
+
+        if self._connected_selection_eid:
+            self.con.tree_view.get_selection().disconnect(self._connected_selection_eid)
+            self._connected_selection_eid = None
 
     # LISTENERS begin
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -207,7 +218,7 @@ class TreeUiListeners(HasLifecycle):
 
         # Reload subtree and refresh display
         if tree.is_root_exists():
-            logger.debug(f'[{self.con.tree_id}] Got new root. Reloading subtree for: {tree.get_root_identifier()}')
+            logger.debug(f'[{self.con.tree_id}] Tree root exists. Reloading subtree for: {tree.get_root_identifier()}')
             # Loads from disk if necessary:
             self.con.reload(tree)
         else:
@@ -271,7 +282,8 @@ class TreeUiListeners(HasLifecycle):
 
     def _on_toggle_gtk_row_expanded_state(self, tree_view, parent_iter, parent_path, is_expanded):
         parent_data = self.con.display_store.get_node_data(parent_iter)
-        logger.debug(f'[{self.con.tree_id}] Sending signal "{Signal.NODE_EXPANSION_TOGGLED}" with is_expanded={is_expanded} for node: {parent_data}')
+        logger.debug(f'[{self.con.tree_id}] Sending signal "{Signal.NODE_EXPANSION_TOGGLED.name}" with is_expanded={is_expanded}'
+                     f' for node: {parent_data}')
         if not parent_data.is_dir():
             raise RuntimeError(f'Node is not a directory: {type(parent_data)}; node_data')
 
@@ -348,7 +360,7 @@ class TreeUiListeners(HasLifecycle):
             # Attempt to open it no matter where it is.
             # In the future, we should enhance this so that it will find the most convenient copy anywhere and open that
 
-            op: Optional[UserOp] = self.con.backend.cacheman.get_last_pending_op_for_node(node.uid)
+            op: Optional[UserOp] = self.con.app.backend.get_last_pending_op(node.uid)
             if op and not op.is_completed() and op.has_dst():
                 logger.warning('TODO: test this!')
 

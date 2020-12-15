@@ -178,13 +178,16 @@ class ChangeDisplayTree(DisplayTree):
         parent_path = sn.spid.get_single_parent_path()
 
         # 1. Check for "real" nodes (which use plain UIDs for identifiers):
-        # for parent_uid in sn.node.get_parent_uids():
-        #     parent = self._category_tree.get_node(nid=parent_uid)
-        #     assert not parent or isinstance(parent, Node), f'Expected Node but found {type(parent)}: {parent} (spid: {sn.spid}'
-        #     if parent and parent_path in parent.get_path_list():
-        #         return parent
+        for parent_uid in sn.node.get_parent_uids():
+            if parent_uid == self.root_uid:
+                # Root doesn't count
+                continue
+            parent = self._category_tree.get_node(nid=parent_uid)
+            assert not parent or isinstance(parent, Node), f'Expected Node but found {type(parent)}: {parent} (spid: {sn.spid}'
+            if parent and parent_path in parent.get_path_list():
+                return parent
 
-        # 1. Check for "fake" nodes (which use tree-dependent NIDs):
+        # 2. Check for "fake" nodes (which use tree-dependent NIDs):
         nid = self._build_tree_nid(sn.spid.tree_type, parent_path, op_type)
         return self._category_tree.get_node(nid=nid)
 
@@ -210,7 +213,7 @@ class ChangeDisplayTree(DisplayTree):
         # We can easily derive the UID/NID of the node's parent. Check to see if it exists in the tree - if so, we can save a lot of work.
         parent: Node = self._get_parent_in_tree(sn, op_type_for_display)
         if parent:
-            logger.debug(f'[{self.tree_id}] Parent was already added to tree ({parent.uid}); adding new child: "{sn.node.node_identifier}"')
+            logger.debug(f'[{self.tree_id}] Parent was already added to tree ({parent.node_identifier}, nid={parent.identifier})')
         else:
             parent: Node = self._get_or_create_pre_ancestors(sn, op_type_for_display)
 
@@ -223,8 +226,8 @@ class ChangeDisplayTree(DisplayTree):
         try:
             # Finally add the node itself.
             if SUPER_DEBUG:
-                logger.info(f'[{self.tree_id}] Adding node: {sn.node.node_identifier} ({sn.node.identifier}) '
-                            f'to parent: {parent.node_identifier} ({parent.identifier})')
+                logger.info(f'[{self.tree_id}] Adding node: {sn.node.node_identifier} (nid={sn.node.identifier}) '
+                            f'to parent {parent.node_identifier} (nid={parent.identifier})')
             self._category_tree.add_node(node=sn.node, parent=parent)
         except NodeAlreadyPresentError:
             # TODO: configurable handling of conflicts. Google Drive allows nodes with the same path and name, which is not allowed on local FS
@@ -281,6 +284,7 @@ class ChangeDisplayTree(DisplayTree):
     # FIXME: find new home for this
     def get_summary(self) -> str:
         # FIXME: this is broken
+        return ''
         if self.show_whole_forest:
             # need to preserve ordering...
             type_summaries = []

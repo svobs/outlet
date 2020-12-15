@@ -171,7 +171,7 @@ class DisplayTree(HasGetChildren):
                      self.backend.cacheman.show_tree(self.get_root_sn().spid))
 
     def __repr__(self):
-        return f'DisplayTree(tree_id="{self.tree_id}" root="{self.get_root_sn()}"])'
+        return f'DisplayTree(tree_id="{self.tree_id}" root={self.get_root_sn()})'
 
 
 class NullDisplayTree(DisplayTree):

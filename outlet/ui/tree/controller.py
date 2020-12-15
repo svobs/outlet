@@ -118,6 +118,14 @@ class TreePanelController(HasLifecycle):
 
             if new_tree:
                 logger.info(f'[{old_tree_id}] reload() with new tree: {new_tree}')
+
+                if new_tree.state.tree_display_mode != self.tree_display_mode:
+                    logger.info(f'[{old_tree_id}] Looks like we are changing tree display mode. Clearing selection.')
+                    # Changing to/from ChangeDisplayTree.
+                    # Selection can almost certainly not be retained, and will probably cause errors. Just unselect everything for now:
+                    selection = self.tree_view.get_selection()
+                    selection.unselect_all()
+
                 self.set_tree(display_tree=new_tree)
                 new_tree_id = new_tree.tree_id
                 checkboxes_visible = new_tree.state.show_checkboxes
@@ -136,7 +144,7 @@ class TreePanelController(HasLifecycle):
             new_treeview = tree_factory_templates.build_treeview(self.display_store, self.app.assets)
             tree_factory_templates.replace_widget(self.tree_view, new_treeview)
             self.tree_view = new_treeview
-            self.tree_ui_listeners.start()
+            self.tree_ui_listeners.connect_gtk_listeners()
             self.treeview_meta.start()
             self._set_column_visibilities()
             self.tree_actions = TreeActions(controller=self)

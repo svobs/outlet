@@ -127,34 +127,36 @@ class DisplayMutator(HasLifecycle):
         return node_count
 
     def _populate_and_restore_expanded_state(self, parent_iter, node: Node, node_count: int, to_expand: List[UID]) -> int:
+        if SUPER_DEBUG:
+            logger.debug(f'[{self.con.tree_id}] Populating node {node.identifier} ({node.node_identifier})')
+
         # Do a DFS of the change tree and populate the UI tree along the way
         if node.is_dir():
             is_expand = False
 
             if type(node) == CategoryNode and self.con.treeview_meta.is_display_persisted and self.con.treeview_meta.is_category_node_expanded(node):
-                logger.debug(f'[{self.con.tree_id}] Category node {node.name} is expanded"')
+                logger.debug(f'[{self.con.tree_id}] Category node {node.name} is expanded')
                 is_expand = True
             elif node.identifier in self.con.display_store.expanded_rows:
                 if SUPER_DEBUG:
                     logger.debug(f'[{self.con.tree_id}] Found identifier "{node.identifier}" in expanded_rows"')
                 is_expand = True
 
-            child_list = self.con.get_tree().get_children(node, self.con.treeview_meta.filter_criteria)
-
             if is_expand:
                 # Append all child nodes and recurse to possibly expand more:
                 parent_iter = self._append_dir_node(parent_iter=parent_iter, node=node)
 
                 if SUPER_DEBUG:
-                    logger.debug(f'[{self.con.tree_id}] Row will be expanded: {node.uid} ("{node.name}")')
+                    logger.debug(f'[{self.con.tree_id}] Row will be expanded: {node.identifier} ("{node.name}")')
                 to_expand.append(node.uid)
 
+                child_list = self.con.get_tree().get_children(node, self.con.treeview_meta.filter_criteria)
                 for child in child_list:
                     node_count = self._populate_and_restore_expanded_state(parent_iter, child, node_count, to_expand)
 
             else:
                 if SUPER_DEBUG:
-                    logger.debug(f'[{self.con.tree_id}] Node {node.uid} ("{node.name}") is not expanded')
+                    logger.debug(f'[{self.con.tree_id}] Node is not expanded: {node.identifier} ({node.node_identifier})')
                 self._append_dir_node_and_loading_child(parent_iter, node)
         else:
             self._append_file_node(parent_iter, node)
@@ -184,6 +186,7 @@ class DisplayMutator(HasLifecycle):
         self.con.tree_view.scroll_to_cell(path=tree_path, column=None, use_align=True, row_align=0.5, col_align=0)
 
     def expand_and_select_node(self, selection: SinglePathNodeIdentifier):
+        """Note: this will not work for ChangeDisplayTrees, as it is UID-based, not identifier-based"""
         assert isinstance(selection, SinglePathNodeIdentifier), f'Expected instance of SinglePathNodeIdentifier but got: {type(selection)}'
 
         def do_in_ui():
@@ -254,9 +257,9 @@ class DisplayMutator(HasLifecycle):
         """START HERE.
         More like "repopulate" - clears model before populating.
         Draws from the undelying data store as needed, to populate the display store."""
-        logger.debug(f'[{self.con.tree_id}] Entered populate_root(): expanded_rows={self.con.display_store.expanded_rows}')
+        logger.debug(f'[{self.con.tree_id}] Entered populate_root(): lazy={self.con.treeview_meta.lazy_load}'
+                     f' expanded_rows={self.con.display_store.expanded_rows}')
 
-        # FIXME: jesus this is nasty
         # This may be a long task
         try:
             # Lock this so that node-upserted and node-removed callbacks don't interfere
@@ -264,13 +267,6 @@ class DisplayMutator(HasLifecycle):
             with self._lock:
                 top_level_node_list: List[Node] = self.con.get_tree().get_children_for_root(self.con.treeview_meta.filter_criteria)
             logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(top_level_node_list)} top level nodes for root')
-        except GDriveItemNotFoundError as err:
-            # Not found: signal error to UI and cancel
-            logger.warning(f'[{self.con.tree_id}] Could not populate root: GDrive node not found: {self.con.get_tree().get_root_identifier()}')
-            new_root_meta = RootPathMeta(self.con.get_tree().get_root_identifier(), root_exists=False)
-            new_root_meta.offending_path = err.offending_path
-            logger.debug(f'[{self.con.tree_id}] Sending signal: "{Signal.ROOT_PATH_UPDATED}" with new_root_meta={new_root_meta}')
-            dispatcher.send(signal=Signal.ROOT_PATH_UPDATED, sender=self.con.tree_id, new_root_meta=new_root_meta, err=err)
         finally:
             self._enable_node_signals = True
 
@@ -278,13 +274,16 @@ class DisplayMutator(HasLifecycle):
             with self._lock:
                 # retain selection (if any)
                 prev_selection: List[Node] = self.con.display_store.get_multiple_selection()
+                logger.debug(f'[{self.con.tree_id}] Found {len(prev_selection)} previously selected rows')
 
                 # Wipe out existing items:
+                logger.debug(f'[{self.con.tree_id}] Clearing model')
                 root_iter = self.con.display_store.clear_model()
                 node_count = 0
 
-                if self.con.treeview_meta.filter_criteria and self.con.treeview_meta.filter_criteria.has_criteria()\
+                if self.con.treeview_meta.filter_criteria and self.con.treeview_meta.filter_criteria.has_criteria() \
                         and not self.con.treeview_meta.filter_criteria.show_subtrees_of_matches:
+                    logger.debug(f'[{self.con.tree_id}] Populating via FilterCriteria')
                     # not lazy: just one big list
                     if len(top_level_node_list) > LARGE_NUMBER_OF_CHILDREN:
                         logger.error(f'[{self.con.tree_id}] Too many top-level nodes to display! Count = {len(top_level_node_list)}')
@@ -297,6 +296,7 @@ class DisplayMutator(HasLifecycle):
                         logger.debug(f'[{self.con.tree_id}] Done populating linear list of nodes')
 
                 elif self.con.treeview_meta.lazy_load:
+                    logger.debug(f'[{self.con.tree_id}] Populating via lazy load')
                     # Recursively add child nodes for dir nodes which need expanding. We can only expand after we have nodes, due to GTK3 limitation
                     to_expand: List[UID] = []
                     for node in top_level_node_list:
@@ -310,6 +310,7 @@ class DisplayMutator(HasLifecycle):
                     logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes and expanded {len(to_expand)} dir nodes')
 
                 else:
+                    logger.debug(f'[{self.con.tree_id}] Populating recursively')
                     # NOT lazy: load all at once, expand all
                     for node in top_level_node_list:
                         node_count = self._populate_recursively(None, node, node_count)
@@ -320,14 +321,20 @@ class DisplayMutator(HasLifecycle):
                     assert not self.con.treeview_meta.lazy_load
                     self.con.tree_view.expand_all()
 
-                for prev_node in prev_selection:
-                    self.select_uid(prev_node.uid)
+                if prev_selection:
+                    logger.debug(f'[{self.con.tree_id}] Attempting to restore {len(prev_selection)} previously selected rows')
+                try:
+                    for prev_node in prev_selection:
+                        self.select_uid(prev_node.uid)
+                except RuntimeError:
+                    logger.exception(f'[{self.con.tree_id}] Failed to restore selection')
 
+            logger.debug(f'[{self.con.tree_id}] Sending signal {Signal.POPULATE_UI_TREE_DONE.name}')
             dispatcher.send(signal=Signal.POPULATE_UI_TREE_DONE, sender=self.con.tree_id)
 
         GLib.idle_add(update_ui)
 
-        self._request_subtree_stats_refresh()
+        # self._request_subtree_stats_refresh()
 
     def get_checked_rows_as_list(self) -> List[SPIDNodePair]:
         """Returns a list which contains the DisplayNodes of the items which are currently checked by the user

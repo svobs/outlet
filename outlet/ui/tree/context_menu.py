@@ -251,5 +251,6 @@ class TreeContextMenu:
         menu.append(item)
         return item
 
-    def send_signal(self, menu_item, signal: str, kwargs):
+    def send_signal(self, menu_item, signal: Signal, kwargs: dict):
+        logger.debug(f'[{self.con.tree_id}] Sending signal: {signal.name} with kwargs: {kwargs}')
         dispatcher.send(signal=signal, sender=self.con.tree_id, **kwargs)
