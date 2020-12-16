@@ -128,7 +128,7 @@ class DisplayMutator(HasLifecycle):
 
     def _populate_and_restore_expanded_state(self, parent_iter, node: Node, node_count: int, to_expand: List[UID]) -> int:
         if SUPER_DEBUG:
-            logger.debug(f'[{self.con.tree_id}] Populating node {node.identifier} ({node.node_identifier})')
+            logger.debug(f'[{self.con.tree_id}] Populating node nid={node.identifier} ({node.node_identifier})')
 
         # Do a DFS of the change tree and populate the UI tree along the way
         if node.is_dir():
@@ -148,7 +148,7 @@ class DisplayMutator(HasLifecycle):
 
                 if SUPER_DEBUG:
                     logger.debug(f'[{self.con.tree_id}] Row will be expanded: {node.identifier} ("{node.name}")')
-                to_expand.append(node.uid)
+                to_expand.append(node.identifier)
 
                 child_list = self.con.get_tree().get_children(node, self.con.treeview_meta.filter_criteria)
                 for child in child_list:
@@ -175,6 +175,7 @@ class DisplayMutator(HasLifecycle):
             self._enable_expand_state_listeners = True
 
     def select_uid(self, uid):
+        """Note: this will not work for ChangeDisplayTrees, as it is UID-based, not identifier-based"""
         tree_iter = self.con.display_store.find_uid_in_tree(uid, None)
         if not tree_iter:
             logger.info(f'[{self.con.tree_id}] Could not select node: could not find node in tree for UID {uid}')
@@ -260,8 +261,6 @@ class DisplayMutator(HasLifecycle):
         logger.debug(f'[{self.con.tree_id}] Entered populate_root(): lazy={self.con.treeview_meta.lazy_load}'
                      f' expanded_rows={self.con.display_store.expanded_rows}')
 
-        # FIXME: duplicate nodes bug
-
         # FIXME: keep-calm-and-carry-on
         # This may be a long task
         try:
@@ -305,9 +304,9 @@ class DisplayMutator(HasLifecycle):
                     for node in top_level_node_list:
                         self._populate_and_restore_expanded_state(root_iter, node, node_count, to_expand)
 
-                    for uid in to_expand:
-                        logger.debug(f'[{self.con.tree_id}] Expanding: {uid}')
-                        tree_iter = self.con.display_store.find_uid_in_tree(uid)
+                    for identifier in to_expand:
+                        logger.debug(f'[{self.con.tree_id}] Expanding: {identifier}')
+                        tree_iter = self.con.display_store.find_identifier_in_tree(identifier)
                         self._expand_row_without_event_firing(tree_path=tree_iter, expand_all=False)
 
                     logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes and expanded {len(to_expand)} dir nodes')
