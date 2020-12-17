@@ -43,7 +43,7 @@ class ChangeDisplayTree(DisplayTree):
 
         self.show_whole_forest: bool = show_whole_forest
 
-        self.op_dict: Dict[UID, UserOp] = {}
+        self._op_dict: Dict[UID, UserOp] = {}
         """Lookup for target node UID -> UserOp. The target node will be the dst node if the UserOp has one; otherwise
         it will be the source node."""
         self._op_list: List[UserOp] = []
@@ -76,6 +76,14 @@ class ChangeDisplayTree(DisplayTree):
     def print_tree_contents_debug(self):
         logger.debug(f'[{self.tree_id}] CategoryTree for "{self.get_root_sn().spid}": \n' + self._category_tree.show(show_identifier=True))
 
+    def print_op_structs_debug(self):
+        logger.debug(f'[{self.tree_id}] OpList size = {len(self._op_list)}:')
+        for op_num, op in enumerate(self._op_list):
+            logger.debug(f'[{self.tree_id}]     {op_num}: {op}')
+        logger.debug(f'[{self.tree_id}] OpDict size = {len(self._op_dict)}:')
+        for uid, op in self._op_dict.items():
+            logger.debug(f'[{self.tree_id}]     {uid} -> {op}')
+
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
         raise InvalidOperationError('ChangeDisplayTree.get_ancestor_list()')
 
@@ -83,18 +91,18 @@ class ChangeDisplayTree(DisplayTree):
         return self._op_list
 
     def get_op_for_node(self, node: Node) -> Optional[UserOp]:
-        return self.op_dict.get(node.uid, None)
+        return self._op_dict.get(node.uid, None)
 
     def _append_op(self, op: UserOp):
         logger.debug(f'[{self.tree_id}] Appending op: {op}')
         if op.dst_node:
-            if self.op_dict.get(op.dst_node.uid, None):
-                raise RuntimeError(f'Duplicate UserOp: 1st={op}; 2nd={self.op_dict.get(op.dst_node.uid)}')
-            self.op_dict[op.dst_node.uid] = op
+            if self._op_dict.get(op.dst_node.uid, None):
+                raise RuntimeError(f'Duplicate UserOp: 1st={op}; 2nd={self._op_dict.get(op.dst_node.uid)}')
+            self._op_dict[op.dst_node.uid] = op
         else:
-            if self.op_dict.get(op.src_node.uid, None):
-                raise RuntimeError(f'Duplicate UserOp: 1st={op}; 2nd={self.op_dict.get(op.src_node.uid)}')
-            self.op_dict[op.src_node.uid] = op
+            if self._op_dict.get(op.src_node.uid, None):
+                raise RuntimeError(f'Duplicate UserOp: 1st={op}; 2nd={self._op_dict.get(op.src_node.uid)}')
+            self._op_dict[op.src_node.uid] = op
         self._op_list.append(op)
 
     def _build_tree_nid(self, tree_type: int, single_path: Optional[str], op: Optional[UserOpType]) -> UID:

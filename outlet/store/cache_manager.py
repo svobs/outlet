@@ -526,6 +526,10 @@ class CacheManager(HasLifecycle):
 
     def register_change_tree(self, change_display_tree: ChangeDisplayTree, src_tree_id: str):
         logger.info(f'Registering ChangeDisplayTree: {change_display_tree.tree_id}')
+        if SUPER_DEBUG:
+            change_display_tree.print_tree_contents_debug()
+            change_display_tree.print_op_structs_debug()
+
         meta = ActiveDisplayTreeMeta(self.backend, change_display_tree.state)
         meta.change_tree = change_display_tree
         meta.src_tree_id = src_tree_id
@@ -1037,7 +1041,8 @@ class CacheManager(HasLifecycle):
         for child in child_list:
             self._update_node_icon(child)
 
-        logger.warning(f'[{tree_id}] Returning {len(child_list)} children for node: {node}')
+        if SUPER_DEBUG:
+            logger.debug(f'[{tree_id}] Returning {len(child_list)} children for node: {node}')
         return child_list
 
     def _update_node_icon(self, node: Node):

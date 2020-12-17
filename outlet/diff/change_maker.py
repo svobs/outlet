@@ -292,8 +292,7 @@ class ChangeMaker:
 
     def append_mv_op_r_to_r(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """Make a dst node which will rename a file within the right tree to match the relative path of the file on the left"""
-        dst_sn: SPIDNodePair = self._migrate_node_to_right(sn_s)
-        self.right_side.add_op(op_type=UserOpType.MV, src_sn=sn_r, dst_sn=dst_sn)
+        self.right_side.add_op(op_type=UserOpType.MV, src_sn=sn_r, dst_sn=self._migrate_node_to_right(sn_s))
 
     def append_mv_op_s_to_s(self, sn_s: SPIDNodePair, sn_r: SPIDNodePair):
         """Make a FileToMove node which will rename a file within the left tree to match the relative path of the file on right"""

@@ -75,7 +75,7 @@ class ContentFirstDiffer(ChangeMaker):
 
     def _process_nonmatching_relative_path_pairs(self, lefts: List[SPIDNodePair], rights: List[SPIDNodePair],
                                                  on_mismatched_pair: Callable, on_left_only: Callable, on_right_only: Callable) -> None:
-        """This returns a set of pairs for items whose relative paths *do not* match.
+        """This returns a set of pairs for items whose MD5s match but whose relative paths *do not* match.
         All elements in both the 'lefts' and 'rights' parameter lists are expected to contain the same MD5."""
         # Check for the trivial cases first:
         if not lefts:
@@ -167,6 +167,7 @@ class ContentFirstDiffer(ChangeMaker):
         sw = Stopwatch()
         for md5 in md5_union_set:
             # Grant just a tiny bit of time to other tasks in the CPython thread (e.g. progress bar):
+            # TODO: investigate coroutines
             time.sleep(0.00001)
 
             # Set of items on S with same MD5:
@@ -189,23 +190,23 @@ class ContentFirstDiffer(ChangeMaker):
                 (newer is assumed to be the rename destination), or for each side to assume it is the destination
                 (similar to how we handle missing signatures above)"""
 
-                def on_mismatched_pair(_sn: SPIDNodePair, _rn: SPIDNodePair):
+                def on_mismatched_pair(_sn_s: SPIDNodePair, _sn_r: SPIDNodePair):
                     # MOVED: the file already exists in each tree, so just do a rename within the tree
                     # (it is possible that the trees are on different disks, so keep performance in mind)
-                    self.append_mv_op_r_to_r(_sn, _rn)
+                    self.append_mv_op_r_to_r(_sn_s, _sn_r)
 
-                    self.append_mv_op_s_to_s(_sn, _rn)
+                    self.append_mv_op_s_to_s(_sn_s, _sn_r)
                     on_mismatched_pair.count_moved_pairs += 1
 
                 on_mismatched_pair.count_moved_pairs = 0
 
-                def on_left_only(_sn: SPIDNodePair):
+                def on_left_only(_sn_s: SPIDNodePair):
                     # There is an additional file with same signature on LEFT
-                    sn_list_only_s.append(_sn)
+                    sn_list_only_s.append(_sn_s)
 
-                def on_right_only(_rn: SPIDNodePair):
+                def on_right_only(_sn_r: SPIDNodePair):
                     # There is an additional file with same signature on RIGHT
-                    sn_list_only_r.append(_rn)
+                    sn_list_only_r.append(_sn_r)
 
                 self._process_nonmatching_relative_path_pairs(single_md5_sn_list_s, single_md5_sn_list_r,
                                                               on_mismatched_pair=on_mismatched_pair, on_left_only=on_left_only,
