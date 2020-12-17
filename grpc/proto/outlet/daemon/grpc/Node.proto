@@ -41,10 +41,11 @@ message Node {
   int32 uid = 1;
   int32 tree_type = 2;
   repeated string path_list = 3;
-  string nid = 4;
-  int32 trashed = 5;
-  bool is_shared = 6;
-  int32 icon_id = 7;
+  int32 trashed = 4;
+  bool is_shared = 5;
+  int32 icon_id = 6;
+  int32 decorator_nid = 7;
+  int32 decorator_parent_nid = 8;
 
   oneof node_type {
     ContainerNodeMeta container_meta = 10;

@@ -6,6 +6,7 @@ from model.node.node import Node
 from model.node.trait import HasChildStats
 from model.node_identifier import NodeIdentifier
 from model.uid import UID
+from util.ensure import ensure_uid
 
 
 class DecoNode(Node):
@@ -22,6 +23,10 @@ class DecoNode(Node):
         node_identifier.uid = uid
         super().__init__(node_identifier, parent_uid, delegate_node.get_trashed_status())
         self.delegate = delegate_node
+
+    @classmethod
+    def is_decorator(cls):
+        return True
 
     def update_from(self, other_node):
         self.delegate.update_from(other_node)
@@ -64,6 +69,9 @@ class DecoNode(Node):
     def is_live(self) -> bool:
         return self.delegate.is_live()
 
+    def set_is_live(self, is_live) -> bool:
+        return self.delegate.set_is_live(is_live)
+
     @property
     def md5(self):
         return self.delegate.md5
@@ -74,7 +82,7 @@ class DecoNode(Node):
 
     @property
     def sha256(self):
-        return self.delegate.sha256()
+        return self.delegate.sha256
 
     @sha256.setter
     def sha256(self, sha256):
@@ -201,6 +209,15 @@ class DecoNode(Node):
     def drive_id(self, drive_id):
         self.delegate.drive_id = drive_id
 
+    # Local-only (if applicable):
+    # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+
+    def derive_parent_path(self) -> str:
+        return self.delegate.derive_parent_path()
+
+    def get_single_parent(self) -> UID:
+        return self.delegate.get_single_parent()
+
 
 class DecoDirNode(HasChildStats, DecoNode):
     """
@@ -217,3 +234,14 @@ class DecoDirNode(HasChildStats, DecoNode):
     def update_from(self, other_node):
         HasChildStats.update_from(self, other_node)
         self.delegate.update_from(other_node)
+
+
+def decorate_node(uid: UID, parent_uid: UID, delegate_node: Node):
+    assert not delegate_node.is_decorator()
+    uid = ensure_uid(uid)
+    parent_uid = ensure_uid(parent_uid)
+
+    if delegate_node.is_dir():
+        return DecoDirNode(uid, parent_uid, delegate_node)
+    else:
+        return DecoNode(uid, parent_uid, delegate_node)

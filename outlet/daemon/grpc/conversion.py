@@ -5,6 +5,7 @@ from constants import IconId, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from daemon.grpc.Node_pb2 import DirMeta
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
+from model.node.decorator_node import DecoNode, decorate_node
 from model.node.gdrive_node import GDriveFile, GDriveFolder
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.node import Node, SPIDNodePair
@@ -79,16 +80,30 @@ class Converter:
             raise RuntimeError('Could not parse GRPC node!')
 
         node.set_icon(IconId(grpc_node.icon_id))
+
+        if grpc_node.decorator_nid:
+            assert grpc_node.decorator_parent_nid, f'No parent_nid for decorator node! (node so far: {node})'
+            node = decorate_node(grpc_node.decorator_nid, grpc_node.decorator_parent_nid, node)
         return node
 
     @staticmethod
     def node_to_grpc(node: Node, grpc_node: outlet.daemon.grpc.Node_pb2.Node):
-        # node_identifier fields:
         assert isinstance(node, Node), f'Not a Node: {node}'
-        # assert isinstance(grpc_node, outlet.daemon.grpc.Node_pb2.Node), f'Not a gRPC Node: {grpc_node}'
-        grpc_node.uid = int(node.uid)
-        grpc_node.tree_type = node.get_tree_type()
-        for full_path in node.get_path_list():
+        if node.is_decorator():
+            grpc_node.decorator_nid = int(node.uid)
+            grpc_node.decorator_parent_nid = int(node.get_parent_uids()[0])
+
+            assert isinstance(node, DecoNode),  f'Not a DecoNode: {node}'
+            # Fill out the delegate node identifier down below.
+            # Remember: we still want to keep the DecoNode for its DirStats (way below)
+            node_identifier = node.delegate.node_identifier
+        else:
+            node_identifier = node.node_identifier
+
+        # node_identifier fields:
+        grpc_node.uid = int(node_identifier.uid)
+        grpc_node.tree_type = node_identifier.get_tree_type()
+        for full_path in node_identifier.get_path_list():
             grpc_node.path_list.append(full_path)
 
         # Node common fields:
@@ -109,16 +124,12 @@ class Converter:
                 # plain ContainerNode
                 Converter._dir_meta_to_grpc(node, grpc_node.container_meta)
         elif node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
-            assert isinstance(node, LocalNode)
-
             if node.is_dir():
-                assert isinstance(node, LocalDirNode)
                 Converter._dir_meta_to_grpc(node, grpc_node.local_dir_meta)
                 grpc_node.local_dir_meta.is_live = node.is_live()
                 if node.get_single_parent():
                     grpc_node.local_dir_meta.parent_uid = node.get_single_parent()
             else:
-                assert isinstance(node, LocalFileNode)
                 if node.get_size_bytes():
                     grpc_node.local_file_meta.size_bytes = node.get_size_bytes()
                 if node.sync_ts:
@@ -137,13 +148,11 @@ class Converter:
         elif node.get_tree_type() == TREE_TYPE_GDRIVE:
             # GDriveNode
             if node.is_dir():
-                assert isinstance(node, GDriveFolder)
                 Converter._dir_meta_to_grpc(node, grpc_node.gdrive_folder_meta)
                 if node.all_children_fetched:
                     grpc_node.gdrive_folder_meta.all_children_fetched = node.all_children_fetched
                 meta = grpc_node.gdrive_folder_meta
             else:
-                assert isinstance(node, GDriveFile)
 
                 if node.md5:
                     grpc_node.gdrive_file_meta.md5 = node.md5
@@ -283,7 +292,8 @@ class Converter:
 
     @staticmethod
     def display_tree_ui_state_to_grpc(state: DisplayTreeUiState, grpc_display_tree_ui_state: outlet.daemon.grpc.Outlet_pb2.DisplayTreeUiState):
-        grpc_display_tree_ui_state.tree_id = state.tree_id
+        if state.tree_id:
+            grpc_display_tree_ui_state.tree_id = state.tree_id
         Converter.sn_to_grpc(state.root_sn, grpc_display_tree_ui_state.root_sn)
         grpc_display_tree_ui_state.root_exists = state.root_exists
         if state.offending_path:

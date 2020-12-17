@@ -103,7 +103,7 @@ class CategoryNode(ContainerNode):
 
     def __init__(self, node_identifier: SinglePathNodeIdentifier, op_type: UserOpType):
         super().__init__(node_identifier=node_identifier)
-        self.op_type = op_type
+        self.op_type = UserOpType(op_type)
 
     def __repr__(self):
         return f'CategoryNode(type={self.op_type.name}, node_id="{self.node_identifier}")'

@@ -32,3 +32,6 @@ class DisplayTreeRequest:
         self.is_startup: bool = is_startup
         self.tree_display_mode: TreeDisplayMode = tree_display_mode
 
+    def __repr__(self):
+        return f'DisplayTreeRequest(tree_id={self.tree_id} return_async={self.return_async} user_path={self.user_path} spid={self.spid} ' \
+               f'is_startup={self.is_startup} tree_display_mode={self.tree_display_mode}'

@@ -7,7 +7,7 @@ from pydispatch import dispatcher
 
 import grpc
 from app.backend import DiffResultTreeIds, OutletBackend
-from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_CLIENT_SLEEP_ON_FAILURE_SEC, GRPC_SERVER_ADDRESS, TreeDisplayMode
+from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_CLIENT_SLEEP_ON_FAILURE_SEC, GRPC_SERVER_ADDRESS, SUPER_DEBUG, TreeDisplayMode
 from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.conversion import Converter
 from daemon.grpc.Outlet_pb2 import DeleteSubtree_Request, DownloadFromGDrive_Request, DragDrop_Request, GetAncestorList_Request, GetChildList_Request, \
@@ -237,16 +237,18 @@ class BackendGRPCClient(OutletBackend):
         return UID(grpc_response.uid)
 
     def request_display_tree(self, request: DisplayTreeRequest) -> Optional[DisplayTree]:
+        assert request.tree_id, f'No tree_id in: {request}'
         grpc_req = RequestDisplayTree_Request()
         grpc_req.is_startup = request.is_startup
-        grpc_req.tree_id = request.tree_id
+        if request.tree_id:
+            grpc_req.tree_id = request.tree_id
         grpc_req.return_async = request.return_async
         if request.user_path:
             grpc_req.user_path = request.user_path
         Converter.node_identifier_to_grpc(request.spid, grpc_req.spid)
         grpc_req.tree_display_mode = request.tree_display_mode
 
-        response = self.grpc_stub.request_display_tree_ui_state(request)
+        response = self.grpc_stub.request_display_tree_ui_state(grpc_req)
 
         if response.HasField('display_tree_ui_state'):
             state = Converter.display_tree_ui_state_from_grpc(response.display_tree_ui_state)
@@ -267,6 +269,9 @@ class BackendGRPCClient(OutletBackend):
         return response.is_enabled
 
     def get_children(self, parent: Node, tree_id: str, filter_criteria: FilterCriteria = None) -> Iterable[Node]:
+        if SUPER_DEBUG:
+            logger.debug(f'[{tree_id}] Entered get_children(): parent={parent} filter_criteria={filter_criteria}')
+
         request = GetChildList_Request()
         if tree_id:
             request.tree_id = tree_id

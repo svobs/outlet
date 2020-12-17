@@ -60,6 +60,10 @@ class Node(BaseNode, HasParentList, ABC):
         return None
 
     @classmethod
+    def is_decorator(cls):
+        return False
+
+    @classmethod
     def is_file(cls):
         return False
 

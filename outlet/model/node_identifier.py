@@ -31,6 +31,9 @@ class NodeIdentifier(ABC):
     def tree_type(self) -> int:
         return TREE_TYPE_NA
 
+    def get_tree_type(self) -> int:
+        return self.tree_type
+
     @staticmethod
     def is_spid():
         return False

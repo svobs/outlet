@@ -33,8 +33,8 @@ class LocalNode(Node, ABC):
         """Whether the object represented by this node actually is live currently, or it is just planned to exist or is an ephemeral node."""
         return self._is_live
 
-    def set_is_live(self, does_exist: bool):
-        self._is_live = does_exist
+    def set_is_live(self, is_live: bool):
+        self._is_live = is_live
 
     def update_from(self, other_node):
         Node.update_from(self, other_node)
