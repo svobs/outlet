@@ -121,9 +121,6 @@ class GDriveNode(Node, ABC):
     def to_tuple(self):
         pass
 
-    def exists(self) -> bool:
-        return bool(self.goog_id)
-
 
 class GDriveFolder(HasChildStats, GDriveNode):
     """

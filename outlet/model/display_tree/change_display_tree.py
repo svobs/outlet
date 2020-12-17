@@ -9,6 +9,7 @@ from constants import NULL_UID, ROOT_PATH, SUPER_DEBUG, SUPER_ROOT_UID, TREE_TYP
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
+from model.node.decorator_node import DecoDirNode, DecoNode
 from model.node.node import Node, SPIDNodePair
 from model.node.trait import HasChildStats
 from model.node_identifier import SinglePathNodeIdentifier
@@ -139,7 +140,7 @@ class ChangeDisplayTree(DisplayTree):
 
         assert not cat_node
         # Create category display node. This may be the "last pre-ancestor". (Use root node UID so its context menu points to root)
-        cat_node = CategoryNode(node_identifier=SinglePathNodeIdentifier(self.get_root_node().uid, self.root_path, tree_type),
+        cat_node = CategoryNode(node_identifier=SinglePathNodeIdentifier(cat_node_nid, self.root_path, tree_type),
                                 op_type=op_type, nid=cat_node_nid)
         logger.debug(f'[{self.tree_id}] Inserting new CategoryNode with OpType={op_type.name} nid={cat_node_nid} {cat_node.node_identifier}')
         cat_node.set_parent_uids(parent_node.identifier)
@@ -168,7 +169,7 @@ class ChangeDisplayTree(DisplayTree):
             if ancestor:
                 break
             else:
-                ancestor_spid = SinglePathNodeIdentifier(NULL_UID, full_path, tree_type)
+                ancestor_spid = SinglePathNodeIdentifier(nid, full_path, tree_type)
                 ancestor = ContainerNode(ancestor_spid, nid=nid)
                 stack.append(ancestor)
 
@@ -181,23 +182,23 @@ class ChangeDisplayTree(DisplayTree):
             parent = child
 
         return parent
-
-    def _get_parent_in_tree(self, sn: SPIDNodePair, op_type: UserOpType) -> Optional[Node]:
-        parent_path = sn.spid.get_single_parent_path()
-
-        # 1. Check for "real" nodes (which use plain UIDs for identifiers):
-        for parent_uid in sn.node.get_parent_uids():
-            if parent_uid == self.root_uid:
-                # Root doesn't count
-                continue
-            parent = self._category_tree.get_node(nid=parent_uid)
-            assert not parent or isinstance(parent, Node), f'Expected Node but found {type(parent)}: {parent} (spid: {sn.spid}'
-            if parent and parent_path in parent.get_path_list():
-                return parent
-
-        # 2. Check for "fake" nodes (which use tree-dependent NIDs):
-        nid = self._build_tree_nid(sn.spid.tree_type, parent_path, op_type)
-        return self._category_tree.get_node(nid=nid)
+    #
+    # def _get_parent_in_tree(self, sn: SPIDNodePair, op_type: UserOpType) -> Optional[Node]:
+    #     parent_path = sn.spid.get_single_parent_path()
+    #     #
+    #     # # 1. Check for "real" nodes (which use plain UIDs for identifiers):
+    #     # for parent_uid in sn.node.get_parent_uids():
+    #     #     if parent_uid == self.root_uid:
+    #     #         # Root doesn't count
+    #     #         continue
+    #     #     parent = self._category_tree.get_node(nid=parent_uid)
+    #     #     assert not parent or isinstance(parent, Node), f'Expected Node but found {type(parent)}: {parent} (spid: {sn.spid}'
+    #     #     if parent and parent_path in parent.get_path_list():
+    #     #         return parent
+    #
+    #     # 2. Check for "fake" nodes (which use tree-dependent NIDs):
+    #     parent_nid = self._build_tree_nid(sn.spid.tree_type, sn.spid.get_single_parent_path(), op_type)
+    #     return self._category_tree.get_node(nid=parent_nid)
 
     def add_node(self, sn: SPIDNodePair, op: UserOp):
         """When we add the node, we add any necessary ancestors for it as well.
@@ -219,15 +220,12 @@ class ChangeDisplayTree(DisplayTree):
             op_type_for_display = UserOpType.CP
 
         # We can easily derive the UID/NID of the node's parent. Check to see if it exists in the tree - if so, we can save a lot of work.
-        parent: Node = self._get_parent_in_tree(sn, op_type_for_display)
+        parent_nid = self._build_tree_nid(sn.spid.tree_type, sn.spid.get_single_parent_path(), op_type_for_display)
+        parent: Node = self._category_tree.get_node(nid=parent_nid)
         if parent:
             logger.debug(f'[{self.tree_id}] Parent was already added to tree ({parent.node_identifier}, nid={parent.identifier})')
         else:
             parent: Node = self._get_or_create_pre_ancestors(sn, op_type_for_display)
-
-            if isinstance(parent, HasChildStats):
-                # FIXME: this appears to be broken
-                parent.add_meta_metrics(sn.node)
 
             parent: Node = self._get_or_create_ancestors(sn, op_type_for_display, parent)
 
@@ -236,10 +234,17 @@ class ChangeDisplayTree(DisplayTree):
             if SUPER_DEBUG:
                 logger.info(f'[{self.tree_id}] Adding node: {sn.node.node_identifier} (nid={sn.node.identifier}) '
                             f'to parent {parent.node_identifier} (nid={parent.identifier})')
-            self._category_tree.add_node(node=sn.node, parent=parent)
+
+            nid = self._build_tree_nid(sn.spid.tree_type, sn.spid.get_single_path(), op_type_for_display)
+            if sn.node.is_dir():
+                deco_node = DecoDirNode(nid, parent_uid=parent.identifier, delegate_node=sn.node)
+            else:
+                deco_node = DecoNode(nid, parent_uid=parent.identifier, delegate_node=sn.node)
+
+            self._category_tree.add_node(node=deco_node, parent=parent)
         except NodeAlreadyPresentError:
             # TODO: configurable handling of conflicts. Google Drive allows nodes with the same path and name, which is not allowed on local FS
-            conflict_node: Node = self._category_tree.get_node(sn.node.identifier)
+            conflict_node: Node = self._category_tree.get_node(deco_node.identifier)
             if conflict_node.md5 == sn.node.md5:
                 self.count_conflict_warnings += 1
                 if SUPER_DEBUG:
