@@ -65,15 +65,15 @@ class Converter:
                                  meta.change_ts, grpc_node.trashed, meta.is_live)
         elif grpc_node.HasField("container_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
-            node = ContainerNode(node_identifier, grpc_node.nid)
+            node = ContainerNode(node_identifier)
             Converter._dir_meta_from_grpc(node, grpc_node.local_dir_meta.dir_meta)
         elif grpc_node.HasField("category_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
-            node = CategoryNode(node_identifier, grpc_node.category_meta.op_type, grpc_node.nid)
+            node = CategoryNode(node_identifier, grpc_node.category_meta.op_type)
             Converter._dir_meta_from_grpc(node, grpc_node.category_meta.dir_meta)
         elif grpc_node.HasField("root_type_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
-            node = RootTypeNode(node_identifier, grpc_node.nid)
+            node = RootTypeNode(node_identifier)
             Converter._dir_meta_from_grpc(node, grpc_node.root_type_meta.dir_meta)
         else:
             raise RuntimeError('Could not parse GRPC node!')
@@ -90,8 +90,6 @@ class Converter:
         grpc_node.tree_type = node.get_tree_type()
         for full_path in node.get_path_list():
             grpc_node.path_list.append(full_path)
-        if node.identifier:
-            grpc_node.nid = str(node.identifier)
 
         # Node common fields:
         grpc_node.trashed = node.get_trashed_status()

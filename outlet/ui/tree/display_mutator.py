@@ -94,10 +94,10 @@ class DisplayMutator(HasLifecycle):
         HasLifecycle.shutdown(self)
         self.con = None
 
-    def _expand_and_select_node(self, sender: str, nid: SinglePathNodeIdentifier):
+    def _expand_and_select_node(self, sender: str, spid: SinglePathNodeIdentifier):
         if sender == self.con.tree_id:
             logger.debug(f'[{self.con.tree_id}] Got signal: "{Signal.EXPAND_AND_SELECT_NODE.name}"')
-            self.expand_and_select_node(nid)
+            self.expand_and_select_node(spid)
 
     def _on_expand_all_requested(self, sender, tree_path):
         if sender == self.con.tree_id:
@@ -128,7 +128,7 @@ class DisplayMutator(HasLifecycle):
 
     def _populate_and_restore_expanded_state(self, parent_iter, node: Node, node_count: int, to_expand: List[UID]) -> int:
         if SUPER_DEBUG:
-            logger.debug(f'[{self.con.tree_id}] Populating node nid={node.identifier} ({node.node_identifier})')
+            logger.debug(f'[{self.con.tree_id}] Populating node {node.node_identifier}')
 
         # Do a DFS of the change tree and populate the UI tree along the way
         if node.is_dir():

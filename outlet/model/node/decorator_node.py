@@ -17,10 +17,10 @@ class DecoNode(Node):
     display-tree-dependent values.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, nid: UID, parent_uid: UID, delegate_node):
+    def __init__(self, uid: UID, parent_uid: UID, delegate_node):
         node_identifier: NodeIdentifier = copy.copy(delegate_node.node_identifier)
-        node_identifier.uid = nid
-        super().__init__(node_identifier, None, parent_uid, delegate_node.get_trashed_status())
+        node_identifier.uid = uid
+        super().__init__(node_identifier, parent_uid, delegate_node.get_trashed_status())
         self.delegate = delegate_node
 
     def update_from(self, other_node):
@@ -210,8 +210,8 @@ class DecoDirNode(HasChildStats, DecoNode):
     HasChildStats takes precedence over DecoNode
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, nid: UID, parent_uid: UID, delegate_node):
-        DecoNode.__init__(self, nid, parent_uid, delegate_node)
+    def __init__(self, uid: UID, parent_uid: UID, delegate_node):
+        DecoNode.__init__(self, uid, parent_uid, delegate_node)
         HasChildStats.__init__(self)
 
     def update_from(self, other_node):

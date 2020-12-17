@@ -66,7 +66,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
 
         assert isinstance(current_selection, SinglePathNodeIdentifier), \
             f'Expected instance of SinglePathNodeIdentifier but got: {type(current_selection)}'
-        self._initial_selection_nid: SinglePathNodeIdentifier = current_selection
+        self._initial_selection_spid: SinglePathNodeIdentifier = current_selection
 
     def shutdown(self):
         if self.con:
@@ -97,7 +97,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         if sender != self.tree_id:
             return
         logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Populate complete! Sending signal: {Signal.EXPAND_AND_SELECT_NODE}')
-        dispatcher.send(Signal.EXPAND_AND_SELECT_NODE, sender=ID_GDRIVE_DIR_SELECT, nid=self._initial_selection_nid)
+        dispatcher.send(Signal.EXPAND_AND_SELECT_NODE, sender=ID_GDRIVE_DIR_SELECT, nid=self._initial_selection_spid)
 
     def on_ok_clicked(self, spid: SinglePathNodeIdentifier):
         logger.info(f'[{self.target_tree_id}] User selected dir "{spid}"')

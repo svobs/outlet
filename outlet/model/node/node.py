@@ -9,7 +9,6 @@ from error import InvalidOperationError
 from model.node.trait import HasParentList
 from model.node_identifier import NodeIdentifier
 from store.uid.uid_generator import UID
-from util.ensure import ensure_uid
 from util.simple_tree import BaseNode
 
 logger = logging.getLogger(__name__)
@@ -27,14 +26,9 @@ class Node(BaseNode, HasParentList, ABC):
     Base class for all data nodes.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, node_identifier: NodeIdentifier, nid: UID = None, parent_uids: Optional[Union[UID, List[UID]]] = None,
+    def __init__(self, node_identifier: NodeIdentifier, parent_uids: Optional[Union[UID, List[UID]]] = None,
                  trashed: TrashStatus = TrashStatus.NOT_TRASHED):
-        # Look at these next 3 lines. They are very important.
-        if not nid:
-            nid = node_identifier.uid
-        else:
-            nid = ensure_uid(nid)
-        BaseNode.__init__(self, identifier=nid)
+        BaseNode.__init__(self, identifier=node_identifier.uid)
         HasParentList.__init__(self, parent_uids)
         self.node_identifier: NodeIdentifier = node_identifier
 

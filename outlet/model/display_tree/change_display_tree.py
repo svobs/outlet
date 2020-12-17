@@ -38,7 +38,7 @@ class ChangeDisplayTree(DisplayTree):
 
         # Root node is not even displayed, so is not terribly important.
         # Do not use its original UID, so as to disallow it from interfering with lookups
-        root_node = ContainerNode(self.get_root_identifier(), nid=self.root_uid)
+        root_node = ContainerNode(self.get_root_identifier())
         logger.debug(f'[{self.tree_id}] ChangeDisplayTree: inserting root node: {root_node}')
         self._category_tree.add_node(root_node, parent=None)
 
@@ -133,16 +133,16 @@ class ChangeDisplayTree(DisplayTree):
             treetype_node = self._category_tree.get_node(nid)
             if not treetype_node:
                 # see UID to root_UID of relevant tree
-                treetype_node = RootTypeNode(node_identifier=SinglePathNodeIdentifier(UID(tree_type), ROOT_PATH, tree_type), nid=nid)
-                logger.debug(f'[{self.tree_id}] Inserting new TreeType node with nid="{nid}": {treetype_node.node_identifier}')
+                treetype_node = RootTypeNode(node_identifier=SinglePathNodeIdentifier(UID(tree_type), ROOT_PATH, tree_type))
+                logger.debug(f'[{self.tree_id}] Inserting new RootTypeNode: {treetype_node.node_identifier}')
                 self._category_tree.add_node(node=treetype_node, parent=parent_node)
             parent_node = treetype_node
 
         assert not cat_node
         # Create category display node. This may be the "last pre-ancestor". (Use root node UID so its context menu points to root)
         cat_node = CategoryNode(node_identifier=SinglePathNodeIdentifier(cat_node_nid, self.root_path, tree_type),
-                                op_type=op_type, nid=cat_node_nid)
-        logger.debug(f'[{self.tree_id}] Inserting new CategoryNode with OpType={op_type.name} nid={cat_node_nid} {cat_node.node_identifier}')
+                                op_type=op_type)
+        logger.debug(f'[{self.tree_id}] Inserting new CategoryNode with OpType={op_type.name}: {cat_node.node_identifier}')
         cat_node.set_parent_uids(parent_node.identifier)
         self._category_tree.add_node(node=cat_node, parent=parent_node)
         parent_node = cat_node
@@ -170,7 +170,7 @@ class ChangeDisplayTree(DisplayTree):
                 break
             else:
                 ancestor_spid = SinglePathNodeIdentifier(nid, full_path, tree_type)
-                ancestor = ContainerNode(ancestor_spid, nid=nid)
+                ancestor = ContainerNode(ancestor_spid)
                 stack.append(ancestor)
 
         # Walk down the ancestor list and create a node for each ancestor dir:
@@ -182,23 +182,6 @@ class ChangeDisplayTree(DisplayTree):
             parent = child
 
         return parent
-    #
-    # def _get_parent_in_tree(self, sn: SPIDNodePair, op_type: UserOpType) -> Optional[Node]:
-    #     parent_path = sn.spid.get_single_parent_path()
-    #     #
-    #     # # 1. Check for "real" nodes (which use plain UIDs for identifiers):
-    #     # for parent_uid in sn.node.get_parent_uids():
-    #     #     if parent_uid == self.root_uid:
-    #     #         # Root doesn't count
-    #     #         continue
-    #     #     parent = self._category_tree.get_node(nid=parent_uid)
-    #     #     assert not parent or isinstance(parent, Node), f'Expected Node but found {type(parent)}: {parent} (spid: {sn.spid}'
-    #     #     if parent and parent_path in parent.get_path_list():
-    #     #         return parent
-    #
-    #     # 2. Check for "fake" nodes (which use tree-dependent NIDs):
-    #     parent_nid = self._build_tree_nid(sn.spid.tree_type, sn.spid.get_single_parent_path(), op_type)
-    #     return self._category_tree.get_node(nid=parent_nid)
 
     def add_node(self, sn: SPIDNodePair, op: UserOp):
         """When we add the node, we add any necessary ancestors for it as well.
@@ -223,7 +206,7 @@ class ChangeDisplayTree(DisplayTree):
         parent_nid = self._build_tree_nid(sn.spid.tree_type, sn.spid.get_single_parent_path(), op_type_for_display)
         parent: Node = self._category_tree.get_node(nid=parent_nid)
         if parent:
-            logger.debug(f'[{self.tree_id}] Parent was already added to tree ({parent.node_identifier}, nid={parent.identifier})')
+            logger.debug(f'[{self.tree_id}] Parent was already added to tree ({parent.node_identifier}')
         else:
             parent: Node = self._get_or_create_pre_ancestors(sn, op_type_for_display)
 
@@ -232,8 +215,7 @@ class ChangeDisplayTree(DisplayTree):
         try:
             # Finally add the node itself.
             if SUPER_DEBUG:
-                logger.info(f'[{self.tree_id}] Adding node: {sn.node.node_identifier} (nid={sn.node.identifier}) '
-                            f'to parent {parent.node_identifier} (nid={parent.identifier})')
+                logger.info(f'[{self.tree_id}] Adding node: {sn.node.node_identifier} to parent {parent.node_identifier} (nid={parent.identifier})')
 
             nid = self._build_tree_nid(sn.spid.tree_type, sn.spid.get_single_path(), op_type_for_display)
             if sn.node.is_dir():

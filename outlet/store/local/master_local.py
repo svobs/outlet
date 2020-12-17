@@ -545,7 +545,6 @@ class LocalDiskMasterStore(MasterStore):
 
     def build_local_dir_node(self, full_path: str, is_live: bool) -> LocalDirNode:
         uid = self.get_uid_for_path(full_path)
-        # logger.debug(f'Creating dir node: nid={uid}')
 
         parent_path = str(pathlib.Path(full_path).parent)
         parent_uid: UID = self.get_uid_for_path(parent_path)

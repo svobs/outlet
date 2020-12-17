@@ -18,9 +18,9 @@ class ContainerNode(HasChildStats, Node):
     Represents a generic display-only directory node which is not backed by a cached object.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, node_identifier: SinglePathNodeIdentifier, nid: UID = None):
+    def __init__(self, node_identifier: SinglePathNodeIdentifier):
         assert node_identifier.get_single_path(), f'Bad: {node_identifier}'
-        Node.__init__(self, node_identifier, nid=nid)
+        Node.__init__(self, node_identifier)
         HasChildStats.__init__(self)
 
     def update_from(self, other_node):
@@ -83,7 +83,7 @@ class ContainerNode(HasChildStats, Node):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return f'ContainerNode(nid="{self.identifier}" node_id="{self.node_identifier}" {self.get_summary()})'
+        return f'ContainerNode(node_id="{self.node_identifier}" {self.get_summary()})'
 
 
 class CategoryNode(ContainerNode):
@@ -101,12 +101,12 @@ class CategoryNode(ContainerNode):
         UserOpType.MV: 'To Move',
     }
 
-    def __init__(self, node_identifier: SinglePathNodeIdentifier, op_type: UserOpType, nid: UID = None):
-        super().__init__(node_identifier=node_identifier, nid=nid)
+    def __init__(self, node_identifier: SinglePathNodeIdentifier, op_type: UserOpType):
+        super().__init__(node_identifier=node_identifier)
         self.op_type = op_type
 
     def __repr__(self):
-        return f'CategoryNode(nid="{self.identifier}" type={self.op_type.name}, node_id="{self.node_identifier}")'
+        return f'CategoryNode(type={self.op_type.name}, node_id="{self.node_identifier}")'
 
     def __eq__(self, other):
         if not isinstance(other, ContainerNode):
@@ -134,8 +134,8 @@ class RootTypeNode(ContainerNode):
     Represents a type of root in the tree (GDrive, local FS, etc.)
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, node_identifier: SinglePathNodeIdentifier, nid: UID = None):
-        super().__init__(node_identifier=node_identifier, nid=nid)
+    def __init__(self, node_identifier: SinglePathNodeIdentifier):
+        super().__init__(node_identifier=node_identifier)
 
     @property
     def name(self):
@@ -146,7 +146,7 @@ class RootTypeNode(ContainerNode):
         return 'Unknown'
 
     def __repr__(self):
-        return f'RootTypeNode(nid="{self.identifier}" node_id="{self.node_identifier}")'
+        return f'RootTypeNode({self.node_identifier})'
 
     def get_tag(self) -> str:
         return self.name
