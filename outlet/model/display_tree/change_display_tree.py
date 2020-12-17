@@ -66,12 +66,12 @@ class ChangeDisplayTree(DisplayTree):
             if filter_criteria:
                 return filter_criteria.get_filtered_child_list(parent, self)
             else:
-                child_list = self._category_tree.get_child_list(parent.identifier)
+                child_list = self._category_tree.get_child_list(parent.uid)
                 return child_list
         except Exception:
             if logger.isEnabledFor(logging.DEBUG):
                 self.print_tree_contents_debug()
-            logger.error(f'[{self.tree_id}] While retrieving children for: {parent.identifier}')
+            logger.error(f'[{self.tree_id}] While retrieving children for: {parent.uid}')
             raise
 
     def print_tree_contents_debug(self):
@@ -143,7 +143,7 @@ class ChangeDisplayTree(DisplayTree):
         cat_node = CategoryNode(node_identifier=SinglePathNodeIdentifier(cat_node_nid, self.root_path, tree_type),
                                 op_type=op_type)
         logger.debug(f'[{self.tree_id}] Inserting new CategoryNode with OpType={op_type.name}: {cat_node.node_identifier}')
-        cat_node.set_parent_uids(parent_node.identifier)
+        cat_node.set_parent_uids(parent_node.uid)
         self._category_tree.add_node(node=cat_node, parent=parent_node)
         parent_node = cat_node
 
@@ -185,13 +185,13 @@ class ChangeDisplayTree(DisplayTree):
 
     def add_node(self, sn: SPIDNodePair, op: UserOp):
         """When we add the node, we add any necessary ancestors for it as well.
-        1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't
-        backed by any actual data nodes. This includes possibly tree-type nodes and category nodes.
+        1. Create and add "pre-ancestors": fake nodes which need to be displayed at the top of the tree but aren't backed by any actual data nodes.
+        This includes possibly tree-type nodes and category nodes.
         2. Create and add "ancestors": dir nodes from the source tree for display.
-        The "ancestors" are duplicated for each UserOpType, so we need to generate a separate unique identifier which includes the UserOpType.
-        For this, we take advantage of the fact that each node has a separate "identifier" field which is nominally identical to its UID,
-        but in this case it will be a string which includes the UserOpType name.
-        3. Add a node for the node itself
+        The "ancestors" may be duplicated for each UserOpType, so we need to generate a separate unique identifier which includes the UserOpType.
+        For this, we generate a UID from a combination of tree_type, op_type, and node's path for its tree_type, and decorate the node in an object
+        which has this new global identifier ("nid")
+        3. Add a node for the node itself.
         """
         assert isinstance(sn, SPIDNodePair), f'Wrong type: {type(sn)}'
         assert op is not None, f'For node: {sn}'
@@ -203,7 +203,7 @@ class ChangeDisplayTree(DisplayTree):
             op_type_for_display = UserOpType.CP
 
         # We can easily derive the UID/NID of the node's parent. Check to see if it exists in the tree - if so, we can save a lot of work.
-        parent_nid = self._build_tree_nid(sn.spid.tree_type, sn.spid.get_single_parent_path(), op_type_for_display)
+        parent_nid: UID = self._build_tree_nid(sn.spid.tree_type, sn.spid.get_single_parent_path(), op_type_for_display)
         parent: Node = self._category_tree.get_node(nid=parent_nid)
         if parent:
             logger.debug(f'[{self.tree_id}] Parent was already added to tree ({parent.node_identifier}')
@@ -215,18 +215,18 @@ class ChangeDisplayTree(DisplayTree):
         try:
             # Finally add the node itself.
             if SUPER_DEBUG:
-                logger.info(f'[{self.tree_id}] Adding node: {sn.node.node_identifier} to parent {parent.node_identifier} (nid={parent.identifier})')
+                logger.info(f'[{self.tree_id}] Adding node: {sn.node.node_identifier} to parent {parent.node_identifier}')
 
             nid = self._build_tree_nid(sn.spid.tree_type, sn.spid.get_single_path(), op_type_for_display)
             if sn.node.is_dir():
-                deco_node = DecoDirNode(nid, parent_uid=parent.identifier, delegate_node=sn.node)
+                deco_node = DecoDirNode(nid, parent_uid=parent.uid, delegate_node=sn.node)
             else:
-                deco_node = DecoNode(nid, parent_uid=parent.identifier, delegate_node=sn.node)
+                deco_node = DecoNode(nid, parent_uid=parent.uid, delegate_node=sn.node)
 
             self._category_tree.add_node(node=deco_node, parent=parent)
         except NodeAlreadyPresentError:
             # TODO: configurable handling of conflicts. Google Drive allows nodes with the same path and name, which is not allowed on local FS
-            conflict_node: Node = self._category_tree.get_node(deco_node.identifier)
+            conflict_node: Node = self._category_tree.get_node(deco_node.uid)
             if conflict_node.md5 == sn.node.md5:
                 self.count_conflict_warnings += 1
                 if SUPER_DEBUG:
@@ -260,14 +260,14 @@ class ChangeDisplayTree(DisplayTree):
                 cat_summaries.append(summary)
         return ', '.join(cat_summaries)
 
-    def _build_cat_map(self, identifier):
+    def _build_cat_map(self, uid):
         include_empty_op_types = False
         cat_count = 0
         if include_empty_op_types:
             cat_map = ChangeDisplayTree._make_cat_map()
         else:
             cat_map = {}
-        for child in self._category_tree.children(identifier):
+        for child in self._category_tree.children(uid):
             # assert isinstance(child, CategoryNode), f'For {child}'
             cat_count += 1
             cat_map[child.op_type] = f'{child.name}: {child.get_summary()}'
@@ -285,9 +285,9 @@ class ChangeDisplayTree(DisplayTree):
             type_summaries = []
             type_map = {}
             cat_count = 0
-            for child in self._category_tree.children(self.get_root_node().identifier):
+            for child in self._category_tree.children(self.get_root_node().uid):
                 assert isinstance(child, RootTypeNode), f'For {child}'
-                cat_map = self._build_cat_map(child.identifier)
+                cat_map = self._build_cat_map(child.uid)
                 if cat_map:
                     cat_count += 1
                     type_map[child.node_identifier.tree_type] = cat_map
@@ -299,7 +299,7 @@ class ChangeDisplayTree(DisplayTree):
                     type_summaries.append(f'{tree_type_name}: {self._build_cat_summaries_str(cat_map)}')
             return '; '.join(type_summaries)
         else:
-            cat_map = self._build_cat_map(self.get_root_node().identifier)
+            cat_map = self._build_cat_map(self.get_root_node().uid)
             if not cat_map:
                 return 'Contents are identical'
             return self._build_cat_summaries_str(cat_map)

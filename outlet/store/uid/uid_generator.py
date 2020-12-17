@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 import logging
 
-from constants import MIN_FREE_UID, NULL_UID, GDRIVE_ROOT_UID
+from constants import MIN_FREE_UID, NULL_UID
 from model.uid import UID
 
 logger = logging.getLogger(__name__)

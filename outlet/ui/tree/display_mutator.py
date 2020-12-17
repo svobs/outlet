@@ -8,20 +8,18 @@ from typing import Deque, Iterable, List
 import humanfriendly
 from pydispatch import dispatcher
 
-from constants import STATS_REFRESH_HOLDOFF_TIME_MS, IconId, LARGE_NUMBER_OF_CHILDREN, SUPER_DEBUG, TreeDisplayMode
-from error import GDriveItemNotFoundError
+from constants import IconId, LARGE_NUMBER_OF_CHILDREN, STATS_REFRESH_HOLDOFF_TIME_MS, SUPER_DEBUG, TreeDisplayMode
+from global_actions import GlobalActions
 from model.display_tree.display_tree import DisplayTree
+from model.display_tree.filter_criteria import FilterCriteria
 from model.node.container_node import CategoryNode
 from model.node.ephemeral_node import EmptyNode, LoadingNode
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
 from ui.signal import Signal
-from model.display_tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
-
-from util.root_path_meta import RootPathMeta
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -137,9 +135,9 @@ class DisplayMutator(HasLifecycle):
             if type(node) == CategoryNode and self.con.treeview_meta.is_display_persisted and self.con.treeview_meta.is_category_node_expanded(node):
                 logger.debug(f'[{self.con.tree_id}] Category node {node.name} is expanded')
                 is_expand = True
-            elif node.identifier in self.con.display_store.expanded_rows:
+            elif node.uid in self.con.display_store.expanded_rows:
                 if SUPER_DEBUG:
-                    logger.debug(f'[{self.con.tree_id}] Found identifier "{node.identifier}" in expanded_rows"')
+                    logger.debug(f'[{self.con.tree_id}] Found uid "{node.uid}" in expanded_rows"')
                 is_expand = True
 
             if is_expand:
@@ -147,8 +145,8 @@ class DisplayMutator(HasLifecycle):
                 parent_iter = self._append_dir_node(parent_iter=parent_iter, node=node)
 
                 if SUPER_DEBUG:
-                    logger.debug(f'[{self.con.tree_id}] Row will be expanded: {node.identifier} ("{node.name}")')
-                to_expand.append(node.identifier)
+                    logger.debug(f'[{self.con.tree_id}] Row will be expanded: {node.uid} ("{node.name}")')
+                to_expand.append(node.uid)
 
                 child_list = self.con.get_tree().get_children(node, self.con.treeview_meta.filter_criteria)
                 for child in child_list:
@@ -156,7 +154,7 @@ class DisplayMutator(HasLifecycle):
 
             else:
                 if SUPER_DEBUG:
-                    logger.debug(f'[{self.con.tree_id}] Node is not expanded: {node.identifier} ({node.node_identifier})')
+                    logger.debug(f'[{self.con.tree_id}] Node is not expanded: {node.node_identifier}')
                 self._append_dir_node_and_loading_child(parent_iter, node)
         else:
             self._append_file_node(parent_iter, node)
@@ -175,7 +173,6 @@ class DisplayMutator(HasLifecycle):
             self._enable_expand_state_listeners = True
 
     def select_uid(self, uid):
-        """Note: this will not work for ChangeDisplayTrees, as it is UID-based, not identifier-based"""
         tree_iter = self.con.display_store.find_uid_in_tree(uid, None)
         if not tree_iter:
             logger.info(f'[{self.con.tree_id}] Could not select node: could not find node in tree for UID {uid}')
@@ -187,7 +184,6 @@ class DisplayMutator(HasLifecycle):
         self.con.tree_view.scroll_to_cell(path=tree_path, column=None, use_align=True, row_align=0.5, col_align=0)
 
     def expand_and_select_node(self, selection: SinglePathNodeIdentifier):
-        """Note: this will not work for ChangeDisplayTrees, as it is UID-based, not identifier-based"""
         assert isinstance(selection, SinglePathNodeIdentifier), f'Expected instance of SinglePathNodeIdentifier but got: {type(selection)}'
 
         def do_in_ui():
@@ -247,12 +243,17 @@ class DisplayMutator(HasLifecycle):
         self._expand_row_without_event_firing(tree_path=tree_path, expand_all=expand_all)
 
     def filter_tree(self, filter_criteria: FilterCriteria):
-        if filter_criteria:
-            self.con.treeview_meta.filter_criteria = filter_criteria
-        else:
-            self.con.treeview_meta.filter_criteria = None
+        try:
+            if filter_criteria:
+                self.con.treeview_meta.filter_criteria = filter_criteria
+            else:
+                self.con.treeview_meta.filter_criteria = None
 
-        self.populate_root()
+            self.populate_root()
+        except RuntimeError as err:
+            msg = f'[{self.con.tree_id}] Failed to populate the tree using filter_criteria {filter_criteria}'
+            logger.exception(msg)
+            GlobalActions.display_error_in_ui(msg, repr(err))
 
     def populate_root(self):
         """START HERE.
@@ -271,7 +272,7 @@ class DisplayMutator(HasLifecycle):
         finally:
             self._enable_node_signals = True
 
-        def update_ui():
+        def _update_ui():
             with self._lock:
                 # retain selection (if any)
                 prev_selection: List[Node] = self.con.display_store.get_multiple_selection()
@@ -303,9 +304,9 @@ class DisplayMutator(HasLifecycle):
                     for node in top_level_node_list:
                         self._populate_and_restore_expanded_state(root_iter, node, node_count, to_expand)
 
-                    for identifier in to_expand:
-                        logger.debug(f'[{self.con.tree_id}] Expanding: {identifier}')
-                        tree_iter = self.con.display_store.find_identifier_in_tree(identifier)
+                    for uid in to_expand:
+                        logger.debug(f'[{self.con.tree_id}] Expanding: {uid}')
+                        tree_iter = self.con.display_store.find_uid_in_tree(uid)
                         self._expand_row_without_event_firing(tree_path=tree_iter, expand_all=False)
 
                     logger.debug(f'[{self.con.tree_id}] Populated {node_count} nodes and expanded {len(to_expand)} dir nodes')
@@ -333,7 +334,7 @@ class DisplayMutator(HasLifecycle):
             logger.debug(f'[{self.con.tree_id}] Sending signal {Signal.POPULATE_UI_TREE_DONE.name}')
             dispatcher.send(signal=Signal.POPULATE_UI_TREE_DONE, sender=self.con.tree_id)
 
-        GLib.idle_add(update_ui)
+        GLib.idle_add(_update_ui)
 
         # self._request_subtree_stats_refresh()
 
@@ -356,9 +357,9 @@ class DisplayMutator(HasLifecycle):
             assert self.con.treeview_meta.has_checkboxes
             child_list: Iterable[SPIDNodePair] = self.con.get_tree().get_child_sn_list_for_root()
             for child_sn in child_list:
-                if self.con.display_store.checked_rows.get(child_sn.node.identifier, None):
+                if self.con.display_store.checked_rows.get(child_sn.node.uid, None):
                     whitelist.append(child_sn)
-                elif self.con.display_store.inconsistent_rows.get(child_sn.node.identifier, None):
+                elif self.con.display_store.inconsistent_rows.get(child_sn.node.uid, None):
                     secondary_screening.append(child_sn)
 
             while len(secondary_screening) > 0:
@@ -370,9 +371,9 @@ class DisplayMutator(HasLifecycle):
                     checked_items.append(parent)
 
                 for child_sn in self.con.get_tree().get_child_sn_list(parent):
-                    if self.con.display_store.checked_rows.get(child_sn.node.identifier, None):
+                    if self.con.display_store.checked_rows.get(child_sn.node.uid, None):
                         whitelist.append(child_sn)
-                    elif self.con.display_store.inconsistent_rows.get(child_sn.node.identifier, None):
+                    elif self.con.display_store.inconsistent_rows.get(child_sn.node.uid, None):
                         secondary_screening.append(child_sn)
 
             while len(whitelist) > 0:
@@ -400,14 +401,14 @@ class DisplayMutator(HasLifecycle):
 
         # Still want to keep track of which nodes are expanded:
         if is_expanded:
-            logger.debug(f'[{self.con.tree_id}] Added identifier "{node.identifier}" to expanded_rows')
-            self.con.display_store.expanded_rows.add(node.identifier)
+            logger.debug(f'[{self.con.tree_id}] Added uid "{node.uid}" to expanded_rows')
+            self.con.display_store.expanded_rows.add(node.uid)
         else:
             def remove_from_expanded_rows(tree_iter: Gtk.TreeIter):
                 n = self.con.display_store.get_node_data(tree_iter)
                 if n.is_dir():
-                    self.con.display_store.expanded_rows.discard(n.identifier)
-                    logger.debug(f'[{self.con.tree_id}] Removed identifier "{n.identifier}" from expanded_rows')
+                    self.con.display_store.expanded_rows.discard(n.uid)
+                    logger.debug(f'[{self.con.tree_id}] Removed uid "{n.uid}" from expanded_rows')
 
             self.con.display_store.do_for_self_and_descendants(parent_path, remove_from_expanded_rows)
 
@@ -774,7 +775,7 @@ class DisplayMutator(HasLifecycle):
                     row_values.append(False)  # Inconsistent
                     return
                 # Otherwise: inconsistent. Look up individual values below:
-            row_id = node.identifier
+            row_id = node.uid
             checked = self.con.display_store.checked_rows.get(row_id, None)
             inconsistent = self.con.display_store.inconsistent_rows.get(row_id, None)
             row_values.append(checked)  # Checked

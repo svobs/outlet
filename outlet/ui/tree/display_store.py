@@ -62,13 +62,13 @@ class DisplayStore:
             self.expanded_rows: Set[UID] = set()
             expanded_rows_str: Optional[str] = self.treeview_meta.config.get(DisplayStore._make_expanded_rows_config_key(self.tree_id))
             if expanded_rows_str:
-                for identifier in expanded_rows_str.split(CONFIG_DELIMITER):
-                    self.expanded_rows.add(ensure_uid(identifier))
+                for uid in expanded_rows_str.split(CONFIG_DELIMITER):
+                    self.expanded_rows.add(ensure_uid(uid))
         except RuntimeError:
             logger.exception(f'[{self.tree_id}] Failed to load expanded rows from config')
 
     def save_expanded_rows_to_config(self):
-        expanded_rows_str: str = CONFIG_DELIMITER.join(str(identifier) for identifier in self.expanded_rows)
+        expanded_rows_str: str = CONFIG_DELIMITER.join(str(uid) for uid in self.expanded_rows)
         self.treeview_meta.config.write(DisplayStore._make_expanded_rows_config_key(self.tree_id), expanded_rows_str)
 
     @staticmethod
@@ -128,7 +128,7 @@ class DisplayStore:
         self._update_checked_state_tracking(node_data, is_checked, is_inconsistent)
 
     def _update_checked_state_tracking(self, node_data: Node, is_checked: bool, is_inconsistent: bool):
-        row_id = node_data.identifier
+        row_id = node_data.uid
         if is_checked:
             self.checked_rows[row_id] = node_data
         else:
@@ -213,12 +213,6 @@ class DisplayStore:
         #     logger.debug(f'Examining node uid={node.uid} (looking for: {target_uid})')
         return not node.is_ephemereal() and node.uid == target_uid
 
-    @staticmethod
-    def _identifier_equals_func(target_identifier: UID, node: Node) -> bool:
-        # if logger.isEnabledFor(logging.DEBUG) and not node.is_ephemeral():
-        #     logger.debug(f'Examining node uid={node.uid} (looking for: {target_uid})')
-        return not node.is_ephemereal() and node.identifier == target_identifier
-
     def find_in_tree(self, found_func: Callable[[Node], bool], tree_iter: Optional[Gtk.TreeIter] = None) -> Optional[Gtk.TreeIter]:
         """Generic version:
         Recurses over entire tree and visits every node until is_uid_equals_func() returns True, then returns the data at that node.
@@ -237,11 +231,6 @@ class DisplayStore:
                     return ret_iter
             tree_iter = self.model.iter_next(tree_iter)
         return None
-
-    def find_identifier_in_tree(self, target_identifier: UID, tree_iter: Optional[Gtk.TreeIter] = None) -> Optional[Gtk.TreeIter]:
-        """Recurses over entire tree and visits every node until _identifier_equals_func() returns True, then returns iter data at that node"""
-        bound_func: Callable = partial(self._identifier_equals_func, target_identifier)
-        return self.find_in_tree(bound_func, tree_iter)
 
     def find_uid_in_tree(self, target_uid: UID, tree_iter: Optional[Gtk.TreeIter] = None) -> Optional[Gtk.TreeIter]:
         """Recurses over entire tree and visits every node until _uid_equals_func() returns True, then returns iter data at that node"""
@@ -270,11 +259,6 @@ class DisplayStore:
     def find_uid_in_children(self, target_uid: UID, parent_iter) -> Optional[Gtk.TreeIter]:
         """Searches the children of the given parent_iter for the given UID, then returns the iter at that node"""
         bound_func: Callable = partial(self._uid_equals_func, target_uid)
-        return self.find_in_children(parent_iter, bound_func)
-
-    def find_identifier_in_children(self, target_identifier: UID, parent_iter) -> Optional[Gtk.TreeIter]:
-        """Searches the children of the given parent_iter for the given identifier, then returns the iter at that node"""
-        bound_func: Callable = partial(self._identifier_equals_func, target_identifier)
         return self.find_in_children(parent_iter, bound_func)
 
     def get_displayed_children_of(self, parent_uid: UID) -> List[Node]:
@@ -345,7 +329,7 @@ class DisplayStore:
         node: Node = row_values[self.treeview_meta.col_num_data]
 
         if not node.is_ephemereal():
-            self.displayed_rows[node.identifier] = node
+            self.displayed_rows[node.uid] = node
 
         return self.model.append(parent_node_iter, row_values)
 
@@ -362,14 +346,14 @@ class DisplayStore:
             if node.is_ephemereal():
                 return
 
-            identifier = node.identifier
-            if identifier in self.checked_rows:
-                del self.checked_rows[identifier]
-            if identifier in self.inconsistent_rows:
-                del self.inconsistent_rows[identifier]
-            if identifier in self.displayed_rows:
-                del self.displayed_rows[node.identifier]
-            self.expanded_rows.discard(identifier)
+            uid = node.uid
+            if uid in self.checked_rows:
+                del self.checked_rows[uid]
+            if uid in self.inconsistent_rows:
+                del self.inconsistent_rows[uid]
+            if uid in self.displayed_rows:
+                del self.displayed_rows[node.uid]
+            self.expanded_rows.discard(uid)
 
         self.do_for_self_and_descendants(initial_tree_iter, remove_node_from_lists)
 
@@ -403,7 +387,7 @@ class DisplayStore:
             logger.debug(f'[{self.tree_id}] Removing 1st child: {child_node}')
 
         if not child_node.is_ephemereal():
-            self.displayed_rows.pop(child_node.identifier)
+            self.displayed_rows.pop(child_node.uid)
 
         # remove the first child
         self.model.remove(first_child_iter)

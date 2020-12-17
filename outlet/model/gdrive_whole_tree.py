@@ -259,7 +259,7 @@ class GDriveWholeTree(HasGetChildren):
                 if identifiers:
                     identifiers_found += identifiers
             except GDriveItemNotFoundError:
-                logger.warning(f'No identifier(s) found for path, skipping: "{single_path}"')
+                logger.warning(f'No node identifier(s) found for path, skipping: "{single_path}"')
         return identifiers_found
 
     def get_node_list_for_path_list(self, path_list: List[str]) -> List[GDriveNode]:
