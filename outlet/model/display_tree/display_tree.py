@@ -19,7 +19,7 @@ class DisplayTreeUiState:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, tree_id: str, root_sn: SPIDNodePair, root_exists: bool = True, offending_path: Optional[str] = None,
-                 tree_display_mode: TreeDisplayMode = TreeDisplayMode.ONE_TREE_ALL_ITEMS, show_checkboxes: bool = False):
+                 tree_display_mode: TreeDisplayMode = TreeDisplayMode.ONE_TREE_ALL_ITEMS, has_checkboxes: bool = False):
         if not tree_id:
             raise RuntimeError('Cannot build DisplayTreeUiState: tree_id cannot be empty!')
         self.tree_id: str = tree_id
@@ -38,7 +38,11 @@ class DisplayTreeUiState:
         If False; the backend will automatically start loading in the background."""
 
         self.tree_display_mode: TreeDisplayMode = tree_display_mode
-        self.show_checkboxes: bool = show_checkboxes
+        self.has_checkboxes: bool = has_checkboxes
+
+    @staticmethod
+    def create_change_tree_state(tree_id: str, root_sn: SPIDNodePair):
+        return DisplayTreeUiState(tree_id, root_sn, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY, has_checkboxes=True)
 
     def to_display_tree(self, backend):
         if self.root_exists:
@@ -49,7 +53,7 @@ class DisplayTreeUiState:
     def __repr__(self):
         return f'DisplayTreeUiState(tree_id="{self.tree_id}" root_exists={self.root_exists} offending_path=' \
                f'{self.offending_path} needs_manual_load={self.needs_manual_load} root_sn={self.root_sn} ' \
-               f'tree_display_mode={self.tree_display_mode.name} show_checkboxes={self.show_checkboxes}'
+               f'tree_display_mode={self.tree_display_mode.name} has_checkboxes={self.has_checkboxes}'
 
 
 class DisplayTree(HasGetChildren):

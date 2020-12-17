@@ -260,12 +260,14 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         left_selected_changes: List[SPIDNodePair] = self.tree_con_left.get_checked_rows_as_list()
         right_selected_changes: List[SPIDNodePair] = self.tree_con_right.get_checked_rows_as_list()
         if len(left_selected_changes) == 0 and len(right_selected_changes) == 0:
+            # TODO: make info msg instead
             self.show_error_msg('You must select change(s) first.')
             return None
 
         left_sn = self.tree_con_left.get_tree().get_root_sn()
         right_sn = self.tree_con_right.get_tree().get_root_sn()
-        differ = ContentFirstDiffer(self.app.backend, left_sn, right_sn)
+        differ = ContentFirstDiffer(self.app.backend, left_sn, right_sn, self.tree_con_left.tree_id, self.tree_con_right.tree_id,
+                                    'merged_left', 'merged_right')
         merged_changes_tree: ChangeDisplayTree = differ.merge_change_trees(left_selected_changes, right_selected_changes)
 
         conflict_pairs = []

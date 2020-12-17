@@ -128,17 +128,17 @@ class TreePanelController(HasLifecycle):
 
                 self.set_tree(display_tree=new_tree)
                 new_tree_id = new_tree.tree_id
-                checkboxes_visible = new_tree.state.show_checkboxes
+                has_checkboxes = new_tree.state.has_checkboxes
             else:
                 logger.info(f'[{self.tree_id}] reload() with same tree')
                 self.set_tree(display_tree=self._display_tree)
                 new_tree_id = self._display_tree.tree_id
-                checkboxes_visible = self.treeview_meta.has_checkboxes
+                has_checkboxes = self.treeview_meta.has_checkboxes
 
             # 2. REBUILD:
             if old_tree_id != new_tree_id:
                 logger.debug(f'Changing tree_id from "{old_tree_id}" to "{new_tree_id}"')
-            self.treeview_meta = self.treeview_meta.but_with_checkboxes(checkboxes_visible, new_tree_id)
+            self.treeview_meta = self.treeview_meta.but_with_checkboxes(has_checkboxes, new_tree_id)
             self.display_store = DisplayStore(self, self.treeview_meta)
 
             new_treeview = tree_factory_templates.build_treeview(self.display_store, self.app.assets)

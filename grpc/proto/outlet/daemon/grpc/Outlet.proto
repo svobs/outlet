@@ -149,7 +149,7 @@ message DisplayTreeUiState {
 	string offending_path = 4;
 	bool needs_manual_load = 5;
 	int32 tree_display_mode = 6;
-	bool show_checkboxes = 7;
+	bool has_checkboxes = 7;
 }
 
 message RequestDisplayTree_Request {

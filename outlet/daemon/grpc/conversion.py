@@ -292,7 +292,7 @@ class Converter:
             grpc_display_tree_ui_state.offending_path = state.offending_path
         grpc_display_tree_ui_state.needs_manual_load = state.needs_manual_load
         grpc_display_tree_ui_state.tree_display_mode = state.tree_display_mode
-        grpc_display_tree_ui_state.show_checkboxes = state.show_checkboxes
+        grpc_display_tree_ui_state.has_checkboxes = state.has_checkboxes
 
     @staticmethod
     def display_tree_ui_state_from_grpc(grpc: outlet.daemon.grpc.Outlet_pb2.DisplayTreeUiState) -> DisplayTreeUiState:
@@ -300,4 +300,4 @@ class Converter:
         offending_path = grpc.offending_path
         if not offending_path:
             offending_path = None
-        return DisplayTreeUiState(grpc.tree_id, root_sn, grpc.root_exists, offending_path, grpc.tree_display_mode, grpc.show_checkboxes)
+        return DisplayTreeUiState(grpc.tree_id, root_sn, grpc.root_exists, offending_path, grpc.tree_display_mode, grpc.has_checkboxes)

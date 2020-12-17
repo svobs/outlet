@@ -157,4 +157,3 @@ class RootTypeNode(ContainerNode):
         elif self.node_identifier.tree_type == TREE_TYPE_GDRIVE:
             return IconId.ICON_GDRIVE
         return IconId.ICON_GENERIC_DIR
-

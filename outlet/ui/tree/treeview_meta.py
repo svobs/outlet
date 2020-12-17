@@ -18,10 +18,10 @@ class TreeViewMeta(HasLifecycle):
     CLASS TreeViewMeta
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def but_with_checkboxes(self, checkboxes_visible: bool, tree_id: str):
+    def but_with_checkboxes(self, has_checkboxes: bool, tree_id: str):
         """Return an exact duplicate of this class instance, but with has_checkboxes set to the desired value"""
         new_inst: TreeViewMeta = TreeViewMeta(config=self.config, tree_id=tree_id, can_modify_tree=self.can_modify_tree,
-                                              has_checkboxes=checkboxes_visible, can_change_root=self.can_change_root,
+                                              has_checkboxes=has_checkboxes, can_change_root=self.can_change_root,
                                               tree_display_mode=self.tree_display_mode, lazy_load=self.lazy_load, selection_mode=self.selection_mode,
                                               is_display_persisted=self.is_display_persisted, is_ignored_func=self.is_ignored_func)
         new_inst.filter_criteria = self.filter_criteria

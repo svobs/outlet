@@ -5,7 +5,7 @@ import pathlib
 from collections import deque
 from typing import Callable, Deque, Dict, List, Optional
 
-from constants import TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TreeDisplayMode
+from constants import TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.display_tree.change_display_tree import ChangeDisplayTree
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
@@ -200,9 +200,9 @@ class ChangeMaker:
         self.backend = backend
         batch_uid: UID = self.backend.uid_generator.next_uid()
 
-        left_state = DisplayTreeUiState(tree_id_left, left_tree_root_sn, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
+        left_state = DisplayTreeUiState.create_change_tree_state(tree_id_left, left_tree_root_sn)
         self.left_side = OneSide(backend, left_state, batch_uid, tree_id_left_src)
-        right_state = DisplayTreeUiState(tree_id_right, right_tree_root_sn, tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
+        right_state = DisplayTreeUiState.create_change_tree_state(tree_id_right, right_tree_root_sn)
         self.right_side = OneSide(backend, right_state, batch_uid, tree_id_right_src)
 
     def copy_nodes_left_to_right(self, src_sn_list: List[SPIDNodePair], sn_dst_parent: SPIDNodePair, op_type: UserOpType):
