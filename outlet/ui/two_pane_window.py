@@ -128,11 +128,13 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         dispatcher.connect(signal=Signal.TOGGLE_UI_ENABLEMENT, receiver=self._on_enable_ui_toggled)
         dispatcher.connect(signal=Signal.DIFF_TREES_DONE, receiver=self._after_diff_completed)
         dispatcher.connect(signal=Signal.DIFF_TREES_FAILED, receiver=self._after_diff_failed)
+        dispatcher.connect(signal=Signal.GENERATE_MERGE_TREE_DONE, receiver=self._after_merge_tree_generated)
+        dispatcher.connect(signal=Signal.GENERATE_MERGE_TREE_FAILED, receiver=self._after_merge_tree_failed)
 
         # Need to add an extra listener to each tree, to reload when the other one's root changes
         # if displaying the results of a diff
         dispatcher.connect(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed_twopane)
-        dispatcher.connect(signal=Signal.EXIT_DIFF_MODE, receiver=self._on_diff_exited, sender=Any)
+        dispatcher.connect(signal=Signal.EXIT_DIFF_MODE, receiver=self._on_diff_exited)
         dispatcher.connect(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, receiver=self._update_play_pause_btn)
 
         # Connect "resize" event. Lots of excess logic to determine approximately when the
@@ -177,14 +179,14 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self._event_id_size_allocate = eid
 
     def _set_default_button_bar(self):
-        def on_diff_btn_clicked(widget):
+        def _on_diff_btn_clicked(widget):
             logger.debug(f'Diff btn clicked! Sending diff request to BE')
             # Disable button bar immediately:
             GlobalActions.disable_ui(sender=self.win_id)
             self.app.backend.start_diff_trees(tree_id_left=self.tree_con_left.tree_id, tree_id_right=self.tree_con_right.tree_id)
             # We will be notified asynchronously when it is done/failed. If successful, the old tree_ids will be notified and supplied the new IDs
         diff_action_btn = Gtk.Button(label="Diff (content-first)")
-        diff_action_btn.connect("clicked", on_diff_btn_clicked)
+        diff_action_btn.connect("clicked", _on_diff_btn_clicked)
 
         def on_goog_btn_clicked(widget):
             logger.debug(f'DownloadGDrive btn clicked! Sending signal: "{Signal.DOWNLOAD_ALL_GDRIVE_META.name}"')
@@ -256,30 +258,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         # repeat timer
         return True
 
-    def _generate_merge_tree(self) -> Optional[ChangeDisplayTree]:
-        left_selected_changes: List[SPIDNodePair] = self.tree_con_left.get_checked_rows_as_list()
-        right_selected_changes: List[SPIDNodePair] = self.tree_con_right.get_checked_rows_as_list()
-        if len(left_selected_changes) == 0 and len(right_selected_changes) == 0:
-            # TODO: make info msg instead
-            self.show_error_msg('You must select change(s) first.')
-            return None
-
-        left_sn = self.tree_con_left.get_tree().get_root_sn()
-        right_sn = self.tree_con_right.get_tree().get_root_sn()
-        differ = ContentFirstDiffer(self.app.backend, left_sn, right_sn, self.tree_con_left.tree_id, self.tree_con_right.tree_id,
-                                    'merged_left', 'merged_right')
-        merged_changes_tree: ChangeDisplayTree = differ.merge_change_trees(left_selected_changes, right_selected_changes)
-
-        conflict_pairs = []
-        if conflict_pairs:
-            # TODO: more informative error
-            self.show_error_msg('Cannot merge', f'{len(conflict_pairs)} conflicts found')
-            return None
-
-        logger.info(f'Merged changes: {merged_changes_tree.get_summary()}')
-        return merged_changes_tree
-
-    def on_merge_preview_btn_clicked(self, widget):
+    def _on_merge_preview_btn_clicked(self, widget):
         """
         1. Gets selected changes from both sides,
         2. merges into one change tree and raises an error for conflicts,
@@ -287,15 +266,13 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         """
         logger.debug('Merge btn clicked')
 
-        try:
-            merged_changes_tree = self._generate_merge_tree()
-            if merged_changes_tree:
-                # Preview changes in UI pop-up
-                dialog = MergePreviewDialog(self, merged_changes_tree)
-                dialog.run()
-        except Exception as err:
-            self.show_error_ui('Merge preview failed due to unexpected error', repr(err))
-            raise
+        selected_changes_left: List[SPIDNodePair] = self.tree_con_left.get_checked_rows_as_list()
+        selected_changes_right: List[SPIDNodePair] = self.tree_con_right.get_checked_rows_as_list()
+
+        GlobalActions.disable_ui(sender=self.win_id)
+
+        self.app.backend.generate_merge_tree(tree_id_left=self.tree_con_left.tree_id, tree_id_right=self.tree_con_right.tree_id,
+                                             selected_changes_left=selected_changes_left, selected_changes_right=selected_changes_right)
 
     # SIGNAL LISTENERS begin
     # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -347,7 +324,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         def change_button_bar():
             # Replace diff btn with merge buttons
             merge_btn = Gtk.Button(label="Merge Selected...")
-            merge_btn.connect("clicked", self.on_merge_preview_btn_clicked)
+            merge_btn.connect("clicked", self._on_merge_preview_btn_clicked)
 
             def on_cancel_diff_btn_clicked(widget):
                 dispatcher.send(signal=Signal.EXIT_DIFF_MODE, sender=ID_MERGE_TREE)
@@ -360,16 +337,33 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             GlobalActions.enable_ui(sender=self.win_id)
         GLib.idle_add(change_button_bar)
 
-    def _on_error_occurred(self, msg: str, secondary_msg: str = None):
-        logger.debug(f'Received signal: "{Signal.ERROR_OCCURRED.name}"')
-        self.show_error_ui(msg, secondary_msg)
-
     def _on_diff_exited(self):
         logger.debug(f'Received signal {Signal.EXIT_DIFF_MODE.name}. Reloading both trees')
         self._reload_tree(self.tree_con_left)
         self._reload_tree(self.tree_con_right)
 
         GLib.idle_add(self._set_default_button_bar)
+
+    def _after_merge_tree_generated(self, sender, tree: DisplayTree):
+        logger.debug(f'Received signal: "{Signal.GENERATE_MERGE_TREE_DONE.name}"')
+
+        try:
+            # Preview changes in UI pop-up
+            dialog = MergePreviewDialog(self, tree)
+            dialog.run()
+        except Exception as err:
+            self.show_error_ui('Merge preview failed due to unexpected error', repr(err))
+            raise
+        finally:
+            GlobalActions.enable_ui(sender=self.win_id)
+
+    def _after_merge_tree_failed(self, sender):
+        logger.debug(f'Received signal: "{Signal.GENERATE_MERGE_TREE_FAILED.name}"')
+        GlobalActions.enable_ui(sender=self.win_id)
+
+    def _on_error_occurred(self, msg: str, secondary_msg: str = None):
+        logger.debug(f'Received signal: "{Signal.ERROR_OCCURRED.name}"')
+        self.show_error_ui(msg, secondary_msg)
 
     def _reload_tree(self, tree_con):
         """Reload the given tree in regular mode"""

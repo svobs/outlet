@@ -311,6 +311,11 @@ class BackendGRPCClient(OutletBackend):
 
         return DiffResultTreeIds(response.tree_id_left, response.tree_id_right)
 
+    def generate_merge_tree(self, tree_id_left: str, tree_id_right: str,
+                            selected_changes_left: List[SPIDNodePair], selected_changes_right: List[SPIDNodePair]):
+        # TODO!
+        pass
+
     def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):
         request = RefreshSubtree_Request()
         Converter.node_identifier_to_grpc(node_identifier, request.node_identifier)

@@ -138,9 +138,9 @@ def build_editor_tree(parent_win, tree):
     return controller
 
 
-def build_static_category_file_tree(parent_win, tree):
+def build_eager_load_change_tree(parent_win, tree):
     if SUPER_DEBUG:
-        logger.debug(f'[{tree.tree_id}] Entered build_static_category_file_tree()')
+        logger.debug(f'[{tree.tree_id}] Entered build_eager_load_change_tree()')
     # Whole tree is provided here. For Merge Preview dialog
     factory = TreeFactory(parent_win=parent_win, tree=tree)
     factory.has_checkboxes = False

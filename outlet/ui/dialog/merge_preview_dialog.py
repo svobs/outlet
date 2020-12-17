@@ -4,7 +4,6 @@ from pydispatch import dispatcher
 
 from ui.signal import ID_MERGE_TREE
 from ui.tree import tree_factory
-from model.display_tree.change_display_tree import ChangeDisplayTree
 
 from ui.signal import Signal
 from ui.dialog.base_dialog import BaseDialog
@@ -27,6 +26,8 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         Gtk.Dialog.__init__(self, title="Confirm Merge", transient_for=parent_win, flags=0)
         BaseDialog.__init__(self, app=parent_win.app)
         self.parent_win = parent_win
+        self.tree = tree
+
         self.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         self.add_button(Gtk.STOCK_APPLY, Gtk.ResponseType.APPLY)
 
@@ -39,12 +40,10 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
         label = Gtk.Label(label="The following changes will be made:")
         self.content_box.add(label)
 
-        self.tree: ChangeDisplayTree = tree
-        self.tree_con = tree_factory.build_static_category_file_tree(parent_win=self, tree=self.tree)
+        self.tree_con = tree_factory.build_eager_load_change_tree(parent_win=self, tree=self.tree)
 
         dispatcher.send(signal=Signal.SET_STATUS, sender=ID_MERGE_TREE, status_msg=self.tree.get_summary())
         self.content_box.pack_start(self.tree_con.content_box, True, True, 0)
-        self.tree_con.reload()
 
         self.connect("response", self.on_response)
         self.show_all()

@@ -15,6 +15,8 @@ class Signal(IntEnum):
     SYNC_GDRIVE_CHANGES = 10
     DOWNLOAD_ALL_GDRIVE_META = 11
     COMMAND_COMPLETE = 12
+    GENERATE_MERGE_TREE_DONE = 13
+    GENERATE_MERGE_TREE_FAILED = 14
 
     # --- Tree actions: requests ---
     CALL_EXIFTOOL = 20

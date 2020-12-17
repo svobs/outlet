@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import List
 
 from pydispatch import dispatcher
 
@@ -60,7 +61,7 @@ class TreeDiffAction:
             # Send general notification that we are done:
             dispatcher.send(Signal.STOP_PROGRESS, sender=sender)
             dispatcher.send(signal=Signal.DIFF_TREES_DONE, sender=sender)
-            logger.debug(f'Diff time: {stopwatch_diff_total}')
+            logger.debug(f'{stopwatch_diff_total} Finished diff')
         except Exception as err:
             # Clean up progress bar:
             dispatcher.send(Signal.STOP_PROGRESS, sender=sender)
@@ -75,3 +76,39 @@ class TreeDiffAction:
             if os.path.exists(path):
                 return True
         return False
+
+    @staticmethod
+    def generate_merge_tree(backend, sender, tree_id_left: str, tree_id_right: str, new_tree_ids: DiffResultTreeIds,
+                            selected_changes_left: List[SPIDNodePair], selected_changes_right: List[SPIDNodePair]):
+        if len(selected_changes_left) == 0 and len(selected_changes_right) == 0:
+            # TODO: make info msg instead
+            GlobalActions.display_error_in_ui(sender, 'You must select change(s) first.')
+            return None
+
+        sw = Stopwatch()
+
+        try:
+            meta_left = backend.cacheman.get_active_display_tree_meta(tree_id_left)
+            meta_right = backend.cacheman.get_active_display_tree_meta(tree_id_right)
+            left_sn = meta_left.root_sn
+            right_sn = meta_right.root_sn
+            differ = ContentFirstDiffer(backend, left_sn, right_sn, new_tree_ids.tree_id_left, new_tree_ids.tree_id_right,
+                                        tree_id_left, tree_id_right)
+            merged_changes_tree = differ.merge_change_trees(selected_changes_left, selected_changes_right)
+            # FIXME: need to clean up this mechanism: src_tree_id makes no sense
+            backend.cacheman.register_change_tree(merged_changes_tree, src_tree_id=None)
+
+            dispatcher.send(signal=Signal.GENERATE_MERGE_TREE_DONE, sender=sender, tree=merged_changes_tree)
+            logger.debug(f'{sw} Finished generating merge tree')
+
+            conflict_pairs = []
+            if conflict_pairs:
+                # TODO: more informative error
+                GlobalActions.display_error_in_ui(sender, 'Cannot merge', f'{len(conflict_pairs)} conflicts found')
+                return None
+
+            logger.info(f'Generated merge preview tree: {merged_changes_tree.get_summary()}')
+        except Exception as err:
+            logger.exception(err)
+            dispatcher.send(signal=Signal.GENERATE_MERGE_TREE_FAILED, sender=sender)
+            GlobalActions.display_error_in_ui(sender, 'Failed to generate merge preview due to unexpected error', repr(err))
