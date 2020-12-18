@@ -182,7 +182,7 @@ class GDriveMasterStore(MasterStore):
     def _on_gdrive_sync_changes_requested(self, sender):
         """See below. This will load the GDrive tree (if it is not loaded already), then sync to the latest changes from GDrive"""
         logger.debug(f'Received signal: "{Signal.SYNC_GDRIVE_CHANGES.name}"')
-        self.backend.executor.submit_async_task(self.get_synced_master_tree)
+        self.backend.executor.submit_async_task(self.load_and_sync_master_tree)
 
     def _on_download_all_gdrive_meta_requested(self, sender):
         """See below. Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
@@ -194,7 +194,7 @@ class GDriveMasterStore(MasterStore):
         GlobalActions.disable_ui(sender=tree_id)
         try:
             """Wipes any existing disk cache and replaces it with a complete fresh download from the GDrive servers."""
-            self.get_synced_master_tree(invalidate_cache=True)
+            self.load_and_sync_master_tree(invalidate_cache=True)
         except Exception as err:
             logger.exception(err)
             GlobalActions.display_error_in_ui('Download from GDrive failed due to unexpected error', repr(err))
@@ -204,10 +204,10 @@ class GDriveMasterStore(MasterStore):
     # Subtree-level stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
-    def get_display_tree(self, subtree_root: SinglePathNodeIdentifier, tree_id: str):
+    def load_subtree(self, subtree_root: SinglePathNodeIdentifier, tree_id: str):
         self._load_master_cache(sync_latest_changes=False, invalidate_cache=False)
 
-    def get_synced_master_tree(self, invalidate_cache: bool = False):
+    def load_and_sync_master_tree(self, invalidate_cache: bool = False):
         """This will sync the latest changes before returning."""
         self._load_master_cache(sync_latest_changes=True, invalidate_cache=invalidate_cache)
 
@@ -429,7 +429,7 @@ class GDriveMasterStore(MasterStore):
     def get_identifier_list_for_full_path_list(self, path_list: List[str], error_if_not_found: bool = False) -> List[NodeIdentifier]:
         if not self._memstore.master_tree:
             # load it
-            self.get_synced_master_tree()
+            self.load_and_sync_master_tree()
         return self._memstore.master_tree.get_identifier_list_for_path_list(path_list, error_if_not_found)
 
     def get_all_gdrive_files_and_folders_for_subtree(self, subtree_root: GDriveIdentifier) -> Tuple[List[GDriveFile], List[GDriveFolder]]:

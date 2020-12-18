@@ -72,12 +72,6 @@ class TreeDiffMergeAction:
                            tree_left: ChangeDisplayTree, left_selected_changes: List[SPIDNodePair],
                            tree_right: ChangeDisplayTree, right_selected_changes: List[SPIDNodePair]) -> ChangeDisplayTree:
 
-        # always root path, but tree type may differ
-        # if tree_left.get_tree_type() != tree_right.get_tree_type():
-        #     tree_type = TREE_TYPE_MIXED
-        # else:
-        #     tree_type = tree_left.get_tree_type()
-
         super_root_spid: SinglePathNodeIdentifier = NodeIdentifierFactory.get_root_constant_single_path_identifier(TREE_TYPE_MIXED)
         super_root_sn = SPIDNodePair(super_root_spid, RootTypeNode(super_root_spid))
         state: DisplayTreeUiState = DisplayTreeUiState(tree_id=ID_MERGE_TREE, root_sn=super_root_sn)

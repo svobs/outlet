@@ -162,7 +162,7 @@ class LocalDiskMasterStore(MasterStore):
         with self._struct_lock:
             return self._memstore.master_tree.show(nid=subtree_root.uid)
 
-    def get_display_tree(self, subtree_root: LocalNodeIdentifier, tree_id: str):
+    def load_subtree(self, subtree_root: LocalNodeIdentifier, tree_id: str):
         logger.debug(f'[{tree_id}] DisplayTree requested for root: {subtree_root}')
         self._get_display_tree(subtree_root, tree_id, is_live_refresh=False)
 

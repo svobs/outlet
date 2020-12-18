@@ -1,4 +1,4 @@
-import errno
+import logging
 import logging
 import os
 import pathlib
@@ -11,17 +11,16 @@ from pydispatch import dispatcher
 import util.format
 from command.cmd_interface import Command
 from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, \
-    MAIN_REGISTRY_FILE_NAME, NULL_UID, \
-    OPS_FILE_NAME, ROOT_PATH, \
+    MAIN_REGISTRY_FILE_NAME, OPS_FILE_NAME, ROOT_PATH, \
     SUPER_DEBUG, SUPER_ROOT_UID, TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK, TreeDisplayMode, UID_PATH_FILE_NAME
 from diff.change_maker import ChangeMaker
-from error import CacheNotLoadedError, GDriveItemNotFoundError, InvalidOperationError
+from error import InvalidOperationError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.display_tree.build_struct import DisplayTreeRequest
 from model.display_tree.change_display_tree import ChangeDisplayTree
-from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
-from model.gdrive_whole_tree import GDriveWholeTree
+from model.display_tree.display_tree import DisplayTreeUiState
+from model.display_tree.filter_criteria import FilterCriteria
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
@@ -32,20 +31,17 @@ from model.uid import UID
 from model.user_op import UserOp, UserOpType
 from store.gdrive.master_gdrive import GDriveMasterStore
 from store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
-from store.live_monitor import LiveMonitor
 from store.local.master_local import LocalDiskMasterStore
 from store.sqlite.cache_registry_db import CacheRegistry
+from store.tree.active_tree_tracking import ActiveDisplayTreeMeta, ActiveTreeManager
 from store.uid.uid_mapper import UidChangeTreeMapper
 from store.user_op.op_ledger import OpLedger
 from ui.signal import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
-from model.display_tree.filter_criteria import FilterCriteria
-from ui.tree.root_path_config import RootPathConfigPersister
 from util import file_util, time_util
 from util.ensure import ensure_list
 from util.file_util import get_resource_path
 from util.has_lifecycle import HasLifecycle
 from util.qthread import QThread
-from util.root_path_meta import RootPathMeta
 from util.stopwatch_sec import Stopwatch
 from util.two_level_dict import TwoLevelDict
 
@@ -58,48 +54,6 @@ def ensure_cache_dir_path(config):
         logger.info(f'Cache directory does not exist; attempting to create: "{cache_dir_path}"')
     os.makedirs(name=cache_dir_path, exist_ok=True)
     return cache_dir_path
-
-
-class ActiveDisplayTreeMeta:
-    """
-    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS ActiveDisplayTreeMeta
-
-    For internal use by CacheManager.
-    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-    """
-
-    def __init__(self, backend, state: DisplayTreeUiState, order: int = 0):
-        self.state: DisplayTreeUiState = state
-        # self.order: int = order
-
-        self.change_tree: Optional[ChangeDisplayTree] = None
-        """For order > 0 only"""
-        self.src_tree_id: Optional[str] = None
-        """For order > 0 only"""
-
-        self.root_path_config_persister: Optional[RootPathConfigPersister] = None
-
-        logger.debug(f'[{self.state.tree_id}] NeedsManualLoad = {state.needs_manual_load}')
-
-    # def is_first_order(self) -> bool:
-    #     return self.order == 0
-
-    @property
-    def root_sn(self):
-        return self.state.root_sn
-
-    @property
-    def tree_id(self):
-        return self.state.tree_id
-
-    @property
-    def root_exists(self):
-        return self.state.root_exists
-
-    @property
-    def offending_path(self):
-        return self.state.offending_path
 
 
 class CacheInfoByType(TwoLevelDict):
@@ -180,7 +134,6 @@ class CacheManager(HasLifecycle):
         self.sync_from_local_disk_on_cache_load = backend.config.get('cache.sync_from_local_disk_on_cache_load')
         self.reload_tree_on_root_path_update = backend.config.get('cache.load_cache_when_tree_root_selected')
         self.cancel_all_pending_ops_on_startup = backend.config.get('cache.cancel_all_pending_ops_on_startup')
-        self._is_live_capture_enabled = backend.config.get('cache.live_capture_enabled')
 
         if not self.load_all_caches_on_startup:
             logger.info('Configured not to fetch all caches on startup; will lazy load instead')
@@ -188,6 +141,8 @@ class CacheManager(HasLifecycle):
         self._load_request_thread = LoadRequestThread(backend=backend, cacheman=self)
 
         # Instantiate but do not start submodules yet, to avoid entangled dependencies:
+
+        self._active_tree_manager = ActiveTreeManager(self.backend)
 
         uid_path_cache_path = os.path.join(self.cache_dir_path, UID_PATH_FILE_NAME)
         self._master_local: LocalDiskMasterStore = LocalDiskMasterStore(self.backend, uid_path_cache_path)
@@ -200,13 +155,6 @@ class CacheManager(HasLifecycle):
         self._op_ledger: OpLedger = OpLedger(self.backend, op_db_path)
         """Sub-module of Cache Manager which manages commands which have yet to execute"""
 
-        self._live_monitor: LiveMonitor = LiveMonitor(self.backend)
-        """Sub-module of Cache Manager which, for displayed trees, provides [close to] real-time notifications for changes
-         which originated from outside this backend"""
-
-        self._display_tree_dict: Dict[str, ActiveDisplayTreeMeta] = {}
-        """Keeps track of which display trees are currently being used in the UI"""
-
         # Create Event objects to optionally wait for lifecycle events
         self._load_registry_done: threading.Event = threading.Event()
 
@@ -218,9 +166,6 @@ class CacheManager(HasLifecycle):
 
         self.connect_dispatch_listener(signal=Signal.START_CACHEMAN, receiver=self._on_start_cacheman_requested)
         self.connect_dispatch_listener(signal=Signal.COMMAND_COMPLETE, receiver=self._on_command_completed)
-        self.connect_dispatch_listener(signal=Signal.DEREGISTER_DISPLAY_TREE, receiver=self._deregister_display_tree)
-
-        self.connect_dispatch_listener(signal=Signal.GDRIVE_RELOADED, receiver=self._on_gdrive_whole_tree_reloaded)
 
     def shutdown(self):
         logger.debug('CacheManager.shutdown() entered')
@@ -230,14 +175,6 @@ class CacheManager(HasLifecycle):
             if self._op_ledger:
                 self._op_ledger.shutdown()
                 self._op_ledger = None
-        except NameError:
-            pass
-
-        # Do this after destroying controllers, for a more orderly shutdown:
-        try:
-            if self._live_monitor:
-                self._live_monitor.shutdown()
-                self._live_monitor = None
         except NameError:
             pass
 
@@ -262,16 +199,15 @@ class CacheManager(HasLifecycle):
         except NameError:
             pass
 
+        try:
+            if self._active_tree_manager:
+                self._active_tree_manager.shutdown()
+                self._active_tree_manager = None
+        except NameError:
+            pass
+
     # Startup loading/maintenance
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-
-    def _on_start_cacheman_requested(self, sender):
-        if self._startup_done.is_set():
-            logger.info(f'Caches already loaded. Ignoring signal from {sender}.')
-            return
-
-        logger.debug(f'CacheManager.start() initiated by {sender}')
-        self.start()
 
     def start(self):
         """Should be called during startup. Loop over all caches and load/merge them into a
@@ -287,10 +223,10 @@ class CacheManager(HasLifecycle):
             self._load_registry()
 
             # Start sub-modules:
+            self._active_tree_manager.start()
             self._master_local.start()
             self._master_gdrive.start()
             self._op_ledger.start()
-            self._live_monitor.start()
 
             self._load_request_thread.start()
 
@@ -314,6 +250,14 @@ class CacheManager(HasLifecycle):
             self._startup_done.set()
             logger.info('CacheManager startup done')
             dispatcher.send(signal=Signal.START_CACHEMAN_DONE, sender=ID_GLOBAL_CACHE)
+
+    def _on_start_cacheman_requested(self, sender):
+        if self._startup_done.is_set():
+            logger.info(f'Caches already loaded. Ignoring signal from {sender}.')
+            return
+
+        logger.debug(f'CacheManager.start() initiated by {sender}')
+        self.start()
 
     def _load_registry(self):
         stopwatch = Stopwatch()
@@ -448,11 +392,11 @@ class CacheManager(HasLifecycle):
                 existing_disk_cache.needs_refresh = True
             else:
                 assert isinstance(existing_disk_cache.subtree_root, LocalNodeIdentifier)
-                self._master_local.get_display_tree(existing_disk_cache.subtree_root, ID_GLOBAL_CACHE)
+                self._master_local.load_subtree(existing_disk_cache.subtree_root, ID_GLOBAL_CACHE)
         elif cache_type == TREE_TYPE_GDRIVE:
             assert existing_disk_cache.subtree_root == NodeIdentifierFactory.get_gdrive_root_constant_identifier(), \
                 f'Expected GDrive root ({NodeIdentifierFactory.get_gdrive_root_constant_identifier()}) but found: {existing_disk_cache.subtree_root}'
-            self._master_gdrive.get_synced_master_tree()
+            self._master_gdrive.load_and_sync_master_tree()
 
     # Action listener callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -476,18 +420,6 @@ class CacheManager(HasLifecycle):
             for deleted_node in result.nodes_to_delete:
                 self.remove_node(deleted_node, to_trash=False)
 
-    def _deregister_display_tree(self, sender: str):
-        logger.debug(f'[{sender}] Received signal: "{Signal.DEREGISTER_DISPLAY_TREE.name}"')
-        display_tree = self._display_tree_dict.pop(sender, None)
-        if display_tree:
-            logger.debug(f'[{sender}] Display tree de-registered in backend')
-        else:
-            logger.debug(f'[{sender}] Could not deregister display tree in backend: it was not found')
-
-        # Also stop live capture, if any
-        if self._is_live_capture_enabled and self._live_monitor:
-            self._live_monitor.stop_capture(sender)
-
     def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):
         logger.info(f'Enqueuing task to refresh subtree at {node_identifier}')
         self.backend.executor.submit_async_task(self._refresh_subtree, node_identifier, tree_id)
@@ -496,238 +428,8 @@ class CacheManager(HasLifecycle):
         logger.info(f'[{tree_id}] Enqueuing task to refresh stats')
         self.backend.executor.submit_async_task(self._refresh_stats, root_uid, tree_id)
 
-    def _on_gdrive_whole_tree_reloaded(self, sender: str):
-        # If GDrive cache was reloaded, our previous selection was almost certainly invalid. Just reset all open GDrive trees to GDrive root.
-        logger.info(f'Received signal: "{Signal.GDRIVE_RELOADED.name}"')
-
-        tree_id_list: List[str] = []
-        for tree_meta in self._display_tree_dict.values():
-            if tree_meta.root_sn.spid.tree_type == TREE_TYPE_GDRIVE:
-                tree_id_list.append(tree_meta.tree_id)
-
-        gdrive_root_spid = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
-        for tree_id in tree_id_list:
-            logger.info(f'[{tree_id}] Resetting subtree path to GDrive root')
-            self.request_display_tree_ui_state(tree_id, spid=gdrive_root_spid, return_async=True)
-
     # DisplayTree stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-
-    def _is_manual_load_required(self, spid: SinglePathNodeIdentifier, is_startup: bool) -> bool:
-        cache_info = self.get_cache_info_for_subtree(spid)
-        if cache_info:
-            if cache_info.is_loaded:
-                # Already loaded!
-                return False
-
-        if is_startup and self.load_all_caches_on_startup or self.load_caches_for_displayed_trees_at_startup:
-            # We are still starting up but will auto-load this tree soon:
-            return False
-
-        if not is_startup and self.reload_tree_on_root_path_update:
-            return False
-        return True
-
-    def register_change_tree(self, change_display_tree: ChangeDisplayTree, src_tree_id: str):
-        logger.info(f'Registering ChangeDisplayTree: {change_display_tree.tree_id}')
-        if SUPER_DEBUG:
-            change_display_tree.print_tree_contents_debug()
-            change_display_tree.print_op_structs_debug()
-
-        meta = ActiveDisplayTreeMeta(self.backend, change_display_tree.state)
-        meta.change_tree = change_display_tree
-        meta.src_tree_id = src_tree_id
-        self._display_tree_dict[change_display_tree.tree_id] = meta
-
-        # I suppose we could return the full tree for the thick client, but let's try to sync its behavior of the thin client instead:
-        tree_stub = DisplayTree(self.backend, change_display_tree.state)
-        dispatcher.send(Signal.DISPLAY_TREE_CHANGED, sender=src_tree_id, tree=tree_stub)
-
-    def request_display_tree_ui_state(self, request: DisplayTreeRequest) -> Optional[DisplayTreeUiState]:
-        sender_tree_id = request.tree_id
-        spid = request.spid
-        logger.debug(f'[{sender_tree_id}] Got request to load display tree (user_path="{request.user_path}", spid={spid}, '
-                     f'is_startup={request.is_startup}, tree_display_mode={request.tree_display_mode}')
-
-        root_path_persister = None
-
-        display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(sender_tree_id)
-
-        # Build RootPathMeta object from params. If neither SPID nor user_path supplied, read from config
-        if request.user_path:
-            root_path_meta: RootPathMeta = self._resolve_root_meta_from_path(request.user_path)
-            spid = root_path_meta.root_spid
-        elif spid:
-            assert isinstance(spid, SinglePathNodeIdentifier), f'Expected SinglePathNodeIdentifier but got {type(spid)}'
-            # params -> root_path_meta
-            spid.normalize_paths()
-            root_path_meta = RootPathMeta(spid, True)
-        elif request.is_startup:
-            # root_path_meta -> params
-            root_path_persister = RootPathConfigPersister(backend=self.backend, tree_id=sender_tree_id)
-            root_path_meta = root_path_persister.read_from_config()
-            spid = root_path_meta.root_spid
-            if not spid:
-                raise RuntimeError(f"Unable to read valid root from config for: '{sender_tree_id}'")
-        elif display_tree_meta:
-            root_path_meta = RootPathMeta(display_tree_meta.root_sn.spid, display_tree_meta.root_exists, display_tree_meta.offending_path)
-            spid = root_path_meta.root_spid
-        else:
-            raise RuntimeError(f'Invalid args supplied to get_display_tree_ui_state()! (tree_id={sender_tree_id})')
-
-        response_tree_id = sender_tree_id
-        if display_tree_meta:
-            if display_tree_meta.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
-                if request.tree_display_mode == TreeDisplayMode.ONE_TREE_ALL_ITEMS:
-                    logger.info(f'[{sender_tree_id}] Looks like we are exiting diff mode: switching back to tree_id={display_tree_meta.src_tree_id}')
-                    response_tree_id = display_tree_meta.src_tree_id
-
-                    # Exiting diff mode -> look up prev tree
-                    assert display_tree_meta.src_tree_id, f'Expected not-null src_tree_id for {display_tree_meta.tree_id}'
-                    display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(display_tree_meta.src_tree_id)
-                else:
-                    # ChangeDisplayTrees are already loaded, and live capture should not apply
-                    logger.warning(f'request_display_tree_ui_state(): this is a CategoryDisplayTree. Did you mean to call this method?')
-                    return self._return_display_tree_ui_state(sender_tree_id, display_tree_meta, request.return_async)
-
-            elif display_tree_meta.root_sn.spid == root_path_meta.root_spid:
-                # Requested the existing tree and root? Just return that:
-                logger.debug(f'Display tree already registered with given root; returning existing')
-                return self._return_display_tree_ui_state(sender_tree_id, display_tree_meta, request.return_async)
-
-            if display_tree_meta.root_path_config_persister:
-                # If we started from a persister, continue persisting:
-                root_path_persister = display_tree_meta.root_path_config_persister
-
-        # Try to retrieve the root node from the cache:
-        if spid.tree_type == TREE_TYPE_LOCAL_DISK:
-            # TODO: hit memory cache instead if available
-            node: Node = self._read_single_node_from_disk_for_local_path(spid.get_single_path())
-            if node:
-                if spid.uid != node.uid:
-                    logger.warning(f'UID requested ({spid.uid}) does not match UID from cache ({node.uid}); will use value from cache')
-                spid = node.node_identifier
-                root_path_meta.root_spid = spid
-
-            if os.path.exists(spid.get_single_path()):
-                # Override in case something changed since the last shutdown
-                root_path_meta.root_exists = True
-            else:
-                root_path_meta.root_exists = False
-            root_path_meta.offending_path = None
-        elif spid.tree_type == TREE_TYPE_GDRIVE:
-            if spid.uid == GDRIVE_ROOT_UID:
-                node: Node = GDriveWholeTree.get_super_root()
-            else:
-                node: Node = self.read_single_node_from_disk_for_uid(spid.uid, TREE_TYPE_GDRIVE)
-            root_path_meta.root_exists = node is not None
-            root_path_meta.offending_path = None
-        else:
-            raise RuntimeError(f'Unrecognized tree type: {spid.tree_type}')
-
-        # Now that we have the root, we have all the info needed to assemble the ActiveDisplayTreeMeta from the RootPathMeta.
-        root_sn = SPIDNodePair(spid, node)
-
-        state = DisplayTreeUiState(response_tree_id, root_sn, root_path_meta.root_exists, root_path_meta.offending_path,
-                                   TreeDisplayMode.ONE_TREE_ALL_ITEMS, False)
-        if self._is_manual_load_required(root_sn.spid, request.is_startup):
-            state.needs_manual_load = True
-
-        # easier to just create a whole new object rather than update old one:
-        display_tree_meta: ActiveDisplayTreeMeta = ActiveDisplayTreeMeta(self.backend, state)
-
-        if root_path_persister:
-            # Write updates to config if applicable
-            root_path_persister.write_to_config(root_path_meta)
-
-            # Retain the persister for next time:
-            display_tree_meta.root_path_config_persister = root_path_persister
-
-        self._display_tree_dict[response_tree_id] = display_tree_meta
-
-        # Update monitoring state
-        if self._is_live_capture_enabled:
-            if display_tree_meta.root_exists:
-                self._live_monitor.start_or_update_capture(display_tree_meta.root_sn.spid, response_tree_id)
-            else:
-                self._live_monitor.stop_capture(response_tree_id)
-
-        return self._return_display_tree_ui_state(sender_tree_id, display_tree_meta, request.return_async)
-
-    def _return_display_tree_ui_state(self, sender_tree_id, display_tree_meta, return_async: bool) -> Optional[DisplayTreeUiState]:
-        state = display_tree_meta.state
-        assert state.tree_id and state.root_sn and state.root_sn.spid, f'Bad DisplayTreeUiState: {state}'
-
-        if return_async:
-            # notify clients asynchronously
-            tree = state.to_display_tree(self.backend)
-            logger.debug(f'[{sender_tree_id}] Firing signal: {Signal.DISPLAY_TREE_CHANGED}')
-            dispatcher.send(Signal.DISPLAY_TREE_CHANGED, sender=sender_tree_id, tree=tree)
-            return None
-        else:
-            logger.debug(f'[{sender_tree_id}] Returning display tree synchronously because return_async=False: {state}')
-            return state
-
-    def _resolve_root_meta_from_path(self, full_path: str) -> RootPathMeta:
-        """Resolves the given path into either a local file, a set of Google Drive matches, or generates a GDriveItemNotFoundError,
-        and returns a tuple of both"""
-        logger.debug(f'resolve_root_from_path() called with path="{full_path}"')
-        try:
-            full_path = file_util.normalize_path(full_path)
-            node_identifier: NodeIdentifier = self.backend.node_identifier_factory.for_values(path_list=full_path)
-            if node_identifier.tree_type == TREE_TYPE_GDRIVE:
-                # Need to wait until all caches are loaded:
-                self.wait_for_startup_done()
-                # this will load the GDrive master tree if needed:
-                identifier_list = self._master_gdrive.get_identifier_list_for_full_path_list(node_identifier.get_path_list(), error_if_not_found=True)
-            else:  # LocalNode
-                if not os.path.exists(full_path):
-                    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), full_path)
-                uid = self.get_uid_for_local_path(full_path)
-                identifier_list = [LocalNodeIdentifier(uid=uid, path_list=full_path)]
-
-            assert len(identifier_list) > 0, f'Got no identifiers for path but no error was raised: {full_path}'
-            logger.debug(f'resolve_root_from_path(): got identifier_list={identifier_list}"')
-            if len(identifier_list) > 1:
-                # Create the appropriate
-                candidate_list = []
-                for identifier in identifier_list:
-                    if identifier.tree_type == TREE_TYPE_GDRIVE:
-                        path_to_find = NodeIdentifierFactory.strip_gdrive(full_path)
-                    else:
-                        path_to_find = full_path
-
-                    if path_to_find in identifier.get_path_list():
-                        candidate_list.append(identifier)
-                if len(candidate_list) != 1:
-                    raise RuntimeError(f'Serious error: found multiple identifiers with same path ({full_path}): {candidate_list}')
-                new_root_spid: SinglePathNodeIdentifier = candidate_list[0]
-            else:
-                new_root_spid = identifier_list[0]
-
-            if len(new_root_spid.get_path_list()) > 0:
-                # must have single path
-                if new_root_spid.tree_type == TREE_TYPE_GDRIVE:
-                    full_path = NodeIdentifierFactory.strip_gdrive(full_path)
-                new_root_spid = SinglePathNodeIdentifier(uid=new_root_spid.uid, path_list=full_path, tree_type=new_root_spid.tree_type)
-
-            root_path_meta = RootPathMeta(new_root_spid, root_exists=True)
-        except GDriveItemNotFoundError as ginf:
-            root_path_meta = RootPathMeta(ginf.node_identifier, root_exists=False)
-            root_path_meta.offending_path = ginf.offending_path
-        except FileNotFoundError as fnf:
-            root = self.backend.node_identifier_factory.for_values(path_list=full_path, must_be_single_path=True)
-            root_path_meta = RootPathMeta(root, root_exists=False)
-        except CacheNotLoadedError as cnlf:
-            root = self.backend.node_identifier_factory.for_values(path_list=full_path, uid=NULL_UID, must_be_single_path=True)
-            root_path_meta = RootPathMeta(root, root_exists=False)
-
-        logger.debug(f'resolve_root_from_path(): returning new_root={root_path_meta}"')
-        return root_path_meta
-
-    def enqueue_load_subtree_task(self, tree_id: str, send_signals: bool):
-        logger.debug(f'[{tree_id}] Enqueueing subtree load task')
-        self._load_request_thread.enqueue(LoadRequest(tree_id=tree_id, send_signals=send_signals))
 
     def load_data_for_display_tree(self, load_request: LoadRequest):
         """Executed asyncly via the LoadRequestThread."""
@@ -747,14 +449,14 @@ class CacheManager(HasLifecycle):
         elif display_tree_meta.root_exists:
             spid = display_tree_meta.root_sn.spid
             if spid.tree_type == TREE_TYPE_LOCAL_DISK:
-                self._master_local.get_display_tree(spid, tree_id)
+                self._master_local.load_subtree(spid, tree_id)
             elif spid.tree_type == TREE_TYPE_GDRIVE:
                 assert self._master_gdrive
                 if tree_id == ID_GDRIVE_DIR_SELECT:
                     # special handling for dir select dialog: make sure we are fully synced first
-                    self._master_gdrive.get_synced_master_tree()
+                    self._master_gdrive.load_and_sync_master_tree()
                 else:
-                    self._master_gdrive.get_display_tree(spid, tree_id=tree_id)
+                    self._master_gdrive.load_subtree(spid, tree_id=tree_id)
             else:
                 raise RuntimeError(f'Unrecognized tree type: {spid.tree_type}')
 
@@ -762,8 +464,33 @@ class CacheManager(HasLifecycle):
             # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
             dispatcher.send(signal=Signal.LOAD_SUBTREE_DONE, sender=tree_id)
 
+    def enqueue_load_subtree_task(self, tree_id: str, send_signals: bool):
+        logger.debug(f'[{tree_id}] Enqueueing subtree load task')
+        self._load_request_thread.enqueue(LoadRequest(tree_id=tree_id, send_signals=send_signals))
+
+    def register_change_tree(self, change_display_tree: ChangeDisplayTree, src_tree_id: str):
+        self._active_tree_manager.register_change_tree(change_display_tree, src_tree_id)
+
+    def request_display_tree_ui_state(self, request: DisplayTreeRequest) -> Optional[DisplayTreeUiState]:
+        return self._active_tree_manager.request_display_tree_ui_state(request)
+
     def get_active_display_tree_meta(self, tree_id) -> ActiveDisplayTreeMeta:
-        return self._display_tree_dict.get(tree_id, None)
+        return self._active_tree_manager.get_active_display_tree_meta(tree_id)
+
+    def is_manual_load_required(self, spid: SinglePathNodeIdentifier, is_startup: bool) -> bool:
+        cache_info = self.get_cache_info_for_subtree(spid)
+        if cache_info:
+            if cache_info.is_loaded:
+                # Already loaded!
+                return False
+
+        if is_startup and self.load_all_caches_on_startup or self.load_caches_for_displayed_trees_at_startup:
+            # We are still starting up but will auto-load this tree soon:
+            return False
+
+        if not is_startup and self.reload_tree_on_root_path_update:
+            return False
+        return True
 
     # PersistedCacheInfo stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -806,6 +533,19 @@ class CacheManager(HasLifecycle):
         # Nothing in the cache contains subtree
         return None
 
+    def get_or_create_cache_info_entry(self, subtree_root: SinglePathNodeIdentifier) -> PersistedCacheInfo:
+        """DEPRECATED: use get_cache_info_for_subtree() instead since it includes support for subtrees"""
+        self.wait_for_load_registry_done()
+
+        existing = self._caches_by_type.get_single(subtree_root.tree_type, subtree_root.get_single_path())
+        if existing:
+            logger.debug(f'Found existing cache entry for subtree: {subtree_root}')
+            return existing
+        else:
+            logger.debug(f'No existing cache entry found for subtree: {subtree_root}')
+
+        return self._create_new_cache_info(subtree_root)
+
     def ensure_loaded(self, node_list: List[Node]):
         """Ensures that all the necessary caches are loaded for all of the given nodes"""
         needed_cache_dict: Dict[str, PersistedCacheInfo] = {}
@@ -822,7 +562,7 @@ class CacheManager(HasLifecycle):
                     raise RuntimeError(f'Could not find a cache file for planning node: {node}')
 
         if needs_gdrive:
-            self._master_gdrive.get_synced_master_tree()
+            self._master_gdrive.load_and_sync_master_tree()
 
         for cache in needed_cache_dict.values():
             if not cache.is_loaded:
@@ -830,20 +570,7 @@ class CacheManager(HasLifecycle):
                     raise RuntimeError(f'Could not load planning node(s): cache subtree does not exist: {cache.subtree_root.get_single_path()}')
                 else:
                     assert isinstance(cache.subtree_root, LocalNodeIdentifier)
-                    self._master_local.get_display_tree(cache.subtree_root, ID_GLOBAL_CACHE)
-
-    def get_or_create_cache_info_entry(self, subtree_root: SinglePathNodeIdentifier) -> PersistedCacheInfo:
-        """DEPRECATED: use get_cache_info_for_subtree() instead since it includes support for subtrees"""
-        self.wait_for_load_registry_done()
-
-        existing = self._caches_by_type.get_single(subtree_root.tree_type, subtree_root.get_single_path())
-        if existing:
-            logger.debug(f'Found existing cache entry for subtree: {subtree_root}')
-            return existing
-        else:
-            logger.debug(f'No existing cache entry found for subtree: {subtree_root}')
-
-        return self._create_new_cache_info(subtree_root)
+                    self._master_local.load_subtree(cache.subtree_root, ID_GLOBAL_CACHE)
 
     def _create_new_cache_info(self, subtree_root: SinglePathNodeIdentifier) -> PersistedCacheInfo:
         if subtree_root.tree_type == TREE_TYPE_LOCAL_DISK:
@@ -1024,6 +751,9 @@ class CacheManager(HasLifecycle):
             return self._master_local.get_node_list_for_path_list(path_list)
         else:
             raise RuntimeError(f'Unknown tree type: {tree_type}')
+
+    def get_gdrive_identifier_list_for_full_path_list(self, path_list: List[str], error_if_not_found: bool = False) -> List[NodeIdentifier]:
+        return self._master_gdrive.get_identifier_list_for_full_path_list(path_list, error_if_not_found)
 
     def get_children(self, node: Node, tree_id: Optional[str] = None, filter_criteria: Optional[FilterCriteria] = None):
         if tree_id:
@@ -1301,7 +1031,7 @@ class CacheManager(HasLifecycle):
 
     def sync_and_get_gdrive_master_tree(self, tree_id: str):
         """Will load from disk and sync latest changes from GDrive server before returning."""
-        self._master_gdrive.get_synced_master_tree()
+        self._master_gdrive.load_and_sync_master_tree()
 
     def build_local_file_node(self, full_path: str, staging_path=None, must_scan_signature=False) -> Optional[LocalFileNode]:
         return self._master_local.build_local_file_node(full_path, staging_path, must_scan_signature)
@@ -1309,7 +1039,7 @@ class CacheManager(HasLifecycle):
     def build_local_dir_node(self, full_path: str, is_live: bool = True) -> LocalDirNode:
         return self._master_local.build_local_dir_node(full_path, is_live)
 
-    def _read_single_node_from_disk_for_local_path(self, full_path: str) -> Node:
+    def read_single_node_from_disk_for_local_path(self, full_path: str) -> Node:
         """Consults disk cache directly, skipping memory cache"""
         if not file_util.is_normalized(full_path):
             full_path = file_util.normalize_path(full_path)
