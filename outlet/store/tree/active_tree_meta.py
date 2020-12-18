@@ -3,7 +3,7 @@ from typing import Optional
 
 from model.display_tree.change_display_tree import ChangeDisplayTree
 from model.display_tree.display_tree import DisplayTreeUiState
-from ui.tree.root_path_config import RootPathConfigPersister
+from ui.gtk.tree.root_path_config import RootPathConfigPersister
 
 logger = logging.getLogger(__name__)
 

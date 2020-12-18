@@ -11,7 +11,7 @@ from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from store.local.master_local_write_op import LocalDiskSingleNodeOp, LocalDiskSubtreeOp
 from store.sqlite.local_db import LocalDiskDatabase
-from ui.signal import Signal
+from signal import Signal
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 

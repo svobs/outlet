@@ -5,7 +5,7 @@ from enum import IntEnum
 from typing import Callable, DefaultDict, Deque, Dict, Iterable, List, Optional
 
 from command.cmd_builder import CommandBuilder
-from command.cmd_interface import Command, UserOpStatus
+from command.cmd_interface import Command
 from constants import SUPER_DEBUG
 from model.node.node import Node
 from model.user_op import UserOp, UserOpType
@@ -13,7 +13,7 @@ from model.uid import UID
 from store.user_op.op_disk_store import OpDiskStore
 from store.user_op.op_graph import OpGraph
 from store.user_op.op_graph_node import RootNode
-from ui.signal import Signal
+from signal import Signal
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)

@@ -12,7 +12,7 @@ from store.gdrive.master_gdrive_memory import GDriveMemoryStore
 from store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from store.gdrive.master_gdrive_op_write import GDriveWriteThroughOp
 from store.sqlite.gdrive_db import CurrentDownload, GDriveDatabase
-from ui.signal import Signal
+from signal import Signal
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch
 

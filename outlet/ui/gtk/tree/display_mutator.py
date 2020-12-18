@@ -17,7 +17,7 @@ from model.node.ephemeral_node import EmptyNode, LoadingNode
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
-from ui.signal import Signal
+from signal import Signal
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
 

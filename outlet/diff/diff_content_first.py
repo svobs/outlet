@@ -5,16 +5,11 @@ import time
 from typing import Callable, DefaultDict, Dict, List, Tuple
 
 import store.local.content_hasher
-from constants import TREE_TYPE_GDRIVE, TREE_TYPE_MIXED
+from constants import TREE_TYPE_GDRIVE
 from diff.change_maker import ChangeMaker, OneSide, SPIDNodePair
 from model.display_tree.change_display_tree import ChangeDisplayTree
-from model.display_tree.display_tree import DisplayTreeUiState
-from model.node.container_node import RootTypeNode
 from model.node.node import Node
-from model.node_identifier import SinglePathNodeIdentifier
-from model.node_identifier_factory import NodeIdentifierFactory
 from model.user_op import UserOpType
-from ui.signal import ID_MERGE_TREE
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)

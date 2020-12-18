@@ -6,11 +6,10 @@ from typing import Optional
 
 from pydispatch import dispatcher
 
-from ui.signal import Signal
-from constants import TrashStatus
+from signal import Signal
 from model.node.local_disk_node import LocalDirNode
 from model.local_disk_tree import LocalDiskTree
-from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
+from model.node_identifier import LocalNodeIdentifier
 from store.local.local_tree_recurser import LocalTreeRecurser
 
 logger = logging.getLogger(__name__)

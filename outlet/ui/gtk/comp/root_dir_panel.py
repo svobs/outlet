@@ -3,15 +3,15 @@ import os
 from typing import Optional
 
 from model.display_tree.display_tree import DisplayTree
-from ui.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
+from ui.gtk.dialog.gdrive_dir_chooser_dialog import GDriveDirChooserDialog
 from util import file_util
-from ui.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
+from ui.gtk.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 
 from constants import GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
 from model.node_identifier import SinglePathNodeIdentifier
-from ui.dialog.base_dialog import BaseDialog
+from ui.gtk.dialog import BaseDialog
 from util.has_lifecycle import HasLifecycle
-from ui.signal import Signal
+from signal import Signal
 
 import gi
 

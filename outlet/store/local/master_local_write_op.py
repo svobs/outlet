@@ -9,8 +9,8 @@ from model.node.local_disk_node import LocalNode
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from store.local.master_local_memory import LocalDiskMemoryStore
 from store.sqlite.local_db import LocalDiskDatabase
-from ui.signal import Signal
-from ui.signal import ID_GLOBAL_CACHE
+from signal import Signal
+from signal import ID_GLOBAL_CACHE
 
 logger = logging.getLogger(__name__)
 

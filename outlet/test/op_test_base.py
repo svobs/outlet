@@ -19,9 +19,9 @@ from store.sqlite.op_db import OpDatabase
 from model.uid import UID
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
-from ui.signal import ID_CENTRAL_EXEC, ID_LEFT_TREE, ID_RIGHT_TREE, Signal
-from ui.tree import root_path_config
-from ui.tree.controller import TreePanelController
+from signal import ID_CENTRAL_EXEC, ID_LEFT_TREE, ID_RIGHT_TREE, Signal
+from ui.gtk.tree import root_path_config
+from ui.gtk.tree import TreePanelController
 from util import file_util
 
 LOAD_TIMEOUT_SEC = 6000

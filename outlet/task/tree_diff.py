@@ -9,7 +9,7 @@ from diff.diff_content_first import ContentFirstDiffer
 from global_actions import GlobalActions
 from model.node.node import SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
-from ui.signal import ID_CENTRAL_EXEC, Signal
+from signal import ID_CENTRAL_EXEC, Signal
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)

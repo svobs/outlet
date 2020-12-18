@@ -1,13 +1,13 @@
 import logging
 import threading
 import time
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional
 
 from pydispatch import dispatcher
 
 import grpc
 from app.backend import DiffResultTreeIds, OutletBackend
-from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_CLIENT_SLEEP_ON_FAILURE_SEC, GRPC_SERVER_ADDRESS, SUPER_DEBUG, TreeDisplayMode
+from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_CLIENT_SLEEP_ON_FAILURE_SEC, GRPC_SERVER_ADDRESS, SUPER_DEBUG
 from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.conversion import Converter
 from daemon.grpc.Outlet_pb2 import DeleteSubtree_Request, DownloadFromGDrive_Request, DragDrop_Request, GenerateMergeTree_Request, \
@@ -27,7 +27,7 @@ from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
 from store.cache_manager import DisplayTreeRequest
-from ui.signal import ID_CENTRAL_EXEC, Signal
+from signal import ID_CENTRAL_EXEC, Signal
 from model.display_tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
 

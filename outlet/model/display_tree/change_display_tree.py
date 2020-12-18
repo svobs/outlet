@@ -3,24 +3,18 @@ import pathlib
 from collections import deque
 from typing import Deque, Dict, Iterable, List, Optional
 
-from pydispatch import dispatcher
-
-from constants import NULL_UID, ROOT_PATH, SUPER_DEBUG, SUPER_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
+from constants import ROOT_PATH, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from error import InvalidOperationError
-from model import local_disk_tree
 from model.display_tree.display_tree import DisplayTree
 from model.local_disk_tree import LocalDiskTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.decorator_node import DecoDirNode, DecoNode
 from model.node.node import Node, SPIDNodePair
-from model.node.trait import HasChildStats
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import get_uid_for_op_and_tree_type, USER_OP_TYPES, UserOp, UserOpType
-from ui.signal import Signal
 from model.display_tree.filter_criteria import FilterCriteria
 from util.simple_tree import NodeAlreadyPresentError, SimpleTree
-from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
 

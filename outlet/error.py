@@ -1,8 +1,6 @@
 
-#    CLASS GDriveItemNotFoundError
+# CLASS GDriveItemNotFoundError
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-
 class GDriveItemNotFoundError(RuntimeError):
     def __init__(self, node_identifier, offending_path: str, msg: str = None):
         if msg is None:
@@ -13,9 +11,8 @@ class GDriveItemNotFoundError(RuntimeError):
         self.offending_path = offending_path
 
 
-#    CLASS CacheNotLoadedError
+# CLASS CacheNotLoadedError
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
 class CacheNotLoadedError(RuntimeError):
     def __init__(self, msg: str = None):
         if msg is None:
@@ -24,14 +21,16 @@ class CacheNotLoadedError(RuntimeError):
         super(CacheNotLoadedError, self).__init__(msg)
 
 
-#    CLASS IdenticalFileExistsError
+# CLASS IdenticalFileExistsError
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class IdenticalFileExistsError(Exception):
     def __init__(self, *args, **kwargs):
         pass
 
 
+# CLASS InvalidOperationError
 # TODO: make into decorator
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 class InvalidOperationError(RuntimeError):
     def __init__(self, operation_name: str = None):
         if not operation_name:

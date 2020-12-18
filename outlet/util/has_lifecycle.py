@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 import logging
 from typing import Callable, List, Optional
 
@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 from pydispatch.dispatcher import Any
 from pydispatch.errors import DispatcherKeyError
 
-from ui.signal import Signal
+from signal import Signal
 
 logger = logging.getLogger(__name__)
 

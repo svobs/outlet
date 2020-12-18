@@ -24,8 +24,8 @@ from store.gdrive.master_gdrive_op_write import BatchChangesOp, CreateUserOp, De
 from store.master import MasterStore
 from store.sqlite.gdrive_db import CurrentDownload
 from store.uid.uid_mapper import UidGoogIdMapper
-from ui.signal import Signal
-from ui.signal import ID_GLOBAL_CACHE
+from signal import Signal
+from signal import ID_GLOBAL_CACHE
 from model.display_tree.filter_criteria import FilterCriteria
 from util import file_util, time_util
 from util.stopwatch_sec import Stopwatch

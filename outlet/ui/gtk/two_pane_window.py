@@ -1,21 +1,17 @@
-import copy
 import logging
-from typing import List, Optional
+from typing import List
 
 import gi
 from pydispatch import dispatcher
-from pydispatch.dispatcher import Any
 
-from ui.signal import ID_LEFT_TREE, ID_MERGE_TREE, ID_RIGHT_TREE, Signal
+from signal import ID_LEFT_TREE, ID_MERGE_TREE, ID_RIGHT_TREE, Signal
 from constants import APP_NAME, H_PAD, IconId, TreeDisplayMode
-from diff.diff_content_first import ContentFirstDiffer
 from global_actions import GlobalActions
-from model.display_tree.change_display_tree import ChangeDisplayTree
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import SPIDNodePair
-from ui.dialog.base_dialog import BaseDialog
-from ui.dialog.merge_preview_dialog import MergePreviewDialog
-from ui.tree import tree_factory
+from ui.gtk.dialog import BaseDialog
+from ui.gtk.dialog.merge_preview_dialog import MergePreviewDialog
+from ui.gtk.tree import tree_factory
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk, Gdk

@@ -8,7 +8,7 @@ from command.cmd_executor import CommandExecutor
 from executor.task_runner import TaskRunner
 from global_actions import GlobalActions
 from task.tree_diff import TreeDiffAction
-from ui.signal import ID_CENTRAL_EXEC, Signal
+from signal import ID_CENTRAL_EXEC, Signal
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)

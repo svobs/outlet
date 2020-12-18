@@ -1,6 +1,5 @@
 import logging
 import os
-import time
 from collections import deque
 from typing import List, Tuple
 
@@ -18,7 +17,7 @@ from store.gdrive.master_gdrive_disk import GDriveDiskStore
 from store.gdrive.master_gdrive_op_load import GDriveLoadAllMetaOp
 from store.gdrive.query_observer import FileMetaPersister, FolderMetaPersister
 from store.sqlite.gdrive_db import CurrentDownload
-from ui.signal import Signal
+from signal import Signal
 from util import time_util
 from util.stopwatch_sec import Stopwatch
 

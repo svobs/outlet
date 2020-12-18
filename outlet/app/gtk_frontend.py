@@ -6,16 +6,16 @@ from pydispatch import dispatcher
 
 from app.backend import OutletBackend
 from store.uid.uid_generator import SimpleUidGenerator
-from ui.signal import Signal
-from ui.signal import ID_DIFF_WINDOW
-from ui.tree.controller import TreePanelController
-from ui.two_pane_window import TwoPanelWindow
+from signal import Signal
+from signal import ID_DIFF_WINDOW
+from ui.gtk.tree import TreePanelController
+from ui.gtk.two_pane_window import TwoPanelWindow
 
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gio, GLib
 
-import ui.assets
+import ui.gtk.assets
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class OutletApplication(Gtk.Application):
         self.config = config
         Gtk.Application.__init__(self)
         self.backend: OutletBackend = backend
-        self.assets = ui.assets.Assets(config)
+        self.assets = ui.gtk.assets.Assets(config)
         self.ui_uid_generator = SimpleUidGenerator()
         self._tree_controllers: Dict[str, TreePanelController] = {}
         """Keep track of live UI tree controllers, so that we can look them up by ID (e.g. for use in automated testing)"""

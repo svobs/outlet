@@ -3,14 +3,14 @@ from typing import List, Optional
 
 from pydispatch import dispatcher
 
-from ui.signal import Signal
-from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
+from signal import Signal
+from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from diff.change_maker import SPIDNodePair
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
 from model.user_op import UserOp
 from model.uid import UID
-from ui.tree.context_menu import TreeContextMenu
+from ui.gtk.tree import TreeContextMenu
 from util.has_lifecycle import HasLifecycle
 
 import gi

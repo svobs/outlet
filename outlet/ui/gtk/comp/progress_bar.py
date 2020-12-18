@@ -1,7 +1,7 @@
 import threading
 import time
 
-from ui.signal import Signal
+from signal import Signal
 import logging
 
 import gi

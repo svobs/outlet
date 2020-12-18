@@ -20,7 +20,7 @@ from store.master import MasterStore
 from store.sqlite.local_db import LocalDiskDatabase
 from store.uid.uid_generator import UID
 from store.uid.uid_mapper import UidPathMapper
-from ui.signal import ID_GLOBAL_CACHE
+from signal import ID_GLOBAL_CACHE
 from model.display_tree.filter_criteria import FilterCriteria
 from util import file_util, time_util
 from util.simple_tree import NodeNotPresentError

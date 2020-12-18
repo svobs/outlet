@@ -6,7 +6,7 @@ import store.local.content_hasher
 from constants import TREE_TYPE_LOCAL_DISK
 from model.node.local_disk_node import LocalFileNode
 from model.node.node import Node
-from ui.signal import Signal
+from signal import Signal
 from util.qthread import QThread
 
 logger = logging.getLogger(__name__)

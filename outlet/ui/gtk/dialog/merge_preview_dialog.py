@@ -2,11 +2,11 @@ import logging
 
 from pydispatch import dispatcher
 
-from ui.signal import ID_MERGE_TREE
-from ui.tree import tree_factory
+from signal import ID_MERGE_TREE
+from ui.gtk.tree import tree_factory
 
-from ui.signal import Signal
-from ui.dialog.base_dialog import BaseDialog
+from signal import Signal
+from ui.gtk.dialog import BaseDialog
 
 import gi
 gi.require_version("Gtk", "3.0")

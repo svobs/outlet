@@ -11,7 +11,7 @@ import util.format
 from command.cmd_interface import Command
 from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, \
     MAIN_REGISTRY_FILE_NAME, OPS_FILE_NAME, ROOT_PATH, \
-    SUPER_DEBUG, SUPER_ROOT_UID, TREE_TYPE_GDRIVE, \
+    SUPER_DEBUG, TREE_TYPE_GDRIVE, \
     TREE_TYPE_LOCAL_DISK, TreeDisplayMode, UID_PATH_FILE_NAME
 from diff.change_maker import ChangeMaker
 from error import InvalidOperationError
@@ -37,7 +37,7 @@ from store.tree.active_tree_meta import ActiveDisplayTreeMeta
 from store.tree.load_request_thread import LoadRequest, LoadRequestThread
 from store.uid.uid_mapper import UidChangeTreeMapper
 from store.user_op.op_ledger import OpLedger
-from ui.signal import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
+from signal import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
 from util import file_util, time_util
 from util.ensure import ensure_list
 from util.file_util import get_resource_path

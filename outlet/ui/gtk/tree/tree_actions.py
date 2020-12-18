@@ -6,12 +6,12 @@ from typing import List
 
 from pydispatch import dispatcher
 
-from constants import OPEN, SHOW, TreeDisplayMode
+from constants import OPEN, SHOW
 from model.display_tree.display_tree import DisplayTree
 from model.node.gdrive_node import GDriveFile
 from model.node.local_disk_node import LocalNode
 from model.node.node import Node
-from ui.signal import Signal
+from signal import Signal
 from util.has_lifecycle import HasLifecycle
 
 import gi

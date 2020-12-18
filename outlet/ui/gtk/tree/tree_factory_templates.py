@@ -1,7 +1,7 @@
 import logging
 
 from constants import V_PAD
-from ui.tree.multi_drag_tree_view import MultiDragTreeView
+from ui.gtk.tree import MultiDragTreeView
 
 import gi
 gi.require_version("Gtk", "3.0")
