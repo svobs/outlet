@@ -10,6 +10,7 @@ credentials.json
 __pycache__
 Pipfile
 Pipfile.lock
+.DS_Store
 
 *.db
 *.log
