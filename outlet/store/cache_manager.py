@@ -257,17 +257,6 @@ class CacheManager(HasLifecycle):
 
         logger.info(f'{stopwatch} Found {unique_cache_count} existing caches (+ {skipped_count} skipped)')
 
-    def _get_cache_info_list_from_registry(self) -> List[CacheInfoEntry]:
-        with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as cache_registry_db:
-            if cache_registry_db.has_cache_info():
-                exisiting_caches = cache_registry_db.get_cache_info()
-                logger.debug(f'Found {len(exisiting_caches)} caches listed in registry')
-            else:
-                logger.debug('Registry has no caches listed')
-                exisiting_caches = []
-
-        return exisiting_caches
-
     def wait_for_load_registry_done(self, fail_on_timeout: bool = True):
         if self._load_registry_done.is_set():
             return
@@ -334,10 +323,22 @@ class CacheManager(HasLifecycle):
         self._load_all_caches_in_process = False
         self._load_all_caches_done.set()
 
+    def _get_cache_info_list_from_registry(self) -> List[CacheInfoEntry]:
+        with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as db:
+            if db.has_cache_info():
+                exisiting_caches = db.get_cache_info()
+                logger.debug(f'Found {len(exisiting_caches)} caches listed in registry')
+            else:
+                logger.debug('Registry has no caches listed')
+                db.create_cache_registry_if_not_exist()
+                exisiting_caches = []
+
+        return exisiting_caches
+
     def _overwrite_all_caches_in_registry(self, cache_info_list: List[CacheInfoEntry]):
         logger.info(f'Overwriting all cache entries in persisted registry with {len(cache_info_list)} entries')
-        with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as cache_registry_db:
-            cache_registry_db.insert_cache_info(cache_info_list, append=False, overwrite=True)
+        with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as db:
+            db.insert_cache_info(cache_info_list, append=False, overwrite=True)
 
     def _init_existing_cache(self, existing_disk_cache: PersistedCacheInfo):
         if existing_disk_cache.is_loaded:
@@ -539,22 +540,20 @@ class CacheManager(HasLifecycle):
             unique_path = subtree_root.get_single_path().replace('/', '_')
             file_name = f'LO_{unique_path}.{INDEX_FILE_SUFFIX}'
             parent_path = self.derive_parent_path(subtree_root.get_single_path())
-            subtree_root_parent_uid = self.get_uid_for_local_path(parent_path, override_load_check=True)
         elif subtree_root.tree_type == TREE_TYPE_GDRIVE:
             file_name = GDRIVE_INDEX_FILE_NAME
-            subtree_root_parent_uid = SUPER_ROOT_UID
         else:
             raise RuntimeError(f'Unrecognized tree type: {subtree_root.tree_type}')
 
         cache_location = os.path.join(self.cache_dir_path, file_name)
         sync_ts = time_util.now_sec()
         db_entry = CacheInfoEntry(cache_location=cache_location,
-                                  subtree_root=subtree_root, subtree_root_parent_uid=subtree_root_parent_uid, sync_ts=sync_ts,
+                                  subtree_root=subtree_root, sync_ts=sync_ts,
                                   is_complete=True)
 
-        with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as cache_registry_db:
+        with CacheRegistry(self.main_registry_path, self.backend.node_identifier_factory) as db:
             logger.info(f'Inserting new cache info into registry: {subtree_root}')
-            cache_registry_db.insert_cache_info(db_entry, append=True, overwrite=False)
+            db.insert_cache_info(db_entry, append=True, overwrite=False)
 
         cache_info = PersistedCacheInfo(db_entry)
 
