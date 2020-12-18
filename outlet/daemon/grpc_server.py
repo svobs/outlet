@@ -11,7 +11,8 @@ from app.backend import DiffResultTreeIds
 from app.backend_integrated import BackendIntegrated
 from constants import SUPER_DEBUG
 from daemon.grpc.conversion import Converter
-from daemon.grpc.Outlet_pb2 import DeleteSubtree_Request, DragDrop_Request, DragDrop_Response, Empty, GetAncestorList_Response, GetChildList_Response, \
+from daemon.grpc.Outlet_pb2 import DeleteSubtree_Request, DragDrop_Request, DragDrop_Response, Empty, GenerateMergeTree_Request, \
+    GetAncestorList_Response, GetChildList_Response, \
     GetLastPendingOp_Request, GetLastPendingOp_Response, GetNextUid_Response, \
     GetNodeForLocalPath_Request, GetNodeForUid_Request, \
     GetUidForLocalPath_Request, \
@@ -64,6 +65,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.ERROR_OCCURRED, receiver=self._on_error_occurred)
         self.connect_dispatch_listener(signal=Signal.SET_STATUS, receiver=self._on_set_status)
         self.connect_dispatch_listener(signal=Signal.DOWNLOAD_FROM_GDRIVE_DONE, receiver=self._on_gdrive_download_done)
+        self.connect_dispatch_listener(signal=Signal.GENERATE_MERGE_TREE_DONE, receiver=self._on_generate_merge_tree_done)
 
         self.connect_dispatch_listener(signal=Signal.NODE_UPSERTED, receiver=self._on_node_upserted)
         self.connect_dispatch_listener(signal=Signal.NODE_REMOVED, receiver=self._on_node_removed)
@@ -159,6 +161,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
             logger.exception('Unexpected error in add_subscriber()')
 
     def send_signal_via_grpc(self, signal: Signal, sender: str):
+        assert sender, f'Sender is required for signal {signal.name}'
         self.send_signal_to_all(SignalMsg(sig_int=signal, sender=sender))
 
     def request_display_tree_ui_state(self, grpc_req, context):
@@ -239,13 +242,20 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         signal = SignalMsg(sig_int=Signal.DISPLAY_TREE_CHANGED, sender=sender)
         Converter.display_tree_ui_state_to_grpc(tree.state, signal.display_tree_ui_state)
 
-        logger.debug(f'Relaying signal across gRPC: "{Signal.DISPLAY_TREE_CHANGED}", sender={sender}, tree={tree}')
+        logger.debug(f'Relaying signal across gRPC: "{Signal.DISPLAY_TREE_CHANGED.name}", sender={sender}, tree={tree}')
+        self.send_signal_to_all(signal)
+
+    def _on_generate_merge_tree_done(self, sender: str, tree: DisplayTree):
+        signal = SignalMsg(sig_int=Signal.GENERATE_MERGE_TREE_DONE, sender=sender)
+        Converter.display_tree_ui_state_to_grpc(tree.state, signal.display_tree_ui_state)
+
+        logger.debug(f'Relaying signal across gRPC: "{Signal.GENERATE_MERGE_TREE_DONE.name}", sender={sender}, tree={tree}')
         self.send_signal_to_all(signal)
 
     def _on_op_exec_play_state_changed(self, sender: str, is_enabled: bool):
         signal = SignalMsg(sig_int=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, sender=sender)
         signal.play_state.is_enabled = is_enabled
-        logger.debug(f'Relaying signal across gRPC: "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED}", sender={sender}, is_enabled={is_enabled}')
+        logger.debug(f'Relaying signal across gRPC: "{Signal.OP_EXECUTION_PLAY_STATE_CHANGED.name}", sender={sender}, is_enabled={is_enabled}')
         self.send_signal_to_all(signal)
 
     def get_op_exec_play_state(self, request, context):
@@ -292,6 +302,18 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.cacheman.drop_dragged_nodes(request.src_tree_id, src_sn_list, request.is_into, request.dst_tree_id, dst_sn)
 
         return DragDrop_Response()
+
+    def generate_merge_tree(self, request: GenerateMergeTree_Request, context):
+        selected_changes_left = []
+        for src_sn in request.change_list_left:
+            selected_changes_left.append(Converter.sn_from_grpc(src_sn))
+
+        selected_changes_right = []
+        for src_sn in request.change_list_right:
+            selected_changes_right.append(Converter.sn_from_grpc(src_sn))
+
+        self.backend.generate_merge_tree(request.tree_id_left, request.tree_id_right, selected_changes_left, selected_changes_right)
+        return Empty()
 
     def start_diff_trees(self, request: StartDiffTrees_Request, context):
         tree_id_struct: DiffResultTreeIds = self.backend.start_diff_trees(request.tree_id_left, request.tree_id_right)

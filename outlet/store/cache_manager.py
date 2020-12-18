@@ -718,6 +718,9 @@ class CacheManager(HasLifecycle):
         return self._master_gdrive.get_identifier_list_for_full_path_list(path_list, error_if_not_found)
 
     def get_children(self, node: Node, tree_id: Optional[str] = None, filter_criteria: Optional[FilterCriteria] = None):
+        if SUPER_DEBUG:
+            logger.debug(f'Entered get_children() for tree_id={tree_id}, node = {node}, filter_criteria={filter_criteria}')
+
         if tree_id:
             display_tree = self.get_active_display_tree_meta(tree_id)
             if not display_tree:
@@ -725,6 +728,8 @@ class CacheManager(HasLifecycle):
             # Is change tree? Follow separate code path:
             if display_tree.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
                 return display_tree.change_tree.get_children(node, filter_criteria)
+            else:
+                logger.debug(f'Found active display tree for {tree_id} but its TreeDisplayMode is {display_tree.state.tree_display_mode.name}')
 
         tree_type: int = node.node_identifier.tree_type
         if tree_type == TREE_TYPE_GDRIVE:
@@ -948,10 +953,15 @@ class CacheManager(HasLifecycle):
             assert False
 
         dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
-        summary_msg: str = self._get_tree_summary(subtree_root_node)
+        summary_msg: str = self._get_tree_summary(tree_id, subtree_root_node)
         dispatcher.send(signal=Signal.SET_STATUS, sender=tree_id, status_msg=summary_msg)
 
-    def _get_tree_summary(self, root_node: Node):
+    def _get_tree_summary(self, tree_id: str, root_node: Node):
+        tree_meta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
+        if tree_meta.change_tree:
+            logger.debug(f'Tree "{tree_id}" is a ChangeTree: it will provide the summary')
+            return tree_meta.change_tree.get_summary()
+
         if not root_node:
             logger.debug(f'No summary (tree does not exist)')
             return 'Tree does not exist'

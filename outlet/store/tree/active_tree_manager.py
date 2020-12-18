@@ -108,7 +108,7 @@ class ActiveTreeManager(HasLifecycle):
             self._live_monitor.stop_capture(sender)
 
     def register_change_tree(self, change_display_tree: ChangeDisplayTree, src_tree_id: str):
-        logger.info(f'Registering ChangeDisplayTree: {change_display_tree.tree_id}')
+        logger.info(f'Registering ChangeDisplayTree: {change_display_tree.tree_id} (src_tree_id: {src_tree_id})')
         if SUPER_DEBUG:
             change_display_tree.print_tree_contents_debug()
             change_display_tree.print_op_structs_debug()
@@ -120,7 +120,15 @@ class ActiveTreeManager(HasLifecycle):
 
         # I suppose we could return the full tree for the thick client, but let's try to sync its behavior of the thin client instead:
         tree_stub = DisplayTree(self.backend, change_display_tree.state)
-        dispatcher.send(Signal.DISPLAY_TREE_CHANGED, sender=src_tree_id, tree=tree_stub)
+
+        # TODO: this is janky and is gonna break
+        if src_tree_id:
+            sender = src_tree_id
+        else:
+            sender = change_display_tree.tree_id
+
+        logger.debug(f'Sending signal {Signal.DISPLAY_TREE_CHANGED.name} for tree_id={sender}')
+        dispatcher.send(Signal.DISPLAY_TREE_CHANGED, sender=sender, tree=tree_stub)
 
     def get_active_display_tree_meta(self, tree_id) -> ActiveDisplayTreeMeta:
         return self._display_tree_dict.get(tree_id, None)
@@ -162,11 +170,14 @@ class ActiveTreeManager(HasLifecycle):
             if display_tree_meta.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
                 if request.tree_display_mode == TreeDisplayMode.ONE_TREE_ALL_ITEMS:
                     logger.info(f'[{sender_tree_id}] Looks like we are exiting diff mode: switching back to tree_id={display_tree_meta.src_tree_id}')
-                    response_tree_id = display_tree_meta.src_tree_id
 
                     # Exiting diff mode -> look up prev tree
                     assert display_tree_meta.src_tree_id, f'Expected not-null src_tree_id for {display_tree_meta.tree_id}'
-                    display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(display_tree_meta.src_tree_id)
+                    response_tree_id = display_tree_meta.src_tree_id
+                    display_tree_meta: ActiveDisplayTreeMeta = self.get_active_display_tree_meta(response_tree_id)
+
+                    if self._display_tree_dict.pop(sender_tree_id):
+                        logger.debug(f'Discarded meta for tree: {sender_tree_id}')
                 else:
                     # ChangeDisplayTrees are already loaded, and live capture should not apply
                     logger.warning(f'request_display_tree_ui_state(): this is a CategoryDisplayTree. Did you mean to call this method?')
@@ -201,6 +212,7 @@ class ActiveTreeManager(HasLifecycle):
             if spid.uid == GDRIVE_ROOT_UID:
                 node: Node = GDriveWholeTree.get_super_root()
             else:
+                # TODO: hit memory cache instead if available
                 node: Node = self.backend.cacheman.read_single_node_from_disk_for_uid(spid.uid, TREE_TYPE_GDRIVE)
             root_path_meta.root_exists = node is not None
             root_path_meta.offending_path = None
@@ -215,8 +227,13 @@ class ActiveTreeManager(HasLifecycle):
         if self.backend.cacheman.is_manual_load_required(root_sn.spid, request.is_startup):
             state.needs_manual_load = True
 
-        # easier to just create a whole new object rather than update old one:
-        display_tree_meta: ActiveDisplayTreeMeta = ActiveDisplayTreeMeta(self.backend, state)
+        if display_tree_meta:
+            # reuse and update existing
+            display_tree_meta.state = state
+            assert display_tree_meta.state.tree_id == response_tree_id, f'TreeID "{response_tree_id}" != {display_tree_meta.state.tree_id}'
+        else:
+            display_tree_meta = ActiveDisplayTreeMeta(self.backend, state)
+            self._display_tree_dict[response_tree_id] = display_tree_meta
 
         if root_path_persister:
             # Write updates to config if applicable
@@ -224,8 +241,6 @@ class ActiveTreeManager(HasLifecycle):
 
             # Retain the persister for next time:
             display_tree_meta.root_path_config_persister = root_path_persister
-
-        self._display_tree_dict[response_tree_id] = display_tree_meta
 
         # Update monitoring state
         if self._is_live_capture_enabled:

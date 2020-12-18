@@ -37,6 +37,13 @@ message ToggleUiEnablement {
 	bool enable = 1;
 }
 
+message GenerateMergeTree_Request {
+	string tree_id_left = 1;
+	string tree_id_right = 2;
+	repeated SPIDNodePair change_list_left = 3;
+	repeated SPIDNodePair change_list_right = 4;
+}
+
 message DragDrop_Request {
 	string src_tree_id = 1;
 	string dst_tree_id = 2;
@@ -215,6 +222,7 @@ service Outlet {
 	rpc get_next_uid(GetNextUid_Request) returns (GetNextUid_Response);
 	rpc get_uid_for_local_path(GetUidForLocalPath_Request) returns (GetUidForLocalPath_Response);
 
+	rpc generate_merge_tree(GenerateMergeTree_Request) returns (Empty);
 	rpc drop_dragged_nodes(DragDrop_Request) returns (DragDrop_Response);
 
 	rpc get_last_pending_op_for_node(GetLastPendingOp_Request) returns (GetLastPendingOp_Response);

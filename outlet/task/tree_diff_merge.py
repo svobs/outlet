@@ -3,7 +3,7 @@ from typing import List
 
 from pydispatch import dispatcher
 
-from constants import TREE_TYPE_MIXED
+from constants import TREE_TYPE_MIXED, TreeDisplayMode
 from global_actions import GlobalActions
 from model.display_tree.change_display_tree import ChangeDisplayTree
 from model.display_tree.display_tree import DisplayTreeUiState
@@ -75,7 +75,8 @@ class TreeDiffMergeAction:
 
         super_root_spid: SinglePathNodeIdentifier = NodeIdentifierFactory.get_root_constant_single_path_identifier(TREE_TYPE_MIXED)
         super_root_sn = SPIDNodePair(super_root_spid, RootTypeNode(super_root_spid))
-        state: DisplayTreeUiState = DisplayTreeUiState(tree_id=ID_MERGE_TREE, root_sn=super_root_sn)
+        state: DisplayTreeUiState = DisplayTreeUiState(tree_id=ID_MERGE_TREE, root_sn=super_root_sn,
+                                                       tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
         merged_tree = ChangeDisplayTree(backend=backend, state=state, show_whole_forest=True)
 
         for sn in left_selected_changes:

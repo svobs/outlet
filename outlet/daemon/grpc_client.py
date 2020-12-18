@@ -10,7 +10,8 @@ from app.backend import DiffResultTreeIds, OutletBackend
 from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_CLIENT_SLEEP_ON_FAILURE_SEC, GRPC_SERVER_ADDRESS, SUPER_DEBUG, TreeDisplayMode
 from daemon.grpc import Outlet_pb2_grpc
 from daemon.grpc.conversion import Converter
-from daemon.grpc.Outlet_pb2 import DeleteSubtree_Request, DownloadFromGDrive_Request, DragDrop_Request, GetAncestorList_Request, GetChildList_Request, \
+from daemon.grpc.Outlet_pb2 import DeleteSubtree_Request, DownloadFromGDrive_Request, DragDrop_Request, GenerateMergeTree_Request, \
+    GetAncestorList_Request, GetChildList_Request, \
     GetLastPendingOp_Request, \
     GetLastPendingOp_Response, GetNextUid_Request, \
     GetNodeForLocalPath_Request, \
@@ -122,7 +123,8 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
         sig = Signal(signal.sig_int)
         kwargs = {}
         # TODO: convert this long conditional list into an action dict
-        if signal.sig_int == Signal.DISPLAY_TREE_CHANGED:
+        if signal.sig_int == Signal.DISPLAY_TREE_CHANGED\
+                or signal.sig_int == Signal.GENERATE_MERGE_TREE_DONE:
             display_tree_ui_state = Converter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
             tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
             kwargs['tree'] = tree
@@ -301,9 +303,11 @@ class BackendGRPCClient(OutletBackend):
         request.src_tree_id = src_tree_id
         request.dst_tree_id = dst_tree_id
         request.is_into = is_into
+
         for src_sn in src_sn_list:
             grpc_sn = request.src_sn_list.add()
             Converter.sn_to_grpc(src_sn, grpc_sn)
+
         Converter.sn_to_grpc(dst_sn, request.dst_sn)
 
         self.grpc_stub.drop_dragged_nodes(request)
@@ -318,8 +322,19 @@ class BackendGRPCClient(OutletBackend):
 
     def generate_merge_tree(self, tree_id_left: str, tree_id_right: str,
                             selected_changes_left: List[SPIDNodePair], selected_changes_right: List[SPIDNodePair]):
-        # FIXME: 2
-        pass
+        request = GenerateMergeTree_Request()
+        request.tree_id_left = tree_id_left
+        request.tree_id_right = tree_id_right
+
+        for src_sn in selected_changes_left:
+            grpc_sn = request.change_list_left.add()
+            Converter.sn_to_grpc(src_sn, grpc_sn)
+
+        for src_sn in selected_changes_right:
+            grpc_sn = request.change_list_right.add()
+            Converter.sn_to_grpc(src_sn, grpc_sn)
+
+        self.grpc_stub.generate_merge_tree(request)
 
     def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):
         request = RefreshSubtree_Request()

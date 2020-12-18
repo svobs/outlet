@@ -348,15 +348,18 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
     def _after_merge_tree_generated(self, sender, tree: DisplayTree):
         logger.debug(f'Received signal: "{Signal.GENERATE_MERGE_TREE_DONE.name}"')
 
-        try:
-            # Preview changes in UI pop-up
-            dialog = MergePreviewDialog(self, tree)
-            dialog.run()
-        except Exception as err:
-            self.show_error_ui('Merge preview failed due to unexpected error', repr(err))
-            raise
-        finally:
-            GlobalActions.enable_ui(sender=self.win_id)
+        def _show_merge_dialog():
+            try:
+                # Preview changes in UI pop-up
+                dialog = MergePreviewDialog(self, tree)
+                dialog.run()
+            except Exception as err:
+                self.show_error_ui('Merge preview failed due to unexpected error', repr(err))
+                raise
+            finally:
+                GlobalActions.enable_ui(sender=self.win_id)
+
+        GLib.idle_add(_show_merge_dialog)
 
     def _after_merge_tree_failed(self, sender):
         logger.debug(f'Received signal: "{Signal.GENERATE_MERGE_TREE_FAILED.name}"')
@@ -367,6 +370,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         self.show_error_ui(msg, secondary_msg)
 
     def _reload_tree(self, tree_con):
-        """Reload the given tree in regular mode"""
+        """Reload the given tree in regular mode. This will tell the backend to discard the diff information, and in turn the
+        backend will provide us with our old tree_id"""
         new_tree = self.app.backend.create_existing_display_tree(tree_con.tree_id, TreeDisplayMode.ONE_TREE_ALL_ITEMS)
         tree_con.reload(new_tree)

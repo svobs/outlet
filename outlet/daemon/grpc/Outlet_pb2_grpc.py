@@ -84,6 +84,11 @@ class OutletStub(object):
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Request.SerializeToString,
                 response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Response.FromString,
                 )
+        self.generate_merge_tree = channel.unary_unary(
+                '/outlet.daemon.grpc.Outlet/generate_merge_tree',
+                request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GenerateMergeTree_Request.SerializeToString,
+                response_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Empty.FromString,
+                )
         self.drop_dragged_nodes = channel.unary_unary(
                 '/outlet.daemon.grpc.Outlet/drop_dragged_nodes',
                 request_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.DragDrop_Request.SerializeToString,
@@ -193,6 +198,12 @@ class OutletServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def generate_merge_tree(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def drop_dragged_nodes(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -289,6 +300,11 @@ def add_OutletServicer_to_server(servicer, server):
                     servicer.get_uid_for_local_path,
                     request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Request.FromString,
                     response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Response.SerializeToString,
+            ),
+            'generate_merge_tree': grpc.unary_unary_rpc_method_handler(
+                    servicer.generate_merge_tree,
+                    request_deserializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GenerateMergeTree_Request.FromString,
+                    response_serializer=outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Empty.SerializeToString,
             ),
             'drop_dragged_nodes': grpc.unary_unary_rpc_method_handler(
                     servicer.drop_dragged_nodes,
@@ -555,6 +571,23 @@ class Outlet(object):
         return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/get_uid_for_local_path',
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Request.SerializeToString,
             outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GetUidForLocalPath_Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def generate_merge_tree(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/outlet.daemon.grpc.Outlet/generate_merge_tree',
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.GenerateMergeTree_Request.SerializeToString,
+            outlet_dot_daemon_dot_grpc_dot_Outlet__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

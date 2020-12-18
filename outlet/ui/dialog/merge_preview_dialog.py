@@ -42,7 +42,6 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
 
         self.tree_con = tree_factory.build_eager_load_change_tree(parent_win=self, tree=self.tree)
 
-        dispatcher.send(signal=Signal.SET_STATUS, sender=ID_MERGE_TREE, status_msg=self.tree.get_summary())
         self.content_box.pack_start(self.tree_con.content_box, True, True, 0)
 
         self.connect("response", self.on_response)

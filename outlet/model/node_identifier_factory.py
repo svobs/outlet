@@ -58,6 +58,8 @@ class NodeIdentifierFactory:
                 return SinglePathNodeIdentifier(uid=uid, path_list=full_path_list, tree_type=tree_type)
         elif tree_type == TREE_TYPE_GDRIVE:
             return GDriveIdentifier(uid=uid, path_list=full_path_list)
+        elif tree_type == TREE_TYPE_MIXED:
+            return SinglePathNodeIdentifier(uid=uid, path_list=full_path_list, tree_type=TREE_TYPE_MIXED)
 
         raise RuntimeError(f'Invalid: uid={uid}, tree_type={tree_type} path_list={full_path_list}, single_path={single_path}')
 
