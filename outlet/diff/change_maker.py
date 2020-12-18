@@ -23,12 +23,14 @@ class OneSide:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS OneSide
+
+    Internal class, used only by ChangeMaker and its descendants.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, backend, state, batch_uid: UID, tree_id_src: Optional[str]):
-        self.backend = backend
-        self.change_tree: ChangeDisplayTree = ChangeDisplayTree(backend, state)
+    def __init__(self, change_tree, batch_uid: UID, tree_id_src: Optional[str]):
+        self.backend = change_tree.backend
+        self.change_tree = change_tree
         self._batch_uid: UID = batch_uid
         if not self._batch_uid:
             self._batch_uid: UID = self.backend.uid_generator.next_uid()
@@ -41,6 +43,9 @@ class OneSide:
 
     @property
     def root_sn(self):
+        return self.change_tree.get_root_sn()
+
+    def get_root_sn(self):
         return self.change_tree.get_root_sn()
 
     def add_op(self, op_type: UserOpType, src_sn: SPIDNodePair, dst_sn: SPIDNodePair = None):
@@ -196,14 +201,18 @@ class ChangeMaker:
     """
 
     def __init__(self, backend, left_tree_root_sn: SPIDNodePair, right_tree_root_sn: SPIDNodePair,
-                 tree_id_left: str = None, tree_id_right: str = None, tree_id_left_src: str = None, tree_id_right_src: str = None):
+                 tree_id_left: str = None, tree_id_right: str = None,
+                 tree_id_left_src: str = None, tree_id_right_src: str = None):
         self.backend = backend
         batch_uid: UID = self.backend.uid_generator.next_uid()
 
         left_state = DisplayTreeUiState.create_change_tree_state(tree_id_left, left_tree_root_sn)
-        self.left_side = OneSide(backend, left_state, batch_uid, tree_id_left_src)
+        left_change_tree: ChangeDisplayTree = ChangeDisplayTree(backend, left_state)
+        self.left_side = OneSide(left_change_tree, batch_uid, tree_id_left_src)
+
         right_state = DisplayTreeUiState.create_change_tree_state(tree_id_right, right_tree_root_sn)
-        self.right_side = OneSide(backend, right_state, batch_uid, tree_id_right_src)
+        right_change_tree: ChangeDisplayTree = ChangeDisplayTree(backend, right_state)
+        self.right_side = OneSide(right_change_tree, batch_uid, tree_id_right_src)
 
     def copy_nodes_left_to_right(self, src_sn_list: List[SPIDNodePair], sn_dst_parent: SPIDNodePair, op_type: UserOpType):
         """Populates the destination parent in "change_tree_right" with the given source nodes.

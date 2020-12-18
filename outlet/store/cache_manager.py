@@ -69,17 +69,21 @@ class ActiveDisplayTreeMeta:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, backend, state: DisplayTreeUiState):
+    def __init__(self, backend, state: DisplayTreeUiState, order: int = 0):
         self.state: DisplayTreeUiState = state
+        # self.order: int = order
 
         self.change_tree: Optional[ChangeDisplayTree] = None
-        """For ChangeDisplayTree only"""
+        """For order > 0 only"""
         self.src_tree_id: Optional[str] = None
-        """For ChangeDisplayTree only"""
+        """For order > 0 only"""
 
         self.root_path_config_persister: Optional[RootPathConfigPersister] = None
 
         logger.debug(f'[{self.state.tree_id}] NeedsManualLoad = {state.needs_manual_load}')
+
+    # def is_first_order(self) -> bool:
+    #     return self.order == 0
 
     @property
     def root_sn(self):

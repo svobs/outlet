@@ -5,6 +5,7 @@ from pydispatch import dispatcher
 from constants import SUPER_DEBUG
 from diff.change_maker import SPIDNodePair
 from model.display_tree.display_tree import DisplayTree
+from model.node.decorator_node import DecoNode
 from model.node_identifier import SinglePathNodeIdentifier
 from ui.dialog.base_dialog import BaseDialog
 from ui.signal import Signal
@@ -166,7 +167,15 @@ class TreePanelController(HasLifecycle):
             more = ''
         logger.debug(f'[{self.tree_id}] {timer} Retreived {len(checked_rows)} checked rows{more}')
 
-        return checked_rows
+        checked_rows_dereferenced = []
+
+        for sn in checked_rows:
+            if sn.node.is_decorator():
+                assert isinstance(sn.node, DecoNode)
+                sn = SPIDNodePair(SinglePathNodeIdentifier.from_node_identifier(sn.node.delegate.node_identifier, sn.spid.get_single_path()),
+                                  sn.node.delegate)
+            checked_rows_dereferenced.append(sn)
+        return checked_rows_dereferenced
 
     def get_tree(self) -> DisplayTree:
         return self._display_tree
@@ -186,8 +195,8 @@ class TreePanelController(HasLifecycle):
         """Convenience method. Retreives the tree_id from the app"""
         return self.app.config
 
-    def get_root_identifier(self) -> SinglePathNodeIdentifier:
-        return self._display_tree.get_root_identifier()
+    def get_root_spid(self) -> SinglePathNodeIdentifier:
+        return self._display_tree.get_root_spid()
 
     @property
     def tree_display_mode(self):

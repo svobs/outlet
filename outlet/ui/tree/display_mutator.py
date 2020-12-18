@@ -489,7 +489,7 @@ class DisplayMutator(HasLifecycle):
                         if SUPER_DEBUG:
                             logger.debug(f'[{self.con.tree_id}] Examining parent {parent_uid} for displayed node {node.node_identifier}')
 
-                        if self.con.get_tree().get_root_identifier().uid == parent_uid:
+                        if self.con.get_tree().get_root_spid().uid == parent_uid:
                             logger.debug(f'[{self.con.tree_id}] Node is topmost level: {node.node_identifier}')
                             parent_iter = None
                             child_iter = self.con.display_store.find_uid_in_children(node.uid, parent_iter)

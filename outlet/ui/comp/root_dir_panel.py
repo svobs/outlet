@@ -83,7 +83,7 @@ class RootDirPanel(HasLifecycle):
         display_tree: DisplayTree = self.con.get_tree()
         if display_tree:
             # Do the initial UI draw (only if we already have a display tree)
-            logger.debug(f'[{self.con.tree_id}] Building panel with current root {display_tree.get_root_identifier()}')
+            logger.debug(f'[{self.con.tree_id}] Building panel with current root {display_tree.get_root_spid()}')
             GLib.idle_add(self._redraw_root_display)
 
         self.start()
@@ -118,7 +118,7 @@ class RootDirPanel(HasLifecycle):
         """Callback for Signal.DISPLAY_TREE_CHANGED"""
         if sender != self.con.tree_id:
             return
-        logger.debug(f'[{sender}] Received signal "{Signal.DISPLAY_TREE_CHANGED.name}" with new root: {tree.get_root_identifier()}')
+        logger.debug(f'[{sender}] Received signal "{Signal.DISPLAY_TREE_CHANGED.name}" with new root: {tree.get_root_spid()}')
 
         # Send the new tree directly to _redraw_root_display(). Do not allow it to fall back to querying the controller for the tree,
         # because that would be a race condition:
@@ -131,7 +131,7 @@ class RootDirPanel(HasLifecycle):
         """
         if not new_tree:
             new_tree: DisplayTree = self.con.get_tree()
-        new_root = new_tree.get_root_identifier()
+        new_root = new_tree.get_root_spid()
         logger.debug(f'[{self.con.tree_id}] Redrawing root display for new_root={new_root}')
         if self.entry:
             if self.entry_box_focus_eid:
@@ -237,7 +237,7 @@ class RootDirPanel(HasLifecycle):
 
         self.entry = Gtk.Entry()
 
-        root_spid: SinglePathNodeIdentifier = self.con.get_tree().get_root_identifier()
+        root_spid: SinglePathNodeIdentifier = self.con.get_tree().get_root_spid()
         path = root_spid.get_single_path()
         if root_spid.tree_type == TREE_TYPE_GDRIVE:
             path = GDRIVE_PATH_PREFIX + path
@@ -288,13 +288,13 @@ class RootDirPanel(HasLifecycle):
         # (buttons, response)"""
         logger.debug('Creating and displaying LocalRootDirChooserDialog')
         open_dialog = LocalRootDirChooserDialog(title="Pick a directory", parent_win=self.parent_win, tree_id=self.con.tree_id,
-                                                current_dir=self.con.get_tree().get_root_identifier().get_single_path())
+                                                current_dir=self.con.get_tree().get_root_spid().get_single_path())
 
         # show the dialog
         open_dialog.show()
 
     def _open_gdrive_root_chooser_dialog(self, menu_item):
-        spid = self.con.get_tree().get_root_identifier()
+        spid = self.con.get_tree().get_root_spid()
         logger.debug(f'[{self.con.tree_id}] Displaying GDrive root chooser dialog with current_selection={spid}')
 
         def open_dialog():

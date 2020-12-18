@@ -285,35 +285,3 @@ class ContentFirstDiffer(ChangeMaker):
         logger.info(f'{sw} Finished path comparison for right tree')
 
         return self.left_side.change_tree, self.right_side.change_tree
-
-    def merge_change_trees(self, left_selected_changes: List[SPIDNodePair], right_selected_changes: List[SPIDNodePair],
-                           check_for_conflicts=False) -> ChangeDisplayTree:
-
-        # always root path, but tree type may differ
-        is_mixed_tree = self.left_side.root_sn.spid.tree_type != self.right_side.root_sn.spid.tree_type
-        if is_mixed_tree:
-            tree_type = TREE_TYPE_MIXED
-        else:
-            tree_type = self.left_side.root_sn.spid.tree_type
-        root_node_identifier: SinglePathNodeIdentifier = NodeIdentifierFactory.get_root_constant_single_path_identifier(tree_type)
-        root_sn = SPIDNodePair(root_node_identifier, RootTypeNode(root_node_identifier))
-        state: DisplayTreeUiState = DisplayTreeUiState(tree_id=ID_MERGE_TREE, root_sn=root_sn)
-        merged_tree = ChangeDisplayTree(backend=self.backend, state=state, show_whole_forest=True)
-
-        for sn in left_selected_changes:
-            op = self.left_side.change_tree.get_op_for_node(sn.node)
-            if op:
-                merged_tree.add_node(sn, op)
-            else:
-                logger.debug(f'merge_change_trees(): Skipping left-side node because it is not associated with an UserOp: {sn.node}')
-
-        for sn in right_selected_changes:
-            op = self.right_side.change_tree.get_op_for_node(sn.node)
-            if op:
-                merged_tree.add_node(sn, op)
-            else:
-                logger.debug(f'merge_change_trees(): Skipping right-side node because it is not associated with an UserOp: {sn.node}')
-
-        # TODO: check for conflicts
-
-        return merged_tree

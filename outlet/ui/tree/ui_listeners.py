@@ -218,7 +218,7 @@ class TreeUiListeners(HasLifecycle):
 
         # Reload subtree and refresh display
         if tree.is_root_exists():
-            logger.debug(f'[{self.con.tree_id}] Tree root exists. Reloading subtree for: {tree.get_root_identifier()}')
+            logger.debug(f'[{self.con.tree_id}] Tree root exists. Reloading subtree for: {tree.get_root_spid()}')
             # Loads from disk if necessary:
             self.con.reload(tree)
         else:

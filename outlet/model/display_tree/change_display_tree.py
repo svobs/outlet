@@ -38,7 +38,7 @@ class ChangeDisplayTree(DisplayTree):
 
         # Root node is not even displayed, so is not terribly important.
         # Do not use its original UID, so as to disallow it from interfering with lookups
-        root_node = ContainerNode(self.get_root_identifier())
+        root_node = ContainerNode(self.get_root_spid())
         logger.debug(f'[{self.tree_id}] ChangeDisplayTree: inserting root node: {root_node}')
         self._category_tree.add_node(root_node, parent=None)
 

@@ -76,7 +76,7 @@ class DisplayTree(HasGetChildren):
     def get_root_sn(self) -> SPIDNodePair:
         return self.state.root_sn
 
-    def get_root_identifier(self) -> SinglePathNodeIdentifier:
+    def get_root_spid(self) -> SinglePathNodeIdentifier:
         return self.state.root_sn.spid
 
     def get_root_node(self):
@@ -87,6 +87,9 @@ class DisplayTree(HasGetChildren):
 
     def set_needs_manual_load(self, needs_manual_load: bool):
         self.state.needs_manual_load = needs_manual_load
+
+    def get_tree_type(self) -> int:
+        return self.state.root_sn.spid.tree_type
 
     @property
     def root_path(self) -> str:

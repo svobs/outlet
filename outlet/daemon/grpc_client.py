@@ -313,7 +313,7 @@ class BackendGRPCClient(OutletBackend):
 
     def generate_merge_tree(self, tree_id_left: str, tree_id_right: str,
                             selected_changes_left: List[SPIDNodePair], selected_changes_right: List[SPIDNodePair]):
-        # TODO!
+        # FIXME: 2
         pass
 
     def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):

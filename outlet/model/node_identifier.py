@@ -155,6 +155,12 @@ class SinglePathNodeIdentifier(NodeIdentifier):
     def __repr__(self):
         return f'∣{TREE_TYPE_DISPLAY[self.tree_type]}-{self.uid}⩨{self.get_single_path()}∣'
 
+    @staticmethod
+    def from_node_identifier(node_identifier, single_path: str):
+        if single_path not in node_identifier.get_path_list():
+            raise RuntimeError('bad!')
+        return SinglePathNodeIdentifier(uid=node_identifier.uid, path_list=single_path, tree_type=node_identifier.get_tree_type())
+
 
 class GDriveIdentifier(NodeIdentifier):
     """

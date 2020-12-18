@@ -53,7 +53,7 @@ class TreeFilterPanel(HasLifecycle):
         logger.debug(f'ICON SIZE: {self.toolbar.get_icon_size()}')
 
         # FIXME: put this into _redraw_panel()
-        # self.supports_shared_status = self.con.get_root_identifier().tree_type == TREE_TYPE_GDRIVE
+        # self.supports_shared_status = self.con.get_root_spid().tree_type == TREE_TYPE_GDRIVE
         self.supports_shared_status = True
 
         self.show_ancestors_btn = self._add_toolbar_toggle_btn('Show ancestors of matches', IconId.ICON_FOLDER_TREE)
@@ -107,7 +107,7 @@ class TreeFilterPanel(HasLifecycle):
         if sender != self.con.tree_id:
             return
 
-        logger.debug(f'[{sender}] Received signal "{Signal.DISPLAY_TREE_CHANGED.name}" with new root: {tree.get_root_identifier()}')
+        logger.debug(f'[{sender}] Received signal "{Signal.DISPLAY_TREE_CHANGED.name}" with new root: {tree.get_root_spid()}')
 
         # Send the new tree directly to _redraw_panel(). Do not allow it to fall back to querying the controller for the tree,
         # because that would be a race condition:
