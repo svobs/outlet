@@ -15,6 +15,7 @@ from model.node.node import Node, SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from store.live_monitor import LiveMonitor
+from store.tree.active_tree_meta import ActiveDisplayTreeMeta
 from ui.signal import Signal
 from ui.tree.root_path_config import RootPathConfigPersister
 from util import file_util
@@ -22,48 +23,6 @@ from util.has_lifecycle import HasLifecycle
 from util.root_path_meta import RootPathMeta
 
 logger = logging.getLogger(__name__)
-
-
-class ActiveDisplayTreeMeta:
-    """
-    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS ActiveDisplayTreeMeta
-
-    For internal use by CacheManager.
-    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-    """
-
-    def __init__(self, backend, state: DisplayTreeUiState, order: int = 0):
-        self.state: DisplayTreeUiState = state
-        # self.order: int = order
-
-        self.change_tree: Optional[ChangeDisplayTree] = None
-        """For order > 0 only"""
-        self.src_tree_id: Optional[str] = None
-        """For order > 0 only"""
-
-        self.root_path_config_persister: Optional[RootPathConfigPersister] = None
-
-        logger.debug(f'[{self.state.tree_id}] NeedsManualLoad = {state.needs_manual_load}')
-
-    # def is_first_order(self) -> bool:
-    #     return self.order == 0
-
-    @property
-    def root_sn(self):
-        return self.state.root_sn
-
-    @property
-    def tree_id(self):
-        return self.state.tree_id
-
-    @property
-    def root_exists(self):
-        return self.state.root_exists
-
-    @property
-    def offending_path(self):
-        return self.state.offending_path
 
 
 class ActiveTreeManager(HasLifecycle):

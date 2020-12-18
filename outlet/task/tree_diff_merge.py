@@ -11,7 +11,7 @@ from model.node.container_node import RootTypeNode
 from model.node.node import SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
-from store.cache_manager import ActiveDisplayTreeMeta
+from store.tree.active_tree_meta import ActiveDisplayTreeMeta
 from ui.signal import ID_MERGE_TREE, Signal
 from util.stopwatch_sec import Stopwatch
 

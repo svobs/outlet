@@ -33,7 +33,9 @@ from store.gdrive.master_gdrive import GDriveMasterStore
 from store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from store.local.master_local import LocalDiskMasterStore
 from store.sqlite.cache_registry_db import CacheRegistry
-from store.tree.active_tree_tracking import ActiveDisplayTreeMeta, ActiveTreeManager
+from store.tree.active_tree_manager import ActiveTreeManager
+from store.tree.active_tree_meta import ActiveDisplayTreeMeta
+from store.tree.load_request_thread import LoadRequest, LoadRequestThread
 from store.uid.uid_mapper import UidChangeTreeMapper
 from store.user_op.op_ledger import OpLedger
 from ui.signal import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
@@ -41,7 +43,6 @@ from util import file_util, time_util
 from util.ensure import ensure_list
 from util.file_util import get_resource_path
 from util.has_lifecycle import HasLifecycle
-from util.qthread import QThread
 from util.stopwatch_sec import Stopwatch
 from util.two_level_dict import TwoLevelDict
 
@@ -67,44 +68,6 @@ class CacheInfoByType(TwoLevelDict):
 
     def __init__(self):
         super().__init__(lambda x: x.subtree_root.tree_type, lambda x: x.subtree_root.get_path_list()[0], lambda x, y: True)
-
-
-class LoadRequest:
-    """
-    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS LoadRequest
-
-    Object encapsulating the information for a single load request on the LoadRequestThread
-    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-    """
-
-    def __init__(self, tree_id: str, send_signals: bool):
-        self.tree_id = tree_id
-        self.send_signals = send_signals
-
-
-class LoadRequestThread(QThread):
-    """
-    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS LoadRequestThread
-
-    Hasher thread which churns through signature queue and sends updates to cacheman
-    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-    """
-
-    def __init__(self, backend, cacheman):
-        QThread.__init__(self, name='LoadRequestThread', initial_sleep_sec=0.0)
-        self.backend = backend
-        self.cacheman = cacheman
-
-    def on_thread_start(self):
-        # Wait for CacheMan to finish starting up so as not to deprive it of resources:
-        logger.debug(f'[{self.name}] Waiting for CacheMan startup to complete...')
-        self.cacheman.wait_for_startup_done()
-
-    def process_single_item(self, load_request: LoadRequest):
-        logger.debug(f'[{self.name}] Submitting load request for tree_id: {load_request.tree_id}, send_signals={load_request.send_signals}')
-        self.backend.executor.submit_async_task(self.cacheman.load_data_for_display_tree, load_request)
 
 
 class CacheManager(HasLifecycle):
@@ -431,6 +394,10 @@ class CacheManager(HasLifecycle):
     # DisplayTree stuff
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
+    def enqueue_load_tree_task(self, tree_id: str, send_signals: bool):
+        logger.debug(f'[{tree_id}] Enqueueing subtree load task')
+        self._load_request_thread.enqueue(LoadRequest(tree_id=tree_id, send_signals=send_signals))
+
     def load_data_for_display_tree(self, load_request: LoadRequest):
         """Executed asyncly via the LoadRequestThread."""
         tree_id: str = load_request.tree_id
@@ -444,8 +411,8 @@ class CacheManager(HasLifecycle):
             # This will be carried across gRPC if needed
             dispatcher.send(signal=Signal.LOAD_SUBTREE_STARTED, sender=tree_id)
 
-        if display_tree_meta.state.tree_display_mode == TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY:
-            logger.info(f'Display tree is a category tree and thus is already loaded: {tree_id}')
+        if not display_tree_meta.is_first_order():
+            logger.info(f'DisplayTree is higher-order and thus is already loaded: {tree_id}')
         elif display_tree_meta.root_exists:
             spid = display_tree_meta.root_sn.spid
             if spid.tree_type == TREE_TYPE_LOCAL_DISK:
@@ -463,10 +430,6 @@ class CacheManager(HasLifecycle):
         if load_request.send_signals:
             # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
             dispatcher.send(signal=Signal.LOAD_SUBTREE_DONE, sender=tree_id)
-
-    def enqueue_load_subtree_task(self, tree_id: str, send_signals: bool):
-        logger.debug(f'[{tree_id}] Enqueueing subtree load task')
-        self._load_request_thread.enqueue(LoadRequest(tree_id=tree_id, send_signals=send_signals))
 
     def register_change_tree(self, change_display_tree: ChangeDisplayTree, src_tree_id: str):
         self._active_tree_manager.register_change_tree(change_display_tree, src_tree_id)
