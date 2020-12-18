@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydispatch import dispatcher
 
-from constants import FILTER_APPLY_DELAY_MS, IconId
+from constants import FILTER_APPLY_DELAY_MS, IconId, SUPER_DEBUG
 from ui.signal import Signal
 from ui.dialog.base_dialog import BaseDialog
 from model.display_tree.filter_criteria import BoolOption, FilterCriteria
@@ -50,7 +50,7 @@ class TreeFilterPanel(HasLifecycle):
         self.content_box.pack_end(self.toolbar, expand=False, fill=True, padding=0)
         # See icon size enum at: https://developer.gnome.org/gtk3/stable/gtk3-Themeable-Stock-Images.html
         # self.toolbar.set_icon_size(Gtk.IconSize.SMALL_TOOLBAR)  # 16px
-        logger.debug(f'ICON SIZE: {self.toolbar.get_icon_size()}')
+        # logger.debug(f'ICON SIZE: {self.toolbar.get_icon_size()}')
 
         # FIXME: put this into _redraw_panel()
         # self.supports_shared_status = self.con.get_root_spid().tree_type == TREE_TYPE_GDRIVE
@@ -158,7 +158,8 @@ class TreeFilterPanel(HasLifecycle):
         return btn
 
     def _set_icon(self, btn, icon_id: IconId):
-        logger.debug(f'Setting icon to "{icon_id.name}"')
+        if SUPER_DEBUG:
+            logger.debug(f'[{self.con.tree_id}] Setting icon to "{icon_id.name}"')
         icon = Gtk.Image()
         icon.set_from_file(self.parent_win.app.assets.get_path(icon_id))
         btn.set_icon_widget(icon)
@@ -170,7 +171,7 @@ class TreeFilterPanel(HasLifecycle):
             filter_criteria.write_filter_criteria_to_config(self.con.config, self.con.tree_id)
 
     def update_filter_criteria(self, widget=None):
-        logger.debug(f'Updating filter criteria')
+        logger.debug(f'[{self.con.tree_id}] Updating filter criteria')
 
         search_query = self.search_entry.get_text()
         filter_criteria = FilterCriteria(search_query=search_query)

@@ -98,6 +98,9 @@ class TreeFactory:
 
         # 3. Start everything
         controller.start()
+
+        # Even if the backend already loaded the tree, ask it to send a notification again so we know it's finished loading:
+        self.parent_win.app.backend.start_subtree_load(self.tree.tree_id)
         return controller
 
 
@@ -118,7 +121,6 @@ def build_gdrive_root_chooser(parent_win, tree):
     factory.can_change_root = True
     controller = factory.build()
 
-    parent_win.app.backend.start_subtree_load(tree.tree_id)
     return controller
 
 
@@ -133,8 +135,6 @@ def build_editor_tree(parent_win, tree):
     factory.display_persisted = True
     controller = factory.build()
 
-    # Even if the backend already loaded the tree, ask it to send a notification again so we know it's finished loading:
-    parent_win.app.backend.start_subtree_load(tree.tree_id)
     return controller
 
 

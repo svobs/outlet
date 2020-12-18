@@ -88,7 +88,7 @@ class ChangeDisplayTree(DisplayTree):
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
         raise InvalidOperationError('ChangeDisplayTree.get_ancestor_list()')
 
-    def get_ops(self) -> Iterable[UserOp]:
+    def get_ops(self) -> List[UserOp]:
         return self._op_list
 
     def get_op_for_node(self, node: Node) -> Optional[UserOp]:

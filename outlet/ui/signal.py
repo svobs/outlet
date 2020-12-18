@@ -17,6 +17,7 @@ class Signal(IntEnum):
     COMMAND_COMPLETE = 12
     GENERATE_MERGE_TREE_DONE = 13
     GENERATE_MERGE_TREE_FAILED = 14
+    COMPLETE_MERGE = 15
 
     # --- Tree actions: requests ---
     CALL_EXIFTOOL = 20

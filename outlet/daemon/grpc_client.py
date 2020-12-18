@@ -176,8 +176,10 @@ class BackendGRPCClient(OutletBackend):
 
         self.connect_dispatch_listener(signal=Signal.ENQUEUE_UI_TASK, receiver=self._on_ui_task_requested)
 
+        # Some requests are so simple that they can be encapsulated by a single signal:
         self.connect_dispatch_listener(signal=Signal.PAUSE_OP_EXECUTION, receiver=self._send_pause_op_exec_signal)
         self.connect_dispatch_listener(signal=Signal.RESUME_OP_EXECUTION, receiver=self._send_resume_op_exec_signal)
+        self.connect_dispatch_listener(signal=Signal.COMPLETE_MERGE, receiver=self._send_complete_merge_signal)
 
         self.channel = grpc.insecure_channel(GRPC_SERVER_ADDRESS)
         self.grpc_stub = Outlet_pb2_grpc.OutletStub(self.channel)
@@ -197,6 +199,9 @@ class BackendGRPCClient(OutletBackend):
 
     def _send_resume_op_exec_signal(self, sender: str):
         self.grpc_stub.send_signal(SignalMsg(sig_int=Signal.RESUME_OP_EXECUTION, sender=sender))
+
+    def _send_complete_merge_signal(self, sender: str):
+        self.grpc_stub.send_signal(SignalMsg(sig_int=Signal.COMPLETE_MERGE, sender=sender))
 
     def send_signal_to_server(self, signal: str, sender: str):
         """General-use method for signals with no additional args"""

@@ -76,7 +76,6 @@ class MergePreviewDialog(Gtk.Dialog, BaseDialog):
             self.tree = None
             dialog.destroy()
 
-    def on_apply_clicked(self):
-        # FIXME
-        self.parent_win.app.cacheman.enqueue_op_list(op_list=self.tree.get_ops())
-        dispatcher.send(signal=Signal.EXIT_DIFF_MODE, sender=ID_MERGE_TREE)
+    @staticmethod
+    def on_apply_clicked():
+        dispatcher.send(signal=Signal.COMPLETE_MERGE, sender=ID_MERGE_TREE)

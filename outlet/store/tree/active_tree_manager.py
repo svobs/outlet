@@ -51,6 +51,7 @@ class ActiveTreeManager(HasLifecycle):
         HasLifecycle.start(self)
         self.connect_dispatch_listener(signal=Signal.DEREGISTER_DISPLAY_TREE, receiver=self._deregister_display_tree)
         self.connect_dispatch_listener(signal=Signal.GDRIVE_RELOADED, receiver=self._on_gdrive_whole_tree_reloaded)
+        self.connect_dispatch_listener(signal=Signal.COMPLETE_MERGE, receiver=self._on_merge_requested)
 
         self._live_monitor.start()
 
@@ -65,6 +66,19 @@ class ActiveTreeManager(HasLifecycle):
                 self._live_monitor = None
         except NameError:
             pass
+
+    def _on_merge_requested(self, sender: str):
+        logger.info(f'Received signal: {Signal.COMPLETE_MERGE.name} for tree "{sender}"')
+
+        meta = self.get_active_display_tree_meta(sender)
+        if not meta:
+            raise RuntimeError(f'Could not find merge tree: {sender}')
+        if not meta.change_tree:
+            raise RuntimeError(f'Could not find change tree for: {sender}')
+
+        op_list = meta.change_tree.get_ops()
+        logger.debug(f'Sending {len(op_list)} ops from tree "{sender}" to cacheman be enqueued')
+        self.backend.cacheman.enqueue_op_list(op_list=op_list)
 
     def _on_gdrive_whole_tree_reloaded(self, sender: str):
         # If GDrive cache was reloaded, our previous selection was almost certainly invalid. Just reset all open GDrive trees to GDrive root.

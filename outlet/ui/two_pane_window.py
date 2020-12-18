@@ -130,11 +130,12 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         dispatcher.connect(signal=Signal.DIFF_TREES_FAILED, receiver=self._after_diff_failed)
         dispatcher.connect(signal=Signal.GENERATE_MERGE_TREE_DONE, receiver=self._after_merge_tree_generated)
         dispatcher.connect(signal=Signal.GENERATE_MERGE_TREE_FAILED, receiver=self._after_merge_tree_failed)
+        dispatcher.connect(signal=Signal.EXIT_DIFF_MODE, receiver=self._on_diff_exited)
+        dispatcher.connect(signal=Signal.COMPLETE_MERGE, receiver=self._on_diff_exited)
 
         # Need to add an extra listener to each tree, to reload when the other one's root changes
         # if displaying the results of a diff
         dispatcher.connect(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed_twopane)
-        dispatcher.connect(signal=Signal.EXIT_DIFF_MODE, receiver=self._on_diff_exited)
         dispatcher.connect(signal=Signal.OP_EXECUTION_PLAY_STATE_CHANGED, receiver=self._update_play_pause_btn)
 
         # Connect "resize" event. Lots of excess logic to determine approximately when the
@@ -337,7 +338,7 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
             GlobalActions.enable_ui(sender=self.win_id)
         GLib.idle_add(change_button_bar)
 
-    def _on_diff_exited(self):
+    def _on_diff_exited(self, sender):
         logger.debug(f'Received signal {Signal.EXIT_DIFF_MODE.name}. Reloading both trees')
         self._reload_tree(self.tree_con_left)
         self._reload_tree(self.tree_con_right)
