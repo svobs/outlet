@@ -76,6 +76,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         self.connect_dispatch_listener(signal=Signal.LOAD_SUBTREE_DONE, receiver=self._on_subtree_load_done)
         self.connect_dispatch_listener(signal=Signal.DIFF_TREES_FAILED, receiver=self._on_diff_failed)
         self.connect_dispatch_listener(signal=Signal.DIFF_TREES_DONE, receiver=self._on_diff_done)
+        self.connect_dispatch_listener(signal=Signal.GENERATE_MERGE_TREE_FAILED, receiver=self._on_generate_merge_tree_failed)
         self.connect_dispatch_listener(signal=Signal.REFRESH_SUBTREE_STATS_DONE, receiver=self._on_refresh_stats_done)
 
     def shutdown(self):
@@ -193,6 +194,9 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
 
     def _on_diff_failed(self, sender: str):
         self.send_signal_via_grpc(Signal.DIFF_TREES_FAILED, sender)
+
+    def _on_generate_merge_tree_failed(self, sender: str):
+        self.send_signal_via_grpc(Signal.GENERATE_MERGE_TREE_FAILED, sender)
 
     def _on_diff_done(self, sender: str):
         self.send_signal_via_grpc(Signal.DIFF_TREES_DONE, sender)

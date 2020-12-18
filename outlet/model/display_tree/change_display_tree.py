@@ -305,8 +305,8 @@ class ChangeDisplayTree(DisplayTree):
             return self._build_cat_summaries_str(cat_map)
 
     # FIXME: find new home for this
-    def refresh_stats(self, tree_id: str):
-        logger.debug(f'[{tree_id}] Refreshing stats for category display tree')
+    def refresh_stats(self):
+        logger.debug(f'[{self.tree_id}] Refreshing stats for category display tree')
         stats_sw = Stopwatch()
         queue: Deque[Node] = deque()
         stack: Deque[Node] = deque()
@@ -337,5 +337,5 @@ class ChangeDisplayTree(DisplayTree):
                 for child in children:
                     node.add_meta_metrics(child)
 
-        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
-        logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for tree')
+        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=self.tree_id)
+        logger.debug(f'[{self.tree_id}] {stats_sw} Refreshed stats for tree')

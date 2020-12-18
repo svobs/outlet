@@ -336,7 +336,7 @@ class DisplayMutator(HasLifecycle):
 
         GLib.idle_add(_update_ui)
 
-        # self._request_subtree_stats_refresh()
+        self._request_subtree_stats_refresh()
 
     def get_checked_rows_as_list(self) -> List[SPIDNodePair]:
         """Returns a list which contains the DisplayNodes of the items which are currently checked by the user

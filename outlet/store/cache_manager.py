@@ -940,6 +940,12 @@ class CacheManager(HasLifecycle):
 
     def _refresh_stats(self, subtree_root_uid: UID, tree_id: str):
         """Called async via task exec (cacheman.enqueue_refresh_subtree_stats_task()) """
+
+        tree_meta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
+        if tree_meta.change_tree:
+            logger.debug(f'Tree "{tree_id}" is a ChangeTree: it will provide the stats')
+            return tree_meta.change_tree.refresh_stats()
+
         # get up-to-date object:
         subtree_root_node: Node = self.get_node_for_uid(subtree_root_uid)
 

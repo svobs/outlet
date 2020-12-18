@@ -35,6 +35,7 @@ class TreeDiffMergeAction:
         if len(selected_changes_left) == 0 and len(selected_changes_right) == 0:
             # TODO: make info msg instead
             GlobalActions.display_error_in_ui(sender, 'You must select change(s) first.')
+            dispatcher.send(signal=Signal.GENERATE_MERGE_TREE_FAILED, sender=sender)
             return
 
         sw = Stopwatch()
