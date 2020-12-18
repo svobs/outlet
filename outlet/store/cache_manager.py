@@ -944,19 +944,20 @@ class CacheManager(HasLifecycle):
         tree_meta = self._active_tree_manager.get_active_display_tree_meta(tree_id)
         if tree_meta.change_tree:
             logger.debug(f'Tree "{tree_id}" is a ChangeTree: it will provide the stats')
-            return tree_meta.change_tree.refresh_stats()
-
-        # get up-to-date object:
-        subtree_root_node: Node = self.get_node_for_uid(subtree_root_uid)
-
-        logger.debug(f'[{tree_id}] Refreshing stats for subtree: {subtree_root_node}')
-
-        if subtree_root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
-            self._master_local.refresh_subtree_stats(subtree_root_node, tree_id)
-        elif subtree_root_node.get_tree_type() == TREE_TYPE_GDRIVE:
-            self._master_gdrive.refresh_subtree_stats(subtree_root_node, tree_id)
+            tree_meta.change_tree.refresh_stats()
+            subtree_root_node: Node = tree_meta.change_tree.get_root_node()
         else:
-            assert False
+            # get up-to-date object:
+            subtree_root_node: Node = self.get_node_for_uid(subtree_root_uid)
+
+            logger.debug(f'[{tree_id}] Refreshing stats for subtree: {subtree_root_node}')
+
+            if subtree_root_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
+                self._master_local.refresh_subtree_stats(subtree_root_node, tree_id)
+            elif subtree_root_node.get_tree_type() == TREE_TYPE_GDRIVE:
+                self._master_gdrive.refresh_subtree_stats(subtree_root_node, tree_id)
+            else:
+                assert False
 
         dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=tree_id)
         summary_msg: str = self._get_tree_summary(tree_id, subtree_root_node)

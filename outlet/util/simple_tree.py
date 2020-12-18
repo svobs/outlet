@@ -1,5 +1,5 @@
 from collections import deque
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
 
 from model.uid import UID
 
@@ -167,8 +167,56 @@ class SimpleTree:
             raise NodeNotPresentError(f'Cannot get children: parent "{parent_nid}" is not in the tree!')
         return self._parent_child_list_dict.get(parent_nid, [])
 
-    def children(self, nid: Any) -> List[BaseNode]:
-        return self.get_child_list(nid)
+    def for_each_node_breadth_first(self, action_func: Callable, subtree_root_node: Optional[BaseNode] = None):
+        parent_queue: Deque[BaseNode] = deque()
+        if not subtree_root_node:
+            subtree_root_node = self.get_root_node()
+            if not subtree_root_node:
+                return
+
+        action_func(subtree_root_node)
+
+        if self.get_child_list(subtree_root_node.identifier):
+            parent_queue.append(subtree_root_node)
+
+        while len(parent_queue) > 0:
+            node: BaseNode = parent_queue.popleft()
+
+            children = self.get_child_list(node.identifier)
+            if children:
+                for child in children:
+                    action_func(child)
+
+                    if self.get_child_list(child.identifier):
+                        parent_queue.append(child)
+
+    def get_subtree_bfs(self, subtree_root_uid: UID = None) -> List[BaseNode]:
+        """Returns an iterator which will do a breadth-first traversal of the tree. If subtree_root is provided, do a breadth-first traversal
+        of the subtree whose root is subtree_root (returning None if this tree does not contain subtree_root).
+        """
+        if not subtree_root_uid:
+            root_node = self.get_root_node()
+            if not root_node:
+                return []
+            subtree_root_uid = root_node.identifier
+
+        if not self.contains(subtree_root_uid):
+            return []
+
+        node = self.get_node(nid=subtree_root_uid)
+
+        bfs_list: List[BaseNode] = []
+
+        node_queue: Deque = deque()
+        node_queue.append(node)
+
+        while len(node_queue) > 0:
+            node = node_queue.popleft()
+            bfs_list.append(node)
+            for child in self.get_child_list(node.identifier):
+                node_queue.append(child)
+
+        return bfs_list
 
     def get_parent(self, child_nid: Any) -> Optional[BaseNode]:
         return self._child_parent_dict.get(child_nid, None)

@@ -7,7 +7,9 @@ from pydispatch import dispatcher
 
 from constants import NULL_UID, ROOT_PATH, SUPER_DEBUG, SUPER_ROOT_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from error import InvalidOperationError
+from model import local_disk_tree
 from model.display_tree.display_tree import DisplayTree
+from model.local_disk_tree import LocalDiskTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.decorator_node import DecoDirNode, DecoNode
 from model.node.node import Node, SPIDNodePair
@@ -260,34 +262,31 @@ class ChangeDisplayTree(DisplayTree):
                 cat_summaries.append(summary)
         return ', '.join(cat_summaries)
 
-    def _build_cat_map(self, uid):
+    def _build_summary_cat_map(self, uid):
         include_empty_op_types = False
         cat_count = 0
         if include_empty_op_types:
             cat_map = ChangeDisplayTree._make_cat_map()
         else:
             cat_map = {}
-        for child in self._category_tree.children(uid):
-            # assert isinstance(child, CategoryNode), f'For {child}'
+        for cat_node in self._category_tree.get_child_list(uid):
             cat_count += 1
-            cat_map[child.op_type] = f'{child.name}: {child.get_summary()}'
+            assert isinstance(cat_node, CategoryNode), f'Not a CategoryNode: {cat_node}'
+            cat_map[cat_node.op_type] = f'{cat_node.name}: {cat_node.get_summary()}'
         if cat_count:
             return cat_map
         else:
             return None
 
-    # FIXME: find new home for this
     def get_summary(self) -> str:
-        # FIXME: this is broken
-        return ''
         if self.show_whole_forest:
             # need to preserve ordering...
             type_summaries = []
             type_map = {}
             cat_count = 0
-            for child in self._category_tree.children(self.get_root_node().uid):
+            for child in self._category_tree.get_child_list(self.get_root_node().uid):
                 assert isinstance(child, RootTypeNode), f'For {child}'
-                cat_map = self._build_cat_map(child.uid)
+                cat_map = self._build_summary_cat_map(child.uid)
                 if cat_map:
                     cat_count += 1
                     type_map[child.node_identifier.tree_type] = cat_map
@@ -299,43 +298,12 @@ class ChangeDisplayTree(DisplayTree):
                     type_summaries.append(f'{tree_type_name}: {self._build_cat_summaries_str(cat_map)}')
             return '; '.join(type_summaries)
         else:
-            cat_map = self._build_cat_map(self.get_root_node().uid)
+            cat_map = self._build_summary_cat_map(self.get_root_node().uid)
             if not cat_map:
                 return 'Contents are identical'
             return self._build_cat_summaries_str(cat_map)
 
-    # FIXME: find new home for this
     def refresh_stats(self):
-        logger.debug(f'[{self.tree_id}] Refreshing stats for category display tree')
-        stats_sw = Stopwatch()
-        queue: Deque[Node] = deque()
-        stack: Deque[Node] = deque()
-        queue.append(self.get_root_node())
-        stack.append(self.get_root_node())
-
-        # go down tree, zeroing out existing stats and adding children to stack
-        while len(queue) > 0:
-            node: Node = queue.popleft()
-            assert isinstance(node, HasChildStats) and isinstance(node, Node)
-            node.zero_out_stats()
-
-            children = self.get_children(node)
-            if children:
-                for child in children:
-                    if child.is_dir():
-                        assert isinstance(child, Node)
-                        queue.append(child)
-                        stack.append(child)
-
-        # now go back up the tree by popping the stack and building stats as we go:
-        while len(stack) > 0:
-            node = stack.pop()
-            assert node.is_dir() and isinstance(node, HasChildStats) and isinstance(node, Node)
-
-            children = self.get_children(node)
-            if children:
-                for child in children:
-                    node.add_meta_metrics(child)
-
-        dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_DONE, sender=self.tree_id)
-        logger.debug(f'[{self.tree_id}] {stats_sw} Refreshed stats for tree')
+        logger.debug(f'[{self.tree_id}] Refreshing stats for change tree')
+        LocalDiskTree.refresh_stats_for_tree(self._category_tree)
+        logger.debug(f'[{self.tree_id}] Done refreshing stats for change tree')

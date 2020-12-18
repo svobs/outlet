@@ -32,11 +32,11 @@ Create a virtual environment within this directory (`{project_name}`)  following
     make init
 
 ### Future Major Features (TODO)
+* [7] Mac OS support
 * [1] Put GDrive files in trash
 * [3] Put local files in trash
 * [3] Tombstone trash support
 * [3] Tombstones
-* [3] Detach service
 * [5] Run multiple concurrent ops
 * [3] Optimal Path - CommandBuilder: look up MD5 for src_node and use a closer node
 * [1] UID <-> MD5/SHA256

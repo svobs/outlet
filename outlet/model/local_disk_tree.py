@@ -10,7 +10,7 @@ from util import file_util
 from model.node.node import Node
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
-from util.simple_tree import SimpleTree
+from util.simple_tree import BaseNode, SimpleTree
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)
@@ -78,31 +78,6 @@ class LocalDiskTree(SimpleTree):
                 logger.error(f'Parent is None for node: {node}')
             self.add_node(node=node, parent=parent)
 
-    def for_each_node_breadth_first(self, action_func: Callable, subtree_root_node: Optional[LocalNode] = None):
-        dir_queue: Deque[LocalDirNode] = deque()
-        if not subtree_root_node:
-            subtree_root_node = self.get_root_node()
-            if not subtree_root_node:
-                return
-
-        action_func(subtree_root_node)
-
-        if subtree_root_node.is_dir():
-            assert isinstance(subtree_root_node, LocalDirNode)
-            dir_queue.append(subtree_root_node)
-
-        while len(dir_queue) > 0:
-            node: LocalDirNode = dir_queue.popleft()
-
-            children = self.get_children(node)
-            if children:
-                for child in children:
-                    action_func(child)
-
-                    if child.is_dir():
-                        assert isinstance(child, LocalDirNode)
-                        dir_queue.append(child)
-
     def replace_subtree(self, sub_tree: SimpleTree):
         sub_tree_root_node: LocalNode = sub_tree.get_root_node()
         if not self.contains(sub_tree_root_node.uid):
@@ -146,74 +121,46 @@ class LocalDiskTree(SimpleTree):
         logger.debug(f'Returning {len(file_list)} files and {len(dir_list)} dirs')
         return file_list, dir_list
 
-    def get_subtree_bfs(self, subtree_root_uid: UID = None) -> List[LocalNode]:
-        """Returns an iterator which will do a breadth-first traversal of the tree. If subtree_root is provided, do a breadth-first traversal
-        of the subtree whose root is subtree_root (returning None if this tree does not contain subtree_root).
-        """
-        if not subtree_root_uid:
-            root_node = self.get_root_node()
-            if not root_node:
-                return []
-            subtree_root_uid = root_node.uid
-
-        if not self.contains(subtree_root_uid):
-            return []
-
-        node: LocalNode = self.get_node(nid=subtree_root_uid)
-        assert isinstance(node, LocalNode)
-
-        bfs_list: List[LocalNode] = []
-
-        dir_queue: Deque[LocalNode] = deque()
-        dir_queue.append(node)
-
-        while len(dir_queue) > 0:
-            node = dir_queue.popleft()
-            assert isinstance(node, LocalNode)
-            bfs_list.append(node)
-            if node.is_dir():
-                for child in self.children(node.uid):
-                    assert isinstance(child, LocalNode)
-                    dir_queue.append(child)
-
-        return bfs_list
-
     def get_children(self, node: LocalNode) -> List[LocalNode]:
         return self.get_child_list(node.identifier)
 
     def refresh_stats(self, subtree_root_node: LocalNode, tree_id: str):
         logger.debug(f'[{tree_id}] Refreshing stats for local disk tree with root: {subtree_root_node.node_identifier}')
         stats_sw = Stopwatch()
-        # dir_queue: Deque[LocalNode] = deque()
-        second_pass_stack: Deque[LocalNode] = deque()
+        LocalDiskTree.refresh_stats_for_tree(self, subtree_root_node)
+        logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for local tree ("{subtree_root_node.node_identifier}")')
 
-        # dir_queue.append(root_node)
+    # TODO: find a home for this
+    @staticmethod
+    def refresh_stats_for_tree(tree, subtree_root_node: Optional[Node] = None):
+        if not subtree_root_node:
+            subtree_root_node = tree.get_root_node()
+
+        second_pass_stack: Deque[Node] = deque()
         second_pass_stack.append(subtree_root_node)
 
         def zero_out_stats_and_add_dirs_to_stack(n):
             if n.is_dir():
                 if SUPER_DEBUG:
-                    logger.debug(f'[{tree_id}] Zeroing out stats for node: {n}')
-                assert isinstance(n, HasChildStats) and isinstance(n, LocalDirNode)
+                    logger.debug(f'Zeroing out stats for node: {n}')
+                assert isinstance(n, HasChildStats) and isinstance(n, Node)
                 n.zero_out_stats()
 
                 second_pass_stack.append(n)
 
         # go down tree, zeroing out existing stats and adding children to stack
-        self.for_each_node_breadth_first(action_func=zero_out_stats_and_add_dirs_to_stack, subtree_root_node=subtree_root_node)
+        tree.for_each_node_breadth_first(action_func=zero_out_stats_and_add_dirs_to_stack, subtree_root_node=subtree_root_node)
 
         # now go back up the tree by popping the stack and building stats as we go:
         while len(second_pass_stack) > 0:
             node = second_pass_stack.pop()
-            assert node.is_dir() and isinstance(node, HasChildStats) and isinstance(node, LocalNode)
+            assert node.is_dir() and isinstance(node, HasChildStats)
             node.set_stats_for_no_children()
 
-            children = self.get_children(node)
+            children = tree.get_child_list(node.identifier)
             if children:
                 for child in children:
                     node.add_meta_metrics(child)
 
             if SUPER_DEBUG:
-                logger.debug(f'[{tree_id}] Dir node {node.uid} ("{node.name}") has size={node.get_size_bytes()}, etc={node.get_etc()}')
-
-        logger.debug(f'[{tree_id}] {stats_sw} Refreshed stats for local tree ("{subtree_root_node.node_identifier}")')
+                logger.debug(f'Dir node {node.uid} ("{node.name}") has size={node.get_size_bytes()}, etc={node.get_etc()}')
