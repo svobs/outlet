@@ -167,15 +167,20 @@ class TreePanelController(HasLifecycle):
             more = ''
         logger.debug(f'[{self.tree_id}] {timer} Retreived {len(checked_rows)} checked rows{more}')
 
-        checked_rows_dereferenced = []
+        checked_rows_dedecorated = []
 
         for sn in checked_rows:
-            if sn.node.is_decorator():
-                assert isinstance(sn.node, DecoNode)
-                sn = SPIDNodePair(SinglePathNodeIdentifier.from_node_identifier(sn.node.delegate.node_identifier, sn.spid.get_single_path()),
-                                  sn.node.delegate)
-            checked_rows_dereferenced.append(sn)
-        return checked_rows_dereferenced
+            checked_rows_dedecorated.append(self._dedecorate(sn))
+        return checked_rows_dedecorated
+
+    @staticmethod
+    def _dedecorate(sn: SPIDNodePair) -> SPIDNodePair:
+        """Change trees contain decorated nodes. This method will restore their node delegates. If node is not decorated, simply returns it"""
+        if sn.node.is_decorator():
+            assert isinstance(sn.node, DecoNode)
+            sn = SPIDNodePair(SinglePathNodeIdentifier.from_node_identifier(sn.node.delegate.node_identifier, sn.spid.get_single_path()),
+                              sn.node.delegate)
+        return sn
 
     def get_tree(self) -> DisplayTree:
         return self._display_tree

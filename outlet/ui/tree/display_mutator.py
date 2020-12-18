@@ -630,7 +630,7 @@ class DisplayMutator(HasLifecycle):
                 if not self._is_shutdown:
                     self.con.display_store.recurse_over_tree(action_func=redraw_displayed_node)
                     logger.debug(f'[{self.con.tree_id}] Done redrawing stats in UI (for {redraw_displayed_node.nodes_redrawn} nodes): '
-                                 f'sending signal "{Signal.REFRESH_SUBTREE_STATS_COMPLETELY_DONE}"')
+                                 f'sending signal "{Signal.REFRESH_SUBTREE_STATS_COMPLETELY_DONE.name}"')
                     # currently this is only used for functional tests
                     dispatcher.send(signal=Signal.REFRESH_SUBTREE_STATS_COMPLETELY_DONE, sender=self.con.tree_id)
 

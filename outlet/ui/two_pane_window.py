@@ -133,6 +133,8 @@ class TwoPanelWindow(Gtk.ApplicationWindow, BaseDialog):
         dispatcher.connect(signal=Signal.EXIT_DIFF_MODE, receiver=self._on_diff_exited)
         dispatcher.connect(signal=Signal.COMPLETE_MERGE, receiver=self._on_diff_exited)
 
+        dispatcher.connect(signal=Signal.ERROR_OCCURRED, receiver=self._on_error_occurred)
+
         # Need to add an extra listener to each tree, to reload when the other one's root changes
         # if displaying the results of a diff
         dispatcher.connect(signal=Signal.DISPLAY_TREE_CHANGED, receiver=self._on_display_tree_changed_twopane)
