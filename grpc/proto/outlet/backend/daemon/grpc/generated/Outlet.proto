@@ -1,12 +1,12 @@
 syntax = "proto3";
 
-import public "outlet/daemon/grpc/Node.proto";
+import public "outlet/backend/daemon/grpc/generated/Node.proto";
 
 option java_package = "com.msvoboda.outlet";
 option go_package = "msvoboda.com/outlet/proto";
 option java_multiple_files = true;
 
-package outlet.daemon.grpc;
+package outlet.backend.daemon.grpc.generated;
 
 message Empty {
 	// nothing

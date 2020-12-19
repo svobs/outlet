@@ -1,15 +1,15 @@
 from typing import Iterable, List, Optional
+import backend.daemon.grpc.generated.Node_pb2
 
-import outlet.daemon.grpc
 from constants import IconId, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from daemon.grpc.Node_pb2 import DirMeta
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.decorator_node import DecoNode, decorate_node
 from model.node.gdrive_node import GDriveFile, GDriveFolder
-from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
+from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
 import logging
+from outlet.backend.daemon.grpc.generated import Outlet_pb2
 
 from model.node.trait import HasChildStats
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
@@ -34,11 +34,11 @@ class Converter:
         if not node_container.HasField('node'):
             return None
 
-        grpc_node: outlet.daemon.grpc.Node_pb2.Node = node_container.node
+        grpc_node: backend.daemon.grpc.generated.Node_pb2.Node = node_container.node
         return Converter.node_from_grpc(grpc_node)
 
     @staticmethod
-    def node_from_grpc(grpc_node: outlet.daemon.grpc.Node_pb2.Node) -> Node:
+    def node_from_grpc(grpc_node: backend.daemon.grpc.generated.Node_pb2.Node) -> Node:
         node_identifier = NodeIdentifierFactory.for_all_values(grpc_node.uid, grpc_node.tree_type, list(grpc_node.path_list),
                                                                single_path=False)
 
@@ -87,7 +87,7 @@ class Converter:
         return node
 
     @staticmethod
-    def node_to_grpc(node: Node, grpc_node: outlet.daemon.grpc.Node_pb2.Node):
+    def node_to_grpc(node: Node, grpc_node: backend.daemon.grpc.generated.Node_pb2.Node):
         assert isinstance(node, Node), f'Not a Node: {node}'
         if node.is_decorator():
             grpc_node.decorator_nid = int(node.uid)
@@ -186,7 +186,7 @@ class Converter:
         return grpc_node
 
     @staticmethod
-    def _dir_meta_from_grpc(node: HasChildStats, dir_meta: outlet.daemon.grpc.Node_pb2.DirMeta):
+    def _dir_meta_from_grpc(node: HasChildStats, dir_meta: backend.daemon.grpc.generated.Node_pb2.DirMeta):
         if dir_meta.has_data:
             node.file_count = dir_meta.file_count
             node.dir_count = dir_meta.dir_count
@@ -231,7 +231,7 @@ class Converter:
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @staticmethod
-    def filter_criteria_to_grpc(filter_criteria: FilterCriteria, grpc_filter_criteria: outlet.daemon.grpc.Node_pb2.FilterCriteria):
+    def filter_criteria_to_grpc(filter_criteria: FilterCriteria, grpc_filter_criteria: backend.daemon.grpc.generated.Node_pb2.FilterCriteria):
         if filter_criteria.search_query:
             grpc_filter_criteria.search_query = filter_criteria.search_query
         grpc_filter_criteria.is_trashed = filter_criteria.is_trashed
@@ -240,7 +240,7 @@ class Converter:
         grpc_filter_criteria.show_subtrees_of_matches = filter_criteria.show_subtrees_of_matches
 
     @staticmethod
-    def filter_criteria_from_grpc(grpc_filter_criteria: outlet.daemon.grpc.Node_pb2.FilterCriteria) -> FilterCriteria:
+    def filter_criteria_from_grpc(grpc_filter_criteria: backend.daemon.grpc.generated.Node_pb2.FilterCriteria) -> FilterCriteria:
         filter_criteria: FilterCriteria = FilterCriteria()
         if grpc_filter_criteria.search_query:
             filter_criteria.search_query = grpc_filter_criteria.search_query
@@ -254,12 +254,12 @@ class Converter:
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @staticmethod
-    def node_identifier_from_grpc(grpc_node_identifier: outlet.daemon.grpc.Node_pb2.NodeIdentifier):
+    def node_identifier_from_grpc(grpc_node_identifier: backend.daemon.grpc.generated.Node_pb2.NodeIdentifier):
         return NodeIdentifierFactory.for_all_values(grpc_node_identifier.uid, grpc_node_identifier.tree_type, list(grpc_node_identifier.path_list),
                                                     single_path=grpc_node_identifier.is_single_path)
 
     @staticmethod
-    def node_identifier_to_grpc(node_identifier: NodeIdentifier, grpc_node_identifier: outlet.daemon.grpc.Node_pb2.NodeIdentifier):
+    def node_identifier_to_grpc(node_identifier: NodeIdentifier, grpc_node_identifier: backend.daemon.grpc.generated.Node_pb2.NodeIdentifier):
         if not node_identifier:
             return
         grpc_node_identifier.uid = node_identifier.uid
@@ -273,13 +273,13 @@ class Converter:
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @staticmethod
-    def sn_from_grpc(grpc_sn: outlet.daemon.grpc.Node_pb2.SPIDNodePair) -> SPIDNodePair:
+    def sn_from_grpc(grpc_sn: backend.daemon.grpc.generated.Node_pb2.SPIDNodePair) -> SPIDNodePair:
         spid = Converter.node_identifier_from_grpc(grpc_sn.spid)
         node = Converter.optional_node_from_grpc_container(grpc_sn)
         return SPIDNodePair(spid, node)
 
     @staticmethod
-    def sn_to_grpc(sn: SPIDNodePair, grpc_sn: outlet.daemon.grpc.Node_pb2.SPIDNodePair):
+    def sn_to_grpc(sn: SPIDNodePair, grpc_sn: backend.daemon.grpc.generated.Node_pb2.SPIDNodePair):
         if not sn:
             return
 
@@ -291,19 +291,19 @@ class Converter:
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     @staticmethod
-    def display_tree_ui_state_to_grpc(state: DisplayTreeUiState, grpc_display_tree_ui_state: outlet.daemon.grpc.Outlet_pb2.DisplayTreeUiState):
+    def display_tree_ui_state_to_grpc(state, grpc_state: Outlet_pb2.DisplayTreeUiState):
         if state.tree_id:
-            grpc_display_tree_ui_state.tree_id = state.tree_id
-        Converter.sn_to_grpc(state.root_sn, grpc_display_tree_ui_state.root_sn)
-        grpc_display_tree_ui_state.root_exists = state.root_exists
+            grpc_state.tree_id = state.tree_id
+        Converter.sn_to_grpc(state.root_sn, grpc_state.root_sn)
+        grpc_state.root_exists = state.root_exists
         if state.offending_path:
-            grpc_display_tree_ui_state.offending_path = state.offending_path
-        grpc_display_tree_ui_state.needs_manual_load = state.needs_manual_load
-        grpc_display_tree_ui_state.tree_display_mode = state.tree_display_mode
-        grpc_display_tree_ui_state.has_checkboxes = state.has_checkboxes
+            grpc_state.offending_path = state.offending_path
+        grpc_state.needs_manual_load = state.needs_manual_load
+        grpc_state.tree_display_mode = state.tree_display_mode
+        grpc_state.has_checkboxes = state.has_checkboxes
 
     @staticmethod
-    def display_tree_ui_state_from_grpc(grpc: outlet.daemon.grpc.Outlet_pb2.DisplayTreeUiState) -> DisplayTreeUiState:
+    def display_tree_ui_state_from_grpc(grpc: Outlet_pb2.DisplayTreeUiState) -> DisplayTreeUiState:
         root_sn: SPIDNodePair = Converter.sn_from_grpc(grpc.root_sn)
         offending_path = grpc.offending_path
         if not offending_path:

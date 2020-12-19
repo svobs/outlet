@@ -3,8 +3,9 @@ from typing import Iterable, List, Optional
 from pydispatch import dispatcher
 import logging
 
-from app.backend import DiffResultTreeIds, DisplayTreeRequest, OutletBackend
+from backend.backend import OutletBackend
 from executor.central import CentralExecutor
+from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier

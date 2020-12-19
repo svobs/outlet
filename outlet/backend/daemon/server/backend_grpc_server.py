@@ -3,10 +3,10 @@ from concurrent import futures
 
 import grpc
 
-from app.backend_integrated import BackendIntegrated
+from backend.backend_integrated import BackendIntegrated
+from backend.daemon.grpc.generated import Outlet_pb2_grpc
+from backend.daemon.server.grpc_service import OutletGRPCService
 from constants import GRPC_SERVER_ADDRESS, GRPC_SERVER_MAX_WORKER_THREADS
-from daemon.grpc import Outlet_pb2_grpc
-from daemon.grpc_server import OutletGRPCService
 
 logger = logging.getLogger(__name__)
 

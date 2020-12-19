@@ -1,9 +1,9 @@
 import logging
-import gi
+from app_config import AppConfig
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
-from app_config import AppConfig
 
 logger = logging.getLogger(__name__)
 

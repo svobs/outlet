@@ -6,7 +6,6 @@ import warnings
 from functools import partial
 from typing import Callable, List
 
-import gi
 from pydispatch import dispatcher
 
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
@@ -19,6 +18,7 @@ from signal import ID_CENTRAL_EXEC, ID_LEFT_TREE, Signal
 from signal import ID_GLOBAL_CACHE, ID_RIGHT_TREE
 from ui.gtk.tree.ui_listeners import DragAndDropData
 
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 

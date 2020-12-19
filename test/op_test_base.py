@@ -9,8 +9,8 @@ from typing import Callable, Deque, Iterable, List, Optional, Tuple
 from py7zr import SevenZipFile
 from pydispatch import dispatcher
 
-from app.backend_integrated import BackendIntegrated
-from app.gtk_frontend import OutletApplication
+from backend.backend_integrated import BackendIntegrated
+from ui.gtk.gtk_frontend import OutletApplication
 from app_config import AppConfig
 from command.cmd_interface import Command
 from constants import OPS_FILE_NAME
@@ -21,13 +21,13 @@ from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
 from signal import ID_CENTRAL_EXEC, ID_LEFT_TREE, ID_RIGHT_TREE, Signal
 from ui.gtk.tree import root_path_config
-from ui.gtk.tree import TreePanelController
+from ui.gtk.tree.controller import TreePanelController
 from util import file_util
 
 LOAD_TIMEOUT_SEC = 6000
 ENABLE_CHANGE_EXECUTION_THREAD = True
 
-TEST_BASE_DIR = file_util.get_resource_path('test')
+TEST_BASE_DIR = file_util.get_resource_path('test-resources')
 TEST_ARCHIVE = 'ChangeTest.7z'
 TEST_ARCHIVE_PATH = os.path.join(TEST_BASE_DIR, TEST_ARCHIVE)
 TEST_TARGET_DIR = os.path.join(TEST_BASE_DIR, 'ChangeTest')

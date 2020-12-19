@@ -14,7 +14,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
 
-from ui.gtk.dialog import BaseDialog
+from ui.gtk.dialog.base_dialog import BaseDialog
 
 logger = logging.getLogger(__name__)
 

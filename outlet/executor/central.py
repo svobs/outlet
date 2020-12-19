@@ -3,10 +3,10 @@ import logging
 
 from pydispatch import dispatcher
 
-from app.backend import DiffResultTreeIds
 from command.cmd_executor import CommandExecutor
 from executor.task_runner import TaskRunner
 from global_actions import GlobalActions
+from model.display_tree.build_struct import DiffResultTreeIds
 from task.tree_diff import TreeDiffAction
 from signal import ID_CENTRAL_EXEC, Signal
 from util.has_lifecycle import HasLifecycle

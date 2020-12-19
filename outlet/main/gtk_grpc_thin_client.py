@@ -1,19 +1,26 @@
 import logging
 import sys
-import util.main_util
 
-from app.backend_integrated import BackendIntegrated
-from app.gtk_frontend import OutletApplication
+from ui.gtk.gtk_frontend import OutletApplication
+from app_config import AppConfig
+from backend.daemon.client.grpc_client import BackendGRPCClient
 
 logger = logging.getLogger(__name__)
 
 
-# GTK3 [THICK] APPLICATION
+# GTK3 THIN CLIENT with GRPC COMMUNICATION TO BACKEND SERVER
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 def main():
-    config = util.main_util.do_main_boilerplate()
-    backend = BackendIntegrated(config)
+    if sys.version_info[0] < 3:
+        raise Exception("Python 3 or a more recent version is required.")
+
+    if len(sys.argv) >= 2:
+        config = AppConfig(sys.argv[1])
+    else:
+        config = AppConfig()
+
+    backend = BackendGRPCClient(config)
     app = OutletApplication(config, backend)
     try:
         exit_status = app.run(sys.argv)

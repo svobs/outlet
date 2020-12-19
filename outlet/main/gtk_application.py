@@ -1,27 +1,26 @@
 import logging
 import sys
 import util.main_util
-from daemon.outlet_daemon import OutletDaemon
+from backend.backend_integrated import BackendIntegrated
+
+from ui.gtk.gtk_frontend import OutletApplication
 
 logger = logging.getLogger(__name__)
 
 
-# OUTLET DAEMON: provides gRPC access to its APIs
+# GTK3 [THICK] APPLICATION
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-
 def main():
-    logger.info(f'Creating OutletDameon')
-
-    daemon = OutletDaemon(util.main_util.do_main_boilerplate())
-    daemon.start()
-
+    config = util.main_util.do_main_boilerplate()
+    backend = BackendIntegrated(config)
+    app = OutletApplication(config, backend)
     try:
-        daemon.serve()
-        sys.exit(0)
+        exit_status = app.run(sys.argv)
+        sys.exit(exit_status)
     except KeyboardInterrupt:
         logger.info('Caught KeyboardInterrupt. Quitting')
-        daemon.shutdown()
+        app.shutdown()
 
 
 if __name__ == '__main__':

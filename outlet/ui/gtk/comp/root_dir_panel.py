@@ -9,7 +9,7 @@ from ui.gtk.dialog.local_dir_chooser_dialog import LocalRootDirChooserDialog
 
 from constants import GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED, TreeDisplayMode
 from model.node_identifier import SinglePathNodeIdentifier
-from ui.gtk.dialog import BaseDialog
+from ui.gtk.dialog.base_dialog import BaseDialog
 from util.has_lifecycle import HasLifecycle
 from signal import Signal
 

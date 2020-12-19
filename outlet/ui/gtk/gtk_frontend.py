@@ -4,11 +4,11 @@ from typing import Dict, Optional
 
 from pydispatch import dispatcher
 
-from app.backend import OutletBackend
+from backend.backend import OutletBackend
 from store.uid.uid_generator import SimpleUidGenerator
 from signal import Signal
 from signal import ID_DIFF_WINDOW
-from ui.gtk.tree import TreePanelController
+from ui.gtk.tree.controller import TreePanelController
 from ui.gtk.two_pane_window import TwoPanelWindow
 
 import gi

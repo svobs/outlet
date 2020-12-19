@@ -3,10 +3,10 @@ import os
 
 from pydispatch import dispatcher
 
-from app.backend import DiffResultTreeIds
 from constants import TREE_TYPE_LOCAL_DISK
 from diff.diff_content_first import ContentFirstDiffer
 from global_actions import GlobalActions
+from model.display_tree.build_struct import DiffResultTreeIds
 from model.node.node import SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
 from signal import ID_CENTRAL_EXEC, Signal

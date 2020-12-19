@@ -9,7 +9,7 @@ from constants import APP_NAME, H_PAD, IconId, TreeDisplayMode
 from global_actions import GlobalActions
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import SPIDNodePair
-from ui.gtk.dialog import BaseDialog
+from ui.gtk.dialog.base_dialog import BaseDialog
 from ui.gtk.dialog.merge_preview_dialog import MergePreviewDialog
 from ui.gtk.tree import tree_factory
 

@@ -7,11 +7,11 @@ from diff.change_maker import SPIDNodePair
 from model.display_tree.display_tree import DisplayTree
 from model.node.decorator_node import DecoNode
 from model.node_identifier import SinglePathNodeIdentifier
-from ui.gtk.dialog import BaseDialog
+from ui.gtk.dialog.base_dialog import BaseDialog
 from signal import Signal
 from ui.gtk.tree import tree_factory_templates
 from ui.gtk.tree.display_mutator import DisplayMutator
-from ui.gtk.tree import DisplayStore
+from ui.gtk.tree.display_store import DisplayStore
 from ui.gtk.tree.tree_actions import TreeActions
 from ui.gtk.tree.ui_listeners import TreeUiListeners
 from util.has_lifecycle import HasLifecycle

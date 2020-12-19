@@ -3,15 +3,14 @@ import threading
 
 from pydispatch import dispatcher
 
-import outlet.daemon.grpc
 from collections import deque
 from typing import Deque, Dict, Optional
 
-from app.backend import DiffResultTreeIds
-from app.backend_integrated import BackendIntegrated
+from backend.backend_integrated import BackendIntegrated
+from backend.daemon.grpc.generated.Outlet_pb2_grpc import OutletServicer
 from constants import SUPER_DEBUG
-from daemon.grpc.conversion import Converter
-from daemon.grpc.Outlet_pb2 import DeleteSubtree_Request, DragDrop_Request, DragDrop_Response, Empty, GenerateMergeTree_Request, \
+from backend.daemon.grpc.conversion import Converter
+from backend.daemon.grpc.generated.Outlet_pb2 import DeleteSubtree_Request, DragDrop_Request, DragDrop_Response, Empty, GenerateMergeTree_Request, \
     GetAncestorList_Response, GetChildList_Response, \
     GetLastPendingOp_Request, GetLastPendingOp_Response, GetNextUid_Response, \
     GetNodeForLocalPath_Request, GetNodeForUid_Request, \
@@ -19,8 +18,8 @@ from daemon.grpc.Outlet_pb2 import DeleteSubtree_Request, DragDrop_Request, Drag
     GetUidForLocalPath_Response, PlayState, RequestDisplayTree_Response, SendSignalResponse, SignalMsg, SingleNode_Response, \
     StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, \
     StartSubtreeLoad_Response, Subscribe_Request, UserOp
-from daemon.grpc.Outlet_pb2_grpc import OutletServicer
 from executor.central import CentralExecutor
+from model.display_tree.build_struct import DiffResultTreeIds
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.node.node import Node
 from model.uid import UID
@@ -83,7 +82,7 @@ class OutletGRPCService(OutletServicer, HasLifecycle):
         HasLifecycle.shutdown(self)
         self._shutdown = True
 
-    def send_signal_to_all(self, signal_grpc: outlet.daemon.grpc.Outlet_pb2.SignalMsg):
+    def send_signal_to_all(self, signal_grpc: SignalMsg):
         if self._shutdown:
             return
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 # /home/msvoboda/LocalDevel/outlet/outlet/daemon/grpc
-PY_PKG='outlet/daemon/grpc'
+PY_PKG='outlet/backend/daemon/grpc/generated'
 OUT_DIR=..
 
 mkdir -p $OUT_DIR

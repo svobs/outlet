@@ -5,7 +5,7 @@ from pydispatch import dispatcher
 
 from constants import FILTER_APPLY_DELAY_MS, IconId, SUPER_DEBUG
 from signal import Signal
-from ui.gtk.dialog import BaseDialog
+from ui.gtk.dialog.base_dialog import BaseDialog
 from model.display_tree.filter_criteria import BoolOption, FilterCriteria
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
