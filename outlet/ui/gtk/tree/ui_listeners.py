@@ -10,7 +10,7 @@ from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node
 from model.user_op import UserOp
 from model.uid import UID
-from ui.gtk.tree import TreeContextMenu
+from ui.gtk.tree.context_menu import TreeContextMenu
 from util.has_lifecycle import HasLifecycle
 
 import gi
