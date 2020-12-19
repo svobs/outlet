@@ -8,7 +8,7 @@ from backend.daemon.grpc.conversion import Converter
 from backend.daemon.grpc.generated.Outlet_pb2 import SignalMsg
 from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_CLIENT_SLEEP_ON_FAILURE_SEC
 from model.display_tree.display_tree import DisplayTree
-from signal import ID_CENTRAL_EXEC, Signal
+from signal_constants import ID_CENTRAL_EXEC, Signal
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)

@@ -9,7 +9,7 @@ from model.node.container_node import CategoryNode
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
 from model.user_op import UserOp
-from signal import Signal
+from signal_constants import Signal
 
 import gi
 

@@ -16,7 +16,7 @@ from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePat
 from model.node_identifier_factory import NodeIdentifierFactory
 from store.live_monitor import LiveMonitor
 from store.tree.active_tree_meta import ActiveDisplayTreeMeta
-from signal import Signal
+from signal_constants import Signal
 from ui.gtk.tree.root_path_config import RootPathConfigPersister
 from util import file_util
 from util.has_lifecycle import HasLifecycle

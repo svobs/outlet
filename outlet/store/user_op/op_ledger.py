@@ -13,7 +13,7 @@ from model.uid import UID
 from store.user_op.op_disk_store import OpDiskStore
 from store.user_op.op_graph import OpGraph
 from store.user_op.op_graph_node import RootNode
-from signal import Signal
+from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)

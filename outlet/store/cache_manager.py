@@ -37,7 +37,7 @@ from store.tree.active_tree_meta import ActiveDisplayTreeMeta
 from store.tree.load_request_thread import LoadRequest, LoadRequestThread
 from store.uid.uid_mapper import UidChangeTreeMapper
 from store.user_op.op_ledger import OpLedger
-from signal import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
+from signal_constants import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
 from util import file_util, time_util
 from util.ensure import ensure_list
 from util.file_util import get_resource_path

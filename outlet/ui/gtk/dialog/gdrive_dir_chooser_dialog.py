@@ -7,7 +7,7 @@ from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
-from signal import ID_GDRIVE_DIR_SELECT, Signal
+from signal_constants import ID_GDRIVE_DIR_SELECT, Signal
 from ui.gtk.tree import tree_factory
 
 import gi

@@ -2,7 +2,7 @@ import logging
 
 from pydispatch import dispatcher
 
-from signal import Signal
+from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)

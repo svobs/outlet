@@ -24,7 +24,7 @@ from model.uid import UID
 from model.gdrive_meta import GDriveUser, MimeType
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier
-from signal import Signal
+from signal_constants import Signal
 from util import file_util, time_util
 from util.has_lifecycle import HasLifecycle
 from util.stopwatch_sec import Stopwatch

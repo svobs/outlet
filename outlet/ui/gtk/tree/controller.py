@@ -8,7 +8,7 @@ from model.display_tree.display_tree import DisplayTree
 from model.node.decorator_node import DecoNode
 from model.node_identifier import SinglePathNodeIdentifier
 from ui.gtk.dialog.base_dialog import BaseDialog
-from signal import Signal
+from signal_constants import Signal
 from ui.gtk.tree import tree_factory_templates
 from ui.gtk.tree.display_mutator import DisplayMutator
 from ui.gtk.tree.display_store import DisplayStore

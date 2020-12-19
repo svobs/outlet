@@ -14,8 +14,8 @@ from model.node.node import Node, SPIDNodePair
 from model.node.gdrive_node import GDriveNode
 from test import op_test_base
 from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
-from signal import ID_CENTRAL_EXEC, ID_LEFT_TREE, Signal
-from signal import ID_GLOBAL_CACHE, ID_RIGHT_TREE
+from signal_constants import ID_CENTRAL_EXEC, ID_LEFT_TREE, Signal
+from signal_constants import ID_GLOBAL_CACHE, ID_RIGHT_TREE
 from ui.gtk.tree.ui_listeners import DragAndDropData
 
 import gi

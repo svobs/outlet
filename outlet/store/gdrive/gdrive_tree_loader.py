@@ -17,7 +17,7 @@ from store.gdrive.master_gdrive_disk import GDriveDiskStore
 from store.gdrive.master_gdrive_op_load import GDriveLoadAllMetaOp
 from store.gdrive.query_observer import FileMetaPersister, FolderMetaPersister
 from store.sqlite.gdrive_db import CurrentDownload
-from signal import Signal
+from signal_constants import Signal
 from util import time_util
 from util.stopwatch_sec import Stopwatch
 

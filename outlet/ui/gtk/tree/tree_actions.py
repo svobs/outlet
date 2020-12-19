@@ -11,7 +11,7 @@ from model.display_tree.display_tree import DisplayTree
 from model.node.gdrive_node import GDriveFile
 from model.node.local_disk_node import LocalNode
 from model.node.node import Node
-from signal import Signal
+from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
 
 import gi

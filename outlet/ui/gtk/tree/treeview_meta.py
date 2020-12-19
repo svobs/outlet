@@ -5,7 +5,7 @@ from app_config import AppConfig
 from constants import TreeDisplayMode
 from model.node.container_node import CategoryNode
 from model.node.node import Node
-from signal import Signal
+from signal_constants import Signal
 from model.display_tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
 

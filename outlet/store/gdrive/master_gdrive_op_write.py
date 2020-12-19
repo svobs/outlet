@@ -12,8 +12,8 @@ from model.uid import UID
 from store.gdrive.change_observer import GDriveChange, GDriveNodeChange
 from store.gdrive.master_gdrive_memory import GDriveMemoryStore
 from store.sqlite.gdrive_db import GDriveDatabase
-from signal import Signal
-from signal import ID_GLOBAL_CACHE
+from signal_constants import Signal
+from signal_constants import ID_GLOBAL_CACHE
 
 logger = logging.getLogger(__name__)
 

@@ -13,7 +13,7 @@ from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from model.user_op import UserOp
-from signal import ID_GDRIVE_DIR_SELECT, Signal
+from signal_constants import ID_GDRIVE_DIR_SELECT, Signal
 from model.display_tree.filter_criteria import FilterCriteria
 from util.has_lifecycle import HasLifecycle
 

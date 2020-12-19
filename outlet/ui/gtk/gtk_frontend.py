@@ -1,13 +1,13 @@
 import logging
-import signal
+import signal_constants
 from typing import Dict, Optional
 
 from pydispatch import dispatcher
 
 from backend.backend import OutletBackend
 from store.uid.uid_generator import SimpleUidGenerator
-from signal import Signal
-from signal import ID_DIFF_WINDOW
+from signal_constants import Signal
+from signal_constants import ID_DIFF_WINDOW
 from ui.gtk.tree.controller import TreePanelController
 from ui.gtk.two_pane_window import TwoPanelWindow
 
@@ -74,7 +74,7 @@ class OutletApplication(Gtk.Application):
             logger.debug(f'Finished window.show_all()')
 
             # Make sure that the application can be stopped from the terminal using Ctrl-C
-            GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, Gtk.main_quit)
+            GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal_constants.SIGINT, Gtk.main_quit)
 
         self.window.present()
 

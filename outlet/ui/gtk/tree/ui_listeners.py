@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from pydispatch import dispatcher
 
-from signal import Signal
+from signal_constants import Signal
 from constants import TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from diff.change_maker import SPIDNodePair
 from model.display_tree.display_tree import DisplayTree

@@ -15,7 +15,7 @@ from model.user_op import UserOp
 from store.cache_manager import CacheManager
 from store.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
 from task.tree_diff_merge import TreeDiffMergeAction
-from signal import ID_CENTRAL_EXEC, Signal
+from signal_constants import ID_CENTRAL_EXEC, Signal
 from model.display_tree.filter_criteria import FilterCriteria
 
 logger = logging.getLogger(__name__)

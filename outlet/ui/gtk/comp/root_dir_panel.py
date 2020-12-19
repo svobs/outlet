@@ -11,7 +11,7 @@ from constants import GDRIVE_PATH_PREFIX, H_PAD, IconId, NULL_UID, TREE_TYPE_GDR
 from model.node_identifier import SinglePathNodeIdentifier
 from ui.gtk.dialog.base_dialog import BaseDialog
 from util.has_lifecycle import HasLifecycle
-from signal import Signal
+from signal_constants import Signal
 
 import gi
 

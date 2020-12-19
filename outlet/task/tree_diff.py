@@ -9,7 +9,7 @@ from global_actions import GlobalActions
 from model.display_tree.build_struct import DiffResultTreeIds
 from model.node.node import SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier
-from signal import ID_CENTRAL_EXEC, Signal
+from signal_constants import ID_CENTRAL_EXEC, Signal
 from util.stopwatch_sec import Stopwatch
 
 logger = logging.getLogger(__name__)

@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 from pydispatch.dispatcher import Any
 from pydispatch.errors import DispatcherKeyError
 
-from signal import Signal
+from signal_constants import Signal
 
 logger = logging.getLogger(__name__)
 

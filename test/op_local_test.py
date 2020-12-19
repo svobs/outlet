@@ -13,7 +13,7 @@ from model.uid import UID
 from model.node.node import Node, SPIDNodePair
 from test import op_test_base
 from test.op_test_base import DNode, FNode, INITIAL_LOCAL_TREE_LEFT, INITIAL_LOCAL_TREE_RIGHT, LOAD_TIMEOUT_SEC, OpTestBase, TEST_TARGET_DIR
-from signal import ID_CENTRAL_EXEC, ID_LEFT_TREE, ID_RIGHT_TREE, Signal
+from signal_constants import ID_CENTRAL_EXEC, ID_LEFT_TREE, ID_RIGHT_TREE, Signal
 from ui.gtk.tree.ui_listeners import DragAndDropData
 
 gi.require_version("Gtk", "3.0")

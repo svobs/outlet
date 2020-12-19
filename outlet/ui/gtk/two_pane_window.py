@@ -4,7 +4,7 @@ from typing import List
 import gi
 from pydispatch import dispatcher
 
-from signal import ID_LEFT_TREE, ID_MERGE_TREE, ID_RIGHT_TREE, Signal
+from signal_constants import ID_LEFT_TREE, ID_MERGE_TREE, ID_RIGHT_TREE, Signal
 from constants import APP_NAME, H_PAD, IconId, TreeDisplayMode
 from global_actions import GlobalActions
 from model.display_tree.display_tree import DisplayTree

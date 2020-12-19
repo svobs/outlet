@@ -26,7 +26,7 @@ from model.node.node import Node
 from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
-from signal import Signal
+from signal_constants import Signal
 from store.cache_manager import DisplayTreeRequest
 
 logger = logging.getLogger(__name__)

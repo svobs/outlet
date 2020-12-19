@@ -1,7 +1,7 @@
 import threading
 import time
 
-from signal import Signal
+from signal_constants import Signal
 import logging
 
 import gi

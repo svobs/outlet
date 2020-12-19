@@ -9,8 +9,8 @@ from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveNode
 from model.uid import UID
 from store.uid.uid_mapper import UidGoogIdMapper
-from signal import Signal
-from signal import ID_GLOBAL_CACHE
+from signal_constants import Signal
+from signal_constants import ID_GLOBAL_CACHE
 
 logger = logging.getLogger(__name__)
 

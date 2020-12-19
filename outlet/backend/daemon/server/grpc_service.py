@@ -25,7 +25,7 @@ from model.node.node import Node
 from model.uid import UID
 from store.cache_manager import CacheManager, DisplayTreeRequest
 from store.uid.uid_generator import UidGenerator
-from signal import Signal
+from signal_constants import Signal
 from util.has_lifecycle import HasLifecycle
 
 logger = logging.getLogger(__name__)
