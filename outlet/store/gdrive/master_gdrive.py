@@ -14,7 +14,7 @@ from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier import GDriveIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from store.gdrive.change_observer import GDriveChange, PagePersistingChangeObserver
-from store.gdrive.client import GDriveClient
+from store.gdrive.gdrive_client import GDriveClient
 from store.gdrive.gdrive_tree_loader import GDriveTreeLoader
 from store.gdrive.master_gdrive_disk import GDriveDiskStore
 from store.gdrive.master_gdrive_memory import GDriveMemoryStore

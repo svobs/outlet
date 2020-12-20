@@ -2,7 +2,6 @@ import logging
 import os
 import pathlib
 import store.local.content_hasher
-from model.node_identifier import LocalNodeIdentifier
 
 from util import file_util
 from model.user_op import UserOp, UserOpType
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 # LOCAL COMMANDS begin
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+# ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
 
 class CopyFileLocallyCommand(CopyNodeCommand):
@@ -164,11 +163,10 @@ class CreatLocalDirCommand(Command):
 
 
 # GOOGLE DRIVE COMMANDS begin
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
+# ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 # FIXME: when updating GDrive, determine when it's necessary to regenerate paths, and do it.
-
 # FIXME: When writing to GDrive, check for nodes with identical path and content. Match logic found in ChangeMaker::OneSide
+
 class UploadToGDriveCommand(CopyNodeCommand):
     """
     Copy Local -> GDrive

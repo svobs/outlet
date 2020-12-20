@@ -12,7 +12,7 @@ from model.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
-from store.gdrive.client import GDriveClient
+from store.gdrive.gdrive_client import GDriveClient
 from store.gdrive.master_gdrive_disk import GDriveDiskStore
 from store.gdrive.master_gdrive_op_load import GDriveLoadAllMetaOp
 from store.gdrive.query_observer import FileMetaPersister, FolderMetaPersister

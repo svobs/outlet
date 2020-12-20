@@ -5,7 +5,7 @@ from typing import Optional
 from model.gdrive_whole_tree import GDriveWholeTree
 from model.uid import UID
 from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpType
-from store.gdrive.client import GDriveClient
+from store.gdrive.gdrive_client import GDriveClient
 from util.simple_tree import BaseNode
 
 logger = logging.getLogger(__name__)
@@ -99,7 +99,6 @@ class Command(BaseNode, ABC):
         # default
         return f'{self.__class__.__name__}(uid={self.identifier} status={self.status()} total_work={self.get_total_work()} ' \
                f'user_op={self.op})'
-
 
 
 class DeleteNodeCommand(Command, ABC):
