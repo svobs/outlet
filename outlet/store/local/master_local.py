@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple
 
 import store.local.content_hasher
 from constants import SUPER_DEBUG, TrashStatus, TREE_TYPE_LOCAL_DISK
-from model.local_disk_tree import LocalDiskTree
+from store.local.local_disk_tree import LocalDiskTree
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from store.cache_manager import PersistedCacheInfo
@@ -16,7 +16,7 @@ from store.local.local_sig_calc_thread import SignatureCalcThread
 from store.local.master_local_disk import LocalDiskDiskStore
 from store.local.master_local_write_op import BatchChangesOp, DeleteSingleNodeOp, DeleteSubtreeOp, LocalDiskMemoryStore, LocalSubtree, \
     LocalWriteThroughOp, UpsertSingleNodeOp
-from store.master import MasterStore
+from store.master_interface import MasterStore
 from store.sqlite.local_db import LocalDiskDatabase
 from store.uid.uid_generator import UID
 from store.uid.uid_mapper import UidPathMapper

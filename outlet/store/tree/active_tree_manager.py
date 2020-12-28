@@ -8,16 +8,16 @@ from pydispatch import dispatcher
 from constants import GDRIVE_ROOT_UID, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest
-from model.display_tree.change_display_tree import ChangeDisplayTree
+from store.tree.change_display_tree import ChangeDisplayTree
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
-from model.gdrive_whole_tree import GDriveWholeTree
+from store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
-from store.live_monitor import LiveMonitor
+from realtime.live_monitor import LiveMonitor
 from store.tree.active_tree_meta import ActiveDisplayTreeMeta
 from signal_constants import Signal
-from ui.gtk.tree.root_path_config import RootPathConfigPersister
+from store.tree.root_path_config import RootPathConfigPersister
 from util import file_util
 from util.has_lifecycle import HasLifecycle
 from util.root_path_meta import RootPathMeta

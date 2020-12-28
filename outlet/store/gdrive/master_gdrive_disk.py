@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 from pydispatch import dispatcher
 
 from constants import GDRIVE_ROOT_UID
-from model.gdrive_whole_tree import GDriveWholeTree
+from store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID

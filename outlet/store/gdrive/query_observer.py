@@ -8,7 +8,7 @@ from store.gdrive.master_gdrive_disk import GDriveDiskStore
 from store.sqlite.gdrive_db import CurrentDownload
 from model.uid import UID
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
-from model.gdrive_whole_tree import GDriveWholeTree
+from store.gdrive.gdrive_whole_tree import GDriveWholeTree
 
 logger = logging.getLogger(__name__)
 

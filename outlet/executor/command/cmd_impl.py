@@ -5,7 +5,7 @@ import store.local.content_hasher
 
 from util import file_util
 from model.user_op import UserOp, UserOpType
-from command.cmd_interface import Command, CommandContext, UserOpResult, UserOpStatus, CopyNodeCommand, DeleteNodeCommand, TwoNodeCommand
+from executor.command.cmd_interface import Command, CommandContext, UserOpResult, UserOpStatus, CopyNodeCommand, DeleteNodeCommand, TwoNodeCommand
 from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, TrashStatus
 from model.uid import UID
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode

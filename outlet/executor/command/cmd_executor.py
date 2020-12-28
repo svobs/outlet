@@ -4,7 +4,7 @@ from pydispatch import dispatcher
 import logging
 
 from util import file_util
-from command.cmd_interface import Command, CommandContext, UserOpStatus
+from executor.command.cmd_interface import Command, CommandContext, UserOpStatus
 from signal_constants import ID_COMMAND_EXECUTOR, Signal
 
 logger = logging.getLogger(__name__)

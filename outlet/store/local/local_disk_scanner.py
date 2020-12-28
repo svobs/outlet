@@ -8,7 +8,7 @@ from pydispatch import dispatcher
 
 from signal_constants import Signal
 from model.node.local_disk_node import LocalDirNode
-from model.local_disk_tree import LocalDiskTree
+from store.local.local_disk_tree import LocalDiskTree
 from model.node_identifier import LocalNodeIdentifier
 from store.local.local_tree_recurser import LocalTreeRecurser
 

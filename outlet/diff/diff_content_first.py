@@ -7,7 +7,7 @@ from typing import Callable, DefaultDict, Dict, List, Tuple
 import store.local.content_hasher
 from constants import TREE_TYPE_GDRIVE
 from diff.change_maker import ChangeMaker, OneSide, SPIDNodePair
-from model.display_tree.change_display_tree import ChangeDisplayTree
+from store.tree.change_display_tree import ChangeDisplayTree
 from model.node.node import Node
 from model.user_op import UserOpType
 from util.stopwatch_sec import Stopwatch

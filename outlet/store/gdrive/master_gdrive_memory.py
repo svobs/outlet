@@ -5,7 +5,7 @@ from pydispatch import dispatcher
 
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, GDRIVE_ME_USER_UID, SUPER_DEBUG
 from model.gdrive_meta import GDriveUser, MimeType
-from model.gdrive_whole_tree import GDriveWholeTree
+from store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from model.node.gdrive_node import GDriveNode
 from model.uid import UID
 from store.uid.uid_mapper import UidGoogIdMapper

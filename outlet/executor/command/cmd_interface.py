@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from model.gdrive_whole_tree import GDriveWholeTree
+from store.gdrive.gdrive_whole_tree import GDriveWholeTree
 from model.uid import UID
 from model.user_op import UserOp, UserOpResult, UserOpStatus, UserOpType
 from store.gdrive.gdrive_client import GDriveClient

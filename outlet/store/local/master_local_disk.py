@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 
 from constants import TrashStatus, TREE_TYPE_LOCAL_DISK
 from model.cache_info import PersistedCacheInfo
-from model.local_disk_tree import LocalDiskTree
+from store.local.local_disk_tree import LocalDiskTree
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node_identifier import LocalNodeIdentifier, SinglePathNodeIdentifier
 from store.local.master_local_write_op import LocalDiskSingleNodeOp, LocalDiskSubtreeOp

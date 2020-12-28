@@ -21,7 +21,7 @@ from store.gdrive.master_gdrive_memory import GDriveMemoryStore
 from store.gdrive.master_gdrive_op_load import GDriveDiskLoadOp
 from store.gdrive.master_gdrive_op_write import BatchChangesOp, CreateUserOp, DeleteAllDataOp, DeleteSingleNodeOp, DeleteSubtreeOp, \
     GDriveWriteThroughOp, RefreshFolderOp, UpsertMimeTypeOp, UpsertSingleNodeOp
-from store.master import MasterStore
+from store.master_interface import MasterStore
 from store.sqlite.gdrive_db import CurrentDownload
 from store.uid.uid_mapper import UidGoogIdMapper
 from signal_constants import Signal

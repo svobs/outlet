@@ -8,7 +8,7 @@ from typing import Deque, Dict, Iterable, List, Optional, Tuple
 from pydispatch import dispatcher
 
 import util.format
-from command.cmd_interface import Command
+from executor.command.cmd_interface import Command
 from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, \
     MAIN_REGISTRY_FILE_NAME, OPS_FILE_NAME, ROOT_PATH, \
     SUPER_DEBUG, TREE_TYPE_GDRIVE, \
@@ -17,7 +17,7 @@ from diff.change_maker import ChangeMaker
 from error import InvalidOperationError
 from model.cache_info import CacheInfoEntry, PersistedCacheInfo
 from model.display_tree.build_struct import DisplayTreeRequest
-from model.display_tree.change_display_tree import ChangeDisplayTree
+from store.tree.change_display_tree import ChangeDisplayTree
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.display_tree.filter_criteria import FilterCriteria
 from model.node.gdrive_node import GDriveNode
@@ -36,7 +36,7 @@ from store.tree.active_tree_manager import ActiveTreeManager
 from store.tree.active_tree_meta import ActiveDisplayTreeMeta
 from store.tree.load_request_thread import LoadRequest, LoadRequestThread
 from store.uid.uid_mapper import UidChangeTreeMapper
-from store.user_op.op_ledger import OpLedger
+from executor.user_op.op_ledger import OpLedger
 from signal_constants import ID_GDRIVE_DIR_SELECT, ID_GLOBAL_CACHE, Signal
 from util import file_util, time_util
 from util.ensure import ensure_list

@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Optional, Tuple
 
 from constants import LOCAL_ROOT_UID, ROOT_PATH
-from model.local_disk_tree import LocalDiskTree
+from store.local.local_disk_tree import LocalDiskTree
 from model.node.container_node import RootTypeNode
 from model.node.node import Node
 from model.node.local_disk_node import LocalFileNode, LocalNode

@@ -5,7 +5,7 @@ from pydispatch import dispatcher
 
 from constants import TREE_TYPE_MIXED, TreeDisplayMode
 from global_actions import GlobalActions
-from model.display_tree.change_display_tree import ChangeDisplayTree
+from store.tree.change_display_tree import ChangeDisplayTree
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.container_node import RootTypeNode
 from model.node.node import SPIDNodePair
@@ -18,10 +18,10 @@ from util.stopwatch_sec import Stopwatch
 logger = logging.getLogger(__name__)
 
 
-class TreeDiffMergeAction:
+class TreeDiffMergeTask:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS TreeDiffMergeAction
+    CLASS TreeDiffMergeTask
 
     For generating a "merge preview" tree from two change trees.
     The resulting tree will have a tree_id of ID_MERGE_TREE
@@ -53,7 +53,7 @@ class TreeDiffMergeAction:
             if not meta_right.change_tree:
                 raise RuntimeError(f'Could not generate merge tree: no ChangeTree in record: {tree_id_right}')
 
-            merged_changes_tree = TreeDiffMergeAction.merge_change_trees(backend,
+            merged_changes_tree = TreeDiffMergeTask.merge_change_trees(backend,
                                                                          meta_left.change_tree, selected_changes_left,
                                                                          meta_right.change_tree, selected_changes_right)
 

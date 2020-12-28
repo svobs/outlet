@@ -14,7 +14,7 @@ from model.uid import UID
 from model.user_op import UserOp
 from store.cache_manager import CacheManager
 from store.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
-from task.tree_diff_merge import TreeDiffMergeAction
+from diff.task.tree_diff_merge_task import TreeDiffMergeTask
 from signal_constants import ID_CENTRAL_EXEC, Signal
 from model.display_tree.filter_criteria import FilterCriteria
 
@@ -99,7 +99,7 @@ class BackendIntegrated(OutletBackend):
 
     def generate_merge_tree(self, tree_id_left: str, tree_id_right: str,
                             selected_changes_left: List[SPIDNodePair], selected_changes_right: List[SPIDNodePair]):
-        TreeDiffMergeAction.generate_merge_tree(self, ID_CENTRAL_EXEC, tree_id_left, tree_id_right,
+        TreeDiffMergeTask.generate_merge_tree(self, ID_CENTRAL_EXEC, tree_id_left, tree_id_right,
                                                 selected_changes_left, selected_changes_right)
 
     def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):

@@ -6,7 +6,7 @@ from collections import deque
 from typing import Callable, Deque, Dict, List, Optional
 
 from constants import TrashStatus, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
-from model.display_tree.change_display_tree import ChangeDisplayTree
+from store.tree.change_display_tree import ChangeDisplayTree
 from model.display_tree.display_tree import DisplayTreeUiState
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalFileNode

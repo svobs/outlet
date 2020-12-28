@@ -15,10 +15,10 @@ from util.stopwatch_sec import Stopwatch
 logger = logging.getLogger(__name__)
 
 
-class TreeDiffAction:
+class TreeDiffTask:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS TreeDiffAction
+    CLASS TreeDiffTask
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     
@@ -31,11 +31,11 @@ class TreeDiffAction:
             assert meta_left and meta_right, f'Missing tree meta! Left={meta_left}, Right={meta_right}'
             left_root_sn: SPIDNodePair = meta_left.root_sn
             right_root_sn: SPIDNodePair = meta_right.root_sn
-            if left_root_sn.spid.tree_type == TREE_TYPE_LOCAL_DISK and not TreeDiffAction._tree_exists_on_disk(left_root_sn.spid):
+            if left_root_sn.spid.tree_type == TREE_TYPE_LOCAL_DISK and not TreeDiffTask._tree_exists_on_disk(left_root_sn.spid):
                 logger.info(f'Skipping diff because the left path does not exist: "{left_root_sn.spid.get_path_list()}"')
                 dispatcher.send(signal=Signal.DIFF_TREES_FAILED, sender=sender)
                 return
-            elif right_root_sn.spid.tree_type == TREE_TYPE_LOCAL_DISK and not TreeDiffAction._tree_exists_on_disk(right_root_sn.spid):
+            elif right_root_sn.spid.tree_type == TREE_TYPE_LOCAL_DISK and not TreeDiffTask._tree_exists_on_disk(right_root_sn.spid):
                 logger.info(f'Skipping diff because the right path does not exist: "{right_root_sn.spid.get_path_list()}"')
                 dispatcher.send(signal=Signal.DIFF_TREES_FAILED, sender=sender)
                 return

@@ -6,7 +6,7 @@ from typing import Deque, Dict, Iterable, List, Optional
 from constants import ROOT_PATH, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TREE_TYPE_MIXED
 from error import InvalidOperationError
 from model.display_tree.display_tree import DisplayTree
-from model.local_disk_tree import LocalDiskTree
+from store.local.local_disk_tree import LocalDiskTree
 from model.node.container_node import CategoryNode, ContainerNode, RootTypeNode
 from model.node.decorator_node import DecoDirNode, DecoNode
 from model.node.node import Node, SPIDNodePair
