@@ -18,8 +18,8 @@ from backend.daemon.grpc.generated.Outlet_pb2 import DeleteSubtree_Request, Down
     RefreshSubtree_Request, RefreshSubtreeStats_Request, RequestDisplayTree_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request
 from constants import GRPC_SERVER_ADDRESS, SUPER_DEBUG
-from executor.task_runner import TaskRunner
-from model.display_tree.build_struct import DiffResultTreeIds
+from util.task_runner import TaskRunner
+from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
 from model.node.node import Node
@@ -27,7 +27,6 @@ from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
 from signal_constants import Signal
-from store.cache_manager import DisplayTreeRequest
 
 logger = logging.getLogger(__name__)
 

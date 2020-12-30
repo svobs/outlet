@@ -3,7 +3,7 @@ from typing import List
 from pydispatch import dispatcher
 
 from constants import SUPER_DEBUG
-from diff.change_maker import SPIDNodePair
+from backend.diff.change_maker import SPIDNodePair
 from model.display_tree.display_tree import DisplayTree
 from model.node.decorator_node import DecoNode
 from model.node_identifier import SinglePathNodeIdentifier

@@ -10,17 +10,17 @@ from py7zr import SevenZipFile
 from pydispatch import dispatcher
 
 from backend.backend_integrated import BackendIntegrated
+from backend.executor.command.cmd_interface import Command
+from backend.store.sqlite.op_db import OpDatabase
 from ui.gtk.gtk_frontend import OutletApplication
 from app_config import AppConfig
-from command.cmd_interface import Command
 from constants import OPS_FILE_NAME
-from store import cache_manager
-from store.sqlite.op_db import OpDatabase
+from backend import cache_manager
 from model.uid import UID
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
 from signal_constants import ID_CENTRAL_EXEC, ID_LEFT_TREE, ID_RIGHT_TREE, Signal
-from ui.gtk.tree import root_path_config
+from backend.store.tree import root_path_config
 from ui.gtk.tree.controller import TreePanelController
 from util import file_util
 

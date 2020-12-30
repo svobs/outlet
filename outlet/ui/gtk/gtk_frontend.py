@@ -5,7 +5,7 @@ from typing import Dict, Optional
 from pydispatch import dispatcher
 
 from backend.backend import OutletBackend
-from store.uid.uid_generator import SimpleUidGenerator
+from backend.store.uid.uid_generator import SimpleUidGenerator
 from signal_constants import Signal
 from signal_constants import ID_DIFF_WINDOW
 from ui.gtk.tree.controller import TreePanelController

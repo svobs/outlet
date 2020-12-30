@@ -4,7 +4,8 @@ from pydispatch import dispatcher
 import logging
 
 from backend.backend import OutletBackend
-from executor.central import CentralExecutor
+from backend.executor.central import CentralExecutor
+from backend.cache_manager import CacheManager
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree
 from model.node.node import Node, SPIDNodePair
@@ -12,9 +13,8 @@ from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
 from model.user_op import UserOp
-from store.cache_manager import CacheManager
-from store.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
-from diff.task.tree_diff_merge_task import TreeDiffMergeTask
+from backend.store.uid.uid_generator import PersistentAtomicIntUidGenerator, UidGenerator
+from backend.diff.task.tree_diff_merge_task import TreeDiffMergeTask
 from signal_constants import ID_CENTRAL_EXEC, Signal
 from model.display_tree.filter_criteria import FilterCriteria
 
@@ -100,7 +100,7 @@ class BackendIntegrated(OutletBackend):
     def generate_merge_tree(self, tree_id_left: str, tree_id_right: str,
                             selected_changes_left: List[SPIDNodePair], selected_changes_right: List[SPIDNodePair]):
         TreeDiffMergeTask.generate_merge_tree(self, ID_CENTRAL_EXEC, tree_id_left, tree_id_right,
-                                                selected_changes_left, selected_changes_right)
+                                              selected_changes_left, selected_changes_right)
 
     def enqueue_refresh_subtree_task(self, node_identifier: NodeIdentifier, tree_id: str):
         self.cacheman.enqueue_refresh_subtree_task(node_identifier, tree_id)

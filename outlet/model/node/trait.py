@@ -3,7 +3,7 @@ from abc import ABC
 from typing import List, Optional, Union
 
 from constants import TrashStatus
-from store.uid.uid_generator import UID
+from backend.store.uid.uid_generator import UID
 from util import format
 from util.ensure import ensure_uid
 
