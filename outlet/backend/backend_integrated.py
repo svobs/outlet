@@ -3,7 +3,7 @@ from typing import Iterable, List, Optional
 from pydispatch import dispatcher
 import logging
 
-from backend.backend import OutletBackend
+from backend.backend_interface import OutletBackend
 from backend.executor.central import CentralExecutor
 from backend.cache_manager import CacheManager
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest

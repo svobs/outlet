@@ -3,7 +3,7 @@ from typing import Iterable, List, Optional
 
 import grpc
 
-from backend.backend import OutletBackend
+from backend.backend_interface import OutletBackend
 from backend.daemon.client.signal_receiver_thread import SignalReceiverThread
 from backend.daemon.grpc.conversion import Converter
 from backend.daemon.grpc.generated import Outlet_pb2_grpc
