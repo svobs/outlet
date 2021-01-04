@@ -2,11 +2,11 @@
     "diff_win": {
         "height": 746,
         "width": 1440,
-        "x": 0,
-        "y": 2187
+        "x": 324,
+        "y": 151
     },
     "gdrive_dir_select": {
-        "expanded_rows": "8915715,8848136,8866060,8866061,8867085,8866448,8847634,8867093,8847129,8848282,8866077,8917150,8917152,8847138,8916133,8847144,8847657,8867120,8867122,8862387,8867002,8867133,8866370,8866627,8847298,8847302,8848071,8848073,8848075,8867027,8866533,8848743,8915690,8866925,8877555,8865783,8862715,8878716",
+        "expanded_rows": "10751706,10751162",
         "filter": {
             "ignore_case": true,
             "is_shared": 2,
@@ -16,7 +16,7 @@
         }
     },
     "global": {
-        "last_uid": 10209199
+        "last_uid": 11209620
     },
     "left_tree": {
         "expanded_rows": "9959708,9959709",
@@ -29,17 +29,36 @@
         "filter": {
             "ignore_case": true,
             "is_shared": 2,
-            "is_trashed": 0,
+            "is_trashed": 2,
             "search_query": "",
             "show_subtree": true,
-            "show_subtrees": true
+            "show_subtrees": false
         },
+        "offending_path": "",
+        "root_exists": true,
         "root_path": "/home/msvoboda/LocalDevel/outlet/test/ChangeTest/Left-Root",
-        "root_uid": 9569933,
+        "root_uid": 2596889,
         "tree_type": 2
     },
+    "left_tree_diff": {
+        "expanded_rows": "10634988,10671054,10602000,10671056,10672050,10701108,21,22,10701110,24,10662045,10673085,10701150,10639007",
+        "expanded_state": {
+            "CP": true,
+            "MV": true,
+            "RM": true
+        }
+    },
+    "merge_tree": {
+        "filter": {
+            "ignore_case": true,
+            "is_shared": 2,
+            "is_trashed": 2,
+            "search_query": "",
+            "show_subtrees": false
+        }
+    },
     "right_tree": {
-        "expanded_rows": "8848073,9959722",
+        "expanded_rows": "9959722",
         "expanded_state": {
             "CP": true,
             "MV": true,
@@ -50,12 +69,23 @@
             "ignore_case": true,
             "is_shared": 2,
             "is_trashed": 2,
-            "search_query": "ABC",
+            "search_query": "",
             "show_subtree": true,
             "show_subtrees": false
         },
-        "root_path": "/",
-        "root_uid": 3,
+        "is_found": true,
+        "offending_path": "",
+        "root_exists": true,
+        "root_path": "/My Drive",
+        "root_uid": 10751162,
         "tree_type": 3
+    },
+    "right_tree_diff": {
+        "expanded_rows": "10671041,10601989,10665075,21,22,10686069,24,10671132,10671039",
+        "expanded_state": {
+            "CP": true,
+            "MV": true,
+            "RM": true
+        }
     }
 }

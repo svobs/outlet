@@ -94,6 +94,7 @@ class CacheManager(HasLifecycle):
         self.load_all_caches_on_startup = backend.config.get('cache.load_all_caches_on_startup')
         self.load_caches_for_displayed_trees_at_startup = backend.config.get('cache.load_caches_for_displayed_trees_on_startup')
         self.sync_from_local_disk_on_cache_load = backend.config.get('cache.sync_from_local_disk_on_cache_load')
+        self.sync_from_gdrive_on_cache_load = backend.config.get('cache.sync_from_gdrive_on_cache_load')
         self.reload_tree_on_root_path_update = backend.config.get('cache.load_cache_when_tree_root_selected')
         self.cancel_all_pending_ops_on_startup = backend.config.get('cache.cancel_all_pending_ops_on_startup')
 
@@ -137,35 +138,35 @@ class CacheManager(HasLifecycle):
             if self._op_ledger:
                 self._op_ledger.shutdown()
                 self._op_ledger = None
-        except NameError:
+        except NameError or AttributeError:
             pass
 
         try:
             if self._master_local:
                 self._master_local.shutdown()
                 self._master_local = None
-        except NameError:
+        except NameError or AttributeError:
             pass
 
         try:
             if self._master_gdrive:
                 self._master_gdrive.shutdown()
                 self._master_gdrive = None
-        except NameError:
+        except NameError or AttributeError:
             pass
 
         try:
             if self._load_request_thread:
                 self._load_request_thread.shutdown()
                 self._load_request_thread = None
-        except NameError:
+        except NameError or AttributeError:
             pass
 
         try:
             if self._active_tree_manager:
                 self._active_tree_manager.shutdown()
                 self._active_tree_manager = None
-        except NameError:
+        except NameError or AttributeError:
             pass
 
     # Startup loading/maintenance

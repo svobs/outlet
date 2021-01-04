@@ -174,7 +174,11 @@ class GDriveMasterStore(MasterStore):
         else:
             logger.debug(f'Changes download did not return a new start token. Will not update download.')
 
-        logger.debug(f'{sw} Finished syncing GDrive changes from server')
+        if observer.total_change_count:
+            msg = f'Synced a total of {observer.total_change_count} GDrive changes from server'
+        else:
+            msg = f'No GDrive changes on server: cache is up-to-date'
+        logger.info(f'{sw} {msg}')
 
     # Action listener callbacks
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -205,7 +209,7 @@ class GDriveMasterStore(MasterStore):
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
 
     def load_subtree(self, subtree_root: SinglePathNodeIdentifier, tree_id: str):
-        self._load_master_cache(sync_latest_changes=False, invalidate_cache=False)
+        self._load_master_cache(sync_latest_changes=self.backend.cacheman.sync_from_gdrive_on_cache_load, invalidate_cache=False)
 
     def load_and_sync_master_tree(self, invalidate_cache: bool = False):
         """This will sync the latest changes before returning."""

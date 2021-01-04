@@ -248,7 +248,8 @@ class GDriveTreeLoader:
 
         logger.debug(f'{full_path_stopwatch} Constructed {path_count:n} full paths for {item_count:n} items')
 
-    def _check_for_broken_nodes(self, tree: GDriveWholeTree):
+    @staticmethod
+    def _check_for_broken_nodes(tree: GDriveWholeTree):
         error_count = 0
         broken_file_uid_list = []
         broken_folder_uid_list = []

@@ -48,6 +48,10 @@ class ActiveTreeManager(HasLifecycle):
         self._is_live_capture_enabled = backend.config.get('cache.live_capture_enabled')
 
     def start(self):
+        gdrive_live_monitor_enabled = self._is_live_capture_enabled and self._live_monitor.enable_gdrive_polling_thread
+        if not gdrive_live_monitor_enabled and not self.backend.cacheman.sync_from_gdrive_on_cache_load:
+            logger.warning(f'GDrive: live monitoring is disabled AND sync on cache load is disabled: GDrive cache will not be updated!')
+
         HasLifecycle.start(self)
         self.connect_dispatch_listener(signal=Signal.DEREGISTER_DISPLAY_TREE, receiver=self._deregister_display_tree)
         self.connect_dispatch_listener(signal=Signal.GDRIVE_RELOADED, receiver=self._on_gdrive_whole_tree_reloaded)
