@@ -7,6 +7,7 @@ from typing import List, Optional, Tuple
 
 from backend.store.local.local_disk_scanner import LocalDiskScanner
 from backend.store.local.master_local_disk import LocalDiskDiskStore
+from backend.store.sqlite.local_db import LocalDiskDatabase
 from constants import SUPER_DEBUG, TrashStatus, TREE_TYPE_LOCAL_DISK
 from backend.store.local.local_disk_tree import LocalDiskTree
 from model.cache_info import PersistedCacheInfo
