@@ -223,10 +223,19 @@ class GDriveTreeLoader:
                     child_path_list: List[str] = child.get_path_list()
 
                     # add paths for this parent:
-                    for parent_path in parent.get_path_list():
+                    parent_path_list = parent.get_path_list()
+                    # if len(parent_path_list) > 1:
+                    #     logger.info(f'MULTIPLE PARENT PATHS ({len(parent_path_list)}) for node {parent.uid} ("{parent.name}")')
+                    # if len(parent_path_list) > 10:
+                    #     logger.warning(f'Large number of parents for node {child.uid} (possible cycle?): {len(parent_path_list)}')
+                    for parent_path in parent_path_list:
                         new_child_path = os.path.join(parent_path, child.name)
-                        child_path_list.append(new_child_path)
-                        path_count += 1
+                        # if len(new_child_path) > 1000:
+                        #     logger.warning(f'Very long path found (possible cycle?): {new_child_path}')
+                        # logger.info(f'[{path_count}] ({child.uid}) Adding path "{new_child_path}" to  paths ({child_path_list})')
+                        if new_child_path not in child_path_list:
+                            child_path_list.append(new_child_path)
+                            path_count += 1
 
                     child.node_identifier.set_path_list(child_path_list)
 

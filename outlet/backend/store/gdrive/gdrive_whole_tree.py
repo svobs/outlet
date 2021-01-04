@@ -515,7 +515,7 @@ class GDriveWholeTree(HasGetChildren):
                             if SUPER_DEBUG:
                                 logger.debug(f'Multiple parents found for {node.uid} ("{node.name}").')
                                 for parent_index, parent_uid in enumerate(parent_uids):
-                                    logger.info(f'Parent {parent_index}: {parent_uid}')
+                                    logger.debug(f'Parent {parent_index}: {parent_uid}')
                             # pass through
                         elif SUPER_DEBUG:
                             logger.warning(f'Found multiple parents for node but only one could be resolved: node={node.uid} ("{node.name}")')
@@ -527,7 +527,8 @@ class GDriveWholeTree(HasGetChildren):
                             # Parent refs cannot be resolved == root of subtree
                             if SUPER_DEBUG:
                                 logger.debug(f'Mapped ID "{uid}" to subtree path "{path_so_far}"')
-                            path_list.append(path_so_far)
+                            if path_so_far not in path_list:
+                                path_list.append(path_so_far)
 
                 else:
                     # No parent refs. Root of Google Drive
