@@ -154,6 +154,8 @@ class GDriveTreeLoader:
         self._determine_roots(tree)
         self._compile_full_paths(tree)
 
+        # self._remove_dead_nodes(tree)
+
         # set cache_info.is_loaded=True:
         master_tree_root = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
         cache_info = self.backend.cacheman.get_or_create_cache_info_entry(master_tree_root)
@@ -246,6 +248,21 @@ class GDriveTreeLoader:
 
         logger.debug(f'{full_path_stopwatch} Constructed {path_count:n} full paths for {item_count:n} items')
 
+    def _remove_dead_nodes(self, tree: GDriveWholeTree):
+        error_count = 0
+        dead_file_uid_list = []
+        dead_folder_uid_list = []
+        for node in tree.uid_dict.values():
+            if not node.get_path_list():
+                logger.error(f'Node has no paths: {node}')
+                if node.is_dir():
+                    dead_folder_uid_list.append(node.uid)
+                else:
+                    dead_file_uid_list.append(node.uid)
+                error_count += 1
 
-# ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
-# CLASS GDriveTreeLoader end
+        if error_count:
+            logger.warning(f'Removing {error_count} nodes from disk cache')
+            self._diskstore.delete_nodes(file_uid_list=dead_file_uid_list, folder_uid_list=dead_folder_uid_list)
+            raise RuntimeError(f'{error_count} nodes had no paths generated!')
+

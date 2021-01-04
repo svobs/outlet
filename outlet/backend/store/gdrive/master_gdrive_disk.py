@@ -186,3 +186,6 @@ class GDriveDiskStore(HasLifecycle):
 
     def insert_id_parent_mappings(self, id_parent_mappings: List[Tuple], overwrite=False, commit=True):
         self._db.insert_id_parent_mappings(id_parent_mappings, overwrite, commit)
+
+    def delete_nodes(self, file_uid_list: List[UID], folder_uid_list: List[UID]):
+        self._db.delete_nodes(file_uid_list, folder_uid_list)
