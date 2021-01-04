@@ -264,4 +264,6 @@ class GDriveTreeLoader:
         if error_count:
             # TODO: submit to adjudicator to fix
             logger.error(f'Found {error_count} broken nodes in tree!')
+        else:
+            logger.debug('No broken nodes detected in tree')
 

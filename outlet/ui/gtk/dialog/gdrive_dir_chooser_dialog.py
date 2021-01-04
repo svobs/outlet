@@ -97,7 +97,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
         if sender != self.tree_id:
             return
         logger.debug(f'[{ID_GDRIVE_DIR_SELECT}] Populate complete! Sending signal: {Signal.EXPAND_AND_SELECT_NODE}')
-        dispatcher.send(Signal.EXPAND_AND_SELECT_NODE, sender=ID_GDRIVE_DIR_SELECT, nid=self._initial_selection_spid)
+        dispatcher.send(Signal.EXPAND_AND_SELECT_NODE, sender=ID_GDRIVE_DIR_SELECT, spid=self._initial_selection_spid)
 
     def on_ok_clicked(self, spid: SinglePathNodeIdentifier):
         logger.info(f'[{self.target_tree_id}] User selected dir "{spid}"')
@@ -131,6 +131,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
             else:
                 logger.debug(f'Unexpected response_id: {response_id}')
 
+            dialog.close()
             dialog.destroy()
         except FileNotFoundError as err:
             self.show_error_ui('File not found: ' + err.filename)
