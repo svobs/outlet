@@ -93,17 +93,24 @@ class PagePersistingChangeObserver(GDriveChangeObserver):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS PagePersistingChangeObserver
+
+    See: GDriveClient.get_changes_list()
+    See: GDriveMasterStore.sync_latest_changes()
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, backend):
         super().__init__()
         self.backend = backend
         self.change_list: List[GDriveChange] = []
+        self.total_change_count = 0
 
     def change_received(self, change: GDriveChange, item):
         self.change_list.append(change)
 
     def end_of_page(self, next_page_token: str):
+        self.total_change_count += len(self.change_list)
+        logger.debug(f'End of page: sending {len(self.change_list)} changes to cacheman (total count: {self.total_change_count})')
         self.backend.cacheman.apply_gdrive_changes(self.change_list)
+        self.change_list.clear()
 
 

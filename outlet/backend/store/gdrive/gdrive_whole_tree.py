@@ -728,9 +728,6 @@ def _merge_into_existing(existing_node: GDriveNode, new_node: GDriveNode) -> Tup
         if parent_uid not in new_node.get_parent_uids():
             removed_parent_uids.append(parent_uid)
 
-    # Merge parents into new node:
-    new_node.set_parent_uids(existing_node.get_parent_uids() + new_parent_uids)
-
     if existing_node.goog_id and existing_node.goog_id != new_node.goog_id:
         raise RuntimeError(f'Existing node goog_id ({existing_node.goog_id}) does not match new node goog_id ({new_node.goog_id})')
 

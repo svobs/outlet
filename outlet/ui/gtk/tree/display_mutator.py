@@ -549,30 +549,33 @@ class DisplayMutator(HasLifecycle):
         assert node
 
         def update_ui():
-            with self._lock:
-                displayed_item = self.con.display_store.displayed_rows.get(node.uid, None)
+            try:
+                with self._lock:
+                    displayed_item = self.con.display_store.displayed_rows.get(node.uid, None)
 
-                if displayed_item:
-                    if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_REMOVED.name} for displayed node {node.node_identifier}')
+                    if displayed_item:
+                        if logger.isEnabledFor(logging.DEBUG):
+                            logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_REMOVED.name} for displayed node {node.node_identifier}')
 
-                    stats_refresh_needed = True
+                        stats_refresh_needed = True
 
-                    logger.debug(f'[{self.con.tree_id}] Removing node from display store: {displayed_item.uid}')
-                    self.con.display_store.remove_node(node.uid)
-                    logger.debug(f'[{self.con.tree_id}] Node removed: {displayed_item.uid}')
-                elif self.con.get_tree().is_path_in_subtree(node.get_path_list()):
-                    if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_REMOVED.name} for node {node.node_identifier}')
+                        logger.debug(f'[{self.con.tree_id}] Removing node from display store: {displayed_item.uid}')
+                        self.con.display_store.remove_node(node.uid)
+                        logger.debug(f'[{self.con.tree_id}] Node removed: {displayed_item.uid}')
+                    elif self.con.get_tree().is_path_in_subtree(node.get_path_list()):
+                        if logger.isEnabledFor(logging.DEBUG):
+                            logger.debug(f'[{self.con.tree_id}] Received signal {Signal.NODE_REMOVED.name} for node {node.node_identifier}')
 
-                    stats_refresh_needed = True
-                else:
-                    if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f'[{self.con.tree_id}] Ignoring signal {Signal.NODE_REMOVED.name} for node {node.node_identifier}')
-                    stats_refresh_needed = False
+                        stats_refresh_needed = True
+                    else:
+                        if logger.isEnabledFor(logging.DEBUG):
+                            logger.debug(f'[{self.con.tree_id}] Ignoring signal {Signal.NODE_REMOVED.name} for node {node.node_identifier}')
+                        stats_refresh_needed = False
 
-                if stats_refresh_needed:
-                    self._stats_refresh_timer.start_or_delay()
+                    if stats_refresh_needed:
+                        self._stats_refresh_timer.start_or_delay()
+            except RuntimeError:
+                logger.exception(f'While removing node {node.uid} ("{node.name}") from UI')
 
         GLib.idle_add(update_ui)
 

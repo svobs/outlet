@@ -197,6 +197,9 @@ class BatchChangesOp(GDriveWriteThroughOp):
                 removed_node = memstore.master_tree.remove_node(change.node, fail_if_children_present=False)
                 if removed_node:
                     change.node = removed_node
+                else:
+                    # ensure full_path is populated
+                    memstore.master_tree.compute_path_list_for_node(change.node)
             else:
                 assert isinstance(change, GDriveNodeChange)
                 # need to use existing object if available to fulfill our contract (node will be sent via signals below)
@@ -255,6 +258,7 @@ class BatchChangesOp(GDriveWriteThroughOp):
 
     def send_signals(self):
         for change in self.change_list:
+            assert change.node.get_path_list(), f'Node is missing path list: {change.node}'
             if change.is_removed():
                 dispatcher.send(signal=Signal.NODE_REMOVED, sender=ID_GLOBAL_CACHE, node=change.node)
             else:

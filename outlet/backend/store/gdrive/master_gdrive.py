@@ -347,9 +347,7 @@ class GDriveMasterStore(MasterStore):
             raise
 
     def apply_gdrive_changes(self, gdrive_change_list: List[GDriveChange]):
-        if SUPER_DEBUG:
-            logger.debug(f'Entered apply_gdrive_changes(): locked={self._struct_lock.locked()}')
-
+        logger.debug(f'Applying {len(gdrive_change_list)} GDrive changes...')
         operation: BatchChangesOp = BatchChangesOp(self.backend, gdrive_change_list)
 
         with self._struct_lock:
