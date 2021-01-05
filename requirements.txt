@@ -39,6 +39,7 @@ protobuf==3.14.0
 keyring==3.4
 #python-nmap==0.6.1
 zeroconf==0.28.7
+netifaces==0.10.9
 #flatbuffers=1.12.0
 #pycairo==1.19.1
 #PyGObject==3.36.0
