@@ -54,8 +54,8 @@ class TreeDiffMergeTask:
                 raise RuntimeError(f'Could not generate merge tree: no ChangeTree in record: {tree_id_right}')
 
             merged_changes_tree = TreeDiffMergeTask.merge_change_trees(backend,
-                                                                         meta_left.change_tree, selected_changes_left,
-                                                                         meta_right.change_tree, selected_changes_right)
+                                                                       meta_left.change_tree, selected_changes_left,
+                                                                       meta_right.change_tree, selected_changes_right)
 
             # FIXME: need to clean up this mechanism: src_tree_id makes no sense
             backend.cacheman.register_change_tree(merged_changes_tree, src_tree_id=None)
