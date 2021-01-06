@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 def main():
-    config = util.main_util.do_main_boilerplate()
+    config = util.main_util.do_main_boilerplate(executing_script_path=__file__)
     backend = BackendIntegrated(config)
     app = OutletApplication(config, backend)
     try:

@@ -24,6 +24,7 @@ from model.display_tree.filter_criteria import FilterCriteria
 from util import file_util, time_util
 from util.simple_tree import NodeNotPresentError
 from util.stopwatch_sec import Stopwatch
+from backend.store.local import content_hasher
 
 logger = logging.getLogger(__name__)
 
@@ -568,7 +569,7 @@ class LocalDiskMasterStore(MasterStore):
             sha256 = None
         else:
             try:
-                md5, sha256 = backend.store.local.content_hasher.calculate_signatures(full_path, staging_path)
+                md5, sha256 = content_hasher.calculate_signatures(full_path, staging_path)
             except FileNotFoundError:
                 # bad link
                 return None

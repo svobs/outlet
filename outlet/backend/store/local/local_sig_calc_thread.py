@@ -7,6 +7,7 @@ from model.node.local_disk_node import LocalFileNode
 from model.node.node import Node
 from signal_constants import Signal
 from util.qthread import QThread
+from backend.store.local import content_hasher
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ class SignatureCalcThread(QThread):
             return
 
         logger.debug(f'[{self.name}] Calculating signature for node: {node.node_identifier}')
-        md5, sha256 = backend.store.local.content_hasher.calculate_signatures(full_path=node.get_single_path())
+        md5, sha256 = content_hasher.calculate_signatures(full_path=node.get_single_path())
         if not md5 and not sha256:
             logger.debug(f'[{self.name}] Failed to calculate signature for node {node.uid}: assuming it was deleted')
             return

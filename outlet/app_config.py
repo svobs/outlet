@@ -10,6 +10,7 @@ from constants import DEFAULT_CONFIG_PATH, PROJECT_DIR
 from util.file_util import get_resource_path
 
 logger = logging.getLogger(__name__)
+PROJECT_DIR_TOKEN = '$PROJECT_DIR'
 
 
 class AppConfig:
@@ -18,7 +19,7 @@ class AppConfig:
     CLASS AppConfig
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    def __init__(self, config_file_path: str = None):
+    def __init__(self, config_file_path: str = None, executing_script_name: str = None):
         self._project_dir = get_resource_path(PROJECT_DIR)
 
         if not config_file_path:
@@ -36,7 +37,7 @@ class AppConfig:
         except Exception as err:
             raise RuntimeError(f'Could not read config file ({config_file_path})') from err
 
-        logging_config.configure_logging(self)
+        logging_config.configure_logging(self, executing_script_name)
         if self.read_only:
             logger.info('Config is set to read-only')
 
@@ -44,7 +45,7 @@ class AppConfig:
         try:
             val = self.cfg[cfg_path]
             if val is not None and type(val) == str:
-                val = val.replace('$PROJECT_DIR', self._project_dir)
+                val = val.replace(PROJECT_DIR_TOKEN, self._project_dir)
             logger.debug(f'Read "{cfg_path}" = "{val}"')
             return val
         except config.KeyNotFoundError:

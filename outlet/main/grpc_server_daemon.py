@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 def main():
     logger.info(f'Creating OutletDameon')
-
-    daemon = OutletDaemon(util.main_util.do_main_boilerplate())
+    config = util.main_util.do_main_boilerplate(executing_script_path=__file__)
+    daemon = OutletDaemon(config)
     daemon.start()
 
     try:

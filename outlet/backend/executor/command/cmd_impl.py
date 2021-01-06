@@ -10,6 +10,7 @@ from constants import FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT, TrashStatus
 from model.uid import UID
 from model.node.local_disk_node import LocalDirNode, LocalFileNode, LocalNode
 from model.node.gdrive_node import GDriveFile, GDriveNode
+from backend.store.local import content_hasher
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ class CopyFileLocallyCommand(CopyNodeCommand):
         dst_path = self.op.dst_node.get_single_path()
         if not self.op.src_node.md5:
             # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
-            if not backend.store.local.content_hasher.try_calculating_signatures(self.op.src_node):
+            if not content_hasher.try_calculating_signatures(self.op.src_node):
                 return self.set_error_result(f'Failed to calculate signature for src node: {self.op.src_node.node_identifier}')
         md5 = self.op.src_node.md5
         # TODO: what if staging dir is not on same file system?
@@ -190,7 +191,7 @@ class UploadToGDriveCommand(CopyNodeCommand):
 
         if not self.op.src_node.md5:
             # This can happen if the node was just added but lazy sig scan hasn't gotten to it yet. Just compute it ourselves here
-            if not backend.store.local.content_hasher.try_calculating_signatures(self.op.src_node):
+            if not content_hasher.try_calculating_signatures(self.op.src_node):
                 return self.set_error_result(f'Failed to calculate signature for src node: {self.op.src_node.node_identifier}')
 
         md5 = self.op.src_node.md5

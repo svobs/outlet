@@ -1,9 +1,8 @@
 import logging
 import sys
 
-from util import daemon_util
+from util import main_util, daemon_util
 from ui.gtk.gtk_frontend import OutletApplication
-from app_config import AppConfig
 from backend.daemon.client.grpc_client import BackendGRPCClient
 
 logger = logging.getLogger(__name__)
@@ -16,10 +15,7 @@ def main():
     if sys.version_info[0] < 3:
         raise Exception("Python 3 or a more recent version is required.")
 
-    if len(sys.argv) >= 2:
-        config = AppConfig(sys.argv[1])
-    else:
-        config = AppConfig()
+    config = main_util.do_main_boilerplate(executing_script_path=__file__)
 
     daemon_util.launch_daemon_if_needed()
 

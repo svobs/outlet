@@ -10,6 +10,7 @@ from backend.diff.change_maker import ChangeMaker, OneSide, SPIDNodePair
 from model.node.node import Node
 from model.user_op import UserOpType
 from util.stopwatch_sec import Stopwatch
+from backend.store.local import content_hasher
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class ContentFirstDiffer(ChangeMaker):
         meta: OneSideDiffMeta = OneSideDiffMeta()
 
         def on_file_found(sn: SPIDNodePair):
-            if not sn.node.md5 and not backend.store.local.content_hasher.try_calculating_signatures(sn.node):
+            if not sn.node.md5 and not content_hasher.try_calculating_signatures(sn.node):
                 logger.error(f'Unable to calculate signature for file! Skipping: {sn.node.get_single_path()}')
                 return
 

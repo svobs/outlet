@@ -1,8 +1,14 @@
 import logging
+import os
+from pathlib import Path
+
 logger = logging.getLogger(__name__)
+EXE_NAME_TOKEN = '$EXE_NAME'
 
 
-def configure_logging(config):
+def configure_logging(config, executing_script_name: str):
+    # Argument 'executing_script_name' is used to name the log file
+
     # create logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
@@ -10,11 +16,18 @@ def configure_logging(config):
     # DEBUG LOG FILE
     debug_log_enabled = config.get('logging.debug_log.enable')
     if debug_log_enabled:
-        debug_log_path = config.get('logging.debug_log.full_path')
+        debug_log_path: str = config.get('logging.debug_log.full_path')
+        debug_log_path = debug_log_path.replace(EXE_NAME_TOKEN, executing_script_name)
         debug_log_mode = config.get('logging.debug_log.mode')
         debug_log_fmt = config.get('logging.debug_log.format')
         debug_log_datetime_fmt = config.get('logging.debug_log.datetime_format')
 
+        log_dir = Path(debug_log_path).parent
+        try:
+            os.makedirs(name=log_dir, exist_ok=True)
+        except Exception as err:
+            logger.error(f'Exception while making log dir: {log_dir}')
+            raise
         debug_file_handler = logging.FileHandler(filename=debug_log_path, mode=debug_log_mode)
         debug_file_handler.setLevel(logging.DEBUG)
 

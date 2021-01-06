@@ -254,6 +254,7 @@ class BatchChangesOp(GDriveWriteThroughOp):
             cache.upsert_gdrive_file_list(files_to_upsert, commit=False)
 
     def send_signals(self):
+        # TODO: refactor so that backend only sends updates to each tree which requires them
         for change in self.change_list:
             assert change.node.get_path_list(), f'Node is missing path list: {change.node}'
             if change.is_removed():
