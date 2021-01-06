@@ -198,15 +198,12 @@ class BatchChangesOp(GDriveWriteThroughOp):
                 if removed_node:
                     change.node = removed_node
                 else:
-                    # ensure full_path is populated
-                    memstore.master_tree.compute_path_list_for_node(change.node)
+                    # ensure full_path is populated:
+                    memstore.master_tree.recompute_path_list_for_uid(change.node.uid)
             else:
                 assert isinstance(change, GDriveNodeChange)
                 # need to use existing object if available to fulfill our contract (node will be sent via signals below)
-                change.node = memstore.master_tree.upsert_node(change.node)
-
-                # ensure full_path is populated
-                memstore.master_tree.compute_path_list_for_node(change.node)
+                change.node, was_updated = memstore.upsert_single_node(change.node)
 
     def update_diskstore(self, cache: GDriveDatabase):
         mappings_list_list: List[List[Tuple]] = []

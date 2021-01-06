@@ -374,8 +374,8 @@ class CacheManager(HasLifecycle):
 
         if result.nodes_to_upsert:
             logger.debug(f'Cmd resulted in {len(result.nodes_to_upsert)} nodes to upsert')
-            for upsert_node in result.nodes_to_upsert:
-                self.upsert_single_node(upsert_node)
+            for node_to_upsert in result.nodes_to_upsert:
+                self.upsert_single_node(node_to_upsert)
 
         if result.nodes_to_delete:
             # TODO: to_trash?

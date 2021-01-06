@@ -57,18 +57,6 @@ class GDriveWholeTree(HasGetChildren):
     def node_identifier(self):
         return NodeIdentifierFactory.get_gdrive_root_constant_identifier()
 
-    def compute_path_list_for_node(self, node: GDriveNode) -> List[str]:
-        """Gets the absolute path for the node. Also sets its 'path_list' attribute for future use"""
-        path_list = node.get_path_list()
-        if path_list:
-            # Does node already have a full_path? Just return that (huge speed gain):
-            return path_list
-
-        # Set in the node for future use:
-        path_list: List[str] = self._compute_path_list_for_uid(node.uid)
-        node.node_identifier.set_path_list(path_list)
-        return path_list
-
     def upsert_folder_and_children(self, parent_node: GDriveFolder, child_list: List[GDriveNode]) -> List[GDriveNode]:
         """Adds or replaces the given parent_node and its children. Any previous children which are not in the given list are
         unlinked from the parent, and if they had no other parents, become root-level nodes."""
@@ -112,27 +100,44 @@ class GDriveWholeTree(HasGetChildren):
                 existing_node.set_sync_ts(node.sync_ts)
                 return existing_node
 
+            is_name_changed = existing_node.name != node.name
+
             logger.debug(f'upsert_node(): found existing node with same ID (will attempt to merge nodes): existing: {existing_node}; new={node}')
             new_parent_uids, removed_parent_uids = _merge_into_existing(existing_node, node)
             node = existing_node
 
-            if len(removed_parent_uids) > 0:
+            # If any parents were removed, update parent dict (the "add" case is handled further below)
+            if removed_parent_uids:
                 for removed_parent_uid in removed_parent_uids:
                     self._remove_from_parent_dict(removed_parent_uid, node)
+
+            # If path was affected, need to recompute paths for the node and all its descendants:
+            if is_name_changed or new_parent_uids or removed_parent_uids:
+                self.recompute_path_list_for_subtree(node.uid)
 
         else:
             new_parent_uids: List[UID] = node.get_parent_uids()
             self.uid_dict[node.uid] = node
 
-        # build reverse dictionary
+        # build reverse dictionary for any added parents
         if len(new_parent_uids) > 0:
             for parent_uid in new_parent_uids:
                 self._add_to_parent_dict(parent_uid, node)
 
-        self._upsert_root(node)
+        if node.has_no_parents():
+            self._upsert_root(node)
+
+        # Generate full_path for node, if not already done (we assume this is a newly created node)
+        self.recompute_path_list_for_uid(node.uid)
 
         # this may actually be an existing node (we favor that if it exists)
         return node
+
+    def recompute_path_list_for_subtree(self, subtree_root_uid: UID):
+        def action_func(visited_node):
+            self.recompute_path_list_for_uid(visited_node.uid)
+
+        self.for_each_node_breadth_first(action_func=action_func, subtree_root_uid=subtree_root_uid)
 
     def remove_node(self, node: GDriveNode, fail_if_children_present: bool = True) -> Optional[GDriveNode]:
         """Remove given node from all data structures in this tree. Returns the node which was removed (which may be a different object
@@ -143,6 +148,10 @@ class GDriveWholeTree(HasGetChildren):
         if node.uid not in self.uid_dict:
             logger.warning(f'Cannot remove node from in-memory tree: it was not found in the tree: {node}')
             return None
+
+        if not node.get_path_list():
+            # (Kind of a kludge): we need the old path list so that downstream processes can work properly.
+            self.recompute_path_list_for_uid(node.uid)
 
         if node.is_dir():
             child_list = self.get_children(node)
@@ -158,7 +167,12 @@ class GDriveWholeTree(HasGetChildren):
                             child.remove_parent(node.uid)
                             # If child has no parents, add as child of pseudo-root.
                             # May get expensive for very large number of children...
-                            self._upsert_root(child)
+                            if child.has_no_parents():
+                                logger.debug(f'Deletion of parent ({node.uid}) resulted in orphaned child ({child.uid}): making child a root')
+                                self._upsert_root(child)
+
+                            # Paths were updated:
+                            self.recompute_path_list_for_subtree(child.uid)
 
         # Unlink node from all its parents
         if node.get_parent_uids():
@@ -201,13 +215,12 @@ class GDriveWholeTree(HasGetChildren):
         return None
 
     def _upsert_root(self, node: GDriveNode):
-        if node.has_no_parents():
-            root_list = self.get_children_for_root()
-            for root in root_list:
-                if root.uid == node.uid:
-                    # already present: do nothing
-                    return
-            root_list.append(node)
+        root_list = self.get_children_for_root()
+        for root in root_list:
+            if root.uid == node.uid:
+                # already present: do nothing
+                return
+        root_list.append(node)
 
     def _add_to_parent_dict(self, parent_uid: UID, node: GDriveNode):
         child_list: List[GDriveNode] = self.parent_child_dict.get(parent_uid)
@@ -484,12 +497,14 @@ class GDriveWholeTree(HasGetChildren):
                     raise RuntimeError(f'Could not resolve goog_id for UID {uid}: node has no goog_id: {node}')
         return goog_ids
 
-    def _compute_path_list_for_uid(self, uid: UID) -> List[str]:
-        """Gets the filesystem-like-path for the node with the given GoogID.
+    def recompute_path_list_for_uid(self, uid: UID) -> List[str]:
+        """Derives the list filesystem-like-paths for the node with the given UID, sets them, and returns them.
         Stops when a parent cannot be found, or the root of the tree is reached."""
         current_node: GDriveNode = self.get_node_for_uid(uid)
         if not current_node:
-            raise RuntimeError(f'Item not found: id={uid}')
+            raise RuntimeError(f'Cannot recompute path list: node not found in tree for UID {uid}')
+
+        logger.debug(f'Recomputing path for node {uid} ("{current_node.name}")')
 
         # TODO: it's possible to optimize this by using the parent paths, if available
 
@@ -535,6 +550,8 @@ class GDriveWholeTree(HasGetChildren):
                     path_list.append('/' + path_so_far)
             current_nodes = next_segment_nodes
             next_segment_nodes = []
+
+        current_node.node_identifier.set_path_list(path_list)
         return path_list
 
     def get_summary(self) -> str:
@@ -636,7 +653,7 @@ class GDriveWholeTree(HasGetChildren):
         for num_parents, node_count in counter.items():
             logger.info(f'Nodes with {num_parents} parents: {node_count}')
 
-    def for_each_node_breadth_first(self, action_func: Callable, subtree_root_uid: Optional[UID] = None):
+    def for_each_node_breadth_first(self, action_func: Callable[[GDriveNode], None], subtree_root_uid: Optional[UID] = None):
         dir_queue: Deque[GDriveFolder] = deque()
         if subtree_root_uid:
             # Partial

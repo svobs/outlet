@@ -58,8 +58,8 @@ class GDriveMemoryStore:
                 return node, False
 
             if existing_node.is_dir() and not node.is_dir():
-                # need to replace all descendants...not ready to do this yet
-                raise RuntimeError(f'Cannot replace a folder with a file: "{node.get_path_list()}"')
+                # This should never happen, because GDrive does not allow a node's type to be changed:
+                raise RuntimeError(f'Invalid request: cannot replace a GDrive folder with a file: "{node.get_path_list()}"')
 
             if existing_node == node:
                 logger.info(f'Node being added (uid={node.uid}) is identical to node already in the cache; skipping cache update')
@@ -74,12 +74,10 @@ class GDriveMemoryStore:
         # Finally, update in-memory cache (tree). If an existing node is found with the same UID, it will update and return that instead:
         node = self.master_tree.upsert_node(node)
 
-        # Generate full_path for node, if not already done (we assume this is a newly created node)
-        self.master_tree.compute_path_list_for_node(node)
-
         return node, True
 
     def remove_single_node(self, node: GDriveNode, to_trash: bool = False):
+        """Note: this is not allowed for non-empty directories. TODO: should it be?"""
         if SUPER_DEBUG:
             logger.debug(f'Removing GDriveNode from memory cache: {node}')
 
