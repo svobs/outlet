@@ -6,7 +6,6 @@ from pydispatch import dispatcher
 
 from backend.daemon.grpc.conversion import Converter
 from backend.daemon.grpc.generated.Outlet_pb2 import SignalMsg, Subscribe_Request
-from constants import GRPC_CLIENT_REQUEST_MAX_RETRIES, GRPC_CLIENT_SLEEP_ON_FAILURE_SEC
 from model.display_tree.display_tree import DisplayTree
 from signal_constants import ID_CENTRAL_EXEC, Signal
 from util.has_lifecycle import HasLifecycle
@@ -42,23 +41,6 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
 
         logger.debug(f'Shutting down {self.name}')
         self._shutdown = True
-
-    @staticmethod
-    def _try_repeatedly(request_func):
-        retries_remaining = GRPC_CLIENT_REQUEST_MAX_RETRIES
-        while True:
-            try:
-                return request_func()
-            except Exception as err:
-                logger.error(f'Request failed (retries left: {retries_remaining}): sleeping {GRPC_CLIENT_SLEEP_ON_FAILURE_SEC}s before retry: {repr(err)}')
-                if retries_remaining == 0:
-                    # Fatal error: shutdown the rest of the app
-                    logger.error(f'Too many failures: sending shutdown signal')
-                    dispatcher.send(signal=Signal.SHUTDOWN_APP, sender=ID_CENTRAL_EXEC)
-                    raise
-
-                time.sleep(GRPC_CLIENT_SLEEP_ON_FAILURE_SEC)
-                retries_remaining -= 1
 
     def run(self):
         logger.info(f'Starting {self.name}...')

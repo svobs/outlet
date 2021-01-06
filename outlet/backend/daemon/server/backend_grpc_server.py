@@ -6,7 +6,8 @@ import grpc
 from backend.backend_integrated import BackendIntegrated
 from backend.daemon.grpc.generated import Outlet_pb2_grpc
 from backend.daemon.server.grpc_service import OutletGRPCService
-from constants import GRPC_SERVER_ADDRESS, GRPC_SERVER_MAX_WORKER_THREADS
+from constants import GRPC_SERVER_MAX_WORKER_THREADS
+from util.ensure import ensure_bool, ensure_int
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +36,20 @@ class OutletDaemon(BackendIntegrated):
     def serve(self):
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=GRPC_SERVER_MAX_WORKER_THREADS))
         Outlet_pb2_grpc.add_OutletServicer_to_server(self._grpc_service, server)
-        server.add_insecure_port(GRPC_SERVER_ADDRESS)
-        logger.info('gRPC server starting...')
+
+        use_fixed_address = ensure_bool(self.config.get('grpc.use_fixed_address'))
+        if use_fixed_address:
+            port = ensure_int(self.config.get('grpc.fixed_port'))
+            logger.debug(f'Config specifies fixed port = {port}')
+        else:
+            port = 0
+        port = server.add_insecure_port(f'[::]:{port}')
+
+        if not use_fixed_address:
+            # TODO: zeroconf
+            pass
+
+        logger.info(f'gRPC server starting on port {port}...')
         server.start()
         logger.info('gRPC server started!')
         server.wait_for_termination()  # <- blocks

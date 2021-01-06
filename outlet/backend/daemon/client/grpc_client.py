@@ -17,7 +17,8 @@ from backend.daemon.grpc.generated.Outlet_pb2 import DeleteSubtree_Request, Down
     GetUidForLocalPath_Request, \
     RefreshSubtree_Request, RefreshSubtreeStats_Request, RequestDisplayTree_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request
-from constants import GRPC_SERVER_ADDRESS, SUPER_DEBUG
+from constants import SUPER_DEBUG
+from util.ensure import ensure_bool, ensure_int
 from util.task_runner import TaskRunner
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree
@@ -62,7 +63,18 @@ class BackendGRPCClient(OutletBackend):
         self.connect_dispatch_listener(signal=Signal.RESUME_OP_EXECUTION, receiver=self._send_resume_op_exec_signal)
         self.connect_dispatch_listener(signal=Signal.COMPLETE_MERGE, receiver=self._send_complete_merge_signal)
 
-        self.channel = grpc.insecure_channel(GRPC_SERVER_ADDRESS)
+        use_fixed_address = ensure_bool(self.config.get('grpc.use_fixed_address'))
+        if use_fixed_address:
+            address = self.config.get('grpc.fixed_address')
+            port = ensure_int(self.config.get('grpc.fixed_port'))
+            logger.debug(f'Config specifies fixed server address = {address}:{port}')
+        else:
+            # TODO: zeroconf
+            address = '127.0.0.1'
+            port = 0
+
+        grpc_server_address = f'{address}:{port}'
+        self.channel = grpc.insecure_channel(grpc_server_address)
         self.grpc_stub = Outlet_pb2_grpc.OutletStub(self.channel)
 
         if not self._wait_for_connect():
