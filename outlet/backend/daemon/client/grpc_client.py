@@ -17,7 +17,7 @@ from backend.daemon.grpc.generated.Outlet_pb2 import DeleteSubtree_Request, Down
     GetUidForLocalPath_Request, \
     RefreshSubtree_Request, RefreshSubtreeStats_Request, RequestDisplayTree_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request
-from constants import GRPC_CLIENT_CONNECT_TIMEOUT_SEC, GRPC_SERVER_ADDRESS, SUPER_DEBUG
+from constants import GRPC_SERVER_ADDRESS, SUPER_DEBUG
 from util.task_runner import TaskRunner
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree
@@ -42,6 +42,7 @@ class BackendGRPCClient(OutletBackend):
     def __init__(self, cfg):
         OutletBackend.__init__(self)
         self.config = cfg
+        self.connection_timeout_sec = int(self.config.get('thin_client.connection_timeout_sec'))
 
         self.channel = None
         self.grpc_stub: Optional[Outlet_pb2_grpc.OutletStub] = None
@@ -65,7 +66,7 @@ class BackendGRPCClient(OutletBackend):
         self.grpc_stub = Outlet_pb2_grpc.OutletStub(self.channel)
 
         if not self._wait_for_connect():
-            raise RuntimeError(f'gRPC failed to connect to server (timeout={GRPC_CLIENT_CONNECT_TIMEOUT_SEC})')
+            raise RuntimeError(f'gRPC failed to connect to server (timeout={self.connection_timeout_sec})')
 
         self.signal_thread.start()
 
@@ -78,9 +79,9 @@ class BackendGRPCClient(OutletBackend):
             self.grpc_stub = None
 
     def _wait_for_connect(self) -> bool:
-        logger.debug(f'Waiting for gRPC to connect to server (timeout_sec={GRPC_CLIENT_CONNECT_TIMEOUT_SEC})')
+        logger.debug(f'Waiting for gRPC to connect to server (timeout_sec={self.connection_timeout_sec})')
         try:
-            grpc.channel_ready_future(self.channel).result(timeout=GRPC_CLIENT_CONNECT_TIMEOUT_SEC)
+            grpc.channel_ready_future(self.channel).result(timeout=self.connection_timeout_sec)
             logger.info(f'gRPC client connected successfully')
             return True
         except grpc.FutureTimeoutError:
