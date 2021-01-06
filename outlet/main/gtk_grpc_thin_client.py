@@ -1,6 +1,7 @@
 import logging
 import sys
 
+from util import daemon_util
 from ui.gtk.gtk_frontend import OutletApplication
 from app_config import AppConfig
 from backend.daemon.client.grpc_client import BackendGRPCClient
@@ -19,6 +20,8 @@ def main():
         config = AppConfig(sys.argv[1])
     else:
         config = AppConfig()
+
+    daemon_util.launch_daemon_if_needed()
 
     backend = BackendGRPCClient(config)
     app = OutletApplication(config, backend)

@@ -263,6 +263,7 @@ class GDriveTreeLoader:
                 error_count += 1
 
         if error_count:
+            # This indicates a discontinuity in the node's ancestor graph
             # TODO: submit to adjudicator to fix
             logger.error(f'Found {error_count} broken nodes in tree!')
         else:
