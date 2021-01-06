@@ -1,12 +1,15 @@
 import logging
 import os
+import subprocess
+import sys
+
 from util import file_util
 
 import psutil
 
 logger = logging.getLogger(__name__)
 
-PYTHON_EXE = 'python3'
+PYTHON_EXE = sys.executable
 DAEMON_SCRIPT_PATH = file_util.get_resource_path('outlet/main/grpc_server_daemon.py')
 
 
@@ -23,4 +26,6 @@ def launch_daemon_if_needed():
 
 
 def launch_daemon():
-    os.system(f'{PYTHON_EXE} {DAEMON_SCRIPT_PATH}')
+    args = [PYTHON_EXE, DAEMON_SCRIPT_PATH]
+    subprocess.Popen(args)
+

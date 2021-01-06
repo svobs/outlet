@@ -50,7 +50,7 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             try:
                 return request_func()
             except Exception as err:
-                logger.exception(f'Request failed: {repr(err)}: sleeping {GRPC_CLIENT_SLEEP_ON_FAILURE_SEC} secs (retries left: {retries_remaining})')
+                logger.error(f'Request failed (retries left: {retries_remaining}): sleeping {GRPC_CLIENT_SLEEP_ON_FAILURE_SEC}s before retry: {repr(err)}')
                 if retries_remaining == 0:
                     # Fatal error: shutdown the rest of the app
                     logger.error(f'Too many failures: sending shutdown signal')

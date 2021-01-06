@@ -20,7 +20,7 @@ from backend.daemon.grpc.generated.Outlet_pb2 import DeleteSubtree_Request, Drag
     GetUidForLocalPath_Response, PlayState, RequestDisplayTree_Response, SendSignalResponse, SignalMsg, SingleNode_Response, \
     StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request, \
     StartSubtreeLoad_Response, Subscribe_Request, UserOp
-from model.display_tree.build_struct import DiffResultTreeIds
+from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree, DisplayTreeUiState
 from model.node.node import Node
 from model.uid import UID
