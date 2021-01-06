@@ -8,7 +8,7 @@ def do_main_boilerplate(executing_script_path: str = None) -> AppConfig:
     if executing_script_path:
         executing_script_name = os.path.basename(executing_script_path)
         if executing_script_name.endswith('.py'):
-            executing_script_name.replace('.py', '')
+            executing_script_name = executing_script_name.replace('.py', '')
     else:
         executing_script_name = None
 

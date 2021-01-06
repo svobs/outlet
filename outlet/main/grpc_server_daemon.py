@@ -20,7 +20,7 @@ def main():
         daemon.serve()
         sys.exit(0)
     except KeyboardInterrupt:
-        logger.info('Caught KeyboardInterrupt. Quitting')
+        logger.info(f'Caught KeyboardInterrupt. Quitting')
         daemon.shutdown()
 
 
