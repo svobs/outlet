@@ -3,8 +3,9 @@ import datetime
 from zeroconf import ServiceInfo, Zeroconf
 import netifaces
 
-LOOPBACK_ADDRESS = '127.0.0.1'
 # HOST = '127.0.0.1'
+from constants import LOOPBACK_ADDRESS
+
 PORT = 1024  # Port to listen on (non-privileged ports are > 1023)
 
 

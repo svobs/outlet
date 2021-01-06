@@ -1,12 +1,16 @@
 import logging
+import socket
 from concurrent import futures
+from typing import List
 
 import grpc
+import netifaces
+from zeroconf import ServiceInfo, Zeroconf
 
 from backend.backend_integrated import BackendIntegrated
 from backend.daemon.grpc.generated import Outlet_pb2_grpc
 from backend.daemon.server.grpc_service import OutletGRPCService
-from constants import GRPC_SERVER_MAX_WORKER_THREADS
+from constants import GRPC_SERVER_MAX_WORKER_THREADS, LOOPBACK_ADDRESS
 from util.ensure import ensure_bool, ensure_int
 
 logger = logging.getLogger(__name__)
@@ -18,6 +22,7 @@ class OutletDaemon(BackendIntegrated):
     CLASS OutletDaemon
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, config):
         self.config = config
         BackendIntegrated.__init__(self, config)
@@ -25,32 +30,81 @@ class OutletDaemon(BackendIntegrated):
         self._grpc_service = OutletGRPCService(self)
         """Contains the gRPC client code"""
 
+        self.use_zeroconf: bool = not ensure_bool(self.config.get('grpc.use_fixed_address'))
+        self.zeroconf = None
+        self.local_ip = None
+        self.zc_info = None
+
     def start(self):
         self._grpc_service.start()
         BackendIntegrated.start(self)
 
     def shutdown(self):
         BackendIntegrated.shutdown(self)
+        self.unregister_zeroconf()
         self._grpc_service.shutdown()
 
     def serve(self):
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=GRPC_SERVER_MAX_WORKER_THREADS))
         Outlet_pb2_grpc.add_OutletServicer_to_server(self._grpc_service, server)
 
-        use_fixed_address = ensure_bool(self.config.get('grpc.use_fixed_address'))
-        if use_fixed_address:
+        if self.use_zeroconf:
+            port = 0
+        else:
             port = ensure_int(self.config.get('grpc.fixed_port'))
             logger.debug(f'Config specifies fixed port = {port}')
-        else:
-            port = 0
         port = server.add_insecure_port(f'[::]:{port}')
 
-        if not use_fixed_address:
-            # TODO: zeroconf
-            pass
+        if self.use_zeroconf:
+            address_list = self.get_local_address_list()
 
-        logger.info(f'gRPC server starting on port {port}...')
-        server.start()
-        logger.info('gRPC server started!')
-        server.wait_for_termination()  # <- blocks
-        logger.info('gRPC server stopped!')
+            if not address_list:
+                raise RuntimeError('Could not determine local IP address!')
+            elif len(address_list) > 1:
+                raise RuntimeError(f'Found multiple local IP addresses and dunno which to use: {address_list}')
+
+            self.local_ip = address_list[0]
+            fqdn = socket.gethostname()
+            hostname = fqdn.split('.')[0]
+
+            desc = {'service': 'Discoverable Service', 'version': '1.0.0'}
+            self.zc_info = ServiceInfo('_discoverable._udp.local.',
+                                       hostname + ' Service._discoverable._udp.local.',
+                                       addresses=[socket.inet_aton(self.local_ip)], port=port, properties=desc)
+            self.zeroconf = Zeroconf()
+            self.zeroconf.register_service(self.zc_info)
+            logger.debug(f'Discoverable service {desc} registered via Zeroconf:\n{self.zc_info}')
+
+        try:
+            logger.info(f'gRPC server starting on port {port}...')
+            server.start()
+            logger.info('gRPC server started!')
+            server.wait_for_termination()  # <- blocks
+            logger.info('gRPC server stopped!')
+        except Exception:
+            self.unregister_zeroconf()
+            raise
+
+    def unregister_zeroconf(self):
+        if self.zeroconf:
+            logger.debug('Unregistering Zeroconf service')
+            self.zeroconf.unregister_service(self.zc_info)
+            self.zeroconf.close()
+            self.zeroconf = None
+
+    @staticmethod
+    def get_local_address_list() -> List[str]:
+        address_list: List[str] = []
+
+        interfaces = netifaces.interfaces()
+        for i in interfaces:
+            if i == 'lo':
+                continue
+            iface = netifaces.ifaddresses(i).get(netifaces.AF_INET)
+            if iface:
+                for j in iface:
+                    if j['addr'] != LOOPBACK_ADDRESS:
+                        address_list.append(j['addr'])
+                        print(f'Found local address: {j["addr"]}')
+
+        return address_list
