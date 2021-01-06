@@ -17,7 +17,7 @@ def main():
 
     config = main_util.do_main_boilerplate(executing_script_path=__file__)
 
-    daemon_util.launch_daemon_if_needed(kill_existing=False)
+    daemon_util.launch_daemon_if_needed(kill_existing=True)
 
     backend = BackendGRPCClient(config)
     app = OutletApplication(config, backend)

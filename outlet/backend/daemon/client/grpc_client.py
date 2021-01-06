@@ -17,7 +17,7 @@ from backend.daemon.grpc.generated.Outlet_pb2 import DeleteSubtree_Request, Down
     GetUidForLocalPath_Request, \
     RefreshSubtree_Request, RefreshSubtreeStats_Request, RequestDisplayTree_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request
-from constants import GRPC_SERVER_ADDRESS, SUPER_DEBUG
+from constants import GRPC_CLIENT_CONNECT_TIMEOUT_SEC, GRPC_SERVER_ADDRESS, SUPER_DEBUG
 from util.task_runner import TaskRunner
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree
@@ -64,6 +64,9 @@ class BackendGRPCClient(OutletBackend):
         self.channel = grpc.insecure_channel(GRPC_SERVER_ADDRESS)
         self.grpc_stub = Outlet_pb2_grpc.OutletStub(self.channel)
 
+        if not self._wait_for_connect():
+            raise RuntimeError(f'gRPC failed to connect to server (timeout={GRPC_CLIENT_CONNECT_TIMEOUT_SEC})')
+
         self.signal_thread.start()
 
     def shutdown(self):
@@ -73,6 +76,15 @@ class BackendGRPCClient(OutletBackend):
             self.channel.close()
             self.channel = None
             self.grpc_stub = None
+
+    def _wait_for_connect(self) -> bool:
+        logger.debug(f'Waiting for gRPC to connect to server (timeout_sec={GRPC_CLIENT_CONNECT_TIMEOUT_SEC})')
+        try:
+            grpc.channel_ready_future(self.channel).result(timeout=GRPC_CLIENT_CONNECT_TIMEOUT_SEC)
+            logger.info(f'gRPC client connected successfully')
+            return True
+        except grpc.FutureTimeoutError:
+            return False
 
     def _send_pause_op_exec_signal(self, sender: str):
         self.grpc_stub.send_signal(SignalMsg(sig_int=Signal.PAUSE_OP_EXECUTION, sender=sender))
