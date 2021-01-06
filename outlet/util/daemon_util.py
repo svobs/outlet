@@ -1,5 +1,4 @@
 import logging
-import os
 import platform
 import signal
 import subprocess
@@ -36,7 +35,8 @@ def launch_daemon():
     if platform.system() == 'Windows':
         logger.debug('OS is Windows!')
         creationflags = subprocess.DETACHED_PROCESS
-        subprocess.Popen(args, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL, close_fds=True, creationflags=creationflags)
+        subprocess.Popen(args, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL, close_fds=True,
+                         creationflags=creationflags)
     else:
         logger.debug('OS is NOT Windows!')
 
@@ -44,5 +44,5 @@ def launch_daemon():
             # Ignore the SIGINT signal by setting the handler to the standard
             # signal handler SIG_IGN.
             signal.signal(signal.SIGINT, signal.SIG_IGN)
-        subprocess.Popen(args, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL, close_fds=True, preexec_fn = preexec)
+        subprocess.Popen(args, stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL, close_fds=True, preexec_fn=preexec)
 

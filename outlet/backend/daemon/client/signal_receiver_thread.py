@@ -64,20 +64,21 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
         logger.info(f'Starting {self.name}...')
 
         while not self._shutdown:
-            logger.info('Subscribing to signals from server...')
-
-            while not self._shutdown:
-                logger.debug('Subscribing to GRPC signals')
-                self._try_repeatedly(lambda: self._receive_server_signals())
-
-            logger.debug('Connection to server ended.')
-
-        logger.debug(f'{self.name} Run loop ended.')
+            try:
+                logger.info('Subscribing to signals from gRPC server...')
+                self._receive_server_signals()
+            except Exception as err:
+                # FIXME: need to handle server connection failures
+                logger.error(f'Serious gRPC connection failure (sending shutdown signal)! {repr(err)}')
+                dispatcher.send(signal=Signal.SHUTDOWN_APP, sender=ID_CENTRAL_EXEC)
+                return
+            finally:
+                logger.debug(f'{self.name} Exiting run loop.')
 
     def _receive_server_signals(self):
         request = Subscribe_Request()
+        # this does not check whether it is connected...
         response_iter = self.backend.grpc_stub.subscribe_to_signals(request)
-        logger.debug(f'Subscribed to signals from server')
 
         while not self._shutdown:
             if not response_iter:

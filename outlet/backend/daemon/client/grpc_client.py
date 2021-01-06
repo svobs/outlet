@@ -76,7 +76,6 @@ class BackendGRPCClient(OutletBackend):
         if self.channel:
             self.channel.close()
             self.channel = None
-            self.grpc_stub = None
 
     def _wait_for_connect(self) -> bool:
         logger.debug(f'Waiting for gRPC to connect to server (timeout_sec={self.connection_timeout_sec})')
