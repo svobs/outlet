@@ -29,6 +29,7 @@ from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
 from signal_constants import Signal
+from util import daemon_util
 from util.ensure import ensure_bool, ensure_int
 from util.task_runner import TaskRunner
 
@@ -145,6 +146,10 @@ class BackendGRPCClient(OutletBackend):
         if self.channel:
             self.channel.close()
             self.channel = None
+
+        if ensure_bool(self.config.get('thin_client.kill_server_on_client_shutdown')):
+            logger.debug('Configured to kill backend daemon: looking for processes to kill...')
+            daemon_util.terminate_daemon_if_found()
 
     def _wait_for_connect(self) -> bool:
         logger.debug(f'Waiting for gRPC to connect to server (timeout_sec={self.connection_timeout_sec})')

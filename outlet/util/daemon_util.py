@@ -3,6 +3,7 @@ import platform
 import signal
 import subprocess
 import sys
+from typing import Callable
 
 from util import file_util
 
@@ -15,19 +16,42 @@ DAEMON_SCRIPT_PATH = file_util.get_resource_path('outlet/main/grpc_server_daemon
 
 
 def launch_daemon_if_needed(kill_existing=False):
+    def on_found_func(process):
+        if kill_existing:
+            logger.warning(f'Killing existing process ({process.pid})')
+            process.kill()
+            process.wait(5)  # throws exception if timeout
+        else:
+            logger.info(f'Found running process ({process.pid}); no action needed')
+
+    proc_found = _do_for_running_process(on_found_func)
+
+    if not proc_found:
+        logger.info(f'Process not found; launching: "{PYTHON_EXE} {DAEMON_SCRIPT_PATH}"')
+        launch_daemon()
+
+
+def terminate_daemon_if_found():
+    def on_found_func(process):
+        logger.warning(f'Terminating existing process ({process.pid})')
+        process.terminate()
+        process.wait(5)  # throws exception if timeout
+        logger.warning(f'Process ({process.pid}) terminated')
+
+    _do_for_running_process(on_found_func)
+
+
+def _do_for_running_process(on_found_func: Callable) -> bool:
     cmdline = [PYTHON_EXE, DAEMON_SCRIPT_PATH]
     logger.debug(f'Checking to see if daemon is running: checking cmdline for: {cmdline}')
+    proc_found: bool = False
+
     for process in psutil.process_iter():
         if process.cmdline() == cmdline:
-            if kill_existing:
-                logger.warning(f'Killing existing process ({process.pid})')
-                process.kill()
-            else:
-                logger.info(f'Found running process ({process.pid}); no action needed')
-                return
+            proc_found = True
+            on_found_func(process)
 
-    logger.info(f'Process not found; launching: "{PYTHON_EXE} {DAEMON_SCRIPT_PATH}"')
-    launch_daemon()
+    return proc_found
 
 
 def launch_daemon():

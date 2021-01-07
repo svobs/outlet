@@ -82,6 +82,7 @@ class Signal(IntEnum):
 
 
 # --- Sender identifiers ---
+ID_MAIN_WINDOW = 'main_win'
 ID_DIFF_WINDOW = 'diff_win'
 ID_LEFT_TREE = 'left_tree'
 ID_RIGHT_TREE = 'right_tree'
