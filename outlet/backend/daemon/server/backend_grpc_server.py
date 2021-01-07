@@ -10,7 +10,7 @@ from zeroconf import ServiceInfo, Zeroconf
 from backend.backend_integrated import BackendIntegrated
 from backend.daemon.grpc.generated import Outlet_pb2_grpc
 from backend.daemon.server.grpc_service import OutletGRPCService
-from constants import GRPC_SERVER_MAX_WORKER_THREADS, LOOPBACK_ADDRESS
+from constants import GRPC_SERVER_MAX_WORKER_THREADS, LOOPBACK_ADDRESS, ZEROCONF_SERVICE_NAME, ZEROCONF_SERVICE_TYPE, ZEROCONF_SERVICE_VERSION
 from util.ensure import ensure_bool, ensure_int
 
 logger = logging.getLogger(__name__)
@@ -67,13 +67,13 @@ class OutletDaemon(BackendIntegrated):
             fqdn = socket.gethostname()
             hostname = fqdn.split('.')[0]
 
-            desc = {'service': 'Discoverable Service', 'version': '1.0.0'}
-            self.zc_info = ServiceInfo('_discoverable._udp.local.',
-                                       hostname + ' Service._discoverable._udp.local.',
+            desc = {'service': ZEROCONF_SERVICE_NAME, 'version': ZEROCONF_SERVICE_VERSION}
+            self.zc_info = ServiceInfo(ZEROCONF_SERVICE_TYPE,
+                                       hostname + f' Service.{ZEROCONF_SERVICE_TYPE}',
                                        addresses=[socket.inet_aton(self.local_ip)], port=port, properties=desc)
             self.zeroconf = Zeroconf()
             self.zeroconf.register_service(self.zc_info)
-            logger.debug(f'Discoverable service {desc} registered via Zeroconf:\n{self.zc_info}')
+            logger.debug(f'Discoverable service registered via Zeroconf: {self.zc_info}')
 
         try:
             logger.info(f'gRPC server starting on port {port}...')

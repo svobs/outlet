@@ -1,7 +1,10 @@
 import logging
+import socket
+import threading
 from typing import Iterable, List, Optional
 
 import grpc
+from zeroconf import ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
 
 from backend.backend_interface import OutletBackend
 from backend.daemon.client.signal_receiver_thread import SignalReceiverThread
@@ -17,9 +20,7 @@ from backend.daemon.grpc.generated.Outlet_pb2 import DeleteSubtree_Request, Down
     GetUidForLocalPath_Request, \
     RefreshSubtree_Request, RefreshSubtreeStats_Request, RequestDisplayTree_Request, SignalMsg, \
     SPIDNodePair, StartDiffTrees_Request, StartDiffTrees_Response, StartSubtreeLoad_Request
-from constants import SUPER_DEBUG
-from util.ensure import ensure_bool, ensure_int
-from util.task_runner import TaskRunner
+from constants import SUPER_DEBUG, ZEROCONF_SERVICE_TYPE
 from model.display_tree.build_struct import DiffResultTreeIds, DisplayTreeRequest
 from model.display_tree.display_tree import DisplayTree
 from model.display_tree.filter_criteria import FilterCriteria
@@ -28,8 +29,56 @@ from model.node_identifier import NodeIdentifier, SinglePathNodeIdentifier
 from model.uid import UID
 from model.user_op import UserOp, UserOpType
 from signal_constants import Signal
+from util.ensure import ensure_bool, ensure_int
+from util.task_runner import TaskRunner
 
 logger = logging.getLogger(__name__)
+
+
+class MyListener(ServiceListener):
+    def __init__(self, zeroconf, grpc_client):
+        self.zeroconf = zeroconf
+        self.grpc_client = grpc_client
+        self.connected_successfully = threading.Event()
+
+    def wait_for_successful_connect(self, timeout_sec: int) -> bool:
+        if self.connected_successfully.is_set():
+            return True
+        else:
+            return self.connected_successfully.wait(timeout_sec)
+
+    def remove_service(self, zc: 'Zeroconf', type_: str, name: str) -> None:
+        logger.info(f'Service {name} removed')
+
+    def add_service(self, zc: 'Zeroconf', type_: str, name: str) -> None:
+        logger.info(f'Service {name} added')
+        logger.info(f'  Type is {type_}')
+        timeout_ms = 3000
+        info: ServiceInfo = self.zeroconf.get_service_info(type_, name, timeout_ms)
+        if not info:
+            raise RuntimeError(f'Failed to get service info for {type_}')
+
+        address_list = []
+        for index, address in enumerate(info.addresses):
+            address = socket.inet_ntoa(address)
+            port = info.port
+            address_list.append((address, port))
+
+            logger.debug(f'  Address[{index}]: "{address}:{port}", weight={info.weight}, priority={info.priority}, server="{info.server}",'
+                         f'properties={info.properties}')
+
+        for address, port in address_list:
+            try:
+                self.grpc_client.connect(address, port)
+                logger.debug(f'Looks like connection to {address}:{port} was successful!')
+
+                self.connected_successfully.set()
+                return
+            except RuntimeError as e:
+                logger.error(f'Failed to connect to {address}:{port}: {repr(e)}')
+
+    def update_service(self, zc: 'Zeroconf', type_: str, name: str) -> None:
+        pass
 
 
 class BackendGRPCClient(OutletBackend):
@@ -68,11 +117,19 @@ class BackendGRPCClient(OutletBackend):
             address = self.config.get('grpc.fixed_address')
             port = ensure_int(self.config.get('grpc.fixed_port'))
             logger.debug(f'Config specifies fixed server address = {address}:{port}')
+            self.connect(address, port)
         else:
-            # TODO: zeroconf
-            address = '127.0.0.1'
-            port = 0
+            zeroconf_timeout_sec = int(self.config.get('thin_client.zeroconf_discovery_timeout_sec'))
+            zeroconf = Zeroconf()
+            try:
+                listener = MyListener(zeroconf, self)
+                ServiceBrowser(zeroconf, ZEROCONF_SERVICE_TYPE, listener)
+                if not listener.wait_for_successful_connect(zeroconf_timeout_sec):
+                    raise RuntimeError(f'Timed out looking for server (timeout={zeroconf_timeout_sec}s)!')
+            finally:
+                zeroconf.close()
 
+    def connect(self, address, port):
         grpc_server_address = f'{address}:{port}'
         self.channel = grpc.insecure_channel(grpc_server_address)
         self.grpc_stub = Outlet_pb2_grpc.OutletStub(self.channel)
