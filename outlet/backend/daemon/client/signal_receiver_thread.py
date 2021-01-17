@@ -4,7 +4,7 @@ import time
 
 from pydispatch import dispatcher
 
-from backend.daemon.grpc.conversion import Converter
+from backend.daemon.grpc.conversion import GRPCConverter
 from backend.daemon.grpc.generated.Outlet_pb2 import SignalMsg, Subscribe_Request
 from model.display_tree.display_tree import DisplayTree
 from signal_constants import ID_CENTRAL_EXEC, Signal
@@ -88,7 +88,7 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
         # TODO: convert this long conditional list into an action dict
         if signal.sig_int == Signal.DISPLAY_TREE_CHANGED \
                 or signal.sig_int == Signal.GENERATE_MERGE_TREE_DONE:
-            display_tree_ui_state = Converter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
+            display_tree_ui_state = GRPCConverter.display_tree_ui_state_from_grpc(signal.display_tree_ui_state)
             tree: DisplayTree = display_tree_ui_state.to_display_tree(backend=self.backend)
             kwargs['tree'] = tree
         elif signal.sig_int == Signal.OP_EXECUTION_PLAY_STATE_CHANGED:
@@ -99,12 +99,12 @@ class SignalReceiverThread(HasLifecycle, threading.Thread):
             kwargs['msg'] = signal.error_occurred.msg
             kwargs['secondary_msg'] = signal.error_occurred.secondary_msg
         elif signal.sig_int == Signal.NODE_UPSERTED:
-            kwargs['node'] = Converter.node_from_grpc(signal.node)
+            kwargs['node'] = GRPCConverter.node_from_grpc(signal.node)
         elif signal.sig_int == Signal.NODE_REMOVED:
-            kwargs['node'] = Converter.node_from_grpc(signal.node)
+            kwargs['node'] = GRPCConverter.node_from_grpc(signal.node)
         elif signal.sig_int == Signal.NODE_MOVED:
-            kwargs['src_node'] = Converter.node_from_grpc(signal.src_dst_node_list.src_node)
-            kwargs['dst_node'] = Converter.node_from_grpc(signal.src_dst_node_list.dst_node)
+            kwargs['src_node'] = GRPCConverter.node_from_grpc(signal.src_dst_node_list.src_node)
+            kwargs['dst_node'] = GRPCConverter.node_from_grpc(signal.src_dst_node_list.dst_node)
         elif signal.sig_int == Signal.SET_STATUS:
             kwargs['status_msg'] = signal.status_msg.msg
         elif signal.sig_int == Signal.DOWNLOAD_FROM_GDRIVE_DONE:

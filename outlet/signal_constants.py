@@ -1,5 +1,4 @@
 from enum import IntEnum
-import logging
 
 
 class Signal(IntEnum):
@@ -92,6 +91,3 @@ ID_GLOBAL_CACHE = 'global_cache'
 ID_COMMAND_EXECUTOR = 'command-executor'
 ID_CENTRAL_EXEC = 'central-executor'
 ID_GDRIVE_POLLING_THREAD = 'gdrive_polling_thread'
-
-logger = logging.getLogger(__name__)
-

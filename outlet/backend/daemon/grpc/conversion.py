@@ -19,10 +19,10 @@ from model.display_tree.filter_criteria import BoolOption, FilterCriteria
 logger = logging.getLogger(__name__)
 
 
-class Converter:
+class GRPCConverter:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS Converter
+    CLASS GRPCConverter
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
@@ -35,7 +35,7 @@ class Converter:
             return None
 
         grpc_node: backend.daemon.grpc.generated.Node_pb2.Node = node_container.node
-        return Converter.node_from_grpc(grpc_node)
+        return GRPCConverter.node_from_grpc(grpc_node)
 
     @staticmethod
     def node_from_grpc(grpc_node: backend.daemon.grpc.generated.Node_pb2.Node) -> Node:
@@ -54,11 +54,11 @@ class Converter:
             node = GDriveFolder(node_identifier, meta.goog_id, meta.name, grpc_node.trashed, meta.create_ts, meta.modify_ts,
                                 meta.owner_uid, meta.drive_id, grpc_node.is_shared, meta.shared_by_user_uid, meta.sync_ts,
                                 meta.all_children_fetched)
-            Converter._dir_meta_from_grpc(node, meta.dir_meta)
+            GRPCConverter._dir_meta_from_grpc(node, meta.dir_meta)
         elif grpc_node.HasField("local_dir_meta"):
             assert isinstance(node_identifier, LocalNodeIdentifier)
             node = LocalDirNode(node_identifier, grpc_node.local_dir_meta.parent_uid, grpc_node.trashed, grpc_node.local_dir_meta.is_live)
-            Converter._dir_meta_from_grpc(node, grpc_node.local_dir_meta.dir_meta)
+            GRPCConverter._dir_meta_from_grpc(node, grpc_node.local_dir_meta.dir_meta)
         elif grpc_node.HasField("local_file_meta"):
             meta = grpc_node.local_file_meta
             assert isinstance(node_identifier, LocalNodeIdentifier)
@@ -67,15 +67,15 @@ class Converter:
         elif grpc_node.HasField("container_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             node = ContainerNode(node_identifier)
-            Converter._dir_meta_from_grpc(node, grpc_node.local_dir_meta.dir_meta)
+            GRPCConverter._dir_meta_from_grpc(node, grpc_node.local_dir_meta.dir_meta)
         elif grpc_node.HasField("category_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             node = CategoryNode(node_identifier, grpc_node.category_meta.op_type)
-            Converter._dir_meta_from_grpc(node, grpc_node.category_meta.dir_meta)
+            GRPCConverter._dir_meta_from_grpc(node, grpc_node.category_meta.dir_meta)
         elif grpc_node.HasField("root_type_meta"):
             assert isinstance(node_identifier, SinglePathNodeIdentifier)
             node = RootTypeNode(node_identifier)
-            Converter._dir_meta_from_grpc(node, grpc_node.root_type_meta.dir_meta)
+            GRPCConverter._dir_meta_from_grpc(node, grpc_node.root_type_meta.dir_meta)
         else:
             raise RuntimeError('Could not parse GRPC node!')
 
@@ -116,16 +116,16 @@ class Converter:
         if isinstance(node, ContainerNode):
             # ContainerNode or subclass
             if isinstance(node, CategoryNode):
-                Converter._dir_meta_to_grpc(node, grpc_node.category_meta)
+                GRPCConverter._dir_meta_to_grpc(node, grpc_node.category_meta)
                 grpc_node.category_meta.op_type = node.op_type
             elif isinstance(node, RootTypeNode):
-                Converter._dir_meta_to_grpc(node, grpc_node.root_type_meta)
+                GRPCConverter._dir_meta_to_grpc(node, grpc_node.root_type_meta)
             else:
                 # plain ContainerNode
-                Converter._dir_meta_to_grpc(node, grpc_node.container_meta)
+                GRPCConverter._dir_meta_to_grpc(node, grpc_node.container_meta)
         elif node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
             if node.is_dir():
-                Converter._dir_meta_to_grpc(node, grpc_node.local_dir_meta)
+                GRPCConverter._dir_meta_to_grpc(node, grpc_node.local_dir_meta)
                 grpc_node.local_dir_meta.is_live = node.is_live()
                 if node.get_single_parent():
                     grpc_node.local_dir_meta.parent_uid = node.get_single_parent()
@@ -148,7 +148,7 @@ class Converter:
         elif node.get_tree_type() == TREE_TYPE_GDRIVE:
             # GDriveNode
             if node.is_dir():
-                Converter._dir_meta_to_grpc(node, grpc_node.gdrive_folder_meta)
+                GRPCConverter._dir_meta_to_grpc(node, grpc_node.gdrive_folder_meta)
                 if node.all_children_fetched:
                     grpc_node.gdrive_folder_meta.all_children_fetched = node.all_children_fetched
                 meta = grpc_node.gdrive_folder_meta
@@ -217,13 +217,13 @@ class Converter:
     def node_list_to_grpc(node_list: Iterable[Node], grpc_node_list):
         for node in node_list:
             grpc_node = grpc_node_list.add()
-            Converter.node_to_grpc(node, grpc_node)
+            GRPCConverter.node_to_grpc(node, grpc_node)
 
     @staticmethod
     def node_list_from_grpc(grpc_node_list) -> List[Node]:
         node_list: List[Node] = []
         for grpc_node in grpc_node_list:
-            node = Converter.node_from_grpc(grpc_node)
+            node = GRPCConverter.node_from_grpc(grpc_node)
             node_list.append(node)
         return node_list
 
@@ -274,8 +274,8 @@ class Converter:
 
     @staticmethod
     def sn_from_grpc(grpc_sn: backend.daemon.grpc.generated.Node_pb2.SPIDNodePair) -> SPIDNodePair:
-        spid = Converter.node_identifier_from_grpc(grpc_sn.spid)
-        node = Converter.optional_node_from_grpc_container(grpc_sn)
+        spid = GRPCConverter.node_identifier_from_grpc(grpc_sn.spid)
+        node = GRPCConverter.optional_node_from_grpc_container(grpc_sn)
         return SPIDNodePair(spid, node)
 
     @staticmethod
@@ -283,9 +283,9 @@ class Converter:
         if not sn:
             return
 
-        Converter.node_identifier_to_grpc(sn.spid, grpc_sn.spid)
+        GRPCConverter.node_identifier_to_grpc(sn.spid, grpc_sn.spid)
         if sn.node:
-            Converter.node_to_grpc(sn.node, grpc_sn.node)
+            GRPCConverter.node_to_grpc(sn.node, grpc_sn.node)
 
     # DisplayTreeUiState
     # ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
@@ -294,7 +294,7 @@ class Converter:
     def display_tree_ui_state_to_grpc(state, grpc_state: Outlet_pb2.DisplayTreeUiState):
         if state.tree_id:
             grpc_state.tree_id = state.tree_id
-        Converter.sn_to_grpc(state.root_sn, grpc_state.root_sn)
+        GRPCConverter.sn_to_grpc(state.root_sn, grpc_state.root_sn)
         grpc_state.root_exists = state.root_exists
         if state.offending_path:
             grpc_state.offending_path = state.offending_path
@@ -304,7 +304,7 @@ class Converter:
 
     @staticmethod
     def display_tree_ui_state_from_grpc(grpc: Outlet_pb2.DisplayTreeUiState) -> DisplayTreeUiState:
-        root_sn: SPIDNodePair = Converter.sn_from_grpc(grpc.root_sn)
+        root_sn: SPIDNodePair = GRPCConverter.sn_from_grpc(grpc.root_sn)
         offending_path = grpc.offending_path
         if not offending_path:
             offending_path = None
