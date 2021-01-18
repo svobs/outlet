@@ -3,45 +3,22 @@ from model.uid import UID
 
 SUPER_DEBUG = True
 
-GRPC_SERVER_MAX_WORKER_THREADS = 5
-
-# Padding in pixels
-H_PAD = 5
-V_PAD = 5
-
-APP_NAME = 'Outlet'
+FIND_DUPLICATE_GDRIVE_NODE_NAMES = False
+COUNT_MULTIPLE_GDRIVE_PARENTS = False
 
 VALID_SUFFIXES = ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'heic', 'mov', 'mp4', 'mpeg', 'mpg', 'm4v', 'avi', 'pdf', 'nef', 'vob')
+
+CACHE_LOAD_TIMEOUT_SEC = 3000
+
+GRPC_SERVER_MAX_WORKER_THREADS = 5
 
 TASK_RUNNER_MAX_WORKERS = 1
 
 READ_CHUNK_SIZE = 1024 * 1024
 
-LARGE_NUMBER_OF_CHILDREN = 10000
-
-CACHE_LOAD_TIMEOUT_SEC = 3000
-
-FILTER_APPLY_DELAY_MS = 200
-STATS_REFRESH_HOLDOFF_TIME_MS = 1000
 CACHE_WRITE_HOLDOFF_TIME_MS = 500
 
-LOOPBACK_ADDRESS = '127.0.0.1'
-
-ZEROCONF_SERVICE_NAME = 'OutletService'
-ZEROCONF_SERVICE_VERSION = '1.0.0'
-ZEROCONF_SERVICE_TYPE = '_outlet._tcp.local.'
-
 OP_TREE_INDENT_STR = '-> '
-
-FIND_DUPLICATE_GDRIVE_NODE_NAMES = False
-COUNT_MULTIPLE_GDRIVE_PARENTS = False
-
-TREE_TYPE_NA = 0
-TREE_TYPE_MIXED = 1
-TREE_TYPE_LOCAL_DISK = 2
-TREE_TYPE_GDRIVE = 3
-
-TREE_TYPE_DISPLAY = {TREE_TYPE_NA: '✪', TREE_TYPE_LOCAL_DISK: 'L', TREE_TYPE_GDRIVE: 'G', TREE_TYPE_MIXED: 'M'}
 
 OBJ_TYPE_FILE = 'FILE'
 OBJ_TYPE_DIR = 'DIR'
@@ -54,13 +31,6 @@ UID_PATH_FILE_NAME = f'uid_path.{INDEX_FILE_SUFFIX}'
 ROOT_PATH = '/'
 GDRIVE_PATH_PREFIX = 'gdrive:/'
 
-GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC = 3
-GDRIVE_CLIENT_REQUEST_MAX_RETRIES = 10
-
-PROGRESS_BAR_SLEEP_TIME_SEC = 0.5
-PROGRESS_BAR_PULSE_STEP = 0.5
-PROGRESS_BAR_MAX_MSG_LENGTH = 80
-
 BASE_ICON_BASE_DIR = 'resources/Base'
 COMPOSITE_ICON_BASE_DIR = 'resources/Composite'
 BADGE_ICON_BASE_DIR = 'resources/Badge'
@@ -70,6 +40,108 @@ CONFIG_DIR = f'{PROJECT_DIR}/config'
 DEFAULT_CONFIG_PATH = f'{CONFIG_DIR}/outlet-default.cfg'
 
 CFG_ENABLE_LOAD_FROM_DISK = 'cache.enable_cache_load'
+
+FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT = 100
+
+# ---- Google Drive: ----
+
+GDRIVE_CLIENT_SLEEP_ON_FAILURE_SEC = 3
+GDRIVE_CLIENT_REQUEST_MAX_RETRIES = 10
+
+GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD = 1
+GDRIVE_DOWNLOAD_TYPE_CHANGES = 2
+
+GDRIVE_DOWNLOAD_STATE_NOT_STARTED = 0
+GDRIVE_DOWNLOAD_STATE_GETTING_DIRS = 1
+GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS = 2
+GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE = 3
+GDRIVE_DOWNLOAD_STATE_COMPLETE = 10
+
+# IMPORTANT: If modifying these scopes, delete the file token.pickle.
+# GDRIVE_AUTH_SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
+GDRIVE_AUTH_SCOPES = ['https://www.googleapis.com/auth/drive']
+
+MIME_TYPE_SHORTCUT = 'application/vnd.google-apps.shortcut'
+MIME_TYPE_FOLDER = 'application/vnd.google-apps.folder'
+
+QUERY_FOLDERS_ONLY = f"mimeType='{MIME_TYPE_FOLDER}'"
+QUERY_NON_FOLDERS_ONLY = f"not {QUERY_FOLDERS_ONLY}"
+
+# Web view link takes the form:
+GDRIVE_WEB_VIEW_LINK = 'https://drive.google.com/file/d/{id}/view?usp=drivesdk'
+GDRIVE_WEB_CONTENT_LINK = 'https://drive.google.com/uc?id={id}&export=download'
+
+GDRIVE_FOLDER_FIELDS = 'id, name, mimeType, trashed, explicitlyTrashed, driveId, shared, owners, sharingUser, createdTime, modifiedTime'
+GDRIVE_FILE_FIELDS = f'{GDRIVE_FOLDER_FIELDS}, version, createdTime, modifiedTime, owners, md5Checksum, size, headRevisionId, ' \
+                     f'shortcutDetails, sharingUser'
+
+GDRIVE_FOLDER_MIME_TYPE_UID = 1
+
+GDRIVE_ME_USER_UID = 1
+
+DATE_REGEX = r'^[\d]{4}(\-[\d]{2})?(-[\d]{2})?'
+OPEN = 1
+SHOW = 2
+
+# --- FE + BE SHARED ---
+
+
+LOOPBACK_ADDRESS = '127.0.0.1'
+
+ZEROCONF_SERVICE_NAME = 'OutletService'
+ZEROCONF_SERVICE_VERSION = '1.0.0'
+ZEROCONF_SERVICE_TYPE = '_outlet._tcp.local.'
+
+
+TRASHED_STATUS_STR = ['No', 'UserTrashed', 'Trashed', 'Deleted']
+
+
+# Trashed state
+class TrashStatus(IntEnum):
+    NOT_TRASHED = 0
+    EXPLICITLY_TRASHED = 1
+    IMPLICITLY_TRASHED = 2
+    DELETED = 3
+
+    def not_trashed(self) -> bool:
+        return self == TrashStatus.NOT_TRASHED
+
+
+# TODO: convert to enum
+TREE_TYPE_NA = 0
+TREE_TYPE_MIXED = 1
+TREE_TYPE_LOCAL_DISK = 2
+TREE_TYPE_GDRIVE = 3
+
+TREE_TYPE_DISPLAY = {TREE_TYPE_NA: '✪', TREE_TYPE_LOCAL_DISK: 'L', TREE_TYPE_GDRIVE: 'G', TREE_TYPE_MIXED: 'M'}
+
+# UID reserved values:
+NULL_UID = UID(TREE_TYPE_NA)
+SUPER_ROOT_UID = UID(TREE_TYPE_MIXED)
+LOCAL_ROOT_UID = UID(TREE_TYPE_LOCAL_DISK)
+GDRIVE_ROOT_UID = UID(TREE_TYPE_GDRIVE)
+assert NULL_UID == 0
+assert SUPER_ROOT_UID == 1
+assert LOCAL_ROOT_UID == 2
+assert GDRIVE_ROOT_UID == 3
+
+MIN_FREE_UID = 100
+
+
+class TreeDisplayMode(IntEnum):
+    ONE_TREE_ALL_ITEMS = 1
+    CHANGES_ONE_TREE_PER_CATEGORY = 2
+
+
+# --- FRONT END ONLY ---
+
+APP_NAME = 'Outlet'
+
+# Padding in pixels
+H_PAD = 5
+V_PAD = 5
+
+LARGE_NUMBER_OF_CHILDREN = 10000
 
 # File icon names:
 ICON_GENERIC_FILE = 'backend/store/local'
@@ -159,73 +231,9 @@ class IconId(IntEnum):
     BTN_LOCAL_DISK_LINUX = 34
 
 
-FILE_META_CHANGE_TOKEN_PROGRESS_AMOUNT = 100
+PROGRESS_BAR_SLEEP_TIME_SEC = 0.5
+PROGRESS_BAR_PULSE_STEP = 0.5
+PROGRESS_BAR_MAX_MSG_LENGTH = 80
 
-# GDrive
-GDRIVE_DOWNLOAD_TYPE_INITIAL_LOAD = 1
-GDRIVE_DOWNLOAD_TYPE_CHANGES = 2
-
-GDRIVE_DOWNLOAD_STATE_NOT_STARTED = 0
-GDRIVE_DOWNLOAD_STATE_GETTING_DIRS = 1
-GDRIVE_DOWNLOAD_STATE_GETTING_NON_DIRS = 2
-GDRIVE_DOWNLOAD_STATE_READY_TO_COMPILE = 3
-GDRIVE_DOWNLOAD_STATE_COMPLETE = 10
-
-TRASHED_STATUS_STR = ['No', 'UserTrashed', 'Trashed', 'Deleted']
-
-
-# Trashed state
-class TrashStatus(IntEnum):
-    NOT_TRASHED = 0
-    EXPLICITLY_TRASHED = 1
-    IMPLICITLY_TRASHED = 2
-    DELETED = 3
-
-    def not_trashed(self) -> bool:
-        return self == TrashStatus.NOT_TRASHED
-
-
-# UID reserved values:
-NULL_UID = UID(TREE_TYPE_NA)
-SUPER_ROOT_UID = UID(TREE_TYPE_MIXED)
-LOCAL_ROOT_UID = UID(TREE_TYPE_LOCAL_DISK)
-GDRIVE_ROOT_UID = UID(TREE_TYPE_GDRIVE)
-assert NULL_UID == 0
-assert SUPER_ROOT_UID == 1
-assert LOCAL_ROOT_UID == 2
-assert GDRIVE_ROOT_UID == 3
-
-MIN_FREE_UID = 100
-
-
-class TreeDisplayMode(IntEnum):
-    ONE_TREE_ALL_ITEMS = 1
-    CHANGES_ONE_TREE_PER_CATEGORY = 2
-
-
-# ---- Google Drive: ----
-# IMPORTANT: If modifying these scopes, delete the file token.pickle.
-# GDRIVE_AUTH_SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
-GDRIVE_AUTH_SCOPES = ['https://www.googleapis.com/auth/drive']
-
-MIME_TYPE_SHORTCUT = 'application/vnd.google-apps.shortcut'
-MIME_TYPE_FOLDER = 'application/vnd.google-apps.folder'
-
-QUERY_FOLDERS_ONLY = f"mimeType='{MIME_TYPE_FOLDER}'"
-QUERY_NON_FOLDERS_ONLY = f"not {QUERY_FOLDERS_ONLY}"
-
-# Web view link takes the form:
-GDRIVE_WEB_VIEW_LINK = 'https://drive.google.com/file/d/{id}/view?usp=drivesdk'
-GDRIVE_WEB_CONTENT_LINK = 'https://drive.google.com/uc?id={id}&export=download'
-
-GDRIVE_FOLDER_FIELDS = 'id, name, mimeType, trashed, explicitlyTrashed, driveId, shared, owners, sharingUser, createdTime, modifiedTime'
-GDRIVE_FILE_FIELDS = f'{GDRIVE_FOLDER_FIELDS}, version, createdTime, modifiedTime, owners, md5Checksum, size, headRevisionId, ' \
-                     f'shortcutDetails, sharingUser'
-
-GDRIVE_FOLDER_MIME_TYPE_UID = 1
-
-GDRIVE_ME_USER_UID = 1
-
-DATE_REGEX = r'^[\d]{4}(\-[\d]{2})?(-[\d]{2})?'
-OPEN = 1
-SHOW = 2
+FILTER_APPLY_DELAY_MS = 200
+STATS_REFRESH_HOLDOFF_TIME_MS = 1000
