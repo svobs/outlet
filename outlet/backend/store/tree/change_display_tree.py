@@ -12,7 +12,7 @@ from model.node.decorator_node import DecoDirNode, DecoNode
 from model.node.node import Node, SPIDNodePair
 from model.node_identifier import SinglePathNodeIdentifier
 from model.uid import UID
-from model.user_op import get_uid_for_op_and_tree_type, USER_OP_TYPES, UserOp, UserOpType
+from model.user_op import get_uid_for_op_and_tree_type, DISPLAYED_USER_OP_TYPES, UserOp, UserOpType
 from model.display_tree.filter_criteria import FilterCriteria
 from util.simple_tree import NodeAlreadyPresentError, SimpleTree
 
@@ -243,14 +243,14 @@ class ChangeDisplayTree(DisplayTree):
     @staticmethod
     def _make_cat_map():
         cm = {}
-        for c in USER_OP_TYPES:
-            cm[c] = f'{CategoryNode.display_names[c]}: 0'
+        for op_type, disp_str in DISPLAYED_USER_OP_TYPES.items():
+            cm[op_type] = f'{disp_str}: 0'
         return cm
 
     @staticmethod
     def _build_cat_summaries_str(cat_map) -> str:
         cat_summaries = []
-        for op_type in USER_OP_TYPES:
+        for op_type in DISPLAYED_USER_OP_TYPES.keys():
             summary = cat_map.get(op_type, None)
             if summary:
                 cat_summaries.append(summary)

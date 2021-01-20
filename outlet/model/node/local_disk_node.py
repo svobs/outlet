@@ -7,7 +7,7 @@ from typing import Optional, Tuple
 
 from constants import IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TrashStatus, TREE_TYPE_LOCAL_DISK
 from model.node.node import Node
-from model.node.trait import HasChildStats
+from model.node.trait import HasDirectoryStats
 from model.node_identifier import LocalNodeIdentifier
 from model.uid import UID
 from util.ensure import ensure_bool, ensure_int
@@ -39,11 +39,6 @@ class LocalNode(Node, ABC):
     def update_from(self, other_node):
         Node.update_from(self, other_node)
         self._is_live = other_node.is_live()
-
-    @property
-    def name(self):
-        assert self.get_single_path(), f'For {type(self)}, uid={self.uid}'
-        return os.path.basename(self.get_single_path())
 
     def derive_parent_path(self) -> str:
         return str(pathlib.Path(self.get_single_path()).parent)
@@ -166,7 +161,7 @@ class LocalFileNode(LocalNode):
                f'size_bytes={self._size_bytes} trashed={self._trashed} is_live={self.is_live()} modify_ts={self._modify_ts})'
 
 
-class LocalDirNode(HasChildStats, LocalNode):
+class LocalDirNode(HasDirectoryStats, LocalNode):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS LocalDirNode
@@ -175,12 +170,12 @@ class LocalDirNode(HasChildStats, LocalNode):
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
     def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid, trashed: TrashStatus, is_live: bool):
-        HasChildStats.__init__(self)
+        HasDirectoryStats.__init__(self)
         LocalNode.__init__(self, node_identifier, parent_uid, trashed, is_live)
 
     def update_from(self, other_node):
         assert isinstance(other_node, LocalDirNode)
-        HasChildStats.update_from(self, other_node)
+        HasDirectoryStats.update_from(self, other_node)
         LocalNode.update_from(self, other_node)
 
     def is_parent_of(self, potential_child_node: Node):

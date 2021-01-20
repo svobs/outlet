@@ -4,7 +4,7 @@ from typing import Callable, Deque, List, Optional, Tuple
 import logging
 
 from constants import SUPER_DEBUG, TrashStatus
-from model.node.trait import HasChildStats
+from model.node.trait import HasDirectoryStats
 from model.uid import UID
 from util import file_util
 from model.node.node import Node
@@ -143,7 +143,7 @@ class LocalDiskTree(SimpleTree):
             if n.is_dir():
                 if SUPER_DEBUG:
                     logger.debug(f'Zeroing out stats for node: {n}')
-                assert isinstance(n, HasChildStats) and isinstance(n, Node)
+                assert isinstance(n, HasDirectoryStats) and isinstance(n, Node)
                 n.zero_out_stats()
 
                 second_pass_stack.append(n)
@@ -154,7 +154,7 @@ class LocalDiskTree(SimpleTree):
         # now go back up the tree by popping the stack and building stats as we go:
         while len(second_pass_stack) > 0:
             node = second_pass_stack.pop()
-            assert node.is_dir() and isinstance(node, HasChildStats)
+            assert node.is_dir() and isinstance(node, HasDirectoryStats)
             node.set_stats_for_no_children()
 
             children = tree.get_child_list(node.identifier)

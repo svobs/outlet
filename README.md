@@ -1,8 +1,13 @@
 # Setup
 
 ## Mac
-* For UTF-8 display: need to install the Symbola font found here:
+### For UTF-8 display
+Need to install the Symbola font found here:
 https://fontlibrary.org/assets/downloads/symbola/cf81aeb303c13ce765877d31571dc5c7/symbola.zip
+### Manually install zlib for Pillow
+    brew install zlib
+    export PKG_CONFIG_PATH="/usr/local/opt/zlib/lib/pkgconfig"
+    python3 -m pip install Pillow==7.1.0
 
 ## Ubuntu
     sudo apt-get install libarchive-dev  

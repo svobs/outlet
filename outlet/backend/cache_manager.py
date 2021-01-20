@@ -26,7 +26,7 @@ from model.display_tree.filter_criteria import FilterCriteria
 from model.node.gdrive_node import GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
 from model.node.node import Node, SPIDNodePair
-from model.node.trait import HasChildStats
+from model.node.trait import HasDirectoryStats
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.uid import UID
@@ -973,7 +973,7 @@ class CacheManager(HasLifecycle):
                     return self._master_gdrive.get_whole_tree_summary()
                 else:
                     logger.debug(f'Generating summary for GDrive tree: {root_node.node_identifier}')
-                    assert isinstance(root_node, HasChildStats)
+                    assert isinstance(root_node, HasDirectoryStats)
                     size_hf = util.format.humanfriendlier_size(root_node.get_size_bytes())
                     trashed_size_hf = util.format.humanfriendlier_size(root_node.trashed_bytes)
                     return f'{size_hf} total in {root_node.file_count:n} nodes (including {trashed_size_hf} in ' \

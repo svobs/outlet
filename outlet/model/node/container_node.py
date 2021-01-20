@@ -2,15 +2,15 @@ import os
 from typing import List
 
 from error import InvalidOperationError
-from model.node.trait import HasChildStats
+from model.node.trait import HasDirectoryStats
 from model.uid import UID
-from model.user_op import UserOpType
+from model.user_op import DISPLAYED_USER_OP_TYPES, UserOpType
 from constants import IconId, OBJ_TYPE_DIR, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK
 from model.node.node import Node
 from model.node_identifier import SinglePathNodeIdentifier
 
 
-class ContainerNode(HasChildStats, Node):
+class ContainerNode(HasDirectoryStats, Node):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS ContainerNode
@@ -21,10 +21,10 @@ class ContainerNode(HasChildStats, Node):
     def __init__(self, node_identifier: SinglePathNodeIdentifier):
         assert node_identifier.get_single_path(), f'Bad: {node_identifier}'
         Node.__init__(self, node_identifier)
-        HasChildStats.__init__(self)
+        HasDirectoryStats.__init__(self)
 
     def update_from(self, other_node):
-        HasChildStats.update_from(self, other_node)
+        HasDirectoryStats.update_from(self, other_node)
         Node.update_from(self, other_node)
 
     def get_parent_uids(self) -> List[UID]:
@@ -94,12 +94,6 @@ class CategoryNode(ContainerNode):
     Represents a category in the tree (however it can possibly be treated as the root dir)
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
-    display_names = {
-        UserOpType.CP: 'To Add',
-        UserOpType.RM: 'To Delete',
-        UserOpType.UP: 'To Update',
-        UserOpType.MV: 'To Move',
-    }
 
     def __init__(self, node_identifier: SinglePathNodeIdentifier, op_type: UserOpType):
         super().__init__(node_identifier=node_identifier)
@@ -119,7 +113,7 @@ class CategoryNode(ContainerNode):
 
     @property
     def name(self):
-        return CategoryNode.display_names[self.op_type]
+        return DISPLAYED_USER_OP_TYPES[self.op_type]
 
     def get_default_icon(self) -> IconId:
         # FIXME: allow custom icon for Category Tree nodes ("To Add", "To Delete", etc)

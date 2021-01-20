@@ -1,6 +1,6 @@
 from enum import IntEnum
 import logging
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from constants import IconId
 from model.uid import UID
@@ -34,7 +34,12 @@ class UserOpType(IntEnum):
         return self == UserOpType.CP or self == UserOpType.MV or self == UserOpType.UP
 
 
-USER_OP_TYPES = [UserOpType.CP, UserOpType.RM, UserOpType.UP, UserOpType.MV]
+DISPLAYED_USER_OP_TYPES: Dict[UserOpType, str] = {
+    UserOpType.CP: 'To Add',
+    UserOpType.RM: 'To Delete',
+    UserOpType.UP: 'To Update',
+    UserOpType.MV: 'To Move'
+}
 
 
 def get_uid_for_op_and_tree_type(op_type: UserOpType, tree_type: int):

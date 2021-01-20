@@ -11,7 +11,7 @@ from model.node.node import Node, SPIDNodePair
 import logging
 from outlet.backend.daemon.grpc.generated import Outlet_pb2
 
-from model.node.trait import HasChildStats
+from model.node.trait import HasDirectoryStats
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
 from model.display_tree.filter_criteria import BoolOption, FilterCriteria
@@ -186,7 +186,7 @@ class GRPCConverter:
         return grpc_node
 
     @staticmethod
-    def _dir_meta_from_grpc(node: HasChildStats, dir_meta: backend.daemon.grpc.generated.Node_pb2.DirMeta):
+    def _dir_meta_from_grpc(node: HasDirectoryStats, dir_meta: backend.daemon.grpc.generated.Node_pb2.DirMeta):
         if dir_meta.has_data:
             node.file_count = dir_meta.file_count
             node.dir_count = dir_meta.dir_count
@@ -198,7 +198,7 @@ class GRPCConverter:
             node.size_bytes = None
 
     @staticmethod
-    def _dir_meta_to_grpc(node: HasChildStats, dir_meta_parent):
+    def _dir_meta_to_grpc(node: HasDirectoryStats, dir_meta_parent):
         if node.is_stats_loaded():
             dir_meta_parent.dir_meta.has_data = True
             dir_meta_parent.dir_meta.file_count = node.file_count

@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from model.node.trait import HasChildStats
+from model.node.trait import HasDirectoryStats
 from model.uid import UID
 from util import format
 from constants import GDRIVE_FOLDER_MIME_TYPE_UID, IconId, OBJ_TYPE_DIR, OBJ_TYPE_FILE, TRASHED_STATUS_STR, TrashStatus, TREE_TYPE_GDRIVE
@@ -122,7 +122,7 @@ class GDriveNode(Node, ABC):
         pass
 
 
-class GDriveFolder(HasChildStats, GDriveNode):
+class GDriveFolder(HasDirectoryStats, GDriveNode):
     """
     ◤━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◥
         CLASS GDriveFolder
@@ -132,7 +132,7 @@ class GDriveFolder(HasChildStats, GDriveNode):
                  is_shared, shared_by_user_uid, sync_ts, all_children_fetched):
         GDriveNode.__init__(self, node_identifier, goog_id, node_name, trashed, create_ts, modify_ts, owner_uid, drive_id, is_shared,
                             shared_by_user_uid, sync_ts)
-        HasChildStats.__init__(self)
+        HasDirectoryStats.__init__(self)
 
         self.all_children_fetched = all_children_fetched
         """If true, all its children have been fetched from Google"""
@@ -146,7 +146,7 @@ class GDriveFolder(HasChildStats, GDriveNode):
         if not isinstance(other_node, GDriveFolder):
             raise RuntimeError(f'Bad: {other_node} (we are: {self})')
         GDriveNode.update_from(self, other_node)
-        HasChildStats.update_from(self, other_node)
+        HasDirectoryStats.update_from(self, other_node)
         self.all_children_fetched = other_node.all_children_fetched
 
     @classmethod

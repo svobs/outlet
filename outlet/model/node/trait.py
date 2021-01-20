@@ -95,29 +95,30 @@ class HasParentList(ABC):
         return not self._parent_uids
 
 
-# ABSTRACT CLASS HasChildStats
+# ABSTRACT CLASS HasDirectoryStats
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
-class HasChildStats(ABC):
+class HasDirectoryStats(ABC):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    TRAIT HasChildStats
+    TRAIT HasDirectoryStats
 
-    Represents a generic directory (i.e. not an LocalFileNode or domain object)
+    Represents a generic directory (i.e. not an LocalFileNode or domain object) which contains metadeta about its
+    enclosed descendants.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
     def __init__(self):
         self.file_count: int = 0
         self.trashed_file_count: int = 0
-        self.trashed_dir_count: int = 0
         self.dir_count: int = 0
+        self.trashed_dir_count: int = 0
         self.trashed_bytes: int = 0
         self._size_bytes: Optional[int] = None
         """Set this to None to signify that stats are not yet calculated"""
 
     def update_from(self, other_node):
-        if not isinstance(other_node, HasChildStats):
+        if not isinstance(other_node, HasDirectoryStats):
             raise RuntimeError(f'Bad: {other_node} (we are: {self})')
         self.file_count = other_node.file_count
         self.trashed_file_count = other_node.trashed_file_count
@@ -146,7 +147,7 @@ class HasChildStats(ABC):
                 self._size_bytes += child_node.get_size_bytes()
 
             if child_node.is_dir():
-                assert isinstance(child_node, HasChildStats)
+                assert isinstance(child_node, HasDirectoryStats)
                 self.dir_count += child_node.dir_count + 1
                 self.file_count += child_node.file_count
             else:
@@ -154,7 +155,7 @@ class HasChildStats(ABC):
         else:
             # trashed:
             if child_node.is_dir():
-                assert isinstance(child_node, HasChildStats)
+                assert isinstance(child_node, HasDirectoryStats)
                 if child_node.get_size_bytes():
                     self.trashed_bytes += child_node.get_size_bytes()
                 if child_node.trashed_bytes:
