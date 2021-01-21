@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
+from error import InvalidOperationError
 from model.node.trait import HasDirectoryStats
 from model.uid import UID
 from util import format
@@ -22,7 +23,7 @@ class GDriveNode(Node, ABC):
     # ▲▲ Remember, Method Resolution Order places greatest priority to the first in the list, then goes down ▲▲
     def __init__(self, node_identifier: GDriveIdentifier, goog_id: Optional[str], node_name: str, trashed: TrashStatus,
                  create_ts: Optional[int], modify_ts: Optional[int],
-                 owner_uid: Optional[int], drive_id: Optional[str], is_shared: bool, shared_by_user_uid: Optional[int], sync_ts: Optional[int]):
+                 owner_uid: Optional[UID], drive_id: Optional[str], is_shared: bool, shared_by_user_uid: Optional[UID], sync_ts: Optional[int]):
         Node.__init__(self, node_identifier, trashed=trashed)
         self.goog_id: Optional[str] = goog_id
         """The Google ID - long string. Need this for syncing with Google Drive,
@@ -61,6 +62,10 @@ class GDriveNode(Node, ABC):
         self._is_shared = other_node.is_shared
         self.shared_by_user_uid = other_node.shared_by_user_uid
         self._sync_ts = other_node.sync_ts
+
+    @property
+    def mime_type_uid(self) -> UID:
+        raise InvalidOperationError
 
     @property
     def is_shared(self):
@@ -164,7 +169,7 @@ class GDriveFolder(HasDirectoryStats, GDriveNode):
         return False
 
     @property
-    def mime_type_uid(self) -> int:
+    def mime_type_uid(self) -> UID:
         return GDRIVE_FOLDER_MIME_TYPE_UID
 
     @classmethod
@@ -223,7 +228,7 @@ class GDriveFile(GDriveNode):
         GDriveNode.__init__(self, node_identifier, goog_id, node_name, trashed, create_ts, modify_ts, owner_uid, drive_id, is_shared,
                             shared_by_user_uid, sync_ts)
 
-        self.mime_type_uid = ensure_int(mime_type_uid)
+        self._mime_type_uid = ensure_uid(mime_type_uid)
         self.version = ensure_int(version)
         self._md5 = md5
         self._size_bytes = ensure_int(size_bytes)
@@ -250,11 +255,15 @@ class GDriveFile(GDriveNode):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    @property
+    def mime_type_uid(self) -> UID:
+        return self._mime_type_uid
+
     def update_from(self, other_node):
         if not isinstance(other_node, GDriveFile):
             raise RuntimeError(f'Bad: {other_node} (we are: {self})')
         GDriveNode.update_from(self, other_node)
-        self.mime_type_uid = other_node.mime_type_uid
+        self._mime_type_uid = other_node.mime_type_uid
         self.version = other_node.version
         self._md5 = other_node.md5
         self._size_bytes = other_node.get_size_bytes()
