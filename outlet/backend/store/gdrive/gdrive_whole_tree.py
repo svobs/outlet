@@ -50,12 +50,12 @@ class GDriveWholeTree(HasGetChildren):
     @staticmethod
     def get_super_root():
         # basically a fake / logical node which serves as the parent of My GDrive, shares, etc.
-        return GDriveFolder(NodeIdentifierFactory.get_gdrive_root_constant_identifier(), None, None, TrashStatus.NOT_TRASHED, None, None,
+        return GDriveFolder(NodeIdentifierFactory.get_root_constant_gdrive_identifier(), None, None, TrashStatus.NOT_TRASHED, None, None,
                             None, None, None, None, None, False)
 
     @property
     def node_identifier(self):
-        return NodeIdentifierFactory.get_gdrive_root_constant_identifier()
+        return NodeIdentifierFactory.get_root_constant_gdrive_identifier()
 
     def upsert_folder_and_children(self, parent_node: GDriveFolder, child_list: List[GDriveNode]) -> List[GDriveNode]:
         """Adds or replaces the given parent_node and its children. Any previous children which are not in the given list are
@@ -291,7 +291,7 @@ class GDriveWholeTree(HasGetChildren):
         if SUPER_DEBUG:
             logger.debug(f'GDriveWholeTree.get_identifier_list_for_single_path() requested for full_path: "{full_path}"')
         if full_path == ROOT_PATH:
-            return [NodeIdentifierFactory.get_gdrive_root_constant_identifier()]
+            return [NodeIdentifierFactory.get_root_constant_gdrive_identifier()]
         name_segments = file_util.split_path(full_path)
         if len(name_segments) == 0:
             raise RuntimeError(f'Bad path: "{full_path}"')

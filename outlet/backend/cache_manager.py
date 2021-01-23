@@ -358,8 +358,8 @@ class CacheManager(HasLifecycle):
                 assert isinstance(existing_disk_cache.subtree_root, LocalNodeIdentifier)
                 self._master_local.load_subtree(existing_disk_cache.subtree_root, ID_GLOBAL_CACHE)
         elif cache_type == TREE_TYPE_GDRIVE:
-            assert existing_disk_cache.subtree_root == NodeIdentifierFactory.get_gdrive_root_constant_identifier(), \
-                f'Expected GDrive root ({NodeIdentifierFactory.get_gdrive_root_constant_identifier()}) but found: {existing_disk_cache.subtree_root}'
+            assert existing_disk_cache.subtree_root == NodeIdentifierFactory.get_root_constant_gdrive_identifier(), \
+                f'Expected GDrive root ({NodeIdentifierFactory.get_root_constant_gdrive_identifier()}) but found: {existing_disk_cache.subtree_root}'
             self._master_gdrive.load_and_sync_master_tree()
 
     # Action listener callbacks
@@ -494,7 +494,7 @@ class CacheManager(HasLifecycle):
         return None
 
     def get_or_create_cache_info_for_gdrive(self) -> PersistedCacheInfo:
-        master_tree_root = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
+        master_tree_root = NodeIdentifierFactory.get_root_constant_gdrive_spid()
         return self.get_cache_info_for_subtree(master_tree_root, create_if_not_found=True)
 
     def get_or_create_cache_info_entry(self, subtree_root: SinglePathNodeIdentifier) -> PersistedCacheInfo:

@@ -113,7 +113,7 @@ class GDriveDirChooserDialog(Gtk.Dialog, BaseDialog):
                 logger.debug("The OK button was clicked")
                 sn: SPIDNodePair = self.con.display_store.get_single_selection_sn()
                 if not sn:
-                    spid = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
+                    spid = NodeIdentifierFactory.get_root_constant_gdrive_spid()
                 else:
                     if sn.node.is_dir():
                         spid = sn.spid

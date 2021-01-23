@@ -11,12 +11,12 @@ message Null {
 }
 
 message UserOp {
-  int32 op_uid = 1;
-  int32 batch_uid = 2;
-  int32 op_type = 3;
+  uint32 op_uid = 1;
+  uint32 batch_uid = 2;
+  uint32 op_type = 3;
   Node src_node = 4;
   Node dst_node = 5;
-  int32 sync_ts = 6;
+  uint64 sync_ts = 6;
   // no support for result yet
 }
 
@@ -31,21 +31,21 @@ message SPIDNodePair {
 }
 
 message NodeIdentifier {
-  int32 uid = 1;
-  int32 tree_type = 2;
+  uint32 uid = 1;
+  uint32 tree_type = 2;
   repeated string path_list = 3;
   bool is_single_path = 4;
 }
 
 message Node {
-  int32 uid = 1;
-  int32 tree_type = 2;
+  uint32 uid = 1;
+  uint32 tree_type = 2;
   repeated string path_list = 3;
-  int32 trashed = 4;
+  uint32 trashed = 4;
   bool is_shared = 5;
-  int32 icon_id = 6;
-  int32 decorator_nid = 7;
-  int32 decorator_parent_nid = 8;
+  uint32 icon_id = 6;
+  uint32 decorator_nid = 7;
+  uint32 decorator_parent_nid = 8;
 
   oneof node_type {
     ContainerNodeMeta container_meta = 10;
@@ -60,20 +60,20 @@ message Node {
 
 message FilterCriteria {
   string search_query = 1;
-  int32 is_trashed = 2;
-  int32 is_shared = 3;
+  uint32 is_trashed = 2;
+  uint32 is_shared = 3;
   bool is_ignore_case = 4;
   bool show_subtrees_of_matches = 5;
 }
 
 message DirMeta {
   bool has_data = 1;
-  int32 file_count = 2;
-  int32 dir_count = 3;
-  int32 trashed_file_count = 4;
-  int32 trashed_dir_count = 5;
-  int64 size_bytes = 6;
-  int64 trashed_bytes = 7;
+  uint32 file_count = 2;
+  uint32 dir_count = 3;
+  uint32 trashed_file_count = 4;
+  uint32 trashed_dir_count = 5;
+  uint64 size_bytes = 6;
+  uint64 trashed_bytes = 7;
 }
 
 // Container-type nodes:
@@ -84,7 +84,7 @@ message ContainerNodeMeta {
 
 message CategoryNodeMeta {
   DirMeta dir_meta = 1;
-  int32 op_type = 2;
+  uint32 op_type = 2;
 }
 
 message RootTypeNodeMeta {
@@ -96,7 +96,7 @@ message RootTypeNodeMeta {
 message LocalDirMeta {
   DirMeta dir_meta = 1;
   bool is_live = 2;
-  int32 parent_uid = 3;
+  uint32 parent_uid = 3;
 }
 
 message LocalFileMeta {
@@ -107,7 +107,7 @@ message LocalFileMeta {
   bool is_live = 5;
   string md5 = 6;
   string sha256 = 7;
-  int32 parent_uid = 8;
+  uint32 parent_uid = 8;
 }
 
 // GDrive nodes:
@@ -115,30 +115,30 @@ message LocalFileMeta {
 message GDriveFileMeta {
   string goog_id = 1;
   string name = 2;
-  int32 owner_uid = 3;
-  int32 shared_by_user_uid = 4;
+  uint32 owner_uid = 3;
+  uint32 shared_by_user_uid = 4;
   string drive_id = 5;
-  repeated int32 parent_uid_list = 6;
-  int64 sync_ts = 7;
-  int64 modify_ts = 8;
-  int64 create_ts = 9;
+  repeated uint32 parent_uid_list = 6;
+  uint64 sync_ts = 7;
+  uint64 modify_ts = 8;
+  uint64 create_ts = 9;
 
   string md5 = 10;
-  int32 version = 11;
-  int64 size_bytes = 12;
-  int32 mime_type_uid = 13;
+  uint32 version = 11;
+  uint64 size_bytes = 12;
+  uint32 mime_type_uid = 13;
 }
 
 message GDriveFolderMeta {
   string goog_id = 1;
   string name = 2;
-  int32 owner_uid = 3;
-  int32 shared_by_user_uid = 4;
+  uint32 owner_uid = 3;
+  uint32 shared_by_user_uid = 4;
   string drive_id = 5;
-  repeated int32 parent_uid_list = 6;
-  int64 sync_ts = 7;
-  int64 modify_ts = 8;
-  int64 create_ts = 9;
+  repeated uint32 parent_uid_list = 6;
+  uint64 sync_ts = 7;
+  uint64 modify_ts = 8;
+  uint64 create_ts = 9;
 
   DirMeta dir_meta = 10;
   bool all_children_fetched = 11;

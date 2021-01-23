@@ -13,11 +13,11 @@ message Empty {
 }
 
 message GetLastPendingOp_Request {
-	int32 node_uid = 1;
+	uint32 node_uid = 1;
 }
 
 message DownloadFromGDrive_Request {
-	int32 node_uid = 1;
+	uint32 node_uid = 1;
 	string requestor_id = 2;
 }
 
@@ -58,12 +58,12 @@ message RefreshSubtree_Request {
 }
 
 message RefreshSubtreeStats_Request {
-	int32 root_uid = 1;
+	uint32 root_uid = 1;
 	string tree_id = 2;
 }
 
 message DeleteSubtree_Request {
-	repeated int32 node_uid_list = 1;
+	repeated uint32 node_uid_list = 1;
 }
 
 message ErrorOccurred {
@@ -72,7 +72,7 @@ message ErrorOccurred {
 }
 
 message UidContainer {
-	int32 uid = 1;
+	uint32 uid = 1;
 }
 
 message StartDiffTrees_Request {
@@ -90,7 +90,7 @@ message DragDrop_Response {
 }
 
 message SignalMsg {
-	int32 sig_int = 1;
+	uint32 sig_int = 1;
 	string sender = 2;
 
 	oneof signal_data {
@@ -155,7 +155,7 @@ message DisplayTreeUiState {
 	bool root_exists = 3;
 	string offending_path = 4;
 	bool needs_manual_load = 5;
-	int32 tree_display_mode = 6;
+	uint32 tree_display_mode = 6;
 	bool has_checkboxes = 7;
 }
 
@@ -165,7 +165,7 @@ message RequestDisplayTree_Request {
 	bool return_async = 3;
 	string user_path = 4;
 	NodeIdentifier spid = 5;
-	int32 tree_display_mode = 6;
+	uint32 tree_display_mode = 6;
 }
 
 message RequestDisplayTree_Response {
@@ -178,16 +178,16 @@ message SingleNode_Response {
 
 message GetUidForLocalPath_Request {
 	string full_path = 1;
-	int32 uid_suggestion = 2;
+	uint32 uid_suggestion = 2;
 }
 
 message GetUidForLocalPath_Response {
-	int32 uid = 1;
+	uint32 uid = 1;
 }
 
 message GetNodeForUid_Request {
-	int32 uid = 1;
-	int32 tree_type = 2; // optional
+	uint32 uid = 1;
+	uint32 tree_type = 2; // optional
 }
 
 message GetNodeForLocalPath_Request {
@@ -199,7 +199,7 @@ message GetNextUid_Request {
 }
 
 message GetNextUid_Response {
-	int32 uid = 1;
+	uint32 uid = 1;
 }
 
 service Outlet {

@@ -125,6 +125,7 @@ class GRPCConverter:
                 GRPCConverter._dir_meta_to_grpc(node, grpc_node.container_meta)
         elif node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
             if node.is_dir():
+                assert isinstance(node, LocalDirNode)
                 GRPCConverter._dir_meta_to_grpc(node, grpc_node.local_dir_meta)
                 grpc_node.local_dir_meta.is_live = node.is_live()
                 if node.get_single_parent():
@@ -148,6 +149,7 @@ class GRPCConverter:
         elif node.get_tree_type() == TREE_TYPE_GDRIVE:
             # GDriveNode
             if node.is_dir():
+                assert isinstance(node, GDriveFolder)
                 GRPCConverter._dir_meta_to_grpc(node, grpc_node.gdrive_folder_meta)
                 if node.all_children_fetched:
                     grpc_node.gdrive_folder_meta.all_children_fetched = node.all_children_fetched

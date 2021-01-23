@@ -93,7 +93,7 @@ class ActiveTreeManager(HasLifecycle):
             if tree_meta.root_sn.spid.tree_type == TREE_TYPE_GDRIVE:
                 tree_id_list.append(tree_meta.tree_id)
 
-        gdrive_root_spid = NodeIdentifierFactory.get_gdrive_root_constant_single_path_identifier()
+        gdrive_root_spid = NodeIdentifierFactory.get_root_constant_gdrive_spid()
         for tree_id in tree_id_list:
             logger.info(f'[{tree_id}] Resetting subtree path to GDrive root')
             request = DisplayTreeRequest(tree_id, spid=gdrive_root_spid, return_async=True)
