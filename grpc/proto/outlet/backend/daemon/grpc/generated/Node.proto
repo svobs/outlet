@@ -100,10 +100,10 @@ message LocalDirMeta {
 }
 
 message LocalFileMeta {
-  int64 size_bytes = 1;
-  int64 sync_ts = 2;
-  int64 modify_ts = 3;
-  int64 change_ts = 4;
+  uint64 size_bytes = 1;
+  uint64 sync_ts = 2;
+  uint64 modify_ts = 3;
+  uint64 change_ts = 4;
   bool is_live = 5;
   string md5 = 6;
   string sha256 = 7;

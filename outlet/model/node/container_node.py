@@ -47,10 +47,6 @@ class ContainerNode(HasDirectoryStats, Node):
         return OBJ_TYPE_DIR
 
     @classmethod
-    def is_file(cls):
-        return False
-
-    @classmethod
     def is_dir(cls):
         return True
 
