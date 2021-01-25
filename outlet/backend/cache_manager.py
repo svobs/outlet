@@ -738,13 +738,7 @@ class CacheManager(HasLifecycle):
         return child_list
 
     def _update_node_icon(self, node: Node):
-        op: Optional[UserOp] = self.get_last_pending_op_for_node(node.uid)
-        if op and not op.is_completed():
-            icon: Optional[IconId] = op.get_icon_for_node(node.uid)
-            if SUPER_DEBUG:
-                logger.debug(f'Node {node.uid} belongs to pending op ({op.op_uid}): {op.op_type.name}): returning icon="{icon.name}"')
-        else:
-            icon = None
+        icon: Optional[IconId] = self._op_ledger.get_icon_for_node(node.uid)
         node.set_icon(icon)
 
     @staticmethod

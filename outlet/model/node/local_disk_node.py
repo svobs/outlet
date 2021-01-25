@@ -20,6 +20,7 @@ class LocalNode(Node, ABC):
     CLASS LocalNode
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, trashed: TrashStatus, is_live: bool):
         super().__init__(node_identifier, parent_uids=parent_uid, trashed=trashed)
         self._is_live = ensure_bool(is_live)
@@ -51,12 +52,81 @@ class LocalNode(Node, ABC):
         return self._parent_uids
 
 
+class LocalDirNode(HasDirectoryStats, LocalNode):
+    """
+    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    CLASS LocalDirNode
+
+    Represents a generic local directory.
+    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
+    """
+
+    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid, trashed: TrashStatus, is_live: bool):
+        HasDirectoryStats.__init__(self)
+        LocalNode.__init__(self, node_identifier, parent_uid, trashed, is_live)
+
+    def update_from(self, other_node):
+        assert isinstance(other_node, LocalDirNode)
+        HasDirectoryStats.update_from(self, other_node)
+        LocalNode.update_from(self, other_node)
+
+    def is_parent_of(self, potential_child_node: Node):
+        if potential_child_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
+            rel_path = re.sub(self.get_single_path(), '', potential_child_node.get_single_path(), count=1)
+            if len(rel_path) > 0 and rel_path.startswith('/'):
+                rel_path = rel_path[1:]
+            return rel_path == potential_child_node.name
+        return False
+
+    @classmethod
+    def has_tuple(cls) -> bool:
+        return True
+
+    def to_tuple(self) -> Tuple:
+        return self.uid, self.get_single_path(), self.get_trashed_status(), self.is_live()
+
+    @classmethod
+    def get_obj_type(cls):
+        return OBJ_TYPE_DIR
+
+    def get_default_icon(self):
+        return IconId.ICON_GENERIC_DIR
+
+    @classmethod
+    def is_file(cls):
+        return False
+
+    @classmethod
+    def is_dir(cls):
+        return True
+
+    @property
+    def sync_ts(self):
+        # Local dirs are not currently synced to disk
+        return None
+
+    def __eq__(self, other):
+        if not isinstance(other, LocalDirNode):
+            return False
+
+        return other.node_identifier == self.node_identifier and other.name == self.name and other.get_trashed_status() == self.get_trashed_status() \
+            and other._is_live == self._is_live
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __repr__(self):
+        return f'LocalDirNode({self.node_identifier} parent_uid={self._parent_uids} trashed={self._trashed} is_live={self.is_live()} ' \
+               f'size_bytes={self.get_size_bytes()} summary="{self.get_summary()}")'
+
+
 class LocalFileNode(LocalNode):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS LocalFileNode
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid: UID, md5, sha256, size_bytes, sync_ts, modify_ts, change_ts, trashed,
                  is_live: bool):
         super().__init__(node_identifier, parent_uid, trashed, is_live)
@@ -141,7 +211,7 @@ class LocalFileNode(LocalNode):
         return True
 
     def to_tuple(self) -> Tuple:
-        return self.uid, self.md5, self.sha256, self._size_bytes, self.sync_ts, self.modify_ts, self.change_ts, self.get_single_path(),\
+        return self.uid, self.md5, self.sha256, self._size_bytes, self.sync_ts, self.modify_ts, self.change_ts, self.get_single_path(), \
                self._trashed, self._is_live
 
     def __eq__(self, other):
@@ -149,8 +219,8 @@ class LocalFileNode(LocalNode):
             return False
 
         return other.node_identifier == self.node_identifier and other._md5 == self._md5 and other._sha256 == self._sha256 \
-            and other._modify_ts == self._modify_ts and other._change_ts == self._change_ts \
-            and other.get_trashed_status() == self.get_trashed_status() and other._is_live == self._is_live
+               and other._modify_ts == self._modify_ts and other._change_ts == self._change_ts \
+               and other.get_trashed_status() == self.get_trashed_status() and other._is_live == self._is_live
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -158,70 +228,3 @@ class LocalFileNode(LocalNode):
     def __repr__(self):
         return f'LocalFileNode({self.node_identifier} parent_uid={self._parent_uids} md5={self._md5} sha256={self.sha256} ' \
                f'size_bytes={self._size_bytes} trashed={self._trashed} is_live={self.is_live()} modify_ts={self._modify_ts})'
-
-
-class LocalDirNode(HasDirectoryStats, LocalNode):
-    """
-    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS LocalDirNode
-
-    Represents a generic local directory.
-    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-    """
-    def __init__(self, node_identifier: LocalNodeIdentifier, parent_uid, trashed: TrashStatus, is_live: bool):
-        HasDirectoryStats.__init__(self)
-        LocalNode.__init__(self, node_identifier, parent_uid, trashed, is_live)
-
-    def update_from(self, other_node):
-        assert isinstance(other_node, LocalDirNode)
-        HasDirectoryStats.update_from(self, other_node)
-        LocalNode.update_from(self, other_node)
-
-    def is_parent_of(self, potential_child_node: Node):
-        if potential_child_node.get_tree_type() == TREE_TYPE_LOCAL_DISK:
-            rel_path = re.sub(self.get_single_path(), '', potential_child_node.get_single_path(), count=1)
-            if len(rel_path) > 0 and rel_path.startswith('/'):
-                rel_path = rel_path[1:]
-            return rel_path == potential_child_node.name
-        return False
-
-    @classmethod
-    def has_tuple(cls) -> bool:
-        return True
-
-    def to_tuple(self) -> Tuple:
-        return self.uid, self.get_single_path(), self.get_trashed_status(), self.is_live()
-
-    @classmethod
-    def get_obj_type(cls):
-        return OBJ_TYPE_DIR
-
-    def get_default_icon(self):
-        return IconId.ICON_GENERIC_DIR
-
-    @classmethod
-    def is_file(cls):
-        return False
-
-    @classmethod
-    def is_dir(cls):
-        return True
-
-    @property
-    def sync_ts(self):
-        # Local dirs are not currently synced to disk
-        return None
-
-    def __eq__(self, other):
-        if not isinstance(other, LocalDirNode):
-            return False
-
-        return other.node_identifier == self.node_identifier and other.name == self.name and other.get_trashed_status() == self.get_trashed_status() \
-            and other._is_live == self._is_live
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __repr__(self):
-        return f'LocalDirNode({self.node_identifier} parent_uid={self._parent_uids} trashed={self._trashed} is_live={self.is_live()} ' \
-               f'size_bytes={self.get_size_bytes()} summary="{self.get_summary()}")'

@@ -11,7 +11,7 @@ from backend.store.sqlite.base_db import LiveTable, MetaDatabase, Table
 from backend.store.sqlite.gdrive_db import GDriveDatabase
 from backend.store.sqlite.local_db import LocalDiskDatabase
 from model.uid import UID
-from model.user_op import UserOp, UserOpRef, UserOpType
+from model.user_op import UserOp, UserOpType
 from model.node.node import Node
 from model.node.gdrive_node import GDriveFile, GDriveFolder, GDriveNode
 from model.node.local_disk_node import LocalDirNode, LocalFileNode
@@ -26,6 +26,24 @@ SRC = 'src'
 DST = 'dst'
 
 ACTION_UID_COL_NAME = 'op_uid'
+
+
+# CLASS UserOpRef
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+class UserOpRef:
+    def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpType, src_uid: UID, dst_uid: UID = None, create_ts: int = None):
+        self.op_uid: UID = op_uid
+        self.batch_uid: UID = batch_uid
+        self.op_type: UserOpType = op_type
+        self.src_uid: UID = src_uid
+        self.dst_uid: UID = dst_uid
+        self.create_ts: int = create_ts
+        if not self.create_ts:
+            self.create_ts = time_util.now_ms()
+
+    def __repr__(self):
+        return f'UserOpRef(uid={self.op_uid} type={self.op_type.name} src={self.src_uid} dst={self.dst_uid}'
 
 
 def _pending_op_to_tuple(e: UserOp):

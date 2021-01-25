@@ -5,7 +5,7 @@ from enum import IntEnum
 from typing import Callable, DefaultDict, Deque, Dict, Iterable, List, Optional
 
 from backend.executor.user_op.op_graph import OpGraph
-from constants import SUPER_DEBUG
+from constants import IconId, SUPER_DEBUG
 from backend.executor.command.cmd_builder import CommandBuilder
 from backend.executor.command.cmd_interface import Command
 from backend.executor.user_op.op_disk_store import OpDiskStore
@@ -36,6 +36,7 @@ class OpLedger(HasLifecycle):
     CLASS OpLedger
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
+
     def __init__(self, backend, op_db_path):
         HasLifecycle.__init__(self)
         self.backend = backend
@@ -43,6 +44,22 @@ class OpLedger(HasLifecycle):
         self._disk_store: OpDiskStore = OpDiskStore(self.backend, op_db_path=op_db_path)
         self._op_graph: OpGraph = OpGraph(self.backend)
         """Present and future batches, kept in insertion order. Each batch is removed after it is completed."""
+
+        self.icon_src_file_dict = {UserOpType.RM: IconId.ICON_FILE_RM,
+                                   UserOpType.MV: IconId.ICON_FILE_MV_SRC,
+                                   UserOpType.UP: IconId.ICON_FILE_UP_SRC,
+                                   UserOpType.CP: IconId.ICON_FILE_CP_SRC}
+        self.icon_dst_file_dict = {UserOpType.MV: IconId.ICON_FILE_MV_DST,
+                                   UserOpType.UP: IconId.ICON_FILE_UP_DST,
+                                   UserOpType.CP: IconId.ICON_FILE_CP_DST}
+        self.icon_src_dir_dict = {UserOpType.MKDIR: IconId.ICON_DIR_MK,
+                                  UserOpType.RM: IconId.ICON_DIR_RM,
+                                  UserOpType.MV: IconId.ICON_DIR_MV_SRC,
+                                  UserOpType.UP: IconId.ICON_DIR_UP_SRC,
+                                  UserOpType.CP: IconId.ICON_DIR_CP_SRC}
+        self.icon_dst_dir_dict = {UserOpType.MV: IconId.ICON_DIR_MV_DST,
+                                  UserOpType.UP: IconId.ICON_DIR_UP_DST,
+                                  UserOpType.CP: IconId.ICON_DIR_CP_DST}
 
     def start(self):
         logger.debug(f'Starting OpLedger')
@@ -258,7 +275,7 @@ class OpLedger(HasLifecycle):
         self._append_batch(batch_uid, reduced_batch, save_to_disk=True)
 
     def _append_batch(self, batch_uid: UID, batch_op_list: Iterable[UserOp], save_to_disk: bool):
-        
+
         batch_root: RootNode = self._op_graph.make_graph_from_batch(batch_op_list)
 
         # Reconcile ops against master op tree before adding nodes
@@ -285,6 +302,31 @@ class OpLedger(HasLifecycle):
     def get_last_pending_op_for_node(self, node_uid: UID) -> Optional[UserOp]:
         return self._op_graph.get_last_pending_op_for_node(node_uid)
 
+    def get_icon_for_node(self, node_uid: UID) -> Optional[IconId]:
+        op: Optional[UserOp] = self.get_last_pending_op_for_node(node_uid)
+        if not op or not op.is_completed():
+            return None
+
+        if SUPER_DEBUG:
+            logger.debug(f'Node {node_uid} belongs to pending op ({op.op_uid}): {op.op_type.name}): returning icon')
+
+        if op.has_dst() and op.dst_node.uid == node_uid:
+            op_type = op.op_type
+            if op_type == UserOpType.MV and not op.dst_node.is_live():
+                # Use an add-like icon if nothing there right now:
+                op_type = UserOpType.CP
+
+            if op.dst_node.is_dir():
+                return self.icon_dst_dir_dict[op_type]
+            else:
+                return self.icon_dst_file_dict[op_type]
+
+        assert op.src_node.uid == node_uid
+        if op.src_node.is_dir():
+            return self.icon_src_dir_dict[op.op_type]
+        else:
+            return self.icon_src_file_dict[op.op_type]
+
     def get_next_command(self) -> Optional[Command]:
         # Call this from Executor. Only returns None if shutting down
 
@@ -306,6 +348,3 @@ class OpLedger(HasLifecycle):
         # Ensure command is one that we are expecting.
         # Important: wait until after we have finished updating cacheman, as popping here will cause the next op to immediately execute:
         self._op_graph.pop_op(command.op)
-
-
-

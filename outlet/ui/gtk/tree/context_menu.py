@@ -168,7 +168,7 @@ class TreeContextMenu:
             single_path = node.get_single_path()
 
         op: Optional[UserOp] = self.con.app.backend.get_last_pending_op(node.uid)
-        if op and not op.is_completed() and op.has_dst():
+        if op and op.has_dst():
             if SUPER_DEBUG:
                 logger.debug(f'Building context menu for op: {op}')
             logger.warning('TODO: test this!')

@@ -36,7 +36,7 @@ from util.task_runner import TaskRunner
 logger = logging.getLogger(__name__)
 
 
-class MyListener(ServiceListener):
+class OutletZeroConfListener(ServiceListener):
     def __init__(self, zeroconf, grpc_client):
         self.zeroconf = zeroconf
         self.grpc_client = grpc_client
@@ -123,7 +123,7 @@ class BackendGRPCClient(OutletBackend):
             zeroconf_timeout_sec = int(self.config.get('thin_client.zeroconf_discovery_timeout_sec'))
             zeroconf = Zeroconf()
             try:
-                listener = MyListener(zeroconf, self)
+                listener = OutletZeroConfListener(zeroconf, self)
                 ServiceBrowser(zeroconf, ZEROCONF_SERVICE_TYPE, listener)
                 if not listener.wait_for_successful_connect(zeroconf_timeout_sec):
                     raise RuntimeError(f'Timed out looking for server (timeout={zeroconf_timeout_sec}s)!')
@@ -313,6 +313,7 @@ class BackendGRPCClient(OutletBackend):
         self.grpc_stub.refresh_subtree_stats(request)
 
     def get_last_pending_op(self, node_uid: UID) -> Optional[UserOp]:
+        # TODO: return just a set of nodes instead. This is bad API design
         request = GetLastPendingOp_Request()
         request.node_uid = node_uid
         response: GetLastPendingOp_Response = self.grpc_stub.get_last_pending_op_for_node(request)

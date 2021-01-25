@@ -361,7 +361,7 @@ class TreeUiListeners(HasLifecycle):
             # In the future, we should enhance this so that it will find the most convenient copy anywhere and open that
 
             op: Optional[UserOp] = self.con.app.backend.get_last_pending_op(node.uid)
-            if op and not op.is_completed() and op.has_dst():
+            if op and op.has_dst():
                 logger.warning('TODO: test this!')
 
                 if op.src_node.is_live():

@@ -46,24 +46,6 @@ def get_uid_for_op_and_tree_type(op_type: UserOpType, tree_type: int):
     return UID(tree_type*10 + op_type)
 
 
-# Class UserOpRef
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-class UserOpRef:
-    def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpType, src_uid: UID, dst_uid: UID = None, create_ts: int = None):
-        self.op_uid: UID = op_uid
-        self.batch_uid: UID = batch_uid
-        self.op_type: UserOpType = op_type
-        self.src_uid: UID = src_uid
-        self.dst_uid: UID = dst_uid
-        self.create_ts: int = create_ts
-        if not self.create_ts:
-            self.create_ts = time_util.now_ms()
-
-    def __repr__(self):
-        return f'UserOpRef(uid={self.op_uid} type={self.op_type.name} src={self.src_uid} dst={self.dst_uid}'
-
-
 # ENUM UserOpStatus
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
@@ -95,21 +77,6 @@ class UserOpResult:
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 
 class UserOp(BaseNode):
-    icon_src_file_dict = {UserOpType.RM: IconId.ICON_FILE_RM,
-                          UserOpType.MV: IconId.ICON_FILE_MV_SRC,
-                          UserOpType.UP: IconId.ICON_FILE_UP_SRC,
-                          UserOpType.CP: IconId.ICON_FILE_CP_SRC}
-    icon_dst_file_dict = {UserOpType.MV: IconId.ICON_FILE_MV_DST,
-                          UserOpType.UP: IconId.ICON_FILE_UP_DST,
-                          UserOpType.CP: IconId.ICON_FILE_CP_DST}
-    icon_src_dir_dict = {UserOpType.MKDIR: IconId.ICON_DIR_MK,
-                         UserOpType.RM: IconId.ICON_DIR_RM,
-                         UserOpType.MV: IconId.ICON_DIR_MV_SRC,
-                         UserOpType.UP: IconId.ICON_DIR_UP_SRC,
-                         UserOpType.CP: IconId.ICON_DIR_CP_SRC}
-    icon_dst_dir_dict = {UserOpType.MV: IconId.ICON_DIR_MV_DST,
-                         UserOpType.UP: IconId.ICON_DIR_UP_DST,
-                         UserOpType.CP: IconId.ICON_DIR_CP_DST}
 
     def __init__(self, op_uid: UID, batch_uid: UID, op_type: UserOpType, src_node: Node,
                  dst_node: Node = None, create_ts: int = None):
@@ -140,24 +107,6 @@ class UserOp(BaseNode):
 
     def has_dst(self) -> bool:
         return self.op_type.has_dst()
-
-    def get_icon_for_node(self, node_uid: UID) -> IconId:
-        if self.has_dst() and self.dst_node.uid == node_uid:
-            op_type = self.op_type
-            if op_type == UserOpType.MV and not self.dst_node.is_live():
-                # Use an add-like icon if nothing there right now:
-                op_type = UserOpType.CP
-
-            if self.dst_node.is_dir():
-                return UserOp.icon_dst_dir_dict[op_type]
-            else:
-                return UserOp.icon_dst_file_dict[op_type]
-
-        assert self.src_node.uid == node_uid
-        if self.src_node.is_dir():
-            return UserOp.icon_src_dir_dict[self.op_type]
-        else:
-            return UserOp.icon_src_file_dict[self.op_type]
 
     def __repr__(self):
         if self.dst_node:
