@@ -3,11 +3,11 @@ import socket
 import threading
 from typing import Iterable, List, Optional
 
-import grpc
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
 
 from backend.backend_interface import OutletBackend
 from backend.daemon.client.signal_receiver_thread import SignalReceiverThread
+from backend.daemon.client.zeroconf import OutletZeroconfListener
 from backend.daemon.grpc.conversion import GRPCConverter
 from backend.daemon.grpc.generated import Outlet_pb2_grpc
 from backend.daemon.grpc.generated.Outlet_pb2 import DeleteSubtree_Request, DownloadFromGDrive_Request, DragDrop_Request, GenerateMergeTree_Request, \
@@ -32,60 +32,9 @@ from signal_constants import Signal
 from util import daemon_util
 from util.ensure import ensure_bool, ensure_int
 from util.task_runner import TaskRunner
+import grpc
 
 logger = logging.getLogger(__name__)
-
-
-class OutletZeroConfListener(ServiceListener):
-    """
-    ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS OutletZeroConfListener
-    ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
-    """
-
-    def __init__(self, zeroconf, grpc_client):
-        self.zeroconf = zeroconf
-        self.grpc_client = grpc_client
-        self.connected_successfully = threading.Event()
-
-    def wait_for_successful_connect(self, timeout_sec: int) -> bool:
-        if self.connected_successfully.is_set():
-            return True
-        else:
-            return self.connected_successfully.wait(timeout_sec)
-
-    def remove_service(self, zc: 'Zeroconf', type_: str, name: str) -> None:
-        logger.info(f'Service {name} removed')
-
-    def add_service(self, zc: 'Zeroconf', type_: str, name: str) -> None:
-        logger.info(f'Service {name} added')
-        logger.info(f'  Type is {type_}')
-        timeout_ms = 3000
-        info: ServiceInfo = self.zeroconf.get_service_info(type_, name, timeout_ms)
-        if not info:
-            raise RuntimeError(f'Failed to get service info for {type_}')
-
-        address_list = []
-        for index, address in enumerate(info.addresses):
-            address = socket.inet_ntoa(address)
-            port = info.port
-            address_list.append((address, port))
-
-            logger.debug(f'  Address[{index}]: "{address}:{port}", weight={info.weight}, priority={info.priority}, server="{info.server}",'
-                         f'properties={info.properties}')
-
-        for address, port in address_list:
-            try:
-                self.grpc_client.connect(address, port)
-                logger.debug(f'Looks like connection to {address}:{port} was successful!')
-
-                self.connected_successfully.set()
-                return
-            except RuntimeError as e:
-                logger.error(f'Failed to connect to {address}:{port}: {repr(e)}')
-
-    def update_service(self, zc: 'Zeroconf', type_: str, name: str) -> None:
-        pass
 
 
 class BackendGRPCClient(OutletBackend):
@@ -129,7 +78,7 @@ class BackendGRPCClient(OutletBackend):
             zeroconf_timeout_sec = int(self.config.get('thin_client.zeroconf_discovery_timeout_sec'))
             zeroconf = Zeroconf()
             try:
-                listener = OutletZeroConfListener(zeroconf, self)
+                listener = OutletZeroconfListener(zeroconf, self)
                 ServiceBrowser(zeroconf, ZEROCONF_SERVICE_TYPE, listener)
                 if not listener.wait_for_successful_connect(zeroconf_timeout_sec):
                     raise RuntimeError(f'Timed out looking for server (timeout={zeroconf_timeout_sec}s)!')
@@ -189,17 +138,13 @@ class BackendGRPCClient(OutletBackend):
             request.tree_type = tree_type
 
         grpc_response = self.grpc_stub.get_node_for_uid(request)
-        if grpc_response.HasField('node'):
-            return grpc_response.node
-        return None
+        return GRPCConverter.optional_node_from_grpc_container(grpc_response)
 
     def get_node_for_local_path(self, full_path: str) -> Optional[Node]:
         request = GetNodeForLocalPath_Request()
         request.full_path = full_path
         grpc_response = self.grpc_stub.get_node_for_local_path(request)
-        if grpc_response.HasField('node'):
-            return grpc_response.node
-        return None
+        return GRPCConverter.optional_node_from_grpc_container(grpc_response)
 
     def next_uid(self) -> UID:
         request = GetNextUid_Request()
