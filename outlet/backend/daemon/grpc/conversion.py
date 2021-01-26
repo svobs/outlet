@@ -14,7 +14,7 @@ from outlet.backend.daemon.grpc.generated import Outlet_pb2
 from model.node.trait import HasDirectoryStats
 from model.node_identifier import GDriveIdentifier, LocalNodeIdentifier, NodeIdentifier, SinglePathNodeIdentifier
 from model.node_identifier_factory import NodeIdentifierFactory
-from model.display_tree.filter_criteria import BoolOption, FilterCriteria
+from model.display_tree.filter_criteria import TernaryValue, FilterCriteria
 
 logger = logging.getLogger(__name__)
 
@@ -250,8 +250,8 @@ class GRPCConverter:
         filter_criteria: FilterCriteria = FilterCriteria()
         if grpc_filter_criteria.search_query:
             filter_criteria.search_query = grpc_filter_criteria.search_query
-        filter_criteria.is_trashed = BoolOption(grpc_filter_criteria.is_trashed)
-        filter_criteria.is_shared = BoolOption(grpc_filter_criteria.is_shared)
+        filter_criteria.is_trashed = TernaryValue(grpc_filter_criteria.is_trashed)
+        filter_criteria.is_shared = TernaryValue(grpc_filter_criteria.is_shared)
         filter_criteria.ignore_case = grpc_filter_criteria.is_ignore_case
         filter_criteria.show_subtrees_of_matches = grpc_filter_criteria.show_subtrees_of_matches
         return filter_criteria

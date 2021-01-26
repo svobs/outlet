@@ -313,7 +313,6 @@ class BackendGRPCClient(OutletBackend):
         self.grpc_stub.refresh_subtree_stats(request)
 
     def get_last_pending_op(self, node_uid: UID) -> Optional[UserOp]:
-        # TODO: return just a set of nodes instead. This is bad API design
         request = GetLastPendingOp_Request()
         request.node_uid = node_uid
         response: GetLastPendingOp_Response = self.grpc_stub.get_last_pending_op_for_node(request)

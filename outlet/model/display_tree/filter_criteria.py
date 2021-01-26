@@ -12,15 +12,12 @@ from util.ensure import ensure_bool
 logger = logging.getLogger(__name__)
 
 
-#    CLASS BoolOption
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-
-class BoolOption(IntEnum):
+class TernaryValue(IntEnum):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    ENUM BoolOption
+    ENUM TernaryValue
 
-    Allows for 3 values for boolean option: in addition to the standard True/False values, also allows Unspecified
+    Allows for boolean True and False, but also Unspecified
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
@@ -33,72 +30,72 @@ class FilterCriteria:
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     CLASS FilterCriteria
+
+    # FIXME: decouple FE from BE code here
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, search_query: str = '', is_trashed: BoolOption = BoolOption.NOT_SPECIFIED, is_shared: BoolOption = BoolOption.NOT_SPECIFIED):
+    def __init__(self, search_query: str = '', is_trashed: TernaryValue = TernaryValue.NOT_SPECIFIED,
+                 is_shared: TernaryValue = TernaryValue.NOT_SPECIFIED):
         self.search_query: str = search_query
         self.ignore_case: bool = False
-        self.is_trashed: BoolOption = is_trashed
-        self.is_shared: BoolOption = is_shared
+        self.is_trashed: TernaryValue = is_trashed
+        self.is_shared: TernaryValue = is_shared
 
         self.show_subtrees_of_matches: bool = False
 
         self._cached_filter: Dict[str, Dict[UID, List[Node]]] = {}
 
-    def hash(self) -> str:
-        return f'{int(self.show_subtrees_of_matches)}:{int(self.ignore_case)}:{int(self.is_trashed)}:{int(self.is_shared)}:{self.search_query}'
-
     def has_criteria(self) -> bool:
-        return self.search_query or self.is_trashed != BoolOption.NOT_SPECIFIED or self.is_shared != BoolOption.NOT_SPECIFIED
+        return self.search_query or self.is_trashed != TernaryValue.NOT_SPECIFIED or self.is_shared != TernaryValue.NOT_SPECIFIED
 
-    def matches_search_query(self, node) -> bool:
+    def _matches_search_query(self, node) -> bool:
         return not self.search_query or (self.ignore_case and self.search_query.lower() in node.name.lower()) or self.search_query in node.name
 
-    def matches_trashed(self, node) -> bool:
-        return self.is_trashed == BoolOption.NOT_SPECIFIED or \
-                (self.is_trashed == BoolOption.FALSE and node.get_trashed_status() == TrashStatus.NOT_TRASHED) or \
-                (self.is_trashed == BoolOption.TRUE and node.get_trashed_status() != TrashStatus.NOT_TRASHED)
+    def _matches_trashed(self, node) -> bool:
+        return self.is_trashed == TernaryValue.NOT_SPECIFIED or \
+                (self.is_trashed == TernaryValue.FALSE and node.get_trashed_status() == TrashStatus.NOT_TRASHED) or \
+                (self.is_trashed == TernaryValue.TRUE and node.get_trashed_status() != TrashStatus.NOT_TRASHED)
 
-    def matches_is_shared(self, node) -> bool:
-        return self.is_shared == BoolOption.NOT_SPECIFIED or node.get_tree_type() != TREE_TYPE_GDRIVE or node.is_shared == bool(self.is_shared)
+    def _matches_is_shared(self, node) -> bool:
+        return self.is_shared == TernaryValue.NOT_SPECIFIED or node.get_tree_type() != TREE_TYPE_GDRIVE or node.is_shared == bool(self.is_shared)
 
     def matches(self, node) -> bool:
-        if not self.matches_search_query(node):
+        if not self._matches_search_query(node):
             # if SUPER_DEBUG:
             #     logger.debug(f'Search query "{self.search_query}" not found in "{node.name}" (ignore_case={self.ignore_case})')
             return False
 
-        if not self.matches_trashed(node):
+        if not self._matches_trashed(node):
             # if SUPER_DEBUG:
             #     logger.debug(f'Node with TrashStatus={node.get_trashed_status()} does not match trashed={self.is_trashed}')
             return False
 
-        if not self.matches_is_shared(node):
+        if not self._matches_is_shared(node):
             # if SUPER_DEBUG:
             #     logger.debug(f'Node with IsShared={node.is_shared()} does not match shared={self.is_shared}')
             return False
 
         return True
 
-    def subtree_matches(self, subroot_node: Node, parent_tree: HasGetChildren):
-        """Loop over entire subtree whose root is subroot_node and return True if ANY of its descendants match"""
-        queue: Deque[Node] = deque()
-        queue.append(subroot_node)
+    # def subtree_matches(self, subroot_node: Node, parent_tree: HasGetChildren):
+    #     """Loop over entire subtree whose root is subroot_node and return True if ANY of its descendants match"""
+    #     queue: Deque[Node] = deque()
+    #     queue.append(subroot_node)
+    #
+    #     while len(queue) > 0:
+    #         node: Node = queue.popleft()
+    #
+    #         if self.matches(node):
+    #             return True
+    #
+    #         if node.is_dir():
+    #             for child_node in parent_tree.get_children(node):
+    #                 queue.append(child_node)
+    #
+    #     return False
 
-        while len(queue) > 0:
-            node: Node = queue.popleft()
-
-            if self.matches(node):
-                return True
-
-            if node.is_dir():
-                for child_node in parent_tree.get_children(node):
-                    queue.append(child_node)
-
-        return False
-
-    def build_node_dict(self, parent_tree: HasGetChildren, subtree_root_node: Node):
+    def _build_node_dict(self, parent_tree: HasGetChildren, subtree_root_node: Node):
         logger.debug(f'Building filtered node dict for subroot {subtree_root_node.node_identifier}')
         node_dict: Dict[UID, List[Node]] = {}
 
@@ -134,6 +131,9 @@ class FilterCriteria:
         logger.debug(f'Built filtered node dict with {len(node_dict)} entries')
         return node_dict
 
+    def _hash_me(self) -> str:
+        return f'{int(self.show_subtrees_of_matches)}:{int(self.ignore_case)}:{int(self.is_trashed)}:{int(self.is_shared)}:{self.search_query}'
+
     def get_filtered_child_list(self, parent_node: Node, parent_tree: HasGetChildren) -> List[Node]:
         if not self.has_criteria():
             # logger.debug(f'No FilterCriteria selected; returning unfiltered list')
@@ -143,10 +143,10 @@ class FilterCriteria:
 
         if self.show_subtrees_of_matches:
             # TODO: it's pretty rickety to assume the first call will be the topmost level. Put cache in a better spot
-            hash_val = self.hash()
+            hash_val = self._hash_me()
             cached_tree = self._cached_filter.get(hash_val, None)
             if not cached_tree:
-                cached_tree = self.build_node_dict(parent_tree, parent_node)
+                cached_tree = self._build_node_dict(parent_tree, parent_node)
                 self._cached_filter[hash_val] = cached_tree
 
             return cached_tree.get(parent_node.uid, [])
@@ -214,12 +214,12 @@ class FilterCriteria:
         ignore_case = ensure_bool(config.get(FilterCriteria._make_ignore_case_config_key(tree_id), False))
         filter_criteria.ignore_case = ignore_case
 
-        is_trashed = config.get(FilterCriteria._make_is_trashed_config_key(tree_id), BoolOption.NOT_SPECIFIED)
-        is_trashed = BoolOption(is_trashed)
+        is_trashed = config.get(FilterCriteria._make_is_trashed_config_key(tree_id), TernaryValue.NOT_SPECIFIED)
+        is_trashed = TernaryValue(is_trashed)
         filter_criteria.is_trashed = is_trashed
 
-        is_shared = config.get(FilterCriteria._make_is_shared_config_key(tree_id), BoolOption.NOT_SPECIFIED)
-        is_shared = BoolOption(is_shared)
+        is_shared = config.get(FilterCriteria._make_is_shared_config_key(tree_id), TernaryValue.NOT_SPECIFIED)
+        is_shared = TernaryValue(is_shared)
         filter_criteria.is_shared = is_shared
 
         show_subtrees_of_matches = ensure_bool(config.get(FilterCriteria._make_show_subtree_config_key(tree_id)))
