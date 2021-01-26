@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 
 from pydispatch import dispatcher
 
-from backend.store.tree.change_display_tree import ChangeDisplayTree
+from backend.store.tree.change_display_tree import ChangeTree
 from constants import GDRIVE_ROOT_UID, NULL_UID, SUPER_DEBUG, TREE_TYPE_GDRIVE, TREE_TYPE_LOCAL_DISK, TreeDisplayMode
 from error import CacheNotLoadedError, GDriveItemNotFoundError
 from model.display_tree.build_struct import DisplayTreeRequest
@@ -111,8 +111,8 @@ class ActiveTreeManager(HasLifecycle):
         if self._is_live_capture_enabled and self._live_monitor:
             self._live_monitor.stop_capture(sender)
 
-    def register_change_tree(self, change_display_tree: ChangeDisplayTree, src_tree_id: str):
-        logger.info(f'Registering ChangeDisplayTree: {change_display_tree.tree_id} (src_tree_id: {src_tree_id})')
+    def register_change_tree(self, change_display_tree: ChangeTree, src_tree_id: str):
+        logger.info(f'Registering ChangeTree: {change_display_tree.tree_id} (src_tree_id: {src_tree_id})')
         if SUPER_DEBUG:
             change_display_tree.print_tree_contents_debug()
             change_display_tree.print_op_structs_debug()

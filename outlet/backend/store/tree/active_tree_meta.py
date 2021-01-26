@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from backend.store.tree.change_display_tree import ChangeDisplayTree
+from backend.store.tree.change_display_tree import ChangeTree
 from model.display_tree.display_tree import DisplayTreeUiState
 from backend.store.tree.root_path_config import RootPathConfigPersister
 
@@ -21,7 +21,7 @@ class ActiveDisplayTreeMeta:
         self.state: DisplayTreeUiState = state
         # self.order: int = order
 
-        self.change_tree: Optional[ChangeDisplayTree] = None
+        self.change_tree: Optional[ChangeTree] = None
         """For order > 0 only"""
         self.src_tree_id: Optional[str] = None
         """For order > 0 only"""

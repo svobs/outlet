@@ -3,7 +3,7 @@ from typing import List
 
 from pydispatch import dispatcher
 
-from backend.store.tree.change_display_tree import ChangeDisplayTree
+from backend.store.tree.change_display_tree import ChangeTree
 from constants import TREE_TYPE_MIXED, TreeDisplayMode
 from global_actions import GlobalActions
 from model.display_tree.display_tree import DisplayTreeUiState
@@ -71,14 +71,14 @@ class TreeDiffMergeTask:
 
     @staticmethod
     def merge_change_trees(backend,
-                           tree_left: ChangeDisplayTree, left_selected_changes: List[SPIDNodePair],
-                           tree_right: ChangeDisplayTree, right_selected_changes: List[SPIDNodePair]) -> ChangeDisplayTree:
+                           tree_left: ChangeTree, left_selected_changes: List[SPIDNodePair],
+                           tree_right: ChangeTree, right_selected_changes: List[SPIDNodePair]) -> ChangeTree:
 
         super_root_spid: SinglePathNodeIdentifier = NodeIdentifierFactory.get_root_constant_spid(TREE_TYPE_MIXED)
         super_root_sn = SPIDNodePair(super_root_spid, RootTypeNode(super_root_spid))
         state: DisplayTreeUiState = DisplayTreeUiState(tree_id=ID_MERGE_TREE, root_sn=super_root_sn,
                                                        tree_display_mode=TreeDisplayMode.CHANGES_ONE_TREE_PER_CATEGORY)
-        merged_tree = ChangeDisplayTree(backend=backend, state=state, show_whole_forest=True)
+        merged_tree = ChangeTree(backend=backend, state=state, show_whole_forest=True)
 
         for sn in left_selected_changes:
             op = tree_left.get_op_for_node(sn.node)

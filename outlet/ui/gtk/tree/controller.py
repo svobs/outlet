@@ -122,7 +122,7 @@ class TreePanelController(HasLifecycle):
 
                 if new_tree.state.tree_display_mode != self.tree_display_mode:
                     logger.info(f'[{old_tree_id}] Looks like we are changing tree display mode. Clearing selection.')
-                    # Changing to/from ChangeDisplayTree.
+                    # Changing to/from ChangeTree.
                     # Selection can almost certainly not be retained, and will probably cause errors. Just unselect everything for now:
                     selection = self.tree_view.get_selection()
                     selection.unselect_all()

@@ -19,10 +19,12 @@ from util.simple_tree import NodeAlreadyPresentError, SimpleTree
 logger = logging.getLogger(__name__)
 
 
-class ChangeDisplayTree(DisplayTree):
+class ChangeTree(DisplayTree):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    CLASS ChangeDisplayTree
+    CLASS ChangeTree
+
+    NOTE: although this class inherits from DisplayTree, it is used exclusively by the backend.
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
@@ -35,7 +37,7 @@ class ChangeDisplayTree(DisplayTree):
         # Root node is not even displayed, so is not terribly important.
         # Do not use its original UID, so as to disallow it from interfering with lookups
         root_node = ContainerNode(self.get_root_spid())
-        logger.debug(f'[{self.tree_id}] ChangeDisplayTree: inserting root node: {root_node}')
+        logger.debug(f'[{self.tree_id}] ChangeTree: inserting root node: {root_node}')
         self._category_tree.add_node(root_node, parent=None)
 
         self.show_whole_forest: bool = show_whole_forest
@@ -82,7 +84,7 @@ class ChangeDisplayTree(DisplayTree):
             logger.debug(f'[{self.tree_id}]     {uid} -> {op}')
 
     def get_ancestor_list(self, spid: SinglePathNodeIdentifier) -> Deque[Node]:
-        raise InvalidOperationError('ChangeDisplayTree.get_ancestor_list()')
+        raise InvalidOperationError('ChangeTree.get_ancestor_list()')
 
     def get_ops(self) -> List[UserOp]:
         return self._op_list
@@ -238,7 +240,7 @@ class ChangeDisplayTree(DisplayTree):
             self.print_tree_contents_debug()
 
     def __repr__(self):
-        return f'ChangeDisplayTree(tree_id=[{self.tree_id}], {self.get_summary()})'
+        return f'ChangeTree(tree_id=[{self.tree_id}], {self.get_summary()})'
 
     @staticmethod
     def _make_cat_map():
@@ -260,7 +262,7 @@ class ChangeDisplayTree(DisplayTree):
         include_empty_op_types = False
         cat_count = 0
         if include_empty_op_types:
-            cat_map = ChangeDisplayTree._make_cat_map()
+            cat_map = ChangeTree._make_cat_map()
         else:
             cat_map = {}
         for cat_node in self._category_tree.get_child_list(uid):

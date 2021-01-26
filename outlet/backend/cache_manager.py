@@ -12,7 +12,7 @@ from backend.executor.command.cmd_interface import Command
 from backend.executor.user_op.op_ledger import OpLedger
 from backend.store.gdrive.master_gdrive import GDriveMasterStore
 from backend.store.sqlite.cache_registry_db import CacheRegistry
-from backend.store.tree.change_display_tree import ChangeDisplayTree
+from backend.store.tree.change_display_tree import ChangeTree
 from constants import CACHE_LOAD_TIMEOUT_SEC, CFG_ENABLE_LOAD_FROM_DISK, GDRIVE_INDEX_FILE_NAME, GDRIVE_ROOT_UID, IconId, INDEX_FILE_SUFFIX, \
     MAIN_REGISTRY_FILE_NAME, OPS_FILE_NAME, ROOT_PATH, \
     SUPER_DEBUG, TREE_TYPE_GDRIVE, \
@@ -432,7 +432,7 @@ class CacheManager(HasLifecycle):
             # Notify UI that we are done. For gRPC backend, this will be received by the server stub and relayed to the client:
             dispatcher.send(signal=Signal.LOAD_SUBTREE_DONE, sender=tree_id)
 
-    def register_change_tree(self, change_display_tree: ChangeDisplayTree, src_tree_id: str):
+    def register_change_tree(self, change_display_tree: ChangeTree, src_tree_id: str):
         self._active_tree_manager.register_change_tree(change_display_tree, src_tree_id)
 
     def request_display_tree_ui_state(self, request: DisplayTreeRequest) -> Optional[DisplayTreeUiState]:

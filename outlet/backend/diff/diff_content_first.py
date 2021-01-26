@@ -4,7 +4,7 @@ import logging
 import time
 from typing import Callable, DefaultDict, Dict, List, Tuple
 
-from backend.store.tree.change_display_tree import ChangeDisplayTree
+from backend.store.tree.change_display_tree import ChangeTree
 from constants import TREE_TYPE_GDRIVE
 from backend.diff.change_maker import ChangeMaker, OneSide, SPIDNodePair
 from model.node.node import Node
@@ -118,7 +118,7 @@ class ContentFirstDiffer(ChangeMaker):
         while len(sn_list_only_r) > 0:
             on_right_only(sn_list_only_r.pop())
 
-    def diff(self, compare_paths_also=False) -> Tuple[ChangeDisplayTree, ChangeDisplayTree]:
+    def diff(self, compare_paths_also=False) -> Tuple[ChangeTree, ChangeTree]:
         """Use this method if we mostly care about having the same unique files *somewhere* in
            each tree (in other words, we care about file contents, and care less about where each
            file is placed). If a file is found with the same signature on both sides but with
