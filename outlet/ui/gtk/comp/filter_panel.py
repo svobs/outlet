@@ -6,7 +6,7 @@ from pydispatch import dispatcher
 from constants import FILTER_APPLY_DELAY_MS, IconId, SUPER_DEBUG
 from signal_constants import Signal
 from ui.gtk.dialog.base_dialog import BaseDialog
-from model.display_tree.filter_criteria import TernaryValue, FilterCriteria
+from model.display_tree.filter_criteria import Ternary, FilterCriteria
 from util.has_lifecycle import HasLifecycle
 from util.holdoff_timer import HoldOffTimer
 
@@ -65,11 +65,11 @@ class TreeFilterPanel(HasLifecycle):
         filter_criteria: FilterCriteria = self.con.treeview_meta.filter_criteria
         if filter_criteria:
             if not self.supports_shared_status:
-                if filter_criteria.is_shared != TernaryValue.NOT_SPECIFIED:
+                if filter_criteria.is_shared != Ternary.NOT_SPECIFIED:
                     logger.info(f'[{self.con.tree_id}] Overriding previous filter for is_shared ({filter_criteria.is_shared}) '
                                 f'because tree does not support shared status')
                     # Override this. Since we're missing the button, having anything but NOT_SPECIFIED can result in unexpected behavior
-                    filter_criteria.is_shared = TernaryValue.NOT_SPECIFIED
+                    filter_criteria.is_shared = Ternary.NOT_SPECIFIED
 
             if filter_criteria.search_query:
                 self.search_entry.set_text(filter_criteria.search_query)
@@ -118,13 +118,13 @@ class TreeFilterPanel(HasLifecycle):
         # TODO: toggle filter panel on/off
 
     def _update_trashed_btn(self, filter_criteria):
-        if filter_criteria.is_trashed == TernaryValue.NOT_SPECIFIED:
+        if filter_criteria.is_trashed == Ternary.NOT_SPECIFIED:
             self.is_trashed_btn.set_active(False)
             self._set_icon(self.is_trashed_btn, IconId.ICON_IS_TRASHED)
-        elif filter_criteria.is_trashed == TernaryValue.TRUE:
+        elif filter_criteria.is_trashed == Ternary.TRUE:
             self.is_trashed_btn.set_active(True)
             self._set_icon(self.is_trashed_btn, IconId.ICON_IS_TRASHED)
-        elif filter_criteria.is_trashed == TernaryValue.FALSE:
+        elif filter_criteria.is_trashed == Ternary.FALSE:
             self.is_trashed_btn.set_active(True)
             self._set_icon(self.is_trashed_btn, IconId.ICON_IS_NOT_TRASHED)
         else:
@@ -135,13 +135,13 @@ class TreeFilterPanel(HasLifecycle):
 
     def _update_shared_btn(self, filter_criteria):
         if self.supports_shared_status:
-            if filter_criteria.is_shared == TernaryValue.NOT_SPECIFIED:
+            if filter_criteria.is_shared == Ternary.NOT_SPECIFIED:
                 self._set_icon(self.is_shared_btn, IconId.ICON_IS_SHARED)
                 self.is_shared_btn.set_active(False)
-            elif filter_criteria.is_shared == TernaryValue.TRUE:
+            elif filter_criteria.is_shared == Ternary.TRUE:
                 self._set_icon(self.is_shared_btn, IconId.ICON_IS_SHARED)
                 self.is_shared_btn.set_active(True)
-            elif filter_criteria.is_shared == TernaryValue.FALSE:
+            elif filter_criteria.is_shared == Ternary.FALSE:
                 self._set_icon(self.is_shared_btn, IconId.ICON_IS_NOT_SHARED)
                 self.is_shared_btn.set_active(True)
             else:
@@ -190,24 +190,24 @@ class TreeFilterPanel(HasLifecycle):
 
         if widget == self.is_trashed_btn:
             logger.debug(f'[{self.con.tree_id}] IsTrashed button clicked')
-            prev_state: TernaryValue = filter_criteria.is_trashed
-            if prev_state == TernaryValue.NOT_SPECIFIED:
-                filter_criteria.is_trashed = TernaryValue.TRUE
-            elif prev_state == TernaryValue.TRUE:
-                filter_criteria.is_trashed = TernaryValue.FALSE
-            elif prev_state == TernaryValue.FALSE:
-                filter_criteria.is_trashed = TernaryValue.NOT_SPECIFIED
+            prev_state: Ternary = filter_criteria.is_trashed
+            if prev_state == Ternary.NOT_SPECIFIED:
+                filter_criteria.is_trashed = Ternary.TRUE
+            elif prev_state == Ternary.TRUE:
+                filter_criteria.is_trashed = Ternary.FALSE
+            elif prev_state == Ternary.FALSE:
+                filter_criteria.is_trashed = Ternary.NOT_SPECIFIED
             self._update_trashed_btn(filter_criteria)
 
         elif self.supports_shared_status and widget == self.is_shared_btn:
             logger.debug(f'[{self.con.tree_id}] IsShared button clicked')
-            prev_state: TernaryValue = filter_criteria.is_shared
-            if prev_state == TernaryValue.NOT_SPECIFIED:
-                filter_criteria.is_shared = TernaryValue.TRUE
-            elif prev_state == TernaryValue.TRUE:
-                filter_criteria.is_shared = TernaryValue.FALSE
-            elif prev_state == TernaryValue.FALSE:
-                filter_criteria.is_shared = TernaryValue.NOT_SPECIFIED
+            prev_state: Ternary = filter_criteria.is_shared
+            if prev_state == Ternary.NOT_SPECIFIED:
+                filter_criteria.is_shared = Ternary.TRUE
+            elif prev_state == Ternary.TRUE:
+                filter_criteria.is_shared = Ternary.FALSE
+            elif prev_state == Ternary.FALSE:
+                filter_criteria.is_shared = Ternary.NOT_SPECIFIED
             self._update_shared_btn(filter_criteria)
 
         self._latest_filter_criteria = filter_criteria

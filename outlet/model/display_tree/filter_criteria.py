@@ -12,12 +12,12 @@ from util.ensure import ensure_bool
 logger = logging.getLogger(__name__)
 
 
-class TernaryValue(IntEnum):
+class Ternary(IntEnum):
     """
     ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    ENUM TernaryValue
+    ENUM Ternary
 
-    Allows for boolean True and False, but also Unspecified
+    Allows for boolean True and False, but also a meta-value, Unspecified
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
@@ -35,30 +35,32 @@ class FilterCriteria:
     ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼ ▼
     """
 
-    def __init__(self, search_query: str = '', is_trashed: TernaryValue = TernaryValue.NOT_SPECIFIED,
-                 is_shared: TernaryValue = TernaryValue.NOT_SPECIFIED):
+    def __init__(self, search_query: str = '', is_trashed: Ternary = Ternary.NOT_SPECIFIED,
+                 is_shared: Ternary = Ternary.NOT_SPECIFIED):
         self.search_query: str = search_query
         self.ignore_case: bool = False
-        self.is_trashed: TernaryValue = is_trashed
-        self.is_shared: TernaryValue = is_shared
+        self.is_trashed: Ternary = is_trashed
+        self.is_shared: Ternary = is_shared
 
         self.show_subtrees_of_matches: bool = False
 
         self._cached_filter: Dict[str, Dict[UID, List[Node]]] = {}
 
     def has_criteria(self) -> bool:
-        return self.search_query or self.is_trashed != TernaryValue.NOT_SPECIFIED or self.is_shared != TernaryValue.NOT_SPECIFIED
+        return self.search_query or self.is_trashed != Ternary.NOT_SPECIFIED or self.is_shared != Ternary.NOT_SPECIFIED
+
+    # TODO: put below in BE
 
     def _matches_search_query(self, node) -> bool:
         return not self.search_query or (self.ignore_case and self.search_query.lower() in node.name.lower()) or self.search_query in node.name
 
     def _matches_trashed(self, node) -> bool:
-        return self.is_trashed == TernaryValue.NOT_SPECIFIED or \
-                (self.is_trashed == TernaryValue.FALSE and node.get_trashed_status() == TrashStatus.NOT_TRASHED) or \
-                (self.is_trashed == TernaryValue.TRUE and node.get_trashed_status() != TrashStatus.NOT_TRASHED)
+        return self.is_trashed == Ternary.NOT_SPECIFIED or \
+                (self.is_trashed == Ternary.FALSE and node.get_trashed_status() == TrashStatus.NOT_TRASHED) or \
+                (self.is_trashed == Ternary.TRUE and node.get_trashed_status() != TrashStatus.NOT_TRASHED)
 
     def _matches_is_shared(self, node) -> bool:
-        return self.is_shared == TernaryValue.NOT_SPECIFIED or node.get_tree_type() != TREE_TYPE_GDRIVE or node.is_shared == bool(self.is_shared)
+        return self.is_shared == Ternary.NOT_SPECIFIED or node.get_tree_type() != TREE_TYPE_GDRIVE or node.is_shared == bool(self.is_shared)
 
     def matches(self, node) -> bool:
         if not self._matches_search_query(node):
@@ -197,12 +199,12 @@ class FilterCriteria:
         ignore_case = ensure_bool(config.get(FilterCriteria._make_ignore_case_config_key(tree_id), False))
         filter_criteria.ignore_case = ignore_case
 
-        is_trashed = config.get(FilterCriteria._make_is_trashed_config_key(tree_id), TernaryValue.NOT_SPECIFIED)
-        is_trashed = TernaryValue(is_trashed)
+        is_trashed = config.get(FilterCriteria._make_is_trashed_config_key(tree_id), Ternary.NOT_SPECIFIED)
+        is_trashed = Ternary(is_trashed)
         filter_criteria.is_trashed = is_trashed
 
-        is_shared = config.get(FilterCriteria._make_is_shared_config_key(tree_id), TernaryValue.NOT_SPECIFIED)
-        is_shared = TernaryValue(is_shared)
+        is_shared = config.get(FilterCriteria._make_is_shared_config_key(tree_id), Ternary.NOT_SPECIFIED)
+        is_shared = Ternary(is_shared)
         filter_criteria.is_shared = is_shared
 
         show_subtrees_of_matches = ensure_bool(config.get(FilterCriteria._make_show_subtree_config_key(tree_id)))
