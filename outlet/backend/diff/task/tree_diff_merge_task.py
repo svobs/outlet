@@ -3,7 +3,7 @@ from typing import List
 
 from pydispatch import dispatcher
 
-from backend.store.tree.change_display_tree import ChangeTree
+from backend.store.tree.change_tree import ChangeTree
 from constants import TREE_TYPE_MIXED, TreeDisplayMode
 from global_actions import GlobalActions
 from model.display_tree.display_tree import DisplayTreeUiState

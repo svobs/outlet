@@ -168,6 +168,7 @@ class TreeFilterPanel(HasLifecycle):
         filter_criteria = self._latest_filter_criteria
         if filter_criteria:
             dispatcher.send(signal=Signal.FILTER_UI_TREE, sender=self.con.tree_id, filter_criteria=filter_criteria)
+            # FIXME: move this to BE
             filter_criteria.write_filter_criteria_to_config(self.con.config, self.con.tree_id)
 
     def update_filter_criteria(self, widget=None):
@@ -211,30 +212,3 @@ class TreeFilterPanel(HasLifecycle):
 
         self._latest_filter_criteria = filter_criteria
         self._apply_filter_timer.start_or_delay()
-
-    def reset_row(self, model, path, iter, make_visible):
-        # Reset some row attributes independent of row hierarchy
-        self.tree_store.set_value(iter, self.COL_WEIGHT, Pango.Weight.NORMAL)
-        self.tree_store.set_value(iter, self.COL_VISIBLE, make_visible)
-
-    def make_subtree_visible(self, model, iter):
-        # Make descendants of a row visible
-        for i in range(model.iter_n_children(iter)):
-            subtree = model.iter_nth_child(iter, i)
-            if model.get_value(subtree, self.COL_VISIBLE):
-                # Subtree already visible
-                continue
-            self.tree_store.set_value(subtree, self.COL_VISIBLE, True)
-            self.make_subtree_visible(model, subtree)
-
-    def show_matches(self, model, path, iter, search_query, show_subtrees_of_matches):
-        text = model.get_value(iter, self.COL_TEXT).lower()
-        if search_query in text:
-            # Highlight direct match with bold
-            self.tree_store.set_value(iter, self.COL_WEIGHT, Pango.Weight.BOLD)
-            # Propagate visibility change up
-            self.make_path_visible(model, iter)
-            if show_subtrees_of_matches:
-                # Propagate visibility change down
-                self.make_subtree_visible(model, iter)
-            return

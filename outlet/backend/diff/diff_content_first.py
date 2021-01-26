@@ -4,7 +4,7 @@ import logging
 import time
 from typing import Callable, DefaultDict, Dict, List, Tuple
 
-from backend.store.tree.change_display_tree import ChangeTree
+from backend.store.tree.change_tree import ChangeTree
 from constants import TREE_TYPE_GDRIVE
 from backend.diff.change_maker import ChangeMaker, OneSide, SPIDNodePair
 from model.node.node import Node

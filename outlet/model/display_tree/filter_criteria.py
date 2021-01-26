@@ -78,23 +78,6 @@ class FilterCriteria:
 
         return True
 
-    # def subtree_matches(self, subroot_node: Node, parent_tree: HasGetChildren):
-    #     """Loop over entire subtree whose root is subroot_node and return True if ANY of its descendants match"""
-    #     queue: Deque[Node] = deque()
-    #     queue.append(subroot_node)
-    #
-    #     while len(queue) > 0:
-    #         node: Node = queue.popleft()
-    #
-    #         if self.matches(node):
-    #             return True
-    #
-    #         if node.is_dir():
-    #             for child_node in parent_tree.get_children(node):
-    #                 queue.append(child_node)
-    #
-    #     return False
-
     def _build_node_dict(self, parent_tree: HasGetChildren, subtree_root_node: Node):
         logger.debug(f'Building filtered node dict for subroot {subtree_root_node.node_identifier}')
         node_dict: Dict[UID, List[Node]] = {}

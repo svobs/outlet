@@ -244,6 +244,7 @@ class DisplayMutator(HasLifecycle):
 
     def filter_tree(self, filter_criteria: FilterCriteria):
         try:
+            # TODO: send filter_criteria to BE to be stored there instead
             if filter_criteria:
                 self.con.treeview_meta.filter_criteria = filter_criteria
             else:
@@ -267,6 +268,7 @@ class DisplayMutator(HasLifecycle):
             # Lock this so that node-upserted and node-removed callbacks don't interfere
             self._enable_node_signals = False
             with self._lock:
+                # TODO: allow filter_criteria to be stored in BE instead; do not send here
                 top_level_node_list: List[Node] = self.con.get_tree().get_children_for_root(self.con.treeview_meta.filter_criteria)
             logger.debug(f'[{self.con.tree_id}] populate_root(): got {len(top_level_node_list)} top level nodes for root')
         finally:
@@ -283,6 +285,7 @@ class DisplayMutator(HasLifecycle):
                 root_iter = self.con.display_store.clear_model()
                 node_count = 0
 
+                # TODO: put this logic in BE instead. Allow errors to bubble up from BE
                 if self.con.treeview_meta.filter_criteria and self.con.treeview_meta.filter_criteria.has_criteria() \
                         and not self.con.treeview_meta.filter_criteria.show_subtrees_of_matches:
                     logger.debug(f'[{self.con.tree_id}] Populating via FilterCriteria')

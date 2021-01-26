@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from backend.store.tree.change_display_tree import ChangeTree
+from backend.store.tree.change_tree import ChangeTree
 from model.display_tree.display_tree import DisplayTreeUiState
 from backend.store.tree.root_path_config import RootPathConfigPersister
 
