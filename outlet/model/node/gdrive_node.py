@@ -139,7 +139,7 @@ class GDriveFolder(HasDirectoryStats, GDriveNode):
                             shared_by_user_uid, sync_ts)
         HasDirectoryStats.__init__(self)
 
-        self.all_children_fetched = all_children_fetched
+        self.all_children_fetched: bool = all_children_fetched
         """If true, all its children have been fetched from Google"""
 
     def __repr__(self):

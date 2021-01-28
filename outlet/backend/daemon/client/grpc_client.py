@@ -1,9 +1,7 @@
 import logging
-import socket
-import threading
 from typing import Iterable, List, Optional
 
-from zeroconf import ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
+from zeroconf import ServiceBrowser, Zeroconf
 
 from backend.backend_interface import OutletBackend
 from backend.daemon.client.signal_receiver_thread import SignalReceiverThread
